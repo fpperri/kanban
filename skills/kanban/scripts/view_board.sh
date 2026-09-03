@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Display kanban cards grouped by status.
+# Header: the BOARD NAME — config.yaml's top-level `name:` (the token that
+# qualifies every card mention, `board#id`), falling back to the folder above
+# the board directory when the board hasn't declared one. Only an UNINDENTED
+# `name:` counts: assignee entries carry their own indented `name:`.
 # Column set + order follow config.yaml's `statuses:` list when
 # present. Supported here: the INLINE flow form only — `statuses: [a, b, c]`
 # (quotes/comments tolerated, single-word statuses only). The block (`- item`)
@@ -105,6 +109,18 @@ if [ "${#all_cards[@]}" -gt 0 ]; then
     ' "${all_cards[@]}")
 fi
 
+# Board name: config.yaml's top-level `name:`, else the parent folder. The
+# fallback is a display default, not a name a cross-board mention may use.
+BOARD_NAME=""
+if [ -f "$KANBAN_DIR/config.yaml" ]; then
+    BOARD_NAME=$(sed -n 's/^name:[[:space:]]*\(.*\)$/\1/p' "$KANBAN_DIR/config.yaml" \
+        | head -1 \
+        | sed 's/[[:space:]]*#.*$//; s/["'"'"']//g; s/[[:space:]]*$//')
+fi
+if [ -z "$BOARD_NAME" ]; then
+    BOARD_NAME=$(basename "$(dirname "$(cd "$KANBAN_DIR" && pwd)")")
+fi
+
 # Column order: config.yaml's inline statuses list, default four otherwise.
 STATUSES="backlog todo doing done"
 if [ -f "$KANBAN_DIR/config.yaml" ]; then
@@ -165,6 +181,8 @@ for f in "$KANBAN_DIR"/*.card.md; do
 
     cols[$col]+="$line"$'\n'
 done
+
+printf "=== BOARD: %s ===\n\n" "$BOARD_NAME"
 
 for s in $STATUSES; do
     printf "=== %-8s ===\n" "$(echo "$s" | tr '[:lower:]' '[:upper:]')"

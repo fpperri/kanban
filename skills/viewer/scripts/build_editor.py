@@ -71,6 +71,29 @@ def parse_card(path):
         "fn": name,
     }
 
+def esc(text):
+    """Minimal HTML escape — the board name lands in a <title> and in markup.
+    Local, not html.escape(): `html` is this module's output-string variable."""
+    return (str(text).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+def read_board_name(kanban_dir):
+    """config.yaml's top-level `name:` — the BOARD NAME that qualifies every
+    card mention and titles this page. Only an UNINDENTED key counts: each
+    assignee entry carries its own indented `name:`. Absent, fall back to the
+    folder above the board directory — a display default, not a name."""
+    path = os.path.join(kanban_dir, "config.yaml")
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        text = ""
+    m = re.search(r"^name:[ \t]*([^\n]*)$", text, re.M)
+    if m:
+        val = re.sub(r"\s+#.*$", "", m.group(1)).strip().strip('"').strip("'")
+        if val:
+            return val
+    return os.path.basename(os.path.dirname(os.path.abspath(kanban_dir))) or "kanban"
+
 DEFAULT_STATUSES = ["backlog", "todo", "doing", "done"]
 
 def read_statuses(kanban_dir):
@@ -226,14 +249,15 @@ def main():
                     .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
-                    .replace("__DATA__", emb(cards)))
+                    .replace("__DATA__", emb(cards))
+                    .replace("__BOARD_NAME__", esc(read_board_name(a.kanban_dir))))
     open(a.out, "w", encoding="utf-8").write(html)
     print(f"wrote {a.out} ({len(html)} bytes; {len(cards)} cards, base {iso})")
 
 TEMPLATE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>kanban editor</title>
+<title>__BOARD_NAME__ — kanban editor</title>
 <style>
 :root{--surface:#fcfcfb;--page:#f9f9f7;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;
 --grid:#e1e0d9;--ring:rgba(11,11,11,.12);--accent:#2a78d6;--high:#d03b3b;--warn:#9a6700;
@@ -471,7 +495,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .ctxsep{height:1px;background:var(--ring);margin:4px 2px}
 </style></head><body>
 <div id="scroll">
-<div class="hdr" id="hdr"><b>kanban</b><span class="base">editor · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
+<div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">editor · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
 <div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:)"></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>

@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { nextId: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -76,7 +76,7 @@ test('serializeConfig round-trips through parseConfig', () => {
 
 test('readConfig returns defaults when config.yaml is absent', () => {
   const dir = tmpBoard();
-  assert.deepStrictEqual(cfg.readConfig(dir), { nextId: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] });
 });
 
 // --- `statuses` joins LIST_KEYS — the official column list ----------
@@ -186,4 +186,46 @@ test('readConfig returns empty priorities/tags when config.yaml is missing', () 
   const c = cfg.readConfig(dir);
   assert.deepStrictEqual(c.priorities, []);
   assert.deepStrictEqual(c.tags, []);
+});
+
+
+// --- `name`: the board name that qualifies a card mention -----------
+
+test('parseConfig reads a top-level name and strips its trailing comment', () => {
+  const c = cfg.parseConfig('name: webapp   # board name for card mentions\nnextId: 7\n');
+  assert.strictEqual(c.name, 'webapp');
+  assert.strictEqual(c.nextId, 7);
+});
+
+test('parseConfig defaults name to empty string when the key is absent (caller falls back to the parent folder)', () => {
+  assert.strictEqual(cfg.parseConfig('nextId: 5\n').name, '');
+});
+
+test("parseConfig does not mistake an assignee's indented name for the board name", () => {
+  const c = cfg.parseConfig(SAMPLE); // assignees carry `name:` at indent, no top-level key
+  assert.strictEqual(c.name, '');
+  assert.strictEqual(c.assignees[0].name, 'Alex');
+});
+
+test('a top-level name above the assignees block wins, and the assignee names survive intact', () => {
+  const c = cfg.parseConfig('name: webapp\n' + SAMPLE);
+  assert.strictEqual(c.name, 'webapp');
+  assert.deepStrictEqual(c.assignees.map((a) => a.name), ['Alex', 'Claude (AFK)']);
+});
+
+test('serializeConfig round-trips a board name, and emits it ABOVE the assignees block', () => {
+  const c = cfg.parseConfig('name: webapp\n' + SAMPLE);
+  const out = cfg.serializeConfig(c);
+  assert.ok(out.indexOf('name: webapp') < out.indexOf('assignees:'), 'top-level name must precede assignees');
+  assert.deepStrictEqual(cfg.parseConfig(out), c);
+});
+
+test('advanceCounter keeps a line-1 name byte-for-byte when the web app allocates an id', () => {
+  const dir = tmpBoard();
+  const raw = 'name: webapp   # board name for card mentions\n' + SAMPLE.replace('nextId: 28', 'nextId: 40');
+  fs.writeFileSync(path.join(dir, 'config.yaml'), raw);
+  assert.strictEqual(cfg.allocateId(dir, 2), 40);
+  const after = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+  assert.strictEqual(after.split('\n')[0], 'name: webapp   # board name for card mentions');
+  assert.strictEqual(after, raw.replace('nextId: 40', 'nextId: 41'));
 });

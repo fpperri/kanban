@@ -1,6 +1,13 @@
 'use strict';
-// config.yaml: board-level configuration — currently two concerns:
+// config.yaml: board-level configuration — currently three concerns:
 //
+//   name: webapp          # BOARD NAME — the token that qualifies a card
+//                         # mention (`webapp#28`) and titles every surface.
+//                         # Human-declared, never derived here; absent, the
+//                         # caller falls back to card-store's projectName().
+//                         # Must precede `assignees:` — those entries carry
+//                         # their own INDENTED `name:`, and only a top-level
+//                         # (unindented) key is the board name.
 //   nextId: 28            # monotonic id counter — ids stay unique even when
 //                         # the max card is deleted or two writers race a scan
 //   assignees:            # who can own cards; feeds the form's combobox
@@ -38,7 +45,7 @@ function parseFlowList(raw) {
 const LIST_KEYS = ['priorities', 'tags', 'statuses'];
 
 function parseConfig(text) {
-  const config = { nextId: null, assignees: [], priorities: [], tags: [], statuses: [] };
+  const config = { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] };
   let section = null; // 'assignees' | one of LIST_KEYS | null
   let cur = null;
   const flush = () => {
@@ -64,7 +71,13 @@ function parseConfig(text) {
     const top = line.match(/^(\w+):\s*(.*)$/); // no leading whitespace = top-level key
     if (top) {
       flush();
-      if (top[1] === 'nextId') {
+      if (top[1] === 'name') {
+        // Board name. Only reachable for an UNINDENTED `name:` — an
+        // assignee's own `name:` is indented and handled by the section
+        // branch below, so the two never collide whatever the file's order.
+        config.name = scalar(top[2]);
+        section = null;
+      } else if (top[1] === 'nextId') {
         const n = Number(scalar(top[2]));
         config.nextId = Number.isInteger(n) && n > 0 ? n : null;
         section = null;
@@ -101,8 +114,13 @@ function parseConfig(text) {
   return config;
 }
 
+// Note: no callers today (writeConfig is the only one, itself unused) — the
+// board's writes go through advanceCounter's surgical replace, which preserves
+// comments and unknown keys. Kept round-trippable with parseConfig all the
+// same; `name` leads because it must sit above `assignees:` (see the header).
 function serializeConfig(config) {
   let out = '';
+  if (config.name) out += `name: ${config.name}\n`;
   if (config.nextId !== null && config.nextId !== undefined) out += `nextId: ${config.nextId}\n`;
   if (config.assignees && config.assignees.length) {
     out += 'assignees:\n';
@@ -119,7 +137,7 @@ function configFile(dir) {
 
 function readConfig(dir) {
   const file = configFile(dir);
-  if (!fs.existsSync(file)) return { nextId: null, assignees: [], priorities: [], tags: [], statuses: [] };
+  if (!fs.existsSync(file)) return { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] };
   return parseConfig(fs.readFileSync(file, 'utf8'));
 }
 

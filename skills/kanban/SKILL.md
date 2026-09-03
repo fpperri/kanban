@@ -1,6 +1,6 @@
 ---
 name: kanban
-description: Manage a Markdown-based Kanban board using card files in a .kanban/ directory (kanban/ supported as a legacy fallback), including archived/ for completed cards. Use when the user asks to create, move, view, list, or manage tasks or cards on a kanban board, or when tracking work items across statuses like backlog, todo, doing, done, or archive. Defines every board file contract (cards, config.yaml ids/assignees, notifications.md) and when the AI must notify the human.
+description: Manage a Markdown-based Kanban board using card files in a .kanban/ directory (kanban/ supported as a legacy fallback), including archived/ for completed cards. Use when the user asks to create, move, view, list, or manage tasks or cards on a kanban board, or when tracking work items across statuses like backlog, todo, doing, done, or archive. Defines every board file contract (cards, config.yaml board name/ids/assignees, notifications.md) and when the AI must notify the human.
 ---
 
 # Kanban AI Skill
@@ -19,13 +19,14 @@ Narrative entry format (scan-optimized):
 
 ```markdown
 ## Narrative
-- 2026-02-05: **Shifted auth to WebAuthn.** Discovered the flow must support device-based MFA; `auth-plan.md` updated, unblocks `#12`. (by @assistant)
+- 2026-02-05: **Shifted auth to WebAuthn.** Discovered the flow must support device-based MFA; `auth-plan.md` updated, unblocks `webapp#12` Device enrollment for the second factor. (by @assistant)
 ```
 
 Entry shape, in order:
 - **Bold TL;DR first** — verb-first, ≤10 words, ends with a period. Readers scan; the first words must carry "what happened." Genuinely trivial pings may skip the bold lead.
 - **1–2 supporting sentences** after it — plain, objective, roughly half the words you'd naturally write.
 - **Backtick every identifier** a reader must match verbatim: card ids, commit hashes, filenames, branch names. They never autolink in repo files, so the code font is doing real work.
+- **Mention a card as `` `board#id` `` + its title verbatim** — the **Card mention** rule (CONTEXT.md). The board qualifier is never dropped, even on the card's own board; the title may be dropped only on a repeat inside the same bullet. Never paraphrase a title in place of itself. Nothing else takes a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The rule binds everything you write for a human — narrative bullets, notification `message` text, reports, digests, chat handoffs.
 - **One event per bullet.** Two things happened = two bullets, even same author, same day. Never fuse events into one run-on line.
 - **No sub-bullets, no wrapped continuation lines** — the web renderer flattens nested bullets to siblings and a continuation line breaks the list. Keep each entry a single flat `- ` line.
 
@@ -87,7 +88,7 @@ Update the `status` field in frontmatter.
 
 Landing in the literal status `todo` stamps `start_date`; landing in `done` stamps `end_date` — today's local date (`YYYY-MM-DD`), only when the field is empty, never overwriting an existing value. The `kanban-web` app stamps this on every status-changing path; when moving a card by hand, stamp it the same way (same reason as the `updated` bump — the working range stays meaningful regardless of which tool made the move).
 
-**Entry gate to the literal status `doing`:** before moving a card to `doing`, verify it is neither **waiting** (some `waiting_for` id names a card not `done`; dangling ids don't count) nor **blocked** (`blocked` holds a valid reason — trimmed value with ≥ 1 alphanumeric character, or YAML `true`). If either holds, refuse and name which: "waiting on #34" / "blocked: <reason>". No eviction — the gate applies on entry only; a card already in `doing` that gets blocked stays there. And regardless of column, agents never grab a blocked card. **`review` (ADR 0009) does NOT gate `doing` entry** — the gate stays `waiting` + `blocked`, exactly as above; a card can be moved into (or stay in) `doing` while wearing a `review` sticker. Regardless of column, agents never grab a review-stickered card either — same "not yours to touch" stance as blocked, just for a different reason (finished, not stuck).
+**Entry gate to the literal status `doing`:** before moving a card to `doing`, verify it is neither **waiting** (some `waiting_for` id names a card not `done`; dangling ids don't count) nor **blocked** (`blocked` holds a valid reason — trimmed value with ≥ 1 alphanumeric character, or YAML `true`). If either holds, refuse and name which: "waiting on `webapp#34` Session store migration" / "blocked: <reason>". No eviction — the gate applies on entry only; a card already in `doing` that gets blocked stays there. And regardless of column, agents never grab a blocked card. **`review` (ADR 0009) does NOT gate `doing` entry** — the gate stays `waiting` + `blocked`, exactly as above; a card can be moved into (or stay in) `doing` while wearing a `review` sticker. Regardless of column, agents never grab a review-stickered card either — same "not yours to touch" stance as blocked, just for a different reason (finished, not stuck).
 
 Cards with `status: done` may be moved into `<kanban-dir>/archived/` to keep the main board tidy. This is a file-location move only; the card should remain a normal card with `status: done` unless explicitly changed.
 If `<kanban-dir>/archived/` does not exist, create it under the active board directory before moving the card.
@@ -98,9 +99,10 @@ If `<kanban-dir>/archived/` does not exist, create it under the active board dir
 
 Only `*.card.md` files are cards. Two other files in `<kanban-dir>/` are levers you are expected to use:
 
-### `config.yaml` — ids and assignees
+### `config.yaml` — board name, ids, and assignees
 
 ```yaml
+name: webapp      # the BOARD NAME that qualifies every card mention (`webapp#29`)
 nextId: 29        # monotonic id counter — use max(nextId, scan-max + 1), then write the advanced counter back
 assignees:        # registry of who can own cards; suggests handles, never validates
   - handle: "@human"
@@ -119,6 +121,22 @@ priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config]            # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
 ```
+
+**`name` — the board name.** The short token that qualifies a card mention
+(`` `board#id` ``), read by every surface for its heading, tab title, board
+header and page title. One token, no whitespace, no `#`. It is the human's to
+declare and to rename, and it is **never derived at read time**: a surface
+reading a board with no `name:` falls back to the folder above the board
+directory, and that fallback is a display default, not a name — a board without
+a declared name cannot be mentioned across boards.
+
+**Seeding `name:` is the one exception to "never create `config.yaml`
+yourself".** The first AI to service a nameless board seeds the key from the
+folder that holds the board's home, then files a notification saying it did so
+the human can rename it. Write `name:` on **line 1**, above any `assignees:`
+block — each assignee entry has its own *indented* `name:`, so the top-level key
+has to come first to stay unambiguous. Creating a `config.yaml` that holds only
+`name:` is allowed; inventing any other key or list is not.
 
 **Grab semantics for AI writers:** the registry's `kind` tells *you*, the
 AI, how to treat a card based on its `assignee` handle:
@@ -145,7 +163,7 @@ has no `assignees` registry, every surface suggests exactly this trio.
 
 Status values are **case-sensitive** — the `doing` entry gate (waiting + blocked) applies to the literal lowercase `doing` only; a column named `Doing` is just another custom column the gate ignores. Curate accordingly.
 
-The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
+The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — the single exception is seeding `name:` (above). **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 
 The `statuses` list is different in kind: it drives the **column layout** of every board surface (web columns, cli board print, form options, gantt group order), in list order — but like the other lists it never validates a card's on-disk value. A card with an unlisted status renders in the list's **first column** (the catch-all — `backlog` under the default list) with its raw value shown; the file is never rewritten. **Promotion is human-only:** only the human adds a status to the list; on the next read the card files under its real column. Archive is excluded — it stays a location-column at the far right, never a list entry. The `doing` entry gate (waiting + blocked) stays pinned to the **literal** status `doing`, custom list or not.
 
@@ -158,14 +176,14 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
   at: 2026-07-12T09:15:00
   from: "afk-run:#131"
   level: info
-  message: "Card #131 closed; more: payload applied, 3 cards moved to done."
+  message: "`webapp#131` Retry budget for the ingest worker closed; more: payload applied, 3 cards moved to done."
   read: false
 ```
 
 - `id`: max existing + 1. `at`: local ISO datetime, no timezone.
 - `from`: the writer's handle (e.g. `afk-run:#131`, `skill:kanban-viewer`).
 - `level`: one of `debug` | `info` | `warning` | `error`; **absent = `info`** (back-compat). Renderers show all levels — debug dimmed, warning amber-tinted, error red-tinted; no filtering for now.
-- `message`: single line only; quote values containing `:` or `#`. **TLDR-first shape:** the text before `; more: ` is a single plain sentence (no "TLDR" label) — renderers emphasize (bold) it; everything after is detail. A message without `; more: ` is all-TLDR.
+- `message`: single line only; quote values containing `:` or `#`. **TLDR-first shape:** the text before `; more: ` is a single plain sentence (no "TLDR" label) — renderers emphasize (bold) it; everything after is detail. A message without `; more: ` is all-TLDR. Card ids in the text follow the **Card mention** rule (`` `board#id` `` + title verbatim); `from` is a machine handle, not prose, and keeps its bare `afk-run:#131` form.
 - `read`: always write `false` — the reader flips it (flipping to `read: true` stays an in-place edit). Entries missing a numeric `id` or non-empty `message` are skipped by readers and moved verbatim to `archived/notifications.md` on the next managed rewrite — never deleted, same rule as clearing.
 
 **Discipline (this is a rule, not a suggestion):** every AI mutation of the board — create, move, edit, archive, delete, payload-apply — must be reconstructable from the tray. Write either **one entry per action** or **ONE grouped entry per coherent batch/turn** that enumerates what changed. Interactive sessions are not exempt — moves the user watched you make get an entry too (grouped is fine). Tie-breaker: **unsure → notify.** A spurious notification costs one click; a silent mutation costs a re-derivation.
@@ -192,7 +210,7 @@ Run the board view script:
 bash <SCRIPTS_DIR>/view_board.sh <kanban-dir>
 ```
 
-Outputs cards grouped by status column, with priority, waiting (unresolved `waiting_for` ids only), blocked (reason), and review (text) flags inline.
+Outputs a `=== BOARD: <name> ===` header — `config.yaml`'s `name:`, falling back to the folder above the board directory — then cards grouped by status column, with priority, waiting (unresolved `waiting_for` ids only), blocked (reason), and review (text) flags inline. The header carries the board qualifier for the whole print, so the card lines stay `#id Title`; any prose you write *about* a card follows the **Card mention** rule instead.
 
 ## Searching and Filtering
 

@@ -73,13 +73,24 @@ test('GET /api/board returns active + archived', async () => {
   });
 });
 
-test('GET /api/board exposes projectName — the folder above the board dir', async () => {
+test('GET /api/board falls back to the folder above the board dir when no name: is declared', async () => {
   const dir = tmpBoard();
   const expected = path.basename(path.dirname(dir));
   await withServer(dir, async (base) => {
     const res = await fetch(`${base}/api/board`);
     const data = await res.json();
     assert.strictEqual(data.projectName, expected);
+  });
+});
+
+test("GET /api/board exposes the board name — config.yaml's declared name: wins over the parent folder", async () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: webapp   # board name for card mentions\nnextId: 3\n');
+  await withServer(dir, async (base) => {
+    const res = await fetch(`${base}/api/board`);
+    const data = await res.json();
+    assert.strictEqual(data.projectName, 'webapp');
+    assert.notStrictEqual(data.projectName, path.basename(path.dirname(dir)));
   });
 });
 
