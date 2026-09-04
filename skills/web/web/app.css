@@ -47,9 +47,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
    kanban boards. */
 header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 15; background: #0d1117; }
 h1 { color: #58a6ff; font-size: 1.4em; }
-.project-name { color: #8b949e; font-size: 0.65em; font-weight: 400; margin-left: 4px; }
 /* Copy-board-path button — lives inside the h1, so size back down
-   from its 1.4em to control scale; muted until hovered, like .project-name */
+   from its 1.4em to control scale; muted until hovered */
 .board-copy-btn { font-size: 0.55em; font-weight: 400; color: #8b949e; padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
 .board-copy-btn:hover { color: #c9d1d9; }
 .actions { display: flex; gap: 8px; }

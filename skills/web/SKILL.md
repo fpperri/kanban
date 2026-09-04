@@ -778,8 +778,10 @@ statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
 This app is config-driven and doesn't enforce the grab semantics — it renders whatever
 handle a card carries.
 
-- **`name`** IS the board name shown in the app heading and the tab title (which
-  leads with it, so side-by-side tabs stay tellable apart). Absent, both fall back to
+- **`name`** IS the app heading — the board name alone, no app label in front of it
+  (the app is a kanban; a "Kanban —" prefix only buried the one token that tells
+  boards apart) — and it leads the tab title (`<name> — Kanban`, the app named once
+  so side-by-side tabs stay tellable apart). Absent, both fall back to
   the **folder above the board directory** — a display default, not a name. The app
   only reads it: renaming a board is a human edit to `config.yaml`, and the first AI
   to service a nameless board seeds the key (`/kanban`'s SKILL.md carries that
