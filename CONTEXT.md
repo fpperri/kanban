@@ -20,8 +20,8 @@ One work item, stored as a single `<0000-id>.<slug>.card.md` file (frontmatter +
 _Avoid_: task, ticket, item, issue.
 
 **Card mention**:
-How a card is referred to in prose written for a human: `` `board#id` `` followed by the card's title verbatim, every time. The title may be dropped only on a repeat within the same paragraph or bullet; the board qualifier is never dropped, even on the card's own board. Nothing else is written as a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The title is never paraphrased in place of itself.
-_Avoid_: bare `#N`, a paraphrase where the title belongs, `#N` for anything that is not a card.
+How a card is referred to in prose written for a human: one code span holding the board qualifier, the id and the card's title verbatim — `` `board#id title` `` — every time. The span draws the boundary: a reader sees where the title ends and the sentence resumes. Inside the span the title drops any backticks of its own (nested code does not render); its words never change. The title may be dropped only on a repeat within the same paragraph or bullet, leaving `` `board#id` ``; the board qualifier is never dropped, even on the card's own board. Nothing else is written as a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The title is never paraphrased in place of itself.
+_Avoid_: the title outside the span (`` `board#id` `` Title), bare `#N`, a paraphrase where the title belongs, `#N` for anything that is not a card.
 
 **Title**:
 The card's H1, the only stored name, and what a mention carries. It must identify the card out of context: a noun phrase of roughly seventy characters or fewer; an `area:` prefix is allowed but the remainder must stand alone. An AI that services a card may retitle it to meet this bar; done and archived cards keep their titles. The filename slug never follows a retitle.

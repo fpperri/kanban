@@ -1,8 +1,8 @@
 'use strict';
 // config.yaml: board-level configuration — currently three concerns:
 //
-//   name: webapp          # BOARD NAME — the token that qualifies a card
-//                         # mention (`webapp#28`) and titles every surface.
+//   name: webapp          # BOARD NAME — the token that opens a card mention
+//                         # (`webapp#28 Card title`) and titles every surface.
 //                         # Human-declared, never derived here; absent, the
 //                         # caller falls back to card-store's projectName().
 //                         # Must precede `assignees:` — those entries carry

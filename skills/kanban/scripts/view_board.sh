@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Display kanban cards grouped by status.
 # Header: the BOARD NAME — config.yaml's top-level `name:` (the token that
-# qualifies every card mention, `board#id`), falling back to the folder above
+# qualifies every card mention, `board#id title`), falling back to the folder above
 # the board directory when the board hasn't declared one. Only an UNINDENTED
 # `name:` counts: assignee entries carry their own indented `name:`.
 # Column set + order follow config.yaml's `statuses:` list when

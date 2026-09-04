@@ -751,7 +751,7 @@ file. Optional, human-edited, per board:
 
 ```yaml
 name: webapp              # BOARD NAME — heading, tab title, and the qualifier in
-                          # every card mention (`webapp#28`). Must sit ABOVE the
+                          # every card mention (`webapp#28 Card title`). Must precede the
                           # assignees block: those entries carry their own INDENTED
                           # `name:`, and only a top-level key is the board name.
 nextId: 28                # monotonic id counter; ids stay unique even when the

@@ -19,14 +19,14 @@ Narrative entry format (scan-optimized):
 
 ```markdown
 ## Narrative
-- 2026-02-05: **Shifted auth to WebAuthn.** Discovered the flow must support device-based MFA; `auth-plan.md` updated, unblocks `webapp#12` Device enrollment for the second factor. (by @assistant)
+- 2026-02-05: **Shifted auth to WebAuthn.** Discovered the flow must support device-based MFA; `auth-plan.md` updated, unblocks `webapp#12 Device enrollment for the second factor`. (by @assistant)
 ```
 
 Entry shape, in order:
 - **Bold TL;DR first** — verb-first, ≤10 words, ends with a period. Readers scan; the first words must carry "what happened." Genuinely trivial pings may skip the bold lead.
 - **1–2 supporting sentences** after it — plain, objective, roughly half the words you'd naturally write.
 - **Backtick every identifier** a reader must match verbatim: card ids, commit hashes, filenames, branch names. They never autolink in repo files, so the code font is doing real work.
-- **Mention a card as `` `board#id` `` + its title verbatim** — the **Card mention** rule (CONTEXT.md). The board qualifier is never dropped, even on the card's own board; the title may be dropped only on a repeat inside the same bullet. Never paraphrase a title in place of itself. Nothing else takes a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The rule binds everything you write for a human — narrative bullets, notification `message` text, reports, digests, chat handoffs.
+- **Mention a card as one code span, `` `board#id title` ``** — the **Card mention** rule (CONTEXT.md). Qualifier, id and title verbatim inside a single span, so the reader sees where the title ends and the sentence resumes; a title carrying backticks of its own drops them there (nested code does not render). The board qualifier is never dropped, even on the card's own board; the title may be dropped only on a repeat inside the same bullet, leaving `` `board#id` ``. Never paraphrase a title in place of itself. Nothing else takes a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The rule binds everything you write for a human — narrative bullets, notification `message` text, reports, digests, chat handoffs.
 - **One event per bullet.** Two things happened = two bullets, even same author, same day. Never fuse events into one run-on line.
 - **No sub-bullets, no wrapped continuation lines** — the web renderer flattens nested bullets to siblings and a continuation line breaks the list. Keep each entry a single flat `- ` line.
 
@@ -88,7 +88,7 @@ Update the `status` field in frontmatter.
 
 Landing in the literal status `todo` stamps `start_date`; landing in `done` stamps `end_date` — today's local date (`YYYY-MM-DD`), only when the field is empty, never overwriting an existing value. The `kanban-web` app stamps this on every status-changing path; when moving a card by hand, stamp it the same way (same reason as the `updated` bump — the working range stays meaningful regardless of which tool made the move).
 
-**Entry gate to the literal status `doing`:** before moving a card to `doing`, verify it is neither **waiting** (some `waiting_for` id names a card not `done`; dangling ids don't count) nor **blocked** (`blocked` holds a valid reason — trimmed value with ≥ 1 alphanumeric character, or YAML `true`). If either holds, refuse and name which: "waiting on `webapp#34` Session store migration" / "blocked: <reason>". No eviction — the gate applies on entry only; a card already in `doing` that gets blocked stays there. And regardless of column, agents never grab a blocked card. **`review` (ADR 0009) does NOT gate `doing` entry** — the gate stays `waiting` + `blocked`, exactly as above; a card can be moved into (or stay in) `doing` while wearing a `review` sticker. Regardless of column, agents never grab a review-stickered card either — same "not yours to touch" stance as blocked, just for a different reason (finished, not stuck).
+**Entry gate to the literal status `doing`:** before moving a card to `doing`, verify it is neither **waiting** (some `waiting_for` id names a card not `done`; dangling ids don't count) nor **blocked** (`blocked` holds a valid reason — trimmed value with ≥ 1 alphanumeric character, or YAML `true`). If either holds, refuse and name which: "waiting on `webapp#34 Session store migration`" / "blocked: <reason>". No eviction — the gate applies on entry only; a card already in `doing` that gets blocked stays there. And regardless of column, agents never grab a blocked card. **`review` (ADR 0009) does NOT gate `doing` entry** — the gate stays `waiting` + `blocked`, exactly as above; a card can be moved into (or stay in) `doing` while wearing a `review` sticker. Regardless of column, agents never grab a review-stickered card either — same "not yours to touch" stance as blocked, just for a different reason (finished, not stuck).
 
 Cards with `status: done` may be moved into `<kanban-dir>/archived/` to keep the main board tidy. This is a file-location move only; the card should remain a normal card with `status: done` unless explicitly changed.
 If `<kanban-dir>/archived/` does not exist, create it under the active board directory before moving the card.
@@ -102,7 +102,7 @@ Only `*.card.md` files are cards. Two other files in `<kanban-dir>/` are levers 
 ### `config.yaml` — board name, ids, and assignees
 
 ```yaml
-name: webapp      # the BOARD NAME that qualifies every card mention (`webapp#29`)
+name: webapp      # the BOARD NAME opening every card mention (`webapp#29 Card title`)
 nextId: 29        # monotonic id counter — use max(nextId, scan-max + 1), then write the advanced counter back
 assignees:        # registry of who can own cards; suggests handles, never validates
   - handle: "@human"
@@ -122,8 +122,8 @@ tags: [skills, config]            # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
 ```
 
-**`name` — the board name.** The short token that qualifies a card mention
-(`` `board#id` ``), read by every surface for its heading, tab title, board
+**`name` — the board name.** The short token that opens a card mention
+(`` `board#id title` ``), read by every surface for its heading, tab title, board
 header and page title. One token, no whitespace, no `#`. It is the human's to
 declare and to rename, and it is **never derived at read time**: a surface
 reading a board with no `name:` falls back to the folder above the board
@@ -176,14 +176,14 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
   at: 2026-07-12T09:15:00
   from: "afk-run:#131"
   level: info
-  message: "`webapp#131` Retry budget for the ingest worker closed; more: payload applied, 3 cards moved to done."
+  message: "`webapp#131 Retry budget for the ingest worker` closed; more: payload applied, 3 cards moved to done."
   read: false
 ```
 
 - `id`: max existing + 1. `at`: local ISO datetime, no timezone.
 - `from`: the writer's handle (e.g. `afk-run:#131`, `skill:kanban-viewer`).
 - `level`: one of `debug` | `info` | `warning` | `error`; **absent = `info`** (back-compat). Renderers show all levels — debug dimmed, warning amber-tinted, error red-tinted; no filtering for now.
-- `message`: single line only; quote values containing `:` or `#`. **TLDR-first shape:** the text before `; more: ` is a single plain sentence (no "TLDR" label) — renderers emphasize (bold) it; everything after is detail. A message without `; more: ` is all-TLDR. Card ids in the text follow the **Card mention** rule (`` `board#id` `` + title verbatim); `from` is a machine handle, not prose, and keeps its bare `afk-run:#131` form.
+- `message`: single line only; quote values containing `:` or `#`. **TLDR-first shape:** the text before `; more: ` is a single plain sentence (no "TLDR" label) — renderers emphasize (bold) it; everything after is detail. A message without `; more: ` is all-TLDR. Card ids in the text follow the **Card mention** rule (one code span, `` `board#id title` ``); `from` is a machine handle, not prose, and keeps its bare `afk-run:#131` form.
 - `read`: always write `false` — the reader flips it (flipping to `read: true` stays an in-place edit). Entries missing a numeric `id` or non-empty `message` are skipped by readers and moved verbatim to `archived/notifications.md` on the next managed rewrite — never deleted, same rule as clearing.
 
 **Discipline (this is a rule, not a suggestion):** every AI mutation of the board — create, move, edit, archive, delete, payload-apply — must be reconstructable from the tray. Write either **one entry per action** or **ONE grouped entry per coherent batch/turn** that enumerates what changed. Interactive sessions are not exempt — moves the user watched you make get an entry too (grouped is fine). Tie-breaker: **unsure → notify.** A spurious notification costs one click; a silent mutation costs a re-derivation.

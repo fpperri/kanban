@@ -69,7 +69,7 @@ with its raw status shown inline as `[status: <raw>]` — never rewrite it;
 promotion is the human adding the status to `config.yaml`. Present the output
 lightly formatted as markdown. Card ids in any prose you write around it —
 summaries, refusals, confirmations, the notification inbox — follow the **Card
-mention** rule (`` `board#id` `` + the card's title verbatim; CONTEXT.md); the
+mention** rule (one code span, `` `board#id title` ``; CONTEXT.md); the
 board print's own `#id` column lines are a table under the header, not prose. If every column is empty, say "No cards yet."
 and offer **New card** / Done.
 
@@ -152,7 +152,7 @@ one line and re-print the affected card or board section.
   waiting/blocked predicates, literal-`doing` pinning, entry-only scope, and
   no-override two-step escape hatch — is defined in `/kanban`. Here it is a
   hard reject: refuse the move and name which condition fired ("waiting on
-  `webapp#34` Session store migration" / "blocked: <reason>"), the
+  `webapp#34 Session store migration`" / "blocked: <reason>"), the
   conversational twin of the web app's snap-back toast.
 - **Archive / Restore** — move the file into / out of `<kanban-dir>/archived/`
   (location, not status; status untouched). Archive writes to the `archived/`
@@ -190,7 +190,7 @@ is defined in `/kanban`. On "Notifications":
 
 1. Print all entries newest-first, unread flagged, level shown (absent =
    `info`), with the TLDR segment (the text before `; more: `) **bolded**:
-   `● notification 4 [info] 07-12 09:15 afk-run:#131 — **webapp#131 Retry budget for the ingest worker closed**; more: …`.
+   `` ● notification 4 [info] 07-12 09:15 afk-run:#131 — **`webapp#131 Retry budget for the ingest worker` closed**; more: … ``.
    All levels print — no filtering; call out `warning`/`error` plainly (the
    web app tints them amber/red and dims `debug`).
 2. Opening the inbox **marks everything read** — rewrite the file flipping
