@@ -19,10 +19,14 @@ as defined in the kanban skill's SKILL.md.
 ## Generating the editor
 
 ```bash
-python3 <SCRIPTS_DIR>/build_editor.py <kanban-directory> [--out kanban-viewer.html] \
+python <SCRIPTS_DIR>/build_editor.py <kanban-directory> [--out kanban-viewer.html] \
     [--base-label "Jul 11, 3:08 pm CT"] [--base-iso 2026-07-11T20:08Z]
 ```
 
+- `python`, not `python3`. On Windows `python3` is usually the Microsoft Store's
+  App Installer redirector, an alias stub that opens an install page instead of
+  running the script (`py -3` also works there). Substitute `python3` only on a
+  macOS/Linux box where that is the sole interpreter name.
 - `kanban-directory` — path to the card files, always passed explicitly (the
   script takes no default). When the human hasn't already named it, locate it
   the same way as the other surfaces: `.kanban/` is the preferred board

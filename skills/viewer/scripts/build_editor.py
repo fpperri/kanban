@@ -8,7 +8,7 @@ pastes back to Claude, which applies the ops to the card files — see the skill
 references/apply-protocol.md for exactly how.
 
 Usage:
-  python3 build_editor.py <kanban-directory> [--out kanban-viewer.html]
+  python build_editor.py <kanban-directory> [--out kanban-viewer.html]
                           [--base-label "Jul 11, 3:08 pm CT"] [--base-iso 2026-07-11T20:08Z]
 
 Base defaults to now (UTC label) — pass the user's local time when you know it.

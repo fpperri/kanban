@@ -13,8 +13,11 @@ archive rules — in one place.
 From the repo root:
 
 ```bash
-python3 skills/viewer/scripts/build_editor.py examples/demo-board --out editor.html
+python skills/viewer/scripts/build_editor.py examples/demo-board --out editor.html
 ```
+
+(`python3` on macOS/Linux if that is the only interpreter name; on Windows `python3`
+is typically the Store's install redirector, not an interpreter.)
 
 Then open `editor.html` on the device you want to edit from (or send it to your
 phone). The screenshots below are the bundled `examples/demo-board` on a phone.
