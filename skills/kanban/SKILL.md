@@ -167,6 +167,8 @@ The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official 
 
 The `statuses` list is different in kind: it drives the **column layout** of every board surface (web columns, cli board print, form options, gantt group order), in list order — but like the other lists it never validates a card's on-disk value. A card with an unlisted status renders in the list's **first column** (the catch-all — `backlog` under the default list) with its raw value shown; the file is never rewritten. **Promotion is human-only:** only the human adds a status to the list; on the next read the card files under its real column. Archive is excluded — it stays a location-column at the far right, never a list entry. The `doing` entry gate (waiting + blocked) stays pinned to the **literal** status `doing`, custom list or not.
 
+A root board's `config.yaml` may also carry an optional top-level `boards:` list — inline `[a, b]` or block `  - path` entries, each absolute or relative to the board dir — naming other boards to roll up. This key is read by `rollup.js` only; the kanban app itself ignores it.
+
 ### `notifications.md` — messaging the human
 
 Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the human sees it in the web app's bell and the cli's inbox. YAML list, every field on its own single line:
@@ -261,5 +263,12 @@ Output: All cards in pipe-delimited format (id|status|waiting_for|blocked|title)
 bash <SCRIPTS_DIR>/eligible_cards.sh <kanban-dir> [assignee]
 ```
 Output: `todo` cards (literal status) that are doing-gate clear — not waiting (`show_waiting.sh` semantics: dangling `waiting_for` ids and all-`done` deps don't count), not blocked (`show_blocked.sh` predicate), and not review-stickered (`show_review.sh` predicate — ADR 0009: agents skip a card awaiting human approval, same as blocked, even though `review` doesn't gate `doing`) — as `id|priority|assignee|title`, sorted by ID. The optional `assignee` arg filters the result and is quote-normalized, so `@afk` and `"@afk"` both match the on-disk `assignee: "@afk"`; omitted returns every assignee. The one-call answer to "what can an agent pick up right now" — no re-deriving the gate from raw card files.
+
+### Multi-Board Rollup
+
+```bash
+node <SCRIPTS_DIR>/rollup.js <root-board-dir> [--boards p1,p2,...] [--write] [--since <ISO>]
+```
+Reads the root board's `boards:` registry (or `--boards`) and prints a three-section digest: `PORTFOLIO` (per-board doing/todo/review/blocked/human counts), `DECIDE` (every card across all boards needing a human — `@human` assignee, review or blocked sticker, a `Decide` title, or a `## Decision needed` section — sorted by priority), and `NEW SINCE <ISO>` (notifications posted after the cutoff, newest first). Read-only by default; `--write` appends exactly one summary notification to the root board's `notifications.md` and touches nothing else.
 
 **Note:** `<SCRIPTS_DIR>` refers to the `scripts/` directory next to this SKILL.md file. All scripts take the kanban directory as the first argument. If omitted, they default to the current directory.
