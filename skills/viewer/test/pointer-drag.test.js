@@ -29,11 +29,11 @@ test('the dragstart handler exists and gates live on fineMQ.matches', () => {
   assert.match(handler, /c\.arch/, 'archived tiles must be excluded from the gate\'s pass condition');
 });
 
-test('cardNode only marks live, non-archived board tiles draggable', () => {
+test('cardNode only marks live, non-archived board tiles draggable, gated live on fineMQ and the Drag switch', () => {
   assert.match(
     src,
-    /d\.dataset\.card=c\.id;\s*\n\s*if\(!detail&&!c\.arch\)d\.draggable=true;/,
-    'the detail sheet and archived cards must never get draggable=true'
+    /d\.dataset\.card=c\.id;\s*\n\s*if\(!detail&&!c\.arch&&fineMQ\.matches&&dragOn\)d\.draggable=true;/,
+    'the detail sheet, archived cards, coarse-pointer devices and Drag-off must never get draggable=true'
   );
 });
 

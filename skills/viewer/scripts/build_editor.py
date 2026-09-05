@@ -568,6 +568,7 @@ const btn=(label,act,data)=>{const b=el("button",null,label);b.dataset.act=act;i
 // so a hybrid device's .matches reflects reality at the moment of each
 // contextmenu event, not just at page load.
 const fineMQ=window.matchMedia("(hover: hover) and (pointer: fine)");
+fineMQ.addEventListener("change",()=>render());
 // Minimal inline formatting for card bodies —
 // **bold** and `code`, nothing else (no headings/lists/links, no nesting
 // inside a matched span). Pure segment splitter, no DOM: scans left to
@@ -721,7 +722,7 @@ const ro=detail&&!!c.arch;
 const un=unresolved(c),br=blkReason(c),rr=rvReason(c);
 const d=el("div","card"+(selc&&!detail?" sel":"")+(isProv(c.id)?" prov":""));
 d.dataset.card=c.id;
-if(!detail&&!c.arch)d.draggable=true;
+if(!detail&&!c.arch&&fineMQ.matches&&dragOn)d.draggable=true;
 d.appendChild(el("span","cid",isProv(c.id)?"#new":"#"+c.id));
 if(c.p==="High")d.appendChild(el("span","badge","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
@@ -1555,7 +1556,7 @@ if(!c||c.s===to)return;
 queue({op:"move",id:id,to:to});pillEd=null;render()});
 document.body.addEventListener("dragend",()=>{if(dragOverCol){dragOverCol.classList.remove("drag-over");dragOverCol=null}});
 $("smore").addEventListener("click",()=>{stackMode=(stackMode+1)%3;try{localStorage.setItem("kanbanViewer.stackMode",String(stackMode))}catch(e){}syncStack()});
-$("sdrag").addEventListener("click",()=>{dragOn=!dragOn;try{localStorage.setItem("kanbanViewer.drag",dragOn?"1":"0")}catch(e){}syncStack()});
+$("sdrag").addEventListener("click",()=>{dragOn=!dragOn;try{localStorage.setItem("kanbanViewer.drag",dragOn?"1":"0")}catch(e){}syncStack();render()});
 $("mclose").addEventListener("click",closeCard);
 $("sarch").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;queue({op:"archive",id:sel});sel=null;delArm=null;pillEd=null;render()});
 $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;

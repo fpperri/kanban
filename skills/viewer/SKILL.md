@@ -305,7 +305,7 @@ blocked/throwing read both fall back to on — only a stored `"0"` turns
 it off), read live by the same `dragstart` gate, same pattern as
 `stackMode`.
 
-Touch drag is deliberately absent here: kanban.proj #242 owns it as its
+Touch drag is deliberately absent here: `kanban.proj#242 viewer: touch drag and drop with long-press lift` owns it as its
 own, independently-scoped card, so this change adds no
 `touchstart`/`pointerdown` handling for board tiles.
 
@@ -325,5 +325,5 @@ format still has room to grow; extend the op vocabulary in
 
 **No touch drag, not yet.** Desktop pointer drag now exists — see
 "Drag and drop" above. Touch input stays untouched by that change:
-kanban.proj #242 owns touch drag as its own, independently-scoped card,
+`kanban.proj#242 viewer: touch drag and drop with long-press lift` owns touch drag as its own, independently-scoped card,
 so board tiles get no `touchstart`/`pointerdown` handling from this one.
