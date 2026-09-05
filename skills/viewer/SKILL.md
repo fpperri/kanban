@@ -19,7 +19,7 @@ as defined in the kanban skill's SKILL.md.
 ## Generating the editor
 
 ```bash
-python <SCRIPTS_DIR>/build_editor.py <kanban-directory> [--out kanban-viewer.html] \
+python <SCRIPTS_DIR>/build_editor.py <kanban-directory> --out <scratchpad-dir>/kanban-viewer.html \
     [--base-label "Jul 11, 3:08 pm CT"] [--base-iso 2026-07-11T20:08Z]
 ```
 
@@ -34,6 +34,8 @@ python <SCRIPTS_DIR>/build_editor.py <kanban-directory> [--out kanban-viewer.htm
   order: `.kanban/` first, then `kanban/`. In a Cowork/remote session, stage
   the board first (all root `*.card.md` + `config.yaml` + `notifications.md`)
   and point the script at the staged copy.
+- `--out` — always a session scratchpad or temp path; the bare default
+  writes into the current directory, which is usually a repo.
 - `--base-label` / `--base-iso` — the snapshot moment shown in the header and
   embedded in payloads. Use the human's local timezone for the label. Defaults
   to now (UTC).

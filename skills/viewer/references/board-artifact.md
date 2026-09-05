@@ -12,13 +12,17 @@ tool is available. Never mint a new page for a board that already has one.
   Adopt the first entry whose title is exactly `<name> — Kanban Viewer` or
   the legacy `<name> — kanban editor` (`<name>` = this board's declared
   name). Found one → treat its URL the same as above (this is an adopt).
-- No line and no gallery match → first publish, no URL yet.
+- No line and no gallery match in that page → say so to the human (no
+  matching page in the newest 50) and confirm before minting a new one
+  (first publish, no URL yet) — don't mint automatically, since a match
+  could still exist past the listing depth.
 
 ## 2. Build
 
-Build with `build_editor.py` into the session scratchpad (or a temp dir,
-never the repo root), passing `--base-label` in the human's local time and
-`--base-iso` in UTC. Check the output for U+FFFD. If present, the source
+Build with `build_editor.py --out <session-scratchpad>/kanban-viewer.html`
+(a temp dir is fine; never the repo root and never the bare default, which
+writes to the session cwd), passing `--base-label` in the human's local time
+and `--base-iso` in UTC. Check the output for U+FFFD. If present, the source
 card's bytes are broken — fix the card file, not the generated HTML, and
 rebuild.
 
