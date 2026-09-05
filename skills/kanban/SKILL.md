@@ -103,6 +103,7 @@ Only `*.card.md` files are cards. Two other files in `<kanban-dir>/` are levers 
 
 ```yaml
 name: webapp      # the BOARD NAME opening every card mention (`webapp#29 Card title`)
+artifact: https://claude.ai/code/artifact/<id>   # the board's Board artifact URL; seeded by the first session that publishes the viewer (see the kanban-viewer skill)
 nextId: 29        # monotonic id counter — use max(nextId, scan-max + 1), then write the advanced counter back
 assignees:        # registry of who can own cards; suggests handles, never validates
   - handle: "@human"
@@ -137,6 +138,16 @@ the human can rename it. Write `name:` on **line 1**, above any `assignees:`
 block — each assignee entry has its own *indented* `name:`, so the top-level key
 has to come first to stay unambiguous. Creating a `config.yaml` that holds only
 `name:` is allowed; inventing any other key or list is not.
+
+**Seeding `artifact:` is the second named exception to "never invent a config
+key".** It holds the board's **Board artifact** URL (CONTEXT.md) — the one
+hosted page a session publishes the viewer to, refreshed in place rather than
+re-minted. Three cases all write the line and file a notification: adopting
+an existing gallery page (no line yet, a title match found one), creating a
+fresh page (no line, no match), and recreating after the old page is gone
+(line present, a publish by that URL fails). A human may delete the line at
+any time to force the next session to publish a fresh page. Full procedure:
+`skills/viewer/references/board-artifact.md`.
 
 **Grab semantics for AI writers:** the registry's `kind` tells *you*, the
 AI, how to treat a card based on its `assignee` handle:
