@@ -1,0 +1,46 @@
+# Artifact database as a write path (exploration)
+
+Filed from `kanban.proj#243 viewer: explore the artifact database as a payload-free write path` — a grill-with-docs aside, not a commitment: "I'm curious, I want to know more about this, but not for now." This is a paper exercise. No code changes in this pass.
+
+The question: could the viewer's queued ops land in the artifact's own database instead of a copy-pasted "Apply kanban changes" payload, with a session listing and applying pending rows instead of receiving a pasted message?
+
+## What the database can do (facts, from the `artifact-capabilities` skill)
+
+- One database per artifact: plain-JSON documents at slash-separated paths, created on first write, erased when the artifact is deleted. Every viewer with the page open reads and writes the same shared documents by default; reads and live subscriptions see other viewers' writes as they land.
+- A session (this one or another) reaches the same store directly with `read_db` (get one document, list a collection, or query with filters/order/limit and cursor paging) and `write_db` (set, update, delete, or a batch of up to 50 writes applied atomically where the server supports it).
+- Per-viewer privacy is possible under `data/users/<id>/...`, but reading or writing there as "this viewer" needs the page to also declare the `user` capability and await `Claude.user.id()`. `user` was not in this session's list of grantable capabilities (`artifact, db, downloads, mcp, room, sample, self`), so whether it's available to the kanban viewer at all is unconfirmed — an assumption, not a fact, everywhere it's used below.
+- Sharing levels (`view`/`interact`/`admin`/`owner`) can restrict who reads or writes which path via up to 64 `rules`; left undeclared, the default is "anyone who can open the page reads and writes everything outside `data/users/`".
+- Hard limits: a document body is a plain object, at most 256 KiB serialized and 32 levels deep; an artifact's whole database holds at most 5,000 documents total; queries scan unindexed, so a queried collection should stay in the hundreds to low thousands; at most 64 live subscriptions per open view.
+- Writes are last-writer-wins with no transactions; the only concurrency primitive is a cooperative, non-security lease (`acquire`) good for "one editor at a time," not for access control.
+- Declaring `db` makes the artifact organization-internal — every reader and writer must be a signed-in member of the owner's org; it can no longer be shared as a public link.
+
+## What it cannot do (also facts)
+
+- It is not a queue-delivery guarantee. `claude.use("db")` resolves `null` when the page can't reach the platform (no viewer answers within 10s, capability not granted, module failed) — a page must render and work with the capability absent, not assume it will show up.
+- It does not make the board itself live. The store holds whatever documents the page writes to it; the board's cards stay `*.card.md` files. A queue-in-db redesign moves where queued *ops* land, not where card *state* lives — the generated HTML's board view is still a snapshot from build time unless a separate, larger change teaches the page to read cards from `db` too, which is out of scope here.
+- It gives a session no special apply authority. `write_db`/`read_db` touch the artifact's rows only; the kanban write contracts (the `doing` gate, id allocation, notification duty) are still something the session must apply itself, exactly as `apply-protocol.md` does today.
+
+## The loop, redrawn
+
+Today: tray fills as the human taps → "Copy changes" produces one JSON payload → the human pastes it into chat → Claude applies it under `apply-protocol.md` (re-read reality, validate against disk, write, notify) → a fresh editor with a new `base` stamp closes the loop.
+
+Redrawn: each queued op becomes one document in an ops collection instead of one entry in an in-page array, written the moment it's queued rather than batched behind a copy button. A session lists the pending rows (`read_db` query, `applied == false`, ordered by queued time) in place of receiving a payload, applies each under the same `apply-protocol.md` procedure unchanged, then marks the row applied (`write_db update`) rather than deleting it, so the tray's history survives a reload. The session still owns every write-side rule; only the transport between tray and Claude changed. Regenerating and redelivering a fresh editor stays necessary if the rendered board is to reflect the new state, so that step doesn't go away either — it just no longer needs a fresh `base` stamp to carry a whole-payload conflict guard (see below).
+
+## What breaks
+
+- **Page opened offline, or the capability just doesn't show up.** The design-for-absence rule means the page must still work with no `db` — so it needs a fallback path when queuing. The obvious fallback is exactly today's tray-plus-copy-payload flow, which means "payload-free" doesn't retire the payload; it adds a second, better path alongside a first, degraded one that has to be kept working anyway.
+- **Two people queueing.** Rows from different viewers land as separate documents in one shared collection — no worse than today's independent payloads. But a session applying rows now has to guard against re-applying a row another session already marked done, or reading a row mid-write by someone else. Last-writer-wins on the row's `applied` flag is the only guard available; there's no built-in per-row lock across two independent apply passes.
+- **A session applying stale rows against a moved board.** Today's conflict guard is one `base <ISO>` stamp per payload, checked once against file mtimes at apply time. Rows queued over hours or days share no such stamp — each row needs its own queued-at timestamp, and staleness becomes a per-row question instead of a per-batch one. `apply-protocol.md`'s step 1 ("re-read reality, compare mtime to a generation-time baseline") already works file-by-file, so the machinery mostly survives, but the rule itself — one base stamp per applied unit — would need rewriting, not just retargeting at a different transport.
+- **A viewer who isn't the owner.** The default db rule is "every viewer who can open the page reads and writes everything outside `data/users/`" — so anyone the link reaches inside the org can add rows, not just whoever a payload-paste already restricts to franc's own chat turn. Narrowing that back down needs explicit `rules` plus a way to tell an owner from a guest, which needs the unconfirmed `user` capability.
+- **Deleted page.** The database is erased when its artifact is deleted. Today, a payload has already left the page — pasted into chat — before anything could touch the artifact, so losing the page never loses a queued change. Moving the queue into the page's own db makes losing the page equivalent to losing everything not yet applied.
+
+## What it changes
+
+- **Glossary.** `CONTEXT.md`'s Viewer entry ("Changes don't touch disk: they queue in a tray and come back as an 'Apply kanban changes' payload that Claude applies under the `kanban` skill's write contracts") would read "...queue as rows in the page's database; a session lists and applies the pending ones..." — one sentence, but it also reaches `apply-protocol.md`'s opening trigger, today keyed to the literal message shape "Apply kanban changes (N ops, base <ISO>):", which would need a new trigger keyed to a session noticing pending rows instead of receiving a pasted message.
+- **Security posture.** Today's payload is the human's *reviewed* intent — `apply-protocol.md` says so explicitly, and the chat-paste step is a human checkpoint before anything reaches disk. Rows written straight from page JS have no such checkpoint; they are, per the Artifact tool's own contract, viewer-written data — never instructions — so the entire trust burden shifts onto the apply-time validation (`doing` gate, unknown-id checks) that `apply-protocol.md` already runs regardless of source. That validation doesn't currently assume good faith, so it likely survives the shift, but it's a real posture change, from "reviewed once, then checked once" to "checked once," worth naming rather than inheriting silently.
+
+## Go / no-go
+
+No-go for now — which matches what was actually asked for tonight. Three of the five breaks above (the offline fallback, per-row conflict semantics, open-write-by-default access) are rule rewrites to `apply-protocol.md` and `CONTEXT.md`, not a swap of one transport for another. And one fact — `db` forcing org-internal sharing — needs to be checked against how this viewer is actually shared before it can be waved off as a non-issue.
+
+**Smallest experiment that would settle it:** publish one `build_editor.py` output with `capabilities: {db: {}}` added, wire exactly one button to write a single test row to an `ops` collection, and from a session `read_db list` that collection after a normal reload. That single spike would turn three assumptions into facts — round-trip latency, whether org-scoped sharing actually matters for how this viewer gets used, and whether the design-for-absence fallback can be as small as reusing the existing copy-payload button — before any of `apply-protocol.md` gets rewritten.
