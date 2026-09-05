@@ -22,6 +22,10 @@ is typically the Store's install redirector, not an interpreter.)
 Then open `editor.html` on the device you want to edit from (or send it to your
 phone). The screenshots below are the bundled `examples/demo-board` on a phone.
 
+Under Claude Code, this file is delivered as the board's **Board artifact** —
+one hosted page per board, refreshed in place — per
+`skills/viewer/references/board-artifact.md`.
+
 ## Board
 
 ![Viewer board](images/viewer-board.jpg)

@@ -257,7 +257,7 @@ def main():
 TEMPLATE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>__BOARD_NAME__ — kanban editor</title>
+<title>__BOARD_NAME__ — Kanban Viewer</title>
 <style>
 :root{--surface:#fcfcfb;--page:#f9f9f7;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;
 --grid:#e1e0d9;--ring:rgba(11,11,11,.12);--accent:#2a78d6;--high:#d03b3b;--warn:#9a6700;
@@ -495,7 +495,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .ctxsep{height:1px;background:var(--ring);margin:4px 2px}
 </style></head><body>
 <div id="scroll">
-<div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">editor · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
+<div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">viewer · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
 <div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:)"></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>

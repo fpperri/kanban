@@ -38,8 +38,12 @@ python <SCRIPTS_DIR>/build_editor.py <kanban-directory> [--out kanban-viewer.htm
   embedded in payloads. Use the human's local timezone for the label. Defaults
   to now (UTC).
 
-Then deliver the file to the human (in Cowork: SendUserFile with display
-"render"). Record each staged file's `mtimeMs` at generation time — they are the
+Delivery depends on the harness. Artifact tool available (Claude Code): publish
+to the board's **Board artifact** — never a new page — following
+`references/board-artifact.md`. Cowork: SendUserFile with display "render", as
+before. Anywhere else: write the file and tell the human where it is. Build
+output always goes to the session scratchpad (or a temp dir), never the repo
+root. Record each staged file's `mtimeMs` at generation time — they are the
 conflict guard when the payload comes back.
 
 A search box under the header filters every view at once — same query grammar
@@ -198,12 +202,14 @@ screen size and a mouse/trackpad loses them regardless of screen size
 query — it's the swipe-down insurance and context menu, unrelated to
 layout. Font/tap sizing is untouched by width tiers.
 
-The page title and the header's lead word are both the **board name** —
-`config.yaml`'s top-level `name:`, the token that qualifies every card mention,
-falling back to the folder above the board directory when the board hasn't
-declared one (`read_board_name()`; only an UNINDENTED `name:` counts, since each
-assignee entry carries its own indented one). The value is HTML-escaped and
-substituted last, so a name can never smuggle in another template token.
+The page title is `<name> — Kanban Viewer` and the header's lead word is the
+**board name** alone — `config.yaml`'s top-level `name:`, the token that
+qualifies every card mention, falling back to the folder above the board
+directory when the board hasn't declared one (`read_board_name()`; only an
+UNINDENTED `name:` counts, since each assignee entry carries its own indented
+one). The header's base stamp sits in its own span, labeled `viewer · base:`.
+The value is HTML-escaped and substituted last, so a name can never smuggle in
+another template token.
 
 The header line (`.hdr`: board name, base label, "N pending" pill,
 🔔) is `position:sticky` at the top of `#scroll` at **every** width, not
