@@ -1419,10 +1419,11 @@ else if(o.op==="edit"){const e={op:"edit",id:o.id};if(o.title!==undefined)e.titl
 else queue(o)})}
 const sc=$("scroll");
 // Scroll buttons target the modal's scroll area while a card pop-up is open,
-// the board otherwise. The ellipsis cycles THREE stack
-// modes: 1 medium (default: step arrows) -> 2 extended (the full
-// context menu) -> 0 off (ellipsis only, everything hidden) -> 1.
-let stackMode=1;
+// the board otherwise. The ellipsis cycles THREE stack modes: 0 off
+// (default: ellipsis only, everything hidden) -> 1 medium (step arrows) ->
+// 2 extended (the full context menu) -> 0. The chosen mode persists per
+// page in localStorage (try/catch; anything but 0/1/2 falls back to 0).
+let stackMode=(()=>{try{const v=Number(localStorage.getItem("kanbanViewer.stackMode"));return v===0||v===1||v===2?v:0}catch(e){return 0}})();
 const modalOpen=()=>{const m=$("modal");return !!(m&&m.style.display!=="none")};
 const scTgt=()=>modalOpen()?$("modalscroll"):sc;
 function syncStack(){
@@ -1507,7 +1508,7 @@ const c=card?find(card.dataset.card):null;
 if(!c||c.arch){if(ctxMenuEl)closeCtxMenu();return}
 e.preventDefault();
 openCtxMenu(c.id,e.clientX,e.clientY)});
-$("smore").addEventListener("click",()=>{stackMode=(stackMode+1)%3;syncStack()});
+$("smore").addEventListener("click",()=>{stackMode=(stackMode+1)%3;try{localStorage.setItem("kanbanViewer.stackMode",String(stackMode))}catch(e){}syncStack()});
 $("mclose").addEventListener("click",closeCard);
 $("sarch").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;queue({op:"archive",id:sel});sel=null;delArm=null;pillEd=null;render()});
 $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;

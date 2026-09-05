@@ -195,8 +195,9 @@ not a width breakpoint, so a touch device keeps the buttons regardless of
 screen size and a mouse/trackpad loses them regardless of screen size
 (scrollbars and shift-wheel cover it there). The scroll-button stack
 (`#scrollbtns`, see below) sits outside every width tier and every media
-query — it's the swipe-down insurance and context menu, unrelated to
-layout. Font/tap sizing is untouched by width tiers.
+query — it's the context menu, unrelated to layout, and starts collapsed
+(only the ellipsis) with its mode remembered per page in localStorage.
+Font/tap sizing is untouched by width tiers.
 
 The page title and the header's lead word are both the **board name** —
 `config.yaml`'s top-level `name:`, the token that qualifies every card mention,
@@ -220,15 +221,20 @@ tray at the bottom of the page.
 
 ## Mobile viewer notes (learned the hard way)
 
-- The Claude mobile app dismisses the HTML viewer on swipe-down, so the editor
-  ships a fixed scroll-button stack — do not remove it. The stack IS the
-  context menu, and the ⋯ cycles THREE modes:
-  **medium** (default: ▲ ▼ ⋯) → **extended** (the full context — no pop-up:
-  ＋ ⤒ ⤓; card pop-up open: Archive/Delete SVG buttons
-  ⤒ ⤓, no ＋; delete arms red on first tap, fires on second) → **off** (only
-  ⋯, everything hidden incl. the ✕ — backdrop/Esc still close) → medium. An ✕
-  rides above the ⋯ in medium/extended whenever a pop-up is open
-  and the scroll buttons drive the pop-up's scroll area instead of the board.
+- The Claude mobile app used to dismiss the HTML viewer on swipe-down; that
+  dismissal no longer happens on either delivery route (file preview or the
+  Board artifact, verified 2026-09-04/05), so the fixed scroll-button stack is
+  no longer insurance — it stays on as the context menu. It starts collapsed
+  (only ⋯ visible) on every page load, on every device, and the ⋯ cycles
+  THREE modes: **off** (default and starting state: only the ellipsis; even the
+  ✕ stays hidden — backdrop/Esc still close an open pop-up) → **medium** (▲ ▼
+  ⋯) → **extended** (the full context — no pop-up: ＋ ⤒ ⤓; card
+  pop-up open: Archive/Delete SVG buttons ⤒ ⤓, no ＋; delete arms red
+  on first tap, fires on second) → off. The chosen mode is remembered per
+  page in localStorage (key kanbanViewer.stackMode; a private window or
+  blocked storage falls back to off). An ✕ rides above the ⋯ in
+  medium/extended whenever a pop-up is open, and the scroll buttons drive
+  the pop-up's scroll area instead of the board.
   The header also carries a 🔔 with an unread badge: tapping it
   opens a read-only notifications sheet rendered per the notifications
   contract (TLDR bold, level tints, unread accent) from the embedded
