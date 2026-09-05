@@ -273,6 +273,7 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--
 #scrollbtns button{width:46px;height:46px;border-radius:50%;font-size:19px;line-height:1;padding:0;background:var(--surface);border:1px solid var(--ring);color:var(--ink2);box-shadow:0 1px 4px rgba(0,0,0,.18)}
 #scrollbtns button svg{display:block;margin:auto}
 #scrollbtns button.armed{border-color:var(--high);color:var(--high)}
+#scrollbtns button.off{opacity:.4}
 button{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:7px 13px;color:var(--ink);font-size:13px;cursor:pointer}
 button:active{transform:scale(.98)}
 input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:15px;width:100%}
@@ -312,6 +313,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .nrow.nlv-warning{border-color:var(--warn)}
 .nrow.nlv-error{border-color:var(--high)}
 .nmeta{font-size:11px;color:var(--muted);margin-top:4px}
+.boardcol.drag-over{outline:2px dashed var(--accent);outline-offset:-2px}
 .colh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink2);padding:12px 2px 5px;border-bottom:1px solid var(--grid);cursor:pointer;-webkit-user-select:none;user-select:none}
 .chev{font-size:11px;color:var(--muted);width:12px;flex:none}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
@@ -517,6 +519,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 </div>
 <div id="scrollbtns">
 <button id="snew" aria-label="New card" style="display:none">&#43;</button>
+<button id="sdrag" aria-label="Drag on/off" style="display:none"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg></button>
 <button id="sarch" aria-label="Archive card" style="display:none"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l1.5-3h15L21 7"/><path d="M3 7h18v13H3z"/><path d="M12 10.5v5.5"/><path d="M9 13.5l3 3 3-3"/></svg></button>
 <button id="sdel" aria-label="Delete card" style="display:none"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v5"/><path d="M14 11v5"/></svg></button>
 <button id="stop" aria-label="Scroll to top" style="display:none">&#10514;</button>
@@ -718,6 +721,7 @@ const ro=detail&&!!c.arch;
 const un=unresolved(c),br=blkReason(c),rr=rvReason(c);
 const d=el("div","card"+(selc&&!detail?" sel":"")+(isProv(c.id)?" prov":""));
 d.dataset.card=c.id;
+if(!detail&&!c.arch)d.draggable=true;
 d.appendChild(el("span","cid",isProv(c.id)?"#new":"#"+c.id));
 if(c.p==="High")d.appendChild(el("span","badge","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
@@ -834,6 +838,7 @@ COLS.filter(col=>isVis(col)).forEach(col=>{
 const cs=view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s))));
 const open=!!colOpen[col];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
+wrap.dataset.status=col;
 const h=el("div","colh");
 h.dataset.coltoggle=col;
 h.appendChild(el("span","chev",open?"\\u25be":"\\u25b8"));
@@ -1424,6 +1429,10 @@ const sc=$("scroll");
 // 2 extended (the full context menu) -> 0. The chosen mode persists per
 // page in localStorage (try/catch; anything but 0/1/2 falls back to 0).
 let stackMode=(()=>{try{const v=Number(localStorage.getItem("kanbanViewer.stackMode"));return v===0||v===1||v===2?v:0}catch(e){return 0}})();
+// Drag switch (kanban.proj #241): default on; only a stored "0" turns it
+// off, so a missing key or a blocked/throwing localStorage still reads on.
+let dragOn=(()=>{try{return localStorage.getItem("kanbanViewer.drag")!=="0"}catch(e){return true}})();
+let dragOverCol=null;
 const modalOpen=()=>{const m=$("modal");return !!(m&&m.style.display!=="none")};
 const scTgt=()=>modalOpen()?$("modalscroll"):sc;
 function syncStack(){
@@ -1438,6 +1447,8 @@ $("sarch").style.display=(ext&&cardCtx)?"":"none";
 $("sdel").style.display=(ext&&cardCtx)?"":"none";
 $("stop").style.display=ext?"":"none";
 $("sbot").style.display=ext?"":"none";
+$("sdrag").style.display=ext?"":"none";
+$("sdrag").classList.toggle("off",!dragOn);
 $("sup").style.display=med?"":"none";
 $("sdn").style.display=med?"":"none";
 $("mclose").style.display=(med&&mo)?"":"none";
@@ -1508,7 +1519,43 @@ const c=card?find(card.dataset.card):null;
 if(!c||c.arch){if(ctxMenuEl)closeCtxMenu();return}
 e.preventDefault();
 openCtxMenu(c.id,e.clientX,e.clientY)});
+// Pointer drag (kanban.proj #241): native HTML5 DnD, gated live per-event on
+// fineMQ + the Drag switch exactly like the right-click menu above -- never
+// decided once at load. Cards keep the draggable attribute unconditionally
+// (see cardNode) so a coarse-pointer or Drag-off dragstart still fires; the
+// gate cancels it right there with no queued op and no visible drag. A drop
+// routes through the SAME queue() path the status pill and "Move to" rows
+// use, so it inherits the doing entry gate for free. No touch/pointer
+// handlers are registered here -- touch drag is card 242's, deliberately.
+document.body.addEventListener("dragstart",e=>{
+const card=e.target.closest("#board [data-card]");
+const c=card?find(card.dataset.card):null;
+if(!c||c.arch||!fineMQ.matches||!dragOn){e.preventDefault();return}
+e.dataTransfer.setData("text/plain",String(c.id));
+e.dataTransfer.effectAllowed="move"});
+document.body.addEventListener("dragover",e=>{
+const col=e.target.closest("#board .boardcol[data-status]");
+if(!col)return;
+e.preventDefault();
+e.dataTransfer.dropEffect="move";
+if(dragOverCol!==col){if(dragOverCol)dragOverCol.classList.remove("drag-over");dragOverCol=col;col.classList.add("drag-over")}});
+document.body.addEventListener("dragleave",e=>{
+const col=e.target.closest("#board .boardcol[data-status]");
+if(!col||col!==dragOverCol||col.contains(e.relatedTarget))return;
+col.classList.remove("drag-over");dragOverCol=null});
+document.body.addEventListener("drop",e=>{
+const col=e.target.closest("#board .boardcol[data-status]");
+if(!col)return;
+e.preventDefault();
+if(dragOverCol){dragOverCol.classList.remove("drag-over");dragOverCol=null}
+const id=e.dataTransfer.getData("text/plain");
+const c=id?find(id):null;
+const to=col.dataset.status;
+if(!c||c.s===to)return;
+queue({op:"move",id:id,to:to});pillEd=null;render()});
+document.body.addEventListener("dragend",()=>{if(dragOverCol){dragOverCol.classList.remove("drag-over");dragOverCol=null}});
 $("smore").addEventListener("click",()=>{stackMode=(stackMode+1)%3;try{localStorage.setItem("kanbanViewer.stackMode",String(stackMode))}catch(e){}syncStack()});
+$("sdrag").addEventListener("click",()=>{dragOn=!dragOn;try{localStorage.setItem("kanbanViewer.drag",dragOn?"1":"0")}catch(e){}syncStack()});
 $("mclose").addEventListener("click",closeCard);
 $("sarch").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;queue({op:"archive",id:sel});sel=null;delArm=null;pillEd=null;render()});
 $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;

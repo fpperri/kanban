@@ -359,13 +359,26 @@ test('the contextmenu listener checks fineMQ.matches FIRST, before resolving a c
   assert.ok(gateIdx < preventIdx, 'the fineMQ gate must run before preventDefault, not after');
 });
 
-test('preventDefault is called exactly once in the whole template, and only inside the gated contextmenu listener — no unconditional contextmenu interception exists anywhere', () => {
-  const matches = src.match(/\.preventDefault\(\)/g) || [];
-  assert.strictEqual(matches.length, 1, 'expected exactly one preventDefault() call in the whole template');
-  const ctxStart = src.indexOf('document.body.addEventListener("contextmenu"');
-  const ctxEnd = src.indexOf('});', ctxStart);
-  assert.ok(src.indexOf('.preventDefault()') > ctxStart && src.indexOf('.preventDefault()') < ctxEnd,
-    'the sole preventDefault() call must live inside the contextmenu listener');
+test('preventDefault is called only inside pointer-gated listeners (contextmenu, dragstart, dragover, drop) — no unconditional interception exists anywhere', () => {
+  const matches = [...src.matchAll(/\.preventDefault\(\)/g)];
+  assert.strictEqual(matches.length, 4, 'expected exactly four preventDefault() calls: the contextmenu gate, and dragstart/dragover/drop for pointer drag (kanban.proj #241)');
+  const spans = [
+    ['document.body.addEventListener("contextmenu"', 'openCtxMenu(c.id,e.clientX,e.clientY)});'],
+    ['document.body.addEventListener("dragstart"', 'e.dataTransfer.effectAllowed="move"});'],
+    ['document.body.addEventListener("dragover"', 'col.classList.add("drag-over")}});'],
+    ['document.body.addEventListener("drop"', 'pillEd=null;render()});'],
+  ];
+  const ranges = spans.map(([startMarker, endMarker]) => {
+    const start = src.indexOf(startMarker);
+    assert.ok(start !== -1, `listener not found: ${startMarker}`);
+    const end = src.indexOf(endMarker, start);
+    assert.ok(end !== -1, `listener end not found: ${endMarker}`);
+    return [start, end + endMarker.length];
+  });
+  matches.forEach((m) => {
+    const inSomeRange = ranges.some(([s, e]) => m.index >= s && m.index < e);
+    assert.ok(inSomeRange, `preventDefault() at offset ${m.index} is outside all known gated listeners`);
+  });
 });
 
 test('the contextmenu listener resolves the target to a live (non-archived) board card before doing anything — archived cards and non-card targets fall through untouched', () => {
