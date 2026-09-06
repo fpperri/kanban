@@ -94,9 +94,13 @@ function createServer(dir) {
         const archived = cs.listArchived(dir);
         const bad = [...active, ...archived].filter((c) => c.unparseable);
         if (bad.length) console.warn(`[kanban-app] skipping ${bad.length} unparseable card(s): ${bad.map((c) => path.basename(c.file)).join(', ')}`);
-        const config = cfg.readConfig(dir); // one read carries assignees + official lists
+        const config = cfg.readConfig(dir); // one read carries the board name, assignees + official lists
         return sendJSON(res, 200, {
-          projectName: cs.projectName(dir),
+          // The BOARD NAME: config.yaml's human-declared `name:` when present,
+          // else the parent-folder derivation. Wire name kept as projectName —
+          // it is also the localStorage namespace for every per-board view
+          // preference, so renaming the field would orphan saved state.
+          projectName: config.name || cs.projectName(dir),
           // the header copy button copies the board dir's ABSOLUTE
           // path — resolve()d because the CLI defaults dir to a relative
           // '.kanban'/'kanban' (resolveDefaultBoardDir()), and a relative

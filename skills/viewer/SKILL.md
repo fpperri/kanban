@@ -19,10 +19,14 @@ as defined in the kanban skill's SKILL.md.
 ## Generating the editor
 
 ```bash
-python3 <SCRIPTS_DIR>/build_editor.py <kanban-directory> [--out kanban-viewer.html] \
+python <SCRIPTS_DIR>/build_editor.py <kanban-directory> [--out kanban-viewer.html] \
     [--base-label "Jul 11, 3:08 pm CT"] [--base-iso 2026-07-11T20:08Z]
 ```
 
+- `python`, not `python3`. On Windows `python3` is usually the Microsoft Store's
+  App Installer redirector, an alias stub that opens an install page instead of
+  running the script (`py -3` also works there). Substitute `python3` only on a
+  macOS/Linux box where that is the sole interpreter name.
 - `kanban-directory` — path to the card files, always passed explicitly (the
   script takes no default). When the human hasn't already named it, locate it
   the same way as the other surfaces: `.kanban/` is the preferred board
@@ -194,7 +198,14 @@ screen size and a mouse/trackpad loses them regardless of screen size
 query — it's the swipe-down insurance and context menu, unrelated to
 layout. Font/tap sizing is untouched by width tiers.
 
-The header line (`.hdr`: project name, base label, "N pending" pill,
+The page title and the header's lead word are both the **board name** —
+`config.yaml`'s top-level `name:`, the token that qualifies every card mention,
+falling back to the folder above the board directory when the board hasn't
+declared one (`read_board_name()`; only an UNINDENTED `name:` counts, since each
+assignee entry carries its own indented one). The value is HTML-escaped and
+substituted last, so a name can never smuggle in another template token.
+
+The header line (`.hdr`: board name, base label, "N pending" pill,
 🔔) is `position:sticky` at the top of `#scroll` at **every** width, not
 just >=900px — it's the one piece of chrome deliberately exempted from
 the width-tier split above. A scroll listener on `#scroll` toggles a

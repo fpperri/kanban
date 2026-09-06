@@ -73,13 +73,24 @@ test('GET /api/board returns active + archived', async () => {
   });
 });
 
-test('GET /api/board exposes projectName — the folder above the board dir', async () => {
+test('GET /api/board falls back to the folder above the board dir when no name: is declared', async () => {
   const dir = tmpBoard();
   const expected = path.basename(path.dirname(dir));
   await withServer(dir, async (base) => {
     const res = await fetch(`${base}/api/board`);
     const data = await res.json();
     assert.strictEqual(data.projectName, expected);
+  });
+});
+
+test("GET /api/board exposes the board name — config.yaml's declared name: wins over the parent folder", async () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: webapp   # board name for card mentions\nnextId: 3\n');
+  await withServer(dir, async (base) => {
+    const res = await fetch(`${base}/api/board`);
+    const data = await res.json();
+    assert.strictEqual(data.projectName, 'webapp');
+    assert.notStrictEqual(data.projectName, path.basename(path.dirname(dir)));
   });
 });
 
@@ -878,13 +889,19 @@ test('index html has no leftover bottom Archive drawer — Archive is a column n
   });
 });
 
-test('index html has a project-name placeholder span inside the heading for the client to fill in', async () => {
+test('the heading is the project-name span alone — no "Kanban" label in front of it — and the client fills it with the bare board name', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const html = await (await fetch(`${base}/`)).text();
     // the tail is deliberately loose: the copy-board-path button follows the
     // span inside the h1 (its own contract lives in the copy-button test below).
-    assert.match(html, /<h1>Kanban<span id="project-name"[^>]*><\/span>/);
+    assert.match(html, /<h1><span id="project-name"[^>]*><\/span>/);
+    assert.doesNotMatch(html, /<h1>Kanban/, 'the app is a kanban; the heading names the board, not the app');
+    const js = await (await fetch(`${base}/app.js`)).text();
+    assert.match(js, /\$\('#project-name'\)\.innerHTML = name \? escapeHtml\(name\) : 'Kanban'/,
+      'the span carries the bare name (no " — " suffix shape); "Kanban" only as the no-name fallback');
+    assert.match(js, /document\.title = name \? `\$\{name\} — Kanban` : 'Kanban App'/,
+      'the tab title keeps the app named once, after the board name');
   });
 });
 
@@ -1471,10 +1488,10 @@ test('column headers carry a + quick-create button — gated by showsColumnAdd, 
 test('header title carries a copy-board-path button — payload boardDir, clipboard ladder with the execCommand fallback, toast feedback', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
-    // The button lives inside the h1 so it rides right beside the
-    // "Kanban — project" title wherever the flex header wraps.
+    // The button lives inside the h1 so it rides right beside the board-name
+    // title wherever the flex header wraps.
     const html = await (await fetch(`${base}/`)).text();
-    assert.match(html, /<h1>Kanban<span id="project-name"[^>]*><\/span>[^<]*<button[^>]*id="board-copy-btn"/,
+    assert.match(html, /<h1><span id="project-name"[^>]*><\/span>[^<]*<button[^>]*id="board-copy-btn"/,
       'copy button sits inside the h1, after the project-name span');
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /state\.boardDir = data\.boardDir \|\| ''/, 'applyBoardData stores the payload boardDir');

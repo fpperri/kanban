@@ -750,6 +750,10 @@ write-up is CONTEXT.md's Role trio glossary. What follows is how *this app* read
 file. Optional, human-edited, per board:
 
 ```yaml
+name: webapp              # BOARD NAME — heading, tab title, and the qualifier in
+                          # every card mention (`webapp#28 Card title`). Must precede the
+                          # assignees block: those entries carry their own INDENTED
+                          # `name:`, and only a top-level key is the board name.
 nextId: 28                # monotonic id counter; ids stay unique even when the
                           # max card is deleted or two writers race a max+1 scan
 assignees:                # who can own cards; feeds the form's assignee combobox
@@ -774,6 +778,15 @@ statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
 This app is config-driven and doesn't enforce the grab semantics — it renders whatever
 handle a card carries.
 
+- **`name`** IS the app heading — the board name alone, no app label in front of it
+  (the app is a kanban; a "Kanban —" prefix only buried the one token that tells
+  boards apart) — and it leads the tab title (`<name> — Kanban`, the app named once
+  so side-by-side tabs stay tellable apart). Absent, both fall back to
+  the **folder above the board directory** — a display default, not a name. The app
+  only reads it: renaming a board is a human edit to `config.yaml`, and the first AI
+  to service a nameless board seeds the key (`/kanban`'s SKILL.md carries that
+  seeding rule). The value also namespaces this board's `localStorage` view
+  preferences, so a rename resets collapse/sort/view state once, by design.
 - **`priorities`** (ordered, highest first) drives everything positional: sort rank
   (unknown values sort after all known ones, ties by id), the form's priority combobox,
   and badge emphasis (first = hot red, last of a 3+ list = muted, middle/unknown =

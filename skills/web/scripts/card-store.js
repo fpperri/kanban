@@ -98,8 +98,11 @@ function capSlug(slug, max = FILENAME_SLUG_MAX) {
   return (cut > 0 ? s.slice(0, cut) : s.slice(0, max)).replace(/-+$/, '');
 }
 
-// Project name for the app heading/tab title: the folder ABOVE the given board dir,
-// whatever the board dir itself is named. resolve() first so a relative arg (the
+// FALLBACK board name for the app heading/tab title: the folder ABOVE the given
+// board dir, whatever the board dir itself is named. The board's real name is
+// config.yaml's `name:` (config-store) — this derivation only stands in when the
+// board has not declared one, and a derived value is a display default, not a
+// name a card mention may be qualified with. resolve() first so a relative arg (the
 // server's default — resolveDefaultBoardDir()'s `.kanban`/`kanban` discovery)
 // derives from the real parent, not '.'.
 // Rule is a plain parent-basename, uniformly — including when the board dir isn't

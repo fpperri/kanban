@@ -11,12 +11,24 @@ plugin must use.
 The whole kanban — every `*.card.md` file in a board directory (`.kanban/`, the preferred convention; `kanban/` is a supported legacy fallback — discovery order: `.kanban/` first, then `kanban/`), grouped by status. There is no board file; the board is derived by reading the cards.
 _Avoid_: project, list.
 
+**Board name**:
+The short name that qualifies a card mention: the `name:` value in the board's `config.yaml`, one token with no whitespace and no `#`. Declared by the human once, never derived at read time, and shown identically on every surface (web heading and tab, cli board header, viewer title, kanban-afk's `<board>` in prose and in the `(board #id)` commit tag). A board without a name cannot be mentioned across boards; the first AI to service it seeds one from the folder that holds the board's home and notifies the human, who may rename it.
+_Avoid_: project name, repo name, parent folder (they usually coincide; the rule is the declared value).
+
 **Card**:
 One work item, stored as a single `<0000-id>.<slug>.card.md` file (frontmatter + Markdown body; the 4-digit-padded id prefix makes files sort by card id — the frontmatter `id` stays the source of truth, and unprefixed legacy names still work). The card file is the unit of identity, source of truth, and persistence.
 _Avoid_: task, ticket, item, issue.
 
+**Card mention**:
+How a card is referred to in prose written for a human: one code span holding the board qualifier, the id and the card's title verbatim — `` `board#id title` `` — every time. The span draws the boundary: a reader sees where the title ends and the sentence resumes. Inside the span the title drops any backticks of its own (nested code does not render); its words never change. The title may be dropped only on a repeat within the same paragraph or bullet, leaving `` `board#id` ``; the board qualifier is never dropped, even on the card's own board. Nothing else is written as a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The title is never paraphrased in place of itself.
+_Avoid_: the title outside the span (`` `board#id` `` Title), bare `#N`, a paraphrase where the title belongs, `#N` for anything that is not a card.
+
+**Title**:
+The card's H1, the only stored name, and what a mention carries. It must identify the card out of context: a noun phrase of roughly seventy characters or fewer; an `area:` prefix is allowed but the remainder must stand alone. An AI that services a card may retitle it to meet this bar; done and archived cards keep their titles. The filename slug never follows a retitle.
+_Avoid_: a prompt as a title, a verb-only fragment ("fix", "follow-up"), a second short-title or identifier field.
+
 **Narrative Entry Shape**:
-The scan-optimized format for every bullet in a card's `## Narrative` section: a **bold, verb-first TL;DR** (≤10 words, ends with a period), 1–2 plain supporting sentences, every identifier backticked (card ids, commits, filenames, branches), one event per bullet, and no sub-bullets or wrapped continuation lines. It exists because readers scan rather than read, and the web renderer flattens nested bullets to siblings and breaks on continuation lines — the shape is a rendering constraint, not just a style preference. Entries are forward-only: never rewritten to match. Full rules in `skills/kanban/SKILL.md`'s "Narrative Record" section.
+The scan-optimized format for every bullet in a card's `## Narrative` section: a **bold, verb-first TL;DR** (≤10 words, ends with a period), 1–2 plain supporting sentences, every identifier backticked (card ids, commits, filenames, branches), one event per bullet, and no sub-bullets or wrapped continuation lines. Card ids inside a bullet follow the **Card mention** rule. It exists because readers scan rather than read, and the web renderer flattens nested bullets to siblings and breaks on continuation lines — the shape is a rendering constraint, not just a style preference. Entries are forward-only: never rewritten to match. Full rules in `skills/kanban/SKILL.md`'s "Narrative Record" section.
 _Avoid_: fusing multiple events into one bullet, sub-bullets or nested lists, rewriting old entries to the new shape.
 
 **Status** (a.k.a. **Column**):

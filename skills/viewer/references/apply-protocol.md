@@ -96,6 +96,8 @@ write them as-is. Refresh `updated:` on any fm write.
    `level:` (`info` normally; `warning` when ops were skipped, `error` when
    the whole payload failed); a TLDR-first `message` — one plain sentence,
    then `; more: ` enumerating what changed per op (applied/skipped + why).
+   Card ids in that text — and in the step-6 reply — follow the **Card mention**
+   rule: one code span, `` `board#id title` ``, the board being its `name:` value.
 6. **Close the loop:** reply with per-op results (applied / skipped + why),
    regenerate the editor with a fresh base stamp, redeliver it. If a board
    dashboard artifact exists downstream, refresh it too.

@@ -1272,9 +1272,14 @@ async function fetchBoard() {
 // there directly — running it through escapeHtml first would show literal "&amp;"
 // entities in the tab instead of "&". The heading span IS DOM markup (innerHTML), so
 // it gets escapeHtml like every other filesystem/card-derived string in this file.
-// Project name leads the tab title (not the heading) because that's the field that
-// gets truncated when several kanban tabs are open side by side — the whole point
-// is telling those tabs apart at a glance.
+// The BOARD NAME IS the heading — no app label in front of it: the app is a kanban,
+// and a "Kanban —" prefix only buried the one token that tells boards apart. It also
+// leads the tab title, the field that gets truncated when several kanban tabs sit
+// side by side (the app is named once there, after the name). It arrives from
+// /api/board already
+// resolved: config.yaml's declared `name:`, else the parent-folder fallback. The
+// state field keeps its projectName spelling — it is also the localStorage
+// namespace for every per-board view preference.
 function applyProjectName(name) {
   const next = name || '';
   if (next !== state.projectName) {
@@ -1297,7 +1302,7 @@ function applyProjectName(name) {
   }
   state.projectName = next;
   document.title = name ? `${name} — Kanban` : 'Kanban App';
-  $('#project-name').innerHTML = name ? ` — ${escapeHtml(name)}` : '';
+  $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
 
 function applyBoardData(data) {
