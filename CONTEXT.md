@@ -71,6 +71,14 @@ _Avoid_: browse, TUI.
 The human's tap surface — a generated single-file HTML board that works where web can't reach (phone, tablet, Cowork). Changes don't touch disk: they queue in a tray and come back as an "Apply kanban changes" payload that Claude applies under the `kanban` skill's write contracts.
 _Avoid_: remote, editor (it renders and queues; Claude writes).
 
+**Board artifact** (delivery of the **Viewer**):
+The Viewer published as a hosted page at one stable URL: exactly one per board, refreshed in place by whichever session next builds the Viewer, never a new page per session or per request. Each refresh is a snapshot stamped with its base moment; earlier snapshots stay in the page's version history. It is board-keyed, not session-keyed: the URL is recorded on the board itself (`config.yaml`), seeded by the session that first publishes and announced by notification, the same way a board name is seeded. Not a surface: it is the Viewer, delivered where the harness can host a page.
+_Avoid_: "the artifact" unqualified, viewer artifact, session artifact, a page per session.
+
+**Base**:
+The moment a Viewer build embeds: the snapshot timestamp shown in the page header and carried in every change payload, so Claude can tell whether the board moved after the human looked at it. A Board artifact refresh replaces one base with a newer one; earlier bases remain as the page history.
+_Avoid_: version (that is the page history), snapshot date, timestamp unqualified.
+
 ## Role trio
 
 The canonical assignee tiers on every board and surface — this is the ONE
