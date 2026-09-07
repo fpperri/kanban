@@ -295,13 +295,16 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   backgrounding, not just on a real dismissal, so the exit copy puts the
   human's focus, text selection and scroll offset back afterwards — coming
   back to the page must look exactly like leaving it.
-  Verified: `beforeunload`'s prompt on a plain browser tab (long-standing
-  browser behavior, not independently retested
-  here). NOT verified: whether the same prompt fires when the HTML is opened
-  as a Claude Artifact in a browser, and — the case that actually motivated
-  the extra two events — whether `pagehide`/`visibilitychange` fire (and the
-  best-effort copy lands) when the Claude mobile app dismisses the view;
-  both need a human check on a real device.
+  Host support, measured rather than assumed: the prompt fires for the
+  HTML file opened from disk in a desktop browser, and does NOT fire for
+  the same build opened through its Artifact link, because the artifact
+  host renders the page in a sandboxed frame that cannot raise the native
+  dialog. On the Artifact surface the best-effort clipboard copy is
+  therefore the whole of the protection, so keep it working even if the
+  prompt is ever dropped. Still unverified: whether
+  `pagehide`/`visibilitychange` fire at all, and whether the copy lands,
+  when the Claude mobile app dismisses the view — the case that motivated
+  the extra two events, and the one that needs a real device.
 - All card text is rendered via `textContent` (never string-built HTML) — card
   titles and bodies are user data; keep it XSS-safe by construction.
 - Desktop right-click card menu (not the mobile scroll-button stack above,

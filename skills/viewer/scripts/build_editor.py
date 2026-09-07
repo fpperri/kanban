@@ -1751,10 +1751,16 @@ if(sel!==null||creating||notifView)closeCard()}});
 //   - plain browser tab: beforeunload's confirm-exit prompt is a
 //     long-standing, well-supported browser feature; expected to fire
 //     reliably here. NOT independently re-verified in this change.
-//   - the SAME html file opened as a Claude Artifact, in a browser: from
-//     the browser's point of view this is still an ordinary tab, so
-//     beforeunload should behave the same as the plain-tab case above --
-//     NOT independently verified in this change.
+//   - the SAME html file opened as a Claude Artifact, in a browser:
+//     MEASURED BY FRANC, 2026-09-07 -- the prompt does NOT fire here,
+//     though it does fire for the same file opened from disk in the same
+//     browser. The artifact host renders the page inside a sandboxed
+//     frame, and a frame without allow-modals cannot raise the native
+//     confirm-exit dialog; the page also never owns the tab's own unload.
+//     So on the surface franc actually uses, the prompt half of this
+//     guard is inert and the best-effort clipboard copy below is the
+//     only protection. Do not 'fix' this by asking for the prompt back:
+//     it is the host's call, not the page's.
 //   - the Claude mobile app's embedded viewer: this is the host that
 //     motivated pagehide/visibilitychange in the first place (see the
 //     #250/#252 field notes above) -- beforeunload is NOT expected to fire
