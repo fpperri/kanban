@@ -252,7 +252,11 @@ tray at the bottom of the page.
   tray's Copy changes button, through the same shared clipboard helper, so a
   human who only ever taps the pill still leaves with the payload copied. A
   blocked copy never blocks the scroll: it sets the tray note instead, telling
-  the human to use the text box below. The card
+  the human to use the text box below, and a later successful copy clears that
+  note again so the tray never reads "Copied" and "Copy blocked" at once.
+  A blocked `execCommand` copy RETURNS FALSE rather than throwing, so the helper
+  reads its return value — a bare try/catch would report every blocked copy
+  as a success. The card
   pop-up leads with a status/assignee/priority pill row — tap a pill to edit
   that field, tap the title to rename — and keeps
   the description dead last. New-card creation happens in the same

@@ -57,3 +57,15 @@ test('a failed pill copy sets the existing note state and never skips the scroll
   assert.ok(scrollAt !== -1 && copyAt !== -1 && scrollAt < copyAt, 'the scroll call must be issued before the (possibly async/failing) copy attempt so a copy failure cannot prevent it');
   assert.match(handler, /note=/, 'a failed copy must set the note so the human is told to use the text box below');
 });
+
+test('a blocked execCommand copy is reported as a FAILURE — execCommand returns false rather than throwing, so its return value must decide ok/bad', () => {
+  const fn = sliceFrom('function copyPayload(onDone){', '\nelse fallback()}');
+  assert.match(fn, /execCommand\("copy"\)\?ok\(\):bad\(\)/, 'the fallback must branch on execCommand\'s boolean return, not assume success');
+  assert.ok(!/execCommand\("copy"\);ok\(\)/.test(fn), 'calling ok() unconditionally after execCommand would report every blocked copy as copied');
+});
+
+test('a later successful pill copy clears its own "Copy blocked" note, so the tray can never read Copied and Copy blocked at the same time', () => {
+  const handler = sliceFrom('$("pill").addEventListener("click",', ')})});');
+  assert.match(handler, /const m="Copy blocked/, 'the blocked-note text must be held in one place so success can match on it');
+  assert.match(handler, /if\(!ok\)note=m;else if\(note===m\)note=""/, 'success must clear the note only when it is this handler\'s own blocked note — queue() notes must survive');
+});

@@ -902,7 +902,10 @@ return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.str
 // chain -- async Clipboard API first, then focusing/selecting the hidden
 // #payload textarea and running the execCommand copy command for browsers
 // (and the Claude mobile app's embedded viewer) that don't expose the async
-// API. onDone(ok) always fires, synchronously on the execCommand path or async on
+// API. execCommand REPORTS a blocked copy by RETURNING FALSE rather than
+// throwing, so its return value -- not just a try/catch -- is what decides
+// ok/bad; a catch alone would report every blocked copy as a success.
+// onDone(ok) always fires, synchronously on the execCommand path or async on
 // the Clipboard API path, so callers can react to failure (the pill sets a
 // note; the tray leans on the existing `copied` flag/hint) without
 // duplicating the copy logic itself.
@@ -910,7 +913,7 @@ function copyPayload(onDone){
 const txt=payload();
 const ok=()=>{copied=true;if(onDone)onDone(true)};
 const bad=()=>{if(onDone)onDone(false)};
-const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy");ok()}catch(err){bad()}};
+const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
 else fallback()}
 // New-card form: renders inside the pop-up sheet; nothing joins
@@ -1585,9 +1588,13 @@ $("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=
 // gets the payload on their clipboard -- the scroll-to-tray behavior is
 // unchanged and always runs, even if the copy itself fails, so a blocked
 // clipboard never strands the human without a way to see the payload.
+// A later SUCCESSFUL copy clears its own blocked-note again, so the tray
+// can never read "Copied" and "Copy blocked" at the same time; notes set
+// by queue() (a blocked move, say) are left alone.
 $("pill").addEventListener("click",()=>{if(!ops.length)return;
 sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"});
-copyPayload(ok=>{if(!ok)note="Copy blocked \\u2014 use the text box below to copy the payload";render()})});
+copyPayload(ok=>{const m="Copy blocked \\u2014 use the text box below to copy the payload";
+if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
 $("q").addEventListener("input",()=>{
 focusRoot=null;
