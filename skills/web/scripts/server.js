@@ -38,17 +38,106 @@ const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
 // address actually typed/loaded).
 const ALLOWED_HOST_RE = /^(localhost|127\.0\.0\.1)(:\d+)?$/i;
 const ALLOWED_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+const NO_EXTRA_ORIGINS = new Set();
 
-function originAllowed(req) {
+// card #253: an opt-in allowlist of EXACT extra origins (a VS Code Remote
+// Tunnel relay, say), additive to the loopback rule above and never a
+// substitute for it — the Host check above is untouched. Default empty, so a
+// server started without --allow-origin/KANBAN_WEB_ALLOWED_ORIGINS is
+// byte-for-byte the guard that existed before this. `origin` is compared
+// after normalizing through `new URL(origin).origin` against entries already
+// normalized the same way at startup (parseAllowedOrigins below) — exact
+// string equality only, so a subdomain or superstring of an allowed origin
+// never matches.
+function originMatches(origin, extraOrigins) {
+  if (ALLOWED_ORIGIN_RE.test(origin)) return true;
+  if (!extraOrigins.size) return false;
+  try {
+    // An opaque-origin URL (file:, data:, about:, a sandboxed blob:) has the
+    // literal string "null" as its origin, and so does every other one — so
+    // "null" must never be a usable key here or one entry would admit them
+    // all. parseAllowedOrigins refuses to build such an entry; this is the
+    // matching-side half of the same rule, for a Set built any other way.
+    const normalized = new URL(origin).origin;
+    return normalized !== 'null' && extraOrigins.has(normalized);
+  } catch (_) { return false; }
+}
+
+function originAllowed(req, extraOrigins = NO_EXTRA_ORIGINS) {
   const host = req.headers.host;
   if (host && !ALLOWED_HOST_RE.test(host)) return false;
   const origin = req.headers.origin;
-  if (origin !== undefined) return ALLOWED_ORIGIN_RE.test(origin);
+  if (origin !== undefined) return originMatches(origin, extraOrigins);
   const referer = req.headers.referer;
   if (referer) {
-    try { return ALLOWED_ORIGIN_RE.test(new URL(referer).origin); } catch (_) { return false; }
+    try { return originMatches(new URL(referer).origin, extraOrigins); } catch (_) { return false; }
   }
   return true;
+}
+
+// Normalizes CLI `--allow-origin` values (repeated) and the
+// `KANBAN_WEB_ALLOWED_ORIGINS` env var (comma-separated) into one Set of
+// origins, merging both sources. Each entry is run through `new URL(entry).origin`
+// once here at startup — the same normalization applied to the incoming
+// request's Origin/Referer in originMatches above, so the comparison is
+// exact-string. An entry that doesn't parse as a URL is a startup
+// configuration mistake, not a security-relevant one to paper over: silently
+// dropping it would leave the allowlist quietly narrower than what the
+// operator configured, and the failure mode (a tunnel origin that never gets
+// through) would only surface later as confusing 403s. Failing loudly here,
+// before the server ever binds, is the honest behavior.
+function parseAllowedOrigins(cliOrigins, envValue) {
+  const raw = [...(cliOrigins || [])];
+  if (envValue) raw.push(...String(envValue).split(','));
+  const origins = new Set();
+  for (const entry of raw) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    let parsed;
+    try { parsed = new URL(trimmed); } catch (_) {
+      throw new Error(`invalid allowed origin ${JSON.stringify(trimmed)} (--allow-origin / KANBAN_WEB_ALLOWED_ORIGINS)`);
+    }
+    // Only http(s) has an origin worth comparing. A file:/data:/about: entry
+    // normalizes to the string "null" — which is the origin of EVERY
+    // opaque-origin URL, so one such entry would quietly admit any file://
+    // page or data: document the browser hands us, far wider than the
+    // operator asked for. Refuse it at the door.
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error(`invalid allowed origin ${JSON.stringify(trimmed)}: only http:// and https:// origins can be allowlisted (--allow-origin / KANBAN_WEB_ALLOWED_ORIGINS)`);
+    }
+    origins.add(parsed.origin);
+  }
+  return origins;
+}
+
+// Pulls repeated `--allow-origin <origin>` flags out of a CLI argv slice
+// (already past `node script.js`), returning their values plus every other
+// argument in original relative order. This keeps the existing positional
+// board-dir/port arguments (`process.argv[2]`/`[3]`) working unchanged
+// whether --allow-origin is absent, or present before/after/between them.
+function extractAllowOriginArgs(argv) {
+  const origins = [];
+  const rest = [];
+  const EQ = '--allow-origin=';
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--allow-origin') {
+      i += 1;
+      if (i >= argv.length) throw new Error('--allow-origin requires a value');
+      origins.push(argv[i]);
+    } else if (arg.startsWith(EQ)) {
+      // The `=` spelling has to be understood, not fall through to `rest`:
+      // `server.js <dir> --allow-origin=https://x` would otherwise start a
+      // server with an EMPTY allowlist and no complaint, leaving the operator
+      // to debug 403s against a guard they believe they widened.
+      const value = arg.slice(EQ.length);
+      if (!value) throw new Error('--allow-origin requires a value');
+      origins.push(value);
+    } else {
+      rest.push(arg);
+    }
+  }
+  return { origins, rest };
 }
 
 function sendJSON(res, code, obj) {
@@ -78,14 +167,14 @@ function readBody(req) {
   });
 }
 
-function createServer(dir) {
+function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const p = url.pathname;
     try {
       // Reject every request — reads included — carrying a
       // disallowed Origin/Referer/Host before touching any route below.
-      if (!originAllowed(req)) {
+      if (!originAllowed(req, extraOrigins)) {
         return sendJSON(res, 403, { error: 'Forbidden: disallowed Origin/Referer/Host header' });
       }
       // static + board
@@ -192,23 +281,28 @@ function createServer(dir) {
   });
 }
 
-// `pinned`: the port came from config.yaml's `port:` key, not the CLI arg or
-// the 7777 default. A pin exists so the board's address never drifts — a busy
-// PINNED port is a startup error, never a silent increment (auto-increment
-// survives only for the unpinned default case).
-function start(dir, port, attempts = 20, pinned = false) {
+// Options (4th arg) rather than a 4th positional: cards #253 and #254 each
+// wanted that slot, and a positional would let a caller pass one card's value
+// into the other card's parameter with nothing to catch it.
+//   extraOrigins (#253): the opt-in exact-match allowlist to hand createServer.
+//   pinned (#254): the port came from config.yaml's `port:` key, not the CLI arg
+//   or the 7777 default. A pin exists so the board's address never drifts -- a
+//   busy PINNED port is a startup error, never a silent increment (auto-increment
+//   survives only for the unpinned default case).
+function start(dir, port, attempts = 20, opts = {}) {
+  const { pinned = false, extraOrigins = NO_EXTRA_ORIGINS } = opts;
   // The dir must exist (checked by the CLI entry below); an empty board is allowed
   // so you can create the first card from the app.
-  const srv = createServer(dir);
+  const srv = createServer(dir, extraOrigins);
   srv.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
       if (pinned) {
         console.error(`Kanban app: port ${port} is pinned by config.yaml's \`port:\` key but is already in use. Free the port, or edit/remove \`port:\` in config.yaml, then retry.`);
         process.exit(1);
         return; // belt-and-braces: never fall through to auto-increment below,
-                 // even if something stubs process.exit (e.g. tests)
+                // even if something stubs process.exit (e.g. tests)
       }
-      if (attempts > 0) return start(dir, port + 1, attempts - 1);
+      if (attempts > 0) return start(dir, port + 1, attempts - 1, { extraOrigins });
     }
     console.error(e.message); process.exit(1);
   });
@@ -224,6 +318,10 @@ function start(dir, port, attempts = 20, pinned = false) {
     process.once('SIGINT', cleanup);
     process.once('SIGTERM', cleanup);
     console.log(`Kanban app: http://localhost:${bound}  (board: ${dir})${pinned ? '  [pinned by config.yaml]' : ''}`);
+    // card #253: so a later debrief can see what a running server accepts,
+    // printed unconditionally (including the empty case) rather than only
+    // when non-default.
+    console.log(`Kanban app: extra allowed origins: ${extraOrigins.size ? [...extraOrigins].join(', ') : 'none'}`);
   });
   return srv;
 }
@@ -271,10 +369,21 @@ function resolveDefaultBoardDir(baseDir) {
 }
 
 if (require.main === module) {
-  const dir = process.argv[2] || resolveDefaultBoardDir();
+  let cliOrigins, rest;
+  try {
+    ({ origins: cliOrigins, rest } = extractAllowOriginArgs(process.argv.slice(2)));
+  } catch (e) { console.error(e.message); process.exit(1); }
+  const dir = rest[0] || resolveDefaultBoardDir();
   if (!fs.existsSync(dir)) { console.error(`Board dir not found: ${dir}`); process.exit(1); }
-  const { port, pinned } = resolvePort(dir, process.argv[3]);
-  start(dir, port, 20, pinned);
+  const { port, pinned } = resolvePort(dir, rest[1]);
+  let extraOrigins;
+  try {
+    extraOrigins = parseAllowedOrigins(cliOrigins, process.env.KANBAN_WEB_ALLOWED_ORIGINS);
+  } catch (e) { console.error(e.message); process.exit(1); }
+  start(dir, port, 20, { pinned, extraOrigins });
 }
 
-module.exports = { createServer, start, resolvePort, originAllowed, resolveDefaultBoardDir };
+module.exports = {
+  createServer, start, originAllowed, resolveDefaultBoardDir,
+  parseAllowedOrigins, extractAllowOriginArgs, resolvePort,
+};

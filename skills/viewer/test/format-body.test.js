@@ -285,8 +285,8 @@ test('only the .hdr line is sticky — #searchrow and #viewtabs are not', () => 
   assert.ok(!/\.viewtabs\{[^}]*position:sticky/.test(css), '.viewtabs must scroll away normally');
 });
 
-test('#pill ("N pending") is an unmissable solid accent fill with bold contrasting text, not just colored text', () => {
-  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--accent\)[^}]*\}/);
+test('#pill ("N pending") is an unmissable solid red fill with bold contrasting text, not just colored text (kanban.proj #250: it also flashes, see pill-flash.test.js)', () => {
+  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--high\)[^}]*\}/);
   assert.match(nonMediaCss, /\.pill\{[^}]*color:#fff[^}]*\}/);
   assert.match(nonMediaCss, /\.pill\{[^}]*font-weight:700[^}]*\}/);
 });
@@ -296,8 +296,9 @@ test('#pill collapses to nothing when empty (no ops queued) instead of showing a
   assert.match(src, /\$\("pill"\)\.textContent=ops\.length\?ops\.length\+" pending":""/);
 });
 
-test('#pill stays tappable — jumps to the tray on click, same gate as before', () => {
-  assert.match(src, /\$\("pill"\)\.addEventListener\("click",\(\)=>\{if\(!ops\.length\)return;sc\.scrollTo/);
+test('#pill stays tappable — jumps to the tray on click, same gate as before (kanban.proj #252: it also copies the payload, see pill-copy.test.js)', () => {
+  assert.match(src, /\$\("pill"\)\.addEventListener\("click",\(\)=>\{if\(!ops\.length\)return;/);
+  assert.match(src, /\$\("pill"\)\.addEventListener\("click",[\s\S]*?sc\.scrollTo\(\{top:sc\.scrollHeight,behavior:"smooth"\}\)/);
 });
 
 test('tier 2: the map and gantt SVG canvases are NOT capped — they size themselves from data inside their own overflow-x:auto scroller, so widening #scroll never stretches them', () => {
@@ -359,14 +360,15 @@ test('the contextmenu listener checks fineMQ.matches FIRST, before resolving a c
   assert.ok(gateIdx < preventIdx, 'the fineMQ gate must run before preventDefault, not after');
 });
 
-test('preventDefault is called only inside pointer-gated listeners (contextmenu, dragstart, dragover, drop) — no unconditional interception exists anywhere', () => {
+test('preventDefault is called only inside gated listeners (contextmenu, dragstart, dragover, drop, beforeunload) — no unconditional interception exists anywhere', () => {
   const matches = [...src.matchAll(/\.preventDefault\(\)/g)];
-  assert.strictEqual(matches.length, 4, 'expected exactly four preventDefault() calls: the contextmenu gate, and dragstart/dragover/drop for pointer drag (kanban.proj #241)');
+  assert.strictEqual(matches.length, 5, 'expected exactly five preventDefault() calls: the contextmenu gate, dragstart/dragover/drop for pointer drag (kanban.proj #241), and the pending-ops close guard (kanban.proj #251)');
   const spans = [
     ['document.body.addEventListener("contextmenu"', 'openCtxMenu(c.id,e.clientX,e.clientY)});'],
     ['document.body.addEventListener("dragstart"', 'e.dataTransfer.effectAllowed="move"});'],
     ['document.body.addEventListener("dragover"', 'col.classList.add("drag-over")}});'],
     ['document.body.addEventListener("drop"', 'pillEd=null;render()});'],
+    ['window.addEventListener("beforeunload"', 'e.returnValue='],
   ];
   const ranges = spans.map(([startMarker, endMarker]) => {
     const start = src.indexOf(startMarker);

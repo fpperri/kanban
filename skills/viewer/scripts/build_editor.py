@@ -297,14 +297,39 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .hdr.thin b{font-size:14px}
 .hdr .base{font-size:12px;color:var(--muted)}
 /* "N pending" is the only signal that queued changes are NOT yet on
-   disk — a solid accent fill (same --accent the Copy-changes button
-   outlines itself in) with bold white text makes it impossible to miss
-   or mistake for a passive label, unlike the old plain colored-text
-   pill. :empty collapses padding/background back to nothing when no ops
-   are queued (render() sets textContent to "" in that case) so it never
-   shows as a stray colored dot. */
-.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:12px;padding:3px 10px}
-.pill:empty{padding:0;background:none}
+   disk — a solid --high (red, kanban.proj #250) fill, never the calmer
+   --accent blue that means "normal/selected" everywhere else in this file,
+   with bold white text makes it impossible to miss or mistake for a passive
+   label, unlike the old plain colored-text pill. It also FLASHES:
+   pillFlash cycles the background red -> white -> red -> white -> red on an
+   IRREGULAR, lightning-like cadence (a fast double strike packed into the
+   keyframe's first ~14%, then one long dark pause for the rest of the
+   cycle) rather than an even sine pulse, so it reads as an alert rather
+   than decoration. The "white" flash stop pairs with a fixed dark text
+   color rather than var(--ink) — --ink flips to white in dark mode and
+   would vanish against a light flash — so the pill stays readable at BOTH
+   ends of the cycle in both color schemes. The timing function is
+   step-end, NOT linear: with linear every white stop is a zero-duration
+   turning point, so the pill would spend ~14% of each cycle smeared
+   through mid-blends (around #9c8484 text on #e79d9d, ~1.6:1) where the
+   text is unreadable even though both DECLARED ends are fine. step-end
+   holds each stop until the next, so every painted frame is one of the
+   two high-contrast pairs — and a held-then-jumped strike is what
+   lightning looks like anyway. :empty collapses
+   padding/background back to nothing AND stops the animation outright when
+   no ops are queued (render() sets textContent to "" in that case), so an
+   empty pill never shows as a stray flashing dot, and
+   prefers-reduced-motion drops the animation for a static red pill. */
+.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--high);border-radius:12px;padding:3px 10px;animation:pillFlash 2.8s step-end infinite}
+.pill:empty{padding:0;background:none;animation:none}
+@keyframes pillFlash{
+0%,100%{background:var(--high);color:#fff}
+3%{background:#fff;color:#3a0a0a}
+6%{background:var(--high);color:#fff}
+10%{background:#fff;color:#3a0a0a}
+14%{background:var(--high);color:#fff}
+}
+@media(prefers-reduced-motion:reduce){.pill{animation:none;background:var(--high);color:#fff}}
 #bell{font-size:14px;padding:3px 9px;border-radius:14px;line-height:1.2}
 #bellcnt{font-size:10px;font-weight:700;color:#fff;background:var(--high);border-radius:8px;padding:0 5px;margin-left:4px;vertical-align:1px}
 .nrow{border:1px solid var(--grid);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px;overflow-wrap:break-word}
@@ -318,6 +343,8 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .chev{font-size:11px;color:var(--muted);width:12px;flex:none}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
 .cnt{margin-left:auto;font-size:12px;color:var(--muted)}
+.colbtn{flex:none;width:24px;height:24px;padding:0;border-radius:6px;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--ink2)}
+.colbtn:active{background:var(--accent);border-color:var(--accent);color:#fff}
 .card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:11px 13px;margin:9px 0;cursor:pointer}
 .card.sel{border-color:var(--accent)}
 .card.prov{border-style:dashed}
@@ -474,7 +501,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    every media query in this file, at every tier — it is the swipe-down
    insurance + context menu, unrelated to width. */
 @media(min-width:560px){#scroll{max-width:720px}}
-@media(min-width:900px){#scroll{max-width:none;padding:0 24px 120px}#board{display:flex;align-items:flex-start;gap:12px;overflow-x:auto}.boardcol{display:flex;flex-direction:column;min-width:260px;flex:1 1 0}.boardcol.collapsed{flex:0 0 150px;min-width:0}.boardcol .colh{flex:none}.colcards{flex:1;min-height:0;overflow-y:auto;max-height:calc(100vh - 220px)}#modal{align-items:center}#modalscroll{max-width:640px}#calview{max-width:900px;margin:0 auto}.pend{max-width:640px}}
+@media(min-width:900px){#scroll{max-width:none;padding:0 24px 120px}#board{display:flex;align-items:flex-start;gap:12px;overflow-x:auto}.boardcol{display:flex;flex-direction:column;min-width:260px;flex:1 1 0}.boardcol.collapsed{flex:0 0 150px;min-width:0}.boardcol.collapsed .colbtn{display:none}.boardcol .colh{flex:none}.colcards{flex:1;min-height:0;overflow-y:auto;max-height:calc(100vh - 220px)}#modal{align-items:center}#modalscroll{max-width:640px}#calview{max-width:900px;margin:0 auto}.pend{max-width:640px}}
 /* Capability query, not width: touch devices (no hover, coarse
    pointer) keep the hnav step buttons exactly as today at every size;
    mouse/trackpad users get scrollbars + shift-wheel instead. The
@@ -550,7 +577,7 @@ function ahash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i
 function acol(a){const t=(a||"").trim();if(!t)return null;if(ASGCOL[t])return ASGCOL[t];return APALETTE[ahash(t.toLowerCase())%APALETTE.length]}
 const DATA=__DATA__;
 const NOTIFS=__NOTIFS__;
-let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null;
+let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
 // Wide screens open live sections by default (Archive stays collapsed) —
 // the collapsed compact overview is a phone affordance. Evaluated once at load.
 if(matchMedia("(min-width:900px)").matches)COLS.forEach(c=>colOpen[c]=true);
@@ -715,7 +742,7 @@ if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
 else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v;else if(k==="epic")c.ep=String(v).trim().toLowerCase()==="true"}}
 return}
-if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:{}});return}}
+if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:o.fm||{}});return}}
 function cardNode(c,detail){
 const selc=String(sel)===String(c.id)||(focusRoot!=null&&String(focusRoot)===String(c.id));
 const ro=detail&&!!c.arch;
@@ -845,6 +872,24 @@ h.dataset.coltoggle=col;
 h.appendChild(el("span","chev",open?"\\u25be":"\\u25b8"));
 const dot=el("span","dot");dot.style.background=ccol(col);
 h.appendChild(dot);h.appendChild(document.createTextNode(cname(col)));h.appendChild(el("span","cnt",String(cs.length)));
+// Per-column create controls: a plain button each (not
+// data-act/queue()-dispatched like the rest of the sheet) so the click
+// listener attached right here can stopPropagation() before the event ever
+// reaches document.body's dispatcher — the SAME reason openCtxMenu()'s
+// items do it (see below), and it keeps a tap from also toggling the
+// section via the colh's own data-coltoggle.
+const plusBtn=el("button","colbtn","+");
+plusBtn.type="button";
+plusBtn.setAttribute("aria-label","New card in "+cname(col));
+plusBtn.title="New card in "+cname(col);
+plusBtn.addEventListener("click",ev=>{ev.stopPropagation();openNewCard(col,false)});
+h.appendChild(plusBtn);
+const promptBtn=el("button","colbtn","\\u2726");
+promptBtn.type="button";
+promptBtn.setAttribute("aria-label","New AI-prompt card in "+cname(col));
+promptBtn.title="New card in "+cname(col)+" with AI prompt";
+promptBtn.addEventListener("click",ev=>{ev.stopPropagation();openNewCard(col,true)});
+h.appendChild(promptBtn);
 wrap.appendChild(h);
 if(open){
 const cc=el("div","colcards");
@@ -896,6 +941,30 @@ else if(note)p.appendChild(el("div","note",note))}
 function payload(){
 const clean=ops.map(o=>{const x=Object.assign({},o);delete x._pid;return x});
 return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.stringify(clean)}
+// The ONE clipboard code path (kanban.proj #252): the tray's Copy changes
+// button, the header pill, and the close-guard's best-effort exit copy
+// (kanban.proj #251) all funnel through this, so there is exactly one place
+// that knows how to copy the payload and one fallback chain -- async
+// Clipboard API first, then focusing/selecting the hidden #payload textarea
+// and running the execCommand copy command for browsers (and the Claude
+// mobile app's embedded viewer) that don't expose the async API.
+// execCommand REPORTS a blocked copy by RETURNING FALSE rather than
+// throwing, so its return value -- not just a try/catch -- is what decides
+// ok/bad; a catch alone would report every blocked copy as a success.
+// onDone(ok) always fires, synchronously on the execCommand path or async
+// on the Clipboard API path, so callers can react to failure (the pill sets a
+// note; the tray leans on the existing `copied` flag/hint) without
+// duplicating the copy logic itself. forceSync skips the async attempt
+// outright and goes straight to the execCommand path -- the close-guard
+// passes it true, since an async clipboard write is unreliable during
+// unload/dismissal (it can be torn down before the promise ever settles).
+function copyPayload(onDone,forceSync){
+const txt=payload();
+const ok=()=>{copied=true;if(onDone)onDone(true)};
+const bad=()=>{if(onDone)onDone(false)};
+const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}};
+if(!forceSync&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
+else fallback()}
 // New-card form: renders inside the pop-up sheet; nothing joins
 // any list until Accept queues the create op — Cancel leaves zero trace.
 // Notifications pop-out: read-only render of the embedded
@@ -917,16 +986,28 @@ row.appendChild(line);
 row.appendChild(el("div","nmeta","#"+n.id+" \\u00b7 "+n.level+" \\u00b7 "+n.at+" \\u00b7 "+n.from+(n.read?"":" \\u00b7 unread")));
 w.appendChild(row)});
 return w}
+// Opens the new-card sheet pre-aimed at one column (the colh "+"/AI-
+// prompt buttons above call this) — ncStatus only feeds newFormNode's
+// #nc-s seed on the FIRST render of a fresh sheet; once #nc-s exists,
+// newFormNode's own prev.s (read off the live DOM) wins on every
+// re-render, exactly like every other field's prev/current split.
+function openNewCard(status,wantPrompt){
+nfMore=false;creating=true;sel=null;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;
+ncStatus=status;nfPromptOpen=!!wantPrompt;
+render()}
 function newFormNode(){
-const prev={t:$("nc-t")&&$("nc-t").value,s:$("nc-s")&&$("nc-s").value,p:$("nc-p")&&$("nc-p").value,a:$("nc-a")&&$("nc-a").value,b:$("nc-b")&&$("nc-b").value};
+const prev={t:$("nc-t")&&$("nc-t").value,s:$("nc-s")&&$("nc-s").value,p:$("nc-p")&&$("nc-p").value,a:$("nc-a")&&$("nc-a").value,b:$("nc-b")&&$("nc-b").value,pr:$("nc-pr")&&$("nc-pr").value};
 const f=el("div");f.style.padding="6px 2px";
 const t=el("div",null,"New card");t.style.cssText="font-size:13px;font-weight:600;margin-bottom:4px";f.appendChild(t);
 const inp=el("input");inp.type="text";inp.id="nc-t";inp.placeholder="Card title";inp.dataset.stop="1";if(prev.t)inp.value=prev.t;f.appendChild(inp);
 const row=el("div","row2");
-const ss=el("select");ss.id="nc-s";ss.dataset.stop="1";COLS.forEach(x=>{const o=el("option",null,cname(x));o.value=x;ss.appendChild(o)});ss.value=prev.s||(COLS.includes("backlog")?"backlog":COLS[0]);
+const ss=el("select");ss.id="nc-s";ss.dataset.stop="1";COLS.forEach(x=>{const o=el("option",null,cname(x));o.value=x;ss.appendChild(o)});ss.value=prev.s||ncStatus||(COLS.includes("backlog")?"backlog":COLS[0]);
 const sp=el("select");sp.id="nc-p";sp.dataset.stop="1";["Normal","High","Low"].forEach(x=>sp.appendChild(el("option",null,x)));if(prev.p)sp.value=prev.p;
 const sa=el("select");sa.id="nc-a";sa.dataset.stop="1";const o0=el("option",null,"no assignee");o0.value="";sa.appendChild(o0);ASG.filter(x=>x).forEach(x=>sa.appendChild(el("option",null,x)));if(prev.a)sa.value=prev.a;
 row.appendChild(ss);row.appendChild(sp);row.appendChild(sa);f.appendChild(row);
+if(nfPromptOpen){
+const plb=el("div","lbl","AI prompt (instruction for the next AI to pick up, optional)");plb.style.marginTop="6px";f.appendChild(plb);
+const pin=el("input");pin.type="text";pin.id="nc-pr";pin.placeholder="Instruction for the AI to pick up\\u2026";pin.dataset.stop="1";pin.style.marginTop="4px";if(prev.pr)pin.value=prev.pr;f.appendChild(pin)}
 if(nfMore){
 const lb=el("div","lbl","description (markdown, optional)");lb.style.marginTop="6px";f.appendChild(lb);
 const ta=el("textarea");ta.id="nc-b";ta.rows=5;ta.dataset.stop="1";ta.placeholder="More detail, acceptance criteria, links\\u2026";ta.style.fontSize="14px";ta.style.marginTop="4px";if(prev.b)ta.value=prev.b;f.appendChild(ta)}
@@ -1459,7 +1540,7 @@ $("sup").addEventListener("click",()=>step(-1));
 $("sdn").addEventListener("click",()=>step(1));
 $("stop").addEventListener("click",()=>{const t=scTgt();t.scrollTo({top:0,behavior:"smooth"})});
 $("sbot").addEventListener("click",()=>{const t=scTgt();t.scrollTo({top:t.scrollHeight,behavior:"smooth"})});
-function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;render()}
+function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;ncStatus=null;nfPromptOpen=false;render()}
 // Shared by the sheet's own "Dependency tree"/"Dependency path"
 // buttons (the act==="graphfocus" branch below) AND the right-click card
 // menu's matching items — one path, not two, per the tree:/path: contract:
@@ -1562,8 +1643,19 @@ $("sarch").addEventListener("click",()=>{if(!modalOpen()||creating)return;const 
 $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;
 if(String(delArm)===String(sel)){queue({op:"delete",id:sel});sel=null;delArm=null;pillEd=null;render()}
 else{delArm=sel;syncStack()}});
-$("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=false;descEd=false;delArm=null;pillEd=null;render()});
-$("pill").addEventListener("click",()=>{if(!ops.length)return;sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"})});
+$("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=false;descEd=false;delArm=null;pillEd=null;ncStatus=null;nfPromptOpen=false;render()});
+// Tapping the pending pill (kanban.proj #252) does what the tray's
+// Copy changes button does, so a human who only ever taps the pill still
+// gets the payload on their clipboard -- the scroll-to-tray behavior is
+// unchanged and always runs, even if the copy itself fails, so a blocked
+// clipboard never strands the human without a way to see the payload.
+// A later SUCCESSFUL copy clears its own blocked-note again, so the tray
+// can never read "Copied" and "Copy blocked" at the same time; notes set
+// by queue() (a blocked move, say) are left alone.
+$("pill").addEventListener("click",()=>{if(!ops.length)return;
+sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"});
+copyPayload(ok=>{const m="Copy blocked \\u2014 use the text box below to copy the payload";
+if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
 $("q").addEventListener("input",()=>{
 focusRoot=null;
@@ -1618,22 +1710,22 @@ const mid=t.getAttribute("data-mapnode");
 const mcCard=find(mid);
 if(mcCard){sel=mid;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;render()}
 return}
-if(t.id==="newbtn"){nfMore=false;creating=true;sel=null;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;render();return}
+if(t.id==="newbtn"){nfMore=false;creating=true;sel=null;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;ncStatus=null;nfPromptOpen=false;render();return}
 if(t.id==="payload"){t.select();return}
 if(t.dataset&&t.dataset.stop)return;
 if(t.dataset&&t.dataset.rm!==undefined){ops.splice(+t.dataset.rm,1);rebuild();render();return}
 const act=t.dataset?t.dataset.act:null;
-if(act==="ncadd"){const ti=$("nc-t").value.trim();if(!ti)return;const bd=$("nc-b")?$("nc-b").value.trim():"";queue({op:"create",title:ti,status:$("nc-s")?$("nc-s").value:undefined,priority:$("nc-p").value,assignee:$("nc-a").value,body:bd||undefined});
+if(act==="ncadd"){const ti=$("nc-t").value.trim();if(!ti)return;const bd=$("nc-b")?$("nc-b").value.trim():"";
+const pr=$("nc-pr")?$("nc-pr").value.trim():"";
+const cop={op:"create",title:ti,status:$("nc-s")?$("nc-s").value:undefined,priority:$("nc-p").value,assignee:$("nc-a").value,body:bd||undefined};
+if(pr)cop.fm={prompt:pr};
+queue(cop);
 const nst=view[view.length-1].s;colOpen[nst]=true;
 if(COLS.includes(nst)&&!isVis(nst)){statusVis[nst]=true;renderMap();renderGantt();renderCalendar()}
-creating=false;nfMore=false;render();return}
+creating=false;nfMore=false;ncStatus=null;nfPromptOpen=false;render();return}
 if(act==="ncmore"){nfMore=true;render();return}
-if(act==="nccancel"){creating=false;nfMore=false;render();return}
-if(act==="apply"){if(!ops.length)return;const txt=payload();
-const done=()=>{copied=true;render()};
-if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(()=>{const ta=$("payload");if(ta){ta.focus();ta.select();try{document.execCommand("copy");done()}catch(err){}}})}
-else{const ta=$("payload");if(ta){ta.focus();ta.select();try{document.execCommand("copy");done()}catch(err){}}}
-return}
+if(act==="nccancel"){creating=false;nfMore=false;ncStatus=null;nfPromptOpen=false;render();return}
+if(act==="apply"){if(!ops.length)return;copyPayload(()=>render());return}
 if(act==="discard"){ops=[];note="";rebuild();render();return}
 if(act==="calsub"){const to=t.dataset.sub;
 if(to!==calSub){
@@ -1665,6 +1757,84 @@ if(!act){if(t.closest("#modal"))return;sel=String(sel)===String(id)?null:id;focu
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeCard()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(ctxMenuEl){closeCtxMenu();return}
 if(sel!==null||creating||notifView)closeCard()}});
+// Close guard (kanban.proj #251): with ops queued, warn before the page
+// goes away so a human doesn't lose an uncopied payload by accident. An
+// empty tray never registers any of this -- each handler early-returns on
+// !ops.length, so there is nothing to deregister. Three exit signals, not
+// one, because they cover different hosts and none subsumes the others:
+//   - beforeunload: the standard tab-close/navigate/reload guard. Setting
+//     returnValue makes the browser raise its own native confirm-exit
+//     prompt (the string itself is ignored by modern browsers, which show
+//     a generic message, but must still be a non-empty/truthy value for
+//     some engines to fire at all).
+//   - pagehide / visibilitychange(hidden): beforeunload does NOT fire when
+//     a host DISMISSES the view instead of navigating it away -- which is
+//     exactly what the Claude mobile app does to this viewer. These two
+//     fire on a broader set of "the human is leaving" signals (backgrounding
+//     a tab, closing an app switcher card, a mobile OS reclaiming memory)
+//     so between them they're the best available substitute for a
+//     dismissal that skips beforeunload entirely.
+// On every one of these paths we also attempt a best-effort clipboard
+// write of the payload (forceSync=true: skip the unreliable async
+// Clipboard API and go straight to copyPayload's execCommand fallback,
+// since an in-flight promise is not expected to survive an unload/
+// dismissal) through the SAME copyPayload() helper card #252 uses --
+// wrapped in try/catch so any failure here can never block or delay the
+// close itself.
+//
+// Host support -- what's known vs. what still needs a human check on a
+// real device:
+//   - plain browser tab: beforeunload's confirm-exit prompt is a
+//     long-standing, well-supported browser feature; expected to fire
+//     reliably here. NOT independently re-verified in this change.
+//   - the SAME html file opened as a Claude Artifact, in a browser:
+//     MEASURED BY FRANC, 2026-09-07 -- the prompt does NOT fire here,
+//     though it does fire for the same file opened from disk in the same
+//     browser. The artifact host renders the page inside a sandboxed
+//     frame, and a frame without allow-modals cannot raise the native
+//     confirm-exit dialog; the page also never owns the tab's own unload.
+//     So on the surface franc actually uses, the prompt half of this
+//     guard is inert and the best-effort clipboard copy below is the
+//     only protection. Do not 'fix' this by asking for the prompt back:
+//     it is the host's call, not the page's.
+//   - the Claude mobile app's embedded viewer: this is the host that
+//     motivated pagehide/visibilitychange in the first place (see the
+//     #250/#252 field notes above) -- beforeunload is NOT expected to fire
+//     on its dismiss-the-view gesture. Whether pagehide or a
+//     visibilitychange to "hidden" actually fires on THAT gesture, and
+//     whether the best-effort clipboard write below lands before the view
+//     is torn down, is UNVERIFIED -- this needs a human check on a real
+//     device; do not treat this comment as having tested it.
+window.addEventListener("beforeunload",e=>{
+if(!ops.length)return;
+e.preventDefault();
+e.returnValue="Kanban changes are still queued -- leaving now may lose them."});
+// visibilitychange(hidden) is NOT only fired by a real dismissal -- it fires
+// on every tab switch, every app backgrounding and every screen lock, and
+// pagehide fires on a bfcache navigation the human can come straight back
+// from. The exit copy therefore has to be harmless on a page that is NOT
+// going away:
+//   - it skips entirely once `copied` says this exact payload is already on
+//     the clipboard (queue() clears the flag the moment the payload changes),
+//     so backgrounding the app to go and PASTE the payload can't clobber the
+//     clipboard, and repeated tab switches copy at most once per change;
+//   - copyPayload's execCommand fallback has to focus and select #payload to
+//     copy at all, and #payload lives at the bottom of #scroll, so a bare
+//     call would yank focus out of whatever the human was typing in and
+//     scroll the board to the tray behind their back. forceSync makes that
+//     fallback run synchronously, so the previous focus, its text selection
+//     and the scroll offset can all be put back before the frame is painted.
+// The whole thing stays inside one try/catch: a failure here must never
+// block or delay the close.
+function bestEffortExitCopy(){
+if(!ops.length||copied)return;
+try{const prev=document.activeElement,top=sc.scrollTop,
+ss=prev&&typeof prev.selectionStart==="number"?[prev.selectionStart,prev.selectionEnd]:null;
+copyPayload(null,true);
+if(prev&&prev.focus){prev.focus({preventScroll:true});if(ss&&prev.setSelectionRange)prev.setSelectionRange(ss[0],ss[1])}
+sc.scrollTop=top}catch(err){}}
+window.addEventListener("pagehide",bestEffortExitCopy);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")bestEffortExitCopy()});
 render();
 renderMap();
 renderGantt();
