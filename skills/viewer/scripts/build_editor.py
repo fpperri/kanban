@@ -1767,9 +1767,30 @@ window.addEventListener("beforeunload",e=>{
 if(!ops.length)return;
 e.preventDefault();
 e.returnValue="Kanban changes are still queued -- leaving now may lose them."});
+// visibilitychange(hidden) is NOT only fired by a real dismissal -- it fires
+// on every tab switch, every app backgrounding and every screen lock, and
+// pagehide fires on a bfcache navigation the human can come straight back
+// from. The exit copy therefore has to be harmless on a page that is NOT
+// going away:
+//   - it skips entirely once `copied` says this exact payload is already on
+//     the clipboard (queue() clears the flag the moment the payload changes),
+//     so backgrounding the app to go and PASTE the payload can't clobber the
+//     clipboard, and repeated tab switches copy at most once per change;
+//   - copyPayload's execCommand fallback has to focus and select #payload to
+//     copy at all, and #payload lives at the bottom of #scroll, so a bare
+//     call would yank focus out of whatever the human was typing in and
+//     scroll the board to the tray behind their back. forceSync makes that
+//     fallback run synchronously, so the previous focus, its text selection
+//     and the scroll offset can all be put back before the frame is painted.
+// The whole thing stays inside one try/catch: a failure here must never
+// block or delay the close.
 function bestEffortExitCopy(){
-if(!ops.length)return;
-try{copyPayload(null,true)}catch(err){}}
+if(!ops.length||copied)return;
+try{const prev=document.activeElement,top=sc.scrollTop,
+ss=prev&&typeof prev.selectionStart==="number"?[prev.selectionStart,prev.selectionEnd]:null;
+copyPayload(null,true);
+if(prev&&prev.focus){prev.focus({preventScroll:true});if(ss&&prev.setSelectionRange)prev.setSelectionRange(ss[0],ss[1])}
+sc.scrollTop=top}catch(err){}}
 window.addEventListener("pagehide",bestEffortExitCopy);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")bestEffortExitCopy()});
 render();

@@ -290,8 +290,13 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   forced onto its synchronous `execCommand` path since an async Clipboard
   write is unreliable during unload), because the Claude mobile app
   dismisses the viewer without firing `beforeunload` at all. An empty tray
-  never arms any of this. Verified: `beforeunload`'s prompt on a plain
-  browser tab (long-standing browser behavior, not independently retested
+  never arms any of this, and neither does a payload that is already on the
+  clipboard. `visibilitychange` fires on every tab switch and app
+  backgrounding, not just on a real dismissal, so the exit copy puts the
+  human's focus, text selection and scroll offset back afterwards — coming
+  back to the page must look exactly like leaving it.
+  Verified: `beforeunload`'s prompt on a plain browser tab (long-standing
+  browser behavior, not independently retested
   here). NOT verified: whether the same prompt fires when the HTML is opened
   as a Claude Artifact in a browser, and — the case that actually motivated
   the extra two events — whether `pagehide`/`visibilitychange` fire (and the

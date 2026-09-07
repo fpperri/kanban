@@ -37,8 +37,8 @@ test('pagehide and visibilitychange(hidden) both trigger a best-effort exit copy
 
 test('the best-effort exit copy early-returns on an empty tray and swallows any failure so it can never block or delay the close', () => {
   const fn = sliceFrom('function bestEffortExitCopy(){', 'catch(err){}}');
-  assert.match(fn, /if\(!ops\.length\)return;/, 'an empty tray must be a no-op, same gate as beforeunload');
-  assert.match(fn, /try\{copyPayload\(/, 'must be wrapped in a try so a thrown error can never block/delay the close');
+  assert.match(fn, /if\(!ops\.length\|\|copied\)return;/, 'an empty tray must be a no-op (same gate as beforeunload), and so must a payload already on the clipboard');
+  assert.match(fn, /try\{[\s\S]*copyPayload\(/, 'the copy must sit inside a try so a thrown error can never block/delay the close');
   assert.match(fn, /catch\(err\)\{\}/, 'a failure must be silently swallowed, not surfaced or rethrown');
 });
 
@@ -60,4 +60,21 @@ test('there is still exactly one clipboard fallback chain (document.execCommand(
 
 test('no JS timers were introduced for the close guard -- it is driven entirely by browser exit events', () => {
   assert.ok(!/setInterval|setTimeout/.test(src), 'the close guard must not poll on a timer');
+});
+
+test('the exit copy skips a payload that is already on the clipboard, so backgrounding the app to go and paste it cannot clobber the clipboard', () => {
+  const fn = sliceFrom('function bestEffortExitCopy(){', 'catch(err){}}');
+  assert.match(fn, /\|\|copied\)return;/, 'visibilitychange fires on every tab switch and app background — without the `copied` gate every one of them re-runs the copy');
+});
+
+test('the exit copy restores focus, text selection and scroll offset — visibilitychange fires when the page is NOT closing, and copyPayload has to focus/select #payload (which lives at the bottom of #scroll) to copy at all', () => {
+  const fn = sliceFrom('function bestEffortExitCopy(){', 'catch(err){}}');
+  assert.match(fn, /const prev=document\.activeElement/, 'must remember what the human had focused before stealing focus for the copy');
+  assert.match(fn, /prev\.focus\(\{preventScroll:true\}\)/, 'focus must be handed back, and handed back without scrolling');
+  assert.match(fn, /selectionStart/, 'a text selection in the field the human was editing must be captured');
+  assert.match(fn, /prev\.setSelectionRange\(ss\[0\],ss\[1\]\)/, 'and put back');
+  assert.match(fn, /sc\.scrollTop=top/, 'the board must not be left scrolled down to the tray after a tab switch');
+  const copyAt = fn.indexOf('copyPayload(');
+  assert.ok(fn.indexOf('const prev=') < copyAt, 'the state must be captured BEFORE the copy steals focus');
+  assert.ok(fn.indexOf('prev.focus({preventScroll:true})') > copyAt, 'and restored after it');
 });
