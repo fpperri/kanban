@@ -297,14 +297,39 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .hdr.thin b{font-size:14px}
 .hdr .base{font-size:12px;color:var(--muted)}
 /* "N pending" is the only signal that queued changes are NOT yet on
-   disk — a solid accent fill (same --accent the Copy-changes button
-   outlines itself in) with bold white text makes it impossible to miss
-   or mistake for a passive label, unlike the old plain colored-text
-   pill. :empty collapses padding/background back to nothing when no ops
-   are queued (render() sets textContent to "" in that case) so it never
-   shows as a stray colored dot. */
-.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:12px;padding:3px 10px}
-.pill:empty{padding:0;background:none}
+   disk — a solid --high (red, kanban.proj #250) fill, never the calmer
+   --accent blue that means "normal/selected" everywhere else in this file,
+   with bold white text makes it impossible to miss or mistake for a passive
+   label, unlike the old plain colored-text pill. It also FLASHES:
+   pillFlash cycles the background red -> white -> red -> white -> red on an
+   IRREGULAR, lightning-like cadence (a fast double strike packed into the
+   keyframe's first ~14%, then one long dark pause for the rest of the
+   cycle) rather than an even sine pulse, so it reads as an alert rather
+   than decoration. The "white" flash stop pairs with a fixed dark text
+   color rather than var(--ink) — --ink flips to white in dark mode and
+   would vanish against a light flash — so the pill stays readable at BOTH
+   ends of the cycle in both color schemes. The timing function is
+   step-end, NOT linear: with linear every white stop is a zero-duration
+   turning point, so the pill would spend ~14% of each cycle smeared
+   through mid-blends (around #9c8484 text on #e79d9d, ~1.6:1) where the
+   text is unreadable even though both DECLARED ends are fine. step-end
+   holds each stop until the next, so every painted frame is one of the
+   two high-contrast pairs — and a held-then-jumped strike is what
+   lightning looks like anyway. :empty collapses
+   padding/background back to nothing AND stops the animation outright when
+   no ops are queued (render() sets textContent to "" in that case), so an
+   empty pill never shows as a stray flashing dot, and
+   prefers-reduced-motion drops the animation for a static red pill. */
+.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--high);border-radius:12px;padding:3px 10px;animation:pillFlash 2.8s step-end infinite}
+.pill:empty{padding:0;background:none;animation:none}
+@keyframes pillFlash{
+0%,100%{background:var(--high);color:#fff}
+3%{background:#fff;color:#3a0a0a}
+6%{background:var(--high);color:#fff}
+10%{background:#fff;color:#3a0a0a}
+14%{background:var(--high);color:#fff}
+}
+@media(prefers-reduced-motion:reduce){.pill{animation:none;background:var(--high);color:#fff}}
 #bell{font-size:14px;padding:3px 9px;border-radius:14px;line-height:1.2}
 #bellcnt{font-size:10px;font-weight:700;color:#fff;background:var(--high);border-radius:8px;padding:0 5px;margin-left:4px;vertical-align:1px}
 .nrow{border:1px solid var(--grid);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px;overflow-wrap:break-word}
@@ -896,6 +921,26 @@ else if(note)p.appendChild(el("div","note",note))}
 function payload(){
 const clean=ops.map(o=>{const x=Object.assign({},o);delete x._pid;return x});
 return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.stringify(clean)}
+// The ONE clipboard code path (kanban.proj #252): both the tray's
+// Copy changes button and the header pill funnel through this, so there is
+// exactly one place that knows how to copy the payload and one fallback
+// chain -- async Clipboard API first, then focusing/selecting the hidden
+// #payload textarea and running the execCommand copy command for browsers
+// (and the Claude mobile app's embedded viewer) that don't expose the async
+// API. execCommand REPORTS a blocked copy by RETURNING FALSE rather than
+// throwing, so its return value -- not just a try/catch -- is what decides
+// ok/bad; a catch alone would report every blocked copy as a success.
+// onDone(ok) always fires, synchronously on the execCommand path or async on
+// the Clipboard API path, so callers can react to failure (the pill sets a
+// note; the tray leans on the existing `copied` flag/hint) without
+// duplicating the copy logic itself.
+function copyPayload(onDone){
+const txt=payload();
+const ok=()=>{copied=true;if(onDone)onDone(true)};
+const bad=()=>{if(onDone)onDone(false)};
+const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}};
+if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
+else fallback()}
 // New-card form: renders inside the pop-up sheet; nothing joins
 // any list until Accept queues the create op — Cancel leaves zero trace.
 // Notifications pop-out: read-only render of the embedded
@@ -1563,7 +1608,18 @@ $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const c
 if(String(delArm)===String(sel)){queue({op:"delete",id:sel});sel=null;delArm=null;pillEd=null;render()}
 else{delArm=sel;syncStack()}});
 $("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=false;descEd=false;delArm=null;pillEd=null;render()});
-$("pill").addEventListener("click",()=>{if(!ops.length)return;sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"})});
+// Tapping the pending pill (kanban.proj #252) does what the tray's
+// Copy changes button does, so a human who only ever taps the pill still
+// gets the payload on their clipboard -- the scroll-to-tray behavior is
+// unchanged and always runs, even if the copy itself fails, so a blocked
+// clipboard never strands the human without a way to see the payload.
+// A later SUCCESSFUL copy clears its own blocked-note again, so the tray
+// can never read "Copied" and "Copy blocked" at the same time; notes set
+// by queue() (a blocked move, say) are left alone.
+$("pill").addEventListener("click",()=>{if(!ops.length)return;
+sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"});
+copyPayload(ok=>{const m="Copy blocked \\u2014 use the text box below to copy the payload";
+if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
 $("q").addEventListener("input",()=>{
 focusRoot=null;
@@ -1629,11 +1685,7 @@ if(COLS.includes(nst)&&!isVis(nst)){statusVis[nst]=true;renderMap();renderGantt(
 creating=false;nfMore=false;render();return}
 if(act==="ncmore"){nfMore=true;render();return}
 if(act==="nccancel"){creating=false;nfMore=false;render();return}
-if(act==="apply"){if(!ops.length)return;const txt=payload();
-const done=()=>{copied=true;render()};
-if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(()=>{const ta=$("payload");if(ta){ta.focus();ta.select();try{document.execCommand("copy");done()}catch(err){}}})}
-else{const ta=$("payload");if(ta){ta.focus();ta.select();try{document.execCommand("copy");done()}catch(err){}}}
-return}
+if(act==="apply"){if(!ops.length)return;copyPayload(()=>render());return}
 if(act==="discard"){ops=[];note="";rebuild();render();return}
 if(act==="calsub"){const to=t.dataset.sub;
 if(to!==calSub){

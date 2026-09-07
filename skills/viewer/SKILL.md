@@ -222,10 +222,19 @@ the width-tier split above. A scroll listener on `#scroll` toggles a
 compacting the header's padding and title size so it stays out of the
 way of board content; only the header line sticks, the search box and
 view tabs scroll away normally. The "N pending" indicator (`#pill`) is a
-solid accent-filled pill with bold white text — not just colored text —
-so queued changes are never mistaken for already applied; it collapses
-to nothing when no ops are queued, and stays tappable, jumping to the
-tray at the bottom of the page.
+solid red (`--high`, never the calmer `--accent` blue) pill with bold white
+text — not just colored text — so queued changes are never mistaken for
+already applied. It also flashes: a CSS-only `@keyframes` animation cycles
+the pill red -> white -> red on an irregular, lightning-like cadence (a fast
+double strike, then one long dark pause — not an even pulse), with a fixed
+dark text color at the white stop so it stays readable at both ends of the
+flash in either color scheme. The animation steps (`step-end`) rather than
+interpolating, so the pill is only ever painted in one of those two
+high-contrast states — a linear tween would spend ~14% of every cycle in
+unreadable mid-blends. The animation stops outright (not just
+visually) once the pill is empty, and `prefers-reduced-motion: reduce`
+replaces it with a static red pill. It collapses to nothing when no ops are
+queued, and stays tappable, jumping to the tray at the bottom of the page.
 
 ## Mobile viewer notes (learned the hard way)
 
@@ -247,7 +256,16 @@ tray at the bottom of the page.
   opens a read-only notifications sheet rendered per the notifications
   contract (TLDR bold, level tints, unread accent) from the embedded
   notifications.md snapshot — read-flips/clears stay conversational board
-  writes. The "N pending" pill scrolls to the page bottom, same as ⤓. The card
+  writes. The "N pending" pill scrolls to the page bottom, same as ⤓, and
+  also copies the payload to the clipboard — same one-tap shortcut as the
+  tray's Copy changes button, through the same shared clipboard helper, so a
+  human who only ever taps the pill still leaves with the payload copied. A
+  blocked copy never blocks the scroll: it sets the tray note instead, telling
+  the human to use the text box below, and a later successful copy clears that
+  note again so the tray never reads "Copied" and "Copy blocked" at once.
+  A blocked `execCommand` copy RETURNS FALSE rather than throwing, so the helper
+  reads its return value — a bare try/catch would report every blocked copy
+  as a success. The card
   pop-up leads with a status/assignee/priority pill row — tap a pill to edit
   that field, tap the title to rename — and keeps
   the description dead last. New-card creation happens in the same
@@ -259,7 +277,11 @@ tray at the bottom of the page.
   queueing a create auto-expands the section the new card lands in.
 - Inline chat widgets don't render on all clients; the HTML-file route is the
   reliable one. Clipboard access can fail in embedded viewers, so the payload is
-  always also visible in a selectable text box under the Copy button.
+  always also visible in a selectable text box under the Copy button. Both the
+  Copy changes button and the "N pending" pill copy through the SAME
+  `copyPayload()` helper (async Clipboard API, falling back to selecting the
+  payload textbox and `execCommand("copy")`) — one clipboard code path, not
+  two that could drift.
 - All card text is rendered via `textContent` (never string-built HTML) — card
   titles and bodies are user data; keep it XSS-safe by construction.
 - Desktop right-click card menu (not the mobile scroll-button stack above,

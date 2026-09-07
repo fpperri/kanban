@@ -285,8 +285,8 @@ test('only the .hdr line is sticky — #searchrow and #viewtabs are not', () => 
   assert.ok(!/\.viewtabs\{[^}]*position:sticky/.test(css), '.viewtabs must scroll away normally');
 });
 
-test('#pill ("N pending") is an unmissable solid accent fill with bold contrasting text, not just colored text', () => {
-  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--accent\)[^}]*\}/);
+test('#pill ("N pending") is an unmissable solid red fill with bold contrasting text, not just colored text (kanban.proj #250: it also flashes, see pill-flash.test.js)', () => {
+  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--high\)[^}]*\}/);
   assert.match(nonMediaCss, /\.pill\{[^}]*color:#fff[^}]*\}/);
   assert.match(nonMediaCss, /\.pill\{[^}]*font-weight:700[^}]*\}/);
 });
@@ -296,8 +296,9 @@ test('#pill collapses to nothing when empty (no ops queued) instead of showing a
   assert.match(src, /\$\("pill"\)\.textContent=ops\.length\?ops\.length\+" pending":""/);
 });
 
-test('#pill stays tappable — jumps to the tray on click, same gate as before', () => {
-  assert.match(src, /\$\("pill"\)\.addEventListener\("click",\(\)=>\{if\(!ops\.length\)return;sc\.scrollTo/);
+test('#pill stays tappable — jumps to the tray on click, same gate as before (kanban.proj #252: it also copies the payload, see pill-copy.test.js)', () => {
+  assert.match(src, /\$\("pill"\)\.addEventListener\("click",\(\)=>\{if\(!ops\.length\)return;/);
+  assert.match(src, /\$\("pill"\)\.addEventListener\("click",[\s\S]*?sc\.scrollTo\(\{top:sc\.scrollHeight,behavior:"smooth"\}\)/);
 });
 
 test('tier 2: the map and gantt SVG canvases are NOT capped — they size themselves from data inside their own overflow-x:auto scroller, so widening #scroll never stretches them', () => {
