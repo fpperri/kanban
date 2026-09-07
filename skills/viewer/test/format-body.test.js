@@ -360,14 +360,15 @@ test('the contextmenu listener checks fineMQ.matches FIRST, before resolving a c
   assert.ok(gateIdx < preventIdx, 'the fineMQ gate must run before preventDefault, not after');
 });
 
-test('preventDefault is called only inside pointer-gated listeners (contextmenu, dragstart, dragover, drop) — no unconditional interception exists anywhere', () => {
+test('preventDefault is called only inside gated listeners (contextmenu, dragstart, dragover, drop, beforeunload) — no unconditional interception exists anywhere', () => {
   const matches = [...src.matchAll(/\.preventDefault\(\)/g)];
-  assert.strictEqual(matches.length, 4, 'expected exactly four preventDefault() calls: the contextmenu gate, and dragstart/dragover/drop for pointer drag (kanban.proj #241)');
+  assert.strictEqual(matches.length, 5, 'expected exactly five preventDefault() calls: the contextmenu gate, dragstart/dragover/drop for pointer drag (kanban.proj #241), and the pending-ops close guard (kanban.proj #251)');
   const spans = [
     ['document.body.addEventListener("contextmenu"', 'openCtxMenu(c.id,e.clientX,e.clientY)});'],
     ['document.body.addEventListener("dragstart"', 'e.dataTransfer.effectAllowed="move"});'],
     ['document.body.addEventListener("dragover"', 'col.classList.add("drag-over")}});'],
     ['document.body.addEventListener("drop"', 'pillEd=null;render()});'],
+    ['window.addEventListener("beforeunload"', 'e.returnValue='],
   ];
   const ranges = spans.map(([startMarker, endMarker]) => {
     const start = src.indexOf(startMarker);

@@ -282,6 +282,29 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   `copyPayload()` helper (async Clipboard API, falling back to selecting the
   payload textbox and `execCommand("copy")`) — one clipboard code path, not
   two that could drift.
+- With ops queued, closing or navigating away is guarded three ways, because
+  no single browser event covers every host: `beforeunload` raises the
+  host's native confirm-exit prompt on an ordinary tab close/navigate/reload;
+  `pagehide` and a `visibilitychange` to hidden also fire a best-effort
+  clipboard write of the payload (through the same `copyPayload()` helper,
+  forced onto its synchronous `execCommand` path since an async Clipboard
+  write is unreliable during unload), because the Claude mobile app
+  dismisses the viewer without firing `beforeunload` at all. An empty tray
+  never arms any of this, and neither does a payload that is already on the
+  clipboard. `visibilitychange` fires on every tab switch and app
+  backgrounding, not just on a real dismissal, so the exit copy puts the
+  human's focus, text selection and scroll offset back afterwards — coming
+  back to the page must look exactly like leaving it.
+  Host support, measured rather than assumed: the prompt fires for the
+  HTML file opened from disk in a desktop browser, and does NOT fire for
+  the same build opened through its Artifact link, because the artifact
+  host renders the page in a sandboxed frame that cannot raise the native
+  dialog. On the Artifact surface the best-effort clipboard copy is
+  therefore the whole of the protection, so keep it working even if the
+  prompt is ever dropped. Still unverified: whether
+  `pagehide`/`visibilitychange` fire at all, and whether the copy lands,
+  when the Claude mobile app dismisses the view — the case that motivated
+  the extra two events, and the one that needs a real device.
 - All card text is rendered via `textContent` (never string-built HTML) — card
   titles and bodies are user data; keep it XSS-safe by construction.
 - Desktop right-click card menu (not the mobile scroll-button stack above,
