@@ -282,6 +282,21 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   `copyPayload()` helper (async Clipboard API, falling back to selecting the
   payload textbox and `execCommand("copy")`) — one clipboard code path, not
   two that could drift.
+- With ops queued, closing or navigating away is guarded three ways, because
+  no single browser event covers every host: `beforeunload` raises the
+  host's native confirm-exit prompt on an ordinary tab close/navigate/reload;
+  `pagehide` and a `visibilitychange` to hidden also fire a best-effort
+  clipboard write of the payload (through the same `copyPayload()` helper,
+  forced onto its synchronous `execCommand` path since an async Clipboard
+  write is unreliable during unload), because the Claude mobile app
+  dismisses the viewer without firing `beforeunload` at all. An empty tray
+  never arms any of this. Verified: `beforeunload`'s prompt on a plain
+  browser tab (long-standing browser behavior, not independently retested
+  here). NOT verified: whether the same prompt fires when the HTML is opened
+  as a Claude Artifact in a browser, and — the case that actually motivated
+  the extra two events — whether `pagehide`/`visibilitychange` fire (and the
+  best-effort copy lands) when the Claude mobile app dismisses the view;
+  both need a human check on a real device.
 - All card text is rendered via `textContent` (never string-built HTML) — card
   titles and bodies are user data; keep it XSS-safe by construction.
 - Desktop right-click card menu (not the mobile scroll-button stack above,

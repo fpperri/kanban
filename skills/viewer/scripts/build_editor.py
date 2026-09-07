@@ -921,25 +921,29 @@ else if(note)p.appendChild(el("div","note",note))}
 function payload(){
 const clean=ops.map(o=>{const x=Object.assign({},o);delete x._pid;return x});
 return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.stringify(clean)}
-// The ONE clipboard code path (kanban.proj #252): both the tray's
-// Copy changes button and the header pill funnel through this, so there is
-// exactly one place that knows how to copy the payload and one fallback
-// chain -- async Clipboard API first, then focusing/selecting the hidden
-// #payload textarea and running the execCommand copy command for browsers
-// (and the Claude mobile app's embedded viewer) that don't expose the async
-// API. execCommand REPORTS a blocked copy by RETURNING FALSE rather than
+// The ONE clipboard code path (kanban.proj #252): the tray's Copy changes
+// button, the header pill, and the close-guard's best-effort exit copy
+// (kanban.proj #251) all funnel through this, so there is exactly one place
+// that knows how to copy the payload and one fallback chain -- async
+// Clipboard API first, then focusing/selecting the hidden #payload textarea
+// and running the execCommand copy command for browsers (and the Claude
+// mobile app's embedded viewer) that don't expose the async API.
+// execCommand REPORTS a blocked copy by RETURNING FALSE rather than
 // throwing, so its return value -- not just a try/catch -- is what decides
 // ok/bad; a catch alone would report every blocked copy as a success.
-// onDone(ok) always fires, synchronously on the execCommand path or async on
-// the Clipboard API path, so callers can react to failure (the pill sets a
+// onDone(ok) always fires, synchronously on the execCommand path or async
+// on the Clipboard API path, so callers can react to failure (the pill sets a
 // note; the tray leans on the existing `copied` flag/hint) without
-// duplicating the copy logic itself.
-function copyPayload(onDone){
+// duplicating the copy logic itself. forceSync skips the async attempt
+// outright and goes straight to the execCommand path -- the close-guard
+// passes it true, since an async clipboard write is unreliable during
+// unload/dismissal (it can be torn down before the promise ever settles).
+function copyPayload(onDone,forceSync){
 const txt=payload();
 const ok=()=>{copied=true;if(onDone)onDone(true)};
 const bad=()=>{if(onDone)onDone(false)};
 const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}};
-if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
+if(!forceSync&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
 else fallback()}
 // New-card form: renders inside the pop-up sheet; nothing joins
 // any list until Accept queues the create op — Cancel leaves zero trace.
@@ -1717,6 +1721,57 @@ if(!act){if(t.closest("#modal"))return;sel=String(sel)===String(id)?null:id;focu
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeCard()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(ctxMenuEl){closeCtxMenu();return}
 if(sel!==null||creating||notifView)closeCard()}});
+// Close guard (kanban.proj #251): with ops queued, warn before the page
+// goes away so a human doesn't lose an uncopied payload by accident. An
+// empty tray never registers any of this -- each handler early-returns on
+// !ops.length, so there is nothing to deregister. Three exit signals, not
+// one, because they cover different hosts and none subsumes the others:
+//   - beforeunload: the standard tab-close/navigate/reload guard. Setting
+//     returnValue makes the browser raise its own native confirm-exit
+//     prompt (the string itself is ignored by modern browsers, which show
+//     a generic message, but must still be a non-empty/truthy value for
+//     some engines to fire at all).
+//   - pagehide / visibilitychange(hidden): beforeunload does NOT fire when
+//     a host DISMISSES the view instead of navigating it away -- which is
+//     exactly what the Claude mobile app does to this viewer. These two
+//     fire on a broader set of "the human is leaving" signals (backgrounding
+//     a tab, closing an app switcher card, a mobile OS reclaiming memory)
+//     so between them they're the best available substitute for a
+//     dismissal that skips beforeunload entirely.
+// On every one of these paths we also attempt a best-effort clipboard
+// write of the payload (forceSync=true: skip the unreliable async
+// Clipboard API and go straight to copyPayload's execCommand fallback,
+// since an in-flight promise is not expected to survive an unload/
+// dismissal) through the SAME copyPayload() helper card #252 uses --
+// wrapped in try/catch so any failure here can never block or delay the
+// close itself.
+//
+// Host support -- what's known vs. what still needs a human check on a
+// real device:
+//   - plain browser tab: beforeunload's confirm-exit prompt is a
+//     long-standing, well-supported browser feature; expected to fire
+//     reliably here. NOT independently re-verified in this change.
+//   - the SAME html file opened as a Claude Artifact, in a browser: from
+//     the browser's point of view this is still an ordinary tab, so
+//     beforeunload should behave the same as the plain-tab case above --
+//     NOT independently verified in this change.
+//   - the Claude mobile app's embedded viewer: this is the host that
+//     motivated pagehide/visibilitychange in the first place (see the
+//     #250/#252 field notes above) -- beforeunload is NOT expected to fire
+//     on its dismiss-the-view gesture. Whether pagehide or a
+//     visibilitychange to "hidden" actually fires on THAT gesture, and
+//     whether the best-effort clipboard write below lands before the view
+//     is torn down, is UNVERIFIED -- this needs a human check on a real
+//     device; do not treat this comment as having tested it.
+window.addEventListener("beforeunload",e=>{
+if(!ops.length)return;
+e.preventDefault();
+e.returnValue="Kanban changes are still queued -- leaving now may lose them."});
+function bestEffortExitCopy(){
+if(!ops.length)return;
+try{copyPayload(null,true)}catch(err){}}
+window.addEventListener("pagehide",bestEffortExitCopy);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")bestEffortExitCopy()});
 render();
 renderMap();
 renderGantt();

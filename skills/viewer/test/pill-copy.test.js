@@ -28,7 +28,7 @@ test('there is exactly one clipboard fallback chain (document.execCommand("copy"
 });
 
 test('copyPayload tries the async Clipboard API, falls back to the #payload textarea, and always reports ok/fail via onDone', () => {
-  const fn = sliceFrom('function copyPayload(onDone){', '\nelse fallback()}');
+  const fn = sliceFrom('function copyPayload(onDone,forceSync){', '\nelse fallback()}');
   assert.match(fn, /navigator\.clipboard&&navigator\.clipboard\.writeText/, 'must prefer the async Clipboard API when present');
   assert.match(fn, /\$\("payload"\)/, 'the fallback must target the #payload textarea');
   assert.match(fn, /document\.execCommand\("copy"\)/, 'the fallback must still use execCommand("copy")');
@@ -59,7 +59,7 @@ test('a failed pill copy sets the existing note state and never skips the scroll
 });
 
 test('a blocked execCommand copy is reported as a FAILURE — execCommand returns false rather than throwing, so its return value must decide ok/bad', () => {
-  const fn = sliceFrom('function copyPayload(onDone){', '\nelse fallback()}');
+  const fn = sliceFrom('function copyPayload(onDone,forceSync){', '\nelse fallback()}');
   assert.match(fn, /execCommand\("copy"\)\?ok\(\):bad\(\)/, 'the fallback must branch on execCommand\'s boolean return, not assume success');
   assert.ok(!/execCommand\("copy"\);ok\(\)/.test(fn), 'calling ok() unconditionally after execCommand would report every blocked copy as copied');
 });
