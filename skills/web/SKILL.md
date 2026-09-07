@@ -58,8 +58,11 @@ with that tunnel origin allowlisted:
 node <SCRIPTS_DIR>/server.js <kanban-dir> <port> --allow-origin https://<tunnel-id>.<cluster>.devtunnels.ms
 ```
 
-`--allow-origin` is repeatable; `KANBAN_WEB_ALLOWED_ORIGINS` (comma-separated)
-does the same from the environment, and the two merge. Both are opt-in and
+`--allow-origin` is repeatable (`--allow-origin=<origin>` works too);
+`KANBAN_WEB_ALLOWED_ORIGINS` (comma-separated) does the same from the
+environment, and the two merge. Only `http://` and `https://` origins can be
+allowlisted, and an entry that does not parse is a startup error — the server
+never comes up half-configured. Both are opt-in and
 default to nothing extra allowed — leave them unset and the guard behaves
 exactly as it always has. The CSP (`'self'`) needs no change: the browser
 still sees one origin, whichever one it loaded the app from.

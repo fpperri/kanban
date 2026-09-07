@@ -52,7 +52,15 @@ const NO_EXTRA_ORIGINS = new Set();
 function originMatches(origin, extraOrigins) {
   if (ALLOWED_ORIGIN_RE.test(origin)) return true;
   if (!extraOrigins.size) return false;
-  try { return extraOrigins.has(new URL(origin).origin); } catch (_) { return false; }
+  try {
+    // An opaque-origin URL (file:, data:, about:, a sandboxed blob:) has the
+    // literal string "null" as its origin, and so does every other one — so
+    // "null" must never be a usable key here or one entry would admit them
+    // all. parseAllowedOrigins refuses to build such an entry; this is the
+    // matching-side half of the same rule, for a Set built any other way.
+    const normalized = new URL(origin).origin;
+    return normalized !== 'null' && extraOrigins.has(normalized);
+  } catch (_) { return false; }
 }
 
 function originAllowed(req, extraOrigins = NO_EXTRA_ORIGINS) {
@@ -85,11 +93,19 @@ function parseAllowedOrigins(cliOrigins, envValue) {
   for (const entry of raw) {
     const trimmed = entry.trim();
     if (!trimmed) continue;
-    let origin;
-    try { origin = new URL(trimmed).origin; } catch (_) {
+    let parsed;
+    try { parsed = new URL(trimmed); } catch (_) {
       throw new Error(`invalid allowed origin ${JSON.stringify(trimmed)} (--allow-origin / KANBAN_WEB_ALLOWED_ORIGINS)`);
     }
-    origins.add(origin);
+    // Only http(s) has an origin worth comparing. A file:/data:/about: entry
+    // normalizes to the string "null" — which is the origin of EVERY
+    // opaque-origin URL, so one such entry would quietly admit any file://
+    // page or data: document the browser hands us, far wider than the
+    // operator asked for. Refuse it at the door.
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error(`invalid allowed origin ${JSON.stringify(trimmed)}: only http:// and https:// origins can be allowlisted (--allow-origin / KANBAN_WEB_ALLOWED_ORIGINS)`);
+    }
+    origins.add(parsed.origin);
   }
   return origins;
 }
@@ -102,13 +118,23 @@ function parseAllowedOrigins(cliOrigins, envValue) {
 function extractAllowOriginArgs(argv) {
   const origins = [];
   const rest = [];
+  const EQ = '--allow-origin=';
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--allow-origin') {
+    const arg = argv[i];
+    if (arg === '--allow-origin') {
       i += 1;
       if (i >= argv.length) throw new Error('--allow-origin requires a value');
       origins.push(argv[i]);
+    } else if (arg.startsWith(EQ)) {
+      // The `=` spelling has to be understood, not fall through to `rest`:
+      // `server.js <dir> --allow-origin=https://x` would otherwise start a
+      // server with an EMPTY allowlist and no complaint, leaving the operator
+      // to debug 403s against a guard they believe they widened.
+      const value = arg.slice(EQ.length);
+      if (!value) throw new Error('--allow-origin requires a value');
+      origins.push(value);
     } else {
-      rest.push(argv[i]);
+      rest.push(arg);
     }
   }
   return { origins, rest };

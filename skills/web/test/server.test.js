@@ -2834,6 +2834,62 @@ test('originAllowed: a malformed Origin header against a non-empty extraOrigins 
   assert.strictEqual(originAllowed({ headers: { origin: 'not-a-url' } }, extra), false);
 });
 
+test('originAllowed: a present Origin still wins over a disagreeing Referer, with an allowlist configured', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  // The guard's contract (comment above ALLOWED_HOST_RE): Referer is consulted
+  // only when Origin is absent. An allowlist must not turn a good Referer into
+  // a second chance for a bad Origin.
+  assert.strictEqual(originAllowed({
+    headers: { origin: 'https://evil.tld', referer: 'https://a-7777.usw3.devtunnels.ms/x' },
+  }, extra), false);
+  assert.strictEqual(originAllowed({
+    headers: { origin: 'https://a-7777.usw3.devtunnels.ms', referer: 'https://evil.tld/x' },
+  }, extra), true);
+});
+
+test('originAllowed: a non-allowlisted Referer is still refused when the allowlist is non-empty', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(originAllowed({ headers: { referer: 'https://evil.tld/x' } }, extra), false);
+  assert.strictEqual(originAllowed({ headers: { referer: 'https://a-7777.usw3.devtunnels.ms.evil.tld/x' } }, extra), false);
+});
+
+test('originAllowed: the literal "null" Origin (sandboxed iframe, privacy mode) is refused, allowlist or not', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(originAllowed({ headers: { origin: 'null' } }), false);
+  assert.strictEqual(originAllowed({ headers: { origin: 'null' } }, extra), false);
+  assert.strictEqual(originAllowed({ headers: { origin: '' } }, extra), false);
+});
+
+test('originAllowed: an opaque "null" allowlist entry admits nothing — every file:/data:/about: Origin is still refused', () => {
+  // parseAllowedOrigins refuses to build this Set; originMatches refuses to
+  // honor it anyway. One entry must never become "any opaque origin".
+  const nullSet = new Set(['null']);
+  for (const origin of ['file://', 'file:///c:/evil.html', 'data:text/html,x', 'about:blank', 'blob:null/x', 'null']) {
+    assert.strictEqual(originAllowed({ headers: { origin } }, nullSet), false, `Origin: ${origin} must not be allowed`);
+  }
+});
+
+test('originAllowed: two Origin headers arrive comma-joined and fail closed even when one of them is allowlisted', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(originAllowed({
+    headers: { origin: 'https://a-7777.usw3.devtunnels.ms, https://evil.tld' },
+  }, extra), false);
+  assert.strictEqual(originAllowed({
+    headers: { origin: 'http://localhost:7777, https://evil.tld' },
+  }, extra), false);
+});
+
+test('originAllowed: an allowlisted Origin never relaxes the Host check (rebinding half stays shut)', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  for (const host of ['evil.example', 'a-7777.usw3.devtunnels.ms', '127.0.0.1.evil.tld', 'localhost.evil.tld']) {
+    assert.strictEqual(
+      originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms', host } }, extra), false,
+      `Host: ${host} must still be refused`);
+  }
+  assert.strictEqual(
+    originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms', host: '127.0.0.1:7777' } }, extra), true);
+});
+
 test('createServer(dir, extraOrigins): GET /api/board with an allowlisted tunnel Origin succeeds end to end', async () => {
   const dir = tmpBoard();
   const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
@@ -3239,10 +3295,40 @@ test('start(): with no extraOrigins argument, the log still names an empty allow
       srv.once('listening', resolve);
       srv.once('error', reject);
     });
-    assert.ok(logs.some((l) => l.includes('Kanban app:')));
+    assert.ok(logs.some((l) => l.includes('Kanban app:')), 'the base Kanban app: line is still printed');
+    assert.ok(logs.some((l) => /extra allowed origins: none/.test(l)),
+      'the empty case is stated outright, so a debrief can tell "nothing extra allowed" from "line never printed"');
   } finally {
     console.log = orig;
     await new Promise((resolve) => srv.close(resolve));
     try { fs.unlinkSync(path.join(dir, '.kanban-app.pid')); } catch (_) {}
   }
+});
+
+test('parseAllowedOrigins: a non-http(s) entry is refused rather than becoming a "null" catch-all', () => {
+  for (const bad of ['file:///c:/x', 'about:blank', 'data:text/html,x', 'ftp://x.tld']) {
+    assert.throws(() => parseAllowedOrigins([bad], undefined), /only http:\/\/ and https:\/\/ origins/, bad);
+    assert.throws(() => parseAllowedOrigins([], bad), /only http:\/\/ and https:\/\/ origins/, bad);
+  }
+});
+
+test('extractAllowOriginArgs: the --allow-origin=<value> spelling is understood, not silently dropped into the positionals', () => {
+  const { origins, rest } = extractAllowOriginArgs(['.kanban', '--allow-origin=https://a-7777.usw3.devtunnels.ms', '7777']);
+  assert.deepStrictEqual(origins, ['https://a-7777.usw3.devtunnels.ms']);
+  assert.deepStrictEqual(rest, ['.kanban', '7777']);
+});
+
+test('extractAllowOriginArgs: a bare --allow-origin= with no value throws instead of allowlisting nothing quietly', () => {
+  assert.throws(() => extractAllowOriginArgs(['.kanban', '--allow-origin=']), /--allow-origin requires a value/);
+});
+
+test('extractAllowOriginArgs: the two spellings mix and stay in order', () => {
+  const { origins, rest } = extractAllowOriginArgs([
+    '--allow-origin=https://a-7777.usw3.devtunnels.ms',
+    '.kanban',
+    '--allow-origin', 'https://b-7777.usw3.devtunnels.ms',
+    '7777',
+  ]);
+  assert.deepStrictEqual(origins, ['https://a-7777.usw3.devtunnels.ms', 'https://b-7777.usw3.devtunnels.ms']);
+  assert.deepStrictEqual(rest, ['.kanban', '7777']);
 });

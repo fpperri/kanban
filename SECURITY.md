@@ -52,7 +52,10 @@ access of their own:
   `127.0.0.1` (see `skills/web/SKILL.md`). Default empty, so behavior is
   unchanged unless you configure it; each entry is normalized and compared
   by exact string equality — no wildcards or suffix matching, so a subdomain
-  or superstring of an allowed origin never matches. The Host check and the
+  or superstring of an allowed origin never matches. Only `http(s)` origins
+  can be listed: a `file:`/`data:`/`about:` entry normalizes to the opaque
+  origin `null`, which every such document shares, so one entry would admit
+  all of them — those are refused at startup instead. The Host check and the
   loopback bind are untouched by this — it only widens what Origin/Referer
   values are accepted.
 - **A Content-Security-Policy header on the served HTML**, plus an XSS sweep
