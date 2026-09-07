@@ -297,14 +297,32 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .hdr.thin b{font-size:14px}
 .hdr .base{font-size:12px;color:var(--muted)}
 /* "N pending" is the only signal that queued changes are NOT yet on
-   disk — a solid accent fill (same --accent the Copy-changes button
-   outlines itself in) with bold white text makes it impossible to miss
-   or mistake for a passive label, unlike the old plain colored-text
-   pill. :empty collapses padding/background back to nothing when no ops
-   are queued (render() sets textContent to "" in that case) so it never
-   shows as a stray colored dot. */
-.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:12px;padding:3px 10px}
-.pill:empty{padding:0;background:none}
+   disk — a solid --high (red, kanban.proj #250) fill, never the calmer
+   --accent blue that means "normal/selected" everywhere else in this file,
+   with bold white text makes it impossible to miss or mistake for a passive
+   label, unlike the old plain colored-text pill. It also FLASHES:
+   pillFlash cycles the background red -> white -> red -> white -> red on an
+   IRREGULAR, lightning-like cadence (a fast double strike packed into the
+   keyframe's first ~14%, then one long dark pause for the rest of the
+   cycle) rather than an even sine pulse, so it reads as an alert rather
+   than decoration. The "white" flash stop pairs with a fixed dark text
+   color rather than var(--ink) — --ink flips to white in dark mode and
+   would vanish against a light flash — so the pill stays readable at BOTH
+   ends of the cycle in both color schemes. :empty collapses
+   padding/background back to nothing AND stops the animation outright when
+   no ops are queued (render() sets textContent to "" in that case), so an
+   empty pill never shows as a stray flashing dot, and
+   prefers-reduced-motion drops the animation for a static red pill. */
+.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--high);border-radius:12px;padding:3px 10px;animation:pillFlash 2.8s linear infinite}
+.pill:empty{padding:0;background:none;animation:none}
+@keyframes pillFlash{
+0%,100%{background:var(--high);color:#fff}
+3%{background:#fff;color:#3a0a0a}
+6%{background:var(--high);color:#fff}
+10%{background:#fff;color:#3a0a0a}
+14%{background:var(--high);color:#fff}
+}
+@media(prefers-reduced-motion:reduce){.pill{animation:none;background:var(--high);color:#fff}}
 #bell{font-size:14px;padding:3px 9px;border-radius:14px;line-height:1.2}
 #bellcnt{font-size:10px;font-weight:700;color:#fff;background:var(--high);border-radius:8px;padding:0 5px;margin-left:4px;vertical-align:1px}
 .nrow{border:1px solid var(--grid);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px;overflow-wrap:break-word}

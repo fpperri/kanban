@@ -222,10 +222,16 @@ the width-tier split above. A scroll listener on `#scroll` toggles a
 compacting the header's padding and title size so it stays out of the
 way of board content; only the header line sticks, the search box and
 view tabs scroll away normally. The "N pending" indicator (`#pill`) is a
-solid accent-filled pill with bold white text — not just colored text —
-so queued changes are never mistaken for already applied; it collapses
-to nothing when no ops are queued, and stays tappable, jumping to the
-tray at the bottom of the page.
+solid red (`--high`, never the calmer `--accent` blue) pill with bold white
+text — not just colored text — so queued changes are never mistaken for
+already applied. It also flashes: a CSS-only `@keyframes` animation cycles
+the pill red -> white -> red on an irregular, lightning-like cadence (a fast
+double strike, then one long dark pause — not an even pulse), with a fixed
+dark text color at the white stop so it stays readable at both ends of the
+flash in either color scheme. The animation stops outright (not just
+visually) once the pill is empty, and `prefers-reduced-motion: reduce`
+replaces it with a static red pill. It collapses to nothing when no ops are
+queued, and stays tappable, jumping to the tray at the bottom of the page.
 
 ## Mobile viewer notes (learned the hard way)
 
