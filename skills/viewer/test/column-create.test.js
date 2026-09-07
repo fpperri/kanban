@@ -115,7 +115,34 @@ test('queue()\'s create branch carries an optional fm object onto the queued op 
 
 // --- CSS: compact, adequate tap target, doesn't hijack colh's own tap -----
 
-test('.colbtn is sized as a compact but tappable square, distinct from the generic button rule', () => {
+test('.colbtn is a fixed-size square that neither stretches nor shrinks in the colh flex row', () => {
   assert.match(src, /\.colbtn\{[^}]*width:24px;height:24px;/, 'must be a fixed, compact square, not the generic wide button padding');
   assert.match(src, /\.colbtn\{[^}]*flex:none;/, 'must not stretch/shrink in the colh flex row');
+});
+
+// Measured in headless Chrome at 1400px with every live section collapsed:
+// the Backlog head's content runs 169px inside a 150px strip, putting the
+// AI-prompt button's right edge ~19px OUTSIDE the column, over its
+// neighbour's head. Todo fit with exactly 0px of slack, so a longer column
+// name or a 3-digit count overflows too. The strip is a >=900px-only shape,
+// and at that width live sections open by default — so the pair hides on a
+// deliberately collapsed strip and returns on expand. Below 900px (where
+// collapsed IS the default) the buttons must stay.
+test('a collapsed section hides its create controls only at >=900px, where the 150px strip cannot fit them', () => {
+  const tier2 = sliceFrom('@media(min-width:900px){', '.pend{max-width:640px}}');
+  assert.match(tier2, /\.boardcol\.collapsed\{flex:0 0 150px;min-width:0\}/, 'the collapsed strip is still the 150px shape this rule is compensating for');
+  assert.match(tier2, /\.boardcol\.collapsed \.colbtn\{display:none\}/, 'the create controls must not overflow a collapsed 150px strip onto the next column');
+  const base = src.slice(0, src.indexOf('@media(min-width:560px)'));
+  assert.doesNotMatch(base, /\.boardcol\.collapsed \.colbtn/, 'the hide must be scoped to the >=900px tier only — the phone accordion keeps both controls on every collapsed head');
+});
+
+// --- closeCard(): the fourth way out of the sheet -------------------------
+
+// Escape, the modal ✕ (#mclose) and a backdrop click all route through
+// closeCard(), not through nccancel — so it has to clear the same two seeds
+// the Cancel button does, or a column-scoped status survives the sheet.
+test('closeCard clears ncStatus/nfPromptOpen too, so Escape/✕/backdrop leak no column-scoped state', () => {
+  const fn = extractFunction('closeCard');
+  assert.match(fn, /creating=false/, 'closeCard is one of the paths that closes the create sheet');
+  assert.match(fn, /ncStatus=null;nfPromptOpen=false;/, 'it must reset both seeds exactly like nccancel and ncadd do');
 });

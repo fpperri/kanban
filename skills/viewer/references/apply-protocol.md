@@ -32,8 +32,16 @@ The editor merges duplicate ops (last-wins) before sending, but don't rely on it
 
 `edit.fm` is an object of **raw frontmatter assignments**:
 `{"fm":{"due_date":"2026-07-20","tags":"[ui, bug]","some-custom-key":"x"}}`.
-Each value is written into the card's frontmatter verbatim (the string after
-`key: `) — no validation, matching the board's tolerant-registry philosophy.
+Each value is taken as given — no semantic validation, matching the board's
+tolerant-registry philosophy — but it still has to land as **legal YAML**:
+quote it (double quotes, escaping any embedded `"`) whenever the value
+contains `:` or `#`, has leading/trailing space, or opens with a YAML
+indicator (`-`, `?`, `[`, `]`, `{`, `}`, `&`, `*`, `!`, `|`, `>`, `%`, `@`,
+`` ` ``, `'`, `"`). `prompt` is **always** written quoted and an embedded
+newline in it collapses to a space (kanban SKILL.md, `prompt`) — the editor's
+prompt field is free text a human typed on a phone, so a `:` in it is the
+common case, not the edge case. Flow-style list values (below) are the
+exception: those go in bare.
 `""` removes the key (lean frontmatter). Three keys are special:
 `id` is ignored outright; `status` in `fm` is treated exactly like a `move`
 op (the `doing` entry gate + date-landing rules apply, never written
@@ -47,7 +55,16 @@ write them as-is. Refresh `updated:` on any fm write.
 *initial* frontmatter write instead of a follow-up edit — a `create` has no
 id yet at queue time, so there is no card to target a separate `edit.fm` op
 at. The editor's own new-card sheet uses this for the optional `prompt`
-field: `{"op":"create","title":"…","status":"todo","fm":{"prompt":"…"}}`.
+field: `{"op":"create","title":"…","status":"todo","fm":{"prompt":"…"}}` —
+written quoted like any other `prompt`, e.g. `prompt: "viewer: do X"`.
+The three special keys resolve on a create as follows: `fm.id` and
+`fm.updated` are ignored (the create sets both itself), and `fm.status` is
+ignored too — the op's own top-level `status` is what decides the landing
+column and its date rules, so there is no `move`-op treatment to apply to a
+card that does not exist yet. An `fm` key colliding with a field the create
+already carries (`priority`, `assignee`) loses to that field, same
+precedence. `nextId` is still bumped only after the card file writes
+successfully — `fm` changes nothing about that order.
 
 ## Procedure
 
@@ -83,7 +100,8 @@ field: `{"op":"create","title":"…","status":"todo","fm":{"prompt":"…"}}`.
      `<0000-padded-id>.<slug>.card.md`, slug lowercased/hyphenated, capped ~60
      chars. Frontmatter: id, status, priority, assignee?, updated
      (+ start_date if landing on todo), plus any `fm` keys folded in (same
-     rules as `edit.fm` above — `id`/`status`/`updated` still special-cased).
+     value/quoting rules as `edit.fm`; `id`/`status`/`updated` and top-level
+     collisions resolve per the `create.fm` note above).
      Body: `# <title>` then `body` if given.
      **Write order: card file first, bump `nextId` only after the
      write succeeds — a failed create must never burn an id.**

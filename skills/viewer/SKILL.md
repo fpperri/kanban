@@ -264,7 +264,13 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   column's status already selected in the status field, and an AI-prompt
   button beside it that opens the same sheet with the status preselected
   AND the prompt field already visible for typing. Both stopPropagation()
-  so tapping either never also collapses the section.
+  so tapping either never also collapses the section. One tier exception:
+  at >=900px a *collapsed* section is a 150px strip that physically cannot
+  hold both controls beside the name and count (measured: the head's
+  content runs ~169px), so the pair hides there and comes back when the
+  section is expanded — which is the default state at that width anyway.
+  Below 900px, where collapsed is the DEFAULT, both controls stay on every
+  live head, collapsed or open.
   The header also carries a 🔔 with an unread badge: tapping it
   opens a read-only notifications sheet rendered per the notifications
   contract (TLDR bold, level tints, unread accent) from the embedded

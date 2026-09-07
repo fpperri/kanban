@@ -501,7 +501,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    every media query in this file, at every tier — it is the swipe-down
    insurance + context menu, unrelated to width. */
 @media(min-width:560px){#scroll{max-width:720px}}
-@media(min-width:900px){#scroll{max-width:none;padding:0 24px 120px}#board{display:flex;align-items:flex-start;gap:12px;overflow-x:auto}.boardcol{display:flex;flex-direction:column;min-width:260px;flex:1 1 0}.boardcol.collapsed{flex:0 0 150px;min-width:0}.boardcol .colh{flex:none}.colcards{flex:1;min-height:0;overflow-y:auto;max-height:calc(100vh - 220px)}#modal{align-items:center}#modalscroll{max-width:640px}#calview{max-width:900px;margin:0 auto}.pend{max-width:640px}}
+@media(min-width:900px){#scroll{max-width:none;padding:0 24px 120px}#board{display:flex;align-items:flex-start;gap:12px;overflow-x:auto}.boardcol{display:flex;flex-direction:column;min-width:260px;flex:1 1 0}.boardcol.collapsed{flex:0 0 150px;min-width:0}.boardcol.collapsed .colbtn{display:none}.boardcol .colh{flex:none}.colcards{flex:1;min-height:0;overflow-y:auto;max-height:calc(100vh - 220px)}#modal{align-items:center}#modalscroll{max-width:640px}#calview{max-width:900px;margin:0 auto}.pend{max-width:640px}}
 /* Capability query, not width: touch devices (no hover, coarse
    pointer) keep the hnav step buttons exactly as today at every size;
    mouse/trackpad users get scrollbars + shift-wheel instead. The
@@ -1536,7 +1536,7 @@ $("sup").addEventListener("click",()=>step(-1));
 $("sdn").addEventListener("click",()=>step(1));
 $("stop").addEventListener("click",()=>{const t=scTgt();t.scrollTo({top:0,behavior:"smooth"})});
 $("sbot").addEventListener("click",()=>{const t=scTgt();t.scrollTo({top:t.scrollHeight,behavior:"smooth"})});
-function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;render()}
+function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;ncStatus=null;nfPromptOpen=false;render()}
 // Shared by the sheet's own "Dependency tree"/"Dependency path"
 // buttons (the act==="graphfocus" branch below) AND the right-click card
 // menu's matching items — one path, not two, per the tree:/path: contract:
