@@ -228,7 +228,10 @@ already applied. It also flashes: a CSS-only `@keyframes` animation cycles
 the pill red -> white -> red on an irregular, lightning-like cadence (a fast
 double strike, then one long dark pause — not an even pulse), with a fixed
 dark text color at the white stop so it stays readable at both ends of the
-flash in either color scheme. The animation stops outright (not just
+flash in either color scheme. The animation steps (`step-end`) rather than
+interpolating, so the pill is only ever painted in one of those two
+high-contrast states — a linear tween would spend ~14% of every cycle in
+unreadable mid-blends. The animation stops outright (not just
 visually) once the pill is empty, and `prefers-reduced-motion: reduce`
 replaces it with a static red pill. It collapses to nothing when no ops are
 queued, and stays tappable, jumping to the tray at the bottom of the page.

@@ -308,12 +308,19 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    than decoration. The "white" flash stop pairs with a fixed dark text
    color rather than var(--ink) — --ink flips to white in dark mode and
    would vanish against a light flash — so the pill stays readable at BOTH
-   ends of the cycle in both color schemes. :empty collapses
+   ends of the cycle in both color schemes. The timing function is
+   step-end, NOT linear: with linear every white stop is a zero-duration
+   turning point, so the pill would spend ~14% of each cycle smeared
+   through mid-blends (around #9c8484 text on #e79d9d, ~1.6:1) where the
+   text is unreadable even though both DECLARED ends are fine. step-end
+   holds each stop until the next, so every painted frame is one of the
+   two high-contrast pairs — and a held-then-jumped strike is what
+   lightning looks like anyway. :empty collapses
    padding/background back to nothing AND stops the animation outright when
    no ops are queued (render() sets textContent to "" in that case), so an
    empty pill never shows as a stray flashing dot, and
    prefers-reduced-motion drops the animation for a static red pill. */
-.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--high);border-radius:12px;padding:3px 10px;animation:pillFlash 2.8s linear infinite}
+.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--high);border-radius:12px;padding:3px 10px;animation:pillFlash 2.8s step-end infinite}
 .pill:empty{padding:0;background:none;animation:none}
 @keyframes pillFlash{
 0%,100%{background:var(--high);color:#fff}

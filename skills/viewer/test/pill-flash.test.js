@@ -60,6 +60,19 @@ function extractKeyframes(name) {
   return css.slice(start, i);
 }
 
+// sRGB relative luminance, so "is the flash text dark?" is a measured
+// claim rather than "it is spelled with a #".
+function contrastOnWhite(hex) {
+  let h = hex.slice(1);
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const chan = i => {
+    const v = parseInt(h.slice(i * 2, i * 2 + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const L = 0.2126 * chan(0) + 0.7152 * chan(1) + 0.0722 * chan(2);
+  return 1.05 / (L + 0.05);
+}
+
 test('.pill is red (--high), not the calmer --accent blue', () => {
   assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--high\)[^}]*\}/, 'the base pill fill must be --high');
   assert.ok(!/\.pill\{[^}]*background:var\(--accent\)/.test(nonMediaCss), 'the old --accent fill must be gone');
@@ -98,7 +111,8 @@ test('the white flash stop pairs with a fixed dark text color, not var(--ink) (w
   assert.ok(whiteStops.length > 0, 'at least one white-background stop must declare its own color');
   whiteStops.forEach(m => {
     assert.notStrictEqual(m[1], 'var(--ink)', 'the white flash stop must not rely on var(--ink) -- it flips to white in dark mode');
-    assert.match(m[1], /^#[0-9a-fA-F]{3,6}$/, 'the white flash stop must pin a fixed dark hex color: ' + m[1]);
+    assert.match(m[1], /^#[0-9a-fA-F]{3,6}$/, 'the white flash stop must pin a fixed hex color: ' + m[1]);
+    assert.ok(contrastOnWhite(m[1]) >= 4.5, 'the white flash stop text must actually BE dark enough to read on #fff (WCAG AA 4.5:1), not merely spelled with a #: ' + m[1] + ' is ' + contrastOnWhite(m[1]).toFixed(2) + ':1');
   });
 });
 
@@ -111,4 +125,9 @@ test('prefers-reduced-motion forces a static red pill with no animation', () => 
   assert.ok(reducedBlock, 'a @media(prefers-reduced-motion:reduce) block must exist');
   assert.match(reducedBlock, /\.pill\{[^}]*animation:none[^}]*\}/, 'reduced motion must disable the animation');
   assert.match(reducedBlock, /\.pill\{[^}]*background:var\(--high\)[^}]*\}/, 'reduced motion must still show the red pill statically');
+});
+
+test('the flash STEPS between its declared states instead of tweening — a linear tween paints unreadable mid-blends between the red and white stops', () => {
+  assert.match(nonMediaCss, /\.pill\{[^}]*animation:pillFlash [\d.]+s step-end infinite[^}]*\}/, 'the pill animation must use a stepping timing function');
+  assert.ok(!/animation:pillFlash [\d.]+s (linear|ease[\w-]*) /.test(nonMediaCss), 'linear/ease would interpolate background AND color together, dropping the text to ~1.6:1 in transit');
 });
