@@ -95,11 +95,17 @@ tap-to-filter here — unlike kanban-web's tap-an-assignee-or-tag-to-filter,
 this editor has no additive query-append affordance (its tree:/path: buttons
 overwrite the whole query box).
 
-**Deliberate gap:** kanban-web's AI-prompt sparkle button (a dedicated
-control for writing the `prompt` field) has no twin here — a card that
-already carries a `prompt` line gets an editable row in the generic "All
-fields" grid like any other key, but a card without one can't have a prompt
-freshly added from this editor.
+**Deliberate gap, narrowed:** kanban-web's AI-prompt sparkle button (a
+dedicated control for writing the `prompt` field) still has no twin on an
+*existing* card here — a card that already carries a `prompt` line gets an
+editable row in the generic "All fields" grid like any other key, and a
+card without one still can't have a prompt added to it after the fact from
+this editor. A *new* card is different: every live column head's second
+control (the small AI-prompt button next to its "+") opens the new-card
+sheet with the prompt field already visible, and Accept carries a non-empty
+value through as `create.fm.prompt` — the only representation the payload
+protocol can actually apply, since a `create` op has no id yet for a
+follow-up `edit.fm` (`references/apply-protocol.md`).
 
 The create form's assignee suggestions come from the board registry
 (`config.yaml` `assignees`); with no registry it suggests the
@@ -252,6 +258,19 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   blocked storage falls back to off). An ✕ rides above the ⋯ in
   medium/extended whenever a pop-up is open, and the scroll buttons drive
   the pop-up's scroll area instead of the board.
+  Besides the scroll-stack's ＋ and the header's "+ New card" button, every
+  LIVE column head (never Archive) carries two small controls of its own,
+  right of the card count: a "+" that opens the new-card sheet with that
+  column's status already selected in the status field, and an AI-prompt
+  button beside it that opens the same sheet with the status preselected
+  AND the prompt field already visible for typing. Both stopPropagation()
+  so tapping either never also collapses the section. One tier exception:
+  at >=900px a *collapsed* section is a 150px strip that physically cannot
+  hold both controls beside the name and count (measured: the head's
+  content runs ~169px), so the pair hides there and comes back when the
+  section is expanded — which is the default state at that width anyway.
+  Below 900px, where collapsed is the DEFAULT, both controls stay on every
+  live head, collapsed or open.
   The header also carries a 🔔 with an unread badge: tapping it
   opens a read-only notifications sheet rendered per the notifications
   contract (TLDR bold, level tints, unread accent) from the embedded
