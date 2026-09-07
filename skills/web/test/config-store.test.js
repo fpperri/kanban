@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -76,7 +76,7 @@ test('serializeConfig round-trips through parseConfig', () => {
 
 test('readConfig returns defaults when config.yaml is absent', () => {
   const dir = tmpBoard();
-  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, port: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] });
 });
 
 // --- `statuses` joins LIST_KEYS — the official column list ----------
@@ -247,6 +247,25 @@ test('serializeConfig round-trips a pinned port', () => {
   const c = cfg.parseConfig('port: 7781\n' + SAMPLE);
   const out = cfg.serializeConfig(c);
   assert.deepStrictEqual(cfg.parseConfig(out), c);
+});
+
+test('parseConfig rejects an out-of-range or malformed port AND hands the raw value back for the warning', () => {
+  // 65536+ matters as much as 'abc': srv.listen() throws ERR_SOCKET_BAD_PORT
+  // outside 1-65535, so an unscreened out-of-range pin crashed the server
+  // with a raw stack instead of the clear message the key promises.
+  for (const raw of ['65536', '99999', '0', '-1', 'not-a-number']) {
+    const c = cfg.parseConfig(`port: ${raw}\n`);
+    assert.strictEqual(c.port, null, `${raw} must never become a pin`);
+    assert.strictEqual(c.portInvalid, raw, `${raw} must come back so the server can name it`);
+  }
+});
+
+test('parseConfig leaves portInvalid null for a usable pin and for an absent key', () => {
+  assert.strictEqual(cfg.parseConfig('port: 65535\n').port, 65535);
+  assert.strictEqual(cfg.parseConfig('port: 65535\n').portInvalid, null);
+  assert.strictEqual(cfg.parseConfig('port: 1\n').port, 1);
+  assert.strictEqual(cfg.parseConfig('nextId: 5\n').portInvalid, null);
+  assert.strictEqual(cfg.parseConfig("assignees:\n  - handle: \"@alex\"\n    port: 70000\n").portInvalid, null);
 });
 
 test('advanceCounter keeps a line-1 name byte-for-byte when the web app allocates an id', () => {

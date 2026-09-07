@@ -19,6 +19,12 @@ busy) and binds to `127.0.0.1` only. Open that URL in any browser, or paste it
 into VSCode's **Simple Browser**. Point the command at any folder of
 `*.card.md` files to edit your own board.
 
+A board that wants a fixed address pins one with a top-level `port:` key in
+its `config.yaml`: the pin beats the `7777` default, an explicit `[port]`
+argument beats the pin, and a busy *pinned* port is a startup error rather
+than a silent move to some other port. The printed line is always the port
+actually bound.
+
 All the screenshots below are the bundled `examples/demo-board` (a fictional
 "Tallybird" app launch).
 

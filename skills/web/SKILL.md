@@ -43,8 +43,11 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
   rule as `name:` — an indented `port:` inside an assignee entry is not it; see
   the `kanban` skill's `config.yaml` section for the full key contract) to **pin**
   its serving port so a bookmarked or VS Code-tunneled URL never drifts across
-  launches. The `[port]` CLI argument, when given, always wins over the pin —
-  it's the launcher's explicit override for one run.
+  launches. The `[port]` CLI argument wins over the pin whenever it is a
+  usable port number (a whole number in 1-65535) — it's the launcher's
+  explicit override for one run. An argument that isn't (`0`, `abc`, `70000`)
+  is treated as "no argument given" and falls through to the pin/default,
+  saying so on stderr.
   - **No `port:` key:** unchanged default behavior — starts at `7777` and
     **auto-increments** past a busy port.
   - **`port:` set, no CLI argument:** the server binds exactly that port. If it's
@@ -52,6 +55,14 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
     exists so the address never drifts, so a busy pinned port fails loudly
     instead of quietly moving the board to a different URL. Free the port (or
     edit/remove the `port:` line) and relaunch.
+  - **`port:` set to something unusable** (`port: seventy`, `port: 0`,
+    `port: 70000` — anything but a whole number in 1-65535): the key is
+    **ignored, never fatal**, and the board falls back to `7777` with
+    auto-increment. The parser stays tolerant because every surface shares
+    it, so the *server* is what complains: it prints a stderr line naming the
+    offending value and warning that the URL can now drift. A typo'd pin is
+    the one case where a board with a `port:` line still moves — treat that
+    warning as "fix the line", not noise.
   - It always **prints the actual URL** on stdout
     (`Kanban app: http://localhost:<port> ...`, suffixed with
     `[pinned by config.yaml]` when the pin was used) — read that line for the

@@ -214,27 +214,49 @@ function start(dir, port, attempts = 20, pinned = false) {
   });
   const pidPath = path.join(dir, '.kanban-app.pid');
   srv.listen(port, '127.0.0.1', () => {
-    fs.writeFileSync(pidPath, `${process.pid}\n${port}\n`);
+    // Report the port the socket ACTUALLY bound, never the one we asked
+    // for. They differ whenever `port` is 0 (an embedder letting the OS
+    // pick), and this pidfile and log line are the only record of where the
+    // board is reachable — neither may ever name a port nothing bound.
+    const bound = srv.address().port;
+    fs.writeFileSync(pidPath, `${process.pid}\n${bound}\n`);
     const cleanup = () => { try { fs.unlinkSync(pidPath); } catch (_) {} process.exit(0); };
     process.once('SIGINT', cleanup);
     process.once('SIGTERM', cleanup);
-    console.log(`Kanban app: http://localhost:${port}  (board: ${dir})${pinned ? '  [pinned by config.yaml]' : ''}`);
+    console.log(`Kanban app: http://localhost:${bound}  (board: ${dir})${pinned ? '  [pinned by config.yaml]' : ''}`);
   });
   return srv;
 }
 
+const DEFAULT_PORT = 7777;
+// A bindable TCP port. The upper bound is not decoration: `srv.listen()`
+// throws ERR_SOCKET_BAD_PORT — an uncaught stack, not a message — for
+// anything outside 1-65535, so both port inputs are screened here.
+const isPort = (n) => Number.isInteger(n) && n >= 1 && n <= 65535;
+
 // Precedence for the port to bind: CLI argument > config.yaml's `port:` >
 // default 7777 (which auto-increments past a busy port — see `start`). An
-// `arg` that isn't a positive integer (absent, or an invalid string) is
-// treated as "no CLI argument given", falling through to the pin/default.
-// Returns `{ port, pinned }` — `pinned` is what tells `start` to refuse
-// rather than increment on EADDRINUSE.
+// `arg` that isn't a bindable port (absent, or an invalid/out-of-range
+// string) is treated as "no CLI argument given", falling through to the
+// pin/default — the old `Number(argv[3]) || 7777` let `0` and `NaN` fall
+// through the same way. Returns `{ port, pinned }` — `pinned` is what tells
+// `start` to refuse rather than increment on EADDRINUSE.
+//
+// Both fall-throughs SAY SO on stderr. Landing on 7777-with-auto-increment
+// because a `port:` line or a CLI argument was unusable is precisely the
+// drifting bookmark this key exists to prevent, so it never happens
+// quietly; only the honest "no pin, no argument" case is silent.
 function resolvePort(dir, arg) {
+  const given = arg !== undefined && arg !== null && String(arg).trim() !== '';
   const cliPort = Number(arg);
-  if (arg !== undefined && Number.isInteger(cliPort) && cliPort > 0) return { port: cliPort, pinned: false };
-  const configPort = cfg.readConfig(dir).port;
-  if (configPort) return { port: configPort, pinned: true };
-  return { port: 7777, pinned: false };
+  if (given && isPort(cliPort)) return { port: cliPort, pinned: false };
+  if (given) console.error(`Kanban app: ignoring the port argument \`${arg}\` — not a port number (1-65535). Falling back to config.yaml's \`port:\` or ${DEFAULT_PORT}.`);
+  const config = cfg.readConfig(dir);
+  if (config.port) return { port: config.port, pinned: true };
+  if (config.portInvalid !== null && config.portInvalid !== undefined) {
+    console.error(`Kanban app: ignoring config.yaml's \`port: ${config.portInvalid}\` — not a port number (1-65535). Starting at ${DEFAULT_PORT} with auto-increment instead, so this board's URL can drift; fix the line to pin it.`);
+  }
+  return { port: DEFAULT_PORT, pinned: false };
 }
 
 // Board-directory discovery for a missing CLI arg: `.kanban/` is the
