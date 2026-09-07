@@ -192,12 +192,24 @@ function createServer(dir) {
   });
 }
 
-function start(dir, port, attempts = 20) {
+// `pinned`: the port came from config.yaml's `port:` key, not the CLI arg or
+// the 7777 default. A pin exists so the board's address never drifts — a busy
+// PINNED port is a startup error, never a silent increment (auto-increment
+// survives only for the unpinned default case).
+function start(dir, port, attempts = 20, pinned = false) {
   // The dir must exist (checked by the CLI entry below); an empty board is allowed
   // so you can create the first card from the app.
   const srv = createServer(dir);
   srv.on('error', (e) => {
-    if (e.code === 'EADDRINUSE' && attempts > 0) { return start(dir, port + 1, attempts - 1); }
+    if (e.code === 'EADDRINUSE') {
+      if (pinned) {
+        console.error(`Kanban app: port ${port} is pinned by config.yaml's \`port:\` key but is already in use. Free the port, or edit/remove \`port:\` in config.yaml, then retry.`);
+        process.exit(1);
+        return; // belt-and-braces: never fall through to auto-increment below,
+                 // even if something stubs process.exit (e.g. tests)
+      }
+      if (attempts > 0) return start(dir, port + 1, attempts - 1);
+    }
     console.error(e.message); process.exit(1);
   });
   const pidPath = path.join(dir, '.kanban-app.pid');
@@ -206,9 +218,23 @@ function start(dir, port, attempts = 20) {
     const cleanup = () => { try { fs.unlinkSync(pidPath); } catch (_) {} process.exit(0); };
     process.once('SIGINT', cleanup);
     process.once('SIGTERM', cleanup);
-    console.log(`Kanban app: http://localhost:${port}  (board: ${dir})`);
+    console.log(`Kanban app: http://localhost:${port}  (board: ${dir})${pinned ? '  [pinned by config.yaml]' : ''}`);
   });
   return srv;
+}
+
+// Precedence for the port to bind: CLI argument > config.yaml's `port:` >
+// default 7777 (which auto-increments past a busy port — see `start`). An
+// `arg` that isn't a positive integer (absent, or an invalid string) is
+// treated as "no CLI argument given", falling through to the pin/default.
+// Returns `{ port, pinned }` — `pinned` is what tells `start` to refuse
+// rather than increment on EADDRINUSE.
+function resolvePort(dir, arg) {
+  const cliPort = Number(arg);
+  if (arg !== undefined && Number.isInteger(cliPort) && cliPort > 0) return { port: cliPort, pinned: false };
+  const configPort = cfg.readConfig(dir).port;
+  if (configPort) return { port: configPort, pinned: true };
+  return { port: 7777, pinned: false };
 }
 
 // Board-directory discovery for a missing CLI arg: `.kanban/` is the
@@ -225,8 +251,8 @@ function resolveDefaultBoardDir(baseDir) {
 if (require.main === module) {
   const dir = process.argv[2] || resolveDefaultBoardDir();
   if (!fs.existsSync(dir)) { console.error(`Board dir not found: ${dir}`); process.exit(1); }
-  const port = Number(process.argv[3]) || 7777;
-  start(dir, port);
+  const { port, pinned } = resolvePort(dir, process.argv[3]);
+  start(dir, port, 20, pinned);
 }
 
-module.exports = { createServer, start, originAllowed, resolveDefaultBoardDir };
+module.exports = { createServer, start, resolvePort, originAllowed, resolveDefaultBoardDir };

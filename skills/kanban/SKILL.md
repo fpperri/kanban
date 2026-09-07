@@ -104,6 +104,7 @@ Only `*.card.md` files are cards. Two other files in `<kanban-dir>/` are levers 
 ```yaml
 name: webapp      # the BOARD NAME opening every card mention (`webapp#29 Card title`)
 artifact: https://claude.ai/code/artifact/<id>   # the board's Board artifact URL; seeded by the first session that publishes the viewer (see the kanban-viewer skill)
+port: 7781        # pins kanban-web's serving port; human-set (never AI-invented) — see the kanban-web skill
 nextId: 29        # monotonic id counter — use max(nextId, scan-max + 1), then write the advanced counter back
 assignees:        # registry of who can own cards; suggests handles, never validates
   - handle: "@human"
@@ -149,6 +150,19 @@ fresh page (no line, no match), and recreating after the old page is gone
 any time to force the next session to publish a fresh page. Full procedure:
 `skills/viewer/references/board-artifact.md`.
 
+**`port:` is the third named exception to "never invent a config
+key."** It **pins** kanban-web's serving port (`skills/web/scripts/server.js`,
+read once at startup) so a bookmarked/tunneled URL never drifts across
+launches — precedence and the busy-pinned-port error live in the kanban-web
+skill. Same top-level-only rule as `name:`: an assignee's own indented fields
+never collide with it. Unlike `name:`/`artifact:`, this one has **no
+AI-autonomous seed trigger** — a port number can't be safely derived (it has
+to match a bookmark or VS Code tunnel URL the human already owns outside the
+board), so an AI never invents or auto-writes a value for it; only a human,
+or a session explicitly directed to set specific values, writes the line. The
+`kanban-cli` and `kanban-viewer` skills ignore the key entirely — it's a
+serving fact for kanban-web, not board content either of them renders.
+
 **Grab semantics for AI writers:** the registry's `kind` tells *you*, the
 AI, how to treat a card based on its `assignee` handle:
 
@@ -174,7 +188,7 @@ has no `assignees` registry, every surface suggests exactly this trio.
 
 Status values are **case-sensitive** — the `doing` entry gate (waiting + blocked) applies to the literal lowercase `doing` only; a column named `Doing` is just another custom column the gate ignores. Curate accordingly.
 
-The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — the single exception is seeding `name:` (above). **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
+The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself, and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`). **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 
 The `statuses` list is different in kind: it drives the **column layout** of every board surface (web columns, cli board print, form options, gantt group order), in list order — but like the other lists it never validates a card's on-disk value. A card with an unlisted status renders in the list's **first column** (the catch-all — `backlog` under the default list) with its raw value shown; the file is never rewritten. **Promotion is human-only:** only the human adds a status to the list; on the next read the card files under its real column. Archive is excluded — it stays a location-column at the far right, never a list entry. The `doing` entry gate (waiting + blocked) stays pinned to the **literal** status `doing`, custom list or not.
 

@@ -38,10 +38,31 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 - Pass `<kanban-dir>` explicitly (the path resolved above) — omitting it makes the
   server apply the same discovery itself, relative to *its own* working directory:
   `.kanban/` first, then `kanban/`.
-- Default port `7777`; it auto-increments if busy and **prints the actual URL** on
-  stdout (`Kanban app: http://localhost:<port> ...`). Read that line for the real port.
-- It writes `<kanban-dir>/.kanban-app.pid` (line 1 = pid, line 2 = port). This dotfile
-  is ignored by the board scripts (only `*.card.md` are cards).
+- **Port precedence: CLI argument > `config.yaml`'s `port:` > default `7777`.**
+  A board's `config.yaml` may carry a top-level `port:` key (same top-level-only
+  rule as `name:` — an indented `port:` inside an assignee entry is not it; see
+  the `kanban` skill's `config.yaml` section for the full key contract) to **pin**
+  its serving port so a bookmarked or VS Code-tunneled URL never drifts across
+  launches. The `[port]` CLI argument, when given, always wins over the pin —
+  it's the launcher's explicit override for one run.
+  - **No `port:` key:** unchanged default behavior — starts at `7777` and
+    **auto-increments** past a busy port.
+  - **`port:` set, no CLI argument:** the server binds exactly that port. If it's
+    already in use, this is a **startup error, not a silent increment** — the pin
+    exists so the address never drifts, so a busy pinned port fails loudly
+    instead of quietly moving the board to a different URL. Free the port (or
+    edit/remove the `port:` line) and relaunch.
+  - It always **prints the actual URL** on stdout
+    (`Kanban app: http://localhost:<port> ...`, suffixed with
+    `[pinned by config.yaml]` when the pin was used) — read that line for the
+    real port, and relay the "pinned by config.yaml" note to the user when
+    present.
+- It writes `<kanban-dir>/.kanban-app.pid` (line 1 = pid, line 2 = **the real
+  port actually bound** — the pid file and the log line always agree, pin or no
+  pin). This dotfile is ignored by the board scripts (only `*.card.md` are
+  cards).
+- The `kanban-cli` and `kanban-viewer` skills ignore `port:` entirely — it's a
+  serving fact for this app, not board content either of them renders.
 
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
 also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple Browser").

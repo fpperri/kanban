@@ -1,5 +1,5 @@
 'use strict';
-// config.yaml: board-level configuration — currently three concerns:
+// config.yaml: board-level configuration — currently four concerns:
 //
 //   name: webapp          # BOARD NAME — the token that opens a card mention
 //                         # (`webapp#28 Card title`) and titles every surface.
@@ -8,6 +8,13 @@
 //                         # Must precede `assignees:` — those entries carry
 //                         # their own INDENTED `name:`, and only a top-level
 //                         # (unindented) key is the board name.
+//   port: 7781            # PINS the web app's serving port (server.js's CLI
+//                         # entry reads this once at startup). Same
+//                         # top-level-only rule as `name:` — an INDENTED
+//                         # `port:` inside an assignee entry is not it.
+//                         # Precedence: CLI arg > this key > default 7777
+//                         # with auto-increment. A busy PINNED port is a
+//                         # startup error, never a silent increment.
 //   nextId: 28            # monotonic id counter — ids stay unique even when
 //                         # the max card is deleted or two writers race a scan
 //   assignees:            # who can own cards; feeds the form's combobox
@@ -45,7 +52,7 @@ function parseFlowList(raw) {
 const LIST_KEYS = ['priorities', 'tags', 'statuses'];
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] };
+  const config = { name: '', nextId: null, port: null, assignees: [], priorities: [], tags: [], statuses: [] };
   let section = null; // 'assignees' | one of LIST_KEYS | null
   let cur = null;
   const flush = () => {
@@ -80,6 +87,14 @@ function parseConfig(text) {
       } else if (top[1] === 'nextId') {
         const n = Number(scalar(top[2]));
         config.nextId = Number.isInteger(n) && n > 0 ? n : null;
+        section = null;
+      } else if (top[1] === 'port') {
+        // Pinned serving port (web skill, kanban.proj #254). Same
+        // top-level-only rule as `name:` — an assignee's own indented
+        // fields never reach this branch. Tolerant like every other key
+        // here: a non-numeric or non-positive value is ignored, not fatal.
+        const n = Number(scalar(top[2]));
+        config.port = Number.isInteger(n) && n > 0 ? n : null;
         section = null;
       } else if (top[1] === 'assignees') {
         section = 'assignees';
@@ -121,6 +136,7 @@ function parseConfig(text) {
 function serializeConfig(config) {
   let out = '';
   if (config.name) out += `name: ${config.name}\n`;
+  if (config.port !== null && config.port !== undefined) out += `port: ${config.port}\n`;
   if (config.nextId !== null && config.nextId !== undefined) out += `nextId: ${config.nextId}\n`;
   if (config.assignees && config.assignees.length) {
     out += 'assignees:\n';
@@ -137,7 +153,7 @@ function configFile(dir) {
 
 function readConfig(dir) {
   const file = configFile(dir);
-  if (!fs.existsSync(file)) return { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] };
+  if (!fs.existsSync(file)) return { name: '', nextId: null, port: null, assignees: [], priorities: [], tags: [], statuses: [] };
   return parseConfig(fs.readFileSync(file, 'utf8'));
 }
 
