@@ -38,10 +38,42 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 - Pass `<kanban-dir>` explicitly (the path resolved above) — omitting it makes the
   server apply the same discovery itself, relative to *its own* working directory:
   `.kanban/` first, then `kanban/`.
-- Default port `7777`; it auto-increments if busy and **prints the actual URL** on
-  stdout (`Kanban app: http://localhost:<port> ...`). Read that line for the real port.
-- It writes `<kanban-dir>/.kanban-app.pid` (line 1 = pid, line 2 = port). This dotfile
-  is ignored by the board scripts (only `*.card.md` are cards).
+- **Port precedence: CLI argument > `config.yaml`'s `port:` > default `7777`.**
+  A board's `config.yaml` may carry a top-level `port:` key (same top-level-only
+  rule as `name:` — an indented `port:` inside an assignee entry is not it; see
+  the `kanban` skill's `config.yaml` section for the full key contract) to **pin**
+  its serving port so a bookmarked or VS Code-tunneled URL never drifts across
+  launches. The `[port]` CLI argument wins over the pin whenever it is a
+  usable port number (a whole number in 1-65535) — it's the launcher's
+  explicit override for one run. An argument that isn't (`0`, `abc`, `70000`)
+  is treated as "no argument given" and falls through to the pin/default,
+  saying so on stderr.
+  - **No `port:` key:** unchanged default behavior — starts at `7777` and
+    **auto-increments** past a busy port.
+  - **`port:` set, no CLI argument:** the server binds exactly that port. If it's
+    already in use, this is a **startup error, not a silent increment** — the pin
+    exists so the address never drifts, so a busy pinned port fails loudly
+    instead of quietly moving the board to a different URL. Free the port (or
+    edit/remove the `port:` line) and relaunch.
+  - **`port:` set to something unusable** (`port: seventy`, `port: 0`,
+    `port: 70000` — anything but a whole number in 1-65535): the key is
+    **ignored, never fatal**, and the board falls back to `7777` with
+    auto-increment. The parser stays tolerant because every surface shares
+    it, so the *server* is what complains: it prints a stderr line naming the
+    offending value and warning that the URL can now drift. A typo'd pin is
+    the one case where a board with a `port:` line still moves — treat that
+    warning as "fix the line", not noise.
+  - It always **prints the actual URL** on stdout
+    (`Kanban app: http://localhost:<port> ...`, suffixed with
+    `[pinned by config.yaml]` when the pin was used) — read that line for the
+    real port, and relay the "pinned by config.yaml" note to the user when
+    present.
+- It writes `<kanban-dir>/.kanban-app.pid` (line 1 = pid, line 2 = **the real
+  port actually bound** — the pid file and the log line always agree, pin or no
+  pin). This dotfile is ignored by the board scripts (only `*.card.md` are
+  cards).
+- The `kanban-cli` and `kanban-viewer` skills ignore `port:` entirely — it's a
+  serving fact for this app, not board content either of them renders.
 
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
 also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple Browser").

@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -76,7 +76,7 @@ test('serializeConfig round-trips through parseConfig', () => {
 
 test('readConfig returns defaults when config.yaml is absent', () => {
   const dir = tmpBoard();
-  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] });
 });
 
 // --- `statuses` joins LIST_KEYS — the official column list ----------
@@ -218,6 +218,54 @@ test('serializeConfig round-trips a board name, and emits it ABOVE the assignees
   const out = cfg.serializeConfig(c);
   assert.ok(out.indexOf('name: webapp') < out.indexOf('assignees:'), 'top-level name must precede assignees');
   assert.deepStrictEqual(cfg.parseConfig(out), c);
+});
+
+// --- `port`: pins the board's serving port (kanban.proj #254) -----------
+
+test('parseConfig reads a top-level port as a number', () => {
+  const c = cfg.parseConfig('port: 7781\nnextId: 7\n');
+  assert.strictEqual(c.port, 7781);
+});
+
+test('parseConfig defaults port to null when the key is absent (caller falls back to CLI-arg/7777 auto-increment)', () => {
+  assert.strictEqual(cfg.parseConfig('nextId: 5\n').port, null);
+});
+
+test("parseConfig does not mistake an assignee's indented port for the board's pinned port", () => {
+  const c = cfg.parseConfig('assignees:\n  - handle: "@alex"\n    name: "Alex"\n    port: 9999\n');
+  assert.strictEqual(c.port, null);
+  assert.strictEqual(c.assignees[0].handle, '@alex'); // the indented line was consumed, not fatal
+});
+
+test('parseConfig ignores a non-numeric or non-positive port (tolerant: never fatal)', () => {
+  assert.strictEqual(cfg.parseConfig('port: not-a-number\n').port, null);
+  assert.strictEqual(cfg.parseConfig('port: 0\n').port, null);
+  assert.strictEqual(cfg.parseConfig('port: -1\n').port, null);
+});
+
+test('serializeConfig round-trips a pinned port', () => {
+  const c = cfg.parseConfig('port: 7781\n' + SAMPLE);
+  const out = cfg.serializeConfig(c);
+  assert.deepStrictEqual(cfg.parseConfig(out), c);
+});
+
+test('parseConfig rejects an out-of-range or malformed port AND hands the raw value back for the warning', () => {
+  // 65536+ matters as much as 'abc': srv.listen() throws ERR_SOCKET_BAD_PORT
+  // outside 1-65535, so an unscreened out-of-range pin crashed the server
+  // with a raw stack instead of the clear message the key promises.
+  for (const raw of ['65536', '99999', '0', '-1', 'not-a-number']) {
+    const c = cfg.parseConfig(`port: ${raw}\n`);
+    assert.strictEqual(c.port, null, `${raw} must never become a pin`);
+    assert.strictEqual(c.portInvalid, raw, `${raw} must come back so the server can name it`);
+  }
+});
+
+test('parseConfig leaves portInvalid null for a usable pin and for an absent key', () => {
+  assert.strictEqual(cfg.parseConfig('port: 65535\n').port, 65535);
+  assert.strictEqual(cfg.parseConfig('port: 65535\n').portInvalid, null);
+  assert.strictEqual(cfg.parseConfig('port: 1\n').port, 1);
+  assert.strictEqual(cfg.parseConfig('nextId: 5\n').portInvalid, null);
+  assert.strictEqual(cfg.parseConfig("assignees:\n  - handle: \"@alex\"\n    port: 70000\n").portInvalid, null);
 });
 
 test('advanceCounter keeps a line-1 name byte-for-byte when the web app allocates an id', () => {

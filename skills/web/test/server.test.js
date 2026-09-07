@@ -5,7 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const vm = require('node:vm');
-const { createServer, start, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
+const { spawnSync } = require('node:child_process');
+const { createServer, start, resolvePort, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
 
 function tmpBoard() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-srv-'));
@@ -3268,7 +3269,7 @@ test('start(): the startup log names the effective extra-origins allowlist next 
   const orig = console.log;
   console.log = (...args) => { logs.push(args.join(' ')); };
   const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
-  const srv = start(dir, 0, 20, extra);
+  const srv = start(dir, 0, 20, { extraOrigins: extra });
   try {
     await new Promise((resolve, reject) => {
       srv.once('listening', resolve);
@@ -3331,4 +3332,207 @@ test('extractAllowOriginArgs: the two spellings mix and stay in order', () => {
   ]);
   assert.deepStrictEqual(origins, ['https://a-7777.usw3.devtunnels.ms', 'https://b-7777.usw3.devtunnels.ms']);
   assert.deepStrictEqual(rest, ['.kanban', '7777']);
+});
+// =====================================================================
+// `port:` in config.yaml pins the board's serving port (kanban.proj #254).
+// Precedence: CLI argument > config.yaml `port:` > default 7777 (which keeps
+// auto-incrementing past a busy port — only the pinned case refuses to).
+// Never bind 7777-7785 in these tests — real boards run there; every port
+// used below is OS-assigned (`listen(0, ...)`) or a random high literal.
+// =====================================================================
+
+test('resolvePort: pin honored — config.yaml\'s port: wins over the 7777 default when no CLI arg is given', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 47811\n');
+  assert.deepStrictEqual(resolvePort(dir, undefined), { port: 47811, pinned: true });
+});
+
+test('resolvePort: a CLI argument beats the pin', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 47811\n');
+  assert.deepStrictEqual(resolvePort(dir, '47822'), { port: 47822, pinned: false });
+});
+
+test('resolvePort: no key and no CLI arg falls back to the 7777 default, unpinned — today\'s behavior', () => {
+  const dir = tmpBoard();
+  assert.deepStrictEqual(resolvePort(dir, undefined), { port: 7777, pinned: false });
+});
+
+test('resolvePort: an indented port: under an assignee entry is NOT read as the pin (same top-level-only rule as name:)', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'),
+    'assignees:\n  - handle: "@alex"\n    name: "Alex"\n    port: 9999\n');
+  assert.deepStrictEqual(resolvePort(dir, undefined), { port: 7777, pinned: false });
+});
+
+test('resolvePort: an invalid CLI argument is treated as "no argument" and falls through to the pin', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 47811\n');
+  const origError = console.error;
+  let err = '';
+  console.error = (m) => { err += String(m); };
+  let got;
+  try { got = resolvePort(dir, 'not-a-number'); } finally { console.error = origError; }
+  assert.deepStrictEqual(got, { port: 47811, pinned: true });
+  assert.match(err, /not-a-number/, 'a rejected argument is named on stderr, not swallowed');
+});
+
+test('start() refuses to auto-increment a busy PINNED port: clear error naming the port, exit(1), no pidfile written', async () => {
+  const dir = tmpBoard();
+  const busy = http.createServer((req, res) => res.end());
+  await new Promise((r) => busy.listen(0, '127.0.0.1', r));
+  const busyPort = busy.address().port;
+
+  const origExit = process.exit;
+  const origError = console.error;
+  const exitCalls = [];
+  let errMsg = '';
+  process.exit = (code) => { exitCalls.push(code); };
+  console.error = (msg) => { errMsg += String(msg); };
+
+  try {
+    start(dir, busyPort, 20, { pinned: true });
+    await new Promise((r) => setTimeout(r, 200)); // let the async EADDRINUSE 'error' event fire
+  } finally {
+    process.exit = origExit;
+    console.error = origError;
+    try { busy.close(); } catch (_) {}
+  }
+
+  assert.deepStrictEqual(exitCalls, [1], 'exits once with code 1 — never falls through to the increment-and-retry path');
+  assert.match(errMsg, /pinned by config\.yaml/i);
+  assert.match(errMsg, new RegExp(String(busyPort)), 'names the actual busy port');
+  assert.ok(!fs.existsSync(path.join(dir, '.kanban-app.pid')), 'a refused pin never writes a pidfile — nothing was actually bound');
+});
+
+test('start() still auto-increments past a busy port when the port is NOT pinned (today\'s behavior, unchanged)', async () => {
+  const dir = tmpBoard();
+  const busy = http.createServer((req, res) => res.end());
+  await new Promise((r) => busy.listen(0, '127.0.0.1', r));
+  const busyPort = busy.address().port;
+
+  // Capture every http.Server start() creates (including the retry
+  // instances, which its own return value never surfaces) so every one gets
+  // closed — otherwise the eventual successful bind leaks past this test.
+  const created = [];
+  const origCreateServer = http.createServer;
+  http.createServer = (...args) => { const s = origCreateServer(...args); created.push(s); return s; };
+  const origLog = console.log;
+  let logged = '';
+  console.log = (msg) => { logged += String(msg); };
+
+  try {
+    start(dir, busyPort, 5, { pinned: false });
+    const pidPath = path.join(dir, '.kanban-app.pid');
+    for (let i = 0; i < 100 && !fs.existsSync(pidPath); i++) await new Promise((r) => setTimeout(r, 20));
+    assert.ok(fs.existsSync(pidPath), 'unpinned start eventually bound a free port past the busy one');
+    const actualPort = Number(fs.readFileSync(pidPath, 'utf8').trim().split('\n')[1]);
+    assert.notStrictEqual(actualPort, busyPort, 'the busy starting port was skipped, not reused');
+    assert.match(logged, new RegExp(`Kanban app: http://localhost:${actualPort}`));
+    assert.doesNotMatch(logged, /pinned by config\.yaml/, 'an unpinned start never claims a pin in its log line');
+  } finally {
+    http.createServer = origCreateServer;
+    console.log = origLog;
+    for (const s of created) { try { s.close(); } catch (_) {} }
+    try { busy.close(); } catch (_) {}
+    try { fs.unlinkSync(path.join(dir, '.kanban-app.pid')); } catch (_) {}
+  }
+});
+
+test('start()\'s log line names the pin when one was used ("[pinned by config.yaml]"), for /kanban:web to echo', async () => {
+  const dir = tmpBoard();
+  const origLog = console.log;
+  let logged = '';
+  console.log = (msg) => { logged += String(msg); };
+  const srv = start(dir, 0, 20, { pinned: true }); // port 0: OS picks a free port, so this always succeeds
+  try {
+    await new Promise((resolve, reject) => { srv.once('listening', resolve); srv.once('error', reject); });
+    assert.match(logged, /\[pinned by config\.yaml\]/);
+  } finally {
+    console.log = origLog;
+    await new Promise((resolve) => srv.close(resolve));
+    try { fs.unlinkSync(path.join(dir, '.kanban-app.pid')); } catch (_) {}
+  }
+});
+
+// --- review fixes (kanban.proj #254) ---------------------------------
+
+test('resolvePort: an out-of-range pin is ignored with a stderr warning instead of crashing listen()', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 70000\n');
+  const origError = console.error;
+  let err = '';
+  console.error = (m) => { err += String(m); };
+  let got;
+  try { got = resolvePort(dir, undefined); } finally { console.error = origError; }
+  assert.deepStrictEqual(got, { port: 7777, pinned: false }, 'an unusable pin must not be handed to listen()');
+  assert.match(err, /70000/, 'the warning names the offending value');
+  assert.match(err, /1-65535/);
+  assert.match(err, /drift/i, 'and says the URL can now drift — the whole point of the key');
+});
+
+test('resolvePort: an out-of-range CLI argument falls through to the pin, and says so', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 47811\n');
+  const origError = console.error;
+  let err = '';
+  console.error = (m) => { err += String(m); };
+  let got;
+  try { got = resolvePort(dir, '70000'); } finally { console.error = origError; }
+  assert.deepStrictEqual(got, { port: 47811, pinned: true });
+  assert.match(err, /70000/, 'an explicitly given argument is never dropped in silence');
+});
+
+test('resolvePort: the honest "no pin, no argument" case is the ONLY silent fall-through', () => {
+  const dir = tmpBoard();
+  const origError = console.error;
+  let err = '';
+  console.error = (m) => { err += String(m); };
+  try { assert.deepStrictEqual(resolvePort(dir, undefined), { port: 7777, pinned: false }); }
+  finally { console.error = origError; }
+  assert.strictEqual(err, '', 'no key and no argument is normal, not a warning');
+});
+
+test('start() reports the port it ACTUALLY bound, never the one it was asked for', async () => {
+  const dir = tmpBoard();
+  const origLog = console.log;
+  let logged = '';
+  console.log = (m) => { logged += String(m); };
+  const srv = start(dir, 0, 20, /* pinned */ true); // 0 = the OS picks
+  try {
+    await new Promise((resolve, reject) => { srv.once('listening', resolve); srv.once('error', reject); });
+    const bound = srv.address().port;
+    assert.notStrictEqual(bound, 0);
+    const lines = fs.readFileSync(path.join(dir, '.kanban-app.pid'), 'utf8').trim().split('\n');
+    assert.strictEqual(Number(lines[1]), bound, 'pidfile line 2 is the bound port, not the requested 0');
+    assert.match(logged, new RegExp(`http://localhost:${bound}(\\s|$)`));
+    assert.doesNotMatch(logged, /localhost:0(\s|$)/, 'the log line must never advertise a port nothing bound');
+  } finally {
+    console.log = origLog;
+    await new Promise((resolve) => srv.close(resolve));
+    try { fs.unlinkSync(path.join(dir, '.kanban-app.pid')); } catch (_) {}
+  }
+});
+
+test('a busy pinned port really exits the process with code 1 — a spawned server.js, no process.exit stub', async () => {
+  const dir = tmpBoard();
+  const busy = http.createServer((req, res) => res.end());
+  await new Promise((r) => busy.listen(0, '127.0.0.1', r));
+  const busyPort = busy.address().port;
+  fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${busyPort}\n`);
+  try {
+    // spawnSync blocks this event loop, but `busy`'s socket stays bound at
+    // the OS level, so the child hits a genuine EADDRINUSE. This is what the
+    // console.error/process.exit-stubbing test above cannot prove: that the
+    // process actually terminates, nonzero, instead of continuing past a
+    // mock that returned.
+    const run = spawnSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir], { encoding: 'utf8', timeout: 30000 });
+    assert.strictEqual(run.status, 1, `expected exit 1; stderr: ${run.stderr}`);
+    assert.match(run.stderr, /pinned by config\.yaml/i);
+    assert.match(run.stderr, new RegExp(String(busyPort)), 'names the actual busy port');
+    assert.doesNotMatch(run.stdout, /Kanban app: http/, 'nothing bound, so no URL was ever advertised');
+    assert.ok(!fs.existsSync(path.join(dir, '.kanban-app.pid')), 'and no pidfile for a port it never bound');
+  } finally {
+    await new Promise((r) => busy.close(r));
+  }
 });

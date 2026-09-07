@@ -281,27 +281,80 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
   });
 }
 
-function start(dir, port, attempts = 20, extraOrigins = NO_EXTRA_ORIGINS) {
+// Options (4th arg) rather than a 4th positional: cards #253 and #254 each
+// wanted that slot, and a positional would let a caller pass one card's value
+// into the other card's parameter with nothing to catch it.
+//   extraOrigins (#253): the opt-in exact-match allowlist to hand createServer.
+//   pinned (#254): the port came from config.yaml's `port:` key, not the CLI arg
+//   or the 7777 default. A pin exists so the board's address never drifts -- a
+//   busy PINNED port is a startup error, never a silent increment (auto-increment
+//   survives only for the unpinned default case).
+function start(dir, port, attempts = 20, opts = {}) {
+  const { pinned = false, extraOrigins = NO_EXTRA_ORIGINS } = opts;
   // The dir must exist (checked by the CLI entry below); an empty board is allowed
   // so you can create the first card from the app.
   const srv = createServer(dir, extraOrigins);
   srv.on('error', (e) => {
-    if (e.code === 'EADDRINUSE' && attempts > 0) { return start(dir, port + 1, attempts - 1, extraOrigins); }
+    if (e.code === 'EADDRINUSE') {
+      if (pinned) {
+        console.error(`Kanban app: port ${port} is pinned by config.yaml's \`port:\` key but is already in use. Free the port, or edit/remove \`port:\` in config.yaml, then retry.`);
+        process.exit(1);
+        return; // belt-and-braces: never fall through to auto-increment below,
+                // even if something stubs process.exit (e.g. tests)
+      }
+      if (attempts > 0) return start(dir, port + 1, attempts - 1, { extraOrigins });
+    }
     console.error(e.message); process.exit(1);
   });
   const pidPath = path.join(dir, '.kanban-app.pid');
   srv.listen(port, '127.0.0.1', () => {
-    fs.writeFileSync(pidPath, `${process.pid}\n${port}\n`);
+    // Report the port the socket ACTUALLY bound, never the one we asked
+    // for. They differ whenever `port` is 0 (an embedder letting the OS
+    // pick), and this pidfile and log line are the only record of where the
+    // board is reachable — neither may ever name a port nothing bound.
+    const bound = srv.address().port;
+    fs.writeFileSync(pidPath, `${process.pid}\n${bound}\n`);
     const cleanup = () => { try { fs.unlinkSync(pidPath); } catch (_) {} process.exit(0); };
     process.once('SIGINT', cleanup);
     process.once('SIGTERM', cleanup);
-    console.log(`Kanban app: http://localhost:${port}  (board: ${dir})`);
+    console.log(`Kanban app: http://localhost:${bound}  (board: ${dir})${pinned ? '  [pinned by config.yaml]' : ''}`);
     // card #253: so a later debrief can see what a running server accepts,
     // printed unconditionally (including the empty case) rather than only
     // when non-default.
     console.log(`Kanban app: extra allowed origins: ${extraOrigins.size ? [...extraOrigins].join(', ') : 'none'}`);
   });
   return srv;
+}
+
+const DEFAULT_PORT = 7777;
+// A bindable TCP port. The upper bound is not decoration: `srv.listen()`
+// throws ERR_SOCKET_BAD_PORT — an uncaught stack, not a message — for
+// anything outside 1-65535, so both port inputs are screened here.
+const isPort = (n) => Number.isInteger(n) && n >= 1 && n <= 65535;
+
+// Precedence for the port to bind: CLI argument > config.yaml's `port:` >
+// default 7777 (which auto-increments past a busy port — see `start`). An
+// `arg` that isn't a bindable port (absent, or an invalid/out-of-range
+// string) is treated as "no CLI argument given", falling through to the
+// pin/default — the old `Number(argv[3]) || 7777` let `0` and `NaN` fall
+// through the same way. Returns `{ port, pinned }` — `pinned` is what tells
+// `start` to refuse rather than increment on EADDRINUSE.
+//
+// Both fall-throughs SAY SO on stderr. Landing on 7777-with-auto-increment
+// because a `port:` line or a CLI argument was unusable is precisely the
+// drifting bookmark this key exists to prevent, so it never happens
+// quietly; only the honest "no pin, no argument" case is silent.
+function resolvePort(dir, arg) {
+  const given = arg !== undefined && arg !== null && String(arg).trim() !== '';
+  const cliPort = Number(arg);
+  if (given && isPort(cliPort)) return { port: cliPort, pinned: false };
+  if (given) console.error(`Kanban app: ignoring the port argument \`${arg}\` — not a port number (1-65535). Falling back to config.yaml's \`port:\` or ${DEFAULT_PORT}.`);
+  const config = cfg.readConfig(dir);
+  if (config.port) return { port: config.port, pinned: true };
+  if (config.portInvalid !== null && config.portInvalid !== undefined) {
+    console.error(`Kanban app: ignoring config.yaml's \`port: ${config.portInvalid}\` — not a port number (1-65535). Starting at ${DEFAULT_PORT} with auto-increment instead, so this board's URL can drift; fix the line to pin it.`);
+  }
+  return { port: DEFAULT_PORT, pinned: false };
 }
 
 // Board-directory discovery for a missing CLI arg: `.kanban/` is the
@@ -322,15 +375,15 @@ if (require.main === module) {
   } catch (e) { console.error(e.message); process.exit(1); }
   const dir = rest[0] || resolveDefaultBoardDir();
   if (!fs.existsSync(dir)) { console.error(`Board dir not found: ${dir}`); process.exit(1); }
-  const port = Number(rest[1]) || 7777;
+  const { port, pinned } = resolvePort(dir, rest[1]);
   let extraOrigins;
   try {
     extraOrigins = parseAllowedOrigins(cliOrigins, process.env.KANBAN_WEB_ALLOWED_ORIGINS);
   } catch (e) { console.error(e.message); process.exit(1); }
-  start(dir, port, 20, extraOrigins);
+  start(dir, port, 20, { pinned, extraOrigins });
 }
 
 module.exports = {
   createServer, start, originAllowed, resolveDefaultBoardDir,
-  parseAllowedOrigins, extractAllowOriginArgs,
+  parseAllowedOrigins, extractAllowOriginArgs, resolvePort,
 };
