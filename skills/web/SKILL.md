@@ -46,6 +46,24 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
 also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple Browser").
 
+## Behind a VS Code tunnel
+
+Reaching the board through a VS Code Remote Tunnel means the browser sees a
+`https://<tunnel-id>.<cluster>.devtunnels.ms` origin, not `localhost` — the
+Origin/Referer guard (SECURITY.md) refuses that origin by default. Forward
+the server's port **Private** in the tunnel window, then start the server
+with that tunnel origin allowlisted:
+
+```bash
+node <SCRIPTS_DIR>/server.js <kanban-dir> <port> --allow-origin https://<tunnel-id>.<cluster>.devtunnels.ms
+```
+
+`--allow-origin` is repeatable; `KANBAN_WEB_ALLOWED_ORIGINS` (comma-separated)
+does the same from the environment, and the two merge. Both are opt-in and
+default to nothing extra allowed — leave them unset and the guard behaves
+exactly as it always has. The CSP (`'self'`) needs no change: the browser
+still sees one origin, whichever one it loaded the app from.
+
 ## Stopping
 
 ```bash

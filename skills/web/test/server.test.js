@@ -2777,6 +2777,90 @@ test('originAllowed: an allowed Origin is not overruled by a mismatched Host, an
   assert.strictEqual(originAllowed({ headers: { origin: 'http://localhost:7777', host: 'evil.example' } }), false);
 });
 
+// --- card #253: opt-in extra allowed origins (VS Code tunnels etc.) — purely
+// additive to the loopback rule above, exact-match only, default empty so an
+// unconfigured server is byte-for-byte the tests above.
+
+test('originAllowed: with no extraOrigins argument, behaves byte-for-byte as before (default empty allowlist)', () => {
+  assert.strictEqual(originAllowed({ headers: { origin: 'http://localhost:7777' } }), true);
+  assert.strictEqual(originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms' } }), false);
+});
+
+test('originAllowed: an explicit empty extraOrigins Set behaves byte-for-byte as today', () => {
+  const empty = new Set();
+  assert.strictEqual(originAllowed({ headers: {} }), originAllowed({ headers: {} }, empty));
+  assert.strictEqual(originAllowed({ headers: { origin: 'http://localhost:7777' } }),
+    originAllowed({ headers: { origin: 'http://localhost:7777' } }, empty));
+  assert.strictEqual(originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms' } }),
+    originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms' } }, empty));
+});
+
+test('originAllowed: an allowlisted exact origin is accepted via the Origin header', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms' } }, extra), true);
+});
+
+test('originAllowed: an allowlisted exact origin is accepted via the Referer header', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(
+    originAllowed({ headers: { referer: 'https://a-7777.usw3.devtunnels.ms/some/path?x=1' } }, extra), true);
+});
+
+test('originAllowed: a subdomain of an allowlisted origin never matches (no suffix matching)', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(
+    originAllowed({ headers: { origin: 'https://evil.a-7777.usw3.devtunnels.ms' } }, extra), false);
+});
+
+test('originAllowed: a superstring of an allowlisted origin never matches (no substring matching)', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(
+    originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms.evil.tld' } }, extra), false);
+});
+
+test('originAllowed: a different allowlisted-shaped origin never matches another entry', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(originAllowed({ headers: { origin: 'https://b-7777.usw3.devtunnels.ms' } }, extra), false);
+});
+
+test('originAllowed: the Host check is untouched by extraOrigins — a hostile Host still fails even with a matching Origin', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(
+    originAllowed({ headers: { origin: 'https://a-7777.usw3.devtunnels.ms', host: 'evil.example' } }, extra), false);
+});
+
+test('originAllowed: a malformed Origin header against a non-empty extraOrigins fails closed instead of throwing', () => {
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  assert.strictEqual(originAllowed({ headers: { origin: 'not-a-url' } }, extra), false);
+});
+
+test('createServer(dir, extraOrigins): GET /api/board with an allowlisted tunnel Origin succeeds end to end', async () => {
+  const dir = tmpBoard();
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  const srv = createServer(dir, extra);
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const r = await rawRequest(base, 'GET', '/api/board', { headers: { origin: 'https://a-7777.usw3.devtunnels.ms' } });
+    assert.strictEqual(r.status, 200);
+  } finally {
+    srv.close();
+  }
+});
+
+test('createServer(dir, extraOrigins): the same tunnel Origin is refused with no extraOrigins configured', async () => {
+  const dir = tmpBoard();
+  const srv = createServer(dir);
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const r = await rawRequest(base, 'GET', '/api/board', { headers: { origin: 'https://a-7777.usw3.devtunnels.ms' } });
+    assert.strictEqual(r.status, 403);
+  } finally {
+    srv.close();
+  }
+});
+
 test('POST /api/cards with no Origin/Referer/Host override succeeds — direct tool calls stay legitimate', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
@@ -3044,4 +3128,121 @@ test('XSS sweep: the detail popup\'s frontmatter table and "Last modified" line 
     assert.match(modified, /escapeHtml\(formatLocalDateTime\(data\.updated\)\)/);
     assert.match(modified, /escapeHtml\(formatLocalDateTime\(data\.mtime\)\)/);
   });
+});
+
+// =====================================================================
+// card #253: opt-in extra allowed origins for the CSRF/rebinding guard —
+// CLI `--allow-origin` (repeatable), env `KANBAN_WEB_ALLOWED_ORIGINS`
+// (comma-separated), and their merge. See originAllowed tests above for the
+// exact-match matching behavior itself.
+// =====================================================================
+
+const { parseAllowedOrigins, extractAllowOriginArgs } = require('../scripts/server');
+
+test('extractAllowOriginArgs: no --allow-origin present leaves argv untouched', () => {
+  const { origins, rest } = extractAllowOriginArgs(['.kanban', '7777']);
+  assert.deepStrictEqual(origins, []);
+  assert.deepStrictEqual(rest, ['.kanban', '7777']);
+});
+
+test('extractAllowOriginArgs: a single --allow-origin is pulled out, positional args survive', () => {
+  const { origins, rest } = extractAllowOriginArgs(['.kanban', '7777', '--allow-origin', 'https://a-7777.usw3.devtunnels.ms']);
+  assert.deepStrictEqual(origins, ['https://a-7777.usw3.devtunnels.ms']);
+  assert.deepStrictEqual(rest, ['.kanban', '7777']);
+});
+
+test('extractAllowOriginArgs: --allow-origin is repeatable and order-independent relative to the positional args', () => {
+  const { origins, rest } = extractAllowOriginArgs([
+    '--allow-origin', 'https://a-7777.usw3.devtunnels.ms',
+    '.kanban',
+    '--allow-origin', 'https://b-7777.usw3.devtunnels.ms',
+    '7777',
+  ]);
+  assert.deepStrictEqual(origins, ['https://a-7777.usw3.devtunnels.ms', 'https://b-7777.usw3.devtunnels.ms']);
+  assert.deepStrictEqual(rest, ['.kanban', '7777']);
+});
+
+test('extractAllowOriginArgs: a trailing --allow-origin with no value throws instead of swallowing the next flag', () => {
+  assert.throws(() => extractAllowOriginArgs(['.kanban', '--allow-origin']), /--allow-origin requires a value/);
+});
+
+test('parseAllowedOrigins: empty CLI list and no env var yields an empty Set (default, unchanged behavior)', () => {
+  const origins = parseAllowedOrigins([], undefined);
+  assert.strictEqual(origins.size, 0);
+});
+
+test('parseAllowedOrigins: a CLI origin is normalized through new URL().origin', () => {
+  const origins = parseAllowedOrigins(['https://a-7777.usw3.devtunnels.ms/'], undefined);
+  assert.deepStrictEqual([...origins], ['https://a-7777.usw3.devtunnels.ms']);
+});
+
+test('parseAllowedOrigins: repeated --allow-origin values all land in the Set', () => {
+  const origins = parseAllowedOrigins(['https://a-7777.usw3.devtunnels.ms', 'https://b-7777.usw3.devtunnels.ms'], undefined);
+  assert.deepStrictEqual([...origins].sort(), ['https://a-7777.usw3.devtunnels.ms', 'https://b-7777.usw3.devtunnels.ms']);
+});
+
+test('parseAllowedOrigins: the env var is comma-separated and normalized the same way', () => {
+  const origins = parseAllowedOrigins([], 'https://a-7777.usw3.devtunnels.ms, https://b-7777.usw3.devtunnels.ms/');
+  assert.deepStrictEqual([...origins].sort(), ['https://a-7777.usw3.devtunnels.ms', 'https://b-7777.usw3.devtunnels.ms']);
+});
+
+test('parseAllowedOrigins: CLI and env sources merge into one Set', () => {
+  const origins = parseAllowedOrigins(['https://a-7777.usw3.devtunnels.ms'], 'https://b-7777.usw3.devtunnels.ms');
+  assert.deepStrictEqual([...origins].sort(), ['https://a-7777.usw3.devtunnels.ms', 'https://b-7777.usw3.devtunnels.ms']);
+});
+
+test('parseAllowedOrigins: duplicate entries across CLI and env collapse to one', () => {
+  const origins = parseAllowedOrigins(['https://a-7777.usw3.devtunnels.ms'], 'https://a-7777.usw3.devtunnels.ms');
+  assert.strictEqual(origins.size, 1);
+});
+
+test('parseAllowedOrigins: blank env entries (trailing comma etc.) are skipped, not errors', () => {
+  const origins = parseAllowedOrigins([], 'https://a-7777.usw3.devtunnels.ms,,  ,');
+  assert.deepStrictEqual([...origins], ['https://a-7777.usw3.devtunnels.ms']);
+});
+
+test('parseAllowedOrigins: an unparseable configured origin throws loudly instead of being silently dropped', () => {
+  assert.throws(() => parseAllowedOrigins(['not-a-url'], undefined), /invalid allowed origin/);
+  assert.throws(() => parseAllowedOrigins([], 'not-a-url'), /invalid allowed origin/);
+});
+
+test('start(): the startup log names the effective extra-origins allowlist next to the Kanban app: line', async () => {
+  const dir = tmpBoard();
+  const logs = [];
+  const orig = console.log;
+  console.log = (...args) => { logs.push(args.join(' ')); };
+  const extra = new Set(['https://a-7777.usw3.devtunnels.ms']);
+  const srv = start(dir, 0, 20, extra);
+  try {
+    await new Promise((resolve, reject) => {
+      srv.once('listening', resolve);
+      srv.once('error', reject);
+    });
+    assert.ok(logs.some((l) => l.includes('Kanban app:')), 'the base Kanban app: line is still printed');
+    assert.ok(logs.some((l) => l.includes('a-7777.usw3.devtunnels.ms')),
+      'the effective extra allowlist is logged at startup so a debrief can see what a running server accepts');
+  } finally {
+    console.log = orig;
+    await new Promise((resolve) => srv.close(resolve));
+    try { fs.unlinkSync(path.join(dir, '.kanban-app.pid')); } catch (_) {}
+  }
+});
+
+test('start(): with no extraOrigins argument, the log still names an empty allowlist explicitly (default, no crash)', async () => {
+  const dir = tmpBoard();
+  const logs = [];
+  const orig = console.log;
+  console.log = (...args) => { logs.push(args.join(' ')); };
+  const srv = start(dir, 0);
+  try {
+    await new Promise((resolve, reject) => {
+      srv.once('listening', resolve);
+      srv.once('error', reject);
+    });
+    assert.ok(logs.some((l) => l.includes('Kanban app:')));
+  } finally {
+    console.log = orig;
+    await new Promise((resolve) => srv.close(resolve));
+    try { fs.unlinkSync(path.join(dir, '.kanban-app.pid')); } catch (_) {}
+  }
 });

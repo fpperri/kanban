@@ -45,6 +45,16 @@ access of their own:
   through; only a *present* header naming a disallowed origin/host is
   refused. This also means direct localhost browser use, VSCode's Simple
   Browser, and plain same-machine tool calls all keep working unmodified.
+  The one supported way to widen this guard is an opt-in allowlist of exact
+  extra origins — `--allow-origin <origin>` (repeatable) or
+  `KANBAN_WEB_ALLOWED_ORIGINS` (comma-separated), for a case like a VS Code
+  Remote Tunnel where the browser's real origin is neither `localhost` nor
+  `127.0.0.1` (see `skills/web/SKILL.md`). Default empty, so behavior is
+  unchanged unless you configure it; each entry is normalized and compared
+  by exact string equality — no wildcards or suffix matching, so a subdomain
+  or superstring of an allowed origin never matches. The Host check and the
+  loopback bind are untouched by this — it only widens what Origin/Referer
+  values are accepted.
 - **A Content-Security-Policy header on the served HTML**, plus an XSS sweep
   of every place the SPA renders card-derived text. The app has no inline
   `<script>`/`<style>` anywhere (every script is a separate `<script src>`,
