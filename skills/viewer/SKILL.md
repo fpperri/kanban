@@ -247,7 +247,12 @@ tray at the bottom of the page.
   opens a read-only notifications sheet rendered per the notifications
   contract (TLDR bold, level tints, unread accent) from the embedded
   notifications.md snapshot — read-flips/clears stay conversational board
-  writes. The "N pending" pill scrolls to the page bottom, same as ⤓. The card
+  writes. The "N pending" pill scrolls to the page bottom, same as ⤓, and
+  also copies the payload to the clipboard — same one-tap shortcut as the
+  tray's Copy changes button, through the same shared clipboard helper, so a
+  human who only ever taps the pill still leaves with the payload copied. A
+  blocked copy never blocks the scroll: it sets the tray note instead, telling
+  the human to use the text box below. The card
   pop-up leads with a status/assignee/priority pill row — tap a pill to edit
   that field, tap the title to rename — and keeps
   the description dead last. New-card creation happens in the same
@@ -259,7 +264,11 @@ tray at the bottom of the page.
   queueing a create auto-expands the section the new card lands in.
 - Inline chat widgets don't render on all clients; the HTML-file route is the
   reliable one. Clipboard access can fail in embedded viewers, so the payload is
-  always also visible in a selectable text box under the Copy button.
+  always also visible in a selectable text box under the Copy button. Both the
+  Copy changes button and the "N pending" pill copy through the SAME
+  `copyPayload()` helper (async Clipboard API, falling back to selecting the
+  payload textbox and `execCommand("copy")`) — one clipboard code path, not
+  two that could drift.
 - All card text is rendered via `textContent` (never string-built HTML) — card
   titles and bodies are user data; keep it XSS-safe by construction.
 - Desktop right-click card menu (not the mobile scroll-button stack above,

@@ -896,6 +896,23 @@ else if(note)p.appendChild(el("div","note",note))}
 function payload(){
 const clean=ops.map(o=>{const x=Object.assign({},o);delete x._pid;return x});
 return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.stringify(clean)}
+// The ONE clipboard code path (kanban.proj #252): both the tray's
+// Copy changes button and the header pill funnel through this, so there is
+// exactly one place that knows how to copy the payload and one fallback
+// chain -- async Clipboard API first, then focusing/selecting the hidden
+// #payload textarea and running the execCommand copy command for browsers
+// (and the Claude mobile app's embedded viewer) that don't expose the async
+// API. onDone(ok) always fires, synchronously on the execCommand path or async on
+// the Clipboard API path, so callers can react to failure (the pill sets a
+// note; the tray leans on the existing `copied` flag/hint) without
+// duplicating the copy logic itself.
+function copyPayload(onDone){
+const txt=payload();
+const ok=()=>{copied=true;if(onDone)onDone(true)};
+const bad=()=>{if(onDone)onDone(false)};
+const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy");ok()}catch(err){bad()}};
+if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
+else fallback()}
 // New-card form: renders inside the pop-up sheet; nothing joins
 // any list until Accept queues the create op — Cancel leaves zero trace.
 // Notifications pop-out: read-only render of the embedded
@@ -1563,7 +1580,14 @@ $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const c
 if(String(delArm)===String(sel)){queue({op:"delete",id:sel});sel=null;delArm=null;pillEd=null;render()}
 else{delArm=sel;syncStack()}});
 $("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=false;descEd=false;delArm=null;pillEd=null;render()});
-$("pill").addEventListener("click",()=>{if(!ops.length)return;sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"})});
+// Tapping the pending pill (kanban.proj #252) does what the tray's
+// Copy changes button does, so a human who only ever taps the pill still
+// gets the payload on their clipboard -- the scroll-to-tray behavior is
+// unchanged and always runs, even if the copy itself fails, so a blocked
+// clipboard never strands the human without a way to see the payload.
+$("pill").addEventListener("click",()=>{if(!ops.length)return;
+sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"});
+copyPayload(ok=>{if(!ok)note="Copy blocked \\u2014 use the text box below to copy the payload";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
 $("q").addEventListener("input",()=>{
 focusRoot=null;
@@ -1629,11 +1653,7 @@ if(COLS.includes(nst)&&!isVis(nst)){statusVis[nst]=true;renderMap();renderGantt(
 creating=false;nfMore=false;render();return}
 if(act==="ncmore"){nfMore=true;render();return}
 if(act==="nccancel"){creating=false;nfMore=false;render();return}
-if(act==="apply"){if(!ops.length)return;const txt=payload();
-const done=()=>{copied=true;render()};
-if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(()=>{const ta=$("payload");if(ta){ta.focus();ta.select();try{document.execCommand("copy");done()}catch(err){}}})}
-else{const ta=$("payload");if(ta){ta.focus();ta.select();try{document.execCommand("copy");done()}catch(err){}}}
-return}
+if(act==="apply"){if(!ops.length)return;copyPayload(()=>render());return}
 if(act==="discard"){ops=[];note="";rebuild();render();return}
 if(act==="calsub"){const to=t.dataset.sub;
 if(to!==calSub){
