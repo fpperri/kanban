@@ -343,6 +343,8 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .chev{font-size:11px;color:var(--muted);width:12px;flex:none}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
 .cnt{margin-left:auto;font-size:12px;color:var(--muted)}
+.colbtn{flex:none;width:24px;height:24px;padding:0;border-radius:6px;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--ink2)}
+.colbtn:active{background:var(--accent);border-color:var(--accent);color:#fff}
 .card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:11px 13px;margin:9px 0;cursor:pointer}
 .card.sel{border-color:var(--accent)}
 .card.prov{border-style:dashed}
@@ -575,7 +577,7 @@ function ahash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i
 function acol(a){const t=(a||"").trim();if(!t)return null;if(ASGCOL[t])return ASGCOL[t];return APALETTE[ahash(t.toLowerCase())%APALETTE.length]}
 const DATA=__DATA__;
 const NOTIFS=__NOTIFS__;
-let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null;
+let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
 // Wide screens open live sections by default (Archive stays collapsed) —
 // the collapsed compact overview is a phone affordance. Evaluated once at load.
 if(matchMedia("(min-width:900px)").matches)COLS.forEach(c=>colOpen[c]=true);
@@ -740,7 +742,7 @@ if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
 else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v;else if(k==="epic")c.ep=String(v).trim().toLowerCase()==="true"}}
 return}
-if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:{}});return}}
+if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:o.fm||{}});return}}
 function cardNode(c,detail){
 const selc=String(sel)===String(c.id)||(focusRoot!=null&&String(focusRoot)===String(c.id));
 const ro=detail&&!!c.arch;
@@ -870,6 +872,24 @@ h.dataset.coltoggle=col;
 h.appendChild(el("span","chev",open?"\\u25be":"\\u25b8"));
 const dot=el("span","dot");dot.style.background=ccol(col);
 h.appendChild(dot);h.appendChild(document.createTextNode(cname(col)));h.appendChild(el("span","cnt",String(cs.length)));
+// Per-column create controls: a plain button each (not
+// data-act/queue()-dispatched like the rest of the sheet) so the click
+// listener attached right here can stopPropagation() before the event ever
+// reaches document.body's dispatcher — the SAME reason openCtxMenu()'s
+// items do it (see below), and it keeps a tap from also toggling the
+// section via the colh's own data-coltoggle.
+const plusBtn=el("button","colbtn","+");
+plusBtn.type="button";
+plusBtn.setAttribute("aria-label","New card in "+cname(col));
+plusBtn.title="New card in "+cname(col);
+plusBtn.addEventListener("click",ev=>{ev.stopPropagation();openNewCard(col,false)});
+h.appendChild(plusBtn);
+const promptBtn=el("button","colbtn","\\u2726");
+promptBtn.type="button";
+promptBtn.setAttribute("aria-label","New AI-prompt card in "+cname(col));
+promptBtn.title="New card in "+cname(col)+" with AI prompt";
+promptBtn.addEventListener("click",ev=>{ev.stopPropagation();openNewCard(col,true)});
+h.appendChild(promptBtn);
 wrap.appendChild(h);
 if(open){
 const cc=el("div","colcards");
@@ -962,16 +982,28 @@ row.appendChild(line);
 row.appendChild(el("div","nmeta","#"+n.id+" \\u00b7 "+n.level+" \\u00b7 "+n.at+" \\u00b7 "+n.from+(n.read?"":" \\u00b7 unread")));
 w.appendChild(row)});
 return w}
+// Opens the new-card sheet pre-aimed at one column (the colh "+"/AI-
+// prompt buttons above call this) — ncStatus only feeds newFormNode's
+// #nc-s seed on the FIRST render of a fresh sheet; once #nc-s exists,
+// newFormNode's own prev.s (read off the live DOM) wins on every
+// re-render, exactly like every other field's prev/current split.
+function openNewCard(status,wantPrompt){
+nfMore=false;creating=true;sel=null;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;
+ncStatus=status;nfPromptOpen=!!wantPrompt;
+render()}
 function newFormNode(){
-const prev={t:$("nc-t")&&$("nc-t").value,s:$("nc-s")&&$("nc-s").value,p:$("nc-p")&&$("nc-p").value,a:$("nc-a")&&$("nc-a").value,b:$("nc-b")&&$("nc-b").value};
+const prev={t:$("nc-t")&&$("nc-t").value,s:$("nc-s")&&$("nc-s").value,p:$("nc-p")&&$("nc-p").value,a:$("nc-a")&&$("nc-a").value,b:$("nc-b")&&$("nc-b").value,pr:$("nc-pr")&&$("nc-pr").value};
 const f=el("div");f.style.padding="6px 2px";
 const t=el("div",null,"New card");t.style.cssText="font-size:13px;font-weight:600;margin-bottom:4px";f.appendChild(t);
 const inp=el("input");inp.type="text";inp.id="nc-t";inp.placeholder="Card title";inp.dataset.stop="1";if(prev.t)inp.value=prev.t;f.appendChild(inp);
 const row=el("div","row2");
-const ss=el("select");ss.id="nc-s";ss.dataset.stop="1";COLS.forEach(x=>{const o=el("option",null,cname(x));o.value=x;ss.appendChild(o)});ss.value=prev.s||(COLS.includes("backlog")?"backlog":COLS[0]);
+const ss=el("select");ss.id="nc-s";ss.dataset.stop="1";COLS.forEach(x=>{const o=el("option",null,cname(x));o.value=x;ss.appendChild(o)});ss.value=prev.s||ncStatus||(COLS.includes("backlog")?"backlog":COLS[0]);
 const sp=el("select");sp.id="nc-p";sp.dataset.stop="1";["Normal","High","Low"].forEach(x=>sp.appendChild(el("option",null,x)));if(prev.p)sp.value=prev.p;
 const sa=el("select");sa.id="nc-a";sa.dataset.stop="1";const o0=el("option",null,"no assignee");o0.value="";sa.appendChild(o0);ASG.filter(x=>x).forEach(x=>sa.appendChild(el("option",null,x)));if(prev.a)sa.value=prev.a;
 row.appendChild(ss);row.appendChild(sp);row.appendChild(sa);f.appendChild(row);
+if(nfPromptOpen){
+const plb=el("div","lbl","AI prompt (instruction for the next AI to pick up, optional)");plb.style.marginTop="6px";f.appendChild(plb);
+const pin=el("input");pin.type="text";pin.id="nc-pr";pin.placeholder="Instruction for the AI to pick up\\u2026";pin.dataset.stop="1";pin.style.marginTop="4px";if(prev.pr)pin.value=prev.pr;f.appendChild(pin)}
 if(nfMore){
 const lb=el("div","lbl","description (markdown, optional)");lb.style.marginTop="6px";f.appendChild(lb);
 const ta=el("textarea");ta.id="nc-b";ta.rows=5;ta.dataset.stop="1";ta.placeholder="More detail, acceptance criteria, links\\u2026";ta.style.fontSize="14px";ta.style.marginTop="4px";if(prev.b)ta.value=prev.b;f.appendChild(ta)}
@@ -1607,7 +1639,7 @@ $("sarch").addEventListener("click",()=>{if(!modalOpen()||creating)return;const 
 $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const cc=find(sel);if(!cc||cc.arch)return;
 if(String(delArm)===String(sel)){queue({op:"delete",id:sel});sel=null;delArm=null;pillEd=null;render()}
 else{delArm=sel;syncStack()}});
-$("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=false;descEd=false;delArm=null;pillEd=null;render()});
+$("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=false;descEd=false;delArm=null;pillEd=null;ncStatus=null;nfPromptOpen=false;render()});
 // Tapping the pending pill (kanban.proj #252) does what the tray's
 // Copy changes button does, so a human who only ever taps the pill still
 // gets the payload on their clipboard -- the scroll-to-tray behavior is
@@ -1674,17 +1706,21 @@ const mid=t.getAttribute("data-mapnode");
 const mcCard=find(mid);
 if(mcCard){sel=mid;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;render()}
 return}
-if(t.id==="newbtn"){nfMore=false;creating=true;sel=null;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;render();return}
+if(t.id==="newbtn"){nfMore=false;creating=true;sel=null;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;ncStatus=null;nfPromptOpen=false;render();return}
 if(t.id==="payload"){t.select();return}
 if(t.dataset&&t.dataset.stop)return;
 if(t.dataset&&t.dataset.rm!==undefined){ops.splice(+t.dataset.rm,1);rebuild();render();return}
 const act=t.dataset?t.dataset.act:null;
-if(act==="ncadd"){const ti=$("nc-t").value.trim();if(!ti)return;const bd=$("nc-b")?$("nc-b").value.trim():"";queue({op:"create",title:ti,status:$("nc-s")?$("nc-s").value:undefined,priority:$("nc-p").value,assignee:$("nc-a").value,body:bd||undefined});
+if(act==="ncadd"){const ti=$("nc-t").value.trim();if(!ti)return;const bd=$("nc-b")?$("nc-b").value.trim():"";
+const pr=$("nc-pr")?$("nc-pr").value.trim():"";
+const cop={op:"create",title:ti,status:$("nc-s")?$("nc-s").value:undefined,priority:$("nc-p").value,assignee:$("nc-a").value,body:bd||undefined};
+if(pr)cop.fm={prompt:pr};
+queue(cop);
 const nst=view[view.length-1].s;colOpen[nst]=true;
 if(COLS.includes(nst)&&!isVis(nst)){statusVis[nst]=true;renderMap();renderGantt();renderCalendar()}
-creating=false;nfMore=false;render();return}
+creating=false;nfMore=false;ncStatus=null;nfPromptOpen=false;render();return}
 if(act==="ncmore"){nfMore=true;render();return}
-if(act==="nccancel"){creating=false;nfMore=false;render();return}
+if(act==="nccancel"){creating=false;nfMore=false;ncStatus=null;nfPromptOpen=false;render();return}
 if(act==="apply"){if(!ops.length)return;copyPayload(()=>render());return}
 if(act==="discard"){ops=[];note="";rebuild();render();return}
 if(act==="calsub"){const to=t.dataset.sub;

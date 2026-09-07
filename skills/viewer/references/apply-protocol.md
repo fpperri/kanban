@@ -21,7 +21,7 @@ file adds the payload-specific rules.
 |----|-------|---------|
 | move | `{"op":"move","id":<id>,"to":"backlog\|todo\|doing\|done"}` | set `status:` |
 | edit | `{"op":"edit","id":<id>,"title"?,"priority"?,"assignee"?,"body"?,"fm"?}` | field-level changes |
-| create | `{"op":"create","title",...,"status","assignee"?,"body"?}` | new card |
+| create | `{"op":"create","title",...,"status","assignee"?,"body"?,"fm"?}` | new card |
 | archive | `{"op":"archive","id":<id>}` | move file to `archived/` |
 | delete | `{"op":"delete","id":<id>}` | permanent removal (see write mechanics) |
 
@@ -42,6 +42,12 @@ verbatim); an
 and re-stamped on every write regardless. List
 shapes (`tags`, `waiting_for`) arrive as flow-style strings like `[a, b]` —
 write them as-is. Refresh `updated:` on any fm write.
+
+`create.fm` is the same shape and the same rules, folded into the new card's
+*initial* frontmatter write instead of a follow-up edit — a `create` has no
+id yet at queue time, so there is no card to target a separate `edit.fm` op
+at. The editor's own new-card sheet uses this for the optional `prompt`
+field: `{"op":"create","title":"…","status":"todo","fm":{"prompt":"…"}}`.
 
 ## Procedure
 
@@ -76,7 +82,9 @@ write them as-is. Refresh `updated:` on any fm write.
    - create: id = `nextId` from `config.yaml`. Filename
      `<0000-padded-id>.<slug>.card.md`, slug lowercased/hyphenated, capped ~60
      chars. Frontmatter: id, status, priority, assignee?, updated
-     (+ start_date if landing on todo). Body: `# <title>` then `body` if given.
+     (+ start_date if landing on todo), plus any `fm` keys folded in (same
+     rules as `edit.fm` above — `id`/`status`/`updated` still special-cased).
+     Body: `# <title>` then `body` if given.
      **Write order: card file first, bump `nextId` only after the
      write succeeds — a failed create must never burn an id.**
 4. **Write mechanics:**
