@@ -418,6 +418,20 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body code { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, Consolas, monospace; font-size: 0.88em; color: #79c0ff; }
 .detail-body pre { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
 .detail-body pre code { background: none; border: none; padding: 0; color: #c9d1d9; }
+/* Markdown tables in a card body (kanban.proj #256). The scroller is the point:
+   a ladder or a comparison table is often wider than the popup, and without its
+   own overflow the whole popup would scroll sideways and take the prose with it.
+   Scoped under .md-table so .detail-frontmatter's own table rules stay untouched. */
+.detail-body .md-table { overflow-x: auto; margin: 10px 0; }
+.detail-body .md-table table { border-collapse: collapse; font-size: 0.95em; }
+.detail-body .md-table th, .detail-body .md-table td { border: 1px solid #30363d; padding: 5px 9px; text-align: left; vertical-align: top; }
+.detail-body .md-table th { background: #0d1117; color: #c9d1d9; font-weight: 600; white-space: nowrap; }
+.detail-body .md-table td { color: #c9d1d9; }
+/* Column alignment from the delimiter row's colons. Classes, not inline styles:
+   the CSP has no unsafe-inline for style, so a style="" attribute would be dropped. */
+.detail-body .md-table .ta-left { text-align: left; }
+.detail-body .md-table .ta-center { text-align: center; }
+.detail-body .md-table .ta-right { text-align: right; }
 .detail-body a { color: #58a6ff; }
 .detail-body strong { color: #e6edf3; }
 .detail-body hr { border: none; border-top: 1px solid #30363d; margin: 14px 0; }

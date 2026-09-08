@@ -1873,7 +1873,20 @@ async function doDelete(id, { onSuccess } = {}) {
 
 // Minimal, dependency-free markdown -> HTML: headings, bold/italic, inline code,
 // fenced code blocks, links, unordered lists (incl. `- [x]` task items, indent-depth-aware
-// nesting, and lazy continuation lines), hr, paragraphs.
+// nesting, and lazy continuation lines), hr, tables, paragraphs.
+// A delimiter row is pipe-separated cells of dashes, each optionally colon-anchored
+// on either end for alignment. This is the whole test for "is the line above a
+// table header" (kanban.proj #256).
+const TABLE_DELIM_RE = /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$|^\s*\|\s*:?-{3,}:?\s*\|\s*$/;
+
+// Split one pipe row into trimmed cells: drop the optional outer pipes, split on
+// pipes the author did not escape, then unescape the ones they did.
+function splitRow(row) {
+  return row.trim().replace(/^\|/, '').replace(/\|$/, '')
+    .split(/(?<!\\)\|/)
+    .map((c) => c.trim().replace(/\\\|/g, '|'));
+}
+
 function mdToHtml(md) {
   const lines = escapeHtml(md).split('\n');
   let html = '';
@@ -1908,8 +1921,8 @@ function mdToHtml(md) {
       return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     });
 
-  for (const raw of lines) {
-    const line = raw;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
     if (line.trim().startsWith('```')) {
       if (inCode) { html += `<pre><code>${codeBuf.join('\n')}</code></pre>`; codeBuf = []; inCode = false; }
@@ -1922,6 +1935,46 @@ function mdToHtml(md) {
 
     const h = line.match(/^(#{1,3})\s+(.*)$/);
     if (h) { flushPara(); closeList(); html += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`; continue; }
+
+    // A table is a header row, a delimiter row, then body rows, all pipe-delimited
+    // (kanban.proj #256). The delimiter row is what makes it a table: without one
+    // underneath, a line of pipes stays ordinary prose, so a sentence that happens
+    // to contain a `|` is never swallowed. Cells are already-escaped text by the
+    // time they get here (escapeHtml ran over the whole body up front), so this
+    // branch synthesises tags around text that can no longer carry markup.
+    if (line.trim().startsWith('|') && TABLE_DELIM_RE.test(lines[i + 1] || '')) {
+      flushPara();
+      closeList();
+      const head = splitRow(line);
+      const aligns = splitRow(lines[i + 1]).map((c) => {
+        const l = c.startsWith(':'), r = c.endsWith(':');
+        return r && l ? 'center' : r ? 'right' : l ? 'left' : '';
+      });
+      // Alignment rides a class, never an inline style attribute: the app's CSP
+      // carries no unsafe-inline for styles, so such an attribute would be dropped
+      // by the browser and the column would silently ignore its colons.
+      const cell = (tag, text, n) => {
+        const a = aligns[n] ? ` class="ta-${aligns[n]}"` : '';
+        return `<${tag}${a}>${inline(text)}</${tag}>`;
+      };
+      let body = '';
+      i += 2;
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        const cells = splitRow(lines[i]);
+        // GFM: a ragged row is padded or truncated to the header's width rather
+        // than skewing every column after it.
+        while (cells.length < head.length) cells.push('');
+        cells.length = head.length;
+        body += `<tr>${cells.map((c, n) => cell('td', c, n)).join('')}</tr>`;
+        i++;
+      }
+      i--; // the loop's own i++ consumes the line that ended the table
+      const header = `<tr>${head.map((c, n) => cell('th', c, n)).join('')}</tr>`;
+      // Wrapped in its own scroller: a wide table scrolls inside the popup
+      // instead of making the whole popup scroll sideways.
+      html += `<div class="md-table"><table><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+      continue;
+    }
 
     const task = line.match(/^(\s*)-\s+\[( |x|X)\]\s+(.*)$/);
     const item = !task && line.match(/^(\s*)-\s+(.*)$/);
