@@ -356,11 +356,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.fullscreen .modal-desc textarea { flex: 1 1 auto; }
 
 .detail-modal { width: min(680px, 92vw); }
-/* The detail popup's own twin of the tile wash
-   (.card.epic above) — same epicColorSoft() 12% alpha, same override-the-base
-   `background` pattern (.modal's solid #161b22 loses to this on specificity,
-   three classes vs. one, same mechanism as .card.epic over .card). */
-.modal.detail-modal.epic { background: rgba(240, 136, 62, 0.12); }
+/* The detail popup's own twin of the tile wash (.card.epic above) — same
+   epicColorSoft() 12% alpha, but LAYERED rather than substituted. A tile can
+   replace its background outright because it sits on the opaque .column; a
+   popup sits on the .modal-backdrop and the board, so substituting a 12% alpha
+   left 88% of the panel see-through and the board legible through the text
+   (kanban.proj #255). A two-stop linear-gradient is the flat-overlay idiom:
+   it paints the wash as its own layer over .modal's solid #161b22 underneath,
+   which keeps the tint sourced from epicColorSoft() instead of freezing a
+   hand-blended hex that would drift the day EPIC_COLOR changes. */
+.modal.detail-modal.epic { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #161b22; }
 /* row layout lives on .popup-header (below) — see there. */
 .detail-header h2 { color: #58a6ff; font-size: 1.1em; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
@@ -413,6 +418,20 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body code { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, Consolas, monospace; font-size: 0.88em; color: #79c0ff; }
 .detail-body pre { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
 .detail-body pre code { background: none; border: none; padding: 0; color: #c9d1d9; }
+/* Markdown tables in a card body (kanban.proj #256). The scroller is the point:
+   a ladder or a comparison table is often wider than the popup, and without its
+   own overflow the whole popup would scroll sideways and take the prose with it.
+   Scoped under .md-table so .detail-frontmatter's own table rules stay untouched. */
+.detail-body .md-table { overflow-x: auto; margin: 10px 0; }
+.detail-body .md-table table { border-collapse: collapse; font-size: 0.95em; }
+.detail-body .md-table th, .detail-body .md-table td { border: 1px solid #30363d; padding: 5px 9px; text-align: left; vertical-align: top; }
+.detail-body .md-table th { background: #0d1117; color: #c9d1d9; font-weight: 600; white-space: nowrap; }
+.detail-body .md-table td { color: #c9d1d9; }
+/* Column alignment from the delimiter row's colons. Classes, not inline styles:
+   the CSP has no unsafe-inline for style, so a style="" attribute would be dropped. */
+.detail-body .md-table .ta-left { text-align: left; }
+.detail-body .md-table .ta-center { text-align: center; }
+.detail-body .md-table .ta-right { text-align: right; }
 .detail-body a { color: #58a6ff; }
 .detail-body strong { color: #e6edf3; }
 .detail-body hr { border: none; border-top: 1px solid #30363d; margin: 14px 0; }

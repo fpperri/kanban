@@ -2,6 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+
+// .modal's own solid panel colour (app.css). Any wash on a popup has to keep
+// this underneath it or the popup goes transparent.
+const MODAL_BG = '#161b22';
 const {
   BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, EPIC_COLOR, isBuiltinStatus, statusColor, statusColorClass, statusColorSoft, epicColorSoft, statusBadge, archivedBadge,
 } = require('../web/status-colors');
@@ -144,9 +148,12 @@ test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic
   assert.ok(css.includes(`.gantt-bar.epic { box-shadow: inset 0 0 0 9999px ${soft}; }`), 'gantt bar epic wash is a box-shadow overlay, not background');
   // The map node tints its SVG rect fill instead of drawing a circle.
   assert.ok(css.includes(`.map-node.epic rect { fill: ${soft}; }`), 'map node epic wash tints the rect fill, not a circle');
-  // the card detail popup's own twin — its own rule since
-  // `.modal`'s solid background is spoken for, same as the gantt bar/map node above.
-  assert.ok(css.includes(`.modal.detail-modal.epic { background: ${soft}; }`), 'detail popup epic wash on the panel background');
+  // the card detail popup's own twin. A tile can REPLACE its background with the
+  // wash because it sits on the opaque column; a popup sits on the backdrop and
+  // the board, so replacing its background makes it see-through (kanban.proj #255).
+  // It layers the wash over the panel colour instead, so the value stays sourced
+  // from epicColorSoft() rather than a hand-blended hex.
+  assert.ok(css.includes(`.modal.detail-modal.epic { background: linear-gradient(${soft}, ${soft}), ${MODAL_BG}; }`), 'detail popup epic wash layers OVER the opaque panel');
   // the membership edge + its arrowhead are LINES, not circles —
   // they keep wearing solid EPIC_COLOR.
   assert.ok(css.includes(`.map-edge.epic-edge { stroke: ${EPIC_COLOR};`), 'membership edge carries EPIC_COLOR');
@@ -156,6 +163,21 @@ test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic
   // anywhere draws an epic; circles are status-only.
   assert.ok(!css.includes('.epic-dot'), 'the shared HTML epic-dot glyph is gone');
   assert.ok(!css.includes('.map-epic-dot'), 'the map SVG epic-dot circle is gone');
+});
+
+// kanban.proj #255: an epic popup must never be see-through. The wash is a
+// 12% alpha, so it can only ever be LAYERED over an opaque colour here, never
+// be the whole background — otherwise 88% of the popup is the board behind it.
+test('the epic detail popup is opaque — the wash never replaces the panel background', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const soft = epicColorSoft();
+  const rule = css.match(/\.modal\.detail-modal\.epic \{([^}]*)\}/);
+  assert.ok(rule, '.modal.detail-modal.epic rule is present');
+  const decl = rule[1];
+  assert.ok(decl.includes(MODAL_BG), `the epic popup keeps the modal's opaque ${MODAL_BG} underneath`);
+  assert.ok(decl.includes(soft), 'and still carries the shared epic wash');
+  // the failing shape this test exists to catch: the bare alpha as the whole value
+  assert.notStrictEqual(decl.trim(), `background: ${soft};`, 'the wash alone would leave the popup 88% transparent');
 });
 
 test('epic wash survives selection — a 3-class override beats the same-specificity .epic/.selected tie', () => {
