@@ -356,11 +356,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.fullscreen .modal-desc textarea { flex: 1 1 auto; }
 
 .detail-modal { width: min(680px, 92vw); }
-/* The detail popup's own twin of the tile wash
-   (.card.epic above) — same epicColorSoft() 12% alpha, same override-the-base
-   `background` pattern (.modal's solid #161b22 loses to this on specificity,
-   three classes vs. one, same mechanism as .card.epic over .card). */
-.modal.detail-modal.epic { background: rgba(240, 136, 62, 0.12); }
+/* The detail popup's own twin of the tile wash (.card.epic above) — same
+   epicColorSoft() 12% alpha, but LAYERED rather than substituted. A tile can
+   replace its background outright because it sits on the opaque .column; a
+   popup sits on the .modal-backdrop and the board, so substituting a 12% alpha
+   left 88% of the panel see-through and the board legible through the text
+   (kanban.proj #255). A two-stop linear-gradient is the flat-overlay idiom:
+   it paints the wash as its own layer over .modal's solid #161b22 underneath,
+   which keeps the tint sourced from epicColorSoft() instead of freezing a
+   hand-blended hex that would drift the day EPIC_COLOR changes. */
+.modal.detail-modal.epic { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #161b22; }
 /* row layout lives on .popup-header (below) — see there. */
 .detail-header h2 { color: #58a6ff; font-size: 1.1em; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
