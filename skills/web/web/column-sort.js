@@ -116,6 +116,21 @@ function scheduleLabel(card, todayStr) {
   return `${card.due_date ? '⚑ ' : ''}${datePart}${timePart}`;
 }
 
+// A card is overdue when its due_date's day part (before any 'T') is
+// strictly earlier than today — day-granular on purpose, same as
+// localTodayStr/chipPositionForDay/the gantt's day columns: a 09:00 deadline
+// today isn't overdue until tomorrow. `due_date` specifically, not the
+// scheduleKey triad — a range's start/end drifting past today is a schedule
+// slip, not a missed deadline. `status !== 'done'` matches the idiom
+// unresolvedWaits/selection.js already use; archived is checked separately
+// since it's a location, not a status — either one retires the deadline as
+// no-longer-actionable.
+function isOverdue(card, todayStr) {
+  if (!card.due_date || card.status === 'done' || card.archived) return false;
+  const day = String(card.due_date).split('T')[0];
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) && day < todayStr;
+}
+
 function compareCards(a, b, sort, priorities, assignees) {
   const dir = sort.direction === 'desc' ? -1 : 1;
   switch (sort.field) {
@@ -190,7 +205,7 @@ function sortCards(cards, sort, priorities, assignees) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SORT_FIELDS, SORT_FIELD_LABELS, DEFAULT_SORT_DIRECTION, DEFAULT_SORT, DEFAULT_PRIORITIES,
-    defaultSort, mergeSortState, priorityRank, scheduleKey, scheduleLabel, compareCards, sortCards,
+    defaultSort, mergeSortState, priorityRank, scheduleKey, scheduleLabel, isOverdue, compareCards, sortCards,
   };
 } else {
   window.SORT_FIELDS = SORT_FIELDS;
@@ -203,6 +218,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.priorityRank = priorityRank;
   window.scheduleKey = scheduleKey;
   window.scheduleLabel = scheduleLabel;
+  window.isOverdue = isOverdue;
   window.compareCards = compareCards;
   window.sortCards = sortCards;
 }

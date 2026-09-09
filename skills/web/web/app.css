@@ -214,6 +214,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    board's statuses list — parked in the first column until promoted */
 .status-chip { background: #21262d; border: 1px dashed #6e7681; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
 .card-schedule { margin-left: auto; color: #8b949e; font-size: 0.72em; white-space: nowrap; } /* the Due date sort's key, visible */
+/* Overdue (kanban.proj#258): due_date's day is strictly before today and
+   the card is neither done nor archived — text color only, since
+   border-left is already priority/waiting's channel on this tile. */
+.card-schedule.overdue { color: #f85149; font-weight: 600; }
 .card-assignee { display: inline-flex; align-items: center; gap: 4px; background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
 /* The handle TEXT itself wears the assignee
    color — no separate dot glyph. The HASHED case gets a class per palette
@@ -635,6 +639,11 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    the deadline styling wins on its own chip. */
 .cal-chip.cal-chip-due { border-color: #d29922; border-left-color: #d29922; }
 .cal-chip-due-glyph { color: #d29922; }
+/* Overdue due chip (kanban.proj#258): the deadline slipped past today —
+   same danger red as .blocked-pill, declared after .cal-chip-due so it
+   wins the amber border/glyph on its own chip. */
+.cal-chip.overdue { border-color: #f85149; border-left-color: #f85149; }
+.cal-chip.overdue .cal-chip-due-glyph { color: #f85149; }
 /* Read-only affordance for an archived chip — same not-allowed
    cursor as .gantt-bar.archived. draggable is already false on the element
    (calendarChipEl), so this is discoverability, not a functional guard. */
@@ -815,6 +824,11 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .gantt-due-marker.dragging { z-index: 6; cursor: grabbing; }
 .gantt-due-marker.dragging::before { box-shadow: 0 0 0 1px #58a6ff; }
 .gantt-due-marker.archived { cursor: not-allowed; } /* same read-only affordance as .gantt-bar.archived — the diamond drag is blocked at pointerdown too */
+/* Overdue diamond (kanban.proj#258): same danger red as .blocked-pill,
+   overriding the amber due fill (never co-occurs with .archived — isOverdue
+   itself excludes archived cards). */
+.gantt-due-marker.overdue::before { background: #f85149; }
+.gantt-due-marker.overdue:hover::before { background: #ff7b72; }
 
 /* --- Date-picker popover -----------------------------------------
    Hand-rolled month grid on the form's date fields (same "no native widgets

@@ -504,6 +504,10 @@ function cardEl(card) {
   // The schedule key (same precedence the Due date sort uses) top-right —
   // escaped: date fields are free text by contract, never trust them in HTML.
   const sched = scheduleLabel(card, localTodayStr());
+  // isOverdue (column-sort.js) already gates on due_date/status/archived —
+  // an overdue card is by construction a due-date card, so this only ever
+  // adds to the ⚑ chip sched already produced, never fires on its own.
+  const overdue = isOverdue(card, localTodayStr());
   // A card with no title yet but a queued prompt (an
   // AI-dispatched card waiting on kanban-afk to name it) shows the sparkle +
   // prompt text in the title's own spot — a temporary stand-in, never a
@@ -515,7 +519,7 @@ function cardEl(card) {
     ? `${AI_PROMPT_ICON}${escapeHtml(titleDisplay.text)}`
     : escapeHtml(card.title);
   el.innerHTML =
-    `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${sched ? `<span class="card-schedule">${escapeHtml(sched)}</span>` : ''}</div>` +
+    `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${sched ? `<span class="card-schedule${overdue ? ' overdue' : ''}"${overdue ? ' title="Past due"' : ''}>${escapeHtml(sched)}</span>` : ''}</div>` +
     `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
     (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
@@ -2509,10 +2513,16 @@ function calendarChipEl(card, pos, time, isDue) {
   // high). archived rides the class list too, for the not-allowed cursor.
   // The amber accent marks WAITING; the manual blocked sticker's red pill
   // lives on tiles + map only.
+  // overdue only ever applies to the due chip itself (isOverdue already
+  // requires due_date, which is exactly what isDue flags) — a range chip on
+  // the same day never carries it, so the ".overdue" declared after
+  // ".cal-chip-due" in app.css is the only rule that needs to win here.
+  const overdue = isDue && isOverdue(card, localTodayStr());
   el.className = `cal-chip card-el ${pos}` + (isDue ? ' cal-chip-due' : '') +
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') +
     (card.epic ? ' epic' : '') +
     (card.archived ? ' archived' : '') +
+    (overdue ? ' overdue' : '') +
     (selectedIds.has(card.id) ? ' selected' : '');
   // An archived card is
   // read-only — native drag simply never starts (no fake-drag animation to
@@ -2543,7 +2553,7 @@ function calendarChipEl(card, pos, time, isDue) {
   el.innerHTML = `${glyph}${timeLabel}<span class="cal-chip-id">#${card.id}</span>${statusBadge(card)}${card.archived ? archivedBadge() : ''} ` +
     `<span class="cal-chip-title${titleDisplay.isPromptFallback ? ' cal-chip-title--prompt-fallback' : ''}">${escapeHtml(titleDisplay.text)}</span>`;
   const readOnlyHint = 'Archived — restore the card to reschedule';
-  el.title = `#${card.id} ${titleDisplay.text}${isDue ? ' — due' : ''}${card.archived ? ` — ${readOnlyHint}` : ''}`; // plain-text property — full title/prompt survives the CSS truncation
+  el.title = `#${card.id} ${titleDisplay.text}${isDue ? ' — due' : ''}${overdue ? ' — past due' : ''}${card.archived ? ` — ${readOnlyHint}` : ''}`; // plain-text property — full title/prompt survives the CSS truncation
   return el;
 }
 
@@ -3381,14 +3391,15 @@ function renderGanttView() {
       // whether or not a bar exists on the row; outside the window = omitted
       // (nothing clips a point marker meaningfully).
       if (bar.dueDay && bar.dueDay >= win.startDay && bar.dueDay <= win.endDay) {
+        const overdue = isOverdue(bar.card, today);
         const d = document.createElement('div');
-        d.className = 'gantt-due-marker card-el' + (bar.card.archived ? ' archived' : ''); // joins the shared grammar: still-click opens detail, shift/right-click select. archived flag, same reasoning as ganttBarEl — the diamond is an equally dead drag surface on an archived row
+        d.className = 'gantt-due-marker card-el' + (bar.card.archived ? ' archived' : '') + (overdue ? ' overdue' : ''); // joins the shared grammar: still-click opens detail, shift/right-click select. archived flag, same reasoning as ganttBarEl — the diamond is an equally dead drag surface on an archived row
         d.dataset.id = bar.card.id;
         d.dataset.archived = bar.card.archived ? '1' : ''; // read by wireGanttPointerDrag's pointerdown guard
         d.style.left = `${diffDays(win.startDay, bar.dueDay) * GANTT_DAY_PX + GANTT_DAY_PX / 2}px`; // centered on its day column
         d.title = bar.card.archived
           ? `#${bar.card.id} ${titleDisplay.text} — due ${bar.dueDay} (archived — restore the card to reschedule)`
-          : `#${bar.card.id} ${titleDisplay.text} — due ${bar.dueDay} (drag to move the due date)`;
+          : `#${bar.card.id} ${titleDisplay.text} — due ${bar.dueDay}${overdue ? ' — past due' : ''} (drag to move the due date)`;
         row.appendChild(d);
       }
       timeline.appendChild(row);
