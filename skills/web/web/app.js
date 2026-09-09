@@ -484,8 +484,9 @@ function cardEl(card) {
   // status; unlike epic there's no absent case) — status is already implied
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
-  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (card.epic ? ' epic' : '') + (selectedIds.has(card.id) ? ' selected' : '');
+  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (card.epic ? ' epic' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   el.draggable = true;
+  el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const tags = card.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
   // The amber badge lists the UNRESOLVED ids only — it disappears
@@ -572,8 +573,9 @@ function cardEl(card) {
 function archiveCardEl(card, opts) {
   const showEpic = !!(opts && opts.epicDot);
   const el = document.createElement('div');
-  el.className = 'card card-el archived-card' + (showEpic && card.epic ? ' epic' : '') + (selectedIds.has(card.id) ? ' selected' : '');
+  el.className = 'card card-el archived-card' + (showEpic && card.epic ? ' epic' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   el.draggable = true; // drag out of Archive restores to the drop column
+  el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const sched = scheduleLabel(card, localTodayStr());
   // Same empty-title-shows-the-prompt fallback as the board
@@ -1196,7 +1198,8 @@ function buildMapSvg(graph, layer) {
     // archived node (a durable identity, not a location).
     const cls = `map-node${n.ghost ? ' ghost' : ''}${missing ? ' missing' : ''}${n.archived ? ' archived' : ''}` +
       `${pb.className ? ` ${pb.className}` : ''}${(!missing && !n.archived && n.waiting) ? ' waiting' : ''}${n.epic ? ' epic' : ''}` +
-      `${selectable ? ' card-el' : ''}${selectable && selectedIds.has(id) ? ' selected' : ''}`;
+      `${selectable ? ' card-el' : ''}${selectable && selectedIds.has(id) ? ' selected' : ''}` +
+      `${selectable && isHoverHighlighted(hoveredId, id) ? ' hover-highlight' : ''}`;
     const idLabel = `#${id}`;
     // Same empty-title-shows-the-prompt fallback every
     // other view uses (cardTitleDisplay, card-title.js) — n already carries
@@ -1242,7 +1245,7 @@ function buildMapSvg(graph, layer) {
         `<text x="31" y="${MAP_NODE_H - 8}" text-anchor="middle">blocked</text></g>`
       : '';
     nodesSvg +=
-      `<g class="${cls}" transform="translate(${p.x},${p.y})"${missing ? '' : ` data-id="${id}"`}>` +
+      `<g class="${cls}" transform="translate(${p.x},${p.y})"${missing ? '' : ` data-id="${id}"`}${selectable ? ' tabindex="0"' : ''}>` +
         `<title>${escapeHtml(tooltip)}</title>` +
         `<rect width="${MAP_NODE_W}" height="${MAP_NODE_H}" rx="6"></rect>` +
         `<text x="10" y="18" class="map-node-id">${escapeHtml(idLabel)}</text>` +
@@ -1328,7 +1331,22 @@ function applyBoardData(data) {
   applyLists(data.priorities || [], data.tags || []);
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   selectedIds = pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id)); // drop ghosts before render (archived cards are in the domain too)
+  // Cards became focusable in #261 and renderBoard() rebuilds every one of
+  // them, so an unattended poll would drop a Tab-navigating user's focus to
+  // <body>. The header controls solve that by blocking the refresh
+  // (boardControlFocused) — a card can't, since an ordinary click leaves one
+  // focused indefinitely and blocking would freeze the board. Re-find it by
+  // id instead. Refocusing fires focusin, which repoints the hover wash at
+  // the focused card, so put the pointer's own card back after.
+  const focusedCard = document.activeElement && document.activeElement.closest && document.activeElement.closest('.card-el');
+  const focusedCardId = focusedCard ? focusedCard.dataset.id : null;
+  const pointerId = hoveredId;
   renderBoard();
+  if (focusedCard) {
+    const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);
+    if (again) again.focus({ preventScroll: true });
+    if (hoveredId !== pointerId) setHoveredId(pointerId);
+  }
   applyNotifications(data.notifications || []); // the board poll carries them — no separate timer
 }
 
@@ -1364,6 +1382,12 @@ function anyModalOpen() {
 // option popup is open silently closes that popup with no error, cancelling
 // whatever the user was about to pick. Treat a focused sort control as
 // blocking a refresh the same way an open modal does.
+// Every member below is a control the user is MOMENTARILY inside. Cards are
+// not, even though #261 made them focusable: a plain click leaves one focused
+// and nothing takes that focus back, so listing .card-el here would freeze
+// the poll for the rest of the session — no stale indicator, no error, just a
+// board that quietly stops updating. applyBoardData re-finds the focused card
+// after its render instead.
 function boardControlFocused() {
   const el = document.activeElement;
   // .cal-nav: calendar nav; .column-add: the header +;
@@ -1372,7 +1396,7 @@ function boardControlFocused() {
   // gantt pills; .calendar-filter-toggle: the
   // calendar pills (their views are wiped by every render). All focusable,
   // all rebuilt per render — a poll landing while one is focused would
-  // silently dump keyboard focus to <body>.
+  // silently dump keyboard focus to <body>. No .card-el — see above.
   return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle'));
 }
 
@@ -2523,12 +2547,14 @@ function calendarChipEl(card, pos, time, isDue) {
     (card.epic ? ' epic' : '') +
     (card.archived ? ' archived' : '') +
     (overdue ? ' overdue' : '') +
-    (selectedIds.has(card.id) ? ' selected' : '');
+    (selectedIds.has(card.id) ? ' selected' : '') +
+    (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   // An archived card is
   // read-only — native drag simply never starts (no fake-drag animation to
   // guard against, unlike the gantt's custom pointer-drag), so onCalendarDrop
   // never gets called for it in the first place.
   el.draggable = !card.archived;
+  el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   // The due marker is a DIFFERENT chip from the range run — the drop
   // handler must know which one was picked up (range drag moves the range pair,
@@ -3206,8 +3232,10 @@ function shiftCalendarWindow(delta) {
 // preserve (unlike the calendar), and the view mode itself persists via the
 // shared 'view.mode' mechanism. No dependency arrows on purpose — the map
 // view owns the waiting_for graph; here a waiting card just keeps the board's
-// amber left-accent cue. No focusable controls in here either (bars are divs,
-// there's no prev/next nav), so boardControlFocused needs no new entry.
+// amber left-accent cue. No focusable header controls in here (no prev/next
+// nav), so boardControlFocused needs no new entry — the bars and gutter
+// labels are Tab stops as of #261, but cards are deliberately outside that
+// guard (see boardControlFocused).
 
 function ganttBarEl(bar, win) {
   // The window may be clamped (~180 days), so a bar can poke past either
@@ -3236,8 +3264,10 @@ function ganttBarEl(bar, win) {
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(bar.card) ? ' waiting' : '') +
     (bar.card.epic ? ' epic' : '') +
     (selectedIds.has(bar.card.id) ? ' selected' : '') +
+    (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '') +
     (bar.card.archived ? ' archived' : '') + // an archived bar is drag-read-only — CSS swaps the grab cursor for not-allowed
     (bar.startDay < win.startDay ? ' clip-start' : '') + (bar.endDay > win.endDay ? ' clip-end' : '');
+  el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = bar.card.id;
   el.dataset.archived = bar.card.archived ? '1' : ''; // read by wireGanttPointerDrag's pointerdown guard, same signal used to swap the tooltips below
   // Non-built-in statuses (custom columns, unlisted values) color
@@ -3406,7 +3436,8 @@ function renderGanttView() {
       // ctrl/shift-click select, right-click menus, exactly like the bar itself
       // (cheap parity, and the only way to reach
       // a bar that's entirely outside the clamped window).
-      label.className = 'gantt-row gantt-label card-el' + (bar.card.epic ? ' epic' : '') + (selectedIds.has(bar.card.id) ? ' selected' : '');
+      label.className = 'gantt-row gantt-label card-el' + (bar.card.epic ? ' epic' : '') + (selectedIds.has(bar.card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '');
+      label.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
       label.dataset.id = bar.card.id;
       // Same fallback every other view uses — reused via
       // cardTitleDisplay, never re-derived (card-title.js).
@@ -3798,6 +3829,33 @@ let selectedIds = new Set();
 // vanished (poll/delete) or left the active view (filter/view switch).
 let selectionAnchor = null;
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
+
+// Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
+// resting on any ONE piece of a card lights every piece sharing its id —
+// the only way to see a card's true extent once the calendar or gantt has
+// cut it across several DOM elements. Borrows the selection mechanism: a
+// single module-level id (never a Set — only one card is hovered/focused
+// at a time) that every view's renderer reads the same way it already
+// reads selectedIds (isHoverHighlighted, selection.js), so a poll's full
+// DOM rebuild carries the highlight forward with no extra step. The
+// mouseover/mouseout/focusin/focusout listeners below only need to keep
+// this variable current and paint the CURRENT dom directly
+// (applyHoverHighlight) — a full renderBoard() per mouse move would be
+// needless work and would fight the drag/selection paths that already
+// share that render.
+let hoveredId = null;
+
+function applyHoverHighlight() {
+  document.querySelectorAll('.hover-highlight').forEach((el) => el.classList.remove('hover-highlight'));
+  if (hoveredId == null) return;
+  document.querySelectorAll(`.card-el[data-id="${hoveredId}"]`).forEach((el) => el.classList.add('hover-highlight'));
+}
+
+function setHoveredId(id) {
+  if (id === hoveredId) return;
+  hoveredId = id;
+  applyHoverHighlight();
+}
 
 // The rendered order shift+click ranges over: every card-el in
 // the ACTIVE view's container, document order, deduped to first occurrence
@@ -4204,6 +4262,29 @@ window.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY);
   });
+  // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
+  // those don't bubble, and this wants one delegated pair like the click/
+  // contextmenu grammar above) plus focusin/focusout so Tab reaches the
+  // same cue. The leave side's "still inside the same card-el" guard stops
+  // the highlight flickering off while the pointer/focus crosses an
+  // INTERNAL boundary (title, tags, an archived tile's own Restore/Delete
+  // buttons) — mouseout/focusout fire on every such boundary, not just the
+  // card-el's own edge.
+  const enterHover = (e) => {
+    const el = e.target.closest('.card-el');
+    setHoveredId(el ? Number(el.dataset.id) : null);
+  };
+  const leaveHover = (e) => {
+    const from = e.target.closest('.card-el');
+    if (!from) return;
+    const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card-el');
+    if (to === from) return;
+    setHoveredId(to ? Number(to.dataset.id) : null);
+  };
+  document.addEventListener('mouseover', enterHover);
+  document.addEventListener('mouseout', leaveHover);
+  document.addEventListener('focusin', enterHover);
+  document.addEventListener('focusout', leaveHover);
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);
   $('#ctx-delete').addEventListener('click', bulkDelete);

@@ -914,6 +914,49 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .notif-message { font-size: 0.88em; word-break: break-word; }
 .notif-empty { color: #8b949e; font-size: 0.85em; padding: 8px 2px; }
 
+/* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
+   on any piece of a card lights every piece sharing its id (app.js's
+   hoveredId, applied the same way .selected below reads selectedIds) — a
+   background WASH, not an outline (outline is .selected's own channel, so
+   a selected card stays legible as selected while hovered). A solid color,
+   not an alpha wash: every surface below sits on an opaque parent already
+   (column/day-cell/gantt row/svg canvas), but a solid substitute sidesteps
+   the see-through trap entirely rather than relying on that (kanban.proj
+   #255 — an alpha wash may only ever SUBSTITUTE a background when an
+   opaque surface is guaranteed behind it). The tone is #2d333b, NOT the
+   #21262d first tried: that value is the app's resting surface for buttons and
+   assignee badges, and against a #0d1117 tile it was measured as too faint to
+   read as a response at all. #2d333b sits just under button:hover's #30363d,
+   which keeps the card's own #30363d border visible instead of swallowing it.
+   Declared AFTER every .epic wash
+   and per-status fill above so this wins those ties and a colored
+   card still visibly responds to hover — but BEFORE .selected below so
+   THAT rule keeps winning its own tie against this one. Epic is the one
+   exception, reasserted three-class below. */
+.card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #2d333b; }
+.map-node.hover-highlight rect { fill: #2d333b; }
+/* Epic survives hover, the same way it survives selection. The rule above is a
+   2-class background and so is .card.epic, so without this the orange wash would
+   vanish the moment the pointer crossed an epic card, and epic is a durable
+   identity rather than a transient status (the .epic.selected block below spells
+   that out; hover is strictly MORE transient than selection, so it has less claim
+   still). Layered rather than substituted, per kanban.proj #255: the alpha wash
+   sits over the hover tone instead of replacing it, so BOTH cues read at once.
+   The SVG rect takes the same two colors pre-blended, since fill has no
+   gradient-over-color form. The gantt BAR needs no twin: its epic cue is a
+   box-shadow, never a background, so there is no tie to lose. */
+.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #2d333b; }
+.map-node.epic.hover-highlight rect { fill: #443d3b; }
+/* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
+   another card takes it away from the card that still holds keyboard focus,
+   and a Tab user would be left with no indicator at all. The ring is the
+   focused card's own, unstealable cue — dashed grey (#8b949e, the app's
+   existing muted tone) so it never reads as .selected's solid blue, and
+   :focus-visible so a mouse click doesn't ring a card it just washed.
+   Declared before .selected below, which keeps winning the outline tie on a
+   selected card. */
+.card-el:focus-visible { outline: 2px dashed #8b949e; outline-offset: -1px; }
+
 /* Multi-select + context menu (every view) */
 .card.selected { outline: 2px solid #58a6ff; outline-offset: -1px; background: #0d1b2a; }
 /* per-view .selected markers: same blue + dark-blue wash as board
