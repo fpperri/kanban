@@ -594,4 +594,23 @@ test('cardEl and archiveCardEl both render the date stack via scheduleBlockHtml,
   assert.match(appJs, /scheduleRows\(card, localTodayStr\(\)\)/);
   const callSites = appJs.match(/const scheduleHtml = scheduleBlockHtml\(card\);/g) || [];
   assert.strictEqual(callSites.length, 2, 'cardEl and archiveCardEl each call scheduleBlockHtml once');
+  // …and both actually CONCATENATE it into the tile — computing the block and
+  // dropping it on the floor would satisfy the call-site count above while
+  // rendering nothing.
+  const emitted = appJs.match(/^\s*scheduleHtml \+$/gm) || [];
+  assert.strictEqual(emitted.length, 2, 'both innerHTML templates emit the block');
+});
+
+test('the date stack keeps the calendar/gantt day-prefix tolerance — a space-separated datetime still draws a row', () => {
+  assert.deepStrictEqual(scheduleRows({ due_date: '2026-07-14 09:30' }, '2026-07-10'), [
+    { glyph: '⚑', text: '07-14', overdue: false },
+  ]);
+});
+
+test('the glyph rides its own fixed-width box so the stacked dates line up', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const appCss = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  assert.match(appJs, /<span class="card-schedule-glyph">\$\{r\.glyph\}<\/span>/);
+  assert.match(appCss, /\.card-schedule-glyph\s*\{[^}]*display:\s*inline-block[^}]*width:/);
+  assert.match(appCss, /\.card-schedule-row\s*\{[^}]*line-height:/);
 });

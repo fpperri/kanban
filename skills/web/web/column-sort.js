@@ -132,12 +132,17 @@ function isOverdue(card, todayStr) {
 }
 
 // Same MM-DD[ HH:MM]/YYYY-MM-DD[ HH:MM] formatting scheduleLabel uses for its
-// one triad-collapsed value, applied per literal field instead. Unparseable
-// (non ISO-date) input returns null rather than echoing garbage onto a tile.
+// one triad-collapsed value, applied per literal field instead. The day is a
+// PREFIX match and the time needs the 'T' — byte-for-byte calendar-model's
+// dayPart/timePart tolerance, so a hand-written `2026-09-01 09:30` (a day
+// everywhere else in the app) still draws its row here instead of silently
+// vanishing off the tile. Anything with no leading ISO day returns null
+// rather than echoing garbage.
 function formatScheduleDate(value, todayStr) {
-  if (!value) return null;
-  const [day, time] = String(value).split('T');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const raw = String(value == null ? '' : value);
+  const day = (/^(\d{4}-\d{2}-\d{2})/.exec(raw) || [])[1];
+  if (!day) return null;
+  const time = (/^\d{4}-\d{2}-\d{2}T(.+)$/.exec(raw) || [])[1] || '';
   const sameYear = day.slice(0, 4) === String(todayStr).slice(0, 4);
   const datePart = sameYear ? day.slice(5) : day;
   const timePart = time ? ` ${time.slice(0, 5)}` : '';
@@ -156,7 +161,7 @@ function formatScheduleDate(value, todayStr) {
 const SCHEDULE_ROW_GLYPHS = {
   start_date: '⇤', // LEFTWARDS ARROW TO BAR
   end_date: '⇥', // RIGHTWARDS ARROW TO BAR
-  due_date: '⚑', // BLACK FLAG — unchanged from the existing chip/tile flag
+  due_date: '⚑', // BLACK FLAG — the same deadline flag the calendar's due chip draws
 };
 
 function scheduleRows(card, todayStr) {

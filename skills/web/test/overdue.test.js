@@ -108,7 +108,7 @@ test('SKILL.md documents the overdue cue on all three surfaces that draw a deadl
   const bullet = skill.slice(start, skill.indexOf('- **Assignee text color**', start));
   assert.match(bullet, /isOverdue\(\)/, 'names the predicate');
   assert.match(bullet, /due_date/, 'states the field it keys on');
-  assert.match(bullet, /schedule chip/, 'covers the board tile');
+  assert.match(bullet, /date stack/, 'covers the board tile');
   assert.match(bullet, /due chip/, 'covers the calendar');
   assert.match(bullet, /diamond/, 'covers the gantt');
   assert.match(bullet, /archiveCardEl/, 'states the Archive column opts out');

@@ -164,10 +164,10 @@ to `127.0.0.1` only.
   sorts by the card's schedule — `due_date`, else `end_date`, else `start_date` —
   honoring time within a day (a date-only value reads as start-of-day); dateless cards
   always sort last, in either direction. Under a Due date sort the key driving a card's
-  position is one of the rows in its date stack (kanban.proj#260) — `⚑` marks the due
-  row specifically; start/end rows carry their own glyphs and never drive this sort.
-  "Last modified" sorts by the machine-maintained `updated` stamp, newest-first by
-  default; unstamped cards always sort last. `updated` itself isn't shown on tiles (only
+  position is one of the rows in its date stack (kanban.proj#260) — the `⚑` due row when
+  the card has one, otherwise the `⇥` end row, otherwise the `⇤` start row, exactly the
+  triad fallback above. "Last modified" sorts by the machine-maintained `updated`
+  stamp, newest-first by default; unstamped cards always sort last. `updated` itself isn't shown on tiles (only
   in the card popup), so the what-you-see-is-what-sorted promise holds for Due date only.
   "Assignee" groups cards by owner, ranked by the config.yaml assignees registry's ORDER
   (not alphabetically); unregistered handles follow all registered ones alphabetically,
@@ -348,11 +348,16 @@ to `127.0.0.1` only.
   `due_date`), not the `scheduleKey` triad the Due date sort collapses to, so a card
   carrying all three shows all three instead of hiding two behind the deadline. One row
   per field the card has, fixed start/end/due order, each with its own glyph — `⇤`
-  start, `⇥` end, `⚑` due (unchanged from the calendar/gantt flag) — and a missing or
-  unparseable field produces no row at all, so a two-row card is simply shorter than a
-  three-row one. Sits under the title as its own block (`.card-schedule`, flex-column),
-  not in the `.card-head` flex row it used to share with the id/badges — three stacked
-  lines don't fit a nowrap flex child. Both `cardEl` and `archiveCardEl` render it
+  start, `⇥` end, `⚑` due (the same flag the calendar's due chip draws) — and a field
+  with no leading `YYYY-MM-DD` produces no row at all, so a two-row card is simply
+  shorter than a three-row one. The day is a PREFIX match and the time needs the `T`,
+  matching calendar-model's `dayPart`/`timePart`, so the tile and the calendar/gantt
+  agree on what counts as a date. Sits under the title as its own block
+  (`.card-schedule`, flex-column), not in the `.card-head` flex row it used to share
+  with the id/badges — three stacked lines don't fit a nowrap flex child. Each glyph
+  rides a fixed-width `.card-schedule-glyph` box (the arrows and the flag come from
+  different fallback faces and measure ~1.6px apart) so the three dates line up in one
+  column. Both `cardEl` and `archiveCardEl` render it
   through the shared `scheduleBlockHtml()` helper. `scheduleLabel()` (the old single-line
   `⚑ MM-DD`-or-bare label) still exists and is still unit-tested but has no production
   caller left.
@@ -363,12 +368,12 @@ to `127.0.0.1` only.
   Due date sort uses: a working range sliding past today is a schedule slip, not a missed
   deadline. An unparseable value never flags (fails safe rather than string-comparing
   free text). It recolors the deadline cue each surface ALREADY draws, in the same danger
-  red as the blocked pill: on the board tile's schedule chip (kanban.proj#260's date
-  stack under the title), only the due row (text + weight — the tile's `border-left` is
+  red as the blocked pill: in the board tile's date stack (kanban.proj#260, under the
+  title), the due row alone (text + weight — the tile's `border-left` is
   priority/waiting's channel, untouched); on the calendar's due chip (border + `⚑` glyph,
   winning over that chip's amber); and the gantt's due diamond (fill). Tooltips say so in
   words too. Not a new glyph anywhere — nothing to lose to, and a card without a deadline
-  can never show it. The Archive column's `archiveCardEl` renders the schedule chip but
+  can never show it. The Archive column's `archiveCardEl` renders the date stack but
   never this: archived retires the deadline by definition.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml

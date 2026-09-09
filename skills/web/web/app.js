@@ -474,8 +474,12 @@ function paintAssigneeColors(root) {
 function scheduleBlockHtml(card) {
   const rows = scheduleRows(card, localTodayStr());
   if (!rows.length) return '';
+  // The glyph rides its own fixed-width span: ⇤/⇥ and ⚑ come from different
+  // fallback faces and measure ~1.6px apart, so without it the three dates
+  // don't line up in the column they're stacked into.
   const rowsHtml = rows.map((r) =>
-    `<div class="card-schedule-row${r.overdue ? ' overdue' : ''}"${r.overdue ? ' title="Past due"' : ''}>${r.glyph} ${escapeHtml(r.text)}</div>`
+    `<div class="card-schedule-row${r.overdue ? ' overdue' : ''}"${r.overdue ? ' title="Past due"' : ''}>` +
+      `<span class="card-schedule-glyph">${r.glyph}</span>${escapeHtml(r.text)}</div>`
   ).join('');
   return `<div class="card-schedule">${rowsHtml}</div>`;
 }

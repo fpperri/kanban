@@ -217,7 +217,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    flex head row — three stacked lines don't fit a nowrap flex child, and a
    missing row should cost no space, which a column layout gives for free. */
 .card-schedule { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; color: #8b949e; font-size: 0.72em; }
-.card-schedule-row { white-space: nowrap; }
+/* Explicit line-height, not `normal`: the arrow and flag glyphs resolve to
+   different fallback faces, and their natural line boxes differ by a pixel —
+   enough to make a three-row stack sit unevenly. The glyph's own fixed-width
+   box is what keeps the three dates left-aligned with each other. */
+.card-schedule-row { white-space: nowrap; line-height: 1.35; }
+.card-schedule-glyph { display: inline-block; width: 1em; margin-right: 4px; text-align: center; }
 /* Overdue (kanban.proj#258, moved to the due row alone by #260): due_date's
    day is strictly before today and the card is neither done nor archived —
    recolors that row's text only, since border-left is already
