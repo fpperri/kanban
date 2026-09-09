@@ -455,6 +455,102 @@ function timeGridLayout(cards, days) {
   return { allDay, allDayRows: rowEnds.length, timed };
 }
 
+// --- month grid: per-week packed chip layout -----------------------------------------
+// The month grid's old per-day rendering (one chip per day cell, independently
+// positioned) is exactly the bug timeGridLayout's all-day band already solved
+// for the sub-month views: a multi-day run needs to be ONE element spanning
+// its columns, not a chip repeated in every day it touches. The band can pack
+// once across its whole window because a week/3-day/day view has a single
+// row of columns; a month has SIX ROWS of columns (5-6 week rows of 7 days
+// each), and a DOM element can't span a line wrap — a run crossing a week
+// boundary is drawn as one squared-off piece per week it touches, same
+// continuation cue as a window-clipped band entry. So packing runs PER WEEK,
+// independently, is the month grid's equivalent of the band's one packed
+// strip — same greedy longest-first-then-first-free-row shape, just re-run
+// per week instead of once globally.
+//
+// `days` is the flat 35/42-cell list monthGrid() produces, dates only (row-
+// major, 7 per week) — the glue hands in cell.date, nothing else about the
+// cell matters to layout.
+//
+// Only the WORKING RANGE (cardSchedule) and the DUE marker generate runs —
+// the same two sources chipPositionForDay drew from. Both go through ONE
+// packer per week, exactly like timeGridLayout's allDay array never
+// separates due entries from range entries either: a due chip contends for
+// rows against range chips (and other cards' due chips) the same as any two
+// cards would. The due chip still renders even when the range already
+// covers that day — the deadline reads as a different thing from the
+// working range, same precedent as timeGridLayout's independent due push.
+//
+// clipStart/clipEnd mean "this week's piece is not the run's true edge" —
+// set whenever a week's clamped edge doesn't equal the run's own start/end
+// day. That single test covers BOTH causes at once: a run continuing across
+// a week boundary, and a run poking past the grid's own first/last cell
+// (same clip-flagging timeGridLayout does against `first`/`last`) — the
+// week-boundary case falls out for free because week 0's start IS the
+// grid's first day, so a run starting earlier clips there exactly the same
+// way. One flag, either cause, same squared+dashed treatment either way
+// (reuses .clip-start/.clip-end from app.css — see the band's identical use).
+//
+// Capping to "+N more" is deliberately NOT this function's job (same split
+// as timeGridLayout, which never caps the band either) — see
+// CALENDAR_MAX_CHIP_ROWS_PER_WEEK below and its render-side use for why the
+// cap decision lives with the glue, not here.
+function monthChipLayout(cards, days) {
+  const weeks = [];
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+
+  const runs = [];
+  for (const card of cards) {
+    const schedule = cardSchedule(card);
+    if (schedule.kind === 'range') runs.push({ card, startDay: schedule.startDay, endDay: schedule.endDay, time: schedule.time, due: false });
+    else if (schedule.kind === 'single') runs.push({ card, startDay: schedule.day, endDay: schedule.day, time: schedule.time, due: false });
+    const due = dueMarker(card);
+    if (due) runs.push({ card, startDay: due.day, endDay: due.day, time: due.time, due: true });
+  }
+
+  return weeks.map((weekDays) => {
+    const weekStart = weekDays[0];
+    const weekEnd = weekDays[6];
+    const entries = [];
+    for (const run of runs) {
+      if (run.endDay < weekStart || run.startDay > weekEnd) continue; // no overlap with this week
+      const pieceStart = run.startDay < weekStart ? weekStart : run.startDay;
+      const pieceEnd = run.endDay > weekEnd ? weekEnd : run.endDay;
+      entries.push({
+        card: run.card, time: run.time, due: run.due,
+        startIdx: weekDays.indexOf(pieceStart), endIdx: weekDays.indexOf(pieceEnd),
+        clipStart: pieceStart !== run.startDay, clipEnd: pieceEnd !== run.endDay,
+      });
+    }
+    // Same packing shape as timeGridLayout's allDay band: longest span first
+    // at equal starts (it anchors the low rows, same reasoning as there),
+    // then greedy first-free-row.
+    entries.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx || a.card.id - b.card.id);
+    const rowEnds = []; // per-row last occupied column index, THIS WEEK only
+    for (const entry of entries) {
+      let row = rowEnds.findIndex((end) => end < entry.startIdx);
+      if (row === -1) { row = rowEnds.length; rowEnds.push(-1); }
+      rowEnds[row] = entry.endIdx;
+      entry.row = row;
+    }
+    return { days: weekDays, rows: rowEnds.length, entries };
+  });
+}
+
+// Visible chip ROWS per week before the rest fold into a "+N more" line —
+// the natural cap once chips are packed rows instead of per-day counts (the
+// old CALENDAR_MAX_CHIPS_PER_DAY capped each day's OWN chip count instead).
+// 4 keeps roughly the same vertical budget a day cell used to give its own
+// chips. Applied AFTER packing (row >= this is overflow), same after-the-
+// fact relationship capChips had to its caller in the old per-day renderer —
+// which cards overflow is decided by where the packer actually placed them,
+// not input order. Overflow is scoped to the WEEK, not the card: a run
+// visible in one week can overflow in the next if THAT week's rows are more
+// crowded — each week row now has its own vertical budget, same as each day
+// cell used to.
+const CALENDAR_MAX_CHIP_ROWS_PER_WEEK = 4;
+
 // === time-grid drag-to-retime + edge-resize =============================
 // These three pure functions mirror the
 // gantt's barShiftChanges/barResizeChanges/dueShiftChanges (day-granular) but
@@ -573,6 +669,7 @@ if (typeof module !== 'undefined' && module.exports) {
     CALENDAR_SUBVIEWS, CALENDAR_DEFAULT_BLOCK_MIN, // sub-views
     mergeCalendarSubview, weekStartOf, calendarSubviewDays, shiftAnchorDay,
     subviewTitle, timeToMinutes, assignLanes, timeGridLayout,
+    monthChipLayout, CALENDAR_MAX_CHIP_ROWS_PER_WEEK, // month-grid packed layout
     minutesToTime, CALENDAR_DRAG_SNAP_MIN, // time-grid drag/resize
     rescheduleRangeAtTime, rescheduleDueAtTime, resizeRangeAtTime,
     calendarCreateStart, // click-to-create prefill
@@ -607,6 +704,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.timeToMinutes = timeToMinutes;
   window.assignLanes = assignLanes;
   window.timeGridLayout = timeGridLayout;
+  window.monthChipLayout = monthChipLayout; // month-grid packed layout
+  window.CALENDAR_MAX_CHIP_ROWS_PER_WEEK = CALENDAR_MAX_CHIP_ROWS_PER_WEEK;
   window.minutesToTime = minutesToTime; // time-grid drag/resize
   window.CALENDAR_DRAG_SNAP_MIN = CALENDAR_DRAG_SNAP_MIN;
   window.rescheduleRangeAtTime = rescheduleRangeAtTime;

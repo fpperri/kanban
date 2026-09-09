@@ -2620,38 +2620,77 @@ function renderCalendarMonthGrid(container) {
   const allCards = archiveOn
     ? cards.concat(searchIds ? state.archived.filter((c) => searchIds.has(c.id)) : state.archived)
     : cards;
-  const scheduled = allCards
-    .map((card) => ({ card, schedule: cardSchedule(card), due: dueMarker(card) }))
-    .filter((s) => s.schedule.kind !== 'none' || s.due);
 
   const grid = document.createElement('div');
   grid.className = 'cal-grid';
+  const dowRow = document.createElement('div');
+  dowRow.className = 'cal-dow-row';
   for (const dow of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) {
     const h = document.createElement('div');
     h.className = 'cal-dow';
     h.textContent = dow;
-    grid.appendChild(h);
+    dowRow.appendChild(h);
   }
-  const today = localTodayStr();
-  for (const cell of monthGrid(year, monthIndex)) {
-    const dayEl = document.createElement('div');
-    dayEl.className = 'cal-day' + (cell.inMonth ? '' : ' outside') + (cell.date === today ? ' today' : '');
-    dayEl.dataset.day = cell.date;
-    const num = document.createElement('div');
-    num.className = 'cal-day-num';
-    num.textContent = cell.day;
-    dayEl.appendChild(num);
+  grid.appendChild(dowRow);
 
-    const chips = [];
-    for (const { card, schedule, due } of scheduled) {
-      const pos = chipPositionForDay(schedule, cell.date);
-      if (pos) chips.push({ card, pos, time: schedule.time });
-      // The due chip renders even when the range already covers the
-      // day — the deadline is a different thing from the working range.
-      if (due && due.day === cell.date) chips.push({ card, pos: 'single', time: due.time, due: true });
+  const today = localTodayStr();
+  const cells = monthGrid(year, monthIndex);
+  // monthChipLayout packs runs PER WEEK ROW (a week is the most a single DOM
+  // element can span — a run crossing into the next week is a squared-off
+  // continuation piece there, not the same element); the day cells below
+  // stay a flat per-day loop, they only ever needed their own date.
+  const weekRows = monthChipLayout(allCards, cells.map((c) => c.date));
+
+  weekRows.forEach((week, w) => {
+    const weekEl = document.createElement('div');
+    weekEl.className = 'cal-week';
+    // Overflow is capped PER WEEK now, not per day (see
+    // CALENDAR_MAX_CHIP_ROWS_PER_WEEK) — a card visible in one week can fold
+    // into that week's own "+N more" while still showing plainly the next.
+    const visibleRows = Math.min(week.rows, CALENDAR_MAX_CHIP_ROWS_PER_WEEK);
+    const overflow = week.entries.filter((e) => e.row >= CALENDAR_MAX_CHIP_ROWS_PER_WEEK);
+    // Row 1 is the day-number line every day cell already carries; chip rows
+    // start at row 2, so the whole week's own grid-template-rows count is
+    // the chip rows plus one more if this week overflows.
+    weekEl.style.setProperty('--cal-week-rows', visibleRows + (overflow.length ? 1 : 0));
+
+    cells.slice(w * 7, w * 7 + 7).forEach((cell, i) => {
+      const dayEl = document.createElement('div');
+      dayEl.className = 'cal-day' + (cell.inMonth ? '' : ' outside') + (cell.date === today ? ' today' : '');
+      dayEl.dataset.day = cell.date;
+      const num = document.createElement('div');
+      num.className = 'cal-day-num';
+      num.textContent = cell.day;
+      dayEl.appendChild(num);
+      // Background cell spans the week's FULL height (every chip row) so it
+      // still reads as one bordered day box; chips lay over it as siblings,
+      // same overlay-over-a-spanning-background shape as the all-day band's
+      // .cal-tg-allday-cell — and, same reason as there, must stay UNDER the
+      // chips in drop hit-testing, which the existing drag-live
+      // pointer-events:none rule on every .cal-chip already covers (it isn't
+      // scoped to the band).
+      dayEl.style.gridColumn = `${i + 1}`;
+      dayEl.style.gridRow = '1 / -1';
+      weekEl.appendChild(dayEl);
+    });
+
+    for (const entry of week.entries) {
+      if (entry.row >= CALENDAR_MAX_CHIP_ROWS_PER_WEEK) continue; // folds into the "+N more" line below
+      // Time-of-day only labels the piece that actually holds the run's true
+      // end day (clipEnd false) — a continuation piece showing the end time
+      // it doesn't own would misread, same "only the moment itself" rule
+      // chipPositionForDay used to enforce per day.
+      const chip = calendarChipEl(entry.card, 'single', entry.clipEnd ? '' : entry.time, entry.due);
+      chip.classList.add('cal-month-chip');
+      // Cut by a week boundary or by the grid's own edge — either way,
+      // square + dash the cut side, same continuation cue as the band's
+      // clip-start/clip-end (monthChipLayout sets both from the same test).
+      if (entry.clipStart) chip.classList.add('clip-start');
+      if (entry.clipEnd) chip.classList.add('clip-end');
+      chip.style.gridColumn = `${entry.startIdx + 1} / ${entry.endIdx + 2}`;
+      chip.style.gridRow = `${entry.row + 2}`;
+      weekEl.appendChild(chip);
     }
-    const { visible, overflow } = capChips(chips, CALENDAR_MAX_CHIPS_PER_DAY);
-    visible.forEach((c) => dayEl.appendChild(calendarChipEl(c.card, c.pos, c.time, c.due)));
     if (overflow.length) {
       // Overflow is deliberately cheap: a
       // tooltip-titled line listing the hidden cards — hover reads them, and
@@ -2661,10 +2700,12 @@ function renderCalendarMonthGrid(container) {
       more.textContent = `+${overflow.length} more`;
       // same fallback as every other title-bearing surface.
       more.title = overflow.map((c) => `#${c.card.id} ${cardTitleDisplay(c.card).text}`).join('\n');
-      dayEl.appendChild(more);
+      more.style.gridColumn = '1 / 8';
+      more.style.gridRow = `${visibleRows + 2}`;
+      weekEl.appendChild(more);
     }
-    grid.appendChild(dayEl);
-  }
+    grid.appendChild(weekEl);
+  });
   container.appendChild(grid);
 }
 
@@ -2838,12 +2879,12 @@ function wireCalendarDrag() {
       isDragging = true;
       calDragDue = el.dataset.due === '1';
       // While a drag is live, every chip yields hit-testing
-      // (pointer-events:none via this class, see app.css). The sub-month
-      // all-day chips are grid-overlay SIBLINGS of their .cal-tg-allday-cell
-      // drop targets — a drag released over one would never bubble to any cell,
-      // preventDefault would never fire and the browser would refuse the drop
-      // (month chips are CHILDREN of .cal-day, which is why the same gesture
-      // needs no help there). Falling through to the cell underneath gives the
+      // (pointer-events:none via this class, see app.css). Every calendar
+      // chip — the sub-month all-day band's AND the month grid's — is a
+      // grid-overlay SIBLING of its drop-target cell (.cal-tg-allday-cell /
+      // .cal-day), not a child: a drag released over one would never bubble
+      // to any cell, preventDefault would never fire and the browser would
+      // refuse the drop. Falling through to the cell underneath gives the
       // month view's drop-anywhere-in-the-day semantics in week/3-day/day too.
       container.classList.add('cal-dragging');
     });
