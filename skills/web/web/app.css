@@ -133,7 +133,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    independently, the header staying visible above it for free (see
    .column-header's comment). */
 .column-cards { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow-y: auto; }
-.card { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; cursor: grab; }
+.card { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
+/* The text column. min-width:0 is load-bearing: without it a long unbroken
+   title refuses to shrink below its content width and pushes the date stack
+   out of the tile instead of wrapping. */
+.card-main { flex: 1 1 auto; min-width: 0; }
+.card-menu { flex-basis: 100%; }
 /* Epic reads as a faint background wash, not a
    dot — circles are reserved for STATUS alone (the status dot
    below keeps its own channel). EPIC_COLOR at 12% alpha
@@ -213,10 +218,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* Raw-status chip on a tile whose on-disk status isn't in the
    board's statuses list — parked in the first column until promoted */
 .status-chip { background: #21262d; border: 1px dashed #6e7681; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
-/* Date stack (kanban.proj#260): sits under the title, not in the
-   flex head row — three stacked lines don't fit a nowrap flex child, and a
-   missing row should cost no space, which a column layout gives for free. */
-.card-schedule { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; color: #8b949e; font-size: 0.72em; }
+/* Date stack (kanban.proj#260): the tile's RIGHT-HAND column, top-aligned
+   beside the title rather than stacked under it. Kept out of .card-head
+   (a nowrap flex row three lines would stretch) and out of the normal flow,
+   so a missing row costs no space. Rows stay LEFT-aligned inside the block
+   even though the block hugs the right edge: that is what keeps the glyphs
+   in one column and the dates in another, which right-aligning the rows
+   would break the moment two rows had different text widths. */
+.card-schedule { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 0 0 auto; color: #8b949e; font-size: 0.72em; }
 /* Explicit line-height, not `normal`: the arrow and flag glyphs resolve to
    different fallback faces, and their natural line boxes differ by a pixel —
    enough to make a three-row stack sit unevenly. The glyph's own fixed-width
@@ -933,13 +942,18 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    (column/day-cell/gantt row/svg canvas), but a solid substitute sidesteps
    the see-through trap entirely rather than relying on that (kanban.proj
    #255 — an alpha wash may only ever SUBSTITUTE a background when an
-   opaque surface is guaranteed behind it). Declared AFTER every .epic wash
+   opaque surface is guaranteed behind it). The tone is #2d333b, NOT the
+   #21262d first tried: that value is the app's resting surface for buttons and
+   assignee badges, and against a #0d1117 tile it was measured as too faint to
+   read as a response at all. #2d333b sits just under button:hover's #30363d,
+   which keeps the card's own #30363d border visible instead of swallowing it.
+   Declared AFTER every .epic wash
    and per-status fill above so this wins those ties and a colored
    card still visibly responds to hover — but BEFORE .selected below so
    THAT rule keeps winning its own tie against this one. Epic is the one
    exception, reasserted three-class below. */
-.card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #21262d; }
-.map-node.hover-highlight rect { fill: #21262d; }
+.card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #2d333b; }
+.map-node.hover-highlight rect { fill: #2d333b; }
 /* Epic survives hover, the same way it survives selection. The rule above is a
    2-class background and so is .card.epic, so without this the orange wash would
    vanish the moment the pointer crossed an epic card, and epic is a durable
@@ -950,8 +964,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    The SVG rect takes the same two colors pre-blended, since fill has no
    gradient-over-color form. The gantt BAR needs no twin: its epic cue is a
    box-shadow, never a background, so there is no tie to lose. */
-.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #21262d; }
-.map-node.epic.hover-highlight rect { fill: #3a322f; }
+.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #2d333b; }
+.map-node.epic.hover-highlight rect { fill: #443d3b; }
 /* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
    another card takes it away from the card that still holds keyboard focus,
    and a Tab user would be left with no indicator at all. The ring is the

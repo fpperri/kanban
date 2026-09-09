@@ -597,7 +597,10 @@ test('cardEl and archiveCardEl both render the date stack via scheduleBlockHtml,
   // …and both actually CONCATENATE it into the tile — computing the block and
   // dropping it on the floor would satisfy the call-site count above while
   // rendering nothing.
-  const emitted = appJs.match(/^\s*scheduleHtml \+$/gm) || [];
+  // The board tile ends on the block (it is the tile's right-hand column, so it
+  // is the last thing concatenated) while the archive tile continues into its
+  // action menu - so accept either terminator rather than pinning one layout.
+  const emitted = appJs.match(/^\s*scheduleHtml[ \t]*[+;]$/gm) || [];
   assert.strictEqual(emitted.length, 2, 'both innerHTML templates emit the block');
 });
 

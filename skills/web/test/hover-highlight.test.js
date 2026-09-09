@@ -113,8 +113,8 @@ test('hoveredId is declared next to selectedIds/bulkDragIds, documented as survi
 // still visibly responds AND a selected card still reads as selected.
 
 test('app.css washes every hover-highlight surface with one solid color, no outline', () => {
-  assert.ok(appCss.includes(".card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #21262d; }"));
-  assert.ok(appCss.includes('.map-node.hover-highlight rect { fill: #21262d; }'));
+  assert.ok(appCss.includes(".card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #2d333b; }"));
+  assert.ok(appCss.includes('.map-node.hover-highlight rect { fill: #2d333b; }'));
   assert.ok(!/\.hover-highlight[^{]*\{[^}]*outline/.test(appCss), 'hover never carries an outline — that stays .selected\'s own channel');
 });
 
@@ -160,7 +160,7 @@ test('the base hover wash is a solid color, and only the epic override layers al
     assert.ok(!line.includes('rgba('), 'no alpha in a base hover rule: ' + line);
   }
   const epic = appCss.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
-  assert.ok(epic && epic.includes('), #21262d'), 'the epic rule ends on an opaque tone behind its alpha wash');
+  assert.ok(epic && epic.includes('), #2d333b'), 'the epic rule ends on an opaque tone behind its alpha wash');
 });
 
 // The wash rides ONE shared hoveredId, so the pointer moving onto another
@@ -219,10 +219,10 @@ test('an epic card keeps its orange wash while hovered, layered over the hover t
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   const rule = css.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
   assert.ok(rule, 'a 3-class epic+hover rule exists, so it beats both 2-class rules regardless of order');
-  assert.ok(rule.includes('linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #21262d'),
+  assert.ok(rule.includes('linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #2d333b'),
     'the epic wash LAYERS over the hover tone rather than substituting it');
   assert.ok(rule.includes('.cal-chip.epic.hover-highlight'), 'the calendar chip is covered by the same rule');
   assert.ok(rule.includes('.gantt-label.epic.hover-highlight'), 'and the gantt label');
-  assert.ok(css.includes('.map-node.epic.hover-highlight rect { fill: #3a322f; }'),
+  assert.ok(css.includes('.map-node.epic.hover-highlight rect { fill: #443d3b; }'),
     'the map node carries the pre-blended equivalent, since fill takes no gradient');
 });
