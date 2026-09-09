@@ -530,11 +530,17 @@ function cardEl(card) {
   const titleHtml = titleDisplay.isPromptFallback
     ? `${AI_PROMPT_ICON}${escapeHtml(titleDisplay.text)}`
     : escapeHtml(card.title);
+  // The tile is a two-column flex: everything that reads left-to-right in one
+  // child, the date stack in the other so it sits top-right beside the title
+  // rather than below it. Keeping the stack out of .card-head matters - the head
+  // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
-    `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}</div>` +
-    `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
-    scheduleHtml +
-    (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting;
+    `<div class="card-main">` +
+      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+      (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting +
+    `</div>` +
+    scheduleHtml;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
   // The red blocked pill — the sticker is a human stop sign, so
   // it reads as its own glyph, not a border (borders stay priority/status
@@ -597,8 +603,10 @@ function archiveCardEl(card, opts) {
     ? `${AI_PROMPT_ICON}${escapeHtml(titleDisplay.text)}`
     : escapeHtml(card.title);
   el.innerHTML =
-    `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}</div>` +
-    `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+    `<div class="card-main">` +
+      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+    `</div>` +
     scheduleHtml +
     `<div class="card-menu">` +
       `<button type="button" data-act="restore" data-id="${card.id}">Restore</button>` +
