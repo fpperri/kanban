@@ -9,6 +9,7 @@ const {
   CALENDAR_SUBVIEWS, CALENDAR_DEFAULT_BLOCK_MIN,
   mergeCalendarSubview, weekStartOf, calendarSubviewDays, shiftAnchorDay,
   subviewTitle, timeToMinutes, assignLanes, timeGridLayout,
+  monthChipLayout, CALENDAR_MAX_CHIP_ROWS_PER_WEEK,
   minutesToTime, CALENDAR_DRAG_SNAP_MIN,
   rescheduleRangeAtTime, rescheduleDueAtTime, resizeRangeAtTime,
   calendarCreateStart,
@@ -729,6 +730,136 @@ test('timeGridLayout: an empty window day still gets an (empty) timed list — t
   const { timed, allDayRows } = timeGridLayout([], ['2026-07-09']);
   assert.deepStrictEqual(timed, { '2026-07-09': [] });
   assert.strictEqual(allDayRows, 0);
+});
+
+// --- monthChipLayout: per-week packed month-grid chips -------------------------------
+// A 3-week Monday-first grid, same shape monthGrid() would hand the glue:
+//   week 0: 2026-06-29 .. 2026-07-05 (idx 0..6)
+//   week 1: 2026-07-06 .. 2026-07-12 (idx 0..6)
+//   week 2: 2026-07-13 .. 2026-07-19 (idx 0..6)
+const M3 = [
+  '2026-06-29', '2026-06-30', '2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05',
+  '2026-07-06', '2026-07-07', '2026-07-08', '2026-07-09', '2026-07-10', '2026-07-11', '2026-07-12',
+  '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19',
+];
+
+test('monthChipLayout: a run inside one week is a single unclipped entry, other weeks empty', () => {
+  const card = { id: 1, title: 'r', start_date: '2026-07-01', end_date: '2026-07-03' };
+  const weeks = monthChipLayout([card], M3);
+  assert.strictEqual(weeks.length, 3);
+  assert.deepStrictEqual(weeks[0].entries, [
+    { card, time: '', due: false, startIdx: 2, endIdx: 4, clipStart: false, clipEnd: false, row: 0 },
+  ]);
+  assert.deepStrictEqual(weeks[1].entries, []);
+  assert.deepStrictEqual(weeks[2].entries, []);
+});
+
+test('monthChipLayout: a run crossing ONE week boundary splits into two clipped pieces, squared at the cut', () => {
+  const card = { id: 2, title: 'x', start_date: '2026-07-04', end_date: '2026-07-07' };
+  const weeks = monthChipLayout([card], M3);
+  assert.deepStrictEqual(weeks[0].entries, [
+    { card, time: '', due: false, startIdx: 5, endIdx: 6, clipStart: false, clipEnd: true, row: 0 },
+  ]);
+  assert.deepStrictEqual(weeks[1].entries, [
+    { card, time: '', due: false, startIdx: 0, endIdx: 1, clipStart: true, clipEnd: false, row: 0 },
+  ]);
+  assert.deepStrictEqual(weeks[2].entries, []);
+});
+
+test('monthChipLayout: a run crossing TWO week boundaries gets a clipped piece in every week it touches — the middle piece clipped on both sides', () => {
+  const card = { id: 3, title: 'y', start_date: '2026-07-03', end_date: '2026-07-15' };
+  const weeks = monthChipLayout([card], M3);
+  assert.deepStrictEqual(weeks[0].entries[0],
+    { card, time: '', due: false, startIdx: 4, endIdx: 6, clipStart: false, clipEnd: true, row: 0 });
+  assert.deepStrictEqual(weeks[1].entries[0],
+    { card, time: '', due: false, startIdx: 0, endIdx: 6, clipStart: true, clipEnd: true, row: 0 });
+  assert.deepStrictEqual(weeks[2].entries[0],
+    { card, time: '', due: false, startIdx: 0, endIdx: 2, clipStart: true, clipEnd: false, row: 0 });
+});
+
+test('monthChipLayout: a run clipped by the GRID\'s own start and end (not just a week boundary) — same clipStart/clipEnd test covers both causes', () => {
+  // Starts before the grid's first cell and ends after its last — every
+  // week's piece clamps to that week's own bounds, and since week 0's start
+  // IS the grid's first day, the clip flag falls out of the very same
+  // run.startDay/pieceStart comparison a plain week-boundary cut uses.
+  const card = { id: 4, title: 'z', start_date: '2026-06-20', end_date: '2026-08-01' };
+  const weeks = monthChipLayout([card], M3);
+  assert.strictEqual(weeks[0].entries[0].startIdx, 0);
+  assert.strictEqual(weeks[0].entries[0].clipStart, true); // 06-29 (grid edge) !== 06-20 (true start)
+  assert.strictEqual(weeks[2].entries[0].endIdx, 6);
+  assert.strictEqual(weeks[2].entries[0].clipEnd, true); // 07-19 (grid edge) !== 08-01 (true end)
+  assert.strictEqual(weeks[1].entries[0].clipStart, true); // the whole middle week is a continuation on both sides
+  assert.strictEqual(weeks[1].entries[0].clipEnd, true);
+});
+
+test('monthChipLayout: a run entirely outside the grid produces no entries anywhere', () => {
+  const before = { id: 5, title: 'b', start_date: '2026-05-01', end_date: '2026-05-05' };
+  const after = { id: 6, title: 'a', start_date: '2026-08-01', end_date: '2026-08-05' };
+  const weeks = monthChipLayout([before, after], M3);
+  // rows 0 is the case the render has to floor before it reaches CSS —
+  // repeat(0, ...) is invalid and drops the whole track template.
+  for (const week of weeks) { assert.deepStrictEqual(week.entries, []); assert.strictEqual(week.rows, 0); }
+});
+
+test('monthChipLayout: two disjoint runs in the same week share row 0', () => {
+  const a = { id: 7, title: 'a', start_date: '2026-06-29' }; // idx 0
+  const b = { id: 8, title: 'b', start_date: '2026-07-01' }; // idx 2, no overlap with a
+  const weeks = monthChipLayout([a, b], M3);
+  assert.deepStrictEqual(weeks[0].entries.map((e) => [e.card.id, e.row]), [[7, 0], [8, 0]]);
+  assert.strictEqual(weeks[0].rows, 1);
+});
+
+test('monthChipLayout: two overlapping runs in the same week are forced onto different rows', () => {
+  const a = { id: 9, title: 'a', start_date: '2026-06-29', end_date: '2026-07-01' }; // idx 0-2
+  const b = { id: 10, title: 'b', start_date: '2026-06-30', end_date: '2026-07-02' }; // idx 1-3, overlaps a
+  const weeks = monthChipLayout([a, b], M3);
+  assert.deepStrictEqual(weeks[0].entries.map((e) => [e.card.id, e.row]), [[9, 0], [10, 1]]);
+  assert.strictEqual(weeks[0].rows, 2);
+});
+
+test('monthChipLayout: a single-day card (start-only) is a one-column entry, both clip flags false', () => {
+  const card = { id: 11, title: 's', start_date: '2026-07-08' };
+  const weeks = monthChipLayout([card], M3);
+  assert.deepStrictEqual(weeks[1].entries, [
+    { card, time: '', due: false, startIdx: 2, endIdx: 2, clipStart: false, clipEnd: false, row: 0 },
+  ]);
+});
+
+test('monthChipLayout: a due-only card (no working range) still produces a due entry', () => {
+  const card = { id: 12, title: 'd', due_date: '2026-07-09' };
+  const weeks = monthChipLayout([card], M3);
+  assert.deepStrictEqual(weeks[1].entries, [
+    { card, time: '', due: true, startIdx: 3, endIdx: 3, clipStart: false, clipEnd: false, row: 0 },
+  ]);
+});
+
+test('monthChipLayout: a card\'s range AND its due marker both render, as separate entries — the due chip never gets swallowed by its own card\'s range', () => {
+  const card = { id: 13, title: 'both', start_date: '2026-07-06', end_date: '2026-07-08', due_date: '2026-07-07' };
+  const weeks = monthChipLayout([card], M3);
+  assert.strictEqual(weeks[1].entries.length, 2);
+  assert.strictEqual(weeks[1].entries.filter((e) => e.due).length, 1);
+  assert.strictEqual(weeks[1].entries.filter((e) => !e.due).length, 1);
+});
+
+test('monthChipLayout: ordering rule at equal starts — the LONGER run anchors row 0, a same-start shorter run that overlaps it is pushed to row 1', () => {
+  const long = { id: 14, title: 'long', start_date: '2026-06-29', end_date: '2026-07-02' }; // idx 0-3
+  const short = { id: 15, title: 'short', start_date: '2026-06-29' }; // idx 0 only, overlaps long at idx 0
+  // Pass the shorter one FIRST — the sort, not input order, must decide.
+  const weeks = monthChipLayout([short, long], M3);
+  assert.deepStrictEqual(weeks[0].entries.map((e) => [e.card.id, e.row]), [[14, 0], [15, 1]]);
+});
+
+test('monthChipLayout: end time labels only the piece holding the run\'s true end day', () => {
+  const card = { id: 16, title: 't', start_date: '2026-07-04T09:00', end_date: '2026-07-07T17:00' };
+  const weeks = monthChipLayout([card], M3);
+  assert.strictEqual(weeks[0].entries[0].time, '17:00'); // week 0's piece is clipped at the end — glue decides whether to show it, but the entry always carries the schedule's own time
+  assert.strictEqual(weeks[1].entries[0].time, '17:00');
+  assert.strictEqual(weeks[0].entries[0].clipEnd, true); // glue: clipEnd true -> suppress the label
+  assert.strictEqual(weeks[1].entries[0].clipEnd, false); // glue: clipEnd false -> show '17:00'
+});
+
+test('CALENDAR_MAX_CHIP_ROWS_PER_WEEK is 4', () => {
+  assert.strictEqual(CALENDAR_MAX_CHIP_ROWS_PER_WEEK, 4);
 });
 
 // === time-grid drag-to-retime + edge-resize math ========================
