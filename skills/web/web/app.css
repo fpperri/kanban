@@ -616,8 +616,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    siblings overlaid on top of them, not children — same overlay-over-a-
    spanning-background shape as .cal-tg-allday-cell below. A run spanning
    multiple day columns is one chip with an explicit column span (app.js),
-   so it covers the day cells' own gap too and reads as a single block. */
-.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: minmax(16px, auto) repeat(var(--cal-week-rows), minmax(20px, auto)); gap: 4px; }
+   so it covers the day cells' own gap too and reads as a single block.
+   The trailing minmax(0, 1fr) filler is load-bearing: .cal-day's 96px
+   min-height spans every row, and without a track that can absorb the
+   slack the browser grows the intrinsic rows instead — a week with one
+   chip row put the day number in a 71px track and pushed its chip to the
+   BOTTOM of the cell (measured, headless Edge over CDP). The filler takes
+   the remainder, so chip rows stay 20px right under the day number. */
+.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: minmax(16px, auto) repeat(var(--cal-week-rows), minmax(20px, auto)) minmax(0, 1fr); gap: 4px; }
 .cal-day { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; min-height: 96px; padding: 4px; min-width: 0; }
 .cal-day.outside { opacity: 0.45; }
 .cal-day.today { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff inset; }
@@ -636,13 +642,13 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .cal-chip.low { border-left-color: #6e7681; opacity: 0.85; }
 .cal-chip.waiting { border-left-color: #d29922; }
 .cal-chip.dragging { opacity: 0.4; }
-/* Range position classes from calendar-model.js's chipPositionForDay: kept
-   for chipPositionForDay's own callers/tests (still exported, still a
-   correct per-day answer) but no longer wired to the month grid's render —
-   a multi-day run there is one .cal-month-chip spanning its columns now, cut
-   at week boundaries with .clip-start/.clip-end below instead of these
-   squared-corner-per-day classes, the same continuation cue the all-day
-   band already used. */
+/* Range position classes from calendar-model.js's chipPositionForDay. No
+   render calls them any more — the month grid draws a run as one
+   .cal-month-chip spanning its columns, cut at week boundaries with
+   .clip-start/.clip-end below (the all-day band's continuation cue) — but
+   chipPositionForDay is still exported and covered, and calendarChipEl
+   still gates the time label on the 'range-end' value, so the classes stay
+   rather than rot the chip's class contract. */
 .cal-chip.range-start { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .cal-chip.range-mid { border-radius: 0; }
 .cal-chip.range-end { border-top-left-radius: 0; border-bottom-left-radius: 0; }
@@ -699,10 +705,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .cal-tg-col.drag-over, .cal-tg-allday-cell.drag-over { background-color: #0d1b2a; box-shadow: 0 0 0 1px #58a6ff inset; }
 /* While a drag is live (wireCalendarDrag toggles the class), chips
    yield hit-testing so the drop lands on the day cell underneath. Load-bearing
-   for the all-day band, where chips are grid-overlay SIBLINGS of the drop
-   cells (not children like the month grid's) — without this, releasing over a
-   chip fires no cell dragover, preventDefault never runs, and the browser
-   refuses the drop with the not-allowed cursor.
+   for BOTH the all-day band and the month grid — in each, chips are
+   grid-overlay SIBLINGS of the drop cells, never children — without this,
+   releasing over a chip fires no cell dragover, preventDefault never runs, and
+   the browser refuses the drop with the not-allowed cursor.
    `:not(.dragging)` excludes the chip actually
    being dragged — Chromium cancels an in-flight native HTML5 drag outright
    (dragstart fires, dragend follows immediately, no dragover/drop ever

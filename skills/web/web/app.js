@@ -2651,8 +2651,10 @@ function renderCalendarMonthGrid(container) {
     const overflow = week.entries.filter((e) => e.row >= CALENDAR_MAX_CHIP_ROWS_PER_WEEK);
     // Row 1 is the day-number line every day cell already carries; chip rows
     // start at row 2, so the whole week's own grid-template-rows count is
-    // the chip rows plus one more if this week overflows.
-    weekEl.style.setProperty('--cal-week-rows', visibleRows + (overflow.length ? 1 : 0));
+    // the chip rows plus one more if this week overflows. Floored at 1: a
+    // week with nothing scheduled would otherwise emit repeat(0, ...), which
+    // is invalid CSS and silently drops the whole track template.
+    weekEl.style.setProperty('--cal-week-rows', Math.max(1, visibleRows + (overflow.length ? 1 : 0)));
 
     cells.slice(w * 7, w * 7 + 7).forEach((cell, i) => {
       const dayEl = document.createElement('div');

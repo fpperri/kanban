@@ -52,6 +52,22 @@ test('app.css gives .cal-week a nested per-week grid keyed off --cal-week-rows, 
     'chip rows are explicit grid tracks the JS sizes via a custom property, same --cal-day-cols precedent as the time grid');
 });
 
+// Measured in a real browser (headless Edge over CDP, getBoundingClientRect
+// on the chips of a 1-chip-row week): without the filler, .cal-day's 96px
+// min-height spanning every row grew the day-number track to 71px and left
+// the chip pinned to the BOTTOM of the cell. Same class of defect as
+// board-header-layout.test.js's header note — a template that reads right
+// and lays out wrong — so the absorbing track is pinned, not just the shape.
+test('app.css ends .cal-week with a filler track that absorbs the day cell\'s min-height slack (regression)', () => {
+  assert.match(appCss, /\.cal-week\s*\{[^}]*repeat\(var\(--cal-week-rows\), minmax\(20px, auto\)\) minmax\(0, 1fr\)/,
+    'the slack lands in a trailing filler row, so chip rows stay 20px directly under the day number');
+});
+
+test('renderCalendarMonthGrid floors --cal-week-rows at 1 so an empty week never emits repeat(0, ...) (regression)', () => {
+  assert.match(renderFn, /setProperty\('--cal-week-rows', Math\.max\(1,/,
+    'repeat(0, ...) is invalid CSS and silently drops the whole grid-template-rows declaration');
+});
+
 test('app.css reuses .clip-start/.clip-end for month chips cut at a week boundary or the grid edge, same visual as the all-day band', () => {
   assert.match(appCss, /\.cal-allday-chip\.clip-start,\s*\.cal-month-chip\.clip-start/,
     'the month grid does not reinvent its own clipped-edge styling');

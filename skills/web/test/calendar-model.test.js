@@ -796,7 +796,9 @@ test('monthChipLayout: a run entirely outside the grid produces no entries anywh
   const before = { id: 5, title: 'b', start_date: '2026-05-01', end_date: '2026-05-05' };
   const after = { id: 6, title: 'a', start_date: '2026-08-01', end_date: '2026-08-05' };
   const weeks = monthChipLayout([before, after], M3);
-  for (const week of weeks) assert.deepStrictEqual(week.entries, []);
+  // rows 0 is the case the render has to floor before it reaches CSS —
+  // repeat(0, ...) is invalid and drops the whole track template.
+  for (const week of weeks) { assert.deepStrictEqual(week.entries, []); assert.strictEqual(week.rows, 0); }
 });
 
 test('monthChipLayout: two disjoint runs in the same week share row 0', () => {

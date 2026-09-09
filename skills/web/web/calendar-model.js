@@ -456,46 +456,20 @@ function timeGridLayout(cards, days) {
 }
 
 // --- month grid: per-week packed chip layout -----------------------------------------
-// The month grid's old per-day rendering (one chip per day cell, independently
-// positioned) is exactly the bug timeGridLayout's all-day band already solved
-// for the sub-month views: a multi-day run needs to be ONE element spanning
-// its columns, not a chip repeated in every day it touches. The band can pack
-// once across its whole window because a week/3-day/day view has a single
-// row of columns; a month has SIX ROWS of columns (5-6 week rows of 7 days
-// each), and a DOM element can't span a line wrap — a run crossing a week
-// boundary is drawn as one squared-off piece per week it touches, same
-// continuation cue as a window-clipped band entry. So packing runs PER WEEK,
-// independently, is the month grid's equivalent of the band's one packed
-// strip — same greedy longest-first-then-first-free-row shape, just re-run
-// per week instead of once globally.
-//
-// `days` is the flat 35/42-cell list monthGrid() produces, dates only (row-
-// major, 7 per week) — the glue hands in cell.date, nothing else about the
-// cell matters to layout.
-//
-// Only the WORKING RANGE (cardSchedule) and the DUE marker generate runs —
-// the same two sources chipPositionForDay drew from. Both go through ONE
-// packer per week, exactly like timeGridLayout's allDay array never
-// separates due entries from range entries either: a due chip contends for
-// rows against range chips (and other cards' due chips) the same as any two
-// cards would. The due chip still renders even when the range already
-// covers that day — the deadline reads as a different thing from the
-// working range, same precedent as timeGridLayout's independent due push.
-//
-// clipStart/clipEnd mean "this week's piece is not the run's true edge" —
-// set whenever a week's clamped edge doesn't equal the run's own start/end
-// day. That single test covers BOTH causes at once: a run continuing across
-// a week boundary, and a run poking past the grid's own first/last cell
-// (same clip-flagging timeGridLayout does against `first`/`last`) — the
-// week-boundary case falls out for free because week 0's start IS the
-// grid's first day, so a run starting earlier clips there exactly the same
-// way. One flag, either cause, same squared+dashed treatment either way
-// (reuses .clip-start/.clip-end from app.css — see the band's identical use).
-//
-// Capping to "+N more" is deliberately NOT this function's job (same split
-// as timeGridLayout, which never caps the band either) — see
-// CALENDAR_MAX_CHIP_ROWS_PER_WEEK below and its render-side use for why the
-// cap decision lives with the glue, not here.
+// The all-day band's one packed strip, re-run PER WEEK: a month is 5-6 rows
+// of columns, and a DOM element can't span a line wrap, so a run crossing a
+// week boundary becomes one squared-off piece per week it touches instead of
+// one element — the band's own window-clip cue, applied at every wrap.
+// `days` is monthGrid()'s flat cell list, dates only (row-major, 7 per week).
+// Working range (cardSchedule) and due marker both feed ONE packer per week,
+// exactly as timeGridLayout never separates the two either — so a due chip
+// contends for rows like any other entry, and still renders when its own
+// card's range already covers that day.
+// clipStart/clipEnd mean "this piece is not the run's true edge", set from
+// the one test of clamped-edge vs run-edge — which covers a week boundary and
+// the grid's own first/last cell at once, since week 0 starts at the grid's
+// first day. Capping is the glue's job, not this one's (same split as the
+// band) — see CALENDAR_MAX_CHIP_ROWS_PER_WEEK below.
 function monthChipLayout(cards, days) {
   const weeks = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
@@ -538,17 +512,12 @@ function monthChipLayout(cards, days) {
   });
 }
 
-// Visible chip ROWS per week before the rest fold into a "+N more" line —
-// the natural cap once chips are packed rows instead of per-day counts (the
-// old CALENDAR_MAX_CHIPS_PER_DAY capped each day's OWN chip count instead).
-// 4 keeps roughly the same vertical budget a day cell used to give its own
-// chips. Applied AFTER packing (row >= this is overflow), same after-the-
-// fact relationship capChips had to its caller in the old per-day renderer —
-// which cards overflow is decided by where the packer actually placed them,
-// not input order. Overflow is scoped to the WEEK, not the card: a run
-// visible in one week can overflow in the next if THAT week's rows are more
-// crowded — each week row now has its own vertical budget, same as each day
-// cell used to.
+// Visible chip ROWS per week before the rest fold into a "+N more" line — the
+// packed-row equivalent of the old per-day CALENDAR_MAX_CHIPS_PER_DAY, same 4
+// so a day cell keeps roughly its old vertical budget. Applied AFTER packing,
+// so WHICH cards overflow follows the packer's row assignment, not input
+// order, and overflow is per week: a run shown in one week can fold into the
+// next week's "+N more" if that week is more crowded.
 const CALENDAR_MAX_CHIP_ROWS_PER_WEEK = 4;
 
 // === time-grid drag-to-retime + edge-resize =============================
