@@ -1844,7 +1844,7 @@ test('map section toggles join the poll-guard and Q0 clear-selection exemptions,
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle, \.card-el'\)/,
       'a focused section toggle blocks the auto-refresh — #map-view is wiped by every renderMapView() poll tick, same as the #56 pills');
     assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle, \.map-section-toggle/,
       'a section-toggle click must not wipe a building selection, same curate-the-view exemption as the #56 pills');
@@ -1888,7 +1888,7 @@ test('map status-filter pills join the Q0 clear-selection exemption AND the focu
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
     // innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the sort controls/.cal-nav.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle, \.card-el'\)/,
       'a focused pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -2181,7 +2181,7 @@ test('gantt status-filter pills join the Q0 clear-selection exemption AND the fo
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle, \.card-el'\)/,
       'a focused gantt pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -2304,7 +2304,7 @@ test('calendar status-filter pills join the Q0 clear-selection exemption AND the
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's/gantt's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle, \.card-el'\)/,
       'a focused calendar pill blocks the auto-refresh like every other rebuilt header control');
   });
 });

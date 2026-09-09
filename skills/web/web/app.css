@@ -914,6 +914,23 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .notif-message { font-size: 0.88em; word-break: break-word; }
 .notif-empty { color: #8b949e; font-size: 0.85em; padding: 8px 2px; }
 
+/* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
+   on any piece of a card lights every piece sharing its id (app.js's
+   hoveredId, applied the same way .selected below reads selectedIds) — a
+   background WASH, not an outline (outline is .selected's own channel, so
+   a selected card stays legible as selected while hovered). A solid color,
+   not an alpha wash: every surface below sits on an opaque parent already
+   (column/day-cell/gantt row/svg canvas), but a solid substitute sidesteps
+   the see-through trap entirely rather than relying on that (kanban.proj
+   #255 — an alpha wash may only ever SUBSTITUTE a background when an
+   opaque surface is guaranteed behind it). Declared AFTER every .epic wash
+   and per-status fill above so this wins those ties and an epic/colored
+   card still visibly responds to hover — but BEFORE .selected below so
+   THAT rule keeps winning its own tie against this one. */
+.card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #21262d; }
+.map-node.hover-highlight rect { fill: #21262d; }
+.card-el:focus { outline: none; } /* the wash above is the focus cue — same "own cue, no native ring" rule as .search-input:focus */
+
 /* Multi-select + context menu (every view) */
 .card.selected { outline: 2px solid #58a6ff; outline-offset: -1px; background: #0d1b2a; }
 /* per-view .selected markers: same blue + dark-blue wash as board

@@ -35,6 +35,15 @@ function pruneSelection(set, liveIds) {
   return new Set([...set].filter((id) => live.has(id)));
 }
 
+// Hover/focus highlight (kanban.proj#261): unlike selection, only ever ONE
+// card is hovered or focused at a time, so the membership test every
+// render call site needs is a plain equality check — pulled out so it has
+// one tested place to live rather than a raw `===` repeated at each of the
+// six card-representing surfaces.
+function isHoverHighlighted(hoveredId, cardId) {
+  return hoveredId != null && hoveredId === cardId;
+}
+
 // Right-click semantics: the gesture's target REPLACES the
 // selection when it wasn't selected; an already-selected target keeps the
 // whole batch as the menu's subject. Returns the input set unchanged (same
@@ -104,7 +113,7 @@ function dragPlan(ids, byId, dest, refusesDoingFn) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection };
+  module.exports = { toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted };
 } else {
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
@@ -113,4 +122,5 @@ if (typeof module !== 'undefined' && module.exports) {
   window.dragPlan = dragPlan;
   window.archiveNeedsConfirm = archiveNeedsConfirm;
   window.rangeSelection = rangeSelection;
+  window.isHoverHighlighted = isHoverHighlighted;
 }
