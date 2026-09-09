@@ -1,8 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   SORT_FIELDS, SORT_FIELD_LABELS, DEFAULT_SORT_DIRECTION, DEFAULT_SORT,
-  mergeSortState, compareCards, sortCards, scheduleKey, scheduleLabel,
+  mergeSortState, compareCards, sortCards, scheduleKey, scheduleLabel, scheduleRows,
 } = require('../web/column-sort');
 
 // --- constants --------------------------------------------------------
@@ -475,4 +477,121 @@ test('scheduleLabel: compact date, time when present, ⚑ for deadlines, year on
   assert.strictEqual(scheduleLabel({ end_date: '2026-07-20' }, '2026-07-10'), '07-20');
   assert.strictEqual(scheduleLabel({ start_date: '2027-01-05T08:00' }, '2026-07-10'), '2027-01-05 08:00');
   assert.strictEqual(scheduleLabel({}, '2026-07-10'), '');
+});
+
+// --- scheduleRows (kanban.proj#260) — the tile's start/end/due date stack:
+// one row per literal frontmatter field, fixed order, own glyph each, no row
+// at all for a field the card doesn't carry (or can't be parsed).
+
+test('scheduleRows: all three present renders start, end, due in that fixed order', () => {
+  const rows = scheduleRows(
+    { start_date: '2026-07-01', end_date: '2026-07-05', due_date: '2026-07-14' },
+    '2026-07-10',
+  );
+  assert.deepStrictEqual(rows, [
+    { glyph: '⇤', text: '07-01', overdue: false },
+    { glyph: '⇥', text: '07-05', overdue: false },
+    { glyph: '⚑', text: '07-14', overdue: false },
+  ]);
+});
+
+test('scheduleRows: start_date alone', () => {
+  assert.deepStrictEqual(scheduleRows({ start_date: '2026-07-01' }, '2026-07-10'), [
+    { glyph: '⇤', text: '07-01', overdue: false },
+  ]);
+});
+
+test('scheduleRows: end_date alone', () => {
+  assert.deepStrictEqual(scheduleRows({ end_date: '2026-07-05' }, '2026-07-10'), [
+    { glyph: '⇥', text: '07-05', overdue: false },
+  ]);
+});
+
+test('scheduleRows: due_date alone', () => {
+  assert.deepStrictEqual(scheduleRows({ due_date: '2026-07-14' }, '2026-07-10'), [
+    { glyph: '⚑', text: '07-14', overdue: false },
+  ]);
+});
+
+test('scheduleRows: start + end pair, no due row', () => {
+  assert.deepStrictEqual(
+    scheduleRows({ start_date: '2026-07-01', end_date: '2026-07-05' }, '2026-07-10'),
+    [
+      { glyph: '⇤', text: '07-01', overdue: false },
+      { glyph: '⇥', text: '07-05', overdue: false },
+    ],
+  );
+});
+
+test('scheduleRows: start + due pair, no end row', () => {
+  assert.deepStrictEqual(
+    scheduleRows({ start_date: '2026-07-01', due_date: '2026-07-14' }, '2026-07-10'),
+    [
+      { glyph: '⇤', text: '07-01', overdue: false },
+      { glyph: '⚑', text: '07-14', overdue: false },
+    ],
+  );
+});
+
+test('scheduleRows: end + due pair, no start row', () => {
+  assert.deepStrictEqual(
+    scheduleRows({ end_date: '2026-07-05', due_date: '2026-07-14' }, '2026-07-10'),
+    [
+      { glyph: '⇥', text: '07-05', overdue: false },
+      { glyph: '⚑', text: '07-14', overdue: false },
+    ],
+  );
+});
+
+test('scheduleRows: none of the three fields set returns an empty list', () => {
+  assert.deepStrictEqual(scheduleRows({}, '2026-07-10'), []);
+});
+
+test('scheduleRows: foreign-year values print the full YYYY-MM-DD', () => {
+  assert.deepStrictEqual(scheduleRows({ start_date: '2027-01-05' }, '2026-07-10'), [
+    { glyph: '⇤', text: '2027-01-05', overdue: false },
+  ]);
+});
+
+test('scheduleRows: a datetime value appends HH:MM sliced from after the T', () => {
+  assert.deepStrictEqual(scheduleRows({ due_date: '2026-07-14T09:30:00' }, '2026-07-10'), [
+    { glyph: '⚑', text: '07-14 09:30', overdue: false },
+  ]);
+});
+
+test('scheduleRows: an unparseable value produces no row for that field, others unaffected', () => {
+  assert.deepStrictEqual(
+    scheduleRows({ start_date: 'not-a-date', due_date: '2026-07-14' }, '2026-07-10'),
+    [{ glyph: '⚑', text: '07-14', overdue: false }],
+  );
+});
+
+test('scheduleRows: the overdue flag lands on the due row only, never start/end', () => {
+  const rows = scheduleRows(
+    { start_date: '2026-01-01', end_date: '2026-01-02', due_date: '2026-01-05', status: 'todo' },
+    '2026-07-10',
+  );
+  assert.deepStrictEqual(rows, [
+    { glyph: '⇤', text: '01-01', overdue: false },
+    { glyph: '⇥', text: '01-02', overdue: false },
+    { glyph: '⚑', text: '01-05', overdue: true },
+  ]);
+});
+
+test('scheduleRows: a done card never flags its due row overdue (isOverdue\'s own gate)', () => {
+  const rows = scheduleRows({ due_date: '2026-01-01', status: 'done' }, '2026-07-10');
+  assert.deepStrictEqual(rows, [{ glyph: '⚑', text: '01-01', overdue: false }]);
+});
+
+// --- wiring: both tile renderers build the date stack through the shared
+// helper, which in turn calls scheduleRows — structure test against the
+// source, same convention as overdue.test.js's surface-wiring checks (app.js
+// DOM glue isn't require-able, jsdom isn't wired into this suite).
+
+test('cardEl and archiveCardEl both render the date stack via scheduleBlockHtml, which calls scheduleRows', () => {
+  const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  assert.match(appJs, /function scheduleBlockHtml\(card\)/);
+  assert.match(appJs, /scheduleRows\(card, localTodayStr\(\)\)/);
+  const callSites = appJs.match(/const scheduleHtml = scheduleBlockHtml\(card\);/g) || [];
+  assert.strictEqual(callSites.length, 2, 'cardEl and archiveCardEl each call scheduleBlockHtml once');
 });

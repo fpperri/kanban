@@ -164,8 +164,9 @@ to `127.0.0.1` only.
   sorts by the card's schedule — `due_date`, else `end_date`, else `start_date` —
   honoring time within a day (a date-only value reads as start-of-day); dateless cards
   always sort last, in either direction. Under a Due date sort the key driving a card's
-  position is visible top-right on every tile (`⚑` marks a deadline; range dates show
-  bare). "Last modified" sorts by the machine-maintained `updated` stamp, newest-first by
+  position is one of the rows in its date stack (kanban.proj#260) — `⚑` marks the due
+  row specifically; start/end rows carry their own glyphs and never drive this sort.
+  "Last modified" sorts by the machine-maintained `updated` stamp, newest-first by
   default; unstamped cards always sort last. `updated` itself isn't shown on tiles (only
   in the card popup), so the what-you-see-is-what-sorted promise holds for Due date only.
   "Assignee" groups cards by owner, ranked by the config.yaml assignees registry's ORDER
@@ -342,6 +343,19 @@ to `127.0.0.1` only.
   map SVG the node is 58px tall, roomy for the dot column on its right edge. The gantt
   bar and the board tile's dim/grey-border cues are untouched — one more glyph on top,
   not a replacement.
+- **Board tile date stack** (kanban.proj#260) — `scheduleRows()` (column-sort.js) reads
+  the card's three LITERAL frontmatter fields directly (`start_date`/`end_date`/
+  `due_date`), not the `scheduleKey` triad the Due date sort collapses to, so a card
+  carrying all three shows all three instead of hiding two behind the deadline. One row
+  per field the card has, fixed start/end/due order, each with its own glyph — `⇤`
+  start, `⇥` end, `⚑` due (unchanged from the calendar/gantt flag) — and a missing or
+  unparseable field produces no row at all, so a two-row card is simply shorter than a
+  three-row one. Sits under the title as its own block (`.card-schedule`, flex-column),
+  not in the `.card-head` flex row it used to share with the id/badges — three stacked
+  lines don't fit a nowrap flex child. Both `cardEl` and `archiveCardEl` render it
+  through the shared `scheduleBlockHtml()` helper. `scheduleLabel()` (the old single-line
+  `⚑ MM-DD`-or-bare label) still exists and is still unit-tested but has no production
+  caller left.
 - **Overdue cue** — `isOverdue()` (column-sort.js): the card's `due_date` day part is
   strictly earlier than today, and the card is neither `done` nor archived. Day-granular
   like every other date read in the app — a 09:00 deadline isn't overdue until the date
@@ -349,12 +363,13 @@ to `127.0.0.1` only.
   Due date sort uses: a working range sliding past today is a schedule slip, not a missed
   deadline. An unparseable value never flags (fails safe rather than string-comparing
   free text). It recolors the deadline cue each surface ALREADY draws, in the same danger
-  red as the blocked pill: the board tile's top-right schedule chip (text + weight — the
-  tile's `border-left` is priority/waiting's channel, untouched), the calendar's due chip
-  (border + `⚑` glyph, winning over that chip's amber), and the gantt's due diamond
-  (fill). Tooltips say so in words too. Not a new glyph anywhere — nothing to lose to,
-  and a card without a deadline can never show it. The Archive column's `archiveCardEl`
-  renders the schedule chip but never this: archived retires the deadline by definition.
+  red as the blocked pill: on the board tile's schedule chip (kanban.proj#260's date
+  stack under the title), only the due row (text + weight — the tile's `border-left` is
+  priority/waiting's channel, untouched); on the calendar's due chip (border + `⚑` glyph,
+  winning over that chip's amber); and the gantt's due diamond (fill). Tooltips say so in
+  words too. Not a new glyph anywhere — nothing to lose to, and a card without a deadline
+  can never show it. The Archive column's `archiveCardEl` renders the schedule chip but
+  never this: archived retires the deadline by definition.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color

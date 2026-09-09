@@ -213,11 +213,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* Raw-status chip on a tile whose on-disk status isn't in the
    board's statuses list — parked in the first column until promoted */
 .status-chip { background: #21262d; border: 1px dashed #6e7681; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
-.card-schedule { margin-left: auto; color: #8b949e; font-size: 0.72em; white-space: nowrap; } /* the Due date sort's key, visible */
-/* Overdue (kanban.proj#258): due_date's day is strictly before today and
-   the card is neither done nor archived — recolors the chip's own text,
-   since border-left is already priority/waiting's channel on this tile. */
-.card-schedule.overdue { color: #f85149; font-weight: 600; }
+/* Date stack (kanban.proj#260): sits under the title, not in the
+   flex head row — three stacked lines don't fit a nowrap flex child, and a
+   missing row should cost no space, which a column layout gives for free. */
+.card-schedule { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; color: #8b949e; font-size: 0.72em; }
+.card-schedule-row { white-space: nowrap; }
+/* Overdue (kanban.proj#258, moved to the due row alone by #260): due_date's
+   day is strictly before today and the card is neither done nor archived —
+   recolors that row's text only, since border-left is already
+   priority/waiting's channel on this tile. */
+.card-schedule-row.overdue { color: #f85149; font-weight: 600; }
 .card-assignee { display: inline-flex; align-items: center; gap: 4px; background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
 /* The handle TEXT itself wears the assignee
    color — no separate dot glyph. The HASHED case gets a class per palette
