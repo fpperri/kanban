@@ -466,6 +466,24 @@ function paintAssigneeColors(root) {
   });
 }
 
+// The tile's date stack (kanban.proj#260): one line per literal start/end/due
+// field the card carries, via column-sort.js's scheduleRows — glyph/text/
+// overdue per row, missing fields producing no row rather than a blank one.
+// Shared by cardEl and archiveCardEl; the archived case just never lands an
+// overdue row, since isOverdue() already retires archived cards on its own.
+function scheduleBlockHtml(card) {
+  const rows = scheduleRows(card, localTodayStr());
+  if (!rows.length) return '';
+  // The glyph rides its own fixed-width span: ⇤/⇥ and ⚑ come from different
+  // fallback faces and measure ~1.6px apart, so without it the three dates
+  // don't line up in the column they're stacked into.
+  const rowsHtml = rows.map((r) =>
+    `<div class="card-schedule-row${r.overdue ? ' overdue' : ''}"${r.overdue ? ' title="Past due"' : ''}>` +
+      `<span class="card-schedule-glyph">${r.glyph}</span>${escapeHtml(r.text)}</div>`
+  ).join('');
+  return `<div class="card-schedule">${rowsHtml}</div>`;
+}
+
 // assigneeBadge/escapeHtml come from assignee-badge.js (bare globals, same
 // dual-environment pattern as refresh-policy.js/column-state.js).
 // Every card-representing element in every view carries `card-el` +
@@ -502,13 +520,7 @@ function cardEl(card) {
   const statusChip = unlisted
     ? `<span class="status-chip" title="Status not in the board's statuses list — shown in the first column until promoted in config.yaml">${escapeHtml(card.status)}</span>`
     : '';
-  // The schedule key (same precedence the Due date sort uses) top-right —
-  // escaped: date fields are free text by contract, never trust them in HTML.
-  const sched = scheduleLabel(card, localTodayStr());
-  // isOverdue (column-sort.js) already gates on due_date/status/archived —
-  // an overdue card is by construction a due-date card, so this only ever
-  // adds to the ⚑ chip sched already produced, never fires on its own.
-  const overdue = isOverdue(card, localTodayStr());
+  const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
   // A card with no title yet but a queued prompt (an
   // AI-dispatched card waiting on kanban-afk to name it) shows the sparkle +
   // prompt text in the title's own spot — a temporary stand-in, never a
@@ -519,10 +531,17 @@ function cardEl(card) {
   const titleHtml = titleDisplay.isPromptFallback
     ? `${AI_PROMPT_ICON}${escapeHtml(titleDisplay.text)}`
     : escapeHtml(card.title);
+  // The tile is a two-column flex: everything that reads left-to-right in one
+  // child, the date stack in the other so it sits top-right beside the title
+  // rather than below it. Keeping the stack out of .card-head matters - the head
+  // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
-    `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${sched ? `<span class="card-schedule${overdue ? ' overdue' : ''}"${overdue ? ' title="Past due"' : ''}>${escapeHtml(sched)}</span>` : ''}</div>` +
-    `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
-    (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting;
+    `<div class="card-main">` +
+      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+      (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting +
+    `</div>` +
+    scheduleHtml;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
   // The red blocked pill — the sticker is a human stop sign, so
   // it reads as its own glyph, not a border (borders stay priority/status
@@ -577,7 +596,7 @@ function archiveCardEl(card, opts) {
   el.draggable = true; // drag out of Archive restores to the drop column
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
-  const sched = scheduleLabel(card, localTodayStr());
+  const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
   // Same empty-title-shows-the-prompt fallback as the board
   // tile — reused verbatim via cardTitleDisplay
   // (card-title.js), never re-derived here.
@@ -586,8 +605,11 @@ function archiveCardEl(card, opts) {
     ? `${AI_PROMPT_ICON}${escapeHtml(titleDisplay.text)}`
     : escapeHtml(card.title);
   el.innerHTML =
-    `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}${sched ? `<span class="card-schedule">${escapeHtml(sched)}</span>` : ''}</div>` +
-    `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+    `<div class="card-main">` +
+      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+    `</div>` +
+    scheduleHtml +
     `<div class="card-menu">` +
       `<button type="button" data-act="restore" data-id="${card.id}">Restore</button>` +
       `<button type="button" data-act="delete-arch" data-id="${card.id}">Delete</button>` +

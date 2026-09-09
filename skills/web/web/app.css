@@ -133,7 +133,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    independently, the header staying visible above it for free (see
    .column-header's comment). */
 .column-cards { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow-y: auto; }
-.card { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; cursor: grab; }
+.card { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
+/* The text column. min-width:0 is load-bearing: without it a long unbroken
+   title refuses to shrink below its content width and pushes the date stack
+   out of the tile instead of wrapping. */
+.card-main { flex: 1 1 auto; min-width: 0; }
+.card-menu { flex-basis: 100%; }
 /* Epic reads as a faint background wash, not a
    dot — circles are reserved for STATUS alone (the status dot
    below keeps its own channel). EPIC_COLOR at 12% alpha
@@ -213,11 +218,25 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* Raw-status chip on a tile whose on-disk status isn't in the
    board's statuses list — parked in the first column until promoted */
 .status-chip { background: #21262d; border: 1px dashed #6e7681; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
-.card-schedule { margin-left: auto; color: #8b949e; font-size: 0.72em; white-space: nowrap; } /* the Due date sort's key, visible */
-/* Overdue (kanban.proj#258): due_date's day is strictly before today and
-   the card is neither done nor archived — recolors the chip's own text,
-   since border-left is already priority/waiting's channel on this tile. */
-.card-schedule.overdue { color: #f85149; font-weight: 600; }
+/* Date stack (kanban.proj#260): the tile's RIGHT-HAND column, top-aligned
+   beside the title rather than stacked under it. Kept out of .card-head
+   (a nowrap flex row three lines would stretch) and out of the normal flow,
+   so a missing row costs no space. Rows stay LEFT-aligned inside the block
+   even though the block hugs the right edge: that is what keeps the glyphs
+   in one column and the dates in another, which right-aligning the rows
+   would break the moment two rows had different text widths. */
+.card-schedule { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 0 0 auto; color: #8b949e; font-size: 0.72em; }
+/* Explicit line-height, not `normal`: the arrow and flag glyphs resolve to
+   different fallback faces, and their natural line boxes differ by a pixel —
+   enough to make a three-row stack sit unevenly. The glyph's own fixed-width
+   box is what keeps the three dates left-aligned with each other. */
+.card-schedule-row { white-space: nowrap; line-height: 1.35; }
+.card-schedule-glyph { display: inline-block; width: 1em; margin-right: 4px; text-align: center; }
+/* Overdue (kanban.proj#258, moved to the due row alone by #260): due_date's
+   day is strictly before today and the card is neither done nor archived —
+   recolors that row's text only, since border-left is already
+   priority/waiting's channel on this tile. */
+.card-schedule-row.overdue { color: #f85149; font-weight: 600; }
 .card-assignee { display: inline-flex; align-items: center; gap: 4px; background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
 /* The handle TEXT itself wears the assignee
    color — no separate dot glyph. The HASHED case gets a class per palette
