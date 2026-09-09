@@ -649,12 +649,18 @@ to `127.0.0.1` only.
   (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
   Archive pill below. The **working range** (start→end inclusive; compat: start→due when
-  there's no end date) renders as a linked chip run (start/mid/end styling; rows may
-  shift between differently-stacked days); a one-date range is a single chip on that
-  day; a reversed range collapses to one chip at the range end. The **due date** renders
-  as its own deadline chip (amber border + ⚑ flag, red once **overdue**) on its due day — even when the range
-  already covers that day. Datetime values show their time in the chip. Days with more
-  than 4 chips collapse the rest into a tooltip-titled "+N more" line. Chips carry the
+  there's no end date) renders as ONE chip spanning its real day columns, not a chip
+  per day — laid over the day cells on a packed row, so disjoint runs share a row and
+  overlapping ones stack. A run crossing a week boundary is cut into one piece per week
+  row (a DOM element can't span the wrap), each cut edge squared + dashed like the
+  all-day band's window-clipped spans; a run reaching past the grid's own first/last
+  cell is cut the same way. A one-date range is a single-column chip; a reversed range
+  collapses to one chip at the range end. The **due date** renders as its own
+  deadline chip (amber border + ⚑ flag, red once **overdue**) on its due day — even
+  when the range already covers that day. Datetime values show their time on the
+  piece holding the range's true end day.
+  Weeks needing more than 4 chip rows fold the rest into a tooltip-titled "+N more" line
+  for that week (each week row has its own budget). Chips carry the
   shared grammar: click opens the detail popup, ctrl-click toggles / shift-click
   range-selects (all chips of that card highlight together), right-click opens the bulk
   menu; clicking an empty day cell clears the selection. Dragging a **range chip** moves
