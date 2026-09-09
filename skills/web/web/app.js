@@ -1331,7 +1331,22 @@ function applyBoardData(data) {
   applyLists(data.priorities || [], data.tags || []);
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   selectedIds = pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id)); // drop ghosts before render (archived cards are in the domain too)
+  // Cards became focusable in #261 and renderBoard() rebuilds every one of
+  // them, so an unattended poll would drop a Tab-navigating user's focus to
+  // <body>. The header controls solve that by blocking the refresh
+  // (boardControlFocused) — a card can't, since an ordinary click leaves one
+  // focused indefinitely and blocking would freeze the board. Re-find it by
+  // id instead. Refocusing fires focusin, which repoints the hover wash at
+  // the focused card, so put the pointer's own card back after.
+  const focusedCard = document.activeElement && document.activeElement.closest && document.activeElement.closest('.card-el');
+  const focusedCardId = focusedCard ? focusedCard.dataset.id : null;
+  const pointerId = hoveredId;
   renderBoard();
+  if (focusedCard) {
+    const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);
+    if (again) again.focus({ preventScroll: true });
+    if (hoveredId !== pointerId) setHoveredId(pointerId);
+  }
   applyNotifications(data.notifications || []); // the board poll carries them — no separate timer
 }
 
@@ -1367,6 +1382,12 @@ function anyModalOpen() {
 // option popup is open silently closes that popup with no error, cancelling
 // whatever the user was about to pick. Treat a focused sort control as
 // blocking a refresh the same way an open modal does.
+// Every member below is a control the user is MOMENTARILY inside. Cards are
+// not, even though #261 made them focusable: a plain click leaves one focused
+// and nothing takes that focus back, so listing .card-el here would freeze
+// the poll for the rest of the session — no stale indicator, no error, just a
+// board that quietly stops updating. applyBoardData re-finds the focused card
+// after its render instead.
 function boardControlFocused() {
   const el = document.activeElement;
   // .cal-nav: calendar nav; .column-add: the header +;
@@ -1375,8 +1396,8 @@ function boardControlFocused() {
   // gantt pills; .calendar-filter-toggle: the
   // calendar pills (their views are wiped by every render). All focusable,
   // all rebuilt per render — a poll landing while one is focused would
-  // silently dump keyboard focus to <body>. .card-el joined this (#261).
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .card-el'));
+  // silently dump keyboard focus to <body>. No .card-el — see above.
+  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle'));
 }
 
 function setStale(stale) {
@@ -3211,8 +3232,10 @@ function shiftCalendarWindow(delta) {
 // preserve (unlike the calendar), and the view mode itself persists via the
 // shared 'view.mode' mechanism. No dependency arrows on purpose — the map
 // view owns the waiting_for graph; here a waiting card just keeps the board's
-// amber left-accent cue. No focusable controls in here either (bars are divs,
-// there's no prev/next nav), so boardControlFocused needs no new entry.
+// amber left-accent cue. No focusable header controls in here (no prev/next
+// nav), so boardControlFocused needs no new entry — the bars and gutter
+// labels are Tab stops as of #261, but cards are deliberately outside that
+// guard (see boardControlFocused).
 
 function ganttBarEl(bar, win) {
   // The window may be clamped (~180 days), so a bar can poke past either

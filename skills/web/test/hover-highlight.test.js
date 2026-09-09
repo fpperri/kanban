@@ -118,8 +118,11 @@ test('app.css washes every hover-highlight surface with one solid color, no outl
   assert.ok(!/\.hover-highlight[^{]*\{[^}]*outline/.test(appCss), 'hover never carries an outline — that stays .selected\'s own channel');
 });
 
-test('the hover wash is a different tone from .selected\'s navy #0d1b2a — they must never read alike', () => {
-  assert.notStrictEqual('#21262d', '#0d1b2a');
+test('the hover wash is a different tone from .selected\'s navy — they must never read alike', () => {
+  const hover = /\.card\.hover-highlight[^{]*\{\s*background:\s*(#[0-9a-f]{6})/i.exec(appCss);
+  const selected = /\.card\.selected \{[^}]*background:\s*(#[0-9a-f]{6})/i.exec(appCss);
+  assert.ok(hover && selected, 'both washes declare a literal hex');
+  assert.notStrictEqual(hover[1].toLowerCase(), selected[1].toLowerCase());
 });
 
 test('cascade order: hover-highlight is declared AFTER every .epic wash / per-status background above it, so an epic or colored card still visibly responds to hover', () => {
@@ -148,8 +151,38 @@ test('the hover wash is a solid color (no alpha) — sidesteps kanban.proj#255\'
   assert.ok(!/\.hover-highlight[^{]*\{[^}]*rgba\(/.test(appCss), 'no rgba() in any hover-highlight rule');
 });
 
-test('the native focus ring is suppressed on card-el — the hover wash IS the focus cue, same "own cue, no outline" rule as .search-input:focus', () => {
-  assert.ok(appCss.includes('.card-el:focus { outline: none; }'));
+// The wash rides ONE shared hoveredId, so the pointer moving onto another
+// card takes it off the card that still holds keyboard focus. A focused card
+// must therefore keep a cue of its own that no mouse move can steal, or a Tab
+// user is left with no indicator at all (WCAG 2.4.7).
+
+test('a keyboard-focused card keeps its own ring — the shared hover wash is not the only focus cue', () => {
+  assert.match(appCss, /\.card-el:focus-visible \{[^}]*outline: 2px dashed/);
+  assert.ok(!appCss.includes('.card-el:focus { outline: none; }'), 'the native ring is never suppressed with nothing unstealable in its place');
+});
+
+test('the focus ring is declared before .selected, which keeps winning the outline tie on a selected card', () => {
+  assert.ok(appCss.indexOf('.card-el:focus-visible') < appCss.indexOf('.card.selected {'));
+});
+
+// A card is focusable now (#261) and every render rebuilds it, but a card is
+// NOT one of boardControlFocused's momentary controls: a plain click leaves
+// one focused and nothing takes that focus back, so listing it there would
+// silently freeze the 5s poll — no stale indicator, no error — for the rest
+// of the session. applyBoardData re-finds the focused card after the render.
+
+test('.card-el is NOT in the boardControlFocused poll guard — a click-focused card must never freeze the refresh', () => {
+  const guard = /function boardControlFocused\(\)[\s\S]*?\n\}/.exec(appJs);
+  assert.ok(guard, 'boardControlFocused still exists');
+  assert.ok(!/closest\('[^']*\.card-el/.test(guard[0]), '.card-el must not be a member of the poll-guard selector');
+});
+
+test('applyBoardData re-finds the focused card after renderBoard, and puts the pointer\'s own hover back', () => {
+  const fn = /function applyBoardData\(data\)[\s\S]*?\n\}/.exec(appJs);
+  assert.ok(fn);
+  assert.match(fn[0], /const focusedCard = document\.activeElement[\s\S]*?closest\('\.card-el'\);/);
+  assert.match(fn[0], /again\.focus\(\{ preventScroll: true \}\)/, 'refocus must not scroll the board');
+  assert.match(fn[0], /if \(hoveredId !== pointerId\) setHoveredId\(pointerId\);/, 'the refocus fires focusin — restore the pointer\'s card');
 });
 
 // --- doc pin: SKILL.md documents the hover/focus highlight

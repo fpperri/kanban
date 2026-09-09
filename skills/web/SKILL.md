@@ -461,7 +461,13 @@ to `127.0.0.1` only.
   calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
   labels, map nodes) except the gantt's due diamond, which `.selected` skips too. Every
   card-representing element carries `tabindex="0"` for this (Tab reaches the same cue the
-  mouse does). Two delegated pairs on `document`, mirroring the click/contextmenu pair
+  mouse does), plus a dashed grey `:focus-visible` ring — the wash rides one shared
+  `hoveredId`, so the pointer wandering onto another card takes it off the card that still
+  holds keyboard focus, and the ring is that card's own cue nothing can steal. Cards are
+  deliberately NOT in the `boardControlFocused` poll guard the other rebuilt controls sit
+  in: a plain click leaves a card focused indefinitely, so blocking there would quietly
+  freeze the refresh; `applyBoardData` re-finds the focused card after the render instead.
+  Two delegated pairs on `document`, mirroring the click/contextmenu pair
   above: `mouseover`/`mouseout` and `focusin`/`focusout`, each just keeping `hoveredId`
   current and repainting the *current* DOM directly — a full `renderBoard()` per mouse
   move would be needless work. The auto-refresh poll's own full rebuild carries the

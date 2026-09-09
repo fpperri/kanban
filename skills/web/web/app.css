@@ -929,7 +929,15 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    THAT rule keeps winning its own tie against this one. */
 .card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #21262d; }
 .map-node.hover-highlight rect { fill: #21262d; }
-.card-el:focus { outline: none; } /* the wash above is the focus cue — same "own cue, no native ring" rule as .search-input:focus */
+/* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
+   another card takes it away from the card that still holds keyboard focus,
+   and a Tab user would be left with no indicator at all. The ring is the
+   focused card's own, unstealable cue — dashed grey (#8b949e, the app's
+   existing muted tone) so it never reads as .selected's solid blue, and
+   :focus-visible so a mouse click doesn't ring a card it just washed.
+   Declared before .selected below, which keeps winning the outline tie on a
+   selected card. */
+.card-el:focus-visible { outline: 2px dashed #8b949e; outline-offset: -1px; }
 
 /* Multi-select + context menu (every view) */
 .card.selected { outline: 2px solid #58a6ff; outline-offset: -1px; background: #0d1b2a; }
