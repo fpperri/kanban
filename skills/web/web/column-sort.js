@@ -131,6 +131,53 @@ function isOverdue(card, todayStr) {
   return /^\d{4}-\d{2}-\d{2}$/.test(day) && day < todayStr;
 }
 
+// Same MM-DD[ HH:MM]/YYYY-MM-DD[ HH:MM] formatting scheduleLabel uses for its
+// one triad-collapsed value, applied per literal field instead. The day is a
+// PREFIX match and the time needs the 'T' — byte-for-byte calendar-model's
+// dayPart/timePart tolerance, so a hand-written `2026-09-01 09:30` (a day
+// everywhere else in the app) still draws its row here instead of silently
+// vanishing off the tile. Anything with no leading ISO day returns null
+// rather than echoing garbage.
+function formatScheduleDate(value, todayStr) {
+  const raw = String(value == null ? '' : value);
+  const day = (/^(\d{4}-\d{2}-\d{2})/.exec(raw) || [])[1];
+  if (!day) return null;
+  const time = (/^\d{4}-\d{2}-\d{2}T(.+)$/.exec(raw) || [])[1] || '';
+  const sameYear = day.slice(0, 4) === String(todayStr).slice(0, 4);
+  const datePart = sameYear ? day.slice(5) : day;
+  const timePart = time ? ` ${time.slice(0, 5)}` : '';
+  return `${datePart}${timePart}`;
+}
+
+// The tile's date stack: one row per LITERAL frontmatter field the card
+// actually carries, fixed start/end/due order, each with its own glyph —
+// deliberately NOT scheduleKey's triad (that collapses to a single
+// deadline-or-range value; this shows all three a card has, so a card
+// carrying all three no longer hides two of them behind the due date). A
+// missing or unparseable field produces no row, not a blank one, so the
+// renderer needs no CSS gap trick — a two-row card is just shorter than a
+// three-row one. Only the due row can be overdue: isOverdue() already gates
+// on due_date/status/archived and start/end never carry a deadline meaning.
+const SCHEDULE_ROW_GLYPHS = {
+  start_date: '⇤', // LEFTWARDS ARROW TO BAR
+  end_date: '⇥', // RIGHTWARDS ARROW TO BAR
+  due_date: '⚑', // BLACK FLAG — the same deadline flag the calendar's due chip draws
+};
+
+function scheduleRows(card, todayStr) {
+  const rows = [];
+  for (const field of ['start_date', 'end_date', 'due_date']) {
+    const text = formatScheduleDate(card[field], todayStr);
+    if (!text) continue;
+    rows.push({
+      glyph: SCHEDULE_ROW_GLYPHS[field],
+      text,
+      overdue: field === 'due_date' && isOverdue(card, todayStr),
+    });
+  }
+  return rows;
+}
+
 function compareCards(a, b, sort, priorities, assignees) {
   const dir = sort.direction === 'desc' ? -1 : 1;
   switch (sort.field) {
@@ -205,7 +252,7 @@ function sortCards(cards, sort, priorities, assignees) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SORT_FIELDS, SORT_FIELD_LABELS, DEFAULT_SORT_DIRECTION, DEFAULT_SORT, DEFAULT_PRIORITIES,
-    defaultSort, mergeSortState, priorityRank, scheduleKey, scheduleLabel, isOverdue, compareCards, sortCards,
+    defaultSort, mergeSortState, priorityRank, scheduleKey, scheduleLabel, isOverdue, scheduleRows, compareCards, sortCards,
   };
 } else {
   window.SORT_FIELDS = SORT_FIELDS;
@@ -219,6 +266,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.scheduleKey = scheduleKey;
   window.scheduleLabel = scheduleLabel;
   window.isOverdue = isOverdue;
+  window.scheduleRows = scheduleRows;
   window.compareCards = compareCards;
   window.sortCards = sortCards;
 }

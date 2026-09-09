@@ -67,15 +67,14 @@ test('an unparseable due_date never flags overdue — fails safe rather than mis
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
 const appCss = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
 
-test('board tile: cardEl adds .overdue to the schedule chip and a "Past due" tooltip', () => {
-  assert.match(appJs, /const overdue = isOverdue\(card, localTodayStr\(\)\);/);
-  assert.match(appJs, /card-schedule\$\{overdue \? ' overdue' : ''\}/);
-  assert.match(appJs, /overdue \? ' title="Past due"' : ''/);
+test('board tile: scheduleBlockHtml adds .overdue to the due row alone, with a "Past due" tooltip (kanban.proj#260)', () => {
+  assert.match(appJs, /card-schedule-row\$\{r\.overdue \? ' overdue' : ''\}/);
+  assert.match(appJs, /r\.overdue \? ' title="Past due"' : ''/);
 });
 
-test('board tile: app.css styles .card-schedule.overdue in the danger red, not a border (priority/waiting own the left accent)', () => {
-  assert.match(appCss, /\.card-schedule\.overdue\s*\{[^}]*color:\s*#f85149/);
-  assert.doesNotMatch(appCss, /\.card-schedule\.overdue\s*\{[^}]*border/);
+test('board tile: app.css styles .card-schedule-row.overdue in the danger red, not a border (priority/waiting own the left accent)', () => {
+  assert.match(appCss, /\.card-schedule-row\.overdue\s*\{[^}]*color:\s*#f85149/);
+  assert.doesNotMatch(appCss, /\.card-schedule-row\.overdue\s*\{[^}]*border/);
 });
 
 test('calendar: calendarChipEl flags the due chip overdue and only the due chip', () => {
@@ -109,7 +108,7 @@ test('SKILL.md documents the overdue cue on all three surfaces that draw a deadl
   const bullet = skill.slice(start, skill.indexOf('- **Assignee text color**', start));
   assert.match(bullet, /isOverdue\(\)/, 'names the predicate');
   assert.match(bullet, /due_date/, 'states the field it keys on');
-  assert.match(bullet, /schedule chip/, 'covers the board tile');
+  assert.match(bullet, /date stack/, 'covers the board tile');
   assert.match(bullet, /due chip/, 'covers the calendar');
   assert.match(bullet, /diamond/, 'covers the gantt');
   assert.match(bullet, /archiveCardEl/, 'states the Archive column opts out');

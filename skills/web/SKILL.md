@@ -164,9 +164,10 @@ to `127.0.0.1` only.
   sorts by the card's schedule — `due_date`, else `end_date`, else `start_date` —
   honoring time within a day (a date-only value reads as start-of-day); dateless cards
   always sort last, in either direction. Under a Due date sort the key driving a card's
-  position is visible top-right on every tile (`⚑` marks a deadline; range dates show
-  bare). "Last modified" sorts by the machine-maintained `updated` stamp, newest-first by
-  default; unstamped cards always sort last. `updated` itself isn't shown on tiles (only
+  position is one of the rows in its date stack (kanban.proj#260) — the `⚑` due row when
+  the card has one, otherwise the `⇥` end row, otherwise the `⇤` start row, exactly the
+  triad fallback above. "Last modified" sorts by the machine-maintained `updated`
+  stamp, newest-first by default; unstamped cards always sort last. `updated` itself isn't shown on tiles (only
   in the card popup), so the what-you-see-is-what-sorted promise holds for Due date only.
   "Assignee" groups cards by owner, ranked by the config.yaml assignees registry's ORDER
   (not alphabetically); unregistered handles follow all registered ones alphabetically,
@@ -342,6 +343,24 @@ to `127.0.0.1` only.
   map SVG the node is 58px tall, roomy for the dot column on its right edge. The gantt
   bar and the board tile's dim/grey-border cues are untouched — one more glyph on top,
   not a replacement.
+- **Board tile date stack** (kanban.proj#260) — `scheduleRows()` (column-sort.js) reads
+  the card's three LITERAL frontmatter fields directly (`start_date`/`end_date`/
+  `due_date`), not the `scheduleKey` triad the Due date sort collapses to, so a card
+  carrying all three shows all three instead of hiding two behind the deadline. One row
+  per field the card has, fixed start/end/due order, each with its own glyph — `⇤`
+  start, `⇥` end, `⚑` due (the same flag the calendar's due chip draws) — and a field
+  with no leading `YYYY-MM-DD` produces no row at all, so a two-row card is simply
+  shorter than a three-row one. The day is a PREFIX match and the time needs the `T`,
+  matching calendar-model's `dayPart`/`timePart`, so the tile and the calendar/gantt
+  agree on what counts as a date. Sits under the title as its own block
+  (`.card-schedule`, flex-column), not in the `.card-head` flex row it used to share
+  with the id/badges — three stacked lines don't fit a nowrap flex child. Each glyph
+  rides a fixed-width `.card-schedule-glyph` box (the arrows and the flag come from
+  different fallback faces and measure ~1.6px apart) so the three dates line up in one
+  column. Both `cardEl` and `archiveCardEl` render it
+  through the shared `scheduleBlockHtml()` helper. `scheduleLabel()` (the old single-line
+  `⚑ MM-DD`-or-bare label) still exists and is still unit-tested but has no production
+  caller left.
 - **Overdue cue** — `isOverdue()` (column-sort.js): the card's `due_date` day part is
   strictly earlier than today, and the card is neither `done` nor archived. Day-granular
   like every other date read in the app — a 09:00 deadline isn't overdue until the date
@@ -349,12 +368,13 @@ to `127.0.0.1` only.
   Due date sort uses: a working range sliding past today is a schedule slip, not a missed
   deadline. An unparseable value never flags (fails safe rather than string-comparing
   free text). It recolors the deadline cue each surface ALREADY draws, in the same danger
-  red as the blocked pill: the board tile's top-right schedule chip (text + weight — the
-  tile's `border-left` is priority/waiting's channel, untouched), the calendar's due chip
-  (border + `⚑` glyph, winning over that chip's amber), and the gantt's due diamond
-  (fill). Tooltips say so in words too. Not a new glyph anywhere — nothing to lose to,
-  and a card without a deadline can never show it. The Archive column's `archiveCardEl`
-  renders the schedule chip but never this: archived retires the deadline by definition.
+  red as the blocked pill: in the board tile's date stack (kanban.proj#260, under the
+  title), the due row alone (text + weight — the tile's `border-left` is
+  priority/waiting's channel, untouched); on the calendar's due chip (border + `⚑` glyph,
+  winning over that chip's amber); and the gantt's due diamond (fill). Tooltips say so in
+  words too. Not a new glyph anywhere — nothing to lose to, and a card without a deadline
+  can never show it. The Archive column's `archiveCardEl` renders the date stack but
+  never this: archived retires the deadline by definition.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -449,6 +469,35 @@ to `127.0.0.1` only.
   only** (cards the doing gate refuses — waiting or blocked — are skipped per card, with
   one summary toast naming which gate); calendar/gantt drags always move the single card
   under the pointer, selected or not.
+- **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
+  keyboard focus onto, any piece of a card lights every piece sharing its id, the same
+  card-el grammar and same "one card, several DOM elements" reach as selection: on the
+  calendar a run cut at a week boundary is two chips, and the card's own deadline chip is
+  a third on a different day — this is the only way to see a card's whole extent at a
+  glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
+  hovered/focused at a time), a different tone from selection's navy `#0d1b2a` so the two
+  never read alike, and never an outline, so a selected card stays reading as selected
+  while hovered. An **epic** card keeps its orange wash while hovered: the hover tone
+  would otherwise substitute it (both are 2-class background rules), so a 3-class
+  override layers the epic alpha OVER the hover tone instead, the same reassertion
+  `.selected` already needed and for the same reason — epic is a durable identity,
+  hover the most transient cue on the board. Applies everywhere `.selected` does (board tiles, archived tiles,
+  calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
+  labels, map nodes) except the gantt's due diamond, which `.selected` skips too. Every
+  card-representing element carries `tabindex="0"` for this (Tab reaches the same cue the
+  mouse does), plus a dashed grey `:focus-visible` ring — the wash rides one shared
+  `hoveredId`, so the pointer wandering onto another card takes it off the card that still
+  holds keyboard focus, and the ring is that card's own cue nothing can steal. Cards are
+  deliberately NOT in the `boardControlFocused` poll guard the other rebuilt controls sit
+  in: a plain click leaves a card focused indefinitely, so blocking there would quietly
+  freeze the refresh; `applyBoardData` re-finds the focused card after the render instead.
+  Two delegated pairs on `document`, mirroring the click/contextmenu pair
+  above: `mouseover`/`mouseout` and `focusin`/`focusout`, each just keeping `hoveredId`
+  current and repainting the *current* DOM directly — a full `renderBoard()` per mouse
+  move would be needless work. The auto-refresh poll's own full rebuild carries the
+  highlight forward on its own: every render call site reads `hoveredId` the same way it
+  already reads `selectedIds`, so a poll landing under a stationary pointer doesn't lose
+  the highlight the way a naive `:hover`-only or event-only approach would.
 - **Speedbumps** — every destructive action confirms first, naming its object: archive,
   delete, bulk archive/delete (one confirm per batch, with the count), notification
   delete and clear-all. Restore is exempt (it's the reversible direction). Clicking the
