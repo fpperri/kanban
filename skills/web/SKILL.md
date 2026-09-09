@@ -457,7 +457,11 @@ to `127.0.0.1` only.
   glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
   hovered/focused at a time), a different tone from selection's navy `#0d1b2a` so the two
   never read alike, and never an outline, so a selected card stays reading as selected
-  while hovered. Applies everywhere `.selected` does (board tiles, archived tiles,
+  while hovered. An **epic** card keeps its orange wash while hovered: the hover tone
+  would otherwise substitute it (both are 2-class background rules), so a 3-class
+  override layers the epic alpha OVER the hover tone instead, the same reassertion
+  `.selected` already needed and for the same reason — epic is a durable identity,
+  hover the most transient cue on the board. Applies everywhere `.selected` does (board tiles, archived tiles,
   calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
   labels, map nodes) except the gantt's due diamond, which `.selected` skips too. Every
   card-representing element carries `tabindex="0"` for this (Tab reaches the same cue the

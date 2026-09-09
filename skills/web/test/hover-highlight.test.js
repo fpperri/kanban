@@ -147,8 +147,20 @@ test('cascade order: .selected is declared AFTER hover-highlight, so a selected 
   assert.ok(mapSelectedIdx > mapHoverIdx, '.map-node.selected rect declared after the hover fill — selected wins the tie');
 });
 
-test('the hover wash is a solid color (no alpha) — sidesteps kanban.proj#255\'s "alpha wash needs an opaque backdrop" trap entirely rather than relying on one', () => {
-  assert.ok(!/\.hover-highlight[^{]*\{[^}]*rgba\(/.test(appCss), 'no rgba() in any hover-highlight rule');
+// The BASE hover wash carries no alpha at all, so it never depends on what sits
+// behind it. The epic override is the one rule that does use alpha, and it is
+// allowed to: kanban.proj#255's rule is that an alpha wash needs a guaranteed
+// opaque backdrop, and that rule layers it over an opaque tone inside the SAME
+// background shorthand, which is the guarantee. So the pin is scoped to the base
+// rules rather than to every selector carrying the class.
+test('the base hover wash is a solid color, and only the epic override layers alpha over an opaque tone', () => {
+  const base = appCss.split(/\r?\n/).filter((l) => l.includes('.hover-highlight') && !l.includes('.epic.'));
+  assert.ok(base.length >= 2, 'the base card/chip/bar/label rule and the map rule are both present');
+  for (const line of base) {
+    assert.ok(!line.includes('rgba('), 'no alpha in a base hover rule: ' + line);
+  }
+  const epic = appCss.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
+  assert.ok(epic && epic.includes('), #21262d'), 'the epic rule ends on an opaque tone behind its alpha wash');
 });
 
 // The wash rides ONE shared hoveredId, so the pointer moving onto another
@@ -195,4 +207,22 @@ test('SKILL.md documents the hover/focus highlight bullet', () => {
   assert.match(bullet, /#0d1b2a/, 'names the selected wash it must stay distinct from');
   assert.match(bullet, /tabindex="0"/, 'documents keyboard reachability');
   assert.match(bullet, /due diamond/, 'names the one card-el surface .selected also skips');
+});
+
+// Epic is a durable identity, not a transient status, and app.css already had to
+// reassert it three-class against .selected for exactly that reason. Hover is more
+// transient than selection, so a flat hover background that SUBSTITUTED the epic
+// wash would erase the stronger cue with the weaker one. kanban.proj #255 is the
+// precedent for the shape of the fix: layer the alpha wash over an opaque tone
+// rather than replacing it, so both read at once.
+test('an epic card keeps its orange wash while hovered, layered over the hover tone', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const rule = css.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
+  assert.ok(rule, 'a 3-class epic+hover rule exists, so it beats both 2-class rules regardless of order');
+  assert.ok(rule.includes('linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #21262d'),
+    'the epic wash LAYERS over the hover tone rather than substituting it');
+  assert.ok(rule.includes('.cal-chip.epic.hover-highlight'), 'the calendar chip is covered by the same rule');
+  assert.ok(rule.includes('.gantt-label.epic.hover-highlight'), 'and the gantt label');
+  assert.ok(css.includes('.map-node.epic.hover-highlight rect { fill: #3a322f; }'),
+    'the map node carries the pre-blended equivalent, since fill takes no gradient');
 });
