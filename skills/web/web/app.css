@@ -215,8 +215,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .status-chip { background: #21262d; border: 1px dashed #6e7681; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
 .card-schedule { margin-left: auto; color: #8b949e; font-size: 0.72em; white-space: nowrap; } /* the Due date sort's key, visible */
 /* Overdue (kanban.proj#258): due_date's day is strictly before today and
-   the card is neither done nor archived — text color only, since
-   border-left is already priority/waiting's channel on this tile. */
+   the card is neither done nor archived — recolors the chip's own text,
+   since border-left is already priority/waiting's channel on this tile. */
 .card-schedule.overdue { color: #f85149; font-weight: 600; }
 .card-assignee { display: inline-flex; align-items: center; gap: 4px; background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
 /* The handle TEXT itself wears the assignee

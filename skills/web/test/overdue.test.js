@@ -99,3 +99,24 @@ test('gantt: the due diamond gets .overdue and a "past due" tooltip fragment', (
 test('gantt: app.css styles .gantt-due-marker.overdue in the same danger red', () => {
   assert.match(appCss, /\.gantt-due-marker\.overdue::before\s*\{[^}]*#f85149/);
 });
+
+// --- doc pin: SKILL.md documents the overdue cue ---
+
+test('SKILL.md documents the overdue cue on all three surfaces that draw a deadline', () => {
+  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const start = skill.indexOf('- **Overdue cue**');
+  assert.ok(start > -1, 'the Overdue cue bullet exists');
+  const bullet = skill.slice(start, skill.indexOf('- **Assignee text color**', start));
+  assert.match(bullet, /isOverdue\(\)/, 'names the predicate');
+  assert.match(bullet, /due_date/, 'states the field it keys on');
+  assert.match(bullet, /schedule chip/, 'covers the board tile');
+  assert.match(bullet, /due chip/, 'covers the calendar');
+  assert.match(bullet, /diamond/, 'covers the gantt');
+  assert.match(bullet, /archiveCardEl/, 'states the Archive column opts out');
+});
+
+test('SKILL.md no longer calls the calendar/gantt deadline cue unconditionally amber', () => {
+  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  assert.match(skill, /deadline chip \(amber border \+ ⚑ flag, red once \*\*overdue\*\*\)/);
+  assert.match(skill, /amber diamond marker \(red once \*\*overdue\*\*;/);
+});

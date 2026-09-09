@@ -2513,10 +2513,10 @@ function calendarChipEl(card, pos, time, isDue) {
   // high). archived rides the class list too, for the not-allowed cursor.
   // The amber accent marks WAITING; the manual blocked sticker's red pill
   // lives on tiles + map only.
-  // overdue only ever applies to the due chip itself (isOverdue already
-  // requires due_date, which is exactly what isDue flags) — a range chip on
-  // the same day never carries it, so the ".overdue" declared after
-  // ".cal-chip-due" in app.css is the only rule that needs to win here.
+  // The isDue guard is load-bearing: overdue is a property of the CARD, so a
+  // compat range's own chips (start→due, same due_date) would go red too
+  // without it. Only the deadline chip can miss a deadline — which is also
+  // why ".overdue" only has to out-order ".cal-chip-due" in app.css.
   const overdue = isDue && isOverdue(card, localTodayStr());
   el.className = `cal-chip card-el ${pos}` + (isDue ? ' cal-chip-due' : '') +
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') +
