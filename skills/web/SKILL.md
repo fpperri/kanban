@@ -469,6 +469,35 @@ to `127.0.0.1` only.
   only** (cards the doing gate refuses — waiting or blocked — are skipped per card, with
   one summary toast naming which gate); calendar/gantt drags always move the single card
   under the pointer, selected or not.
+- **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
+  keyboard focus onto, any piece of a card lights every piece sharing its id, the same
+  card-el grammar and same "one card, several DOM elements" reach as selection: on the
+  calendar a run cut at a week boundary is two chips, and the card's own deadline chip is
+  a third on a different day — this is the only way to see a card's whole extent at a
+  glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
+  hovered/focused at a time), a different tone from selection's navy `#0d1b2a` so the two
+  never read alike, and never an outline, so a selected card stays reading as selected
+  while hovered. An **epic** card keeps its orange wash while hovered: the hover tone
+  would otherwise substitute it (both are 2-class background rules), so a 3-class
+  override layers the epic alpha OVER the hover tone instead, the same reassertion
+  `.selected` already needed and for the same reason — epic is a durable identity,
+  hover the most transient cue on the board. Applies everywhere `.selected` does (board tiles, archived tiles,
+  calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
+  labels, map nodes) except the gantt's due diamond, which `.selected` skips too. Every
+  card-representing element carries `tabindex="0"` for this (Tab reaches the same cue the
+  mouse does), plus a dashed grey `:focus-visible` ring — the wash rides one shared
+  `hoveredId`, so the pointer wandering onto another card takes it off the card that still
+  holds keyboard focus, and the ring is that card's own cue nothing can steal. Cards are
+  deliberately NOT in the `boardControlFocused` poll guard the other rebuilt controls sit
+  in: a plain click leaves a card focused indefinitely, so blocking there would quietly
+  freeze the refresh; `applyBoardData` re-finds the focused card after the render instead.
+  Two delegated pairs on `document`, mirroring the click/contextmenu pair
+  above: `mouseover`/`mouseout` and `focusin`/`focusout`, each just keeping `hoveredId`
+  current and repainting the *current* DOM directly — a full `renderBoard()` per mouse
+  move would be needless work. The auto-refresh poll's own full rebuild carries the
+  highlight forward on its own: every render call site reads `hoveredId` the same way it
+  already reads `selectedIds`, so a poll landing under a stationary pointer doesn't lose
+  the highlight the way a naive `:hover`-only or event-only approach would.
 - **Speedbumps** — every destructive action confirms first, naming its object: archive,
   delete, bulk archive/delete (one confirm per batch, with the count), notification
   delete and clear-all. Restore is exempt (it's the reversible direction). Clicking the
