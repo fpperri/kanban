@@ -342,6 +342,19 @@ to `127.0.0.1` only.
   map SVG the node is 58px tall, roomy for the dot column on its right edge. The gantt
   bar and the board tile's dim/grey-border cues are untouched — one more glyph on top,
   not a replacement.
+- **Overdue cue** — `isOverdue()` (column-sort.js): the card's `due_date` day part is
+  strictly earlier than today, and the card is neither `done` nor archived. Day-granular
+  like every other date read in the app — a 09:00 deadline isn't overdue until the date
+  rolls over — and keyed on `due_date` alone, never the `due`/`end`/`start` triad the
+  Due date sort uses: a working range sliding past today is a schedule slip, not a missed
+  deadline. An unparseable value never flags (fails safe rather than string-comparing
+  free text). It recolors the deadline cue each surface ALREADY draws, in the same danger
+  red as the blocked pill: the board tile's top-right schedule chip (text + weight — the
+  tile's `border-left` is priority/waiting's channel, untouched), the calendar's due chip
+  (border + `⚑` glyph, winning over that chip's amber), and the gantt's due diamond
+  (fill). Tooltips say so in words too. Not a new glyph anywhere — nothing to lose to,
+  and a card without a deadline can never show it. The Archive column's `archiveCardEl`
+  renders the schedule chip but never this: archived retires the deadline by definition.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -642,9 +655,10 @@ to `127.0.0.1` only.
   row (a DOM element can't span the wrap), each cut edge squared + dashed like the
   all-day band's window-clipped spans; a run reaching past the grid's own first/last
   cell is cut the same way. A one-date range is a single-column chip; a reversed range
-  collapses to one chip at the range end. The **due date** renders as its own deadline
-  chip (amber border + ⚑ flag) on its due day — even when the range already covers that
-  day. Datetime values show their time on the piece holding the range's true end day.
+  collapses to one chip at the range end. The **due date** renders as its own
+  deadline chip (amber border + ⚑ flag, red once **overdue**) on its due day — even
+  when the range already covers that day. Datetime values show their time on the
+  piece holding the range's true end day.
   Weeks needing more than 4 chip rows fold the rest into a tooltip-titled "+N more" line
   for that week (each week row has its own budget). Chips carry the
   shared grammar: click opens the detail popup, ctrl-click toggles / shift-click
@@ -739,7 +753,7 @@ to `127.0.0.1` only.
   timeline: each dated live card gets a row (dated ARCHIVED cards join too, opt-in via
   the Archive pill below) — the **working range** as a bar (start→end inclusive; compat
   start→due; one-date and reversed ranges collapse to a 1-day bar — same shapes as the
-  calendar) and/or its **due date** as an amber diamond marker (a due-only card shows
+  calendar) and/or its **due date** as an amber diamond marker (red once **overdue**; a due-only card shows
   only the diamond, no bar) — grouped by status in board column order with a slim label
   row per non-empty group, ids ascending within it. A fixed left gutter lists #id +
   title per row; only the timeline half scrolls horizontally. Mondays are labeled with
