@@ -1564,8 +1564,9 @@ async function onDrop(id, status) {
   }
 }
 
-// ?card=<id>&view=<board|map|gantt|calendar> deep links (deep-link.js owns
-// the pure querystring parse) — consumed exactly ONCE, chained directly onto
+// ?card=<id>&q=<search>&view=<board|map|gantt|calendar> deep links
+// (deep-link.js owns the pure querystring parse) — consumed exactly ONCE,
+// chained directly onto
 // the very first loadBoard() below. Nothing re-checks location.search after
 // this: the 5s poll goes through autoRefreshTick/applyBoardData, never
 // loadBoard(), and every other loadBoard() call site (manual refresh,
@@ -1576,17 +1577,32 @@ async function onDrop(id, status) {
 function consumeDeepLink() {
   const link = parseDeepLink(location.search);
   if (!link) return;
-  if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
-  const card = state.active.concat(state.archived).find((c) => c.id === link.id);
-  if (!card) { toast(`Card #${link.id} not found — loaded normally.`); return; }
+  // `q` and `view` are applied BEFORE the card is resolved, so a link whose
+  // card key is unusable still delivers everything else that parsed.
+  if (link.q) {
+    // Straight into the box, then renderBoard() — the same pattern
+    // toggleEpicSearchTerm/focusOn/addSearchTerm already use. There is no
+    // query state anywhere: currentSearchTerms() re-reads #search-input on
+    // every render, so putting the value there IS applying the filter, and
+    // it lands somewhere visible that one gesture clears.
+    const input = $('#search-input');
+    if (input) input.value = link.q;
+  }
   if (link.view) {
     // Direct assignment, not toggleView/saveViewMode: this override is for
     // THIS load only (wins ONCE) — it must never overwrite the persisted
     // choice, so a later plain reload (no querystring) still resumes
     // wherever the user last left the view via the normal toggle.
     viewMode = link.view;
-    renderBoard();
   }
+  if (link.q || link.view) renderBoard();
+  if (!link.hasCard) return;
+  if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
+  const card = state.active.concat(state.archived).find((c) => c.id === link.id);
+  if (!card) { toast(`Card #${link.id} not found — loaded normally.`); return; }
+  // loadViewMode() rather than viewMode: it returns the memoized viewMode the
+  // assignment above just set, and initializes it from storage when no view
+  // key was present — so this reads the view actually on screen either way.
   const el = document.querySelector(`${VIEW_CONTAINERS[loadViewMode()]} .card-el[data-id="${card.id}"]`);
   if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
   openDetailModal(card.id);

@@ -555,21 +555,39 @@ to `127.0.0.1` only.
   `/kanban`, hand edits, or another tool; the header Refresh button forces a re-read
   immediately. View mode, query, filters, selection, and collapse/sort state all survive
   the poll.
-- **Deep links** — loading the app with `?card=<id>&view=<board|map|gantt|calendar>` in
-  the URL switches to the named view, opens that card's detail popup, and scrolls its
-  representation into view (found by `data-id` in whichever view container is now
-  active, same lookup the shared card-el grammar's click handler uses) — a bookmarkable
-  or shared link straight to one card. An unrecognized `view` value (or none) leaves the
-  persisted/default view untouched; an id that doesn't resolve to any active or archived
-  card (missing, non-numeric, or just unknown) shows a toast instead and the app loads
-  normally, no view switch and no popup. This is a one-time override, consumed exactly
-  once right after the very first load — it composes with, but never fights, the 5s poll
-  or the `localStorage`-persisted view mode (view.mode, above): the deep link's view
-  isn't written back to storage, so a later plain reload with no querystring resumes
-  wherever the view toggle last left it, and the poll's own re-renders never re-read the
-  URL. Pure querystring parsing lives in `deep-link.js` (dual-environment export, same
-  pattern as `refresh-policy.js`/`search-hotkey.js`); switching the view, opening the
-  popup, and scrolling are app.js's job.
+- **Deep links** — loading the app with `?card=<id>`, `?q=<search>` and/or
+  `?view=<board|map|gantt|calendar>` in the URL switches to the named view, filters the
+  board by the query, opens that card's detail popup, and scrolls its representation
+  into view (found by `data-id` in whichever view container is now active, same lookup
+  the shared card-el grammar's click handler uses) — a bookmarkable or shared link
+  straight to one card, or to a set of them. **The three keys are independent**: `card`
+  points at ONE card, `q` points at a SET, `view` points at neither, so a link may carry
+  any combination and each is applied on its own. A querystring carrying none of them is
+  not a deep link at all and is ignored outright.
+  - **`q` is the board's own search grammar, verbatim** — whatever the Search section
+    above parses is exactly what a link can carry (`?q=status%3Adoing&view=board`,
+    `?q=assignee%3A%40human`, `?q=blocked%3A`). There is deliberately no second query
+    language. The value is dropped straight into the search box, so the filter is
+    visible, obviously the reason the board looks filtered, and one gesture clears it —
+    it composes with the status-filter rows by intersection exactly as typed text does.
+    An empty or whitespace-only `q` reads as absent, never as a filter matching
+    everything. Because the query lands in the box rather than in a separate filter
+    layer, `q` is subject to everything a typed query is — including matching archived
+    cards (`kanban.proj#264`).
+  - **One unusable key never discards the others.** An unrecognized `view` value (or
+    none) leaves the persisted/default view untouched; an id that doesn't resolve to any
+    active or archived card (missing, non-numeric, or just unknown) shows a toast, no
+    popup — but a `q` and a `view` that parsed fine are still applied. Only a link that
+    actually carried a `card` key can produce that toast, so the status page's
+    card-less links never fire one.
+  - This is a one-time override, consumed exactly once right after the very first load
+    — it composes with, but never fights, the 5s poll or the `localStorage`-persisted
+    view mode (view.mode, above): the deep link's view isn't written back to storage, so
+    a later plain reload with no querystring resumes wherever the view toggle last left
+    it, the query is gone on that reload too, and the poll's own re-renders never re-read
+    the URL. Pure querystring parsing lives in `deep-link.js` (dual-environment export,
+    same pattern as `refresh-policy.js`/`search-hotkey.js`); the search box, the view
+    switch, the popup, and the scroll are app.js's job.
 - **Copy board path** — a small ⧉ button inside the header title copies the board
   directory's **absolute path** (the `GET /api/board` payload carries it as `boardDir`,
   `path.resolve`d server-side — a relative path is useless pasted elsewhere). Same
