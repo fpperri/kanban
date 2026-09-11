@@ -46,7 +46,7 @@ test('every scrollable surface sets Firefox scrollbar-width/scrollbar-color, thi
   for (const sel of SCROLL_SELECTORS) {
     assert.ok(selectorMatches(sel, 'scrollbar-width', 'thin'), `${sel} is in the scrollbar-width: thin group`);
   }
-  assert.match(css, /scrollbar-color:\s*#30363d\s+transparent/, 'thumb reuses the existing #30363d border tone; track is transparent so it blends into whatever surface it sits on');
+  assert.match(css, /scrollbar-color:\s*var\(--line\)\s+transparent/, 'thumb reuses the existing border tone via var(--line); track is transparent so it blends into whatever surface it sits on');
 });
 
 test('every scrollable surface gets the Chromium/Edge ::-webkit-scrollbar treatment (primary target incl. VSCode Simple Browser)', () => {
@@ -60,11 +60,11 @@ test('every scrollable surface gets the Chromium/Edge ::-webkit-scrollbar treatm
 test('the webkit scrollbar is slim (narrower than the ~17px OS default) and the thumb brightens on hover without a new hex family', () => {
   assert.match(css, /::-webkit-scrollbar\s*\{[^}]*width:\s*8px/, 'width is slim');
   assert.match(css, /::-webkit-scrollbar\s*\{[^}]*height:\s*8px/, 'height is slim (horizontal scrollers: main#board, .gantt-scroll)');
-  assert.match(css, /::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*#30363d/, 'thumb rests at the existing border tone');
-  assert.match(css, /::-webkit-scrollbar-thumb:hover\s*\{[^}]*background:\s*#6e7681/, 'thumb hover brightens to the existing muted-text tone — still no new hex');
+  assert.match(css, /::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*var\(--line\)/, 'thumb rests at the existing border tone');
+  assert.match(css, /::-webkit-scrollbar-thumb:hover\s*\{[^}]*background:\s*var\(--mut\)/, 'thumb hover brightens to the existing muted-text tone — still no new hex');
 });
 
-test('the webkit scrollbar track is transparent, not a hardcoded fill (containers sit on different backgrounds: page #0d1117 vs column/modal/map/gantt #161b22)', () => {
+test('the webkit scrollbar track is transparent, not a hardcoded fill (containers sit on different backgrounds: page var(--paper) vs column/modal/map/gantt var(--surface))', () => {
   assert.match(css, /::-webkit-scrollbar-track\s*[,{][\s\S]{0,600}?background:\s*transparent/, 'track blends into whichever surface it is over');
 });
 

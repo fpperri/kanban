@@ -1,5 +1,109 @@
+/* --- Theme tokens ------------------------------------------------
+   One palette, three states (the shop status page's CHROME palette):
+   the COMPLETE light set lives on bare :root, the dark set is
+   redefined twice — once under prefers-color-scheme for the "system"
+   default, once under [data-theme="dark"] so an explicit choice wins
+   in both directions. No colour is ever defined ONLY inside the media
+   query: a token absent from :root would resolve to nothing in light
+   mode and paint an unstyled box. Fonts stay the system stack already
+   on <body> — no webfont link, ever.
+   Eleven tokens are the shop's own (paper/surface/ink/mut/line/accent/
+   accent-soft/ok/warn/crit/shadow). The rest are kanban-specific: the
+   board has a third control surface, a hover wash, and a set of tinted
+   rows the shop page has no equivalent for. STATUS/IDENTITY colours are
+   NOT tokens — they are owned by status-colors.js and stay literal hex
+   here on purpose (see the KEEP LITERAL rules throughout this file). */
+:root {
+  color-scheme: light dark;
+  --paper: #f7f5f1;
+  --surface: #ffffff;
+  --ink: #241e33;
+  --ink-strong: #100a1f;
+  --mut: #6e6880;
+  --line: #e4dfea;
+  --line-soft: #eeeaf2;
+  --accent: #6b4fbb;
+  --accent-strong: #563d9e;
+  --accent-soft: #e9e2fb;
+  --accent-wash: rgba(107, 79, 187, 0.16);
+  --today-wash: rgba(107, 79, 187, 0.10);
+  --ok: #2e7d5b;
+  --warn: #a8741c;
+  --warn-soft: #fbf1e0;
+  --crit: #b4402f;
+  --crit-soft: #fbe9e5;
+  --on-fill: #ffffff;
+  --btn-bg: #efebf5;
+  --btn-hover: #ddd6e6;
+  --hover-wash: #dad3e6;
+  --epic-hover-fill: #ddcad2;
+  --handle-wash: rgba(36, 30, 51, 0.12);
+  --shadow: 0 1px 2px rgba(36, 30, 51, .06);
+  --scrim: rgba(36, 30, 51, 0.45);
+  --shadow-pop: 0 8px 24px rgba(36, 30, 51, .16);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #16141c;
+    --surface: #1e1b26;
+    --ink: #ece8f4;
+    --ink-strong: #faf8ff;
+    --mut: #9a93ac;
+    --line: #2c2836;
+    --line-soft: #262232;
+    --accent: #a98cf0;
+    --accent-strong: #c4aef7;
+    --accent-soft: #2a2340;
+    --accent-wash: rgba(169, 140, 240, 0.22);
+    --today-wash: rgba(169, 140, 240, 0.10);
+    --ok: #5cc495;
+    --warn: #d9ae58;
+    --warn-soft: #2a2114;
+    --crit: #e4816c;
+    --crit-soft: #2d1517;
+    --on-fill: #16141c;
+    --btn-bg: #282334;
+    --btn-hover: #363048;
+    --hover-wash: #383049;
+    --epic-hover-fill: #4e3b48;
+    --handle-wash: rgba(255, 255, 255, 0.12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    --scrim: rgba(0, 0, 0, 0.6);
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #16141c;
+  --surface: #1e1b26;
+  --ink: #ece8f4;
+  --ink-strong: #faf8ff;
+  --mut: #9a93ac;
+  --line: #2c2836;
+  --line-soft: #262232;
+  --accent: #a98cf0;
+  --accent-strong: #c4aef7;
+  --accent-soft: #2a2340;
+  --accent-wash: rgba(169, 140, 240, 0.22);
+  --today-wash: rgba(169, 140, 240, 0.10);
+  --ok: #5cc495;
+  --warn: #d9ae58;
+  --warn-soft: #2a2114;
+  --crit: #e4816c;
+  --crit-soft: #2d1517;
+  --on-fill: #16141c;
+  --btn-bg: #282334;
+  --btn-hover: #363048;
+  --hover-wash: #383049;
+  --epic-hover-fill: #4e3b48;
+  --handle-wash: rgba(255, 255, 255, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
+}
+:root[data-theme="light"] { color-scheme: light; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; padding: 16px; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--paper); color: var(--ink); padding: 16px; }
 /* The top bar (title, search, view-switch/refresh/notif
    buttons) stays visible above the board — position: sticky against the
    document's own scroll. Needs an opaque background (matches <body>'s) so
@@ -45,26 +149,26 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
    scroll container at the same time) — every column fills the same
    fixed height and scrolls its own overflow independently, same as real
    kanban boards. */
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 15; background: #0d1117; }
-h1 { color: #58a6ff; font-size: 1.4em; }
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 15; background: var(--paper); }
+h1 { color: var(--accent); font-size: 1.4em; }
 /* Copy-board-path button — lives inside the h1, so size back down
    from its 1.4em to control scale; muted until hovered */
-.board-copy-btn { font-size: 0.55em; font-weight: 400; color: #8b949e; padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
-.board-copy-btn:hover { color: #c9d1d9; }
+.board-copy-btn { font-size: 0.55em; font-weight: 400; color: var(--mut); padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
+.board-copy-btn:hover { color: var(--ink); }
 .actions { display: flex; gap: 8px; }
-button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
-button:hover { background: #30363d; }
-#new-btn { background: #238636; border-color: #2ea043; color: #fff; }
-#stale-indicator { align-self: center; color: #d29922; font-size: 0.78em; }
+button { background: var(--btn-bg); border: 1px solid var(--line); color: var(--ink); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+button:hover { background: var(--btn-hover); }
+#new-btn { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
+#stale-indicator { align-self: center; color: var(--warn); font-size: 0.78em; }
 .search-bar { display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
-.search-input { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 10px; border-radius: 6px; font-size: 0.85em; font-family: inherit; }
-.search-input:focus { outline: none; border-color: #58a6ff; }
-.search-input::placeholder { color: #6e7681; }
-.search-clear { background: transparent; border: none; color: #8b949e; padding: 4px 6px; cursor: pointer; font-size: 0.85em; flex-shrink: 0; }
-.search-clear:hover { color: #f85149; background: transparent; }
+.search-input { width: 100%; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 10px; border-radius: 6px; font-size: 0.85em; font-family: inherit; }
+.search-input:focus { outline: none; border-color: var(--accent); }
+.search-input::placeholder { color: var(--mut); }
+.search-clear { background: transparent; border: none; color: var(--mut); padding: 4px 6px; cursor: pointer; font-size: 0.85em; flex-shrink: 0; }
+.search-clear:hover { color: var(--crit); background: transparent; }
 /* Signals a collapsed column that still has hits — the count itself
    already reads matching/total, this just adds a visual nudge to notice it. */
-.column.search-match .column-count { color: #58a6ff; font-weight: 700; }
+.column.search-match .column-count { color: var(--accent); font-weight: 700; }
 /* align-items: stretch makes every live column (Archive
    included) fill the row's shared height, so column length never
    depends on how many cards it holds — a short column never stops short
@@ -77,15 +181,15 @@ button:hover { background: #30363d; }
    own concern (.column-cards below), not main#board's, so overflow-y
    here stays at its default (nothing to scroll vertically at this level). */
 main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; height: calc(100vh - var(--board-header-h, 64px) - 48px); }
-.column { background: #161b22; border: 1px solid #30363d; border-radius: 8px; min-width: 260px; flex: 1; display: flex; flex-direction: column; overflow: hidden; transition: min-width 0.15s, width 0.15s, flex 0.15s; }
-.column.drag-over { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff inset; }
+.column { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); min-width: 260px; flex: 1; display: flex; flex-direction: column; overflow: hidden; transition: min-width 0.15s, width 0.15s, flex 0.15s; }
+.column.drag-over { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 /* The header is the column's first flex child, ABOVE the
    independently-scrolling .column-cards below — it stays visible for free
    while a long card list scrolls past, with no position: sticky needed (see
    main#board's comment above for why sticky-against-a-shared-scroll doesn't
    actually work here). flex-shrink: 0 keeps it its natural height even if
    sort controls or a long column name make the row wrap. */
-.column-header { padding: 10px 14px; font-weight: 600; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; background: #161b22; border-radius: 8px 8px 0 0; }
+.column-header { padding: 10px 14px; font-weight: 600; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; background: var(--surface); border-radius: 8px 8px 0 0; }
 /* Backlog is cyan, not grey — its old grey #8b949e sat one shade from the
    archive header below, so the two columns read alike at a glance. Grey means
    archived (a location, not a status) and nothing else; hexes mirror
@@ -101,24 +205,24 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* .map-section-toggle (the map's graph/no-dependencies collapse
    chevrons) shares this exact look — one rule, not a per-view duplicate. */
 .column-toggle, .map-section-toggle { background: transparent; border: none; color: inherit; padding: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-.column-toggle:hover, .map-section-toggle:hover { color: #c9d1d9; }
+.column-toggle:hover, .map-section-toggle:hover { color: var(--ink); }
 .column-toggle svg, .map-section-toggle svg { width: 14px; height: 14px; display: block; }
 /* Sort controls — share the header with the collapse toggle above;
    hidden entirely while collapsed (see renderBoard()), so there's nothing to
    fight for space with there. font-weight normal so the field label doesn't
    compete visually with the bold column name next to it. */
-.column-sort-field { flex-shrink: 0; max-width: 104px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: 400; font-family: inherit; } /* cap sized for the longest label, "Last modified" (~99px incl. arrow) */
-.column-sort-field:focus { outline: none; border-color: #58a6ff; }
+.column-sort-field { flex-shrink: 0; max-width: 104px; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: 400; font-family: inherit; } /* cap sized for the longest label, "Last modified" (~99px incl. arrow) */
+.column-sort-field:focus { outline: none; border-color: var(--accent); }
 .column-sort-dir { background: transparent; border: none; color: inherit; padding: 2px 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 0.85em; line-height: 1; }
-.column-sort-dir:hover { color: #c9d1d9; background: transparent; }
+.column-sort-dir:hover { color: var(--ink); background: transparent; }
 /* + quick-create — same quiet inline-icon treatment as the sort
    direction toggle; renderBoard gates it off archive and collapsed strips. */
 .column-add { background: transparent; border: none; color: inherit; padding: 2px 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 1.1em; line-height: 1; font-weight: 600; }
-.column-add:hover { color: #c9d1d9; background: transparent; }
+.column-add:hover { color: var(--ink); background: transparent; }
 /* The + button's sparkle twin — same quiet inline-icon
    treatment, opens the same modal with the AI prompt row pre-revealed. */
 .column-add-ai { background: transparent; border: none; color: inherit; padding: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-.column-add-ai:hover { color: #c9d1d9; background: transparent; }
+.column-add-ai:hover { color: var(--ink); background: transparent; }
 .column-add-ai svg { width: 14px; height: 14px; display: block; }
 /* Collapsed = a narrow strip: just the toggle icon + card count, stacked
    vertically, no card list. min-width/flex:0 0 auto shrinks the column instead
@@ -133,7 +237,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    independently, the header staying visible above it for free (see
    .column-header's comment). */
 .column-cards { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow-y: auto; }
-.card { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
 /* The text column. min-width:0 is load-bearing: without it a long unbroken
    title refuses to shrink below its content width and pushes the date stack
    out of the tile instead of wrapping. */
@@ -184,9 +288,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.high { border-left: 3px solid #f85149; }
 .card.low { border-left: 3px solid #6e7681; opacity: 0.85; } /* muted last-tier priority */
 /* hand-rolled combobox menu — native datalist misrenders in VSCode's Simple Browser */
-.combobox-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; background: #161b22; border: 1px solid #30363d; border-radius: 6px; max-height: 180px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.combobox-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; max-height: 180px; overflow-y: auto; box-shadow: var(--shadow-pop); }
 .combobox-item { padding: 5px 10px; cursor: pointer; font-size: 13px; }
-.combobox-item:hover, .combobox-item.active { background: #1f6feb33; } /* Up/Down highlight reuses the hover treatment */
+.combobox-item:hover, .combobox-item.active { background: var(--accent-wash); } /* Up/Down highlight reuses the hover treatment */
 /* bulk-edit popups */
 .bulk-modal { max-width: 380px; }
 /* the suggestions render IN FLOW inside these small popups: the popup grows
@@ -194,13 +298,13 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    scrollbar, no floating-past-the-edge */
 .bulk-modal .combobox-menu { position: static; margin-top: 4px; }
 .modal.fullscreen.bulk-modal { max-width: none; }
-.bulk-hint { color: #8b949e; font-size: 12px; margin: 2px 0 8px; }
+.bulk-hint { color: var(--mut); font-size: 12px; margin: 2px 0 8px; }
 .bulk-actions { display: flex; gap: 8px; margin: 10px 0 4px; }
 /* tag rows: checkbox + name + count side by side, wrapping into as many
    columns as the width allows */
 #bulk-tag-list { display: flex; flex-wrap: wrap; gap: 2px 16px; margin-top: 8px; }
-.modal label.bulk-tag-row { flex-direction: row; align-items: center; gap: 6px; padding: 3px 2px; cursor: pointer; font-size: 0.9em; color: #c9d1d9; }
-.bulk-tag-count { color: #8b949e; font-size: 12px; }
+.modal label.bulk-tag-row { flex-direction: row; align-items: center; gap: 6px; padding: 3px 2px; cursor: pointer; font-size: 0.9em; color: var(--ink); }
+.bulk-tag-count { color: var(--mut); font-size: 12px; }
 /* Schedule… popup — the date field takes the row, the clear
    checkbox hangs off its end, baseline-aligned with the input */
 .bulk-schedule-row { align-items: flex-end; }
@@ -214,10 +318,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.dragging { opacity: 0.4; }
 .card.archived-card { cursor: pointer; opacity: 0.82; }
 .card-head { display: flex; align-items: center; gap: 4px; }
-.card-id { color: #8b949e; font-size: 0.8em; }
+.card-id { color: var(--mut); font-size: 0.8em; }
 /* Raw-status chip on a tile whose on-disk status isn't in the
    board's statuses list — parked in the first column until promoted */
-.status-chip { background: #21262d; border: 1px dashed #6e7681; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
+.status-chip { background: var(--btn-bg); border: 1px dashed var(--mut); border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: var(--mut); margin-left: 6px; }
 /* Date stack (kanban.proj#260): the tile's RIGHT-HAND column, top-aligned
    beside the title rather than stacked under it. Kept out of .card-head
    (a nowrap flex row three lines would stretch) and out of the normal flow,
@@ -225,7 +329,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    even though the block hugs the right edge: that is what keeps the glyphs
    in one column and the dates in another, which right-aligning the rows
    would break the moment two rows had different text widths. */
-.card-schedule { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 0 0 auto; color: #8b949e; font-size: 0.72em; }
+.card-schedule { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 0 0 auto; color: var(--mut); font-size: 0.72em; }
 /* Explicit line-height, not `normal`: the arrow and flag glyphs resolve to
    different fallback faces, and their natural line boxes differ by a pixel —
    enough to make a three-row stack sit unevenly. The glyph's own fixed-width
@@ -237,7 +341,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    recolors that row's text only, since border-left is already
    priority/waiting's channel on this tile. */
 .card-schedule-row.overdue { color: #f85149; font-weight: 600; }
-.card-assignee { display: inline-flex; align-items: center; gap: 4px; background: #21262d; border: 1px solid #30363d; border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: #8b949e; margin-left: 6px; }
+.card-assignee { display: inline-flex; align-items: center; gap: 4px; background: var(--btn-bg); border: 1px solid var(--line); border-radius: 10px; padding: 1px 7px; font-size: 0.7em; color: var(--mut); margin-left: 6px; }
 /* The handle TEXT itself wears the assignee
    color — no separate dot glyph. The HASHED case gets a class per palette
    slot (same 8 hexes/numbering as status-colors.js's STATUS_PALETTE and its
@@ -264,7 +368,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card-title--prompt-fallback { font-style: italic; opacity: 0.75; }
 .card-title--prompt-fallback svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.tag { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 1px 8px; font-size: 0.7em; color: #9ca3af; }
+.tag { background: var(--btn-bg); border: 1px solid var(--line); border-radius: 12px; padding: 1px 8px; font-size: 0.7em; color: var(--mut); }
 .waiting-badge { color: #d29922; font-size: 0.75em; margin-top: 4px; }
 /* The manual impediment sticker — a red PILL, not a border
    (borders stay priority/status territory). The reason rides the tooltip
@@ -281,15 +385,15 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 #f-review.review-active { border-color: #eac54f; }
 .card-menu { display: flex; gap: 8px; margin-top: 8px; }
 .card-menu button { padding: 2px 8px; font-size: 0.72em; }
-.toast { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: #161b22; border: 1px solid #f85149; color: #f0f6fc; padding: 10px 16px; border-radius: 6px; z-index: 20; cursor: pointer; }
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 30; }
-.modal { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; width: min(560px, 92vw); max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
-.modal h2 { color: #58a6ff; font-size: 1.1em; }
+.toast { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--crit); color: var(--ink-strong); padding: 10px 16px; border-radius: 6px; z-index: 20; cursor: pointer; box-shadow: var(--shadow); }
+.modal-backdrop { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 30; }
+.modal { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 20px; width: min(560px, 92vw); max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.modal h2 { color: var(--accent); font-size: 1.1em; }
 /* Row layout lives on the shared
    .popup-header class (see it near .detail-actions below) — .modal-header
    is just the classname app.html keeps for readability, no rule of its own. */
-.modal label { display: flex; flex-direction: column; font-size: 0.8em; color: #8b949e; gap: 4px; }
-.modal input, .modal select, .modal textarea { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 8px; border-radius: 6px; font-family: inherit; }
+.modal label { display: flex; flex-direction: column; font-size: 0.8em; color: var(--mut); gap: 4px; }
+.modal input, .modal select, .modal textarea { background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 8px; border-radius: 6px; font-family: inherit; }
 /* field-sizing: content grows the textarea with its input (Chromium 123+). This is a
    progressive enhancement, not a browser-support narrowing: rows="8" in the HTML stays
    as a fallback for browsers without field-sizing support, so unsupported browsers just
@@ -350,7 +454,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    Scoped to .minimal, same fix as .bulk-modal's popups above: render the menu
    IN FLOW so the modal grows to fit it instead of floating past its edge. */
 #card-form.minimal .combobox-menu { position: static; margin-top: 4px; }
-#modal-save { background: #238636; border-color: #2ea043; color: #fff; }
+#modal-save { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
 .hidden { display: none !important; }
 
 /* --- Fullscreen toggle ------------------------------------------
@@ -385,19 +489,19 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    popup sits on the .modal-backdrop and the board, so substituting a 12% alpha
    left 88% of the panel see-through and the board legible through the text
    (kanban.proj #255). A two-stop linear-gradient is the flat-overlay idiom:
-   it paints the wash as its own layer over .modal's solid #161b22 underneath,
+   it paints the wash as its own layer over .modal's solid var(--surface) underneath,
    which keeps the tint sourced from epicColorSoft() instead of freezing a
    hand-blended hex that would drift the day EPIC_COLOR changes. */
-.modal.detail-modal.epic { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #161b22; }
+.modal.detail-modal.epic { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--surface); }
 /* row layout lives on .popup-header (below) — see there. */
-.detail-header h2 { color: #58a6ff; font-size: 1.1em; }
+.detail-header h2 { color: var(--accent); font-size: 1.1em; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
 .detail-title--prompt-fallback { font-style: italic; opacity: 0.85; }
 .detail-path-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-.detail-path { color: #8b949e; font-size: 0.78em; word-break: break-all; }
+.detail-path { color: var(--mut); font-size: 0.78em; word-break: break-all; }
 #detail-copy-btn { flex-shrink: 0; }
-#detail-copy-btn.copy-success { color: #3fb950; border-color: #3fb950; }
-#detail-copy-btn.copy-failed { color: #f85149; border-color: #f85149; }
+#detail-copy-btn.copy-success { color: var(--ok); border-color: var(--ok); }
+#detail-copy-btn.copy-failed { color: var(--crit); border-color: var(--crit); }
 /* Every popup's header is TWO flex rows, not one — row 1 is
    the control-icon group ALONE, pinned top-left; row 2 is
    the title/content block, full width, never sharing the icons' line. ONE
@@ -418,19 +522,19 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .icon-btn { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; flex-shrink: 0; }
 .modal-header-actions { display: flex; gap: 6px; flex-shrink: 0; order: -1; } /* icon-btn is flex (block-level) — without this the header icons stack vertically */
 .icon-btn svg { width: 16px; height: 16px; display: block; }
-.icon-btn.danger:hover { background: #3d1418; border-color: #f85149; color: #f85149; }
+.icon-btn.danger:hover { background: var(--crit-soft); border-color: var(--crit); color: var(--crit); }
 /* Same active-toggle treatment as #map-toggle-btn/
    #calendar-toggle-btn/#gantt-toggle-btn below — a filled highlight while
    #row-prompt is revealed. */
-#modal-ai-btn[aria-pressed="true"] { background: #1f6feb; border-color: #388bfd; color: #fff; }
+#modal-ai-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
 .detail-frontmatter table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
-.detail-frontmatter tr { border-bottom: 1px solid #21262d; }
+.detail-frontmatter tr { border-bottom: 1px solid var(--line-soft); }
 .detail-frontmatter tr:last-child { border-bottom: none; }
 .detail-frontmatter td { padding: 4px 8px; vertical-align: top; }
-.detail-frontmatter td.fm-key { color: #8b949e; white-space: nowrap; width: 1%; padding-left: 0; }
-.detail-frontmatter td.fm-value { color: #c9d1d9; word-break: break-word; }
+.detail-frontmatter td.fm-key { color: var(--mut); white-space: nowrap; width: 1%; padding-left: 0; }
+.detail-frontmatter td.fm-value { color: var(--ink); word-break: break-word; }
 .detail-body { font-size: 0.92em; line-height: 1.55; }
-.detail-body h1, .detail-body h2, .detail-body h3 { color: #58a6ff; margin: 16px 0 8px; }
+.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--accent); margin: 16px 0 8px; }
 .detail-body h1:first-child, .detail-body h2:first-child, .detail-body h3:first-child { margin-top: 0; }
 .detail-body h1 { font-size: 1.2em; } .detail-body h2 { font-size: 1.05em; } .detail-body h3 { font-size: 1em; }
 .detail-body p { margin: 8px 0; }
@@ -438,26 +542,26 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body li { margin: 3px 0; }
 .detail-body li > ul, .detail-body li > ol { margin: 3px 0 3px 20px; }
 .detail-body li.task { list-style: none; margin-left: -18px; }
-.detail-body code { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, Consolas, monospace; font-size: 0.88em; color: #79c0ff; }
-.detail-body pre { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
-.detail-body pre code { background: none; border: none; padding: 0; color: #c9d1d9; }
+.detail-body code { background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, Consolas, monospace; font-size: 0.88em; color: var(--accent); }
+.detail-body pre { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
+.detail-body pre code { background: none; border: none; padding: 0; color: var(--ink); }
 /* Markdown tables in a card body (kanban.proj #256). The scroller is the point:
    a ladder or a comparison table is often wider than the popup, and without its
    own overflow the whole popup would scroll sideways and take the prose with it.
    Scoped under .md-table so .detail-frontmatter's own table rules stay untouched. */
 .detail-body .md-table { overflow-x: auto; margin: 10px 0; }
 .detail-body .md-table table { border-collapse: collapse; font-size: 0.95em; }
-.detail-body .md-table th, .detail-body .md-table td { border: 1px solid #30363d; padding: 5px 9px; text-align: left; vertical-align: top; }
-.detail-body .md-table th { background: #0d1117; color: #c9d1d9; font-weight: 600; white-space: nowrap; }
-.detail-body .md-table td { color: #c9d1d9; }
+.detail-body .md-table th, .detail-body .md-table td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+.detail-body .md-table th { background: var(--paper); color: var(--ink); font-weight: 600; white-space: nowrap; }
+.detail-body .md-table td { color: var(--ink); }
 /* Column alignment from the delimiter row's colons. Classes, not inline styles:
    the CSP has no unsafe-inline for style, so a style="" attribute would be dropped. */
 .detail-body .md-table .ta-left { text-align: left; }
 .detail-body .md-table .ta-center { text-align: center; }
 .detail-body .md-table .ta-right { text-align: right; }
-.detail-body a { color: #58a6ff; }
-.detail-body strong { color: #e6edf3; }
-.detail-body hr { border: none; border-top: 1px solid #30363d; margin: 14px 0; }
+.detail-body a { color: var(--accent); }
+.detail-body strong { color: var(--ink-strong); }
+.detail-body hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
 
 /* --- Dependency map view ---------------------------------------
    Hand-rolled layered SVG:
@@ -467,7 +571,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    every modal in this file, no overlay/z-index needed. Status colors below
    are the exact hex values the kanban-cli skill's Mermaid
    output styles nodes with, so the two views read as the same graph. */
-#map-toggle-btn[aria-pressed="true"] { background: #1f6feb; border-color: #388bfd; color: #fff; }
+#map-toggle-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
 /* overflow: auto alone never triggers on a
    plain block child of body — with no height/max-height of its own (and body
    sets none either), the box just grows to fit the graph, so the html
@@ -476,7 +580,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    fixed page header the same way main#board is (see main#board above for the
    --board-header-h/48px accounting) so the map scrolls itself instead of
    the whole page. */
-.map-view { overflow: auto; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; height: calc(100vh - var(--board-header-h, 64px) - 48px); }
+.map-view { overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; height: calc(100vh - var(--board-header-h, 64px) - 48px); }
 /* The status-filter pill row. Border color is inline per pill
    (statusColor() — covers custom statuses' hashed hues, which have no CSS
    rule; same reasoning as the column headers), so the rules here only shape
@@ -488,8 +592,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    own row (.calendar-filter-row/.calendar-filter-toggle, see the Calendar
    view section) joins the same comma group — a third view, still one rule. */
 .map-filter-row, .gantt-filter-row, .calendar-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle { background: #0d1117; border: 2px solid #30363d; border-radius: 999px; color: #c9d1d9; font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
-.map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { opacity: 0.45; border-style: dashed; color: #8b949e; }
+.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle { background: var(--paper); border: 2px solid var(--line); border-radius: 999px; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { opacity: 0.45; border-style: dashed; color: var(--mut); }
 /* The map's "Epics" tap-chip — rides in the SAME row as
    the status pills above (buildMapFilterRow appends it last; the row's flex
    `gap` spaces it identically). Base look matches .map-filter-toggle's, but
@@ -498,7 +602,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    (epic: absent from the search box) and lights up SOLID, epic orange
    (EPIC_COLOR, #f0883e — same hue as .card.epic's wash and the epic
    membership edges below), when tapped on. */
-.map-epic-chip { background: #0d1117; border: 2px solid #30363d; border-radius: 999px; color: #c9d1d9; font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.map-epic-chip { background: var(--paper); border: 2px solid var(--line); border-radius: 999px; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .map-epic-chip.on { border-color: #f0883e; color: #f0883e; background: rgba(240, 136, 62, 0.12); }
 .map-canvas { display: block; }
 /* The node border is ONE neutral weight regardless of status — a
@@ -508,9 +612,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    rect only ever draws the plain neutral border (or archived's grey — the
    one exception, same as selection glow / ghost dashing /
    the back-edge amber all keeping their own treatments). */
-.map-node rect { fill: #0d1117; stroke: #30363d; stroke-width: 2px; cursor: pointer; }
-.map-node text { fill: #c9d1d9; font-family: inherit; }
-.map-node-id { font-size: 10px; fill: #8b949e; }
+.map-node rect { fill: var(--paper); stroke: var(--line); stroke-width: 2px; cursor: pointer; }
+.map-node text { fill: var(--ink); font-family: inherit; }
+.map-node-id { font-size: 10px; fill: var(--mut); }
 .map-node-title { font-size: 11.5px; }
 /* Same italic/muted read as .card-title--prompt-fallback
    (board tile, card-title.js) — SVG text has no font-style shorthand tricks
@@ -585,7 +689,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .map-node.ghost:not(.missing) { cursor: pointer; }
 .map-node.missing rect { stroke-dasharray: 2 3; }
 .map-node.missing { cursor: default; }
-.map-edge { fill: none; stroke: #6e7681; stroke-width: 1.6px; }
+.map-edge { fill: none; stroke: var(--mut); stroke-width: 1.6px; }
 .map-edge.ghost-edge { stroke-opacity: 0.5; }
 /* Back-edge: only possible when a cycle forced the layering to break order —
    routed as a side-bowed curve (see buildMapSvg in app.js) and colored like
@@ -605,13 +709,13 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    orange over the amber, same declaration-order convention as .epic-edge. */
 .map-edge.epic-chain { stroke: #f0883e; }
 .map-arrow-epic-head { fill: #f0883e; }
-.map-empty { color: #8b949e; font-size: 0.85em; padding: 8px 2px; }
+.map-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 /* The graph and the "No dependencies" list are each a collapsible
    section — one shared header shape (buildMapSectionHeader in app.js) for
    both, so the two toggles read the same and there's no per-section markup. */
 .map-graph-section { margin-bottom: 4px; }
-.map-section-header { display: flex; align-items: center; gap: 6px; font-size: 0.78em; color: #8b949e; margin-bottom: 8px; }
-.map-isolated { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #30363d; }
+.map-section-header { display: flex; align-items: center; gap: 6px; font-size: 0.78em; color: var(--mut); margin-bottom: 8px; }
+.map-isolated { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .map-isolated-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .map-isolated-row .card { min-width: 160px; max-width: 220px; cursor: pointer; }
 
@@ -622,16 +726,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    waiting amber; a multi-day run is ONE chip spanning its real day columns
    (see .cal-week below), not a chip repeated per day, so it reads as a
    single block regardless of how each day's own row count happens to land. */
-#calendar-toggle-btn[aria-pressed="true"] { background: #1f6feb; border-color: #388bfd; color: #fff; }
-.calendar-view { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; }
+#calendar-toggle-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.calendar-view { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
 .cal-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.cal-title { font-weight: 600; color: #58a6ff; font-size: 1.05em; margin-left: 6px; }
+.cal-title { font-weight: 600; color: var(--accent); font-size: 1.05em; margin-left: 6px; }
 /* .cal-grid is a vertical stack: the weekday header row, then one .cal-week
    per calendar week — a week is its own nested grid (below) because a run
    crossing a week boundary can never be one DOM element across the wrap. */
 .cal-grid { display: flex; flex-direction: column; gap: 4px; }
 .cal-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); }
-.cal-dow { text-align: center; color: #8b949e; font-size: 0.75em; font-weight: 600; padding: 2px 0 6px; }
+.cal-dow { text-align: center; color: var(--mut); font-size: 0.75em; font-weight: 600; padding: 2px 0 6px; }
 /* One week = one 7-column grid, row 1 the day-number line, then
    --cal-week-rows (set per render, monthChipLayout's packed row count +1 if
    this week overflows) chip rows below. Day cells span EVERY row ('1 / -1'
@@ -647,14 +751,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    BOTTOM of the cell (measured, headless Edge over CDP). The filler takes
    the remainder, so chip rows stay 20px right under the day number. */
 .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: minmax(16px, auto) repeat(var(--cal-week-rows), minmax(20px, auto)) minmax(0, 1fr); gap: 4px; }
-.cal-day { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; min-height: 96px; padding: 4px; min-width: 0; }
+.cal-day { background: var(--paper); border: 1px solid var(--line-soft); border-radius: 6px; min-height: 96px; padding: 4px; min-width: 0; }
 .cal-day.outside { opacity: 0.45; }
-.cal-day.today { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff inset; }
-.cal-day.drag-over { border-color: #58a6ff; background: #0d1b2a; }
-.cal-day-num { color: #8b949e; font-size: 0.72em; text-align: right; }
-.cal-day.today .cal-day-num { color: #58a6ff; font-weight: 700; }
-.cal-chip { background: #161b22; border: 1px solid #30363d; border-left: 3px solid #30363d; border-radius: 5px; padding: 2px 6px; font-size: 0.72em; color: #c9d1d9; cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-chip-id { color: #8b949e; }
+.cal-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.cal-day.drag-over { border-color: var(--accent); background: var(--accent-soft); }
+.cal-day-num { color: var(--mut); font-size: 0.72em; text-align: right; }
+.cal-day.today .cal-day-num { color: var(--accent); font-weight: 700; }
+.cal-chip { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 5px; padding: 2px 6px; font-size: 0.72em; color: var(--ink); cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-chip-id { color: var(--mut); }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
 .cal-chip-title--prompt-fallback { font-style: italic; opacity: 0.75; }
 /* Epic washes the whole chip background (.cal-chip.epic, defined
@@ -693,7 +797,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    cursor as .gantt-bar.archived. draggable is already false on the element
    (calendarChipEl), so this is discoverability, not a functional guard. */
 .cal-chip.archived { cursor: not-allowed; }
-.cal-more { color: #8b949e; font-size: 0.7em; padding: 1px 6px; cursor: help; }
+.cal-more { color: var(--mut); font-size: 0.7em; padding: 1px 6px; cursor: help; }
 
 /* --- Calendar sub-views: Month | Week | 3 days | Day -------------
    The switcher sits at the right end of .cal-controls; the sub-month layout
@@ -703,16 +807,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    gradient — app.js's CAL_HOUR_PX must match that stripe height, it positions
    the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
-.cal-subview-btn.active { background: #1f6feb; border-color: #388bfd; color: #fff; }
-.cal-timegrid { --cal-day-cols: 7; border: 1px solid #21262d; border-radius: 6px; overflow: hidden; }
-.cal-tg-head { display: grid; grid-template-columns: 52px repeat(var(--cal-day-cols), 1fr); border-bottom: 1px solid #21262d; }
-.cal-tg-dayhead { text-align: center; color: #8b949e; font-size: 0.78em; font-weight: 600; padding: 5px 0; border-left: 1px solid #21262d; }
-.cal-tg-dayhead.today { color: #58a6ff; }
-.cal-tg-allday { display: grid; grid-template-columns: 52px 1fr; border-bottom: 1px solid #30363d; }
-.cal-tg-gutterlabel { color: #8b949e; font-size: 0.65em; padding: 4px 6px; text-align: right; }
+.cal-subview-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.cal-timegrid { --cal-day-cols: 7; border: 1px solid var(--line-soft); border-radius: 6px; overflow: hidden; }
+.cal-tg-head { display: grid; grid-template-columns: 52px repeat(var(--cal-day-cols), 1fr); border-bottom: 1px solid var(--line-soft); }
+.cal-tg-dayhead { text-align: center; color: var(--mut); font-size: 0.78em; font-weight: 600; padding: 5px 0; border-left: 1px solid var(--line-soft); }
+.cal-tg-dayhead.today { color: var(--accent); }
+.cal-tg-allday { display: grid; grid-template-columns: 52px 1fr; border-bottom: 1px solid var(--line); }
+.cal-tg-gutterlabel { color: var(--mut); font-size: 0.65em; padding: 4px 6px; text-align: right; }
 .cal-tg-allday-grid { display: grid; grid-template-columns: repeat(var(--cal-day-cols), 1fr); grid-auto-rows: minmax(22px, auto); gap: 2px 0; }
-.cal-tg-allday-cell { border-left: 1px solid #21262d; min-height: 22px; }
-.cal-tg-allday-cell.today { background: rgba(88, 166, 255, 0.06); }
+.cal-tg-allday-cell { border-left: 1px solid var(--line-soft); min-height: 22px; }
+.cal-tg-allday-cell.today { background: var(--today-wash); }
 /* Band chips lay over the cells (later DOM order paints on top); margins keep
    the day gridlines peeking through between neighboring spans. */
 .cal-allday-chip { margin: 1px 3px; z-index: 1; }
@@ -725,12 +829,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .cal-tg-scroll { max-height: 65vh; overflow-y: auto; }
 .cal-tg-body { display: grid; grid-template-columns: 52px repeat(var(--cal-day-cols), 1fr); }
 .cal-tg-gutter { position: relative; }
-.cal-tg-hour { position: absolute; right: 6px; transform: translateY(-50%); color: #8b949e; font-size: 0.65em; }
+.cal-tg-hour { position: absolute; right: 6px; transform: translateY(-50%); color: var(--mut); font-size: 0.65em; }
 .cal-tg-gutter .cal-tg-hour:first-child { transform: none; } /* 00:00 sits below the band edge, not clipped on it */
-.cal-tg-col { position: relative; border-left: 1px solid #21262d;
-  background: repeating-linear-gradient(to bottom, transparent 0 39px, #21262d 39px 40px); } /* 40px = CAL_HOUR_PX */
-.cal-tg-col.today { background-color: rgba(88, 166, 255, 0.05); }
-.cal-tg-col.drag-over, .cal-tg-allday-cell.drag-over { background-color: #0d1b2a; box-shadow: 0 0 0 1px #58a6ff inset; }
+.cal-tg-col { position: relative; border-left: 1px solid var(--line-soft);
+  background: repeating-linear-gradient(to bottom, transparent 0 39px, var(--line-soft) 39px 40px); } /* 40px = CAL_HOUR_PX */
+.cal-tg-col.today { background-color: var(--today-wash); }
+.cal-tg-col.drag-over, .cal-tg-allday-cell.drag-over { background-color: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
 /* While a drag is live (wireCalendarDrag toggles the class), chips
    yield hit-testing so the drop lands on the day cell underneath. Load-bearing
    for BOTH the all-day band and the month grid — in each, chips are
@@ -765,7 +869,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    preview (NOT a native-drag ghost), matching the gantt. An archived block is
    read-only (guarded at pointerdown) — not-allowed removes the false affordance. */
 .cal-timeblock { cursor: grab; user-select: none; touch-action: none; }
-.cal-timeblock.dragging { opacity: 0.85; z-index: 5; box-shadow: 0 0 0 1px #58a6ff; cursor: grabbing; }
+.cal-timeblock.dragging { opacity: 0.85; z-index: 5; box-shadow: 0 0 0 1px var(--accent); cursor: grabbing; }
 .cal-timeblock.archived, .cal-timeblock.archived .cal-resize-handle { cursor: not-allowed; }
 /* Resize handles: a thin strip at each end of a duration block (top = start
    time, bottom = end time), only rendered on real durations (renderCalendarTimeGrid).
@@ -775,7 +879,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .cal-resize-handle { position: absolute; left: 0; right: 0; height: 6px; cursor: ns-resize; z-index: 2; }
 .cal-resize-handle.top { top: 0; }
 .cal-resize-handle.bottom { bottom: 0; }
-.cal-timeblock:hover .cal-resize-handle { background: rgba(255, 255, 255, 0.12); }
+.cal-timeblock:hover .cal-resize-handle { background: var(--handle-wash); }
 
 /* --- Gantt view --------------------------------------------------
    Dated cards as bars on a day timeline, rows grouped by status. #gantt-view
@@ -792,35 +896,35 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    container — the status-filter row (.gantt-filter-row) is its
    first child, stacked ABOVE the gutter+timeline; .gantt-body carries the
    side-by-side flex row. */
-#gantt-toggle-btn[aria-pressed="true"] { background: #1f6feb; border-color: #388bfd; color: #fff; }
-.gantt-view { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; }
+#gantt-toggle-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.gantt-view { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
 .gantt-body { display: flex; align-items: flex-start; }
-.gantt-empty { color: #8b949e; font-size: 0.85em; padding: 8px 2px; }
+.gantt-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 .gantt-gutter { flex: 0 0 200px; width: 200px; padding-right: 10px; }
 .gantt-scroll { flex: 1; overflow-x: auto; min-width: 0; }
 .gantt-timeline { position: relative; }
 .gantt-axis { position: relative; height: 22px; }
-.gantt-week-mark { position: absolute; top: 3px; color: #8b949e; font-size: 0.68em; white-space: nowrap; padding-left: 3px; }
-.gantt-week-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 1px solid #21262d; }
-.gantt-today-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 2px solid #58a6ff; opacity: 0.65; z-index: 1; }
+.gantt-week-mark { position: absolute; top: 3px; color: var(--mut); font-size: 0.68em; white-space: nowrap; padding-left: 3px; }
+.gantt-week-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 1px solid var(--line-soft); }
+.gantt-today-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 2px solid var(--accent); opacity: 0.65; z-index: 1; }
 .gantt-row { height: 26px; }
-.gantt-row.gantt-group-row { height: 20px; line-height: 20px; font-size: 0.7em; font-weight: 600; text-transform: uppercase; color: #8b949e; }
+.gantt-row.gantt-group-row { height: 20px; line-height: 20px; font-size: 0.7em; font-weight: 600; text-transform: uppercase; color: var(--mut); }
 .gantt-group-row.status-backlog { color: #39c5cf; } /* cyan (was grey — read as archived) */
 .gantt-group-row.status-todo { color: #58a6ff; }
 .gantt-group-row.status-doing { color: #3fb950; }
 .gantt-group-row.status-done { color: #a371f7; }
 .gantt-group-row.status-unknown { color: #6e7681; }
-.gantt-label { font-size: 0.78em; color: #c9d1d9; line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; /* labels are click targets */ }
-.gantt-label-id { color: #8b949e; }
+.gantt-label { font-size: 0.78em; color: var(--ink); line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; /* labels are click targets */ }
+.gantt-label-id { color: var(--mut); }
 /* Same italic/muted read as .card-title--prompt-fallback
    (board tile, card-title.js) for the two gantt surfaces. */
 .gantt-label-title--prompt-fallback, .gantt-bar-text--prompt-fallback { font-style: italic; opacity: 0.75; }
 .gantt-bar-row { position: relative; z-index: 2; }
-.gantt-bar { position: absolute; top: 3px; height: 20px; display: flex; align-items: stretch; background: #0d1117; border: 1px solid #30363d; border-left-width: 3px; border-radius: 5px; font-size: 0.7em; color: #c9d1d9; cursor: grab; user-select: none; touch-action: none; overflow: hidden; }
+.gantt-bar { position: absolute; top: 3px; height: 20px; display: flex; align-items: stretch; background: var(--paper); border: 1px solid var(--line); border-left-width: 3px; border-radius: 5px; font-size: 0.7em; color: var(--ink); cursor: grab; user-select: none; touch-action: none; overflow: hidden; }
 .gantt-bar-text { flex: 1; min-width: 0; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; pointer-events: none; }
-.gantt-bar-id { color: #8b949e; }
+.gantt-bar-id { color: var(--mut); }
 .gantt-handle { flex: 0 0 7px; cursor: ew-resize; }
-.gantt-bar:hover .gantt-handle { background: rgba(255, 255, 255, 0.12); }
+.gantt-bar:hover .gantt-handle { background: var(--handle-wash); }
 /* status palette — the same built-in hexes as the column headers and the
    map's status dot, as border + faint fill. */
 .gantt-bar.status-backlog { border-color: #39c5cf; background: rgba(57, 197, 207, 0.12); }
@@ -845,7 +949,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .gantt-bar.waiting { border-left-color: #d29922; }
 /* mid-drag: the bar itself is the live preview, so keep it readable and above
    the today/week lines rather than fading it like a ghosted HTML5 drag */
-.gantt-bar.dragging { opacity: 0.85; z-index: 5; box-shadow: 0 0 0 1px #58a6ff; cursor: grabbing; }
+.gantt-bar.dragging { opacity: 0.85; z-index: 5; box-shadow: 0 0 0 1px var(--accent); cursor: grabbing; }
 /* a bar clipped by the (possibly clamped) window: squared + dashed cut side */
 .gantt-bar.clip-start { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-style: dashed; }
 .gantt-bar.clip-end { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-style: dashed; }
@@ -869,7 +973,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .gantt-due-marker::before { content: ''; position: absolute; inset: 1px; background: #d29922; border-radius: 2px; transform: rotate(45deg); }
 .gantt-due-marker:hover::before { background: #e3b341; }
 .gantt-due-marker.dragging { z-index: 6; cursor: grabbing; }
-.gantt-due-marker.dragging::before { box-shadow: 0 0 0 1px #58a6ff; }
+.gantt-due-marker.dragging::before { box-shadow: 0 0 0 1px var(--accent); }
 .gantt-due-marker.archived { cursor: not-allowed; } /* same read-only affordance as .gantt-bar.archived — the diamond drag is blocked at pointerdown too */
 /* Overdue diamond (kanban.proj#258): same danger red as .blocked-pill,
    overriding the amber due fill (never co-occurs with .archived — isOverdue
@@ -885,53 +989,53 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    edge; fixed-in-body escapes every overflow context (app.js computes
    left/top from the 📅 button's getBoundingClientRect). z-index above the
    .modal-backdrop (30) it floats over. The grid reuses the calendar view's
-   vocabulary: dimmed outside-month days, blue today ring, selected fill. */
+   vocabulary: dimmed outside-month days, accent today ring, selected fill. */
 .date-field { display: flex; gap: 4px; align-items: center; }
 .date-field input { flex: 1; min-width: 0; }
 .date-pick-btn { flex-shrink: 0; padding: 4px 6px; font-size: 0.9em; line-height: 1; }
-.date-picker-pop { position: fixed; z-index: 70; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.date-picker-pop { position: fixed; z-index: 70; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px; box-shadow: var(--shadow-pop); }
 .date-picker-controls { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
-.date-picker-title { color: #58a6ff; font-weight: 600; font-size: 0.8em; margin-left: 6px; }
+.date-picker-title { color: var(--accent); font-weight: 600; font-size: 0.8em; margin-left: 6px; }
 .dp-nav { padding: 2px 7px; font-size: 0.8em; }
 .date-picker-grid { display: grid; grid-template-columns: repeat(7, 28px); gap: 2px; }
-.dp-dow { text-align: center; color: #8b949e; font-size: 0.68em; font-weight: 600; padding: 2px 0; }
-.dp-day { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; background: #0d1117; border: 1px solid #21262d; border-radius: 4px; font-size: 0.75em; color: #c9d1d9; cursor: pointer; }
-.dp-day:hover { background: #1f6feb33; }
+.dp-dow { text-align: center; color: var(--mut); font-size: 0.68em; font-weight: 600; padding: 2px 0; }
+.dp-day { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid var(--line-soft); border-radius: 4px; font-size: 0.75em; color: var(--ink); cursor: pointer; }
+.dp-day:hover { background: var(--accent-wash); }
 .dp-day.outside { opacity: 0.45; }
-.dp-day.today { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff inset; }
-.dp-day.selected { background: #1f6feb; border-color: #388bfd; color: #fff; }
-.dp-day.selected:hover { background: #388bfd; }
+.dp-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.dp-day.selected { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.dp-day.selected:hover { background: var(--accent-strong); }
 /* Clock toggle. ON state highlights like .dp-day.selected (same
-   blue-fill vocabulary); disabled (no parseable day yet) fades like
+   accent-fill vocabulary); disabled (no parseable day yet) fades like
    .dp-day.outside. The revealed HH:MM control is a plain text input styled
    like the date fields themselves — no native <input type="time">, same
    ADR 0003 reasoning as the rest of this popover. */
 .date-picker-time { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .dp-clock-toggle { padding: 3px 7px; font-size: 0.85em; line-height: 1; border-radius: 4px; }
-.dp-clock-toggle.on { background: #1f6feb; border-color: #388bfd; }
+.dp-clock-toggle.on { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
 .dp-clock-toggle:disabled { opacity: 0.45; cursor: default; }
 /* .date-picker-pop lives outside .modal (body-mounted, escaping the modal's
    overflow), so it doesn't inherit the `.modal input` base styling — restated
    here rather than widening that selector for one field outside the form. */
-.dp-time-input { width: 72px; padding: 3px 6px; font-size: 0.8em; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; font-family: inherit; }
+.dp-time-input { width: 72px; padding: 3px 6px; font-size: 0.8em; background: var(--paper); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; font-family: inherit; }
 
 /* Notifications */
 .notif-btn { position: relative; display: inline-flex; align-items: center; padding: 6px 8px; }
 .notif-btn svg { width: 15px; height: 15px; }
-.notif-badge { position: absolute; top: -6px; right: -6px; background: #f85149; color: #fff; border-radius: 10px; padding: 0 5px; font-size: 0.68em; font-weight: 700; line-height: 1.5; }
+.notif-badge { position: absolute; top: -6px; right: -6px; background: var(--crit); color: var(--on-fill); border-radius: 10px; padding: 0 5px; font-size: 0.68em; font-weight: 700; line-height: 1.5; }
 .notif-modal { width: min(560px, 92vw); }
 .notif-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-.notif-row { display: flex; align-items: flex-start; gap: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; }
-/* Levels — declared BEFORE .unread so the blue unread left-edge
+.notif-row { display: flex; align-items: flex-start; gap: 8px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+/* Levels — declared BEFORE .unread so the accent unread left-edge
    still wins on tinted rows (same specificity, later rule takes the edge) */
 .notif-row.level-debug { opacity: 0.55; }
-.notif-row.level-warning { background: #2a2114; border-color: #9e6a03; }
-.notif-row.level-error { background: #2d1517; border-color: #f85149; }
-.notif-row.unread { border-left: 3px solid #58a6ff; }
+.notif-row.level-warning { background: var(--warn-soft); border-color: var(--warn); }
+.notif-row.level-error { background: var(--crit-soft); border-color: var(--crit); }
+.notif-row.unread { border-left: 3px solid var(--accent); }
 .notif-text { flex: 1; min-width: 0; }
-.notif-meta { color: #8b949e; font-size: 0.75em; margin-bottom: 2px; }
+.notif-meta { color: var(--mut); font-size: 0.75em; margin-bottom: 2px; }
 .notif-message { font-size: 0.88em; word-break: break-word; }
-.notif-empty { color: #8b949e; font-size: 0.85em; padding: 8px 2px; }
+.notif-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
    on any piece of a card lights every piece sharing its id (app.js's
@@ -942,18 +1046,19 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    (column/day-cell/gantt row/svg canvas), but a solid substitute sidesteps
    the see-through trap entirely rather than relying on that (kanban.proj
    #255 — an alpha wash may only ever SUBSTITUTE a background when an
-   opaque surface is guaranteed behind it). The tone is #2d333b, NOT the
-   #21262d first tried: that value is the app's resting surface for buttons and
-   assignee badges, and against a #0d1117 tile it was measured as too faint to
-   read as a response at all. #2d333b sits just under button:hover's #30363d,
-   which keeps the card's own #30363d border visible instead of swallowing it.
+   opaque surface is guaranteed behind it). The tone is var(--hover-wash), NOT the
+   var(--btn-bg) first tried: that value is the app's resting surface for buttons
+   and assignee badges, and against a var(--paper) tile it was measured as too faint
+   to read as a response at all. var(--hover-wash) sits just under button:hover's
+   var(--btn-hover), which keeps the card's own var(--line) border visible instead
+   of swallowing it.
    Declared AFTER every .epic wash
    and per-status fill above so this wins those ties and a colored
    card still visibly responds to hover — but BEFORE .selected below so
    THAT rule keeps winning its own tie against this one. Epic is the one
    exception, reasserted three-class below. */
-.card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #2d333b; }
-.map-node.hover-highlight rect { fill: #2d333b; }
+.card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: var(--hover-wash); }
+.map-node.hover-highlight rect { fill: var(--hover-wash); }
 /* Epic survives hover, the same way it survives selection. The rule above is a
    2-class background and so is .card.epic, so without this the orange wash would
    vanish the moment the pointer crossed an epic card, and epic is a durable
@@ -964,8 +1069,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    The SVG rect takes the same two colors pre-blended, since fill has no
    gradient-over-color form. The gantt BAR needs no twin: its epic cue is a
    box-shadow, never a background, so there is no tie to lose. */
-.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #2d333b; }
-.map-node.epic.hover-highlight rect { fill: #443d3b; }
+.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--hover-wash); }
+.map-node.epic.hover-highlight rect { fill: var(--epic-hover-fill); }
 /* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
    another card takes it away from the card that still holds keyboard focus,
    and a Tab user would be left with no indicator at all. The ring is the
@@ -974,20 +1079,20 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    :focus-visible so a mouse click doesn't ring a card it just washed.
    Declared before .selected below, which keeps winning the outline tie on a
    selected card. */
-.card-el:focus-visible { outline: 2px dashed #8b949e; outline-offset: -1px; }
+.card-el:focus-visible { outline: 2px dashed var(--mut); outline-offset: -1px; }
 
 /* Multi-select + context menu (every view) */
-.card.selected { outline: 2px solid #58a6ff; outline-offset: -1px; background: #0d1b2a; }
-/* per-view .selected markers: same blue + dark-blue wash as board
+.card.selected { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--accent-soft); }
+/* per-view .selected markers: same accent + accent-soft wash as board
    tiles. Chips/bars keep their status/priority border cues (selection is an
    outline, not a border override); map nodes keep their status stroke and
    signal selection with the wash + a blue glow instead of an outline (an SVG
    rect has no outline). Placed after the status rules so the wash wins. */
-.cal-chip.selected { outline: 2px solid #58a6ff; outline-offset: -1px; background: #0d1b2a; }
-.gantt-bar.selected { outline: 2px solid #58a6ff; outline-offset: -1px; background: #0d1b2a; }
-.gantt-label.selected { outline: 2px solid #58a6ff; outline-offset: -2px; border-radius: 4px; background: #0d1b2a; }
-.map-node.selected rect { fill: #0d1b2a; }
-.map-node.selected { filter: drop-shadow(0 0 4px #58a6ff); }
+.cal-chip.selected { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--accent-soft); }
+.gantt-bar.selected { outline: 2px solid var(--accent); outline-offset: -1px; background: var(--accent-soft); }
+.gantt-label.selected { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; background: var(--accent-soft); }
+.map-node.selected rect { fill: var(--accent-soft); }
+.map-node.selected { filter: drop-shadow(0 0 4px var(--accent)); }
 /* `.epic` (above) and `.selected` (this block)
    are both 2-class selectors setting the same property — background here,
    SVG fill on the map node — and `.selected` is declared later, so it wins
@@ -1003,10 +1108,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    .gantt-bar.selected's background, so there was never a tie to lose. */
 .card.epic.selected, .cal-chip.epic.selected, .gantt-label.epic.selected { background: rgba(240, 136, 62, 0.12); }
 .map-node.epic.selected rect { fill: rgba(240, 136, 62, 0.12); }
-.context-menu { position: fixed; z-index: 60; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 4px; display: flex; flex-direction: column; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.context-menu { position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px; display: flex; flex-direction: column; min-width: 160px; box-shadow: var(--shadow-pop); }
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: 4px; }
-.context-menu button:hover { background: #30363d; }
-.context-menu button.danger:hover { background: #3d1d20; color: #f85149; }
+.context-menu button:hover { background: var(--btn-hover); }
+.context-menu button.danger:hover { background: var(--crit-soft); color: var(--crit); }
 body.shift-held .card-el { user-select: none; } /* shift+click selects cards, not their text — only while shift is down, so text stays copyable otherwise (covers every view's card-el) */
 
 /* Theme every visible scrollbar to match the dark palette
@@ -1020,12 +1125,12 @@ body.shift-held .card-el { user-select: none; } /* shift+click selects cards, no
    Chromium/Edge (incl. VSCode Simple Browser, the primary
    target) only obeys the ::-webkit-scrollbar* pseudo-elements, so both are
    set. No new hex family: the thumb reuses the existing border tone
-   (#30363d, same as every panel/input border in this file) so it reads as a
+   (var(--line), same as every panel/input border in this file) so it reads as a
    quiet extension of the UI rather than a foreign control, brightening to
-   the existing muted-text tone (#6e7681) on hover for a clear but subtle
+   the existing muted-text tone (var(--mut)) on hover for a clear but subtle
    affordance. The track is transparent rather than a hardcoded fill — these
-   containers sit on different surfaces (page #0d1117, column/modal/map/gantt
-   #161b22), and transparent blends into whichever one it's over instead of
+   containers sit on different surfaces (page var(--paper), column/modal/map/gantt
+   var(--surface)), and transparent blends into whichever one it's over instead of
    pinning a second color per container. 8px is slim next to the ~17px OS
    default; border-radius keeps the thumb a soft capsule instead of a hard
    bar. */
@@ -1041,7 +1146,7 @@ main#board,
 .combobox-menu,
 .notif-list {
   scrollbar-width: thin;
-  scrollbar-color: #30363d transparent;
+  scrollbar-color: var(--line) transparent;
 }
 html::-webkit-scrollbar,
 main#board::-webkit-scrollbar,
@@ -1084,7 +1189,7 @@ main#board::-webkit-scrollbar-thumb,
 .cal-tg-scroll::-webkit-scrollbar-thumb,
 .combobox-menu::-webkit-scrollbar-thumb,
 .notif-list::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: var(--line);
   border-radius: 4px;
 }
 html::-webkit-scrollbar-thumb:hover,
@@ -1098,5 +1203,5 @@ main#board::-webkit-scrollbar-thumb:hover,
 .cal-tg-scroll::-webkit-scrollbar-thumb:hover,
 .combobox-menu::-webkit-scrollbar-thumb:hover,
 .notif-list::-webkit-scrollbar-thumb:hover {
-  background: #6e7681;
+  background: var(--mut);
 }

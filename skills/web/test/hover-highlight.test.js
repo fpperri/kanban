@@ -113,16 +113,16 @@ test('hoveredId is declared next to selectedIds/bulkDragIds, documented as survi
 // still visibly responds AND a selected card still reads as selected.
 
 test('app.css washes every hover-highlight surface with one solid color, no outline', () => {
-  assert.ok(appCss.includes(".card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: #2d333b; }"));
-  assert.ok(appCss.includes('.map-node.hover-highlight rect { fill: #2d333b; }'));
+  assert.ok(appCss.includes(".card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: var(--hover-wash); }"));
+  assert.ok(appCss.includes('.map-node.hover-highlight rect { fill: var(--hover-wash); }'));
   assert.ok(!/\.hover-highlight[^{]*\{[^}]*outline/.test(appCss), 'hover never carries an outline — that stays .selected\'s own channel');
 });
 
 test('the hover wash is a different tone from .selected\'s navy — they must never read alike', () => {
-  const hover = /\.card\.hover-highlight[^{]*\{\s*background:\s*(#[0-9a-f]{6})/i.exec(appCss);
-  const selected = /\.card\.selected \{[^}]*background:\s*(#[0-9a-f]{6})/i.exec(appCss);
-  assert.ok(hover && selected, 'both washes declare a literal hex');
-  assert.notStrictEqual(hover[1].toLowerCase(), selected[1].toLowerCase());
+  const hover = /\.card\.hover-highlight[^{]*\{\s*background:\s*var\((--[a-z-]+)\)/i.exec(appCss);
+  const selected = /\.card\.selected \{[^}]*background:\s*var\((--[a-z-]+)\)/i.exec(appCss);
+  assert.ok(hover && selected, 'both washes declare a background token');
+  assert.notStrictEqual(hover[1], selected[1], 'hover and selection never share a token');
 });
 
 test('cascade order: hover-highlight is declared AFTER every .epic wash / per-status background above it, so an epic or colored card still visibly responds to hover', () => {
@@ -160,7 +160,7 @@ test('the base hover wash is a solid color, and only the epic override layers al
     assert.ok(!line.includes('rgba('), 'no alpha in a base hover rule: ' + line);
   }
   const epic = appCss.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
-  assert.ok(epic && epic.includes('), #2d333b'), 'the epic rule ends on an opaque tone behind its alpha wash');
+  assert.ok(epic && epic.includes('), var(--hover-wash)'), 'the epic rule ends on an opaque tone behind its alpha wash');
 });
 
 // The wash rides ONE shared hoveredId, so the pointer moving onto another
@@ -204,7 +204,7 @@ test('SKILL.md documents the hover/focus highlight bullet', () => {
   assert.ok(start > -1, 'the Hover/focus highlight bullet exists');
   const bullet = skill.slice(start, skill.indexOf('- **Speedbumps**', start));
   assert.match(bullet, /hoveredId/);
-  assert.match(bullet, /#0d1b2a/, 'names the selected wash it must stay distinct from');
+  assert.match(bullet, /--accent-soft/, 'names the selection token it must stay distinct from');
   assert.match(bullet, /tabindex="0"/, 'documents keyboard reachability');
   assert.match(bullet, /due diamond/, 'names the one card-el surface .selected also skips');
 });
@@ -219,10 +219,10 @@ test('an epic card keeps its orange wash while hovered, layered over the hover t
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   const rule = css.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
   assert.ok(rule, 'a 3-class epic+hover rule exists, so it beats both 2-class rules regardless of order');
-  assert.ok(rule.includes('linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), #2d333b'),
+  assert.ok(rule.includes('linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--hover-wash)'),
     'the epic wash LAYERS over the hover tone rather than substituting it');
   assert.ok(rule.includes('.cal-chip.epic.hover-highlight'), 'the calendar chip is covered by the same rule');
   assert.ok(rule.includes('.gantt-label.epic.hover-highlight'), 'and the gantt label');
-  assert.ok(css.includes('.map-node.epic.hover-highlight rect { fill: #443d3b; }'),
+  assert.ok(css.includes('.map-node.epic.hover-highlight rect { fill: var(--epic-hover-fill); }'),
     'the map node carries the pre-blended equivalent, since fill takes no gradient');
 });

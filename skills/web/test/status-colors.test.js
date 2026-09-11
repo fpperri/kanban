@@ -5,7 +5,7 @@ const path = require('node:path');
 
 // .modal's own solid panel colour (app.css). Any wash on a popup has to keep
 // this underneath it or the popup goes transparent.
-const MODAL_BG = '#161b22';
+const MODAL_BG = 'var(--surface)';
 const {
   BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, EPIC_COLOR, isBuiltinStatus, statusColor, statusColorClass, statusColorSoft, epicColorSoft, statusBadge, archivedBadge,
 } = require('../web/status-colors');
@@ -204,7 +204,7 @@ test('epic wash survives selection — a 3-class override beats the same-specifi
 
 test('the map node border is one neutral weight for every status — status moved to its own dot', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.match(css, /\.map-node rect\s*\{[^}]*stroke:\s*#30363d/, 'one neutral stroke color, not per-status');
+  assert.match(css, /\.map-node rect\s*\{[^}]*stroke:\s*var\(--line\)/, 'one neutral stroke color, not per-status');
   for (const status of ['backlog', 'todo', 'doing', 'done', 'unknown']) {
     assert.ok(!css.includes(`.map-node.status-${status} rect`), `no more per-status rect stroke rule: ${status}`);
   }

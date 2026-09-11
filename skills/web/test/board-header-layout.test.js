@@ -71,7 +71,7 @@ test('.column-cards — not main#board or .column — is what actually scrolls v
 test('the page header is sticky to the viewport top, opaque, and layered above ordinary board content', () => {
   assert.match(css, /header\s*\{[^}]*position:\s*sticky/, 'header sticks');
   assert.match(css, /header\s*\{[^}]*top:\s*0/, 'sticks to the very top');
-  assert.match(css, /header\s*\{[^}]*background:\s*#0d1117/, 'opaque background — matches <body> so scrolled cards do not show through');
+  assert.match(css, /header\s*\{[^}]*background:\s*var\(--paper\)/, 'opaque background — matches <body> so scrolled cards do not show through');
   const zMatch = css.match(/header\s*\{[^}]*z-index:\s*(\d+)/);
   assert.ok(zMatch, 'header declares a z-index');
   assert.ok(Number(zMatch[1]) < 30, 'header stacks below the modal backdrop (30) so popups still overlay it');
@@ -81,7 +81,7 @@ test('each column header stays visible above its own column\'s scrolling card li
   assert.doesNotMatch(css, /\.column-header\s*\{[^}]*position:\s*sticky/,
     'sticky is gone — the header is simply outside the region that scrolls (.column-cards), so it can never scroll away in the first place');
   assert.match(css, /\.column-header\s*\{[^}]*flex-shrink:\s*0/, 'stays its natural height even if the header row wraps');
-  assert.match(css, /\.column-header\s*\{[^}]*background:\s*#161b22/, 'opaque background — matches .column');
+  assert.match(css, /\.column-header\s*\{[^}]*background:\s*var\(--surface\)/, 'opaque background — matches .column');
 });
 
 test('--board-header-h has a sane CSS fallback for the instant before app.js\'s first measurement runs', () => {
