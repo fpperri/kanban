@@ -158,7 +158,7 @@ body { font: 400 15px/1.5 ui-sans-serif,-apple-system,"Segoe UI Variable Text","
    2px chrome border; 3px stays the semantic-accent channel (card
    priority/waiting, notif unread, cal/gantt left accents). */
 header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 15; background: var(--paper); border-bottom: 2px solid var(--ink); padding-bottom: 12px; }
-h1 { color: var(--accent); font-size: 1.4em; font-weight: 700; line-height: 1.1; letter-spacing: -0.015em; }
+h1 { color: var(--ink); font-size: 1.4em; font-weight: 700; line-height: 1.1; letter-spacing: -0.015em; }
 /* Copy-board-path button — lives inside the h1, so size back down
    from its 1.4em to control scale; muted until hovered */
 .board-copy-btn { font-size: 0.55em; font-weight: 400; color: var(--mut); padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
@@ -431,7 +431,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    a user most needs to read, so it must NOT shrink/mute like
    .map-section-header's true section headings do. -0.01em rather than h1's
    -0.015em: tracking scales with size, and this sits at ~1.1em, not 1.65rem. */
-.modal h2 { color: var(--accent); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.modal h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
 /* Row layout lives on the shared
    .popup-header class (see it near .detail-actions below) — .modal-header
    is just the classname app.html keeps for readability, no rule of its own.
@@ -544,7 +544,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.detail-modal.epic { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--surface); }
 /* row layout lives on .popup-header (below) — see there. */
 /* Headline-role, same reasoning as .modal h2 above — a card's own title. */
-.detail-header h2 { color: var(--accent); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.detail-header h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
 .detail-title--prompt-fallback { font-style: italic; opacity: 0.85; }
 .detail-path-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -576,7 +576,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* Same active-toggle treatment as #map-toggle-btn/
    #calendar-toggle-btn/#gantt-toggle-btn below — a filled highlight while
    #row-prompt is revealed. */
-#modal-ai-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+#modal-ai-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .detail-frontmatter table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
 .detail-frontmatter tr { border-bottom: 1px solid var(--line-soft); }
 .detail-frontmatter tr:last-child { border-bottom: none; }
@@ -584,7 +584,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-frontmatter td.fm-key { color: var(--mut); white-space: nowrap; width: 1%; padding-left: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .detail-frontmatter td.fm-value { color: var(--ink); word-break: break-word; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .detail-body { font-size: 0.92em; line-height: 1.55; }
-.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--accent); margin: 16px 0 8px; }
+.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--ink); margin: 16px 0 8px; }
 .detail-body h1:first-child, .detail-body h2:first-child, .detail-body h3:first-child { margin-top: 0; }
 .detail-body h1 { font-size: 1.2em; } .detail-body h2 { font-size: 1.05em; } .detail-body h3 { font-size: 1em; }
 .detail-body p { margin: 8px 0; }
@@ -592,7 +592,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body li { margin: 3px 0; }
 .detail-body li > ul, .detail-body li > ol { margin: 3px 0 3px 20px; }
 .detail-body li.task { list-style: none; margin-left: -18px; }
-.detail-body code { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 5px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.88em; color: var(--accent); }
+.detail-body code { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 5px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.88em; }
 .detail-body pre { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
 .detail-body pre code { background: none; border: none; padding: 0; color: var(--ink); }
 /* Markdown tables in a card body (kanban.proj #256). The scroller is the point:
@@ -633,7 +633,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    every modal in this file, no overlay/z-index needed. Status colors below
    are the exact hex values the kanban-cli skill's Mermaid
    output styles nodes with, so the two views read as the same graph. */
-#map-toggle-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+#map-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 /* overflow: auto alone never triggers on a
    plain block child of body — with no height/max-height of its own (and body
    sets none either), the box just grows to fit the graph, so the html
@@ -799,11 +799,11 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    waiting amber; a multi-day run is ONE chip spanning its real day columns
    (see .cal-week below), not a chip repeated per day, so it reads as a
    single block regardless of how each day's own row count happens to land. */
-#calendar-toggle-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+#calendar-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .calendar-view { background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; }
 .cal-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 /* Headline-role, same reasoning as .modal h2 above — the visible month name. */
-.cal-title { font-weight: 700; color: var(--accent); font-size: 1.05em; margin-left: 6px; letter-spacing: -0.01em; }
+.cal-title { font-weight: 700; color: var(--ink); font-size: 1.05em; margin-left: 6px; letter-spacing: -0.01em; }
 /* .cal-grid is a vertical stack: the weekday header row, then one .cal-week
    per calendar week — a week is its own nested grid (below) because a run
    crossing a week boundary can never be one DOM element across the wrap. */
@@ -881,7 +881,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    gradient — app.js's CAL_HOUR_PX must match that stripe height, it positions
    the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
-.cal-subview-btn.active { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.cal-subview-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .cal-timegrid { --cal-day-cols: 7; border: 1px solid var(--line-soft); border-radius: .2rem; overflow: hidden; }
 .cal-tg-head { display: grid; grid-template-columns: 52px repeat(var(--cal-day-cols), 1fr); border-bottom: 1px solid var(--line-soft); }
 .cal-tg-dayhead { text-align: center; color: var(--mut); font-size: 0.78em; font-weight: 600; padding: 5px 0; border-left: 1px solid var(--line-soft); text-transform: uppercase; letter-spacing: 0.08em; }
@@ -970,7 +970,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    container — the status-filter row (.gantt-filter-row) is its
    first child, stacked ABOVE the gutter+timeline; .gantt-body carries the
    side-by-side flex row. */
-#gantt-toggle-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+#gantt-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .gantt-view { background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; }
 .gantt-body { display: flex; align-items: flex-start; }
 .gantt-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
@@ -1077,7 +1077,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .dp-day:hover { background: var(--accent-wash); }
 .dp-day.outside { opacity: 0.45; }
 .dp-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.dp-day.selected { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.dp-day.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .dp-day.selected:hover { background: var(--accent-strong); }
 /* Clock toggle. ON state highlights like .dp-day.selected (same
    accent-fill vocabulary); disabled (no parseable day yet) fades like
@@ -1086,7 +1086,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    ADR 0003 reasoning as the rest of this popover. */
 .date-picker-time { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .dp-clock-toggle { padding: 3px 7px; font-size: 0.85em; line-height: 1; border-radius: .15rem; }
-.dp-clock-toggle.on { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.dp-clock-toggle.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .dp-clock-toggle:disabled { opacity: 0.45; cursor: default; }
 /* .date-picker-pop lives outside .modal (body-mounted, escaping the modal's
    overflow), so it doesn't inherit the `.modal input` base styling — restated
