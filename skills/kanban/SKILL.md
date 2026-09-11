@@ -103,7 +103,7 @@ Only `*.card.md` files are cards. Two other files in `<kanban-dir>/` are levers 
 
 ```yaml
 name: webapp      # the BOARD NAME opening every card mention (`webapp#29 Card title`)
-artifact: https://claude.ai/code/artifact/<id>   # the board's Board artifact URL; seeded by the first session that publishes the viewer (see the kanban-viewer skill)
+artifact: https://claude.ai/code/artifact/<id>   # the board's Board artifact URL; seeded by the first session that publishes the snapshot (see the kanban-snapshot skill)
 port: 7781        # pins kanban-web's serving port; human-set (never AI-invented) — see the kanban-web skill
 nextId: 29        # monotonic id counter — use max(nextId, scan-max + 1), then write the advanced counter back
 assignees:        # registry of who can own cards; suggests handles, never validates
@@ -142,13 +142,13 @@ has to come first to stay unambiguous. Creating a `config.yaml` that holds only
 
 **Seeding `artifact:` is the second named exception to "never invent a config
 key".** It holds the board's **Board artifact** URL (CONTEXT.md) — the one
-hosted page a session publishes the viewer to, refreshed in place rather than
+hosted page a session publishes the snapshot to, refreshed in place rather than
 re-minted. Three cases all write the line and file a notification: adopting
 an existing gallery page (no line yet, a title match found one), creating a
 fresh page (no line, no match), and recreating after the old page is gone
 (line present, a publish by that URL fails). A human may delete the line at
 any time to force the next session to publish a fresh page. Full procedure:
-`skills/viewer/references/board-artifact.md`.
+`skills/snapshot/references/board-artifact.md`.
 
 **`port:` is the third named exception to "never invent a config
 key."** It **pins** kanban-web's serving port (`skills/web/scripts/server.js`,
@@ -160,7 +160,7 @@ AI-autonomous seed trigger** — a port number can't be safely derived (it has
 to match a bookmark or VS Code tunnel URL the human already owns outside the
 board), so an AI never invents or auto-writes a value for it; only a human,
 or a session explicitly directed to set specific values, writes the line. The
-`kanban-cli` and `kanban-viewer` skills ignore the key entirely — it's a
+`kanban-cli` and `kanban-snapshot` skills ignore the key entirely — it's a
 serving fact for kanban-web, not board content either of them renders.
 
 **Grab semantics for AI writers:** the registry's `kind` tells *you*, the
@@ -206,7 +206,7 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
 ```
 
 - `id`: max existing + 1. `at`: local ISO datetime, no timezone.
-- `from`: the writer's handle (e.g. `afk-run:#131`, `skill:kanban-viewer`).
+- `from`: the writer's handle (e.g. `afk-run:#131`, `skill:kanban-snapshot`).
 - `level`: one of `debug` | `info` | `warning` | `error`; **absent = `info`** (back-compat). Renderers show all levels — debug dimmed, warning amber-tinted, error red-tinted; no filtering for now.
 - `message`: single line only; quote values containing `:` or `#`. **TLDR-first shape:** the text before `; more: ` is a single plain sentence (no "TLDR" label) — renderers emphasize (bold) it; everything after is detail. A message without `; more: ` is all-TLDR. Card ids in the text follow the **Card mention** rule (one code span, `` `board#id title` ``); `from` is a machine handle, not prose, and keeps its bare `afk-run:#131` form.
 - `read`: always write `false` — the reader flips it (flipping to `read: true` stays an in-place edit). Entries missing a numeric `id` or non-empty `message` are skipped by readers and moved verbatim to `archived/notifications.md` on the next managed rewrite — never deleted, same rule as clearing.
@@ -223,7 +223,7 @@ This skill is the **AI's** lever set. When the human wants to see or work the bo
 
 - **kanban-web** — live browser editor, desktop/localhost.
 - **kanban-cli** — conversational editor, works under remote control on mobile.
-- **kanban-viewer** — generated single-file HTML board for phone/tablet/Cowork; read-only, queued changes come back as an "Apply kanban changes" payload.
+- **kanban-snapshot** — generated single-file HTML board for phone/tablet/Cowork; read-only, queued changes come back as an "Apply kanban changes" payload.
 
 ## Viewing the Board
 

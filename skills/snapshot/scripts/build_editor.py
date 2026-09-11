@@ -8,7 +8,7 @@ pastes back to Claude, which applies the ops to the card files — see the skill
 references/apply-protocol.md for exactly how.
 
 Usage:
-  python build_editor.py <kanban-directory> [--out kanban-viewer.html]
+  python build_editor.py <kanban-directory> [--out kanban-snapshot.html]
                           [--base-label "Jul 11, 3:08 pm CT"] [--base-iso 2026-07-11T20:08Z]
 
 Base defaults to now (UTC label) — pass the user's local time when you know it.
@@ -181,7 +181,7 @@ def read_assignee_colors(kanban_dir):
 def read_notifications(kanban_dir):
     """notifications.md entries, tolerant like the web store:
     blocks starting `- id:`; entries without a numeric id or message are
-    skipped for display (the viewer is read-only over them)."""
+    skipped for display (the snapshot is read-only over them)."""
     path = os.path.join(kanban_dir, "notifications.md")
     try:
         text = open(path, encoding="utf-8", errors="replace").read()
@@ -209,7 +209,7 @@ def read_notifications(kanban_dir):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("kanban_dir")
-    p.add_argument("--out", default="kanban-viewer.html")
+    p.add_argument("--out", default="kanban-snapshot.html")
     p.add_argument("--base-label", default="")
     p.add_argument("--base-iso", default="")
     a = p.parse_args()
@@ -257,7 +257,7 @@ def main():
 TEMPLATE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>__BOARD_NAME__ — Kanban Viewer</title>
+<title>__BOARD_NAME__ — Kanban Snapshot</title>
 <style>
 :root{--surface:#fcfcfb;--page:#f9f9f7;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;
 --grid:#e1e0d9;--ring:rgba(11,11,11,.12);--accent:#2a78d6;--high:#d03b3b;--warn:#9a6700;
@@ -524,7 +524,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .ctxsep{height:1px;background:var(--ring);margin:4px 2px}
 </style></head><body>
 <div id="scroll">
-<div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">viewer · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
+<div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
 <div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:)"></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>
@@ -569,7 +569,7 @@ const ASGCOL=__ASSIGNEE_COLORS__;
 // Assignee color: a reserved config.yaml `color:` wins; else the
 // handle hashes into the fixed 8-slot palette kanban-web's status-colors.js
 // STATUS_PALETTE uses (same djb2-xor hash, same hexes) so a handle colors the
-// same on both surfaces. This viewer's own statuses (ccol above) never grew
+// same on both surfaces. This snapshot's own statuses (ccol above) never grew
 // that hashing; assignees deliberately borrow it. acol()'s value tints the
 // handle TEXT — every call site below sets it via `.style.color`.
 const APALETTE=["#58a6ff","#3fb950","#d29922","#a371f7","#f778ba","#39c5cf","#f0883e","#ff7b72"];
@@ -755,7 +755,7 @@ if(c.p==="High")d.appendChild(el("span","badge","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
 if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+br:"");d.appendChild(bb)}
 // ADR 0009: the gold review badge, blocked's sibling — no click-to-filter
-// (this viewer has no additive query-append affordance for any badge yet;
+// (this snapshot has no additive query-append affordance for any badge yet;
 // "Dependency tree/path" replaces the whole query box instead — deliberate
 // gap, not mirrored here).
 if(rr!==null){const rb=el("span","badge rbadge","review");rb.title="review"+(rr?": "+rr:"");d.appendChild(rb)}
@@ -947,7 +947,7 @@ return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.str
 // that knows how to copy the payload and one fallback chain -- async
 // Clipboard API first, then focusing/selecting the hidden #payload textarea
 // and running the execCommand copy command for browsers (and the Claude
-// mobile app's embedded viewer) that don't expose the async API.
+// mobile app's embedded snapshot) that don't expose the async API.
 // execCommand REPORTS a blocked copy by RETURNING FALSE rather than
 // throwing, so its return value -- not just a try/catch -- is what decides
 // ok/bad; a catch alone would report every blocked copy as a success.
@@ -1041,7 +1041,7 @@ $("ganttview").style.display=v==="gantt"?"":"none";
 $("calview").style.display=v==="calendar"?"":"none"}
 // Mirrors kanban-web's dependency-graph.js semantics (edge = dependency ->
 // waiter, same direction as the kanban-cli skill's Mermaid output) but reads
-// the viewer's own DATA snapshot; a waiting_for id not embedded renders as a
+// the snapshot's own DATA snapshot; a waiting_for id not embedded renders as a
 // ghost stub, same as a stale/deleted reference. Nodes carry both flags:
 // derived done-aware waiting + the manual blocked sticker.
 //
@@ -1392,7 +1392,7 @@ const MONTHS=["January","February","March","April","May","June","July","August",
 const WDSHORT=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 let calY,calM;{const n=new Date();calY=n.getFullYear();calM=n.getMonth()}
 // Sub-views mirror kanban-web's month/week/3day/day set.
-// The viewer is read-only, so sub-month views are stacked day rows with
+// The snapshot is read-only, so sub-month views are stacked day rows with
 // full-width chips instead of the web app's draggable hour grid.
 const CALSUBS=[["month","Month"],["week","Week"],["3day","3-day"],["day","Day"]];
 let calSub="month",calAnchor=todayLocal();
@@ -1769,7 +1769,7 @@ if(sel!==null||creating||notifView)closeCard()}});
 //     some engines to fire at all).
 //   - pagehide / visibilitychange(hidden): beforeunload does NOT fire when
 //     a host DISMISSES the view instead of navigating it away -- which is
-//     exactly what the Claude mobile app does to this viewer. These two
+//     exactly what the Claude mobile app does to this snapshot. These two
 //     fire on a broader set of "the human is leaving" signals (backgrounding
 //     a tab, closing an app switcher card, a mobile OS reclaiming memory)
 //     so between them they're the best available substitute for a
@@ -1797,7 +1797,7 @@ if(sel!==null||creating||notifView)closeCard()}});
 //     guard is inert and the best-effort clipboard copy below is the
 //     only protection. Do not 'fix' this by asking for the prompt back:
 //     it is the host's call, not the page's.
-//   - the Claude mobile app's embedded viewer: this is the host that
+//   - the Claude mobile app's embedded snapshot: this is the host that
 //     motivated pagehide/visibilitychange in the first place (see the
 //     #250/#252 field notes above) -- beforeunload is NOT expected to fire
 //     on its dismiss-the-view gesture. Whether pagehide or a

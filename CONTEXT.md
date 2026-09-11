@@ -12,7 +12,7 @@ The whole kanban — every `*.card.md` file in a board directory (`.kanban/`, th
 _Avoid_: project, list.
 
 **Board name**:
-The short name that qualifies a card mention: the `name:` value in the board's `config.yaml`, one token with no whitespace and no `#`. Declared by the human once, never derived at read time, and shown identically on every surface (web heading and tab, cli board header, viewer title, kanban-afk's `<board>` in prose and in the `(board #id)` commit tag). A board without a name cannot be mentioned across boards; the first AI to service it seeds one from the folder that holds the board's home and notifies the human, who may rename it.
+The short name that qualifies a card mention: the `name:` value in the board's `config.yaml`, one token with no whitespace and no `#`. Declared by the human once, never derived at read time, and shown identically on every surface (web heading and tab, cli board header, snapshot title, kanban-afk's `<board>` in prose and in the `(board #id)` commit tag). A board without a name cannot be mentioned across boards; the first AI to service it seeds one from the folder that holds the board's home and notifies the human, who may rename it.
 _Avoid_: project name, repo name, parent folder (they usually coincide; the rule is the declared value).
 
 **Card**:
@@ -67,17 +67,17 @@ _Avoid_: app, dashboard (in new writing).
 The human's conversational editor — Claude-driven printed board + typed actions, works under remote control on mobile. Full CRUD; write contracts are defined once, in the `kanban` skill.
 _Avoid_: browse, TUI.
 
-**Viewer** (skill `kanban-viewer`):
+**Snapshot** (skill `kanban-snapshot`):
 The human's tap surface — a generated single-file HTML board that works where web can't reach (phone, tablet, Cowork). Changes don't touch disk: they queue in a tray and come back as an "Apply kanban changes" payload that Claude applies under the `kanban` skill's write contracts.
 _Avoid_: remote, editor (it renders and queues; Claude writes).
 
-**Board artifact** (delivery of the **Viewer**):
-The Viewer published as a hosted page at one stable URL: exactly one per board, refreshed in place by whichever session next builds the Viewer, never a new page per session or per request. Each refresh is a snapshot stamped with its base moment; earlier snapshots stay in the page's version history. It is board-keyed, not session-keyed: the URL is recorded on the board itself (`config.yaml`), seeded by the session that first publishes and announced by notification, the same way a board name is seeded. Not a surface: it is the Viewer, delivered where the harness can host a page.
-_Avoid_: "the artifact" unqualified, viewer artifact, session artifact, a page per session.
+**Board artifact** (delivery of the **Snapshot**):
+The Snapshot published as a hosted page at one stable URL: exactly one per board, refreshed in place by whichever session next builds the Snapshot, never a new page per session or per request. Each refresh is stamped with its own base moment; earlier refreshes stay in the page's version history. It is board-keyed, not session-keyed: the URL is recorded on the board itself (`config.yaml`), seeded by the session that first publishes and announced by notification, the same way a board name is seeded. Not a surface: it is the Snapshot, delivered where the harness can host a page.
+_Avoid_: "the artifact" unqualified, snapshot artifact, session artifact, a page per session.
 
 **Base**:
-The moment a Viewer build embeds: the snapshot timestamp shown in the page header and carried in every change payload, so Claude can tell whether the board moved after the human looked at it. A Board artifact refresh replaces one base with a newer one; earlier bases remain as the page history.
-_Avoid_: version (that is the page history), snapshot date, timestamp unqualified.
+The moment a Snapshot build embeds: the base timestamp shown in the page header and carried in every change payload, so Claude can tell whether the board moved after the human looked at it. A Board artifact refresh replaces one base with a newer one; earlier bases remain as the page history.
+_Avoid_: version (that is the page history), snapshot (that is the surface, not the moment), timestamp unqualified.
 
 ## Role trio
 
@@ -101,7 +101,7 @@ Four skills, one board:
 | `kanban` | the AI | file contracts + scripts; also defines `config.yaml` and `notifications.md` and when the AI must notify |
 | `kanban-web` | the human, desktop | live browser editor |
 | `kanban-cli` | the human, anywhere | printed board + `AskUserQuestion` |
-| `kanban-viewer` | the human, phone/tablet/Cowork | generated single-file HTML, edits queue as a change payload |
+| `kanban-snapshot` | the human, phone/tablet/Cowork | generated single-file HTML, edits queue as a change payload |
 
 **Parity rule:** web and cli implement the *same operations under the same rules*
 (CRUD, hard `doing` entry gate (waiting + blocked), bulk actions with per-card skips, speedbumps on every
@@ -120,7 +120,7 @@ Ctrl+F/Cmd+F search-focus hotkey (a printed board has no search box for a
 chord to focus). A feature added to one editor lands in the other (or gets a
 line in this table saying why not). Retired skills are deleted outright.
 Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
-cli as scoped "Dependencies tree/path for #id" Mermaid views and in the viewer
+cli as scoped "Dependencies tree/path for #id" Mermaid views and in the snapshot
 as `tree:`/`path:` search terms plus card-sheet "Dependency tree"/"Dependency
 path" tap actions; the context-menu sugar has no cli equivalent (no search box
 to write a term into).

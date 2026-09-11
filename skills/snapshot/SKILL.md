@@ -1,5 +1,5 @@
 ---
-name: kanban-viewer
+name: kanban-snapshot
 description: (Claude Only) Generate a self-contained interactive HTML editor for a kanban board, and apply the change payloads it produces. The editor works where kanban-web can't reach — phone, tablet, or any remote Claude session — with tappable cards (move, priority, assignee, rename, description, archive, delete, create) and a queued-changes tray whose "Copy changes" button emits an "Apply kanban changes (...)" payload the user pastes back into chat. Use whenever the user wants to edit the board away from kanban-web, asks for a "board editor", "editable board", "editable artifact", "board I can use from my phone", or wants to change cards from a remote/Cowork session. ALSO use (read references/apply-protocol.md first) whenever a user message starts with "Apply kanban changes" — that is this editor's payload and must be applied to the card files. For a desktop browser editor use kanban-web; for pure conversational editing use kanban-cli; for AI-initiated card management use kanban.
 ---
 
@@ -8,7 +8,7 @@ description: (Claude Only) Generate a self-contained interactive HTML editor for
 Generate a single-file HTML board editor the human can open anywhere — including
 the Claude mobile app's file preview — and use to queue real board changes. This
 is the third leg of the surface family: `kanban-web` (desktop editor),
-`kanban-cli` (conversational editor), `kanban-viewer` (read-only tap viewer —
+`kanban-cli` (conversational editor), `kanban-snapshot` (read-only tap snapshot —
 changes queue as a payload; Claude is the write path).
 
 The editor is read-write but indirect: nothing touches disk until the human
@@ -19,7 +19,7 @@ as defined in the kanban skill's SKILL.md.
 ## Generating the editor
 
 ```bash
-python <SCRIPTS_DIR>/build_editor.py <kanban-directory> --out <scratchpad-dir>/kanban-viewer.html \
+python <SCRIPTS_DIR>/build_editor.py <kanban-directory> --out <scratchpad-dir>/kanban-snapshot.html \
     [--base-label "Jul 11, 3:08 pm CT"] [--base-iso 2026-07-11T20:08Z]
 ```
 
@@ -36,7 +36,7 @@ python <SCRIPTS_DIR>/build_editor.py <kanban-directory> --out <scratchpad-dir>/k
   and point the script at the staged copy.
 - `--out` — always a session scratchpad or temp path; the bare default
   writes into the current directory, which is usually a repo.
-- `--base-label` / `--base-iso` — the snapshot moment shown in the header and
+- `--base-label` / `--base-iso` — the base moment shown in the header and
   embedded in payloads. Use the human's local timezone for the label. Defaults
   to now (UTC).
 
@@ -66,7 +66,7 @@ component (undirected flood-fill over `waiting_for` + `parent:` epic
 membership — the same edges the Map view draws); path is the narrower
 directed cone through the card (everything transitively upstream +
 downstream). An unknown id matches nothing; an isolated card is a component
-of one; traversal always runs over the full live + archived snapshot
+of one; traversal always runs over the full live + archived card set
 regardless of the current query or status pills (the Archive pill still
 gates *display* of an archived member, never whether it counts for
 connectivity), and the resolved id set intersects normally with every other
@@ -160,7 +160,7 @@ tree"/"Dependency path" buttons described above.
 
 ## Width tiers
 
-The viewer is tap-first at every size — no layout tier changes the queue,
+The snapshot is tap-first at every size — no layout tier changes the queue,
 payload, or action grammar, only how much of the screen the board uses:
 
 - **<560px (phone):** the baseline single centered column, unchanged.
@@ -211,12 +211,12 @@ query — it's the context menu, unrelated to layout, and starts collapsed
 (only the ellipsis) with its mode remembered per page in localStorage.
 Font/tap sizing is untouched by width tiers.
 
-The page title is `<name> — Kanban Viewer` and the header's lead word is the
+The page title is `<name> — Kanban Snapshot` and the header's lead word is the
 **board name** alone — `config.yaml`'s top-level `name:`, the token that
 qualifies every card mention, falling back to the folder above the board
 directory when the board hasn't declared one (`read_board_name()`; only an
 UNINDENTED `name:` counts, since each assignee entry carries its own indented
-one). The header's base stamp sits in its own span, labeled `viewer · base:`.
+one). The header's base stamp sits in its own span, labeled `snapshot · base:`.
 The value is HTML-escaped and substituted last, so a name can never smuggle in
 another template token.
 
@@ -242,9 +242,9 @@ visually) once the pill is empty, and `prefers-reduced-motion: reduce`
 replaces it with a static red pill. It collapses to nothing when no ops are
 queued, and stays tappable, jumping to the tray at the bottom of the page.
 
-## Mobile viewer notes (learned the hard way)
+## Mobile snapshot notes (learned the hard way)
 
-- The Claude mobile app used to dismiss the HTML viewer on swipe-down; that
+- The Claude mobile app used to dismiss the HTML snapshot on swipe-down; that
   dismissal no longer happens on either delivery route (file preview or the
   Board artifact, verified 2026-09-04/05), so the fixed scroll-button stack is
   no longer insurance — it stays on as the context menu. It starts collapsed
@@ -295,7 +295,7 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   once at load), with the status-pill row on its own line above the strip;
   queueing a create auto-expands the section the new card lands in.
 - Inline chat widgets don't render on all clients; the HTML-file route is the
-  reliable one. Clipboard access can fail in embedded viewers, so the payload is
+  reliable one. Clipboard access can fail in embedded snapshots, so the payload is
   always also visible in a selectable text box under the Copy button. Both the
   Copy changes button and the "N pending" pill copy through the SAME
   `copyPayload()` helper (async Clipboard API, falling back to selecting the
@@ -308,7 +308,7 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   clipboard write of the payload (through the same `copyPayload()` helper,
   forced onto its synchronous `execCommand` path since an async Clipboard
   write is unreliable during unload), because the Claude mobile app
-  dismisses the viewer without firing `beforeunload` at all. An empty tray
+  dismisses the snapshot without firing `beforeunload` at all. An empty tray
   never arms any of this, and neither does a payload that is already on the
   clipboard. `visibilitychange` fires on every tab switch and app
   backgrounding, not just on a real dismissal, so the exit copy puts the
@@ -370,14 +370,14 @@ unchanged; dropping a card back onto its own current section queues
 nothing.
 
 A **Drag** switch lives in the ⋯ stack's extended mode alongside
-＋ ⤒ ⤓ (see "Mobile viewer notes" above) — a move/arrows glyph,
+＋ ⤒ ⤓ (see "Mobile snapshot notes" above) — a move/arrows glyph,
 tinted at reduced opacity when off. Default on; the choice persists per
 page in `localStorage` (key `kanbanViewer.drag`; a missing key or a
 blocked/throwing read both fall back to on — only a stored `"0"` turns
 it off), read live by the same `dragstart` gate, same pattern as
 `stackMode`.
 
-Touch drag is deliberately absent here: `kanban.proj#242 viewer: touch drag and drop with long-press lift` owns it as its
+Touch drag is deliberately absent here: `kanban.proj#242 snapshot: touch drag and drop with long-press lift` owns it as its
 own, independently-scoped card, so this change adds no
 `touchstart`/`pointerdown` handling for board tiles.
 
@@ -397,5 +397,5 @@ format still has room to grow; extend the op vocabulary in
 
 **No touch drag, not yet.** Desktop pointer drag now exists — see
 "Drag and drop" above. Touch input stays untouched by that change:
-`kanban.proj#242 viewer: touch drag and drop with long-press lift` owns touch drag as its own, independently-scoped card,
+`kanban.proj#242 snapshot: touch drag and drop with long-press lift` owns touch drag as its own, independently-scoped card,
 so board tiles get no `touchstart`/`pointerdown` handling from this one.
