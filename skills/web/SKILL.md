@@ -72,7 +72,7 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
   port actually bound** — the pid file and the log line always agree, pin or no
   pin). This dotfile is ignored by the board scripts (only `*.card.md` are
   cards).
-- The `kanban-cli` and `kanban-viewer` skills ignore `port:` entirely — it's a
+- The `kanban-cli` and `kanban-snapshot` skills ignore `port:` entirely — it's a
   serving fact for this app, not board content either of them renders.
 
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
@@ -279,7 +279,7 @@ to `127.0.0.1` only.
   single-card Archive/Delete `confirm()` text. Every call site reuses
   `cardTitleDisplay()` (card-title.js) — no forked title-fallback logic anywhere —
   paired with a `*-prompt-fallback` CSS modifier class (italic/muted, one per surface).
-  It never appears once the card has a real title; the viewer's own reimplementation
+  It never appears once the card has a real title; the snapshot's own reimplementation
   does not carry it. **Empty titles save** when a prompt is present: the form manages
   the title input's `required` dynamically — required UNLESS the prompt row is shown AND
   carries non-empty text, re-evaluated on every reveal/hide and every prompt keystroke.
@@ -392,7 +392,7 @@ to `127.0.0.1` only.
   reaches: board tiles (live and archived) and the map's isolated-row tiles. The
   edit/create modal tints the assignee input's own text directly (`syncAssigneeColor()`,
   always CSSOM) — synced on open and on every keystroke/combobox pick, the same
-  "reflect the live typed value" pattern as the blocked input's red border. The viewer
+  "reflect the live typed value" pattern as the blocked input's red border. The snapshot
   carries the same rule in its own reimplementation — see that skill's write-up.
 - **Markdown body** — the detail popup renders the card body through `mdToHtml()`, a
   minimal dependency-free renderer (headings, bold/italic, inline code, fenced code
@@ -710,7 +710,7 @@ to `127.0.0.1` only.
   Focusing hides everything outside the result and re-lays-out, exactly like a typed
   search — a cone edge exiting the focused set renders as the existing ghost stub, no
   new rendering path. The right-click menu offers these as sugar — see Multi-select.
-  Mirrored in cli (scoped Mermaid views) and the viewer (same search terms + card-sheet
+  Mirrored in cli (scoped Mermaid views) and the snapshot (same search terms + card-sheet
   tap actions) — see CONTEXT.md's parity table.
 - **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
   (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
@@ -814,7 +814,7 @@ to `127.0.0.1` only.
   own default, unlike the column "+", since a calendar cell doesn't imply one. A
   double-click landing on a chip is the chip's own affair (the shared card grammar),
   excluded before the cell/column lookup ever runs. cli has no calendar (see CONTEXT.md's
-  parity table) and the viewer's own calendar has no click-to-create — a deliberate,
+  parity table) and the snapshot's own calendar has no click-to-create — a deliberate,
   unbuilt gap.
 - **Gantt view** — a top-bar "📊 Gantt" button swaps the board for a day-granular
   timeline: each dated live card gets a row (dated ARCHIVED cards join too, opt-in via
@@ -970,7 +970,7 @@ it does not define a second contract. Not a card — only `*.card.md` files are 
 - This is the **only** skill that runs a server / is desktop-only. The plugin has
   exactly four surfaces: **kanban** (AI-driven card management), **kanban-web** (this —
   the human's live editor, desktop), **kanban-cli** (the human's conversational editor,
-  works under remote control), **kanban-viewer** (generated single-file HTML board for
+  works under remote control), **kanban-snapshot** (generated single-file HTML board for
   phone/tablet; queued-change payload, Claude applies). Retired skills are deleted
   outright; CONTEXT.md's Surfaces and parity section carries the cross-surface parity
   rule and the deliberate gaps.

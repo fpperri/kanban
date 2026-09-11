@@ -1,6 +1,6 @@
-# The mobile viewer
+# The mobile snapshot
 
-`kanban-viewer` is the surface for editing the board where `kanban-web` can't
+`kanban-snapshot` is the surface for editing the board where `kanban-web` can't
 reach — a phone, a tablet, or a remote Claude session. It generates a **single,
 self-contained HTML file** (no server, everything inlined) that you open and
 tap through. It's read-write but **indirect**: nothing touches disk until you
@@ -13,7 +13,7 @@ archive rules — in one place.
 From the repo root:
 
 ```bash
-python skills/viewer/scripts/build_editor.py examples/demo-board --out editor.html
+python skills/snapshot/scripts/build_editor.py examples/demo-board --out editor.html
 ```
 
 (`python3` on macOS/Linux if that is the only interpreter name; on Windows `python3`
@@ -24,11 +24,11 @@ phone). The screenshots below are the bundled `examples/demo-board` on a phone.
 
 Under Claude Code, this file is delivered as the board's **Board artifact** —
 one hosted page per board, refreshed in place — per
-`skills/viewer/references/board-artifact.md`.
+`skills/snapshot/references/board-artifact.md`.
 
 ## Board
 
-![Viewer board](images/viewer-board.jpg)
+![Snapshot board](images/snapshot-board.jpg)
 
 Status sections start **collapsed** — name and count only — so the board opens
 as a compact overview; tap a section to expand it. A status-pill row filters
@@ -39,9 +39,9 @@ tag.
 
 ## Getting around
 
-![Scroll-button stack](images/viewer-scroll-stack.jpg)
+![Scroll-button stack](images/snapshot-scroll-stack.jpg)
 
-Phones swipe-dismiss an HTML preview, so the viewer ships a fixed
+Phones swipe-dismiss an HTML preview, so the snapshot ships a fixed
 **scroll-button stack** in the corner (it doubles as the context menu): jump to
 top/bottom, page up/down, add a card, and a `⋯` that cycles how much of the
 stack is shown. It's how you move around without the page scrolling out from
@@ -52,18 +52,18 @@ under you.
 The same three extra views as the desktop app, rendered read-only here and
 laid out for a narrow screen:
 
-![Viewer map](images/viewer-map.jpg)
+![Snapshot map](images/snapshot-map.jpg)
 *Map — the `waiting_for` graph with a workable / waiting / blocked / not-on-board legend; the epic's membership edges are orange.*
 
-![Viewer gantt](images/viewer-gantt.jpg)
+![Snapshot gantt](images/snapshot-gantt.jpg)
 *Gantt — working-range bars and due diamonds, grouped by status, with an undated-cards row below.*
 
-![Viewer calendar](images/viewer-calendar.jpg)
+![Snapshot calendar](images/snapshot-calendar.jpg)
 *Calendar — Month / Week / 3-day / Day sub-views; the sub-month views are tap-friendly day rows with counts.*
 
 ## A card up close
 
-![Viewer card sheet](images/viewer-card-detail.jpg)
+![Snapshot card sheet](images/snapshot-card-detail.jpg)
 
 Tapping a card opens its sheet in place: a status / assignee / priority pill row
 (tap a pill to edit that field), the description, an **All fields** grid for
@@ -73,7 +73,7 @@ dependency web (no view switch — whatever view you're on just filters to it).
 
 ## Creating a card
 
-![Viewer new-card form](images/viewer-new-card.jpg)
+![Snapshot new-card form](images/snapshot-new-card.jpg)
 
 **+ New card** opens the same sheet in create mode — title, status, priority,
 assignee, and an optional description — and nothing joins the board until you
@@ -81,7 +81,7 @@ tap **Accept**.
 
 ## The change loop
 
-![Pending-changes tray](images/viewer-pending-changes.jpg)
+![Pending-changes tray](images/snapshot-pending-changes.jpg)
 
 Every move, edit, create, archive, or delete you make **queues** into a
 *Pending changes* tray instead of writing to disk. When you're done, tap **Copy

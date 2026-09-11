@@ -16,7 +16,7 @@ that tag into the installer's selection menu.
   equivalent named in the skill. Porting it means replacing every
   `AskUserQuestion` call with that harness's own prompt/confirmation
   mechanism (or plain free-text Q&A) — a port this repo doesn't ship.
-- **`kanban-viewer`** — **partially portable.** The generator
+- **`kanban-snapshot`** — **partially portable.** The generator
   (`build_editor.py`) and the static HTML it produces are plain Python +
   browser code with no Claude dependency. But the SKILL.md's delivery/apply
   loop names Claude-specific tools and surfaces (`SendUserFile`, "Cowork",

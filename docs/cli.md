@@ -92,7 +92,7 @@ it, epics as the sink with dashed membership edges) — the Mermaid equivalent o
 the web **Map view**. Scope it to one card with **"Dependencies tree for #7"**
 (the whole connected component) or **"Dependencies path for #7"** (just the
 directed upstream+downstream cone) — the same `tree:`/`path:` grammar the web
-map and viewer expose.
+map and snapshot expose.
 
 ## Parity with the web editor
 
@@ -106,4 +106,4 @@ re-prints (a transcript is ephemeral).
 ---
 
 For a desktop browser, see the **[web editor](web.md)**; for a phone, the
-**[mobile viewer](viewer.md)**.
+**[mobile snapshot](snapshot.md)**.

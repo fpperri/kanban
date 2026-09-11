@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Card #239: the Viewer is delivered as the board's Board artifact — one
+// Card #239: the Snapshot is delivered as the board's Board artifact — one
 // hosted page per board, refreshed in place. These are static text checks
 // (no DOM, no Python execution) confirming the naming and the pointer to
 // the reference procedure survive edits.
@@ -17,20 +17,20 @@ const skillSrc = fs.readFileSync(
   'utf8'
 );
 
-test('page <title> template names it the Kanban Viewer', () => {
-  assert.match(buildSrc, /<title>[^<]*— Kanban Viewer<\/title>/);
+test('page <title> template names it the Kanban Snapshot', () => {
+  assert.match(buildSrc, /<title>[^<]*— Kanban Snapshot<\/title>/);
 });
 
-test('header chrome labels the base stamp "viewer · base:"', () => {
+test('header chrome labels the base stamp "snapshot · base:"', () => {
   assert.ok(
-    buildSrc.includes('viewer · base:'),
-    'expected the header span text "viewer · base:" in build_editor.py'
+    buildSrc.includes('snapshot · base:'),
+    'expected the header span text "snapshot · base:" in build_editor.py'
   );
 });
 
 test('SKILL.md points at the board-artifact reference', () => {
   assert.ok(
     skillSrc.includes('references/board-artifact.md'),
-    'expected skills/viewer/SKILL.md to mention references/board-artifact.md'
+    'expected skills/snapshot/SKILL.md to mention references/board-artifact.md'
   );
 });

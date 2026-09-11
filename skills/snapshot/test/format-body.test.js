@@ -6,7 +6,7 @@ const path = require('node:path');
 // --- Minimal inline formatting for card bodies --------------------------------
 // **bold** -> <strong>, `code` -> <code>. Nothing else (no headings, lists,
 // links, or nesting inside a matched span); unmatched/unclosed markers render
-// literally. The viewer has no separate viewer/*.js file to require() (all its
+// literally. The snapshot has no separate snapshot/*.js file to require() (all its
 // JS lives inline in build_editor.py's TEMPLATE string) and no pre-existing
 // test suite, so this file starts one, using the same extract-then-assert
 // technique skills/web/test/notifications.test.js already uses for app.js's
@@ -142,7 +142,7 @@ test('the card-sheet render path calls bodyNode(c.body) instead of dumping raw t
   assert.match(src, /d\.appendChild\(bodyNode\(c\.body\)\)/);
 });
 
-test('the .bodytxt code CSS rule is monospace and theme-consistent with the rest of the viewer', () => {
+test('the .bodytxt code CSS rule is monospace and theme-consistent with the rest of the snapshot', () => {
   assert.match(src, /\.bodytxt code\{[^}]*font-family:[^}]*monospace[^}]*\}/);
 });
 

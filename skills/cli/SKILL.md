@@ -270,7 +270,7 @@ Full CRUD, the `doing` entry gate (waiting + blocked), bulk actions, speedbumps,
 notifications, dependency view, assignee suggestions: **same behavior, same
 rules.** Web's `tree:`/`path:` dependency-focus search terms are mirrored as
 the scoped "Dependencies tree/path for #id" variants above, and as
-`tree:`/`path:` search terms plus card-sheet tap actions in the viewer; the
+`tree:`/`path:` search terms plus card-sheet tap actions in the snapshot; the
 context-menu sugar has no cli equivalent to mirror — there's no search box to
 write a term into. Deliberately not mirrored (medium mismatch): drag & drop
 (typed commands instead), collapse state and any `localStorage` persistence (a

@@ -7,8 +7,8 @@ Apply kanban changes (N ops, base <ISO-STAMP>):
 [ ...JSON op array... ]
 ```
 
-is the kanban-viewer's change payload — the human's reviewed intent. Apply it to
-the card files. The base stamp is when the editor's snapshot was taken; anything
+is the kanban-snapshot's change payload — the human's reviewed intent. Apply it to
+the card files. The base stamp is when the editor's page was built; anything
 that changed on disk after it is a potential conflict, not an overwrite target.
 
 The canonical board write contracts (card fields, `doing` entry gate, sticker
@@ -56,7 +56,7 @@ write them as-is. Refresh `updated:` on any fm write.
 id yet at queue time, so there is no card to target a separate `edit.fm` op
 at. The editor's own new-card sheet uses this for the optional `prompt`
 field: `{"op":"create","title":"…","status":"todo","fm":{"prompt":"…"}}` —
-written quoted like any other `prompt`, e.g. `prompt: "viewer: do X"`.
+written quoted like any other `prompt`, e.g. `prompt: "snapshot: do X"`.
 The three special keys resolve on a create as follows: `fm.id` and
 `fm.updated` are ignored (the create sets both itself), and `fm.status` is
 ignored too — the op's own top-level `status` is what decides the landing
@@ -118,7 +118,7 @@ successfully — `fm` changes nothing about that order.
      SendUserFile + device_commit_files with `expectedMtimeMs`.
 5. **Notify:** append one entry to `notifications.md` per applied payload,
    per the notifications contract in the kanban skill's SKILL.md. Payload
-   specifics: `from: "cowork:board-editor"` or `"skill:kanban-viewer"`; a
+   specifics: `from: "cowork:board-editor"` or `"skill:kanban-snapshot"`; a
    `level:` (`info` normally; `warning` when ops were skipped, `error` when
    the whole payload failed); a TLDR-first `message` — one plain sentence,
    then `; more: ` enumerating what changed per op (applied/skipped + why).

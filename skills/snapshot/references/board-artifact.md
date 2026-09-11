@@ -9,9 +9,11 @@ tool is available. Never mint a new page for a board that already has one.
 - Read the board's `config.yaml`. If it has a top-level `artifact:` key (sits
   right after `name:`), that URL IS the Board artifact — use it below.
 - No `artifact:` line: call the Artifact tool, `action: "list"`, `limit: 50`.
-  Adopt the first entry whose title is exactly `<name> — Kanban Viewer` or
-  the legacy `<name> — kanban editor` (`<name>` = this board's declared
-  name). Found one → treat its URL the same as above (this is an adopt).
+  Adopt the first entry whose title is exactly `<name> — Kanban Snapshot`, or
+  either legacy title — `<name> — Kanban Viewer` (what every page published
+  before the surface was renamed still carries) or `<name> — kanban editor`.
+  `<name>` = this board's declared name. Found one → treat its URL the same
+  as above (this is an adopt).
 - No line and no gallery match in that page → say so to the human (no
   matching page in the newest 50) and confirm before minting a new one
   (first publish, no URL yet) — don't mint automatically, since a match
@@ -19,7 +21,7 @@ tool is available. Never mint a new page for a board that already has one.
 
 ## 2. Build
 
-Build with `build_editor.py --out <session-scratchpad>/kanban-viewer.html`
+Build with `build_editor.py --out <session-scratchpad>/kanban-snapshot.html`
 (a temp dir is fine; never the repo root and never the bare default, which
 writes to the session cwd), passing `--base-label` in the human's local time
 and `--base-iso` in UTC. Check the output for U+FFFD. If present, the source
@@ -52,8 +54,8 @@ notify again the same way.
 
 ## 5. Warm-session refresh
 
-The human says "refresh the viewer" in a session that already published this
+The human says "refresh the snapshot" in a session that already published this
 board's page earlier in this session: do steps 2–3 only — build, then
 publish by the URL you already hold, skipping the `read` in step 3. Do not
-re-run the kanban-viewer skill's generation flow and do not re-derive
+re-run the kanban-snapshot skill's generation flow and do not re-derive
 identity — you already have the URL.
