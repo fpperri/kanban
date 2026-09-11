@@ -254,7 +254,7 @@ test('.map-node.high/.waiting rect strokes match the board tile\'s red/amber exa
 
 test('the blocked sticker\'s red pill is styled on both surfaces it shows (tiles + map), same red as high priority', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.match(css, /\.blocked-pill\s*\{[^}]*border:\s*1px solid #f85149/, 'board tile pill — red border');
+  assert.match(css, /\.blocked-pill\s*\{[^}]*background:\s*rgba\(248,\s*81,\s*73,/, 'board tile pill — red wash (herd .state grammar: wash of its own colour, no border)');
   assert.match(css, /\.blocked-pill\s*\{[^}]*color:\s*#f85149/, 'board tile pill — red text');
   assert.match(css, /\.map-blocked-pill rect\s*\{[^}]*stroke:\s*#f85149/, 'map SVG pill twin — same red');
   assert.match(css, /\.map-blocked-pill text\s*\{[^}]*fill:\s*#f85149/, 'map SVG pill text — same red');
