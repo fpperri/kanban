@@ -12,7 +12,7 @@ The whole kanban — every `*.card.md` file in a board directory (`.kanban/`, th
 _Avoid_: project, list.
 
 **Board name**:
-The short name that qualifies a card mention: the `name:` value in the board's `config.yaml`, one token with no whitespace and no `#`. Declared by the human once, never derived at read time, and shown identically on every surface (web heading and tab, cli board header, snapshot title, kanban-afk's `<board>` in prose and in the `(board #id)` commit tag). A board without a name cannot be mentioned across boards; the first AI to service it seeds one from the folder that holds the board's home and notifies the human, who may rename it.
+The short name that qualifies a card mention: the `name:` value in the board's `config.yaml`, one token with no whitespace and no `#`. Declared by the human once, never derived at read time, and shown identically on every surface (web heading and tab, snapshot title, kanban-afk's `<board>` in prose and in the `(board #id)` commit tag). A board without a name cannot be mentioned across boards; the first AI to service it seeds one from the folder that holds the board's home and notifies the human, who may rename it.
 _Avoid_: project name, repo name, parent folder (they usually coincide; the rule is the declared value).
 
 **Card**:
@@ -32,7 +32,7 @@ The scan-optimized format for every bullet in a card's `## Narrative` section: a
 _Avoid_: fusing multiple events into one bullet, sub-bullets or nested lists, rewriting old entries to the new shape.
 
 **Status** (a.k.a. **Column**):
-A card's place in the workflow. The four built-ins — `backlog`, `todo`, `doing`, `done` — are the **default** live columns; a board may configure its own list via `config.yaml`'s `statuses` (ordered = column order), and that list then IS the live column set everywhere (web columns and drag targets, cli board print (view_board.sh honors the inline `[a, b]` form only; a block-form list falls back to the default four there), form options, gantt group order). "Status" is the frontmatter field; "column" is how that status renders on the board. A status value not in the list stays legal on disk — it renders in the list's **first** column with its raw value shown, and is never rewritten; promotion = the human adds it to the list. The `doing` entry gate (waiting + blocked) is pinned to the literal status `doing` regardless of the list. `archive` is **not** a status and never a list entry. The four built-ins carry distinct intents: `backlog` = shelved for later / someday (far queue); `todo` = ready, or paused for soon-ish resumption (near queue); `doing` = actively owned — a live AFK worker, or a human working or holding it; `done` = truly finished and approved (not merely PR-opened). `review` and `blocked` are **stickers, not columns** (below): a card keeps its real status and wears them as overlays, so "in `doing` and awaiting your review" is expressible.
+A card's place in the workflow. The four built-ins — `backlog`, `todo`, `doing`, `done` — are the **default** live columns; a board may configure its own list via `config.yaml`'s `statuses` (ordered = column order), and that list then IS the live column set everywhere (web columns and drag targets, the `kanban` skill's board print (view_board.sh honors the inline `[a, b]` form only; a block-form list falls back to the default four there), form options, gantt group order). "Status" is the frontmatter field; "column" is how that status renders on the board. A status value not in the list stays legal on disk — it renders in the list's **first** column with its raw value shown, and is never rewritten; promotion = the human adds it to the list. The `doing` entry gate (waiting + blocked) is pinned to the literal status `doing` regardless of the list. `archive` is **not** a status and never a list entry. The four built-ins carry distinct intents: `backlog` = shelved for later / someday (far queue); `todo` = ready, or paused for soon-ish resumption (near queue); `doing` = actively owned — a live AFK worker, or a human working or holding it; `done` = truly finished and approved (not merely PR-opened). `review` and `blocked` are **stickers, not columns** (below): a card keeps its real status and wears them as overlays, so "in `doing` and awaiting your review" is expressible.
 _Avoid_: stage, state, lane, swimlane.
 
 **Archive**:
@@ -63,10 +63,6 @@ _Avoid_: column, lane (it is a sticker, not a status); approved, done (a review 
 The human's live editor — localhost Node server + browser SPA, desktop only. "App" and "dashboard" in older writing both refer to this skill (the static `kanban-dashboard` skill is deleted).
 _Avoid_: app, dashboard (in new writing).
 
-**CLI** (skill `kanban-cli`):
-The human's conversational editor — Claude-driven printed board + typed actions, works under remote control on mobile. Full CRUD; write contracts are defined once, in the `kanban` skill.
-_Avoid_: browse, TUI.
-
 **Snapshot** (skill `kanban-snapshot`):
 The human's tap surface — a generated single-file HTML board that works where web can't reach (phone, tablet, Cowork). Changes don't touch disk: they queue in a tray and come back as an "Apply kanban changes" payload that Claude applies under the `kanban` skill's write contracts.
 _Avoid_: remote, editor (it renders and queues; Claude writes).
@@ -94,33 +90,25 @@ surface suggests exactly this trio as its default.
 
 ## Surfaces and parity
 
-Four skills, one board:
+Three skills, one board:
 
 | Surface | For | Medium |
 | --- | --- | --- |
 | `kanban` | the AI | file contracts + scripts; also defines `config.yaml` and `notifications.md` and when the AI must notify |
 | `kanban-web` | the human, desktop | live browser editor |
-| `kanban-cli` | the human, anywhere | printed board + `AskUserQuestion` |
 | `kanban-snapshot` | the human, phone/tablet/Cowork | generated single-file HTML, edits queue as a change payload |
 
-**Parity rule:** web and cli implement the *same operations under the same rules*
-(CRUD, hard `doing` entry gate (waiting + blocked), bulk actions with per-card skips, speedbumps on every
-destructive action, notifications inbox, dependency view, assignee/priority/tag
-suggestions from `config.yaml`'s official lists).
-Deliberately unmirrored in cli (medium mismatch): the calendar, gantt, and map
-views (a printed board has no continuous surfaces; ask cli for dated-card lists
-instead), the date-picker popover (cli input is already free text), drag & drop, collapse state,
-`localStorage` persistence, per-column persisted sort, the SVG map, the 5s poll,
-search-as-you-type, the header copy-board-path button (a browser needs a
-clipboard affordance; a terminal transcript is already selectable text, and cli
-prints the board path on request), popup fullscreen and its Alt+Enter hotkey
-(a printed board has no popups or keyboard chords), the Ctrl+S/Cmd+S
-save-the-open-popup hotkey (same no-popups-no-chords reasoning), and the
-Ctrl+F/Cmd+F search-focus hotkey (a printed board has no search box for a
-chord to focus). A feature added to one editor lands in the other (or gets a
-line in this table saying why not). Retired skills are deleted outright.
+**Parity rule:** every surface writes under the *same board contracts* — the
+hard `doing` entry gate (waiting + blocked), archive-as-location, id
+allocation, `config.yaml`'s suggest-never-validate lists — defined once, in
+the `kanban` skill. Web carries the full operation set (CRUD, multi-select
+bulk actions with per-card skips, speedbumps on every destructive action,
+notifications inbox, dependency/gantt/calendar views); the snapshot carries
+the same board contracts through a tap UI whose changes Claude applies, and
+names its own deliberate gaps in `skills/snapshot/SKILL.md`'s "What the
+editor deliberately does not do". A feature added to one editor lands in the
+other (or gets a line in that surface's own skill doc saying why not).
+Retired skills are deleted outright.
 Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
-cli as scoped "Dependencies tree/path for #id" Mermaid views and in the snapshot
-as `tree:`/`path:` search terms plus card-sheet "Dependency tree"/"Dependency
-path" tap actions; the context-menu sugar has no cli equivalent (no search box
-to write a term into).
+the snapshot as `tree:`/`path:` search terms plus card-sheet "Dependency
+tree"/"Dependency path" tap actions.
