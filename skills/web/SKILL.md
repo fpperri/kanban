@@ -246,7 +246,7 @@ to `127.0.0.1` only.
   touching those fields directly. Turning the toggle ON while creating a NEW card also
   sets Assignee straight to `@afk`; flipping it on while editing leaves the card's
   assignee untouched, and the column header's AI-sparkle button lands on the same
-  "prompt row open, assignee @afk" state through the same helper. That flip is the
+  "prompt row open, assignee `@afk`" state through the same helper. That flip is the
   human's own form gesture — distinct from prompt *servicing*, which can never
   escalate a card to `@afk` (only the trusted card body may pre-authorize
   autonomous work). It is NOT a sticker:
@@ -546,7 +546,7 @@ to `127.0.0.1` only.
   Esc closes the menu only (never bubbling into the popup-level Esc above). Enter
   reaches the surrounding form's native submit-on-Enter ONLY when the menu is closed —
   any other Enter is consumed by the menu itself (picks if something's highlighted, else
-  just closes it) — so the keyboard flow "type title, ArrowDown+Enter to pick @afk,
+  just closes it) — so the keyboard flow "type title, ArrowDown+Enter to pick `@afk`,
   Enter to submit" takes two Enters; the mouse-pick flow (click a suggestion, then
   Enter) submits on one, since the mousedown pick already closed the menu. Hand-rolled
   menus, not `<datalist>` (ADR 0003): native datalists misrender inside VSCode's Simple
