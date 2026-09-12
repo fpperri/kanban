@@ -91,9 +91,18 @@ term and pill, same as any other search term.
 
 Every view carries a status-pill row: statuses default on,
 **Archive defaults off** — toggling the Archive pill reveals archived cards
-(embedded display-only, bodies stripped, never tappable; archive is a
-location, not a status) as a muted trailing board section, a muted gantt
-group, dimmed map nodes, and gray calendar chips. The build walks `archived/`
+(embedded read-only, **bodies NOT stripped — re-capped at 1500 characters**,
+and tappable, opening a read-only detail sheet; archive is a location, not a
+status) as a muted trailing board section, a muted gantt
+group, dimmed map nodes, and gray calendar chips. **What that means before you publish one of these.** Every archived card's body
+travels inside the file, truncated but not removed, and live bodies ride along
+capped at 4000 characters. The generator takes no flag to leave archived cards
+out, so the only way to build a snapshot without them today is to stage a
+filtered copy of the board and point the script at that. On a board holding
+anything sensitive, read that sentence again before handing the file anywhere it
+could be hosted — this page is a full text extract, not a summary.
+
+The build walks `archived/`
 **recursively** (ADR 0010), so a card filed in an `archived/<package>/`
 grouping folder embeds like any other archived card; the editor's own
 `archive` op still writes to the `archived/` root, packages being

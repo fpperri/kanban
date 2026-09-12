@@ -69,3 +69,29 @@ test('the delivery step does not route to publishing merely because the tool exi
     'the delivery step again makes publishing conditional on the tool being present',
   );
 });
+
+// --- Docs must not lie about what travels in the file -------------------
+// SKILL.md claimed archived bodies were "stripped" and the cards "never
+// tappable". Both were false: the generator re-caps archived bodies at 1500
+// characters and archived cards open a read-only sheet. That matters more than
+// an ordinary doc slip, because a reader who believes bodies are stripped may
+// publish the file somewhere hosted. These pin the doc against the code.
+const buildSrcText = fs.readFileSync(
+  path.join(__dirname, '..', 'scripts', 'build_editor.py'), 'utf8');
+
+test('the generator still caps rather than strips archived bodies', () => {
+  assert.match(buildSrcText, /c\["body"\] = c\["body"\]\[:1500\]/,
+    'archived body handling changed — SKILL.md says capped at 1500 and must be updated with it');
+});
+
+test('SKILL.md does not claim archived bodies are stripped', () => {
+  assert.doesNotMatch(skillSrc, /bodies stripped/,
+    'SKILL.md claims archived bodies are stripped; the generator caps them instead');
+});
+
+test('SKILL.md warns that bodies travel in the file', () => {
+  assert.match(skillSrc, /bodies NOT stripped/,
+    'the archive sentence no longer states that bodies travel in the file');
+  assert.match(skillSrc, /full text extract, not a summary/,
+    'the publish warning is gone — a reader could ship archived bodies unaware');
+});
