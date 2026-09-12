@@ -3,16 +3,16 @@
 Markdown kanban boards for AI coding agents.
 
 A directory of `*.card.md` files **is** the board — no database, no daemon,
-just plain git-friendly Markdown. Four surfaces sit on top of it, so you (or
-the AI) can work the same board from a browser, a terminal, a phone, or a
-Claude Code session.
+just plain git-friendly Markdown. Three surfaces sit on top of it, so you (or
+the AI) can work the same board from a browser, a phone, or a Claude Code
+session.
 
 ## Why
 
 Your task list already lives next to your code, versioned in the same repo,
 diffable in the same PRs. Claude can create and move cards as part of its own
-work; you can drag them around in a browser, chat through them at a terminal,
-or tap through them on a phone. One set of files, no export/import step,
+work; you can drag them around in a browser or tap through them on a phone.
+One set of files, no export/import step,
 nothing to host.
 
 ## What this is (and isn't)
@@ -23,13 +23,11 @@ to pick up cards, dispatch agents, and run workflows based on the board state.
 
 ## What it looks like
 
-A board is just a folder of cards — edit it from a browser, a terminal, or your
-phone. A guide for each editing surface:
+A board is just a folder of cards — edit it from a browser or your phone. A
+guide for each editing surface:
 
 - **[Web editor (desktop)](docs/web.md)** — the live browser app: board,
   dependency map, gantt, calendar, and full drag-drop CRUD.
-- **[CLI (conversational)](docs/cli.md)** — work the board by chatting with
-  Claude; the same operations, at a terminal or under remote control.
 - **[Mobile snapshot](docs/snapshot.md)** — a tap-through board for your phone that
   queues its edits back to Claude to apply.
 
@@ -43,7 +41,7 @@ Two paths, depending on your harness.
 npx skills add KingCrimsonFPP/kanban
 ```
 
-The installer scans the repo, lists the four skills in a selection menu
+The installer scans the repo, lists the three skills in a selection menu
 (name + short description), and installs the ones you pick into your agent
 harness — Claude Code, GitHub Copilot, and the other harnesses `npx skills`
 supports. Skills whose menu description leads with **(Claude Only)** depend
@@ -57,7 +55,7 @@ on Claude Code built-ins and won't port cleanly elsewhere — see
 /plugin install kanban@kanban
 ```
 
-Installs all four skills at once, plus the `.claude-plugin/` marketplace
+Installs all three skills at once, plus the `.claude-plugin/` marketplace
 wiring. Claude Code only.
 
 ## Quick start
@@ -83,20 +81,18 @@ Browser — it's desktop/localhost-only by design (see ADR 0002). `examples/demo
 is a self-contained sample board; point the same command at any directory of
 `*.card.md` files to run your own.
 
-## The four surfaces
+## The three surfaces
 
 | Surface | For | What it is |
 | --- | --- | --- |
 | `kanban` | the AI | AI-driven card management — every file contract (card frontmatter, `config.yaml`, `notifications.md`) and when the AI must notify the human lives here. |
 | `kanban-web` | the human, desktop | A live browser editor: a localhost Node server (stdlib-only) + vanilla-JS SPA with drag-drop board, full CRUD, bulk actions, search, a notifications inbox, and four views (board, dependency map, gantt, calendar). Bound to `127.0.0.1` only. |
-| `kanban-cli` | the human, anywhere | A conversational editor — Claude prints the board and drives typed actions and `AskUserQuestion`, with the same operations and rules as `kanban-web`. Works identically at a terminal or under remote control on mobile. |
 | `kanban-snapshot` | the human, phone/tablet/Cowork | Generates a self-contained single-file HTML board — a tap UI (move, edit, archive, delete, create) whose edits queue in a tray, nothing touching disk until you paste its "Apply kanban changes" payload back into chat — Claude is the write path. |
 
-Web and CLI implement the same operations under the same rules (the `doing`
-entry gate, bulk actions, speedbumps, notifications); a few things are
-deliberately unmirrored where the medium doesn't support them (drag & drop,
-`localStorage` persistence, the SVG map, and so on). See `CONTEXT.md` for the
-full parity table.
+The web editor and the snapshot write under the same board contracts (the
+`doing` entry gate, archive-as-location, id allocation) — the snapshot
+indirectly, through a payload Claude applies. Its own deliberate gaps are
+listed in its skill. See `CONTEXT.md` for the full parity table.
 
 ## The board data model
 
@@ -165,7 +161,7 @@ adding it to the list.
 ## More docs
 
 - [`docs/adr/`](docs/adr/) — architecture decision records (ADR 0001–0010),
-  covering why the CLI is Claude-driven, why `kanban-web` gets a scoped
+  covering why the retired CLI surface was Claude-driven, why `kanban-web` gets a scoped
   local-server exception, hand-rolled widgets, tolerant vocabulary registries,
   archive-column UI parity, the shared interaction grammar, the date triad,
   the machine-managed `updated` field, review and human-attention as
@@ -175,7 +171,7 @@ adding it to the list.
   which skills port cleanly outside Claude Code and which carry the
   (Claude Only) tag, and why.
 - [`CONTEXT.md`](CONTEXT.md) — the ubiquitous-language glossary for every term
-  used across the four surfaces (board, card, status, waiting, blocked, the
+  used across the three surfaces (board, card, status, waiting, blocked, the
   role trio, and more).
 - [`SECURITY.md`](SECURITY.md) — `kanban-web`'s threat model: the board files
   are the trust boundary, not HTTP auth.

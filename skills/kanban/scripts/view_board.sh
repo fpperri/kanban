@@ -8,7 +8,7 @@
 # present. Supported here: the INLINE flow form only — `statuses: [a, b, c]`
 # (quotes/comments tolerated, single-word statuses only). The block (`- item`)
 # form is NOT parsed by this bash script and falls back to the default four —
-# use the inline form if the CLI board print should follow a custom list.
+# use the inline form if this skill's board print should follow a custom list.
 # A card whose status isn't in the list groups under the FIRST column
 # (the catch-all) with its raw status shown inline as [status: <raw>].
 # Flags:

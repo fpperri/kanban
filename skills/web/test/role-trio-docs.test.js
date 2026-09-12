@@ -13,7 +13,6 @@ const path = require('node:path');
 const repoRoot = path.join(__dirname, '..', '..', '..');
 const kanbanSkill = fs.readFileSync(path.join(repoRoot, 'skills', 'kanban', 'SKILL.md'), 'utf8');
 const webSkill = fs.readFileSync(path.join(repoRoot, 'skills', 'web', 'SKILL.md'), 'utf8');
-const cliSkill = fs.readFileSync(path.join(repoRoot, 'skills', 'cli', 'SKILL.md'), 'utf8');
 
 test('skills/kanban/SKILL.md\'s config.yaml example shows the @human/@hitl/@afk trio, not a lone personal handle', () => {
   assert.ok(kanbanSkill.includes('handle: "@human"'));
@@ -39,10 +38,6 @@ test('skills/web/SKILL.md\'s config.yaml example shows the @human/@hitl/@afk tri
   assert.ok(webSkill.includes('handle: "@hitl"'));
   assert.ok(webSkill.includes('handle: "@afk"'));
   assert.ok(!webSkill.includes('@alex'));
-});
-
-test('skills/cli/SKILL.md\'s bulk-assign example no longer hardcodes a pre-trio personal handle', () => {
-  assert.ok(!cliSkill.includes('@alex'));
 });
 
 // The "Creating a Card" worked example (the doc's only full card-creation

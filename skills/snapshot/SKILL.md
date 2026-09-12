@@ -1,15 +1,15 @@
 ---
 name: kanban-snapshot
-description: (Claude Only) Generate a self-contained interactive HTML editor for a kanban board, and apply the change payloads it produces. The editor works where kanban-web can't reach — phone, tablet, or any remote Claude session — with tappable cards (move, priority, assignee, rename, description, archive, delete, create) and a queued-changes tray whose "Copy changes" button emits an "Apply kanban changes (...)" payload the user pastes back into chat. Use whenever the user wants to edit the board away from kanban-web, asks for a "board editor", "editable board", "editable artifact", "board I can use from my phone", or wants to change cards from a remote/Cowork session. ALSO use (read references/apply-protocol.md first) whenever a user message starts with "Apply kanban changes" — that is this editor's payload and must be applied to the card files. For a desktop browser editor use kanban-web; for pure conversational editing use kanban-cli; for AI-initiated card management use kanban.
+description: (Claude Only) Generate a self-contained interactive HTML editor for a kanban board, and apply the change payloads it produces. The editor works where kanban-web can't reach — phone, tablet, or any remote Claude session — with tappable cards (move, priority, assignee, rename, description, archive, delete, create) and a queued-changes tray whose "Copy changes" button emits an "Apply kanban changes (...)" payload the user pastes back into chat. Use whenever the user wants to edit the board away from kanban-web, asks for a "board editor", "editable board", "editable artifact", "board I can use from my phone", or wants to change cards from a remote/Cowork session. ALSO use (read references/apply-protocol.md first) whenever a user message starts with "Apply kanban changes" — that is this editor's payload and must be applied to the card files. For a desktop browser editor use kanban-web; for AI-initiated card management use kanban.
 ---
 
 # Kanban Editor
 
 Generate a single-file HTML board editor the human can open anywhere — including
 the Claude mobile app's file preview — and use to queue real board changes. This
-is the third leg of the surface family: `kanban-web` (desktop editor),
-`kanban-cli` (conversational editor), `kanban-snapshot` (read-only tap snapshot —
-changes queue as a payload; Claude is the write path).
+is the human's second surface: `kanban-web` (desktop editor) and
+`kanban-snapshot` (read-only tap snapshot — changes queue as a payload;
+Claude is the write path).
 
 The editor is read-write but indirect: nothing touches disk until the human
 pastes the payload back to Claude. Claude is the write path and enforces the
@@ -106,7 +106,7 @@ The build walks `archived/`
 **recursively** (ADR 0010), so a card filed in an `archived/<package>/`
 grouping folder embeds like any other archived card; the editor's own
 `archive` op still writes to the `archived/` root, packages being
-kanban-web's and kanban-cli's to choose. The "N pending" header
+kanban-web's to choose. The "N pending" header
 indicator is tappable and jumps to the tray.
 
 A card wears a gold "review" badge (card tile head, or a "review: `<text>`"
