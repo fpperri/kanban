@@ -475,7 +475,7 @@ to `127.0.0.1` only.
   calendar a run cut at a week boundary is two chips, and the card's own deadline chip is
   a third on a different day — this is the only way to see a card's whole extent at a
   glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
-  hovered/focused at a time), a different tone from selection's navy `#0d1b2a` so the two
+  hovered/focused at a time), a different tone from selection's own wash (`--accent-soft`) so the two
   never read alike, and never an outline, so a selected card stays reading as selected
   while hovered. An **epic** card keeps its orange wash while hovered: the hover tone
   would otherwise substitute it (both are 2-class background rules), so a 3-class
@@ -640,7 +640,7 @@ to `127.0.0.1` only.
   never mute for archived nodes — on any board with archived history, archived chains
   dominate the map, and muting would empty the one channel that carries status. The
   archived cues are their own channels: the node strokes a visibly lighter grey
-  (`#6e7681`) than the plain neutral (`#30363d`), the SVG tooltip gains an "(archived)"
+  (`#6e7681`) than the plain neutral border tone (`--line`), the SVG tooltip gains an "(archived)"
   suffix, and the grey **Archived ball** (above) joins the dot column — an archived node
   carries its true status color, a grey border, and a grey ball at once. Two more border
   exceptions, board-tile parity: a high-priority card strokes the node red (`#f85149`)

@@ -2563,7 +2563,7 @@ test('CAL_HOUR_PX and the .cal-tg-col hour stripe agree — JS positions blocks 
   assert.ok(m, 'CAL_HOUR_PX declared in app.js');
   const px = Number(m[1]);
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.ok(css.includes(`repeating-linear-gradient(to bottom, transparent 0 ${px - 1}px, #21262d ${px - 1}px ${px}px)`),
+  assert.ok(css.includes(`repeating-linear-gradient(to bottom, transparent 0 ${px - 1}px, var(--line-soft) ${px - 1}px ${px}px)`),
     `.cal-tg-col hour stripe must be ${px}px to match CAL_HOUR_PX`);
 });
 
@@ -2683,7 +2683,7 @@ test('setHighlight scrolls the highlighted row into view — a menu taller than 
 
 test("combobox Up/Down highlight reuses the existing hover treatment, not a new color", () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.match(css, /\.combobox-item:hover, \.combobox-item\.active \{ background: #1f6feb33; \}/);
+  assert.match(css, /\.combobox-item:hover, \.combobox-item\.active \{ background: var\(--accent-wash\); \}/);
 });
 
 // --- the "one rule, three callers" is only pinned for
