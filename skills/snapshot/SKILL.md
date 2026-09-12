@@ -40,13 +40,30 @@ python <SCRIPTS_DIR>/build_editor.py <kanban-directory> --out <scratchpad-dir>/k
   embedded in payloads. Use the human's local timezone for the label. Defaults
   to now (UTC).
 
-Delivery depends on the harness. Artifact tool available (Claude Code): publish
-to the board's **Board artifact** — never a new page — following
-`references/board-artifact.md`. Cowork: SendUserFile with display "render", as
-before. Anywhere else: write the file and tell the human where it is. Build
-output always goes to the session scratchpad (or a temp dir), never the repo
-root. Record each staged file's `mtimeMs` at generation time — they are the
-conflict guard when the payload comes back.
+**Delivery: build the file and hand it over. That is the whole default.**
+SendUserFile with display "render" where that exists, otherwise write the file
+and tell the human where it is. No gallery lookup, no publish, no `config.yaml`
+write, nothing to keep in sync. Build output always goes to the session
+scratchpad (or a temp dir), never the repo root. Record each staged file's
+`mtimeMs` at generation time — they are the conflict guard when the payload
+comes back.
+
+**Publishing is opt-in, and only when the human actually asks for it** — they
+say artifact, publish, "put it on my phone as a page", or name the board's
+existing page. Then, and only then, follow `references/board-artifact.md`,
+which owns the whole identity flow: the `artifact:` key, adopting a gallery
+match, and confirming before minting a page that does not exist yet.
+
+Publishing used to be the default here whenever the Artifact tool existed, and
+it was a mistake worth naming so it does not come back. That route opens with a
+gallery round-trip and three legacy title spellings before a single file exists,
+and it ends at a rule that says *confirm before minting* — so the default path
+could not complete without asking anyway. **A default that mandates a
+confirmation is not a default; it is an opt-in wearing a default's clothes**,
+and it charged every plain "build me the board" two extra turns to reach the one
+thing this skill exists to produce. The cost is worst on a private board, where
+publishing puts real content on a hosted page, so the answer is *ask first*
+every single time and the ceremony is pure overhead forever.
 
 A search box under the header filters every view at once — same query grammar
 as kanban-web: terms AND together, `#id`/`id:` exact,
