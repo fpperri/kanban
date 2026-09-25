@@ -20,8 +20,8 @@ function loadRenderer() {
   assert.ok(fn, 'mdToHtml is defined in app.js');
   // Evaluated in a vm context rather than required: app.js is a browser script with
   // no exports, and these two definitions are the only part under test. The source is
-  // this repo's own file, and the sandbox holds nothing but escapeHtml.
-  const sandbox = { escapeHtml };
+  // this repo's own file, and the sandbox holds escapeHtml, cardMention and a board name.
+  const sandbox = { escapeHtml, cardMention: require('../web/prose.js').cardMention, state: { projectName: 'webapp' } };
   vm.createContext(sandbox);
   vm.runInContext(`${helpers[0]}\n${fn[0]}`, sandbox, { filename: 'app.js#mdToHtml' });
   return sandbox.mdToHtml;

@@ -1977,11 +1977,22 @@ function mdToHtml(md) {
       if (listStack.length) html += '</li>'; // closes the ancestor <li> the popped <ul> was nested inside
     }
   };
+  // A code span holding a card mention renders as a chip; one on this board
+  // carries its id so a click opens it. The span text is already escaped.
+  const codeSpan = (c) => {
+    const m = cardMention(c);
+    if (!m) return `<code>${c}</code>`;
+    return m.board === escapeHtml(state.projectName)
+      ? `<code class="mention same" data-card-id="${m.id}" tabindex="0" role="link">${c}</code>`
+      : `<code class="mention">${c}</code>`;
+  };
   const inline = (s) => s
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/`([^`]+)`/g, (m, c) => codeSpan(c))
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (m, text, url) => {
+    // A URL holding markup (a code span turned chip) is left as text: the
+    // chip's quoted attributes would otherwise end href early.
+    .replace(/\[([^\]]*)\]\(([^)<]+)\)/g, (m, text, url) => {
       const safe = /^(https?:|mailto:|#|\/)/i.test(url.trim()) ? url : '#';
       return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     });
@@ -2063,7 +2074,7 @@ function mdToHtml(md) {
       }
       if (task) {
         const checked = task[2].toLowerCase() === 'x';
-        html += `<li class="task">${checked ? '&#9745;' : '&#9744;'} ${inline(task[3])}`;
+        html += `<li class="task ${checked ? 'done' : 'open'}"><span class="tick">${checked ? '&#9745;' : '&#9744;'}</span> ${inline(task[3])}`;
       } else {
         html += `<li>${inline(item[2])}`;
       }
@@ -2099,10 +2110,31 @@ function parseFrontmatter(text) {
     });
 }
 
+// The few fields the board itself understands wear the marks it already uses
+// elsewhere: the status dot, the high-priority red, the assignee chip, the
+// sticker grounds, tag chips, and a mention chip for the parent epic. Every
+// other value prints as written.
+function frontmatterValueHtml(k, v) {
+  const plain = v.replace(/^"(.*)"$/, '$1').trim();
+  if (k === 'status' && plain) {
+    const cls = statusColorClass(plain);
+    return `<span class="fm-status fm-status--${cls}"><span class="status-dot status-dot--${cls}"></span>${escapeHtml(plain)}</span>`;
+  }
+  if (k === 'priority' && plain === 'High') return '<span class="fm-high">High</span>';
+  if (k === 'assignee' && plain) return assigneeBadge({ assignee: plain }, state.assignees);
+  if (k === 'parent' && /^\d+$/.test(plain)) return `<code class="mention same" data-card-id="${escapeHtml(plain)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(plain)}</code>`;
+  if (k === 'review' && isReviewValue(plain)) return `<span class="fm-sticker fm-sticker--review">${escapeHtml(reviewReason(plain) || 'review')}</span>`;
+  if (k === 'blocked' && isBlockedValue(plain)) return `<span class="fm-sticker fm-sticker--blocked">${escapeHtml(blockedReason(plain) || 'blocked')}</span>`;
+  if (k === 'tags' && /^\[.*\]$/.test(plain)) {
+    return plain.slice(1, -1).split(',').map((t) => t.trim()).filter(Boolean).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+  }
+  return escapeHtml(formatFrontmatterValue(v));
+}
+
 function renderFrontmatterTable(pairs) {
   if (!pairs.length) return '';
   const rows = pairs.map(([k, v]) =>
-    `<tr><td class="fm-key">${escapeHtml(k)}</td><td class="fm-value">${escapeHtml(formatFrontmatterValue(v))}</td></tr>`
+    `<tr><td class="fm-key">${escapeHtml(k)}</td><td class="fm-value">${frontmatterValueHtml(k, v)}</td></tr>`
   ).join('');
   return `<table>${rows}</table>`;
 }
@@ -2219,11 +2251,18 @@ async function openDetailModal(id) {
   const titleDisplay = cardTitleDisplay(data);
   $('#detail-title').textContent = `#${data.id} ${titleDisplay.text}`;
   $('#detail-title').classList.toggle('detail-title--prompt-fallback', titleDisplay.isPromptFallback);
-  $('#detail-path').textContent = data.path || '';
+  // Folders quiet, the file name in full ink: the part a reader looks for.
+  const detailPath = data.path || '';
+  const cut = Math.max(detailPath.lastIndexOf('/'), detailPath.lastIndexOf('\\')) + 1;
+  const fileEl = document.createElement('span');
+  fileEl.className = 'detail-path-file';
+  fileEl.textContent = detailPath.slice(cut);
+  $('#detail-path').replaceChildren(document.createTextNode(detailPath.slice(0, cut)), fileEl);
   $('#detail-copy-btn').dataset.path = data.path || '';
   resetCopyState();
   $('#detail-modified').innerHTML = formatDetailModified(data);
   $('#detail-frontmatter').innerHTML = renderFrontmatterTable(parseFrontmatter(data.frontmatter));
+  paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
   $('#detail-body').innerHTML = mdToHtml(data.body || '');
   // The tile wash (`.card.epic`), same class on the popup's own panel —
   // cardDetail (card-store.js) carries the tolerant any-case read tiles use.
@@ -2261,6 +2300,17 @@ function editFromDetail() {
 window.addEventListener('DOMContentLoaded', () => {
   $('#detail-close').addEventListener('click', closeDetailModal);
   $('#detail-copy-btn').addEventListener('click', copyDetailPath);
+  // A mention of a card on this board opens that card, in the body and in the
+  // frontmatter's parent field alike.
+  const openMentionedCard = async (e) => {
+    const m = e.target.closest('code.mention.same');
+    if (!m || (e.type === 'keydown' && e.key !== 'Enter')) return;
+    e.preventDefault();
+    await openDetailModal(Number(m.dataset.cardId));
+    $('#detail-modal .modal').scrollTop = 0; // the new card opens at its top, not at the old card's scroll
+  };
+  $('#detail-modal').addEventListener('click', openMentionedCard);
+  $('#detail-modal').addEventListener('keydown', openMentionedCard);
   $('#detail-edit-btn').addEventListener('click', editFromDetail);
   $('#detail-archive-btn').addEventListener('click', () => {
     // Belt-and-suspenders: the button is hidden for archived cards, but never
@@ -3758,10 +3808,11 @@ function renderNotifList() {
     return;
   }
   // Built as DOM nodes with textContent — agent-written text never
-  // rides string-built HTML. The TLDR (text before the first "; more: ", splitTldr
-  // from notifications.js) renders bold; the rest of the message — separator
-  // included, so the entry stays verbatim — renders normally. level paints
-  // the row (debug dimmed, warning amber, error red; absent = info).
+  // rides string-built HTML. splitNotification (notifications.js) gives the
+  // TLDR and the detail; the detail sits under a More label, broken into its
+  // clauses when it runs on. Code spans, card mentions and **bold** render
+  // through appendInline. level paints the row (debug dimmed, warning amber,
+  // error red; absent = info).
   el.replaceChildren(...list.map((n) => {
     const row = document.createElement('div');
     row.className = `notif-row level-${notificationLevel(n)}${n.read ? '' : ' unread'}`;
@@ -3769,14 +3820,37 @@ function renderNotifList() {
     text.className = 'notif-text';
     const meta = document.createElement('div');
     meta.className = 'notif-meta';
-    meta.textContent = `${n.from || 'unknown'}${n.at ? ' · ' + n.at : ''}`;
+    const level = notificationLevel(n);
+    meta.textContent = `${n.from || 'unknown'}${n.at ? ' · ' + formatFrontmatterValue(String(n.at)) : ''}`;
+    if (level !== 'info') {
+      const tag = document.createElement('span');
+      tag.className = `notif-level notif-level--${level}`;
+      tag.textContent = level;
+      meta.appendChild(tag);
+    }
     const msg = document.createElement('div');
     msg.className = 'notif-message';
-    const strong = document.createElement('strong');
-    strong.textContent = splitTldr(n.message).tldr;
-    msg.appendChild(strong);
-    const rest = String(n.message).slice(strong.textContent.length);
-    if (rest) msg.appendChild(document.createTextNode(rest));
+    const { tldr, more } = splitNotification(n.message);
+    const head = document.createElement('div');
+    head.className = 'notif-tldr';
+    appendInline(head, tldr);
+    msg.appendChild(head);
+    if (more) {
+      const label = document.createElement('div');
+      label.className = 'notif-more-label';
+      label.textContent = 'More';
+      const detail = document.createElement('div');
+      detail.className = 'notif-more';
+      const clauses = splitClauses(more);
+      if (clauses.length > 1) {
+        const ul = document.createElement('ul');
+        for (const c of clauses) ul.appendChild(appendInline(document.createElement('li'), c));
+        detail.appendChild(ul);
+      } else {
+        detail.appendChild(appendInline(document.createElement('p'), more));
+      }
+      msg.append(label, detail);
+    }
     text.append(meta, msg);
     const del = document.createElement('button');
     del.type = 'button';
@@ -3788,6 +3862,38 @@ function renderNotifList() {
     row.append(text, del);
     return row;
   }));
+}
+
+// A mention of this board's card opens it from the tray. The tray closes only
+// once the card is showing, so a failed load leaves the reader where they were.
+async function openMentionFromTray(e) {
+  const m = e.target.closest('code.mention.same');
+  if (!m) return;
+  e.preventDefault();
+  await openDetailModal(Number(m.dataset.cardId));
+  if (!$('#detail-modal').classList.contains('hidden')) closeNotifModal();
+}
+
+// Inline markdown for notification text, as DOM nodes: code spans (card
+// mentions become chips, a mention of this board's card opens it) and bold.
+function appendInline(parent, text) {
+  for (const tok of inlineTokens(text)) {
+    if (tok.t === 'text') { parent.appendChild(document.createTextNode(tok.v)); continue; }
+    const node = document.createElement(tok.t === 'code' ? 'code' : 'strong');
+    node.textContent = tok.v;
+    const m = tok.t === 'code' && cardMention(tok.v);
+    if (m) {
+      const same = m.board === state.projectName;
+      node.className = same ? 'mention same' : 'mention';
+      if (same) {
+        node.dataset.cardId = String(m.id);
+        node.tabIndex = 0;
+        node.setAttribute('role', 'link');
+      }
+    }
+    parent.appendChild(node);
+  }
+  return parent;
 }
 
 async function openNotifModal() {
@@ -3841,8 +3947,10 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#notif-modal').addEventListener('click', (e) => { if (e.target.id === 'notif-modal') closeNotifModal(); });
   $('#notif-list').addEventListener('click', (e) => {
     const btn = e.target.closest('.notif-delete');
-    if (btn) deleteNotification(Number(btn.dataset.id));
+    if (btn) { deleteNotification(Number(btn.dataset.id)); return; }
+    openMentionFromTray(e);
   });
+  $('#notif-list').addEventListener('keydown', (e) => { if (e.key === 'Enter') openMentionFromTray(e); });
 });
 
 // --- Multi-select + bulk actions, with view parity. Selection

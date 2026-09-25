@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { sortNotificationsDesc, unreadCount, unseenUnread, splitTldr, notificationLevel } = require('../web/notifications');
+const { sortNotificationsDesc, unreadCount, unseenUnread, splitTldr, splitNotification, notificationLevel } = require('../web/notifications');
 
 const LIST = [
   { id: 1, at: '2026-07-08T23:40:00', from: 'a', message: 'oldest', read: false },
@@ -75,13 +75,43 @@ test('notificationLevel defaults absent/unknown/nullish to info (back-compat)', 
 // the mechanism at source level: the TLDR goes through splitTldr into a
 // <strong> node via textContent, and no notification field rides innerHTML.
 
-test('app.js renders the tray via splitTldr + createElement/textContent, with level classes — no innerHTML for entry text', () => {
+test('app.js renders the tray via splitNotification + createElement/textContent, with level classes — no innerHTML for entry text', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
   const fn = src.match(/function renderNotifList\(\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'renderNotifList found');
-  assert.match(fn[0], /splitTldr\(/);
-  assert.match(fn[0], /createElement\('strong'\)/);
+  assert.match(fn[0], /splitNotification\(/);
+  assert.match(fn[0], /splitClauses\(/);
+  assert.match(fn[0], /appendInline\(/);
   assert.match(fn[0], /notificationLevel\(/);
   assert.match(fn[0], /level-\$\{/);
   assert.ok(!fn[0].includes('innerHTML'), 'notification text must never be string-built HTML');
+  const inline = src.match(/function appendInline\([\s\S]*?\n\}/);
+  assert.ok(inline, 'appendInline found');
+  assert.match(inline[0], /createElement\(tok\.t === 'code' \? 'code' : 'strong'\)/);
+  assert.match(inline[0], /textContent = tok\.v/);
+  assert.ok(!inline[0].includes('innerHTML'), 'inline marks are DOM nodes, never HTML');
+});
+
+// --- the tray's two parts --------------------------------------------------
+test('splitNotification follows the contract: the TLDR is the text before the first "; more: "', () => {
+  assert.deepStrictEqual(splitNotification('Card closed; more: 3 files touched; 12 tests added'),
+    { tldr: 'Card closed', more: '3 files touched; 12 tests added' });
+});
+
+test('splitNotification falls back to the first sentence when the separator is missing, dropping a leading "more:" label', () => {
+  assert.deepStrictEqual(splitNotification('Goals re-ranked for the week. more: nothing was moved; this is a report.'),
+    { tldr: 'Goals re-ranked for the week.', more: 'nothing was moved; this is a report.' });
+  assert.deepStrictEqual(splitNotification('Filed it. Then waited.'), { tldr: 'Filed it.', more: 'Then waited.' });
+});
+
+test('splitNotification leaves a one-sentence message whole, and tolerates empty input', () => {
+  assert.deepStrictEqual(splitNotification('Just one sentence.'), { tldr: 'Just one sentence.', more: '' });
+  assert.deepStrictEqual(splitNotification(null), { tldr: '', more: '' });
+});
+
+test('splitNotification does not end the first sentence inside code, quotes, parentheses or an abbreviation', () => {
+  assert.strictEqual(splitNotification('Moved `v4/cortex. herd` into place. Done.').tldr, 'Moved `v4/cortex. herd` into place.');
+  assert.strictEqual(splitNotification('It said "stop. now" and stopped. Next.').tldr, 'It said "stop. now" and stopped.');
+  assert.strictEqual(splitNotification('Two cards (one filed. one moved) landed. Next.').tldr, 'Two cards (one filed. one moved) landed.');
+  assert.strictEqual(splitNotification('Several fixes, e.g. the tray, shipped. Next.').tldr, 'Several fixes, e.g. the tray, shipped.');
 });

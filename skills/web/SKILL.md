@@ -409,7 +409,15 @@ to `127.0.0.1` only.
   a sibling, any depth, tracked by comparing each line's indent width against the open
   levels. A wrapped line that isn't itself a `-` bullet (no blank line before it) is a
   lazy continuation of the last list item's text, appended in place, rather than closing
-  the list and stranding a bare paragraph.
+  the list and stranding a bare paragraph. A task item's tick sits in its own span,
+  green when done and muted when open. A code span holding a card mention (`board#id title`, the
+  Card mention rule in CONTEXT.md) renders as an accent chip instead of code; a mention
+  of a card on this board opens that card when clicked.
+- **Frontmatter marks** — the detail popup's frontmatter table prints every field as
+  written, except the few the board itself understands: `status` gets its status dot and
+  colour, `priority: High` the high-priority red, `assignee` its chip, `parent` a
+  mention chip that opens the epic, `review` and `blocked` their sticker grounds, and
+  `tags` tag chips. The card path shows its folders muted and the file name in full ink.
 - **Reading layer** — card bodies and notifications use four tokens of their own:
   `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
   `--line-strong` for table-header and evidence rules. Headings and bold take
@@ -617,8 +625,14 @@ to `127.0.0.1` only.
   few seconds), and a popup listing all entries newest-first with per-entry remove and
   clear-all. Opening the popup marks everything read, persisted back to the file.
   Entries render per the contract: the TLDR segment (the message text before `; more: `)
-  is bold, and `level` tints the entry — `debug` dimmed, `warning` amber, `error` red,
-  absent = `info`; all levels show, no filtering. Per-entry remove and clear-all
+  sits bold on its own line, and the rest follows under a small More label, broken into
+  a list at its top-level `; ` clauses when there is more than one. A message without the
+  separator bolds only its first sentence rather than the whole message. Code spans,
+  card-mention chips (a mention of this board's card opens it) and `**bold**` render as
+  DOM nodes, never HTML. The meta line shows the writer and the time as
+  `YYYY-MM-DD | HH:MM:SS`, plus the level when it isn't `info`, and `level` tints the
+  entry — `debug` dimmed, `warning` amber, `error` red, absent = `info`; all levels show,
+  no filtering. Per-entry remove and clear-all
   ARCHIVE, never delete: entries move verbatim (append) to
   `<kanban-dir>/archived/notifications.md`, created if absent. Entries missing a numeric
   `id` or a non-empty `message` are skipped by the reader (never fatal); the next
