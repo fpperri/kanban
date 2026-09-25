@@ -7,7 +7,7 @@ const path = require('node:path');
 // **bold** -> <strong>, `code` -> <code>. Nothing else (no headings, lists,
 // links, or nesting inside a matched span); unmatched/unclosed markers render
 // literally. fmtBodySegs used to be the card-body formatter; card bodies now
-// render full markdown via mdInline()/mdBlocks() (kanban.proj #274 goal 4 —
+// render full markdown via mdInline()/mdBlocks() (goal 4 —
 // see markdown-body.test.js), and fmtBodySegs was repointed at the
 // notification renderer's TLDR/MORE lines instead (goal 6 — see
 // notif-split.test.js), unchanged, since that's exactly the bold+code subset

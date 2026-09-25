@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-// Notification layout (kanban.proj #274 goal 6): splitNotification()/
+// Notification layout (goal 6): splitNotification()/
 // splitClauses() contain regex with backslashes, so — same reasoning as
 // markdown-body.test.js — this builds a tiny fixture board once and
 // extracts every function it needs from the GENERATED HTML, where Python

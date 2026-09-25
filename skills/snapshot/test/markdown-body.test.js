@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-// Card bodies render as markdown (kanban.proj #274 goals 4+5), replacing
+// Card bodies render as markdown (goals 4+5), replacing
 // the old fmtBodySegs/bodyNode pre-wrap div. mdBlocks() is a PURE parser
 // (text -> data, no DOM), ported feature-for-feature from skills/web/web/
 // app.js's mdToHtml. Unlike the rest of the snapshot's JS, mdInline()/
@@ -352,8 +352,8 @@ function domHarness(fnNames) {
 }
 
 // The mention regex's board-name capture (`[^\s#\x60]+`) is whitespace-free
-// by design — real board names are single tokens (e.g. "kanban.proj"), so
-// these use single-word board names rather than the space-bearing fixture
+// by design — real board names are single tokens (e.g. a repo-style dotted
+// name), so these use single-word board names rather than the space-bearing fixture
 // board name used elsewhere in this file.
 test('codeSegNode: a same-board mention gets class="mention same" and a data-mapnode id (openable the way the snapshot opens cards elsewhere)', () => {
   const dom = domHarness(['codeSegNode']);

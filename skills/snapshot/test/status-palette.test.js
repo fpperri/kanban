@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Status/assignee colors through CSS variables (kanban.proj #274 goal 2):
+// Status/assignee colors through CSS variables (goal 2):
 // ccol()/acol() no longer return hex — they return `var(--st-*)` /
 // `var(--hash-*)` strings, resolved against the theme tokens.test.js already
 // pins. Both hash into the SAME djb2-xor algorithm skills/web/web/

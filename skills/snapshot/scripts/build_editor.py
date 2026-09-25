@@ -69,9 +69,9 @@ def parse_card(path):
         "ep": (fm.get("epic", "") or "").strip().lower() == "true",
         # "bl" ("body length"): the UNCAPPED character count, set before
         # either truncation below runs. The template compares it against the
-        # embedded body's own length to know a body was cut and by how much
-        # (kanban.proj #274) — stable across the archived re-cap that follows,
-        # since that further truncates "body" but never touches "bl".
+        # embedded body's own length to know a body was cut and by how much —
+        # stable across the archived re-cap that follows, since that further
+        # truncates "body" but never touches "bl".
         "body": full_body[:4000],
         "bl": len(full_body),
         "fm": {k: v for k, v in fm.items() if k != "id"},
@@ -405,7 +405,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .rline{color:var(--review-ink)}
 .tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
 .tag{border:1px solid var(--line);border-radius:.15rem;padding:0 8px;font-size:11px;color:var(--mut);background:var(--btn-bg);text-transform:uppercase;letter-spacing:.05em}
-/* Card bodies render as markdown (kanban.proj #274, replacing the old
+/* Card bodies render as markdown (replacing the old
    pre-wrap .bodytxt div) via mdBlocks()/mdBodyNode() below — DOM nodes only,
    never innerHTML (the file's own history includes an XSS fixed exactly
    this way). code/code.mention are declared globally, not scoped to
@@ -643,7 +643,7 @@ const COLS=__STATUSES__;
 const CNAMES={backlog:"Backlog",todo:"Todo",doing:"Doing",done:"Done"};
 const cname=s=>CNAMES[s]||s;
 // Status/assignee color: every paint now resolves through a CSS custom
-// property instead of a JS hex constant (kanban.proj #274), so both light
+// property instead of a JS hex constant, so both light
 // and dark values live in one place (the :root/[data-theme] token blocks
 // above) and the two color families share ONE hash. Built-in statuses and
 // archive get their own named --st-* token; anything else -- a custom
@@ -694,8 +694,8 @@ const btn=(label,act,data)=>{const b=el("button",null,label);b.dataset.act=act;i
 // contextmenu event, not just at page load.
 const fineMQ=window.matchMedia("(hover: hover) and (pointer: fine)");
 fineMQ.addEventListener("change",()=>render());
-// Minimal inline formatting for notification TLDR/MORE text (kanban.proj
-// #274 goal 6) — **bold** and `code`, nothing else (no headings/lists/
+// Minimal inline formatting for notification TLDR/MORE text
+// (goal 6) — **bold** and `code`, nothing else (no headings/lists/
 // links, no nesting inside a matched span). Card bodies used to go through
 // this too; they now render full markdown via mdInline()/mdBlocks() below,
 // which extends this exact scan technique with italic/links/blocks. Pure
@@ -721,7 +721,7 @@ flush();
 return segs}
 // Shared "is this code span a card mention" builder — a code span whose
 // content matches board#id (a bare board name, "#", digits, then a word
-// boundary) is a mention (kanban.proj #274). Used by both the card-body
+// boundary) is a mention. Used by both the card-body
 // markdown renderer below AND the notification renderer (notifSegNodes) so
 // there is exactly one mention rule, not two that could drift. Same-board
 // mentions also get a data-mapnode attribute, which the existing delegated
@@ -734,7 +734,7 @@ if(mm){
 c.classList.add("mention");
 if(mm[1]===boardName){c.classList.add("same");c.setAttribute("data-mapnode",mm[2])}}
 return c}
-// Full inline parser for card-body markdown (kanban.proj #274): the same
+// Full inline parser for card-body markdown: the same
 // scan-left-to-right, opener-needs-a-later-closer technique fmtBodySegs
 // above uses for bold/code, extended with italic and links. Pure — returns
 // token data, no DOM. A code span's raw content is never rescanned for
@@ -780,7 +780,7 @@ return document.createTextNode(t.v)})}
 // paragraphs, nested/task lists with lazy continuation, fenced code, pipe
 // tables, hr), each text-bearing block already carrying mdInline() tokens.
 // Testable in node with no DOM. Ported feature-for-feature from
-// skills/web/web/app.js's mdToHtml (kanban.proj #256), but built as DATA
+// skills/web/web/app.js's mdToHtml, but built as DATA
 // rather than an HTML string so the DOM step below never touches
 // innerHTML. Python caps bodies at 4000/1500 chars (parse_card's "bl"
 // field records the uncapped length) — a cut can land mid-fence, mid-list
@@ -856,7 +856,7 @@ para.push(line);
 i++}
 flushPara();
 return blocks}
-// Thousands separator for the cut-body notice (kanban.proj #274 goal 5) —
+// Thousands separator for the cut-body notice (goal 5) —
 // plain regex, not toLocaleString(): the message must read the same
 // regardless of the viewer's own locale.
 function thousands(n){return String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,",")}
@@ -1233,7 +1233,7 @@ const bad=()=>{if(onDone)onDone(false)};
 const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}};
 if(!forceSync&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
 else fallback()}
-// Notification message shape (kanban.proj #274 goal 6): most real boards
+// Notification message shape (goal 6): most real boards
 // separate TLDR from detail with "; more: ", but the freshest messages on
 // real boards more often used ". more: " by mistake, so the whole ~1000-
 // char message rendered bold end to end. splitNotification() copes with

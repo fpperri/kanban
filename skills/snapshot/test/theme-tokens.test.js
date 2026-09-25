@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Theme tokens (kanban.proj #274 goal 1): the snapshot adopts the shop's
+// Theme tokens (goal 1): the snapshot adopts the shop's
 // three-state token structure — a light `:root`, a `prefers-color-scheme:
 // dark` block scoped to `:not([data-theme="light"])`, and an explicit
 // `[data-theme="dark"]` block, plus a light `[data-theme="light"]` override
@@ -175,7 +175,7 @@ test('none of the old two-state token names (--page,--ink2,--muted,--grid,--ring
   });
 });
 
-test('the pillFlash keyframes\' fixed white-flash stops (kanban.proj #250: a deliberate, theme-invariant pairing) are untouched literals, not tokens', () => {
+test('the pillFlash keyframes\' fixed white-flash stops (a deliberate, theme-invariant pairing) are untouched literals, not tokens', () => {
   const kfStart = css.indexOf('@keyframes pillFlash');
   const kfEnd = css.indexOf('}', css.indexOf('}', css.indexOf('}', kfStart) + 1) + 1);
   const kf = css.slice(kfStart, kfEnd + 1);
