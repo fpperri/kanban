@@ -41,6 +41,7 @@ def parse_card(path):
     def parent_id(v):
         v = (v or "").strip()
         return int(v) if re.match(r"^\d+$", v) else None
+    full_body = "\n".join(rest).strip()
     return {
         "id": int(fm["id"]) if fm.get("id", "").isdigit() else (int(idm.group(1)) if idm else 0),
         "t": title or re.sub(r"^\d+\.", "", name).replace(".card.md", "").replace("-", " "),
@@ -66,7 +67,13 @@ def parse_card(path):
         # read as kanban-web's card-store.js (`epic: get('epic').toLowerCase()
         # === 'true'`) — drives the epic: search term (qMatch's "epic" case).
         "ep": (fm.get("epic", "") or "").strip().lower() == "true",
-        "body": "\n".join(rest).strip()[:4000],
+        # "bl" ("body length"): the UNCAPPED character count, set before
+        # either truncation below runs. The template compares it against the
+        # embedded body's own length to know a body was cut and by how much
+        # (kanban.proj #274) — stable across the archived re-cap that follows,
+        # since that further truncates "body" but never touches "bl".
+        "body": full_body[:4000],
+        "bl": len(full_body),
         "fm": {k: v for k, v in fm.items() if k != "id"},
         "fn": name,
     }
@@ -250,6 +257,7 @@ def main():
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
                     .replace("__DATA__", emb(cards))
+                    .replace("__BOARD_NAME_JSON__", emb(read_board_name(a.kanban_dir)))
                     .replace("__BOARD_NAME__", esc(read_board_name(a.kanban_dir))))
     open(a.out, "w", encoding="utf-8").write(html)
     print(f"wrote {a.out} ({len(html)} bytes; {len(cards)} cards, base {iso})")
@@ -259,24 +267,53 @@ TEMPLATE = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>__BOARD_NAME__ — Kanban Snapshot</title>
 <style>
-:root{--surface:#fcfcfb;--page:#f9f9f7;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;
---grid:#e1e0d9;--ring:rgba(11,11,11,.12);--accent:#2a78d6;--high:#d03b3b;--warn:#9a6700;
---bgd:#fbe9e7;--bgw:#f7edd3;--rev:#8a6d00;--bgr:#faf3d0}
-@media(prefers-color-scheme:dark){:root{--surface:#1a1a19;--page:#0d0d0d;--ink:#fff;
---ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--ring:rgba(255,255,255,.14);--accent:#3987e5;
---high:#f85149;--warn:#d29922;--bgd:#3a1512;--bgw:#332608;--rev:#eac54f;--bgr:#332e08}}
+:root{color-scheme:light dark;
+--paper:#f7f5f1;--surface:#ffffff;--ink:#241e33;--ink-strong:#100a1f;--prose:#302a3d;--mut:#6e6880;
+--line:#e4dfea;--line-strong:#d3cedd;--raised:#f4f2f8;--accent:#1b58a7;--accent-soft:#e1ebfa;
+--code-ink:#724b2b;--ok:#2e7d5b;--warn:#966719;--warn-soft:#fbf1e0;--crit:#b4402f;--crit-soft:#fbe9e5;
+--on-fill:#ffffff;--btn-bg:#efebf5;--btn-hover:#ddd6e6;
+--st-backlog:#0c5f65;--st-todo:#0266d7;--st-doing:#117a32;--st-done:#642cba;--st-archive:#626b75;
+--hash-a:#0266d7;--hash-b:#117a32;--hash-c:#906001;--hash-d:#642cba;--hash-e:#b93384;--hash-f:#0c5f65;--hash-g:#b34906;--hash-h:#ce202d;
+--id-high:#ce212d;--id-waiting:#906001;--id-review:#7d6400;--id-epic:#b34906;
+--blocked-ink:#b62324;--blocked-bg:#fde8e6;--review-ink:#7d6400;--review-bg:#fbf3c9;
+--epic-wash:rgba(240, 136, 62, 0.12);
+--shadow:0 1px 2px rgba(36, 30, 51, .06);--scrim:rgba(36, 30, 51, 0.45);--shadow-pop:0 8px 24px rgba(36, 30, 51, .16)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+--paper:#16141c;--surface:#1e1b26;--ink:#ece8f4;--ink-strong:#faf8ff;--prose:#dfdce7;--mut:#9a93ac;
+--line:#2c2836;--line-strong:#3c3847;--raised:#26232f;--accent:#8cb8d9;--accent-soft:#1d2d39;
+--code-ink:#e0c6a3;--ok:#5cc495;--warn:#d9ae58;--warn-soft:#2a2114;--crit:#e4816c;--crit-soft:#2d1517;
+--on-fill:#16141c;--btn-bg:#282334;--btn-hover:#363048;
+--st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
+--hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
+--id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
+--blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
+--epic-wash:rgba(240, 136, 62, 0.12);
+--shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.6);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}}
+:root[data-theme="dark"]{color-scheme:dark;
+--paper:#16141c;--surface:#1e1b26;--ink:#ece8f4;--ink-strong:#faf8ff;--prose:#dfdce7;--mut:#9a93ac;
+--line:#2c2836;--line-strong:#3c3847;--raised:#26232f;--accent:#8cb8d9;--accent-soft:#1d2d39;
+--code-ink:#e0c6a3;--ok:#5cc495;--warn:#d9ae58;--warn-soft:#2a2114;--crit:#e4816c;--crit-soft:#2d1517;
+--on-fill:#16141c;--btn-bg:#282334;--btn-hover:#363048;
+--st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
+--hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
+--id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
+--blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
+--epic-wash:rgba(240, 136, 62, 0.12);
+--shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.6);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}
+:root[data-theme="light"]{color-scheme:light}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
-body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--page);color:var(--ink);font-size:15px;line-height:1.5;overflow:hidden}
+body{font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5;overflow:hidden}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #scroll{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;padding:0 14px 120px;max-width:560px;margin:0 auto}
 #scrollbtns{position:fixed;right:10px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:50}
-#scrollbtns button{width:46px;height:46px;border-radius:50%;font-size:19px;line-height:1;padding:0;background:var(--surface);border:1px solid var(--ring);color:var(--ink2);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+#scrollbtns button{width:46px;height:46px;border-radius:50%;font-size:19px;line-height:1;padding:0;background:var(--surface);border:1px solid var(--line);color:var(--mut);box-shadow:var(--shadow-pop)}
 #scrollbtns button svg{display:block;margin:auto}
-#scrollbtns button.armed{border-color:var(--high);color:var(--high)}
+#scrollbtns button.armed{border-color:var(--crit);color:var(--crit)}
 #scrollbtns button.off{opacity:.4}
-button{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:7px 13px;color:var(--ink);font-size:13px;cursor:pointer}
+button{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:7px 13px;color:var(--ink);font-size:13px;cursor:pointer}
 button:active{transform:scale(.98)}
-input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:15px;width:100%}
+input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:8px 10px;color:var(--ink);font-size:15px;width:100%}
 #searchrow{margin:0 0 8px}
 #q{font-size:13px;padding:7px 10px}
 /* Sticky at EVERY width (not gated behind a media query — the rework
@@ -291,15 +328,15 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    by the sc "scroll" listener below once past a small threshold, not on
    every tick) compacts the padding and title once the page has scrolled,
    so the sticky header stays out of the way of board content. */
-.hdr{display:flex;align-items:baseline;gap:10px;padding:14px 0 8px;flex-wrap:wrap;position:sticky;top:0;z-index:20;background:var(--page)}
+.hdr{display:flex;align-items:baseline;gap:10px;padding:14px 0 8px;flex-wrap:wrap;position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:2px solid var(--ink)}
 .hdr b{font-size:16px;font-weight:600}
 .hdr.thin{padding:5px 0 3px}
 .hdr.thin b{font-size:14px}
-.hdr .base{font-size:12px;color:var(--muted)}
+.hdr .base{font-size:12px;color:var(--mut)}
 /* "N pending" is the only signal that queued changes are NOT yet on
-   disk — a solid --high (red, kanban.proj #250) fill, never the calmer
+   disk — a solid --crit (red, kanban.proj #250) fill, never the calmer
    --accent blue that means "normal/selected" everywhere else in this file,
-   with bold white text makes it impossible to miss or mistake for a passive
+   with bold on-fill text makes it impossible to miss or mistake for a passive
    label, unlike the old plain colored-text pill. It also FLASHES:
    pillFlash cycles the background red -> white -> red -> white -> red on an
    IRREGULAR, lightning-like cadence (a fast double strike packed into the
@@ -320,147 +357,190 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    no ops are queued (render() sets textContent to "" in that case), so an
    empty pill never shows as a stray flashing dot, and
    prefers-reduced-motion drops the animation for a static red pill. */
-.pill{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--high);border-radius:12px;padding:3px 10px;animation:pillFlash 2.8s step-end infinite}
+.pill{margin-left:auto;font-size:12px;font-weight:700;color:var(--on-fill);background:var(--crit);border-radius:.15rem;padding:3px 10px;animation:pillFlash 2.8s step-end infinite}
 .pill:empty{padding:0;background:none;animation:none}
 @keyframes pillFlash{
-0%,100%{background:var(--high);color:#fff}
+0%,100%{background:var(--crit);color:var(--on-fill)}
 3%{background:#fff;color:#3a0a0a}
-6%{background:var(--high);color:#fff}
+6%{background:var(--crit);color:var(--on-fill)}
 10%{background:#fff;color:#3a0a0a}
-14%{background:var(--high);color:#fff}
+14%{background:var(--crit);color:var(--on-fill)}
 }
-@media(prefers-reduced-motion:reduce){.pill{animation:none;background:var(--high);color:#fff}}
-#bell{font-size:14px;padding:3px 9px;border-radius:14px;line-height:1.2}
-#bellcnt{font-size:10px;font-weight:700;color:#fff;background:var(--high);border-radius:8px;padding:0 5px;margin-left:4px;vertical-align:1px}
-.nrow{border:1px solid var(--grid);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px;overflow-wrap:break-word}
+@media(prefers-reduced-motion:reduce){.pill{animation:none;background:var(--crit);color:var(--on-fill)}}
+#bell{font-size:14px;padding:3px 9px;border-radius:.15rem;line-height:1.2}
+#bellcnt{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-size:10px;font-weight:700;color:var(--on-fill);background:var(--crit);border-radius:.15rem;padding:0 5px;margin-left:4px;vertical-align:1px}
+.nrow{border:1px solid var(--line);border-radius:.2rem;padding:8px 10px;margin:8px 0;font-size:13px;overflow-wrap:break-word}
 .nrow.unread{border-left:3px solid var(--accent)}
 .nrow.nlv-debug{opacity:.55}
 .nrow.nlv-warning{border-color:var(--warn)}
-.nrow.nlv-error{border-color:var(--high)}
-.nmeta{font-size:11px;color:var(--muted);margin-top:4px}
+.nrow.nlv-error{border-color:var(--crit)}
+.nmeta{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-size:11px;color:var(--mut);margin-top:4px}
+.ntldr{color:var(--ink-strong);font-weight:600;margin-top:3px;font-size:13.5px}
+.nmorelbl{font-size:.68em;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin-top:8px}
+.nmore{color:var(--prose);margin-top:2px;font-size:13px}
+.nmore ul{margin:.3em 0 0 1.1em;padding:0}
+.nmore li{margin:.25em 0}
 .boardcol.drag-over{outline:2px dashed var(--accent);outline-offset:-2px}
-.colh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink2);padding:12px 2px 5px;border-bottom:1px solid var(--grid);cursor:pointer;-webkit-user-select:none;user-select:none}
-.chev{font-size:11px;color:var(--muted);width:12px;flex:none}
+.colh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.09em;padding:12px 2px 5px;border-bottom:1px solid var(--line);cursor:pointer;-webkit-user-select:none;user-select:none}
+.chev{font-size:11px;color:var(--mut);width:12px;flex:none}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
-.cnt{margin-left:auto;font-size:12px;color:var(--muted)}
-.colbtn{flex:none;width:24px;height:24px;padding:0;border-radius:6px;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--ink2)}
-.colbtn:active{background:var(--accent);border-color:var(--accent);color:#fff}
-.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:11px 13px;margin:9px 0;cursor:pointer}
+.cnt{margin-left:auto;font-size:12px;color:var(--mut);font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.colbtn{flex:none;width:24px;height:24px;padding:0;border-radius:.15rem;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--mut)}
+.colbtn:active{background:var(--accent);border-color:var(--accent);color:var(--on-fill)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:11px 13px;margin:9px 0;cursor:pointer}
 .card.sel{border-color:var(--accent)}
 .card.prov{border-style:dashed}
-.cid{font-size:12px;color:var(--muted)}
-.badge{display:inline-block;font-size:11px;font-weight:600;border-radius:6px;padding:1px 7px;margin-left:6px;background:var(--bgd);color:var(--high)}
-.wbadge{background:var(--bgw);color:var(--warn)}
+.cid{font-size:12px;color:var(--mut);font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.num{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.hitag{display:inline-block;font-size:.66rem;font-weight:600;letter-spacing:.1em;margin-left:6px;color:var(--id-high)}
+.badge{display:inline-block;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.7rem;font-weight:600;border-radius:.15rem;padding:1px 7px;margin-left:6px;background:var(--blocked-bg);color:var(--blocked-ink)}
+.wbadge{background:var(--warn-soft);color:var(--id-waiting)}
 /* ADR 0009: review is blocked's sibling sticker — its own gold
-   family, distinct from --warn (waiting) and the red --high (blocked). */
-.rbadge{background:var(--bgr);color:var(--rev)}
+   family, distinct from --id-waiting (waiting) and --blocked-ink (blocked). */
+.rbadge{background:var(--review-bg);color:var(--review-ink)}
 .ttl{font-size:14.5px;margin:3px 0 0;overflow-wrap:break-word}
-.meta{font-size:12px;color:var(--ink2);margin-top:4px}
-.wline{color:var(--warn)}
-.bline{color:var(--high)}
-.rline{color:var(--rev)}
+.meta{font-size:12px;color:var(--mut);margin-top:4px}
+.wline{color:var(--id-waiting)}
+.bline{color:var(--blocked-ink)}
+.rline{color:var(--review-ink)}
 .tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
-.tag{border:1px solid var(--grid);border-radius:10px;padding:0 8px;font-size:11px;color:var(--ink2)}
-.bodytxt{white-space:pre-wrap;font-size:13px;color:var(--ink2);border-top:1px solid var(--grid);margin-top:9px;padding-top:9px;overflow-wrap:break-word}
-.bodytxt strong{color:var(--ink);font-weight:600}
-.bodytxt code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:var(--grid);border-radius:4px;padding:0 4px}
-.acts{border-top:1px solid var(--grid);margin-top:10px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tag{border:1px solid var(--line);border-radius:.15rem;padding:0 8px;font-size:11px;color:var(--mut);background:var(--btn-bg);text-transform:uppercase;letter-spacing:.05em}
+/* Card bodies render as markdown (kanban.proj #274, replacing the old
+   pre-wrap .bodytxt div) via mdBlocks()/mdBodyNode() below — DOM nodes only,
+   never innerHTML (the file's own history includes an XSS fixed exactly
+   this way). code/code.mention are declared globally, not scoped to
+   .bodymd, because the notification renderer's TLDR/MORE lines (goal 6,
+   notifSegNodes) share the exact same inline code + mention look and are
+   the only other place a <code> element appears on this page. */
+code{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.86em;color:var(--code-ink);background:var(--raised);border-radius:.15rem;padding:.1em .35em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+code.mention{color:var(--accent);background:var(--accent-soft)}
+code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
+.bodymd{font-size:.9em;line-height:1.6;color:var(--prose);border-top:1px solid var(--line);margin-top:10px;padding-top:10px;overflow-wrap:break-word}
+.bodymd h1,.bodymd h2,.bodymd h3{color:var(--ink-strong);font-weight:700;letter-spacing:-.01em;line-height:1.3}
+.bodymd h1{font-size:1.2em;margin:1.2em 0 .45em}
+.bodymd h2{font-size:1.1em;margin:1.4em 0 .5em;padding-top:.7em;border-top:1px solid var(--line)}
+.bodymd h3{font-size:1em;margin:1.1em 0 .35em}
+.bodymd>:first-child{margin-top:0;padding-top:0;border-top:0}
+.bodymd p{margin:.6em 0}
+.bodymd a{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
+.bodymd a:hover,.bodymd a:focus-visible{border-bottom-style:solid}
+.bodymd ul{margin:.55em 0 .55em 1.25em;padding:0}
+.bodymd li{margin:.3em 0}
+.bodymd li::marker{color:var(--mut)}
+.bodymd li>ul{margin:.25em 0 .25em 1em}
+.bodymd strong{color:var(--ink-strong);font-weight:650}
+.bodymd em{font-style:italic}
+.bodymd pre{background:var(--paper);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
+.bodymd pre code{background:none;padding:0}
+.bodymd .md-table{overflow-x:auto;margin:.9em 0}
+.bodymd table{border-collapse:collapse;font-size:.92em}
+.bodymd th{background:var(--raised);color:var(--mut);font-weight:600;letter-spacing:.04em;text-align:left;white-space:nowrap;padding:6px 10px;border-bottom:1px solid var(--line-strong)}
+.bodymd td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.bodymd td:first-child{color:var(--ink-strong);font-weight:600}
+.bodymd tr:last-child td{border-bottom:0}
+.bodymd li.task{list-style:none;margin-left:-1.25em}
+.bodymd .tick{display:inline-block;width:1.25em;color:var(--mut)}
+.bodymd li.done>.tick{color:var(--ok)}
+.bodymd li.task>ul{list-style:none;margin:.3em 0 .6em .3em;padding-left:.9em;border-left:2px solid var(--line-strong);color:var(--mut);font-size:.93em}
+.bodymd hr{border:0;border-top:1px solid var(--line);margin:1em 0}
+.bodymd .cut{margin-top:14px;padding:9px 11px;border:1px dashed var(--line-strong);border-radius:.15rem;color:var(--mut);font-size:.8em}
+.acts{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .acts button{font-size:12.5px;padding:6px 11px}
-.lbl{font-size:11px;color:var(--muted);width:100%}
-.pend{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:12px 14px;margin-top:16px}
+.lbl{font-size:11px;color:var(--mut);width:100%;text-transform:uppercase;font-weight:600;letter-spacing:.09em}
+.pend{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:12px 14px;margin-top:16px}
 .prow{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0}
 .prow button{font-size:11px;padding:3px 9px;margin-left:auto}
 .btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 .note{font-size:12px;color:var(--warn);padding:4px 0}
 .copybox{margin-top:10px}
-.copybox textarea{font-family:ui-monospace,Consolas,monospace;font-size:12px;height:88px}
-.hint{font-size:12px;color:var(--muted);margin-top:6px}
-.ok{color:#2ea043;font-weight:600}
-#newform{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:11px 13px;margin:9px 0;display:none}
+.copybox textarea{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:12px;height:88px}
+.hint{font-size:12px;color:var(--mut);margin-top:6px}
+.ok{color:var(--ok);font-weight:600}
+#newform{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:11px 13px;margin:9px 0;display:none}
 .row2{display:flex;gap:8px;margin-top:6px}
 .viewtabs{display:flex;gap:6px;margin:2px 0 10px;flex-wrap:wrap}
-.viewtabs button{font-size:12.5px;padding:7px 13px;border-radius:20px}
-.viewtabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.viewtabs button{font-size:12.5px;padding:7px 13px;border-radius:.15rem}
+.viewtabs button.active{background:var(--accent);border-color:var(--accent);color:var(--on-fill)}
 .viewtabs button:disabled{opacity:.4}
-.map-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink2);margin:2px 0 12px}
+.map-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);margin:2px 0 12px}
 .map-legend span{display:inline-flex;align-items:center;gap:5px}
-.map-swatch{width:12px;height:12px;border-radius:3px;border:2px solid var(--ring);display:inline-block;background:var(--surface)}
-.map-swatch.waiting{border-color:var(--warn)}
-.map-swatch.blocked{border-color:var(--high)}
-.map-swatch.ghost{border-style:dashed;border-color:var(--muted);background:none}
-.map-title{font-size:13px;font-weight:600;color:var(--ink2);margin:16px 0 6px}
-.map-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;border:1px solid var(--grid);border-radius:10px;padding:8px;background:var(--surface)}
+.map-swatch{width:12px;height:12px;border-radius:.15rem;border:2px solid var(--line);display:inline-block;background:var(--surface)}
+.map-swatch.waiting{border-color:var(--id-waiting)}
+.map-swatch.blocked{border-color:var(--blocked-ink)}
+.map-swatch.ghost{border-style:dashed;border-color:var(--mut);background:none}
+.map-title{font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.09em;margin:16px 0 6px}
+.map-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;border:1px solid var(--line);border-radius:.2rem;padding:8px;background:var(--surface)}
 .map-canvas{display:block}
-.mnode rect{fill:var(--surface);stroke:var(--ring);stroke-width:1.5}
-.mnode.waiting rect{stroke:var(--warn);stroke-width:2}
-.mblk{fill:var(--high)}
-.mblkt{font-size:8px;fill:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-weight:700}
-.mnode.ghost rect{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 3}
+.mnode rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.mnode.waiting rect{stroke:var(--id-waiting);stroke-width:2}
+.mblk{fill:var(--blocked-bg)}
+.mblkt{font-size:8px;fill:var(--blocked-ink);font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;font-weight:700}
+.mnode.ghost rect{fill:none;stroke:var(--mut);stroke-width:1.5;stroke-dasharray:4 3}
 .mnode{cursor:pointer}
 .mnode.ghost{cursor:default}
-.mnode .mid{font-size:10px;fill:var(--muted);font-family:ui-monospace,Consolas,monospace}
-.mnode .mtitle{font-size:12px;fill:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-.mnode.ghost .mtitle,.mnode.ghost .mid{fill:var(--muted)}
-.medge{fill:none;stroke:var(--ink2);stroke-width:1.5;opacity:.6}
-.medge.ghostedge{stroke:var(--muted);stroke-dasharray:3 3;opacity:.5}
+.mnode .mid{font-size:10px;fill:var(--mut);font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.mnode .mtitle{font-size:12px;fill:var(--ink);font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+.mnode.ghost .mtitle,.mnode.ghost .mid{fill:var(--mut)}
+.medge{fill:none;stroke:var(--mut);stroke-width:1.5;opacity:.6}
+.medge.ghostedge{stroke:var(--mut);stroke-dasharray:3 3;opacity:.5}
 /* Epic membership edges draw in their own
    orange/dashed channel with their own arrowhead, mirroring kanban-web's
    app.css .map-edge.epic-edge — so containment never reads as a real
    sequencing dependency. */
-.medge.epicedge{stroke:#f0883e;stroke-dasharray:7 4;opacity:.85}
-.map-arrow-epic-head{fill:#f0883e}
+.medge.epicedge{stroke:var(--id-epic);stroke-dasharray:7 4;opacity:.85}
+.map-arrow-epic-head{fill:var(--id-epic)}
 .map-iso-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
-.mapiso{background:var(--surface);border:1px solid var(--grid);border-radius:10px;padding:9px 12px;font-size:12.5px;opacity:.7;cursor:pointer;min-width:118px;max-width:220px}
-.mapiso .cid{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
-.map-empty{font-size:12.5px;color:var(--muted);padding:10px 2px}
+.mapiso{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:9px 12px;font-size:12.5px;opacity:.7;cursor:pointer;min-width:118px;max-width:220px}
+.mapiso .cid{display:block;font-size:11px;color:var(--mut);margin-bottom:2px}
+.map-empty{font-size:12.5px;color:var(--mut);padding:10px 2px}
 .hnav{display:flex;gap:8px;justify-content:flex-end;margin:0 0 6px}
 .hnav button{font-size:13px;padding:6px 16px}
-.glbl{font-size:11px;fill:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-.ggroup{font-size:12px;font-weight:600;fill:var(--ink2);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-.gmark{font-size:9.5px;fill:var(--muted);font-family:ui-monospace,Consolas,monospace}
-.gline{stroke:var(--grid);stroke-width:1}
+.glbl{font-size:11px;fill:var(--ink);font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+.ggroup{font-size:12px;font-weight:600;fill:var(--mut);text-transform:uppercase;letter-spacing:.09em;font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
+.gmark{font-size:9.5px;fill:var(--mut);font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.gline{stroke:var(--line);stroke-width:1}
 .gtoday{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3}
 .gbar{opacity:.9;cursor:pointer}
-.gdue{fill:var(--high)}
+.gdue{fill:var(--crit)}
 .grow{cursor:pointer}
 .cal-head{display:flex;align-items:center;gap:8px;margin:2px 0 8px}
 .cal-title{font-size:14px;font-weight:600;flex:1;text-align:center}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cal-dow{font-size:10px;color:var(--muted);text-align:center;padding:2px 0}
-.cal-cell{background:var(--surface);border:1px solid var(--grid);border-radius:6px;min-height:52px;padding:2px;overflow:hidden}
+.cal-dow{font-size:10px;color:var(--mut);text-align:center;padding:2px 0}
+.cal-cell{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;min-height:52px;padding:2px;overflow:hidden}
 .cal-cell.out{opacity:.45}
 .cal-cell.today{border-color:var(--accent)}
-.cal-daynum{font-size:10px;color:var(--muted);padding:0 2px}
-.cal-chip{display:block;border-radius:4px;padding:0 3px;margin-top:2px;font-size:9.5px;font-weight:600;color:#fff;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
-.cal-chip.range-start{border-radius:4px 0 0 4px}
+.cal-daynum{font-size:10px;color:var(--mut);padding:0 2px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.cal-chip{display:block;border-radius:.15rem;padding:0 3px;margin-top:2px;font-size:9.5px;font-weight:600;color:var(--on-fill);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+.cal-chip.range-start{border-radius:.15rem 0 0 .15rem}
 .cal-chip.range-mid{border-radius:0}
-.cal-chip.range-end{border-radius:0 4px 4px 0}
-.cal-chip.duechip{background:none;border:1px solid var(--high);color:var(--high)}
-.cal-more{font-size:9px;color:var(--muted);padding:0 3px}
+.cal-chip.range-end{border-radius:0 .15rem .15rem 0}
+.cal-chip.duechip{background:none;border:1px solid var(--crit);color:var(--crit)}
+.cal-more{font-size:9px;color:var(--mut);padding:0 3px}
 .cal-subtabs{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap}
-.cal-subtabs button{font-size:12px;padding:5px 11px;border-radius:16px}
-.cal-subtabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.cal-dayrow{background:var(--surface);border:1px solid var(--grid);border-radius:10px;padding:8px 10px;margin:8px 0}
+.cal-subtabs button{font-size:12px;padding:5px 11px;border-radius:.15rem}
+.cal-subtabs button.active{background:var(--accent);border-color:var(--accent);color:var(--on-fill)}
+.cal-dayrow{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:8px 10px;margin:8px 0}
 .cal-dayrow.today{border-color:var(--accent)}
-.cal-dayhead{font-size:12px;font-weight:600;color:var(--ink2);display:flex;align-items:center;gap:6px;cursor:pointer;-webkit-user-select:none;user-select:none}
-.cal-rowchip{display:block;border-radius:6px;padding:3px 8px;margin-top:6px;font-size:12px;font-weight:600;color:#fff;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.cal-rowchip.duechip{background:none;border:1px solid var(--high);color:var(--high)}
+.cal-dayhead{font-size:12px;font-weight:600;color:var(--mut);display:flex;align-items:center;gap:6px;cursor:pointer;-webkit-user-select:none;user-select:none}
+.cal-rowchip{display:block;border-radius:.15rem;padding:3px 8px;margin-top:6px;font-size:12px;font-weight:600;color:var(--on-fill);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cal-rowchip.duechip{background:none;border:1px solid var(--crit);color:var(--crit)}
 .cal-rowchip.range-start{border-left:3px solid rgba(255,255,255,.75)}
 .cal-rowchip.range-end{border-right:3px solid rgba(255,255,255,.75)}
 .cal-rowchip.range-mid{opacity:.8}
-.cal-norows{font-size:11px;color:var(--muted);margin-top:4px}
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px 16px}
-#modalscroll{background:var(--page);border:1px solid var(--ring);border-radius:14px;max-width:560px;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 10px 12px}
+.cal-norows{font-size:11px;color:var(--mut);margin-top:4px}
+#modal{position:fixed;inset:0;background:var(--scrim);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px 16px}
+#modalscroll{background:var(--paper);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);max-width:560px;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 10px 12px}
 #modalscroll .card{cursor:default;border:none;background:none;margin:4px 0}
 .toprow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
-.fpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--grid);border-radius:14px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--ink2)}
+.fpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:.15rem;padding:3px 10px;font-size:12px;font-weight:600;color:var(--mut)}
 .fpill .dot{width:8px;height:8px}
 .fmrow{display:flex;gap:6px;align-items:center;margin-top:6px}
-.fmrow label{font-size:11px;color:var(--muted);width:86px;flex:none;overflow:hidden;text-overflow:ellipsis}
+.fmrow label{font-size:11px;color:var(--mut);width:86px;flex:none;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;font-weight:600;letter-spacing:.09em}
 .fmrow input{flex:1;min-width:0;font-size:13px;padding:6px 8px}
 .fmrow button{flex:none;font-size:12px;padding:6px 10px}
 .pillrow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
-.pillrow button{font-size:11px;border-radius:12px;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--ink2)}
+.pillrow button{font-size:11px;border-radius:.15rem;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--mut)}
 .pillrow button.off{opacity:.4}
 .pillrow .dot{width:8px;height:8px}
 /* The map's "Epics" tap-chip rides in the SAME pillrow
@@ -468,9 +548,9 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    row's flex gap spaces it identically). Inherits .pillrow button's base
    look; the ON state is its own rule (not .off, which means the OPPOSITE
    here: a status pill defaults ON and dims when off, this chip defaults OFF
-   and lights up epic orange, #f0883e — same hue as .medge.epicedge above,
+   and lights up --id-epic — same hue as .medge.epicedge above,
    kanban-web's EPIC_COLOR) when tapped on. */
-.epicchip.on{border-color:#f0883e;color:#f0883e;background:rgba(240,136,62,.12)}
+.epicchip.on{border-color:var(--id-epic);color:var(--id-epic);background:var(--epic-wash)}
 .card.archcard{opacity:.55}
 .pill{cursor:pointer}
 /* Tier 1 (560-899px): the single column just grows — nothing else
@@ -517,11 +597,11 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    backdrop (40) so it's reachable even with a card sheet open, below
    #scrollbtns (50) so the swipe-down stack still wins in the corner it
    never actually shares with this menu. */
-.ctxmenu{position:fixed;display:flex;flex-direction:column;gap:1px;min-width:172px;background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:5px;box-shadow:0 4px 18px rgba(0,0,0,.22);z-index:45}
-.ctxitem{width:100%;text-align:left;background:none;border:none;border-radius:6px;padding:8px 10px;font-size:13px;color:var(--ink)}
-.ctxitem:hover{background:var(--page)}
-.ctxitem.armed{color:var(--high)}
-.ctxsep{height:1px;background:var(--ring);margin:4px 2px}
+.ctxmenu{position:fixed;display:flex;flex-direction:column;gap:1px;min-width:172px;background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:5px;box-shadow:var(--shadow-pop);z-index:45}
+.ctxitem{width:100%;text-align:left;background:none;border:none;border-radius:.15rem;padding:8px 10px;font-size:13px;color:var(--ink)}
+.ctxitem:hover{background:var(--paper)}
+.ctxitem.armed{color:var(--crit)}
+.ctxsep{height:1px;background:var(--line);margin:4px 2px}
 </style></head><body>
 <div id="scroll">
 <div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
@@ -542,7 +622,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 <div id="calview" style="display:none"></div>
 <div class="pend" id="pend" style="display:none"></div>
 <div id="modal" style="display:none"><div id="modalscroll"></div></div>
-<div style="font-size:12px;color:var(--muted);margin-top:16px;line-height:1.6">Tap a card to open it. Queue changes, then tap <b>Copy changes</b> and paste the copied text into the Claude chat — Claude applies it to the real board files. Nothing changes on disk until you paste.</div>
+<div style="font-size:12px;color:var(--mut);margin-top:16px;line-height:1.6">Tap a card to open it. Queue changes, then tap <b>Copy changes</b> and paste the copied text into the Claude chat — Claude applies it to the real board files. Nothing changes on disk until you paste.</div>
 </div>
 <div id="scrollbtns">
 <button id="snew" aria-label="New card" style="display:none">&#43;</button>
@@ -558,23 +638,41 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 </div>
 <script>
 const BASE="__BASE_ISO__";
+const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
 const CNAMES={backlog:"Backlog",todo:"Todo",doing:"Doing",done:"Done"};
-const CCOL={backlog:"#888780",todo:"#378ADD",doing:"#639922",done:"#7F77DD"};
 const cname=s=>CNAMES[s]||s;
-const ccol=s=>CCOL[s]||"#888780";
-const ARCHC="#8a8880";
+// Status/assignee color: every paint now resolves through a CSS custom
+// property instead of a JS hex constant (kanban.proj #274), so both light
+// and dark values live in one place (the :root/[data-theme] token blocks
+// above) and the two color families share ONE hash. Built-in statuses and
+// archive get their own named --st-* token; anything else -- a custom
+// status from config.yaml's `statuses` list, or an assignee handle with no
+// registry `color:` reservation -- hashes (djb2-xor, same algorithm as
+// kanban-web's status-colors.js statusHash) into the fixed 8-slot
+// --hash-a.."h" palette, so the same name colors the same on both surfaces.
+// var() strings only work in a `.style.X` PROPERTY assignment, never in an
+// SVG presentation ATTRIBUTE (fill="var(--x)" does not resolve) -- every
+// call site below (including the map/gantt SVG shapes) already assigns
+// through .style.fill/.style.stroke/.style.background/.style.color, never
+// a raw attribute, so this drop-in works unchanged everywhere ccol()/acol()
+// were already called.
+function shash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0;return h}
+const HASH_SLOTS="abcdefgh";
+function ccol(s){
+const v=String(s||"").trim().toLowerCase();
+if(v==="archive"||v==="archived")return "var(--st-archive)";
+if(v==="backlog"||v==="todo"||v==="doing"||v==="done")return "var(--st-"+v+")";
+return "var(--hash-"+HASH_SLOTS[shash(v)%HASH_SLOTS.length]+")"}
+const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
-// Assignee color: a reserved config.yaml `color:` wins; else the
-// handle hashes into the fixed 8-slot palette kanban-web's status-colors.js
-// STATUS_PALETTE uses (same djb2-xor hash, same hexes) so a handle colors the
-// same on both surfaces. This snapshot's own statuses (ccol above) never grew
-// that hashing; assignees deliberately borrow it. acol()'s value tints the
-// handle TEXT — every call site below sets it via `.style.color`.
-const APALETTE=["#58a6ff","#3fb950","#d29922","#a371f7","#f778ba","#39c5cf","#f0883e","#ff7b72"];
-function ahash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0;return h}
-function acol(a){const t=(a||"").trim();if(!t)return null;if(ASGCOL[t])return ASGCOL[t];return APALETTE[ahash(t.toLowerCase())%APALETTE.length]}
+// Assignee color: a reserved config.yaml `color:` wins (painted exactly as
+// given); else the handle hashes into the SAME --hash-a.."h" token family
+// ccol() above uses for custom statuses -- one shared hash+palette pool, not
+// two systems that happen to look alike. acol()'s value tints the handle
+// TEXT -- every call site below sets it via `.style.color`.
+function acol(a){const t=(a||"").trim();if(!t)return null;if(ASGCOL[t])return ASGCOL[t];return "var(--hash-"+HASH_SLOTS[shash(t.toLowerCase())%HASH_SLOTS.length]+")"}
 const DATA=__DATA__;
 const NOTIFS=__NOTIFS__;
 let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
@@ -596,14 +694,17 @@ const btn=(label,act,data)=>{const b=el("button",null,label);b.dataset.act=act;i
 // contextmenu event, not just at page load.
 const fineMQ=window.matchMedia("(hover: hover) and (pointer: fine)");
 fineMQ.addEventListener("change",()=>render());
-// Minimal inline formatting for card bodies —
-// **bold** and `code`, nothing else (no headings/lists/links, no nesting
-// inside a matched span). Pure segment splitter, no DOM: scans left to
-// right, and only treats a marker as an opener if its CLOSING partner
-// exists later in the string; an unmatched/unclosed marker falls through to
-// the plain-text run byte for byte, so it renders literally instead of
-// silently eating the rest of the body. Content between markers is never
-// re-scanned for the other marker type — that's the "no nesting" contract.
+// Minimal inline formatting for notification TLDR/MORE text (kanban.proj
+// #274 goal 6) — **bold** and `code`, nothing else (no headings/lists/
+// links, no nesting inside a matched span). Card bodies used to go through
+// this too; they now render full markdown via mdInline()/mdBlocks() below,
+// which extends this exact scan technique with italic/links/blocks. Pure
+// segment splitter, no DOM: scans left to right, and only treats a marker
+// as an opener if its CLOSING partner exists later in the string; an
+// unmatched/unclosed marker falls through to the plain-text run byte for
+// byte, so it renders literally instead of silently eating the rest of the
+// message. Content between markers is never re-scanned for the other
+// marker type — that's the "no nesting" contract.
 // A "**" is only a valid opener when it is exactly a 2-star run (text[i+2]
 // isn't itself a star) — a 3rd leading star (e.g. ***bold***) is ambiguous,
 // so it falls through as a literal '*' and the scan retries one char later,
@@ -618,16 +719,183 @@ else if(text[i]==="`"){const close=text.indexOf("`",i+1);if(close!==-1){flush();
 buf+=text[i];i++}
 flush();
 return segs}
-// Builds the card-body div from fmtBodySegs' output via el()/textContent
-// nodes only — card bodies are attacker-writable text (an XSS got through
-// this path once), so this NEVER string-concatenates a segment into innerHTML.
-function bodyNode(text){
-const d=el("div","bodytxt");
-fmtBodySegs(text).forEach(s=>{
-if(s.t==="bold")d.appendChild(el("strong",null,s.v));
-else if(s.t==="code")d.appendChild(el("code",null,s.v));
-else d.appendChild(document.createTextNode(s.v))});
-return d}
+// Shared "is this code span a card mention" builder — a code span whose
+// content matches board#id (a bare board name, "#", digits, then a word
+// boundary) is a mention (kanban.proj #274). Used by both the card-body
+// markdown renderer below AND the notification renderer (notifSegNodes) so
+// there is exactly one mention rule, not two that could drift. Same-board
+// mentions also get a data-mapnode attribute, which the existing delegated
+// click handler (see the big document.body "click" listener near the
+// bottom of this file) already opens on tap — no new wiring needed.
+function codeSegNode(v,boardName){
+const c=el("code",null,v);
+const mm=/^([^\\s#\\x60]+)#(\\d+)(?:\\s|$)/.exec(v);
+if(mm){
+c.classList.add("mention");
+if(mm[1]===boardName){c.classList.add("same");c.setAttribute("data-mapnode",mm[2])}}
+return c}
+// Full inline parser for card-body markdown (kanban.proj #274): the same
+// scan-left-to-right, opener-needs-a-later-closer technique fmtBodySegs
+// above uses for bold/code, extended with italic and links. Pure — returns
+// token data, no DOM. A code span's raw content is never rescanned for
+// bold/italic/links (mention detection aside) — same "no nesting" contract
+// fmtBodySegs already established.
+function mdInline(text){
+const s=String(text==null?"":text);
+const toks=[];let buf="",i=0;
+const flush=()=>{if(buf){toks.push({t:"text",v:buf});buf=""}};
+while(i<s.length){
+if(s[i]==="`"){
+const close=s.indexOf("`",i+1);
+if(close!==-1){flush();toks.push({t:"code",v:s.slice(i+1,close)});i=close+1;continue}}
+if(s[i]==="*"&&s[i+1]==="*"&&s[i+2]!=="*"){
+const close=s.indexOf("**",i+2);
+if(close!==-1){flush();toks.push({t:"bold",v:s.slice(i+2,close)});i=close+2;continue}}
+if(s[i]==="*"&&s[i+1]!=="*"){
+const close=s.indexOf("*",i+1);
+if(close!==-1&&s[close+1]!=="*"){flush();toks.push({t:"italic",v:s.slice(i+1,close)});i=close+1;continue}}
+if(s[i]==="["){
+const bc=s.indexOf("]",i+1);
+if(bc!==-1&&s[bc+1]==="("){
+const pc=s.indexOf(")",bc+2);
+if(pc!==-1){
+flush();
+const label=s.slice(i+1,bc),url=s.slice(bc+2,pc);
+const safe=/^(https?:|mailto:|#|\\/)/i.test(url.trim())?url:"#";
+toks.push({t:"link",v:label,href:safe});
+i=pc+1;continue}}}
+buf+=s[i];i++}
+flush();
+return toks}
+// Turns mdInline()'s tokens into DOM nodes — el()/textContent only, the
+// same XSS-safe contract bodyNode used to carry alone.
+function mdInlineNodes(toks,boardName){
+return toks.map(t=>{
+if(t.t==="bold")return el("strong",null,t.v);
+if(t.t==="italic")return el("em",null,t.v);
+if(t.t==="code")return codeSegNode(t.v,boardName);
+if(t.t==="link"){const a=el("a",null,t.v);a.href=t.href;a.target="_blank";a.rel="noopener noreferrer";return a}
+return document.createTextNode(t.v)})}
+// Pure block parser: markdown text -> a plain data tree (headings,
+// paragraphs, nested/task lists with lazy continuation, fenced code, pipe
+// tables, hr), each text-bearing block already carrying mdInline() tokens.
+// Testable in node with no DOM. Ported feature-for-feature from
+// skills/web/web/app.js's mdToHtml (kanban.proj #256), but built as DATA
+// rather than an HTML string so the DOM step below never touches
+// innerHTML. Python caps bodies at 4000/1500 chars (parse_card's "bl"
+// field records the uncapped length) — a cut can land mid-fence, mid-list
+// or mid-table; every loop here is bounded by lines.length, so a truncated
+// construct just ends where the text ends instead of throwing.
+const TABLE_DELIM_RE=/^\\s*\\|?(?:\\s*:?-{3,}:?\\s*\\|)+\\s*:?-{3,}:?\\s*\\|?\\s*$|^\\s*\\|\\s*:?-{3,}:?\\s*\\|\\s*$/;
+function splitRow(row){
+return row.trim().replace(/^\\|/,"").replace(/\\|$/,"")
+.split(/(?<!\\\\)\\|/)
+.map(c=>c.trim().replace(/\\\\\\|/g,"|"))}
+function mdBlocks(text){
+const lines=String(text==null?"":text).split("\\n");
+const blocks=[];
+let para=[],listStack=[],i=0;
+const flushPara=()=>{if(para.length){blocks.push({t:"p",inline:mdInline(para.join(" "))});para=[]}};
+while(i<lines.length){
+const line=lines[i];
+if(/^\\s*\\x60\\x60\\x60/.test(line)){
+flushPara();listStack=[];
+const code=[];i++;
+while(i<lines.length&&!/^\\s*\\x60\\x60\\x60/.test(lines[i])){code.push(lines[i]);i++}
+i++;
+blocks.push({t:"pre",code:code.join("\\n")});
+continue}
+if(/^\\s*---\\s*$/.test(line)){flushPara();listStack=[];blocks.push({t:"hr"});i++;continue}
+const h=/^(#{1,3})\\s+(.*)$/.exec(line);
+if(h){flushPara();listStack=[];blocks.push({t:"h",level:h[1].length,inline:mdInline(h[2])});i++;continue}
+if(line.trim().startsWith("|")&&TABLE_DELIM_RE.test(lines[i+1]||"")){
+flushPara();listStack=[];
+const head=splitRow(line);
+i+=2;
+const rows=[];
+while(i<lines.length&&lines[i].trim().startsWith("|")){
+const cells=splitRow(lines[i]);
+while(cells.length<head.length)cells.push("");
+cells.length=head.length;
+rows.push(cells.map(c=>mdInline(c)));
+i++}
+blocks.push({t:"table",head:head.map(c=>mdInline(c)),rows:rows});
+continue}
+const task=/^(\\s*)-\\s+\\[( |x|X)\\]\\s+(.*)$/.exec(line);
+const item=!task&&/^(\\s*)-\\s+(.*)$/.exec(line);
+if(task||item){
+flushPara();
+const m=task||item;
+const indent=m[1].length;
+while(listStack.length&&indent<listStack[listStack.length-1].indent)listStack.pop();
+let frame;
+if(listStack.length&&listStack[listStack.length-1].indent===indent){
+frame=listStack[listStack.length-1]}
+else{
+const items=[];
+if(listStack.length){
+const parentFrame=listStack[listStack.length-1];
+const parentItem=parentFrame.items[parentFrame.items.length-1];
+parentItem.children=items}
+else{blocks.push({t:"ul",items:items})}
+frame={indent:indent,items:items};
+listStack.push(frame)}
+const newItem=task
+?{task:task[2].toLowerCase()==="x"?"done":"open",inline:mdInline(task[3])}
+:{task:null,inline:mdInline(item[2])};
+frame.items.push(newItem);
+i++;continue}
+if(line.trim()===""){flushPara();listStack=[];i++;continue}
+if(listStack.length){
+const frame=listStack[listStack.length-1];
+const it=frame.items[frame.items.length-1];
+it.inline.push({t:"text",v:" "});
+it.inline.push.apply(it.inline,mdInline(line.trim()));
+i++;continue}
+para.push(line);
+i++}
+flushPara();
+return blocks}
+// Thousands separator for the cut-body notice (kanban.proj #274 goal 5) —
+// plain regex, not toLocaleString(): the message must read the same
+// regardless of the viewer's own locale.
+function thousands(n){return String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,",")}
+function mdListNode(items,boardName){
+const ul=el("ul");
+items.forEach(it=>{
+const li=el("li",it.task?"task "+it.task:null);
+if(it.task){
+li.appendChild(el("span","tick",it.task==="done"?"☑":"☐"));
+li.appendChild(document.createTextNode(" "))}
+mdInlineNodes(it.inline,boardName).forEach(n=>li.appendChild(n));
+if(it.children)li.appendChild(mdListNode(it.children,boardName));
+ul.appendChild(li)});
+return ul}
+// Replaces the old bodyNode()/.bodytxt pre-wrap div: renders mdBlocks()'
+// data tree via el()/textContent nodes only, then appends a cut notice
+// (goal 5) when the embedded body is shorter than the card's true,
+// uncapped length ("bl", from parse_card).
+function mdBodyNode(text,boardName,bl){
+const wrap=el("div","bodymd");
+mdBlocks(text).forEach(b=>{
+if(b.t==="h"){const h=el("h"+b.level);mdInlineNodes(b.inline,boardName).forEach(n=>h.appendChild(n));wrap.appendChild(h)}
+else if(b.t==="p"){const p=el("p");mdInlineNodes(b.inline,boardName).forEach(n=>p.appendChild(n));wrap.appendChild(p)}
+else if(b.t==="ul"){wrap.appendChild(mdListNode(b.items,boardName))}
+else if(b.t==="pre"){const pre=el("pre");pre.appendChild(el("code",null,b.code));wrap.appendChild(pre)}
+else if(b.t==="hr"){wrap.appendChild(el("hr"))}
+else if(b.t==="table"){
+const twrap=el("div","md-table");
+const table=el("table");
+const thead=el("thead"),htr=el("tr");
+b.head.forEach(c=>{const th=el("th");mdInlineNodes(c,boardName).forEach(n=>th.appendChild(n));htr.appendChild(th)});
+thead.appendChild(htr);table.appendChild(thead);
+const tbody=el("tbody");
+b.rows.forEach(r=>{const tr=el("tr");r.forEach(c=>{const td=el("td");mdInlineNodes(c,boardName).forEach(n=>td.appendChild(n));tr.appendChild(td)});tbody.appendChild(tr)});
+table.appendChild(tbody);twrap.appendChild(table);wrap.appendChild(twrap)}});
+const shownLen=String(text==null?"":text).length;
+const trueLen=(bl==null)?shownLen:bl;
+if(trueLen>shownLen)wrap.appendChild(el("div","cut","Cut at "+thousands(shownLen)+" of "+thousands(trueLen)+" characters. Open the card on the desk board for the rest."));
+return wrap}
 const find=id=>view.find(c=>String(c.id)===String(id));
 const isProv=id=>String(id).startsWith("n");
 const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()).filter(Boolean);
@@ -736,7 +1004,7 @@ if(isProv(o.id)){const cr=ops.find(x=>x.op==="create"&&x._pid===o.id);if(cr){if(
 else{let e=ops.find(x=>x.op==="edit"&&String(x.id)===String(o.id));if(!e){e={op:"edit",id:o.id};ops.push(e)}
 if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.assignee!==undefined)e.assignee=o.assignee;if(o.body!==undefined)e.body=o.body;
 if(o.fm)e.fm=Object.assign(e.fm||{},o.fm)}
-if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined)c.body=o.body;
+if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined){c.body=o.body;c.bl=o.body.length}
 if(o.fm&&!isProv(o.id)){c.fm=c.fm||{};for(const k in o.fm){const v=o.fm[k];
 if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
@@ -751,7 +1019,7 @@ const d=el("div","card"+(selc&&!detail?" sel":"")+(isProv(c.id)?" prov":""));
 d.dataset.card=c.id;
 if(!detail&&!c.arch&&fineMQ.matches&&dragOn)d.draggable=true;
 d.appendChild(el("span","cid",isProv(c.id)?"#new":"#"+c.id));
-if(c.p==="High")d.appendChild(el("span","badge","HIGH"));
+if(c.p==="High")d.appendChild(el("span","hitag","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
 if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+br:"");d.appendChild(bb)}
 // ADR 0009: the gold review badge, blocked's sibling — no click-to-filter
@@ -761,7 +1029,7 @@ if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+
 if(rr!==null){const rb=el("span","badge rbadge","review");rb.title="review"+(rr?": "+rr:"");d.appendChild(rb)}
 const tEl=el("div","ttl",c.t);if(detail&&!ro){tEl.dataset.tap="ren";tEl.title="Tap to rename"}d.appendChild(tEl);
 const mp=[];if(c.a){const s=el("span",null);s.style.color=acol(c.a);s.title=c.a;s.appendChild(document.createTextNode(c.a));mp.push(s)}
-if(c.due)mp.push(document.createTextNode("due "+c.due));
+if(c.due){const dw=el("span",null);dw.appendChild(document.createTextNode("due "));dw.appendChild(el("span","num",c.due));mp.push(dw)}
 if(c.p==="Low")mp.push(document.createTextNode("Low"));
 if(mp.length){const meta=el("div","meta");mp.forEach((p,i)=>{if(i>0)meta.appendChild(document.createTextNode(" \\u00b7 "));meta.appendChild(p)});d.appendChild(meta)}
 if(detail&&ro){
@@ -838,13 +1106,13 @@ keys.forEach(k=>{
 const row=el("div","fmrow");
 row.appendChild(el("label",null,k));
 const inp=el("input");inp.type="text";inp.id="fm-"+k;inp.dataset.stop="1";inp.value=(c.fm&&c.fm[k])||"";
-if(k==="blocked"&&blkTxt(inp.value)!==null)inp.style.borderColor="var(--high)";
-if(k==="review"&&blkTxt(inp.value)!==null)inp.style.borderColor="var(--rev)";
+if(k==="blocked"&&blkTxt(inp.value)!==null)inp.style.borderColor="var(--blocked-ink)";
+if(k==="review"&&blkTxt(inp.value)!==null)inp.style.borderColor="var(--review-ink)";
 row.appendChild(inp);
 row.appendChild(btn("Save","fmsave",{key:k}));
 d.appendChild(row)})}}
 if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit description":"Add description","desc"));d.appendChild(er)}
-if(c.body&&!descEd)d.appendChild(bodyNode(c.body))}
+if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bl))}
 return d}
 function statusPills(){
 const row=el("div","pillrow");
@@ -894,7 +1162,7 @@ wrap.appendChild(h);
 if(open){
 const cc=el("div","colcards");
 if(cs.length)cs.forEach(c=>cc.appendChild(cardNode(c,false)));
-else{const e=el("div",null,"no cards");e.style.cssText="font-size:12px;color:var(--muted);padding:8px 2px";cc.appendChild(e)}
+else{const e=el("div",null,"no cards");e.style.cssText="font-size:12px;color:var(--mut);padding:8px 2px";cc.appendChild(e)}
 wrap.appendChild(cc)}
 board.appendChild(wrap)});
 if(isVis("archive")){
@@ -1170,7 +1438,7 @@ if(!n.ghost)g.setAttribute("data-mapnode",String(n.id));
 const tt=svgEl("title");
 tt.textContent=n.ghost?("#"+n.id+" \\u2014 referenced but not on this board"):("#"+n.id+" "+n.title+(n.waiting.length?" (waiting on "+n.waiting.map(x=>"#"+x).join(", ")+")":"")+(n.blk!=null?" (blocked"+(n.blk?": "+n.blk:"")+")":"")+(n.arch?" (archived)":""));
 g.appendChild(tt);
-g.appendChild(svgEl("rect",{width:MW,height:MH,rx:8}));
+g.appendChild(svgEl("rect",{width:MW,height:MH,rx:3}));
 const idt=svgEl("text",{x:10,y:19,class:"mid"});idt.textContent="#"+n.id;g.appendChild(idt);
 const tl=svgEl("text",{x:10,y:37,class:"mtitle"});tl.textContent=n.ghost?"(not on board)":truncate(n.title,20);g.appendChild(tl);
 if(!n.ghost){const dot=svgEl("circle",{cx:MW-12,cy:12,r:4});dot.style.fill=n.arch?ARCHC:ccol(n.status);g.appendChild(dot)}
@@ -1178,7 +1446,7 @@ if(!n.ghost&&n.blk!=null){
 // red PILL, not a border — borders stay priority/status territory, and
 // the pill leaves the amber waiting stroke visible on a node
 // that is both waiting and blocked.
-g.appendChild(svgEl("rect",{x:MW-46,y:MH-17,width:40,height:12,rx:6,class:"mblk"}));
+g.appendChild(svgEl("rect",{x:MW-46,y:MH-17,width:40,height:12,rx:3,class:"mblk"}));
 const bt=svgEl("text",{x:MW-26,y:MH-8,class:"mblkt","text-anchor":"middle"});bt.textContent="blocked";g.appendChild(bt)}
 if(n.arch)g.style.opacity=".55";
 return g}
@@ -1371,7 +1639,7 @@ const lbl=svgEl("text",{x:4,y:cy+4,class:"glbl"});lbl.textContent="#"+r.c.id+" "
 if(r.startDay){
 const s2=r.startDay<win.start?win.start:r.startDay,e2=r.endDay>wEnd?wEnd:r.endDay;
 if(s2<=e2){
-const bar=svgEl("rect",{x:dx(s2),y:cy-GBARH/2,width:(diffDays(s2,e2)+1)*GDAY-2,height:GBARH,rx:4,class:"gbar"});
+const bar=svgEl("rect",{x:dx(s2),y:cy-GBARH/2,width:(diffDays(s2,e2)+1)*GDAY-2,height:GBARH,rx:3,class:"gbar"});
 bar.style.fill=r.c.arch?ARCHC:ccol(r.c.s);g.appendChild(bar)}}
 if(r.c.arch)g.style.opacity=".55";
 if(r.dueDay&&r.dueDay>=win.start&&r.dueDay<=wEnd){
@@ -1676,8 +1944,8 @@ const t=e.target;
 if(t.dataset&&t.dataset.act==="asg"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,assignee:t.value});pillEd=null;render()}}});
 document.body.addEventListener("input",e=>{
 const t=e.target;
-if(t.id==="fm-blocked")t.style.borderColor=blkTxt(t.value)!==null?"var(--high)":"";
-if(t.id==="fm-review")t.style.borderColor=blkTxt(t.value)!==null?"var(--rev)":""});
+if(t.id==="fm-blocked")t.style.borderColor=blkTxt(t.value)!==null?"var(--blocked-ink)":"";
+if(t.id==="fm-review")t.style.borderColor=blkTxt(t.value)!==null?"var(--review-ink)":""});
 document.body.addEventListener("click",e=>{
 // Ctx-menu item clicks stopPropagation() before they ever reach here
 // (see openCtxMenu), so any click that DOES reach this listener while the

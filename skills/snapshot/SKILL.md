@@ -100,7 +100,19 @@ capped at 4000 characters. The generator takes no flag to leave archived cards
 out, so the only way to build a snapshot without them today is to stage a
 filtered copy of the board and point the script at that. On a board holding
 anything sensitive, read that sentence again before handing the file anywhere it
-could be hosted — this page is a full text extract, not a summary.
+could be hosted — this page is a full text extract, not a summary. Every
+card's true, uncapped body length rides along in the embedded JSON (`bl`); a
+body the 4000/1500-character cap actually cut ends with a small note in the
+sheet naming exactly how much was left out.
+
+Card bodies render as markdown — headings, `-` lists (nested, with `- [ ]`/
+`- [x]` tasks), fenced code, pipe tables, `---` rules, and inline
+`` `code` ``/`**bold**`/`*italic*`/`[text](url)`, the same subset
+`skills/web/web/app.js`'s renderer supports — built as DOM nodes, never
+`innerHTML`. A code span shaped like `board#id` renders as a tappable mention
+chip; one naming this board opens that card in place. Card and notification
+text alike paint through the shop's own CSS custom-property palette (light,
+dark, and an explicit `data-theme` override for each), not literal hex.
 
 The build walks `archived/`
 **recursively** (ADR 0010), so a card filed in an `archived/<package>/`
@@ -254,8 +266,8 @@ the width-tier split above. A scroll listener on `#scroll` toggles a
 compacting the header's padding and title size so it stays out of the
 way of board content; only the header line sticks, the search box and
 view tabs scroll away normally. The "N pending" indicator (`#pill`) is a
-solid red (`--high`, never the calmer `--accent` blue) pill with bold white
-text — not just colored text — so queued changes are never mistaken for
+solid red (`--crit`, never the calmer `--accent` blue) pill with bold
+on-fill text — not just colored text — so queued changes are never mistaken for
 already applied. It also flashes: a CSS-only `@keyframes` animation cycles
 the pill red -> white -> red on an irregular, lightning-like cadence (a fast
 double strike, then one long dark pause — not an even pulse), with a fixed
