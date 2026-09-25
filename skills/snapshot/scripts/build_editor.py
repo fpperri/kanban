@@ -334,7 +334,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .hdr.thin b{font-size:14px}
 .hdr .base{font-size:12px;color:var(--mut)}
 /* "N pending" is the only signal that queued changes are NOT yet on
-   disk — a solid --crit (red, kanban.proj #250) fill, never the calmer
+   disk — a solid --crit (red) fill, never the calmer
    --accent blue that means "normal/selected" everywhere else in this file,
    with bold on-fill text makes it impossible to miss or mistake for a passive
    label, unlike the old plain colored-text pill. It also FLASHES:

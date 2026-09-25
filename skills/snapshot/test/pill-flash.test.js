@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Pill flash (kanban.proj #250): the "N pending" pill turns red (--crit,
+// Pill flash: the "N pending" pill turns red (--crit,
 // never the calmer --accent blue) and flashes red -> white -> red on an
 // IRREGULAR, lightning-like cadence -- CSS @keyframes only, no JS timers.
 // Same source-as-text technique format-body.test.js, stack-mode.test.js,
