@@ -621,11 +621,17 @@ to `127.0.0.1` only.
   URL already names (clicking the same tile twice, or a mention of the card already
   open) pushes nothing — no duplicate steps. A `popstate` (Back/Forward) reads the
   landed-on URL and opens the named card or closes the popup to match; a card id that no
-  longer resolves to any active or archived card closes quietly, no toast — routine
-  Back/Forward traffic over a stale ref isn't a broken link the way a hand-typed deep
-  link's bad id is. Reloading with a card open still goes through the deep link above,
-  unchanged — the URL already carries the id, so there's nothing new to push. The
-  push/no-op decision and the popstate-to-action read are both pure, in `card-history.js`
+  longer resolves — fails to fetch, not just missing from the last poll's stale snapshot —
+  closes quietly, no toast — routine Back/Forward traffic over a stale ref isn't a broken
+  link the way a hand-typed deep link's bad id is. `popstate` also does nothing at all
+  while any OTHER popup (the edit/new-card form, a bulk-edit popup, notifications) is
+  open, so Back/Forward can never yank the detail popup in underneath one and let a
+  follow-on Edit click silently overwrite typed changes. Reloading with a card open still
+  goes through the deep link above, unchanged — the URL already carries the id, so
+  there's nothing new to push. `openCard` pushes only once the card has actually loaded,
+  not before the fetch — a chip for a deleted/nonexistent card doesn't leave a phantom
+  step naming a card the popup isn't showing. The push/no-op decision and the
+  popstate-to-action read are both pure, in `card-history.js`
   (dual-environment export, same pattern as `deep-link.js`); app.js's `openCard`/
   `closeCard` wrappers apply it around `openDetailModal`/`closeDetailModal`, and the
   `popstate` listener calls those two directly (never the wrappers), so a Back/Forward-
