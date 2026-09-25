@@ -1021,6 +1021,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
 .cal-subview-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+/* Same .cal-controls row, reused verbatim by the gantt (see .gantt-view
+   below) — its prev/today/next disable while the 'All' sub-view is active
+   (no anchor day to page from), same opacity-dim convention as
+   .dp-clock-toggle:disabled. */
+.cal-nav:disabled { opacity: 0.45; cursor: default; }
 .cal-timegrid { --cal-day-cols: 7; border: 1px solid var(--line-soft); border-radius: .2rem; overflow: hidden; }
 .cal-tg-head { display: grid; grid-template-columns: 52px repeat(var(--cal-day-cols), 1fr); border-bottom: 1px solid var(--line-soft); }
 .cal-tg-dayhead { text-align: center; color: var(--mut); font-size: 0.78em; font-weight: 600; padding: 5px 0; border-left: 1px solid var(--line-soft); text-transform: uppercase; letter-spacing: 0.08em; }
@@ -1103,12 +1108,14 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    so waiting wins, same as .card). Only .gantt-scroll scrolls horizontally —
    the label gutter stays put. All px geometry (day width, bar left/width,
    mark positions) is written inline by app.js from gantt-model.js's
-   GANTT_DAY_PX so layout and drag math can't drift apart; the CSS only fixes
-   ROW heights, which both columns share so gutter and timeline stay aligned
-   row for row. #gantt-view itself is a plain block
-   container — the status-filter row (.gantt-filter-row) is its
-   first child, stacked ABOVE the gutter+timeline; .gantt-body carries the
-   side-by-side flex row. */
+   ganttDayPx (GANTT_DAY_PX itself only while the 'All' sub-view is active —
+   a sized sub-view fills the scroller instead) so layout and drag math can't
+   drift apart; the CSS only fixes ROW heights, which both columns share so
+   gutter and timeline stay aligned row for row. #gantt-view itself is a
+   plain block container — the sub-view controls row (.cal-controls, the
+   SAME classes/look the calendar's own uses) then the status-filter row
+   (.gantt-filter-row) are its first two children, stacked ABOVE the
+   gutter+timeline; .gantt-body carries the side-by-side flex row. */
 #gantt-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .gantt-view { background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; }
 .gantt-body { display: flex; align-items: flex-start; }

@@ -3314,17 +3314,111 @@ function shiftCalendarWindow(delta) {
 // a due-only card shows only its diamond.
 // All window/row/drag math lives in gantt-model.js (pure, unit-tested,
 // dual-environment); everything below is presentation and API glue. The
-// window derives from the rendered cards each render, so a poll that changes
-// cards may legitimately move it — deliberate: there's no month cursor to
-// preserve (unlike the calendar), and the view mode itself persists via the
-// shared 'view.mode' mechanism. No dependency arrows on purpose — the map
-// view owns the waiting_for graph; here a waiting card just keeps the board's
-// amber left-accent cue. No focusable header controls in here (no prev/next
-// nav), so boardControlFocused needs no new entry — the bars and gutter
-// labels are Tab stops as of #261, but cards are deliberately outside that
-// guard (see boardControlFocused).
+// sub-view choice (All/Month/Week/3 days/Day, kanban.proj#278) decides where
+// the window comes from: 'all' (the DEFAULT) keeps deriving it from the
+// rendered cards every render — no month cursor to preserve, exactly as
+// before this ticket; a sized sub-view instead pages an anchor day
+// (ganttSubviewWindow, gantt-model.js), same anchor-cursor shape as the
+// calendar's own. The view mode itself persists via the shared 'view.mode'
+// mechanism. No dependency arrows on purpose — the map view owns the
+// waiting_for graph; here a waiting card just keeps the board's amber
+// left-accent cue. Header controls (prev/today/next + the sub-view switch)
+// reuse the calendar's own .cal-nav class verbatim, so they ride its
+// existing boardControlFocused/Q0-exemption guards (both match by class, not
+// by view) for free — no new entry needed there.
 
-function ganttBarEl(bar, win) {
+// The sub-view choice — own feature key ('gantt.subview'), same
+// memoize-once-mutate-in-place + defensive-merge discipline as
+// calendarSubview above (mergeGanttSubview falls back to 'all', the
+// fit-everything default, on anything unknown/missing/corrupt).
+let ganttSubview = null;
+
+function loadGanttSubview() {
+  if (ganttSubview) return ganttSubview;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'gantt.subview')); }
+  catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to 'all'
+  ganttSubview = mergeGanttSubview(saved);
+  return ganttSubview;
+}
+
+function saveGanttSubview() {
+  try { localStorage.setItem(storageKey(state.projectName, 'gantt.subview'), ganttSubview); }
+  catch (e) { /* storage unavailable/full — sub-view choice just won't persist this session */ }
+}
+
+function setGanttSubview(subview) {
+  if (!GANTT_SUBVIEWS.includes(subview) || subview === loadGanttSubview()) return;
+  ganttSubview = subview;
+  saveGanttSubview();
+  renderGanttView();
+}
+
+// The anchor day a SIZED sub-view pages around — same lazy-init-to-today,
+// survives-the-poll discipline as calendarAnchor (nothing in the render path
+// resets it; only the prev/next/Today controls below write it). Unused
+// while the sub-view is 'all'.
+let ganttAnchor = null;
+
+function currentGanttAnchor() {
+  if (!ganttAnchor) ganttAnchor = localTodayStr();
+  return ganttAnchor;
+}
+
+// prev/next step by the ACTIVE sub-view's span. shiftAnchorDay is the
+// calendar's own (calendar-model.js) reused verbatim — its month/week/3day/
+// day math is anchor-day + span only, nothing calendar-specific. A no-op on
+// 'all': there's no anchor day to page from (the nav buttons are disabled
+// there too — see buildGanttControls — this guard is just defense in depth).
+function shiftGanttWindow(delta) {
+  if (loadGanttSubview() === 'all') return;
+  ganttAnchor = shiftAnchorDay(loadGanttSubview(), currentGanttAnchor(), delta);
+  renderGanttView();
+}
+
+const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
+
+// The controls row: same markup shape and CSS classes as the calendar's own
+// .cal-controls (prev/today/next + title + the sub-view switch) — "built the
+// same way and with the same look as the calendar's" per the ticket.
+// prev/today/next are DISABLED on 'all': there's no anchor day to page
+// from until a sized sub-view is chosen (title explains why, rather than
+// the buttons silently doing nothing).
+function buildGanttControls() {
+  const subview = loadGanttSubview();
+  const isAll = subview === 'all';
+  const spanNoun = { month: 'month', week: 'week', '3day': '3 days', day: 'day' }[subview] || 'span';
+  const disabledAttr = isAll ? ' disabled' : '';
+  const noPagingHint = 'Choose a dated span (Month/Week/3 days/Day) to page it';
+  const prevTitle = isAll ? noPagingHint : `Previous ${spanNoun}`;
+  const todayTitle = isAll ? noPagingHint : 'Jump back to today';
+  const nextTitle = isAll ? noPagingHint : `Next ${spanNoun}`;
+  const title = isAll ? 'All dated cards' : subviewTitle(subview, currentGanttAnchor());
+  const controls = document.createElement('div');
+  controls.className = 'cal-controls';
+  controls.innerHTML =
+    `<button type="button" id="gantt-prev-btn" class="cal-nav"${disabledAttr} title="${prevTitle}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
+    `<button type="button" id="gantt-today-btn" class="cal-nav"${disabledAttr} title="${todayTitle}">Today</button>` +
+    `<button type="button" id="gantt-next-btn" class="cal-nav"${disabledAttr} title="${nextTitle}" aria-label="Next ${spanNoun}">&#8250;</button>` +
+    `<span class="cal-title">${escapeHtml(title)}</span>` +
+    `<span class="cal-subview-switch" role="group" aria-label="Gantt span">` +
+    GANTT_SUBVIEWS.map((sv) =>
+      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" ` +
+        `data-subview="${sv}" aria-pressed="${sv === subview}">${GANTT_SUBVIEW_LABELS[sv]}</button>`).join('') +
+    `</span>`;
+  return controls;
+}
+
+// The day-px scale the LAST render used (gantt-model.js's ganttDayPx) —
+// GANTT_DAY_PX while 'all' is active, width/days for a sized sub-view (see
+// renderGanttView). The drag math below (wireGanttPointerDrag,
+// applyGanttDragVisual) reads this SAME variable, never GANTT_DAY_PX
+// directly, so a day of pointer movement is a whole day in every sub-view —
+// the "layout and drag math in one place" property GANTT_DAY_PX's own
+// comment (gantt-model.js) already claims, now extended to a variable scale.
+let ganttDayPxLive = GANTT_DAY_PX;
+
+function ganttBarEl(bar, win, dayPx) {
   // The window may be clamped (~180 days), so a bar can poke past either
   // edge: draw only the visible slice, squared off + dashed on the cut side;
   // a bar entirely outside draws nothing (its gutter label still lists it).
@@ -3369,8 +3463,8 @@ function ganttBarEl(bar, win) {
     el.style.borderColor = statusColorVar(colorStatus);
     el.style.background = statusColorSoft(colorStatus);
   }
-  el.style.left = `${diffDays(win.startDay, from) * GANTT_DAY_PX}px`;
-  el.style.width = `${(diffDays(from, to) + 1) * GANTT_DAY_PX}px`;
+  el.style.left = `${diffDays(win.startDay, from) * dayPx}px`;
+  el.style.width = `${(diffDays(from, to) + 1) * dayPx}px`;
   // An archived card's bar must not keep the LIVE handle tooltips
   // ("Drag to change...") — the drag silently no-ops on release
   // (onGanttDragEnd's own state.active lookup can never find an archived
@@ -3398,11 +3492,12 @@ function renderGanttView() {
   const prevScroll = container.querySelector('.gantt-scroll');
   const keepScrollLeft = prevScroll ? prevScroll.scrollLeft : null;
   container.innerHTML = '';
-  // The status-filter row renders first and UNCONDITIONALLY — same
-  // reasoning as the map's row: if it vanished on the everything-
-  // filtered-out empty state, there'd be no control left to toggle a status
-  // back ON. Everything from here on APPENDS (never innerHTML=, which would
-  // wipe this row straight back out).
+  // The sub-view controls row, then the status-filter row, render first and
+  // UNCONDITIONALLY — same reasoning as the map's row: if either vanished on
+  // the everything-filtered-out empty state, there'd be no control left to
+  // get back. Everything from here on APPENDS (never innerHTML=, which would
+  // wipe these rows straight back out).
+  container.appendChild(buildGanttControls());
   container.appendChild(buildGanttFilterRow());
   // Same search composition as board/map/calendar: live input value each
   // render, shared filterCards. Status filter composes with search
@@ -3461,11 +3556,17 @@ function renderGanttView() {
     container.appendChild(empty);
     return;
   }
-  // The window covers each row's bar AND its due diamond (a
-  // due-only row has no bar at all), hence rowWindowSpans between the rows
-  // and ganttWindow.
+  // The window: 'all' covers each row's bar AND its due diamond (a due-only
+  // row has no bar at all), hence rowWindowSpans -> ganttWindow, and
+  // re-derives from the rendered cards every render (unchanged from before
+  // this ticket). A SIZED sub-view instead pages a fixed-span window around
+  // the anchor day (ganttSubviewWindow), independent of what's rendered —
+  // same "the switcher's own window, not the data's" shape as the calendar.
   const rows = groups.flatMap((g) => g.bars);
-  const win = ganttWindow(rowWindowSpans(rows), localTodayStr());
+  const subview = loadGanttSubview();
+  const win = subview === 'all'
+    ? ganttWindow(rowWindowSpans(rows), localTodayStr())
+    : ganttSubviewWindow(subview, currentGanttAnchor());
 
   const gutter = document.createElement('div');
   gutter.className = 'gantt-gutter';
@@ -3473,8 +3574,27 @@ function renderGanttView() {
   scroll.className = 'gantt-scroll';
   const timeline = document.createElement('div');
   timeline.className = 'gantt-timeline';
-  timeline.style.width = `${win.days * GANTT_DAY_PX}px`;
   scroll.appendChild(timeline);
+  // gutter+scroll ride their OWN flex row (.gantt-body) — the controls +
+  // filter rows are siblings above them: #gantt-view itself is a plain block
+  // so those rows stack on top instead of joining the side-by-side flex row
+  // as extra items. Appended to the live document NOW (before the day-px
+  // scale is picked) so scroll.clientWidth below reflects the browser's real
+  // layout, not an unattached, width-0 detached node.
+  const body = document.createElement('div');
+  body.className = 'gantt-body';
+  body.appendChild(gutter);
+  body.appendChild(scroll);
+  container.appendChild(body);
+
+  // The day-px scale: GANTT_DAY_PX while 'all' is active (today's unchanged,
+  // horizontally-scrollable behaviour); a sized sub-view instead fills the
+  // scroller's measured width so its whole window shows with no horizontal
+  // scroll. Recorded on the live module var so the drag math (below) uses
+  // this EXACT same scale — see ganttDayPxLive's own comment.
+  const dayPx = ganttDayPx(subview, win.days, scroll.clientWidth);
+  ganttDayPxLive = dayPx;
+  timeline.style.width = `${win.days * dayPx}px`;
 
   // Axis row: Monday week marks up top, matching full-height grid lines
   // behind the rows; the gutter gets an empty spacer of the same height so
@@ -3491,19 +3611,19 @@ function renderGanttView() {
     if (isMonday(day)) {
       const mark = document.createElement('div');
       mark.className = 'gantt-week-mark';
-      mark.style.left = `${i * GANTT_DAY_PX}px`;
+      mark.style.left = `${i * dayPx}px`;
       mark.textContent = weekMarkLabel(day);
       axis.appendChild(mark);
       const line = document.createElement('div');
       line.className = 'gantt-week-line';
-      line.style.left = `${i * GANTT_DAY_PX}px`;
+      line.style.left = `${i * dayPx}px`;
       timeline.appendChild(line);
     }
   }
   if (today >= win.startDay && today <= win.endDay) {
     const line = document.createElement('div');
     line.className = 'gantt-today-line';
-    line.style.left = `${diffDays(win.startDay, today) * GANTT_DAY_PX + GANTT_DAY_PX / 2}px`;
+    line.style.left = `${diffDays(win.startDay, today) * dayPx + dayPx / 2}px`;
     line.title = `Today (${today})`;
     timeline.appendChild(line);
   }
@@ -3546,7 +3666,7 @@ function renderGanttView() {
       gutter.appendChild(label);
       const row = document.createElement('div');
       row.className = 'gantt-row gantt-bar-row';
-      const el = bar.startDay ? ganttBarEl(bar, win) : null; // due-only rows have no bar
+      const el = bar.startDay ? ganttBarEl(bar, win, dayPx) : null; // due-only rows have no bar
       if (el) row.appendChild(el);
       // Due diamond: the independent deadline marker, rendered
       // whether or not a bar exists on the row; outside the window = omitted
@@ -3557,7 +3677,7 @@ function renderGanttView() {
         d.className = 'gantt-due-marker card-el' + (bar.card.archived ? ' archived' : '') + (overdue ? ' overdue' : ''); // joins the shared grammar: still-click opens detail, shift/right-click select. archived flag, same reasoning as ganttBarEl — the diamond is an equally dead drag surface on an archived row
         d.dataset.id = bar.card.id;
         d.dataset.archived = bar.card.archived ? '1' : ''; // read by wireGanttPointerDrag's pointerdown guard
-        d.style.left = `${diffDays(win.startDay, bar.dueDay) * GANTT_DAY_PX + GANTT_DAY_PX / 2}px`; // centered on its day column
+        d.style.left = `${diffDays(win.startDay, bar.dueDay) * dayPx + dayPx / 2}px`; // centered on its day column
         d.title = bar.card.archived
           ? `#${bar.card.id} ${titleDisplay.text} — due ${bar.dueDay} (archived — restore the card to reschedule)`
           : `#${bar.card.id} ${titleDisplay.text} — due ${bar.dueDay}${overdue ? ' — past due' : ''} (drag to move the due date)`;
@@ -3566,15 +3686,6 @@ function renderGanttView() {
       timeline.appendChild(row);
     }
   }
-  // gutter+scroll ride their OWN flex row (.gantt-body) — the
-  // filter row is a sibling above them: #gantt-view itself is a
-  // plain block so the filter row stacks on top instead of joining the
-  // side-by-side flex row as a third item.
-  const body = document.createElement('div');
-  body.className = 'gantt-body';
-  body.appendChild(gutter);
-  body.appendChild(scroll);
-  container.appendChild(body);
   if (keepScrollLeft !== null) scroll.scrollLeft = keepScrollLeft;
 }
 
@@ -3590,7 +3701,7 @@ function renderGanttView() {
 let ganttDrag = null;
 
 function applyGanttDragVisual(drag) {
-  const px = GANTT_DAY_PX;
+  const px = ganttDayPxLive; // the LAST render's day-px scale — see its own comment above
   if (drag.mode === 'shift' || drag.mode === 'due') { // the due diamond translates like a body shift
     drag.barEl.style.transform = `translateX(${drag.dayDelta * px}px)`;
     return;
@@ -3669,12 +3780,17 @@ function wireGanttPointerDrag() {
     e.preventDefault();
     e.stopPropagation(); // capture phase at document — nothing else sees this click
   }, true);
-  // Status-filter pills — control-row buttons, checked first for
-  // the same reason the map's pills are (never fall through to the
-  // pointer-drag/card-el handling below).
+  // Control-row buttons — status-filter pills, the sub-view switcher, and
+  // prev/today/next — checked first for the same reason the map's pills are
+  // (never fall through to the pointer-drag/card-el handling below).
   container.addEventListener('click', (e) => {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (filterBtn) toggleGanttStatusFilter(filterBtn.dataset.col);
+    if (filterBtn) { toggleGanttStatusFilter(filterBtn.dataset.col); return; }
+    const sv = e.target.closest('.cal-subview-btn');
+    if (sv) { setGanttSubview(sv.dataset.subview); return; }
+    if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
+    if (e.target.closest('#gantt-next-btn')) { shiftGanttWindow(1); return; }
+    if (e.target.closest('#gantt-today-btn')) { ganttAnchor = null; renderGanttView(); }
   });
   // Right-click SOLO on the gantt's own pills — same reasoning as
   // the map's contextmenu listener (own listener so a miss falls through
@@ -3734,7 +3850,7 @@ function wireGanttPointerDrag() {
     if (!ganttDrag || e.pointerId !== ganttDrag.pointerId) return;
     const dx = e.clientX - ganttDrag.originX;
     if (Math.abs(dx) > 3) ganttDrag.moved = true; // sub-day wiggle is still a drag, not a click
-    ganttDrag.dayDelta = Math.round(dx / GANTT_DAY_PX);
+    ganttDrag.dayDelta = Math.round(dx / ganttDayPxLive);
     applyGanttDragVisual(ganttDrag);
   });
   // pointerup commits; pointercancel (touch scroll steal, window loss) never
