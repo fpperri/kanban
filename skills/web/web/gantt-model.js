@@ -274,6 +274,30 @@ function weekMarkLabel(day) {
   return `${GANTT_MONTHS_SHORT[m - 1]} ${d}`;
 }
 
+// --- bar clipping: the visible slice of a bar inside a window --------------
+// A sized sub-view's window is a fixed span (unlike 'all', clamped only past
+// 180 natural days), so a bar poking past either edge is now the NORMAL
+// case, not a rare one. ganttBarEl (app.js) draws only this slice — squared
+// off + dashed on the cut side (CSS .clip-start/.clip-end) — and skips the
+// handle on a cut side entirely: that handle would sit on the WINDOW edge,
+// not the card's true date, but barResizeChanges below always resizes from
+// the TRUE edge (span.startDay/endDay), so a handle drawn there would
+// preview one date and PATCH a different, usually still off-window one.
+// Returns null when the bar is entirely outside the window — nothing to
+// clip, nothing to draw (ganttBarEl draws no bar at all; the gutter label
+// still lists the card).
+function ganttBarClip(bar, win) {
+  if (bar.endDay < win.startDay || bar.startDay > win.endDay) return null;
+  const clipStart = bar.startDay < win.startDay;
+  const clipEnd = bar.endDay > win.endDay;
+  return {
+    clipStart,
+    clipEnd,
+    from: clipStart ? win.startDay : bar.startDay,
+    to: clipEnd ? win.endDay : bar.endDay,
+  };
+}
+
 // --- drag math ----------------------------------------------------------
 // Both return the PATCH changes object, or null for "don't PATCH" — a zero
 // delta, a card with no parseable date, or a resize fully swallowed by the
@@ -358,6 +382,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
     barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel,
+    ganttBarClip,
     barShiftChanges, barResizeChanges, dueShiftChanges,
     GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx, // sub-views
   };
@@ -373,6 +398,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.ganttWindow = ganttWindow;
   window.isMonday = isMonday;
   window.weekMarkLabel = weekMarkLabel;
+  window.ganttBarClip = ganttBarClip;
   window.barShiftChanges = barShiftChanges;
   window.barResizeChanges = barResizeChanges;
   window.dueShiftChanges = dueShiftChanges;

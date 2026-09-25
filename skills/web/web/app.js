@@ -3422,9 +3422,9 @@ function ganttBarEl(bar, win, dayPx) {
   // The window may be clamped (~180 days), so a bar can poke past either
   // edge: draw only the visible slice, squared off + dashed on the cut side;
   // a bar entirely outside draws nothing (its gutter label still lists it).
-  if (bar.endDay < win.startDay || bar.startDay > win.endDay) return null;
-  const from = bar.startDay < win.startDay ? win.startDay : bar.startDay;
-  const to = bar.endDay > win.endDay ? win.endDay : bar.endDay;
+  const clip = ganttBarClip(bar, win); // gantt-model.js — the visible slice + which edges are cut
+  if (!clip) return null;
+  const { clipStart, clipEnd, from, to } = clip;
   const el = document.createElement('div');
   const pb = priorityBadge(bar.card, state.priorities); // same emphasis as tiles/chips
   // epic is a background-wash class (`.gantt-bar.epic`,
@@ -3447,7 +3447,7 @@ function ganttBarEl(bar, win, dayPx) {
     (selectedIds.has(bar.card.id) ? ' selected' : '') +
     (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '') +
     (bar.card.archived ? ' archived' : '') + // an archived bar is drag-read-only — CSS swaps the grab cursor for not-allowed
-    (bar.startDay < win.startDay ? ' clip-start' : '') + (bar.endDay > win.endDay ? ' clip-end' : '');
+    (clipStart ? ' clip-start' : '') + (clipEnd ? ' clip-end' : '');
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = bar.card.id;
   el.dataset.archived = bar.card.archived ? '1' : ''; // read by wireGanttPointerDrag's pointerdown guard, same signal used to swap the tooltips below
@@ -3478,10 +3478,18 @@ function ganttBarEl(bar, win, dayPx) {
   // plain-text property — full title/prompt + true dates survive the CSS truncation/clipping
   el.title = `#${bar.card.id} ${titleDisplay.text} (${bar.startDay}${bar.endDay !== bar.startDay ? ` → ${bar.endDay}` : ''})` +
     (bar.card.archived ? ` — ${readOnlyHint}` : '');
+  // A handle on a CUT side sits on the WINDOW edge, not the card's true
+  // date — barResizeChanges (gantt-model.js) always resizes from the true
+  // edge, so a start-handle drag on a clip-start bar would preview one date
+  // (relative to the visible edge) and PATCH a different one (relative to
+  // the true, off-screen edge), landing outside the window with no visible
+  // change. Omitting the handle there leaves a plain pointerdown on that end
+  // of the bar to fall through to 'shift' (move the whole bar) — already the
+  // correct, honest behaviour for a click anywhere else on a clipped bar.
   el.innerHTML =
-    `<span class="gantt-handle start" title="${startHint}"></span>` +
+    (clipStart ? '' : `<span class="gantt-handle start" title="${startHint}"></span>`) +
     `<span class="gantt-bar-text${titleDisplay.isPromptFallback ? ' gantt-bar-text--prompt-fallback' : ''}"><span class="gantt-bar-id">#${bar.card.id}</span> ${escapeHtml(titleDisplay.text)}</span>` +
-    `<span class="gantt-handle end" title="${endHint}"></span>`;
+    (clipEnd ? '' : `<span class="gantt-handle end" title="${endHint}"></span>`);
   return el;
 }
 
@@ -3491,6 +3499,21 @@ function renderGanttView() {
   // would make horizontal position unusable. Carry it across the rebuild.
   const prevScroll = container.querySelector('.gantt-scroll');
   const keepScrollLeft = prevScroll ? prevScroll.scrollLeft : null;
+  // The width a sized sub-view fills, read from the OUTGOING scroller —
+  // BEFORE the wipe below, while it's still the fully-rebuilt element the
+  // previous render finished with. Reading it any later (after `innerHTML =
+  // ''`, before the rows regrow the body) would force the browser to lay
+  // out a MUCH SHORTER document — just the controls + filter rows, no body
+  // — and that both clamps page scrollY to that shorter height (it doesn't
+  // recover once the rows come back) and measures a width from before the
+  // page's own vertical scrollbar reappears, so a sized timeline built from
+  // it overflows once that scrollbar returns. The previous render's width
+  // is the right answer almost every time — a poll, a drag commit, arrows,
+  // or a subview switch all keep the same row count and so the same page
+  // height/scrollbar state; it only lags one render behind something that
+  // changes row COUNT (a status filter, search, the Archive pill), which
+  // self-corrects on the very next render.
+  const prevWidth = prevScroll ? prevScroll.clientWidth : null;
   container.innerHTML = '';
   // The sub-view controls row, then the status-filter row, render first and
   // UNCONDITIONALLY — same reasoning as the map's row: if either vanished on
@@ -3578,9 +3601,9 @@ function renderGanttView() {
   // gutter+scroll ride their OWN flex row (.gantt-body) — the controls +
   // filter rows are siblings above them: #gantt-view itself is a plain block
   // so those rows stack on top instead of joining the side-by-side flex row
-  // as extra items. Appended to the live document NOW (before the day-px
-  // scale is picked) so scroll.clientWidth below reflects the browser's real
-  // layout, not an unattached, width-0 detached node.
+  // as extra items. Appended to the live document now so the rows below can
+  // just .appendChild into it; NOT relied on to measure a width from (see
+  // prevWidth above) except in the one-render fallback right below.
   const body = document.createElement('div');
   body.className = 'gantt-body';
   body.appendChild(gutter);
@@ -3589,10 +3612,12 @@ function renderGanttView() {
 
   // The day-px scale: GANTT_DAY_PX while 'all' is active (today's unchanged,
   // horizontally-scrollable behaviour); a sized sub-view instead fills the
-  // scroller's measured width so its whole window shows with no horizontal
-  // scroll. Recorded on the live module var so the drag math (below) uses
-  // this EXACT same scale — see ganttDayPxLive's own comment.
-  const dayPx = ganttDayPx(subview, win.days, scroll.clientWidth);
+  // available width so its whole window shows with no horizontal scroll —
+  // prevWidth (captured above, before the wipe) almost always supplies it.
+  // Only the very first gantt paint ever (no outgoing scroller to read) falls
+  // back to measuring the just-attached, still-rows-empty scroller directly
+  // — a one-time cost paid once per page load, not on every re-render.
+  const dayPx = ganttDayPx(subview, win.days, prevWidth != null ? prevWidth : scroll.clientWidth);
   ganttDayPxLive = dayPx;
   timeline.style.width = `${win.days * dayPx}px`;
 

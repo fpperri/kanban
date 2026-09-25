@@ -891,8 +891,12 @@ to `127.0.0.1` only.
   move the due date alone — on a compat card that also moves the rendered range's end,
   since due IS that range's end field. Same-position drops don't write. Dragging a bar
   clipped by the window edge edits the card's true dates — the visible clip edge may not
-  appear to move until the window re-derives. No dependency arrows — the map view owns
-  the `waiting_for` graph.
+  appear to move until the window re-derives. A CUT side (`.clip-start`/`.clip-end`)
+  offers no resize handle at all — that handle would sit on the window edge, not the
+  card's true date, and `barResizeChanges` always resizes the true edge, so a handle
+  drawn there would preview one date and write a different one; a press on that end of
+  the bar falls through to an ordinary body drag (shift) instead. No dependency arrows —
+  the map view owns the `waiting_for` graph.
   **Status-filter row** — a pill row above the timeline, sharing the map's pill-row
   MECHANISM: one toggle per LIVE board status in column order, all ON by default, PLUS
   an Archive pseudo-pill (same id list as the map's row) that defaults **OFF** —

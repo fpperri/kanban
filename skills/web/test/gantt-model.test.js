@@ -4,6 +4,7 @@ const { addDays } = require('../web/calendar-model');
 const {
   GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
   barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel,
+  ganttBarClip,
   barShiftChanges, barResizeChanges, dueShiftChanges,
   GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx,
 } = require('../web/gantt-model');
@@ -372,6 +373,49 @@ test('weekMarkLabel renders a short "Mon D" date', () => {
   assert.strictEqual(weekMarkLabel('2026-07-13'), 'Jul 13');
   assert.strictEqual(weekMarkLabel('2026-01-05'), 'Jan 5');
   assert.strictEqual(weekMarkLabel('2025-12-01'), 'Dec 1');
+});
+
+// --- ganttBarClip: the visible slice of a bar inside a window -------------------
+// A sized sub-view's window clips bars routinely (not just past the 180-day
+// clamp), so this is the shared fact ganttBarEl's rendering AND its
+// cut-side-handle omission both read off of — a handle on a cut side sits on
+// the window edge, not the card's true date, so it must never be offered
+// (barResizeChanges always resizes the TRUE edge).
+
+test('ganttBarClip: bar fully inside the window is not clipped either side', () => {
+  const win = { startDay: '2026-09-01', endDay: '2026-09-30' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-10', endDay: '2026-09-15' }, win),
+    { clipStart: false, clipEnd: false, from: '2026-09-10', to: '2026-09-15' });
+});
+
+test('ganttBarClip: bar entirely before or after the window is null (nothing to draw)', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.strictEqual(ganttBarClip({ startDay: '2026-09-01', endDay: '2026-09-05' }, win), null);
+  assert.strictEqual(ganttBarClip({ startDay: '2026-09-20', endDay: '2026-09-25' }, win), null);
+});
+
+test('ganttBarClip: bar starting before the window clips ONLY the start edge', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-01', endDay: '2026-09-10' }, win),
+    { clipStart: true, clipEnd: false, from: '2026-09-08', to: '2026-09-10' });
+});
+
+test('ganttBarClip: bar ending after the window clips ONLY the end edge', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-12', endDay: '2026-09-20' }, win),
+    { clipStart: false, clipEnd: true, from: '2026-09-12', to: '2026-09-14' });
+});
+
+test('ganttBarClip: bar spanning past both edges clips both sides', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-01', endDay: '2026-09-25' }, win),
+    { clipStart: true, clipEnd: true, from: '2026-09-08', to: '2026-09-14' });
+});
+
+test('ganttBarClip: a bar edge exactly on the window boundary is NOT clipped there', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-08', endDay: '2026-09-14' }, win),
+    { clipStart: false, clipEnd: false, from: '2026-09-08', to: '2026-09-14' });
 });
 
 // --- barShiftChanges: drag the bar body = shift the WORKING RANGE ----------------
