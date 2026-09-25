@@ -80,13 +80,16 @@ const LIGHT_STATUS_COLORS = {
 };
 const LIGHT_ARCHIVE_COLOR = '#626b75';
 const LIGHT_EPIC_COLOR = '#b34906';
-const LIGHT_STATUS_PALETTE = ['#0266d7', '#117a32', '#906001', '#642cba', '#b93384', '#0c5f65', '#b34906', '#ce202d'];
+// Slot h sits a step deeper than the high-priority red, which it would otherwise
+// match in light: dark keeps the two apart by lightness (#ff7b72 / #f85149).
+const LIGHT_STATUS_PALETTE = ['#0266d7', '#117a32', '#906001', '#642cba', '#b93384', '#0c5f65', '#b34906', '#9e1c37'];
 
-// Board signals that are not statuses: the high-priority / blocked / overdue
-// red, the waiting amber and the review gold.
+// Board signals that are not statuses: the high-priority and overdue red,
+// the waiting amber and the review gold, plus the hover twins of the gantt
+// due diamond. (The blocked pill has its own ink, --blocked-ink in app.css.)
 const SIGNAL_COLORS = {
-  dark: { high: '#f85149', waiting: '#d29922', review: '#eac54f' },
-  light: { high: '#ce212d', waiting: '#906001', review: '#7d6400' },
+  dark: { high: '#f85149', waiting: '#d29922', review: '#eac54f', highHover: '#ff7b72', waitingHover: '#e3b341' },
+  light: { high: '#ce212d', waiting: '#906001', review: '#7d6400', highHover: '#d9363e', waitingHover: '#a87411' },
 };
 
 // Palette slot N paints the token --hash-<letter>. Letters, not digits,
@@ -106,6 +109,8 @@ function themeColorTokens(theme) {
   out['id-high'] = signal.high;
   out['id-waiting'] = signal.waiting;
   out['id-review'] = signal.review;
+  out['id-high-hover'] = signal.highHover;
+  out['id-waiting-hover'] = signal.waitingHover;
   out['id-epic'] = light ? LIGHT_EPIC_COLOR : EPIC_COLOR;
   return out;
 }

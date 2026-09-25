@@ -175,7 +175,7 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
   // text, so every identity token takes the text floor on each ground it paints
   // on in its own theme (surface, paper, and the chip ground --btn-bg).
   test(`${name}: every status and identity colour clears ${TEXT}:1 as text on surface, paper and the chip ground`, () => {
-    const ids = Object.keys(set).filter((k) => /^--(st|hash|id)-/.test(k));
+    const ids = Object.keys(set).filter((k) => /^--(st|hash|id)-/.test(k) && !k.endsWith('-hover'));
     assert.ok(ids.length >= 17, `expected the identity tokens, found ${ids.length}`);
     for (const tok of ids) {
       for (const ground of ['--surface', '--paper', '--btn-bg']) {
@@ -197,6 +197,20 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
         assert.ok(r >= TEXT, `--${s}-ink on --${s}-bg over ${page} is ${r.toFixed(2)}:1, under ${TEXT}`);
       }
     }
+  });
+
+  // The gantt due diamond's hover twins are marks, not text: the 3:1 floor.
+  test(`${name}: the due diamond's hover colours stay visible on surface and paper`, () => {
+    for (const tok of ['--id-high-hover', '--id-waiting-hover']) {
+      for (const ground of ['--surface', '--paper']) {
+        const r = ratio(set, tok, ground);
+        assert.ok(r >= UI, `${tok} on ${ground} is ${r.toFixed(2)}:1, under ${UI}`);
+      }
+    }
+  });
+
+  test(`${name}: the review pill's ink is the review identity itself`, () => {
+    assert.strictEqual(set['--review-ink'], set['--id-review']);
   });
 
   test(`${name}: on-fill labels stay readable on every solid status fill`, () => {

@@ -253,7 +253,7 @@ test('.map-node.high/.waiting rect strokes match the board tile\'s red/amber exa
   }
 });
 
-test('the blocked sticker\'s red pill is styled on both surfaces it shows (tiles + map), same red as high priority', () => {
+test('the blocked sticker\'s red pill is styled on both surfaces it shows (tiles + map), on its own ground and ink', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.blocked-pill\s*\{[^}]*background:\s*var\(--blocked-bg\)/, 'board tile pill — its own red ground, never a tint of its ink');
   assert.match(css, /\.blocked-pill\s*\{[^}]*color:\s*var\(--blocked-ink\)/, 'board tile pill — red text');
@@ -571,4 +571,16 @@ test('the five status colours stay apart under protanopia and deuteranopia, in b
       }
     }
   }
+});
+
+// Every colour app.js paints inline goes through the var() twins, so it
+// follows the theme; a bare hex write would paint the dark value in light mode.
+test('app.js paints status and assignee colours only through the theme-following var() twins', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  assert.doesNotMatch(app, /\bstatusColor\(/, 'statusColor() returns the dark hex: paint with statusColorVar()');
+  assert.doesNotMatch(app, /\bassigneeColor\(/, 'assigneeColor() returns the dark hex: paint with assigneeColorVar()');
+  assert.match(app, /\.column-header'\)\.style\.color = statusColorVar\(col\)/, 'custom column headers');
+  assert.match(app, /btn\.style\.borderColor = statusColorVar\(col\)/, 'filter pills');
+  assert.match(app, /glabel\.style\.color = statusColorVar\(group\.status\)/, 'gantt group labels');
+  assert.match(app, /input\.style\.color = handle \? \(assigneeColorVar\(/, 'the assignee input');
 });

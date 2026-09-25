@@ -140,7 +140,8 @@ to `127.0.0.1` only.
   text in its own theme. app.css carries them as `--st-*`, `--hash-a`…`--hash-h` and
   `--id-*` tokens in its theme blocks; the values live in status-colors.js
   (`themeColorTokens`), and anything painted from script uses `statusColorVar()` so it
-  follows the theme too. The neutral grey belongs to
+  follows the theme too. The one exception is the 12% wash inside a gantt bar
+  (`statusColorSoft()`), a fixed tint of the dark value that reads on either ground. The neutral grey belongs to
   Archive alone — no hashable palette slot is near-grey, and an unlisted on-disk
   `status: archive` **or `archived`** mutes to the archive grey instead of hashing. A
   custom status gets a deterministic color (its name hashed into a fixed 8-color palette)

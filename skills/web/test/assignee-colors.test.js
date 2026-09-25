@@ -3,7 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { STATUS_PALETTE, statusHash } = require('../web/status-colors');
-const { assigneeColor, assigneeColorClass, findAssigneeEntry } = require('../web/assignee-colors');
+const { assigneeColor, assigneeColorClass, assigneeColorVar, findAssigneeEntry } = require('../web/assignee-colors');
+const { HASH_SLOTS } = require('../web/status-colors');
 
 // --- assignee colors mirror status-colors.js's contract ------------
 
@@ -97,4 +98,20 @@ test('SKILL.md documents the OPTIONAL assignees[].color config field', () => {
   const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
   assert.match(skill, /\*\*`assignees\[\]\.color`\*\* \(OPTIONAL\)/);
   assert.match(skill, /color: "#58a6ff"\s+# OPTIONAL/, 'the config.yaml example shows the field');
+});
+
+// --- assigneeColorVar: what app.js paints inline ----------------------------
+test('assigneeColorVar paints a reserved colour exactly as written', () => {
+  assert.strictEqual(assigneeColorVar('@alex', [{ handle: '@alex', color: '#ff00ff' }]), '#ff00ff');
+});
+
+test('assigneeColorVar hands an unreserved handle its hashed slot as a theme-following token', () => {
+  const slot = statusHash('@alex') % STATUS_PALETTE.length;
+  assert.strictEqual(assigneeColorVar('@alex', []), `var(--hash-${HASH_SLOTS[slot]})`);
+  assert.strictEqual(assigneeColorVar('@alex', []), assigneeColorVar(' @alex ', []));
+});
+
+test('assigneeColorVar returns null for an empty handle', () => {
+  assert.strictEqual(assigneeColorVar('', []), null);
+  assert.strictEqual(assigneeColorVar(null, []), null);
 });

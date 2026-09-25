@@ -64,10 +64,12 @@
   --hash-e: #b93384;
   --hash-f: #0c5f65;
   --hash-g: #b34906;
-  --hash-h: #ce202d;
+  --hash-h: #9e1c37;
   --id-high: #ce212d;
   --id-waiting: #906001;
   --id-review: #7d6400;
+  --id-high-hover: #d9363e;
+  --id-waiting-hover: #a87411;
   --id-epic: #b34906;
   --blocked-ink: #b62324;
   --blocked-bg: #fde8e6;
@@ -123,6 +125,8 @@
     --id-high: #f85149;
     --id-waiting: #d29922;
     --id-review: #eac54f;
+    --id-high-hover: #ff7b72;
+    --id-waiting-hover: #e3b341;
     --id-epic: #f0883e;
     --blocked-ink: #fc6e63;
     --blocked-bg: #3a1c21;
@@ -179,6 +183,8 @@
   --id-high: #f85149;
   --id-waiting: #d29922;
   --id-review: #eac54f;
+  --id-high-hover: #ff7b72;
+  --id-waiting-hover: #e3b341;
   --id-epic: #f0883e;
   --blocked-ink: #fc6e63;
   --blocked-bg: #3a1c21;
@@ -458,7 +464,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    slot (the --hash-a..h tokens, numbered like status-colors.js's STATUS_PALETTE and its
    .status-dot--palette-N twin — parallel class family, not a reuse, since
    this sets `color` not `background`); source order alone breaks the tie
-   with .card-assignee's own `color: #8b949e` above (same specificity, later
+   with .card-assignee's own `color: var(--mut)` above (same specificity, later
    wins — no !important needed). A RESERVED custom color has no fixed class
    (open value space) — app.js's paintAssigneeColors paints .card-assignee
    itself via one small CSSOM assignment instead (data-assignee-color
@@ -963,7 +969,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .cal-chip.cal-chip-due { border-color: var(--id-waiting); border-left-color: var(--id-waiting); }
 .cal-chip-due-glyph { color: var(--id-waiting); }
 /* Overdue due chip (kanban.proj#258): the deadline slipped past today —
-   same danger red as .blocked-pill, declared after .cal-chip-due so it
+   the high-priority red (--id-high), declared after .cal-chip-due so it
    wins the amber border/glyph on its own chip. */
 .cal-chip.overdue { border-color: var(--id-high); border-left-color: var(--id-high); }
 .cal-chip.overdue .cal-chip-due-glyph { color: var(--id-high); }
@@ -1145,15 +1151,15 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    cards due sits exactly on the rendered end day */
 .gantt-due-marker { position: absolute; top: -1px; width: 12px; height: 12px; margin-left: -6px; cursor: grab; touch-action: none; user-select: none; z-index: 3; }
 .gantt-due-marker::before { content: ''; position: absolute; inset: 1px; background: var(--id-waiting); border-radius: 2px; transform: rotate(45deg); }
-.gantt-due-marker:hover::before { background: #e3b341; }
+.gantt-due-marker:hover::before { background: var(--id-waiting-hover); }
 .gantt-due-marker.dragging { z-index: 6; cursor: grabbing; }
 .gantt-due-marker.dragging::before { box-shadow: 0 0 0 1px var(--accent); }
 .gantt-due-marker.archived { cursor: not-allowed; } /* same read-only affordance as .gantt-bar.archived — the diamond drag is blocked at pointerdown too */
-/* Overdue diamond (kanban.proj#258): same danger red as .blocked-pill,
+/* Overdue diamond (kanban.proj#258): the high-priority red (--id-high),
    overriding the amber due fill (never co-occurs with .archived — isOverdue
    itself excludes archived cards). */
 .gantt-due-marker.overdue::before { background: var(--id-high); }
-.gantt-due-marker.overdue:hover::before { background: #ff7b72; }
+.gantt-due-marker.overdue:hover::before { background: var(--id-high-hover); }
 
 /* --- Date-picker popover -----------------------------------------
    Hand-rolled month grid on the form's date fields (same "no native widgets
