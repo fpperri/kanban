@@ -2342,12 +2342,20 @@ function formatDetailModified(data) {
   return '';
 }
 
-async function openDetailModal(id) {
+// `quiet` (popstate's use only — see below): on a failed fetch, close the
+// popup instead of toasting. Returns true iff the card actually ended up
+// showing, so callers that need to know (openCard, below) can tell a real
+// open from a failed one instead of assuming success.
+async function openDetailModal(id, { quiet } = {}) {
   const reqId = ++detailRequestId;
   let data;
   try { data = await api('GET', `/api/cards/${id}/detail`); }
-  catch (e) { if (reqId === detailRequestId) toast('Load failed: ' + e.message); return; }
-  if (reqId !== detailRequestId) return; // a newer openDetailModal call superseded this one
+  catch (e) {
+    if (reqId !== detailRequestId) return false; // superseded — some other call already decided the popup's fate
+    if (quiet) closeDetailModal(); else toast('Load failed: ' + e.message);
+    return false;
+  }
+  if (reqId !== detailRequestId) return false; // a newer openDetailModal call superseded this one
   currentDetailId = data.id;
   currentDetailArchived = !!data.archived;
   // Same empty-title-shows-the-prompt fallback every other
@@ -2383,6 +2391,7 @@ async function openDetailModal(id) {
   $('#detail-archive-btn').style.visibility = currentDetailArchived ? 'hidden' : '';
   $('#detail-modal').classList.remove('hidden');
   applyModalFullscreen('detail'); // re-apply the persisted per-modal-type preference on every open
+  return true;
 }
 
 function closeDetailModal() {
@@ -2391,6 +2400,64 @@ function closeDetailModal() {
   currentDetailArchived = false;
   $('#detail-modal').classList.add('hidden');
 }
+
+// Opening/closing the detail popup as real browser-history steps, so
+// Alt+Left/Alt+Right, the mouse back/forward buttons,
+// and the browser's own arrows all step between opened cards natively — no
+// separate keyboard shortcut to fight them. card-history.js owns the pure
+// "what URL, if any" decision; these two just apply it around the existing
+// open/close. Every call site that opens or closes the popup from a live
+// user gesture (tile, mention, tray, map ghost, close button, backdrop, Esc,
+// archive/delete) goes through openCard/closeCard instead of
+// openDetailModal/closeDetailModal directly. The popstate listener below is
+// the one deliberate exception — it applies openDetailModal/closeDetailModal
+// straight, so a Back/Forward-driven open or close never pushes a step of
+// its own (no loop). consumeDeepLink (initial load) is the other exception:
+// the URL already carries the id, so there is nothing to push.
+function pushCardHistoryStep(targetId) {
+  const search = nextCardHistorySearch(location.search, targetId);
+  if (search == null) return; // already there — no duplicate entry
+  history.pushState(null, '', location.pathname + search);
+}
+
+// The push happens AFTER the card actually loads, not before: pushing first
+// would leave a phantom history step (and a URL naming a card the popup
+// isn't showing) behind a chip for a deleted/nonexistent card or a failed
+// fetch. The detailRequestId supersede check inside openDetailModal already
+// stops a stale push if a popstate or close lands mid-fetch.
+async function openCard(id) {
+  if (await openDetailModal(id)) pushCardHistoryStep(id);
+}
+
+function closeCard() {
+  pushCardHistoryStep(null);
+  closeDetailModal();
+}
+
+// Back/Forward (mouse buttons, the browser's own arrows, and — because
+// there's no competing keyboard handler — Alt+Left/Alt+Right) land here.
+// location.search is already the DESTINATION url by the time this fires, so
+// reading it off cardIdFromSearch is enough to know what to show; nothing
+// here calls pushCardHistoryStep, or this would push a fresh step for every
+// step the user just took. A card id that parses but no longer matches any
+// active/archived card closes quietly — unlike consumeDeepLink's toast on
+// first load, routine Back/Forward traffic over a stale ref must not spam a
+// toast on every step (quiet: true routes a failed fetch to the same silent
+// close rather than openDetailModal's normal toast — state.active/archived
+// can still name a card whose file a poll hasn't caught up with yet, since
+// the poll itself is paused for as long as this popup is open).
+window.addEventListener('popstate', () => {
+  // An edit/new-card form, or any other popup, covers the same z-index slot
+  // as the detail popup and may hold unsaved typing (formSnapshot) that
+  // openDetailModal would silently overwrite if Edit were then clicked on
+  // whatever this landed on. Leave it alone — the URL moves, the popup
+  // underneath does not.
+  if (document.querySelector('.modal-backdrop:not(#detail-modal):not(.hidden)')) return;
+  const id = cardIdFromSearch(location.search);
+  const card = id == null ? null : state.active.concat(state.archived).find((c) => c.id === id);
+  if (card) openDetailModal(id, { quiet: true });
+  else closeDetailModal();
+});
 
 // Edit layers the existing card-form modal over the (now closed) detail popup;
 // closing first guarantees no stale detail view is left behind on return.
@@ -2403,7 +2470,7 @@ function editFromDetail() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  $('#detail-close').addEventListener('click', closeDetailModal);
+  $('#detail-close').addEventListener('click', closeCard);
   $('#detail-copy-btn').addEventListener('click', copyDetailPath);
   // A mention of a card on this board opens that card, in the body and in the
   // frontmatter's parent field alike.
@@ -2411,7 +2478,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const m = e.target.closest('code.mention.same');
     if (!m || (e.type === 'keydown' && e.key !== 'Enter')) return;
     e.preventDefault();
-    await openDetailModal(Number(m.dataset.cardId));
+    await openCard(Number(m.dataset.cardId));
     $('#detail-modal .modal').scrollTop = 0; // the new card opens at its top, not at the old card's scroll
   };
   $('#detail-modal').addEventListener('click', openMentionedCard);
@@ -2420,13 +2487,13 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#detail-archive-btn').addEventListener('click', () => {
     // Belt-and-suspenders: the button is hidden for archived cards, but never
     // let this path reach doArchive on one even if that ever fails to apply.
-    if (currentDetailId != null && !currentDetailArchived) doArchive(currentDetailId, { onSuccess: closeDetailModal });
+    if (currentDetailId != null && !currentDetailArchived) doArchive(currentDetailId, { onSuccess: closeCard });
   });
   $('#detail-delete-btn').addEventListener('click', () => {
-    if (currentDetailId != null) doDelete(currentDetailId, { onSuccess: closeDetailModal });
+    if (currentDetailId != null) doDelete(currentDetailId, { onSuccess: closeCard });
   });
   $('#detail-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('detail'));
-  $('#detail-modal').addEventListener('click', (e) => { if (e.target.id === 'detail-modal') closeDetailModal(); });
+  $('#detail-modal').addEventListener('click', (e) => { if (e.target.id === 'detail-modal') closeCard(); });
   // Esc priority: fullscreen is out of the Esc picture entirely.
   // An open detail popup closes on the very first Esc regardless of its
   // fullscreen state. The edit/new-card modal closes on Esc too — through
@@ -2448,7 +2515,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
-    if (!$('#detail-modal').classList.contains('hidden')) { closeDetailModal(); return; }
+    if (!$('#detail-modal').classList.contains('hidden')) { closeCard(); return; }
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
@@ -2644,7 +2711,7 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const stub = e.target.closest('.map-node.ghost[data-id]');
-    if (stub) openDetailModal(Number(stub.dataset.id));
+    if (stub) openCard(Number(stub.dataset.id));
   });
   // Right-click a status-filter pill SOLOs it (every other pill
   // off); right-click the already-soloed pill again restores all ON. Own
@@ -4377,7 +4444,7 @@ async function openMentionFromTray(e) {
   const m = e.target.closest('code.mention.same');
   if (!m) return;
   e.preventDefault();
-  await openDetailModal(Number(m.dataset.cardId));
+  await openCard(Number(m.dataset.cardId));
   if (!$('#detail-modal').classList.contains('hidden')) closeNotifModal();
 }
 
@@ -4895,7 +4962,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // Plain click breaks any selection, then just opens the card as always.
     selectionAnchor = null;
     if (selectedIds.size) { selectedIds = new Set(); renderBoard(); }
-    openDetailModal(id);
+    openCard(id);
   });
   // Right-click on any card-el opens the bulk menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page).
