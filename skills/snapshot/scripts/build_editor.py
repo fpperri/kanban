@@ -1233,25 +1233,101 @@ const bad=()=>{if(onDone)onDone(false)};
 const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}};
 if(!forceSync&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
 else fallback()}
+// Notification message shape (kanban.proj #274 goal 6): most real boards
+// separate TLDR from detail with "; more: ", but the freshest messages on
+// real boards more often used ". more: " by mistake, so the whole ~1000-
+// char message rendered bold end to end. splitNotification() copes with
+// both, falling back to a real first-sentence boundary when neither
+// separator is present, and to the whole message when there is no such
+// boundary either.
+const ABBREVIATIONS=new Set(["e.g","i.e","vs","etc","cf"]);
+// The first ".", "?" or "!" followed by a space that sits OUTSIDE a
+// backtick code span, OUTSIDE a double-quoted run and OUTSIDE parens — the
+// same three exclusion zones splitClauses() below honors — whose preceding
+// word is longer than one character and is not a known abbreviation.
+// Returns the mark's index, or -1 if the message never has one.
+function firstSentenceEnd(s){
+let inBt=false,inQ=false,paren=0;
+for(let i=0;i<s.length;i++){
+const c=s[i];
+if(c==="`"){inBt=!inBt;continue}
+if(inBt)continue;
+if(c==='"'){inQ=!inQ;continue}
+if(inQ)continue;
+if(c==="(")paren++;
+else if(c===")")paren=Math.max(0,paren-1);
+else if((c==="."||c==="?"||c==="!")&&paren===0&&s[i+1]===" "){
+let ws=i;while(ws>0&&!/\\s/.test(s[ws-1]))ws--;
+const word=s.slice(ws,i);
+if(word.length>1&&!ABBREVIATIONS.has(word.toLowerCase()))return i}}
+return -1}
+function splitNotification(message){
+const s=String(message==null?"":message);
+const sepIdx=s.indexOf("; more: ");
+if(sepIdx!==-1)return{tldr:s.slice(0,sepIdx),more:s.slice(sepIdx+8)};
+const end=firstSentenceEnd(s);
+if(end===-1)return{tldr:s,more:""};
+return{tldr:s.slice(0,end+1),more:s.slice(end+2).replace(/^more:\\s*/i,"")}}
+// Splits MORE at every "; " that sits outside the same three exclusion
+// zones firstSentenceEnd() honors, keeping the ";" on the end of each
+// piece and dropping empty pieces.
+function splitClauses(text){
+const s=String(text==null?"":text);
+const pieces=[];
+let inBt=false,inQ=false,paren=0,start=0;
+for(let i=0;i<s.length;i++){
+const c=s[i];
+if(c==="`"){inBt=!inBt;continue}
+if(inBt)continue;
+if(c==='"'){inQ=!inQ;continue}
+if(inQ)continue;
+if(c==="(")paren++;
+else if(c===")")paren=Math.max(0,paren-1);
+else if(c===";"&&paren===0&&s[i+1]===" "){pieces.push(s.slice(start,i+1));start=i+2}}
+pieces.push(s.slice(start));
+return pieces.map(p=>p.trim()).filter(Boolean)}
+// DOM nodes for one notification TLDR/MORE line: `code` (mention-aware, via
+// the SAME codeSegNode() the card-body markdown renderer above uses) and
+// **bold** only — reuses fmtBodySegs' tested segmenter rather than the
+// larger mdInline() parser, since notifications only ever carry this
+// narrower subset.
+function notifSegNodes(text,boardName){
+return fmtBodySegs(text).map(s=>{
+if(s.t==="bold")return el("strong",null,s.v);
+if(s.t==="code")return codeSegNode(s.v,boardName);
+return document.createTextNode(s.v)})}
 // New-card form: renders inside the pop-up sheet; nothing joins
 // any list until Accept queues the create op — Cancel leaves zero trace.
 // Notifications pop-out: read-only render of the embedded
-// notifications.md snapshot per contract v2 — TLDR bold, level tints,
-// unread accent. Read-flips and clears are board writes: they go through
-// the conversation, not this sheet.
+// notifications.md snapshot, laid out like the web's own notif list (goal
+// 6): a mono meta line (from · time), a bold TLDR, and — only when MORE is
+// non-empty — a small "More" label followed by MORE's `; `-split clauses
+// (a `<ul>` once there are two or more, else a single line). Read-flips and
+// clears are board writes: they go through the conversation, not this sheet.
 function notifListNode(){
 const w=el("div");w.style.padding="4px 2px";
 const t=el("div",null,"Notifications");t.style.cssText="font-size:14px;font-weight:600;margin-bottom:6px";w.appendChild(t);
 if(!NOTIFS.length){w.appendChild(el("div","cal-norows","no notifications"));return w}
 NOTIFS.slice().reverse().forEach(n=>{
 const row=el("div","nrow nlv-"+n.level+(n.read?"":" unread"));
-const msg=String(n.message);
-const i=msg.indexOf("; more: ");
-const line=el("div");
-line.appendChild(el("strong",null,i===-1?msg:msg.slice(0,i)));
-if(i!==-1)line.appendChild(document.createTextNode(msg.slice(i)));
-row.appendChild(line);
-row.appendChild(el("div","nmeta","#"+n.id+" \\u00b7 "+n.level+" \\u00b7 "+n.at+" \\u00b7 "+n.from+(n.read?"":" \\u00b7 unread")));
+row.appendChild(el("div","nmeta",(n.from||"unknown")+(n.at?" · "+n.at:"")));
+const parts=splitNotification(String(n.message||""));
+const tl=el("div","ntldr");
+notifSegNodes(parts.tldr,BOARD).forEach(node=>tl.appendChild(node));
+row.appendChild(tl);
+if(parts.more){
+row.appendChild(el("div","nmorelbl","More"));
+const md=el("div","nmore");
+const clauses=splitClauses(parts.more);
+if(clauses.length>=2){
+const ul=el("ul");
+clauses.forEach(cl=>{const li=el("li");notifSegNodes(cl,BOARD).forEach(node=>li.appendChild(node));ul.appendChild(li)});
+md.appendChild(ul)}
+else{
+const p=el("div");
+notifSegNodes(parts.more,BOARD).forEach(node=>p.appendChild(node));
+md.appendChild(p)}
+row.appendChild(md)}
 w.appendChild(row)});
 return w}
 // Opens the new-card sheet pre-aimed at one column (the colh "+"/AI-

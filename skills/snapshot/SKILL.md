@@ -310,10 +310,16 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   Below 900px, where collapsed is the DEFAULT, both controls stay on every
   live head, collapsed or open.
   The header also carries a 🔔 with an unread badge: tapping it
-  opens a read-only notifications sheet rendered per the notifications
-  contract (TLDR bold, level tints, unread accent) from the embedded
-  notifications.md snapshot — read-flips/clears stay conversational board
-  writes. The "N pending" pill scrolls to the page bottom, same as ⤓, and
+  opens a read-only notifications sheet laid out like the web's own list —
+  a mono `from · time` meta line, a bold TLDR on its own line, and (only
+  when there is one) a small "More" label over the rest, split into a
+  bulleted list of clauses when there are two or more. Splitting tolerates
+  both the intended `; more: ` separator and the `. more: ` mistake real
+  boards' freshest messages tend to carry, falling back to a real sentence
+  boundary (skipping `e.g.`/`i.e.`/`vs.`/`etc.`/`cf.` and anything inside
+  backticks/quotes/parens) when neither separator is present — from the
+  embedded notifications.md snapshot; read-flips/clears stay conversational
+  board writes. The "N pending" pill scrolls to the page bottom, same as ⤓, and
   also copies the payload to the clipboard — same one-tap shortcut as the
   tray's Copy changes button, through the same shared clipboard helper, so a
   human who only ever taps the pill still leaves with the payload copied. A

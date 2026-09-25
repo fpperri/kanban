@@ -130,6 +130,18 @@ test('fmtBodySegs: newlines inside plain text survive untouched (line structure 
   assert.deepStrictEqual(fmtBodySegs('line one\nline two'), [{ t: 'text', v: 'line one\nline two' }]);
 });
 
+// --- render-path guard: notification bold/code text must build via textContent, never innerHTML ---
+// (card bodies' own innerHTML-ban guard — for mdBodyNode/mdListNode/
+// mdInlineNodes/codeSegNode — lives in markdown-body.test.js now.)
+
+test('notifSegNodes builds bold/code DOM nodes via el()/codeSegNode, never innerHTML', () => {
+  const notifSegNodesSrc = extractFunction('notifSegNodes');
+  assert.match(notifSegNodesSrc, /fmtBodySegs\(text\)/);
+  assert.match(notifSegNodesSrc, /el\("strong"/);
+  assert.match(notifSegNodesSrc, /codeSegNode\(/);
+  assert.ok(!notifSegNodesSrc.includes('innerHTML'), 'notification text must never be string-built HTML');
+});
+
 // --- responsive layout: two width tiers + a capability query -----------------
 // Tier 1 (560-899px) only bumps #scroll's max-width — the base (unreached
 // below 560px) rule keeps phone widths pixel-identical. Tier 2 (>=900px)
