@@ -1324,6 +1324,7 @@ function applyProjectName(name) {
     viewMode = null; // view.mode joins the same discipline
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
+    ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
     ganttStatusFilter = null; // gantt.statusFilter too — applyStatuses' own reset doesn't fire on a pure rename with an unchanged status list
     calendarStatusFilter = null; // calendar.statusFilter too, same reasoning
@@ -3314,7 +3315,7 @@ function shiftCalendarWindow(delta) {
 // a due-only card shows only its diamond.
 // All window/row/drag math lives in gantt-model.js (pure, unit-tested,
 // dual-environment); everything below is presentation and API glue. The
-// sub-view choice (All/Month/Week/3 days/Day, kanban.proj#278) decides where
+// sub-view choice (All/Month/Week/3 days/Day) decides where
 // the window comes from: 'all' (the DEFAULT) keeps deriving it from the
 // rendered cards every render — no month cursor to preserve, exactly as
 // before this ticket; a sized sub-view instead pages an anchor day

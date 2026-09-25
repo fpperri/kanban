@@ -852,7 +852,7 @@ to `127.0.0.1` only.
   row per non-empty group, ids ascending within it. A fixed left gutter lists #id +
   title per row; only the timeline half scrolls horizontally. Mondays are labeled with
   the date and a vertical "today" line marks the current day.
-  **Sub-views (kanban.proj#278)** — the gantt header carries the calendar's own
+  **Sub-views** — the gantt header carries the calendar's own
   Outlook/Teams-style switch, built the same way and reusing its exact classes
   (`.cal-controls`/`.cal-nav`/`.cal-title`/`.cal-subview-switch`), with a leading **All**
   entry ahead of Month | Week | 3 days | Day, persisted per board under
