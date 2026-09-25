@@ -288,6 +288,44 @@ function toggleMapSection(key) {
   renderBoard();
 }
 
+// Map zoom — a single number (map-zoom.js's clampMapZoom range), not a
+// per-column object like the state above, so load/save carry the value
+// directly rather than merging a saved shape. Same memoize-once-mutate-
+// in-place discipline and own feature key ('map.zoom' via storageKey), so
+// the chosen zoom survives every renderMapView() call (manual, poll, drag,
+// toggle, search) and page reloads, per board — same contract the status
+// filter and section-collapse state above already give their own slice of
+// map UI state. null (not yet loaded) is distinct from any legal zoom value
+// (the range excludes 0), so the memoize check below can't mistake "loaded
+// and it happens to be falsy" for "never loaded".
+let mapZoom = null;
+
+function loadMapZoom() {
+  if (mapZoom !== null) return mapZoom;
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(storageKey(state.projectName, 'map.zoom'));
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to 100%
+  mapZoom = clampMapZoom(typeof saved === 'number' ? saved : MAP_ZOOM_DEFAULT);
+  return mapZoom;
+}
+
+function saveMapZoom() {
+  try { localStorage.setItem(storageKey(state.projectName, 'map.zoom'), JSON.stringify(mapZoom)); }
+  catch (e) { /* storage unavailable/full — zoom choice just won't persist this session */ }
+}
+
+// Sets + persists the zoom, but does NOT render — callers own the render
+// (they usually need to compute a scroll offset against the NEW zoom's
+// rendered size first, e.g. zoomMapAt below), and a bare setter here would
+// invite a render before that offset is ready, flashing the old scroll
+// position for one frame.
+function setMapZoom(zoom) {
+  mapZoom = clampMapZoom(zoom);
+  saveMapZoom();
+}
+
 const CHEVRON_LEFT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
 const CHEVRON_RIGHT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
 // Same sparkle glyph as #modal-ai-btn (app.html) — reused
@@ -882,8 +920,12 @@ function renderMapView() {
   const allCards = state.active.concat(state.archived);
   // The status-filter row renders first and UNCONDITIONALLY — if it
   // vanished with the graph on the everything-filtered-out state, there'd be
-  // no control left to toggle a status back ON.
+  // no control left to toggle a status back ON. The zoom toolbar rides right
+  // after it, same unconditional treatment (a corner case, but a zoomed-out
+  // board that then filters everything away shouldn't strand the human with
+  // no way to zoom back before turning a pill back on).
   container.appendChild(buildMapFilterRow());
+  container.appendChild(buildMapZoomControls());
   const searchTerms = currentSearchTerms();
   const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms).map((c) => c.id)) : null;
   // Status filter composes with search by INTERSECTION — a card is
@@ -1008,6 +1050,43 @@ function buildEpicFilterChip() {
   return btn;
 }
 
+// Zoom toolbar — its own row after the filter row (buildFilterPillRow's own
+// flex-wrap keeps growing that row for every board status; a wide status list
+// would push these off-screen or wrap them awkwardly into the status pills
+// if they shared one row). Rebuilt by every renderMapView() call like the
+// rest of #map-view, so the percentage readout never drifts from
+// loadMapZoom()'s actual persisted value. Buttons carry data-zoom-action
+// (read by the delegated #map-view click listener, see the map wiring
+// section) rather than three separate onclicks, same delegation shape as
+// the status pills' data-col. In/out disable at the clamp's own edges —
+// map-zoom.js's clampMapZoom is the single source of truth for the range,
+// so a step past either edge is simply impossible, not just unreachable
+// from these two buttons.
+function buildMapZoomControls() {
+  const zoom = loadMapZoom();
+  const row = document.createElement('div');
+  row.className = 'map-zoom-controls';
+  const btn = (action, label, title, disabled) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'map-zoom-btn';
+    b.dataset.zoomAction = action;
+    b.title = title;
+    b.setAttribute('aria-label', title);
+    b.disabled = !!disabled;
+    b.textContent = label;
+    return b;
+  };
+  row.appendChild(btn('out', '−', 'Zoom out', zoom <= MAP_ZOOM_MIN));
+  const pct = document.createElement('span');
+  pct.className = 'map-zoom-pct';
+  pct.textContent = `${Math.round(zoom * 100)}%`;
+  row.appendChild(pct);
+  row.appendChild(btn('in', '+', 'Zoom in', zoom >= MAP_ZOOM_MAX));
+  row.appendChild(btn('fit', 'Fit', 'Fit the whole graph in the panel', false));
+  return row;
+}
+
 // Same mechanism, gantt-scoped — statuses + Archive (boardColumnIds(),
 // same id list as the map's row; the Archive
 // pseudo-pill defaults OFF — see loadGanttStatusFilter). No ghost
@@ -1066,9 +1145,24 @@ function buildMapGraphSection(graph, participantIds, collapsed) {
   wrap.appendChild(buildMapSectionHeader('graph', `Dependency graph (${participantIds.length}):`, collapsed));
   if (!collapsed) {
     const layer = layerNodes(participantIds, graph.edges);
-    wrap.appendChild(buildMapSvg(graph, layer));
+    const svg = buildMapSvg(graph, layer);
+    applyMapZoomToSvg(svg, loadMapZoom());
+    wrap.appendChild(svg);
   }
   return wrap;
+}
+
+// Scales the SVG's rendered width/height attributes by `zoom`, leaving the
+// viewBox (already the logical size — see buildMapSvg) untouched: the same
+// "zoom the attributes, not a CSS transform" mechanism the ticket asks for,
+// so the .map-view panel's overflow:auto scroll area tracks the true
+// on-screen box exactly (a transform would leave the box's LAYOUT size at
+// 1x, decoupling the scrollbars from what's actually visible).
+function applyMapZoomToSvg(svg, zoom) {
+  const logicalWidth = Number(svg.dataset.logicalWidth) || 0;
+  const logicalHeight = Number(svg.dataset.logicalHeight) || 0;
+  svg.setAttribute('width', String(logicalWidth * zoom));
+  svg.setAttribute('height', String(logicalHeight * zoom));
 }
 
 // Isolated cards (no waiting_for edge in either direction) render as a
@@ -1278,6 +1372,15 @@ function buildMapSvg(graph, layer) {
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.setAttribute('class', 'map-canvas');
+  // width/height are the graph's LOGICAL (1x/100%) pixel size — the caller
+  // (buildMapGraphSection) scales these two attributes by the current zoom
+  // right after this returns, while viewBox stays fixed at this same box, so
+  // the browser rasterizes from one coordinate system at whatever display
+  // size (crisp text/strokes at any zoom, no blur a CSS transform would add).
+  // Stashed on the dataset too — the zoom controls' Fit button reads it back
+  // to compute fitMapZoom() without re-running layerNodes()/buildMapSvg().
+  svg.dataset.logicalWidth = String(width);
+  svg.dataset.logicalHeight = String(height);
   svg.setAttribute('width', String(width));
   svg.setAttribute('height', String(height));
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
@@ -1300,11 +1403,10 @@ async function fetchBoard() {
 // there directly — running it through escapeHtml first would show literal "&amp;"
 // entities in the tab instead of "&". The heading span IS DOM markup (innerHTML), so
 // it gets escapeHtml like every other filesystem/card-derived string in this file.
-// The BOARD NAME IS the heading — no app label in front of it: the app is a kanban,
-// and a "Kanban —" prefix only buried the one token that tells boards apart. It also
-// leads the tab title, the field that gets truncated when several kanban tabs sit
-// side by side (the app is named once there, after the name). It arrives from
-// /api/board already
+// The BOARD NAME IS the tab title and the heading — no app label anywhere in either:
+// the app is a kanban, and a "Kanban" label only buried the one token that tells
+// boards apart, the field that gets truncated when several kanban tabs sit side by
+// side. It arrives from /api/board already
 // resolved: config.yaml's declared `name:`, else the parent-folder fallback. The
 // state field keeps its projectName spelling — it is also the localStorage
 // namespace for every per-board view preference.
@@ -1324,12 +1426,14 @@ function applyProjectName(name) {
     viewMode = null; // view.mode joins the same discipline
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
+    ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
+    mapZoom = null; // map.zoom too
     ganttStatusFilter = null; // gantt.statusFilter too — applyStatuses' own reset doesn't fire on a pure rename with an unchanged status list
     calendarStatusFilter = null; // calendar.statusFilter too, same reasoning
   }
   state.projectName = next;
-  document.title = name ? `${name} — Kanban` : 'Kanban App';
+  document.title = name || 'Kanban App';
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
 
@@ -1413,12 +1517,13 @@ function boardControlFocused() {
   const el = document.activeElement;
   // .cal-nav: calendar nav; .column-add: the header +;
   // .column-add-ai: its sparkle twin; .map-filter-toggle/
-  // .map-section-toggle: the map pills; .gantt-filter-toggle: the
+  // .map-section-toggle/.map-zoom-btn: the map pills and zoom toolbar;
+  // .gantt-filter-toggle: the
   // gantt pills; .calendar-filter-toggle: the
   // calendar pills (their views are wiped by every render). All focusable,
   // all rebuilt per render — a poll landing while one is focused would
   // silently dump keyboard focus to <body>. No .card-el — see above.
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle'));
+  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .map-zoom-btn, .gantt-filter-toggle, .calendar-filter-toggle'));
 }
 
 function setStale(stale) {
@@ -2518,6 +2623,19 @@ window.addEventListener('DOMContentLoaded', () => {
       toggleEpicSearchTerm();
       return;
     }
+    // Zoom toolbar — same control-row-buttons-checked-first reasoning; a
+    // disabled button (already at the clamp's edge) still reaches this
+    // handler (disabled buttons don't dispatch click at all, so the
+    // in/out branches below are dead code on THOSE presses, never a
+    // silent no-op the human can't tell from a bug) — the buttons that
+    // do fire just call the same zoomMap* helpers 'fit' always uses.
+    const zoomBtn = e.target.closest('.map-zoom-btn[data-zoom-action]');
+    if (zoomBtn) {
+      const action = zoomBtn.dataset.zoomAction;
+      if (action === 'fit') zoomMapFit();
+      else zoomMapStep(action === 'in' ? 1 : -1);
+      return;
+    }
     const actBtn = e.target.closest('button[data-act]');
     if (actBtn) {
       const id = Number(actBtn.dataset.id);
@@ -2542,7 +2660,252 @@ window.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     soloMapStatusFilter(filterBtn.dataset.col);
   });
+  wireMapPanZoom();
 });
+
+// --- Map pan + zoom ---------------------------------------------------------
+// Drag-to-pan (pointer events + setPointerCapture, NOT HTML5 drag & drop —
+// same reasoning as the gantt's wireGanttPointerDrag: a continuous two-axis
+// scroll offset needs a live per-move delta, which HTML5 dragover only gives
+// against a grid of drop targets) plus the zoom toolbar/Ctrl+wheel actions.
+// One delegated pointerdown/move/up/cancel set on the stable #map-view
+// parent (wired once, see wireMapPanZoom below) — per-render rewiring isn't
+// needed, same as the click/contextmenu listeners above. Unlike the gantt's
+// drag, capture is claimed on #map-view itself (a delegated parent, not the
+// specific node pressed) and only once the gesture clears the drag
+// threshold — see the pointerdown/pointermove handlers' own comments for why
+// capturing any earlier breaks plain clicks.
+
+// Scoped to `.map-canvas` (the graph SVG itself) so pan can start from
+// EITHER empty background OR a node — "a drag that starts on a card node
+// ALSO pans" — while leaving every other control alone by construction:
+// the status pills, epic chip, and section-collapse chevron all sit outside
+// `.map-canvas` (above it in the section header / control rows), and the
+// "No dependencies" row is a sibling of `.map-graph-section` entirely, so
+// its tiles keep native text selection untouched — no separate exclusion
+// list to keep in sync with the markup.
+let mapPan = null; // { pointerId, startX, startY, startScrollLeft, startScrollTop, moved }
+
+// Same phantom-click problem the gantt solves (suppressGanttPhantomClick):
+// a pointer-capture drag still dispatches a compatibility `click` on
+// pointerup even after real movement (mousedown/up land on the same
+// captured element regardless of distance moved), which would hit the
+// shared card-el grammar and open the card the drag started on, or the
+// Q0 clear-selection handler. One-shot: armed only by a MOVED pan's
+// pointerup, consumed by the very next click, self-disarms on a 0-timeout
+// in case no click follows. Own flag (not ganttClickSuppressed) — the two
+// gestures never overlap (different views), but sharing one would let a
+// drag in one view eat an unrelated click in the other if timing ever raced.
+let mapPanClickSuppressed = false;
+
+function suppressMapPanPhantomClick() {
+  mapPanClickSuppressed = true;
+  setTimeout(() => { mapPanClickSuppressed = false; }, 0);
+}
+
+// Where the SVG's own top-left corner sits, in the SAME scroll-content
+// coordinate space container.scrollLeft/scrollTop address — NOT (0,0).
+// #map-view's own padding plus the filter row, zoom row and section header
+// above the graph all sit between the panel's scroll origin and the SVG,
+// and none of them scale with zoom. mapZoomPanOffset/fitMapZoom's callers
+// need this as a fixed origin so only the SVG's own content scales
+// (a zero origin would drift the zoom anchor by
+// origin*(ratio-1) per step, and make Fit measure against the whole panel
+// instead of the space actually left for the graph).
+// Scroll-invariant by construction: subtracting the panel's own current
+// scrollLeft/scrollTop out of the SVG's on-screen position cancels whatever
+// the panel happens to be scrolled to right now, leaving just the fixed
+// layout offset (padding + the rows above), which doesn't change with zoom
+// OR scroll.
+function mapSvgOrigin(container, svg) {
+  const panelRect = container.getBoundingClientRect();
+  const svgRect = svg.getBoundingClientRect();
+  return {
+    originX: svgRect.left - panelRect.left - container.clientLeft + container.scrollLeft,
+    originY: svgRect.top - panelRect.top - container.clientTop + container.scrollTop,
+  };
+}
+
+// Applies a new zoom around one anchor point (in the panel's OWN viewport
+// coordinates — see map-zoom.js's mapZoomPanOffset) and re-renders: computed
+// BEFORE the zoom/render change (against the CURRENT zoom's content
+// coordinates), then applied to the container's scroll AFTER renderMapView()
+// rebuilds at the new size — renderMapView's own keepLeft/keepTop restores
+// the OLD scroll position internally first, which this then overwrites with
+// the real target, so the two never visibly fight (one synchronous JS turn,
+// nothing paints in between).
+function zoomMapAt(newZoom, anchorX, anchorY) {
+  const container = $('#map-view');
+  const svg = container.querySelector('.map-canvas');
+  const oldZoom = loadMapZoom();
+  const clamped = clampMapZoom(newZoom);
+  if (clamped === oldZoom) return;
+  const origin = svg ? mapSvgOrigin(container, svg) : { originX: 0, originY: 0 };
+  const offset = mapZoomPanOffset({
+    scrollLeft: container.scrollLeft,
+    scrollTop: container.scrollTop,
+    pointerX: anchorX,
+    pointerY: anchorY,
+    oldZoom,
+    newZoom: clamped,
+    originX: origin.originX,
+    originY: origin.originY,
+  });
+  setMapZoom(clamped);
+  renderMapView();
+  container.scrollLeft = offset.scrollLeft;
+  container.scrollTop = offset.scrollTop;
+}
+
+// The +/- toolbar buttons: no pointer to anchor on, so they zoom around the
+// panel's own center — the point that stays visually stillest for a button
+// press, same convention most map apps use for their +/- controls.
+function zoomMapStep(direction) {
+  const container = $('#map-view');
+  zoomMapAt(stepMapZoom(loadMapZoom(), direction), container.clientWidth / 2, container.clientHeight / 2);
+}
+
+// Fit: largest zoom (capped at 100%) that shows the whole graph, computed
+// against the SAME logical size applyMapZoomToSvg stashed on the rendered
+// svg's dataset (no re-run of layerNodes()/buildMapSvg() just to measure).
+// No anchor math — once the whole graph fits, there's nothing to scroll to,
+// so this sets the zoom directly and resets scroll to the top-left corner
+// rather than reusing zoomMapAt's pointer-preserving offset.
+//
+// container.clientWidth/clientHeight is the panel's PADDING box — it
+// includes #map-view's own 14px padding on every side, AND clientHeight
+// includes the filter row/zoom row/section header space above the SVG,
+// none of which the graph can actually draw into. Passing those raw to
+// fitMapZoom measured against space the graph doesn't have, so Fit
+// undershot and the graph's bottom edge (or right edge, width-bound) still
+// needed scrolling to see. The available box:
+// width is clientWidth minus the left+right padding (nothing else sits
+// beside the SVG horizontally); height is clientHeight minus the SVG's own
+// top offset in content space (mapSvgOrigin — padding-top plus every row
+// above it) minus the bottom padding.
+function zoomMapFit() {
+  const container = $('#map-view');
+  const svg = container.querySelector('.map-canvas');
+  if (!svg) return; // collapsed section, or no graph at all — nothing to fit
+  const style = getComputedStyle(container);
+  const padLeft = parseFloat(style.paddingLeft) || 0;
+  const padRight = parseFloat(style.paddingRight) || 0;
+  const padBottom = parseFloat(style.paddingBottom) || 0;
+  const { originY } = mapSvgOrigin(container, svg);
+  const availableWidth = container.clientWidth - padLeft - padRight;
+  const availableHeight = container.clientHeight - originY - padBottom;
+  const fit = fitMapZoom(Number(svg.dataset.logicalWidth), Number(svg.dataset.logicalHeight), availableWidth, availableHeight);
+  setMapZoom(fit);
+  renderMapView();
+  container.scrollLeft = 0;
+  container.scrollTop = 0;
+}
+
+function wireMapPanZoom() {
+  const container = $('#map-view');
+  // Same one-shot-suppress-the-next-click shape as the gantt's own
+  // document-level capture listener (wireGanttPointerDrag) — capture phase
+  // at document so this runs BEFORE the shared card-el grammar's bubble-
+  // phase click handler and can stopPropagation ahead of it.
+  document.addEventListener('click', (e) => {
+    if (!mapPanClickSuppressed) return;
+    mapPanClickSuppressed = false;
+    if (!e.target.closest || !e.target.closest('#map-view')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || mapPan) return; // primary button only; a second pointer mid-pan is ignored
+    if (!e.target.closest('.map-canvas')) return; // pan only from inside the graph section — see the header comment above
+    mapPan = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollLeft: container.scrollLeft,
+      startScrollTop: container.scrollTop,
+      moved: false,
+    };
+    // No setPointerCapture here — deferred to pointermove, once the drag
+    // clears the threshold (below). Unlike the gantt's own drag (which
+    // captures on the specific barEl it started on, so a retargeted click
+    // still lands on that same element), this capture target is the
+    // DELEGATED #map-view container. Capturing immediately retargets the
+    // compatibility `click` (and mouseup) that follows EVERY press —
+    // including a plain, unmoved one — to the container itself, never the
+    // node/stub actually pressed. The shared card-el grammar's
+    // `e.target.closest('.card-el')` then finds nothing on #map-view, so a
+    // plain click stopped opening cards and Ctrl/Shift-click stopped
+    // selecting. Once the gesture IS a
+    // real drag the resulting click is suppressed outright by
+    // suppressMapPanPhantomClick below, so its target no longer matters.
+    isDragging = true; // poll guard for the whole gesture, released in finish() — same flag/contract the board/calendar/gantt drags already share (autoRefreshSkipState, the contextmenu guards)
+    e.preventDefault(); // no text selection mid-drag over node/edge SVG text
+  });
+  container.addEventListener('pointermove', (e) => {
+    if (!mapPan || e.pointerId !== mapPan.pointerId) return;
+    const dx = e.clientX - mapPan.startX;
+    const dy = e.clientY - mapPan.startY;
+    if (!mapPan.moved && mapDragExceededThreshold(dx, dy, MAP_DRAG_THRESHOLD)) {
+      mapPan.moved = true;
+      // Capture now — the gesture is a confirmed drag, so retargeting the
+      // eventual click (blocked below by suppressMapPanPhantomClick) no
+      // longer breaks anything, and capture keeps the drag tracking the
+      // pointer even past the panel's own edges.
+      container.setPointerCapture(mapPan.pointerId);
+      container.classList.add('map-panning'); // grabbing cursor — see .map-view.map-panning in app.css
+    }
+    if (!mapPan.moved) return; // under threshold: still a candidate click, don't scroll yet
+    // Moving the pointer right/down should reveal content to the right/down
+    // (the graph moves WITH the pointer, like a map app's drag-to-pan) —
+    // the panel scrolls the OPPOSITE direction of the pointer delta.
+    container.scrollLeft = mapPan.startScrollLeft - dx;
+    container.scrollTop = mapPan.startScrollTop - dy;
+  });
+  const finish = () => {
+    if (!mapPan) return;
+    const drag = mapPan;
+    mapPan = null;
+    isDragging = false;
+    container.classList.remove('map-panning');
+    if (drag.moved) suppressMapPanPhantomClick(); // only a MOVED drag suppresses the click that follows — an unmoved press stays a plain click (card open / selection), same >threshold rule as the gantt's own drag-vs-click line
+  };
+  container.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  container.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  // Capture can end without either event above — the browser drops it
+  // implicitly (e.g. another element steals capture, or #map-view's own
+  // innerHTML gets rebuilt out from under an active capture by some other
+  // path). Treat that the same as a release, so the gesture can never end
+  // in a state pointerup/pointercancel would have cleaned up.
+  container.addEventListener('lostpointercapture', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  // Deferred capture (above) means an UNMOVED press's release can land
+  // outside #map-view — right at the panel's edge, or in the sliver before
+  // the gesture crosses the threshold — where the container's own pointerup
+  // listener above never sees it. Without this net, mapPan/isDragging would
+  // stay set forever and freeze the 5s poll for the WHOLE app, not just the
+  // map. Document-level so it always sees the
+  // release regardless of target; finish() itself is idempotent (no-ops
+  // once mapPan is already null), so this never double-fires against the
+  // container listeners above.
+  document.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  document.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  // Ctrl+wheel (also what a trackpad pinch sends) zooms around the pointer;
+  // a plain wheel keeps the panel's native scroll. Non-passive — the
+  // preventDefault below is what stops the browser's own page-zoom/scroll on
+  // the ctrlKey gesture, and a passive listener can't call it. Scoped to
+  // `.map-canvas` like the drag above — Ctrl+wheel over the pills/isolated
+  // row falls through to whatever the browser normally does there.
+  container.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    if (!e.target.closest || !e.target.closest('.map-canvas')) return;
+    e.preventDefault();
+    const rect = container.getBoundingClientRect();
+    // Continuous (stepMapZoomByWheel), not the buttons' fixed-rung
+    // stepMapZoom — a trackpad pinch fires a burst of these with small
+    // deltaY each, and one full rung per event used to reach the zoom
+    // clamp in about four events.
+    zoomMapAt(stepMapZoomByWheel(loadMapZoom(), e.deltaY, e.deltaMode), e.clientX - rect.left, e.clientY - rect.top);
+  }, { passive: false });
+}
 
 // --- Calendar view ---------------------------
 // Month grid + chips + drag-to-reschedule, plus the Outlook/Teams-style
@@ -3314,23 +3677,117 @@ function shiftCalendarWindow(delta) {
 // a due-only card shows only its diamond.
 // All window/row/drag math lives in gantt-model.js (pure, unit-tested,
 // dual-environment); everything below is presentation and API glue. The
-// window derives from the rendered cards each render, so a poll that changes
-// cards may legitimately move it — deliberate: there's no month cursor to
-// preserve (unlike the calendar), and the view mode itself persists via the
-// shared 'view.mode' mechanism. No dependency arrows on purpose — the map
-// view owns the waiting_for graph; here a waiting card just keeps the board's
-// amber left-accent cue. No focusable header controls in here (no prev/next
-// nav), so boardControlFocused needs no new entry — the bars and gutter
-// labels are Tab stops as of #261, but cards are deliberately outside that
-// guard (see boardControlFocused).
+// sub-view choice (All/Month/Week/3 days/Day) decides where
+// the window comes from: 'all' (the DEFAULT) keeps deriving it from the
+// rendered cards every render — no month cursor to preserve, exactly as
+// before this ticket; a sized sub-view instead pages an anchor day
+// (ganttSubviewWindow, gantt-model.js), same anchor-cursor shape as the
+// calendar's own. The view mode itself persists via the shared 'view.mode'
+// mechanism. No dependency arrows on purpose — the map view owns the
+// waiting_for graph; here a waiting card just keeps the board's amber
+// left-accent cue. Header controls (prev/today/next + the sub-view switch)
+// reuse the calendar's own .cal-nav class verbatim, so they ride its
+// existing boardControlFocused/Q0-exemption guards (both match by class, not
+// by view) for free — no new entry needed there.
 
-function ganttBarEl(bar, win) {
+// The sub-view choice — own feature key ('gantt.subview'), same
+// memoize-once-mutate-in-place + defensive-merge discipline as
+// calendarSubview above (mergeGanttSubview falls back to 'all', the
+// fit-everything default, on anything unknown/missing/corrupt).
+let ganttSubview = null;
+
+function loadGanttSubview() {
+  if (ganttSubview) return ganttSubview;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'gantt.subview')); }
+  catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to 'all'
+  ganttSubview = mergeGanttSubview(saved);
+  return ganttSubview;
+}
+
+function saveGanttSubview() {
+  try { localStorage.setItem(storageKey(state.projectName, 'gantt.subview'), ganttSubview); }
+  catch (e) { /* storage unavailable/full — sub-view choice just won't persist this session */ }
+}
+
+function setGanttSubview(subview) {
+  if (!GANTT_SUBVIEWS.includes(subview) || subview === loadGanttSubview()) return;
+  ganttSubview = subview;
+  saveGanttSubview();
+  renderGanttView();
+}
+
+// The anchor day a SIZED sub-view pages around — same lazy-init-to-today,
+// survives-the-poll discipline as calendarAnchor (nothing in the render path
+// resets it; only the prev/next/Today controls below write it). Unused
+// while the sub-view is 'all'.
+let ganttAnchor = null;
+
+function currentGanttAnchor() {
+  if (!ganttAnchor) ganttAnchor = localTodayStr();
+  return ganttAnchor;
+}
+
+// prev/next step by the ACTIVE sub-view's span. shiftAnchorDay is the
+// calendar's own (calendar-model.js) reused verbatim — its month/week/3day/
+// day math is anchor-day + span only, nothing calendar-specific. A no-op on
+// 'all': there's no anchor day to page from (the nav buttons are disabled
+// there too — see buildGanttControls — this guard is just defense in depth).
+function shiftGanttWindow(delta) {
+  if (loadGanttSubview() === 'all') return;
+  ganttAnchor = shiftAnchorDay(loadGanttSubview(), currentGanttAnchor(), delta);
+  renderGanttView();
+}
+
+const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
+
+// The controls row: same markup shape and CSS classes as the calendar's own
+// .cal-controls (prev/today/next + title + the sub-view switch) — "built the
+// same way and with the same look as the calendar's" per the ticket.
+// prev/today/next are DISABLED on 'all': there's no anchor day to page
+// from until a sized sub-view is chosen (title explains why, rather than
+// the buttons silently doing nothing).
+function buildGanttControls() {
+  const subview = loadGanttSubview();
+  const isAll = subview === 'all';
+  const spanNoun = { month: 'month', week: 'week', '3day': '3 days', day: 'day' }[subview] || 'span';
+  const disabledAttr = isAll ? ' disabled' : '';
+  const noPagingHint = 'Choose a dated span (Month/Week/3 days/Day) to page it';
+  const prevTitle = isAll ? noPagingHint : `Previous ${spanNoun}`;
+  const todayTitle = isAll ? noPagingHint : 'Jump back to today';
+  const nextTitle = isAll ? noPagingHint : `Next ${spanNoun}`;
+  const title = isAll ? 'All dated cards' : subviewTitle(subview, currentGanttAnchor());
+  const controls = document.createElement('div');
+  controls.className = 'cal-controls';
+  controls.innerHTML =
+    `<button type="button" id="gantt-prev-btn" class="cal-nav"${disabledAttr} title="${prevTitle}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
+    `<button type="button" id="gantt-today-btn" class="cal-nav"${disabledAttr} title="${todayTitle}">Today</button>` +
+    `<button type="button" id="gantt-next-btn" class="cal-nav"${disabledAttr} title="${nextTitle}" aria-label="Next ${spanNoun}">&#8250;</button>` +
+    `<span class="cal-title">${escapeHtml(title)}</span>` +
+    `<span class="cal-subview-switch" role="group" aria-label="Gantt span">` +
+    GANTT_SUBVIEWS.map((sv) =>
+      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" ` +
+        `data-subview="${sv}" aria-pressed="${sv === subview}">${GANTT_SUBVIEW_LABELS[sv]}</button>`).join('') +
+    `</span>`;
+  return controls;
+}
+
+// The day-px scale the LAST render used (gantt-model.js's ganttDayPx) —
+// GANTT_DAY_PX while 'all' is active, width/days for a sized sub-view (see
+// renderGanttView). The drag math below (wireGanttPointerDrag,
+// applyGanttDragVisual) reads this SAME variable, never GANTT_DAY_PX
+// directly, so a day of pointer movement is a whole day in every sub-view —
+// the "layout and drag math in one place" property GANTT_DAY_PX's own
+// comment (gantt-model.js) already claims, now extended to a variable scale.
+let ganttDayPxLive = GANTT_DAY_PX;
+
+function ganttBarEl(bar, win, dayPx) {
   // The window may be clamped (~180 days), so a bar can poke past either
   // edge: draw only the visible slice, squared off + dashed on the cut side;
   // a bar entirely outside draws nothing (its gutter label still lists it).
-  if (bar.endDay < win.startDay || bar.startDay > win.endDay) return null;
-  const from = bar.startDay < win.startDay ? win.startDay : bar.startDay;
-  const to = bar.endDay > win.endDay ? win.endDay : bar.endDay;
+  const clip = ganttBarClip(bar, win); // gantt-model.js — the visible slice + which edges are cut
+  if (!clip) return null;
+  const { clipStart, clipEnd, from, to } = clip;
   const el = document.createElement('div');
   const pb = priorityBadge(bar.card, state.priorities); // same emphasis as tiles/chips
   // epic is a background-wash class (`.gantt-bar.epic`,
@@ -3353,7 +3810,7 @@ function ganttBarEl(bar, win) {
     (selectedIds.has(bar.card.id) ? ' selected' : '') +
     (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '') +
     (bar.card.archived ? ' archived' : '') + // an archived bar is drag-read-only — CSS swaps the grab cursor for not-allowed
-    (bar.startDay < win.startDay ? ' clip-start' : '') + (bar.endDay > win.endDay ? ' clip-end' : '');
+    (clipStart ? ' clip-start' : '') + (clipEnd ? ' clip-end' : '');
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = bar.card.id;
   el.dataset.archived = bar.card.archived ? '1' : ''; // read by wireGanttPointerDrag's pointerdown guard, same signal used to swap the tooltips below
@@ -3369,8 +3826,8 @@ function ganttBarEl(bar, win) {
     el.style.borderColor = statusColorVar(colorStatus);
     el.style.background = statusColorSoft(colorStatus);
   }
-  el.style.left = `${diffDays(win.startDay, from) * GANTT_DAY_PX}px`;
-  el.style.width = `${(diffDays(from, to) + 1) * GANTT_DAY_PX}px`;
+  el.style.left = `${diffDays(win.startDay, from) * dayPx}px`;
+  el.style.width = `${(diffDays(from, to) + 1) * dayPx}px`;
   // An archived card's bar must not keep the LIVE handle tooltips
   // ("Drag to change...") — the drag silently no-ops on release
   // (onGanttDragEnd's own state.active lookup can never find an archived
@@ -3384,10 +3841,18 @@ function ganttBarEl(bar, win) {
   // plain-text property — full title/prompt + true dates survive the CSS truncation/clipping
   el.title = `#${bar.card.id} ${titleDisplay.text} (${bar.startDay}${bar.endDay !== bar.startDay ? ` → ${bar.endDay}` : ''})` +
     (bar.card.archived ? ` — ${readOnlyHint}` : '');
+  // A handle on a CUT side sits on the WINDOW edge, not the card's true
+  // date — barResizeChanges (gantt-model.js) always resizes from the true
+  // edge, so a start-handle drag on a clip-start bar would preview one date
+  // (relative to the visible edge) and PATCH a different one (relative to
+  // the true, off-screen edge), landing outside the window with no visible
+  // change. Omitting the handle there leaves a plain pointerdown on that end
+  // of the bar to fall through to 'shift' (move the whole bar) — already the
+  // correct, honest behaviour for a click anywhere else on a clipped bar.
   el.innerHTML =
-    `<span class="gantt-handle start" title="${startHint}"></span>` +
+    (clipStart ? '' : `<span class="gantt-handle start" title="${startHint}"></span>`) +
     `<span class="gantt-bar-text${titleDisplay.isPromptFallback ? ' gantt-bar-text--prompt-fallback' : ''}"><span class="gantt-bar-id">#${bar.card.id}</span> ${escapeHtml(titleDisplay.text)}</span>` +
-    `<span class="gantt-handle end" title="${endHint}"></span>`;
+    (clipEnd ? '' : `<span class="gantt-handle end" title="${endHint}"></span>`);
   return el;
 }
 
@@ -3397,12 +3862,28 @@ function renderGanttView() {
   // would make horizontal position unusable. Carry it across the rebuild.
   const prevScroll = container.querySelector('.gantt-scroll');
   const keepScrollLeft = prevScroll ? prevScroll.scrollLeft : null;
+  // The width a sized sub-view fills, read from the OUTGOING scroller —
+  // BEFORE the wipe below, while it's still the fully-rebuilt element the
+  // previous render finished with. Reading it any later (after `innerHTML =
+  // ''`, before the rows regrow the body) would force the browser to lay
+  // out a MUCH SHORTER document — just the controls + filter rows, no body
+  // — and that both clamps page scrollY to that shorter height (it doesn't
+  // recover once the rows come back) and measures a width from before the
+  // page's own vertical scrollbar reappears, so a sized timeline built from
+  // it overflows once that scrollbar returns. The previous render's width
+  // is the right answer almost every time — a poll, a drag commit, arrows,
+  // or a subview switch all keep the same row count and so the same page
+  // height/scrollbar state; it only lags one render behind something that
+  // changes row COUNT (a status filter, search, the Archive pill), which
+  // self-corrects on the very next render.
+  const prevWidth = prevScroll ? prevScroll.clientWidth : null;
   container.innerHTML = '';
-  // The status-filter row renders first and UNCONDITIONALLY — same
-  // reasoning as the map's row: if it vanished on the everything-
-  // filtered-out empty state, there'd be no control left to toggle a status
-  // back ON. Everything from here on APPENDS (never innerHTML=, which would
-  // wipe this row straight back out).
+  // The sub-view controls row, then the status-filter row, render first and
+  // UNCONDITIONALLY — same reasoning as the map's row: if either vanished on
+  // the everything-filtered-out empty state, there'd be no control left to
+  // get back. Everything from here on APPENDS (never innerHTML=, which would
+  // wipe these rows straight back out).
+  container.appendChild(buildGanttControls());
   container.appendChild(buildGanttFilterRow());
   // Same search composition as board/map/calendar: live input value each
   // render, shared filterCards. Status filter composes with search
@@ -3461,11 +3942,17 @@ function renderGanttView() {
     container.appendChild(empty);
     return;
   }
-  // The window covers each row's bar AND its due diamond (a
-  // due-only row has no bar at all), hence rowWindowSpans between the rows
-  // and ganttWindow.
+  // The window: 'all' covers each row's bar AND its due diamond (a due-only
+  // row has no bar at all), hence rowWindowSpans -> ganttWindow, and
+  // re-derives from the rendered cards every render (unchanged from before
+  // this ticket). A SIZED sub-view instead pages a fixed-span window around
+  // the anchor day (ganttSubviewWindow), independent of what's rendered —
+  // same "the switcher's own window, not the data's" shape as the calendar.
   const rows = groups.flatMap((g) => g.bars);
-  const win = ganttWindow(rowWindowSpans(rows), localTodayStr());
+  const subview = loadGanttSubview();
+  const win = subview === 'all'
+    ? ganttWindow(rowWindowSpans(rows), localTodayStr())
+    : ganttSubviewWindow(subview, currentGanttAnchor());
 
   const gutter = document.createElement('div');
   gutter.className = 'gantt-gutter';
@@ -3473,12 +3960,35 @@ function renderGanttView() {
   scroll.className = 'gantt-scroll';
   const timeline = document.createElement('div');
   timeline.className = 'gantt-timeline';
-  timeline.style.width = `${win.days * GANTT_DAY_PX}px`;
   scroll.appendChild(timeline);
+  // gutter+scroll ride their OWN flex row (.gantt-body) — the controls +
+  // filter rows are siblings above them: #gantt-view itself is a plain block
+  // so those rows stack on top instead of joining the side-by-side flex row
+  // as extra items. Appended to the live document now so the rows below can
+  // just .appendChild into it; NOT relied on to measure a width from (see
+  // prevWidth above) except in the one-render fallback right below.
+  const body = document.createElement('div');
+  body.className = 'gantt-body';
+  body.appendChild(gutter);
+  body.appendChild(scroll);
+  container.appendChild(body);
+
+  // The day-px scale: GANTT_DAY_PX while 'all' is active (today's unchanged,
+  // horizontally-scrollable behaviour); a sized sub-view instead fills the
+  // available width so its whole window shows with no horizontal scroll —
+  // prevWidth (captured above, before the wipe) almost always supplies it.
+  // Only the very first gantt paint ever (no outgoing scroller to read) falls
+  // back to measuring the just-attached, still-rows-empty scroller directly
+  // — a one-time cost paid once per page load, not on every re-render.
+  const dayPx = ganttDayPx(subview, win.days, prevWidth != null ? prevWidth : scroll.clientWidth);
+  ganttDayPxLive = dayPx;
+  timeline.style.width = `${win.days * dayPx}px`;
 
   // Axis row: Monday week marks up top, matching full-height grid lines
   // behind the rows; the gutter gets an empty spacer of the same height so
-  // both columns' row sequences line up 1:1 from there on.
+  // both columns' row sequences line up 1:1 from there on. A sized sub-view
+  // wide enough for it names every day instead (dayMarkLabel), with a fainter
+  // line between days.
   const head = document.createElement('div');
   head.className = 'gantt-axis';
   gutter.appendChild(head);
@@ -3488,22 +3998,23 @@ function renderGanttView() {
   const today = localTodayStr();
   for (let i = 0; i < win.days; i++) {
     const day = addDays(win.startDay, i);
-    if (isMonday(day)) {
-      const mark = document.createElement('div');
-      mark.className = 'gantt-week-mark';
-      mark.style.left = `${i * GANTT_DAY_PX}px`;
-      mark.textContent = weekMarkLabel(day);
-      axis.appendChild(mark);
-      const line = document.createElement('div');
-      line.className = 'gantt-week-line';
-      line.style.left = `${i * GANTT_DAY_PX}px`;
-      timeline.appendChild(line);
-    }
+    const dayLabel = subview === 'all' ? null : dayMarkLabel(day, dayPx);
+    if (dayLabel == null && !isMonday(day)) continue;
+    const mark = document.createElement('div');
+    mark.className = 'gantt-week-mark';
+    mark.style.left = `${i * dayPx}px`;
+    mark.textContent = dayLabel == null ? weekMarkLabel(day) : dayLabel;
+    axis.appendChild(mark);
+    if (i === 0 && dayLabel != null) continue;
+    const line = document.createElement('div');
+    line.className = isMonday(day) ? 'gantt-week-line' : 'gantt-week-line gantt-day-line';
+    line.style.left = `${i * dayPx}px`;
+    timeline.appendChild(line);
   }
   if (today >= win.startDay && today <= win.endDay) {
     const line = document.createElement('div');
     line.className = 'gantt-today-line';
-    line.style.left = `${diffDays(win.startDay, today) * GANTT_DAY_PX + GANTT_DAY_PX / 2}px`;
+    line.style.left = `${diffDays(win.startDay, today) * dayPx + dayPx / 2}px`;
     line.title = `Today (${today})`;
     timeline.appendChild(line);
   }
@@ -3546,7 +4057,7 @@ function renderGanttView() {
       gutter.appendChild(label);
       const row = document.createElement('div');
       row.className = 'gantt-row gantt-bar-row';
-      const el = bar.startDay ? ganttBarEl(bar, win) : null; // due-only rows have no bar
+      const el = bar.startDay ? ganttBarEl(bar, win, dayPx) : null; // due-only rows have no bar
       if (el) row.appendChild(el);
       // Due diamond: the independent deadline marker, rendered
       // whether or not a bar exists on the row; outside the window = omitted
@@ -3557,7 +4068,7 @@ function renderGanttView() {
         d.className = 'gantt-due-marker card-el' + (bar.card.archived ? ' archived' : '') + (overdue ? ' overdue' : ''); // joins the shared grammar: still-click opens detail, shift/right-click select. archived flag, same reasoning as ganttBarEl — the diamond is an equally dead drag surface on an archived row
         d.dataset.id = bar.card.id;
         d.dataset.archived = bar.card.archived ? '1' : ''; // read by wireGanttPointerDrag's pointerdown guard
-        d.style.left = `${diffDays(win.startDay, bar.dueDay) * GANTT_DAY_PX + GANTT_DAY_PX / 2}px`; // centered on its day column
+        d.style.left = `${diffDays(win.startDay, bar.dueDay) * dayPx + dayPx / 2}px`; // centered on its day column
         d.title = bar.card.archived
           ? `#${bar.card.id} ${titleDisplay.text} — due ${bar.dueDay} (archived — restore the card to reschedule)`
           : `#${bar.card.id} ${titleDisplay.text} — due ${bar.dueDay}${overdue ? ' — past due' : ''} (drag to move the due date)`;
@@ -3566,15 +4077,6 @@ function renderGanttView() {
       timeline.appendChild(row);
     }
   }
-  // gutter+scroll ride their OWN flex row (.gantt-body) — the
-  // filter row is a sibling above them: #gantt-view itself is a
-  // plain block so the filter row stacks on top instead of joining the
-  // side-by-side flex row as a third item.
-  const body = document.createElement('div');
-  body.className = 'gantt-body';
-  body.appendChild(gutter);
-  body.appendChild(scroll);
-  container.appendChild(body);
   if (keepScrollLeft !== null) scroll.scrollLeft = keepScrollLeft;
 }
 
@@ -3590,7 +4092,7 @@ function renderGanttView() {
 let ganttDrag = null;
 
 function applyGanttDragVisual(drag) {
-  const px = GANTT_DAY_PX;
+  const px = ganttDayPxLive; // the LAST render's day-px scale — see its own comment above
   if (drag.mode === 'shift' || drag.mode === 'due') { // the due diamond translates like a body shift
     drag.barEl.style.transform = `translateX(${drag.dayDelta * px}px)`;
     return;
@@ -3669,12 +4171,17 @@ function wireGanttPointerDrag() {
     e.preventDefault();
     e.stopPropagation(); // capture phase at document — nothing else sees this click
   }, true);
-  // Status-filter pills — control-row buttons, checked first for
-  // the same reason the map's pills are (never fall through to the
-  // pointer-drag/card-el handling below).
+  // Control-row buttons — status-filter pills, the sub-view switcher, and
+  // prev/today/next — checked first for the same reason the map's pills are
+  // (never fall through to the pointer-drag/card-el handling below).
   container.addEventListener('click', (e) => {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (filterBtn) toggleGanttStatusFilter(filterBtn.dataset.col);
+    if (filterBtn) { toggleGanttStatusFilter(filterBtn.dataset.col); return; }
+    const sv = e.target.closest('.cal-subview-btn');
+    if (sv) { setGanttSubview(sv.dataset.subview); return; }
+    if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
+    if (e.target.closest('#gantt-next-btn')) { shiftGanttWindow(1); return; }
+    if (e.target.closest('#gantt-today-btn')) { ganttAnchor = null; renderGanttView(); }
   });
   // Right-click SOLO on the gantt's own pills — same reasoning as
   // the map's contextmenu listener (own listener so a miss falls through
@@ -3734,7 +4241,7 @@ function wireGanttPointerDrag() {
     if (!ganttDrag || e.pointerId !== ganttDrag.pointerId) return;
     const dx = e.clientX - ganttDrag.originX;
     if (Math.abs(dx) > 3) ganttDrag.moved = true; // sub-day wiggle is still a drag, not a click
-    ganttDrag.dayDelta = Math.round(dx / GANTT_DAY_PX);
+    ganttDrag.dayDelta = Math.round(dx / ganttDayPxLive);
     applyGanttDragVisual(ganttDrag);
   });
   // pointerup commits; pointercancel (touch scroll steal, window loss) never
@@ -4493,7 +5000,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, and the calendar pills must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, and the map zoom toolbar must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();

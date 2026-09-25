@@ -901,8 +901,8 @@ test('the heading is the project-name span alone — no "Kanban" label in front 
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /\$\('#project-name'\)\.innerHTML = name \? escapeHtml\(name\) : 'Kanban'/,
       'the span carries the bare name (no " — " suffix shape); "Kanban" only as the no-name fallback');
-    assert.match(js, /document\.title = name \? `\$\{name\} — Kanban` : 'Kanban App'/,
-      'the tab title keeps the app named once, after the board name');
+    assert.match(js, /document\.title = name \|\| 'Kanban App'/,
+      'the tab title is the bare board name; "Kanban App" only as the no-name fallback');
   });
 });
 
@@ -1844,7 +1844,7 @@ test('map section toggles join the poll-guard and Q0 clear-selection exemptions,
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
       'a focused section toggle blocks the auto-refresh — #map-view is wiped by every renderMapView() poll tick, same as the #56 pills');
     assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle, \.map-section-toggle/,
       'a section-toggle click must not wipe a building selection, same curate-the-view exemption as the #56 pills');
@@ -1888,7 +1888,7 @@ test('map status-filter pills join the Q0 clear-selection exemption AND the focu
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
     // innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the sort controls/.cal-nav.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
       'a focused pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -1973,7 +1973,7 @@ test('buildGanttFilterRow shares the pill-row MECHANISM with the map, and now in
     // the full three-view selector rather than stopping after gantt.
     const css = await (await fetch(`${base}/app.css`)).text();
     assert.match(css, /\.map-filter-row,\s*\.gantt-filter-row,\s*\.calendar-filter-row\s*\{/, 'the row layout rule is shared across all views');
-    assert.match(css, /\.map-filter-toggle,\s*\.gantt-filter-toggle,\s*\.calendar-filter-toggle\s*\{/, 'the pill look rule is shared across all views');
+    assert.match(css, /\.map-filter-toggle,\s*\.gantt-filter-toggle,\s*\.calendar-filter-toggle,\s*\.map-zoom-btn\s*\{/, 'the pill look rule is shared across all views');
     assert.match(css, /\.map-filter-toggle\.off,\s*\.gantt-filter-toggle\.off,\s*\.calendar-filter-toggle\.off\s*\{/, 'the OFF-state pill rule is shared across all views');
   });
 });
@@ -2181,7 +2181,7 @@ test('gantt status-filter pills join the Q0 clear-selection exemption AND the fo
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
       'a focused gantt pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -2232,7 +2232,7 @@ test('buildCalendarFilterRow shares the pill-row MECHANISM and now includes the 
     // CSS is shared too — comma-joined selectors, not a third declaration block.
     const css = await (await fetch(`${base}/app.css`)).text();
     assert.match(css, /\.map-filter-row,\s*\.gantt-filter-row,\s*\.calendar-filter-row\s*\{/, 'the row layout rule is shared across all three views');
-    assert.match(css, /\.map-filter-toggle,\s*\.gantt-filter-toggle,\s*\.calendar-filter-toggle\s*\{/, 'the pill look rule is shared across all three views');
+    assert.match(css, /\.map-filter-toggle,\s*\.gantt-filter-toggle,\s*\.calendar-filter-toggle,\s*\.map-zoom-btn\s*\{/, 'the pill look rule is shared across all three views');
     assert.match(css, /\.map-filter-toggle\.off,\s*\.gantt-filter-toggle\.off,\s*\.calendar-filter-toggle\.off\s*\{/, 'the OFF-state pill rule is shared across all three views');
   });
 });
@@ -2304,7 +2304,7 @@ test('calendar status-filter pills join the Q0 clear-selection exemption AND the
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's/gantt's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
       'a focused calendar pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
