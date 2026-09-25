@@ -160,9 +160,20 @@ test('state pills are a wash of their own colour, with no border', () => {
     assert.ok(!/(^|[^-])border:/.test(b), `${sel} carries no border — a pill is a live state, not a static fact`);
   }
   // Chips are the opposite: a chip IS a bordered, neutral, static fact.
-  for (const sel of ['.status-chip', '.tag']) {
+  for (const sel of ['.status-chip']) {
     const b = ruleBlock(sel);
     assert.match(b, /border:\s*1px/, `${sel} is a chip — must carry a 1px border`);
     assert.match(b, /var\(--mut\)/, `${sel} is a chip — neutral colour, var(--mut)`);
   }
+});
+
+// Secondary details blend: tags and the assignee handle are plain muted text,
+// with no box competing with the tile's title.
+test('tags and the assignee handle blend into the tile: muted text, no box', () => {
+  for (const sel of ['.tag', '.card-assignee']) {
+    const b = ruleBlock(sel);
+    assert.match(b, /color:\s*var\(--mut\)/, `${sel} is muted`);
+    assert.ok(!/background|(^|[^-])border:|padding/.test(b), `${sel} carries no box`);
+  }
+  assert.match(ruleBlock('.card-title'), /color:\s*var\(--ink-strong\)/, 'the title is what the eye lands on');
 });
