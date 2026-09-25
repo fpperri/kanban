@@ -135,6 +135,15 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     }
   });
 
+  // A warning or error row sits on its soft ground, and anything written in
+  // the row's own colour sits on it too.
+  test(`${name}: warn and crit clear ${TEXT}:1 on their own soft grounds`, () => {
+    for (const [tok, ground] of [['--warn', '--warn-soft'], ['--crit', '--crit-soft']]) {
+      const r = ratio(set, tok, ground);
+      assert.ok(r >= TEXT, `${tok} on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
   // --- the reading layer: card bodies and notifications -----------------
   test(`${name}: prose clears ${TEXT}:1 on paper (notification rows) and surface (card bodies)`, () => {
     for (const ground of ['--paper', '--surface']) {
