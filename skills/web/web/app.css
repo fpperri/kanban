@@ -9,26 +9,33 @@
    on <body> — no webfont link, ever.
    Eleven tokens are the shop's own (paper/surface/ink/mut/line/accent/
    accent-soft/ok/warn/crit/shadow). The rest are kanban-specific: the
-   board has a third control surface, a hover wash, and a set of tinted
-   rows the shop page has no equivalent for. STATUS/IDENTITY colours are
+   board has a third control surface, a hover wash, a set of tinted
+   rows the shop page has no equivalent for, and a reading layer for
+   card bodies and notifications (prose/code-ink/raised/line-strong),
+   which gives headings, body text, code and muted text four separate
+   lightness steps instead of one. STATUS/IDENTITY colours are
    NOT tokens — they are owned by status-colors.js and stay literal hex
    here on purpose (see the KEEP LITERAL rules throughout this file). */
 :root {
   color-scheme: light dark;
   --paper: #f7f5f1;
   --surface: #ffffff;
+  --raised: #f4f2f8;
   --ink: #241e33;
   --ink-strong: #100a1f;
+  --prose: #302a3d;
+  --code-ink: #724b2b;
   --mut: #6e6880;
   --line: #e4dfea;
   --line-soft: #eeeaf2;
+  --line-strong: #d3cedd;
   --accent: #1b58a7;
   --accent-strong: #114588;
   --accent-soft: #e1ebfa;
   --accent-wash: rgba(27, 88, 167, 0.16);
   --today-wash: rgba(27, 88, 167, 0.10);
   --ok: #2e7d5b;
-  --warn: #a8741c;
+  --warn: #966719;
   --warn-soft: #fbf1e0;
   --crit: #b4402f;
   --crit-soft: #fbe9e5;
@@ -46,11 +53,15 @@
   :root:not([data-theme="light"]) {
     --paper: #16141c;
     --surface: #1e1b26;
+    --raised: #26232f;
     --ink: #ece8f4;
     --ink-strong: #faf8ff;
+    --prose: #dfdce7;
+    --code-ink: #e0c6a3;
     --mut: #9a93ac;
     --line: #2c2836;
     --line-soft: #262232;
+    --line-strong: #3c3847;
     --accent: #8cb8d9;
     --accent-strong: #b8d4ea;
     --accent-soft: #1d2d39;
@@ -76,11 +87,15 @@
   color-scheme: dark;
   --paper: #16141c;
   --surface: #1e1b26;
+  --raised: #26232f;
   --ink: #ece8f4;
   --ink-strong: #faf8ff;
+  --prose: #dfdce7;
+  --code-ink: #e0c6a3;
   --mut: #9a93ac;
   --line: #2c2836;
   --line-soft: #262232;
+  --line-strong: #3c3847;
   --accent: #8cb8d9;
   --accent-strong: #b8d4ea;
   --accent-soft: #1d2d39;
@@ -544,7 +559,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.detail-modal.epic { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--surface); }
 /* row layout lives on .popup-header (below) — see there. */
 /* Headline-role, same reasoning as .modal h2 above — a card's own title. */
-.detail-header h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.detail-header h2 { color: var(--ink-strong); font-size: 1.26em; line-height: 1.25; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
 .detail-title--prompt-fallback { font-style: italic; opacity: 0.85; }
 .detail-path-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -583,31 +598,49 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-frontmatter td { padding: 4px 8px; vertical-align: top; }
 .detail-frontmatter td.fm-key { color: var(--mut); white-space: nowrap; width: 1%; padding-left: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .detail-frontmatter td.fm-value { color: var(--ink); word-break: break-word; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-.detail-body { font-size: 0.92em; line-height: 1.55; }
-.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--ink); margin: 16px 0 8px; }
-.detail-body h1:first-child, .detail-body h2:first-child, .detail-body h3:first-child { margin-top: 0; }
-.detail-body h1 { font-size: 1.2em; } .detail-body h2 { font-size: 1.05em; } .detail-body h3 { font-size: 1em; }
-.detail-body p { margin: 8px 0; }
-.detail-body ul, .detail-body ol { margin: 8px 0 8px 22px; }
-.detail-body li { margin: 3px 0; }
-.detail-body li > ul, .detail-body li > ol { margin: 3px 0 3px 20px; }
-.detail-body li.task { list-style: none; margin-left: -18px; }
-.detail-body code { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 5px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.88em; }
-.detail-body pre { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
-.detail-body pre code { background: none; border: none; padding: 0; color: var(--ink); }
+/* Reading layer: headings and bold on --ink-strong, prose one step under on
+   --prose, code a warm --code-ink on --raised with no border, muted text on
+   --mut. Before it, headings, prose and code all painted --ink, so hierarchy
+   rested on size alone. Prose blocks stop at 76ch even in fullscreen; tables
+   and code blocks keep the full width. */
+.detail-body { font-size: 1em; line-height: 1.6; color: var(--prose); }
+.detail-body > p, .detail-body > ul, .detail-body > ol, .detail-body > h1, .detail-body > h2, .detail-body > h3 { max-width: 76ch; }
+.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--ink-strong); font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; text-wrap: balance; }
+.detail-body h1 { font-size: 1.3em; margin: 1.4em 0 0.5em; }
+.detail-body h2 { font-size: 1.16em; margin: 1.6em 0 0.55em; padding-top: 0.8em; border-top: 1px solid var(--line); }
+.detail-body h3 { font-size: 1.02em; margin: 1.3em 0 0.4em; }
+.detail-body > :first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.detail-body p { margin: 0.65em 0; }
+.detail-body ul, .detail-body ol { margin: 0.6em 0 0.6em 1.35em; }
+.detail-body li { margin: 0.32em 0; }
+.detail-body li::marker { color: var(--mut); }
+.detail-body li > ul, .detail-body li > ol { margin: 0.3em 0 0.3em 1.1em; }
+.detail-body li.task { list-style: none; margin-left: -1.35em; }
+/* A list nested under a task item is that step's detail (proof, expect,
+   evidence) and reads one step quieter behind a rail. Structure only: the
+   renderer recognises no new text. */
+.detail-body li.task > ul { list-style: none; margin: 0.3em 0 0.7em 0.3em; padding-left: 0.95em; border-left: 1px solid var(--line-strong); color: var(--mut); font-size: 0.93em; }
+.detail-body li.task > ul > li { margin: 0.22em 0; }
+.detail-body code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.1em 0.35em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.detail-body pre { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; overflow-x: auto; margin: 0.8em 0; }
+.detail-body pre code { background: none; padding: 0; color: var(--code-ink); }
 /* Markdown tables in a card body (kanban.proj #256). The scroller is the point:
    a ladder or a comparison table is often wider than the popup, and without its
    own overflow the whole popup would scroll sideways and take the prose with it.
    Scoped under .md-table so .detail-frontmatter's own table rules stay untouched. */
-.detail-body .md-table { overflow-x: auto; margin: 10px 0; }
-.detail-body .md-table table { border-collapse: collapse; font-size: 0.95em; }
-.detail-body .md-table th, .detail-body .md-table td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+.detail-body .md-table { overflow-x: auto; margin: 1em 0; }
+.detail-body .md-table table { border-collapse: collapse; font-size: 0.9em; line-height: 1.5; }
+.detail-body .md-table th, .detail-body .md-table td { border-bottom: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
 /* Quiet + tracked like the shop status page's th, but NOT uppercase — unlike
    .fm-key/.column-name (category words this app itself chose), this header
    is author-typed markdown that may carry a case-bearing token (myFunc(),
    PRs), the same reason .bulk-tag-row is carved out of .modal label above. */
-.detail-body .md-table th { background: var(--paper); color: var(--mut); font-weight: 600; letter-spacing: 0.06em; white-space: nowrap; }
-.detail-body .md-table td { color: var(--ink); }
+.detail-body .md-table th { background: var(--raised); color: var(--mut); font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; padding: 7px 12px; border-bottom-color: var(--line-strong); vertical-align: bottom; }
+.detail-body .md-table td { color: var(--prose); }
+/* The first column usually names the row (a repo, a card, a file), so it
+   carries the heading ink and a reader can scan down it. */
+.detail-body .md-table td:first-child { color: var(--ink-strong); font-weight: 600; }
+.detail-body .md-table tr:last-child td { border-bottom: 0; }
 /* Column alignment from the delimiter row's colons. Classes, not inline styles:
    the CSP has no unsafe-inline for style, so a style="" attribute would be dropped. */
 .detail-body .md-table .ta-left { text-align: left; }
@@ -622,8 +655,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); padding-bottom: 1px; }
 .detail-body a:hover { border-bottom-style: solid; }
 .detail-body a:focus-visible { border-bottom-style: solid; outline: 2px solid var(--accent); outline-offset: 2px; border-radius: .15rem; }
-.detail-body strong { color: var(--ink-strong); }
-.detail-body hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+.detail-body strong { color: var(--ink-strong); font-weight: 650; }
+.detail-body em { color: var(--ink); }
+.detail-body hr { border: none; border-top: 1px solid var(--line); margin: 1.2em 0; }
 
 /* --- Dependency map view ---------------------------------------
    Hand-rolled layered SVG:
@@ -1097,7 +1131,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .notif-badge { position: absolute; top: -6px; right: -6px; background: var(--crit); color: var(--on-fill); border-radius: .15rem; padding: 0 5px; font-size: 0.68em; font-weight: 700; line-height: 1.5; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .notif-modal { width: min(560px, 92vw); }
 .notif-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-.notif-row { display: flex; align-items: flex-start; gap: 8px; background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 8px 10px; }
+.notif-row { display: flex; align-items: flex-start; gap: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; }
 /* Levels — declared BEFORE .unread so the accent unread left-edge
    still wins on tinted rows (same specificity, later rule takes the edge) */
 .notif-row.level-debug { opacity: 0.55; }
@@ -1106,7 +1140,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .notif-row.unread { border-left: 3px solid var(--accent); }
 .notif-text { flex: 1; min-width: 0; }
 .notif-meta { color: var(--mut); font-size: 0.75em; margin-bottom: 2px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-.notif-message { font-size: 0.88em; word-break: break-word; }
+.notif-message { font-size: 0.9em; line-height: 1.55; color: var(--prose); word-break: break-word; }
+.notif-message strong { color: var(--ink-strong); font-weight: 600; }
 .notif-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
