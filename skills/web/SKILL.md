@@ -134,8 +134,14 @@ to `127.0.0.1` only.
   on-disk status isn't in the list renders in the **first** column (the catch-all) with a
   small dashed raw-status chip; the file is **never rewritten** — promotion = the human
   adds the status to `config.yaml`, and the next poll files the card under its real
-  column. **Colors:** the built-in four each have one fixed color used everywhere
-  (backlog cyan, todo blue, doing green, done purple); the neutral grey belongs to
+  column. **Colors:** the built-in four each have one fixed hue used everywhere
+  (backlog cyan, todo blue, doing green, done purple), at two lightnesses: a bright
+  value on the dark theme and a deeper one on the light theme, each clearing 4.5:1 as
+  text in its own theme. app.css carries them as `--st-*`, `--hash-a`…`--hash-h` and
+  `--id-*` tokens in its theme blocks; the values live in status-colors.js
+  (`themeColorTokens`), and anything painted from script uses `statusColorVar()` so it
+  follows the theme too. The one exception is the 12% wash inside a gantt bar
+  (`statusColorSoft()`), a fixed tint of the dark value that reads on either ground. The neutral grey belongs to
   Archive alone — no hashable palette slot is near-grey, and an unlisted on-disk
   `status: archive` **or `archived`** mutes to the archive grey instead of hashing. A
   custom status gets a deterministic color (its name hashed into a fixed 8-color palette)
@@ -298,7 +304,7 @@ to `127.0.0.1` only.
   unchecked and the next form save — however unrelated — removes that line: deliberate
   (a checkbox, unlike the free-text inputs, has no way to re-emit junk verbatim), pinned
   by a card-store test. An epic washes its whole surface in a faint EPIC_COLOR
-  background (`#f0883e` at 12% alpha, `epicColorSoft()` in status-colors.js) — circles
+  background (the `--epic-wash` token, `#f0883e` at 12% alpha, `epicColorSoft()` in status-colors.js) — circles
   are reserved for STATUS alone, so the epic cue is a wash, never a dot. Board tile,
   calendar chip, and gantt gutter row share one `background` rule
   (`.card.epic`/`.cal-chip.epic`/`.gantt-label.epic`); the gantt BAR layers its wash via
@@ -381,7 +387,7 @@ to `127.0.0.1` only.
   `STATUS_PALETTE` custom statuses use (assignee-colors.js's
   `assigneeColor`/`assigneeColorClass`). The hashed case gets an
   `.assignee-text--palette-N` CSS class — a parallel family to
-  `.status-dot--palette-N`, same 8 hexes/numbering, but setting `color` not `background`
+  `.status-dot--palette-N`, same 8 slots/numbering (the `--hash-a`…`--hash-h` tokens), but setting `color` not `background`
   (a hashed assignee CAN land on the same hex a hashed status does — one shared pool;
   determinism, not uniqueness, is still the contract). A RESERVED color is an open value
   space with no class to reuse, so the assignee span rides a `data-assignee-color`
@@ -404,6 +410,14 @@ to `127.0.0.1` only.
   levels. A wrapped line that isn't itself a `-` bullet (no blank line before it) is a
   lazy continuation of the last list item's text, appended in place, rather than closing
   the list and stranding a bare paragraph.
+- **Reading layer** — card bodies and notifications use four tokens of their own:
+  `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
+  `--line-strong` for table-header and evidence rules. Headings and bold take
+  `--ink-strong`, so a body has separate lightness steps for headings, prose, code and
+  muted text. Prose blocks stop at 76 characters per line, even in full screen; tables
+  and code blocks keep the full width, and a table's first column carries the heading
+  ink so a reader can scan down it. A list nested under a task item (the step's proof and evidence lines) reads one step
+  quieter behind a thin rail; that is structure only, and no text is recognised.
 - **Last modified** — the detail popup shows a "Last modified" line: the card's
   `updated` frontmatter timestamp when present, else the file's on-disk mtime labeled
   `(file mtime)` as a fallback for cards written before the field existed. `updated` is
@@ -639,18 +653,19 @@ to `127.0.0.1` only.
   never mute for archived nodes — on any board with archived history, archived chains
   dominate the map, and muting would empty the one channel that carries status. The
   archived cues are their own channels: the node strokes a visibly lighter grey
-  (`#6e7681`) than the plain neutral border tone (`--line`), the SVG tooltip gains an "(archived)"
+  (`--st-archive`) than the plain neutral border tone (`--line`), the SVG tooltip gains an "(archived)"
   suffix, and the grey **Archived ball** (above) joins the dot column — an archived node
   carries its true status color, a grey border, and a grey ball at once. Two more border
-  exceptions, board-tile parity: a high-priority card strokes the node red (`#f85149`)
-  and a **waiting** card strokes it amber (`#d29922`) — the exact colors the board tile
+  exceptions, board-tile parity: a high-priority card strokes the node red (`--id-high`,
+  `#f85149` on the dark theme) and a **waiting** card strokes it amber (`--id-waiting`,
+  `#d29922` on the dark theme) — the exact colors the board tile
   (`.card.high`/`.card.waiting`), calendar chips, and gantt bars use, via the same
   precomputed flags rather than a map-only reclassification. Waiting wins over high when
   a node is both, same declaration-order convention as every other surface. Mutually
   exclusive with the archived stroke — an archived node never gets the priority/waiting
   stroke, matching how the Archive column's tiles never wear those classes either. The
-  manual **blocked** sticker is no border at all: a blocked node wears a red pill (same
-  `#f85149` as high priority) — the map twin of the board tile's blocked pill,
+  manual **blocked** sticker is no border at all: a blocked node wears a red pill (the
+  same `--blocked-bg` ground and `--blocked-ink` text as the tile's pill) — the map twin of the board tile's blocked pill,
   tooltipped "blocked: <reason>" (bare "blocked" when the reason is unspecified) — shown
   on archived nodes too: a stop sign is identity, not location, and unlike the stroke it
   doesn't share a channel with the archived grey. Cycles in `waiting_for` render as a
@@ -934,7 +949,8 @@ handle a card carries.
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's
   hash — not a forked one), so every assignee gets a stable color with zero state to
-  store. See the **Assignee text color** bullet above for where it renders.
+  store. A hashed color follows the theme like a status does; a reserved color paints
+  exactly as written in both themes, so pick one that reads on light and dark grounds. See the **Assignee text color** bullet above for where it renders.
 - **`statuses`** (inline or block form) IS the live column set, in order — board
   columns, drag targets, per-column sort/collapse defaults (priority-desc / expanded for
   live columns, id-asc / collapsed for Archive), the form's status dropdown, and the

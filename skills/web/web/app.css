@@ -9,26 +9,37 @@
    on <body> — no webfont link, ever.
    Eleven tokens are the shop's own (paper/surface/ink/mut/line/accent/
    accent-soft/ok/warn/crit/shadow). The rest are kanban-specific: the
-   board has a third control surface, a hover wash, and a set of tinted
-   rows the shop page has no equivalent for. STATUS/IDENTITY colours are
-   NOT tokens — they are owned by status-colors.js and stay literal hex
-   here on purpose (see the KEEP LITERAL rules throughout this file). */
+   board has a third control surface, a hover wash, a set of tinted
+   rows the shop page has no equivalent for, and a reading layer for
+   card bodies and notifications (prose/code-ink/raised/line-strong),
+   which gives headings, body text, code and muted text four separate
+   lightness steps instead of one.
+   STATUS/IDENTITY colours (--st-*, --hash-a..h, --id-*) are tokens with one
+   value per theme: one hue, two lightnesses. status-colors.js owns them
+   (themeColorTokens) and status-colors.test.js pins these blocks to it. The
+   dark values are the ones the shop's status page copies. Sticker grounds
+   (--blocked-bg, --review-bg) are stated apart from their ink, never a tint
+   of it, so each pair can be checked for contrast on its own. */
 :root {
   color-scheme: light dark;
   --paper: #f7f5f1;
   --surface: #ffffff;
+  --raised: #f4f2f8;
   --ink: #241e33;
   --ink-strong: #100a1f;
+  --prose: #302a3d;
+  --code-ink: #724b2b;
   --mut: #6e6880;
   --line: #e4dfea;
   --line-soft: #eeeaf2;
+  --line-strong: #d3cedd;
   --accent: #1b58a7;
   --accent-strong: #114588;
   --accent-soft: #e1ebfa;
   --accent-wash: rgba(27, 88, 167, 0.16);
   --today-wash: rgba(27, 88, 167, 0.10);
   --ok: #2e7d5b;
-  --warn: #a8741c;
+  --warn: #8f6218;
   --warn-soft: #fbf1e0;
   --crit: #b4402f;
   --crit-soft: #fbe9e5;
@@ -41,16 +52,44 @@
   --shadow: 0 1px 2px rgba(36, 30, 51, .06);
   --scrim: rgba(36, 30, 51, 0.45);
   --shadow-pop: 0 8px 24px rgba(36, 30, 51, .16);
+  --st-backlog: #0c5f65;
+  --st-todo: #0266d7;
+  --st-doing: #117a32;
+  --st-done: #642cba;
+  --st-archive: #626b75;
+  --hash-a: #0266d7;
+  --hash-b: #117a32;
+  --hash-c: #906001;
+  --hash-d: #642cba;
+  --hash-e: #b93384;
+  --hash-f: #0c5f65;
+  --hash-g: #b34906;
+  --hash-h: #9e1c37;
+  --id-high: #ce212d;
+  --id-waiting: #906001;
+  --id-review: #7d6400;
+  --id-high-hover: #d9363e;
+  --id-waiting-hover: #a87411;
+  --id-epic: #b34906;
+  --blocked-ink: #b62324;
+  --blocked-bg: #fde8e6;
+  --review-ink: #7d6400;
+  --review-bg: #fbf3c9;
+  --epic-wash: rgba(240, 136, 62, 0.12);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #16141c;
     --surface: #1e1b26;
+    --raised: #26232f;
     --ink: #ece8f4;
     --ink-strong: #faf8ff;
+    --prose: #dfdce7;
+    --code-ink: #e0c6a3;
     --mut: #9a93ac;
     --line: #2c2836;
     --line-soft: #262232;
+    --line-strong: #3c3847;
     --accent: #8cb8d9;
     --accent-strong: #b8d4ea;
     --accent-soft: #1d2d39;
@@ -70,17 +109,45 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, .3);
     --scrim: rgba(0, 0, 0, 0.6);
     --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
+    --st-backlog: #39c5cf;
+    --st-todo: #58a6ff;
+    --st-doing: #3fb950;
+    --st-done: #a371f7;
+    --st-archive: #868e9a;
+    --hash-a: #58a6ff;
+    --hash-b: #3fb950;
+    --hash-c: #d29922;
+    --hash-d: #a371f7;
+    --hash-e: #f778ba;
+    --hash-f: #39c5cf;
+    --hash-g: #f0883e;
+    --hash-h: #ff7b72;
+    --id-high: #f85149;
+    --id-waiting: #d29922;
+    --id-review: #eac54f;
+    --id-high-hover: #ff7b72;
+    --id-waiting-hover: #e3b341;
+    --id-epic: #f0883e;
+    --blocked-ink: #fc6e63;
+    --blocked-bg: #3a1c21;
+    --review-ink: #eac54f;
+    --review-bg: #332b14;
+    --epic-wash: rgba(240, 136, 62, 0.12);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --paper: #16141c;
   --surface: #1e1b26;
+  --raised: #26232f;
   --ink: #ece8f4;
   --ink-strong: #faf8ff;
+  --prose: #dfdce7;
+  --code-ink: #e0c6a3;
   --mut: #9a93ac;
   --line: #2c2836;
   --line-soft: #262232;
+  --line-strong: #3c3847;
   --accent: #8cb8d9;
   --accent-strong: #b8d4ea;
   --accent-soft: #1d2d39;
@@ -100,6 +167,30 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .3);
   --scrim: rgba(0, 0, 0, 0.6);
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
+  --st-backlog: #39c5cf;
+  --st-todo: #58a6ff;
+  --st-doing: #3fb950;
+  --st-done: #a371f7;
+  --st-archive: #868e9a;
+  --hash-a: #58a6ff;
+  --hash-b: #3fb950;
+  --hash-c: #d29922;
+  --hash-d: #a371f7;
+  --hash-e: #f778ba;
+  --hash-f: #39c5cf;
+  --hash-g: #f0883e;
+  --hash-h: #ff7b72;
+  --id-high: #f85149;
+  --id-waiting: #d29922;
+  --id-review: #eac54f;
+  --id-high-hover: #ff7b72;
+  --id-waiting-hover: #e3b341;
+  --id-epic: #f0883e;
+  --blocked-ink: #fc6e63;
+  --blocked-bg: #3a1c21;
+  --review-ink: #eac54f;
+  --review-bg: #332b14;
+  --epic-wash: rgba(240, 136, 62, 0.12);
 }
 :root[data-theme="light"] { color-scheme: light; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -207,14 +298,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .column-header { padding: 10px 14px; font-weight: 600; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0; background: var(--surface); border-radius: .2rem .2rem 0 0; }
 /* Backlog is cyan, not grey — its old grey #8b949e sat one shade from the
    archive header below, so the two columns read alike at a glance. Grey means
-   archived (a location, not a status) and nothing else; hexes mirror
-   status-colors.js (BUILTIN_STATUS_COLORS / ARCHIVE_COLOR), sync pinned by
+   archived (a location, not a status) and nothing else; the --st-* tokens
+   carry status-colors.js's per-theme values, sync pinned by
    status-colors.test.js. */
-.col-backlog .column-header { color: #39c5cf; }
-.col-todo .column-header { color: #58a6ff; }
-.col-doing .column-header { color: #3fb950; }
-.col-done .column-header { color: #a371f7; }
-.col-archive .column-header { color: #6e7681; }
+.col-backlog .column-header { color: var(--st-backlog); }
+.col-todo .column-header { color: var(--st-todo); }
+.col-doing .column-header { color: var(--st-doing); }
+.col-done .column-header { color: var(--st-done); }
+.col-archive .column-header { color: var(--st-archive); }
 /* Label treatment (shop status page's h2/.cell-label formula — 600,
    uppercase, tracked, mut — extended on .modal label below) applied to
    .column-name, not .column-header: text-transform on the header would
@@ -273,7 +364,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    node each need their own twin below since their backgrounds are already
    spoken for (.gantt-bar.epic near the status fill rules, .map-node.epic
    rect near the map view rules). */
-.card.epic, .cal-chip.epic, .gantt-label.epic { background: rgba(240, 136, 62, 0.12); }
+.card.epic, .cal-chip.epic, .gantt-label.epic { background: var(--epic-wash); }
 /* The shared status dot — same 8px shape as .archived-dot below.
    Color never rides an inline `style="background:..."`
    written by statusBadge() (status-colors.js): a strict `style-src 'self'`
@@ -283,30 +374,30 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    (the four built-ins, archive-mute, or one of the 8 hashed palette slots) —
    so the full statusColor() value space is covered with no inline style. */
 .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; flex-shrink: 0; }
-.status-dot--backlog { background: #39c5cf; }
-.status-dot--todo { background: #58a6ff; }
-.status-dot--doing { background: #3fb950; }
-.status-dot--done { background: #a371f7; }
-.status-dot--archive { background: #6e7681; }
-.status-dot--palette-0 { background: #58a6ff; }
-.status-dot--palette-1 { background: #3fb950; }
-.status-dot--palette-2 { background: #d29922; }
-.status-dot--palette-3 { background: #a371f7; }
-.status-dot--palette-4 { background: #f778ba; }
-.status-dot--palette-5 { background: #39c5cf; }
-.status-dot--palette-6 { background: #f0883e; }
-.status-dot--palette-7 { background: #ff7b72; }
+.status-dot--backlog { background: var(--st-backlog); }
+.status-dot--todo { background: var(--st-todo); }
+.status-dot--doing { background: var(--st-doing); }
+.status-dot--done { background: var(--st-done); }
+.status-dot--archive { background: var(--st-archive); }
+.status-dot--palette-0 { background: var(--hash-a); }
+.status-dot--palette-1 { background: var(--hash-b); }
+.status-dot--palette-2 { background: var(--hash-c); }
+.status-dot--palette-3 { background: var(--hash-d); }
+.status-dot--palette-4 { background: var(--hash-e); }
+.status-dot--palette-5 { background: var(--hash-f); }
+.status-dot--palette-6 { background: var(--hash-g); }
+.status-dot--palette-7 { background: var(--hash-h); }
 /* The third shared dot — the archived LOCATION ball.
    Fixed ARCHIVE_COLOR (never varies per-card), so it's a plain class rule,
    same as every .status-dot--* rule above. */
-.archived-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6e7681; vertical-align: middle; flex-shrink: 0; }
+.archived-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--st-archive); vertical-align: middle; flex-shrink: 0; }
 /* archivedBadge() always follows statusBadge()
    directly with no whitespace between them on .cal-chip/.gantt-label (no
    flex/gap there) — this adjacent-sibling rule keeps the two dots from
    fusing into one blob (status+archived is the one adjacent dot pair). */
 .status-dot + .archived-dot { margin-left: 4px; }
-.card.high { border-left: 3px solid #f85149; }
-.card.low { border-left: 3px solid #6e7681; opacity: 0.85; } /* muted last-tier priority */
+.card.high { border-left: 3px solid var(--id-high); }
+.card.low { border-left: 3px solid var(--st-archive); opacity: 0.85; } /* muted last-tier priority */
 /* hand-rolled combobox menu — native datalist misrenders in VSCode's Simple Browser */
 .combobox-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; max-height: 180px; overflow-y: auto; box-shadow: var(--shadow-pop); }
 .combobox-item { padding: 5px 10px; cursor: pointer; font-size: 13px; }
@@ -337,7 +428,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* The amber accent marks WAITING (unresolved waiting_for
    deps); it disappears on its
    own when every dep lands. */
-.card.waiting { border-left: 3px solid #d29922; }
+.card.waiting { border-left: 3px solid var(--id-waiting); }
 .card.dragging { opacity: 0.4; }
 .card.archived-card { cursor: pointer; opacity: 0.82; }
 .card-head { display: flex; align-items: center; gap: 4px; }
@@ -366,26 +457,26 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    day is strictly before today and the card is neither done nor archived —
    recolors that row's text only, since border-left is already
    priority/waiting's channel on this tile. */
-.card-schedule-row.overdue { color: #f85149; font-weight: 600; }
+.card-schedule-row.overdue { color: var(--id-high); font-weight: 600; }
 .card-assignee { display: inline-flex; align-items: center; gap: 4px; background: var(--btn-bg); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; color: var(--mut); margin-left: 6px; }
 /* The handle TEXT itself wears the assignee
    color — no separate dot glyph. The HASHED case gets a class per palette
-   slot (same 8 hexes/numbering as status-colors.js's STATUS_PALETTE and its
+   slot (the --hash-a..h tokens, numbered like status-colors.js's STATUS_PALETTE and its
    .status-dot--palette-N twin — parallel class family, not a reuse, since
    this sets `color` not `background`); source order alone breaks the tie
-   with .card-assignee's own `color: #8b949e` above (same specificity, later
+   with .card-assignee's own `color: var(--mut)` above (same specificity, later
    wins — no !important needed). A RESERVED custom color has no fixed class
    (open value space) — app.js's paintAssigneeColors paints .card-assignee
    itself via one small CSSOM assignment instead (data-assignee-color
    attribute), same CSP `style-src 'self'` reasoning as everywhere else here. */
-.assignee-text--palette-0 { color: #58a6ff; }
-.assignee-text--palette-1 { color: #3fb950; }
-.assignee-text--palette-2 { color: #d29922; }
-.assignee-text--palette-3 { color: #a371f7; }
-.assignee-text--palette-4 { color: #f778ba; }
-.assignee-text--palette-5 { color: #39c5cf; }
-.assignee-text--palette-6 { color: #f0883e; }
-.assignee-text--palette-7 { color: #ff7b72; }
+.assignee-text--palette-0 { color: var(--hash-a); }
+.assignee-text--palette-1 { color: var(--hash-b); }
+.assignee-text--palette-2 { color: var(--hash-c); }
+.assignee-text--palette-3 { color: var(--hash-d); }
+.assignee-text--palette-4 { color: var(--hash-e); }
+.assignee-text--palette-5 { color: var(--hash-f); }
+.assignee-text--palette-6 { color: var(--hash-g); }
+.assignee-text--palette-7 { color: var(--hash-h); }
 .card-title { font-size: 0.9em; margin: 4px 0; }
 /* The empty-title prompt-fallback reads as clearly
    temporary (italic + muted), not a real title — gone the instant the card
@@ -396,31 +487,28 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 /* Same .chip vocabulary as .status-chip — uppercase, tracked, near-square radius. */
 .tag { background: var(--btn-bg); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 8px; font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mut); }
-.waiting-badge { color: #d29922; font-size: 0.75em; margin-top: 4px; }
+.waiting-badge { color: var(--id-waiting); font-size: 0.75em; margin-top: 4px; }
 /* The manual impediment sticker — a red PILL, not a border
    (borders stay priority/status territory). The reason rides the tooltip
    (title property), set via textContent/property assignment only.
-   Full shop status page .state grammar now: a wash of its own colour
-   (rgba, not color-mix — theme-tokens.test.js bans color-mix outright since
-   this suite has no jsdom to catch a silently-dropped unsupported function)
-   with NO border, colour = the same red as the text. Legal wash-as-
-   substitute per kanban.proj#255: this only ever paints over .card
-   (var(--paper)) or .detail-header inside .modal (var(--surface)), both
-   opaque. padding grows 1px7px -> 2px8px to reclaim the space the border
-   held, so the sticker doesn't shrink. The red itself stays the literal hex
-   it always was (KEEP LITERAL). */
-.blocked-pill { background: rgba(248,81,73,0.15); border-radius: .15rem; padding: 2px 8px; font-size: 0.7em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; color: #f85149; margin-left: 4px; flex-shrink: 0; }
+   Shop status page .state shape: a ground with NO border. The ground is
+   its own token (--blocked-bg), stated apart from the ink (--blocked-ink)
+   rather than a tint of it: a tint's contrast depends on the ground behind
+   it and on its own alpha, and in light mode the old red-on-red-tint pair
+   could not be made readable. Both values are opaque per theme, so the pair
+   is checked directly (theme-contrast.test.js). padding 2px 8px. */
+.blocked-pill { background: var(--blocked-bg); border-radius: .15rem; padding: 2px 8px; font-size: 0.7em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; color: var(--blocked-ink); margin-left: 4px; flex-shrink: 0; }
 /* The edit form's blocked input goes red exactly while its value
    passes the predicate — colorless otherwise. */
-#f-blocked.blocked-active { border-color: #f85149; }
+#f-blocked.blocked-active { border-color: var(--id-high); }
 /* ADR 0009: review is blocked's sibling sticker — "finished,
    approve me" rather than a stop sign, so its own gold/yellow pill, distinct
    from the waiting amber accent (#d29922), the epic orange wash (#f0883e),
    and the blocked red (#f85149). Same .state treatment as .blocked-pill
-   above — wash, no border, colour = text — moving together since ADR 0009
+   above — its own ground token, no border — moving together since ADR 0009
    makes them siblings. */
-.review-pill { background: rgba(234,197,79,0.15); border-radius: .15rem; padding: 2px 8px; font-size: 0.7em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; color: #eac54f; margin-left: 4px; flex-shrink: 0; }
-#f-review.review-active { border-color: #eac54f; }
+.review-pill { background: var(--review-bg); border-radius: .15rem; padding: 2px 8px; font-size: 0.7em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; color: var(--review-ink); margin-left: 4px; flex-shrink: 0; }
+#f-review.review-active { border-color: var(--id-review); }
 .card-menu { display: flex; gap: 8px; margin-top: 8px; }
 .card-menu button { padding: 2px 8px; font-size: 0.72em; }
 .toast { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--crit); color: var(--ink-strong); padding: 10px 16px; border-radius: .2rem; z-index: 20; cursor: pointer; box-shadow: var(--shadow); }
@@ -541,10 +629,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    it paints the wash as its own layer over .modal's solid var(--surface) underneath,
    which keeps the tint sourced from epicColorSoft() instead of freezing a
    hand-blended hex that would drift the day EPIC_COLOR changes. */
-.modal.detail-modal.epic { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--surface); }
+.modal.detail-modal.epic { background: linear-gradient(var(--epic-wash), var(--epic-wash)), var(--surface); }
 /* row layout lives on .popup-header (below) — see there. */
 /* Headline-role, same reasoning as .modal h2 above — a card's own title. */
-.detail-header h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.detail-header h2 { color: var(--ink-strong); font-size: 1.26em; line-height: 1.25; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
 .detail-title--prompt-fallback { font-style: italic; opacity: 0.85; }
 .detail-path-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -583,31 +671,50 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-frontmatter td { padding: 4px 8px; vertical-align: top; }
 .detail-frontmatter td.fm-key { color: var(--mut); white-space: nowrap; width: 1%; padding-left: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .detail-frontmatter td.fm-value { color: var(--ink); word-break: break-word; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-.detail-body { font-size: 0.92em; line-height: 1.55; }
-.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--ink); margin: 16px 0 8px; }
-.detail-body h1:first-child, .detail-body h2:first-child, .detail-body h3:first-child { margin-top: 0; }
-.detail-body h1 { font-size: 1.2em; } .detail-body h2 { font-size: 1.05em; } .detail-body h3 { font-size: 1em; }
-.detail-body p { margin: 8px 0; }
-.detail-body ul, .detail-body ol { margin: 8px 0 8px 22px; }
-.detail-body li { margin: 3px 0; }
-.detail-body li > ul, .detail-body li > ol { margin: 3px 0 3px 20px; }
-.detail-body li.task { list-style: none; margin-left: -18px; }
-.detail-body code { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 5px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.88em; }
-.detail-body pre { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; overflow-x: auto; margin: 10px 0; }
-.detail-body pre code { background: none; border: none; padding: 0; color: var(--ink); }
+/* Reading layer: headings and bold on --ink-strong, prose one step under on
+   --prose, code a warm --code-ink on --raised with no border, muted text on
+   --mut. Before it, headings, prose and code all painted --ink, so hierarchy
+   rested on size alone. Prose blocks stop at 76ch even in fullscreen; tables
+   and code blocks keep the full width. */
+.detail-body { font-size: 1em; line-height: 1.6; color: var(--prose); }
+.detail-body > p, .detail-body > ul, .detail-body > ol, .detail-body > h1, .detail-body > h2, .detail-body > h3 { max-width: 76ch; }
+.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--ink-strong); font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; text-wrap: balance; }
+.detail-body h1 { font-size: 1.3em; margin: 1.4em 0 0.5em; }
+.detail-body h2 { font-size: 1.16em; margin: 1.6em 0 0.55em; padding-top: 0.8em; border-top: 1px solid var(--line); }
+.detail-body h3 { font-size: 1.02em; margin: 1.3em 0 0.4em; }
+.detail-body > :first-child { margin-top: 0; }
+.detail-body > h2:first-child { padding-top: 0; border-top: 0; }
+.detail-body p { margin: 0.65em 0; }
+.detail-body ul, .detail-body ol { margin: 0.6em 0 0.6em 1.35em; }
+.detail-body li { margin: 0.32em 0; }
+.detail-body li::marker { color: var(--mut); }
+.detail-body li > ul, .detail-body li > ol { margin: 0.3em 0 0.3em 1.1em; }
+.detail-body li.task { list-style: none; margin-left: -1.35em; }
+/* A list nested under a task item is that step's detail (proof, expect,
+   evidence) and reads one step quieter behind a rail. Structure only: the
+   renderer recognises no new text. */
+.detail-body li.task > ul { list-style: none; margin: 0.3em 0 0.7em 0.3em; padding-left: 0.95em; border-left: 1px solid var(--line-strong); color: var(--mut); font-size: 0.93em; }
+.detail-body li.task > ul > li { margin: 0.22em 0; }
+.detail-body code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.1em 0.35em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.detail-body pre { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; overflow-x: auto; margin: 0.8em 0; }
+.detail-body pre code { background: none; padding: 0; color: var(--code-ink); }
 /* Markdown tables in a card body (kanban.proj #256). The scroller is the point:
    a ladder or a comparison table is often wider than the popup, and without its
    own overflow the whole popup would scroll sideways and take the prose with it.
    Scoped under .md-table so .detail-frontmatter's own table rules stay untouched. */
-.detail-body .md-table { overflow-x: auto; margin: 10px 0; }
-.detail-body .md-table table { border-collapse: collapse; font-size: 0.95em; }
-.detail-body .md-table th, .detail-body .md-table td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+.detail-body .md-table { overflow-x: auto; margin: 1em 0; }
+.detail-body .md-table table { border-collapse: collapse; font-size: 0.9em; line-height: 1.5; }
+.detail-body .md-table th, .detail-body .md-table td { border-bottom: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
 /* Quiet + tracked like the shop status page's th, but NOT uppercase — unlike
    .fm-key/.column-name (category words this app itself chose), this header
    is author-typed markdown that may carry a case-bearing token (myFunc(),
    PRs), the same reason .bulk-tag-row is carved out of .modal label above. */
-.detail-body .md-table th { background: var(--paper); color: var(--mut); font-weight: 600; letter-spacing: 0.06em; white-space: nowrap; }
-.detail-body .md-table td { color: var(--ink); }
+.detail-body .md-table th { background: var(--raised); color: var(--mut); font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; padding: 7px 12px; border-bottom-color: var(--line-strong); vertical-align: bottom; }
+.detail-body .md-table td { color: var(--prose); }
+/* The first column usually names the row (a repo, a card, a file), so it
+   carries the heading ink and a reader can scan down it. */
+.detail-body .md-table td:first-child { color: var(--ink-strong); font-weight: 600; }
+.detail-body .md-table tr:last-child td { border-bottom: 0; }
 /* Column alignment from the delimiter row's colons. Classes, not inline styles:
    the CSP has no unsafe-inline for style, so a style="" attribute would be dropped. */
 .detail-body .md-table .ta-left { text-align: left; }
@@ -622,8 +729,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); padding-bottom: 1px; }
 .detail-body a:hover { border-bottom-style: solid; }
 .detail-body a:focus-visible { border-bottom-style: solid; outline: 2px solid var(--accent); outline-offset: 2px; border-radius: .15rem; }
-.detail-body strong { color: var(--ink-strong); }
-.detail-body hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+.detail-body strong { color: var(--ink-strong); font-weight: 650; }
+.detail-body em { color: var(--ink); }
+.detail-body hr { border: none; border-top: 1px solid var(--line); margin: 1.2em 0; }
 
 /* --- Dependency map view ---------------------------------------
    Hand-rolled layered SVG:
@@ -669,7 +777,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    (EPIC_COLOR, #f0883e — same hue as .card.epic's wash and the epic
    membership edges below), when tapped on. */
 .map-epic-chip { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
-.map-epic-chip.on { border-color: #f0883e; color: #f0883e; background: rgba(240, 136, 62, 0.12); }
+.map-epic-chip.on { border-color: var(--id-epic); color: var(--id-epic); background: var(--epic-wash); }
 .map-canvas { display: block; }
 /* The node border is ONE neutral weight regardless of status — a
    per-status stroke and an epic stroke would
@@ -689,7 +797,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* Archived nodes stroke the neutral archive grey — archive
    is a location, so a card's parked pre-archive status (or
    its plain neutral default) shouldn't read live on the map. */
-.map-node.archived rect { stroke: #6e7681; }
+.map-node.archived rect { stroke: var(--st-archive); }
 /* Board-tile parity — same red/amber the board (.card.high/
    .card.waiting), calendar (.cal-chip.high/.waiting), and gantt
    (.gantt-bar.high/.waiting) already use, applied to the rect stroke since
@@ -699,12 +807,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    every other surface. Never co-applied with .archived (buildMapSvg gates
    both classes off on an archived node), so there's no cascade fight with
    the rule above. */
-.map-node.high rect { stroke: #f85149; }
-.map-node.waiting rect { stroke: #d29922; }
+.map-node.high rect { stroke: var(--id-high); }
+.map-node.waiting rect { stroke: var(--id-waiting); }
 /* The manual blocked sticker's red pill, SVG twin of the board
    tile's .blocked-pill — same red, reason in its own <title> tooltip. */
-.map-blocked-pill rect { fill: rgba(248,81,73,0.15); stroke: #f85149; stroke-width: 1px; }
-.map-blocked-pill text { fill: #f85149; font-size: 9px; }
+.map-blocked-pill rect { fill: var(--blocked-bg); stroke: var(--blocked-ink); stroke-width: 1px; }
+.map-blocked-pill text { fill: var(--blocked-ink); font-size: 9px; }
 /* The status dot — a small filled circle carrying exactly the node's status
    color. Built-in four via class (below); any other name
    (custom column, unlisted on-disk value) gets one of the 8 hashed
@@ -721,20 +829,20 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    the node's true status color. The archived cue lives solely in the
    rect's border mute above (the one exception),
    the "(archived)" SVG tooltip, and the ghost/selection treatments below. */
-.map-status-dot.status-backlog { fill: #39c5cf; } /* cyan (was grey — read as archived) */
-.map-status-dot.status-todo { fill: #58a6ff; }
-.map-status-dot.status-doing { fill: #3fb950; }
-.map-status-dot.status-done { fill: #a371f7; }
-.map-status-dot.status-unknown { fill: #6e7681; }
-.map-status-dot.status-archive { fill: #6e7681; } /* literal on-disk status: archive/archived — mute */
-.map-status-dot.status-palette-0 { fill: #58a6ff; }
-.map-status-dot.status-palette-1 { fill: #3fb950; }
-.map-status-dot.status-palette-2 { fill: #d29922; }
-.map-status-dot.status-palette-3 { fill: #a371f7; }
-.map-status-dot.status-palette-4 { fill: #f778ba; }
-.map-status-dot.status-palette-5 { fill: #39c5cf; }
-.map-status-dot.status-palette-6 { fill: #f0883e; }
-.map-status-dot.status-palette-7 { fill: #ff7b72; }
+.map-status-dot.status-backlog { fill: var(--st-backlog); } /* cyan (was grey — read as archived) */
+.map-status-dot.status-todo { fill: var(--st-todo); }
+.map-status-dot.status-doing { fill: var(--st-doing); }
+.map-status-dot.status-done { fill: var(--st-done); }
+.map-status-dot.status-unknown { fill: var(--st-archive); }
+.map-status-dot.status-archive { fill: var(--st-archive); } /* literal on-disk status: archive/archived — mute */
+.map-status-dot.status-palette-0 { fill: var(--hash-a); }
+.map-status-dot.status-palette-1 { fill: var(--hash-b); }
+.map-status-dot.status-palette-2 { fill: var(--hash-c); }
+.map-status-dot.status-palette-3 { fill: var(--hash-d); }
+.map-status-dot.status-palette-4 { fill: var(--hash-e); }
+.map-status-dot.status-palette-5 { fill: var(--hash-f); }
+.map-status-dot.status-palette-6 { fill: var(--hash-g); }
+.map-status-dot.status-palette-7 { fill: var(--hash-h); }
 /* The map's SVG twin of .card.epic — same faint EPIC_COLOR wash,
    tinting the node's rect fill instead of drawing a circle (circles are
    status-only). Higher specificity than the plain `.map-node rect` fill above wins outright, but a ghost
@@ -742,11 +850,11 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    specificity, source order breaks the tie) so a ghosted epic still reads as
    a ghost first. No archived-mutes rule: epic is a durable identity, not a
    location, so the wash keeps showing on an archived node. */
-.map-node.epic rect { fill: rgba(240, 136, 62, 0.12); }
+.map-node.epic rect { fill: var(--epic-wash); }
 /* The archived LOCATION ball's SVG twin — same fixed
    ARCHIVE_COLOR as .archived-dot, a dot in the node's right-edge column
    (buildMapSvg, app.js) beside the status dot, vertically centered. */
-.map-archived-dot { fill: #6e7681; }
+.map-archived-dot { fill: var(--st-archive); }
 /* Ghost stub: a hidden card that a visible one waits on / is waited on by,
    kept on the map (never silently dropped) but visually dimmed and dashed so
    it reads as "not part of the current search slice" rather than a normal node. */
@@ -761,20 +869,20 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    routed as a side-bowed curve (see buildMapSvg in app.js) and colored like
    the board's own "waiting" amber so a cycle reads as a visible anomaly
    rather than blending into the normal top-down flow. */
-.map-edge.back-edge { stroke: #d29922; stroke-dasharray: 3 3; }
+.map-edge.back-edge { stroke: var(--id-waiting); stroke-dasharray: 3 3; }
 /* Membership edge (epic -> child, from the child's `parent` field)
    — the epic's own orange (EPIC_COLOR) with a dash
    longer than the back-edge's 3 3, so membership, sequencing (plain grey),
    and cycle-break (amber 3 3) all read as three distinct relations. The
    back-edge amber cedes to epic orange when a membership edge is itself the
    cycle-break (declaration order); the bowed routing still marks the cycle. */
-.map-edge.epic-edge { stroke: #f0883e; stroke-dasharray: 7 4; }
+.map-edge.epic-edge { stroke: var(--id-epic); stroke-dasharray: 7 4; }
 /* v3: the chain itself carries the epic color — solid (it's a real,
    gate-enforced waiting_for edge), orange to show whose work flows here.
    Placed after .back-edge so a chain edge on a forced cycle-break keeps its
    orange over the amber, same declaration-order convention as .epic-edge. */
-.map-edge.epic-chain { stroke: #f0883e; }
-.map-arrow-epic-head { fill: #f0883e; }
+.map-edge.epic-chain { stroke: var(--id-epic); }
+.map-arrow-epic-head { fill: var(--id-epic); }
 .map-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 /* The graph and the "No dependencies" list are each a collapsible
    section — one shared header shape (buildMapSectionHeader in app.js) for
@@ -837,9 +945,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    near .card.epic above — identical value, no conflict, so one shared rule
    covers both) — no dot; the priority/waiting left accents and
    the due rule below need no gating, nothing to win over. */
-.cal-chip.high { border-left-color: #f85149; }
-.cal-chip.low { border-left-color: #6e7681; opacity: 0.85; }
-.cal-chip.waiting { border-left-color: #d29922; }
+.cal-chip.high { border-left-color: var(--id-high); }
+.cal-chip.low { border-left-color: var(--st-archive); opacity: 0.85; }
+.cal-chip.waiting { border-left-color: var(--id-waiting); }
 .cal-chip.dragging { opacity: 0.4; }
 /* Range position classes from calendar-model.js's chipPositionForDay. No
    render calls them any more — the month grid draws a run as one
@@ -858,13 +966,13 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    run — warning-accent border all around + a flag glyph so it can't be read
    as another range segment. Declared after the priority/waiting accents so
    the deadline styling wins on its own chip. */
-.cal-chip.cal-chip-due { border-color: #d29922; border-left-color: #d29922; }
-.cal-chip-due-glyph { color: #d29922; }
+.cal-chip.cal-chip-due { border-color: var(--id-waiting); border-left-color: var(--id-waiting); }
+.cal-chip-due-glyph { color: var(--id-waiting); }
 /* Overdue due chip (kanban.proj#258): the deadline slipped past today —
-   same danger red as .blocked-pill, declared after .cal-chip-due so it
+   the high-priority red (--id-high), declared after .cal-chip-due so it
    wins the amber border/glyph on its own chip. */
-.cal-chip.overdue { border-color: #f85149; border-left-color: #f85149; }
-.cal-chip.overdue .cal-chip-due-glyph { color: #f85149; }
+.cal-chip.overdue { border-color: var(--id-high); border-left-color: var(--id-high); }
+.cal-chip.overdue .cal-chip-due-glyph { color: var(--id-high); }
 /* Read-only affordance for an archived chip — same not-allowed
    cursor as .gantt-bar.archived. draggable is already false on the element
    (calendarChipEl), so this is discoverability, not a functional guard. */
@@ -981,11 +1089,11 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .gantt-today-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 2px solid var(--accent); opacity: 0.65; z-index: 1; }
 .gantt-row { height: 26px; }
 .gantt-row.gantt-group-row { height: 20px; line-height: 20px; font-size: 0.7em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--mut); }
-.gantt-group-row.status-backlog { color: #39c5cf; } /* cyan (was grey — read as archived) */
-.gantt-group-row.status-todo { color: #58a6ff; }
-.gantt-group-row.status-doing { color: #3fb950; }
-.gantt-group-row.status-done { color: #a371f7; }
-.gantt-group-row.status-unknown { color: #6e7681; }
+.gantt-group-row.status-backlog { color: var(--st-backlog); } /* cyan (was grey — read as archived) */
+.gantt-group-row.status-todo { color: var(--st-todo); }
+.gantt-group-row.status-doing { color: var(--st-doing); }
+.gantt-group-row.status-done { color: var(--st-done); }
+.gantt-group-row.status-unknown { color: var(--st-archive); }
 .gantt-label { font-size: 0.78em; color: var(--ink); line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; /* labels are click targets */ }
 .gantt-label-id { color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 /* Same italic/muted read as .card-title--prompt-fallback
@@ -999,11 +1107,11 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .gantt-bar:hover .gantt-handle { background: var(--handle-wash); }
 /* status palette — the same built-in hexes as the column headers and the
    map's status dot, as border + faint fill. */
-.gantt-bar.status-backlog { border-color: #39c5cf; background: rgba(57, 197, 207, 0.12); }
-.gantt-bar.status-todo { border-color: #58a6ff; background: rgba(88, 166, 255, 0.12); }
-.gantt-bar.status-doing { border-color: #3fb950; background: rgba(63, 185, 80, 0.12); }
-.gantt-bar.status-done { border-color: #a371f7; background: rgba(163, 113, 247, 0.12); }
-.gantt-bar.status-unknown { border-color: #6e7681; background: rgba(110, 118, 129, 0.12); }
+.gantt-bar.status-backlog { border-color: var(--st-backlog); background: rgba(57, 197, 207, 0.12); }
+.gantt-bar.status-todo { border-color: var(--st-todo); background: rgba(88, 166, 255, 0.12); }
+.gantt-bar.status-doing { border-color: var(--st-doing); background: rgba(63, 185, 80, 0.12); }
+.gantt-bar.status-done { border-color: var(--st-done); background: rgba(163, 113, 247, 0.12); }
+.gantt-bar.status-unknown { border-color: var(--st-archive); background: rgba(134, 142, 154, 0.12); }
 /* Epic's wash can't reuse `background` here — the per-status fill
    above already owns that property (and ganttBarEl's inline style for a
    non-built-in status would beat a class rule on it anyway). box-shadow
@@ -1015,10 +1123,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    live-drag preview's own box-shadow wins during that transient gesture —
    losing the epic wash for the one bar mid-drag is an acceptable trade, not
    a requirement. */
-.gantt-bar.epic { box-shadow: inset 0 0 0 9999px rgba(240, 136, 62, 0.12); }
-.gantt-bar.high { border-left-color: #f85149; }
-.gantt-bar.low { border-left-color: #6e7681; opacity: 0.85; }
-.gantt-bar.waiting { border-left-color: #d29922; }
+.gantt-bar.epic { box-shadow: inset 0 0 0 9999px var(--epic-wash); }
+.gantt-bar.high { border-left-color: var(--id-high); }
+.gantt-bar.low { border-left-color: var(--st-archive); opacity: 0.85; }
+.gantt-bar.waiting { border-left-color: var(--id-waiting); }
 /* mid-drag: the bar itself is the live preview, so keep it readable and above
    the today/week lines rather than fading it like a ghosted HTML5 drag */
 .gantt-bar.dragging { opacity: 0.85; z-index: 5; box-shadow: 0 0 0 1px var(--accent); cursor: grabbing; }
@@ -1042,16 +1150,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    steals pointerdowns from) the 7px end resize handle beneath it — on compat
    cards due sits exactly on the rendered end day */
 .gantt-due-marker { position: absolute; top: -1px; width: 12px; height: 12px; margin-left: -6px; cursor: grab; touch-action: none; user-select: none; z-index: 3; }
-.gantt-due-marker::before { content: ''; position: absolute; inset: 1px; background: #d29922; border-radius: 2px; transform: rotate(45deg); }
-.gantt-due-marker:hover::before { background: #e3b341; }
+.gantt-due-marker::before { content: ''; position: absolute; inset: 1px; background: var(--id-waiting); border-radius: 2px; transform: rotate(45deg); }
+.gantt-due-marker:hover::before { background: var(--id-waiting-hover); }
 .gantt-due-marker.dragging { z-index: 6; cursor: grabbing; }
 .gantt-due-marker.dragging::before { box-shadow: 0 0 0 1px var(--accent); }
 .gantt-due-marker.archived { cursor: not-allowed; } /* same read-only affordance as .gantt-bar.archived — the diamond drag is blocked at pointerdown too */
-/* Overdue diamond (kanban.proj#258): same danger red as .blocked-pill,
+/* Overdue diamond (kanban.proj#258): the high-priority red (--id-high),
    overriding the amber due fill (never co-occurs with .archived — isOverdue
    itself excludes archived cards). */
-.gantt-due-marker.overdue::before { background: #f85149; }
-.gantt-due-marker.overdue:hover::before { background: #ff7b72; }
+.gantt-due-marker.overdue::before { background: var(--id-high); }
+.gantt-due-marker.overdue:hover::before { background: var(--id-high-hover); }
 
 /* --- Date-picker popover -----------------------------------------
    Hand-rolled month grid on the form's date fields (same "no native widgets
@@ -1097,7 +1205,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .notif-badge { position: absolute; top: -6px; right: -6px; background: var(--crit); color: var(--on-fill); border-radius: .15rem; padding: 0 5px; font-size: 0.68em; font-weight: 700; line-height: 1.5; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .notif-modal { width: min(560px, 92vw); }
 .notif-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-.notif-row { display: flex; align-items: flex-start; gap: 8px; background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 8px 10px; }
+.notif-row { display: flex; align-items: flex-start; gap: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; }
 /* Levels — declared BEFORE .unread so the accent unread left-edge
    still wins on tinted rows (same specificity, later rule takes the edge) */
 .notif-row.level-debug { opacity: 0.55; }
@@ -1106,7 +1214,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .notif-row.unread { border-left: 3px solid var(--accent); }
 .notif-text { flex: 1; min-width: 0; }
 .notif-meta { color: var(--mut); font-size: 0.75em; margin-bottom: 2px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-.notif-message { font-size: 0.88em; word-break: break-word; }
+.notif-message { font-size: 0.9em; line-height: 1.55; color: var(--prose); word-break: break-word; }
+.notif-message strong { color: var(--ink-strong); font-weight: 600; }
 .notif-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
@@ -1141,7 +1250,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    The SVG rect takes the same two colors pre-blended, since fill has no
    gradient-over-color form. The gantt BAR needs no twin: its epic cue is a
    box-shadow, never a background, so there is no tie to lose. */
-.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--hover-wash); }
+.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(var(--epic-wash), var(--epic-wash)), var(--hover-wash); }
 .map-node.epic.hover-highlight rect { fill: var(--epic-hover-fill); }
 /* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
    another card takes it away from the card that still holds keyboard focus,
@@ -1178,8 +1287,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    touches) keeps showing too. The gantt BAR needs no twin here — its epic
    wash is already a box-shadow, a different property than
    .gantt-bar.selected's background, so there was never a tie to lose. */
-.card.epic.selected, .cal-chip.epic.selected, .gantt-label.epic.selected { background: rgba(240, 136, 62, 0.12); }
-.map-node.epic.selected rect { fill: rgba(240, 136, 62, 0.12); }
+.card.epic.selected, .cal-chip.epic.selected, .gantt-label.epic.selected { background: var(--epic-wash); }
+.map-node.epic.selected rect { fill: var(--epic-wash); }
 .context-menu { position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 4px; display: flex; flex-direction: column; min-width: 160px; box-shadow: var(--shadow-pop); }
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
 .context-menu button:hover { background: var(--btn-hover); }

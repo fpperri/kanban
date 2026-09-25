@@ -4,8 +4,12 @@
 // plain <script> in the browser (app.js calls these as bare globals) AND
 // required directly by node --test.
 //
-// The built-in four have one fixed palette (the same hexes the CSS uses for
-// column headers / map nodes / gantt bars). Any OTHER status — a custom
+// Every identity is one hue with two lightnesses: the constants named
+// without a theme are the values for a DARK ground (the ones the shop's
+// status page copies), the LIGHT_* twins are the same hues darkened to read
+// on a light ground. app.css carries both as --st-*/--hash-*/--id-* tokens in
+// its theme blocks (themeColorTokens below, pinned by status-colors.test.js).
+// Any OTHER status — a custom
 // column from config.yaml's `statuses` list or an unlisted value on disk —
 // gets a deterministic color by hashing its (lowercased, trimmed) name into a
 // fixed 8-color palette, so the same name colors the same everywhere,
@@ -28,7 +32,9 @@ const BUILTIN_STATUS_COLORS = {
 // must mute like the archive column instead of hashing into a loud accent
 // ('archived' used to hash to done's exact purple). Orange is off the table
 // for any of this — epics claim it.
-const ARCHIVE_COLOR = '#6e7681';
+// Lifted from #6e7681, which measured 3.69:1 as the archive column header on
+// the dark surface (the header is text, so it takes the 4.5:1 floor).
+const ARCHIVE_COLOR = '#868e9a';
 
 // The epic/wayfinder accent — orange, reserved among the fixed
 // colors (no built-in status or archive ever wears it). Same hex as
@@ -60,6 +66,54 @@ const STATUS_PALETTE = [
   '#f0883e', // orange
   '#ff7b72', // red — replaced the grey slot
 ];
+
+// The same identities on a light ground. Each starts from GitHub Primer's
+// light scale and is darkened just enough to clear 4.5:1 as text on white,
+// on paper and on the chip ground; backlog and done sit a step deeper still,
+// so the five statuses stay apart under protanopia and deuteranopia
+// (status-colors.test.js simulates both).
+const LIGHT_STATUS_COLORS = {
+  backlog: '#0c5f65',
+  todo: '#0266d7',
+  doing: '#117a32',
+  done: '#642cba',
+};
+const LIGHT_ARCHIVE_COLOR = '#626b75';
+const LIGHT_EPIC_COLOR = '#b34906';
+// Slot h sits a step deeper than the high-priority red, which it would otherwise
+// match in light: dark keeps the two apart by lightness (#ff7b72 / #f85149).
+const LIGHT_STATUS_PALETTE = ['#0266d7', '#117a32', '#906001', '#642cba', '#b93384', '#0c5f65', '#b34906', '#9e1c37'];
+
+// Board signals that are not statuses: the high-priority and overdue red,
+// the waiting amber and the review gold, plus the hover twins of the gantt
+// due diamond. (The blocked pill has its own ink, --blocked-ink in app.css.)
+const SIGNAL_COLORS = {
+  dark: { high: '#f85149', waiting: '#d29922', review: '#eac54f', highHover: '#ff7b72', waitingHover: '#e3b341' },
+  light: { high: '#ce212d', waiting: '#906001', review: '#7d6400', highHover: '#d9363e', waitingHover: '#a87411' },
+};
+
+// Palette slot N paints the token --hash-<letter>. Letters, not digits,
+// because the theme tests read token names as --[a-z-]+.
+const HASH_SLOTS = 'abcdefgh';
+
+// Every identity as the token app.css declares for it in one theme block.
+function themeColorTokens(theme) {
+  const light = theme === 'light';
+  const builtin = light ? LIGHT_STATUS_COLORS : BUILTIN_STATUS_COLORS;
+  const palette = light ? LIGHT_STATUS_PALETTE : STATUS_PALETTE;
+  const signal = SIGNAL_COLORS[light ? 'light' : 'dark'];
+  const out = {};
+  for (const s of Object.keys(BUILTIN_STATUS_COLORS)) out[`st-${s}`] = builtin[s];
+  out['st-archive'] = light ? LIGHT_ARCHIVE_COLOR : ARCHIVE_COLOR;
+  palette.forEach((hex, i) => { out[`hash-${HASH_SLOTS[i]}`] = hex; });
+  out['id-high'] = signal.high;
+  out['id-waiting'] = signal.waiting;
+  out['id-review'] = signal.review;
+  out['id-high-hover'] = signal.highHover;
+  out['id-waiting-hover'] = signal.waitingHover;
+  out['id-epic'] = light ? LIGHT_EPIC_COLOR : EPIC_COLOR;
+  return out;
+}
 
 function normalizeStatus(status) {
   return String(status == null ? '' : status).trim().toLowerCase();
@@ -103,6 +157,15 @@ function statusColorClass(status) {
   if (s === 'archive' || s === 'archived') return 'archive';
   if (Object.prototype.hasOwnProperty.call(BUILTIN_STATUS_COLORS, s)) return s;
   return `palette-${statusHash(s) % STATUS_PALETTE.length}`;
+}
+
+// What JavaScript paints with (the inline CSSOM writes for custom columns,
+// filter-pill borders, custom gantt bars): a var() reference rather than a
+// hex, so the colour follows the active theme the way every CSS rule does.
+function statusColorVar(status) {
+  const cls = statusColorClass(status);
+  if (cls.startsWith('palette-')) return `var(--hash-${HASH_SLOTS[Number(cls.slice('palette-'.length))]})`;
+  return `var(--st-${cls})`;
 }
 
 // The 12%-alpha wash the gantt bars use as their fill — derived from the same
@@ -193,6 +256,7 @@ function archivedBadge() {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, EPIC_COLOR, isBuiltinStatus, statusHash, statusColor, statusColorClass, statusColorSoft, epicColorSoft, statusBadge, archivedBadge,
+    LIGHT_STATUS_COLORS, LIGHT_STATUS_PALETTE, LIGHT_ARCHIVE_COLOR, LIGHT_EPIC_COLOR, SIGNAL_COLORS, HASH_SLOTS, themeColorTokens, statusColorVar,
   };
 } else {
   window.BUILTIN_STATUS_COLORS = BUILTIN_STATUS_COLORS;
@@ -207,4 +271,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.epicColorSoft = epicColorSoft;
   window.statusBadge = statusBadge;
   window.archivedBadge = archivedBadge;
+  window.HASH_SLOTS = HASH_SLOTS;
+  window.themeColorTokens = themeColorTokens;
+  window.statusColorVar = statusColorVar;
 }

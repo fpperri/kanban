@@ -73,6 +73,21 @@ function lum(c) {
   return 0.2126 * srgb(c[0]) + 0.7152 * srgb(c[1]) + 0.0722 * srgb(c[2]);
 }
 
+// OKLab (Ottosson 2020): perceived lightness and hue distance, for the checks
+// that are about hierarchy rather than legibility.
+function oklab(c) {
+  const lin = (v) => { const x = v / 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+  const [r, g, b] = c.slice(0, 3).map(lin);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+  ];
+}
+
 function ratio(set, fgTok, bgTok) {
   const bg = parse(set[bgTok]);
   assert.ok(bg, `${bgTok} is not a colour this test can parse: ${set[bgTok]}`);
@@ -110,11 +125,111 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     }
   });
 
-  test(`${name}: ok and crit clear ${TEXT}:1 on surface`, () => {
-    for (const tok of ['--ok', '--crit']) {
-      const r = ratio(set, tok, '--surface');
-      assert.ok(r >= TEXT, `${tok} on --surface is ${r.toFixed(2)}:1, under ${TEXT}`);
+  // --warn is text too (the stale-data indicator sits on paper in the header).
+  test(`${name}: ok, warn and crit clear ${TEXT}:1 on surface and on paper`, () => {
+    for (const tok of ['--ok', '--warn', '--crit']) {
+      for (const ground of ['--surface', '--paper']) {
+        const r = ratio(set, tok, ground);
+        assert.ok(r >= TEXT, `${tok} on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+      }
     }
+  });
+
+  // A warning or error row sits on its soft ground, and anything written in
+  // the row's own colour sits on it too.
+  test(`${name}: warn and crit clear ${TEXT}:1 on their own soft grounds`, () => {
+    for (const [tok, ground] of [['--warn', '--warn-soft'], ['--crit', '--crit-soft']]) {
+      const r = ratio(set, tok, ground);
+      assert.ok(r >= TEXT, `${tok} on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
+  // --- the reading layer: card bodies and notifications -----------------
+  test(`${name}: prose clears ${TEXT}:1 on paper (notification rows) and surface (card bodies)`, () => {
+    for (const ground of ['--paper', '--surface']) {
+      const r = ratio(set, '--prose', ground);
+      assert.ok(r >= TEXT, `--prose on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
+  test(`${name}: code ink clears ${TEXT}:1 on its own ground and on both page grounds`, () => {
+    for (const ground of ['--raised', '--paper', '--surface']) {
+      const r = ratio(set, '--code-ink', ground);
+      assert.ok(r >= TEXT, `--code-ink on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
+  test(`${name}: table headers (muted text on the raised ground) clear ${TEXT}:1`, () => {
+    const r = ratio(set, '--mut', '--raised');
+    assert.ok(r >= TEXT, `--mut on --raised is ${r.toFixed(2)}:1, under ${TEXT}`);
+  });
+
+  test(`${name}: the strong rule and the raised ground stay visible on surface`, () => {
+    const rule = ratio(set, '--line-strong', '--surface');
+    assert.ok(rule >= 1.3, `--line-strong on --surface is ${rule.toFixed(2)}:1, too faint to read as a rule`);
+    const ground = ratio(set, '--raised', '--surface');
+    assert.ok(ground >= 1.05, `--raised on --surface is ${ground.toFixed(2)}:1, no visible ground`);
+  });
+
+  // --- status identity: column headers, assignee chips, badges and dates are
+  // text, so every identity token takes the text floor on each ground it paints
+  // on in its own theme (surface, paper, and the chip ground --btn-bg).
+  test(`${name}: every status and identity colour clears ${TEXT}:1 as text on surface, paper and the chip ground`, () => {
+    const ids = Object.keys(set).filter((k) => /^--(st|hash|id)-/.test(k) && !k.endsWith('-hover'));
+    assert.ok(ids.length >= 17, `expected the identity tokens, found ${ids.length}`);
+    for (const tok of ids) {
+      for (const ground of ['--surface', '--paper', '--btn-bg']) {
+        const r = ratio(set, tok, ground);
+        assert.ok(r >= TEXT, `${tok} on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+      }
+    }
+  });
+
+  // A sticker's ground is its own token, never a tint of its ink, so the pair
+  // is checked directly: on its ground, over whichever page ground it sits on.
+  test(`${name}: blocked and review stickers clear ${TEXT}:1 on their own grounds`, () => {
+    for (const s of ['blocked', 'review']) {
+      for (const page of ['--paper', '--surface']) {
+        const bg = over(parse(set[`--${s}-bg`]), parse(set[page]));
+        const fg = over(parse(set[`--${s}-ink`]), bg);
+        const a = lum(fg), b = lum(bg);
+        const r = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        assert.ok(r >= TEXT, `--${s}-ink on --${s}-bg over ${page} is ${r.toFixed(2)}:1, under ${TEXT}`);
+      }
+    }
+  });
+
+  // The gantt due diamond's hover twins are marks, not text: the 3:1 floor.
+  test(`${name}: the due diamond's hover colours stay visible on surface and paper`, () => {
+    for (const tok of ['--id-high-hover', '--id-waiting-hover']) {
+      for (const ground of ['--surface', '--paper']) {
+        const r = ratio(set, tok, ground);
+        assert.ok(r >= UI, `${tok} on ${ground} is ${r.toFixed(2)}:1, under ${UI}`);
+      }
+    }
+  });
+
+  test(`${name}: the review pill's ink is the review identity itself`, () => {
+    assert.strictEqual(set['--review-ink'], set['--id-review']);
+  });
+
+  test(`${name}: on-fill labels stay readable on every solid status fill`, () => {
+    for (const tok of Object.keys(set).filter((k) => /^--(st|hash)-/.test(k))) {
+      const r = ratio(set, '--on-fill', tok);
+      assert.ok(r >= TEXT, `--on-fill on ${tok} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
+  // The defect this layer fixes: headings, prose and code all painted --ink,
+  // so a body had one lightness and read flat. These keep the steps apart.
+  test(`${name}: headings, prose, code and muted text sit on separate lightness steps`, () => {
+    const L = (tok) => oklab(parse(set[tok]))[0];
+    const head = L('--ink-strong'), prose = L('--prose'), mut = L('--mut');
+    assert.ok(Math.abs(head - prose) >= 0.06, `--ink-strong and --prose are only ${Math.abs(head - prose).toFixed(3)} apart in lightness`);
+    assert.ok(Math.abs(prose - mut) >= 0.15, `--prose and --mut are only ${Math.abs(prose - mut).toFixed(3)} apart in lightness`);
+    const [p, c] = [oklab(parse(set['--prose'])), oklab(parse(set['--code-ink']))];
+    const dE = Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2]);
+    assert.ok(dE >= 0.06, `--code-ink is only ${dE.toFixed(3)} from --prose (OKLab), so code reads as prose`);
   });
 
   // Rules and washes are non-text: they only have to be visible, not readable.
@@ -157,26 +272,4 @@ test('both dark blocks produce identical accent contrast — one dark palette, n
       `accent on ${ground}: media query gives ${a.toFixed(2)}:1 but [data-theme] gives ${b.toFixed(2)}:1`,
     );
   }
-});
-
-// --warn is the one inherited token that does not clear the text floor in
-// light, and it IS used as text (the stale-data indicator). Measured: 4.05:1
-// on surface and 3.72:1 on paper, against a 4.5 floor. Darkening the light
-// value about 6% would clear it (#9e6d1a gives 4.51:1), but this token is
-// hand-mirrored onto another surface, so changing it is a shared decision and
-// not this file's to take. Dark is unaffected at 8.18:1 and 8.82:1.
-//
-// These assert the CURRENT figures rather than the floor, so the debt is
-// visible and cannot quietly get worse while it waits for that decision.
-test('light: --warn is a known shortfall against the text floor, and no worse', () => {
-  const onSurface = ratio(LIGHT, '--warn', '--surface');
-  const onPaper = ratio(LIGHT, '--warn', '--paper');
-  assert.ok(onSurface >= 4.0, `--warn on --surface fell to ${onSurface.toFixed(2)}:1`);
-  assert.ok(onPaper >= 3.6, `--warn on --paper fell to ${onPaper.toFixed(2)}:1`);
-  assert.ok(onSurface < TEXT, 'if --warn now clears 4.5:1 the shortfall is fixed — delete this test and put --warn back in the trio above');
-});
-
-test('dark: --warn clears the text floor comfortably', () => {
-  assert.ok(ratio(DARK, '--warn', '--surface') >= TEXT);
-  assert.ok(ratio(DARK, '--warn', '--paper') >= TEXT);
 });

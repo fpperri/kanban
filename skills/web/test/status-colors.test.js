@@ -8,6 +8,7 @@ const path = require('node:path');
 const MODAL_BG = 'var(--surface)';
 const {
   BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, EPIC_COLOR, isBuiltinStatus, statusColor, statusColorClass, statusColorSoft, epicColorSoft, statusBadge, archivedBadge,
+  LIGHT_STATUS_COLORS, LIGHT_ARCHIVE_COLOR, HASH_SLOTS, themeColorTokens, statusColorVar,
 } = require('../web/status-colors');
 
 // --- deterministic status coloring for dynamic columns -------------
@@ -66,7 +67,7 @@ test('isBuiltinStatus recognizes only the four (archive is a location, not a sta
 // --- backlog vs archive must separate at a glance -------------------
 
 test('ARCHIVE_COLOR is a neutral grey no built-in status shares', () => {
-  assert.strictEqual(ARCHIVE_COLOR, '#6e7681');
+  assert.strictEqual(ARCHIVE_COLOR, '#868e9a');
   // Neutral means near-grey: the RGB channels sit within a narrow band.
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(ARCHIVE_COLOR.slice(i, i + 2), 16));
   assert.ok(Math.max(r, g, b) - Math.min(r, g, b) < 30, 'archive grey drifted into a hue');
@@ -91,7 +92,7 @@ test("statusColor('archive') mutes to the neutral grey instead of hashing loud",
   // read archived, not like a random accent-colored custom column.
   assert.strictEqual(statusColor('archive'), ARCHIVE_COLOR);
   assert.strictEqual(statusColor(' Archive '), ARCHIVE_COLOR);
-  assert.strictEqual(statusColorSoft('archive'), 'rgba(110, 118, 129, 0.12)');
+  assert.strictEqual(statusColorSoft('archive'), 'rgba(134, 142, 154, 0.12)');
   assert.ok(!isBuiltinStatus('archive')); // still a location, not a status
 });
 
@@ -140,7 +141,7 @@ test('epicColorSoft is EPIC_COLOR at 12% alpha — the faint wash every surface\
 
 test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic dot/circle left anywhere', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  const soft = epicColorSoft();
+  const soft = 'var(--epic-wash)';
   // Board tile, calendar chip, and gantt gutter label share one background rule.
   assert.ok(css.includes(`.card.epic, .cal-chip.epic, .gantt-label.epic { background: ${soft}; }`), 'tile/chip/gutter-label share one faint background rule');
   // The gantt BAR can't reuse `background` (the per-status fill already owns
@@ -156,9 +157,9 @@ test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic
   assert.ok(css.includes(`.modal.detail-modal.epic { background: linear-gradient(${soft}, ${soft}), ${MODAL_BG}; }`), 'detail popup epic wash layers OVER the opaque panel');
   // the membership edge + its arrowhead are LINES, not circles —
   // they keep wearing solid EPIC_COLOR.
-  assert.ok(css.includes(`.map-edge.epic-edge { stroke: ${EPIC_COLOR};`), 'membership edge carries EPIC_COLOR');
-  assert.ok(css.includes(`.map-edge.epic-chain { stroke: ${EPIC_COLOR}; }`), 'v3: the intra-epic chain edge carries EPIC_COLOR solid');
-  assert.ok(css.includes(`.map-arrow-epic-head { fill: ${EPIC_COLOR}; }`), 'its arrowhead too');
+  assert.ok(css.includes('.map-edge.epic-edge { stroke: var(--id-epic);'), 'membership edge carries EPIC_COLOR');
+  assert.ok(css.includes('.map-edge.epic-chain { stroke: var(--id-epic); }'), 'v3: the intra-epic chain edge carries EPIC_COLOR solid');
+  assert.ok(css.includes('.map-arrow-epic-head { fill: var(--id-epic); }'), 'its arrowhead too');
   // the shared dot glyph and its SVG twin are BOTH gone now — no circle
   // anywhere draws an epic; circles are status-only.
   assert.ok(!css.includes('.epic-dot'), 'the shared HTML epic-dot glyph is gone');
@@ -170,7 +171,7 @@ test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic
 // be the whole background — otherwise 88% of the popup is the board behind it.
 test('the epic detail popup is opaque — the wash never replaces the panel background', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  const soft = epicColorSoft();
+  const soft = 'var(--epic-wash)';
   const rule = css.match(/\.modal\.detail-modal\.epic \{([^}]*)\}/);
   assert.ok(rule, '.modal.detail-modal.epic rule is present');
   const decl = rule[1];
@@ -182,7 +183,7 @@ test('the epic detail popup is opaque — the wash never replaces the panel back
 
 test('epic wash survives selection — a 3-class override beats the same-specificity .epic/.selected tie', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  const soft = epicColorSoft();
+  const soft = 'var(--epic-wash)';
   // .card.epic and .card.selected are both 2-class selectors that set
   // `background`; .selected is declared later (the Multi-select block), so
   // without an override it silently wins the same-specificity tie and the
@@ -212,8 +213,8 @@ test('the map node border is one neutral weight for every status — status move
   // archive's own border mute all keep their existing treatments.
   assert.match(css, /\.map-node\.selected\s*\{[^}]*filter:\s*drop-shadow/, 'selection glow untouched');
   assert.match(css, /\.map-node\.ghost rect\s*\{[^}]*stroke-dasharray/, 'ghost-stub dashing untouched');
-  assert.match(css, /\.map-edge\.back-edge\s*\{[^}]*stroke:\s*#d29922/, 'cycle back-edge amber untouched');
-  assert.ok(css.includes(`.map-node.archived rect { stroke: ${ARCHIVE_COLOR};`), 'archive dimming (the border exception) untouched');
+  assert.match(css, /\.map-edge\.back-edge\s*\{[^}]*stroke:\s*var\(--id-waiting\)/, 'cycle back-edge amber untouched');
+  assert.ok(css.includes('.map-node.archived rect { stroke: var(--st-archive);'), 'archive dimming (the border exception) untouched');
 });
 
 // --- map node priority/waiting border — parity with the board
@@ -238,10 +239,10 @@ test('SKILL.md documents the map node\'s priority/waiting border', () => {
 
 test('.map-node.high/.waiting rect strokes match the board tile\'s red/amber exactly', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.match(css, /\.card\.high\s*\{[^}]*border-left:\s*3px solid #f85149/, 'board tile high-priority red (reference)');
-  assert.match(css, /\.card\.waiting\s*\{[^}]*border-left:\s*3px solid #d29922/, 'board tile waiting amber');
-  assert.match(css, /\.map-node\.high rect\s*\{[^}]*stroke:\s*#f85149/, 'map node reuses the same red for high priority');
-  assert.match(css, /\.map-node\.waiting rect\s*\{[^}]*stroke:\s*#d29922/, 'map node reuses the same amber for waiting');
+  assert.match(css, /\.card\.high\s*\{[^}]*border-left:\s*3px solid var\(--id-high\)/, 'board tile high-priority red (reference)');
+  assert.match(css, /\.card\.waiting\s*\{[^}]*border-left:\s*3px solid var\(--id-waiting\)/, 'board tile waiting amber');
+  assert.match(css, /\.map-node\.high rect\s*\{[^}]*stroke:\s*var\(--id-high\)/, 'map node reuses the same red for high priority');
+  assert.match(css, /\.map-node\.waiting rect\s*\{[^}]*stroke:\s*var\(--id-waiting\)/, 'map node reuses the same amber for waiting');
   // Declaration order: .waiting must come after .high, same convention as
   // .card.high/.card.waiting, so waiting wins the cascade when both apply.
   assert.ok(css.indexOf('.map-node.high rect') < css.indexOf('.map-node.waiting rect'), 'waiting declared after high');
@@ -252,13 +253,13 @@ test('.map-node.high/.waiting rect strokes match the board tile\'s red/amber exa
   }
 });
 
-test('the blocked sticker\'s red pill is styled on both surfaces it shows (tiles + map), same red as high priority', () => {
+test('the blocked sticker\'s red pill is styled on both surfaces it shows (tiles + map), on its own ground and ink', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.match(css, /\.blocked-pill\s*\{[^}]*background:\s*rgba\(248,\s*81,\s*73,/, 'board tile pill — red wash (herd .state grammar: wash of its own colour, no border)');
-  assert.match(css, /\.blocked-pill\s*\{[^}]*color:\s*#f85149/, 'board tile pill — red text');
-  assert.match(css, /\.map-blocked-pill rect\s*\{[^}]*stroke:\s*#f85149/, 'map SVG pill twin — same red');
-  assert.match(css, /\.map-blocked-pill text\s*\{[^}]*fill:\s*#f85149/, 'map SVG pill text — same red');
-  assert.match(css, /#f-blocked\.blocked-active\s*\{[^}]*border-color:\s*#f85149/, 'edit form input goes red only while the value passes the predicate');
+  assert.match(css, /\.blocked-pill\s*\{[^}]*background:\s*var\(--blocked-bg\)/, 'board tile pill — its own red ground, never a tint of its ink');
+  assert.match(css, /\.blocked-pill\s*\{[^}]*color:\s*var\(--blocked-ink\)/, 'board tile pill — red text');
+  assert.match(css, /\.map-blocked-pill rect\s*\{[^}]*fill:\s*var\(--blocked-bg\);[^}]*stroke:\s*var\(--blocked-ink\)/, 'map SVG pill twin — same ground and red');
+  assert.match(css, /\.map-blocked-pill text\s*\{[^}]*fill:\s*var\(--blocked-ink\)/, 'map SVG pill text — same red');
+  assert.match(css, /#f-blocked\.blocked-active\s*\{[^}]*border-color:\s*var\(--id-high\)/, 'edit form input goes red only while the value passes the predicate');
 });
 
 // --- the shared HTML status dot, joining epicBadge() everywhere --
@@ -334,13 +335,13 @@ test('the map SVG dot carries NO archived-mute CSS override — every built-in s
   // always wins, on every surface, with no specificity contest left to referee.
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   assert.ok(!css.includes('.map-node.archived .map-status-dot'), 'the archived status-dot mute rule is gone — status dots never mute');
-  for (const [status, hex] of Object.entries(BUILTIN_STATUS_COLORS)) {
+  for (const status of Object.keys(BUILTIN_STATUS_COLORS)) {
     const statusSelector = `.map-status-dot.status-${status}`;
-    assert.ok(css.includes(`${statusSelector} { fill: ${hex};`), `map-dot rule present: ${status}`);
+    assert.ok(css.includes(`${statusSelector} { fill: var(--st-${status});`), `map-dot rule present: ${status}`);
   }
   // The archived cue lives ONLY in the node's rect border now (the one
   // exception).
-  assert.ok(css.includes(`.map-node.archived rect { stroke: ${ARCHIVE_COLOR};`), 'archived border mute (the one exception) stays');
+  assert.ok(css.includes('.map-node.archived rect { stroke: var(--st-archive);'), 'archived border mute (the one exception) stays');
 });
 
 test('statusBadge tolerates a missing/null status without throwing', () => {
@@ -352,12 +353,12 @@ test('app.css paints a shape-only .status-dot rule, plus one .status-dot--* colo
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.status-dot\s*\{[^}]*width:\s*8px;[^}]*height:\s*8px;[^}]*border-radius:\s*50%/,
     'same 8px dot shape .archived-dot carries');
-  for (const [status, hex] of Object.entries(BUILTIN_STATUS_COLORS)) {
-    assert.ok(css.includes(`.status-dot--${status} { background: ${hex};`), `status-dot color class present: ${status}`);
+  for (const status of Object.keys(BUILTIN_STATUS_COLORS)) {
+    assert.ok(css.includes(`.status-dot--${status} { background: var(--st-${status});`), `status-dot color class present: ${status}`);
   }
-  assert.ok(css.includes(`.status-dot--archive { background: ${ARCHIVE_COLOR};`), 'status-dot color class present: archive');
+  assert.ok(css.includes('.status-dot--archive { background: var(--st-archive);'), 'status-dot color class present: archive');
   STATUS_PALETTE.forEach((hex, i) => {
-    assert.ok(css.includes(`.status-dot--palette-${i} { background: ${hex};`), `status-dot color class present: palette-${i}`);
+    assert.ok(css.includes(`.status-dot--palette-${i} { background: var(--hash-${HASH_SLOTS[i]});`), `status-dot color class present: palette-${i}`);
   });
 });
 
@@ -391,9 +392,9 @@ test('archivedBadge is the shared HTML glyph — a grey dot with an "Archived" t
 
 test('app.css paints the archived-dot glyph in ARCHIVE_COLOR, same 8px shape, plus its map SVG twin', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.match(css, new RegExp(`\\.archived-dot\\s*\\{[^}]*width:\\s*8px;[^}]*height:\\s*8px;[^}]*border-radius:\\s*50%;[^}]*background:\\s*${ARCHIVE_COLOR}`),
+  assert.match(css, /\.archived-dot\s*\{[^}]*width:\s*8px;[^}]*height:\s*8px;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--st-archive\)/,
     'the shared HTML dot is the same 8px shape as epic-dot/status-dot, carrying ARCHIVE_COLOR');
-  assert.ok(css.includes(`.map-archived-dot { fill: ${ARCHIVE_COLOR};`), 'the map node has its own SVG twin, same grey');
+  assert.ok(css.includes('.map-archived-dot { fill: var(--st-archive);'), 'the map node has its own SVG twin, same grey');
 });
 
 test('a status dot immediately followed by an archived dot gets a gap — the same fused-dot gap fix epic+status got', () => {
@@ -426,14 +427,14 @@ test('SKILL.md\'s Dependency map section points from the status-dot narrative to
 
 test('app.css agrees with the JS palette on every status-colored surface', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  for (const [status, hex] of Object.entries(BUILTIN_STATUS_COLORS)) {
-    assert.ok(css.includes(`.col-${status} .column-header { color: ${hex};`), `column header: ${status}`);
-    assert.ok(css.includes(`.map-status-dot.status-${status} { fill: ${hex};`), `map status dot: ${status}`); // moved off the rect stroke
-    assert.ok(css.includes(`.gantt-group-row.status-${status} { color: ${hex};`), `gantt group: ${status}`);
-    assert.ok(css.includes(`.gantt-bar.status-${status} { border-color: ${hex}; background: ${statusColorSoft(status)};`), `gantt bar: ${status}`);
+  for (const status of Object.keys(BUILTIN_STATUS_COLORS)) {
+    assert.ok(css.includes(`.col-${status} .column-header { color: var(--st-${status});`), `column header: ${status}`);
+    assert.ok(css.includes(`.map-status-dot.status-${status} { fill: var(--st-${status});`), `map status dot: ${status}`); // moved off the rect stroke
+    assert.ok(css.includes(`.gantt-group-row.status-${status} { color: var(--st-${status});`), `gantt group: ${status}`);
+    assert.ok(css.includes(`.gantt-bar.status-${status} { border-color: var(--st-${status}); background: ${statusColorSoft(status)};`), `gantt bar: ${status}`);
   }
-  assert.ok(css.includes(`.col-archive .column-header { color: ${ARCHIVE_COLOR};`), 'archive column header stays neutral');
-  assert.ok(css.includes(`.map-node.archived rect { stroke: ${ARCHIVE_COLOR};`), 'archived map nodes keep a neutral border');
+  assert.ok(css.includes('.col-archive .column-header { color: var(--st-archive);'), 'archive column header stays neutral');
+  assert.ok(css.includes('.map-node.archived rect { stroke: var(--st-archive);'), 'archived map nodes keep a neutral border');
   // status dots never mute — no CSS rule left to fire the
   // archived node's status dot grey. The border above is the ONLY archived cue.
   assert.ok(!css.includes('.map-node.archived .map-status-dot'), 'no archived status-dot mute rule');
@@ -457,11 +458,129 @@ test('neither status-colors.js nor app.js emits a literal style="..." HTML attri
 test('statusColorClass covers the exact same value space as statusColor — every hashed slot has a matching CSS class both for .status-dot-- and .map-status-dot.status- (regression)', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   STATUS_PALETTE.forEach((hex, i) => {
-    assert.ok(css.includes(`.map-status-dot.status-palette-${i} { fill: ${hex};`), `map-status-dot palette rule present: palette-${i}`);
+    assert.ok(css.includes(`.map-status-dot.status-palette-${i} { fill: var(--hash-${HASH_SLOTS[i]});`), `map-status-dot palette rule present: palette-${i}`);
   });
-  assert.ok(css.includes(`.map-status-dot.status-archive { fill: ${ARCHIVE_COLOR};`), 'map-status-dot archive rule present');
+  assert.ok(css.includes('.map-status-dot.status-archive { fill: var(--st-archive);'), 'map-status-dot archive rule present');
   // statusColorClass is deterministic and pure, same contract as statusColor.
   assert.strictEqual(statusColorClass('review'), statusColorClass('review'));
   assert.strictEqual(statusColorClass('TODO'), 'todo');
   assert.strictEqual(statusColorClass('archived'), 'archive');
+});
+
+// --- one hue, two lightnesses ---------------------------------------------
+// The identities are tokens with one value per theme. status-colors.js owns
+// the values; app.css cannot import JS, so it carries them literally and these
+// tests pin the two together, block by block.
+const cssText = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+function braceBlock(src, openIdx) {
+  let depth = 0;
+  for (let i = openIdx; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(openIdx + 1, i); }
+  }
+  throw new Error('unbalanced braces');
+}
+function tokens(text) {
+  const out = {};
+  for (const m of text.matchAll(/--([a-z-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+  return out;
+}
+const lightBlock = tokens(braceBlock(cssText, cssText.indexOf('{', cssText.indexOf(':root {'))));
+const mediaOuter = braceBlock(cssText, cssText.indexOf('{', cssText.indexOf('@media (prefers-color-scheme: dark)')));
+const mediaBlock = tokens(braceBlock(mediaOuter, mediaOuter.indexOf('{')));
+const darkBlock = tokens(braceBlock(cssText, cssText.indexOf('{', cssText.indexOf(':root[data-theme="dark"]'))));
+
+test('every theme block carries status-colors.js\'s identity tokens for its theme', () => {
+  for (const [name, block, theme] of [['light :root', lightBlock, 'light'], ['prefers-color-scheme dark', mediaBlock, 'dark'], ['[data-theme="dark"]', darkBlock, 'dark']]) {
+    for (const [k, v] of Object.entries(themeColorTokens(theme))) {
+      assert.strictEqual(block[k], v, `${name}: --${k} is ${block[k]}, status-colors.js says ${v}`);
+    }
+  }
+});
+
+test('the dark identity is the set the status page copies; light is its own partner set', () => {
+  const dark = themeColorTokens('dark'), light = themeColorTokens('light');
+  assert.strictEqual(dark['st-backlog'], BUILTIN_STATUS_COLORS.backlog);
+  assert.strictEqual(dark['st-archive'], ARCHIVE_COLOR);
+  assert.strictEqual(dark['id-epic'], EPIC_COLOR);
+  STATUS_PALETTE.forEach((hex, i) => assert.strictEqual(dark[`hash-${HASH_SLOTS[i]}`], hex));
+  assert.strictEqual(light['st-backlog'], LIGHT_STATUS_COLORS.backlog);
+  assert.strictEqual(light['st-archive'], LIGHT_ARCHIVE_COLOR);
+  assert.deepStrictEqual(Object.keys(light).sort(), Object.keys(dark).sort(), 'both themes name the same identities');
+});
+
+test('the epic wash token is epicColorSoft() in every theme block', () => {
+  for (const block of [lightBlock, mediaBlock, darkBlock]) assert.strictEqual(block['epic-wash'], epicColorSoft());
+});
+
+test('statusColorVar hands JavaScript a token, never a hex, over the same value space as statusColorClass', () => {
+  assert.strictEqual(statusColorVar('backlog'), 'var(--st-backlog)');
+  assert.strictEqual(statusColorVar(' TODO '), 'var(--st-todo)');
+  assert.strictEqual(statusColorVar('archived'), 'var(--st-archive)');
+  const slot = Number(statusColorClass('review').slice('palette-'.length));
+  assert.strictEqual(statusColorVar('review'), `var(--hash-${HASH_SLOTS[slot]})`);
+  for (const s of ['constructor', '__proto__', '', null, undefined, 42]) assert.match(statusColorVar(s), /^var\(--(st|hash)-[a-z]+\)$/);
+});
+
+function oklab(hex) {
+  const lin = (v) => { const x = v / 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(lin);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s2 = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s2, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s2, 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s2];
+}
+
+test('each light partner keeps the hue of its dark identity', () => {
+  const dark = themeColorTokens('dark'), light = themeColorTokens('light');
+  const hue = (hex) => { const [, a, b] = oklab(hex); return (Math.atan2(b, a) * 180 / Math.PI + 360) % 360; };
+  for (const k of Object.keys(dark)) {
+    if (k === 'st-archive') continue; // a grey has no hue to keep
+    const d = Math.abs(hue(dark[k]) - hue(light[k]));
+    assert.ok(Math.min(d, 360 - d) <= 20, `--${k}: ${dark[k]} and ${light[k]} are ${Math.min(d, 360 - d).toFixed(1)} degrees apart`);
+  }
+});
+
+// Machado, Oliveira & Fernandes (2009) at full severity, applied in linear RGB.
+const CVD = {
+  protanopia: [0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998],
+  deuteranopia: [0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.011820, 0.042940, 0.968881],
+};
+function simulate(hex, M) {
+  const lin = (v) => { const x = v / 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+  const enc = (c) => 255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(lin);
+  const out = [M[0] * r + M[1] * g + M[2] * b, M[3] * r + M[4] * g + M[5] * b, M[6] * r + M[7] * g + M[8] * b]
+    .map((v) => Math.round(enc(Math.min(1, Math.max(0, v)))));
+  return '#' + out.map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+test('the five status colours stay apart under protanopia and deuteranopia, in both themes', () => {
+  for (const theme of ['light', 'dark']) {
+    const t = themeColorTokens(theme);
+    const names = ['backlog', 'todo', 'doing', 'done', 'archive'];
+    for (const [kind, M] of Object.entries(CVD)) {
+      for (let i = 0; i < names.length; i++) {
+        for (let j = i + 1; j < names.length; j++) {
+          const a = oklab(simulate(t[`st-${names[i]}`], M)), b = oklab(simulate(t[`st-${names[j]}`], M));
+          const dE = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+          assert.ok(dE >= 0.05, `${theme} ${kind}: ${names[i]} and ${names[j]} are only ${dE.toFixed(3)} apart (OKLab)`);
+        }
+      }
+    }
+  }
+});
+
+// Every colour app.js paints inline goes through the var() twins, so it
+// follows the theme; a bare hex write would paint the dark value in light mode.
+test('app.js paints status and assignee colours only through the theme-following var() twins', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  assert.doesNotMatch(app, /\bstatusColor\(/, 'statusColor() returns the dark hex: paint with statusColorVar()');
+  assert.doesNotMatch(app, /\bassigneeColor\(/, 'assigneeColor() returns the dark hex: paint with assigneeColorVar()');
+  assert.match(app, /\.column-header'\)\.style\.color = statusColorVar\(col\)/, 'custom column headers');
+  assert.match(app, /btn\.style\.borderColor = statusColorVar\(col\)/, 'filter pills');
+  assert.match(app, /glabel\.style\.color = statusColorVar\(group\.status\)/, 'gantt group labels');
+  assert.match(app, /input\.style\.color = handle \? \(assigneeColorVar\(/, 'the assignee input');
 });

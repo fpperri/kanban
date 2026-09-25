@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Pill flash (kanban.proj #250): the "N pending" pill turns red (--high,
+// Pill flash: the "N pending" pill turns red (--crit,
 // never the calmer --accent blue) and flashes red -> white -> red on an
 // IRREGULAR, lightning-like cadence -- CSS @keyframes only, no JS timers.
 // Same source-as-text technique format-body.test.js, stack-mode.test.js,
@@ -73,8 +73,8 @@ function contrastOnWhite(hex) {
   return 1.05 / (L + 0.05);
 }
 
-test('.pill is red (--high), not the calmer --accent blue', () => {
-  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--high\)[^}]*\}/, 'the base pill fill must be --high');
+test('.pill is red (--crit), not the calmer --accent blue', () => {
+  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--crit\)[^}]*\}/, 'the base pill fill must be --crit');
   assert.ok(!/\.pill\{[^}]*background:var\(--accent\)/.test(nonMediaCss), 'the old --accent fill must be gone');
 });
 
@@ -98,11 +98,11 @@ test('pillFlash keyframes are an IRREGULAR cadence: a fast double strike then on
   assert.ok(earlyStops.length >= 2, 'the double strike must land as at least two intermediate stops early in the cycle');
 });
 
-test('pillFlash toggles background between --high and white, keeping the base color state at 0%/100%', () => {
+test('pillFlash toggles background between --crit and white, keeping the base color state (on-fill text) at 0%/100%', () => {
   const kf = extractKeyframes('pillFlash');
-  assert.match(kf, /0%,100%\{background:var\(--high\);color:#fff\}|0%\{background:var\(--high\);color:#fff\}[\s\S]*100%\{background:var\(--high\);color:#fff\}/, 'the cycle must start and end on the red/white-text base state');
+  assert.match(kf, /0%,100%\{background:var\(--crit\);color:var\(--on-fill\)\}|0%\{background:var\(--crit\);color:var\(--on-fill\)\}[\s\S]*100%\{background:var\(--crit\);color:var\(--on-fill\)\}/, 'the cycle must start and end on the red/on-fill-text base state');
   assert.match(kf, /background:#fff/, 'the flash must animate the background to white at some stop');
-  assert.match(kf, /background:var\(--high\)/, 'the flash must return the background to --high at some stop');
+  assert.match(kf, /background:var\(--crit\)/, 'the flash must return the background to --crit at some stop');
 });
 
 test('the white flash stop pairs with a fixed dark text color, not var(--ink) (which is white in dark mode and would vanish)', () => {
@@ -124,7 +124,7 @@ test('prefers-reduced-motion forces a static red pill with no animation', () => 
   const reducedBlock = mediaBlocks.find(b => /^@media\(prefers-reduced-motion:reduce\)/.test(b));
   assert.ok(reducedBlock, 'a @media(prefers-reduced-motion:reduce) block must exist');
   assert.match(reducedBlock, /\.pill\{[^}]*animation:none[^}]*\}/, 'reduced motion must disable the animation');
-  assert.match(reducedBlock, /\.pill\{[^}]*background:var\(--high\)[^}]*\}/, 'reduced motion must still show the red pill statically');
+  assert.match(reducedBlock, /\.pill\{[^}]*background:var\(--crit\)[^}]*\}/, 'reduced motion must still show the red pill statically');
 });
 
 test('the flash STEPS between its declared states instead of tweening — a linear tween paints unreadable mid-blends between the red and white stops', () => {

@@ -57,11 +57,22 @@ function assigneeColorClass(handle, assignees) {
   return `palette-${SCOL.statusHash(h.toLowerCase()) % SCOL.STATUS_PALETTE.length}`;
 }
 
+// The theme-following twin of assigneeColor() for inline CSSOM paints: a
+// reserved color exactly as given, otherwise the hashed slot's token.
+function assigneeColorVar(handle, assignees) {
+  const h = normalizeHandle(handle);
+  if (!h) return null;
+  const entry = findAssigneeEntry(h, assignees);
+  if (entry && entry.color) return entry.color;
+  return `var(--hash-${SCOL.HASH_SLOTS[SCOL.statusHash(h.toLowerCase()) % SCOL.STATUS_PALETTE.length]})`;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { normalizeHandle, findAssigneeEntry, assigneeColor, assigneeColorClass };
+  module.exports = { normalizeHandle, findAssigneeEntry, assigneeColor, assigneeColorClass, assigneeColorVar };
 } else {
   window.normalizeHandle = normalizeHandle;
   window.findAssigneeEntry = findAssigneeEntry;
   window.assigneeColor = assigneeColor;
   window.assigneeColorClass = assigneeColorClass;
+  window.assigneeColorVar = assigneeColorVar;
 }

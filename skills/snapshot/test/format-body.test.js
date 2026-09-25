@@ -3,21 +3,24 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// --- Minimal inline formatting for card bodies --------------------------------
+// --- Minimal inline formatting for notification TLDR/MORE text ----------------
 // **bold** -> <strong>, `code` -> <code>. Nothing else (no headings, lists,
 // links, or nesting inside a matched span); unmatched/unclosed markers render
-// literally. The snapshot has no separate snapshot/*.js file to require() (all its
-// JS lives inline in build_editor.py's TEMPLATE string) and no pre-existing
-// test suite, so this file starts one, using the same extract-then-assert
-// technique skills/web/test/notifications.test.js already uses for app.js's
-// non-require-able DOM code: read the .py source as text and pull the
-// function bodies out by brace-balanced scanning. Neither new function uses
-// any character Python string-escapes (no backslashes), so the raw .py bytes
+// literally. fmtBodySegs used to be the card-body formatter; card bodies now
+// render full markdown via mdInline()/mdBlocks() (goal 4 —
+// see markdown-body.test.js), and fmtBodySegs was repointed at the
+// notification renderer's TLDR/MORE lines instead (goal 6 — see
+// notif-split.test.js), unchanged, since that's exactly the bold+code subset
+// notifications need. Neither this function nor its behavior changed, so
+// every test below still pins real, current behavior. The snapshot has no
+// separate snapshot/*.js file to require() (all its JS lives inline in
+// build_editor.py's TEMPLATE string), so this file uses the same extract-
+// then-assert technique skills/web/test/notifications.test.js already uses
+// for app.js's non-require-able DOM code: read the .py source as text and
+// pull the function bodies out by brace-balanced scanning. fmtBodySegs uses
+// no character Python string-escapes (no backslashes), so the raw .py bytes
 // ARE valid JS for this slice — extracting straight from source, not a
-// generated HTML build, keeps the suite fast and dependency-free. fmtBodySegs
-// is pure, so it gets real behavioral unit tests via `new Function`; bodyNode
-// touches the DOM, so it gets the same source-level innerHTML-ban pin
-// notifications.test.js uses for renderNotifList.
+// generated HTML build, keeps the suite fast and dependency-free.
 
 const srcPath = path.join(__dirname, '..', 'scripts', 'build_editor.py');
 const src = fs.readFileSync(srcPath, 'utf8');
@@ -49,7 +52,6 @@ function extractFunction(name) {
 }
 
 const fmtBodySegsSrc = extractFunction('fmtBodySegs');
-const bodyNodeSrc = extractFunction('bodyNode');
 const fmtBodySegs = new Function(`return (${fmtBodySegsSrc});`)();
 
 test('fmtBodySegs: plain text with no markers is a single text segment', () => {
@@ -128,22 +130,16 @@ test('fmtBodySegs: newlines inside plain text survive untouched (line structure 
   assert.deepStrictEqual(fmtBodySegs('line one\nline two'), [{ t: 'text', v: 'line one\nline two' }]);
 });
 
-// --- render-path guard: card bodies must be built via textContent, never innerHTML ---
+// --- render-path guard: notification bold/code text must build via textContent, never innerHTML ---
+// (card bodies' own innerHTML-ban guard — for mdBodyNode/mdListNode/
+// mdInlineNodes/codeSegNode — lives in markdown-body.test.js now.)
 
-test('bodyNode builds the card-body div out of el()/textContent nodes for every segment type, never innerHTML', () => {
-  assert.match(bodyNodeSrc, /el\("div","bodytxt"\)/);
-  assert.match(bodyNodeSrc, /el\("strong"/);
-  assert.match(bodyNodeSrc, /el\("code"/);
-  assert.match(bodyNodeSrc, /createTextNode/);
-  assert.ok(!bodyNodeSrc.includes('innerHTML'), 'card body text must never be string-built HTML');
-});
-
-test('the card-sheet render path calls bodyNode(c.body) instead of dumping raw text straight into the bodytxt div', () => {
-  assert.match(src, /d\.appendChild\(bodyNode\(c\.body\)\)/);
-});
-
-test('the .bodytxt code CSS rule is monospace and theme-consistent with the rest of the snapshot', () => {
-  assert.match(src, /\.bodytxt code\{[^}]*font-family:[^}]*monospace[^}]*\}/);
+test('notifSegNodes builds bold/code DOM nodes via el()/codeSegNode, never innerHTML', () => {
+  const notifSegNodesSrc = extractFunction('notifSegNodes');
+  assert.match(notifSegNodesSrc, /fmtBodySegs\(text\)/);
+  assert.match(notifSegNodesSrc, /el\("strong"/);
+  assert.match(notifSegNodesSrc, /codeSegNode\(/);
+  assert.ok(!notifSegNodesSrc.includes('innerHTML'), 'notification text must never be string-built HTML');
 });
 
 // --- responsive layout: two width tiers + a capability query -----------------
@@ -286,8 +282,8 @@ test('only the .hdr line is sticky — #searchrow and #viewtabs are not', () => 
 });
 
 test('#pill ("N pending") is an unmissable solid red fill with bold contrasting text, not just colored text (kanban.proj #250: it also flashes, see pill-flash.test.js)', () => {
-  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--high\)[^}]*\}/);
-  assert.match(nonMediaCss, /\.pill\{[^}]*color:#fff[^}]*\}/);
+  assert.match(nonMediaCss, /\.pill\{[^}]*background:var\(--crit\)[^}]*\}/);
+  assert.match(nonMediaCss, /\.pill\{[^}]*color:var\(--on-fill\)[^}]*\}/);
   assert.match(nonMediaCss, /\.pill\{[^}]*font-weight:700[^}]*\}/);
 });
 

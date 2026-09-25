@@ -152,11 +152,11 @@ test('2px is reserved for the page boundary', () => {
   assert.deepStrictEqual(offenders, [], '2px chrome borders found outside the header/allowlist (outline: 2px is a different channel and is fine; SVG stroke-width is a different channel entirely)');
 });
 
-test('state pills are a wash of their own colour, with no border', () => {
-  for (const [sel, hex] of [['.blocked-pill', '#f85149'], ['.review-pill', '#eac54f']]) {
+test('state pills sit on a ground token of their own, stated apart from their ink, with no border', () => {
+  for (const [sel, name] of [['.blocked-pill', 'blocked'], ['.review-pill', 'review']]) {
     const b = ruleBlock(sel);
-    assert.match(b, /background:\s*rgba\(/, `${sel} carries an rgba() wash background`);
-    assert.match(b, new RegExp('color:\\s*' + escapeRegex(hex)), `${sel} text colour is the same hue as its wash`);
+    assert.match(b, new RegExp(`background:\\s*var\\(--${name}-bg\\)`), `${sel} ground is --${name}-bg, never a tint of its own ink`);
+    assert.match(b, new RegExp(`(^|[^-])color:\\s*var\\(--${name}-ink\\)`), `${sel} text is --${name}-ink`);
     assert.ok(!/(^|[^-])border:/.test(b), `${sel} carries no border — a pill is a live state, not a static fact`);
   }
   // Chips are the opposite: a chip IS a bordered, neutral, static fact.

@@ -822,7 +822,7 @@ function renderBoardColumns() {
     // Custom columns get their deterministic hashed color inline
     // (there is no CSS rule for them); the built-in four keep their exact
     // .col-<name> CSS palette, archive keeps its neutral header.
-    if (!isArchive && !isBuiltinStatus(col)) colEl.querySelector('.column-header').style.color = statusColor(col);
+    if (!isArchive && !isBuiltinStatus(col)) colEl.querySelector('.column-header').style.color = statusColorVar(col);
     if (!isCollapsed) {
       const list = document.createElement('div');
       list.className = 'column-cards';
@@ -926,7 +926,7 @@ function renderMapView() {
 // poll-guard/Q0-exemption selector keep targeting just their own pills), and
 // the tooltip wording differ per caller. The look itself is ALSO shared, not
 // duplicated — app.css comma-joins the two views' pill classes onto one
-// declaration each. Border color comes from statusColor() for EVERY pill —
+// declaration each. Border color comes from statusColorVar() for EVERY pill —
 // built-in, custom (their hashed hue; no CSS rule exists, same reasoning as
 // the column headers), and archive's neutral grey where the map's
 // row includes it.
@@ -946,7 +946,7 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
     btn.dataset.col = col;
     btn.setAttribute('aria-pressed', String(on));
     btn.title = titleFor(col, on) + ' Right-click to solo (right-click the soloed pill again to restore all).';
-    btn.style.borderColor = statusColor(col);
+    btn.style.borderColor = statusColorVar(col);
     btn.textContent = columnLabel(col);
     row.appendChild(btn);
   }
@@ -1715,7 +1715,7 @@ function enableAiPrompt() {
 function syncAssigneeColor() {
   const input = $('#f-assignee');
   const handle = input.value.trim();
-  input.style.color = handle ? (assigneeColor(handle, state.assignees) || '') : '';
+  input.style.color = handle ? (assigneeColorVar(handle, state.assignees) || '') : '';
 }
 
 // presetStatus (a live column id — always a listed status, so
@@ -3314,9 +3314,9 @@ function ganttBarEl(bar, win) {
   // (the `.gantt-bar.epic` wash is a `box-shadow`, layered on top of
   // whatever `background` resolves to, inline or class-based alike).
   // 'archive' isn't built-in either, so an archived bar rides
-  // this same inline-override path straight to ARCHIVE_COLOR.
+  // this same inline-override path straight to the archive grey.
   if (!isBuiltinStatus(colorStatus)) {
-    el.style.borderColor = statusColor(colorStatus);
+    el.style.borderColor = statusColorVar(colorStatus);
     el.style.background = statusColorSoft(colorStatus);
   }
   el.style.left = `${diffDays(win.startDay, from) * GANTT_DAY_PX}px`;
@@ -3461,7 +3461,7 @@ function renderGanttView() {
   for (const group of groups) {
     const glabel = document.createElement('div');
     glabel.className = `gantt-row gantt-group-row status-${mapStatusClass(group.status)}`;
-    if (!isBuiltinStatus(group.status)) glabel.style.color = statusColor(group.status); // hashed color for custom groups
+    if (!isBuiltinStatus(group.status)) glabel.style.color = statusColorVar(group.status); // hashed color for custom groups
     glabel.textContent = columnLabel(group.status);
     gutter.appendChild(glabel);
     const gstrip = document.createElement('div');

@@ -84,28 +84,15 @@ test('no @import and no color-mix()/light-dark() — an unsupported color functi
   assert.doesNotMatch(css, /light-dark\(/);
 });
 
-// --- KEEP LITERAL allowlist: status-colors.js's exported hexes, plus the
-// handful of board-semantic hexes that are hex-pinned by other tests but
-// have no export of their own (the overdue red, the waiting-amber hover
-// twin, and review gold). Every other hex literal in app.css should have
+// --- No colour outside the token blocks: every status and identity colour is
+// a token with a light and a dark value now, so a hex literal anywhere else
+// in a rule would paint the same value in both themes. Every hex literal in app.css should have
 // resolved to a token by phase 2. Excluded from the scan: comments (a few
 // narrate design history with a hex that moved — see the restricted
 // comment-editing rule — rather than describing live CSS) and the three
 // token-definition blocks themselves, which are the one place a raw hex is
 // the whole point: they're what every var() elsewhere resolves through.
-const statusColors = require('../web/status-colors.js');
-const identityAllowlist = new Set([
-  ...Object.values(statusColors.BUILTIN_STATUS_COLORS),
-  statusColors.ARCHIVE_COLOR,
-  statusColors.EPIC_COLOR,
-  ...statusColors.STATUS_PALETTE,
-  '#f85149', // priority/blocked/overdue red — status-colors.test.js/overdue.test.js pin it
-  '#d29922', // waiting amber — already in STATUS_PALETTE, listed for clarity
-  '#e3b341', // .gantt-due-marker:hover::before — hover twin of the locked waiting amber
-  '#eac54f', // ADR-0009 review-pill gold — not in status-colors.js, out of scope for this change
-].map((h) => h.toLowerCase()));
-
-test('every surviving hex literal in app.css (outside comments and the token blocks) is a status/priority/identity color, never an untokenized chrome value', () => {
+test('no hex literal survives in app.css outside comments and the token blocks — every colour has a value per theme', () => {
   let body = css.replace(/\/\*[\s\S]*?\*\//g, '');
   // Cut the three token-definition blocks out of a fresh (comment-stripped)
   // copy by the same brace-matching used to read them above, so this stays
@@ -125,6 +112,6 @@ test('every surviving hex literal in app.css (outside comments and the token blo
   body = strip(body, body.indexOf('{', body.indexOf('@media (prefers-color-scheme: dark)')));
   body = strip(body, body.indexOf('{', body.indexOf(':root[data-theme="dark"]')));
   const hexes = body.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
-  const offenders = [...new Set(hexes.map((h) => h.toLowerCase()))].filter((h) => !identityAllowlist.has(h));
-  assert.deepStrictEqual(offenders, [], `unexpected non-identity hex literal(s) still in app.css: ${offenders.join(', ')}`);
+  const offenders = [...new Set(hexes.map((h) => h.toLowerCase()))];
+  assert.deepStrictEqual(offenders, [], `hex literal(s) outside the token blocks paint one value in both themes: ${offenders.join(', ')}`);
 });
