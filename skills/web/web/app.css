@@ -630,9 +630,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    board-scale graphs are tens of nodes, well within vanilla reach without
    pulling in a graph lib or vendoring Mermaid. #map-view sits alongside
    #board and the two swap visibility via .hidden — same toggle pattern as
-   every modal in this file, no overlay/z-index needed. Status colors below
-   are the exact hex values the kanban-cli skill's Mermaid
-   output styles nodes with, so the two views read as the same graph. */
+   every modal in this file, no overlay/z-index needed. */
 #map-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 /* overflow: auto alone never triggers on a
    plain block child of body — with no height/max-height of its own (and body

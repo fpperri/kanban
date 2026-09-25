@@ -1,6 +1,6 @@
 # Cross-harness caveats — what doesn't port cleanly
 
-The four skills follow the Agent Skills format and install into any harness
+The three skills follow the Agent Skills format and install into any harness
 `npx skills` supports, but not every skill degrades gracefully outside Claude
 Code. Skills whose `SKILL.md` description leads with **(Claude Only)** carry
 that tag into the installer's selection menu.
@@ -11,11 +11,6 @@ that tag into the installer's selection menu.
 - **`kanban-web`** — portable. A Node-stdlib-only local server + vanilla-JS
   SPA (`node skills/web/scripts/server.js <board-dir>`); works from any
   harness that can run a shell command and open a browser.
-- **`kanban-cli`** — **Claude Code-only as written.** It's built entirely on
-  `AskUserQuestion`, a Claude Code built-in tool with no cross-harness
-  equivalent named in the skill. Porting it means replacing every
-  `AskUserQuestion` call with that harness's own prompt/confirmation
-  mechanism (or plain free-text Q&A) — a port this repo doesn't ship.
 - **`kanban-snapshot`** — **partially portable.** The generator
   (`build_editor.py`) and the static HTML it produces are plain Python +
   browser code with no Claude dependency. But the SKILL.md's delivery/apply

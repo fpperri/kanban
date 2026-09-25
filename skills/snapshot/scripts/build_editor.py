@@ -1040,7 +1040,7 @@ $("mapview").style.display=v==="map"?"":"none";
 $("ganttview").style.display=v==="gantt"?"":"none";
 $("calview").style.display=v==="calendar"?"":"none"}
 // Mirrors kanban-web's dependency-graph.js semantics (edge = dependency ->
-// waiter, same direction as the kanban-cli skill's Mermaid output) but reads
+// waiter: an edge A -> B means "B waits for A") but reads
 // the snapshot's own DATA snapshot; a waiting_for id not embedded renders as a
 // ghost stub, same as a stale/deleted reference. Nodes carry both flags:
 // derived done-aware waiting + the manual blocked sticker.

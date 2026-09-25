@@ -4,10 +4,9 @@
 // loaded as a plain <script> in the browser (app.js calls these as bare
 // globals) AND required directly by node --test.
 //
-// Mirrors the kanban-cli skill's Mermaid semantics exactly: an
-// edge A -> B means "B waits for A" (B has A in its waiting_for) — same
-// direction as that skill's `n<depId> --> n<id>` output, so the two views
-// read the same graph the same way.
+// Edge convention: an edge A -> B means "B waits for A" (B has A in its
+// waiting_for). The snapshot's embedded map (build_editor.py) mirrors this
+// same direction, so the two views read the same graph the same way.
 //
 // The waiting/blocked predicates come from waiting-blocked.js (the
 // one shared home) — in Node via require, in the browser off window, where

@@ -101,8 +101,6 @@ grammar works in every view.
 
 ## Other surfaces
 
-The **[CLI](cli.md)** is this editor's conversational twin — the same
-operations and rules, driven by chat instead of a browser, so it works at a
-bare terminal or under remote control. The **[mobile snapshot](snapshot.md)** is
-the tap-through board for a phone or tablet. See [`CONTEXT.md`](../CONTEXT.md)
-for the full parity table across every surface.
+The **[mobile snapshot](snapshot.md)** is the tap-through board for a phone or
+tablet. See [`CONTEXT.md`](../CONTEXT.md) for the full parity table across
+every surface.

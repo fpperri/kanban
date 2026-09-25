@@ -1,6 +1,6 @@
 ---
 name: kanban-web
-description: Stand up a local web app (Node server + browser SPA) to edit a Markdown kanban board live — drag-drop cards between columns and full CRUD (create, edit, archive, delete), writing straight back to the *.card.md files. Use when the user wants an interactive, editable board in a browser (incl. VSCode's Simple Browser). Desktop/localhost only — for remote/mobile use kanban-cli; for AI-driven card management use kanban.
+description: Stand up a local web app (Node server + browser SPA) to edit a Markdown kanban board live — drag-drop cards between columns and full CRUD (create, edit, archive, delete), writing straight back to the *.card.md files. Use when the user wants an interactive, editable board in a browser (incl. VSCode's Simple Browser). Desktop/localhost only — for remote/mobile use kanban-snapshot; for AI-driven card management use kanban.
 ---
 
 # Kanban Web (live editor)
@@ -72,8 +72,8 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
   port actually bound** — the pid file and the log line always agree, pin or no
   pin). This dotfile is ignored by the board scripts (only `*.card.md` are
   cards).
-- The `kanban-cli` and `kanban-snapshot` skills ignore `port:` entirely — it's a
-  serving fact for this app, not board content either of them renders.
+- The `kanban-snapshot` skill ignores `port:` entirely — it's a
+  serving fact for this app, not board content it renders.
 
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
 also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple Browser").
@@ -612,9 +612,8 @@ to `127.0.0.1` only.
   the archive too — deletion never happens, malformed writes included.
 - **Dependency map** — a top-bar "🕸 Map view" button swaps the board for a hand-rolled
   layered SVG graph: nodes are cards (id + title), edges are `waiting_for` (arrow from
-  the depended-on card to the card waiting on it, same direction as the `kanban-cli`
-  skill's Mermaid printout). Nodes come from both live and archived cards — blocking is
-  location-independent.
+  the depended-on card to the card waiting on it). Nodes come from both live and
+  archived cards — blocking is location-independent.
   **Epic membership:** the epic is the SINK — it closes only when its children close, so
   under the map's down-is-later convention it lays out BELOW its children. The epic's
   color flows ALONG the chain rather than fanning from every member: a `waiting_for`
@@ -710,8 +709,8 @@ to `127.0.0.1` only.
   Focusing hides everything outside the result and re-lays-out, exactly like a typed
   search — a cone edge exiting the focused set renders as the existing ghost stub, no
   new rendering path. The right-click menu offers these as sugar — see Multi-select.
-  Mirrored in cli (scoped Mermaid views) and the snapshot (same search terms + card-sheet
-  tap actions) — see CONTEXT.md's parity table.
+  Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
+  CONTEXT.md's parity table.
 - **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
   (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
@@ -813,9 +812,8 @@ to `127.0.0.1` only.
   (ADR 0007: start is the working range's "from") — and status is left at the modal's
   own default, unlike the column "+", since a calendar cell doesn't imply one. A
   double-click landing on a chip is the chip's own affair (the shared card grammar),
-  excluded before the cell/column lookup ever runs. cli has no calendar (see CONTEXT.md's
-  parity table) and the snapshot's own calendar has no click-to-create — a deliberate,
-  unbuilt gap.
+  excluded before the cell/column lookup ever runs. The snapshot's own calendar has no
+  click-to-create — a deliberate, unbuilt gap.
 - **Gantt view** — a top-bar "📊 Gantt" button swaps the board for a day-granular
   timeline: each dated live card gets a row (dated ARCHIVED cards join too, opt-in via
   the Archive pill below) — the **working range** as a bar (start→end inclusive; compat
@@ -968,12 +966,11 @@ it does not define a second contract. Not a card — only `*.card.md` files are 
 ## Boundaries
 
 - This is the **only** skill that runs a server / is desktop-only. The plugin has
-  exactly four surfaces: **kanban** (AI-driven card management), **kanban-web** (this —
-  the human's live editor, desktop), **kanban-cli** (the human's conversational editor,
-  works under remote control), **kanban-snapshot** (generated single-file HTML board for
-  phone/tablet; queued-change payload, Claude applies). Retired skills are deleted
+  exactly three surfaces: **kanban** (AI-driven card management), **kanban-web** (this —
+  the human's live editor, desktop), **kanban-snapshot** (generated single-file HTML board
+  for phone/tablet; queued-change payload, Claude applies). Retired skills are deleted
   outright; CONTEXT.md's Surfaces and parity section carries the cross-surface parity
-  rule and the deliberate gaps.
+  rule, while each surface names its own deliberate gaps in its own skill doc.
 - `archive` here is a *location* (the `archived/` folder), not a status — ADR 0002's
   data model — but the column has full UI parity (ADR 0005): drag a batch onto Archive
   to archive it (one confirm, skipped when the whole batch is already `done`), drag

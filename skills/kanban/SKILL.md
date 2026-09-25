@@ -160,8 +160,8 @@ AI-autonomous seed trigger** — a port number can't be safely derived (it has
 to match a bookmark or VS Code tunnel URL the human already owns outside the
 board), so an AI never invents or auto-writes a value for it; only a human,
 or a session explicitly directed to set specific values, writes the line. The
-`kanban-cli` and `kanban-snapshot` skills ignore the key entirely — it's a
-serving fact for kanban-web, not board content either of them renders.
+`kanban-snapshot` skill ignores the key entirely — it's a
+serving fact for kanban-web, not board content it renders.
 
 **Grab semantics for AI writers:** the registry's `kind` tells *you*, the
 AI, how to treat a card based on its `assignee` handle:
@@ -190,11 +190,11 @@ Status values are **case-sensitive** — the `doing` entry gate (waiting + block
 
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 
-The `statuses` list is different in kind: it drives the **column layout** of every board surface (web columns, cli board print, form options, gantt group order), in list order — but like the other lists it never validates a card's on-disk value. A card with an unlisted status renders in the list's **first column** (the catch-all — `backlog` under the default list) with its raw value shown; the file is never rewritten. **Promotion is human-only:** only the human adds a status to the list; on the next read the card files under its real column. Archive is excluded — it stays a location-column at the far right, never a list entry. The `doing` entry gate (waiting + blocked) stays pinned to the **literal** status `doing`, custom list or not.
+The `statuses` list is different in kind: it drives the **column layout** of every board surface (web columns, this skill's board print, form options, gantt group order), in list order — but like the other lists it never validates a card's on-disk value. A card with an unlisted status renders in the list's **first column** (the catch-all — `backlog` under the default list) with its raw value shown; the file is never rewritten. **Promotion is human-only:** only the human adds a status to the list; on the next read the card files under its real column. Archive is excluded — it stays a location-column at the far right, never a list entry. The `doing` entry gate (waiting + blocked) stays pinned to the **literal** status `doing`, custom list or not.
 
 ### `notifications.md` — messaging the human
 
-Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the human sees it in the web app's bell and the cli's inbox. YAML list, every field on its own single line:
+Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the human sees it in the web app's bell and the snapshot's read-only notifications sheet. YAML list, every field on its own single line:
 
 ```yaml
 - id: 4
@@ -222,8 +222,8 @@ Generated leftovers from retired skills (`board.md`, `dashboard.html`) may also 
 This skill is the **AI's** lever set. When the human wants to see or work the board themselves, point them to (or launch) the right surface instead of narrating files:
 
 - **kanban-web** — live browser editor, desktop/localhost.
-- **kanban-cli** — conversational editor, works under remote control on mobile.
 - **kanban-snapshot** — generated single-file HTML board for phone/tablet/Cowork; read-only, queued changes come back as an "Apply kanban changes" payload.
+- **No browser and no way to open a file** — a bare terminal, a text-only remote session — is the one case neither surface reaches. Print the board with this skill's own `view_board.sh` (see Viewing the Board below) and take the human's edits conversationally. That is not narrating files; it is this skill's own lever set, which is what the rest of this document describes.
 
 ## Viewing the Board
 

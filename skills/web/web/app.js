@@ -1111,12 +1111,11 @@ function buildIsolatedRow(graph, allCards, collapsed) {
 
 // Builds the layered SVG: nodes positioned by layerNodes()'s layer assignment
 // (top-down, one row per layer, left-to-right by id within a row), edges as
-// arrowed paths (dep -> waiter — same direction as the
-// kanban-cli skill's Mermaid `n<depId> --> n<id>` output, so
-// the two views read the same graph the same way). A "back edge" (target
-// layer <= source layer — only possible when layerNodes had to force-break a
-// cycle) routes as a side-bowed curve instead of a straight line, so a cycle
-// stays visually distinct rather than overlapping the normal downward flow.
+// arrowed paths (dep -> waiter: an edge A -> B means "B waits for A"). A
+// "back edge" (target layer <= source layer — only possible when layerNodes
+// had to force-break a cycle) routes as a side-bowed curve instead of a
+// straight line, so a cycle stays visually distinct rather than overlapping
+// the normal downward flow.
 function buildMapSvg(graph, layer) {
   const allById = new Map();
   graph.nodes.forEach((n) => allById.set(n.id, Object.assign({ ghost: false }, n)));
