@@ -1982,13 +1982,17 @@ function mdToHtml(md) {
   const codeSpan = (c) => {
     const m = cardMention(c);
     if (!m) return `<code>${c}</code>`;
-    return m.board === state.projectName ? `<code class="mention same" data-card-id="${m.id}">${c}</code>` : `<code class="mention">${c}</code>`;
+    return m.board === escapeHtml(state.projectName)
+      ? `<code class="mention same" data-card-id="${m.id}" tabindex="0" role="link">${c}</code>`
+      : `<code class="mention">${c}</code>`;
   };
   const inline = (s) => s
     .replace(/`([^`]+)`/g, (m, c) => codeSpan(c))
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (m, text, url) => {
+    // A URL holding markup (a code span turned chip) is left as text: the
+    // chip's quoted attributes would otherwise end href early.
+    .replace(/\[([^\]]*)\]\(([^)<]+)\)/g, (m, text, url) => {
       const safe = /^(https?:|mailto:|#|\/)/i.test(url.trim()) ? url : '#';
       return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     });
@@ -2118,10 +2122,9 @@ function frontmatterValueHtml(k, v) {
   }
   if (k === 'priority' && plain === 'High') return '<span class="fm-high">High</span>';
   if (k === 'assignee' && plain) return assigneeBadge({ assignee: plain }, state.assignees);
-  if (k === 'parent' && /^\d+$/.test(plain)) return `<code class="mention same" data-card-id="${escapeHtml(plain)}">${escapeHtml(state.projectName)}#${escapeHtml(plain)}</code>`;
-  if ((k === 'review' || k === 'blocked') && /[a-z0-9]/i.test(plain) && !/^(false|no)$/i.test(plain)) {
-    return `<span class="fm-sticker fm-sticker--${k}">${escapeHtml(plain)}</span>`;
-  }
+  if (k === 'parent' && /^\d+$/.test(plain)) return `<code class="mention same" data-card-id="${escapeHtml(plain)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(plain)}</code>`;
+  if (k === 'review' && isReviewValue(plain)) return `<span class="fm-sticker fm-sticker--review">${escapeHtml(reviewReason(plain) || 'review')}</span>`;
+  if (k === 'blocked' && isBlockedValue(plain)) return `<span class="fm-sticker fm-sticker--blocked">${escapeHtml(blockedReason(plain) || 'blocked')}</span>`;
   if (k === 'tags' && /^\[.*\]$/.test(plain)) {
     return plain.slice(1, -1).split(',').map((t) => t.trim()).filter(Boolean).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
   }
@@ -2299,10 +2302,15 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#detail-copy-btn').addEventListener('click', copyDetailPath);
   // A mention of a card on this board opens that card, in the body and in the
   // frontmatter's parent field alike.
-  $('#detail-modal').addEventListener('click', (e) => {
+  const openMentionedCard = async (e) => {
     const m = e.target.closest('code.mention.same');
-    if (m) openDetailModal(Number(m.dataset.cardId));
-  });
+    if (!m || (e.type === 'keydown' && e.key !== 'Enter')) return;
+    e.preventDefault();
+    await openDetailModal(Number(m.dataset.cardId));
+    $('#detail-modal .modal').scrollTop = 0; // the new card opens at its top, not at the old card's scroll
+  };
+  $('#detail-modal').addEventListener('click', openMentionedCard);
+  $('#detail-modal').addEventListener('keydown', openMentionedCard);
   $('#detail-edit-btn').addEventListener('click', editFromDetail);
   $('#detail-archive-btn').addEventListener('click', () => {
     // Belt-and-suspenders: the button is hidden for archived cards, but never
@@ -3856,6 +3864,16 @@ function renderNotifList() {
   }));
 }
 
+// A mention of this board's card opens it from the tray. The tray closes only
+// once the card is showing, so a failed load leaves the reader where they were.
+async function openMentionFromTray(e) {
+  const m = e.target.closest('code.mention.same');
+  if (!m) return;
+  e.preventDefault();
+  await openDetailModal(Number(m.dataset.cardId));
+  if (!$('#detail-modal').classList.contains('hidden')) closeNotifModal();
+}
+
 // Inline markdown for notification text, as DOM nodes: code spans (card
 // mentions become chips, a mention of this board's card opens it) and bold.
 function appendInline(parent, text) {
@@ -3865,8 +3883,13 @@ function appendInline(parent, text) {
     node.textContent = tok.v;
     const m = tok.t === 'code' && cardMention(tok.v);
     if (m) {
-      node.className = m.board === state.projectName ? 'mention same' : 'mention';
-      if (m.board === state.projectName) node.dataset.cardId = String(m.id);
+      const same = m.board === state.projectName;
+      node.className = same ? 'mention same' : 'mention';
+      if (same) {
+        node.dataset.cardId = String(m.id);
+        node.tabIndex = 0;
+        node.setAttribute('role', 'link');
+      }
     }
     parent.appendChild(node);
   }
@@ -3925,9 +3948,9 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#notif-list').addEventListener('click', (e) => {
     const btn = e.target.closest('.notif-delete');
     if (btn) { deleteNotification(Number(btn.dataset.id)); return; }
-    const m = e.target.closest('code.mention.same');
-    if (m) { closeNotifModal(); openDetailModal(Number(m.dataset.cardId)); }
+    openMentionFromTray(e);
   });
+  $('#notif-list').addEventListener('keydown', (e) => { if (e.key === 'Enter') openMentionFromTray(e); });
 });
 
 // --- Multi-select + bulk actions, with view parity. Selection

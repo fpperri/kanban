@@ -55,7 +55,7 @@ function loadMd(projectName) {
 
 test('a mention code span renders as a chip; one on this board carries its id for the click', () => {
   const md = loadMd('webapp');
-  assert.ok(md('see `webapp#12 Retry budget`').includes('<code class="mention same" data-card-id="12">webapp#12 Retry budget</code>'));
+  assert.ok(md('see `webapp#12 Retry budget`').includes('<code class="mention same" data-card-id="12" tabindex="0" role="link">webapp#12 Retry budget</code>'));
   assert.ok(md('see `other#3 Title`').includes('<code class="mention">other#3 Title</code>'));
   assert.ok(md('run `git status`').includes('<code>git status</code>'), 'ordinary code stays code');
 });
@@ -85,6 +85,7 @@ function loadFrontmatter(projectName, assignees) {
   ].join('\n');
   const sandbox = {
     escapeHtml,
+    ...require('../web/waiting-blocked'),
     statusColorClass: require('../web/status-colors').statusColorClass,
     assigneeBadge: require('../web/assignee-badge').assigneeBadge,
     state: { projectName, assignees },
@@ -99,7 +100,9 @@ test('frontmatter values the board understands wear its own marks', () => {
   assert.match(fm('status', 'doing'), /class="fm-status fm-status--doing"><span class="status-dot status-dot--doing"><\/span>doing/);
   assert.strictEqual(fm('priority', 'High'), '<span class="fm-high">High</span>');
   assert.match(fm('assignee', '"@hitl"'), /class="card-assignee assignee-text--palette-\d"[^>]*>@hitl</);
-  assert.strictEqual(fm('parent', '1'), '<code class="mention same" data-card-id="1">cortex4.proj#1</code>');
+  assert.strictEqual(fm('parent', '1'), '<code class="mention same" data-card-id="1" tabindex="0" role="link">cortex4.proj#1</code>');
+  assert.strictEqual(fm('blocked', 'true'), '<span class="fm-sticker fm-sticker--blocked">blocked</span>', 'a reason-less sticker shows its bare name');
+  assert.strictEqual(fm('review', 'no'), 'no', 'a cleared sticker prints as written');
   assert.strictEqual(fm('review', '"read the table"'), '<span class="fm-sticker fm-sticker--review">read the table</span>');
   assert.strictEqual(fm('tags', '[v4, shop]'), '<span class="tag">v4</span><span class="tag">shop</span>');
   assert.strictEqual(fm('start_date', '2026-09-24'), '2026-09-24');
@@ -115,4 +118,25 @@ test('frontmatter values stay escaped on every path', () => {
   }
   assert.ok(!fm('parent', '7').includes('<b>'), 'the board name is escaped inside the parent chip');
   assert.ok(!fm('parent', '7 <b>x</b>').includes('<b>'), 'a non-numeric parent prints escaped, as written');
+});
+
+test('a board name with markup characters still gets clickable mentions', () => {
+  const md = loadMd('r&d');
+  assert.ok(md('`r&d#4 t`').includes('class="mention same" data-card-id="4"'), 'escaped text is compared with the escaped name');
+});
+
+test('a mention inside a link URL leaves the link as text instead of breaking its attributes', () => {
+  const md = loadMd('webapp');
+  const html = md('[see](http://x.test/`webapp#5 t`) done');
+  assert.ok(!/<a [^>]*href="[^"]*<code/.test(html), 'no chip inside an href');
+  assert.ok(!html.includes('<a '), 'the link is not built at all');
+  assert.ok(md('[see](https://x.test/a) done').includes('<a href="https://x.test/a" target="_blank" rel="noopener noreferrer">see</a>'), 'ordinary links still work');
+});
+
+test('mention chips open their card by click and by Enter, from the popup and from the tray', () => {
+  assert.match(appSrc, /\$\('#detail-modal'\)\.addEventListener\('click', openMentionedCard\)/);
+  assert.match(appSrc, /\$\('#detail-modal'\)\.addEventListener\('keydown', openMentionedCard\)/);
+  assert.match(appSrc, /\$\('#notif-list'\)\.addEventListener\('keydown', \(e\) => \{ if \(e\.key === 'Enter'\) openMentionFromTray\(e\); \}\)/);
+  const tray = appSrc.match(/async function openMentionFromTray\([\s\S]*?\n\}/)[0];
+  assert.ok(tray.indexOf('await openDetailModal') < tray.indexOf('closeNotifModal'), 'the tray closes only after the card has loaded');
 });

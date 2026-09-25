@@ -734,7 +734,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    accent chips rather than code; one on this board opens its card. */
 .detail-body code.mention, .notif-message code.mention, .detail-frontmatter code.mention { color: var(--accent); background: var(--accent-soft); }
 code.mention.same { cursor: pointer; border-bottom: 1px dotted var(--accent); }
-code.mention.same:hover { border-bottom-style: solid; }
+code.mention.same:hover, code.mention.same:focus-visible { border-bottom-style: solid; }
+code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .detail-body li.task > .tick { display: inline-block; width: 1.3em; color: var(--mut); }
 .detail-body li.task.done > .tick { color: var(--ok); }
 .detail-path-file { color: var(--ink); }
