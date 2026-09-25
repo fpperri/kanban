@@ -3624,7 +3624,9 @@ function renderGanttView() {
 
   // Axis row: Monday week marks up top, matching full-height grid lines
   // behind the rows; the gutter gets an empty spacer of the same height so
-  // both columns' row sequences line up 1:1 from there on.
+  // both columns' row sequences line up 1:1 from there on. A sized sub-view
+  // wide enough for it names every day instead (dayMarkLabel), with a fainter
+  // line between days.
   const head = document.createElement('div');
   head.className = 'gantt-axis';
   gutter.appendChild(head);
@@ -3634,17 +3636,18 @@ function renderGanttView() {
   const today = localTodayStr();
   for (let i = 0; i < win.days; i++) {
     const day = addDays(win.startDay, i);
-    if (isMonday(day)) {
-      const mark = document.createElement('div');
-      mark.className = 'gantt-week-mark';
-      mark.style.left = `${i * dayPx}px`;
-      mark.textContent = weekMarkLabel(day);
-      axis.appendChild(mark);
-      const line = document.createElement('div');
-      line.className = 'gantt-week-line';
-      line.style.left = `${i * dayPx}px`;
-      timeline.appendChild(line);
-    }
+    const dayLabel = subview === 'all' ? null : dayMarkLabel(day, dayPx);
+    if (dayLabel == null && !isMonday(day)) continue;
+    const mark = document.createElement('div');
+    mark.className = 'gantt-week-mark';
+    mark.style.left = `${i * dayPx}px`;
+    mark.textContent = dayLabel == null ? weekMarkLabel(day) : dayLabel;
+    axis.appendChild(mark);
+    if (i === 0 && dayLabel != null) continue;
+    const line = document.createElement('div');
+    line.className = isMonday(day) ? 'gantt-week-line' : 'gantt-week-line gantt-day-line';
+    line.style.left = `${i * dayPx}px`;
+    timeline.appendChild(line);
   }
   if (today >= win.startDay && today <= win.endDay) {
     const line = document.createElement('div');

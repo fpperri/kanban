@@ -867,7 +867,9 @@ to `127.0.0.1` only.
   timeline has no week rows to square off) — prev/next/Today step it by the active
   sub-view's span, reusing the calendar's own `shiftAnchorDay`/`subviewTitle`
   (calendar-model.js) verbatim, since that math has nothing calendar-specific in it. The
-  arrows and Today are disabled while All is active (no anchor day to page from). A bar
+  arrows and Today are disabled while All is active (no anchor day to page from). Once a
+  sized sub-view makes days wide enough, the axis names every day (`dayMarkLabel`: day
+  numbers for a month, weekday and number for a week or less) instead of Mondays only. A bar
   or diamond entirely outside whichever window is active draws nothing (its gutter label
   still lists it); one that starts or ends outside is clipped on the cut side, exactly as
   before — the window never drops a bar, only clips or hides its drawing. The day-column

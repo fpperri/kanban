@@ -1126,6 +1126,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .gantt-axis { position: relative; height: 22px; }
 .gantt-week-mark { position: absolute; top: 3px; color: var(--mut); font-size: 0.68em; white-space: nowrap; padding-left: 3px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .gantt-week-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 1px solid var(--line-soft); }
+.gantt-day-line { border-left-style: dashed; }
 .gantt-today-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 2px solid var(--accent); opacity: 0.65; z-index: 1; }
 .gantt-row { height: 26px; }
 .gantt-row.gantt-group-row { height: 20px; line-height: 20px; font-size: 0.7em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--mut); }

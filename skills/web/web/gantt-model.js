@@ -274,6 +274,18 @@ function weekMarkLabel(day) {
   return `${GANTT_MONTHS_SHORT[m - 1]} ${d}`;
 }
 
+// A sized sub-view's days are wide enough to name one by one; Monday marks
+// alone left a week showing a single label. null = too narrow for a label per
+// day, so the axis keeps its Monday marks.
+const GANTT_WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function dayMarkLabel(day, dayPx) {
+  if (!(dayPx >= 28)) return null;
+  const d = Number(day.split('-')[2]);
+  if (dayPx < 64) return d === 1 ? weekMarkLabel(day) : String(d);
+  return `${GANTT_WEEKDAYS_SHORT[new Date(CAL.dayToUtc(day)).getUTCDay()]} ${d}`;
+}
+
 // --- bar clipping: the visible slice of a bar inside a window --------------
 // A sized sub-view's window is a fixed span (unlike 'all', clamped only past
 // 180 natural days), so a bar poking past either edge is now the NORMAL
@@ -381,7 +393,7 @@ function barResizeChanges(card, edge, dayDelta) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
-    barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel,
+    barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel, dayMarkLabel,
     ganttBarClip,
     barShiftChanges, barResizeChanges, dueShiftChanges,
     GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx, // sub-views
@@ -398,6 +410,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.ganttWindow = ganttWindow;
   window.isMonday = isMonday;
   window.weekMarkLabel = weekMarkLabel;
+  window.dayMarkLabel = dayMarkLabel;
   window.ganttBarClip = ganttBarClip;
   window.barShiftChanges = barShiftChanges;
   window.barResizeChanges = barResizeChanges;

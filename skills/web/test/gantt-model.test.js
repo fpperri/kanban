@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const { addDays } = require('../web/calendar-model');
 const {
   GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
-  barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel,
+  barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel, dayMarkLabel,
   ganttBarClip,
   barShiftChanges, barResizeChanges, dueShiftChanges,
   GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx,
@@ -681,4 +681,13 @@ test('ganttDayPx falls back to GANTT_DAY_PX for a non-positive or unmeasured scr
 
 test('ganttDayPx falls back to GANTT_DAY_PX when days is 0/falsy (defensive — a sized window is never actually empty)', () => {
   assert.strictEqual(ganttDayPx('week', 0, 700), GANTT_DAY_PX);
+});
+
+test('dayMarkLabel names each day once a sized sub-view makes days wide enough', () => {
+  assert.strictEqual(dayMarkLabel('2026-09-21', 24), null, 'the fit-everything scale keeps Monday marks only');
+  assert.strictEqual(dayMarkLabel('2026-09-21', 27.9), null);
+  assert.strictEqual(dayMarkLabel('2026-09-21', 44), '21', 'a month-wide window shows day numbers');
+  assert.strictEqual(dayMarkLabel('2026-10-01', 44), 'Oct 1', 'the first of a month carries its month');
+  assert.strictEqual(dayMarkLabel('2026-09-21', 160), 'Mon 21', 'a week or narrower names the weekday');
+  assert.strictEqual(dayMarkLabel('2026-09-27', 1100), 'Sun 27');
 });
