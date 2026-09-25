@@ -687,7 +687,7 @@ test('dayMarkLabel names each day once a sized sub-view makes days wide enough',
   assert.strictEqual(dayMarkLabel('2026-09-21', 24), null, 'the fit-everything scale keeps Monday marks only');
   assert.strictEqual(dayMarkLabel('2026-09-21', 27.9), null);
   assert.strictEqual(dayMarkLabel('2026-09-21', 44), '21', 'a month-wide window shows day numbers');
-  assert.strictEqual(dayMarkLabel('2026-10-01', 44), 'Oct 1', 'the first of a month carries its month');
+  assert.strictEqual(dayMarkLabel('2026-10-01', 44), '1', 'the view title names the month');
   assert.strictEqual(dayMarkLabel('2026-09-21', 160), 'Mon 21', 'a week or narrower names the weekday');
   assert.strictEqual(dayMarkLabel('2026-09-27', 1100), 'Sun 27');
 });

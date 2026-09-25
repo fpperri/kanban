@@ -282,7 +282,7 @@ const GANTT_WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function dayMarkLabel(day, dayPx) {
   if (!(dayPx >= 28)) return null;
   const d = Number(day.split('-')[2]);
-  if (dayPx < 64) return d === 1 ? weekMarkLabel(day) : String(d);
+  if (dayPx < 64) return String(d); // a month-wide window: its title names the month
   return `${GANTT_WEEKDAYS_SHORT[new Date(CAL.dayToUtc(day)).getUTCDay()]} ${d}`;
 }
 
