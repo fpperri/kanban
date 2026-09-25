@@ -2709,8 +2709,8 @@ function suppressMapPanPhantomClick() {
 // above the graph all sit between the panel's scroll origin and the SVG,
 // and none of them scale with zoom. mapZoomPanOffset/fitMapZoom's callers
 // need this as a fixed origin so only the SVG's own content scales
-// (2026-09-25 review, #280 — a zero origin drifted the zoom anchor by
-// origin*(ratio-1) per step, and made Fit measure against the whole panel
+// (a zero origin would drift the zoom anchor by
+// origin*(ratio-1) per step, and make Fit measure against the whole panel
 // instead of the space actually left for the graph).
 // Scroll-invariant by construction: subtracting the panel's own current
 // scrollLeft/scrollTop out of the SVG's on-screen position cancels whatever
@@ -2778,7 +2778,7 @@ function zoomMapStep(direction) {
 // none of which the graph can actually draw into. Passing those raw to
 // fitMapZoom measured against space the graph doesn't have, so Fit
 // undershot and the graph's bottom edge (or right edge, width-bound) still
-// needed scrolling to see (2026-09-25 review, #280). The available box:
+// needed scrolling to see. The available box:
 // width is clientWidth minus the left+right padding (nothing else sits
 // beside the SVG horizontally); height is clientHeight minus the SVG's own
 // top offset in content space (mapSvgOrigin — padding-top plus every row
@@ -2835,7 +2835,7 @@ function wireMapPanZoom() {
     // node/stub actually pressed. The shared card-el grammar's
     // `e.target.closest('.card-el')` then finds nothing on #map-view, so a
     // plain click stopped opening cards and Ctrl/Shift-click stopped
-    // selecting (2026-09-25 review, #280 — blocker). Once the gesture IS a
+    // selecting. Once the gesture IS a
     // real drag the resulting click is suppressed outright by
     // suppressMapPanPhantomClick below, so its target no longer matters.
     isDragging = true; // poll guard for the whole gesture, released in finish() — same flag/contract the board/calendar/gantt drags already share (autoRefreshSkipState, the contextmenu guards)
@@ -2882,7 +2882,7 @@ function wireMapPanZoom() {
   // the gesture crosses the threshold — where the container's own pointerup
   // listener above never sees it. Without this net, mapPan/isDragging would
   // stay set forever and freeze the 5s poll for the WHOLE app, not just the
-  // map (2026-09-25 review, #280). Document-level so it always sees the
+  // map. Document-level so it always sees the
   // release regardless of target; finish() itself is idempotent (no-ops
   // once mapPan is already null), so this never double-fires against the
   // container listeners above.
@@ -2902,7 +2902,7 @@ function wireMapPanZoom() {
     // Continuous (stepMapZoomByWheel), not the buttons' fixed-rung
     // stepMapZoom — a trackpad pinch fires a burst of these with small
     // deltaY each, and one full rung per event used to reach the zoom
-    // clamp in about four events (2026-09-25 review, #280).
+    // clamp in about four events.
     zoomMapAt(stepMapZoomByWheel(loadMapZoom(), e.deltaY, e.deltaMode), e.clientX - rect.left, e.clientY - rect.top);
   }, { passive: false });
 }

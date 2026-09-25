@@ -7,11 +7,12 @@
 // Multiplicative zoom, same shape a map app's +/- buttons and pinch/Ctrl+wheel
 // use: each step scales by MAP_ZOOM_STEP rather than adding a fixed percentage,
 // so a step feels the same size whether you're zoomed way in or way out.
-// Range chosen so 25% still shows readable node ids on a big board and 200%
+// Range chosen so Fit can take in a wide board (a long dependency chain runs
+// thousands of px across) and 200%
 // never needs to render past crisp glyph size (buildMapSvg scales the SVG's
 // width/height attribute, not a CSS transform, so text stays vector-crisp at
 // any zoom in range — see applyMapZoomToSvg in app.js).
-const MAP_ZOOM_MIN = 0.25;
+const MAP_ZOOM_MIN = 0.1;
 const MAP_ZOOM_MAX = 2;
 const MAP_ZOOM_DEFAULT = 1;
 const MAP_ZOOM_STEP = 1.25;
@@ -37,16 +38,14 @@ function clampMapZoom(zoom) {
 // out, 0 is a no-op — still clamps), clamped to range. Shared by the +/-
 // toolbar buttons only — Ctrl+wheel/pinch scales continuously instead (see
 // wheelZoomFactor below), since a whole rung per wheel tick made a trackpad
-// pinch's burst of small-delta events reach the clamp in about four events
-// (2026-09-25 review, #280).
+// pinch's burst of small-delta events reach the clamp in about four events.
 //
 // Rounds the CURRENT zoom to its nearest rung on the ladder before moving by
 // one, rather than multiplying the current value directly: repeatedly
 // multiplying a value that's already been clamped at MIN/MAX walks it off
-// the ladder (neither MIN=0.25 nor MAX=2 is itself a power of 1.25 from
+// the ladder (neither MIN=0.1 nor MAX=2 is itself a power of 1.25 from
 // 1.0), so once either edge was touched, true size (100%) became
-// permanently unreachable from the buttons or Ctrl+wheel again (2026-09-25
-// review, #280) — rounding first makes every step self-heal back onto the
+// permanently unreachable from the buttons or Ctrl+wheel again — rounding first makes every step self-heal back onto the
 // ladder, including the very first step from a fresh/persisted/Fit zoom
 // that was never itself a rung.
 function stepMapZoom(zoom, direction) {
@@ -61,7 +60,7 @@ function stepMapZoom(zoom, direction) {
 // deltaY values (a handful of px each), and treating every event as one full
 // MAP_ZOOM_STEP tick (the original shape) made a moderate pinch hit the
 // clamp in about four events — effectively a binary in/out toggle rather
-// than a smooth gesture (2026-09-25 review, #280). deltaMode normalizes
+// than a smooth gesture. deltaMode normalizes
 // Firefox's occasional line/page-mode deltas to the same rough px scale
 // Chrome/Safari always report, so the same physical wheel/pinch motion
 // zooms by about the same amount regardless of browser.
@@ -105,9 +104,8 @@ function stepMapZoomByWheel(zoom, deltaY, deltaMode) {
 // scrollable content IS the thing that scales. #map-view is NOT that simple:
 // its own padding plus the filter row, zoom row and section header all sit
 // between the panel's scroll origin and the SVG, and NONE of that scales
-// with zoom (2026-09-25 review, #280 — the original zero-origin version
-// drifted the anchor point by origin*(ratio-1) per step, ~26px on a typical
-// layout). Only the space from the origin onward scales; everything before
+// with zoom (a zero origin would drift the anchor point by origin*(ratio-1)
+// per step, ~26px on a typical layout). Only the space from the origin onward scales; everything before
 // it is a fixed offset carried through unchanged.
 //
 // Derivation: `scrollLeft + pointerX - originX` is the point's position in

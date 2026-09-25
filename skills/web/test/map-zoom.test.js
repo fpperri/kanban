@@ -62,10 +62,8 @@ test('stepMapZoom clamps at MAP_ZOOM_MIN rather than undershooting', () => {
 // 0.3 isn't itself a rung of the 1.25^n ladder (from 1.0) — stepMapZoom
 // rounds it to the NEAREST rung first (n=-5, 1.25^-5≈0.32768), then steps
 // one more (n=-6), landing on 1.25^-6≈0.262144, not straight at the floor.
-// Was MAP_ZOOM_MIN before the 2026-09-25 review (#280): the old
-// current/MAP_ZOOM_STEP shape stepped from the raw 0.3 rather than its
-// nearest rung, which happened to undershoot past the floor for this
-// particular input — the very off-ladder drift the rung-rounding fix closes.
+// Stepping from the raw 0.3 instead of its nearest rung would drift off the
+// ladder — the drift the rung-rounding closes.
 test('stepMapZoom starting from an off-ladder value rounds to its nearest rung before stepping', () => {
   assert.strictEqual(stepMapZoom(0.3, -1), Math.pow(MAP_ZOOM_STEP, -6));
 });
@@ -74,9 +72,9 @@ test('stepMapZoom starts from an out-of-range/invalid current zoom by clamping i
   assert.strictEqual(stepMapZoom(NaN, 1), clampMapZoom(MAP_ZOOM_DEFAULT * MAP_ZOOM_STEP));
 });
 
-// Regression (2026-09-25 review, #280): stepping multiplied the already-
+// Regression: stepping multiplied the already-
 // CLAMPED value once either edge was touched, walking it off the ladder —
-// MAX (2) and MIN (0.25) are not themselves powers of MAP_ZOOM_STEP from
+// MAX (2) and MIN (0.1) are not themselves powers of MAP_ZOOM_STEP from
 // 1.0, so true size became PERMANENTLY unreachable from the buttons/wheel
 // afterward (the review's own trace: 200 200 | 160 128 102 82 66 — 100 never
 // recurs). Rounding to the nearest rung before each step is lossy exactly
@@ -100,9 +98,9 @@ test('stepMapZoom: after clamping at MAX, stepping back out passes through exact
 
 test('stepMapZoom: after clamping at MIN, stepping back in passes through exactly true size again', () => {
   let z = MAP_ZOOM_DEFAULT;
-  for (let i = 0; i < 7; i++) z = stepMapZoom(z, -1); // ...clamps to MIN(0.25) by step 7
+  for (let i = 0; i < 11; i++) z = stepMapZoom(z, -1); // ...clamps to MIN(0.1) by step 11
   assert.strictEqual(z, MAP_ZOOM_MIN);
-  for (let i = 0; i < 6; i++) z = stepMapZoom(z, 1); // recovers rung by rung
+  for (let i = 0; i < 10; i++) z = stepMapZoom(z, 1); // recovers rung by rung
   assert.strictEqual(z, MAP_ZOOM_DEFAULT);
 });
 
@@ -148,7 +146,7 @@ test('mapZoomPanOffset origin defaults to 0, matching the no-origin calls above'
   assert.strictEqual(r.scrollTop, 50);
 });
 
-// Regression (2026-09-25 review, #280): #map-view's padding + the filter/
+// Regression: #map-view's padding + the filter/
 // zoom/header rows sit between the panel's scroll origin and the SVG, and
 // none of that scales with zoom — a zero origin scaled that FIXED offset
 // right along with the graph, drifting the anchor point by origin*(ratio-1)
@@ -233,7 +231,7 @@ test('mapDragExceededThreshold defaults to MAP_DRAG_THRESHOLD when no threshold 
 });
 
 // --- normalizeWheelDeltaY / wheelZoomFactor / stepMapZoomByWheel -------------
-// Regression (2026-09-25 review, #280): the original Ctrl+wheel handler took
+// Regression: the original Ctrl+wheel handler took
 // one full MAP_ZOOM_STEP tick per wheel EVENT regardless of its deltaY, so a
 // trackpad pinch's burst of small-delta events reached the zoom clamp in
 // about four events — a smooth gesture read as an effectively binary

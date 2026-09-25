@@ -749,11 +749,11 @@ to `127.0.0.1` only.
   delegated parent, not the specific node pressed — and deliberately deferred until the
   drag clears the threshold: claiming it at pointerdown retargets the click that follows
   EVERY press (including an unmoved one) to the container, which broke plain-click/
-  Ctrl-click on a node entirely (2026-09-25 review, #280). The pill row, section header
+  Ctrl-click on a node entirely. The pill row, section header
   and the "No dependencies" row are outside the drag surface, so filter clicks, the
   collapse chevron and text selection there are untouched. A zoom toolbar
   (−/percentage/+/Fit) rides right after the filter row: the buttons step the zoom by one
-  rung of a 1.25^n ladder (25%–200%) around the panel's center, rounding the current zoom
+  rung of a 1.25^n ladder (10%–200%) around the panel's center, rounding the current zoom
   to its nearest rung before each step so true size (100%) stays reachable even after a
   clamp at either edge; Ctrl+wheel (what a trackpad pinch sends) zooms continuously from
   the wheel event's own delta around the point under the pointer (a fixed rung per event
