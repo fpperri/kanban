@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { cardIdFromSearch, nextCardHistorySearch } = require('../web/card-history');
 
-// Pure decision logic for the card popup's browser-history wiring
-// (kanban.proj#277). No DOM — app.js's click handlers and popstate listener
+// Pure decision logic for the card popup's browser-history wiring.
+// No DOM — app.js's click handlers and popstate listener
 // do the actual history.pushState/openDetailModal/closeDetailModal calls;
 // this only decides what URL (if any) a step should carry, and what a
 // popstate landing on a URL means.
@@ -147,13 +147,51 @@ test('every user-gesture call site opens through the openCard wrapper, not openD
     `expected the openCard definition plus 4 call sites (mention, tray, map ghost, tile) — found ${wrapperCalls}`);
 });
 
+test('popstate bails out while any popup other than the detail popup itself is open', () => {
+  const from = APP.slice(APP.indexOf("addEventListener('popstate'"));
+  const body = from.slice(0, from.indexOf('\n});') + 4);
+  // An edit/new-card form (or any other popup) may hold unsaved typing —
+  // letting Back/Forward swap the detail popup in underneath it means a
+  // later Edit click silently overwrites that typed work with a different
+  // card's fields. The check must run before the handler decides open vs.
+  // close, and must not treat the detail popup's own open state as a reason
+  // to bail (that's the normal card-to-card case).
+  assert.match(body, /modal-backdrop:not\(#detail-modal\):not\(\.hidden\)/,
+    'popstate handler must skip opening/closing while a non-detail popup (e.g. the edit form) is open');
+});
+
+test('popstate opens quietly — a stale/deleted card must not toast', () => {
+  const from = APP.slice(APP.indexOf("addEventListener('popstate'"));
+  const body = from.slice(0, from.indexOf('\n});') + 4);
+  assert.match(body, /openDetailModal\(id,\s*\{\s*quiet:\s*true\s*\}\)/,
+    'popstate must pass quiet:true so a card that no longer resolves closes the popup instead of toasting on every traversal');
+});
+
+test('openDetailModal reports success/failure so callers can tell a real open from a failed one', () => {
+  const fn = APP.slice(APP.indexOf('async function openDetailModal('));
+  // \r\n line endings: an unindented closing brace ends its own line with
+  // \r\n too, so the marker is \n}\r\n, not \n}\n.
+  const body = fn.slice(0, fn.indexOf('\n}\r\n') + 2);
+  assert.match(body, /return true;/, 'openDetailModal must return true once the card is actually showing');
+  assert.match(body, /return false;/, 'openDetailModal must return false on a failed fetch (superseded or not)');
+});
+
+test('openCard pushes the history step only after the card actually loads, not before the fetch', () => {
+  const fn = APP.slice(APP.indexOf('async function openCard('));
+  const body = fn.slice(0, fn.indexOf('\n}') + 2);
+  assert.match(body, /if \(await openDetailModal\(id\)\) pushCardHistoryStep\(id\);/,
+    'openCard must await openDetailModal and only push on success — pushing first leaves a phantom history step behind a chip for a deleted/nonexistent card');
+});
+
 test('every user-gesture close goes through the closeCard wrapper, not closeDetailModal directly', () => {
   assert.ok(APP.match(/function closeCard\(/), 'no closeCard wrapper defined');
   // closeDetailModal is still called raw from: its own definition, inside
-  // closeCard's body, the popstate handler, and editFromDetail (switching to
-  // the EDIT modal, not a plain close — out of scope for #277's history
-  // steps; see the doc comment above pushCardHistoryStep).
+  // closeCard's body, the popstate handler's close branch, editFromDetail
+  // (switching to the EDIT modal, not a plain close — out of scope for the
+  // history steps above; see the doc comment above pushCardHistoryStep), and
+  // openDetailModal's own quiet-failure branch (a popstate landing on a card
+  // id that no longer resolves closes the popup instead of toasting).
   const rawCalls = [...APP.matchAll(/[^.\w]closeDetailModal\(/g)].length;
-  assert.strictEqual(rawCalls, 5,
-    `expected exactly 5 raw closeDetailModal( call sites — found ${rawCalls}`);
+  assert.strictEqual(rawCalls, 6,
+    `expected exactly 6 raw closeDetailModal( call sites — found ${rawCalls}`);
 });

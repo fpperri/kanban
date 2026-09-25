@@ -2237,12 +2237,20 @@ function formatDetailModified(data) {
   return '';
 }
 
-async function openDetailModal(id) {
+// `quiet` (popstate's use only — see below): on a failed fetch, close the
+// popup instead of toasting. Returns true iff the card actually ended up
+// showing, so callers that need to know (openCard, below) can tell a real
+// open from a failed one instead of assuming success.
+async function openDetailModal(id, { quiet } = {}) {
   const reqId = ++detailRequestId;
   let data;
   try { data = await api('GET', `/api/cards/${id}/detail`); }
-  catch (e) { if (reqId === detailRequestId) toast('Load failed: ' + e.message); return; }
-  if (reqId !== detailRequestId) return; // a newer openDetailModal call superseded this one
+  catch (e) {
+    if (reqId !== detailRequestId) return false; // superseded — some other call already decided the popup's fate
+    if (quiet) closeDetailModal(); else toast('Load failed: ' + e.message);
+    return false;
+  }
+  if (reqId !== detailRequestId) return false; // a newer openDetailModal call superseded this one
   currentDetailId = data.id;
   currentDetailArchived = !!data.archived;
   // Same empty-title-shows-the-prompt fallback every other
@@ -2278,6 +2286,7 @@ async function openDetailModal(id) {
   $('#detail-archive-btn').style.visibility = currentDetailArchived ? 'hidden' : '';
   $('#detail-modal').classList.remove('hidden');
   applyModalFullscreen('detail'); // re-apply the persisted per-modal-type preference on every open
+  return true;
 }
 
 function closeDetailModal() {
@@ -2287,8 +2296,8 @@ function closeDetailModal() {
   $('#detail-modal').classList.add('hidden');
 }
 
-// Opening/closing the detail popup as real browser-history steps
-// (kanban.proj#277), so Alt+Left/Alt+Right, the mouse back/forward buttons,
+// Opening/closing the detail popup as real browser-history steps, so
+// Alt+Left/Alt+Right, the mouse back/forward buttons,
 // and the browser's own arrows all step between opened cards natively — no
 // separate keyboard shortcut to fight them. card-history.js owns the pure
 // "what URL, if any" decision; these two just apply it around the existing
@@ -2306,9 +2315,13 @@ function pushCardHistoryStep(targetId) {
   history.pushState(null, '', location.pathname + search);
 }
 
+// The push happens AFTER the card actually loads, not before: pushing first
+// would leave a phantom history step (and a URL naming a card the popup
+// isn't showing) behind a chip for a deleted/nonexistent card or a failed
+// fetch. The detailRequestId supersede check inside openDetailModal already
+// stops a stale push if a popstate or close lands mid-fetch.
 async function openCard(id) {
-  pushCardHistoryStep(id);
-  await openDetailModal(id);
+  if (await openDetailModal(id)) pushCardHistoryStep(id);
 }
 
 function closeCard() {
@@ -2324,11 +2337,20 @@ function closeCard() {
 // step the user just took. A card id that parses but no longer matches any
 // active/archived card closes quietly — unlike consumeDeepLink's toast on
 // first load, routine Back/Forward traffic over a stale ref must not spam a
-// toast on every step.
+// toast on every step (quiet: true routes a failed fetch to the same silent
+// close rather than openDetailModal's normal toast — state.active/archived
+// can still name a card whose file a poll hasn't caught up with yet, since
+// the poll itself is paused for as long as this popup is open).
 window.addEventListener('popstate', () => {
+  // An edit/new-card form, or any other popup, covers the same z-index slot
+  // as the detail popup and may hold unsaved typing (formSnapshot) that
+  // openDetailModal would silently overwrite if Edit were then clicked on
+  // whatever this landed on. Leave it alone — the URL moves, the popup
+  // underneath does not.
+  if (document.querySelector('.modal-backdrop:not(#detail-modal):not(.hidden)')) return;
   const id = cardIdFromSearch(location.search);
   const card = id == null ? null : state.active.concat(state.archived).find((c) => c.id === id);
-  if (card) openDetailModal(id);
+  if (card) openDetailModal(id, { quiet: true });
   else closeDetailModal();
 });
 

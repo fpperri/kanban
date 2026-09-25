@@ -1,6 +1,6 @@
 'use strict';
 // Pure decision logic for wiring the card detail popup into the browser's OWN
-// history (kanban.proj#277) — so Alt+Left/Alt+Right, the mouse back/forward
+// history — so Alt+Left/Alt+Right, the mouse back/forward
 // buttons, and the browser's own arrows all step between opened cards with no
 // separate keyboard shortcut fighting them. No DOM here — same
 // dual-environment pattern as deep-link.js/refresh-policy.js: loaded as a

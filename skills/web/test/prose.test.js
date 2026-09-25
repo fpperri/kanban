@@ -139,7 +139,7 @@ test('mention chips open their card by click and by Enter, from the popup and fr
   assert.match(appSrc, /\$\('#notif-list'\)\.addEventListener\('keydown', \(e\) => \{ if \(e\.key === 'Enter'\) openMentionFromTray\(e\); \}\)/);
   const tray = appSrc.match(/async function openMentionFromTray\([\s\S]*?\n\}/)[0];
   // openCard (not openDetailModal directly): opening from the tray is a
-  // history step too, same as every other user-gesture open (kanban.proj#277).
+  // history step too, same as every other user-gesture open.
   const openIdx = tray.indexOf('await openCard');
   const closeIdx = tray.indexOf('closeNotifModal');
   assert.ok(openIdx > -1, 'openMentionFromTray no longer opens via openCard');
