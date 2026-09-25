@@ -799,7 +799,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    weight, so dropping to 1px costs nothing and keeps the border scale a
    scale rather than a coincidence. Still a visibly tappable control: radius,
    padding and fill are untouched. */
-.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { opacity: 0.45; border-style: dashed; color: var(--mut); }
 /* The map's "Epics" tap-chip — rides in the SAME row as
    the status pills above (buildMapFilterRow appends it last; the row's flex
@@ -811,7 +811,25 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    membership edges below), when tapped on. */
 .map-epic-chip { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .map-epic-chip.on { border-color: var(--id-epic); color: var(--id-epic); background: var(--epic-wash); }
-.map-canvas { display: block; }
+/* The zoom toolbar — its own row right after the filter row (see
+   buildMapZoomControls, app.js), same small-pill look as .map-filter-toggle
+   (comma-joined into that rule above) rather than a full-size <button>, so
+   it reads as part of the same control-row vocabulary. */
+.map-zoom-controls { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.map-zoom-btn:disabled { opacity: 0.45; cursor: default; }
+.map-zoom-pct { font-size: 0.78em; color: var(--mut); min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
+/* Grab affordance on the graph itself — the rest of #map-view (pills,
+   section header, isolated row) keeps the default cursor since only the
+   graph pans (see wireMapPanZoom's `.map-canvas` scoping, app.js). Node
+   rects keep their own `cursor: pointer` below (higher specificity) while
+   idle — still clickable, still draggable, same as everywhere a tile is
+   both. While a drag is actually in progress (.map-panning, toggled on the
+   panel once the pointer clears the drag threshold) the whole graph
+   including node rects reads grabbing, so the cursor never lies about which
+   gesture is live mid-drag. */
+.map-canvas { display: block; cursor: grab; }
+.map-view.map-panning .map-canvas,
+.map-view.map-panning .map-node rect { cursor: grabbing; }
 /* The node border is ONE neutral weight regardless of status — a
    per-status stroke and an epic stroke would
    fight over this single channel with each other AND with the archived
