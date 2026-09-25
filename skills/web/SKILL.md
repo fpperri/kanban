@@ -740,6 +740,27 @@ to `127.0.0.1` only.
   new rendering path. The right-click menu offers these as sugar — see Multi-select.
   Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
   CONTEXT.md's parity table.
+  **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls
+  the `.map-view` panel with the pointer, grab/grabbing cursor, primary button only. A
+  drag starting on a node still pans once the pointer clears a small threshold; that
+  gesture's click is suppressed so the card doesn't also open, but a plain click under
+  the threshold opens it as always — same pointer-capture drag-vs-click shape the gantt's
+  bar drag already uses (see Gantt view below), reused rather than duplicated. The pill
+  row, section header and the "No dependencies" row are outside the drag surface, so
+  filter clicks, the collapse chevron and text selection there are untouched. A zoom
+  toolbar (−/percentage/+/Fit) rides right after the filter row: the buttons step the
+  zoom multiplicatively (25%–200%) around the panel's center; Ctrl+wheel (what a trackpad
+  pinch sends) zooms around the point under the pointer, `preventDefault`ed so it never
+  falls through to the browser's own page zoom; Fit sets the largest zoom (capped at
+  100%) that shows the whole graph. Zoom scales the SVG's `width`/`height` attributes
+  with the `viewBox` held fixed, so text/strokes stay crisp at any zoom and the panel's
+  scroll range matches exactly what a CSS transform would decouple. All four calculations
+  — clamp/step, the scroll offset that keeps a zoom's anchor point fixed, the fit zoom for
+  a graph/panel size, and the drag-vs-click threshold — live in map-zoom.js (pure,
+  unit-tested). The chosen zoom persists per board in `localStorage` (`map.zoom`, same
+  per-board convention as the status filter/section collapse) and survives the poll,
+  a popup opening/closing, and a reload; a poll tick is skipped for the whole pan gesture
+  the same way it already skips for every other pointer-capture drag (`isDragging`).
 - **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
   (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
