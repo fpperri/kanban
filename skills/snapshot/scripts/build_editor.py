@@ -268,38 +268,38 @@ TEMPLATE = """<!DOCTYPE html>
 <title>__BOARD_NAME__ — Kanban Snapshot</title>
 <style>
 :root{color-scheme:light dark;
---paper:#f7f5f1;--surface:#ffffff;--ink:#241e33;--ink-strong:#100a1f;--prose:#302a3d;--mut:#6e6880;
---line:#e4dfea;--line-strong:#d3cedd;--raised:#f4f2f8;--accent:#1b58a7;--accent-soft:#e1ebfa;
---code-ink:#724b2b;--ok:#2e7d5b;--warn:#8f6218;--warn-soft:#fbf1e0;--crit:#b4402f;--crit-soft:#fbe9e5;
---on-fill:#ffffff;--btn-bg:#efebf5;--btn-hover:#ddd6e6;
+--paper:#faf9f5;--surface:#ffffff;--ink:#1f1e1d;--ink-strong:#0f0f0e;--prose:#1f1e1d;--mut:#6a6861;
+--line:#e8e6dc;--line-strong:#d6d3c7;--raised:#f4f3ee;--accent:#a94b29;--accent-soft:#f8e8e0;
+--code-ink:#8a4a26;--ok:#2e7d5b;--warn:#8f6218;--warn-soft:#fbf1e0;--crit:#c4262c;--crit-soft:#fde8e8;
+--on-fill:#ffffff;--btn-bg:#f0eee6;--btn-hover:#e6e3d8;
 --st-backlog:#0c5f65;--st-todo:#0266d7;--st-doing:#117a32;--st-done:#642cba;--st-archive:#626b75;
 --hash-a:#0266d7;--hash-b:#117a32;--hash-c:#906001;--hash-d:#642cba;--hash-e:#b93384;--hash-f:#0c5f65;--hash-g:#b34906;--hash-h:#9e1c37;
 --id-high:#ce212d;--id-waiting:#906001;--id-review:#7d6400;--id-epic:#b34906;
 --blocked-ink:#b62324;--blocked-bg:#fde8e6;--review-ink:#7d6400;--review-bg:#fbf3c9;
 --epic-wash:rgba(240, 136, 62, 0.12);
---shadow:0 1px 2px rgba(36, 30, 51, .06);--scrim:rgba(36, 30, 51, 0.45);--shadow-pop:0 8px 24px rgba(36, 30, 51, .16)}
+--shadow:0 1px 2px rgba(20, 20, 19, .06);--scrim:rgba(20, 20, 19, 0.5);--shadow-pop:0 8px 24px rgba(20, 20, 19, .16)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
---paper:#16141c;--surface:#1e1b26;--ink:#ece8f4;--ink-strong:#faf8ff;--prose:#dfdce7;--mut:#9a93ac;
---line:#2c2836;--line-strong:#3c3847;--raised:#26232f;--accent:#8cb8d9;--accent-soft:#1d2d39;
---code-ink:#e0c6a3;--ok:#5cc495;--warn:#d9ae58;--warn-soft:#2a2114;--crit:#e4816c;--crit-soft:#2d1517;
---on-fill:#16141c;--btn-bg:#282334;--btn-hover:#363048;
+--paper:#151515;--surface:#1f1f1f;--ink:#e5e6e3;--ink-strong:#fafaf7;--prose:#e5e6e3;--mut:#949389;
+--line:#2f2f2e;--line-strong:#3d3d3b;--raised:#262626;--accent:#d97757;--accent-soft:#33211b;
+--code-ink:#e8c9a0;--ok:#5cc495;--warn:#d9ae58;--warn-soft:#2b2416;--crit:#f2555a;--crit-soft:#331a1b;
+--on-fill:#151515;--btn-bg:#242423;--btn-hover:#30302f;
 --st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
 --hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
 --id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
 --blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
 --epic-wash:rgba(240, 136, 62, 0.12);
---shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.6);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}}
+--shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.72);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}}
 :root[data-theme="dark"]{color-scheme:dark;
---paper:#16141c;--surface:#1e1b26;--ink:#ece8f4;--ink-strong:#faf8ff;--prose:#dfdce7;--mut:#9a93ac;
---line:#2c2836;--line-strong:#3c3847;--raised:#26232f;--accent:#8cb8d9;--accent-soft:#1d2d39;
---code-ink:#e0c6a3;--ok:#5cc495;--warn:#d9ae58;--warn-soft:#2a2114;--crit:#e4816c;--crit-soft:#2d1517;
---on-fill:#16141c;--btn-bg:#282334;--btn-hover:#363048;
+--paper:#151515;--surface:#1f1f1f;--ink:#e5e6e3;--ink-strong:#fafaf7;--prose:#e5e6e3;--mut:#949389;
+--line:#2f2f2e;--line-strong:#3d3d3b;--raised:#262626;--accent:#d97757;--accent-soft:#33211b;
+--code-ink:#e8c9a0;--ok:#5cc495;--warn:#d9ae58;--warn-soft:#2b2416;--crit:#f2555a;--crit-soft:#331a1b;
+--on-fill:#151515;--btn-bg:#242423;--btn-hover:#30302f;
 --st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
 --hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
 --id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
 --blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
 --epic-wash:rgba(240, 136, 62, 0.12);
---shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.6);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}
+--shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.72);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}
 :root[data-theme="light"]{color-scheme:light}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
@@ -403,8 +403,8 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .wline{color:var(--id-waiting)}
 .bline{color:var(--blocked-ink)}
 .rline{color:var(--review-ink)}
-.tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
-.tag{border:1px solid var(--line);border-radius:.15rem;padding:0 8px;font-size:11px;color:var(--mut);background:var(--btn-bg);text-transform:uppercase;letter-spacing:.05em}
+.tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:2px 10px}
+.tag{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
 /* Card bodies render as markdown (replacing the old
    pre-wrap .bodytxt div) via mdBlocks()/mdBodyNode() below — DOM nodes only,
    never innerHTML (the file's own history includes an XSS fixed exactly
@@ -529,7 +529,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .cal-rowchip.range-end{border-right:3px solid var(--on-fill)}
 .cal-rowchip.range-mid{opacity:.8}
 .cal-norows{font-size:11px;color:var(--mut);margin-top:4px}
-#modal{position:fixed;inset:0;background:var(--scrim);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px 16px}
+#modal{position:fixed;inset:0;background:var(--scrim);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px 16px}
 #modalscroll{background:var(--paper);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);max-width:560px;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 10px 12px}
 #modalscroll .card{cursor:default;border:none;background:none;margin:4px 0}
 .toprow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}

@@ -1,5 +1,6 @@
 /* --- Theme tokens ------------------------------------------------
-   One palette, three states (the shop status page's CHROME palette):
+   One palette, three states: the shop palette, in the Claude app's family
+   (pure grey grounds, near-neutral text, a clay accent):
    the COMPLETE light set lives on bare :root, the dark set is
    redefined twice — once under prefers-color-scheme for the "system"
    default, once under [data-theme="dark"] so an explicit choice wins
@@ -22,36 +23,36 @@
    of it, so each pair can be checked for contrast on its own. */
 :root {
   color-scheme: light dark;
-  --paper: #f7f5f1;
+  --paper: #faf9f5;
   --surface: #ffffff;
-  --raised: #f4f2f8;
-  --ink: #241e33;
-  --ink-strong: #100a1f;
-  --prose: #302a3d;
-  --code-ink: #724b2b;
-  --mut: #6e6880;
-  --line: #e4dfea;
-  --line-soft: #eeeaf2;
-  --line-strong: #d3cedd;
-  --accent: #1b58a7;
-  --accent-strong: #114588;
-  --accent-soft: #e1ebfa;
-  --accent-wash: rgba(27, 88, 167, 0.16);
-  --today-wash: rgba(27, 88, 167, 0.10);
+  --raised: #f4f3ee;
+  --ink: #1f1e1d;
+  --ink-strong: #0f0f0e;
+  --prose: #1f1e1d;
+  --code-ink: #8a4a26;
+  --mut: #6a6861;
+  --line: #e8e6dc;
+  --line-soft: #f0eee6;
+  --line-strong: #d6d3c7;
+  --accent: #a94b29;
+  --accent-strong: #8a3c20;
+  --accent-soft: #f8e8e0;
+  --accent-wash: rgba(169, 75, 41, 0.14);
+  --today-wash: rgba(169, 75, 41, 0.08);
   --ok: #2e7d5b;
   --warn: #8f6218;
   --warn-soft: #fbf1e0;
-  --crit: #b4402f;
-  --crit-soft: #fbe9e5;
+  --crit: #c4262c;
+  --crit-soft: #fde8e8;
   --on-fill: #ffffff;
-  --btn-bg: #efebf5;
-  --btn-hover: #ddd6e6;
-  --hover-wash: #dad3e6;
-  --epic-hover-fill: #ddcad2;
-  --handle-wash: rgba(36, 30, 51, 0.12);
-  --shadow: 0 1px 2px rgba(36, 30, 51, .06);
-  --scrim: rgba(36, 30, 51, 0.45);
-  --shadow-pop: 0 8px 24px rgba(36, 30, 51, .16);
+  --btn-bg: #f0eee6;
+  --btn-hover: #e6e3d8;
+  --hover-wash: #e8e5da;
+  --epic-hover-fill: #e9dac7;
+  --handle-wash: rgba(20, 20, 19, 0.12);
+  --shadow: 0 1px 2px rgba(20, 20, 19, .06);
+  --scrim: rgba(20, 20, 19, 0.5);
+  --shadow-pop: 0 8px 24px rgba(20, 20, 19, .16);
   --st-backlog: #0c5f65;
   --st-todo: #0266d7;
   --st-doing: #117a32;
@@ -79,35 +80,35 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #16141c;
-    --surface: #1e1b26;
-    --raised: #26232f;
-    --ink: #ece8f4;
-    --ink-strong: #faf8ff;
-    --prose: #dfdce7;
-    --code-ink: #e0c6a3;
-    --mut: #9a93ac;
-    --line: #2c2836;
-    --line-soft: #262232;
-    --line-strong: #3c3847;
-    --accent: #8cb8d9;
-    --accent-strong: #b8d4ea;
-    --accent-soft: #1d2d39;
-    --accent-wash: rgba(140, 184, 217, 0.22);
-    --today-wash: rgba(140, 184, 217, 0.10);
+    --paper: #151515;
+    --surface: #1f1f1f;
+    --raised: #262626;
+    --ink: #e5e6e3;
+    --ink-strong: #fafaf7;
+    --prose: #e5e6e3;
+    --code-ink: #e8c9a0;
+    --mut: #949389;
+    --line: #2f2f2e;
+    --line-soft: #262625;
+    --line-strong: #3d3d3b;
+    --accent: #d97757;
+    --accent-strong: #eba68a;
+    --accent-soft: #33211b;
+    --accent-wash: rgba(217, 119, 87, 0.22);
+    --today-wash: rgba(217, 119, 87, 0.10);
     --ok: #5cc495;
     --warn: #d9ae58;
-    --warn-soft: #2a2114;
-    --crit: #e4816c;
-    --crit-soft: #2d1517;
-    --on-fill: #16141c;
-    --btn-bg: #282334;
-    --btn-hover: #363048;
-    --hover-wash: #383049;
-    --epic-hover-fill: #4e3b48;
+    --warn-soft: #2b2416;
+    --crit: #f2555a;
+    --crit-soft: #331a1b;
+    --on-fill: #151515;
+    --btn-bg: #242423;
+    --btn-hover: #30302f;
+    --hover-wash: #333332;
+    --epic-hover-fill: #4a3d33;
     --handle-wash: rgba(255, 255, 255, 0.12);
     --shadow: 0 1px 2px rgba(0, 0, 0, .3);
-    --scrim: rgba(0, 0, 0, 0.6);
+    --scrim: rgba(0, 0, 0, 0.72);
     --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
     --st-backlog: #39c5cf;
     --st-todo: #58a6ff;
@@ -137,35 +138,35 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper: #16141c;
-  --surface: #1e1b26;
-  --raised: #26232f;
-  --ink: #ece8f4;
-  --ink-strong: #faf8ff;
-  --prose: #dfdce7;
-  --code-ink: #e0c6a3;
-  --mut: #9a93ac;
-  --line: #2c2836;
-  --line-soft: #262232;
-  --line-strong: #3c3847;
-  --accent: #8cb8d9;
-  --accent-strong: #b8d4ea;
-  --accent-soft: #1d2d39;
-  --accent-wash: rgba(140, 184, 217, 0.22);
-  --today-wash: rgba(140, 184, 217, 0.10);
+  --paper: #151515;
+  --surface: #1f1f1f;
+  --raised: #262626;
+  --ink: #e5e6e3;
+  --ink-strong: #fafaf7;
+  --prose: #e5e6e3;
+  --code-ink: #e8c9a0;
+  --mut: #949389;
+  --line: #2f2f2e;
+  --line-soft: #262625;
+  --line-strong: #3d3d3b;
+  --accent: #d97757;
+  --accent-strong: #eba68a;
+  --accent-soft: #33211b;
+  --accent-wash: rgba(217, 119, 87, 0.22);
+  --today-wash: rgba(217, 119, 87, 0.10);
   --ok: #5cc495;
   --warn: #d9ae58;
-  --warn-soft: #2a2114;
-  --crit: #e4816c;
-  --crit-soft: #2d1517;
-  --on-fill: #16141c;
-  --btn-bg: #282334;
-  --btn-hover: #363048;
-  --hover-wash: #383049;
-  --epic-hover-fill: #4e3b48;
+  --warn-soft: #2b2416;
+  --crit: #f2555a;
+  --crit-soft: #331a1b;
+  --on-fill: #151515;
+  --btn-bg: #242423;
+  --btn-hover: #30302f;
+  --hover-wash: #333332;
+  --epic-hover-fill: #4a3d33;
   --handle-wash: rgba(255, 255, 255, 0.12);
   --shadow: 0 1px 2px rgba(0, 0, 0, .3);
-  --scrim: rgba(0, 0, 0, 0.6);
+  --scrim: rgba(0, 0, 0, 0.72);
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
   --st-backlog: #39c5cf;
   --st-todo: #58a6ff;
@@ -458,7 +459,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    recolors that row's text only, since border-left is already
    priority/waiting's channel on this tile. */
 .card-schedule-row.overdue { color: var(--id-high); font-weight: 600; }
-.card-assignee { display: inline-flex; align-items: center; gap: 4px; background: var(--btn-bg); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; color: var(--mut); margin-left: 6px; }
+/* Secondary details blend: the assignee, tags and id are plain muted text with
+   no box, so a tile's title is what the eye lands on. */
+.card-assignee { display: inline-flex; align-items: center; gap: 4px; font-size: 0.72em; color: var(--mut); margin-left: 8px; }
 /* The handle TEXT itself wears the assignee
    color — no separate dot glyph. The HASHED case gets a class per palette
    slot (the --hash-a..h tokens, numbered like status-colors.js's STATUS_PALETTE and its
@@ -477,16 +480,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .assignee-text--palette-5 { color: var(--hash-f); }
 .assignee-text--palette-6 { color: var(--hash-g); }
 .assignee-text--palette-7 { color: var(--hash-h); }
-.card-title { font-size: 0.9em; margin: 4px 0; }
+.card-title { font-size: 0.9em; margin: 4px 0; color: var(--ink-strong); font-weight: 500; }
 /* The empty-title prompt-fallback reads as clearly
    temporary (italic + muted), not a real title — gone the instant the card
    gets one. The sparkle sits inline before the prompt text, same 14px size
    as the column-toggle chevrons above. */
 .card-title--prompt-fallback { font-style: italic; opacity: 0.75; }
 .card-title--prompt-fallback svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
-.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-/* Same .chip vocabulary as .status-chip — uppercase, tracked, near-square radius. */
-.tag { background: var(--btn-bg); border: 1px solid var(--line); border-radius: .15rem; padding: 1px 8px; font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mut); }
+.card-tags { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 6px; }
+/* Tags blend: uppercase and tracked like a label, but plain muted text with no chip box. */
+.tag { font-size: 0.68em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mut); }
 .waiting-badge { color: var(--id-waiting); font-size: 0.75em; margin-top: 4px; }
 /* The manual impediment sticker — a red PILL, not a border
    (borders stay priority/status territory). The reason rides the tooltip
@@ -512,7 +515,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card-menu { display: flex; gap: 8px; margin-top: 8px; }
 .card-menu button { padding: 2px 8px; font-size: 0.72em; }
 .toast { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--crit); color: var(--ink-strong); padding: 10px 16px; border-radius: .2rem; z-index: 20; cursor: pointer; box-shadow: var(--shadow); }
-.modal-backdrop { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 30; }
+/* The open card is the focus: the board behind it dims and softens. */
+.modal-backdrop { position: fixed; inset: 0; background: var(--scrim); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 30; }
 .modal { background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 20px; width: min(560px, 92vw); max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 /* Headline-role text (herd signature 8: negative tracking = "this is the
    headline"), not herd's muted h2 eyebrow — a dialog title is the one thing

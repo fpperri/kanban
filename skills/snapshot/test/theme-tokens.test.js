@@ -91,31 +91,31 @@ test('no color token is declared ONLY inside the dark media query — every dark
   });
 });
 
-// Spot-check exact values from the brief's token table (lowercase hex,
+// Spot-check exact values from the web board's token table (lowercase hex,
 // rgba() spaced exactly as given) — by name, so a future conformance test
 // comparing these blocks against skills/web/web/app.css by name has a
 // stable contract to check against.
 const SPOT_CHECKS = {
-  paper: ['#f7f5f1', '#16141c'],
-  surface: ['#ffffff', '#1e1b26'],
-  ink: ['#241e33', '#ece8f4'],
-  'ink-strong': ['#100a1f', '#faf8ff'],
-  prose: ['#302a3d', '#dfdce7'],
-  mut: ['#6e6880', '#9a93ac'],
-  line: ['#e4dfea', '#2c2836'],
-  'line-strong': ['#d3cedd', '#3c3847'],
-  raised: ['#f4f2f8', '#26232f'],
-  accent: ['#1b58a7', '#8cb8d9'],
-  'accent-soft': ['#e1ebfa', '#1d2d39'],
-  'code-ink': ['#724b2b', '#e0c6a3'],
+  paper: ['#faf9f5', '#151515'],
+  surface: ['#ffffff', '#1f1f1f'],
+  ink: ['#1f1e1d', '#e5e6e3'],
+  'ink-strong': ['#0f0f0e', '#fafaf7'],
+  prose: ['#1f1e1d', '#e5e6e3'],
+  mut: ['#6a6861', '#949389'],
+  line: ['#e8e6dc', '#2f2f2e'],
+  'line-strong': ['#d6d3c7', '#3d3d3b'],
+  raised: ['#f4f3ee', '#262626'],
+  accent: ['#a94b29', '#d97757'],
+  'accent-soft': ['#f8e8e0', '#33211b'],
+  'code-ink': ['#8a4a26', '#e8c9a0'],
   ok: ['#2e7d5b', '#5cc495'],
   warn: ['#8f6218', '#d9ae58'],
-  'warn-soft': ['#fbf1e0', '#2a2114'],
-  crit: ['#b4402f', '#e4816c'],
-  'crit-soft': ['#fbe9e5', '#2d1517'],
-  'on-fill': ['#ffffff', '#16141c'],
-  'btn-bg': ['#efebf5', '#282334'],
-  'btn-hover': ['#ddd6e6', '#363048'],
+  'warn-soft': ['#fbf1e0', '#2b2416'],
+  crit: ['#c4262c', '#f2555a'],
+  'crit-soft': ['#fde8e8', '#331a1b'],
+  'on-fill': ['#ffffff', '#151515'],
+  'btn-bg': ['#f0eee6', '#242423'],
+  'btn-hover': ['#e6e3d8', '#30302f'],
   'st-backlog': ['#0c5f65', '#39c5cf'],
   'st-todo': ['#0266d7', '#58a6ff'],
   'st-doing': ['#117a32', '#3fb950'],
@@ -156,12 +156,12 @@ test('epic-wash is the identical rgba() in both light and dark (per the brief\'s
   assert.strictEqual(dark, 'rgba(240, 136, 62, 0.12)');
 });
 
-test('shadow/scrim/shadow-pop use the exact rgba() spacing from the brief\'s table', () => {
-  assert.match(rootRule.body, /--shadow:0 1px 2px rgba\(36, 30, 51, \.06\)/);
-  assert.match(rootRule.body, /--scrim:rgba\(36, 30, 51, 0\.45\)/);
-  assert.match(rootRule.body, /--shadow-pop:0 8px 24px rgba\(36, 30, 51, \.16\)/);
+test('shadow/scrim/shadow-pop use the exact rgba() spacing of the web board tokens', () => {
+  assert.match(rootRule.body, /--shadow:0 1px 2px rgba\(20, 20, 19, \.06\)/);
+  assert.match(rootRule.body, /--scrim:rgba\(20, 20, 19, 0\.5\)/);
+  assert.match(rootRule.body, /--shadow-pop:0 8px 24px rgba\(20, 20, 19, \.16\)/);
   assert.match(mediaBlockOuter.body, /--shadow:0 1px 2px rgba\(0, 0, 0, \.3\)/);
-  assert.match(mediaBlockOuter.body, /--scrim:rgba\(0, 0, 0, 0\.6\)/);
+  assert.match(mediaBlockOuter.body, /--scrim:rgba\(0, 0, 0, 0\.72\)/);
   assert.match(mediaBlockOuter.body, /--shadow-pop:0 8px 24px rgba\(0, 0, 0, \.5\)/);
 });
 
