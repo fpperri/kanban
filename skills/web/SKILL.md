@@ -404,6 +404,14 @@ to `127.0.0.1` only.
   levels. A wrapped line that isn't itself a `-` bullet (no blank line before it) is a
   lazy continuation of the last list item's text, appended in place, rather than closing
   the list and stranding a bare paragraph.
+- **Reading layer** — card bodies and notifications use four tokens of their own:
+  `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
+  `--line-strong` for table-header and evidence rules. Headings and bold take
+  `--ink-strong`, so a body has separate lightness steps for headings, prose, code and
+  muted text. Prose blocks stop at 76 characters per line, even in full screen; tables
+  and code blocks keep the full width, and a table's first column carries the heading
+  ink so a reader can scan down it. A list nested under a task item (the step's proof and evidence lines) reads one step
+  quieter behind a thin rail; that is structure only, and no text is recognised.
 - **Last modified** — the detail popup shows a "Last modified" line: the card's
   `updated` frontmatter timestamp when present, else the file's on-disk mtime labeled
   `(file mtime)` as a fallback for cards written before the field existed. `updated` is
