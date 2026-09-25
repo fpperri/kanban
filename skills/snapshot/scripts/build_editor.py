@@ -67,13 +67,13 @@ def parse_card(path):
         # read as kanban-web's card-store.js (`epic: get('epic').toLowerCase()
         # === 'true'`) — drives the epic: search term (qMatch's "epic" case).
         "ep": (fm.get("epic", "") or "").strip().lower() == "true",
-        # "bl" ("body length"): the UNCAPPED character count, set before
+        # "bn" ("body length"): the UNCAPPED character count, set before
         # either truncation below runs. The template compares it against the
         # embedded body's own length to know a body was cut and by how much —
         # stable across the archived re-cap that follows, since that further
-        # truncates "body" but never touches "bl".
+        # truncates "body" but never touches "bn".
         "body": full_body[:4000],
-        "bl": len(full_body),
+        "bn": len(full_body),
         "fm": {k: v for k, v in fm.items() if k != "id"},
         "fn": name,
     }
@@ -525,8 +525,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .cal-dayhead{font-size:12px;font-weight:600;color:var(--mut);display:flex;align-items:center;gap:6px;cursor:pointer;-webkit-user-select:none;user-select:none}
 .cal-rowchip{display:block;border-radius:.15rem;padding:3px 8px;margin-top:6px;font-size:12px;font-weight:600;color:var(--on-fill);cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .cal-rowchip.duechip{background:none;border:1px solid var(--crit);color:var(--crit)}
-.cal-rowchip.range-start{border-left:3px solid rgba(255,255,255,.75)}
-.cal-rowchip.range-end{border-right:3px solid rgba(255,255,255,.75)}
+.cal-rowchip.range-start{border-left:3px solid var(--on-fill)}
+.cal-rowchip.range-end{border-right:3px solid var(--on-fill)}
 .cal-rowchip.range-mid{opacity:.8}
 .cal-norows{font-size:11px;color:var(--mut);margin-top:4px}
 #modal{position:fixed;inset:0;background:var(--scrim);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px 16px}
@@ -750,10 +750,10 @@ const close=s.indexOf("`",i+1);
 if(close!==-1){flush();toks.push({t:"code",v:s.slice(i+1,close)});i=close+1;continue}}
 if(s[i]==="*"&&s[i+1]==="*"&&s[i+2]!=="*"){
 const close=s.indexOf("**",i+2);
-if(close!==-1){flush();toks.push({t:"bold",v:s.slice(i+2,close)});i=close+2;continue}}
+if(close!==-1){flush();const inner=s.slice(i+2,close);toks.push({t:"bold",v:inner,kids:mdInline(inner)});i=close+2;continue}}
 if(s[i]==="*"&&s[i+1]!=="*"){
 const close=s.indexOf("*",i+1);
-if(close!==-1&&s[close+1]!=="*"){flush();toks.push({t:"italic",v:s.slice(i+1,close)});i=close+1;continue}}
+if(close!==-1&&s[close+1]!=="*"){flush();const inner=s.slice(i+1,close);toks.push({t:"italic",v:inner,kids:mdInline(inner)});i=close+1;continue}}
 if(s[i]==="["){
 const bc=s.indexOf("]",i+1);
 if(bc!==-1&&s[bc+1]==="("){
@@ -771,8 +771,7 @@ return toks}
 // same XSS-safe contract bodyNode used to carry alone.
 function mdInlineNodes(toks,boardName){
 return toks.map(t=>{
-if(t.t==="bold")return el("strong",null,t.v);
-if(t.t==="italic")return el("em",null,t.v);
+if(t.t==="bold"||t.t==="italic"){const n=el(t.t==="bold"?"strong":"em",null);mdInlineNodes(t.kids||[{t:"text",v:t.v}],boardName).forEach(k=>n.appendChild(k));return n}
 if(t.t==="code")return codeSegNode(t.v,boardName);
 if(t.t==="link"){const a=el("a",null,t.v);a.href=t.href;a.target="_blank";a.rel="noopener noreferrer";return a}
 return document.createTextNode(t.v)})}
@@ -782,7 +781,7 @@ return document.createTextNode(t.v)})}
 // Testable in node with no DOM. Ported feature-for-feature from
 // skills/web/web/app.js's mdToHtml, but built as DATA
 // rather than an HTML string so the DOM step below never touches
-// innerHTML. Python caps bodies at 4000/1500 chars (parse_card's "bl"
+// innerHTML. Python caps bodies at 4000/1500 chars (parse_card's "bn"
 // field records the uncapped length) — a cut can land mid-fence, mid-list
 // or mid-table; every loop here is bounded by lines.length, so a truncated
 // construct just ends where the text ends instead of throwing.
@@ -874,7 +873,7 @@ return ul}
 // Replaces the old bodyNode()/.bodytxt pre-wrap div: renders mdBlocks()'
 // data tree via el()/textContent nodes only, then appends a cut notice
 // (goal 5) when the embedded body is shorter than the card's true,
-// uncapped length ("bl", from parse_card).
+// uncapped length ("bn", from parse_card).
 function mdBodyNode(text,boardName,bl){
 const wrap=el("div","bodymd");
 mdBlocks(text).forEach(b=>{
@@ -1004,7 +1003,7 @@ if(isProv(o.id)){const cr=ops.find(x=>x.op==="create"&&x._pid===o.id);if(cr){if(
 else{let e=ops.find(x=>x.op==="edit"&&String(x.id)===String(o.id));if(!e){e={op:"edit",id:o.id};ops.push(e)}
 if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.assignee!==undefined)e.assignee=o.assignee;if(o.body!==undefined)e.body=o.body;
 if(o.fm)e.fm=Object.assign(e.fm||{},o.fm)}
-if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined){c.body=o.body;c.bl=o.body.length}
+if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined){c.body=o.body;c.bn=o.body.length}
 if(o.fm&&!isProv(o.id)){c.fm=c.fm||{};for(const k in o.fm){const v=o.fm[k];
 if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
@@ -1112,7 +1111,7 @@ row.appendChild(inp);
 row.appendChild(btn("Save","fmsave",{key:k}));
 d.appendChild(row)})}}
 if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit description":"Add description","desc"));d.appendChild(er)}
-if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bl))}
+if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn))}
 return d}
 function statusPills(){
 const row=el("div","pillrow");
@@ -1267,7 +1266,7 @@ const sepIdx=s.indexOf("; more: ");
 if(sepIdx!==-1)return{tldr:s.slice(0,sepIdx),more:s.slice(sepIdx+8)};
 const end=firstSentenceEnd(s);
 if(end===-1)return{tldr:s,more:""};
-return{tldr:s.slice(0,end+1),more:s.slice(end+2).replace(/^more:\\s*/i,"")}}
+return{tldr:s.slice(0,end+1),more:s.slice(end+1).trim().replace(/^more:\\s*/i,"")}}
 // Splits MORE at every "; " that sits outside the same three exclusion
 // zones firstSentenceEnd() honors, keeping the ";" on the end of each
 // piece and dropping empty pieces.

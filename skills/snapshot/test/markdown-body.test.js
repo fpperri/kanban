@@ -37,7 +37,7 @@ before(() => {
   const longBody = 'x'.repeat(5000);
   const shortBody = 'short body';
   fs.writeFileSync(path.join(tmpDir, '0001.long.card.md'), `---\nid: 1\nstatus: todo\n---\n# Long\n${longBody}\n`);
-  fs.writeFileSync(path.join(tmpDir, '0002.short.card.md'), `---\nid: 2\nstatus: todo\n---\n# Short\n${shortBody}\n`);
+  fs.writeFileSync(path.join(tmpDir, '0002.short.card.md'), `---\nid: 2\nstatus: todo\nblocked: waiting on infra ticket\n---\n# Short\n${shortBody}\n`);
   const archDir = path.join(tmpDir, 'archived');
   fs.mkdirSync(archDir);
   fs.writeFileSync(path.join(archDir, '0003.archlong.card.md'), `---\nid: 3\nstatus: done\n---\n# Arch long\n${longBody}\n`);
@@ -109,7 +109,7 @@ test('mdBlocks: a heading and a paragraph with inline formatting', () => {
   assert.strictEqual(blocks[1].t, 'p');
   assert.deepStrictEqual(blocks[1].inline, [
     { t: 'text', v: 'Some text with ' },
-    { t: 'bold', v: 'bold' },
+    { t: 'bold', v: 'bold', kids: [{ t: 'text', v: 'bold' }] },
     { t: 'text', v: ' and ' },
     { t: 'code', v: 'code' },
     { t: 'text', v: '.' },
@@ -230,9 +230,9 @@ test('mdBlocks: --- alone on a line is a rule', () => {
 
 test('mdInline: **bold** and *italic* are distinct token types', () => {
   assert.deepStrictEqual(md.mdInline('**bold** and *italic*'), [
-    { t: 'bold', v: 'bold' },
+    { t: 'bold', v: 'bold', kids: [{ t: 'text', v: 'bold' }] },
     { t: 'text', v: ' and ' },
-    { t: 'italic', v: 'italic' },
+    { t: 'italic', v: 'italic', kids: [{ t: 'text', v: 'italic' }] },
   ]);
 });
 
@@ -253,26 +253,26 @@ test('mdInline: [text](url) keeps the url only for http/https/mailto/#//-prefixe
 
 // --- the "bl" field (goal 5): Python records the UNCAPPED length ------------
 
-test('parse_card records "bl" as the uncapped body length, independent of either 4000/1500 truncation', () => {
+test('parse_card records "bn" as the uncapped body length, independent of either 4000/1500 truncation', () => {
   const long = data.find((c) => c.id === 1);
   const short = data.find((c) => c.id === 2);
   const archLong = data.find((c) => c.id === 3);
-  assert.strictEqual(long.bl, 5000);
+  assert.strictEqual(long.bn, 5000);
   assert.strictEqual(long.body.length, 4000, 'live cards cap at 4000');
-  assert.strictEqual(short.bl, short.body.length, 'an uncapped body reports bl === body.length');
-  assert.strictEqual(archLong.bl, 5000, 'bl reflects the TRUE original length, unaffected by the archived re-cap');
+  assert.strictEqual(short.bn, short.body.length, 'an uncapped body reports bn === body.length');
+  assert.strictEqual(archLong.bn, 5000, 'bn reflects the TRUE original length, unaffected by the archived re-cap');
   assert.strictEqual(archLong.body.length, 1500, 'archived cards re-cap at 1500');
 });
 
-test('build_editor.py source: parse_card sets "bl" from the pre-truncation full_body, and archived re-capping never touches it', () => {
-  assert.match(skillSrc, /"bl": len\(full_body\),/);
+test('build_editor.py source: parse_card sets "bn" from the pre-truncation full_body, and archived re-capping never touches it', () => {
+  assert.match(skillSrc, /"bn": len\(full_body\),/);
   assert.match(skillSrc, /"body": full_body\[:4000\],/);
   assert.match(skillSrc, /c\["body"\] = c\["body"\]\[:1500\]/);
-  // the archived re-cap block only reassigns "body", never "bl"
+  // the archived re-cap block only reassigns "body", never "bn"
   const archBlockStart = skillSrc.indexOf('c["arch"] = True');
   const archBlockEnd = skillSrc.indexOf('cards.append(c)', archBlockStart);
   const archBlock = skillSrc.slice(archBlockStart, archBlockEnd);
-  assert.ok(!archBlock.includes('"bl"') && !archBlock.includes("c['bl']") && !archBlock.includes('c["bl"]'), 'archived re-cap must not touch bl');
+  assert.ok(!archBlock.includes('"bn"') && !archBlock.includes("c['bn']") && !archBlock.includes('c["bn"]'), 'archived re-cap must not touch bn');
 });
 
 // --- cut notice (goal 5): mdBodyNode appends it only when bl > embedded length ---
@@ -299,8 +299,8 @@ test('mdBodyNode/mdListNode/mdInlineNodes/codeSegNode never build the body via i
   });
 });
 
-test('the card-sheet render path calls mdBodyNode(c.body,BOARD,c.bl), not the old bodyNode()', () => {
-  assert.match(html, /d\.appendChild\(mdBodyNode\(c\.body,BOARD,c\.bl\)\)/);
+test('the card-sheet render path calls mdBodyNode(c.body,BOARD,c.bn), not the old bodyNode()', () => {
+  assert.match(html, /d\.appendChild\(mdBodyNode\(c\.body,BOARD,c\.bn\)\)/);
   assert.ok(!html.includes('function bodyNode('), 'the old bodyNode() must be fully retired');
   assert.ok(!html.includes('"bodytxt"'), 'the old .bodytxt div must be fully retired');
 });
@@ -425,4 +425,24 @@ test('mdBodyNode: a cut mid-table still renders a table wrapped in .md-table wit
   const wrap = withSplitRow.mdBodyNode('para\n\n| a | b |\n|---|---|\n| 1', 'Fixture Board', 30);
   const tableWrap = wrap.childNodes.find((n) => n._classes && n._classes.includes('md-table'));
   assert.ok(tableWrap, 'expected a .md-table wrapper');
+});
+
+// "bl" is the blocked sticker's text and always has been; the body length has
+// its own key. Sharing one key once flagged every card on the board as blocked.
+test('parse_card keeps the blocked sticker text in "bl", apart from the body length', () => {
+  const blocked = data.find((c) => c.id === 2);
+  const clear = data.find((c) => c.id === 1);
+  assert.strictEqual(blocked.bl, 'waiting on infra ticket');
+  assert.strictEqual(clear.bl, '', 'a card without the sticker carries an empty bl');
+  assert.strictEqual(typeof clear.bn, 'number');
+  assert.strictEqual((skillSrc.match(/^\s*"bl":/gm) || []).length, 1, 'parse_card writes "bl" exactly once');
+});
+
+test('emphasis keeps the inline marks inside it: a code span wrapped in bold stays a code span', () => {
+  const toks = md.mdInline('renamed **`kanban-loop`** today');
+  const bold = toks.find((t) => t.t === 'bold');
+  assert.ok(bold, 'a bold token');
+  assert.deepStrictEqual(bold.kids, [{ t: 'code', v: 'kanban-loop' }]);
+  const it = md.mdInline('an *`x`* here').find((t) => t.t === 'italic');
+  assert.deepStrictEqual(it.kids, [{ t: 'code', v: 'x' }]);
 });
