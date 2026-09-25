@@ -270,10 +270,10 @@ TEMPLATE = """<!DOCTYPE html>
 :root{color-scheme:light dark;
 --paper:#f7f5f1;--surface:#ffffff;--ink:#241e33;--ink-strong:#100a1f;--prose:#302a3d;--mut:#6e6880;
 --line:#e4dfea;--line-strong:#d3cedd;--raised:#f4f2f8;--accent:#1b58a7;--accent-soft:#e1ebfa;
---code-ink:#724b2b;--ok:#2e7d5b;--warn:#966719;--warn-soft:#fbf1e0;--crit:#b4402f;--crit-soft:#fbe9e5;
+--code-ink:#724b2b;--ok:#2e7d5b;--warn:#8f6218;--warn-soft:#fbf1e0;--crit:#b4402f;--crit-soft:#fbe9e5;
 --on-fill:#ffffff;--btn-bg:#efebf5;--btn-hover:#ddd6e6;
 --st-backlog:#0c5f65;--st-todo:#0266d7;--st-doing:#117a32;--st-done:#642cba;--st-archive:#626b75;
---hash-a:#0266d7;--hash-b:#117a32;--hash-c:#906001;--hash-d:#642cba;--hash-e:#b93384;--hash-f:#0c5f65;--hash-g:#b34906;--hash-h:#ce202d;
+--hash-a:#0266d7;--hash-b:#117a32;--hash-c:#906001;--hash-d:#642cba;--hash-e:#b93384;--hash-f:#0c5f65;--hash-g:#b34906;--hash-h:#9e1c37;
 --id-high:#ce212d;--id-waiting:#906001;--id-review:#7d6400;--id-epic:#b34906;
 --blocked-ink:#b62324;--blocked-bg:#fde8e6;--review-ink:#7d6400;--review-bg:#fbf3c9;
 --epic-wash:rgba(240, 136, 62, 0.12);
