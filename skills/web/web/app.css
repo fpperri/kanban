@@ -730,6 +730,34 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body a:hover { border-bottom-style: solid; }
 .detail-body a:focus-visible { border-bottom-style: solid; outline: 2px solid var(--accent); outline-offset: 2px; border-radius: .15rem; }
 .detail-body strong { color: var(--ink-strong); font-weight: 650; }
+/* Card mentions (one code span holding `board#id title`, CONTEXT.md) read as
+   accent chips rather than code; one on this board opens its card. */
+.detail-body code.mention, .notif-message code.mention, .detail-frontmatter code.mention { color: var(--accent); background: var(--accent-soft); }
+code.mention.same { cursor: pointer; border-bottom: 1px dotted var(--accent); }
+code.mention.same:hover { border-bottom-style: solid; }
+.detail-body li.task > .tick { display: inline-block; width: 1.3em; color: var(--mut); }
+.detail-body li.task.done > .tick { color: var(--ok); }
+.detail-path-file { color: var(--ink); }
+.fm-status { display: inline-flex; align-items: center; gap: 6px; }
+.fm-status--backlog { color: var(--st-backlog); }
+.fm-status--todo { color: var(--st-todo); }
+.fm-status--doing { color: var(--st-doing); }
+.fm-status--done { color: var(--st-done); }
+.fm-status--archive { color: var(--st-archive); }
+.fm-status--palette-0 { color: var(--hash-a); }
+.fm-status--palette-1 { color: var(--hash-b); }
+.fm-status--palette-2 { color: var(--hash-c); }
+.fm-status--palette-3 { color: var(--hash-d); }
+.fm-status--palette-4 { color: var(--hash-e); }
+.fm-status--palette-5 { color: var(--hash-f); }
+.fm-status--palette-6 { color: var(--hash-g); }
+.fm-status--palette-7 { color: var(--hash-h); }
+.fm-high { color: var(--id-high); font-weight: 600; }
+.fm-sticker { border-radius: .15rem; padding: 1px 7px; }
+.fm-sticker--review { background: var(--review-bg); color: var(--review-ink); }
+.fm-sticker--blocked { background: var(--blocked-bg); color: var(--blocked-ink); }
+.detail-frontmatter .tag { font-size: 0.9em; margin-right: 4px; }
+.detail-frontmatter .card-assignee { margin-left: 0; font-size: 0.95em; }
 .detail-body em { color: var(--ink); }
 .detail-body hr { border: none; border-top: 1px solid var(--line); margin: 1.2em 0; }
 
@@ -1217,6 +1245,18 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .notif-message { font-size: 0.9em; line-height: 1.55; color: var(--prose); word-break: break-word; }
 .notif-message strong { color: var(--ink-strong); font-weight: 600; }
 .notif-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
+/* The message in two parts: the TLDR in the strongest ink on its own line,
+   then the detail under a small More label, as a list when it runs on. */
+.notif-tldr { color: var(--ink-strong); font-weight: 600; font-size: 1.04em; line-height: 1.45; text-wrap: pretty; }
+.notif-more-label { font-size: 0.68em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--mut); margin: 0.7em 0 0.25em; }
+.notif-more p { margin: 0; }
+.notif-more ul { margin: 0 0 0 1.15em; }
+.notif-more li { margin: 0.28em 0; }
+.notif-more li::marker { color: var(--mut); }
+.notif-message code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.08em 0.32em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.notif-level { margin-left: 8px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.notif-level--warning { color: var(--warn); }
+.notif-level--error { color: var(--crit); }
 
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
    on any piece of a card lights every piece sharing its id (app.js's

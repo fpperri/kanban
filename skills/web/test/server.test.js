@@ -858,8 +858,8 @@ test('renderFrontmatterTable formats raw local-datetime values through formatFro
     assert.match('2026-07-10T09:36', re);
     assert.doesNotMatch('2026-07-10', re); // date-only: no "T", unaffected
     assert.doesNotMatch('Normal', re); // non-date value: unaffected
-    const tableFn = js.match(/function renderFrontmatterTable\([\s\S]*?\n\}/);
-    assert.match(tableFn[0], /formatFrontmatterValue\(v\)/, 'frontmatter table routes values through the formatter');
+    const valueFn = js.match(/function frontmatterValueHtml\([\s\S]*?\n\}/);
+    assert.match(valueFn[0], /formatFrontmatterValue\(v\)/, 'frontmatter values route through the formatter');
   });
 });
 
@@ -3180,7 +3180,14 @@ test('XSS sweep: the detail popup\'s frontmatter table and "Last modified" line 
     const js = await (await fetch(`${base}/app.js`)).text();
     const table = js.match(/function renderFrontmatterTable\([\s\S]*?\n\}/)[0];
     assert.match(table, /escapeHtml\(k\)/);
-    assert.match(table, /escapeHtml\(formatFrontmatterValue\(v\)\)/);
+    assert.match(table, /frontmatterValueHtml\(k, v\)/);
+    const value = js.match(/function frontmatterValueHtml\([\s\S]*?\n\}/)[0];
+    assert.match(value, /escapeHtml\(formatFrontmatterValue\(v\)\)/, 'every field the board does not recognise prints escaped');
+    // Every interpolation is escaped, or a value from a closed set: the status
+    // class (statusColorClass), or k itself inside the review/blocked branch.
+    for (const m of value.matchAll(/\$\{([^}]+)\}/g)) {
+      assert.ok(/^escapeHtml\(/.test(m[1]) || m[1] === 'cls' || m[1] === 'k', `unescaped interpolation in frontmatterValueHtml: \${${m[1]}}`);
+    }
     const modified = js.match(/function formatDetailModified\([\s\S]*?\n\}/)[0];
     assert.match(modified, /escapeHtml\(formatLocalDateTime\(data\.updated\)\)/);
     assert.match(modified, /escapeHtml\(formatLocalDateTime\(data\.mtime\)\)/);
