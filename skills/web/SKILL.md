@@ -982,7 +982,7 @@ handle a card carries.
 
 - **`name`** IS the app heading — the board name alone, no app label in front of it
   (the app is a kanban; a "Kanban —" prefix only buried the one token that tells
-  boards apart) — and it leads the tab title (`<name> — Kanban`, the app named once
+  boards apart) — and it IS the tab title too (the bare name, no "Kanban" suffix,
   so side-by-side tabs stay tellable apart). Absent, both fall back to
   the **folder above the board directory** — a display default, not a name. The app
   only reads it: renaming a board is a human edit to `config.yaml`, and the first AI

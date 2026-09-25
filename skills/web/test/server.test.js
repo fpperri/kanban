@@ -901,8 +901,8 @@ test('the heading is the project-name span alone — no "Kanban" label in front 
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /\$\('#project-name'\)\.innerHTML = name \? escapeHtml\(name\) : 'Kanban'/,
       'the span carries the bare name (no " — " suffix shape); "Kanban" only as the no-name fallback');
-    assert.match(js, /document\.title = name \? `\$\{name\} — Kanban` : 'Kanban App'/,
-      'the tab title keeps the app named once, after the board name');
+    assert.match(js, /document\.title = name \|\| 'Kanban App'/,
+      'the tab title is the bare board name; "Kanban App" only as the no-name fallback');
   });
 });
 
