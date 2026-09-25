@@ -799,7 +799,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    weight, so dropping to 1px costs nothing and keeps the border scale a
    scale rather than a coincidence. Still a visibly tappable control: radius,
    padding and fill are untouched. */
-.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { opacity: 0.45; border-style: dashed; color: var(--mut); }
 /* The map's "Epics" tap-chip — rides in the SAME row as
    the status pills above (buildMapFilterRow appends it last; the row's flex
@@ -811,7 +811,25 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    membership edges below), when tapped on. */
 .map-epic-chip { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .map-epic-chip.on { border-color: var(--id-epic); color: var(--id-epic); background: var(--epic-wash); }
-.map-canvas { display: block; }
+/* The zoom toolbar — its own row right after the filter row (see
+   buildMapZoomControls, app.js), same small-pill look as .map-filter-toggle
+   (comma-joined into that rule above) rather than a full-size <button>, so
+   it reads as part of the same control-row vocabulary. */
+.map-zoom-controls { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.map-zoom-btn:disabled { opacity: 0.45; cursor: default; }
+.map-zoom-pct { font-size: 0.78em; color: var(--mut); min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
+/* Grab affordance on the graph itself — the rest of #map-view (pills,
+   section header, isolated row) keeps the default cursor since only the
+   graph pans (see wireMapPanZoom's `.map-canvas` scoping, app.js). Node
+   rects keep their own `cursor: pointer` below (higher specificity) while
+   idle — still clickable, still draggable, same as everywhere a tile is
+   both. While a drag is actually in progress (.map-panning, toggled on the
+   panel once the pointer clears the drag threshold) the whole graph
+   including node rects reads grabbing, so the cursor never lies about which
+   gesture is live mid-drag. */
+.map-canvas { display: block; cursor: grab; }
+.map-view.map-panning .map-canvas,
+.map-view.map-panning .map-node rect { cursor: grabbing; }
 /* The node border is ONE neutral weight regardless of status — a
    per-status stroke and an epic stroke would
    fight over this single channel with each other AND with the archived
@@ -1021,6 +1039,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
 .cal-subview-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+/* Same .cal-controls row, reused verbatim by the gantt (see .gantt-view
+   below) — its prev/today/next disable while the 'All' sub-view is active
+   (no anchor day to page from), same opacity-dim convention as
+   .dp-clock-toggle:disabled. */
+.cal-nav:disabled { opacity: 0.45; cursor: default; }
 .cal-timegrid { --cal-day-cols: 7; border: 1px solid var(--line-soft); border-radius: .2rem; overflow: hidden; }
 .cal-tg-head { display: grid; grid-template-columns: 52px repeat(var(--cal-day-cols), 1fr); border-bottom: 1px solid var(--line-soft); }
 .cal-tg-dayhead { text-align: center; color: var(--mut); font-size: 0.78em; font-weight: 600; padding: 5px 0; border-left: 1px solid var(--line-soft); text-transform: uppercase; letter-spacing: 0.08em; }
@@ -1103,12 +1126,14 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    so waiting wins, same as .card). Only .gantt-scroll scrolls horizontally —
    the label gutter stays put. All px geometry (day width, bar left/width,
    mark positions) is written inline by app.js from gantt-model.js's
-   GANTT_DAY_PX so layout and drag math can't drift apart; the CSS only fixes
-   ROW heights, which both columns share so gutter and timeline stay aligned
-   row for row. #gantt-view itself is a plain block
-   container — the status-filter row (.gantt-filter-row) is its
-   first child, stacked ABOVE the gutter+timeline; .gantt-body carries the
-   side-by-side flex row. */
+   ganttDayPx (GANTT_DAY_PX itself only while the 'All' sub-view is active —
+   a sized sub-view fills the scroller instead) so layout and drag math can't
+   drift apart; the CSS only fixes ROW heights, which both columns share so
+   gutter and timeline stay aligned row for row. #gantt-view itself is a
+   plain block container — the sub-view controls row (.cal-controls, the
+   SAME classes/look the calendar's own uses) then the status-filter row
+   (.gantt-filter-row) are its first two children, stacked ABOVE the
+   gutter+timeline; .gantt-body carries the side-by-side flex row. */
 #gantt-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .gantt-view { background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; }
 .gantt-body { display: flex; align-items: flex-start; }
@@ -1119,6 +1144,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .gantt-axis { position: relative; height: 22px; }
 .gantt-week-mark { position: absolute; top: 3px; color: var(--mut); font-size: 0.68em; white-space: nowrap; padding-left: 3px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .gantt-week-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 1px solid var(--line-soft); }
+.gantt-day-line { border-left-style: dashed; }
 .gantt-today-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 2px solid var(--accent); opacity: 0.65; z-index: 1; }
 .gantt-row { height: 26px; }
 .gantt-row.gantt-group-row { height: 20px; line-height: 20px; font-size: 0.7em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--mut); }

@@ -766,6 +766,42 @@ to `127.0.0.1` only.
   new rendering path. The right-click menu offers these as sugar — see Multi-select.
   Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
   CONTEXT.md's parity table.
+  **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls
+  the `.map-view` panel with the pointer, grab/grabbing cursor, primary button only. A
+  drag starting on a node still pans once the pointer clears a small threshold; that
+  gesture's click is suppressed so the card doesn't also open, but a plain click under
+  the threshold opens it as always. Pointer capture (drag-vs-click threshold shape shared
+  with the gantt's bar drag, see Gantt view below) is claimed on `#map-view` itself — a
+  delegated parent, not the specific node pressed — and deliberately deferred until the
+  drag clears the threshold: claiming it at pointerdown retargets the click that follows
+  EVERY press (including an unmoved one) to the container, which broke plain-click/
+  Ctrl-click on a node entirely. The pill row, section header
+  and the "No dependencies" row are outside the drag surface, so filter clicks, the
+  collapse chevron and text selection there are untouched. A zoom toolbar
+  (−/percentage/+/Fit) rides right after the filter row: the buttons step the zoom by one
+  rung of a 1.25^n ladder (10%–200%) around the panel's center, rounding the current zoom
+  to its nearest rung before each step so true size (100%) stays reachable even after a
+  clamp at either edge; Ctrl+wheel (what a trackpad pinch sends) zooms continuously from
+  the wheel event's own delta around the point under the pointer (a fixed rung per event
+  made a pinch's burst of small deltas hit the clamp in a handful of events), anchored
+  against the SVG's actual on-screen origin — not the panel's raw (0,0) — since the
+  panel's own padding and the rows above the graph don't scale with zoom;
+  `preventDefault`ed so it never falls through to the browser's own page zoom. Fit sets
+  the largest zoom (capped at 100%) that shows the whole graph, measured against the space
+  actually left for it once the panel's padding and those same rows above are subtracted
+  out. Zoom scales the SVG's `width`/`height` attributes with the `viewBox` held fixed, so
+  text/strokes stay crisp at any zoom and the panel's scroll range matches exactly what a
+  CSS transform would decouple. The calculations — clamp/step, the continuous wheel
+  factor, the scroll offset that keeps a zoom's anchor point fixed (origin-aware), the fit
+  zoom for a graph/panel size, and the drag-vs-click threshold — live in map-zoom.js
+  (pure, unit-tested); the DOM measurements that feed them (the SVG's origin within the
+  scroll area, the panel's padding) are app.js's own job, since map-zoom.js stays
+  DOM-free. The chosen zoom persists per board in `localStorage` (`map.zoom`, same
+  per-board convention as the status filter/section collapse) and survives the poll,
+  a popup opening/closing, and a reload; a poll tick is skipped for the whole pan gesture
+  the same way it already skips for every other pointer-capture drag (`isDragging`), with
+  a document-level pointerup/pointercancel/lostpointercapture net so a release that lands
+  outside `#map-view` before capture is even claimed can't leave that guard stuck forever.
 - **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
   (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
@@ -877,9 +913,33 @@ to `127.0.0.1` only.
   only the diamond, no bar) — grouped by status in board column order with a slim label
   row per non-empty group, ids ascending within it. A fixed left gutter lists #id +
   title per row; only the timeline half scrolls horizontally. Mondays are labeled with
-  the date and a vertical "today" line marks the current day. The window spans the
-  rendered bars AND diamonds, padded 3 days each side, clamped to at most 180 days
-  centered on today (slid to stay inside the data's range) when a board sprawls wider.
+  the date and a vertical "today" line marks the current day.
+  **Sub-views** — the gantt header carries the calendar's own
+  Outlook/Teams-style switch, built the same way and reusing its exact classes
+  (`.cal-controls`/`.cal-nav`/`.cal-title`/`.cal-subview-switch`), with a leading **All**
+  entry ahead of Month | Week | 3 days | Day, persisted per board under
+  `gantt.subview` (unknown saved values fall back to All). **All** is the DEFAULT and is
+  the ORIGINAL fit-everything window unchanged: it spans the rendered bars AND diamonds,
+  padded 3 days each side, clamped to at most 180 days centered on today (slid to stay
+  inside the data's range) when a board sprawls wider — re-derived from the cards on
+  every render, same as before this sub-view switch existed. A SIZED sub-view
+  (Month/Week/3 days/Day) instead pages a fixed-span window around one anchor day
+  (`ganttSubviewWindow`, gantt-model.js; week starts Monday, 3 days = anchor + the next
+  two, month = that calendar month's own days with no leading/trailing padding — a linear
+  timeline has no week rows to square off) — prev/next/Today step it by the active
+  sub-view's span, reusing the calendar's own `shiftAnchorDay`/`subviewTitle`
+  (calendar-model.js) verbatim, since that math has nothing calendar-specific in it. The
+  arrows and Today are disabled while All is active (no anchor day to page from). Once a
+  sized sub-view makes days wide enough, the axis names every day (`dayMarkLabel`: day
+  numbers for a month, weekday and number for a week or less) instead of Mondays only. A bar
+  or diamond entirely outside whichever window is active draws nothing (its gutter label
+  still lists it); one that starts or ends outside is clipped on the cut side, exactly as
+  before — the window never drops a bar, only clips or hides its drawing. The day-column
+  width (`ganttDayPx`, gantt-model.js) is GANTT_DAY_PX (24px, horizontally scrollable)
+  for All, unchanged; a sized sub-view instead fills the scroller's measured width so its
+  whole window shows with no horizontal scroll — the SAME value then drives the drag math
+  (a live module var, set every render) so a drag still moves a bar by whole days in
+  every sub-view, keeping layout and drag math in one place exactly as GANTT_DAY_PX did.
   Bars use the map view's status palette plus the board's priority/waiting left-accent
   cues. Bars, diamonds, **and gutter labels** carry the shared grammar: click opens the
   detail popup (the label is the only click target for a bar scrolled or clipped out of
@@ -895,8 +955,12 @@ to `127.0.0.1` only.
   move the due date alone — on a compat card that also moves the rendered range's end,
   since due IS that range's end field. Same-position drops don't write. Dragging a bar
   clipped by the window edge edits the card's true dates — the visible clip edge may not
-  appear to move until the window re-derives. No dependency arrows — the map view owns
-  the `waiting_for` graph.
+  appear to move until the window re-derives. A CUT side (`.clip-start`/`.clip-end`)
+  offers no resize handle at all — that handle would sit on the window edge, not the
+  card's true date, and `barResizeChanges` always resizes the true edge, so a handle
+  drawn there would preview one date and write a different one; a press on that end of
+  the bar falls through to an ordinary body drag (shift) instead. No dependency arrows —
+  the map view owns the `waiting_for` graph.
   **Status-filter row** — a pill row above the timeline, sharing the map's pill-row
   MECHANISM: one toggle per LIVE board status in column order, all ON by default, PLUS
   an Archive pseudo-pill (same id list as the map's row) that defaults **OFF** —
@@ -930,9 +994,10 @@ to `127.0.0.1` only.
   status turns Archive off too; soloing Archive shows archived rows only);
   right-clicking the already-soloed pill again restores ALL pills on, Archive included —
   the solo rule is fully generic over its id list, so the Archive pill just joins the id
-  list the gantt feeds it. View mode persists via the shared switch; the window
-  re-derives from the cards on each poll while the timeline's horizontal scroll position
-  is carried across re-renders.
+  list the gantt feeds it. View mode persists via the shared switch; the All window
+  re-derives from the cards on each poll (a sized sub-view's window instead re-derives
+  from its own anchor day + span, not from the cards) while the timeline's horizontal
+  scroll position is carried across re-renders.
 
 ## Board config: `config.yaml`
 
@@ -972,7 +1037,7 @@ handle a card carries.
 
 - **`name`** IS the app heading — the board name alone, no app label in front of it
   (the app is a kanban; a "Kanban —" prefix only buried the one token that tells
-  boards apart) — and it leads the tab title (`<name> — Kanban`, the app named once
+  boards apart) — and it IS the tab title too (the bare name, no "Kanban" suffix,
   so side-by-side tabs stay tellable apart). Absent, both fall back to
   the **folder above the board directory** — a display default, not a name. The app
   only reads it: renaming a board is a human edit to `config.yaml`, and the first AI

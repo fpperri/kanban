@@ -3,8 +3,10 @@ const assert = require('node:assert');
 const { addDays } = require('../web/calendar-model');
 const {
   GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
-  barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel,
+  barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel, dayMarkLabel,
+  ganttBarClip,
   barShiftChanges, barResizeChanges, dueShiftChanges,
+  GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx,
 } = require('../web/gantt-model');
 
 // --- constants ----------------------------------------------------
@@ -373,6 +375,49 @@ test('weekMarkLabel renders a short "Mon D" date', () => {
   assert.strictEqual(weekMarkLabel('2025-12-01'), 'Dec 1');
 });
 
+// --- ganttBarClip: the visible slice of a bar inside a window -------------------
+// A sized sub-view's window clips bars routinely (not just past the 180-day
+// clamp), so this is the shared fact ganttBarEl's rendering AND its
+// cut-side-handle omission both read off of — a handle on a cut side sits on
+// the window edge, not the card's true date, so it must never be offered
+// (barResizeChanges always resizes the TRUE edge).
+
+test('ganttBarClip: bar fully inside the window is not clipped either side', () => {
+  const win = { startDay: '2026-09-01', endDay: '2026-09-30' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-10', endDay: '2026-09-15' }, win),
+    { clipStart: false, clipEnd: false, from: '2026-09-10', to: '2026-09-15' });
+});
+
+test('ganttBarClip: bar entirely before or after the window is null (nothing to draw)', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.strictEqual(ganttBarClip({ startDay: '2026-09-01', endDay: '2026-09-05' }, win), null);
+  assert.strictEqual(ganttBarClip({ startDay: '2026-09-20', endDay: '2026-09-25' }, win), null);
+});
+
+test('ganttBarClip: bar starting before the window clips ONLY the start edge', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-01', endDay: '2026-09-10' }, win),
+    { clipStart: true, clipEnd: false, from: '2026-09-08', to: '2026-09-10' });
+});
+
+test('ganttBarClip: bar ending after the window clips ONLY the end edge', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-12', endDay: '2026-09-20' }, win),
+    { clipStart: false, clipEnd: true, from: '2026-09-12', to: '2026-09-14' });
+});
+
+test('ganttBarClip: bar spanning past both edges clips both sides', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-01', endDay: '2026-09-25' }, win),
+    { clipStart: true, clipEnd: true, from: '2026-09-08', to: '2026-09-14' });
+});
+
+test('ganttBarClip: a bar edge exactly on the window boundary is NOT clipped there', () => {
+  const win = { startDay: '2026-09-08', endDay: '2026-09-14' };
+  assert.deepStrictEqual(ganttBarClip({ startDay: '2026-09-08', endDay: '2026-09-14' }, win),
+    { clipStart: false, clipEnd: false, from: '2026-09-08', to: '2026-09-14' });
+});
+
 // --- barShiftChanges: drag the bar body = shift the WORKING RANGE ----------------
 // Writes go to the fields the range actually used (rangeFields) —
 // real range shifts start+end, compat range shifts start+due (the used pair
@@ -558,4 +603,91 @@ test('barResizeChanges: reversed range end edge moves the used end field, start 
 
 test('barResizeChanges: unknown edge name is a defensive no-op (null)', () => {
   assert.strictEqual(barResizeChanges({ end_date: '2026-07-09' }, 'middle', 2), null);
+});
+
+// --- gantt sub-views: All / Month / Week / 3 days / Day --------------------
+
+test('GANTT_SUBVIEWS lists All first, then month / week / 3day / day', () => {
+  assert.deepStrictEqual(GANTT_SUBVIEWS, ['all', 'month', 'week', '3day', 'day']);
+});
+
+test('mergeGanttSubview passes through every known sub-view', () => {
+  for (const sv of GANTT_SUBVIEWS) assert.strictEqual(mergeGanttSubview(sv), sv);
+});
+
+test('mergeGanttSubview falls back to "all" for unknown/missing/corrupt saved values — the default keeps today\'s behaviour', () => {
+  assert.strictEqual(mergeGanttSubview('fortnight'), 'all');
+  assert.strictEqual(mergeGanttSubview(''), 'all');
+  assert.strictEqual(mergeGanttSubview(null), 'all');
+  assert.strictEqual(mergeGanttSubview(undefined), 'all');
+  assert.strictEqual(mergeGanttSubview('month'.toUpperCase()), 'all'); // case-sensitive, same as mergeCalendarSubview
+});
+
+// --- ganttSubviewWindow: the day-range a SIZED sub-view shows --------------
+
+test('ganttSubviewWindow "all" is null — the caller falls back to ganttWindow', () => {
+  assert.strictEqual(ganttSubviewWindow('all', '2026-07-09'), null);
+});
+
+test('ganttSubviewWindow week: Monday-to-Sunday of the anchor week, 7 days, same convention as the calendar', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('week', '2026-07-09'),
+    { startDay: '2026-07-06', endDay: '2026-07-12', days: 7 });
+  assert.strictEqual(ganttSubviewWindow('week', '2026-07-12').startDay, '2026-07-06'); // Sunday belongs to the preceding Monday
+});
+
+test('ganttSubviewWindow 3day: the anchor plus the next two days, 3 days total', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('3day', '2026-07-30'),
+    { startDay: '2026-07-30', endDay: '2026-08-01', days: 3 }); // across a month end
+});
+
+test('ganttSubviewWindow day: just the anchor, 1 day', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('day', '2026-07-09'),
+    { startDay: '2026-07-09', endDay: '2026-07-09', days: 1 });
+});
+
+test('ganttSubviewWindow month: the whole calendar month, no leading/trailing padding (unlike monthGrid)', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2026-07-15'),
+    { startDay: '2026-07-01', endDay: '2026-07-31', days: 31 });
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2026-02-01'), // non-leap Feb
+    { startDay: '2026-02-01', endDay: '2026-02-28', days: 28 });
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2028-02-15'), // leap Feb
+    { startDay: '2028-02-01', endDay: '2028-02-29', days: 29 });
+});
+
+test('ganttSubviewWindow month across a year boundary', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2026-12-25'),
+    { startDay: '2026-12-01', endDay: '2026-12-31', days: 31 });
+});
+
+// --- ganttDayPx: adaptive day width for a sized sub-view --------------------
+
+test('ganttDayPx "all" always returns the fixed GANTT_DAY_PX, regardless of days/width — unchanged behaviour', () => {
+  assert.strictEqual(ganttDayPx('all', 7, 700), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('all', 180, 50), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('all', 0, 0), GANTT_DAY_PX);
+});
+
+test('ganttDayPx fills the scroller: width / days for a sized sub-view', () => {
+  assert.strictEqual(ganttDayPx('week', 7, 700), 100);
+  assert.strictEqual(ganttDayPx('day', 1, 300), 300);
+  assert.strictEqual(ganttDayPx('month', 31, 620), 20);
+});
+
+test('ganttDayPx falls back to GANTT_DAY_PX for a non-positive or unmeasured scroller width', () => {
+  assert.strictEqual(ganttDayPx('week', 7, 0), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('week', 7, -10), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('week', 7, undefined), GANTT_DAY_PX);
+});
+
+test('ganttDayPx falls back to GANTT_DAY_PX when days is 0/falsy (defensive — a sized window is never actually empty)', () => {
+  assert.strictEqual(ganttDayPx('week', 0, 700), GANTT_DAY_PX);
+});
+
+test('dayMarkLabel names each day once a sized sub-view makes days wide enough', () => {
+  assert.strictEqual(dayMarkLabel('2026-09-21', 24), null, 'the fit-everything scale keeps Monday marks only');
+  assert.strictEqual(dayMarkLabel('2026-09-21', 27.9), null);
+  assert.strictEqual(dayMarkLabel('2026-09-21', 44), '21', 'a month-wide window shows day numbers');
+  assert.strictEqual(dayMarkLabel('2026-10-01', 44), '1', 'the view title names the month');
+  assert.strictEqual(dayMarkLabel('2026-09-21', 160), 'Mon 21', 'a week or narrower names the weekday');
+  assert.strictEqual(dayMarkLabel('2026-09-27', 1100), 'Sun 27');
 });
