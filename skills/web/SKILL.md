@@ -744,23 +744,38 @@ to `127.0.0.1` only.
   the `.map-view` panel with the pointer, grab/grabbing cursor, primary button only. A
   drag starting on a node still pans once the pointer clears a small threshold; that
   gesture's click is suppressed so the card doesn't also open, but a plain click under
-  the threshold opens it as always — same pointer-capture drag-vs-click shape the gantt's
-  bar drag already uses (see Gantt view below), reused rather than duplicated. The pill
-  row, section header and the "No dependencies" row are outside the drag surface, so
-  filter clicks, the collapse chevron and text selection there are untouched. A zoom
-  toolbar (−/percentage/+/Fit) rides right after the filter row: the buttons step the
-  zoom multiplicatively (25%–200%) around the panel's center; Ctrl+wheel (what a trackpad
-  pinch sends) zooms around the point under the pointer, `preventDefault`ed so it never
-  falls through to the browser's own page zoom; Fit sets the largest zoom (capped at
-  100%) that shows the whole graph. Zoom scales the SVG's `width`/`height` attributes
-  with the `viewBox` held fixed, so text/strokes stay crisp at any zoom and the panel's
-  scroll range matches exactly what a CSS transform would decouple. All four calculations
-  — clamp/step, the scroll offset that keeps a zoom's anchor point fixed, the fit zoom for
-  a graph/panel size, and the drag-vs-click threshold — live in map-zoom.js (pure,
-  unit-tested). The chosen zoom persists per board in `localStorage` (`map.zoom`, same
+  the threshold opens it as always. Pointer capture (drag-vs-click threshold shape shared
+  with the gantt's bar drag, see Gantt view below) is claimed on `#map-view` itself — a
+  delegated parent, not the specific node pressed — and deliberately deferred until the
+  drag clears the threshold: claiming it at pointerdown retargets the click that follows
+  EVERY press (including an unmoved one) to the container, which broke plain-click/
+  Ctrl-click on a node entirely (2026-09-25 review, #280). The pill row, section header
+  and the "No dependencies" row are outside the drag surface, so filter clicks, the
+  collapse chevron and text selection there are untouched. A zoom toolbar
+  (−/percentage/+/Fit) rides right after the filter row: the buttons step the zoom by one
+  rung of a 1.25^n ladder (25%–200%) around the panel's center, rounding the current zoom
+  to its nearest rung before each step so true size (100%) stays reachable even after a
+  clamp at either edge; Ctrl+wheel (what a trackpad pinch sends) zooms continuously from
+  the wheel event's own delta around the point under the pointer (a fixed rung per event
+  made a pinch's burst of small deltas hit the clamp in a handful of events), anchored
+  against the SVG's actual on-screen origin — not the panel's raw (0,0) — since the
+  panel's own padding and the rows above the graph don't scale with zoom;
+  `preventDefault`ed so it never falls through to the browser's own page zoom. Fit sets
+  the largest zoom (capped at 100%) that shows the whole graph, measured against the space
+  actually left for it once the panel's padding and those same rows above are subtracted
+  out. Zoom scales the SVG's `width`/`height` attributes with the `viewBox` held fixed, so
+  text/strokes stay crisp at any zoom and the panel's scroll range matches exactly what a
+  CSS transform would decouple. The calculations — clamp/step, the continuous wheel
+  factor, the scroll offset that keeps a zoom's anchor point fixed (origin-aware), the fit
+  zoom for a graph/panel size, and the drag-vs-click threshold — live in map-zoom.js
+  (pure, unit-tested); the DOM measurements that feed them (the SVG's origin within the
+  scroll area, the panel's padding) are app.js's own job, since map-zoom.js stays
+  DOM-free. The chosen zoom persists per board in `localStorage` (`map.zoom`, same
   per-board convention as the status filter/section collapse) and survives the poll,
   a popup opening/closing, and a reload; a poll tick is skipped for the whole pan gesture
-  the same way it already skips for every other pointer-capture drag (`isDragging`).
+  the same way it already skips for every other pointer-capture drag (`isDragging`), with
+  a document-level pointerup/pointercancel/lostpointercapture net so a release that lands
+  outside `#map-view` before capture is even claimed can't leave that guard stuck forever.
 - **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
   (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the

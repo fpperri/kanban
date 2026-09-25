@@ -2670,7 +2670,11 @@ window.addEventListener('DOMContentLoaded', () => {
 // against a grid of drop targets) plus the zoom toolbar/Ctrl+wheel actions.
 // One delegated pointerdown/move/up/cancel set on the stable #map-view
 // parent (wired once, see wireMapPanZoom below) — per-render rewiring isn't
-// needed, same as the click/contextmenu listeners above.
+// needed, same as the click/contextmenu listeners above. Unlike the gantt's
+// drag, capture is claimed on #map-view itself (a delegated parent, not the
+// specific node pressed) and only once the gesture clears the drag
+// threshold — see the pointerdown/pointermove handlers' own comments for why
+// capturing any earlier breaks plain clicks.
 
 // Scoped to `.map-canvas` (the graph SVG itself) so pan can start from
 // EITHER empty background OR a node — "a drag that starts on a card node
@@ -2699,6 +2703,29 @@ function suppressMapPanPhantomClick() {
   setTimeout(() => { mapPanClickSuppressed = false; }, 0);
 }
 
+// Where the SVG's own top-left corner sits, in the SAME scroll-content
+// coordinate space container.scrollLeft/scrollTop address — NOT (0,0).
+// #map-view's own padding plus the filter row, zoom row and section header
+// above the graph all sit between the panel's scroll origin and the SVG,
+// and none of them scale with zoom. mapZoomPanOffset/fitMapZoom's callers
+// need this as a fixed origin so only the SVG's own content scales
+// (2026-09-25 review, #280 — a zero origin drifted the zoom anchor by
+// origin*(ratio-1) per step, and made Fit measure against the whole panel
+// instead of the space actually left for the graph).
+// Scroll-invariant by construction: subtracting the panel's own current
+// scrollLeft/scrollTop out of the SVG's on-screen position cancels whatever
+// the panel happens to be scrolled to right now, leaving just the fixed
+// layout offset (padding + the rows above), which doesn't change with zoom
+// OR scroll.
+function mapSvgOrigin(container, svg) {
+  const panelRect = container.getBoundingClientRect();
+  const svgRect = svg.getBoundingClientRect();
+  return {
+    originX: svgRect.left - panelRect.left - container.clientLeft + container.scrollLeft,
+    originY: svgRect.top - panelRect.top - container.clientTop + container.scrollTop,
+  };
+}
+
 // Applies a new zoom around one anchor point (in the panel's OWN viewport
 // coordinates — see map-zoom.js's mapZoomPanOffset) and re-renders: computed
 // BEFORE the zoom/render change (against the CURRENT zoom's content
@@ -2709,9 +2736,11 @@ function suppressMapPanPhantomClick() {
 // nothing paints in between).
 function zoomMapAt(newZoom, anchorX, anchorY) {
   const container = $('#map-view');
+  const svg = container.querySelector('.map-canvas');
   const oldZoom = loadMapZoom();
   const clamped = clampMapZoom(newZoom);
   if (clamped === oldZoom) return;
+  const origin = svg ? mapSvgOrigin(container, svg) : { originX: 0, originY: 0 };
   const offset = mapZoomPanOffset({
     scrollLeft: container.scrollLeft,
     scrollTop: container.scrollTop,
@@ -2719,6 +2748,8 @@ function zoomMapAt(newZoom, anchorX, anchorY) {
     pointerY: anchorY,
     oldZoom,
     newZoom: clamped,
+    originX: origin.originX,
+    originY: origin.originY,
   });
   setMapZoom(clamped);
   renderMapView();
@@ -2740,11 +2771,30 @@ function zoomMapStep(direction) {
 // No anchor math — once the whole graph fits, there's nothing to scroll to,
 // so this sets the zoom directly and resets scroll to the top-left corner
 // rather than reusing zoomMapAt's pointer-preserving offset.
+//
+// container.clientWidth/clientHeight is the panel's PADDING box — it
+// includes #map-view's own 14px padding on every side, AND clientHeight
+// includes the filter row/zoom row/section header space above the SVG,
+// none of which the graph can actually draw into. Passing those raw to
+// fitMapZoom measured against space the graph doesn't have, so Fit
+// undershot and the graph's bottom edge (or right edge, width-bound) still
+// needed scrolling to see (2026-09-25 review, #280). The available box:
+// width is clientWidth minus the left+right padding (nothing else sits
+// beside the SVG horizontally); height is clientHeight minus the SVG's own
+// top offset in content space (mapSvgOrigin — padding-top plus every row
+// above it) minus the bottom padding.
 function zoomMapFit() {
   const container = $('#map-view');
   const svg = container.querySelector('.map-canvas');
   if (!svg) return; // collapsed section, or no graph at all — nothing to fit
-  const fit = fitMapZoom(Number(svg.dataset.logicalWidth), Number(svg.dataset.logicalHeight), container.clientWidth, container.clientHeight);
+  const style = getComputedStyle(container);
+  const padLeft = parseFloat(style.paddingLeft) || 0;
+  const padRight = parseFloat(style.paddingRight) || 0;
+  const padBottom = parseFloat(style.paddingBottom) || 0;
+  const { originY } = mapSvgOrigin(container, svg);
+  const availableWidth = container.clientWidth - padLeft - padRight;
+  const availableHeight = container.clientHeight - originY - padBottom;
+  const fit = fitMapZoom(Number(svg.dataset.logicalWidth), Number(svg.dataset.logicalHeight), availableWidth, availableHeight);
   setMapZoom(fit);
   renderMapView();
   container.scrollLeft = 0;
@@ -2775,7 +2825,19 @@ function wireMapPanZoom() {
       startScrollTop: container.scrollTop,
       moved: false,
     };
-    container.setPointerCapture(e.pointerId);
+    // No setPointerCapture here — deferred to pointermove, once the drag
+    // clears the threshold (below). Unlike the gantt's own drag (which
+    // captures on the specific barEl it started on, so a retargeted click
+    // still lands on that same element), this capture target is the
+    // DELEGATED #map-view container. Capturing immediately retargets the
+    // compatibility `click` (and mouseup) that follows EVERY press —
+    // including a plain, unmoved one — to the container itself, never the
+    // node/stub actually pressed. The shared card-el grammar's
+    // `e.target.closest('.card-el')` then finds nothing on #map-view, so a
+    // plain click stopped opening cards and Ctrl/Shift-click stopped
+    // selecting (2026-09-25 review, #280 — blocker). Once the gesture IS a
+    // real drag the resulting click is suppressed outright by
+    // suppressMapPanPhantomClick below, so its target no longer matters.
     isDragging = true; // poll guard for the whole gesture, released in finish() — same flag/contract the board/calendar/gantt drags already share (autoRefreshSkipState, the contextmenu guards)
     e.preventDefault(); // no text selection mid-drag over node/edge SVG text
   });
@@ -2785,6 +2847,11 @@ function wireMapPanZoom() {
     const dy = e.clientY - mapPan.startY;
     if (!mapPan.moved && mapDragExceededThreshold(dx, dy, MAP_DRAG_THRESHOLD)) {
       mapPan.moved = true;
+      // Capture now — the gesture is a confirmed drag, so retargeting the
+      // eventual click (blocked below by suppressMapPanPhantomClick) no
+      // longer breaks anything, and capture keeps the drag tracking the
+      // pointer even past the panel's own edges.
+      container.setPointerCapture(mapPan.pointerId);
       container.classList.add('map-panning'); // grabbing cursor — see .map-view.map-panning in app.css
     }
     if (!mapPan.moved) return; // under threshold: still a candidate click, don't scroll yet
@@ -2804,6 +2871,23 @@ function wireMapPanZoom() {
   };
   container.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
   container.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  // Capture can end without either event above — the browser drops it
+  // implicitly (e.g. another element steals capture, or #map-view's own
+  // innerHTML gets rebuilt out from under an active capture by some other
+  // path). Treat that the same as a release, so the gesture can never end
+  // in a state pointerup/pointercancel would have cleaned up.
+  container.addEventListener('lostpointercapture', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  // Deferred capture (above) means an UNMOVED press's release can land
+  // outside #map-view — right at the panel's edge, or in the sliver before
+  // the gesture crosses the threshold — where the container's own pointerup
+  // listener above never sees it. Without this net, mapPan/isDragging would
+  // stay set forever and freeze the 5s poll for the WHOLE app, not just the
+  // map (2026-09-25 review, #280). Document-level so it always sees the
+  // release regardless of target; finish() itself is idempotent (no-ops
+  // once mapPan is already null), so this never double-fires against the
+  // container listeners above.
+  document.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  document.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
   // Ctrl+wheel (also what a trackpad pinch sends) zooms around the pointer;
   // a plain wheel keeps the panel's native scroll. Non-passive — the
   // preventDefault below is what stops the browser's own page-zoom/scroll on
@@ -2815,7 +2899,11 @@ function wireMapPanZoom() {
     if (!e.target.closest || !e.target.closest('.map-canvas')) return;
     e.preventDefault();
     const rect = container.getBoundingClientRect();
-    zoomMapAt(stepMapZoom(loadMapZoom(), e.deltaY < 0 ? 1 : -1), e.clientX - rect.left, e.clientY - rect.top);
+    // Continuous (stepMapZoomByWheel), not the buttons' fixed-rung
+    // stepMapZoom — a trackpad pinch fires a burst of these with small
+    // deltaY each, and one full rung per event used to reach the zoom
+    // clamp in about four events (2026-09-25 review, #280).
+    zoomMapAt(stepMapZoomByWheel(loadMapZoom(), e.deltaY, e.deltaMode), e.clientX - rect.left, e.clientY - rect.top);
   }, { passive: false });
 }
 
