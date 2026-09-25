@@ -2287,6 +2287,51 @@ function closeDetailModal() {
   $('#detail-modal').classList.add('hidden');
 }
 
+// Opening/closing the detail popup as real browser-history steps
+// (kanban.proj#277), so Alt+Left/Alt+Right, the mouse back/forward buttons,
+// and the browser's own arrows all step between opened cards natively — no
+// separate keyboard shortcut to fight them. card-history.js owns the pure
+// "what URL, if any" decision; these two just apply it around the existing
+// open/close. Every call site that opens or closes the popup from a live
+// user gesture (tile, mention, tray, map ghost, close button, backdrop, Esc,
+// archive/delete) goes through openCard/closeCard instead of
+// openDetailModal/closeDetailModal directly. The popstate listener below is
+// the one deliberate exception — it applies openDetailModal/closeDetailModal
+// straight, so a Back/Forward-driven open or close never pushes a step of
+// its own (no loop). consumeDeepLink (initial load) is the other exception:
+// the URL already carries the id, so there is nothing to push.
+function pushCardHistoryStep(targetId) {
+  const search = nextCardHistorySearch(location.search, targetId);
+  if (search == null) return; // already there — no duplicate entry
+  history.pushState(null, '', location.pathname + search);
+}
+
+async function openCard(id) {
+  pushCardHistoryStep(id);
+  await openDetailModal(id);
+}
+
+function closeCard() {
+  pushCardHistoryStep(null);
+  closeDetailModal();
+}
+
+// Back/Forward (mouse buttons, the browser's own arrows, and — because
+// there's no competing keyboard handler — Alt+Left/Alt+Right) land here.
+// location.search is already the DESTINATION url by the time this fires, so
+// reading it off cardIdFromSearch is enough to know what to show; nothing
+// here calls pushCardHistoryStep, or this would push a fresh step for every
+// step the user just took. A card id that parses but no longer matches any
+// active/archived card closes quietly — unlike consumeDeepLink's toast on
+// first load, routine Back/Forward traffic over a stale ref must not spam a
+// toast on every step.
+window.addEventListener('popstate', () => {
+  const id = cardIdFromSearch(location.search);
+  const card = id == null ? null : state.active.concat(state.archived).find((c) => c.id === id);
+  if (card) openDetailModal(id);
+  else closeDetailModal();
+});
+
 // Edit layers the existing card-form modal over the (now closed) detail popup;
 // closing first guarantees no stale detail view is left behind on return.
 function editFromDetail() {
@@ -2298,7 +2343,7 @@ function editFromDetail() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  $('#detail-close').addEventListener('click', closeDetailModal);
+  $('#detail-close').addEventListener('click', closeCard);
   $('#detail-copy-btn').addEventListener('click', copyDetailPath);
   // A mention of a card on this board opens that card, in the body and in the
   // frontmatter's parent field alike.
@@ -2306,7 +2351,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const m = e.target.closest('code.mention.same');
     if (!m || (e.type === 'keydown' && e.key !== 'Enter')) return;
     e.preventDefault();
-    await openDetailModal(Number(m.dataset.cardId));
+    await openCard(Number(m.dataset.cardId));
     $('#detail-modal .modal').scrollTop = 0; // the new card opens at its top, not at the old card's scroll
   };
   $('#detail-modal').addEventListener('click', openMentionedCard);
@@ -2315,13 +2360,13 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#detail-archive-btn').addEventListener('click', () => {
     // Belt-and-suspenders: the button is hidden for archived cards, but never
     // let this path reach doArchive on one even if that ever fails to apply.
-    if (currentDetailId != null && !currentDetailArchived) doArchive(currentDetailId, { onSuccess: closeDetailModal });
+    if (currentDetailId != null && !currentDetailArchived) doArchive(currentDetailId, { onSuccess: closeCard });
   });
   $('#detail-delete-btn').addEventListener('click', () => {
-    if (currentDetailId != null) doDelete(currentDetailId, { onSuccess: closeDetailModal });
+    if (currentDetailId != null) doDelete(currentDetailId, { onSuccess: closeCard });
   });
   $('#detail-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('detail'));
-  $('#detail-modal').addEventListener('click', (e) => { if (e.target.id === 'detail-modal') closeDetailModal(); });
+  $('#detail-modal').addEventListener('click', (e) => { if (e.target.id === 'detail-modal') closeCard(); });
   // Esc priority: fullscreen is out of the Esc picture entirely.
   // An open detail popup closes on the very first Esc regardless of its
   // fullscreen state. The edit/new-card modal closes on Esc too — through
@@ -2343,7 +2388,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
-    if (!$('#detail-modal').classList.contains('hidden')) { closeDetailModal(); return; }
+    if (!$('#detail-modal').classList.contains('hidden')) { closeCard(); return; }
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
@@ -2526,7 +2571,7 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const stub = e.target.closest('.map-node.ghost[data-id]');
-    if (stub) openDetailModal(Number(stub.dataset.id));
+    if (stub) openCard(Number(stub.dataset.id));
   });
   // Right-click a status-filter pill SOLOs it (every other pill
   // off); right-click the already-soloed pill again restores all ON. Own
@@ -3870,7 +3915,7 @@ async function openMentionFromTray(e) {
   const m = e.target.closest('code.mention.same');
   if (!m) return;
   e.preventDefault();
-  await openDetailModal(Number(m.dataset.cardId));
+  await openCard(Number(m.dataset.cardId));
   if (!$('#detail-modal').classList.contains('hidden')) closeNotifModal();
 }
 
@@ -4388,7 +4433,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // Plain click breaks any selection, then just opens the card as always.
     selectionAnchor = null;
     if (selectedIds.size) { selectedIds = new Set(); renderBoard(); }
-    openDetailModal(id);
+    openCard(id);
   });
   // Right-click on any card-el opens the bulk menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page).

@@ -610,6 +610,26 @@ to `127.0.0.1` only.
     the URL. Pure querystring parsing lives in `deep-link.js` (dual-environment export,
     same pattern as `refresh-policy.js`/`search-hotkey.js`); the search box, the view
     switch, the popup, and the scroll are app.js's job.
+- **Card popup history (Alt+Left/Alt+Right)** — opening the detail popup, from any
+  surface (a tile, a mention chip in a card body or the parent field, the notification
+  tray, or a map ghost node), and closing it are each a step in the browser's OWN
+  history: opening pushes a URL carrying `?card=<id>` (the other deep-link params
+  already on the URL — `q`, `view` — ride along untouched), closing pushes one with
+  `card` removed. That makes **Alt+Left/Alt+Right, the mouse back/forward buttons, and
+  the browser's own arrows all step between opened cards natively** — deliberately no
+  separate keyboard shortcut, so nothing fights the browser's own. Opening the card the
+  URL already names (clicking the same tile twice, or a mention of the card already
+  open) pushes nothing — no duplicate steps. A `popstate` (Back/Forward) reads the
+  landed-on URL and opens the named card or closes the popup to match; a card id that no
+  longer resolves to any active or archived card closes quietly, no toast — routine
+  Back/Forward traffic over a stale ref isn't a broken link the way a hand-typed deep
+  link's bad id is. Reloading with a card open still goes through the deep link above,
+  unchanged — the URL already carries the id, so there's nothing new to push. The
+  push/no-op decision and the popstate-to-action read are both pure, in `card-history.js`
+  (dual-environment export, same pattern as `deep-link.js`); app.js's `openCard`/
+  `closeCard` wrappers apply it around `openDetailModal`/`closeDetailModal`, and the
+  `popstate` listener calls those two directly (never the wrappers), so a Back/Forward-
+  driven open or close never pushes a step of its own.
 - **Copy board path** — a small ⧉ button inside the header title copies the board
   directory's **absolute path** (the `GET /api/board` payload carries it as `boardDir`,
   `path.resolve`d server-side — a relative path is useless pasted elsewhere). Same

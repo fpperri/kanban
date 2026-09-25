@@ -2582,8 +2582,8 @@ test('Esc closes the open popup directly on the first press — no exit-fullscre
   assert.doesNotMatch(body, /openFullscreenModalType/, 'Esc no longer looks up which modal is fullscreen');
   assert.doesNotMatch(body, /setModalFullscreenVisual/,
     'Esc never flips fullscreen — the persisted #20 preference and the toggle button stay untouched');
-  assert.match(body, /if \(!\$\('#detail-modal'\)\.classList\.contains\('hidden'\)\) \{ closeDetailModal\(\); return; \}/,
-    'an open detail popup closes on the very first Esc, fullscreen or not');
+  assert.match(body, /if \(!\$\('#detail-modal'\)\.classList\.contains\('hidden'\)\) \{ closeCard\(\); return; \}/,
+    'an open detail popup closes on the very first Esc, fullscreen or not (closeCard: a real close is also a history step — kanban.proj#277)');
   assert.match(body, /if \(!\$\('#modal'\)\.classList\.contains\('hidden'\)\) \{ requestCloseModal\(\); return; \}/,
     'the edit/new-card modal now closes on Esc through the #26 unsaved-changes guard, same call the X button makes');
   // Before this, a fullscreen-capable bulk popup (bulkSingle/
