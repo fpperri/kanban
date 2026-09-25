@@ -432,8 +432,11 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.waiting { border-left: 3px solid var(--id-waiting); }
 .card.dragging { opacity: 0.4; }
 .card.archived-card { cursor: pointer; opacity: 0.82; }
-.card-head { display: flex; align-items: center; gap: 4px; }
-.card-id { color: var(--mut); font-size: 0.8em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+/* The head wraps: a tile carrying its id, priority, assignee and both stickers
+   moves the overflow to a second line instead of running under the date stack
+   beside it. The id keeps its priority label on the same line. */
+.card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.card-id { white-space: nowrap; color: var(--mut); font-size: 0.8em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 /* Raw-status chip on a tile whose on-disk status isn't in the
    board's statuses list — parked in the first column until promoted.
    Uppercase + tracked, near-square radius — the shop status page's .chip
