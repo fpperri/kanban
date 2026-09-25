@@ -25,8 +25,15 @@ const GANTT_MAX_DAYS = 180;
 // Width of one day column in px. Lives here — not in the CSS — because the
 // drag math divides by it (day delta = round(dx / GANTT_DAY_PX)); app.js
 // writes all timeline geometry inline from this constant so layout and drag
-// arithmetic can't drift apart.
+// arithmetic can't drift apart. It's also the FIXED scale the 'all' sub-view
+// keeps (ganttDayPx below) — the one that made today's behaviour, unchanged.
 const GANTT_DAY_PX = 24;
+
+// Own name, not calendar-model's `pad2` — that one is deliberately unexported
+// (internal, like calendar-model's own comment says), and BOTH files share
+// one global script scope in the browser (classic <script> tags, not
+// modules), so two top-level `const pad2` would collide at parse time.
+const ganttPad2 = (n) => String(n).padStart(2, '0');
 
 // --- bar span: which days does a card's bar cover? ---------------------------
 // The bar is the WORKING RANGE, reusing cardSchedule's shapes
@@ -192,6 +199,67 @@ function ganttWindow(spans, today, maxDays) {
   return { startDay: start, endDay: CAL.addDays(start, max - 1), days: max, clamped: true };
 }
 
+// === gantt sub-views (All / Month / Week / 3 days / Day) ==================
+// Same Outlook-style switcher as the calendar's (calendar-model.js's
+// CALENDAR_SUBVIEWS), plus a leading 'all' entry that keeps the ORIGINAL
+// fit-everything window (ganttWindow above) as the DEFAULT — a human who
+// never touches the switcher keeps today's exact behaviour. Persisted per
+// board under storageKey(projectName, 'gantt.subview'), same defensive
+// merge stance as mergeCalendarSubview.
+
+const GANTT_SUBVIEWS = ['all', 'month', 'week', '3day', 'day'];
+
+function mergeGanttSubview(saved) {
+  return GANTT_SUBVIEWS.includes(saved) ? saved : 'all';
+}
+
+// The day-range a SIZED sub-view (everything but 'all') shows around its
+// anchor day — a continuous {startDay, endDay, days} timeline window, NOT
+// calendar-model's day-COLUMN list (the gantt has no per-day grid to build,
+// just one continuous scale). week/3day/day mirror calendarSubviewDays'
+// spans verbatim (Monday-start week — CAL.weekStartOf — rolling 3day, solo
+// day); month is the WHOLE calendar month's own days, no leading/trailing
+// padding (a linear timeline has no week rows to square off, unlike
+// monthGrid's grid). Returns null for 'all', whose window is ganttWindow's
+// own data-fitted math instead — the caller (renderGanttView, app.js)
+// branches on that, same as calendarSubviewDays returning null for 'month'.
+function ganttSubviewWindow(subview, anchorDay) {
+  if (subview === 'week') {
+    const start = CAL.weekStartOf(anchorDay);
+    return { startDay: start, endDay: CAL.addDays(start, 6), days: 7 };
+  }
+  if (subview === '3day') {
+    return { startDay: anchorDay, endDay: CAL.addDays(anchorDay, 2), days: 3 };
+  }
+  if (subview === 'day') {
+    return { startDay: anchorDay, endDay: anchorDay, days: 1 };
+  }
+  if (subview === 'month') {
+    const [y, m] = anchorDay.split('-').map(Number);
+    const start = `${y}-${ganttPad2(m)}-01`;
+    const next = CAL.shiftMonth(y, m - 1, 1);
+    const end = CAL.addDays(`${next.year}-${ganttPad2(next.monthIndex + 1)}-01`, -1);
+    return { startDay: start, endDay: end, days: CAL.diffDays(start, end) + 1 };
+  }
+  return null; // 'all' — caller uses ganttWindow instead
+}
+
+// --- adaptive day width: a sized sub-view FILLS the scroller ------------
+// 'all' keeps the FIXED GANTT_DAY_PX (today's exact behaviour: a wide,
+// horizontally-scrollable timeline). A sized sub-view (month/week/3day/day)
+// instead spreads its `days` across the scroller's measured width so the
+// WHOLE window is visible with no horizontal scroll. The render AND the drag
+// math (app.js) both read this SAME return value for the SAME render — one
+// place computing the pixel scale, same property GANTT_DAY_PX's own comment
+// already claims for the day-delta math, now extended to a variable scale.
+// Defensive floor: a non-positive/unmeasured scroller width (e.g. a render
+// before first layout) falls back to the fixed constant rather than
+// dividing by zero or going negative.
+function ganttDayPx(subview, days, scrollerWidth) {
+  if (subview === 'all' || !days || !(scrollerWidth > 0)) return GANTT_DAY_PX;
+  return Math.max(1, scrollerWidth / days);
+}
+
 // --- week marks ------------------------------------------------------------------
 
 function isMonday(day) {
@@ -291,6 +359,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
     barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel,
     barShiftChanges, barResizeChanges, dueShiftChanges,
+    GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx, // sub-views
   };
 } else {
   window.GANTT_STATUS_ORDER = GANTT_STATUS_ORDER;
@@ -307,4 +376,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.barShiftChanges = barShiftChanges;
   window.barResizeChanges = barResizeChanges;
   window.dueShiftChanges = dueShiftChanges;
+  window.GANTT_SUBVIEWS = GANTT_SUBVIEWS; // sub-views
+  window.mergeGanttSubview = mergeGanttSubview;
+  window.ganttSubviewWindow = ganttSubviewWindow;
+  window.ganttDayPx = ganttDayPx;
 }

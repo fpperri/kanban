@@ -5,6 +5,7 @@ const {
   GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
   barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel,
   barShiftChanges, barResizeChanges, dueShiftChanges,
+  GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx,
 } = require('../web/gantt-model');
 
 // --- constants ----------------------------------------------------
@@ -558,4 +559,82 @@ test('barResizeChanges: reversed range end edge moves the used end field, start 
 
 test('barResizeChanges: unknown edge name is a defensive no-op (null)', () => {
   assert.strictEqual(barResizeChanges({ end_date: '2026-07-09' }, 'middle', 2), null);
+});
+
+// --- gantt sub-views: All / Month / Week / 3 days / Day --------------------
+
+test('GANTT_SUBVIEWS lists All first, then month / week / 3day / day', () => {
+  assert.deepStrictEqual(GANTT_SUBVIEWS, ['all', 'month', 'week', '3day', 'day']);
+});
+
+test('mergeGanttSubview passes through every known sub-view', () => {
+  for (const sv of GANTT_SUBVIEWS) assert.strictEqual(mergeGanttSubview(sv), sv);
+});
+
+test('mergeGanttSubview falls back to "all" for unknown/missing/corrupt saved values — the default keeps today\'s behaviour', () => {
+  assert.strictEqual(mergeGanttSubview('fortnight'), 'all');
+  assert.strictEqual(mergeGanttSubview(''), 'all');
+  assert.strictEqual(mergeGanttSubview(null), 'all');
+  assert.strictEqual(mergeGanttSubview(undefined), 'all');
+  assert.strictEqual(mergeGanttSubview('month'.toUpperCase()), 'all'); // case-sensitive, same as mergeCalendarSubview
+});
+
+// --- ganttSubviewWindow: the day-range a SIZED sub-view shows --------------
+
+test('ganttSubviewWindow "all" is null — the caller falls back to ganttWindow', () => {
+  assert.strictEqual(ganttSubviewWindow('all', '2026-07-09'), null);
+});
+
+test('ganttSubviewWindow week: Monday-to-Sunday of the anchor week, 7 days, same convention as the calendar', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('week', '2026-07-09'),
+    { startDay: '2026-07-06', endDay: '2026-07-12', days: 7 });
+  assert.strictEqual(ganttSubviewWindow('week', '2026-07-12').startDay, '2026-07-06'); // Sunday belongs to the preceding Monday
+});
+
+test('ganttSubviewWindow 3day: the anchor plus the next two days, 3 days total', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('3day', '2026-07-30'),
+    { startDay: '2026-07-30', endDay: '2026-08-01', days: 3 }); // across a month end
+});
+
+test('ganttSubviewWindow day: just the anchor, 1 day', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('day', '2026-07-09'),
+    { startDay: '2026-07-09', endDay: '2026-07-09', days: 1 });
+});
+
+test('ganttSubviewWindow month: the whole calendar month, no leading/trailing padding (unlike monthGrid)', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2026-07-15'),
+    { startDay: '2026-07-01', endDay: '2026-07-31', days: 31 });
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2026-02-01'), // non-leap Feb
+    { startDay: '2026-02-01', endDay: '2026-02-28', days: 28 });
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2028-02-15'), // leap Feb
+    { startDay: '2028-02-01', endDay: '2028-02-29', days: 29 });
+});
+
+test('ganttSubviewWindow month across a year boundary', () => {
+  assert.deepStrictEqual(ganttSubviewWindow('month', '2026-12-25'),
+    { startDay: '2026-12-01', endDay: '2026-12-31', days: 31 });
+});
+
+// --- ganttDayPx: adaptive day width for a sized sub-view --------------------
+
+test('ganttDayPx "all" always returns the fixed GANTT_DAY_PX, regardless of days/width — unchanged behaviour', () => {
+  assert.strictEqual(ganttDayPx('all', 7, 700), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('all', 180, 50), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('all', 0, 0), GANTT_DAY_PX);
+});
+
+test('ganttDayPx fills the scroller: width / days for a sized sub-view', () => {
+  assert.strictEqual(ganttDayPx('week', 7, 700), 100);
+  assert.strictEqual(ganttDayPx('day', 1, 300), 300);
+  assert.strictEqual(ganttDayPx('month', 31, 620), 20);
+});
+
+test('ganttDayPx falls back to GANTT_DAY_PX for a non-positive or unmeasured scroller width', () => {
+  assert.strictEqual(ganttDayPx('week', 7, 0), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('week', 7, -10), GANTT_DAY_PX);
+  assert.strictEqual(ganttDayPx('week', 7, undefined), GANTT_DAY_PX);
+});
+
+test('ganttDayPx falls back to GANTT_DAY_PX when days is 0/falsy (defensive — a sized window is never actually empty)', () => {
+  assert.strictEqual(ganttDayPx('week', 0, 700), GANTT_DAY_PX);
 });
