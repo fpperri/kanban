@@ -219,7 +219,7 @@ test('an epic card keeps its orange wash while hovered, layered over the hover t
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   const rule = css.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
   assert.ok(rule, 'a 3-class epic+hover rule exists, so it beats both 2-class rules regardless of order');
-  assert.ok(rule.includes('linear-gradient(rgba(240, 136, 62, 0.12), rgba(240, 136, 62, 0.12)), var(--hover-wash)'),
+  assert.ok(rule.includes('linear-gradient(var(--epic-wash), var(--epic-wash)), var(--hover-wash)'),
     'the epic wash LAYERS over the hover tone rather than substituting it');
   assert.ok(rule.includes('.cal-chip.epic.hover-highlight'), 'the calendar chip is covered by the same rule');
   assert.ok(rule.includes('.gantt-label.epic.hover-highlight'), 'and the gantt label');

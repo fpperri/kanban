@@ -171,6 +171,41 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     assert.ok(ground >= 1.05, `--raised on --surface is ${ground.toFixed(2)}:1, no visible ground`);
   });
 
+  // --- status identity: column headers, assignee chips, badges and dates are
+  // text, so every identity token takes the text floor on each ground it paints
+  // on in its own theme (surface, paper, and the chip ground --btn-bg).
+  test(`${name}: every status and identity colour clears ${TEXT}:1 as text on surface, paper and the chip ground`, () => {
+    const ids = Object.keys(set).filter((k) => /^--(st|hash|id)-/.test(k));
+    assert.ok(ids.length >= 17, `expected the identity tokens, found ${ids.length}`);
+    for (const tok of ids) {
+      for (const ground of ['--surface', '--paper', '--btn-bg']) {
+        const r = ratio(set, tok, ground);
+        assert.ok(r >= TEXT, `${tok} on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+      }
+    }
+  });
+
+  // A sticker's ground is its own token, never a tint of its ink, so the pair
+  // is checked directly: on its ground, over whichever page ground it sits on.
+  test(`${name}: blocked and review stickers clear ${TEXT}:1 on their own grounds`, () => {
+    for (const s of ['blocked', 'review']) {
+      for (const page of ['--paper', '--surface']) {
+        const bg = over(parse(set[`--${s}-bg`]), parse(set[page]));
+        const fg = over(parse(set[`--${s}-ink`]), bg);
+        const a = lum(fg), b = lum(bg);
+        const r = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        assert.ok(r >= TEXT, `--${s}-ink on --${s}-bg over ${page} is ${r.toFixed(2)}:1, under ${TEXT}`);
+      }
+    }
+  });
+
+  test(`${name}: on-fill labels stay readable on every solid status fill`, () => {
+    for (const tok of Object.keys(set).filter((k) => /^--(st|hash)-/.test(k))) {
+      const r = ratio(set, '--on-fill', tok);
+      assert.ok(r >= TEXT, `--on-fill on ${tok} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
   // The defect this layer fixes: headings, prose and code all painted --ink,
   // so a body had one lightness and read flat. These keep the steps apart.
   test(`${name}: headings, prose, code and muted text sit on separate lightness steps`, () => {

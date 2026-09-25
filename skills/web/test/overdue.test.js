@@ -73,7 +73,7 @@ test('board tile: scheduleBlockHtml adds .overdue to the due row alone, with a "
 });
 
 test('board tile: app.css styles .card-schedule-row.overdue in the danger red, not a border (priority/waiting own the left accent)', () => {
-  assert.match(appCss, /\.card-schedule-row\.overdue\s*\{[^}]*color:\s*#f85149/);
+  assert.match(appCss, /\.card-schedule-row\.overdue\s*\{[^}]*color:\s*var\(--id-high\)/);
   assert.doesNotMatch(appCss, /\.card-schedule-row\.overdue\s*\{[^}]*border/);
 });
 
@@ -86,7 +86,7 @@ test('calendar: app.css overdue rule is declared after cal-chip-due so red wins 
   const dueIdx = appCss.indexOf('.cal-chip.cal-chip-due');
   const overdueIdx = appCss.indexOf('.cal-chip.overdue');
   assert.ok(dueIdx > -1 && overdueIdx > -1 && overdueIdx > dueIdx);
-  assert.match(appCss, /\.cal-chip\.overdue\s*\{[^}]*#f85149/);
+  assert.match(appCss, /\.cal-chip\.overdue\s*\{[^}]*var\(--id-high\)/);
 });
 
 test('gantt: the due diamond gets .overdue and a "past due" tooltip fragment', () => {
@@ -96,7 +96,7 @@ test('gantt: the due diamond gets .overdue and a "past due" tooltip fragment', (
 });
 
 test('gantt: app.css styles .gantt-due-marker.overdue in the same danger red', () => {
-  assert.match(appCss, /\.gantt-due-marker\.overdue::before\s*\{[^}]*#f85149/);
+  assert.match(appCss, /\.gantt-due-marker\.overdue::before\s*\{[^}]*var\(--id-high\)/);
 });
 
 // --- doc pin: SKILL.md documents the overdue cue ---

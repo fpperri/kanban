@@ -2084,7 +2084,7 @@ test('ganttBarEl mutes an archived bar to the archive grey regardless of its par
       'the bar\'s class/border/fill key mutes to the literal \'archive\' string when the card is archived');
     assert.match(bar[0], /status-\$\{mapStatusClass\(colorStatus\)\}/, 'the bar\'s shape class derives from the muted key');
     assert.match(bar[0], /isBuiltinStatus\(colorStatus\)/, 'the inline color override checks the muted key too');
-    assert.match(bar[0], /statusColor\(colorStatus\)/);
+    assert.match(bar[0], /statusColorVar\(colorStatus\)/);
     assert.match(bar[0], /statusColorSoft\(colorStatus\)/);
   });
 });
