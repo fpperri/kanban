@@ -38,7 +38,7 @@ Two paths, depending on your harness.
 ### Install skills (any harness)
 
 ```
-npx skills add KingCrimsonFPP/kanban
+npx skills add fpperri/kanban
 ```
 
 The installer scans the repo, lists the three skills in a selection menu
@@ -51,7 +51,7 @@ on Claude Code built-ins and won't port cleanly elsewhere — see
 ### Plugin (Claude Code)
 
 ```
-/plugin marketplace add KingCrimsonFPP/kanban
+/plugin marketplace add fpperri/kanban
 /plugin install kanban@kanban
 ```
 
