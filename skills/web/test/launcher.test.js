@@ -480,6 +480,130 @@ test('releaseStartLock leaves alone a lock that names a DIFFERENT pid — never 
   }
 });
 
+// --- stress: acquireStartLock under genuinely concurrent racers -------------
+//
+// acquireStartLock's own fs calls are synchronous — they cannot race with
+// THEMSELVES inside a single thread, so a real reproduction needs separate
+// OS-level execution contexts. worker_threads gives that cheaply: each racer
+// below runs on its own thread, sharing nothing but the lock file on disk
+// and a tiny Atomics barrier, so every racer in a trial is released in the
+// same instant — this is what makes the interleavings the SHOULD-FIX closes
+// (a lock read mid non-atomic-write, a stale reclaim's check-then-delete)
+// actually likely to happen, rather than incidental.
+const { Worker } = require('worker_threads');
+
+const RACER_SRC = `
+const { parentPort, workerData } = require('worker_threads');
+const launcher = require(workerData.launcherPath);
+const sync = new Int32Array(workerData.sab);
+let seen = 0;
+for (;;) {
+  Atomics.wait(sync, 0, seen);
+  const gen = Atomics.load(sync, 0);
+  if (gen === seen) continue; // spurious wake
+  seen = gen;
+  let acquired = false, holds = false, error = null;
+  try {
+    acquired = launcher.acquireStartLock(workerData.lockPath);
+    // "Holding" mirrors runLauncher's own ownership check, taken right
+    // after acquiring — see the should-fix in acquireStartLock/runLauncher.
+    if (acquired) holds = launcher.stillHoldsStartLock(workerData.lockPath);
+  } catch (e) { error = String((e && e.message) || e); }
+  parentPort.postMessage({ gen, acquired, holds, error });
+}
+`;
+
+// A pool of N persistent worker threads, reused across every trial of one
+// scenario via an incrementing generation counter — spawning fresh threads
+// (let alone processes) per trial would be far too slow for the trial counts
+// here.
+function makeRacerPool(n, lockPath) {
+  const sab = new SharedArrayBuffer(4);
+  const sync = new Int32Array(sab);
+  const workers = [];
+  for (let i = 0; i < n; i++) {
+    workers.push(new Worker(RACER_SRC, { eval: true, workerData: { launcherPath: LAUNCHER_PATH, lockPath, sab } }));
+  }
+  return { workers, sync };
+}
+
+// Advances the generation and releases every racer at once — each is
+// already parked in Atomics.wait for the PREVIOUS value, so this is the
+// instant they all attempt acquireStartLock together — then collects
+// exactly one {acquired, holds} per racer for this generation.
+function runTrial(workers, sync, gen) {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    const handlers = [];
+    const onError = (e) => { cleanup(); reject(e); };
+    const cleanup = () => { workers.forEach((w, i) => { w.off('message', handlers[i]); w.off('error', onError); }); };
+    workers.forEach((w, i) => {
+      const handler = (msg) => {
+        if (msg.gen !== gen) return;
+        results.push(msg);
+        if (results.length === workers.length) { cleanup(); resolve(results); }
+      };
+      handlers.push(handler);
+      w.on('message', handler);
+      w.on('error', onError);
+    });
+    Atomics.store(sync, 0, gen);
+    Atomics.notify(sync, 0, workers.length);
+  });
+}
+
+// Runs `trials` racing trials of one lock-starting scenario and returns the
+// trials where more than one (or zero) racer ended up holding the lock —
+// empty on the fixed code, never empty often enough on the old one (see the
+// stress-test numbers this task reports).
+async function runLockStressScenario(setupLock, n, trials) {
+  const dir = tmpDir('kanban-launcher-stress-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  const { workers, sync } = makeRacerPool(n, lockPath);
+  const anomalies = [];
+  try {
+    for (let t = 1; t <= trials; t++) {
+      try { fs.unlinkSync(lockPath); } catch (_) {}
+      setupLock(lockPath);
+      const results = await runTrial(workers, sync, t);
+      const errored = results.find((r) => r.error);
+      if (errored) throw new Error(`racer error: ${errored.error}`);
+      const holders = results.filter((r) => r.acquired && r.holds).length;
+      if (holders !== 1) anomalies.push({ trial: t, holders });
+    }
+  } finally {
+    await Promise.all(workers.map((w) => w.terminate()));
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return anomalies;
+}
+
+test('acquireStartLock stress: exactly one of several genuinely concurrent racers ends up holding the lock — no lock, a stale dead-pid lock, and an old-mtime live-pid lock', async () => {
+  const RACERS = 3;
+  const TRIALS = 40;
+
+  const deadPid = await new Promise((resolve) => {
+    const p = spawn(process.execPath, ['-e', 'process.exit(0)']);
+    p.on('exit', () => resolve(p.pid));
+  });
+
+  const scenarios = [
+    ['no lock', () => {}],
+    ['a stale dead-pid lock', (lockPath) => { fs.writeFileSync(lockPath, String(deadPid)); }],
+    ['an old-mtime live-pid lock', (lockPath) => {
+      fs.writeFileSync(lockPath, String(process.pid));
+      const old = new Date(Date.now() - 40000);
+      fs.utimesSync(lockPath, old, old);
+    }],
+  ];
+
+  for (const [label, setupLock] of scenarios) {
+    const anomalies = await runLockStressScenario(setupLock, RACERS, TRIALS);
+    assert.strictEqual(anomalies.length, 0,
+      `${label}: ${anomalies.length}/${TRIALS} trials did not end with exactly one holder — ${JSON.stringify(anomalies.slice(0, 5))}`);
+  }
+});
+
 // --- pure: port choice + running decision ------------------------------------
 
 test('candidatePorts: every live/pinned port, in priority order, deduped, nulls dropped', () => {
@@ -530,6 +654,12 @@ test('decideRunning requires both a port and a matching answered boardDir', () =
   assert.strictEqual(launcher.decideRunning({ port: 7777, answeredBoardDir: '/other', targetBoardDir: '/b', platform: 'linux' }), false);
   assert.strictEqual(launcher.decideRunning({ port: 7777, answeredBoardDir: '/b', targetBoardDir: '/b', platform: 'linux' }), true);
   assert.strictEqual(launcher.decideRunning({ port: 7777, answeredBoardDir: 'C:\\B', targetBoardDir: 'c:\\b', platform: 'win32' }), true);
+});
+
+test('boardUrl builds the exact string every openBrowser call is given — 127.0.0.1, never localhost, which can resolve to ::1 first and land on a different server on the same port', () => {
+  assert.strictEqual(launcher.boardUrl(7777), 'http://127.0.0.1:7777');
+  assert.strictEqual(launcher.boardUrl(51234), 'http://127.0.0.1:51234');
+  assert.ok(!launcher.boardUrl(7777).includes('localhost'));
 });
 
 // --- integration: write ------------------------------------------------------
@@ -646,6 +776,70 @@ test('writeLauncher: renaming/moving the project heals the launcher in place ins
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
+
+test('writeLauncher/listWrapperMarkers: a dangling junction at the marker\'s board dir is NOT reclaimed by a sibling board — the directory entry itself is still there, only its target is gone',
+  { skip: process.platform !== 'win32' }, () => {
+    const base = tmpDir('kanban-launcher-junction-');
+    try {
+      const target = path.join(base, 'target-board');
+      fs.mkdirSync(target);
+      const junction = path.join(base, 'junction-board');
+      // A directory junction, not a symlink — needs no admin/Developer Mode
+      // on Windows.
+      fs.symlinkSync(target, junction, 'junction');
+
+      const w1 = launcher.writeLauncher(junction);
+      assert.strictEqual(w1, path.join(base, `kanban_web${launcher.osWrapperExt('win32')}`));
+
+      // Simulates the unplugged-removable-drive case: the junction ENTRY
+      // survives, only what it points at is gone.
+      fs.rmSync(target, { recursive: true, force: true });
+
+      const markers = launcher.listWrapperMarkers(base, 'win32');
+      const own = markers.find((m) => m.baseName === 'kanban_web');
+      assert.ok(own, 'the wrapper is still listed');
+      assert.strictEqual(own.markerBoardDirExists, true,
+        'a dangling junction still lstats successfully, so it reads as still-existing, unlike a symlink-following existsSync');
+
+      // A sibling board writing into the SAME folder must suffix, never
+      // reclaim the junction board's name out from under it.
+      const otherBoard = path.join(base, 'other-board');
+      fs.mkdirSync(otherBoard);
+      fs.writeFileSync(path.join(otherBoard, 'config.yaml'), 'name: Other Board\n');
+      const w2 = launcher.writeLauncher(otherBoard);
+      assert.notStrictEqual(w2, w1, 'the dangling-junction board\'s wrapper is not reclaimed');
+      assert.ok(fs.existsSync(w1), 'the junction board\'s own wrapper is untouched');
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('writeLauncher (win32): a rendered exec line over cmd.exe\'s safe line-length limit is rejected before anything is written',
+  { skip: process.platform !== 'win32' }, () => {
+    const parent = tmpDir('kanban-launcher-longline-');
+    try {
+      const board = path.join(parent, '.kanban');
+      fs.mkdirSync(board);
+      const ext = launcher.osWrapperExt('win32');
+      const wrapperPath = path.join(parent, `kanban_web${ext}`);
+
+      // Many --allow-origin flags, each normalized down to a short, valid
+      // origin — this alone pushes the rendered exec line well past the
+      // limit without relying on any single giant path or argument.
+      const args = [];
+      for (let i = 0; i < 400; i++) { args.push('--allow-origin', `https://host-${i}.example.com`); }
+
+      assert.throws(() => launcher.writeLauncher(board, args), /8000|command line|characters/i);
+      assert.strictEqual(fs.existsSync(wrapperPath), false, 'a rejected write leaves no wrapper file behind');
+
+      // A short, ordinary write for the same board still works fine —
+      // proof the rejection is about length alone, not a broken write path.
+      const w = launcher.writeLauncher(board);
+      assert.strictEqual(w, wrapperPath);
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
 
 test('writeLauncher: a board nested several levels inside a repo still writes at the repo TOP level, and the bare exclude pattern still matches from there', () => {
   const repo = initRepo();

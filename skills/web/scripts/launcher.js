@@ -13,6 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
 const cs = require('./card-store');
 const cfg = require('./config-store');
@@ -357,6 +358,17 @@ function decideRunning({ port, answeredBoardDir, targetBoardDir, platform = proc
   return sameBoardDir(answeredBoardDir, targetBoardDir, platform);
 }
 
+// The one URL string every openBrowser call is built from — always
+// 127.0.0.1, never `localhost`. On a machine whose resolver returns the
+// IPv6 loopback first, `localhost` can resolve to `::1`, and if some OTHER
+// process is bound there on the same port, the browser lands on THAT
+// server's page instead of this board's. probeBoardDir (the running check)
+// already only ever asks 127.0.0.1; this keeps the browser asking the same
+// address it just proved was serving the right board.
+function boardUrl(port) {
+  return `http://127.0.0.1:${port}`;
+}
+
 // ---------------------------------------------------------------------------
 // I/O — fs, git, http, child_process.
 // ---------------------------------------------------------------------------
@@ -411,6 +423,12 @@ function boardDisplayName(boardDirAbs) {
   return config.name || cs.projectName(boardDirAbs);
 }
 
+// `lstat`, not `existsSync` — see the comment on `markerBoardDirExists`
+// below for why the distinction matters.
+function boardDirStillThere(boardDirAbs) {
+  try { fs.lstatSync(boardDirAbs); return true; } catch (_) { return false; }
+}
+
 function listWrapperMarkers(whereDir, platform) {
   const ext = osWrapperExt(platform);
   let files;
@@ -431,15 +449,17 @@ function listWrapperMarkers(whereDir, platform) {
       // more cautious case and stays non-reclaimable, so this flag is
       // meaningless there.
       //
-      // Left unguarded on purpose. The one wrong reclaim is a no-repository
-      // board whose folder is a junction to a removable drive, unplugged
-      // while a sibling board in the same folder writes: its marker's dir is
-      // gone but its parent (where the wrapper sits) is not. Reclaiming only
-      // when the parent is gone too would block that, and still heal a whole
-      // project renamed or moved; but it would stop healing a board folder
-      // renamed inside a folder that survives (kanban/ to .kanban/), which is
-      // the more common case.
-      markerBoardDirExists: markerBoardDir == null ? true : fs.existsSync(markerBoardDir),
+      // `lstat`, never a symlink-following `existsSync`: a no-repository
+      // board whose folder is a junction to a removable drive still lstats
+      // successfully while unplugged — the junction ENTRY is still sitting
+      // right there, only the drive it points at is gone — so it reads as
+      // "still exists" and a sibling board in the same folder never reclaims
+      // its wrapper out from under it. `existsSync` follows the link and
+      // would report the same dangling junction as gone, which is exactly
+      // wrong: the directory entry itself hasn't moved. A REAL rename/move
+      // removes that entry outright, which is what makes `lstat` throw and
+      // is the only case this should ever reclaim.
+      markerBoardDirExists: markerBoardDir == null ? true : boardDirStillThere(markerBoardDir),
     });
   }
   return out;
@@ -498,6 +518,12 @@ function openBrowser(url) {
 // is every argument the skill just passed to `server.js` after the board
 // dir (a port and/or `--allow-origin ...`), embedded verbatim into the
 // wrapper's exec line so `launcher.js run` replays the exact same start.
+// cmd.exe's own command-line buffer tops out at 8191 characters; a longer
+// physical line silently truncates or splits instead of erroring — the root
+// cause once saw `&&` itself become part of the port argument. 8000 leaves
+// headroom without chasing the exact boundary.
+const MAX_WIN32_EXEC_LINE = 8000;
+
 function writeLauncher(boardDirArg, serverArgs = []) {
   const boardDirAbs = path.resolve(boardDirArg);
   if (!fs.existsSync(boardDirAbs)) throw new Error(`board dir not found: ${boardDirAbs}`);
@@ -508,13 +534,29 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   // already gives the rest of this function.
   const safeServerArgs = sanitizeServerArgsForWrapper(serverArgs, platform);
   const { dir: whereDir, repoRoot } = resolveWhere(boardDirAbs);
-  fs.mkdirSync(whereDir, { recursive: true });
   const boardName = boardDisplayName(boardDirAbs);
   const existing = listWrapperMarkers(whereDir, platform);
   const baseName = chooseWrapperName(boardDirAbs, boardName, existing, platform);
   const wrapperPath = path.join(whereDir, wrapperFileName(baseName, platform));
   const pidPath = path.join(whereDir, pidFileName(baseName));
   const lockPath = path.join(whereDir, lockFileName(baseName));
+
+  const text = renderWrapper({
+    platform, boardDirAbs, boardName, baseName, serverArgs: safeServerArgs,
+    nodePath: process.execPath,
+    helperPath: __filename,
+  });
+  // Rendering is pure — checked, and rejected, before ANY fs write (the
+  // mkdir/exclude-entries/wrapper-write below), so a wrapper too long for
+  // cmd.exe to read back correctly is never written half-usable.
+  if (platform === 'win32') {
+    const execLine = text.split('\r\n').find((l) => l.endsWith('&& exit /b 0 || (pause & exit /b 1)'));
+    if (execLine && execLine.length > MAX_WIN32_EXEC_LINE) {
+      throw new Error(`launcher.js write: the rendered command line is ${execLine.length} characters, over cmd.exe's safe ${MAX_WIN32_EXEC_LINE}-character limit — shorten the board path or the --allow-origin arguments`);
+    }
+  }
+
+  fs.mkdirSync(whereDir, { recursive: true });
 
   // Exclude entries FIRST: if this throws (e.g. a read-only info/exclude),
   // NOTHING is written — an untracked kanban_web.cmd left behind by a
@@ -524,11 +566,6 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
   ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath)]);
 
-  const text = renderWrapper({
-    platform, boardDirAbs, boardName, baseName, serverArgs: safeServerArgs,
-    nodePath: process.execPath,
-    helperPath: __filename,
-  });
   // Unchanged bytes are not rewritten: a window running this wrapper keeps
   // reading it by byte offset.
   let current = null;
@@ -645,7 +682,7 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive, onDecided, serverArgs
         pollTimer = null;
         fs.writeFileSync(pidPath, `${child.pid}\n${info.port}\n`);
         decide();
-        openBrowser(`http://localhost:${info.port}`);
+        openBrowser(boardUrl(info.port));
       }
     }, 150);
 
@@ -672,7 +709,7 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive, onDecided, serverArgs
       // own bind failure and pausing on an apparent error.
       if (code != null && code !== 0 && !sawSigint) {
         pollForServedBoard(boardDirAbs, appPidPath, undefined, cliPortFromServerArgs(serverArgs)).then((servedPort) => {
-          if (servedPort != null) { openBrowser(`http://localhost:${servedPort}`); resolve(0); return; }
+          if (servedPort != null) { openBrowser(boardUrl(servedPort)); resolve(0); return; }
           resolve(launcherExitCode(code, sawSigint));
         });
         return;
@@ -682,11 +719,148 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive, onDecided, serverArgs
   });
 }
 
+// Lock content is `<pid> <token>` — the token is a random id unique to THIS
+// acquisition, never reused, so "is this still MY lock" can be answered
+// exactly (see stillHoldsStartLock/releaseStartLock) even in the one case
+// pid alone can't cover: this very process reclaiming a lock more than once
+// across retries. Tolerant of the legacy pid-only format an older
+// launcher.js wrote (no space, no token) — that still parses, just with
+// `token: null`, so it can never match anything and reads as foreign.
+function randomLockToken() {
+  return crypto.randomBytes(8).toString('hex');
+}
+
+function lockContentFor(pid, token) {
+  return `${pid} ${token}`;
+}
+
+function parseLockContent(text) {
+  const trimmed = String(text == null ? '' : text).trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(/\s+/);
+  const pid = Number(parts[0]);
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  return { pid, token: parts.length > 1 ? parts[1] : null };
+}
+
 function readLockPid(lockPath) {
   try {
-    const pid = Number(fs.readFileSync(lockPath, 'utf8').trim());
-    return Number.isInteger(pid) && pid > 0 ? pid : null;
+    const parsed = parseLockContent(fs.readFileSync(lockPath, 'utf8'));
+    return parsed ? parsed.pid : null;
   } catch (_) { return null; }
+}
+
+function lockAgeMs(lockPath) {
+  try { return Date.now() - fs.statSync(lockPath).mtimeMs; } catch (_) { return 0; }
+}
+
+// Everything readable about whatever is CURRENTLY sitting at `lockPath`,
+// taken as close together as separate syscalls allow — the mtime first,
+// then the bytes, so a later comparison (see reclaimStaleLock) can tell "the
+// same lock I judged stale a moment ago" from "a fresh one someone just
+// took" even though nothing here is one atomic operation. Returns null only
+// when the path is actually gone (ENOENT on the stat itself) — a lock that
+// exists but whose content can't be read comes back with `parsed: null`,
+// never as absent; see acquireStartLock for why that distinction matters.
+function statLock(lockPath) {
+  let mtimeMs;
+  try { mtimeMs = fs.statSync(lockPath).mtimeMs; } catch (_) { return null; }
+  let raw = '';
+  try { raw = fs.readFileSync(lockPath, 'utf8'); } catch (_) { /* vanished just now, or unreadable */ }
+  return { mtimeMs, raw, parsed: parseLockContent(raw) };
+}
+
+// Gives `lockPath` its content with no window where the name exists but is
+// still empty. The old `fs.writeFileSync(lockPath, ..., { flag: 'wx' })`
+// path is actually TWO syscalls under the hood — open(O_CREAT|O_EXCL) then
+// write() — and the open alone already makes the lock exist, zero bytes,
+// before the pid ever lands in it; a reader landing in that gap saw an
+// unreadable lock and treated it as stale (see the old acquireStartLock).
+// Writing the full content to a throwaway, uniquely-named temp file first —
+// an ordinary, complete synchronous write — and only then giving the LOCK's
+// own name a link to that same, already-full inode closes the gap: the name
+// `lockPath` never resolves to anything until the bytes behind it are
+// whole. `fs.linkSync` failing with EEXIST means someone else's lock is
+// already there, exactly like the old `wx` write did. The temp name is
+// removed either way; the content lives on through the link, never through
+// the temp name. Falls back to the old `wx` write only on a filesystem that
+// can't hardlink at all (EPERM/ENOTSUP/EXDEV) — network shares, mainly —
+// where the empty-then-written window is, unavoidably, back.
+function createLockAtomic(lockPath, content) {
+  const tmp = `${lockPath}.${process.pid}.${randomLockToken()}.tmp`;
+  fs.writeFileSync(tmp, content);
+  try {
+    fs.linkSync(tmp, lockPath);
+    return true;
+  } catch (e) {
+    if (e.code === 'EEXIST') return false;
+    if (e.code === 'EPERM' || e.code === 'ENOTSUP' || e.code === 'EXDEV') {
+      try {
+        fs.writeFileSync(lockPath, content, { flag: 'wx' });
+        return true;
+      } catch (e2) {
+        if (e2.code === 'EEXIST') return false;
+        throw e2;
+      }
+    }
+    throw e;
+  } finally {
+    try { fs.unlinkSync(tmp); } catch (_) {}
+  }
+}
+
+// Reclaims a lock already judged stale (see acquireStartLock) WITHOUT the
+// old check-then-delete — and without `fs.renameSync` at all. It measured as
+// genuinely unreliable for this under concurrent racers on this Windows
+// filesystem: two threads racing `renameSync` off the SAME source (even to
+// the SAME destination) can BOTH come back success, and two threads racing
+// plain `fs.unlinkSync` on the SAME path can too (a stress probe against
+// this exact setup saw ~25-48% of trials report a double "success" for
+// each) — almost certainly a filter-driver artifact (AV/indexing) rather
+// than a Node bug, but real on a machine this code has to run on regardless.
+// `fs.linkSync` creating a brand-new destination name did NOT show this
+// (0/200 in the same probe), matching what createLockAtomic already leans
+// on, so reclaiming is built on that alone:
+//
+// Every racer that judges the SAME exact stale generation (identical bytes
+// AND mtime — see `snap`) computes the SAME deterministic "reclaim ticket"
+// name for it. Only one of them can `fs.linkSync` a file into that exact
+// name — reliably exclusive — so exactly one racer, across every racer that
+// ever judges this particular generation stale, becomes its ticket-holder.
+// Every other racer sees EEXIST and returns immediately, touching nothing.
+//
+// The ticket-holder is now the ONLY thread that will ever call
+// `fs.unlinkSync(lockPath)` for this generation — no concurrent racing on
+// that call, so the flakiness above doesn't apply to it. It's also
+// necessarily safe: nothing NEW can occupy `lockPath` while this stale
+// generation still sits there (createLockAtomic needs the name to be
+// VACANT to succeed), so between judging this generation stale and this
+// unlink, the only content that could ever be there is this exact one — the
+// re-check right before unlinking is belt-and-braces, not load-bearing.
+// This is what closes the old bug (a first racer's brand-new lock deleted
+// by a second racer still acting on a now-stale verdict): the removal is
+// now down to a single, arbitrated actor per generation, never a race.
+function reclaimStaleLock(lockPath, snap) {
+  const identity = `${snap.mtimeMs}|${snap.raw}`;
+  const ticketPath = `${lockPath}.reclaim.${crypto.createHash('sha1').update(identity).digest('hex').slice(0, 16)}`;
+  const ticketSrc = `${lockPath}.${process.pid}.${randomLockToken()}.ticket-src`;
+  fs.writeFileSync(ticketSrc, '');
+  let wonTicket = false;
+  try {
+    fs.linkSync(ticketSrc, ticketPath);
+    wonTicket = true;
+  } catch (e) {
+    if (e.code !== 'EEXIST') throw e;
+  } finally {
+    try { fs.unlinkSync(ticketSrc); } catch (_) {}
+  }
+  if (!wonTicket) return; // someone else already won the right to reclaim this exact generation
+
+  const current = statLock(lockPath);
+  if (current && current.mtimeMs === snap.mtimeMs && current.raw === snap.raw) {
+    try { fs.unlinkSync(lockPath); } catch (_) {}
+  }
+  try { fs.unlinkSync(ticketPath); } catch (_) {}
 }
 
 // Serializes the "decide whether to start a server" window across racing
@@ -698,12 +872,10 @@ function readLockPid(lockPath) {
 // auto-increments past the busy port, so the loser's spawn quietly succeeds
 // too and two live servers end up serving the same board.
 //
-// `fs.writeFileSync(..., { flag: 'wx' })` creates the file only if it
-// doesn't already exist, atomically from this process's point of view — the
-// first caller to reach it wins. A lock that already exists but names a
-// dead pid was left by a launcher whose whole process tree died (e.g. the
-// console window was force-closed) before it could release it; that's
-// reclaimed rather than left to jam every future run for this board.
+// A lock that already exists but names a dead pid was left by a launcher
+// whose whole process tree died (e.g. the console window was force-closed)
+// before it could release it; that's reclaimed rather than left to jam
+// every future run for this board.
 //
 // A lock naming a LIVE pid is not automatically safe, though: Windows
 // reuses a pid the moment its process exits (a console window closed
@@ -712,37 +884,75 @@ function readLockPid(lockPath) {
 // coincidence. Neither case is distinguishable from a real holder by pid
 // liveness alone, so age backs it up — a start never takes long, so a lock
 // older than LOCK_STALE_MS is reclaimed regardless of what its pid says.
+//
+// A lock whose content can't be read at all (or is empty) is never treated
+// as stale outright, only as stale once it's also OLD: createLockAtomic
+// means that can no longer happen for a lock THIS code wrote, but it costs
+// nothing to stay cautious about one that arrived some other way (a synced
+// folder catching it truly mid-write, say) — a young, unreadable lock is
+// exactly what a lock a heartbeat into being created looks like from the
+// outside, and reclaiming it is the old bug.
 const LOCK_STALE_MS = 30000;
 
-function lockAgeMs(lockPath) {
-  try { return Date.now() - fs.statSync(lockPath).mtimeMs; } catch (_) { return 0; }
-}
+// The token each successful acquireStartLock call took its lock with,
+// keyed by lockPath — this process's own record of what it currently holds,
+// consulted by stillHoldsStartLock and releaseStartLock so this process
+// only ever touches a lock its OWN most recent acquisition actually won,
+// never a later generation it lost track of.
+const heldStartLockTokens = new Map();
 
 function acquireStartLock(lockPath, maxStaleRetries = 20) {
   for (let i = 0; i < maxStaleRetries; i++) {
-    try {
-      fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+    const token = randomLockToken();
+    if (createLockAtomic(lockPath, lockContentFor(process.pid, token))) {
+      heldStartLockTokens.set(lockPath, token);
       return true;
-    } catch (e) {
-      if (e.code !== 'EEXIST') throw e;
-      const holderPid = readLockPid(lockPath);
-      const holderAlive = !!holderPid && isPidAlive(holderPid);
-      // Stale when its mtime is more than LOCK_STALE_MS from now in EITHER
-      // direction: a future mtime (clock skew on a synced folder) would
-      // otherwise never age out, while a just-written lock can read a
-      // millisecond ahead of Date.now() and must still count as fresh.
-      const age = lockAgeMs(lockPath);
-      if (holderAlive && Math.abs(age) < LOCK_STALE_MS) return false;
-      try { fs.unlinkSync(lockPath); } catch (_) { /* raced away already, fine */ }
     }
+
+    const snap = statLock(lockPath);
+    if (!snap) continue; // vanished between the failed create and this stat — try again
+
+    // Stale when its mtime is more than LOCK_STALE_MS from now in EITHER
+    // direction: a future mtime (clock skew on a synced folder) would
+    // otherwise never age out, while a just-written lock can read a
+    // millisecond ahead of Date.now() and must still count as fresh.
+    const fresh = Math.abs(Date.now() - snap.mtimeMs) < LOCK_STALE_MS;
+    const holderAlive = !!(snap.parsed && isPidAlive(snap.parsed.pid));
+    // A readable lock is held only while its pid is alive AND it's fresh.
+    // An unreadable/empty one has no pid to check liveness against, so age
+    // alone decides — see the LOCK_STALE_MS comment above.
+    const held = snap.parsed ? (holderAlive && fresh) : fresh;
+    if (held) return false;
+
+    reclaimStaleLock(lockPath, snap);
   }
   return false;
 }
 
-// Only removes the lock while it still names US — never a later run's lock
-// this process happened to lose the race to reclaim.
+// Whether THIS process still holds `lockPath` with the exact token its own
+// last successful acquireStartLock call took it with — never true after
+// another process has verified-reclaimed it out from under this one (see
+// reclaimStaleLock), and never true for a lock this process never actually
+// won. The caller in runLauncher checks this right before spawning the
+// server, so a token it lost between acquiring and spawning is caught
+// before a second server ever starts.
+function stillHoldsStartLock(lockPath) {
+  const myToken = heldStartLockTokens.get(lockPath);
+  if (myToken == null) return false;
+  const snap = statLock(lockPath);
+  return !!(snap && snap.parsed && snap.parsed.token === myToken);
+}
+
+// Only removes the lock while it still carries the token OUR most recent
+// successful acquireStartLock call took it with — never a later
+// generation's lock this process happened to lose the race to reclaim, and
+// never a lock this process never actually won in the first place.
 function releaseStartLock(lockPath) {
-  if (readLockPid(lockPath) !== process.pid) return;
+  const myToken = heldStartLockTokens.get(lockPath);
+  heldStartLockTokens.delete(lockPath);
+  if (myToken == null) return;
+  const snap = statLock(lockPath);
+  if (!snap || !snap.parsed || snap.parsed.token !== myToken) return;
   try { fs.unlinkSync(lockPath); } catch (_) {}
 }
 
@@ -802,7 +1012,7 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
   let toldWaiting = false;
   for (;;) {
     const served = await findServedPort(boardDirAbs, pidPath, appPidPath, platform, cliPort);
-    if (served != null) { openBrowser(`http://localhost:${served}`); return 0; }
+    if (served != null) { openBrowser(boardUrl(served)); return 0; }
 
     if (!acquireStartLock(lockPath)) {
       // Someone else is already deciding (or starting) this exact board's
@@ -813,7 +1023,7 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
         toldWaiting = true;
       }
       const servedByOther = await pollForServedBoard(boardDirAbs, appPidPath, { timeoutMs: 8000 }, cliPort);
-      if (servedByOther != null) { openBrowser(`http://localhost:${servedByOther}`); return 0; }
+      if (servedByOther != null) { openBrowser(boardUrl(servedByOther)); return 0; }
       continue; // the lock holder never produced a running server — retry
     }
 
@@ -822,7 +1032,14 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
       // served" to "served and the lock already released" in the gap
       // between the probe above and winning the lock just now.
       const servedNow = await findServedPort(boardDirAbs, pidPath, appPidPath, platform, cliPort);
-      if (servedNow != null) { openBrowser(`http://localhost:${servedNow}`); return 0; }
+      if (servedNow != null) { openBrowser(boardUrl(servedNow)); return 0; }
+      // One more check, right before actually spawning: a verified stale
+      // reclaim (see reclaimStaleLock) can, in principle, have taken this
+      // lock away from us in the gap since acquireStartLock returned —
+      // proceeding to spawn anyway would risk a second server for this
+      // board. If we've lost it, we own nothing to release; go back around
+      // and wait for whoever holds it now instead.
+      if (!stillHoldsStartLock(lockPath)) continue;
       const appPid = readPidFile(appPidPath);
       const appAlive = !!appPid && isPidAlive(appPid.pid);
       return await startAndAttach(boardDirAbs, pidPath, appAlive, () => releaseStartLock(lockPath), serverArgs);
@@ -840,10 +1057,11 @@ module.exports = {
   sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle,
   escapePercentForCmd, singleQuotePosix, renderWrapper, sanitizeServerArgsForWrapper,
   missingExcludeNames, excludeAppendBuffer, parsePidFileText, candidatePorts, cliPortFromServerArgs, decideRunning,
-  shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot,
-  gitInfoExcludePath, listWrapperMarkers, resolveBaseNameForBoard, readPidFile, isPidAlive,
+  shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot, boardUrl,
+  gitInfoExcludePath, listWrapperMarkers, boardDirStillThere, resolveBaseNameForBoard, readPidFile, isPidAlive,
   probeBoardDir, openBrowser, pollForServedBoard, findServedPort,
-  readLockPid, acquireStartLock, releaseStartLock, lockAgeMs, writeLauncher, runLauncher,
+  readLockPid, parseLockContent, acquireStartLock, stillHoldsStartLock, releaseStartLock, lockAgeMs,
+  writeLauncher, runLauncher,
 };
 
 if (require.main === module) {
