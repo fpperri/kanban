@@ -573,7 +573,9 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   // keeps working (still launches the board) while never actually getting
   // excluded from `git status`/`git add`.
   const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
-  ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath)]);
+  // `<lock>.*` covers the lock's temp and reclaim-ticket siblings, which a
+  // launcher killed mid-operation can leave behind at the repository root.
+  ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath), `${path.basename(lockPath)}.*`]);
 
   // Unchanged bytes are not rewritten: a window running this wrapper keeps
   // reading it by byte offset.

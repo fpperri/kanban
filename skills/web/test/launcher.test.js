@@ -787,6 +787,7 @@ test('writeLauncher: wrapper at the repo root, exclude entries, rewrite heals in
     assert.strictEqual((excludeText.match(new RegExp(`^kanban_web${ext.replace('.', '\\.')}$`, 'm')) || []).length, 1);
     assert.strictEqual((excludeText.match(/^kanban_web\.pid$/m) || []).length, 1);
     assert.strictEqual((excludeText.match(/^kanban_web\.lock$/m) || []).length, 1);
+    assert.strictEqual((excludeText.match(/^kanban_web\.lock\.\*$/m) || []).length, 1, 'lock temp and reclaim-ticket leftovers are excluded too');
 
     // Rewriting the same board heals in place: same path, marker unchanged,
     // and the exclude file does not grow a duplicate line.
@@ -1006,7 +1007,7 @@ test('writeLauncher: info/exclude bytes it does not understand survive untouched
     assert.deepStrictEqual(after.subarray(0, latin1Comment.length), latin1Comment, 'the original bytes survive byte-for-byte, unmangled');
     assert.strictEqual(after[latin1Comment.length], 0x0a, 'a newline was inserted before the appended names');
     const appended = after.subarray(latin1Comment.length + 1).toString('utf8');
-    assert.match(appended, new RegExp(`^kanban_web${ext.replace('.', '\\.')}\\nkanban_web\\.pid\\nkanban_web\\.lock\\n$`));
+    assert.match(appended, new RegExp(`^kanban_web${ext.replace('.', '\\.')}\\nkanban_web\\.pid\\nkanban_web\\.lock\\nkanban_web\\.lock\\.\\*\\n$`));
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }

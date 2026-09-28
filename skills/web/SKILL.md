@@ -105,8 +105,8 @@ marker line inside each wrapper, always reuses the wrapper a board already owns 
 suffix it landed on) before picking a new name, and never overwrites a launcher naming a
 different board that still exists; one whose marker names a board folder that is gone is
 reclaimed. Rewriting it for the *same* board (healing a stale path) happens on every
-start, and unchanged bytes are left alone. In a repository, the wrapper, `kanban_web.pid`
-and `kanban_web.lock` are added to `info/exclude`, never `.gitignore`. Double-clicking the
+start, and unchanged bytes are left alone. In a repository, the wrapper, `kanban_web.pid`,
+`kanban_web.lock` and its temporary siblings (`kanban_web.lock.*`) are added to `info/exclude`, never `.gitignore`. Double-clicking the
 wrapper's first step is checking whether the board is already served: a port chosen from
 the pid files, the replayed port argument or the config pin answers `/api/board` as
 *this* board (a pid file alone is never the proof) — if so it opens the browser and
