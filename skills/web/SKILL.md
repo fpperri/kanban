@@ -78,9 +78,13 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
 also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple Browser").
 
-Right after reading that URL line, run `node <SCRIPTS_DIR>/launcher.js write <kanban-dir>`
-— unasked, on every successful start — and tell the human the printed launcher path in
-your report; see **Double-click launcher** below.
+Right after reading that URL line, run
+`node <SCRIPTS_DIR>/launcher.js write <kanban-dir> <the same server arguments just used>`
+— the exact port and/or `--allow-origin` arguments (if any) just passed to `server.js`,
+verbatim and in the same order, so a double-click restart binds the same port and keeps
+the same tunnel origin allowlisted instead of drifting back to `7777` with nothing
+allowlisted — unasked, on every successful start — and tell the human the printed
+launcher path in your report; see **Double-click launcher** below.
 
 ### Double-click launcher
 

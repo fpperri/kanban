@@ -76,16 +76,24 @@ test('osWrapperExt/wrapperFileName/pidFileName per OS', () => {
 
 // --- pure: marker line ------------------------------------------------------
 
-test('markerCommentLine uses rem on Windows, # elsewhere', () => {
+test('markerCommentLine uses rem on Windows, # elsewhere; POSIX writes the board dir as a JSON string', () => {
   assert.strictEqual(launcher.markerCommentLine('win32', 'C:\\board'), 'rem kanban-web-board: C:\\board');
-  assert.strictEqual(launcher.markerCommentLine('linux', '/home/x/board'), '# kanban-web-board: /home/x/board');
+  assert.strictEqual(launcher.markerCommentLine('linux', '/home/x/board'), '# kanban-web-board: "/home/x/board"');
 });
 
-test('parseMarkerBoardDir reads either comment style, and null when absent', () => {
-  assert.strictEqual(launcher.parseMarkerBoardDir('rem kanban-web-board: C:\\a\\b\r\ntitle x'), 'C:\\a\\b');
-  assert.strictEqual(launcher.parseMarkerBoardDir('#!/bin/sh\n# kanban-web-board: /a/b\nexec x'), '/a/b');
+test('parseMarkerBoardDir reads either comment style, the current JSON-string POSIX form AND the legacy raw form, and null when absent', () => {
+  assert.strictEqual(launcher.parseMarkerBoardDir('rem kanban-web-board: C:\\a\\b\r\ntitle x', 'win32'), 'C:\\a\\b');
+  assert.strictEqual(launcher.parseMarkerBoardDir('#!/bin/sh\n# kanban-web-board: "/a/b"\nexec x', 'linux'), '/a/b', 'current JSON-string form');
+  assert.strictEqual(launcher.parseMarkerBoardDir('#!/bin/sh\n# kanban-web-board: /a/b\nexec x', 'linux'), '/a/b', 'legacy raw form, from a wrapper written by an older launcher.js');
   assert.strictEqual(launcher.parseMarkerBoardDir('@echo off\ntitle nope'), null);
   assert.strictEqual(launcher.parseMarkerBoardDir(''), null);
+});
+
+test('markerCommentLine/parseMarkerBoardDir (POSIX) round-trip a board dir with a newline embedded in it', () => {
+  const evil = '/tmp/weird\nboard';
+  const line = launcher.markerCommentLine('linux', evil);
+  assert.ok(!line.includes('\n'), 'the whole marker stays ONE physical line — the newline is JSON-escaped as \\n, not a real line break');
+  assert.strictEqual(launcher.parseMarkerBoardDir(line, 'linux'), evil);
 });
 
 // --- pure: board-dir equality ----------------------------------------------
@@ -179,21 +187,32 @@ test('renderWrapper (win32): marker, helper and node checks, one-line exec, CRLF
   assert.match(text, /rem kanban-web-board: C:\\Users\\x y\\board\\\.kanban\r\n/);
   assert.match(text, /if not exist "C:\\Users\\x y\\launcher\.js" goto stale\r\n/);
   assert.match(text, /if not exist "C:\\node\.exe" goto stale\r\n/);
-  assert.match(text, /\r\n"C:\\node\.exe" "C:\\Users\\x y\\launcher\.js" run "C:\\Users\\x y\\board\\\.kanban" "kanban_web" \|\| pause & exit \/b\r\n:stale\r\n/);
+  assert.match(text, /\r\n"C:\\node\.exe" "C:\\Users\\x y\\launcher\.js" run "C:\\Users\\x y\\board\\\.kanban" "kanban_web" && exit \/b 0 \|\| \(pause & exit \/b 1\)\r\n:stale\r\n/);
   assert.ok(!text.includes('\n\n'), 'no bare LF introduced alongside CRLF');
 });
 
-test('renderWrapper (win32): every nonzero exit pauses, and nothing after the exec line is read', () => {
+test('renderWrapper (win32): setlocal DisableDelayedExpansion runs right after @echo off, before any path is read', () => {
+  const text = launcher.renderWrapper({
+    platform: 'win32', boardDirAbs: 'C:\\board', boardName: 'Board',
+    nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
+  });
+  const lines = text.split('\r\n');
+  assert.strictEqual(lines[0], '@echo off');
+  assert.strictEqual(lines[1], 'setlocal DisableDelayedExpansion');
+});
+
+test('renderWrapper (win32): success exits 0, any failure pauses then always exits 1 on the same physical line, never leaking pause\'s own errorlevel', () => {
   const text = launcher.renderWrapper({
     platform: 'win32', boardDirAbs: 'C:\\board', boardName: 'Board',
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
   });
   // `if errorlevel 1` is a signed >= comparison and silently misses a
-  // negative exit code; `||` fires on any nonzero one.
+  // negative exit code; `&&`/`||` test the whole exit status.
   assert.ok(!/if errorlevel/.test(text), 'the signed "if errorlevel N" form must be gone entirely');
   const lines = text.split('\r\n');
   const exec = lines.findIndex((l) => l.startsWith('"C:\\node.exe"'));
-  assert.match(lines[exec], / \|\| pause & exit \/b$/, 'the exec line pauses on failure and exits on the same physical line');
+  assert.match(lines[exec], / && exit \/b 0 \|\| \(pause & exit \/b 1\)$/,
+    'success exits 0; any failure pauses then always exits 1, on the same physical line, never replaying pause\'s own exit code');
   assert.strictEqual(lines[exec + 1], ':stale', 'only the stale branch follows, reached by goto alone');
 });
 
@@ -203,17 +222,18 @@ test('renderWrapper (win32): a literal % in the board/node/helper path survives 
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
   });
   assert.match(text, /rem kanban-web-board: C:\\100%% done\\\.kanban\r\n/);
-  assert.match(text, /\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\100%% done\\\.kanban" "kanban_web" \|\|/);
+  assert.match(text, /\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\100%% done\\\.kanban" "kanban_web" && exit \/b 0 \|\|/);
 });
 
-test('renderWrapper (win32): chcp 65001 runs right after @echo off, before any path/name is read', () => {
+test('renderWrapper (win32): chcp 65001 runs right after setlocal, before any path/name is read', () => {
   const text = launcher.renderWrapper({
     platform: 'win32', boardDirAbs: 'C:\\Users\\x\\Diseño y más\\.kanban', boardName: 'Board',
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
   });
   const lines = text.split('\r\n');
   assert.strictEqual(lines[0], '@echo off');
-  assert.strictEqual(lines[1], 'chcp 65001 >nul');
+  assert.strictEqual(lines[1], 'setlocal DisableDelayedExpansion');
+  assert.strictEqual(lines[2], 'chcp 65001 >nul');
 });
 
 test('renderWrapper (win32): board-name cmd metacharacters never reach the title line raw', () => {
@@ -231,7 +251,19 @@ test('renderWrapper (win32): every argument on the exec line is quoted, includin
     platform: 'win32', boardDirAbs: 'C:\\R&D (x)\\.kanban', boardName: 'Board',
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web-two',
   });
-  assert.match(text, /\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\R&D \(x\)\\\.kanban" "kanban_web-two" \|\|/);
+  assert.match(text, /\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\R&D \(x\)\\\.kanban" "kanban_web-two" && exit \/b 0 \|\|/);
+});
+
+test('renderWrapper (win32): serverArgs (a port and --allow-origin) are appended, quoted and %-escaped, in order, after baseName', () => {
+  const text = launcher.renderWrapper({
+    platform: 'win32', boardDirAbs: 'C:\\board', boardName: 'Board',
+    nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
+    serverArgs: ['7801', '--allow-origin', 'https://100% tunnel.example.com'],
+  });
+  assert.match(
+    text,
+    /\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\board" "kanban_web" "7801" "--allow-origin" "https:\/\/100%% tunnel\.example\.com" && exit \/b 0 \|\|/,
+  );
 });
 
 test('sanitizeForWindowsTitle strips cmd metacharacters and collapses newlines to spaces', () => {
@@ -248,7 +280,7 @@ test('renderWrapper (linux/mac): shebang, marker, helper-exists check, exec, LF 
     nodePath: '/usr/bin/node', helperPath: '/home/x y/launcher.js', baseName: 'kanban_web',
   });
   assert.match(text, /^#!\/bin\/sh\n/);
-  assert.match(text, /# kanban-web-board: \/home\/x y\/board\/\.kanban\n/);
+  assert.match(text, /# kanban-web-board: "\/home\/x y\/board\/\.kanban"\n/);
   assert.match(text, /if \[ ! -f '\/home\/x y\/launcher\.js' \] \|\| \[ ! -x '\/usr\/bin\/node' \]; then/);
   assert.match(text, /exec '\/usr\/bin\/node' '\/home\/x y\/launcher\.js' run '\/home\/x y\/board\/\.kanban' 'kanban_web'/);
   assert.ok(!text.includes('\r'), 'no CR in a POSIX shell script');
@@ -260,6 +292,42 @@ test('renderWrapper (linux/mac): an embedded single quote is escaped, not left t
     nodePath: '/usr/bin/node', helperPath: '/usr/lib/launcher.js', baseName: 'kanban_web',
   });
   assert.match(text, /exec '\/usr\/bin\/node' '\/usr\/lib\/launcher\.js' run '\/home\/o'\\''brien\/\.kanban' 'kanban_web'/);
+});
+
+test('renderWrapper (linux/mac): serverArgs (a port and --allow-origin) are appended, single-quoted, in order, after baseName', () => {
+  const text = launcher.renderWrapper({
+    platform: 'linux', boardDirAbs: '/home/x/board/.kanban', boardName: 'Board',
+    nodePath: '/usr/bin/node', helperPath: '/usr/lib/launcher.js', baseName: 'kanban_web',
+    serverArgs: ['7801', '--allow-origin', "https://tunnel's.example.com"],
+  });
+  assert.match(
+    text,
+    /exec '\/usr\/bin\/node' '\/usr\/lib\/launcher\.js' run '\/home\/x\/board\/\.kanban' 'kanban_web' '7801' '--allow-origin' 'https:\/\/tunnel'\\''s\.example\.com'\n$/,
+  );
+});
+
+test('renderWrapper (linux/mac): a newline embedded in the board dir cannot break out of the marker comment — the injection this exists to close', () => {
+  // Before the fix, the raw path went straight into the `#` comment: a
+  // newline inside it ended the comment right there, and whatever followed
+  // on the "next line" of the wrapper ran as its OWN shell command the next
+  // time the wrapper was invoked (an injected `touch` was observed running
+  // this way).
+  const evil = '/tmp/board\ntouch /tmp/pwned';
+  const text = launcher.renderWrapper({
+    platform: 'linux', boardDirAbs: evil, boardName: 'Board',
+    nodePath: '/usr/bin/node', helperPath: '/usr/lib/launcher.js', baseName: 'kanban_web',
+  });
+  const lines = text.split('\n');
+  const markerIdx = lines.findIndex((l) => l.startsWith('# kanban-web-board:'));
+  assert.ok(markerIdx >= 0, 'has a marker line');
+  assert.ok(
+    markerIdx + 1 >= lines.length || !lines[markerIdx + 1].includes('touch'),
+    'the injected command never lands on its own executable line',
+  );
+  // The exec line's single-quoted board-dir argument is allowed to SPAN
+  // physical lines — a literal newline inside single quotes is safe verbatim
+  // in POSIX sh — so only the marker comment is asserted to stay one line.
+  assert.strictEqual(launcher.parseMarkerBoardDir(text, 'linux'), evil, 'round-trips back to the real path');
 });
 
 // --- pure: cmd/sh escaping ---------------------------------------------------
@@ -355,6 +423,37 @@ test('acquireStartLock reclaims a lock naming a dead pid instead of blocking for
   }
 });
 
+test('acquireStartLock reclaims a lock naming a LIVE but unrelated pid once its mtime is stale (~30s) — pid reuse or a synced-in lock file must never wait forever', () => {
+  const dir = tmpDir('kanban-launcher-lock-agedstale-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  try {
+    // process.pid IS alive (it's this very test process) but is completely
+    // unrelated to this lock — the exact shape of a Windows-reused pid or a
+    // lock file that arrived through a synced folder naming some other
+    // machine's pid. Liveness alone can't tell that apart from a real
+    // holder; age is what backs it up.
+    fs.writeFileSync(lockPath, String(process.pid));
+    const old = new Date(Date.now() - 40000);
+    fs.utimesSync(lockPath, old, old);
+
+    assert.strictEqual(launcher.acquireStartLock(lockPath), true, 'a lock older than the stale-age limit is reclaimed even though its named pid is alive');
+    assert.strictEqual(launcher.readLockPid(lockPath), process.pid);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('acquireStartLock does NOT reclaim a lock naming a live pid while it is still fresh (under the stale-age limit)', () => {
+  const dir = tmpDir('kanban-launcher-lock-freshlive-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  try {
+    fs.writeFileSync(lockPath, String(process.pid)); // fresh mtime, just written
+    assert.strictEqual(launcher.acquireStartLock(lockPath), false, 'a fresh lock naming a live pid still blocks — only AGE, not liveness alone, makes it stale');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('releaseStartLock leaves alone a lock that names a DIFFERENT pid — never removes a lock this process does not own', () => {
   const dir = tmpDir('kanban-launcher-lock-foreign-');
   const lockPath = path.join(dir, 'kanban_web.lock');
@@ -379,6 +478,23 @@ test('candidatePorts: every live/pinned port, in priority order, deduped, nulls 
     [7777],
     'the same port named by multiple sources is probed once',
   );
+  assert.deepStrictEqual(
+    launcher.candidatePorts({ pairedPort: null, appPort: null, cliPort: 4, configPort: 5 }),
+    [4, 5],
+    'a CLI port outranks the config pin, same as server.js\'s own resolvePort precedence',
+  );
+});
+
+test('cliPortFromServerArgs: a bindable port argument wins; --allow-origin flags are skipped; anything unusable reads as "no CLI port"', () => {
+  assert.strictEqual(launcher.cliPortFromServerArgs(['7801']), 7801);
+  assert.strictEqual(launcher.cliPortFromServerArgs(['--allow-origin', 'https://x.example.com', '7801']), 7801,
+    'the port is found after skipping the --allow-origin flag and its value');
+  assert.strictEqual(launcher.cliPortFromServerArgs(['7801', '--allow-origin=https://x.example.com']), 7801);
+  assert.strictEqual(launcher.cliPortFromServerArgs([]), null, 'no args, no CLI port');
+  assert.strictEqual(launcher.cliPortFromServerArgs(['--allow-origin', 'https://x.example.com']), null, 'only --allow-origin, no port');
+  assert.strictEqual(launcher.cliPortFromServerArgs(['0']), null, 'not a bindable port');
+  assert.strictEqual(launcher.cliPortFromServerArgs(['abc']), null, 'not a number');
+  assert.strictEqual(launcher.cliPortFromServerArgs(['70000']), null, 'out of range');
 });
 
 test('shouldForwardSignal: POSIX forwards Ctrl+C/TERM to the child; win32 does not (the child already gets its own console event)', () => {
@@ -589,6 +705,27 @@ test('writeLauncher: info/exclude bytes it does not understand survive untouched
     const appended = after.subarray(latin1Comment.length + 1).toString('utf8');
     assert.match(appended, new RegExp(`^kanban_web${ext.replace('.', '\\.')}\\nkanban_web\\.pid\\nkanban_web\\.lock\\n$`));
   } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher: the exclude step runs BEFORE the wrapper write — a read-only info/exclude fails loudly and leaves no wrapper behind', () => {
+  const repo = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  const board = path.join(repo, '.kanban');
+  const excludePath = path.join(repo, '.git', 'info', 'exclude');
+  try {
+    fs.mkdirSync(board);
+    fs.mkdirSync(path.dirname(excludePath), { recursive: true });
+    fs.writeFileSync(excludePath, 'existing\n');
+    fs.chmodSync(excludePath, 0o444);
+
+    assert.throws(() => launcher.writeLauncher(board), 'a read-only exclude file makes the whole write fail, not silently skip');
+
+    const wrapperPath = path.join(repo, `kanban_web${ext}`);
+    assert.strictEqual(fs.existsSync(wrapperPath), false, 'no wrapper is left behind when the exclude write fails first');
+  } finally {
+    try { fs.chmodSync(excludePath, 0o644); } catch (_) { /* absent is fine */ }
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
@@ -819,10 +956,15 @@ test('run: two runs racing for the same UNPINNED board — exactly one server su
   // EADDRINUSE the way a pinned one does: server.js auto-increments past a
   // busy port instead of failing, so without the start lock BOTH racers'
   // spawns would succeed, each on its own free port, leaving two live
-  // servers for one board.
-  const defaultPort = require('../scripts/server').resolvePort(dir).port;
+  // servers for one board. A CLI port (S5) is used here instead of the bare
+  // 7777 default so this auto-increment race — which can genuinely claim a
+  // handful of ports near its start — never touches this desktop's live
+  // boards on 7777-7800: a CLI port still auto-increments on EADDRINUSE in
+  // server.js exactly like the bare default does (it isn't a pin — see
+  // server.js's resolvePort/start), so the race itself is unchanged.
+  const defaultPort = await freePort();
 
-  const spawnRun = () => spawn(process.execPath, [LAUNCHER_PATH, 'run', dir], {
+  const spawnRun = () => spawn(process.execPath, [LAUNCHER_PATH, 'run', dir, 'kanban_web', String(defaultPort)], {
     env: { ...process.env, KANBAN_WEB_NO_BROWSER: '1' },
     stdio: 'ignore',
   });
@@ -910,6 +1052,89 @@ test('run: an explicit baseName (the wrapper\'s own third argument) pairs with t
   }
 });
 
+// --- integration: replayed server args (S5) -----------------------------------
+
+test('writeLauncher: a written wrapper carries the replayed server args (a port and --allow-origin) in order', () => {
+  const parent = tmpDir('kanban-launcher-writeargs-');
+  try {
+    const board = path.join(parent, '.kanban');
+    fs.mkdirSync(board);
+    const w = launcher.writeLauncher(board, ['7801', '--allow-origin', 'https://tunnel.example.com']);
+    const content = fs.readFileSync(w, 'utf8');
+    const node = process.execPath;
+    const helper = LAUNCHER_PATH;
+    if (process.platform === 'win32') {
+      assert.ok(content.includes(`"${node}" "${helper}" run "${path.resolve(board)}" "kanban_web" "7801" "--allow-origin" "https://tunnel.example.com"`));
+    } else {
+      assert.ok(content.includes(`run '${path.resolve(board)}' 'kanban_web' '7801' '--allow-origin' 'https://tunnel.example.com'`));
+    }
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('run: a CLI port (as a written wrapper would replay) is what actually gets bound, on an otherwise-unpinned board', async () => {
+  const port = await freePort();
+  const proj = tmpDir('kanban-launcher-cliport-'); // nested — see N4 note above
+  const dir = path.join(proj, '.kanban');
+  fs.mkdirSync(dir); // no config.yaml at all — genuinely unpinned
+  const where = path.dirname(dir);
+  const pidPath = path.join(where, 'kanban_web.pid');
+
+  let proc = null;
+  let serverPid = null;
+  try {
+    proc = spawn(process.execPath, [LAUNCHER_PATH, 'run', dir, 'kanban_web', String(port)], {
+      env: { ...process.env, KANBAN_WEB_NO_BROWSER: '1' },
+      stdio: 'ignore',
+    });
+
+    await waitFor(() => fs.existsSync(pidPath) && fs.readFileSync(pidPath, 'utf8').trim() !== '');
+    const info = launcher.parsePidFileText(fs.readFileSync(pidPath, 'utf8'));
+    assert.ok(info, 'the paired pid file parses');
+    assert.strictEqual(info.port, port, 'the CLI port was bound, not the 7777 default');
+    serverPid = info.pid;
+  } finally {
+    killTree(serverPid);
+    if (proc && proc.exitCode === null) killTree(proc.pid);
+    killBoardAppPid(dir);
+    try { fs.unlinkSync(pidPath); } catch (_) { /* already removed */ }
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test('run: the running check finds a board already served on its CLI port — no config pin, no paired pid file, only the CLI port names it', async () => {
+  const port = await freePort();
+  const proj = tmpDir('kanban-launcher-cliport-running-'); // nested — see N4 note above
+  const dir = path.join(proj, '.kanban');
+  fs.mkdirSync(dir); // unpinned
+  const appPidPath = path.join(dir, '.kanban-app.pid');
+
+  let serverProc = null;
+  try {
+    // Started the documented way — `server.js <dir> <port>`, never through
+    // the launcher — so only .kanban-app.pid exists; nothing has EVER
+    // written a paired kanban_web.pid for this board.
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
+    await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
+
+    const exitCode = await new Promise((resolve, reject) => {
+      const proc = spawn(process.execPath, [LAUNCHER_PATH, 'run', dir, 'kanban_web', String(port)], {
+        env: { ...process.env, KANBAN_WEB_NO_BROWSER: '1' },
+        stdio: 'ignore',
+      });
+      proc.on('exit', resolve);
+      proc.on('error', reject);
+    });
+
+    assert.strictEqual(exitCode, 0, 'the already-running board is found via the replayed CLI port, so nothing new is spawned');
+  } finally {
+    killTree(serverProc && serverProc.pid);
+    killBoardAppPid(dir);
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
 // --- integration: real cmd.exe parse (win32 only) ----------------------------
 //
 // A Node-side render check (regex on the string renderWrapper returns) can't
@@ -925,8 +1150,8 @@ test('run: an explicit baseName (the wrapper\'s own third argument) pairs with t
 // silently breaks a path containing `&`/`(`/`)` (cmd's /c strips a wrapping
 // quote pair unless the quoted text is free of those characters — see
 // Microsoft's documented /c rule) or non-ASCII bytes.
-function runCmdLine(cmdLine, env) {
-  return spawn('cmd.exe', ['/d', '/c', cmdLine], { env, stdio: 'ignore', windowsVerbatimArguments: true });
+function runCmdLine(cmdLine, env, cmdArgs = ['/d', '/c']) {
+  return spawn('cmd.exe', [...cmdArgs, cmdLine], { env, stdio: 'ignore', windowsVerbatimArguments: true });
 }
 
 async function assertWrapperServesBoard(wrapperPath, dir, port, spawnIt) {
@@ -1020,5 +1245,67 @@ test('write+run (win32, real cmd parse): a literal % in the board path survives 
         () => runCmdLine(`call "${wrapperPath}"`, { ...process.env, KANBAN_WEB_NO_BROWSER: '1' }));
     } finally {
       fs.rmSync(proj, { recursive: true, force: true });
+    }
+  });
+
+test('write+run (win32, real cmd parse): setlocal DisableDelayedExpansion protects a "!" in the board path under cmd /v:on (or the DelayedExpansion registry key)',
+  { skip: process.platform !== 'win32' }, async () => {
+    const port = await freePort();
+    const proj = tmpDir('kanban-launcher-bang-');
+    const boardParent = path.join(proj, 'a!b');
+    fs.mkdirSync(boardParent, { recursive: true });
+    const dir = path.join(boardParent, '.kanban');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
+    const wrapperPath = launcher.writeLauncher(dir);
+
+    // Without `setlocal DisableDelayedExpansion`, `cmd /v:on` makes THIS
+    // batch file's own lines get scanned for `!...!` expansion: the lone
+    // `!` in `a!b` would silently vanish before node ever sees the path,
+    // sending `repo\ab\.kanban` instead of `repo\a!b\.kanban` — the board
+    // dir the server is told to serve would not exist, and
+    // assertWrapperServesBoard's wait for the pid file would time out.
+    try {
+      await assertWrapperServesBoard(wrapperPath, dir, port,
+        () => runCmdLine(`chcp 437 >nul & call "${wrapperPath}"`, { ...process.env, KANBAN_WEB_NO_BROWSER: '1' }, ['/v:on', '/d', '/c']));
+    } finally {
+      fs.rmSync(proj, { recursive: true, force: true });
+    }
+  });
+
+test('write+run (win32, real cmd parse): success exits 0, any failure pauses then exits 1 — never leaks the pause command\'s own errorlevel out through a double-click',
+  { skip: process.platform !== 'win32' }, async () => {
+    // Reproduces the exact N7 defect: `cmd /c "kanban_web.cmd"` — how a
+    // double-click actually runs the wrapper — used to come back 0 for a
+    // real failure (errorlevel 3, -1 both observed in the wild), because the
+    // OLD `|| pause & exit /b` gave `exit /b` no code of its own, so it
+    // replayed whatever `pause` itself returned. A tiny stub stands in for
+    // the helper so the failure is deterministic and instant.
+    const dir = tmpDir('kanban-launcher-exitcode-');
+    const runWithExitCode = (code) => {
+      const stubPath = path.join(dir, `stub-${code}.js`);
+      fs.writeFileSync(stubPath, `process.exit(${code});\n`);
+      const wrapperPath = path.join(dir, `wrapper-${code}.cmd`);
+      const text = launcher.renderWrapper({
+        platform: 'win32', boardDirAbs: dir, boardName: 'Board',
+        nodePath: process.execPath, helperPath: stubPath, baseName: 'kanban_web',
+      });
+      fs.writeFileSync(wrapperPath, text);
+      return new Promise((resolve, reject) => {
+        const proc = spawn('cmd.exe', ['/d', '/c', `call "${wrapperPath}"`], {
+          stdio: ['pipe', 'ignore', 'ignore'], windowsVerbatimArguments: true,
+        });
+        proc.on('error', reject);
+        proc.on('exit', (exitCode) => resolve(exitCode));
+        // The failure branch's `pause` blocks on stdin — a pipe buffers this
+        // write until pause actually reads it, so no timing race.
+        try { proc.stdin.write('\r\n'); proc.stdin.end(); } catch (_) {}
+      });
+    };
+    try {
+      assert.notStrictEqual(await runWithExitCode(3), 0, 'a helper exiting 3 must not leak through the wrapper as exit code 0');
+      assert.notStrictEqual(await runWithExitCode(-1), 0, 'a helper exiting -1 must not leak through as 0 either');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
