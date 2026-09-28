@@ -310,6 +310,12 @@ function startAndAttach(boardDirAbs, pidPath) {
   return new Promise((resolve) => {
     const serverPath = path.join(__dirname, 'server.js');
     const appPidPath = path.join(boardDirAbs, '.kanban-app.pid');
+    // By the time run() reaches here it has already ruled out a leftover
+    // .kanban-app.pid as a genuinely live, answering server (see
+    // runLauncher) — clear it so the match-by-pid poll below can only ever
+    // see a fresh write from the child spawned next, never coincidentally
+    // match a stale entry through pid reuse.
+    try { fs.unlinkSync(appPidPath); } catch (_) { /* absent is fine */ }
     const child = spawn(process.execPath, [serverPath, boardDirAbs], { stdio: 'inherit' });
 
     // stdio is inherited (so the window IS the server's console), which
