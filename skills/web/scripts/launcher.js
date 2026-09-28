@@ -358,15 +358,18 @@ function decideRunning({ port, answeredBoardDir, targetBoardDir, platform = proc
   return sameBoardDir(answeredBoardDir, targetBoardDir, platform);
 }
 
-// The one URL string every openBrowser call is built from — always
-// 127.0.0.1, never `localhost`. On a machine whose resolver returns the
-// IPv6 loopback first, `localhost` can resolve to `::1`, and if some OTHER
-// process is bound there on the same port, the browser lands on THAT
-// server's page instead of this board's. probeBoardDir (the running check)
-// already only ever asks 127.0.0.1; this keeps the browser asking the same
-// address it just proved was serving the right board.
-function boardUrl(port) {
-  return `http://127.0.0.1:${port}`;
+function boardUrl(port, host = '127.0.0.1') {
+  return `http://${host}:${port}`;
+}
+
+// Which host the browser opens. `localhost` is what the skill and the
+// server's own URL line use, and the app keeps its view settings per origin,
+// so opening the same origin keeps them together. But `localhost` can
+// resolve to ::1 first, where a different server may sit on the same port,
+// so it is used only when it answers as THIS board; otherwise 127.0.0.1,
+// the address the running check just proved.
+function browserHost(localhostBoardDir, boardDirAbs, platform = process.platform) {
+  return sameBoardDir(localhostBoardDir, boardDirAbs, platform) ? 'localhost' : '127.0.0.1';
 }
 
 // ---------------------------------------------------------------------------
@@ -477,14 +480,14 @@ function isPidAlive(pid) {
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
 }
 
-function probeBoardDir(port, timeoutMs) {
+function probeBoardDir(port, timeoutMs, host = '127.0.0.1') {
   return new Promise((resolve) => {
     // `req.destroy()` on a timeout does not reliably re-emit as an 'error'
     // across Node versions, so the timeout path resolves directly rather
     // than counting on the 'error' handler to fire afterward.
     let done = false;
     const finish = (v) => { if (done) return; done = true; resolve(v); };
-    const req = http.get({ host: '127.0.0.1', port, path: '/api/board', timeout: timeoutMs }, (res) => {
+    const req = http.get({ host, port, path: '/api/board', timeout: timeoutMs }, (res) => {
       let data = '';
       res.on('data', (c) => { data += c; });
       res.on('end', () => {
@@ -498,6 +501,12 @@ function probeBoardDir(port, timeoutMs) {
     req.on('timeout', () => { req.destroy(); finish(null); });
     req.on('error', () => finish(null));
   });
+}
+
+async function openBoard(port, boardDirAbs) {
+  if (process.env.KANBAN_WEB_NO_BROWSER === '1') return;
+  const viaLocalhost = await probeBoardDir(port, 500, 'localhost');
+  openBrowser(boardUrl(port, browserHost(viaLocalhost, boardDirAbs)));
 }
 
 function openBrowser(url) {
@@ -682,7 +691,7 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive, onDecided, serverArgs
         pollTimer = null;
         fs.writeFileSync(pidPath, `${child.pid}\n${info.port}\n`);
         decide();
-        openBrowser(boardUrl(info.port));
+        openBoard(info.port, boardDirAbs);
       }
     }, 150);
 
@@ -709,7 +718,7 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive, onDecided, serverArgs
       // own bind failure and pausing on an apparent error.
       if (code != null && code !== 0 && !sawSigint) {
         pollForServedBoard(boardDirAbs, appPidPath, undefined, cliPortFromServerArgs(serverArgs)).then((servedPort) => {
-          if (servedPort != null) { openBrowser(boardUrl(servedPort)); resolve(0); return; }
+          if (servedPort != null) { openBoard(servedPort, boardDirAbs).then(() => resolve(0)); return; }
           resolve(launcherExitCode(code, sawSigint));
         });
         return;
@@ -787,6 +796,10 @@ function statLock(lockPath) {
 // can't hardlink at all — network shares mostly (EPERM/ENOTSUP/EXDEV), but
 // also FAT/exFAT, where CreateHardLink's failure libuv maps to EISDIR —
 // where the empty-then-written window is, unavoidably, back.
+function isPendingDeleteCode(code) {
+  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY';
+}
+
 function createLockAtomic(lockPath, content) {
   const tmp = `${lockPath}.${process.pid}.${randomLockToken()}.tmp`;
   fs.writeFileSync(tmp, content);
@@ -800,7 +813,12 @@ function createLockAtomic(lockPath, content) {
         fs.writeFileSync(lockPath, content, { flag: 'wx' });
         return true;
       } catch (e2) {
-        if (e2.code === 'EEXIST') return false;
+        // On Windows a name whose previous file is still being deleted
+        // refuses a new create with EPERM (EACCES/EBUSY under a scanner):
+        // someone just released or reclaimed it, so this round is lost,
+        // not broken. The temp write above already proved the folder
+        // itself is writable.
+        if (e2.code === 'EEXIST' || isPendingDeleteCode(e2.code)) return false;
         throw e2;
       }
     }
@@ -850,12 +868,11 @@ function createLockAtomic(lockPath, content) {
 //
 // The ticket-holder is now the ONLY thread that will ever call
 // `fs.unlinkSync(lockPath)` for this generation — no concurrent racing on
-// that call, so the flakiness above doesn't apply to it. It's also
-// necessarily safe: nothing NEW can occupy `lockPath` while this stale
-// generation still sits there (createLockAtomic needs the name to be
-// VACANT to succeed), so between judging this generation stale and this
-// unlink, the only content that could ever be there is this exact one — the
-// re-check right before unlinking is belt-and-braces, not load-bearing.
+// that call, so the flakiness above doesn't apply to it. The unlink is
+// not safe on its own, though: a slow racer can win this generation's ticket after
+// the first winner has already reclaimed the lock, released it, and a new
+// lock has been taken at `lockPath`. The re-check right before unlinking is
+// what stops that racer deleting the new lock, so it is load-bearing.
 const RECLAIM_TICKET_GENERATION_LIMIT = 1000;
 
 function reclaimStaleLock(lockPath, snap) {
@@ -870,6 +887,10 @@ function reclaimStaleLock(lockPath, snap) {
       ticketPath = candidate;
       break;
     } catch (e) {
+      // A ticket still being deleted by the racer that just used it refuses
+      // a new create on Windows (see isPendingDeleteCode): that racer is
+      // mid-reclaim, so defer to it exactly as for EEXIST.
+      if (isPendingDeleteCode(e.code)) return;
       if (e.code !== 'EEXIST') throw e;
     }
     if (lockAgeMs(candidate) < LOCK_STALE_MS) return; // a live racer already owns this generation — defer to them
@@ -1033,7 +1054,7 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
   let toldWaiting = false;
   for (;;) {
     const served = await findServedPort(boardDirAbs, pidPath, appPidPath, platform, cliPort);
-    if (served != null) { openBrowser(boardUrl(served)); return 0; }
+    if (served != null) { await openBoard(served, boardDirAbs); return 0; }
 
     if (!acquireStartLock(lockPath)) {
       // Someone else is already deciding (or starting) this exact board's
@@ -1044,7 +1065,7 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
         toldWaiting = true;
       }
       const servedByOther = await pollForServedBoard(boardDirAbs, appPidPath, { timeoutMs: 8000 }, cliPort);
-      if (servedByOther != null) { openBrowser(boardUrl(servedByOther)); return 0; }
+      if (servedByOther != null) { await openBoard(servedByOther, boardDirAbs); return 0; }
       continue; // the lock holder never produced a running server — retry
     }
 
@@ -1053,7 +1074,7 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
       // served" to "served and the lock already released" in the gap
       // between the probe above and winning the lock just now.
       const servedNow = await findServedPort(boardDirAbs, pidPath, appPidPath, platform, cliPort);
-      if (servedNow != null) { openBrowser(boardUrl(servedNow)); return 0; }
+      if (servedNow != null) { await openBoard(servedNow, boardDirAbs); return 0; }
       // One more check, right before actually spawning: a verified stale
       // reclaim (see reclaimStaleLock) can, in principle, have taken this
       // lock away from us in the gap since acquireStartLock returned —
@@ -1078,7 +1099,7 @@ module.exports = {
   sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle,
   escapePercentForCmd, singleQuotePosix, renderWrapper, sanitizeServerArgsForWrapper,
   missingExcludeNames, excludeAppendBuffer, parsePidFileText, candidatePorts, cliPortFromServerArgs, decideRunning,
-  shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot, boardUrl,
+  shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot, boardUrl, browserHost,
   gitInfoExcludePath, listWrapperMarkers, boardDirStillThere, resolveBaseNameForBoard, readPidFile, isPidAlive,
   probeBoardDir, openBrowser, pollForServedBoard, findServedPort,
   readLockPid, parseLockContent, acquireStartLock, stillHoldsStartLock, releaseStartLock, lockAgeMs,

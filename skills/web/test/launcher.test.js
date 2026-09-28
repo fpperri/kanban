@@ -749,10 +749,12 @@ test('decideRunning requires both a port and a matching answered boardDir', () =
   assert.strictEqual(launcher.decideRunning({ port: 7777, answeredBoardDir: 'C:\\B', targetBoardDir: 'c:\\b', platform: 'win32' }), true);
 });
 
-test('boardUrl builds the exact string every openBrowser call is given — 127.0.0.1, never localhost, which can resolve to ::1 first and land on a different server on the same port', () => {
-  assert.strictEqual(launcher.boardUrl(7777), 'http://127.0.0.1:7777');
+test('browserHost: localhost only when localhost answers as THIS board, else 127.0.0.1 (localhost can resolve to ::1, where another server may sit)', () => {
   assert.strictEqual(launcher.boardUrl(51234), 'http://127.0.0.1:51234');
-  assert.ok(!launcher.boardUrl(7777).includes('localhost'));
+  assert.strictEqual(launcher.boardUrl(51234, 'localhost'), 'http://localhost:51234');
+  assert.strictEqual(launcher.browserHost('C:\\p\\.kanban', 'c:\\P\\.kanban', 'win32'), 'localhost', 'same board: keep the origin the skill opens, so view settings stay together');
+  assert.strictEqual(launcher.browserHost('C:\\other\\.kanban', 'C:\\p\\.kanban', 'win32'), '127.0.0.1', 'a different board on localhost');
+  assert.strictEqual(launcher.browserHost(null, 'C:\\p\\.kanban', 'win32'), '127.0.0.1', 'nothing answering on localhost');
 });
 
 // --- integration: write ------------------------------------------------------
