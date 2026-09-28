@@ -78,6 +78,31 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
 also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple Browser").
 
+Right after reading that URL line, run `node <SCRIPTS_DIR>/launcher.js write <kanban-dir>`
+— unasked, on every successful start — and tell the human the printed launcher path in
+your report; see **Double-click launcher** below.
+
+### Double-click launcher
+
+`launcher.js write` (re)writes a double-clickable wrapper for restarting this same board
+with no tokens spent: `kanban_web.cmd` (Windows), `kanban_web.command` (macOS, chmod +x)
+or `kanban_web.sh` (Linux, chmod +x — a `.desktop` entry is optional and not set up
+here), at the root of the board's git repository, or its parent folder when there is no
+repository. A paired `kanban_web.pid` sits beside it — pid on line 1, port on line 2,
+same shape as `.kanban-app.pid` below, which is unrelated and untouched. A second board
+sharing that same folder collides on the name and gets suffixed —
+`kanban_web-<board-name>.<ext>` + a matching `.pid`; the writer tells boards apart by a
+marker line inside each wrapper and never overwrites a launcher naming a different
+board, though rewriting one for the *same* board (healing a stale path) happens on every
+start. In a repository, both file names are added to `info/exclude`, never
+`.gitignore`. Double-clicking the wrapper checks whether the board is already served — a
+live paired pid **and** a port that answers as *this* board (a pid file alone is never
+the proof) — before opening the browser; otherwise it starts the server right there, in
+that window, and stops it (removing the pid file) on Ctrl+C or on closing the window. If
+a plugin update removes the helper script the wrapper calls, the wrapper says so and
+tells the human to run `/kanban:web` once to rewrite it. **The launcher is the human's
+hand only** — never run it, or `launcher.js run`, yourself.
+
 ## Behind a VS Code tunnel
 
 Reaching the board through a VS Code Remote Tunnel means the browser sees a
