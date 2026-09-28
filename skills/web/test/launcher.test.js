@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
 const launcher = require('../scripts/launcher');
 
@@ -476,6 +477,98 @@ test('releaseStartLock leaves alone a lock that names a DIFFERENT pid — never 
     launcher.releaseStartLock(lockPath);
     assert.ok(fs.existsSync(lockPath), 'a lock naming a different pid is left in place');
   } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('acquireStartLock reclaims a stale lock even on a volume that cannot hard-link (EPERM/ENOTSUP/EXDEV/EISDIR from fs.linkSync)', async () => {
+  const dir = tmpDir('kanban-launcher-lock-nohardlink-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  const deadPid = await new Promise((resolve) => {
+    const p = spawn(process.execPath, ['-e', 'process.exit(0)']);
+    p.on('exit', () => resolve(p.pid));
+  });
+  for (const code of ['EPERM', 'ENOTSUP', 'EXDEV', 'EISDIR']) {
+    fs.writeFileSync(lockPath, String(deadPid));
+    const origLinkSync = fs.linkSync;
+    fs.linkSync = () => { const e = new Error(`simulated ${code}`); e.code = code; throw e; };
+    try {
+      assert.strictEqual(launcher.acquireStartLock(lockPath), true,
+        `a dead-pid lock is still reclaimed when fs.linkSync fails with ${code}`);
+      assert.strictEqual(launcher.readLockPid(lockPath), process.pid);
+    } finally {
+      fs.linkSync = origLinkSync;
+      launcher.releaseStartLock(lockPath);
+    }
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('acquireStartLock reclaims a stale lock even when fs.linkSync fails outright (no fallback code) — reclaim never depends on hard links at all', async () => {
+  const dir = tmpDir('kanban-launcher-lock-nolink-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  const deadPid = await new Promise((resolve) => {
+    const p = spawn(process.execPath, ['-e', 'process.exit(0)']);
+    p.on('exit', () => resolve(p.pid));
+  });
+  fs.writeFileSync(lockPath, String(deadPid));
+  const origLinkSync = fs.linkSync;
+  // createLockAtomic (used for the winning re-create) still needs linkSync
+  // to work for its own non-EEXIST/fallback codes to be exercised, so only
+  // reject linkSync calls whose destination is a reclaim ticket — anything
+  // reclaimStaleLock itself would have tried under the old implementation.
+  fs.linkSync = (src, dest) => {
+    if (String(dest).includes('.reclaim.')) throw new Error('reclaim must never call fs.linkSync');
+    return origLinkSync(src, dest);
+  };
+  try {
+    assert.strictEqual(launcher.acquireStartLock(lockPath), true, 'reclaim succeeds without ever touching fs.linkSync for the ticket');
+    assert.strictEqual(launcher.readLockPid(lockPath), process.pid);
+  } finally {
+    fs.linkSync = origLinkSync;
+    launcher.releaseStartLock(lockPath);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('acquireStartLock reclaims a stale lock even when its reclaim ticket was orphaned by a crashed racer, once the ticket ages out', async () => {
+  const dir = tmpDir('kanban-launcher-lock-orphaned-ticket-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  const deadPid = await new Promise((resolve) => {
+    const p = spawn(process.execPath, ['-e', 'process.exit(0)']);
+    p.on('exit', () => resolve(p.pid));
+  });
+  fs.writeFileSync(lockPath, String(deadPid));
+
+  // Simulate a racer that won the reclaim ticket for this exact stale
+  // generation and then died before unlinking `lockPath` — the ticket name
+  // is deterministic (hash of the lock's mtime + bytes), so this is exactly
+  // the file a real crashed racer would have left behind.
+  const raw = fs.readFileSync(lockPath, 'utf8');
+  const mtimeMs = fs.statSync(lockPath).mtimeMs;
+  const identity = `${mtimeMs}|${raw}`;
+  const ticketPath = `${lockPath}.reclaim.${crypto.createHash('sha1').update(identity).digest('hex').slice(0, 16)}`;
+
+  // A YOUNG orphaned ticket must NOT be reclaimed out from under — it reads
+  // exactly like a live racer still mid-reclaim.
+  fs.writeFileSync(ticketPath, '');
+  try {
+    assert.strictEqual(launcher.acquireStartLock(lockPath), false,
+      'a fresh reclaim ticket is respected — its holder might still be alive and about to finish');
+  } finally {
+    try { fs.unlinkSync(ticketPath); } catch (_) {}
+  }
+
+  // The SAME orphaned ticket, once old, must not wedge the board forever.
+  fs.writeFileSync(ticketPath, '');
+  const old = new Date(Date.now() - 40000);
+  fs.utimesSync(ticketPath, old, old);
+  try {
+    assert.strictEqual(launcher.acquireStartLock(lockPath), true,
+      'an aged-out orphaned ticket steps aside for the next generation instead of blocking every future run');
+    assert.strictEqual(launcher.readLockPid(lockPath), process.pid);
+  } finally {
+    launcher.releaseStartLock(lockPath);
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

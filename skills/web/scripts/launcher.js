@@ -783,8 +783,9 @@ function statLock(lockPath) {
 // whole. `fs.linkSync` failing with EEXIST means someone else's lock is
 // already there, exactly like the old `wx` write did. The temp name is
 // removed either way; the content lives on through the link, never through
-// the temp name. Falls back to the old `wx` write only on a filesystem that
-// can't hardlink at all (EPERM/ENOTSUP/EXDEV) — network shares, mainly —
+// the temp name. Falls back to the old `wx` write on a filesystem that
+// can't hardlink at all — network shares mostly (EPERM/ENOTSUP/EXDEV), but
+// also FAT/exFAT, where CreateHardLink's failure libuv maps to EISDIR —
 // where the empty-then-written window is, unavoidably, back.
 function createLockAtomic(lockPath, content) {
   const tmp = `${lockPath}.${process.pid}.${randomLockToken()}.tmp`;
@@ -794,7 +795,7 @@ function createLockAtomic(lockPath, content) {
     return true;
   } catch (e) {
     if (e.code === 'EEXIST') return false;
-    if (e.code === 'EPERM' || e.code === 'ENOTSUP' || e.code === 'EXDEV') {
+    if (e.code === 'EPERM' || e.code === 'ENOTSUP' || e.code === 'EXDEV' || e.code === 'EISDIR') {
       try {
         fs.writeFileSync(lockPath, content, { flag: 'wx' });
         return true;
@@ -820,14 +821,32 @@ function createLockAtomic(lockPath, content) {
 // than a Node bug, but real on a machine this code has to run on regardless.
 // `fs.linkSync` creating a brand-new destination name did NOT show this
 // (0/200 in the same probe), matching what createLockAtomic already leans
-// on, so reclaiming is built on that alone:
+// on, so reclaiming is built on the same "exclusive create of a brand-new
+// name" idea — but via a plain `wx` write, not a link. A ticket's bytes are
+// never read by anyone (only its existence, via EEXIST, is ever
+// consulted), so the empty-then-written window `createLockAtomic` goes to
+// such lengths to avoid, for the LOCK's own content, simply doesn't matter
+// here — and `wx` needs no hard-link support at all, so it works on every
+// filesystem createLockAtomic itself has to fall back for (see above).
 //
 // Every racer that judges the SAME exact stale generation (identical bytes
 // AND mtime — see `snap`) computes the SAME deterministic "reclaim ticket"
-// name for it. Only one of them can `fs.linkSync` a file into that exact
-// name — reliably exclusive — so exactly one racer, across every racer that
-// ever judges this particular generation stale, becomes its ticket-holder.
-// Every other racer sees EEXIST and returns immediately, touching nothing.
+// name for it. Only one of them can create that exact name — reliably
+// exclusive — so exactly one racer becomes its ticket-holder and goes on to
+// unlink `lockPath`. Every other racer sees EEXIST.
+//
+// A ticket-holder that then dies before unlinking `lockPath` (window
+// closed, process killed) would otherwise wedge this generation forever:
+// `lockPath` never leaves, so every later racer keeps recomputing the same
+// ticket name and keeps losing it to the dead holder's orphaned ticket.
+// So EEXIST is not itself the final word — a ticket younger than
+// LOCK_STALE_MS means its holder is plausibly still mid-reclaim (a handful
+// of sync fs calls, never actually this slow) and is respected as-is, but
+// once a ticket has sat that long its holder is presumed dead, and the next
+// racer to see it steps up a generation (`.reclaim.<hash>.<n>`) rather than
+// deferring to it forever. Only one racer at a time can win any given
+// generation's ticket, so this still ends with exactly one arbiter, just
+// possibly a few generations deep.
 //
 // The ticket-holder is now the ONLY thread that will ever call
 // `fs.unlinkSync(lockPath)` for this generation — no concurrent racing on
@@ -837,24 +856,26 @@ function createLockAtomic(lockPath, content) {
 // VACANT to succeed), so between judging this generation stale and this
 // unlink, the only content that could ever be there is this exact one — the
 // re-check right before unlinking is belt-and-braces, not load-bearing.
-// This is what closes the old bug (a first racer's brand-new lock deleted
-// by a second racer still acting on a now-stale verdict): the removal is
-// now down to a single, arbitrated actor per generation, never a race.
+const RECLAIM_TICKET_GENERATION_LIMIT = 1000;
+
 function reclaimStaleLock(lockPath, snap) {
   const identity = `${snap.mtimeMs}|${snap.raw}`;
-  const ticketPath = `${lockPath}.reclaim.${crypto.createHash('sha1').update(identity).digest('hex').slice(0, 16)}`;
-  const ticketSrc = `${lockPath}.${process.pid}.${randomLockToken()}.ticket-src`;
-  fs.writeFileSync(ticketSrc, '');
-  let wonTicket = false;
-  try {
-    fs.linkSync(ticketSrc, ticketPath);
-    wonTicket = true;
-  } catch (e) {
-    if (e.code !== 'EEXIST') throw e;
-  } finally {
-    try { fs.unlinkSync(ticketSrc); } catch (_) {}
+  const baseTicketPath = `${lockPath}.reclaim.${crypto.createHash('sha1').update(identity).digest('hex').slice(0, 16)}`;
+
+  let ticketPath = null;
+  for (let gen = 0; gen < RECLAIM_TICKET_GENERATION_LIMIT; gen++) {
+    const candidate = gen === 0 ? baseTicketPath : `${baseTicketPath}.${gen}`;
+    try {
+      fs.writeFileSync(candidate, '', { flag: 'wx' });
+      ticketPath = candidate;
+      break;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+    }
+    if (lockAgeMs(candidate) < LOCK_STALE_MS) return; // a live racer already owns this generation — defer to them
+    // Otherwise its holder is presumed dead: loop and try the next generation.
   }
-  if (!wonTicket) return; // someone else already won the right to reclaim this exact generation
+  if (ticketPath == null) return; // pathologically many dead generations in a row — give up this round, retry later
 
   const current = statLock(lockPath);
   if (current && current.mtimeMs === snap.mtimeMs && current.raw === snap.raw) {
