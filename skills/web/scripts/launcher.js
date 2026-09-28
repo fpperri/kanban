@@ -44,9 +44,15 @@ function markerCommentLine(platform, boardDirAbs) {
 }
 
 const MARKER_RE = /kanban-web-board:\s*(.+?)\s*$/m;
-function parseMarkerBoardDir(text) {
+// `platform` matters only for win32: renderWrapper doubles every `%` in the
+// board dir it writes into a .cmd's marker (cmd.exe's line-reader collapses
+// `%%` before a rem comment ever sees it, even without executing the line —
+// #281 review N1), so reading it back has to undo that doubling to recover
+// the real path. A posix marker was never doubled, so it passes through.
+function parseMarkerBoardDir(text, platform = process.platform) {
   const m = MARKER_RE.exec(String(text || ''));
-  return m ? m[1] : null;
+  if (!m) return null;
+  return platform === 'win32' ? m[1].replace(/%%/g, '%') : m[1];
 }
 
 // Case-insensitive on Windows (the one platform whose filesystem is), exact
@@ -80,11 +86,17 @@ function* wrapperNameCandidates(sanitizedBoardName) {
 // still-real board — or one whose marker can't be read at all — is skipped,
 // never overwritten.
 function chooseWrapperName(boardDirAbs, boardName, existing, platform = process.platform) {
+  // A wrapper already naming THIS board — at ANY suffix rank — always wins
+  // first, even when an earlier-ranked candidate (e.g. the bare
+  // `kanban_web`) has since freed up: picking that free slot instead would
+  // abandon this board's real wrapper as an orphaned duplicate and leave
+  // `run()` pairing against the wrong pid file (#281 review H7/N2).
+  const own = existing.find((e) => sameBoardDir(e.markerBoardDir, boardDirAbs, platform));
+  if (own) return own.baseName;
   const suffix = cs.slugify(boardName) || 'board';
   for (const candidate of wrapperNameCandidates(suffix)) {
     const match = existing.find((e) => e.baseName === candidate);
     if (!match) return candidate;
-    if (sameBoardDir(match.markerBoardDir, boardDirAbs, platform)) return candidate;
     if (match.markerBoardDir != null && match.markerBoardDirExists === false) return candidate;
   }
   throw new Error(`could not find a free launcher name for ${boardDirAbs}`);
@@ -100,9 +112,31 @@ function sanitizeForWindowsTitle(name) {
   return String(name || '').replace(/[\r\n]+/g, ' ').replace(/[&|<>^%"]/g, '_').trim();
 }
 
-function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath }) {
-  const marker = markerCommentLine(platform, boardDirAbs);
+// cmd.exe's line-reader collapses a doubled `%` to one literal `%` on every
+// line it reads — comments included — before it ever considers `%1`,
+// `%~dp0`, `%VAR%` and the like. A single, undoubled `%` in an embedded path
+// (e.g. a folder named "100% done") can vanish, corrupt an unrelated part of
+// the SAME line, or pair with a later `%` on that line to trigger a bogus
+// variable expansion. Doubling sidesteps all three (#281 review N1).
+function escapePercentForCmd(s) {
+  return String(s).replace(/%/g, '%%');
+}
+
+// POSIX `sh` has no `%`-style quirk; single-quoting alone protects a path
+// there, including one with `$`, backticks, spaces or metacharacters — the
+// only character that can't appear inside single quotes is a single quote
+// itself, closed/escaped/reopened with the standard `'\''` trick (#281
+// review N5).
+function singleQuotePosix(s) {
+  return `'${String(s).replace(/'/g, "'\\''")}'`;
+}
+
+function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath, baseName }) {
   if (platform === 'win32') {
+    const dir = escapePercentForCmd(boardDirAbs);
+    const node = escapePercentForCmd(nodePath);
+    const helper = escapePercentForCmd(helperPath);
+    const marker = markerCommentLine(platform, dir);
     return [
       '@echo off',
       // Runs before anything else executes so the REST of the script — the
@@ -112,40 +146,63 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath 
       'chcp 65001 >nul',
       marker,
       `title Kanban Web - ${sanitizeForWindowsTitle(boardName)}`,
-      `if exist "${helperPath}" goto run`,
+      `if exist "${helper}" goto run`,
       'echo The kanban plugin has moved or updated. Run /kanban:web once to rewrite this launcher.',
       'pause',
       'exit /b 1',
       ':run',
-      `"${nodePath}" "${helperPath}" run "${boardDirAbs}"`,
-      'if errorlevel 1 pause',
+      `"${node}" "${helper}" run "${dir}" "${baseName}"`,
+      // `if errorlevel 1` is a >= comparison done as a SIGNED integer, so a
+      // negative exit code (its unsigned bit pattern reads as a huge
+      // positive errorlevel, but the signed comparison still sees negative)
+      // slips past it and the window closes with no pause on a real failure
+      // (#281 review H6). %errorlevel% != 0 catches every nonzero code.
+      'if %errorlevel% neq 0 pause',
       '',
     ].join('\r\n');
   }
+  const marker = markerCommentLine(platform, boardDirAbs);
+  const node = singleQuotePosix(nodePath);
+  const helper = singleQuotePosix(helperPath);
+  const dir = singleQuotePosix(boardDirAbs);
+  const base = singleQuotePosix(baseName);
   return [
     '#!/bin/sh',
     marker,
-    `if [ ! -f "${helperPath}" ]; then`,
+    `if [ ! -f ${helper} ]; then`,
     '  echo "The kanban plugin has moved or updated. Run /kanban:web once to rewrite this launcher."',
     '  exit 1',
     'fi',
-    `exec "${nodePath}" "${helperPath}" run "${boardDirAbs}"`,
+    `exec ${node} ${helper} run ${dir} ${base}`,
     '',
   ].join('\n');
 }
 
-// Appends any `names` not already present (as a whole trimmed line) to an
-// info/exclude-shaped text, once each, preserving everything already there.
-// Idempotent: writing the same names twice is a no-op the second time.
-function mergeExcludeEntries(existing, names) {
-  const text = String(existing || '');
+// Which `names` are missing (as a whole trimmed line) from an
+// info/exclude-shaped file. Byte-safe on purpose: info/exclude is git's, not
+// ours, and may hold lines that aren't valid UTF-8 (a latin-1 comment, say).
+// Decoding as latin1 for the split/trim is lossless for the 1-byte-per-char
+// comparison this needs and never risks mangling bytes it doesn't touch —
+// unlike decoding as utf8, which would silently corrupt any invalid sequence
+// the moment it's re-encoded (#281 review H10).
+function missingExcludeNames(existingBuf, names) {
+  const text = Buffer.isBuffer(existingBuf) ? existingBuf.toString('latin1') : String(existingBuf || '');
   const lines = text.length ? text.split(/\r?\n/) : [];
-  const hadTrailingNewline = text.endsWith('\n');
-  const body = hadTrailingNewline ? lines.slice(0, -1) : lines;
-  const present = new Set(body.map((l) => l.trim()));
-  const toAdd = names.filter((n) => !present.has(n));
-  if (!toAdd.length) return text;
-  return [...body, ...toAdd].join('\n') + '\n';
+  const present = new Set(lines.map((l) => l.trim()));
+  return names.filter((n) => !present.has(n));
+}
+
+// Bytes to APPEND (never rewrite) to add `missing` names to an
+// info/exclude-shaped file whose current bytes are `existingBuf` — adds a
+// leading newline first only when the file is non-empty and doesn't already
+// end with one. Returns null when there's nothing to add (idempotent: a
+// second write of the same names is a no-op).
+function excludeAppendBuffer(existingBuf, missing) {
+  if (!missing.length) return null;
+  const buf = Buffer.isBuffer(existingBuf) ? existingBuf : Buffer.from(String(existingBuf || ''), 'latin1');
+  const needsLeadingNewline = buf.length > 0 && buf[buf.length - 1] !== 0x0a;
+  const text = (needsLeadingNewline ? '\n' : '') + missing.join('\n') + '\n';
+  return Buffer.from(text, 'utf8');
 }
 
 // pid file shape shared with .kanban-app.pid: pid on line 1, port on line 2.
@@ -212,14 +269,17 @@ function resolveWhere(boardDirAbs) {
 
 // `excludePath` is null for "no repository" (resolved by the caller, which
 // already needed gitRepoRoot for WHERE — this stays a plain write so that
-// case costs no extra git process).
+// case costs no extra git process). Reads the file as raw bytes and only
+// ever APPENDS — never a read-modify-rewrite of the whole file — so bytes
+// this function doesn't understand (git's, not ours) survive untouched
+// (#281 review H10).
 function ensureExcludeEntries(excludePath, names) {
   if (!excludePath) return;
   fs.mkdirSync(path.dirname(excludePath), { recursive: true });
-  let existing = '';
-  try { existing = fs.readFileSync(excludePath, 'utf8'); } catch (_) { /* absent = empty */ }
-  const merged = mergeExcludeEntries(existing, names);
-  if (merged !== existing) fs.writeFileSync(excludePath, merged);
+  let buf = Buffer.alloc(0);
+  try { buf = fs.readFileSync(excludePath); } catch (_) { /* absent = empty */ }
+  const toAppend = excludeAppendBuffer(buf, missingExcludeNames(buf, names));
+  if (toAppend) fs.appendFileSync(excludePath, toAppend);
 }
 
 // config.yaml's `name:` else the parent-folder derivation — the exact same
@@ -239,7 +299,7 @@ function listWrapperMarkers(whereDir, platform) {
     if (!re.test(f)) continue;
     let text = '';
     try { text = fs.readFileSync(path.join(whereDir, f), 'utf8'); } catch (_) { continue; }
-    const markerBoardDir = parseMarkerBoardDir(text);
+    const markerBoardDir = parseMarkerBoardDir(text, platform);
     out.push({
       baseName: f.slice(0, f.length - ext.length),
       markerBoardDir,
@@ -316,7 +376,7 @@ function writeLauncher(boardDirArg) {
   const wrapperPath = path.join(whereDir, wrapperFileName(baseName, platform));
   const pidPath = path.join(whereDir, pidFileName(baseName));
   const text = renderWrapper({
-    platform, boardDirAbs, boardName,
+    platform, boardDirAbs, boardName, baseName,
     nodePath: process.execPath,
     helperPath: __filename,
   });
@@ -327,9 +387,13 @@ function writeLauncher(boardDirArg) {
   return wrapperPath;
 }
 
-// Finds the baseName an earlier `write` already assigned to this board (by
-// marker match) so `run` writes/reads the SAME paired pid file the wrapper
-// sitting next to it names — `run` never re-derives a fresh collision name.
+// FALLBACK ONLY: a wrapper written by this version of launcher.js passes its
+// own baseName as run()'s third argument (see renderWrapper/runLauncher), so
+// `run` pairs with the exact pid file the wrapper that invoked it names,
+// never a guess. This marker-match guess stays here only for a wrapper
+// written by an OLDER launcher.js (no third argument yet) — see #281 review
+// H7: guessing by marker order can pick the WRONG wrapper's pid file when
+// more than one on disk happens to name the same board.
 function resolveBaseNameForBoard(whereDir, boardDirAbs, platform) {
   const match = listWrapperMarkers(whereDir, platform).find((e) => sameBoardDir(e.markerBoardDir, boardDirAbs, platform));
   return match ? match.baseName : 'kanban_web';
@@ -357,6 +421,32 @@ function launcherExitCode(code, sawSigint) {
   return sawSigint ? 0 : 1;
 }
 
+// Polls up to `timeoutMs` for the board to turn out to be served by SOMEONE
+// ELSE — the paired pid file is deliberately not a candidate here, only
+// .kanban-app.pid and the config pin, since this exists for exactly one
+// case: our own child just failed to bind (see startAndAttach's exit
+// handler) and another launcher racing us for the same pinned port may have
+// won a moment before or after. Returns the answering port, or null on
+// timeout.
+async function pollForServedBoard(boardDirAbs, appPidPath, { timeoutMs = 2000, intervalMs = 150 } = {}) {
+  const config = cfg.readConfig(boardDirAbs);
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const appPid = readPidFile(appPidPath);
+    const ports = candidatePorts({
+      pairedPort: null,
+      appPort: appPid && isPidAlive(appPid.pid) ? appPid.port : null,
+      configPort: config.port || null,
+    });
+    for (const port of ports) {
+      const answeredBoardDir = await probeBoardDir(port, 500);
+      if (decideRunning({ port, answeredBoardDir, targetBoardDir: boardDirAbs })) return port;
+    }
+    if (Date.now() >= deadline) return null;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
 // Spawns server.js in THIS window (stdio inherited — the launcher's window
 // is the server's console), waits for it to report a real bound port, writes
 // the paired pid file, opens the browser, then stays attached until the
@@ -366,6 +456,16 @@ function launcherExitCode(code, sawSigint) {
 // one is cleared here, never a live one (#281 review: a live .kanban-app.pid
 // can only belong to a real server, and by the time run() reaches here every
 // candidate port has already been probed and none answered as this board).
+//
+// The signal handlers and the child's `exit` listener are both wired up
+// synchronously, in the same tick as the spawn, before any await — so
+// there's no gap where a Ctrl+C (or the child dying on its own) during the
+// wait for the bound-port poll would skip this same cleanup path. Whatever
+// reason the child exits for (killed, crashed, Ctrl+C, a clean stop), this
+// is the one place that ever removes the paired pid file, and only while it
+// still names that child — a closed console window is the one way to leave
+// it stale, since that terminates this whole process tree before any of
+// this code gets to run (#281 review H3/H8).
 function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
   return new Promise((resolve) => {
     const serverPath = path.join(__dirname, 'server.js');
@@ -400,6 +500,20 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
       process.off('SIGTERM', onSigterm);
       const cur = readPidFile(pidPath);
       if (cur && cur.pid === child.pid) { try { fs.unlinkSync(pidPath); } catch (_) {} }
+
+      // A losing race for a pinned port: our own server.js failed to bind
+      // (EADDRINUSE on a pin is a startup error, never a silent increment —
+      // see server.js) but another launcher racing us for this same board
+      // won and is already serving it. Treat that as success — open the
+      // browser to the board that's actually up — rather than surfacing our
+      // own bind failure and pausing on an apparent error (#281 review H4).
+      if (code != null && code !== 0 && !sawSigint) {
+        pollForServedBoard(boardDirAbs, appPidPath).then((servedPort) => {
+          if (servedPort != null) { openBrowser(`http://localhost:${servedPort}`); resolve(0); return; }
+          resolve(launcherExitCode(code, sawSigint));
+        });
+        return;
+      }
       resolve(launcherExitCode(code, sawSigint));
     });
   });
@@ -407,13 +521,17 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
 
 // `launcher.js run` — what the wrapper calls. Checks whether the board is
 // already served; if so opens the browser and exits 0 starting nothing,
-// otherwise starts the server and stays attached to it.
-async function runLauncher(boardDirArg) {
+// otherwise starts the server and stays attached to it. `explicitBaseName`
+// is the wrapper's own base name (its third argv, since #281 review H7) —
+// pairing against the exact pid file the invoking wrapper names, never a
+// marker-order guess; falls back to the guess only for an older wrapper
+// that never passed one.
+async function runLauncher(boardDirArg, explicitBaseName) {
   const boardDirAbs = path.resolve(boardDirArg);
   if (!fs.existsSync(boardDirAbs)) throw new Error(`board dir not found: ${boardDirAbs}`);
   const platform = process.platform;
   const { dir: whereDir } = resolveWhere(boardDirAbs);
-  const baseName = resolveBaseNameForBoard(whereDir, boardDirAbs, platform);
+  const baseName = explicitBaseName || resolveBaseNameForBoard(whereDir, boardDirAbs, platform);
   const pidPath = path.join(whereDir, pidFileName(baseName));
   const appPidPath = path.join(boardDirAbs, '.kanban-app.pid');
 
@@ -445,24 +563,25 @@ async function runLauncher(boardDirArg) {
 
 module.exports = {
   osWrapperExt, wrapperFileName, pidFileName, markerLine, markerCommentLine, parseMarkerBoardDir,
-  sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle, renderWrapper,
-  mergeExcludeEntries, parsePidFileText, candidatePorts, decideRunning, shouldForwardSignal,
-  launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot, gitInfoExcludePath,
-  listWrapperMarkers, resolveBaseNameForBoard, readPidFile, isPidAlive, probeBoardDir, openBrowser,
-  writeLauncher, runLauncher,
+  sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle,
+  escapePercentForCmd, singleQuotePosix, renderWrapper,
+  missingExcludeNames, excludeAppendBuffer, parsePidFileText, candidatePorts, decideRunning,
+  shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot,
+  gitInfoExcludePath, listWrapperMarkers, resolveBaseNameForBoard, readPidFile, isPidAlive,
+  probeBoardDir, openBrowser, pollForServedBoard, writeLauncher, runLauncher,
 };
 
 if (require.main === module) {
-  const [, , cmd, boardDirArg] = process.argv;
+  const [, , cmd, boardDirArg, baseNameArg] = process.argv;
   if (cmd === 'write' && boardDirArg) {
     try {
       const wrapperPath = writeLauncher(boardDirArg);
       console.log(`Launcher written: ${wrapperPath}`);
     } catch (e) { console.error(e.message); process.exit(1); }
   } else if (cmd === 'run' && boardDirArg) {
-    runLauncher(boardDirArg).then((code) => process.exit(code)).catch((e) => { console.error(e.message); process.exit(1); });
+    runLauncher(boardDirArg, baseNameArg).then((code) => process.exit(code)).catch((e) => { console.error(e.message); process.exit(1); });
   } else {
-    console.error('usage: launcher.js <write|run> <kanban-dir>');
+    console.error('usage: launcher.js <write|run> <kanban-dir> [baseName]');
     process.exit(1);
   }
 }

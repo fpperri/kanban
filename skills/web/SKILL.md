@@ -88,17 +88,23 @@ your report; see **Double-click launcher** below.
 with no tokens spent: `kanban_web.cmd` (Windows), `kanban_web.command` (macOS, chmod +x)
 or `kanban_web.sh` (Linux, chmod +x — a `.desktop` entry is optional and not set up
 here), at the root of the board's git repository, or its parent folder when there is no
-repository. A paired `kanban_web.pid` sits beside it — pid on line 1, port on line 2,
-same shape as `.kanban-app.pid` below, which is unrelated and untouched. A second board
-sharing that same folder collides on the name and gets suffixed —
+repository. A paired `kanban_web.pid` sits beside it — pid on line 1, port on line 2.
+This is separate from `.kanban-app.pid` above, which server.js itself still writes on
+every bind and which `launcher.js run` reads to find the port; a `.kanban-app.pid` naming
+a dead pid is cleared right before a launcher start, a live one is never touched. A
+second board sharing that same folder collides on the name and gets suffixed —
 `kanban_web-<board-name>.<ext>` + a matching `.pid`; the writer tells boards apart by a
-marker line inside each wrapper and never overwrites a launcher naming a different
-board, though rewriting one for the *same* board (healing a stale path) happens on every
-start. In a repository, both file names are added to `info/exclude`, never
-`.gitignore`. Double-clicking the wrapper checks whether the board is already served — a
-live paired pid **and** a port that answers as *this* board (a pid file alone is never
-the proof) — before opening the browser; otherwise it starts the server right there, in
-that window, and stops it (removing the pid file) on Ctrl+C or on closing the window. If
+marker line inside each wrapper, always reuses the wrapper a board already owns (whatever
+suffix it landed on) before picking a new name, and never overwrites a launcher naming a
+different board — though rewriting one for the *same* board (healing a stale path)
+happens on every start. In a repository, both file names are added to `info/exclude`,
+never `.gitignore`. Double-clicking the wrapper's first step is checking whether the
+board is already served: a port chosen from the pid files or the config pin answers
+`/api/board` as *this* board (a pid file alone is never the proof) — if so it opens the
+browser and starts nothing; otherwise it starts the server right there, in that window.
+Ctrl+C removes the paired `kanban_web.pid` (server.js's own SIGINT handler clears
+`.kanban-app.pid` the same way); closing the window instead is the one way either pid
+file is left stale, since that ends the whole process tree before either handler runs. If
 a plugin update removes the helper script the wrapper calls, the wrapper says so and
 tells the human to run `/kanban:web` once to rewrite it. **The launcher is the human's
 hand only** — never run it, or `launcher.js run`, yourself.
