@@ -431,23 +431,14 @@ function listWrapperMarkers(whereDir, platform) {
       // more cautious case and stays non-reclaimable, so this flag is
       // meaningless there.
       //
-      // Considered and rejected: gating reclaim on "the missing board dir's
-      // PARENT still exists" (ruling out a no-repository board reached
-      // through a junction to a removable drive that's unplugged while a
-      // sibling board in the same folder writes — the one narrow case this
-      // could wrongly reclaim). For a NO-repository board, `whereDir` —
-      // where the wrapper itself lives, and the folder that check would test
-      // — IS the board dir's own parent, so renaming/moving the whole
-      // project (the ordinary, common, already-relied-on case this feature
-      // exists for) makes that very folder vanish under its old name too:
-      // the legitimate case and the unplugged-drive case look byte-for-byte
-      // identical to a single existsSync check, both here and one level up.
-      // Gating on "inside a git repository" fares no better — the
-      // vulnerable scenario is inherently a no-repository one, and so is the
-      // common "just a plain folder, renamed" case it would also block.
-      // Telling "gone for good" apart from "gone for now" needs something a
-      // stat can't see (a stable identity across the rename, or a
-      // human decision), so this stays unguarded.
+      // Left unguarded on purpose. The one wrong reclaim is a no-repository
+      // board whose folder is a junction to a removable drive, unplugged
+      // while a sibling board in the same folder writes: its marker's dir is
+      // gone but its parent (where the wrapper sits) is not. Reclaiming only
+      // when the parent is gone too would block that, and still heal a whole
+      // project renamed or moved; but it would stop healing a board folder
+      // renamed inside a folder that survives (kanban/ to .kanban/), which is
+      // the more common case.
       markerBoardDirExists: markerBoardDir == null ? true : fs.existsSync(markerBoardDir),
     });
   }
@@ -736,7 +727,12 @@ function acquireStartLock(lockPath, maxStaleRetries = 20) {
       if (e.code !== 'EEXIST') throw e;
       const holderPid = readLockPid(lockPath);
       const holderAlive = !!holderPid && isPidAlive(holderPid);
-      if (holderAlive && lockAgeMs(lockPath) < LOCK_STALE_MS) return false;
+      // Stale when its mtime is more than LOCK_STALE_MS from now in EITHER
+      // direction: a future mtime (clock skew on a synced folder) would
+      // otherwise never age out, while a just-written lock can read a
+      // millisecond ahead of Date.now() and must still count as fresh.
+      const age = lockAgeMs(lockPath);
+      if (holderAlive && Math.abs(age) < LOCK_STALE_MS) return false;
       try { fs.unlinkSync(lockPath); } catch (_) { /* raced away already, fine */ }
     }
   }
@@ -803,6 +799,7 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
   const lockPath = path.join(whereDir, lockFileName(baseName));
   const cliPort = cliPortFromServerArgs(serverArgs);
 
+  let toldWaiting = false;
   for (;;) {
     const served = await findServedPort(boardDirAbs, pidPath, appPidPath, platform, cliPort);
     if (served != null) { openBrowser(`http://localhost:${served}`); return 0; }
@@ -811,7 +808,10 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
       // Someone else is already deciding (or starting) this exact board's
       // server. Wait for THEM rather than racing our own probe/spawn
       // against theirs.
-      console.log('Kanban app: another launch is already starting this board — waiting for it...');
+      if (!toldWaiting) {
+        console.log('Kanban app: another launch is already starting this board — waiting for it...');
+        toldWaiting = true;
+      }
       const servedByOther = await pollForServedBoard(boardDirAbs, appPidPath, { timeoutMs: 8000 }, cliPort);
       if (servedByOther != null) { openBrowser(`http://localhost:${servedByOther}`); return 0; }
       continue; // the lock holder never produced a running server — retry

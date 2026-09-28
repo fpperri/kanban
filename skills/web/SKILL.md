@@ -84,7 +84,10 @@ Right after reading that URL line, run
 verbatim and in the same order, so a double-click restart binds the same port and keeps
 the same tunnel origin allowlisted instead of drifting back to `7777` with nothing
 allowlisted — unasked, on every successful start — and tell the human the printed
-launcher path in your report; see **Double-click launcher** below.
+launcher path in your report; see **Double-click launcher** below. Only arguments are
+replayed, never the environment: an origin given through `KANBAN_WEB_ALLOWED_ORIGINS`
+goes to `launcher.js write` as `--allow-origin <origin>`. A port must be a number and each
+origin is re-emitted as `--allow-origin=<its parsed origin>`; anything else is refused.
 
 ### Double-click launcher
 
@@ -102,11 +105,14 @@ marker line inside each wrapper, always reuses the wrapper a board already owns 
 suffix it landed on) before picking a new name, and never overwrites a launcher naming a
 different board that still exists; one whose marker names a board folder that is gone is
 reclaimed. Rewriting it for the *same* board (healing a stale path) happens on every
-start, and unchanged bytes are left alone. In a repository, both file names are added to `info/exclude`,
-never `.gitignore`. Double-clicking the wrapper's first step is checking whether the
-board is already served: a port chosen from the pid files or the config pin answers
-`/api/board` as *this* board (a pid file alone is never the proof) — if so it opens the
-browser and starts nothing; otherwise it starts the server right there, in that window.
+start, and unchanged bytes are left alone. In a repository, the wrapper, `kanban_web.pid`
+and `kanban_web.lock` are added to `info/exclude`, never `.gitignore`. Double-clicking the
+wrapper's first step is checking whether the board is already served: a port chosen from
+the pid files, the replayed port argument or the config pin answers `/api/board` as
+*this* board (a pid file alone is never the proof) — if so it opens the browser and
+starts nothing. Otherwise it takes `kanban_web.lock`, so two quick double-clicks start one
+server (the other waits, says so once, and opens the running board; a lock older than 30
+seconds is stale), and starts the server right there, in that window.
 Ctrl+C removes the paired `kanban_web.pid` (server.js's own SIGINT handler clears
 `.kanban-app.pid` the same way). Closing the window (or Ctrl+Break) leaves
 `kanban_web.pid` stale, and a server that dies without Ctrl+C leaves `.kanban-app.pid`

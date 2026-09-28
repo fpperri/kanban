@@ -405,6 +405,20 @@ test('acquireStartLock: an absent lock is taken and names our pid; a lock naming
   }
 });
 
+test('acquireStartLock reclaims a live-pid lock whose mtime is in the future (clock skew on a synced folder)', () => {
+  const dir = tmpDir('kanban-launcher-lock-future-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  try {
+    fs.writeFileSync(lockPath, String(process.pid));
+    const future = new Date(Date.now() + 3600 * 1000);
+    fs.utimesSync(lockPath, future, future);
+    assert.strictEqual(launcher.acquireStartLock(lockPath), true, 'a future-dated lock is stale, not fresh forever');
+    assert.strictEqual(launcher.readLockPid(lockPath), process.pid);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('acquireStartLock reclaims a lock naming a dead pid instead of blocking forever', async () => {
   const dir = tmpDir('kanban-launcher-lock-stale-');
   const lockPath = path.join(dir, 'kanban_web.lock');
@@ -793,7 +807,7 @@ test('run: starts the server, writes the paired pid, a concurrent run starts not
 
 test('run: a stale paired pid (dead pid) does not block a start', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-stale-'); // nested — see N4 note above
+  const proj = tmpDir('kanban-launcher-stale-'); // nested one level, so its pid files are test-private
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
   const where = path.dirname(dir);
@@ -839,7 +853,7 @@ test('run: a stale paired pid (dead pid) does not block a start', async () => {
 
 test('run: a stale paired pid naming a live-but-unrelated pid on the wrong port must not shadow a genuinely running server, nor delete its .kanban-app.pid', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-liveapp-'); // nested — see N4 note above
+  const proj = tmpDir('kanban-launcher-liveapp-'); // nested one level, so its pid files are test-private
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
   const where = path.dirname(dir);
@@ -885,7 +899,7 @@ test('run: a stale paired pid naming a live-but-unrelated pid on the wrong port 
 
 test('run: two runs racing for the same pinned port — exactly one server survives, kanban_web.pid names it, and both runs end without error', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-race-'); // nested — see N4 note above
+  const proj = tmpDir('kanban-launcher-race-'); // nested one level, so its pid files are test-private
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
   const where = path.dirname(dir);
@@ -947,7 +961,7 @@ test('run: two runs racing for the same pinned port — exactly one server survi
 });
 
 test('run: two runs racing for the same UNPINNED board — exactly one server survives, not two on two different auto-incremented ports', async () => {
-  const proj = tmpDir('kanban-launcher-unpinned-race-'); // nested — see N4 note above
+  const proj = tmpDir('kanban-launcher-unpinned-race-'); // nested one level, so its pid files are test-private
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
   const where = path.dirname(dir);
@@ -956,7 +970,7 @@ test('run: two runs racing for the same UNPINNED board — exactly one server su
   // EADDRINUSE the way a pinned one does: server.js auto-increments past a
   // busy port instead of failing, so without the start lock BOTH racers'
   // spawns would succeed, each on its own free port, leaving two live
-  // servers for one board. A CLI port (S5) is used here instead of the bare
+  // servers for one board. A CLI port is used here instead of the bare
   // 7777 default so this auto-increment race — which can genuinely claim a
   // handful of ports near its start — never touches this desktop's live
   // boards on 7777-7800: a CLI port still auto-increments on EADDRINUSE in
@@ -1016,7 +1030,7 @@ test('run: two runs racing for the same UNPINNED board — exactly one server su
 
 test('run: an explicit baseName (the wrapper\'s own third argument) pairs with that exact pid file, never the marker-order guess', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-explicit-basename-'); // nested — see N4 note above
+  const proj = tmpDir('kanban-launcher-explicit-basename-'); // nested one level, so its pid files are test-private
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
   const where = path.dirname(dir);
@@ -1052,7 +1066,7 @@ test('run: an explicit baseName (the wrapper\'s own third argument) pairs with t
   }
 });
 
-// --- integration: replayed server args (S5) -----------------------------------
+// --- integration: replayed server args -----------------------------------------
 
 test('writeLauncher: a written wrapper carries the replayed server args (a port and --allow-origin, re-emitted as its normalized origin) in order', () => {
   const parent = tmpDir('kanban-launcher-writeargs-');
@@ -1187,7 +1201,7 @@ test('write+run (win32, real cmd parse): a malicious --allow-origin value cannot
 
 test('run: a CLI port (as a written wrapper would replay) is what actually gets bound, on an otherwise-unpinned board', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-cliport-'); // nested — see N4 note above
+  const proj = tmpDir('kanban-launcher-cliport-'); // nested one level, so its pid files are test-private
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir); // no config.yaml at all — genuinely unpinned
   const where = path.dirname(dir);
@@ -1217,7 +1231,7 @@ test('run: a CLI port (as a written wrapper would replay) is what actually gets 
 
 test('run: the running check finds a board already served on its CLI port — no config pin, no paired pid file, no .kanban-app.pid, only the CLI port names it', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-cliport-running-'); // nested — see N4 note above
+  const proj = tmpDir('kanban-launcher-cliport-running-'); // nested one level, so its pid files are test-private
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir); // unpinned
   const appPidPath = path.join(dir, '.kanban-app.pid');
@@ -1399,7 +1413,7 @@ test('write+run (win32, real cmd parse): setlocal DisableDelayedExpansion protec
 
 test('write+run (win32, real cmd parse): success exits 0, any failure pauses then exits 1 — never leaks the pause command\'s own errorlevel out through a double-click',
   { skip: process.platform !== 'win32' }, async () => {
-    // Reproduces the exact N7 defect: `cmd /c "kanban_web.cmd"` with NO
+    // Reproduces the exit-code leak: `cmd /c "kanban_web.cmd"` with NO
     // `call` — how a double-click actually runs the wrapper (cmd.exe treats
     // a /c target that's just a batch file's own name specially; that
     // special-cased path is exactly where the old wrapper's bug lived) —
