@@ -69,19 +69,35 @@ function* wrapperNameCandidates(sanitizedBoardName) {
   for (let n = 2; n < 1000; n++) yield `kanban_web-${sanitizedBoardName}-${n}`;
 }
 
-// `existing`: [{ baseName, markerBoardDir }] for wrapper files already
-// sitting in the target folder (this OS's extension only). Picks the first
-// candidate name that is either free or already serves the SAME board
-// (rewriting a same-board launcher is the normal healing path); a name
-// serving a different board — or one whose marker can't be read at all — is
-// skipped, never overwritten.
+// `existing`: [{ baseName, markerBoardDir, markerBoardDirExists }] for
+// wrapper files already sitting in the target folder (this OS's extension
+// only; `markerBoardDirExists` is the caller's disk check, kept out of this
+// pure function — see listWrapperMarkers). Picks the first candidate name
+// that is: free, already serves the SAME board (rewriting a same-board
+// launcher is the normal healing path), or names a board dir that no longer
+// exists at all — reclaimed rather than left dead forever, e.g. after the
+// project folder was renamed (#281 review). A name serving a different,
+// still-real board — or one whose marker can't be read at all — is skipped,
+// never overwritten.
 function chooseWrapperName(boardDirAbs, boardName, existing, platform = process.platform) {
   const suffix = cs.slugify(boardName) || 'board';
   for (const candidate of wrapperNameCandidates(suffix)) {
     const match = existing.find((e) => e.baseName === candidate);
-    if (!match || sameBoardDir(match.markerBoardDir, boardDirAbs, platform)) return candidate;
+    if (!match) return candidate;
+    if (sameBoardDir(match.markerBoardDir, boardDirAbs, platform)) return candidate;
+    if (match.markerBoardDir != null && match.markerBoardDirExists === false) return candidate;
   }
   throw new Error(`could not find a free launcher name for ${boardDirAbs}`);
+}
+
+// The board name (config.yaml `name:`, or a folder name) lands verbatim in
+// the .cmd `title` line, which isn't quoted — cmd.exe parses that line for
+// `&`/`|`/`<`/`>`/`^`/`%`/`"` before `title` ever sees them, so an untrusted
+// name (config.yaml is tracked repo content) could run its own command the
+// moment the human double-clicks the wrapper. Titles are cosmetic, so a
+// blunt replace is fine; nothing here needs to round-trip.
+function sanitizeForWindowsTitle(name) {
+  return String(name || '').replace(/[\r\n]+/g, ' ').replace(/[&|<>^%"]/g, '_').trim();
 }
 
 function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath }) {
@@ -89,8 +105,13 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath 
   if (platform === 'win32') {
     return [
       '@echo off',
+      // Runs before anything else executes so the REST of the script — the
+      // `if exist` path check below included — reads its own non-ASCII
+      // bytes (a board path, a board name) as UTF-8 instead of whatever OEM
+      // code page this Windows install defaults cmd.exe to.
+      'chcp 65001 >nul',
       marker,
-      `title Kanban Web - ${boardName}`,
+      `title Kanban Web - ${sanitizeForWindowsTitle(boardName)}`,
       `if exist "${helperPath}" goto run`,
       'echo The kanban plugin has moved or updated. Run /kanban:web once to rewrite this launcher.',
       'pause',
@@ -136,15 +157,17 @@ function parsePidFileText(text) {
   return { pid, port: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : null };
 }
 
-// Which port to check for "is this board already running" — the paired pid
-// file's port if that pid is alive, else .kanban-app.pid's if ITS pid is
-// alive, else config.yaml's pin. Callers gate pairedPort/appPort on liveness
-// themselves so this stays a pure precedence pick.
-function choosePort({ pairedPort, appPort, configPort }) {
-  if (pairedPort) return pairedPort;
-  if (appPort) return appPort;
-  if (configPort) return configPort;
-  return null;
+// Every port worth asking "is this board already running here", in priority
+// order (paired pid file, then .kanban-app.pid, then config.yaml's pin),
+// deduped. Callers gate pairedPort/appPort on liveness themselves. Unlike a
+// single precedence pick, EVERY candidate gets probed — a stale paired pid
+// naming the wrong port must never shadow a genuinely running server whose
+// own .kanban-app.pid or config pin would have answered (#281 review: the
+// old single-candidate choosePort let exactly that happen and then deleted
+// the live server's .kanban-app.pid out from under it).
+function candidatePorts({ pairedPort, appPort, configPort }) {
+  const isPort = (n) => Number.isInteger(n) && n >= 1 && n <= 65535;
+  return [...new Set([pairedPort, appPort, configPort].filter(isPort))];
 }
 
 // A pid file is a convenience, never the proof — this is the proof: a port
@@ -216,7 +239,17 @@ function listWrapperMarkers(whereDir, platform) {
     if (!re.test(f)) continue;
     let text = '';
     try { text = fs.readFileSync(path.join(whereDir, f), 'utf8'); } catch (_) { continue; }
-    out.push({ baseName: f.slice(0, f.length - ext.length), markerBoardDir: parseMarkerBoardDir(text) });
+    const markerBoardDir = parseMarkerBoardDir(text);
+    out.push({
+      baseName: f.slice(0, f.length - ext.length),
+      markerBoardDir,
+      // A parsed marker naming a board dir that's gone (the project moved
+      // or was renamed away) makes this wrapper reclaimable — see
+      // chooseWrapperName. An unparseable marker (null) is a different,
+      // more cautious case and stays non-reclaimable, so this flag is
+      // meaningless there.
+      markerBoardDirExists: markerBoardDir == null ? true : fs.existsSync(markerBoardDir),
+    });
   }
   return out;
 }
@@ -302,20 +335,42 @@ function resolveBaseNameForBoard(whereDir, boardDirAbs, platform) {
   return match ? match.baseName : 'kanban_web';
 }
 
+// Windows has no real POSIX signals: a console Ctrl+C delivers CTRL_C_EVENT
+// straight to every process sharing that console — including the child,
+// which is spawned with stdio inherited for exactly this reason — so the
+// child already gets its own copy independent of anything we do here.
+// child.kill(sig) on win32 is TerminateProcess regardless of `sig`, racing
+// that hard kill against the child's own graceful SIGINT handler (which is
+// what unlinks .kanban-app.pid) and reliably winning (#281 review). POSIX
+// signals are real, not console-shared, so forwarding there is both safe
+// and necessary — the child has no other way to hear about it.
+function shouldForwardSignal(platform = process.platform) {
+  return platform !== 'win32';
+}
+
+// A child killed by a signal reports `code: null` — on win32 that includes
+// the ordinary, deliberate Ctrl+C stop (see shouldForwardSignal), so treat
+// that case as success rather than the wrapper's `if errorlevel 1 pause`
+// firing after every normal stop.
+function launcherExitCode(code, sawSigint) {
+  if (code != null) return code;
+  return sawSigint ? 0 : 1;
+}
+
 // Spawns server.js in THIS window (stdio inherited — the launcher's window
 // is the server's console), waits for it to report a real bound port, writes
 // the paired pid file, opens the browser, then stays attached until the
-// child exits, forwarding Ctrl+C/TERM to it and cleaning up after.
-function startAndAttach(boardDirAbs, pidPath) {
+// child exits, forwarding Ctrl+C/TERM to it (POSIX only — see
+// shouldForwardSignal) and cleaning up after. `appPidAlive` says whether
+// .kanban-app.pid named a live pid as of run()'s check — only a truly dead
+// one is cleared here, never a live one (#281 review: a live .kanban-app.pid
+// can only belong to a real server, and by the time run() reaches here every
+// candidate port has already been probed and none answered as this board).
+function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
   return new Promise((resolve) => {
     const serverPath = path.join(__dirname, 'server.js');
     const appPidPath = path.join(boardDirAbs, '.kanban-app.pid');
-    // By the time run() reaches here it has already ruled out a leftover
-    // .kanban-app.pid as a genuinely live, answering server (see
-    // runLauncher) — clear it so the match-by-pid poll below can only ever
-    // see a fresh write from the child spawned next, never coincidentally
-    // match a stale entry through pid reuse.
-    try { fs.unlinkSync(appPidPath); } catch (_) { /* absent is fine */ }
+    if (!appPidAlive) { try { fs.unlinkSync(appPidPath); } catch (_) { /* absent is fine */ } }
     const child = spawn(process.execPath, [serverPath, boardDirAbs], { stdio: 'inherit' });
 
     // stdio is inherited (so the window IS the server's console), which
@@ -333,8 +388,9 @@ function startAndAttach(boardDirAbs, pidPath) {
     }, 150);
 
     const forward = (sig) => { try { child.kill(sig); } catch (_) {} };
-    const onSigint = () => forward('SIGINT');
-    const onSigterm = () => forward('SIGTERM');
+    let sawSigint = false;
+    const onSigint = () => { sawSigint = true; if (shouldForwardSignal()) forward('SIGINT'); };
+    const onSigterm = () => { if (shouldForwardSignal()) forward('SIGTERM'); };
     process.on('SIGINT', onSigint);
     process.on('SIGTERM', onSigterm);
 
@@ -344,7 +400,7 @@ function startAndAttach(boardDirAbs, pidPath) {
       process.off('SIGTERM', onSigterm);
       const cur = readPidFile(pidPath);
       if (cur && cur.pid === child.pid) { try { fs.unlinkSync(pidPath); } catch (_) {} }
-      resolve(code == null ? 1 : code);
+      resolve(launcherExitCode(code, sawSigint));
     });
   });
 }
@@ -367,27 +423,33 @@ async function runLauncher(boardDirArg) {
   const appAlive = !!appPid && isPidAlive(appPid.pid);
   const config = cfg.readConfig(boardDirAbs);
 
-  const port = choosePort({
+  const ports = candidatePorts({
     pairedPort: pairedAlive ? pairedPid.port : null,
     appPort: appAlive ? appPid.port : null,
     configPort: config.port || null,
   });
 
-  const answeredBoardDir = port == null ? null : await probeBoardDir(port, 800);
-  if (decideRunning({ port, answeredBoardDir, targetBoardDir: boardDirAbs, platform })) {
-    openBrowser(`http://localhost:${port}`);
-    return 0;
+  // Every candidate gets probed — the board counts as running the moment
+  // ANY of them answers as it, never shadowed by an earlier candidate (e.g.
+  // a stale paired pid naming the wrong port) that simply didn't answer.
+  for (const port of ports) {
+    const answeredBoardDir = await probeBoardDir(port, 800);
+    if (decideRunning({ port, answeredBoardDir, targetBoardDir: boardDirAbs, platform })) {
+      openBrowser(`http://localhost:${port}`);
+      return 0;
+    }
   }
 
-  return startAndAttach(boardDirAbs, pidPath);
+  return startAndAttach(boardDirAbs, pidPath, appAlive);
 }
 
 module.exports = {
   osWrapperExt, wrapperFileName, pidFileName, markerLine, markerCommentLine, parseMarkerBoardDir,
-  sameBoardDir, wrapperNameCandidates, chooseWrapperName, renderWrapper, mergeExcludeEntries,
-  parsePidFileText, choosePort, decideRunning, boardDisplayName, resolveWhere, gitRepoRoot,
-  gitInfoExcludePath, listWrapperMarkers, resolveBaseNameForBoard, readPidFile, isPidAlive,
-  probeBoardDir, openBrowser, writeLauncher, runLauncher,
+  sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle, renderWrapper,
+  mergeExcludeEntries, parsePidFileText, candidatePorts, decideRunning, shouldForwardSignal,
+  launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot, gitInfoExcludePath,
+  listWrapperMarkers, resolveBaseNameForBoard, readPidFile, isPidAlive, probeBoardDir, openBrowser,
+  writeLauncher, runLauncher,
 };
 
 if (require.main === module) {

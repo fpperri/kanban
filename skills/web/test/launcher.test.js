@@ -119,6 +119,18 @@ test('chooseWrapperName treats an unparseable marker as belonging to a different
   assert.strictEqual(name, 'kanban_web-two');
 });
 
+test('chooseWrapperName reclaims a name whose marker board dir no longer exists (moved/renamed project)', () => {
+  const existing = [{ baseName: 'kanban_web', markerBoardDir: '/board/gone', markerBoardDirExists: false }];
+  const name = launcher.chooseWrapperName('/board/two', 'Two', existing, 'linux');
+  assert.strictEqual(name, 'kanban_web', 'the dead marker is reclaimed rather than suffixed');
+});
+
+test('chooseWrapperName does NOT reclaim a name whose marker board dir still exists', () => {
+  const existing = [{ baseName: 'kanban_web', markerBoardDir: '/board/other', markerBoardDirExists: true }];
+  const name = launcher.chooseWrapperName('/board/two', 'Two', existing, 'linux');
+  assert.strictEqual(name, 'kanban_web-two');
+});
+
 // --- pure: wrapper text ------------------------------------------------------
 
 test('renderWrapper (win32): marker, helper-exists check, exec line, CRLF', () => {
@@ -132,6 +144,34 @@ test('renderWrapper (win32): marker, helper-exists check, exec line, CRLF', () =
   assert.match(text, /:run\r\n"C:\\node\.exe" "C:\\Users\\x y\\launcher\.js" run "C:\\Users\\x y\\board\\\.kanban"/);
   assert.match(text, /if errorlevel 1 pause/);
   assert.ok(!text.includes('\n\n'), 'no bare LF introduced alongside CRLF');
+});
+
+test('renderWrapper (win32): chcp 65001 runs right after @echo off, before any path/name is read', () => {
+  const text = launcher.renderWrapper({
+    platform: 'win32', boardDirAbs: 'C:\\Users\\x\\Diseño y más\\.kanban', boardName: 'Board',
+    nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js',
+  });
+  const lines = text.split('\r\n');
+  assert.strictEqual(lines[0], '@echo off');
+  assert.strictEqual(lines[1], 'chcp 65001 >nul');
+});
+
+test('renderWrapper (win32): board-name cmd metacharacters never reach the title line raw', () => {
+  const text = launcher.renderWrapper({
+    platform: 'win32', boardDirAbs: 'C:\\board', boardName: 'R&D board > out.txt & del /s *',
+    nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js',
+  });
+  const titleLine = text.split('\r\n').find((l) => l.startsWith('title '));
+  assert.ok(titleLine, 'has a title line');
+  assert.ok(!/[&|<>^%"]/.test(titleLine), `title line must carry no cmd metacharacters: ${titleLine}`);
+});
+
+test('sanitizeForWindowsTitle strips cmd metacharacters and collapses newlines to spaces', () => {
+  assert.strictEqual(launcher.sanitizeForWindowsTitle('R&D board'), 'R_D board');
+  assert.strictEqual(launcher.sanitizeForWindowsTitle('a > b < c | d ^ e % f " g'), 'a _ b _ c _ d _ e _ f _ g');
+  assert.strictEqual(launcher.sanitizeForWindowsTitle('line1\nline2\r\nline3'), 'line1 line2 line3');
+  assert.strictEqual(launcher.sanitizeForWindowsTitle(''), '');
+  assert.strictEqual(launcher.sanitizeForWindowsTitle(null), '');
 });
 
 test('renderWrapper (linux/mac): shebang, marker, helper-exists check, exec, LF only', () => {
@@ -175,11 +215,29 @@ test('parsePidFileText reads pid + port, tolerates a missing/bad port', () => {
 
 // --- pure: port choice + running decision ------------------------------------
 
-test('choosePort: paired > app > config pin > null', () => {
-  assert.strictEqual(launcher.choosePort({ pairedPort: 1, appPort: 2, configPort: 3 }), 1);
-  assert.strictEqual(launcher.choosePort({ pairedPort: null, appPort: 2, configPort: 3 }), 2);
-  assert.strictEqual(launcher.choosePort({ pairedPort: null, appPort: null, configPort: 3 }), 3);
-  assert.strictEqual(launcher.choosePort({ pairedPort: null, appPort: null, configPort: null }), null);
+test('candidatePorts: every live/pinned port, in priority order, deduped, nulls dropped', () => {
+  assert.deepStrictEqual(launcher.candidatePorts({ pairedPort: 1, appPort: 2, configPort: 3 }), [1, 2, 3]);
+  assert.deepStrictEqual(launcher.candidatePorts({ pairedPort: null, appPort: 2, configPort: 3 }), [2, 3]);
+  assert.deepStrictEqual(launcher.candidatePorts({ pairedPort: null, appPort: null, configPort: 3 }), [3]);
+  assert.deepStrictEqual(launcher.candidatePorts({ pairedPort: null, appPort: null, configPort: null }), []);
+  assert.deepStrictEqual(
+    launcher.candidatePorts({ pairedPort: 7777, appPort: 7777, configPort: 7777 }),
+    [7777],
+    'the same port named by multiple sources is probed once',
+  );
+});
+
+test('shouldForwardSignal: POSIX forwards Ctrl+C/TERM to the child; win32 does not (the child already gets its own console event)', () => {
+  assert.strictEqual(launcher.shouldForwardSignal('linux'), true);
+  assert.strictEqual(launcher.shouldForwardSignal('darwin'), true);
+  assert.strictEqual(launcher.shouldForwardSignal('win32'), false);
+});
+
+test('launcherExitCode: a real exit code wins; a signal-killed child (code null) reads as 0 only when we saw Ctrl+C ourselves', () => {
+  assert.strictEqual(launcher.launcherExitCode(0, false), 0);
+  assert.strictEqual(launcher.launcherExitCode(1, false), 1);
+  assert.strictEqual(launcher.launcherExitCode(null, false), 1);
+  assert.strictEqual(launcher.launcherExitCode(null, true), 0);
 });
 
 test('decideRunning requires both a port and a matching answered boardDir', () => {
@@ -259,6 +317,32 @@ test('writeLauncher: no repository writes to the board dir\'s parent folder and 
     assert.strictEqual(launcher.gitInfoExcludePath(board), null);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher: renaming/moving the project heals the launcher in place instead of orphaning it', () => {
+  const base = tmpDir('kanban-launcher-moved-');
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const oldProj = path.join(base, 'proj-old');
+    fs.mkdirSync(oldProj);
+    const oldBoard = path.join(oldProj, '.kanban');
+    fs.mkdirSync(oldBoard);
+    const w1 = launcher.writeLauncher(oldBoard);
+    assert.strictEqual(w1, path.join(oldProj, `kanban_web${ext}`));
+
+    // The whole project folder moves — the wrapper file moves with it, but
+    // its marker still names the OLD absolute board path until healed.
+    const newProj = path.join(base, 'proj-new');
+    fs.renameSync(oldProj, newProj);
+    const newBoard = path.join(newProj, '.kanban');
+
+    const w2 = launcher.writeLauncher(newBoard);
+    assert.strictEqual(w2, path.join(newProj, `kanban_web${ext}`), 'the familiar name is reclaimed, never suffixed');
+    const content = fs.readFileSync(w2, 'utf8');
+    assert.ok(content.includes(launcher.markerLine(path.resolve(newBoard))), 'the marker now names the current board dir');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
   }
 });
 
@@ -355,6 +439,49 @@ test('run: a stale paired pid (dead pid) does not block a start', async () => {
     killQuiet(serverPid);
     if (proc1 && proc1.exitCode === null) killQuiet(proc1.pid);
     try { fs.unlinkSync(pidPath); } catch (_) { /* already removed */ }
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('run: a stale paired pid naming a live-but-unrelated pid on the wrong port must not shadow a genuinely running server, nor delete its .kanban-app.pid', async () => {
+  const port = await freePort();
+  const dir = tmpDir('kanban-launcher-liveapp-');
+  const where = path.dirname(dir);
+  const appPidPath = path.join(dir, '.kanban-app.pid');
+  const pairedPidPath = path.join(where, 'kanban_web.pid');
+  fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
+
+  let serverProc = null;
+  try {
+    // The board is already running the SKILL's way — server.js started
+    // directly, never through the launcher — so only .kanban-app.pid exists.
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir], { stdio: 'ignore' });
+    await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
+    const appInfo = launcher.parsePidFileText(fs.readFileSync(appPidPath, 'utf8'));
+    assert.strictEqual(appInfo.port, port);
+
+    // A paired pid left stale by a closed window: its pid number now
+    // happens to belong to this very (guaranteed-alive) test process, and
+    // it names a port nothing is listening on.
+    const wrongPort = await freePort();
+    fs.writeFileSync(pairedPidPath, `${process.pid}\n${wrongPort}\n`);
+
+    const exitCode = await new Promise((resolve, reject) => {
+      const proc = spawn(process.execPath, [LAUNCHER_PATH, 'run', dir], {
+        env: { ...process.env, KANBAN_WEB_NO_BROWSER: '1' },
+        stdio: 'ignore',
+      });
+      proc.on('exit', resolve);
+      proc.on('error', reject);
+    });
+
+    assert.strictEqual(exitCode, 0, 'the already-running board is found via .kanban-app.pid/the config pin, not shadowed by the stale paired pid alone');
+    assert.ok(fs.existsSync(appPidPath), '.kanban-app.pid is never deleted out from under a live server');
+    const appInfoAfter = launcher.parsePidFileText(fs.readFileSync(appPidPath, 'utf8'));
+    assert.strictEqual(appInfoAfter.pid, appInfo.pid, 'still names the original, still-running server');
+  } finally {
+    killQuiet(serverProc && serverProc.pid);
+    try { fs.unlinkSync(pairedPidPath); } catch (_) { /* already removed */ }
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
