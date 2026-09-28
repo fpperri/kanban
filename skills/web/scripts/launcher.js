@@ -32,6 +32,11 @@ function pidFileName(baseName) {
   return `${baseName}.pid`;
 }
 
+// The start-lock file's name — see acquireStartLock/releaseStartLock.
+function lockFileName(baseName) {
+  return `${baseName}.lock`;
+}
+
 // The marker every wrapper carries so a future `write` can tell which board
 // it already serves without trusting the filename alone.
 function markerLine(boardDirAbs) {
@@ -46,9 +51,9 @@ function markerCommentLine(platform, boardDirAbs) {
 const MARKER_RE = /kanban-web-board:\s*(.+?)\s*$/m;
 // `platform` matters only for win32: renderWrapper doubles every `%` in the
 // board dir it writes into a .cmd's marker (cmd.exe's line-reader collapses
-// `%%` before a rem comment ever sees it, even without executing the line —
-// #281 review N1), so reading it back has to undo that doubling to recover
-// the real path. A posix marker was never doubled, so it passes through.
+// `%%` before a rem comment ever sees it, even without executing the line),
+// so reading it back has to undo that doubling to recover the real path. A
+// posix marker was never doubled, so it passes through.
 function parseMarkerBoardDir(text, platform = process.platform) {
   const m = MARKER_RE.exec(String(text || ''));
   if (!m) return null;
@@ -82,7 +87,7 @@ function* wrapperNameCandidates(sanitizedBoardName) {
 // that is: free, already serves the SAME board (rewriting a same-board
 // launcher is the normal healing path), or names a board dir that no longer
 // exists at all — reclaimed rather than left dead forever, e.g. after the
-// project folder was renamed (#281 review). A name serving a different,
+// project folder was renamed. A name serving a different,
 // still-real board — or one whose marker can't be read at all — is skipped,
 // never overwritten.
 function chooseWrapperName(boardDirAbs, boardName, existing, platform = process.platform) {
@@ -90,7 +95,7 @@ function chooseWrapperName(boardDirAbs, boardName, existing, platform = process.
   // first, even when an earlier-ranked candidate (e.g. the bare
   // `kanban_web`) has since freed up: picking that free slot instead would
   // abandon this board's real wrapper as an orphaned duplicate and leave
-  // `run()` pairing against the wrong pid file (#281 review H7/N2).
+  // `run()` pairing against the wrong pid file.
   const own = existing.find((e) => sameBoardDir(e.markerBoardDir, boardDirAbs, platform));
   if (own) return own.baseName;
   const suffix = cs.slugify(boardName) || 'board';
@@ -117,7 +122,7 @@ function sanitizeForWindowsTitle(name) {
 // `%~dp0`, `%VAR%` and the like. A single, undoubled `%` in an embedded path
 // (e.g. a folder named "100% done") can vanish, corrupt an unrelated part of
 // the SAME line, or pair with a later `%` on that line to trigger a bogus
-// variable expansion. Doubling sidesteps all three (#281 review N1).
+// variable expansion. Doubling sidesteps all three.
 function escapePercentForCmd(s) {
   return String(s).replace(/%/g, '%%');
 }
@@ -125,8 +130,7 @@ function escapePercentForCmd(s) {
 // POSIX `sh` has no `%`-style quirk; single-quoting alone protects a path
 // there, including one with `$`, backticks, spaces or metacharacters — the
 // only character that can't appear inside single quotes is a single quote
-// itself, closed/escaped/reopened with the standard `'\''` trick (#281
-// review N5).
+// itself, closed/escaped/reopened with the standard `'\''` trick.
 function singleQuotePosix(s) {
   return `'${String(s).replace(/'/g, "'\\''")}'`;
 }
@@ -155,8 +159,8 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath,
       // `if errorlevel 1` is a >= comparison done as a SIGNED integer, so a
       // negative exit code (its unsigned bit pattern reads as a huge
       // positive errorlevel, but the signed comparison still sees negative)
-      // slips past it and the window closes with no pause on a real failure
-      // (#281 review H6). %errorlevel% != 0 catches every nonzero code.
+      // slips past it and the window closes with no pause on a real
+      // failure. %errorlevel% != 0 catches every nonzero code.
       'if %errorlevel% neq 0 pause',
       '',
     ].join('\r\n');
@@ -184,7 +188,7 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath,
 // Decoding as latin1 for the split/trim is lossless for the 1-byte-per-char
 // comparison this needs and never risks mangling bytes it doesn't touch —
 // unlike decoding as utf8, which would silently corrupt any invalid sequence
-// the moment it's re-encoded (#281 review H10).
+// the moment it's re-encoded.
 function missingExcludeNames(existingBuf, names) {
   const text = Buffer.isBuffer(existingBuf) ? existingBuf.toString('latin1') : String(existingBuf || '');
   const lines = text.length ? text.split(/\r?\n/) : [];
@@ -219,9 +223,9 @@ function parsePidFileText(text) {
 // deduped. Callers gate pairedPort/appPort on liveness themselves. Unlike a
 // single precedence pick, EVERY candidate gets probed — a stale paired pid
 // naming the wrong port must never shadow a genuinely running server whose
-// own .kanban-app.pid or config pin would have answered (#281 review: the
-// old single-candidate choosePort let exactly that happen and then deleted
-// the live server's .kanban-app.pid out from under it).
+// own .kanban-app.pid or config pin would have answered — an earlier,
+// single-candidate choosePort let exactly that happen and then deleted the
+// live server's .kanban-app.pid out from under it.
 function candidatePorts({ pairedPort, appPort, configPort }) {
   const isPort = (n) => Number.isInteger(n) && n >= 1 && n <= 65535;
   return [...new Set([pairedPort, appPort, configPort].filter(isPort))];
@@ -271,8 +275,7 @@ function resolveWhere(boardDirAbs) {
 // already needed gitRepoRoot for WHERE — this stays a plain write so that
 // case costs no extra git process). Reads the file as raw bytes and only
 // ever APPENDS — never a read-modify-rewrite of the whole file — so bytes
-// this function doesn't understand (git's, not ours) survive untouched
-// (#281 review H10).
+// this function doesn't understand (git's, not ours) survive untouched.
 function ensureExcludeEntries(excludePath, names) {
   if (!excludePath) return;
   fs.mkdirSync(path.dirname(excludePath), { recursive: true });
@@ -375,6 +378,7 @@ function writeLauncher(boardDirArg) {
   const baseName = chooseWrapperName(boardDirAbs, boardName, existing, platform);
   const wrapperPath = path.join(whereDir, wrapperFileName(baseName, platform));
   const pidPath = path.join(whereDir, pidFileName(baseName));
+  const lockPath = path.join(whereDir, lockFileName(baseName));
   const text = renderWrapper({
     platform, boardDirAbs, boardName, baseName,
     nodePath: process.execPath,
@@ -383,7 +387,7 @@ function writeLauncher(boardDirArg) {
   fs.writeFileSync(wrapperPath, text);
   if (platform !== 'win32') { try { fs.chmodSync(wrapperPath, 0o755); } catch (_) {} }
   const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
-  ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath)]);
+  ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath)]);
   return wrapperPath;
 }
 
@@ -391,9 +395,9 @@ function writeLauncher(boardDirArg) {
 // own baseName as run()'s third argument (see renderWrapper/runLauncher), so
 // `run` pairs with the exact pid file the wrapper that invoked it names,
 // never a guess. This marker-match guess stays here only for a wrapper
-// written by an OLDER launcher.js (no third argument yet) — see #281 review
-// H7: guessing by marker order can pick the WRONG wrapper's pid file when
-// more than one on disk happens to name the same board.
+// written by an OLDER launcher.js (no third argument yet): guessing by
+// marker order can pick the WRONG wrapper's pid file when more than one on
+// disk happens to name the same board.
 function resolveBaseNameForBoard(whereDir, boardDirAbs, platform) {
   const match = listWrapperMarkers(whereDir, platform).find((e) => sameBoardDir(e.markerBoardDir, boardDirAbs, platform));
   return match ? match.baseName : 'kanban_web';
@@ -405,7 +409,7 @@ function resolveBaseNameForBoard(whereDir, boardDirAbs, platform) {
 // child already gets its own copy independent of anything we do here.
 // child.kill(sig) on win32 is TerminateProcess regardless of `sig`, racing
 // that hard kill against the child's own graceful SIGINT handler (which is
-// what unlinks .kanban-app.pid) and reliably winning (#281 review). POSIX
+// what unlinks .kanban-app.pid) and reliably winning. POSIX
 // signals are real, not console-shared, so forwarding there is both safe
 // and necessary — the child has no other way to hear about it.
 function shouldForwardSignal(platform = process.platform) {
@@ -453,9 +457,15 @@ async function pollForServedBoard(boardDirAbs, appPidPath, { timeoutMs = 2000, i
 // child exits, forwarding Ctrl+C/TERM to it (POSIX only — see
 // shouldForwardSignal) and cleaning up after. `appPidAlive` says whether
 // .kanban-app.pid named a live pid as of run()'s check — only a truly dead
-// one is cleared here, never a live one (#281 review: a live .kanban-app.pid
-// can only belong to a real server, and by the time run() reaches here every
+// one is cleared here, never a live one (a live .kanban-app.pid can only
+// belong to a real server, and by the time run() reaches here every
 // candidate port has already been probed and none answered as this board).
+// `onDecided`, if given, fires exactly once — the instant the outcome of
+// THIS start attempt is known (the paired pid got written, or the child
+// exited without ever binding) — so a caller holding a start lock (see
+// acquireStartLock) can release it the moment it's no longer needed, rather
+// than for this whole function's lifetime (which, for a successful start,
+// is as long as the server stays up).
 //
 // The signal handlers and the child's `exit` listener are both wired up
 // synchronously, in the same tick as the spawn, before any await — so
@@ -465,13 +475,16 @@ async function pollForServedBoard(boardDirAbs, appPidPath, { timeoutMs = 2000, i
 // is the one place that ever removes the paired pid file, and only while it
 // still names that child — a closed console window is the one way to leave
 // it stale, since that terminates this whole process tree before any of
-// this code gets to run (#281 review H3/H8).
-function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
+// this code gets to run.
+function startAndAttach(boardDirAbs, pidPath, appPidAlive, onDecided) {
   return new Promise((resolve) => {
     const serverPath = path.join(__dirname, 'server.js');
     const appPidPath = path.join(boardDirAbs, '.kanban-app.pid');
     if (!appPidAlive) { try { fs.unlinkSync(appPidPath); } catch (_) { /* absent is fine */ } }
     const child = spawn(process.execPath, [serverPath, boardDirAbs], { stdio: 'inherit' });
+
+    let decided = false;
+    const decide = () => { if (decided) return; decided = true; if (onDecided) onDecided(); };
 
     // stdio is inherited (so the window IS the server's console), which
     // means we can't pipe its stdout to read the bound port — poll the pid
@@ -483,6 +496,7 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
         clearInterval(pollTimer);
         pollTimer = null;
         fs.writeFileSync(pidPath, `${child.pid}\n${info.port}\n`);
+        decide();
         openBrowser(`http://localhost:${info.port}`);
       }
     }, 150);
@@ -495,6 +509,7 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
     process.on('SIGTERM', onSigterm);
 
     child.on('exit', (code) => {
+      decide();
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
       process.off('SIGINT', onSigint);
       process.off('SIGTERM', onSigterm);
@@ -506,7 +521,7 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
       // see server.js) but another launcher racing us for this same board
       // won and is already serving it. Treat that as success — open the
       // browser to the board that's actually up — rather than surfacing our
-      // own bind failure and pausing on an apparent error (#281 review H4).
+      // own bind failure and pausing on an apparent error.
       if (code != null && code !== 0 && !sawSigint) {
         pollForServedBoard(boardDirAbs, appPidPath).then((servedPort) => {
           if (servedPort != null) { openBrowser(`http://localhost:${servedPort}`); resolve(0); return; }
@@ -519,13 +534,87 @@ function startAndAttach(boardDirAbs, pidPath, appPidAlive) {
   });
 }
 
+function readLockPid(lockPath) {
+  try {
+    const pid = Number(fs.readFileSync(lockPath, 'utf8').trim());
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch (_) { return null; }
+}
+
+// Serializes the "decide whether to start a server" window across racing
+// `run()` calls for the SAME wrapper. Without this, two runs fired close
+// together each probe, each see nothing answering yet, and each spawn their
+// own server.js — for a PINNED port the loser's bind fails outright
+// (EADDRINUSE on a pin is fatal, recovered via pollForServedBoard in
+// startAndAttach above), but for the common unpinned case server.js just
+// auto-increments past the busy port, so the loser's spawn quietly succeeds
+// too and two live servers end up serving the same board.
+//
+// `fs.writeFileSync(..., { flag: 'wx' })` creates the file only if it
+// doesn't already exist, atomically from this process's point of view — the
+// first caller to reach it wins. A lock that already exists but names a
+// dead pid was left by a launcher whose whole process tree died (e.g. the
+// console window was force-closed) before it could release it; that's
+// reclaimed rather than left to jam every future run for this board.
+function acquireStartLock(lockPath, maxStaleRetries = 20) {
+  for (let i = 0; i < maxStaleRetries; i++) {
+    try {
+      fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+      return true;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      const holderPid = readLockPid(lockPath);
+      if (holderPid && isPidAlive(holderPid)) return false;
+      try { fs.unlinkSync(lockPath); } catch (_) { /* raced away already, fine */ }
+    }
+  }
+  return false;
+}
+
+// Only removes the lock while it still names US — never a later run's lock
+// this process happened to lose the race to reclaim.
+function releaseStartLock(lockPath) {
+  if (readLockPid(lockPath) !== process.pid) return;
+  try { fs.unlinkSync(lockPath); } catch (_) {}
+}
+
+// Every candidate port this board might already be served on (paired pid
+// file, then .kanban-app.pid, then config.yaml's pin), probed in order —
+// the board counts as running the moment ANY of them answers as it, never
+// shadowed by an earlier candidate (e.g. a stale paired pid naming the
+// wrong port) that simply didn't answer. Returns the answering port, or
+// null. Reads the pid files and config fresh on every call: runLauncher
+// calls this both before AND after taking the start lock, since the state
+// on disk can change in the gap between the two.
+async function findServedPort(boardDirAbs, pidPath, appPidPath, platform) {
+  const pairedPid = readPidFile(pidPath);
+  const appPid = readPidFile(appPidPath);
+  const pairedAlive = !!pairedPid && isPidAlive(pairedPid.pid);
+  const appAlive = !!appPid && isPidAlive(appPid.pid);
+  const config = cfg.readConfig(boardDirAbs);
+  const ports = candidatePorts({
+    pairedPort: pairedAlive ? pairedPid.port : null,
+    appPort: appAlive ? appPid.port : null,
+    configPort: config.port || null,
+  });
+  for (const port of ports) {
+    const answeredBoardDir = await probeBoardDir(port, 800);
+    if (decideRunning({ port, answeredBoardDir, targetBoardDir: boardDirAbs, platform })) return port;
+  }
+  return null;
+}
+
 // `launcher.js run` — what the wrapper calls. Checks whether the board is
-// already served; if so opens the browser and exits 0 starting nothing,
-// otherwise starts the server and stays attached to it. `explicitBaseName`
-// is the wrapper's own base name (its third argv, since #281 review H7) —
-// pairing against the exact pid file the invoking wrapper names, never a
-// marker-order guess; falls back to the guess only for an older wrapper
-// that never passed one.
+// already served; if so opens the browser and exits 0 starting nothing.
+// Otherwise takes the start lock (see acquireStartLock) so at most one
+// racing `run()` for this wrapper ever gets to the spawn decision at a
+// time: the loser instead waits for the winner to either finish binding —
+// proof is .kanban-app.pid or the config pin, same as an already-running
+// board — or give up, and retries from the top if the winner never
+// produces a running server at all. `explicitBaseName` is the wrapper's own
+// base name (its third argv) — pairing against the exact pid file the
+// invoking wrapper names, never a marker-order guess; falls back to the
+// guess only for an older wrapper that never passed one.
 async function runLauncher(boardDirArg, explicitBaseName) {
   const boardDirAbs = path.resolve(boardDirArg);
   if (!fs.existsSync(boardDirAbs)) throw new Error(`board dir not found: ${boardDirAbs}`);
@@ -534,41 +623,48 @@ async function runLauncher(boardDirArg, explicitBaseName) {
   const baseName = explicitBaseName || resolveBaseNameForBoard(whereDir, boardDirAbs, platform);
   const pidPath = path.join(whereDir, pidFileName(baseName));
   const appPidPath = path.join(boardDirAbs, '.kanban-app.pid');
+  const lockPath = path.join(whereDir, lockFileName(baseName));
 
-  const pairedPid = readPidFile(pidPath);
-  const appPid = readPidFile(appPidPath);
-  const pairedAlive = !!pairedPid && isPidAlive(pairedPid.pid);
-  const appAlive = !!appPid && isPidAlive(appPid.pid);
-  const config = cfg.readConfig(boardDirAbs);
+  for (;;) {
+    const served = await findServedPort(boardDirAbs, pidPath, appPidPath, platform);
+    if (served != null) { openBrowser(`http://localhost:${served}`); return 0; }
 
-  const ports = candidatePorts({
-    pairedPort: pairedAlive ? pairedPid.port : null,
-    appPort: appAlive ? appPid.port : null,
-    configPort: config.port || null,
-  });
+    if (!acquireStartLock(lockPath)) {
+      // Someone else is already deciding (or starting) this exact board's
+      // server. Wait for THEM rather than racing our own probe/spawn
+      // against theirs.
+      const servedByOther = await pollForServedBoard(boardDirAbs, appPidPath, { timeoutMs: 8000 });
+      if (servedByOther != null) { openBrowser(`http://localhost:${servedByOther}`); return 0; }
+      continue; // the lock holder never produced a running server — retry
+    }
 
-  // Every candidate gets probed — the board counts as running the moment
-  // ANY of them answers as it, never shadowed by an earlier candidate (e.g.
-  // a stale paired pid naming the wrong port) that simply didn't answer.
-  for (const port of ports) {
-    const answeredBoardDir = await probeBoardDir(port, 800);
-    if (decideRunning({ port, answeredBoardDir, targetBoardDir: boardDirAbs, platform })) {
-      openBrowser(`http://localhost:${port}`);
-      return 0;
+    try {
+      // Re-check under the lock: the board could have gone from "not
+      // served" to "served and the lock already released" in the gap
+      // between the probe above and winning the lock just now.
+      const servedNow = await findServedPort(boardDirAbs, pidPath, appPidPath, platform);
+      if (servedNow != null) { openBrowser(`http://localhost:${servedNow}`); return 0; }
+      const appPid = readPidFile(appPidPath);
+      const appAlive = !!appPid && isPidAlive(appPid.pid);
+      return await startAndAttach(boardDirAbs, pidPath, appAlive, () => releaseStartLock(lockPath));
+    } finally {
+      // Belt-and-braces: startAndAttach's onDecided already releases the
+      // lock on every path it takes, but this guarantees it never survives
+      // a run() call that returns or throws for any other reason.
+      releaseStartLock(lockPath);
     }
   }
-
-  return startAndAttach(boardDirAbs, pidPath, appAlive);
 }
 
 module.exports = {
-  osWrapperExt, wrapperFileName, pidFileName, markerLine, markerCommentLine, parseMarkerBoardDir,
+  osWrapperExt, wrapperFileName, pidFileName, lockFileName, markerLine, markerCommentLine, parseMarkerBoardDir,
   sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle,
   escapePercentForCmd, singleQuotePosix, renderWrapper,
   missingExcludeNames, excludeAppendBuffer, parsePidFileText, candidatePorts, decideRunning,
   shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot,
   gitInfoExcludePath, listWrapperMarkers, resolveBaseNameForBoard, readPidFile, isPidAlive,
-  probeBoardDir, openBrowser, pollForServedBoard, writeLauncher, runLauncher,
+  probeBoardDir, openBrowser, pollForServedBoard, findServedPort,
+  readLockPid, acquireStartLock, releaseStartLock, writeLauncher, runLauncher,
 };
 
 if (require.main === module) {

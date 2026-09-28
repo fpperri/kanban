@@ -42,7 +42,7 @@ function killQuiet(pid) {
 // Takes the WHOLE process tree rooted at `pid` (win32: a spawned cmd.exe or
 // launcher may itself have spawned node/server.js children a plain kill
 // would orphan) — belt-and-braces cleanup so a failed assertion never leaves
-// a server running (#281 review N4).
+// a server running.
 function killTree(pid) {
   if (!pid) return;
   if (process.platform === 'win32') {
@@ -54,7 +54,7 @@ function killTree(pid) {
 
 // Backstop for a board's OWN .kanban-app.pid, independent of whatever pid we
 // think we're tracking — belt-and-braces so a failed assertion (which skips
-// the rest of a test body) never leaves the server running (#281 review N4).
+// the rest of a test body) never leaves the server running.
 function killBoardAppPid(boardDir) {
   try {
     const info = launcher.parsePidFileText(fs.readFileSync(path.join(boardDir, '.kanban-app.pid'), 'utf8'));
@@ -71,6 +71,7 @@ test('osWrapperExt/wrapperFileName/pidFileName per OS', () => {
   assert.strictEqual(launcher.wrapperFileName('kanban_web', 'win32'), 'kanban_web.cmd');
   assert.strictEqual(launcher.wrapperFileName('kanban_web-alpha', 'darwin'), 'kanban_web-alpha.command');
   assert.strictEqual(launcher.pidFileName('kanban_web-alpha'), 'kanban_web-alpha.pid');
+  assert.strictEqual(launcher.lockFileName('kanban_web-alpha'), 'kanban_web-alpha.lock');
 });
 
 // --- pure: marker line ------------------------------------------------------
@@ -159,8 +160,7 @@ test('chooseWrapperName reuses a wrapper it already owns at ANY suffix rank, eve
   // `kanban_web` and `kanban_web-two` were taken by other boards at the
   // time). One of those other boards is gone now, freeing `kanban_web` — but
   // picking that free slot would abandon Two's real wrapper as an orphaned
-  // duplicate and leave `run()` pairing against the wrong pid file (#281
-  // review H7/N2).
+  // duplicate and leave `run()` pairing against the wrong pid file.
   const existing = [
     { baseName: 'kanban_web-two-2', markerBoardDir: '/board/two', markerBoardDirExists: true },
   ];
@@ -189,7 +189,7 @@ test('renderWrapper (win32): negative exit codes still trigger the pause — %er
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
   });
   // `if errorlevel 1` is a signed >= comparison and silently misses a
-  // negative exit code — #281 review H6.
+  // negative exit code.
   assert.ok(!/if errorlevel/.test(text), 'the signed "if errorlevel N" form must be gone entirely');
   assert.match(text, /if %errorlevel% neq 0 pause/);
 });
@@ -309,6 +309,61 @@ test('parsePidFileText reads pid + port, tolerates a missing/bad port', () => {
   assert.strictEqual(launcher.parsePidFileText('not-a-pid\n7777\n'), null);
 });
 
+// --- integration: start lock -------------------------------------------------
+
+test('acquireStartLock: an absent lock is taken and names our pid; a lock naming a live pid is not acquired; release removes only a lock we own', () => {
+  const dir = tmpDir('kanban-launcher-lock-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  try {
+    assert.strictEqual(launcher.acquireStartLock(lockPath), true, 'an absent lock is acquired');
+    assert.strictEqual(launcher.readLockPid(lockPath), process.pid, 'the lock names the acquiring pid');
+
+    // The lock now names OUR OWN pid, which is alive — from
+    // acquireStartLock's point of view that's indistinguishable from a
+    // different live process holding it, so a second attempt correctly
+    // fails rather than acquiring twice.
+    assert.strictEqual(launcher.acquireStartLock(lockPath), false, 'a lock naming a live pid blocks a second acquire');
+
+    launcher.releaseStartLock(lockPath);
+    assert.strictEqual(fs.existsSync(lockPath), false, 'release removes a lock we own');
+
+    // Releasing an already-absent lock is a no-op, not an error.
+    launcher.releaseStartLock(lockPath);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('acquireStartLock reclaims a lock naming a dead pid instead of blocking forever', async () => {
+  const dir = tmpDir('kanban-launcher-lock-stale-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  try {
+    // A pid guaranteed dead: spawn a trivial process and wait for it to exit.
+    const deadPid = await new Promise((resolve) => {
+      const p = spawn(process.execPath, ['-e', 'process.exit(0)']);
+      p.on('exit', () => resolve(p.pid));
+    });
+    fs.writeFileSync(lockPath, String(deadPid));
+
+    assert.strictEqual(launcher.acquireStartLock(lockPath), true, 'a stale lock is reclaimed, never left to jam every future run');
+    assert.strictEqual(launcher.readLockPid(lockPath), process.pid);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('releaseStartLock leaves alone a lock that names a DIFFERENT pid — never removes a lock this process does not own', () => {
+  const dir = tmpDir('kanban-launcher-lock-foreign-');
+  const lockPath = path.join(dir, 'kanban_web.lock');
+  try {
+    fs.writeFileSync(lockPath, '999999999');
+    launcher.releaseStartLock(lockPath);
+    assert.ok(fs.existsSync(lockPath), 'a lock naming a different pid is left in place');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // --- pure: port choice + running decision ------------------------------------
 
 test('candidatePorts: every live/pinned port, in priority order, deduped, nulls dropped', () => {
@@ -373,6 +428,7 @@ test('writeLauncher: wrapper at the repo root, exclude entries, rewrite heals in
     let excludeText = fs.readFileSync(excludePath, 'utf8');
     assert.strictEqual((excludeText.match(new RegExp(`^kanban_web${ext.replace('.', '\\.')}$`, 'm')) || []).length, 1);
     assert.strictEqual((excludeText.match(/^kanban_web\.pid$/m) || []).length, 1);
+    assert.strictEqual((excludeText.match(/^kanban_web\.lock$/m) || []).length, 1);
 
     // Rewriting the same board heals in place: same path, marker unchanged,
     // and the exclude file does not grow a duplicate line.
@@ -442,7 +498,7 @@ test('writeLauncher: renaming/moving the project heals the launcher in place ins
   }
 });
 
-test('writeLauncher: a board nested several levels inside a repo still writes at the repo TOP level, and the bare exclude pattern still matches from there (#281 review H2)', () => {
+test('writeLauncher: a board nested several levels inside a repo still writes at the repo TOP level, and the bare exclude pattern still matches from there', () => {
   const repo = initRepo();
   const ext = launcher.osWrapperExt(process.platform);
   try {
@@ -471,7 +527,7 @@ test('writeLauncher: a board nested several levels inside a repo still writes at
   }
 });
 
-test('writeLauncher: a repo path with non-ASCII characters resolves correctly — git output is decoded as utf8, never latin1/binary (#281 review H9)', () => {
+test('writeLauncher: a repo path with non-ASCII characters resolves correctly — git output is decoded as utf8, never latin1/binary', () => {
   const base = tmpDir('kanban-launcher-nonascii-repo-');
   const ext = launcher.osWrapperExt(process.platform);
   try {
@@ -492,7 +548,7 @@ test('writeLauncher: a repo path with non-ASCII characters resolves correctly �
   }
 });
 
-test('writeLauncher: info/exclude bytes it does not understand survive untouched — a latin-1 comment with no trailing newline gets a newline then the new names appended, never rewritten (#281 review H10)', () => {
+test('writeLauncher: info/exclude bytes it does not understand survive untouched — a latin-1 comment with no trailing newline gets a newline then the new names appended, never rewritten', () => {
   const repo = initRepo();
   const ext = launcher.osWrapperExt(process.platform);
   try {
@@ -512,7 +568,7 @@ test('writeLauncher: info/exclude bytes it does not understand survive untouched
     assert.deepStrictEqual(after.subarray(0, latin1Comment.length), latin1Comment, 'the original bytes survive byte-for-byte, unmangled');
     assert.strictEqual(after[latin1Comment.length], 0x0a, 'a newline was inserted before the appended names');
     const appended = after.subarray(latin1Comment.length + 1).toString('utf8');
-    assert.match(appended, new RegExp(`^kanban_web${ext.replace('.', '\\.')}\\nkanban_web\\.pid\\n$`));
+    assert.match(appended, new RegExp(`^kanban_web${ext.replace('.', '\\.')}\\nkanban_web\\.pid\\nkanban_web\\.lock\\n$`));
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }
@@ -525,7 +581,7 @@ test('run: starts the server, writes the paired pid, a concurrent run starts not
   // Nested one level below the mkdtemp folder (proj/.kanban), not the
   // mkdtemp folder itself, so `where` (its PARENT — no git repo here) is
   // test-private too, never the shared OS temp root every other test also
-  // writes `kanban_web.pid` into (#281 review N4).
+  // writes `kanban_web.pid` into.
   const proj = tmpDir('kanban-launcher-run-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
@@ -671,7 +727,7 @@ test('run: a stale paired pid naming a live-but-unrelated pid on the wrong port 
   }
 });
 
-test('run: two runs racing for the same pinned port — exactly one server survives, kanban_web.pid names it, and both runs end without error (#281 review H4)', async () => {
+test('run: two runs racing for the same pinned port — exactly one server survives, kanban_web.pid names it, and both runs end without error', async () => {
   const port = await freePort();
   const proj = tmpDir('kanban-launcher-race-'); // nested — see N4 note above
   const dir = path.join(proj, '.kanban');
@@ -689,9 +745,12 @@ test('run: two runs racing for the same pinned port — exactly one server survi
   let proc2 = null;
   let serverPid = null;
   try {
-    // Fired back to back, no await between them, so both race the OS-level
-    // bind of the SAME pinned port — one wins, one gets EADDRINUSE (server.js
-    // treats a busy pin as a startup error, never a silent increment).
+    // Fired back to back, no await between them, so both race
+    // acquireStartLock for the same wrapper — one wins the lock and spawns,
+    // the other waits on the winner rather than also spawning (which, for a
+    // pinned port, would otherwise race the OS-level bind and hit
+    // EADDRINUSE — server.js treats a busy pin as a startup error, never a
+    // silent increment).
     proc1 = spawnRun();
     proc2 = spawnRun();
 
@@ -708,13 +767,13 @@ test('run: two runs racing for the same pinned port — exactly one server survi
     // The loser is whichever of the two exits on its own first — a launcher
     // still attached to a live server (the winner) never exits until that
     // server does, so the one that exits first must be the one that lost
-    // the bind and recovered by finding the board already served.
+    // the start lock and recovered by finding the board already served.
     const loserExit = await waitFor(() => {
       if (proc1.exitCode !== null) return { winner: proc2, code: proc1.exitCode };
       if (proc2.exitCode !== null) return { winner: proc1, code: proc2.exitCode };
       return false;
     });
-    assert.strictEqual(loserExit.code, 0, 'the loser exits 0 — it opens the browser to the board the winner is serving rather than pausing on its own bind failure');
+    assert.strictEqual(loserExit.code, 0, 'the loser exits 0 — it opens the browser to the board the winner is serving rather than starting a second one');
     assert.strictEqual(launcher.parsePidFileText(fs.readFileSync(pidPath, 'utf8')).pid, serverPid,
       'the loser never overwrote or deleted the winner\'s paired pid');
     // The winner is still attached to its live server, exactly as a normal
@@ -731,7 +790,70 @@ test('run: two runs racing for the same pinned port — exactly one server survi
   }
 });
 
-test('run: an explicit baseName (the wrapper\'s own third argument) pairs with that exact pid file, never the marker-order guess (#281 review H7)', async () => {
+test('run: two runs racing for the same UNPINNED board — exactly one server survives, not two on two different auto-incremented ports', async () => {
+  const proj = tmpDir('kanban-launcher-unpinned-race-'); // nested — see N4 note above
+  const dir = path.join(proj, '.kanban');
+  fs.mkdirSync(dir);
+  const where = path.dirname(dir);
+  const pidPath = path.join(where, 'kanban_web.pid');
+  // No config.yaml `port:` — unpinned. A losing spawn here would never hit
+  // EADDRINUSE the way a pinned one does: server.js auto-increments past a
+  // busy port instead of failing, so without the start lock BOTH racers'
+  // spawns would succeed, each on its own free port, leaving two live
+  // servers for one board.
+  const defaultPort = require('../scripts/server').resolvePort(dir).port;
+
+  const spawnRun = () => spawn(process.execPath, [LAUNCHER_PATH, 'run', dir], {
+    env: { ...process.env, KANBAN_WEB_NO_BROWSER: '1' },
+    stdio: 'ignore',
+  });
+
+  let proc1 = null;
+  let proc2 = null;
+  let serverPid = null;
+  try {
+    proc1 = spawnRun();
+    proc2 = spawnRun();
+
+    await waitFor(() => fs.existsSync(pidPath) && fs.readFileSync(pidPath, 'utf8').trim() !== '');
+    const info = launcher.parsePidFileText(fs.readFileSync(pidPath, 'utf8'));
+    assert.ok(info, 'the paired pid file names the surviving server');
+    serverPid = info.pid;
+    assert.ok(launcher.isPidAlive(serverPid), 'that pid is actually alive');
+
+    const seenBoardDir = await waitFor(() => launcher.probeBoardDir(info.port, 500));
+    assert.ok(launcher.sameBoardDir(seenBoardDir, dir), 'the survivor answers as this board');
+
+    const loserExit = await waitFor(() => {
+      if (proc1.exitCode !== null) return { winner: proc2, code: proc1.exitCode };
+      if (proc2.exitCode !== null) return { winner: proc1, code: proc2.exitCode };
+      return false;
+    });
+    assert.strictEqual(loserExit.code, 0, 'the loser exits 0 — it waited for the winner rather than starting its own server');
+    assert.strictEqual(loserExit.winner.exitCode, null, 'the winner is still attached to its running server');
+
+    // The defect this guards against: a would-be second server that bound
+    // to its OWN free port near the default would never be caught by
+    // checking the pid files alone (a second server.js would just overwrite
+    // .kanban-app.pid), so scan every port the auto-increment could have
+    // landed on and confirm only ONE of them is actually serving this board.
+    let answering = 0;
+    for (let p = defaultPort; p < defaultPort + 20; p++) {
+      const otherBoardDir = await launcher.probeBoardDir(p, 150);
+      if (otherBoardDir && launcher.sameBoardDir(otherBoardDir, dir)) answering++;
+    }
+    assert.strictEqual(answering, 1, 'exactly one live server answers as this board across the whole auto-increment range');
+  } finally {
+    killTree(serverPid);
+    if (proc1 && proc1.exitCode === null) killTree(proc1.pid);
+    if (proc2 && proc2.exitCode === null) killTree(proc2.pid);
+    killBoardAppPid(dir);
+    try { fs.unlinkSync(pidPath); } catch (_) { /* already removed */ }
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test('run: an explicit baseName (the wrapper\'s own third argument) pairs with that exact pid file, never the marker-order guess', async () => {
   const port = await freePort();
   const proj = tmpDir('kanban-launcher-explicit-basename-'); // nested — see N4 note above
   const dir = path.join(proj, '.kanban');
@@ -774,7 +896,7 @@ test('run: an explicit baseName (the wrapper\'s own third argument) pairs with t
 // A Node-side render check (regex on the string renderWrapper returns) can't
 // catch a real cmd.exe parsing bug — the code page it reads bytes under, its
 // own quote/metacharacter/%-expansion rules. These tests really run the
-// written .cmd through cmd.exe (#281 review H1/H5/N1).
+// written .cmd through cmd.exe.
 
 // Runs `cmdLine` (a real command line, e.g. `chcp 437 >nul & call "<wrapper>"`)
 // through a real cmd.exe /c, exactly as typed — `windowsVerbatimArguments`
@@ -797,7 +919,7 @@ async function assertWrapperServesBoard(wrapperPath, dir, port, spawnIt) {
     // A wrapper whose helper isn't found never writes this pid file at all —
     // waiting for it (rather than scraping stdout) is the simplest proof the
     // "plugin has moved" fallback did NOT fire and the real path reached
-    // node (#281 review H1).
+    // node.
     await waitFor(() => fs.existsSync(pidPath) && fs.readFileSync(pidPath, 'utf8').trim() !== '');
     const info = launcher.parsePidFileText(fs.readFileSync(pidPath, 'utf8'));
     assert.ok(info, 'the paired pid file parses');
@@ -813,7 +935,7 @@ async function assertWrapperServesBoard(wrapperPath, dir, port, spawnIt) {
   }
 }
 
-test('write+run (win32, real cmd parse): a non-ASCII board path survives double-clicking under OEM code page 437 (#281 review H1)',
+test('write+run (win32, real cmd parse): a non-ASCII board path survives double-clicking under OEM code page 437',
   { skip: process.platform !== 'win32' }, async () => {
     const port = await freePort();
     const proj = tmpDir('kanban-launcher-cp437-');
@@ -838,7 +960,7 @@ test('write+run (win32, real cmd parse): a non-ASCII board path survives double-
     }
   });
 
-test('write+run (win32, real cmd parse): & and ( ) in the board path do not break the quoted arguments (#281 review H5)',
+test('write+run (win32, real cmd parse): & and ( ) in the board path do not break the quoted arguments',
   { skip: process.platform !== 'win32' }, async () => {
     const port = await freePort();
     const proj = tmpDir('kanban-launcher-metachar-');
@@ -857,7 +979,7 @@ test('write+run (win32, real cmd parse): & and ( ) in the board path do not brea
     }
   });
 
-test('write+run (win32, real cmd parse): a literal % in the board path survives cmd\'s %-expansion, and re-writing heals in place (#281 review N1)',
+test('write+run (win32, real cmd parse): a literal % in the board path survives cmd\'s %-expansion, and re-writing heals in place',
   { skip: process.platform !== 'win32' }, async () => {
     const port = await freePort();
     const proj = tmpDir('kanban-launcher-percent-');
