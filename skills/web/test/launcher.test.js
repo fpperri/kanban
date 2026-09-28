@@ -1054,7 +1054,7 @@ test('run: an explicit baseName (the wrapper\'s own third argument) pairs with t
 
 // --- integration: replayed server args (S5) -----------------------------------
 
-test('writeLauncher: a written wrapper carries the replayed server args (a port and --allow-origin) in order', () => {
+test('writeLauncher: a written wrapper carries the replayed server args (a port and --allow-origin, re-emitted as its normalized origin) in order', () => {
   const parent = tmpDir('kanban-launcher-writeargs-');
   try {
     const board = path.join(parent, '.kanban');
@@ -1064,14 +1064,126 @@ test('writeLauncher: a written wrapper carries the replayed server args (a port 
     const node = process.execPath;
     const helper = LAUNCHER_PATH;
     if (process.platform === 'win32') {
-      assert.ok(content.includes(`"${node}" "${helper}" run "${path.resolve(board)}" "kanban_web" "7801" "--allow-origin" "https://tunnel.example.com"`));
+      assert.ok(content.includes(`"${node}" "${helper}" run "${path.resolve(board)}" "kanban_web" "7801" "--allow-origin=https://tunnel.example.com"`));
     } else {
-      assert.ok(content.includes(`run '${path.resolve(board)}' 'kanban_web' '7801' '--allow-origin' 'https://tunnel.example.com'`));
+      assert.ok(content.includes(`run '${path.resolve(board)}' 'kanban_web' '7801' '--allow-origin=https://tunnel.example.com'`));
     }
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+// --- writeLauncher: serverArgs sanitized before ever reaching a wrapper -------
+//
+// A wrapper embeds serverArgs as literal text in a command line a shell/cmd
+// will later parse — server.js's own --allow-origin allowlist only ever
+// compares a NORMALIZED origin (originMatches in server.js), so it accepts,
+// and SKILL.md replays verbatim into `launcher.js write`, an origin value
+// carrying an untrusted suffix after the real origin. See
+// sanitizeServerArgsForWrapper.
+
+test('sanitizeServerArgsForWrapper: a clean port and --allow-origin pass through, the origin re-emitted in = form', () => {
+  assert.deepStrictEqual(
+    launcher.sanitizeServerArgsForWrapper(['7801', '--allow-origin', 'https://tunnel.example.com'], 'win32'),
+    ['7801', '--allow-origin=https://tunnel.example.com']);
+  assert.deepStrictEqual(
+    launcher.sanitizeServerArgsForWrapper(['--allow-origin=https://tunnel.example.com', '7801'], 'linux'),
+    ['7801', '--allow-origin=https://tunnel.example.com']);
+});
+
+test('sanitizeServerArgsForWrapper: an --allow-origin value carrying a quote-and-command suffix normalizes down to just the origin — the suffix never survives', () => {
+  const out = launcher.sanitizeServerArgsForWrapper(
+    ['--allow-origin', 'https://h.example.com/"&echo x>PWNED.txt&"'], 'win32');
+  assert.deepStrictEqual(out, ['--allow-origin=https://h.example.com']);
+});
+
+test('sanitizeServerArgsForWrapper: a CR/LF embedded in an --allow-origin value is stripped by URL parsing, never reaching the output', () => {
+  const out = launcher.sanitizeServerArgsForWrapper(
+    ['--allow-origin', 'https://h.example.com/\r\necho x>PWNED.txt&rem '], 'win32');
+  assert.deepStrictEqual(out, ['--allow-origin=https://h.example.com']);
+});
+
+test('sanitizeServerArgsForWrapper: a trailing backslash in an --allow-origin value is consumed as a path separator, not carried into the origin', () => {
+  const out = launcher.sanitizeServerArgsForWrapper(['--allow-origin', 'https://h.example.com\\'], 'win32');
+  assert.deepStrictEqual(out, ['--allow-origin=https://h.example.com']);
+});
+
+test('sanitizeServerArgsForWrapper: a non-digit port argument is rejected outright, never passed through', () => {
+  assert.throws(() => launcher.sanitizeServerArgsForWrapper(['7801"&echo x>PWNED.txt&"'], 'win32'), /not a plain port number/);
+});
+
+test('sanitizeServerArgsForWrapper: an unexpected extra positional argument is rejected outright', () => {
+  assert.throws(() => launcher.sanitizeServerArgsForWrapper(['7801', 'extra'], 'win32'), /unexpected server argument/);
+});
+
+test('sanitizeServerArgsForWrapper: an --allow-origin value that is not a URL at all is rejected outright', () => {
+  assert.throws(() => launcher.sanitizeServerArgsForWrapper(['--allow-origin', 'not a url'], 'win32'), /not a valid URL/);
+});
+
+test('writeLauncher: a malicious --allow-origin value never reaches the written wrapper, and a bad port argument throws before anything is written', () => {
+  const parent = tmpDir('kanban-launcher-writeargs-injection-');
+  try {
+    const board = path.join(parent, '.kanban');
+    fs.mkdirSync(board);
+    const w = launcher.writeLauncher(board, ['--allow-origin', 'https://h.example.com/"&echo x>PWNED.txt&"']);
+    const content = fs.readFileSync(w, 'utf8');
+    assert.ok(!content.includes('PWNED'), 'the malicious suffix never reached the wrapper');
+    assert.ok(content.includes('--allow-origin=https://h.example.com'), 'the normalized origin alone is what got embedded');
+
+    fs.unlinkSync(w);
+    assert.throws(() => launcher.writeLauncher(board, ['7801"&echo x>PWNED.txt&"']),
+      /not a plain port number/, 'a malformed port argument is rejected rather than embedded');
+    assert.ok(!fs.existsSync(w), 'the rejected write left no wrapper file behind');
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('write+run (win32, real cmd parse): a malicious --allow-origin value cannot inject a command through the real wrapper — the stub sees only the normalized origin, and no injected side effect runs',
+  { skip: process.platform !== 'win32' }, async () => {
+    const dir = tmpDir('kanban-launcher-injection-');
+    const pwnedPath = path.join(dir, 'PWNED.txt');
+    const argvDumpPath = path.join(dir, 'argv-dump.json');
+    const stubPath = path.join(dir, 'argv-stub.js');
+    fs.writeFileSync(stubPath,
+      `require('fs').writeFileSync(${JSON.stringify(argvDumpPath)}, JSON.stringify(process.argv.slice(2))); process.exit(0);\n`);
+
+    const cases = [
+      { label: 'quote-and-ampersand', origin: 'https://h.example.com/"&echo INJECTED>PWNED.txt&"' },
+      { label: 'CR/LF', origin: 'https://h.example.com/\r\necho INJECTED>PWNED.txt&rem ' },
+    ];
+    try {
+      for (const { label, origin } of cases) {
+        try { fs.unlinkSync(pwnedPath); } catch (_) {}
+        try { fs.unlinkSync(argvDumpPath); } catch (_) {}
+        const safeArgs = launcher.sanitizeServerArgsForWrapper(['7801', '--allow-origin', origin], 'win32');
+        const wrapperPath = path.join(dir, 'inject.cmd');
+        const text = launcher.renderWrapper({
+          platform: 'win32', boardDirAbs: dir, boardName: 'Board',
+          nodePath: process.execPath, helperPath: stubPath, baseName: 'kanban_web',
+          serverArgs: safeArgs,
+        });
+        fs.writeFileSync(wrapperPath, text);
+
+        const exitCode = await new Promise((resolve, reject) => {
+          const proc = spawn('cmd.exe', ['/d', '/c', `call "${wrapperPath}"`], {
+            stdio: ['pipe', 'ignore', 'ignore'], windowsVerbatimArguments: true,
+          });
+          proc.on('error', reject);
+          proc.on('exit', resolve);
+          try { proc.stdin.write('\r\n'); proc.stdin.end(); } catch (_) {}
+        });
+
+        assert.strictEqual(exitCode, 0, `${label}: the stub ran cleanly`);
+        assert.ok(!fs.existsSync(pwnedPath), `${label}: the injected echo never ran`);
+        const argv = JSON.parse(fs.readFileSync(argvDumpPath, 'utf8'));
+        assert.deepStrictEqual(argv, ['run', dir, 'kanban_web', '7801', '--allow-origin=https://h.example.com'],
+          `${label}: only the normalized origin arrived, verbatim, as its own argument`);
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
 test('run: a CLI port (as a written wrapper would replay) is what actually gets bound, on an otherwise-unpinned board', async () => {
   const port = await freePort();
@@ -1103,20 +1215,31 @@ test('run: a CLI port (as a written wrapper would replay) is what actually gets 
   }
 });
 
-test('run: the running check finds a board already served on its CLI port — no config pin, no paired pid file, only the CLI port names it', async () => {
+test('run: the running check finds a board already served on its CLI port — no config pin, no paired pid file, no .kanban-app.pid, only the CLI port names it', async () => {
   const port = await freePort();
   const proj = tmpDir('kanban-launcher-cliport-running-'); // nested — see N4 note above
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir); // unpinned
   const appPidPath = path.join(dir, '.kanban-app.pid');
+  const where = path.dirname(dir);
+  const pidPath = path.join(where, 'kanban_web.pid');
 
   let serverProc = null;
   try {
     // Started the documented way — `server.js <dir> <port>`, never through
-    // the launcher — so only .kanban-app.pid exists; nothing has EVER
-    // written a paired kanban_web.pid for this board.
+    // the launcher — so only .kanban-app.pid exists at first; nothing has
+    // EVER written a paired kanban_web.pid for this board.
     serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
     await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
+
+    // The server itself keeps serving — only its pid FILE is removed — so
+    // findServedPort's appPort candidate (read from THIS file) can no
+    // longer name the port on its own. Without this, appPort already
+    // answers as this board regardless of whether the cliPort candidate is
+    // even wired in, so the test would pass whether or not that candidate
+    // is ever consulted — this is what makes it isolate the CLI-port path.
+    fs.unlinkSync(appPidPath);
+    assert.ok(!fs.existsSync(pidPath), 'no paired pid file exists yet either');
 
     const exitCode = await new Promise((resolve, reject) => {
       const proc = spawn(process.execPath, [LAUNCHER_PATH, 'run', dir, 'kanban_web', String(port)], {
@@ -1127,7 +1250,8 @@ test('run: the running check finds a board already served on its CLI port — no
       proc.on('error', reject);
     });
 
-    assert.strictEqual(exitCode, 0, 'the already-running board is found via the replayed CLI port, so nothing new is spawned');
+    assert.strictEqual(exitCode, 0, 'the already-running board is found via the replayed CLI port alone, so nothing new is spawned');
+    assert.ok(!fs.existsSync(pidPath), 'no paired pid file was written — a real spawn would have written one');
   } finally {
     killTree(serverProc && serverProc.pid);
     killBoardAppPid(dir);
@@ -1275,12 +1399,19 @@ test('write+run (win32, real cmd parse): setlocal DisableDelayedExpansion protec
 
 test('write+run (win32, real cmd parse): success exits 0, any failure pauses then exits 1 — never leaks the pause command\'s own errorlevel out through a double-click',
   { skip: process.platform !== 'win32' }, async () => {
-    // Reproduces the exact N7 defect: `cmd /c "kanban_web.cmd"` — how a
-    // double-click actually runs the wrapper — used to come back 0 for a
-    // real failure (errorlevel 3, -1 both observed in the wild), because the
-    // OLD `|| pause & exit /b` gave `exit /b` no code of its own, so it
-    // replayed whatever `pause` itself returned. A tiny stub stands in for
-    // the helper so the failure is deterministic and instant.
+    // Reproduces the exact N7 defect: `cmd /c "kanban_web.cmd"` with NO
+    // `call` — how a double-click actually runs the wrapper (cmd.exe treats
+    // a /c target that's just a batch file's own name specially; that
+    // special-cased path is exactly where the old wrapper's bug lived) —
+    // used to come back 0 for a real failure (errorlevel 3, -1 both observed
+    // in the wild), because the OLD `|| pause & exit /b` gave `exit /b` no
+    // code of its own, so it replayed whatever `pause` itself returned.
+    // Confirmed by hand against ca73cd9 (pre-fix): WITH `call`, that old
+    // wrapper already returns 3 and 4294967295 (both nonzero) — `call`
+    // alone was enough to make the bug invisible, which is exactly why this
+    // test must not use it. Only the no-`call` form reproduces 0. A tiny
+    // stub stands in for the helper so the failure is deterministic and
+    // instant.
     const dir = tmpDir('kanban-launcher-exitcode-');
     const runWithExitCode = (code) => {
       const stubPath = path.join(dir, `stub-${code}.js`);
@@ -1292,7 +1423,7 @@ test('write+run (win32, real cmd parse): success exits 0, any failure pauses the
       });
       fs.writeFileSync(wrapperPath, text);
       return new Promise((resolve, reject) => {
-        const proc = spawn('cmd.exe', ['/d', '/c', `call "${wrapperPath}"`], {
+        const proc = spawn('cmd.exe', ['/d', '/c', `"${wrapperPath}"`], {
           stdio: ['pipe', 'ignore', 'ignore'], windowsVerbatimArguments: true,
         });
         proc.on('error', reject);
@@ -1303,8 +1434,9 @@ test('write+run (win32, real cmd parse): success exits 0, any failure pauses the
       });
     };
     try {
-      assert.notStrictEqual(await runWithExitCode(3), 0, 'a helper exiting 3 must not leak through the wrapper as exit code 0');
-      assert.notStrictEqual(await runWithExitCode(-1), 0, 'a helper exiting -1 must not leak through as 0 either');
+      assert.strictEqual(await runWithExitCode(0), 0, 'a helper exiting 0 must exit the wrapper 0');
+      assert.strictEqual(await runWithExitCode(3), 1, 'a helper exiting 3 must not leak through the wrapper as exit code 0 — and always normalizes to exactly 1');
+      assert.strictEqual(await runWithExitCode(-1), 1, 'a helper exiting -1 must not leak through as 0 either — and always normalizes to exactly 1');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

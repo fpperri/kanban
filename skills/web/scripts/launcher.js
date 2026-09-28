@@ -252,6 +252,59 @@ function excludeAppendBuffer(existingBuf, missing) {
   return Buffer.from(text, 'utf8');
 }
 
+// A wrapper embeds `serverArgs` as literal text in a shell/cmd command
+// line — quoting alone can't make that safe, because server.js's own
+// allowlist only ever compares a NORMALIZED origin (`new URL(v).origin` —
+// see originMatches in server.js), so an operator can hand it
+// `https://host/"&echo x>PWNED.txt&"` or an origin with an embedded CR/LF
+// and have it accepted, then replayed verbatim into `launcher.js write`
+// (SKILL.md passes the exact arguments already given to server.js). On
+// win32 a literal `"` inside a quoted cmd.exe argument ends the quoted
+// string right there — nothing that follows on the line is quoted at all —
+// so no amount of escaping the OUTSIDE of that string closes it; the
+// untrusted suffix has to never reach the wrapper in the first place. This
+// re-derives every argument from its parsed, semantic value instead of
+// trusting the original string: the port becomes a bare digit string (any
+// non-digit content, quotes included, throws rather than passing through),
+// and each --allow-origin is re-emitted from ITS OWN `new URL(v).origin` —
+// which can only ever be `<scheme>://<host>[:<port>]`, so whatever garbage
+// followed the real origin in the input is simply not part of the output.
+// Any argument that isn't exactly the port or an --allow-origin flag is
+// rejected outright: this replays a `server.js` start, never arbitrary
+// strings. The win32 character check below is belt-and-braces on top of
+// that — normalization already rules every one of these characters out for
+// a URL's `.origin`, but a future scheme this doesn't anticipate should
+// fail loudly here rather than reach the wrapper.
+function sanitizeServerArgsForWrapper(serverArgs, platform) {
+  const { origins, rest } = srv.extractAllowOriginArgs(serverArgs || []);
+  if (rest.length > 1) {
+    throw new Error(`launcher.js write: unexpected server argument(s) ${rest.slice(1).map((a) => JSON.stringify(a)).join(', ')} — only a port and --allow-origin are replayed`);
+  }
+  const out = [];
+  if (rest.length === 1) {
+    const portArg = String(rest[0]);
+    if (!/^\d+$/.test(portArg)) {
+      throw new Error(`launcher.js write: the port argument ${JSON.stringify(rest[0])} is not a plain port number`);
+    }
+    out.push(portArg);
+  }
+  for (const origin of origins) {
+    let normalized;
+    try { normalized = new URL(origin).origin; } catch (_) {
+      throw new Error(`launcher.js write: --allow-origin value ${JSON.stringify(origin)} is not a valid URL`);
+    }
+    out.push(`--allow-origin=${normalized}`);
+  }
+  if (platform === 'win32') {
+    for (const a of out) {
+      if (/["\r\n]/.test(a) || a.endsWith('\\')) {
+        throw new Error(`launcher.js write: server argument ${JSON.stringify(a)} cannot be safely embedded in a .cmd wrapper`);
+      }
+    }
+  }
+  return out;
+}
+
 // pid file shape shared with .kanban-app.pid: pid on line 1, port on line 2.
 function parsePidFileText(text) {
   const lines = String(text || '').split(/\r?\n/);
@@ -458,6 +511,11 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   const boardDirAbs = path.resolve(boardDirArg);
   if (!fs.existsSync(boardDirAbs)) throw new Error(`board dir not found: ${boardDirAbs}`);
   const platform = process.platform;
+  // Sanitize BEFORE any fs write — see sanitizeServerArgsForWrapper — so a
+  // rejected argument fails loudly and leaves nothing behind, the same
+  // "nothing half-written" guarantee the exclude-file-first ordering below
+  // already gives the rest of this function.
+  const safeServerArgs = sanitizeServerArgsForWrapper(serverArgs, platform);
   const { dir: whereDir, repoRoot } = resolveWhere(boardDirAbs);
   fs.mkdirSync(whereDir, { recursive: true });
   const boardName = boardDisplayName(boardDirAbs);
@@ -476,7 +534,7 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath)]);
 
   const text = renderWrapper({
-    platform, boardDirAbs, boardName, baseName, serverArgs,
+    platform, boardDirAbs, boardName, baseName, serverArgs: safeServerArgs,
     nodePath: process.execPath,
     helperPath: __filename,
   });
@@ -780,7 +838,7 @@ async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {
 module.exports = {
   osWrapperExt, wrapperFileName, pidFileName, lockFileName, markerLine, markerCommentLine, parseMarkerBoardDir,
   sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle,
-  escapePercentForCmd, singleQuotePosix, renderWrapper,
+  escapePercentForCmd, singleQuotePosix, renderWrapper, sanitizeServerArgsForWrapper,
   missingExcludeNames, excludeAppendBuffer, parsePidFileText, candidatePorts, cliPortFromServerArgs, decideRunning,
   shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot,
   gitInfoExcludePath, listWrapperMarkers, resolveBaseNameForBoard, readPidFile, isPidAlive,
