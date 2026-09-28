@@ -96,17 +96,19 @@ second board sharing that same folder collides on the name and gets suffixed —
 `kanban_web-<board-name>.<ext>` + a matching `.pid`; the writer tells boards apart by a
 marker line inside each wrapper, always reuses the wrapper a board already owns (whatever
 suffix it landed on) before picking a new name, and never overwrites a launcher naming a
-different board — though rewriting one for the *same* board (healing a stale path)
-happens on every start. In a repository, both file names are added to `info/exclude`,
+different board that still exists; one whose marker names a board folder that is gone is
+reclaimed. Rewriting it for the *same* board (healing a stale path) happens on every
+start, and unchanged bytes are left alone. In a repository, both file names are added to `info/exclude`,
 never `.gitignore`. Double-clicking the wrapper's first step is checking whether the
 board is already served: a port chosen from the pid files or the config pin answers
 `/api/board` as *this* board (a pid file alone is never the proof) — if so it opens the
 browser and starts nothing; otherwise it starts the server right there, in that window.
 Ctrl+C removes the paired `kanban_web.pid` (server.js's own SIGINT handler clears
-`.kanban-app.pid` the same way); closing the window instead is the one way either pid
-file is left stale, since that ends the whole process tree before either handler runs. If
-a plugin update removes the helper script the wrapper calls, the wrapper says so and
-tells the human to run `/kanban:web` once to rewrite it. **The launcher is the human's
+`.kanban-app.pid` the same way). Closing the window (or Ctrl+Break) leaves
+`kanban_web.pid` stale, and a server that dies without Ctrl+C leaves `.kanban-app.pid`
+stale; the next start overwrites both. If a plugin update removes the helper script the
+wrapper calls, or Node moves, the wrapper says so and tells the human to run
+`/kanban:web` once to rewrite it. **The launcher is the human's
 hand only** — never run it, or `launcher.js run`, yourself.
 
 ## Behind a VS Code tunnel

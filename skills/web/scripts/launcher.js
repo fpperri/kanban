@@ -150,18 +150,19 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath,
       'chcp 65001 >nul',
       marker,
       `title Kanban Web - ${sanitizeForWindowsTitle(boardName)}`,
-      `if exist "${helper}" goto run`,
-      'echo The kanban plugin has moved or updated. Run /kanban:web once to rewrite this launcher.',
+      `if not exist "${helper}" goto stale`,
+      `if not exist "${node}" goto stale`,
+      // One physical line on purpose: cmd re-reads a batch file by byte
+      // offset after each command, and the skill rewrites this file on
+      // every start, possibly while this window is still serving. Ending
+      // the line with `exit /b` means nothing after it is ever read. `||`
+      // fires on every nonzero exit code, negative ones included, which the
+      // signed `if errorlevel 1` comparison would miss.
+      `"${node}" "${helper}" run "${dir}" "${baseName}" || pause & exit /b`,
+      ':stale',
+      'echo This launcher is out of date: the kanban plugin or Node moved. Run /kanban:web once to rewrite it.',
       'pause',
       'exit /b 1',
-      ':run',
-      `"${node}" "${helper}" run "${dir}" "${baseName}"`,
-      // `if errorlevel 1` is a >= comparison done as a SIGNED integer, so a
-      // negative exit code (its unsigned bit pattern reads as a huge
-      // positive errorlevel, but the signed comparison still sees negative)
-      // slips past it and the window closes with no pause on a real
-      // failure. %errorlevel% != 0 catches every nonzero code.
-      'if %errorlevel% neq 0 pause',
       '',
     ].join('\r\n');
   }
@@ -173,8 +174,8 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath,
   return [
     '#!/bin/sh',
     marker,
-    `if [ ! -f ${helper} ]; then`,
-    '  echo "The kanban plugin has moved or updated. Run /kanban:web once to rewrite this launcher."',
+    `if [ ! -f ${helper} ] || [ ! -x ${node} ]; then`,
+    '  echo "This launcher is out of date: the kanban plugin or Node moved. Run /kanban:web once to rewrite it."',
     '  exit 1',
     'fi',
     `exec ${node} ${helper} run ${dir} ${base}`,
@@ -245,7 +246,8 @@ function decideRunning({ port, answeredBoardDir, targetBoardDir, platform = proc
 
 function runGit(args, cwd) {
   try {
-    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    // Trailing newlines only: a POSIX repository path may end in a space.
+    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).replace(/\r?\n+$/, '');
   } catch (_) {
     return null;
   }
@@ -384,7 +386,11 @@ function writeLauncher(boardDirArg) {
     nodePath: process.execPath,
     helperPath: __filename,
   });
-  fs.writeFileSync(wrapperPath, text);
+  // Unchanged bytes are not rewritten: a window running this wrapper keeps
+  // reading it by byte offset.
+  let current = null;
+  try { current = fs.readFileSync(wrapperPath, 'utf8'); } catch (_) {}
+  if (current !== text) fs.writeFileSync(wrapperPath, text);
   if (platform !== 'win32') { try { fs.chmodSync(wrapperPath, 0o755); } catch (_) {} }
   const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
   ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath)]);

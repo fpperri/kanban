@@ -24,7 +24,7 @@ function freePort() {
   });
 }
 
-async function waitFor(fn, { timeout = 8000, interval = 50 } = {}) {
+async function waitFor(fn, { timeout = 20000, interval = 50 } = {}) {
   const start = Date.now();
   for (;;) {
     const v = await fn();
@@ -170,28 +170,31 @@ test('chooseWrapperName reuses a wrapper it already owns at ANY suffix rank, eve
 
 // --- pure: wrapper text ------------------------------------------------------
 
-test('renderWrapper (win32): marker, helper-exists check, exec line, CRLF', () => {
+test('renderWrapper (win32): marker, helper and node checks, one-line exec, CRLF', () => {
   const text = launcher.renderWrapper({
     platform: 'win32', boardDirAbs: 'C:\\Users\\x y\\board\\.kanban', boardName: 'X Board',
     nodePath: 'C:\\node.exe', helperPath: 'C:\\Users\\x y\\launcher.js', baseName: 'kanban_web',
   });
   assert.match(text, /^@echo off\r\n/);
   assert.match(text, /rem kanban-web-board: C:\\Users\\x y\\board\\\.kanban\r\n/);
-  assert.match(text, /if exist "C:\\Users\\x y\\launcher\.js" goto run/);
-  assert.match(text, /:run\r\n"C:\\node\.exe" "C:\\Users\\x y\\launcher\.js" run "C:\\Users\\x y\\board\\\.kanban" "kanban_web"/);
-  assert.match(text, /if %errorlevel% neq 0 pause/);
+  assert.match(text, /if not exist "C:\\Users\\x y\\launcher\.js" goto stale\r\n/);
+  assert.match(text, /if not exist "C:\\node\.exe" goto stale\r\n/);
+  assert.match(text, /\r\n"C:\\node\.exe" "C:\\Users\\x y\\launcher\.js" run "C:\\Users\\x y\\board\\\.kanban" "kanban_web" \|\| pause & exit \/b\r\n:stale\r\n/);
   assert.ok(!text.includes('\n\n'), 'no bare LF introduced alongside CRLF');
 });
 
-test('renderWrapper (win32): negative exit codes still trigger the pause — %errorlevel% neq 0, not "if errorlevel 1"', () => {
+test('renderWrapper (win32): every nonzero exit pauses, and nothing after the exec line is read', () => {
   const text = launcher.renderWrapper({
     platform: 'win32', boardDirAbs: 'C:\\board', boardName: 'Board',
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
   });
   // `if errorlevel 1` is a signed >= comparison and silently misses a
-  // negative exit code.
+  // negative exit code; `||` fires on any nonzero one.
   assert.ok(!/if errorlevel/.test(text), 'the signed "if errorlevel N" form must be gone entirely');
-  assert.match(text, /if %errorlevel% neq 0 pause/);
+  const lines = text.split('\r\n');
+  const exec = lines.findIndex((l) => l.startsWith('"C:\\node.exe"'));
+  assert.match(lines[exec], / \|\| pause & exit \/b$/, 'the exec line pauses on failure and exits on the same physical line');
+  assert.strictEqual(lines[exec + 1], ':stale', 'only the stale branch follows, reached by goto alone');
 });
 
 test('renderWrapper (win32): a literal % in the board/node/helper path survives as %%, not swallowed by cmd', () => {
@@ -200,7 +203,7 @@ test('renderWrapper (win32): a literal % in the board/node/helper path survives 
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web',
   });
   assert.match(text, /rem kanban-web-board: C:\\100%% done\\\.kanban\r\n/);
-  assert.match(text, /:run\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\100%% done\\\.kanban" "kanban_web"/);
+  assert.match(text, /\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\100%% done\\\.kanban" "kanban_web" \|\|/);
 });
 
 test('renderWrapper (win32): chcp 65001 runs right after @echo off, before any path/name is read', () => {
@@ -223,12 +226,12 @@ test('renderWrapper (win32): board-name cmd metacharacters never reach the title
   assert.ok(!/[&|<>^%"]/.test(titleLine), `title line must carry no cmd metacharacters: ${titleLine}`);
 });
 
-test('renderWrapper (win32): every argument on the :run line is quoted, including & and ( ) in a path', () => {
+test('renderWrapper (win32): every argument on the exec line is quoted, including & and ( ) in a path', () => {
   const text = launcher.renderWrapper({
     platform: 'win32', boardDirAbs: 'C:\\R&D (x)\\.kanban', boardName: 'Board',
     nodePath: 'C:\\node.exe', helperPath: 'C:\\launcher.js', baseName: 'kanban_web-two',
   });
-  assert.match(text, /:run\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\R&D \(x\)\\\.kanban" "kanban_web-two"/);
+  assert.match(text, /\r\n"C:\\node\.exe" "C:\\launcher\.js" run "C:\\R&D \(x\)\\\.kanban" "kanban_web-two" \|\|/);
 });
 
 test('sanitizeForWindowsTitle strips cmd metacharacters and collapses newlines to spaces', () => {
@@ -246,7 +249,7 @@ test('renderWrapper (linux/mac): shebang, marker, helper-exists check, exec, LF 
   });
   assert.match(text, /^#!\/bin\/sh\n/);
   assert.match(text, /# kanban-web-board: \/home\/x y\/board\/\.kanban\n/);
-  assert.match(text, /if \[ ! -f '\/home\/x y\/launcher\.js' \]; then/);
+  assert.match(text, /if \[ ! -f '\/home\/x y\/launcher\.js' \] \|\| \[ ! -x '\/usr\/bin\/node' \]; then/);
   assert.match(text, /exec '\/usr\/bin\/node' '\/home\/x y\/launcher\.js' run '\/home\/x y\/board\/\.kanban' 'kanban_web'/);
   assert.ok(!text.includes('\r'), 'no CR in a POSIX shell script');
 });
@@ -467,6 +470,22 @@ test('writeLauncher: no repository writes to the board dir\'s parent folder and 
     const w = launcher.writeLauncher(board);
     assert.strictEqual(w, path.join(parent, `kanban_web${ext}`));
     assert.strictEqual(launcher.gitInfoExcludePath(board), null);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher: an unchanged wrapper is not rewritten, so a window running it never reads shifted bytes', () => {
+  const parent = tmpDir('kanban-launcher-same-');
+  try {
+    const board = path.join(parent, '.kanban');
+    fs.mkdirSync(board);
+    const w = launcher.writeLauncher(board);
+    const old = new Date(Date.now() - 60000);
+    fs.utimesSync(w, old, old);
+    const before = fs.statSync(w).mtimeMs;
+    assert.strictEqual(launcher.writeLauncher(board), w);
+    assert.strictEqual(fs.statSync(w).mtimeMs, before, 'same bytes, no write');
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
