@@ -78,6 +78,49 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 Then open the URL. On Windows: `start http://localhost:<port>`. Tell the user they can
 also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple Browser").
 
+Right after reading that URL line, run
+`node <SCRIPTS_DIR>/launcher.js write <kanban-dir> <the same server arguments just used>`
+— the exact port and/or `--allow-origin` arguments (if any) just passed to `server.js`,
+verbatim and in the same order, so a double-click restart binds the same port and keeps
+the same tunnel origin allowlisted instead of drifting back to `7777` with nothing
+allowlisted — unasked, on every successful start — and tell the human the printed
+launcher path in your report; see **Double-click launcher** below. Only arguments are
+replayed, never the environment: an origin given through `KANBAN_WEB_ALLOWED_ORIGINS`
+goes to `launcher.js write` as `--allow-origin <origin>`. A port must be a number and each
+origin is re-emitted as `--allow-origin=<its parsed origin>`; anything else is refused.
+
+### Double-click launcher
+
+`launcher.js write` (re)writes a double-clickable wrapper for restarting this same board
+with no tokens spent: `kanban_web.cmd` (Windows), `kanban_web.command` (macOS, chmod +x)
+or `kanban_web.sh` (Linux, chmod +x — a `.desktop` entry is optional and not set up
+here), at the root of the board's git repository, or its parent folder when there is no
+repository. A paired `kanban_web.pid` sits beside it — pid on line 1, port on line 2.
+This is separate from `.kanban-app.pid` above, which server.js itself still writes on
+every bind and which `launcher.js run` reads to find the port; a `.kanban-app.pid` naming
+a dead pid is cleared right before a launcher start, a live one is never touched. A
+second board sharing that same folder collides on the name and gets suffixed —
+`kanban_web-<board-name>.<ext>` + a matching `.pid`; the writer tells boards apart by a
+marker line inside each wrapper, always reuses the wrapper a board already owns (whatever
+suffix it landed on) before picking a new name, and never overwrites a launcher naming a
+different board that still exists; one whose marker names a board folder that is gone is
+reclaimed. Rewriting it for the *same* board (healing a stale path) happens on every
+start, and unchanged bytes are left alone. In a repository, the wrapper, `kanban_web.pid`,
+`kanban_web.lock` and its temporary siblings (`kanban_web.lock.*`) are added to `info/exclude`, never `.gitignore`. Double-clicking the
+wrapper's first step is checking whether the board is already served: a port chosen from
+the pid files, the replayed port argument or the config pin answers `/api/board` as
+*this* board (a pid file alone is never the proof) — if so it opens the browser and
+starts nothing. Otherwise it takes `kanban_web.lock`, so two quick double-clicks start one
+server (the other waits, says so once, and opens the running board; a lock older than 30
+seconds is stale), and starts the server right there, in that window.
+Ctrl+C removes the paired `kanban_web.pid` (server.js's own SIGINT handler clears
+`.kanban-app.pid` the same way). Closing the window (or Ctrl+Break) leaves
+`kanban_web.pid` stale, and a server that dies without Ctrl+C leaves `.kanban-app.pid`
+stale; the next start overwrites both. If a plugin update removes the helper script the
+wrapper calls, or Node moves, the wrapper says so and tells the human to run
+`/kanban:web` once to rewrite it. **The launcher is the human's
+hand only** — never run it, or `launcher.js run`, yourself.
+
 ## Behind a VS Code tunnel
 
 Reaching the board through a VS Code Remote Tunnel means the browser sees a
