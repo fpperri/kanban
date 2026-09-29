@@ -361,6 +361,20 @@ test('missingExcludeNames accepts a raw Buffer, decoding byte-for-byte (latin1),
   assert.deepStrictEqual(launcher.missingExcludeNames(Buffer.from('a\nb\n', 'utf8'), ['a', 'c']), ['c']);
 });
 
+test('missingExcludeNames: a name already present as UTF-8 bytes on disk reads as present, even though `names` arrive as ordinary (non-latin1) JS strings', () => {
+  // The file on disk holds the UTF-8 ENCODING of "/Diseño/kanban_web.cmd" —
+  // exactly what excludeAppendBuffer writes (see there) — decoded byte-for-
+  // byte as latin1 (so 'ñ' reads back as two chars, 'Ã±'). `names` carries
+  // the ordinary JS string with the real 'ñ', the same shape `gitShowPrefix`
+  // hands writeLauncher. Comparing the two byte spaces directly (the old
+  // bug) never matches, so the name is reported missing forever and
+  // duplicates on every write; comparing in the same byte space finds it.
+  const name = '/Diseño/kanban_web.cmd';
+  const onDisk = Buffer.from(`${name}\n`, 'utf8');
+  assert.deepStrictEqual(launcher.missingExcludeNames(onDisk, [name]), []);
+  assert.deepStrictEqual(launcher.missingExcludeNames(onDisk, [name, '/other']), ['/other']);
+});
+
 test('excludeAppendBuffer: nothing to add returns null (idempotent, no I/O)', () => {
   assert.strictEqual(launcher.excludeAppendBuffer('a\n', []), null);
 });
@@ -765,7 +779,23 @@ function initRepo() {
   return dir;
 }
 
-test('writeLauncher: wrapper at the repo root, exclude entries, rewrite heals in place, collision suffixes a second board, first launcher untouched', () => {
+// Anchored exclude lines the writer adds for a board at repo-relative
+// `prefix` (e.g. '.kanban/' or ''), matching anchoredExcludeName exactly —
+// shared by every test below that asserts on info/exclude content.
+function anchoredNames(prefix, ext) {
+  return [
+    `/${prefix}kanban_web${ext}`,
+    `/${prefix}kanban_web.pid`,
+    `/${prefix}kanban_web.lock`,
+    `/${prefix}kanban_web.lock.*`,
+  ];
+}
+
+function escapeRegExpLiteral(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+test('writeLauncher: wrapper lives in the board directory itself, exclude entries anchored to the board\'s own path, rewrite heals in place', () => {
   const repo = initRepo();
   const ext = launcher.osWrapperExt(process.platform);
   try {
@@ -774,7 +804,7 @@ test('writeLauncher: wrapper at the repo root, exclude entries, rewrite heals in
     fs.writeFileSync(path.join(board1, 'config.yaml'), 'name: Alpha Board\n');
 
     const w1 = launcher.writeLauncher(board1);
-    assert.strictEqual(w1, path.join(repo, `kanban_web${ext}`));
+    assert.strictEqual(w1, path.join(board1, `kanban_web${ext}`), 'the wrapper lands IN the board directory, beside the cards');
     const board1Abs = path.resolve(board1);
     let content1 = fs.readFileSync(w1, 'utf8');
     assert.ok(content1.includes(launcher.markerLine(board1Abs)), 'wrapper carries the board marker');
@@ -784,10 +814,10 @@ test('writeLauncher: wrapper at the repo root, exclude entries, rewrite heals in
     const excludePath = launcher.gitInfoExcludePath(board1);
     assert.ok(excludePath, 'repo has an info/exclude path');
     let excludeText = fs.readFileSync(excludePath, 'utf8');
-    assert.strictEqual((excludeText.match(new RegExp(`^kanban_web${ext.replace('.', '\\.')}$`, 'm')) || []).length, 1);
-    assert.strictEqual((excludeText.match(/^kanban_web\.pid$/m) || []).length, 1);
-    assert.strictEqual((excludeText.match(/^kanban_web\.lock$/m) || []).length, 1);
-    assert.strictEqual((excludeText.match(/^kanban_web\.lock\.\*$/m) || []).length, 1, 'lock temp and reclaim-ticket leftovers are excluded too');
+    for (const name of anchoredNames('.kanban/', ext)) {
+      assert.strictEqual((excludeText.match(new RegExp(`^${escapeRegExpLiteral(name)}$`, 'm')) || []).length, 1,
+        `expected an anchored line ${JSON.stringify(name)}`);
+    }
 
     // Rewriting the same board heals in place: same path, marker unchanged,
     // and the exclude file does not grow a duplicate line.
@@ -796,12 +826,14 @@ test('writeLauncher: wrapper at the repo root, exclude entries, rewrite heals in
     const excludeText2 = fs.readFileSync(excludePath, 'utf8');
     assert.strictEqual(excludeText2, excludeText, 'writing twice does not duplicate exclude entries');
 
-    // A second board in the same repo collides on kanban_web and gets suffixed.
+    // A second, unrelated board dir in the SAME repo is a different folder —
+    // one board per folder, so this is not a collision at all, never
+    // suffixed.
     const board2 = path.join(repo, '.kanban2');
     fs.mkdirSync(board2);
     fs.writeFileSync(path.join(board2, 'config.yaml'), 'name: Beta Board\n');
     const w2 = launcher.writeLauncher(board2);
-    assert.strictEqual(w2, path.join(repo, `kanban_web-beta-board${ext}`));
+    assert.strictEqual(w2, path.join(board2, `kanban_web${ext}`), 'its own folder, its own bare kanban_web name — no suffix needed');
     assert.notStrictEqual(w2, w1);
 
     // The first board's launcher is never touched by the second board's write.
@@ -810,21 +842,23 @@ test('writeLauncher: wrapper at the repo root, exclude entries, rewrite heals in
     assert.ok(content1After.includes(launcher.markerLine(board1Abs)));
 
     const excludeText3 = fs.readFileSync(excludePath, 'utf8');
-    assert.strictEqual((excludeText3.match(new RegExp(`^kanban_web-beta-board${ext.replace('.', '\\.')}$`, 'm')) || []).length, 1);
-    assert.strictEqual((excludeText3.match(/^kanban_web-beta-board\.pid$/m) || []).length, 1);
+    for (const name of anchoredNames('.kanban2/', ext)) {
+      assert.strictEqual((excludeText3.match(new RegExp(`^${escapeRegExpLiteral(name)}$`, 'm')) || []).length, 1,
+        `expected board 2's own anchored line ${JSON.stringify(name)}`);
+    }
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
 
-test('writeLauncher: no repository writes to the board dir\'s parent folder and skips info/exclude', () => {
+test('writeLauncher: no repository writes IN the board directory itself and skips info/exclude', () => {
   const parent = tmpDir('kanban-launcher-norepo-');
   const ext = launcher.osWrapperExt(process.platform);
   try {
     const board = path.join(parent, '.kanban');
     fs.mkdirSync(board);
     const w = launcher.writeLauncher(board);
-    assert.strictEqual(w, path.join(parent, `kanban_web${ext}`));
+    assert.strictEqual(w, path.join(board, `kanban_web${ext}`));
     assert.strictEqual(launcher.gitInfoExcludePath(board), null);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -856,16 +890,17 @@ test('writeLauncher: renaming/moving the project heals the launcher in place ins
     const oldBoard = path.join(oldProj, '.kanban');
     fs.mkdirSync(oldBoard);
     const w1 = launcher.writeLauncher(oldBoard);
-    assert.strictEqual(w1, path.join(oldProj, `kanban_web${ext}`));
+    assert.strictEqual(w1, path.join(oldBoard, `kanban_web${ext}`));
 
-    // The whole project folder moves — the wrapper file moves with it, but
-    // its marker still names the OLD absolute board path until healed.
+    // The whole project folder moves — the board dir, and the wrapper file
+    // inside it, move right along with it — but the wrapper's marker still
+    // names the OLD absolute board path until healed.
     const newProj = path.join(base, 'proj-new');
     fs.renameSync(oldProj, newProj);
     const newBoard = path.join(newProj, '.kanban');
 
     const w2 = launcher.writeLauncher(newBoard);
-    assert.strictEqual(w2, path.join(newProj, `kanban_web${ext}`), 'the familiar name is reclaimed, never suffixed');
+    assert.strictEqual(w2, path.join(newBoard, `kanban_web${ext}`), 'the familiar name is reclaimed, never suffixed');
     const content = fs.readFileSync(w2, 'utf8');
     assert.ok(content.includes(launcher.markerLine(path.resolve(newBoard))), 'the marker now names the current board dir');
   } finally {
@@ -873,42 +908,83 @@ test('writeLauncher: renaming/moving the project heals the launcher in place ins
   }
 });
 
-test('writeLauncher/listWrapperMarkers: a dangling junction at the marker\'s board dir is NOT reclaimed by a sibling board — the directory entry itself is still there, only its target is gone',
-  { skip: process.platform !== 'win32' }, () => {
-    const base = tmpDir('kanban-launcher-junction-');
-    try {
-      const target = path.join(base, 'target-board');
-      fs.mkdirSync(target);
-      const junction = path.join(base, 'junction-board');
-      // A directory junction, not a symlink — needs no admin/Developer Mode
-      // on Windows.
-      fs.symlinkSync(target, junction, 'junction');
+test('writeLauncher: a board directory copied from another board\'s (leftover wrapper naming the OLD board dir) suffixes rather than overwrites, and neither board\'s own wrapper is touched', () => {
+  const base = tmpDir('kanban-launcher-copied-');
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const boardA = path.join(base, 'proj-a', '.kanban');
+    fs.mkdirSync(boardA, { recursive: true });
+    fs.writeFileSync(path.join(boardA, 'config.yaml'), 'name: Board A\n');
+    const wA = launcher.writeLauncher(boardA);
+    assert.strictEqual(wA, path.join(boardA, `kanban_web${ext}`));
+    const contentA = fs.readFileSync(wA, 'utf8');
 
-      const w1 = launcher.writeLauncher(junction);
-      assert.strictEqual(w1, path.join(base, `kanban_web${launcher.osWrapperExt('win32')}`));
+    // Simulates copying the whole project (board dir, wrapper file and all)
+    // to a new location for a DIFFERENT board — the copy's config.yaml is
+    // then edited to give it its own name, but the copied wrapper's marker
+    // still names board A until something rewrites it.
+    const boardB = path.join(base, 'proj-b', '.kanban');
+    fs.mkdirSync(path.dirname(boardB), { recursive: true });
+    fs.cpSync(boardA, boardB, { recursive: true });
+    fs.writeFileSync(path.join(boardB, 'config.yaml'), 'name: Board B\n');
+    assert.ok(fs.existsSync(path.join(boardB, `kanban_web${ext}`)), 'the copy carries board A\'s wrapper file along');
 
-      // Simulates the unplugged-removable-drive case: the junction ENTRY
-      // survives, only what it points at is gone.
-      fs.rmSync(target, { recursive: true, force: true });
+    const wB = launcher.writeLauncher(boardB);
+    assert.strictEqual(wB, path.join(boardB, `kanban_web-board-b${ext}`),
+      'board A still genuinely exists, so its copied-along wrapper is never overwritten — board B gets its own, suffixed name');
+    assert.notStrictEqual(wB, wA);
 
-      const markers = launcher.listWrapperMarkers(base, 'win32');
-      const own = markers.find((m) => m.baseName === 'kanban_web');
-      assert.ok(own, 'the wrapper is still listed');
-      assert.strictEqual(own.markerBoardDirExists, true,
-        'a dangling junction still lstats successfully, so it reads as still-existing, unlike a symlink-following existsSync');
+    // Board A's own real wrapper is never touched by board B's write.
+    assert.strictEqual(fs.readFileSync(wA, 'utf8'), contentA, 'board A\'s wrapper is byte-for-byte unchanged');
 
-      // A sibling board writing into the SAME folder must suffix, never
-      // reclaim the junction board's name out from under it.
-      const otherBoard = path.join(base, 'other-board');
-      fs.mkdirSync(otherBoard);
-      fs.writeFileSync(path.join(otherBoard, 'config.yaml'), 'name: Other Board\n');
-      const w2 = launcher.writeLauncher(otherBoard);
-      assert.notStrictEqual(w2, w1, 'the dangling-junction board\'s wrapper is not reclaimed');
-      assert.ok(fs.existsSync(w1), 'the junction board\'s own wrapper is untouched');
-    } finally {
-      fs.rmSync(base, { recursive: true, force: true });
-    }
-  });
+    // The copied-along wrapper sitting in board B's folder still names board
+    // A, untouched — never overwritten, never reclaimed.
+    const copiedWrapperPath = path.join(boardB, `kanban_web${ext}`);
+    const copiedContent = fs.readFileSync(copiedWrapperPath, 'utf8');
+    assert.ok(copiedContent.includes(launcher.markerLine(path.resolve(boardA))),
+      'the leftover copy in board B\'s folder still names board A — left exactly as found');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher: a launcher that rode along when the board folder was copied from a DIFFERENT board\'s repo is excluded too — git status --porcelain in the new repo stays clean', () => {
+  const repoA = initRepo();
+  const repoB = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const boardA = path.join(repoA, '.kanban');
+    fs.mkdirSync(boardA);
+    const wA = launcher.writeLauncher(boardA);
+    assert.strictEqual(wA, path.join(boardA, `kanban_web${ext}`));
+
+    // Copy board A's whole folder — wrapper file and all — into a fresh
+    // repo B, simulating starting a new board from a copied project.
+    // chooseWrapperName correctly refuses to reclaim/overwrite it (board A
+    // still genuinely exists), so board B gets its own, differently-named
+    // wrapper — leaving the copied-along `kanban_web.<ext>`/`.pid` sitting
+    // in board B's folder, still naming board A.
+    const boardB = path.join(repoB, '.kanban');
+    fs.cpSync(boardA, boardB, { recursive: true });
+    assert.ok(fs.existsSync(path.join(boardB, `kanban_web${ext}`)), 'the copy carries board A\'s wrapper file along');
+
+    const wB = launcher.writeLauncher(boardB);
+    assert.notStrictEqual(wB, path.join(boardB, `kanban_web${ext}`),
+      'board A still genuinely exists elsewhere, so board B\'s own write lands on a different name');
+
+    // Only the launcher's own generated files exist in board B's folder (no
+    // card files, no config.yaml) — a clean `git status --porcelain` here
+    // means every one of them, chosen name AND copied-along leftover alike,
+    // is covered by an anchored exclude pattern.
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: boardB, encoding: 'utf8' });
+    assert.strictEqual(status, '', 'git status --porcelain in repo B is clean — the copied-along wrapper never shows as untracked');
+    const ignoreOut = execFileSync('git', ['check-ignore', '-v', path.join(boardB, `kanban_web${ext}`)], { cwd: boardB, encoding: 'utf8' });
+    assert.match(ignoreOut, /info\/exclude/, 'the copied-along wrapper itself is excluded, not merely absent from status by coincidence');
+  } finally {
+    fs.rmSync(repoA, { recursive: true, force: true });
+    fs.rmSync(repoB, { recursive: true, force: true });
+  }
+});
 
 test('writeLauncher (win32): a rendered exec line over cmd.exe\'s safe line-length limit is rejected before anything is written',
   { skip: process.platform !== 'win32' }, () => {
@@ -917,7 +993,7 @@ test('writeLauncher (win32): a rendered exec line over cmd.exe\'s safe line-leng
       const board = path.join(parent, '.kanban');
       fs.mkdirSync(board);
       const ext = launcher.osWrapperExt('win32');
-      const wrapperPath = path.join(parent, `kanban_web${ext}`);
+      const wrapperPath = path.join(board, `kanban_web${ext}`);
 
       // Many --allow-origin flags, each normalized down to a short, valid
       // origin — this alone pushes the rendered exec line well past the
@@ -937,32 +1013,102 @@ test('writeLauncher (win32): a rendered exec line over cmd.exe\'s safe line-leng
     }
   });
 
-test('writeLauncher: a board nested several levels inside a repo still writes at the repo TOP level, and the bare exclude pattern still matches from there', () => {
+test('writeLauncher: a board nested several levels inside a repo writes INSIDE the board\'s own directory, and the ANCHORED exclude pattern matches from deep inside the tree, from the repo root, and from the .git dir', () => {
   const repo = initRepo();
   const ext = launcher.osWrapperExt(process.platform);
   try {
     const board = path.join(repo, 'projects', 'nested', '.kanban');
     fs.mkdirSync(board, { recursive: true });
     const w = launcher.writeLauncher(board);
-    assert.strictEqual(w, path.join(repo, `kanban_web${ext}`), 'the wrapper lands at the repo root, never the board\'s own subfolder');
+    assert.strictEqual(w, path.join(board, `kanban_web${ext}`), 'the wrapper lands in the board\'s own subfolder, never the repo root');
 
     const excludePath = launcher.gitInfoExcludePath(board);
     const excludeText = fs.readFileSync(excludePath, 'utf8');
-    // The pattern the writer adds has no leading slash, so it is NOT
-    // anchored to the top level — git treats a bare basename pattern as
-    // matching at any depth, which is exactly what's needed since a
-    // repository write is always at the top level anyway (the "no
-    // repository" fallback has no exclude step at all).
-    assert.match(excludeText, new RegExp(`^kanban_web${ext.replace('.', '\\.')}$`, 'm'));
-    assert.ok(!excludeText.includes(`/kanban_web${ext}`), 'the entry is a bare name, not anchored with a leading slash');
+    const prefix = 'projects/nested/.kanban/';
+    for (const name of anchoredNames(prefix, ext)) {
+      assert.ok(excludeText.split(/\r?\n/).includes(name), `expected the anchored line ${JSON.stringify(name)} in info/exclude`);
+    }
 
-    // git itself agrees the wrapper is excluded, checked from deep inside
-    // the tree — proof the pattern actually works, not just its shape.
-    const status = execFileSync('git', ['status', '--porcelain', '--ignored'], { cwd: board, encoding: 'utf8' });
-    assert.ok(!new RegExp(`kanban_web${ext.replace('.', '\\.')}`).test(status.split('\n').filter((l) => !l.startsWith('!!')).join('\n')),
-      'the wrapper never shows as untracked');
+    // git itself agrees, checked from two different cwds inside the
+    // worktree — proof the pattern actually works (anchored to the repo
+    // top level, not merely present), not just its shape.
+    for (const cwd of [board, repo]) {
+      const ignoreOut = execFileSync('git', ['check-ignore', '-v', path.join(board, `kanban_web${ext}`)], { cwd, encoding: 'utf8' });
+      assert.match(ignoreOut, /info\/exclude/, `git check-ignore -v from ${cwd} should cite info/exclude`);
+    }
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: board, encoding: 'utf8' });
+    assert.strictEqual(status, '', 'git status --porcelain is clean — the wrapper never shows as untracked');
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher: an anchored exclude pattern for a board dir whose repo-relative prefix has special characters (non-ASCII, spaces) still matches, escaped as gitignore requires, and writing twice never duplicates the bytes', () => {
+  const repo = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const board = path.join(repo, 'Diseño y más', 'a board', '.kanban');
+    fs.mkdirSync(board, { recursive: true });
+    const w = launcher.writeLauncher(board);
+    assert.strictEqual(w, path.join(board, `kanban_web${ext}`));
+
+    const excludePath = launcher.gitInfoExcludePath(board);
+    const excludeText = fs.readFileSync(excludePath, 'utf8');
+    assert.ok(excludeText.includes(`/Diseño y más/a board/.kanban/kanban_web${ext}`),
+      'the prefix survives non-ASCII and spaces intact in the anchored pattern');
+
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: board, encoding: 'utf8' });
+    assert.strictEqual(status, '', 'git status --porcelain is clean despite the non-ASCII, space-carrying path');
+    const ignoreOut = execFileSync('git', ['check-ignore', '-v', path.join(board, `kanban_web${ext}`)], { cwd: repo, encoding: 'utf8' });
+    assert.match(ignoreOut, /info\/exclude/);
+
+    // A latin1-vs-utf8 byte-space mismatch in missingExcludeNames would
+    // never recognize these non-ASCII names as already present, and
+    // duplicate all four lines on every subsequent write — reproduced with
+    // real git: three writes grew info/exclude from 4 to ~18 lines. Three
+    // writes here (not two) is deliberate: it catches an off-by-one where
+    // the SECOND write's own (still wrong) bytes happen to satisfy the
+    // THIRD write's comparison by accident.
+    const bytesAfterFirst = fs.readFileSync(excludePath);
+    launcher.writeLauncher(board);
+    launcher.writeLauncher(board);
+    const bytesAfterThree = fs.readFileSync(excludePath);
+    assert.deepStrictEqual(bytesAfterThree, bytesAfterFirst, 'info/exclude bytes are unchanged after two more writes for the same board');
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher: a board inside a linked worktree gets its own anchored exclude, matched relative to the WORKTREE\'s own top level', () => {
+  const repo = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  const worktreeParent = tmpDir('kanban-launcher-worktree-');
+  try {
+    fs.writeFileSync(path.join(repo, 'README.md'), 'x\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: repo, stdio: 'ignore' });
+    execFileSync('git', ['-c', 'user.email=a@b.c', '-c', 'user.name=a', 'commit', '-m', 'init'], { cwd: repo, stdio: 'ignore' });
+    execFileSync('git', ['branch', 'wt-branch'], { cwd: repo, stdio: 'ignore' });
+
+    const worktree = path.join(worktreeParent, 'wt');
+    execFileSync('git', ['worktree', 'add', worktree, 'wt-branch'], { cwd: repo, stdio: 'ignore' });
+
+    const board = path.join(worktree, '.cortex', 'planning', 'kanban');
+    fs.mkdirSync(board, { recursive: true });
+    const w = launcher.writeLauncher(board);
+    assert.strictEqual(w, path.join(board, `kanban_web${ext}`));
+    assert.strictEqual(launcher.gitRepoRoot(board), path.resolve(worktree), 'the worktree is its own top level, not the main repo\'s');
+
+    const excludePath = launcher.gitInfoExcludePath(board);
+    const excludeText = fs.readFileSync(excludePath, 'utf8');
+    assert.ok(excludeText.includes(`/.cortex/planning/kanban/kanban_web${ext}`),
+      'anchored relative to the WORKTREE\'s own top level, not the main repo\'s');
+
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: board, encoding: 'utf8' });
+    assert.strictEqual(status, '', 'git status --porcelain is clean inside the worktree');
+  } finally {
+    try { execFileSync('git', ['worktree', 'remove', '--force', path.join(worktreeParent, 'wt')], { cwd: repo, stdio: 'ignore' }); } catch (_) {}
+    fs.rmSync(repo, { recursive: true, force: true });
+    fs.rmSync(worktreeParent, { recursive: true, force: true });
   }
 });
 
@@ -981,13 +1127,13 @@ test('writeLauncher: a repo path with non-ASCII characters resolves correctly �
     assert.ok(excludePath && excludePath.includes('Diseño y más'), 'the git-path decoded correctly, not mangled');
 
     const w = launcher.writeLauncher(board);
-    assert.strictEqual(w, path.join(repo, `kanban_web${ext}`));
+    assert.strictEqual(w, path.join(board, `kanban_web${ext}`));
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
 
-test('writeLauncher: info/exclude bytes it does not understand survive untouched — a latin-1 comment with no trailing newline gets a newline then the new names appended, never rewritten', () => {
+test('writeLauncher: info/exclude bytes it does not understand survive untouched — a latin-1 comment with no trailing newline gets a newline then the new anchored names appended, never rewritten', () => {
   const repo = initRepo();
   const ext = launcher.osWrapperExt(process.platform);
   try {
@@ -1007,7 +1153,8 @@ test('writeLauncher: info/exclude bytes it does not understand survive untouched
     assert.deepStrictEqual(after.subarray(0, latin1Comment.length), latin1Comment, 'the original bytes survive byte-for-byte, unmangled');
     assert.strictEqual(after[latin1Comment.length], 0x0a, 'a newline was inserted before the appended names');
     const appended = after.subarray(latin1Comment.length + 1).toString('utf8');
-    assert.match(appended, new RegExp(`^kanban_web${ext.replace('.', '\\.')}\\nkanban_web\\.pid\\nkanban_web\\.lock\\nkanban_web\\.lock\\.\\*\\n$`));
+    const escExt = ext.replace('.', '\\.');
+    assert.match(appended, new RegExp(`^\\/\\.kanban\\/kanban_web${escExt}\\n\\/\\.kanban\\/kanban_web\\.pid\\n\\/\\.kanban\\/kanban_web\\.lock\\n\\/\\.kanban\\/kanban_web\\.lock\\.\\*\\n$`));
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }
@@ -1026,7 +1173,7 @@ test('writeLauncher: the exclude step runs BEFORE the wrapper write — a read-o
 
     assert.throws(() => launcher.writeLauncher(board), 'a read-only exclude file makes the whole write fail, not silently skip');
 
-    const wrapperPath = path.join(repo, `kanban_web${ext}`);
+    const wrapperPath = path.join(board, `kanban_web${ext}`);
     assert.strictEqual(fs.existsSync(wrapperPath), false, 'no wrapper is left behind when the exclude write fails first');
   } finally {
     try { fs.chmodSync(excludePath, 0o644); } catch (_) { /* absent is fine */ }
@@ -1034,19 +1181,326 @@ test('writeLauncher: the exclude step runs BEFORE the wrapper write — a read-o
   }
 });
 
+// --- pure: anchored exclude pattern building ---------------------------------
+
+test('escapeGitExcludeSegment escapes gitignore\'s own wildcard/comment/negation characters, wherever they fall in a folder name', () => {
+  assert.strictEqual(launcher.escapeGitExcludeSegment('100% [done]?'), '100% \\[done]\\?', '[ and ? are escaped; % and the unpaired ] are not gitignore-special');
+  assert.strictEqual(launcher.escapeGitExcludeSegment('a*b'), 'a\\*b');
+  assert.strictEqual(launcher.escapeGitExcludeSegment('#tag'), '\\#tag');
+  assert.strictEqual(launcher.escapeGitExcludeSegment('!important'), '\\!important');
+  assert.strictEqual(launcher.escapeGitExcludeSegment('back\\slash'), 'back\\\\slash');
+  assert.strictEqual(launcher.escapeGitExcludeSegment('Diseño y más'), 'Diseño y más', 'non-ASCII is left alone — not gitignore-special');
+  assert.strictEqual(launcher.escapeGitExcludeSegment('plain'), 'plain');
+});
+
+test('anchoredExcludeName joins an escaped, slash-separated prefix with a leading slash and the raw name', () => {
+  assert.strictEqual(launcher.anchoredExcludeName('.cortex/planning/kanban/', 'kanban_web.cmd'), '/.cortex/planning/kanban/kanban_web.cmd');
+  assert.strictEqual(launcher.anchoredExcludeName('', 'kanban_web.cmd'), '/kanban_web.cmd', 'the board dir IS the repo top level');
+  assert.strictEqual(launcher.anchoredExcludeName('.kanban/', 'kanban_web.lock.*'), '/.kanban/kanban_web.lock.*', 'the caller\'s own wildcard suffix is never escaped');
+  assert.strictEqual(launcher.anchoredExcludeName('a[b]/', 'kanban_web.cmd'), '/a\\[b]/kanban_web.cmd', 'a folder name\'s own opening bracket is escaped, so it never starts a character class');
+});
+
+// --- integration: MIGRATION (the old repo-root/parent location) ------------
+
+test('writeLauncher MIGRATION: an old-location launcher for THIS SAME board (repo top level) is removed together with its pid, lock and lock.* siblings', () => {
+  const repo = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const board = path.join(repo, '.kanban');
+    fs.mkdirSync(board);
+    const boardAbs = path.resolve(board);
+
+    // Simulates an older launcher.js write: wrapper/pid/lock at the repo
+    // top level, marker naming this exact board.
+    const oldWrapper = path.join(repo, `kanban_web${ext}`);
+    const oldPid = path.join(repo, 'kanban_web.pid');
+    const oldLock = path.join(repo, 'kanban_web.lock');
+    const oldLockTmp = path.join(repo, `kanban_web.lock.${process.pid}.deadbeef.tmp`);
+    fs.writeFileSync(oldWrapper, launcher.renderWrapper({
+      platform: process.platform, boardDirAbs: boardAbs, boardName: 'Old Location Board',
+      nodePath: process.execPath, helperPath: LAUNCHER_PATH, baseName: 'kanban_web',
+    }));
+    fs.writeFileSync(oldPid, '999999\n7777\n');
+    fs.writeFileSync(oldLock, '999999 sometoken');
+    fs.writeFileSync(oldLockTmp, '');
+
+    const w = launcher.writeLauncher(board);
+    assert.strictEqual(w, path.join(board, `kanban_web${ext}`), 'the new write lands in the board directory');
+
+    for (const p of [oldWrapper, oldPid, oldLock, oldLockTmp]) {
+      assert.strictEqual(fs.existsSync(p), false, `old-location file ${path.basename(p)} should be removed`);
+    }
+    assert.ok(fs.existsSync(w), 'the new, board-directory wrapper exists');
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher MIGRATION: the board dir IS the repo top level, reached through a different path spelling than git\'s own canonical one (a junction on win32, a symlink on POSIX) — the wrapper this call just wrote, and a live paired pid/lock, are never deleted as a stale "old location" leftover', () => {
+  const base = tmpDir('kanban-launcher-junction-');
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const real = path.join(base, 'boardrepo');
+    fs.mkdirSync(real);
+    execFileSync('git', ['init'], { cwd: real, stdio: 'ignore' });
+
+    const link = path.join(base, 'boardlink');
+    try {
+      fs.symlinkSync(real, link, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (_) {
+      // A sandboxed/CI environment that refuses symlink/junction creation
+      // outright can't run this scenario at all — nothing this test can do
+      // about that; skip rather than fail on an unrelated environment
+      // limitation.
+      return;
+    }
+
+    // `gitRepoRoot` canonicalizes through `git rev-parse --show-toplevel`
+    // (which resolves the reparse point/symlink), while `boardDirAbs` below
+    // stays whatever spelling was actually passed in — the exact mismatch
+    // `samePhysicalDir` exists to catch. Sanity-check the premise before
+    // trusting the rest of the test.
+    assert.notStrictEqual(launcher.gitRepoRoot(link), path.resolve(link), 'sanity: git\'s canonical top level really does differ, as a string, from the link path');
+
+    const w1 = launcher.writeLauncher(link);
+    assert.strictEqual(w1, path.join(link, `kanban_web${ext}`));
+    assert.ok(fs.existsSync(w1), 'sanity: the wrapper this call just wrote actually exists');
+
+    // A live paired pid + lock, exactly as a running launcher would have
+    // left them, sitting right where the first write above put the wrapper.
+    const pidPath = path.join(link, 'kanban_web.pid');
+    const lockPath = path.join(link, 'kanban_web.lock');
+    fs.writeFileSync(pidPath, `${process.pid}\n7777\n`);
+    fs.writeFileSync(lockPath, `${process.pid} sometoken`);
+
+    // A second write (a restart) for the SAME board, still reached through
+    // the link — the buggy version treats the physically-identical folder
+    // as an "old location" holding a stale copy of this same board's
+    // wrapper, and deletes it along with the live pid and lock.
+    launcher.writeLauncher(link);
+
+    assert.ok(fs.existsSync(w1), 'the wrapper this run wrote is never deleted as a stale old-location leftover');
+    assert.ok(fs.existsSync(pidPath), 'the live paired pid survives');
+    assert.ok(fs.existsSync(lockPath), 'the live lock survives');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('samePhysicalDir: true for a junction/symlink and its target, false for two genuinely different folders, never throws for a path that does not exist', () => {
+  const base = tmpDir('kanban-launcher-samephys-');
+  try {
+    const real = path.join(base, 'real');
+    const other = path.join(base, 'other');
+    fs.mkdirSync(real);
+    fs.mkdirSync(other);
+    const link = path.join(base, 'link');
+    try {
+      fs.symlinkSync(real, link, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (_) {
+      return; // environment refuses symlink/junction creation — see the test above
+    }
+
+    assert.strictEqual(launcher.samePhysicalDir(real, link), true);
+    assert.strictEqual(launcher.samePhysicalDir(real, other), false);
+    assert.strictEqual(launcher.samePhysicalDir(path.join(base, 'does-not-exist'), real), false, 'a nonexistent path reads as not-the-same, never throws');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher MIGRATION: an old-location launcher for a DIFFERENT board is left completely untouched', () => {
+  const repo = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const board = path.join(repo, '.kanban');
+    fs.mkdirSync(board);
+    const otherBoard = path.join(repo, '.kanban-other');
+    fs.mkdirSync(otherBoard);
+
+    const oldWrapper = path.join(repo, `kanban_web${ext}`);
+    const oldPid = path.join(repo, 'kanban_web.pid');
+    fs.writeFileSync(oldWrapper, launcher.renderWrapper({
+      platform: process.platform, boardDirAbs: path.resolve(otherBoard), boardName: 'Other Board',
+      nodePath: process.execPath, helperPath: LAUNCHER_PATH, baseName: 'kanban_web',
+    }));
+    fs.writeFileSync(oldPid, '999999\n7777\n');
+    const oldWrapperBefore = fs.readFileSync(oldWrapper, 'utf8');
+
+    launcher.writeLauncher(board);
+
+    assert.ok(fs.existsSync(oldWrapper), 'a different board\'s old-location wrapper is never removed');
+    assert.ok(fs.existsSync(oldPid), 'its paired pid is never removed either');
+    assert.strictEqual(fs.readFileSync(oldWrapper, 'utf8'), oldWrapperBefore, 'left byte-for-byte unchanged');
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher MIGRATION: an old-location launcher whose marker cannot be read at all is left completely untouched', () => {
+  const repo = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const board = path.join(repo, '.kanban');
+    fs.mkdirSync(board);
+
+    const oldWrapper = path.join(repo, `kanban_web${ext}`);
+    fs.writeFileSync(oldWrapper, '@echo off\r\necho no marker here at all\r\n');
+    const oldWrapperBefore = fs.readFileSync(oldWrapper, 'utf8');
+
+    launcher.writeLauncher(board);
+
+    assert.ok(fs.existsSync(oldWrapper), 'an unreadable-marker wrapper is never guessed at or removed');
+    assert.strictEqual(fs.readFileSync(oldWrapper, 'utf8'), oldWrapperBefore);
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher MIGRATION: an old-location launcher (no repository — the board dir\'s parent) for THIS SAME board is removed too', () => {
+  const parent = tmpDir('kanban-launcher-migrate-norepo-');
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const board = path.join(parent, '.kanban');
+    fs.mkdirSync(board);
+    const boardAbs = path.resolve(board);
+
+    const oldWrapper = path.join(parent, `kanban_web${ext}`);
+    const oldPid = path.join(parent, 'kanban_web.pid');
+    fs.writeFileSync(oldWrapper, launcher.renderWrapper({
+      platform: process.platform, boardDirAbs: boardAbs, boardName: 'Old Location Board',
+      nodePath: process.execPath, helperPath: LAUNCHER_PATH, baseName: 'kanban_web',
+    }));
+    fs.writeFileSync(oldPid, '999999\n7777\n');
+
+    const w = launcher.writeLauncher(board);
+    assert.strictEqual(w, path.join(board, `kanban_web${ext}`));
+    assert.strictEqual(fs.existsSync(oldWrapper), false, 'the old parent-folder wrapper is removed');
+    assert.strictEqual(fs.existsSync(oldPid), false, 'its paired pid is removed too');
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher MIGRATION: old-location files are removed even when the old paired pid names a LIVE process — the running check still recognizes the server via .kanban-app.pid afterward', async () => {
+  const port = await freePort();
+  const proj = tmpDir('kanban-launcher-migrate-live-');
+  const dir = path.join(proj, '.kanban');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
+  const appPidPath = path.join(dir, '.kanban-app.pid');
+  const ext = launcher.osWrapperExt(process.platform);
+
+  // Board served the SKILL's way (server.js directly), never through the
+  // launcher — only .kanban-app.pid exists so far.
+  let serverProc = null;
+  try {
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
+    await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
+
+    // An old-location wrapper+pid for this board, left by a launcher whose
+    // window is still open — its pid is real and alive (this test process's
+    // own pid stands in for it).
+    const oldWrapper = path.join(proj, `kanban_web${ext}`);
+    const oldPid = path.join(proj, 'kanban_web.pid');
+    fs.writeFileSync(oldWrapper, launcher.renderWrapper({
+      platform: process.platform, boardDirAbs: path.resolve(dir), boardName: 'Live Board',
+      nodePath: process.execPath, helperPath: LAUNCHER_PATH, baseName: 'kanban_web',
+    }));
+    fs.writeFileSync(oldPid, `${process.pid}\n${port}\n`);
+    assert.ok(launcher.isPidAlive(process.pid), 'sanity: the old paired pid really is alive');
+
+    launcher.writeLauncher(dir);
+
+    assert.strictEqual(fs.existsSync(oldWrapper), false, 'the old-location wrapper is removed despite naming a live pid');
+    assert.strictEqual(fs.existsSync(oldPid), false, 'its paired pid file is removed too');
+    assert.ok(fs.existsSync(appPidPath), '.kanban-app.pid is untouched — the real server process was never signalled');
+
+    // The board still reads as running — a subsequent `run` finds it via
+    // .kanban-app.pid/the probe, exactly as before the migration.
+    const exitCode = await new Promise((resolve, reject) => {
+      const proc = spawn(process.execPath, [LAUNCHER_PATH, 'run', dir], {
+        env: { ...process.env, KANBAN_WEB_NO_BROWSER: '1' },
+        stdio: 'ignore',
+      });
+      proc.on('exit', resolve);
+      proc.on('error', reject);
+    });
+    assert.strictEqual(exitCode, 0, 'the already-running board is still recognized — nothing new is spawned');
+    assert.ok(fs.existsSync(appPidPath), '.kanban-app.pid is still the original, still-running server\'s');
+  } finally {
+    killTree(serverProc && serverProc.pid);
+    killBoardAppPid(dir);
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+// --- integration: readers never trip over the launcher's own files ----------
+
+test('card-store readers ignore kanban_web.cmd/.pid/.lock/.lock.*.tmp sitting in the board directory — only *.card.md is a card', () => {
+  const cs = require('../scripts/card-store');
+  const dir = tmpDir('kanban-launcher-readers-');
+  try {
+    fs.writeFileSync(path.join(dir, '0001.first.card.md'), '---\nid: 1\nstatus: todo\n---\n# First\nbody\n');
+    fs.writeFileSync(path.join(dir, '0002.second.card.md'), '---\nid: 2\nstatus: doing\n---\n# Second\nbody\n');
+    fs.writeFileSync(path.join(dir, 'kanban_web.cmd'), '@echo off\r\n');
+    fs.writeFileSync(path.join(dir, 'kanban_web.pid'), '123\n7777\n');
+    fs.writeFileSync(path.join(dir, 'kanban_web.lock'), '123 sometoken');
+    fs.writeFileSync(path.join(dir, 'kanban_web.lock.123.abcd.tmp'), '');
+
+    const cards = cs.listActive(dir);
+    assert.strictEqual(cards.length, 2, 'exactly the two real cards, nothing derived from the launcher\'s own files');
+    assert.deepStrictEqual(cards.map((c) => c.id).sort(), [1, 2]);
+    assert.strictEqual(cs.nextId(dir), 3, 'id allocation is unaffected by the launcher\'s files');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('web /api/board loads exactly the same cards whether or not the launcher\'s own files sit in the board directory', async () => {
+  const port = await freePort();
+  const dir = tmpDir('kanban-launcher-api-readers-');
+  fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
+  fs.writeFileSync(path.join(dir, '0001.first.card.md'), '---\nid: 1\nstatus: todo\n---\n# First\nbody\n');
+  fs.writeFileSync(path.join(dir, '0002.second.card.md'), '---\nid: 2\nstatus: doing\n---\n# Second\nbody\n');
+  // The launcher's own artifact files, exactly as writeLauncher would leave
+  // them, sitting right there beside the cards.
+  fs.writeFileSync(path.join(dir, `kanban_web${launcher.osWrapperExt(process.platform)}`), '@echo off\r\n');
+  fs.writeFileSync(path.join(dir, 'kanban_web.pid'), '123\n7777\n');
+  fs.writeFileSync(path.join(dir, 'kanban_web.lock'), '123 sometoken');
+  fs.writeFileSync(path.join(dir, 'kanban_web.lock.123.abcd.tmp'), '');
+
+  let serverProc = null;
+  try {
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
+    const appPidPath = path.join(dir, '.kanban-app.pid');
+    await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
+
+    const body = await new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port, path: '/api/board' }, (res) => {
+        let data = '';
+        res.on('data', (c) => { data += c; });
+        res.on('end', () => resolve(data));
+      }).on('error', reject);
+    });
+    const board = JSON.parse(body);
+    const ids = (board.active || []).map((c) => c.id).sort();
+    assert.deepStrictEqual(ids, [1, 2], 'exactly the two real cards — the launcher\'s own files never show up as cards');
+  } finally {
+    killTree(serverProc && serverProc.pid);
+    killBoardAppPid(dir);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // --- integration: run --------------------------------------------------------
 
 test('run: starts the server, writes the paired pid, a concurrent run starts nothing, cleanly killing the server removes the pid, a stale paired pid does not block a start', async () => {
   const port = await freePort();
-  // Nested one level below the mkdtemp folder (proj/.kanban), not the
-  // mkdtemp folder itself, so `where` (its PARENT — no git repo here) is
-  // test-private too, never the shared OS temp root every other test also
-  // writes `kanban_web.pid` into.
   const proj = tmpDir('kanban-launcher-run-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
-  const where = path.dirname(dir);
-  const pidPath = path.join(where, 'kanban_web.pid');
+  const pidPath = path.join(dir, 'kanban_web.pid');
   fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
 
   let proc1 = null;
@@ -1097,11 +1551,10 @@ test('run: starts the server, writes the paired pid, a concurrent run starts not
 
 test('run: a stale paired pid (dead pid) does not block a start', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-stale-'); // nested one level, so its pid files are test-private
+  const proj = tmpDir('kanban-launcher-stale-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
-  const where = path.dirname(dir);
-  const pidPath = path.join(where, 'kanban_web.pid');
+  const pidPath = path.join(dir, 'kanban_web.pid');
   fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
 
   // A pid that is guaranteed dead: spawn a trivial process and wait for it
@@ -1143,12 +1596,11 @@ test('run: a stale paired pid (dead pid) does not block a start', async () => {
 
 test('run: a stale paired pid naming a live-but-unrelated pid on the wrong port must not shadow a genuinely running server, nor delete its .kanban-app.pid', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-liveapp-'); // nested one level, so its pid files are test-private
+  const proj = tmpDir('kanban-launcher-liveapp-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
-  const where = path.dirname(dir);
   const appPidPath = path.join(dir, '.kanban-app.pid');
-  const pairedPidPath = path.join(where, 'kanban_web.pid');
+  const pairedPidPath = path.join(dir, 'kanban_web.pid');
   fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
 
   let serverProc = null;
@@ -1189,11 +1641,10 @@ test('run: a stale paired pid naming a live-but-unrelated pid on the wrong port 
 
 test('run: two runs racing for the same pinned port — exactly one server survives, kanban_web.pid names it, and both runs end without error', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-race-'); // nested one level, so its pid files are test-private
+  const proj = tmpDir('kanban-launcher-race-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
-  const where = path.dirname(dir);
-  const pidPath = path.join(where, 'kanban_web.pid');
+  const pidPath = path.join(dir, 'kanban_web.pid');
   fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
 
   const spawnRun = () => spawn(process.execPath, [LAUNCHER_PATH, 'run', dir], {
@@ -1251,11 +1702,10 @@ test('run: two runs racing for the same pinned port — exactly one server survi
 });
 
 test('run: two runs racing for the same UNPINNED board — exactly one server survives, not two on two different auto-incremented ports', async () => {
-  const proj = tmpDir('kanban-launcher-unpinned-race-'); // nested one level, so its pid files are test-private
+  const proj = tmpDir('kanban-launcher-unpinned-race-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
-  const where = path.dirname(dir);
-  const pidPath = path.join(where, 'kanban_web.pid');
+  const pidPath = path.join(dir, 'kanban_web.pid');
   // No config.yaml `port:` — unpinned. A losing spawn here would never hit
   // EADDRINUSE the way a pinned one does: server.js auto-increments past a
   // busy port instead of failing, so without the start lock BOTH racers'
@@ -1320,18 +1770,17 @@ test('run: two runs racing for the same UNPINNED board — exactly one server su
 
 test('run: an explicit baseName (the wrapper\'s own third argument) pairs with that exact pid file, never the marker-order guess', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-explicit-basename-'); // nested one level, so its pid files are test-private
+  const proj = tmpDir('kanban-launcher-explicit-basename-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir);
-  const where = path.dirname(dir);
   fs.writeFileSync(path.join(dir, 'config.yaml'), `port: ${port}\n`);
 
   // No wrapper is written to disk at all here — resolveBaseNameForBoard's
   // marker-order FALLBACK guess would default to 'kanban_web', which is the
   // WRONG pid file for a board whose real wrapper (per the third argument
   // below, exactly as renderWrapper now embeds it) is 'kanban_web-two'.
-  const explicitPidPath = path.join(where, 'kanban_web-two.pid');
-  const wrongGuessPidPath = path.join(where, 'kanban_web.pid');
+  const explicitPidPath = path.join(dir, 'kanban_web-two.pid');
+  const wrongGuessPidPath = path.join(dir, 'kanban_web.pid');
 
   let proc = null;
   let serverPid = null;
@@ -1491,11 +1940,10 @@ test('write+run (win32, real cmd parse): a malicious --allow-origin value cannot
 
 test('run: a CLI port (as a written wrapper would replay) is what actually gets bound, on an otherwise-unpinned board', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-cliport-'); // nested one level, so its pid files are test-private
+  const proj = tmpDir('kanban-launcher-cliport-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir); // no config.yaml at all — genuinely unpinned
-  const where = path.dirname(dir);
-  const pidPath = path.join(where, 'kanban_web.pid');
+  const pidPath = path.join(dir, 'kanban_web.pid');
 
   let proc = null;
   let serverPid = null;
@@ -1521,12 +1969,11 @@ test('run: a CLI port (as a written wrapper would replay) is what actually gets 
 
 test('run: the running check finds a board already served on its CLI port — no config pin, no paired pid file, no .kanban-app.pid, only the CLI port names it', async () => {
   const port = await freePort();
-  const proj = tmpDir('kanban-launcher-cliport-running-'); // nested one level, so its pid files are test-private
+  const proj = tmpDir('kanban-launcher-cliport-running-');
   const dir = path.join(proj, '.kanban');
   fs.mkdirSync(dir); // unpinned
   const appPidPath = path.join(dir, '.kanban-app.pid');
-  const where = path.dirname(dir);
-  const pidPath = path.join(where, 'kanban_web.pid');
+  const pidPath = path.join(dir, 'kanban_web.pid');
 
   let serverProc = null;
   try {
