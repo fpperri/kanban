@@ -1,5 +1,5 @@
 'use strict';
-// Pure layout math for the epic-clusters map (card #290). No DOM here — same
+// Pure layout math for the epic-clusters map. No DOM here — same
 // dual-environment pattern as dependency-graph.js/map-zoom.js: unit-testable
 // from node --test AND loaded as a plain <script> in the browser (app.js
 // calls layoutMap as a bare global).

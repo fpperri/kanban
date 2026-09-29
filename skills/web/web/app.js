@@ -899,7 +899,7 @@ const MAP_NODE_H = 58;
 const MAP_GAP_X = 24;
 const MAP_GAP_Y = 60;
 const MAP_PAD = 24;
-// Epic clusters (card #290): the frame title bar carries exactly the same
+// Epic clusters: the frame title bar carries exactly the same
 // content a plain node does (id, title, status dot, archived ball, blocked
 // pill — see buildMapSvg's shared renderUnit), so it gets the same height
 // rather than a bespoke, cramped strip. A named alias (not a bare reuse of
@@ -1158,8 +1158,8 @@ function buildMapGraphSection(graph, participantIds, collapsed, allCards) {
   wrap.className = 'map-graph-section';
   wrap.appendChild(buildMapSectionHeader('graph', `Dependency graph (${participantIds.length}):`, collapsed));
   if (!collapsed) {
-    // mapFrames/layoutMap replace the old layerNodes()-direct call (card
-    // #290, epic clusters): which epics become frames is dependency-graph.js's
+    // mapFrames/layoutMap replace the old layerNodes()-direct call — epic
+    // clusters: which epics become frames is dependency-graph.js's
     // job, positioning every unit (plain cards AND frames, nested arbitrarily
     // deep) is map-layout.js's — both pure, both unit-tested, see their own
     // file headers. buildMapSvg stays presentation-only either way.
@@ -1223,7 +1223,7 @@ function buildIsolatedRow(graph, allCards, collapsed) {
   return wrap;
 }
 
-// Builds the epic-clusters SVG (card #290): every unit's absolute position
+// Builds the epic-clusters SVG: every unit's absolute position
 // comes from map-layout.js's layoutMap() — plain cards (layout.nodes) AND
 // epic frames (layout.frames), nested arbitrarily deep, already flattened to
 // one coordinate space. Edges (layout.edges, dep-kind only — membership no
@@ -1282,7 +1282,7 @@ function buildMapSvg(graph, layout) {
   // stroke, blocked pill, ghost/missing dimming, the card-el
   // selection/hover/tabindex grammar): the title bar IS the epic's node
   // representation now, just positioned at its frame's top edge instead of
-  // floating free (card #290 requirement 2). An arrow const, not a nested
+  // floating free. An arrow const, not a nested
   // `function` declaration, so this stays part of buildMapSvg's own body.
   const renderUnit = (id, x, y, w, h) => {
     const n = allById.get(id);

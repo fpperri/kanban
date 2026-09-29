@@ -929,11 +929,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    Placed after .back-edge so a chain edge on a forced cycle-break keeps its
    orange over the amber, same declaration-order convention every other
    layered rule here uses. The dashed membership hop this used to sit beside
-   is gone (card #290): containment (the frame itself, below) shows
+   is gone: containment (the frame itself, below) shows
    membership now, not a separate arrow. */
 .map-edge.epic-chain { stroke: var(--id-epic); }
 .map-arrow-epic-head { fill: var(--id-epic); }
-/* Epic cluster frame (card #290): the container box an epic's members sit
+/* Epic cluster frame: the container box an epic's members sit
    inside, behind everything else in the SVG (buildMapSvg draws it first).
    Same epic accent as the chain edge/title-bar wash, at low alpha so it
    reads as ground rather than another node. Ghost/missing dim and dash

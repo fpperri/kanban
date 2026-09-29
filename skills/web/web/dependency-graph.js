@@ -279,7 +279,7 @@ function pathIds(cards, rawId) {
   return visited;
 }
 
-// Epic CLUSTERS (card #290): which epics draw as a FRAME on the map, and
+// Epic CLUSTERS: which epics draw as a FRAME on the map, and
 // which laid-out cards/ghosts they hold. Membership here is deliberately
 // NOT the same set the old 'epic'-kind edges above cover (terminal members
 // only, for the arrow that no longer gets drawn) — a frame holds EVERY

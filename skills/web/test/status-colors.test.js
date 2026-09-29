@@ -157,7 +157,7 @@ test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic
   assert.ok(css.includes(`.modal.detail-modal.epic { background: linear-gradient(${soft}, ${soft}), ${MODAL_BG}; }`), 'detail popup epic wash layers OVER the opaque panel');
   // the intra-epic chain edge + its arrowhead are LINES, not circles — they
   // keep wearing solid EPIC_COLOR. The membership hop this used to sit
-  // beside is gone (card #290): containment (the frame) shows membership now.
+  // beside is gone: containment (the frame) shows membership now.
   assert.ok(css.includes('.map-edge.epic-chain { stroke: var(--id-epic); }'), 'v3: the intra-epic chain edge carries EPIC_COLOR solid');
   assert.ok(css.includes('.map-arrow-epic-head { fill: var(--id-epic); }'), 'its arrowhead too');
   assert.ok(!css.includes('.map-edge.epic-edge'), 'the dashed membership-edge rule is gone — frames draw containment now, not an arrow');

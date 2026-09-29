@@ -489,7 +489,7 @@ test('cardToNode carries prompt through onto the built node, same as title/statu
   assert.strictEqual(node.prompt, 'summarize the PR');
 });
 
-// --- mapFrames (card #290 — epic clusters: which epics become frames) ------
+// --- mapFrames (epic clusters: which epics become frames) ------------------
 
 test('a card with no epic (no parent anywhere on the board) yields no frames at all', () => {
   const g = buildDependencyGraph(CARDS, null); // no `parent` field on any CARDS entry
