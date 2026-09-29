@@ -21,6 +21,11 @@ const lightBlock = css.slice(css.indexOf(':root {'), css.indexOf('}', css.indexO
 const darkStart = css.indexOf(':root:not([data-theme="light"])');
 const darkBlock = css.slice(darkStart, css.indexOf('}', darkStart));
 
+test('the tab icon is the plugin\'s official icon, assets/icon.svg, byte for byte (line endings aside)', () => {
+  const canonical = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'assets', 'icon.svg'), 'utf8');
+  assert.strictEqual(svg.replace(/\r\n/g, '\n'), canonical.replace(/\r\n/g, '\n'));
+});
+
 test('the icon is well-formed XML: no double hyphen inside a comment, which makes browsers reject the whole image', () => {
   assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
   for (const [, body] of svg.matchAll(/<!--([\s\S]*?)-->/g)) {
