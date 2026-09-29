@@ -528,6 +528,17 @@ test('one epic frame holds every laid-out member of a chain, not just the termin
   assert.deepStrictEqual(frames, [{ epicId: 10, memberIds: [11, 12], parentFrameId: null }]);
 });
 
+test('a member id present twice (an active and an archived copy) is held once by its frame', () => {
+  const cards = [
+    { id: 10, title: 'epic', status: 'todo', epic: true, waiting_for: [] },
+    { id: 11, title: 'member', status: 'done', parent: 10, waiting_for: [] },
+    { id: 11, title: 'member (archived copy)', status: 'done', parent: 10, waiting_for: [], archived: true },
+    { id: 12, title: 'other member', status: 'todo', parent: 10, waiting_for: [11] },
+  ];
+  const g = buildDependencyGraph(cards, null);
+  assert.deepStrictEqual(mapFrames(cards, g), [{ epicId: 10, memberIds: [11, 12], parentFrameId: null }]);
+});
+
 test('an epic with no members laid out on the map is not a frame — buildDependencyGraph never even sees a parent pointer for it', () => {
   const cards = [{ id: 20, title: 'lonely epic', status: 'todo', epic: true, waiting_for: [] }];
   const g = buildDependencyGraph(cards, null);

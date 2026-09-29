@@ -325,17 +325,19 @@ function pathIds(cards, rawId) {
 function mapFrames(cards, graph) {
   const byId = new Map(cards.map((c) => [c.id, c]));
 
-  const membersByEpic = new Map(); // epicId -> [memberId,...]
+  // A Set per epic: the same id can reach participants twice (an active and
+  // an archived copy of one card), and a frame holds each card once.
+  const membersByEpic = new Map(); // epicId -> Set of memberIds
   for (const id of graph.participants) {
     const card = byId.get(id);
     if (!card || card.parent == null || card.parent === card.id) continue;
-    if (!membersByEpic.has(card.parent)) membersByEpic.set(card.parent, []);
-    membersByEpic.get(card.parent).push(id);
+    if (!membersByEpic.has(card.parent)) membersByEpic.set(card.parent, new Set());
+    membersByEpic.get(card.parent).add(id);
   }
 
   const frames = new Map(); // epicId -> frame
-  for (const [epicId, memberIds] of membersByEpic) {
-    memberIds.sort((a, b) => a - b);
+  for (const [epicId, memberSet] of membersByEpic) {
+    const memberIds = [...memberSet].sort((a, b) => a - b);
     frames.set(epicId, { epicId, memberIds, parentFrameId: null });
   }
 
