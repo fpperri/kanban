@@ -21,10 +21,13 @@
 //   MAP_LAYOUT_MAX_WIDTH comment for why: an earlier gantt bug came from
 //   reading clientWidth mid-rebuild).
 //
-// Output: { width, height, nodes, frames, edges } — absolute positions for
-// every plain-card unit and every frame's outer box, plus every drawn
-// dependency edge's endpoints and back-edge flag. app.js turns this into SVG;
-// no drawing decision (colors, dashing, arrowheads) lives here.
+// Output: { width, height, nodes, frames, edges, drawOrder } — absolute
+// positions for every plain-card unit and every frame's outer box, plus
+// every drawn dependency edge's endpoints and back-edge flag, plus one
+// combined (y, x)-ordered draw order interleaving cards and frame title bars
+// (drawOrder) for a caller that wants one paint/tab pass instead of nodes
+// then frames. app.js turns this into SVG; no drawing decision (colors,
+// dashing, arrowheads) lives here.
 // Not named DG — search.js already claims that top-level name, and this
 // script shares its page scope with every other web/*.js (global-scope.test.js
 // guards every such collision).
@@ -180,7 +183,15 @@ function layoutLevel(unitIds, levelEdges, boxSizeOf, sizes, maxWidth) {
   return { width: usedWidth, height: shelfY + shelfH, placements };
 }
 
-function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
+function layoutMap({ ids: rawIds, edges, frames, sizes, maxWidth }) {
+  // Dedupe participants up front — an active and an archived copy of the
+  // same id can both reach `ids` (graph.participants), and a duplicate
+  // array entry isn't just drawn twice: layoutLevel's own Maps (localPos,
+  // xCenter) collapse it to ONE final position keyed by id while its row's
+  // width/component bookkeeping still counts it twice, throwing that row's
+  // centering off for every id in it, duplicate or not. First occurrence
+  // wins the position; later ones are pure duplicates, not distinct units.
+  const ids = [...new Set(rawIds)];
   const frameList = frames || [];
   const frameByEpicId = new Map(frameList.map((f) => [f.epicId, f]));
   const depEdges = (edges || []).filter((e) => e.kind === 'dep');
@@ -228,15 +239,24 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
     return out;
   }
 
+  // `depth` counts how many frame paddings have already been carved out of
+  // `maxWidth` to reach this unit's own level — 1 for a top-level frame
+  // (maxWidth - pad*2, the original behavior), 2 for a frame nested one
+  // level inside that one (maxWidth - pad*4), and so on. Without threading
+  // it through, every depth reused the SAME single subtraction (computeFrame
+  // always did maxWidth - pad*2 regardless of nesting), so a doubly-nested
+  // frame's content could exceed the documented per-level width — the outer
+  // frame's own pad shrinks what its children may fill, and each further
+  // level of nesting shrinks it again.
   const frameBoxCache = new Map();
-  function boxSizeOf(id) {
-    return isFramed(id) ? computeFrame(id).outer : { w: sizes.nodeW, h: sizes.nodeH };
+  function boxSizeOf(id, depth) {
+    return isFramed(id) ? computeFrame(id, depth).outer : { w: sizes.nodeW, h: sizes.nodeH };
   }
-  function computeFrame(epicId) {
+  function computeFrame(epicId, depth = 1) {
     if (frameBoxCache.has(epicId)) return frameBoxCache.get(epicId);
     const members = effectiveMembers(epicId);
-    const innerMaxWidth = Math.max(sizes.nodeW, maxWidth - sizes.pad * 2);
-    const level = layoutLevel(members, liftEdgesToLevel(epicId), boxSizeOf, sizes, innerMaxWidth);
+    const innerMaxWidth = Math.max(sizes.nodeW, maxWidth - sizes.pad * 2 * depth);
+    const level = layoutLevel(members, liftEdgesToLevel(epicId), (id) => boxSizeOf(id, depth + 1), sizes, innerMaxWidth);
     const outer = { w: level.width + sizes.pad * 2, h: sizes.titleH + level.height + sizes.pad * 2 };
     const result = { outer, contentOffsetX: sizes.pad, contentOffsetY: sizes.titleH + sizes.pad, placements: level.placements };
     frameBoxCache.set(epicId, result);
@@ -244,7 +264,7 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
   }
 
   const topUnitIds = ids.filter((id) => !containerOf.has(id));
-  const top = layoutLevel(topUnitIds, liftEdgesToLevel(null), boxSizeOf, sizes, maxWidth);
+  const top = layoutLevel(topUnitIds, liftEdgesToLevel(null), (id) => boxSizeOf(id, 1), sizes, maxWidth);
 
   const abs = new Map(); // id -> {x, y} top-left, absolute
   function place(id, originX, originY) {
@@ -281,6 +301,34 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
     const size = isFramed(id) ? computeFrame(id).outer : { w: sizes.nodeW, h: sizes.nodeH };
     return { x: pos.x, y: pos.y, w: size.w, h: size.h };
   };
+  // Back-ness used to compare the two DRAWN anchor points (leaving y1,
+  // arriving y2) — but that's geometry, not topology: a member always sits
+  // BELOW its own frame's top anchor, so any edge from a member to its own
+  // enclosing epic came out "back" purely from where containment draws it,
+  // whether or not it's an actual cycle (an epic waiting on one of its own
+  // members is normal — members finish before their epic — not a cycle at
+  // all). And per level LIFTED edges can manufacture the opposite mistake: an
+  // edge from inside a frame to some outside node, lifted to the whole frame
+  // for layout purposes, can look like it conflicts with a real edge the
+  // OTHER way even though no single node is actually part of a cycle (only
+  // ONE member of the frame is party to each side).
+  //
+  // Back-ness instead comes from one flat, whole-graph topological layering:
+  // every real dep edge PLUS an implicit "member finishes before its own
+  // frame" edge per effective member (containment's own ordering — the same
+  // fact a frame's box shape already enforces visually, just made explicit
+  // for cycle purposes here) — no lifting, no per-level boundaries, every
+  // participant compared on equal footing. layerNodes' own Kahn/cycle-break
+  // (reused verbatim) turns that into one layer index per id; a drawn edge
+  // is back exactly when it runs against that order — i.e. it closes a real
+  // cycle once containment is accounted for, which is the one thing that
+  // actually deadlocks the board.
+  const globalEdges = depEdges.map((e) => ({ from: e.from, to: e.to }));
+  frameList.forEach((f) => {
+    effectiveMembers(f.epicId).forEach((m) => globalEdges.push({ from: m, to: f.epicId }));
+  });
+  const globalLayer = DEP_GRAPH.layerNodes(ids, globalEdges);
+
   // Endpoint resolution needs no frame/card branch at the anchor itself — a
   // frame's box IS its title-bar-to-bottom rect, so "bottom-center leaving,
   // top-center arriving" is the exact same formula buildMapSvg already uses
@@ -294,23 +342,23 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
     const x2 = toBox.x + toBox.w / 2, y2 = toBox.y;
     drawnEdges.push(Object.assign({}, e, {
       x1, y1, x2, y2,
-      // Back-ness has to read the ACTUAL anchor points (leaving y1,
-      // arriving y2), not the two boxes' own top edges — a frame's top can
-      // sit far above its own bottom-center leaving point (its content may
-      // run many rows tall), so comparing box tops misses a real back edge:
-      // e.g. a member waiting on its own enclosing epic leaves the frame's
-      // BOTTOM (below every member) and arrives at a member's TOP that
-      // sits well above that point, even though the frame's own top is
-      // above the member's top too (the old, box-top comparison said
-      // "forward"). Comparing the anchors themselves catches it.
-      back: y2 <= y1,
+      back: globalLayer.get(e.from) >= globalLayer.get(e.to),
     }));
   });
+
+  // One combined draw order — cards and frame title bars interleaved by
+  // (y, x), id as the last, fully deterministic tiebreak — so a caller that
+  // renders (and tab-orders) off this list alone never puts every plain card
+  // ahead of a frame's title bar sitting above them just because frames used
+  // to get their own, later pass.
+  const drawOrder = nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h }))
+    .concat(frameOut.map((f) => ({ id: f.epicId, x: f.x, y: f.y, w: f.w, h: f.titleH })));
+  drawOrder.sort((a, b) => a.y - b.y || a.x - b.x || a.id - b.id);
 
   return {
     width: sizes.pad * 2 + top.width,
     height: sizes.pad * 2 + top.height,
-    nodes, frames: frameOut, edges: drawnEdges,
+    nodes, frames: frameOut, edges: drawnEdges, drawOrder,
   };
 }
 

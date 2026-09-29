@@ -1380,12 +1380,15 @@ function buildMapSvg(graph, layout) {
       `</g>`;
   };
 
+  // Cards and frame title bars render in ONE pass, in layout.drawOrder's own
+  // (y, x) order — not nodes-then-frames — so keyboard Tab (which follows
+  // DOM order) reaches a frame's title bar sitting above some plain card
+  // before that card, the same as it would if the title bar were just
+  // another node at that position. Frame rectangles (above) stay their own,
+  // earlier pass regardless: they're never focusable, so their paint order
+  // relative to each other doesn't affect Tab at all.
   let nodesSvg = '';
-  layout.nodes.forEach((p) => { nodesSvg += renderUnit(p.id, p.x, p.y, p.w, p.h); });
-  // Frame title bars render in the SAME pass as plain nodes (both interactive,
-  // both above the edges/frame backgrounds) — an epic frame's own
-  // title-bar id/width/height stand in for the plain node's p.id/p.w/p.h.
-  layout.frames.forEach((f) => { nodesSvg += renderUnit(f.epicId, f.x, f.y, f.w, f.titleH); });
+  layout.drawOrder.forEach((u) => { nodesSvg += renderUnit(u.id, u.x, u.y, u.w, u.h); });
 
   const width = canvasWidth;
   const height = layout.height;

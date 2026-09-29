@@ -762,16 +762,24 @@ to `127.0.0.1` only.
   then components are shelf-packed left to right into a maximum logical width (~1200px,
   a named constant the zoom/Fit controls scale — never a DOM measurement mid-rebuild),
   largest first, wrapping to a new shelf on overflow; a frame packs its own members
-  within that same constant minus its padding. Deterministic throughout: the same board
-  always lays out the same way. Dependency edges still draw card to card at absolute
-  positions, crossing frame borders where they must; an edge with an epic as one
+  within that same constant minus its padding, and a frame nested inside another frame
+  minus its padding again for every further level of nesting (a doubly-nested frame's
+  own content wraps at maxWidth − 4×pad, not the maxWidth − 2×pad its parent gets — each
+  level's own padding narrows what its children may fill). Deterministic throughout: the
+  same board always lays out the same way. Dependency edges still draw card to card at
+  absolute positions, crossing frame borders where they must; an edge with an epic as one
   endpoint (the epic's own `waiting_for`, or a card waiting on the epic) attaches to
   that epic's frame instead (bottom-center leaving, top-center arriving) — same
   "B waits for A" direction as always. The intra-epic chain still draws SOLID
   EPIC_COLOR orange (a real, gate-enforced dependency, only tinted); the dashed
   membership arrow it used to sit beside is gone — containment (the frame itself) shows
-  membership now. A back edge (target at/above its source) still bows sideways rather
-  than hanging or overlapping the normal flow.
+  membership now. A back edge is decided topologically, not by comparing the two drawn
+  anchor points: every dependency edge plus one implicit edge per member ("a member
+  finishes before its own epic" — containment's own order) feed a single flat layering
+  over every participant, and an edge running against that order is the one that bows
+  sideways rather than hanging or overlapping the normal flow — an epic waiting on one of
+  its own members is the normal case and stays forward; a member waiting on its own
+  enclosing epic is the real deadlock and still bows.
   **Node treatments:** the border is one neutral weight for every node — status never
   strokes it. A small dot in the node's corner carries the status color (same palette as
   the column headers), its own tooltip naming the **raw on-disk status**; status dots

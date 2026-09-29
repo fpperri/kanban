@@ -17,6 +17,7 @@ test('a single plain card (no frames, no edges) sits at (pad,pad), canvas sized 
     nodes: [{ id: 1, x: 10, y: 10, w: 100, h: 40 }],
     frames: [],
     edges: [],
+    drawOrder: [{ id: 1, x: 10, y: 10, w: 100, h: 40 }],
   });
 });
 
@@ -107,6 +108,74 @@ test('a member waiting on its own enclosing epic arrives ABOVE where the edge le
   assert.strictEqual(e.back, true);
 });
 
+// --- back-ness is topological, not geometric -----------------------------
+
+test('an epic waiting on its own member is NOT a back edge — the member finishing before its epic is the normal case, not a cycle', () => {
+  // The member (11) sits INSIDE the frame, so its bottom anchor (leaving
+  // point for this edge) is always below the frame's own top anchor
+  // (arriving point) — geometrically indistinguishable from the pinned
+  // "member waits on its own epic" case above, which IS a real cycle. Only
+  // topology (member finishes before its epic, same direction as this edge)
+  // tells them apart.
+  const ids = [10, 11];
+  const edges = [{ from: 11, to: 10, kind: 'dep', fromGhost: false, toGhost: false }]; // 10 waits on its own member 11
+  const frames = [{ epicId: 10, memberIds: [11], ghost: false, missing: false, parentFrameId: null }];
+  const out = layoutMap({ ids, edges, frames, sizes: SIZES, maxWidth: 1200 });
+
+  assert.deepStrictEqual(out.frames, [{ epicId: 10, x: 10, y: 10, w: 120, h: 80, titleH: 20 }]);
+  assert.deepStrictEqual(out.nodes, [{ id: 11, x: 20, y: 40, w: 100, h: 40 }]);
+  assert.strictEqual(out.edges.length, 1);
+  const e = out.edges[0];
+  assert.strictEqual(e.x1, 70); // card 11's center
+  assert.strictEqual(e.y1, 80); // card 11's bottom
+  assert.strictEqual(e.x2, 70); // frame's center: x=10,w=120
+  assert.strictEqual(e.y2, 10); // frame's own top — ABOVE the leaving point (80), same geometry as the cycle case
+  assert.strictEqual(e.back, false, 'no real cycle: member-before-epic (implicit) and member-before-epic (this edge) agree');
+});
+
+test('a cycle made only by lifting — a member\'s OWN edge to an outsider must not fabricate a cycle for an unrelated sibling edge to the frame', () => {
+  // 11 and 12 are both members of epic 10. 11->12 (12 waits on 11) and
+  // 11->20 (20 waits on 11) are real edges off the CHAIN-INTERNAL member 11;
+  // 20->10 (10 waits on 20) is a real edge off the epic itself. Lifted to the
+  // top level, 11->20 becomes frame10->20 (since 11's top-level container is
+  // frame 10) — which, read naively, conflicts with the direct 20->10 edge
+  // and looks like a 2-cycle between the frame and 20. But no single node is
+  // actually part of a cycle: the true order is 11, then {12, 20} in either
+  // order, then 10 (12 is the epic's terminal member, so it — not 11 —
+  // gates the epic's own completion). 20->10 must stay forward.
+  const ids = [10, 11, 12, 20];
+  const edges = [
+    { from: 20, to: 10, kind: 'dep', fromGhost: false, toGhost: false }, // 10 waits on 20
+    { from: 11, to: 12, kind: 'dep', fromGhost: false, toGhost: false }, // 12 waits on 11 (chain-internal)
+    { from: 11, to: 20, kind: 'dep', fromGhost: false, toGhost: false }, // 20 waits on 11
+  ];
+  const frames = [{ epicId: 10, memberIds: [11, 12], ghost: false, missing: false, parentFrameId: null }];
+  const out = layoutMap({ ids, edges, frames, sizes: SIZES, maxWidth: 1200 });
+
+  assert.deepStrictEqual(out.frames, [{ epicId: 10, x: 10, y: 10, w: 120, h: 130, titleH: 20 }]);
+  assert.deepStrictEqual(out.nodes, [
+    { id: 11, x: 20, y: 40, w: 100, h: 40 },
+    { id: 12, x: 20, y: 90, w: 100, h: 40 },
+    { id: 20, x: 20, y: 150, w: 100, h: 40 },
+  ]);
+  assert.strictEqual(out.width, 140);
+  assert.strictEqual(out.height, 200);
+  assert.deepStrictEqual(out.edges, [
+    {
+      from: 20, to: 10, kind: 'dep', fromGhost: false, toGhost: false,
+      x1: 70, y1: 190, x2: 70, y2: 10, back: false, // the edge under test — must NOT be flagged back
+    },
+    {
+      from: 11, to: 12, kind: 'dep', fromGhost: false, toGhost: false,
+      x1: 70, y1: 80, x2: 70, y2: 90, back: false,
+    },
+    {
+      from: 11, to: 20, kind: 'dep', fromGhost: false, toGhost: false,
+      x1: 70, y1: 80, x2: 70, y2: 150, back: false,
+    },
+  ]);
+});
+
 // --- a cross-frame dependency --------------------------------------------
 
 test('a dependency between members of two DIFFERENT frames lifts to connect the frames at the top level, but draws card-to-card', () => {
@@ -168,6 +237,33 @@ test('a frame nested inside another frame offsets by the outer frame\'s own cont
   assert.deepStrictEqual(out.nodes, [{ id: 3, x: 30, y: 70, w: 100, h: 40 }]);
   assert.strictEqual(out.width, 160);
   assert.strictEqual(out.height, 140);
+});
+
+test('a doubly-nested frame packs its own content within maxWidth minus padding for EVERY level of nesting, not just one', () => {
+  // Frame 1 (top level, depth 1) holds frame 2 (depth 2), which holds two
+  // plain members (3, 4) side by side. maxWidth 230 gives depth 1 an inner
+  // width of 230-10*2=210 (unchanged from a single level of nesting) but
+  // depth 2 an inner width of 230-10*2*2=190 — narrow enough that 3 and 4
+  // (100 wide each, 210 combined with the gap) must wrap to a second shelf
+  // there, even though 210 alone would still have fit under depth 1's own
+  // (wider) 210 limit had it not shrunk again for the second level.
+  const ids = [1, 2, 3, 4];
+  const frames = [
+    { epicId: 1, memberIds: [2], ghost: false, missing: false, parentFrameId: null },
+    { epicId: 2, memberIds: [3, 4], ghost: false, missing: false, parentFrameId: 1 },
+  ];
+  const out = layoutMap({ ids, edges: [], frames, sizes: SIZES, maxWidth: 230 });
+
+  assert.deepStrictEqual(out.frames.find((f) => f.epicId === 1), { epicId: 1, x: 10, y: 10, w: 140, h: 170, titleH: 20 });
+  // Frame 2 is 120 wide (100 content + pad*2), not 230 (100+10+100 side by
+  // side + pad*2) — the two members wrapped instead of sitting side by side.
+  assert.deepStrictEqual(out.frames.find((f) => f.epicId === 2), { epicId: 2, x: 20, y: 40, w: 120, h: 130, titleH: 20 });
+  assert.deepStrictEqual(out.nodes, [
+    { id: 3, x: 30, y: 70, w: 100, h: 40 },
+    { id: 4, x: 30, y: 120, w: 100, h: 40 }, // wrapped below 3, not beside it
+  ]);
+  assert.strictEqual(out.width, 160);
+  assert.strictEqual(out.height, 190);
 });
 
 // --- a parent cycle: every card drawn exactly once, no hang --------------
@@ -310,6 +406,73 @@ test('shelf packing orders by AREA first, not by lowest id — a bigger componen
   assert.deepStrictEqual(out.nodes.find((n) => n.id === 1), { id: 1, x: 120, y: 10, w: 100, h: 40 });
   assert.strictEqual(out.width, 230);
   assert.strictEqual(out.height, 110);
+});
+
+// --- duplicate participant ids are one unit, not two ----------------------
+
+test('a duplicate id in `ids` (e.g. an active and archived copy sharing a number) draws once, at the position a clean list would give it', () => {
+  const out = layoutMap({ ids: [1, 1], edges: [], frames: [], sizes: SIZES, maxWidth: 1200 });
+  assert.deepStrictEqual(out, {
+    width: 120, height: 60,
+    nodes: [{ id: 1, x: 10, y: 10, w: 100, h: 40 }],
+    frames: [],
+    edges: [],
+    drawOrder: [{ id: 1, x: 10, y: 10, w: 100, h: 40 }],
+  });
+});
+
+test('a duplicate id mixed with a distinct one lays out as if the duplicate were never repeated — no inflated row width, no off-centre shift', () => {
+  // Without a dedupe, the repeated 1 counts twice in its component's own row
+  // (a component of ONE box measures as if it were two 100-wide boxes plus a
+  // gap — 210 wide), shifting id 1's own final position off to where the
+  // (nonexistent) second box would sit, and shifting id 2's shelf slot over
+  // by the same phantom width. Deduped, this is exactly the plain two-card
+  // shelf-pack case (id 1 at pad, id 2 right after it + gapX).
+  const out = layoutMap({ ids: [1, 2, 1], edges: [], frames: [], sizes: SIZES, maxWidth: 1200 });
+  assert.deepStrictEqual(out.nodes, [
+    { id: 1, x: 10, y: 10, w: 100, h: 40 },
+    { id: 2, x: 120, y: 10, w: 100, h: 40 },
+  ]);
+  assert.strictEqual(out.width, 230);
+  assert.strictEqual(out.height, 60);
+});
+
+// --- draw order interleaves cards and frame title bars ---------------------
+
+test('drawOrder puts a frame\'s title bar ahead of a plain card sitting below it, even though frames are computed in a separate pass', () => {
+  // Frame 1 (a single member, 2) sits on the first (top) shelf; card 3, an
+  // unrelated single-card component, is forced to the second shelf below it
+  // by a narrow maxWidth. Concatenating "every node, then every frame" (the
+  // two separate output arrays' own order) would put 2 and 3 ahead of frame
+  // 1's title bar even though the title bar is the topmost thing on the
+  // canvas — drawOrder must sort by position instead of by which array a
+  // unit came from.
+  const ids = [1, 2, 3];
+  const frames = [{ epicId: 1, memberIds: [2], ghost: false, missing: false, parentFrameId: null }];
+  const out = layoutMap({ ids, edges: [], frames, sizes: SIZES, maxWidth: 200 });
+
+  assert.deepStrictEqual(out.frames, [{ epicId: 1, x: 10, y: 10, w: 120, h: 80, titleH: 20 }]);
+  assert.deepStrictEqual(out.nodes, [
+    { id: 2, x: 20, y: 40, w: 100, h: 40 },
+    { id: 3, x: 10, y: 100, w: 100, h: 40 }, // wrapped to the second shelf, below the frame
+  ]);
+  assert.deepStrictEqual(out.drawOrder, [
+    { id: 1, x: 10, y: 10, w: 120, h: 20 }, // the frame's TITLE BAR (titleH, not the frame's full height) — topmost, first
+    { id: 2, x: 20, y: 40, w: 100, h: 40 },
+    { id: 3, x: 10, y: 100, w: 100, h: 40 },
+  ]);
+});
+
+test('drawOrder breaks a tie on the same row by x, left to right', () => {
+  // Reuses the existing shelf-pack fixture: ids 1 and 2 share the same y
+  // (10) on the first shelf, with 1 to the left of 2 — drawOrder must keep
+  // that left-to-right order rather than falling back to array order or id.
+  const out = layoutMap({ ids: [1, 2, 3], edges: [], frames: [], sizes: SIZES, maxWidth: 250 });
+  assert.deepStrictEqual(out.drawOrder, [
+    { id: 1, x: 10, y: 10, w: 100, h: 40 },
+    { id: 2, x: 120, y: 10, w: 100, h: 40 },
+    { id: 3, x: 10, y: 60, w: 100, h: 40 },
+  ]);
 });
 
 // --- determinism -----------------------------------------------------------
