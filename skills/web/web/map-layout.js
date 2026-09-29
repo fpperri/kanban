@@ -25,7 +25,10 @@
 // every plain-card unit and every frame's outer box, plus every drawn
 // dependency edge's endpoints and back-edge flag. app.js turns this into SVG;
 // no drawing decision (colors, dashing, arrowheads) lives here.
-const DG = (typeof module !== 'undefined' && module.exports) ? require('./dependency-graph') : window;
+// Not named DG — search.js already claims that top-level name, and this
+// script shares its page scope with every other web/*.js (global-scope.test.js
+// guards every such collision).
+const DEP_GRAPH = (typeof module !== 'undefined' && module.exports) ? require('./dependency-graph') : window;
 
 // Walks `id` up the containment chain until it reaches the unit that sits
 // DIRECTLY inside `levelContainer` (null = top level) — the id this edge
@@ -67,7 +70,7 @@ function unionFind(ids) {
 function layoutLevel(unitIds, levelEdges, boxSizeOf, sizes, maxWidth) {
   if (!unitIds.length) return { width: 0, height: 0, placements: new Map() };
 
-  const layer = DG.layerNodes(unitIds, levelEdges);
+  const layer = DEP_GRAPH.layerNodes(unitIds, levelEdges);
   const uf = unionFind(unitIds);
   levelEdges.forEach((e) => uf.union(e.from, e.to));
   const compMembers = new Map();

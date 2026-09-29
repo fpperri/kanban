@@ -924,19 +924,24 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the board's own "waiting" amber so a cycle reads as a visible anomaly
    rather than blending into the normal top-down flow. */
 .map-edge.back-edge { stroke: var(--id-waiting); stroke-dasharray: 3 3; }
-/* Membership edge (epic -> child, from the child's `parent` field)
-   — the epic's own orange (EPIC_COLOR) with a dash
-   longer than the back-edge's 3 3, so membership, sequencing (plain grey),
-   and cycle-break (amber 3 3) all read as three distinct relations. The
-   back-edge amber cedes to epic orange when a membership edge is itself the
-   cycle-break (declaration order); the bowed routing still marks the cycle. */
-.map-edge.epic-edge { stroke: var(--id-epic); stroke-dasharray: 7 4; }
-/* v3: the chain itself carries the epic color — solid (it's a real,
+/* v3: the intra-epic chain carries the epic color — solid (it's a real,
    gate-enforced waiting_for edge), orange to show whose work flows here.
    Placed after .back-edge so a chain edge on a forced cycle-break keeps its
-   orange over the amber, same declaration-order convention as .epic-edge. */
+   orange over the amber, same declaration-order convention every other
+   layered rule here uses. The dashed membership hop this used to sit beside
+   is gone (card #290): containment (the frame itself, below) shows
+   membership now, not a separate arrow. */
 .map-edge.epic-chain { stroke: var(--id-epic); }
 .map-arrow-epic-head { fill: var(--id-epic); }
+/* Epic cluster frame (card #290): the container box an epic's members sit
+   inside, behind everything else in the SVG (buildMapSvg draws it first).
+   Same epic accent as the chain edge/title-bar wash, at low alpha so it
+   reads as ground rather than another node. Ghost/missing dim and dash
+   exactly like a plain ghost/missing node stub — the same "not part of the
+   current slice" / "referenced but absent" cues, just on a container. */
+.map-frame { fill: var(--epic-wash); stroke: var(--id-epic); stroke-width: 1.5px; }
+.map-frame.ghost { opacity: 0.55; stroke-dasharray: 4 3; }
+.map-frame.missing { stroke-dasharray: 2 3; }
 .map-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 /* The graph and the "No dependencies" list are each a collapsible
    section — one shared header shape (buildMapSectionHeader in app.js) for
