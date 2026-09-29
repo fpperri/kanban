@@ -1,3 +1,5 @@
+<img src="assets/icon.svg" alt="kanban icon: three columns of cards on a clay tile" width="72" height="72">
+
 # kanban
 
 Markdown kanban boards for AI coding agents.

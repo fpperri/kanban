@@ -11,6 +11,9 @@ is the human's second surface: `kanban-web` (desktop editor) and
 `kanban-snapshot` (read-only tap snapshot — changes queue as a payload;
 Claude is the write path).
 
+The page carries the plugin's icon (`assets/icon.svg`) inline as its tab icon, so it shows
+without fetching anything; `test/icon.test.js` keeps the inlined copy identical.
+
 The editor is read-write but indirect: nothing touches disk until the human
 pastes the payload back to Claude. Claude is the write path and enforces the
 board contracts — the `doing` entry gate, id allocation, archive-as-location —

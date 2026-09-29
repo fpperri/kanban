@@ -17,6 +17,7 @@ user can read cards in full.
 """
 import argparse, json, os, re, sys
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 def parse_card(path):
     text = open(path, encoding="utf-8", errors="replace").read()
@@ -250,7 +251,8 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    html = (TEMPLATE.replace("__BASE_LABEL__", label)
+    html = (TEMPLATE.replace("__ICON_URI__", quote(ICON_SVG, safe=""))
+                    .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
                     .replace("__STATUSES__", emb(read_statuses(a.kanban_dir)))
                     .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
@@ -266,6 +268,7 @@ TEMPLATE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>__BOARD_NAME__ — Kanban Snapshot</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,__ICON_URI__">
 <style>
 :root{color-scheme:light dark;
 --paper:#faf9f5;--surface:#ffffff;--ink:#1f1e1d;--ink-strong:#0f0f0e;--prose:#1f1e1d;--mut:#6a6861;
@@ -2183,6 +2186,34 @@ renderMap();
 renderGantt();
 renderCalendar();
 </script></body></html>"""
+
+
+# The plugin's icon, inlined as the page's tab icon so a snapshot opened on its
+# own shows it without fetching anything. A copy of assets/icon.svg, kept
+# identical by test/icon.test.js.
+ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The kanban plugin's icon: three columns of cards, fuller on the left, on a
+       clay tile. The tile is the accent token of app.css in each theme; an SVG
+       icon cannot read the page's tokens. The canonical file is assets/icon.svg;
+       the web tab icon and the snapshot's inline copy are identical to it, and
+       tests keep them so. -->
+  <style>
+    .tile { fill: #a94b29; }
+    .card { fill: #fffaf5; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #d97757; }
+      .card { fill: #151515; }
+    }
+  </style>
+  <rect class="tile" x="1" y="1" width="30" height="30" rx="7"/>
+  <rect class="card" x="6.5" y="7" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="6.5" y="13.25" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="6.5" y="19.5" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="13.75" y="7" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="13.75" y="13.25" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="21" y="7" width="4.5" height="4.5" rx="1"/>
+</svg>
+"""
 
 
 if __name__ == "__main__":
