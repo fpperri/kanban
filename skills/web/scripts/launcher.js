@@ -445,9 +445,10 @@ function gitInfoExcludePath(boardDirAbs) {
 // instead of matching a same-named file anywhere in the tree. `runGit`
 // already decodes as utf8 and trims only a trailing newline — a real
 // trailing space in a folder name is data, never stripped.
+// null when git fails: '' means "the board is the repository top level", so
+// a failure must not read as that and anchor the excludes at the wrong place.
 function gitShowPrefix(boardDirAbs) {
-  const out = runGit(['rev-parse', '--show-prefix'], boardDirAbs);
-  return out == null ? '' : out;
+  return runGit(['rev-parse', '--show-prefix'], boardDirAbs);
 }
 
 // WHERE the wrapper/pid/lock pair live NOW: the board directory itself —
@@ -619,6 +620,14 @@ function writeLauncher(boardDirArg, serverArgs = []) {
     }
   }
 
+  // Checked before any write, like the rendering above. gitignore has no
+  // escape for a newline, so a folder name carrying one would split into
+  // extra exclude patterns.
+  const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
+  const prefix = excludePath ? gitShowPrefix(boardDirAbs) : '';
+  if (prefix == null) throw new Error(`launcher.js write: git could not report this board's path in its repository (${boardDirAbs}); nothing was written`);
+  if (/[\r\n]/.test(prefix)) throw new Error(`launcher.js write: the board's path contains a line break, which info/exclude cannot express; nothing was written`);
+
   fs.mkdirSync(whereDir, { recursive: true });
 
   // Exclude entries FIRST: if this throws (e.g. a read-only info/exclude),
@@ -631,10 +640,8 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   // directory, never a same-named file elsewhere in the tree. `<lock>.*`
   // covers the lock's temp and reclaim-ticket siblings, which a launcher
   // killed mid-operation can leave behind.
-  const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
   const excludeNames = excludePath
     ? (() => {
-        const prefix = gitShowPrefix(boardDirAbs);
         // The names THIS write's own wrapper landed on, plus — always,
         // regardless of what baseName was actually chosen above — the bare
         // `kanban_web.*` names: a wrapper that rode along when this board's
