@@ -117,7 +117,11 @@ never touched, and any `info/exclude` lines an older write added are left in pla
 `kanban_web.pid`, `kanban_web.lock` and its temporary siblings (`kanban_web.lock.*`) are
 added to `info/exclude`, never `.gitignore` — as **anchored** patterns (a leading `/` plus
 the board's own path from the repository top level, e.g.
-`/.cortex/planning/kanban/kanban_web.cmd`), so they only ever match this board's own
+`/.cortex/planning/kanban/kanban_web.cmd`) — plus, always, the bare `kanban_web.*` names
+regardless of which name this write actually chose for its own wrapper, so a leftover
+wrapper that rode along when the board's folder was copied from a different board's stays
+out of `git status`/`git add` too, even though it never becomes this board's own name. So
+these only ever match this board's own
 directory, never a same-named file elsewhere in the tree. Double-clicking the wrapper's
 first step is checking whether the board is already served: a port chosen from the pid
 files, the replayed port argument or the config pin answers `/api/board` as *this* board

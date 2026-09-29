@@ -236,12 +236,19 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath,
 // Decoding as latin1 for the split/trim is lossless for the 1-byte-per-char
 // comparison this needs and never risks mangling bytes it doesn't touch —
 // unlike decoding as utf8, which would silently corrupt any invalid sequence
-// the moment it's re-encoded.
+// the moment it's re-encoded. `names` are ordinary JS (UTF-8-ish) strings —
+// the board's repo-relative prefix comes straight out of utf8-decoded git
+// output — but excludeAppendBuffer below writes them to disk as UTF-8 bytes,
+// which is a DIFFERENT byte sequence than the latin1 decode above for any
+// non-ASCII character. Re-encoding each name to the same "one JS char per
+// raw byte" space before comparing is what makes `present` and `names`
+// speak the same language; comparing them as-is would consider a non-ASCII
+// name always missing and duplicate it on every single write.
 function missingExcludeNames(existingBuf, names) {
   const text = Buffer.isBuffer(existingBuf) ? existingBuf.toString('latin1') : String(existingBuf || '');
   const lines = text.length ? text.split(/\r?\n/) : [];
   const present = new Set(lines.map((l) => l.trim()));
-  return names.filter((n) => !present.has(n));
+  return names.filter((n) => !present.has(Buffer.from(n, 'utf8').toString('latin1')));
 }
 
 // Bytes to APPEND (never rewrite) to add `missing` names to an
@@ -628,8 +635,20 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   const excludeNames = excludePath
     ? (() => {
         const prefix = gitShowPrefix(boardDirAbs);
-        return [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath), `${path.basename(lockPath)}.*`]
-          .map((n) => anchoredExcludeName(prefix, n));
+        // The names THIS write's own wrapper landed on, plus — always,
+        // regardless of what baseName was actually chosen above — the bare
+        // `kanban_web.*` names: a wrapper that rode along when this board's
+        // folder was copied from a DIFFERENT board's (chooseWrapperName
+        // correctly refuses to touch or rename it — see there) almost always
+        // still sits at that bare name, and it needs to stay out of `git
+        // status`/`git add` too, even though it will never become THIS
+        // write's own chosen name. `Set` dedupes the normal case, where the
+        // chosen name already IS the bare one.
+        const names = new Set([
+          path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath), `${path.basename(lockPath)}.*`,
+          wrapperFileName('kanban_web', platform), pidFileName('kanban_web'), lockFileName('kanban_web'), `${lockFileName('kanban_web')}.*`,
+        ]);
+        return [...names].map((n) => anchoredExcludeName(prefix, n));
       })()
     : [];
   ensureExcludeEntries(excludePath, excludeNames);
@@ -647,7 +666,7 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   // live, heal that forward: reclaim an old-location wrapper for THIS SAME
   // board (by marker), together with its paired pid, lock and the lock's
   // temp/reclaim-ticket siblings.
-  migrateOldLocationLauncher(boardDirAbs, whereDir, repoRoot, platform);
+  migrateOldLocationLauncher(boardDirAbs, whereDir, repoRoot, platform, wrapperPath);
 
   return wrapperPath;
 }
@@ -667,6 +686,26 @@ function removeLockSiblings(dir, lockBaseName) {
   }
 }
 
+// `oldDir`/`newWhereDir` can be the SAME physical folder reached through two
+// different path spellings — a junction or an 8.3 short name on Windows, a
+// symlinked parent on POSIX — even though they differ as plain strings and
+// `sameBoardDir`'s path.resolve-based compare misses it: `gitRepoRoot`
+// canonicalizes through `git rev-parse --show-toplevel`, while the caller's
+// own board dir is whatever spelling was actually passed in — exactly the
+// repo-top-level case. `fs.realpathSync.native` resolves reparse points the
+// same way git's own canonicalization does (verified: a junction and its
+// target both resolve to the target's path, no `\\?\` prefix), so comparing
+// THAT closes the gap. Never throws — an unresolvable path (already gone,
+// or a filesystem that can't realpath it) just reads as "not physically the
+// same", leaving `sameBoardDir` as the sole, cheaper check for that case.
+function samePhysicalDir(a, b) {
+  try {
+    return fs.realpathSync.native(String(a)) === fs.realpathSync.native(String(b));
+  } catch (_) {
+    return false;
+  }
+}
+
 // MIGRATION: reclaims a launcher an OLDER launcher.js left at the OLD
 // location (the repo top level, or — no repository — the board dir's own
 // parent) for THIS SAME board, once the new, board-directory copy is
@@ -681,14 +720,34 @@ function removeLockSiblings(dir, lockBaseName) {
 // running afterward exactly as before: `findServedPort`'s own running check
 // goes through `.kanban-app.pid` (server.js's, untouched here) and the
 // `/api/board` probe, neither of which this old-location pid file was ever
-// the proof for in the first place.
-function migrateOldLocationLauncher(boardDirAbs, newWhereDir, repoRoot, platform) {
+// the proof for in the first place. `newWrapperPath` — the file THIS call
+// just wrote, when the caller has one — is a second, per-file guard on top
+// of the directory-level one right below: belt-and-braces against ever
+// deleting the wrapper (and its live paired pid/lock) that this very write
+// just produced.
+function migrateOldLocationLauncher(boardDirAbs, newWhereDir, repoRoot, platform, newWrapperPath) {
   const oldDir = repoRoot || path.dirname(boardDirAbs);
-  if (sameBoardDir(oldDir, newWhereDir, platform)) return; // old and new location are the same folder — nothing to migrate away from
+  // Old and new location are the same folder — nothing to migrate away
+  // from. Without the physical check too, a board at the repo top level
+  // reached through a different spelling than git's own canonical one (a
+  // junction, an 8.3 short name, a symlink) would have `oldDir` and
+  // `newWhereDir` read as different strings, so this would list the SAME
+  // on-disk folder as "old", find the wrapper just written above, see its
+  // marker names this board, and delete it — along with a live paired pid
+  // and lock — as if it were a stale leftover.
+  if (sameBoardDir(oldDir, newWhereDir, platform) || samePhysicalDir(oldDir, newWhereDir)) return;
+  let newWrapperReal = null;
+  if (newWrapperPath) { try { newWrapperReal = fs.realpathSync.native(newWrapperPath); } catch (_) {} }
   for (const marker of listWrapperMarkers(oldDir, platform)) {
     if (marker.markerBoardDir == null) continue; // unreadable marker — never touched
     if (!sameBoardDir(marker.markerBoardDir, boardDirAbs, platform)) continue; // a different board's wrapper — never touched
-    try { fs.unlinkSync(path.join(oldDir, wrapperFileName(marker.baseName, platform))); } catch (_) {}
+    const oldWrapperPath = path.join(oldDir, wrapperFileName(marker.baseName, platform));
+    if (newWrapperReal) {
+      let oldWrapperReal = null;
+      try { oldWrapperReal = fs.realpathSync.native(oldWrapperPath); } catch (_) {}
+      if (oldWrapperReal && oldWrapperReal === newWrapperReal) continue; // physically the file this call just wrote — never touched
+    }
+    try { fs.unlinkSync(oldWrapperPath); } catch (_) {}
     try { fs.unlinkSync(path.join(oldDir, pidFileName(marker.baseName))); } catch (_) {}
     try { fs.unlinkSync(path.join(oldDir, lockFileName(marker.baseName))); } catch (_) {}
     removeLockSiblings(oldDir, lockFileName(marker.baseName));
@@ -1215,7 +1274,7 @@ module.exports = {
   gitInfoExcludePath, listWrapperMarkers, boardDirStillThere, resolveBaseNameForBoard, readPidFile, isPidAlive,
   probeBoardDir, openBrowser, pollForServedBoard, findServedPort,
   readLockPid, parseLockContent, acquireStartLock, stillHoldsStartLock, releaseStartLock, lockAgeMs,
-  removeLockSiblings, migrateOldLocationLauncher,
+  removeLockSiblings, migrateOldLocationLauncher, samePhysicalDir,
   writeLauncher, runLauncher,
 };
 

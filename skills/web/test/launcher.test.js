@@ -361,6 +361,20 @@ test('missingExcludeNames accepts a raw Buffer, decoding byte-for-byte (latin1),
   assert.deepStrictEqual(launcher.missingExcludeNames(Buffer.from('a\nb\n', 'utf8'), ['a', 'c']), ['c']);
 });
 
+test('missingExcludeNames: a name already present as UTF-8 bytes on disk reads as present, even though `names` arrive as ordinary (non-latin1) JS strings', () => {
+  // The file on disk holds the UTF-8 ENCODING of "/Diseño/kanban_web.cmd" —
+  // exactly what excludeAppendBuffer writes (see there) — decoded byte-for-
+  // byte as latin1 (so 'ñ' reads back as two chars, 'Ã±'). `names` carries
+  // the ordinary JS string with the real 'ñ', the same shape `gitShowPrefix`
+  // hands writeLauncher. Comparing the two byte spaces directly (the old
+  // bug) never matches, so the name is reported missing forever and
+  // duplicates on every write; comparing in the same byte space finds it.
+  const name = '/Diseño/kanban_web.cmd';
+  const onDisk = Buffer.from(`${name}\n`, 'utf8');
+  assert.deepStrictEqual(launcher.missingExcludeNames(onDisk, [name]), []);
+  assert.deepStrictEqual(launcher.missingExcludeNames(onDisk, [name, '/other']), ['/other']);
+});
+
 test('excludeAppendBuffer: nothing to add returns null (idempotent, no I/O)', () => {
   assert.strictEqual(launcher.excludeAppendBuffer('a\n', []), null);
 });
@@ -934,6 +948,44 @@ test('writeLauncher: a board directory copied from another board\'s (leftover wr
   }
 });
 
+test('writeLauncher: a launcher that rode along when the board folder was copied from a DIFFERENT board\'s repo is excluded too — git status --porcelain in the new repo stays clean', () => {
+  const repoA = initRepo();
+  const repoB = initRepo();
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const boardA = path.join(repoA, '.kanban');
+    fs.mkdirSync(boardA);
+    const wA = launcher.writeLauncher(boardA);
+    assert.strictEqual(wA, path.join(boardA, `kanban_web${ext}`));
+
+    // Copy board A's whole folder — wrapper file and all — into a fresh
+    // repo B, simulating starting a new board from a copied project.
+    // chooseWrapperName correctly refuses to reclaim/overwrite it (board A
+    // still genuinely exists), so board B gets its own, differently-named
+    // wrapper — leaving the copied-along `kanban_web.<ext>`/`.pid` sitting
+    // in board B's folder, still naming board A.
+    const boardB = path.join(repoB, '.kanban');
+    fs.cpSync(boardA, boardB, { recursive: true });
+    assert.ok(fs.existsSync(path.join(boardB, `kanban_web${ext}`)), 'the copy carries board A\'s wrapper file along');
+
+    const wB = launcher.writeLauncher(boardB);
+    assert.notStrictEqual(wB, path.join(boardB, `kanban_web${ext}`),
+      'board A still genuinely exists elsewhere, so board B\'s own write lands on a different name');
+
+    // Only the launcher's own generated files exist in board B's folder (no
+    // card files, no config.yaml) — a clean `git status --porcelain` here
+    // means every one of them, chosen name AND copied-along leftover alike,
+    // is covered by an anchored exclude pattern.
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: boardB, encoding: 'utf8' });
+    assert.strictEqual(status, '', 'git status --porcelain in repo B is clean — the copied-along wrapper never shows as untracked');
+    const ignoreOut = execFileSync('git', ['check-ignore', '-v', path.join(boardB, `kanban_web${ext}`)], { cwd: boardB, encoding: 'utf8' });
+    assert.match(ignoreOut, /info\/exclude/, 'the copied-along wrapper itself is excluded, not merely absent from status by coincidence');
+  } finally {
+    fs.rmSync(repoA, { recursive: true, force: true });
+    fs.rmSync(repoB, { recursive: true, force: true });
+  }
+});
+
 test('writeLauncher (win32): a rendered exec line over cmd.exe\'s safe line-length limit is rejected before anything is written',
   { skip: process.platform !== 'win32' }, () => {
     const parent = tmpDir('kanban-launcher-longline-');
@@ -991,7 +1043,7 @@ test('writeLauncher: a board nested several levels inside a repo writes INSIDE t
   }
 });
 
-test('writeLauncher: an anchored exclude pattern for a board dir whose repo-relative prefix has special characters (non-ASCII, spaces) still matches, escaped as gitignore requires', () => {
+test('writeLauncher: an anchored exclude pattern for a board dir whose repo-relative prefix has special characters (non-ASCII, spaces) still matches, escaped as gitignore requires, and writing twice never duplicates the bytes', () => {
   const repo = initRepo();
   const ext = launcher.osWrapperExt(process.platform);
   try {
@@ -1009,6 +1061,19 @@ test('writeLauncher: an anchored exclude pattern for a board dir whose repo-rela
     assert.strictEqual(status, '', 'git status --porcelain is clean despite the non-ASCII, space-carrying path');
     const ignoreOut = execFileSync('git', ['check-ignore', '-v', path.join(board, `kanban_web${ext}`)], { cwd: repo, encoding: 'utf8' });
     assert.match(ignoreOut, /info\/exclude/);
+
+    // A latin1-vs-utf8 byte-space mismatch in missingExcludeNames would
+    // never recognize these non-ASCII names as already present, and
+    // duplicate all four lines on every subsequent write — reproduced with
+    // real git: three writes grew info/exclude from 4 to ~18 lines. Three
+    // writes here (not two) is deliberate: it catches an off-by-one where
+    // the SECOND write's own (still wrong) bytes happen to satisfy the
+    // THIRD write's comparison by accident.
+    const bytesAfterFirst = fs.readFileSync(excludePath);
+    launcher.writeLauncher(board);
+    launcher.writeLauncher(board);
+    const bytesAfterThree = fs.readFileSync(excludePath);
+    assert.deepStrictEqual(bytesAfterThree, bytesAfterFirst, 'info/exclude bytes are unchanged after two more writes for the same board');
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }
@@ -1168,6 +1233,79 @@ test('writeLauncher MIGRATION: an old-location launcher for THIS SAME board (rep
     assert.ok(fs.existsSync(w), 'the new, board-directory wrapper exists');
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('writeLauncher MIGRATION: the board dir IS the repo top level, reached through a different path spelling than git\'s own canonical one (a junction on win32, a symlink on POSIX) — the wrapper this call just wrote, and a live paired pid/lock, are never deleted as a stale "old location" leftover', () => {
+  const base = tmpDir('kanban-launcher-junction-');
+  const ext = launcher.osWrapperExt(process.platform);
+  try {
+    const real = path.join(base, 'boardrepo');
+    fs.mkdirSync(real);
+    execFileSync('git', ['init'], { cwd: real, stdio: 'ignore' });
+
+    const link = path.join(base, 'boardlink');
+    try {
+      fs.symlinkSync(real, link, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (_) {
+      // A sandboxed/CI environment that refuses symlink/junction creation
+      // outright can't run this scenario at all — nothing this test can do
+      // about that; skip rather than fail on an unrelated environment
+      // limitation.
+      return;
+    }
+
+    // `gitRepoRoot` canonicalizes through `git rev-parse --show-toplevel`
+    // (which resolves the reparse point/symlink), while `boardDirAbs` below
+    // stays whatever spelling was actually passed in — the exact mismatch
+    // `samePhysicalDir` exists to catch. Sanity-check the premise before
+    // trusting the rest of the test.
+    assert.notStrictEqual(launcher.gitRepoRoot(link), path.resolve(link), 'sanity: git\'s canonical top level really does differ, as a string, from the link path');
+
+    const w1 = launcher.writeLauncher(link);
+    assert.strictEqual(w1, path.join(link, `kanban_web${ext}`));
+    assert.ok(fs.existsSync(w1), 'sanity: the wrapper this call just wrote actually exists');
+
+    // A live paired pid + lock, exactly as a running launcher would have
+    // left them, sitting right where the first write above put the wrapper.
+    const pidPath = path.join(link, 'kanban_web.pid');
+    const lockPath = path.join(link, 'kanban_web.lock');
+    fs.writeFileSync(pidPath, `${process.pid}\n7777\n`);
+    fs.writeFileSync(lockPath, `${process.pid} sometoken`);
+
+    // A second write (a restart) for the SAME board, still reached through
+    // the link — the buggy version treats the physically-identical folder
+    // as an "old location" holding a stale copy of this same board's
+    // wrapper, and deletes it along with the live pid and lock.
+    launcher.writeLauncher(link);
+
+    assert.ok(fs.existsSync(w1), 'the wrapper this run wrote is never deleted as a stale old-location leftover');
+    assert.ok(fs.existsSync(pidPath), 'the live paired pid survives');
+    assert.ok(fs.existsSync(lockPath), 'the live lock survives');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('samePhysicalDir: true for a junction/symlink and its target, false for two genuinely different folders, never throws for a path that does not exist', () => {
+  const base = tmpDir('kanban-launcher-samephys-');
+  try {
+    const real = path.join(base, 'real');
+    const other = path.join(base, 'other');
+    fs.mkdirSync(real);
+    fs.mkdirSync(other);
+    const link = path.join(base, 'link');
+    try {
+      fs.symlinkSync(real, link, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (_) {
+      return; // environment refuses symlink/junction creation — see the test above
+    }
+
+    assert.strictEqual(launcher.samePhysicalDir(real, link), true);
+    assert.strictEqual(launcher.samePhysicalDir(real, other), false);
+    assert.strictEqual(launcher.samePhysicalDir(path.join(base, 'does-not-exist'), real), false, 'a nonexistent path reads as not-the-same, never throws');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
   }
 });
 
