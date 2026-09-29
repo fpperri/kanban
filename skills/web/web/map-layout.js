@@ -202,6 +202,16 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
     });
   });
   const effectiveMembers = (epicId) => frameByEpicId.get(epicId).memberIds.filter((m) => containerOf.get(m) === epicId);
+  // A frame the nesting-cycle break left with NO effective members (every
+  // raw member escaped to nest elsewhere instead) draws as an ordinary node,
+  // not a frame — requirement 1 ("an epic with no members on the map stays
+  // an ordinary node") applies exactly as much to a cycle-emptied frame as
+  // to one mapFrames never built in the first place. Without this, the
+  // frame's own box collapses to titleH x pad*2 (no content to size
+  // around), squeezing the title bar narrower than a card. Short-circuits
+  // before effectiveMembers() runs for a NON-frame id (frameByEpicId.get
+  // would be undefined there), same guard shape as every other call site.
+  const isFramed = (id) => frameByEpicId.has(id) && effectiveMembers(id).length > 0;
 
   function liftEdgesToLevel(levelContainer) {
     const out = [];
@@ -220,7 +230,7 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
 
   const frameBoxCache = new Map();
   function boxSizeOf(id) {
-    return frameByEpicId.has(id) ? computeFrame(id).outer : { w: sizes.nodeW, h: sizes.nodeH };
+    return isFramed(id) ? computeFrame(id).outer : { w: sizes.nodeW, h: sizes.nodeH };
   }
   function computeFrame(epicId) {
     if (frameBoxCache.has(epicId)) return frameBoxCache.get(epicId);
@@ -239,7 +249,7 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
   const abs = new Map(); // id -> {x, y} top-left, absolute
   function place(id, originX, originY) {
     abs.set(id, { x: originX, y: originY });
-    if (frameByEpicId.has(id)) {
+    if (isFramed(id)) {
       const box = computeFrame(id);
       effectiveMembers(id).forEach((m) => {
         const p = box.placements.get(m);
@@ -257,7 +267,7 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
   ids.forEach((id) => {
     const pos = abs.get(id);
     if (!pos) return; // defensive: every participant is either top-level or nested somewhere
-    if (frameByEpicId.has(id)) {
+    if (isFramed(id)) {
       const box = computeFrame(id).outer;
       frameOut.push({ epicId: id, x: pos.x, y: pos.y, w: box.w, h: box.h, titleH: sizes.titleH });
     } else {
@@ -268,7 +278,7 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
   const boxOf = (id) => {
     const pos = abs.get(id);
     if (!pos) return null;
-    const size = frameByEpicId.has(id) ? computeFrame(id).outer : { w: sizes.nodeW, h: sizes.nodeH };
+    const size = isFramed(id) ? computeFrame(id).outer : { w: sizes.nodeW, h: sizes.nodeH };
     return { x: pos.x, y: pos.y, w: size.w, h: size.h };
   };
   // Endpoint resolution needs no frame/card branch at the anchor itself — a
@@ -280,10 +290,20 @@ function layoutMap({ ids, edges, frames, sizes, maxWidth }) {
     const fromBox = boxOf(e.from);
     const toBox = boxOf(e.to);
     if (!fromBox || !toBox) return; // defensive: never let a lookup miss crash the render
+    const x1 = fromBox.x + fromBox.w / 2, y1 = fromBox.y + fromBox.h;
+    const x2 = toBox.x + toBox.w / 2, y2 = toBox.y;
     drawnEdges.push(Object.assign({}, e, {
-      x1: fromBox.x + fromBox.w / 2, y1: fromBox.y + fromBox.h,
-      x2: toBox.x + toBox.w / 2, y2: toBox.y,
-      back: toBox.y <= fromBox.y,
+      x1, y1, x2, y2,
+      // Back-ness has to read the ACTUAL anchor points (leaving y1,
+      // arriving y2), not the two boxes' own top edges — a frame's top can
+      // sit far above its own bottom-center leaving point (its content may
+      // run many rows tall), so comparing box tops misses a real back edge:
+      // e.g. a member waiting on its own enclosing epic leaves the frame's
+      // BOTTOM (below every member) and arrives at a member's TOP that
+      // sits well above that point, even though the frame's own top is
+      // above the member's top too (the old, box-top comparison said
+      // "forward"). Comparing the anchors themselves catches it.
+      back: y2 <= y1,
     }));
   });
 

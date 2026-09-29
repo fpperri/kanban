@@ -450,6 +450,6 @@ so board tiles get no `touchstart`/`pointerdown` handling from this one.
 **Map view still uses the flat layered graph, not frames.** kanban-web's Map
 draws an epic with laid-out members as a FRAME (a container box, its title
 bar carrying the epic's own node) with nested/cycle-safe containment and a
-shelf-packed layout. The snapshot's Map keeps its older layered-graph
-treatment — an epic renders as an ordinary node and its members as the usual
-dimmed ghost stubs — a deliberate gap, not yet mirrored.
+shelf-packed layout. The snapshot's Map keeps the layered graph: an epic is
+an ordinary node, and its chain's terminal members draw the dashed orange
+membership arrow into it — a deliberate gap, not yet mirrored.

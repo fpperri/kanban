@@ -1148,11 +1148,11 @@ function buildMapSectionHeader(section, label, collapsed) {
   return header;
 }
 
-// The layered SVG, wrapped in a collapse/expand toggle — state
+// The epic-clusters SVG, wrapped in a collapse/expand toggle — state
 // persists per board (loadMapSectionsCollapsed) and survives the 5s poll like
-// every other memoized view preference. Collapsed skips layerNodes()/
-// buildMapSvg() entirely (nothing to lay out while hidden), not just a CSS
-// hide — the graph is the expensive part of this view.
+// every other memoized view preference. Collapsed skips mapFrames()/
+// layoutMap()/buildMapSvg() entirely (nothing to lay out while hidden), not
+// just a CSS hide — the graph is the expensive part of this view.
 function buildMapGraphSection(graph, participantIds, collapsed, allCards) {
   const wrap = document.createElement('div');
   wrap.className = 'map-graph-section';
@@ -2853,7 +2853,7 @@ function zoomMapStep(direction) {
 
 // Fit: largest zoom (capped at 100%) that shows the whole graph, computed
 // against the SAME logical size applyMapZoomToSvg stashed on the rendered
-// svg's dataset (no re-run of layerNodes()/buildMapSvg() just to measure).
+// svg's dataset (no re-run of mapFrames()/layoutMap()/buildMapSvg() just to measure).
 // No anchor math — once the whole graph fits, there's nothing to scroll to,
 // so this sets the zoom directly and resets scroll to the top-left corner
 // rather than reusing zoomMapAt's pointer-preserving offset.
