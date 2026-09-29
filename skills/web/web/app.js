@@ -1330,7 +1330,9 @@ function buildMapSvg(graph, layout) {
     // `prompt` (dependency-graph.js's cardToNode). A missing stub has no
     // card behind it at all, so it keeps its own '(not found)' text instead.
     const titleDisplay = cardTitleDisplay(n);
-    const titleLine = missing ? '(not found)' : truncateLabel(titleDisplay.text, 22);
+    // 22 characters fit a card's width; a frame's title bar spans the whole
+    // frame, so it keeps as many more as its width allows.
+    const titleLine = missing ? '(not found)' : truncateLabel(titleDisplay.text, Math.max(22, Math.floor((22 * w) / MAP_NODE_W)));
     const tooltip = missing
       ? `#${id} — referenced but not found on the board`
       : `#${id} ${titleDisplay.text}${n.archived ? ' (archived)' : ''}`;

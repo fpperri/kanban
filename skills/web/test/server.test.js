@@ -760,7 +760,7 @@ test('the map node label falls back to the prompt via cardTitleDisplay, same hel
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /const titleDisplay = cardTitleDisplay\(n\);/, 'reuses the shared helper on the node, no forked title-fallback logic');
-    assert.match(js, /truncateLabel\(titleDisplay\.text, 22\)/, 'the fallback text still goes through the same truncation as a real title');
+    assert.match(js, /truncateLabel\(titleDisplay\.text, Math\.max\(22, /, 'the fallback text still goes through the same truncation as a real title, 22 characters at card width');
   });
 });
 
