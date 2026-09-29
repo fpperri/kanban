@@ -84,7 +84,7 @@ Right after reading that URL line, run
 verbatim and in the same order, so a double-click restart binds the same port and keeps
 the same tunnel origin allowlisted instead of drifting back to `7777` with nothing
 allowlisted — unasked, on every successful start — and tell the human the printed
-launcher path in your report; see **Double-click launcher** below. Only arguments are
+launcher path (in the board folder, beside the cards) in your report; see **Double-click launcher** below. Only arguments are
 replayed, never the environment: an origin given through `KANBAN_WEB_ALLOWED_ORIGINS`
 goes to `launcher.js write` as `--allow-origin <origin>`. A port must be a number and each
 origin is re-emitted as `--allow-origin=<its parsed origin>`; anything else is refused.
@@ -94,25 +94,43 @@ origin is re-emitted as `--allow-origin=<its parsed origin>`; anything else is r
 `launcher.js write` (re)writes a double-clickable wrapper for restarting this same board
 with no tokens spent: `kanban_web.cmd` (Windows), `kanban_web.command` (macOS, chmod +x)
 or `kanban_web.sh` (Linux, chmod +x — a `.desktop` entry is optional and not set up
-here), at the root of the board's git repository, or its parent folder when there is no
-repository. A paired `kanban_web.pid` sits beside it — pid on line 1, port on line 2.
-This is separate from `.kanban-app.pid` above, which server.js itself still writes on
-every bind and which `launcher.js run` reads to find the port; a `.kanban-app.pid` naming
-a dead pid is cleared right before a launcher start, a live one is never touched. A
-second board sharing that same folder collides on the name and gets suffixed —
-`kanban_web-<board-name>.<ext>` + a matching `.pid`; the writer tells boards apart by a
-marker line inside each wrapper, always reuses the wrapper a board already owns (whatever
-suffix it landed on) before picking a new name, and never overwrites a launcher naming a
-different board that still exists; one whose marker names a board folder that is gone is
-reclaimed. Rewriting it for the *same* board (healing a stale path) happens on every
-start, and unchanged bytes are left alone. In a repository, the wrapper, `kanban_web.pid`,
-`kanban_web.lock` and its temporary siblings (`kanban_web.lock.*`) are added to `info/exclude`, never `.gitignore`. Double-clicking the
-wrapper's first step is checking whether the board is already served: a port chosen from
-the pid files, the replayed port argument or the config pin answers `/api/board` as
-*this* board (a pid file alone is never the proof) — if so it opens the browser and
-starts nothing. Otherwise it takes `kanban_web.lock`, so two quick double-clicks start one
-server (the other waits, says so once, and opens the running board; a lock older than 30
-seconds is stale), and starts the server right there, in that window.
+here), **in the board directory itself** — the same folder as the `*.card.md` files
+(`.kanban/`, `kanban/`, or a declared path). A paired `kanban_web.pid` sits beside it —
+pid on line 1, port on line 2. This is separate from `.kanban-app.pid` above, which
+server.js itself still writes on every bind and which `launcher.js run` reads to find the
+port; a `.kanban-app.pid` naming a dead pid is cleared right before a launcher start, a
+live one is never touched. One board per folder, so this never collides with a sibling
+board's own files; a wrapper the writer finds there naming a *different* board (e.g. the
+folder was copied from another board's, wrapper file and all) is left alone and the new
+one gets suffixed — `kanban_web-<board-name>.<ext>` + a matching `.pid` — the writer tells
+boards apart by a marker line inside each wrapper, always reuses the wrapper a board
+already owns (whatever suffix it landed on) before picking a new name, and never
+overwrites a launcher naming a different board that still exists; one whose marker names a
+board folder that is gone is reclaimed. Rewriting it for the *same* board (healing a stale
+path) happens on every start, and unchanged bytes are left alone. **Migration:** a write
+also looks for a launcher for this same board left by an older launcher.js at the *old*
+location (the repository top level, or the board dir's parent when there was no
+repository) and removes it together with its paired pid, lock and temporary/reclaim-ticket
+siblings; a launcher there naming a different board, or one whose marker can't be read, is
+never touched, and any `info/exclude` lines an older write added are left in place
+(they are unanchored, so they keep matching `kanban_web.*` files anywhere in that
+repository, the new ones in the board folder included). In a repository, the wrapper,
+`kanban_web.pid`, `kanban_web.lock` and its temporary siblings (`kanban_web.lock.*`) are
+added to `info/exclude`, never `.gitignore` — as **anchored** patterns (a leading `/` plus
+the board's own path from the repository top level, e.g.
+`/.cortex/planning/kanban/kanban_web.cmd`) — plus, always, the bare `kanban_web.*` names
+regardless of which name this write actually chose for its own wrapper, so a leftover
+wrapper that rode along when the board's folder was copied from a different board's stays
+out of `git status`/`git add` too, even though it never becomes this board's own name. The
+lines this version adds only ever match this board's own directory, never a same-named
+file elsewhere in the tree. If git cannot report the board's path, or the path holds a
+line break, the write stops before writing anything. Double-clicking the wrapper's
+first step is checking whether the board is already served: a port chosen from the pid
+files, the replayed port argument or the config pin answers `/api/board` as *this* board
+(a pid file alone is never the proof) — if so it opens the browser and starts nothing.
+Otherwise it takes `kanban_web.lock`, so two quick double-clicks start one server (the
+other waits, says so once, and opens the running board; a lock older than 30 seconds is
+stale), and starts the server right there, in that window.
 Ctrl+C removes the paired `kanban_web.pid` (server.js's own SIGINT handler clears
 `.kanban-app.pid` the same way). Closing the window (or Ctrl+Break) leaves
 `kanban_web.pid` stale, and a server that dies without Ctrl+C leaves `.kanban-app.pid`

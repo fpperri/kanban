@@ -96,10 +96,13 @@ function sameBoardDir(a, b, platform = process.platform) {
   return platform === 'win32' ? na.toLowerCase() === nb.toLowerCase() : na === nb;
 }
 
-// `kanban_web`, then `kanban_web-<board-name>`, then numbered variants — only
-// reached when a same-folder collision is with a DIFFERENT board (see
-// chooseWrapperName). The cap is generous headroom, never expected in
-// practice.
+// `kanban_web`, then `kanban_web-<board-name>`, then numbered variants —
+// since the wrapper now lives IN the board directory (one board per
+// folder), a collision here is never two DIFFERENT boards genuinely
+// sharing a folder at once; it's a leftover wrapper from before the folder
+// held this board at all (most commonly: the folder was copied from
+// another board's, wrapper file and all — see chooseWrapperName). The cap
+// is generous headroom, never expected in practice.
 function* wrapperNameCandidates(sanitizedBoardName) {
   yield 'kanban_web';
   yield `kanban_web-${sanitizedBoardName}`;
@@ -114,8 +117,9 @@ function* wrapperNameCandidates(sanitizedBoardName) {
 // launcher is the normal healing path), or names a board dir that no longer
 // exists at all — reclaimed rather than left dead forever, e.g. after the
 // project folder was renamed. A name serving a different,
-// still-real board — or one whose marker can't be read at all — is skipped,
-// never overwritten.
+// still-real board — e.g. a wrapper copied along when this folder was
+// cloned from another board's — or one whose marker can't be read at all —
+// is skipped, never overwritten.
 function chooseWrapperName(boardDirAbs, boardName, existing, platform = process.platform) {
   // A wrapper already naming THIS board — at ANY suffix rank — always wins
   // first, even when an earlier-ranked candidate (e.g. the bare
@@ -232,12 +236,19 @@ function renderWrapper({ platform, boardDirAbs, boardName, nodePath, helperPath,
 // Decoding as latin1 for the split/trim is lossless for the 1-byte-per-char
 // comparison this needs and never risks mangling bytes it doesn't touch —
 // unlike decoding as utf8, which would silently corrupt any invalid sequence
-// the moment it's re-encoded.
+// the moment it's re-encoded. `names` are ordinary JS (UTF-8-ish) strings —
+// the board's repo-relative prefix comes straight out of utf8-decoded git
+// output — but excludeAppendBuffer below writes them to disk as UTF-8 bytes,
+// which is a DIFFERENT byte sequence than the latin1 decode above for any
+// non-ASCII character. Re-encoding each name to the same "one JS char per
+// raw byte" space before comparing is what makes `present` and `names`
+// speak the same language; comparing them as-is would consider a non-ASCII
+// name always missing and duplicate it on every single write.
 function missingExcludeNames(existingBuf, names) {
   const text = Buffer.isBuffer(existingBuf) ? existingBuf.toString('latin1') : String(existingBuf || '');
   const lines = text.length ? text.split(/\r?\n/) : [];
   const present = new Set(lines.map((l) => l.trim()));
-  return names.filter((n) => !present.has(n));
+  return names.filter((n) => !present.has(Buffer.from(n, 'utf8').toString('latin1')));
 }
 
 // Bytes to APPEND (never rewrite) to add `missing` names to an
@@ -251,6 +262,35 @@ function excludeAppendBuffer(existingBuf, missing) {
   const needsLeadingNewline = buf.length > 0 && buf[buf.length - 1] !== 0x0a;
   const text = (needsLeadingNewline ? '\n' : '') + missing.join('\n') + '\n';
   return Buffer.from(text, 'utf8');
+}
+
+// gitignore/exclude escaping for ONE path SEGMENT (a folder name taken from
+// the board's repo-relative prefix — see anchoredExcludeName). A literal
+// `\`, `*`, `?`, `[`, `#` or `!` inside a real folder name is otherwise
+// gitignore's own escape/wildcard/comment/negation syntax; backslash-escaping
+// each makes it match as the literal character instead, wherever in the
+// segment it falls. wildmatch() (what an exclude/gitignore file's patterns
+// are parsed with) treats `\` as a general escape character throughout a
+// pattern, not just at line-start, so escaping `#`/`!` here is safe even
+// though those two are only special when they open the WHOLE line — ours
+// always opens with `/` (see anchoredExcludeName) — belt-and-braces for a
+// future caller of this function that might not add its own leading slash.
+function escapeGitExcludeSegment(seg) {
+  return String(seg).replace(/[\\*?[#!]/g, '\\$&');
+}
+
+// One exclude-file pattern for `name` (one of the launcher's own fixed
+// filenames, or `<lock>.*` — passed through verbatim, never escaped itself:
+// it's ours, not a folder name, and that trailing `*` is a deliberate
+// wildcard), anchored to the repository TOP LEVEL with a leading `/` so it
+// only ever matches this board's own directory, never a same-named file
+// elsewhere in the tree. `prefix` is `git rev-parse --show-prefix`'s output
+// run IN the board directory — see gitShowPrefix — a POSIX-separated,
+// trailing-slash path from the repo top level (or '' when the board dir IS
+// the top level), split back into segments and escaped one at a time.
+function anchoredExcludeName(prefix, name) {
+  const segs = String(prefix || '').split('/').filter(Boolean).map(escapeGitExcludeSegment);
+  return ['', ...segs, name].join('/');
 }
 
 // A wrapper embeds `serverArgs` as literal text in a shell/cmd command
@@ -398,11 +438,26 @@ function gitInfoExcludePath(boardDirAbs) {
   return path.resolve(boardDirAbs, out);
 }
 
-// WHERE the wrapper/pid pair live: the board's repo root, or — no
-// repository — the board dir's own parent folder.
+// `git rev-parse --show-prefix` run IN the board directory: the board's own
+// path from the repository top level, POSIX-separated with a trailing `/`
+// (empty string when the board dir IS the top level) — what anchors the
+// exclude patterns to THIS board's directory alone (see anchoredExcludeName)
+// instead of matching a same-named file anywhere in the tree. `runGit`
+// already decodes as utf8 and trims only a trailing newline — a real
+// trailing space in a folder name is data, never stripped.
+// null when git fails: '' means "the board is the repository top level", so
+// a failure must not read as that and anchor the excludes at the wrong place.
+function gitShowPrefix(boardDirAbs) {
+  return runGit(['rev-parse', '--show-prefix'], boardDirAbs);
+}
+
+// WHERE the wrapper/pid/lock pair live NOW: the board directory itself —
+// one board per folder, so a board's launcher files never have to share
+// this folder with a different board's the way a repo-root or parent-folder
+// "where" once could. See writeLauncher's migration step for the location
+// an older launcher.js used instead, healed forward on write.
 function resolveWhere(boardDirAbs) {
-  const root = gitRepoRoot(boardDirAbs);
-  return { dir: root || path.dirname(boardDirAbs), repoRoot: root };
+  return { dir: boardDirAbs, repoRoot: gitRepoRoot(boardDirAbs) };
 }
 
 // `excludePath` is null for "no repository" (resolved by the caller, which
@@ -565,17 +620,45 @@ function writeLauncher(boardDirArg, serverArgs = []) {
     }
   }
 
+  // Checked before any write, like the rendering above. gitignore has no
+  // escape for a newline, so a folder name carrying one would split into
+  // extra exclude patterns.
+  const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
+  const prefix = excludePath ? gitShowPrefix(boardDirAbs) : '';
+  if (prefix == null) throw new Error(`launcher.js write: git could not report this board's path in its repository (${boardDirAbs}); nothing was written`);
+  if (/[\r\n]/.test(prefix)) throw new Error(`launcher.js write: the board's path contains a line break, which info/exclude cannot express; nothing was written`);
+
   fs.mkdirSync(whereDir, { recursive: true });
 
   // Exclude entries FIRST: if this throws (e.g. a read-only info/exclude),
   // NOTHING is written — an untracked kanban_web.cmd left behind by a
   // half-finished write is worse than a clean error, since it silently
   // keeps working (still launches the board) while never actually getting
-  // excluded from `git status`/`git add`.
-  const excludePath = repoRoot ? gitInfoExcludePath(boardDirAbs) : null;
-  // `<lock>.*` covers the lock's temp and reclaim-ticket siblings, which a
-  // launcher killed mid-operation can leave behind at the repository root.
-  ensureExcludeEntries(excludePath, [path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath), `${path.basename(lockPath)}.*`]);
+  // excluded from `git status`/`git add`. Anchored (leading `/`) to the
+  // board's own path from the repo top level — see anchoredExcludeName/
+  // gitShowPrefix — so the pattern only ever matches THIS board's
+  // directory, never a same-named file elsewhere in the tree. `<lock>.*`
+  // covers the lock's temp and reclaim-ticket siblings, which a launcher
+  // killed mid-operation can leave behind.
+  const excludeNames = excludePath
+    ? (() => {
+        // The names THIS write's own wrapper landed on, plus — always,
+        // regardless of what baseName was actually chosen above — the bare
+        // `kanban_web.*` names: a wrapper that rode along when this board's
+        // folder was copied from a DIFFERENT board's (chooseWrapperName
+        // correctly refuses to touch or rename it — see there) almost always
+        // still sits at that bare name, and it needs to stay out of `git
+        // status`/`git add` too, even though it will never become THIS
+        // write's own chosen name. `Set` dedupes the normal case, where the
+        // chosen name already IS the bare one.
+        const names = new Set([
+          path.basename(wrapperPath), path.basename(pidPath), path.basename(lockPath), `${path.basename(lockPath)}.*`,
+          wrapperFileName('kanban_web', platform), pidFileName('kanban_web'), lockFileName('kanban_web'), `${lockFileName('kanban_web')}.*`,
+        ]);
+        return [...names].map((n) => anchoredExcludeName(prefix, n));
+      })()
+    : [];
+  ensureExcludeEntries(excludePath, excludeNames);
 
   // Unchanged bytes are not rewritten: a window running this wrapper keeps
   // reading it by byte offset.
@@ -583,7 +666,99 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   try { current = fs.readFileSync(wrapperPath, 'utf8'); } catch (_) {}
   if (current !== text) fs.writeFileSync(wrapperPath, text);
   if (platform !== 'win32') { try { fs.chmodSync(wrapperPath, 0o755); } catch (_) {} }
+
+  // MIGRATION: the wrapper/pid/lock used to live at the repository
+  // top level, or — no repository — the board dir's own parent (the OLD
+  // `resolveWhere`). Now that the board's own copy above is written and
+  // live, heal that forward: reclaim an old-location wrapper for THIS SAME
+  // board (by marker), together with its paired pid, lock and the lock's
+  // temp/reclaim-ticket siblings.
+  migrateOldLocationLauncher(boardDirAbs, whereDir, repoRoot, platform, wrapperPath);
+
   return wrapperPath;
+}
+
+// Every file matching `<lockBaseName>.*` sitting in `dir` — the lock's own
+// temp-write and reclaim-ticket siblings (see createLockAtomic/
+// reclaimStaleLock) — removed as part of the old-location migration cleanup
+// below. Best-effort: a file already gone, or one this process can't
+// remove, is simply skipped rather than failing the whole write.
+function removeLockSiblings(dir, lockBaseName) {
+  let files;
+  try { files = fs.readdirSync(dir); } catch (_) { return; }
+  const prefix = `${lockBaseName}.`;
+  for (const f of files) {
+    if (!f.startsWith(prefix)) continue;
+    try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+  }
+}
+
+// `oldDir`/`newWhereDir` can be the SAME physical folder reached through two
+// different path spellings — a junction or an 8.3 short name on Windows, a
+// symlinked parent on POSIX — even though they differ as plain strings and
+// `sameBoardDir`'s path.resolve-based compare misses it: `gitRepoRoot`
+// canonicalizes through `git rev-parse --show-toplevel`, while the caller's
+// own board dir is whatever spelling was actually passed in — exactly the
+// repo-top-level case. `fs.realpathSync.native` resolves reparse points the
+// same way git's own canonicalization does (verified: a junction and its
+// target both resolve to the target's path, no `\\?\` prefix), so comparing
+// THAT closes the gap. Never throws — an unresolvable path (already gone,
+// or a filesystem that can't realpath it) just reads as "not physically the
+// same", leaving `sameBoardDir` as the sole, cheaper check for that case.
+function samePhysicalDir(a, b) {
+  try {
+    return fs.realpathSync.native(String(a)) === fs.realpathSync.native(String(b));
+  } catch (_) {
+    return false;
+  }
+}
+
+// MIGRATION: reclaims a launcher an OLDER launcher.js left at the OLD
+// location (the repo top level, or — no repository — the board dir's own
+// parent) for THIS SAME board, once the new, board-directory copy is
+// already written and live. Applies the exact same marker contract as
+// everywhere else in this file: a wrapper whose marker names a DIFFERENT
+// board (a real collision — e.g. this folder was cloned from that board's,
+// wrapper file and all) or whose marker can't be read at all is left
+// completely alone, never guessed at. The exclude lines an older write
+// added to info/exclude are harmless left as-is; only the files themselves
+// move. A LIVE process the old paired pid names is never signalled by
+// this — only the FILE pairing is removed — and the board still reads as
+// running afterward exactly as before: `findServedPort`'s own running check
+// goes through `.kanban-app.pid` (server.js's, untouched here) and the
+// `/api/board` probe, neither of which this old-location pid file was ever
+// the proof for in the first place. `newWrapperPath` — the file THIS call
+// just wrote, when the caller has one — is a second, per-file guard on top
+// of the directory-level one right below: belt-and-braces against ever
+// deleting the wrapper (and its live paired pid/lock) that this very write
+// just produced.
+function migrateOldLocationLauncher(boardDirAbs, newWhereDir, repoRoot, platform, newWrapperPath) {
+  const oldDir = repoRoot || path.dirname(boardDirAbs);
+  // Old and new location are the same folder — nothing to migrate away
+  // from. Without the physical check too, a board at the repo top level
+  // reached through a different spelling than git's own canonical one (a
+  // junction, an 8.3 short name, a symlink) would have `oldDir` and
+  // `newWhereDir` read as different strings, so this would list the SAME
+  // on-disk folder as "old", find the wrapper just written above, see its
+  // marker names this board, and delete it — along with a live paired pid
+  // and lock — as if it were a stale leftover.
+  if (sameBoardDir(oldDir, newWhereDir, platform) || samePhysicalDir(oldDir, newWhereDir)) return;
+  let newWrapperReal = null;
+  if (newWrapperPath) { try { newWrapperReal = fs.realpathSync.native(newWrapperPath); } catch (_) {} }
+  for (const marker of listWrapperMarkers(oldDir, platform)) {
+    if (marker.markerBoardDir == null) continue; // unreadable marker — never touched
+    if (!sameBoardDir(marker.markerBoardDir, boardDirAbs, platform)) continue; // a different board's wrapper — never touched
+    const oldWrapperPath = path.join(oldDir, wrapperFileName(marker.baseName, platform));
+    if (newWrapperReal) {
+      let oldWrapperReal = null;
+      try { oldWrapperReal = fs.realpathSync.native(oldWrapperPath); } catch (_) {}
+      if (oldWrapperReal && oldWrapperReal === newWrapperReal) continue; // physically the file this call just wrote — never touched
+    }
+    try { fs.unlinkSync(oldWrapperPath); } catch (_) {}
+    try { fs.unlinkSync(path.join(oldDir, pidFileName(marker.baseName))); } catch (_) {}
+    try { fs.unlinkSync(path.join(oldDir, lockFileName(marker.baseName))); } catch (_) {}
+    removeLockSiblings(oldDir, lockFileName(marker.baseName));
+  }
 }
 
 // FALLBACK ONLY: a wrapper written by this version of launcher.js passes its
@@ -1100,11 +1275,13 @@ module.exports = {
   osWrapperExt, wrapperFileName, pidFileName, lockFileName, markerLine, markerCommentLine, parseMarkerBoardDir,
   sameBoardDir, wrapperNameCandidates, chooseWrapperName, sanitizeForWindowsTitle,
   escapePercentForCmd, singleQuotePosix, renderWrapper, sanitizeServerArgsForWrapper,
-  missingExcludeNames, excludeAppendBuffer, parsePidFileText, candidatePorts, cliPortFromServerArgs, decideRunning,
-  shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot, boardUrl, browserHost,
+  missingExcludeNames, excludeAppendBuffer, escapeGitExcludeSegment, anchoredExcludeName, parsePidFileText,
+  candidatePorts, cliPortFromServerArgs, decideRunning,
+  shouldForwardSignal, launcherExitCode, boardDisplayName, resolveWhere, gitRepoRoot, gitShowPrefix, boardUrl, browserHost,
   gitInfoExcludePath, listWrapperMarkers, boardDirStillThere, resolveBaseNameForBoard, readPidFile, isPidAlive,
   probeBoardDir, openBrowser, pollForServedBoard, findServedPort,
   readLockPid, parseLockContent, acquireStartLock, stillHoldsStartLock, releaseStartLock, lockAgeMs,
+  removeLockSiblings, migrateOldLocationLauncher, samePhysicalDir,
   writeLauncher, runLauncher,
 };
 
