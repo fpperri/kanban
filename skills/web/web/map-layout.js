@@ -23,11 +23,14 @@
 //
 // Output: { width, height, nodes, frames, edges, drawOrder } — absolute
 // positions for every plain-card unit and every frame's outer box, plus
-// every drawn dependency edge's endpoints and back-edge flag, plus one
-// combined (y, x)-ordered draw order interleaving cards and frame title bars
-// (drawOrder) for a caller that wants one paint/tab pass instead of nodes
-// then frames. app.js turns this into SVG; no drawing decision (colors,
-// dashing, arrowheads) lives here.
+// every drawn dependency edge's endpoints and two independent flags — `back`
+// (topological: a real cycle, styled amber) and `bow` (geometric: the
+// target sits at/above the source, so it must route as a sideways curve or
+// it hides behind whatever sits between the two anchor points; an edge can
+// bow without being back) — plus one combined (y, x)-ordered draw order
+// interleaving cards and frame title bars (drawOrder) for a caller that
+// wants one paint/tab pass instead of nodes then frames. app.js turns this
+// into SVG; no drawing decision (colors, dashing, arrowheads) lives here.
 // Not named DG — search.js already claims that top-level name, and this
 // script shares its page scope with every other web/*.js (global-scope.test.js
 // guards every such collision).
@@ -46,6 +49,61 @@ function liftToLevel(id, levelContainer, containerOf) {
     if (c === null) return null;
     cur = c;
   }
+}
+
+// Strongly-connected components (Tarjan) over a flat global edge set — two
+// ids share a component exactly when each can reach the other, i.e. they sit
+// on a real cycle together, independent of how the ids happen to be
+// numbered. This is what decides the `back` flag below; it deliberately
+// does NOT reuse layerNodes' own Kahn/cycle-break (the layering elsewhere in
+// this file legitimately wants that — a deterministic, low-id-first tie
+// break is a fine LAYOUT choice), because that tie-break is not a cycle
+// detector: forcing the lowest remaining id into the next layer only
+// guarantees THAT id's own outgoing edges stop looking "back" from then on,
+// not that every edge feeding back into the cycle it just broke gets caught.
+// A node with several incoming cycle edges can have all of them land on the
+// far side of the break, or — when a cycle only closes through some THIRD,
+// uninvolved node — miss the break entirely, in either direction.
+function stronglyConnectedComponents(ids, edges) {
+  const adj = new Map(ids.map((id) => [id, []]));
+  edges.forEach((e) => {
+    if (adj.has(e.from) && adj.has(e.to)) adj.get(e.from).push(e.to);
+  });
+  const index = new Map();
+  const lowlink = new Map();
+  const onStack = new Set();
+  const stack = [];
+  const compOf = new Map();
+  let nextIndex = 0;
+  let compId = 0;
+
+  function strongconnect(v) {
+    index.set(v, nextIndex);
+    lowlink.set(v, nextIndex);
+    nextIndex++;
+    stack.push(v);
+    onStack.add(v);
+    adj.get(v).forEach((w) => {
+      if (!index.has(w)) {
+        strongconnect(w);
+        lowlink.set(v, Math.min(lowlink.get(v), lowlink.get(w)));
+      } else if (onStack.has(w)) {
+        lowlink.set(v, Math.min(lowlink.get(v), index.get(w)));
+      }
+    });
+    if (lowlink.get(v) === index.get(v)) {
+      for (;;) {
+        const w = stack.pop();
+        onStack.delete(w);
+        compOf.set(w, compId);
+        if (w === v) break;
+      }
+      compId++;
+    }
+  }
+
+  ids.forEach((id) => { if (!index.has(id)) strongconnect(id); });
+  return compOf;
 }
 
 // Minimal union-find for the "connected component" half of requirement 5 —
@@ -313,21 +371,24 @@ function layoutMap({ ids: rawIds, edges, frames, sizes, maxWidth }) {
   // OTHER way even though no single node is actually part of a cycle (only
   // ONE member of the frame is party to each side).
   //
-  // Back-ness instead comes from one flat, whole-graph topological layering:
+  // Back-ness instead comes from one flat, whole-graph topological question:
   // every real dep edge PLUS an implicit "member finishes before its own
   // frame" edge per effective member (containment's own ordering — the same
   // fact a frame's box shape already enforces visually, just made explicit
   // for cycle purposes here) — no lifting, no per-level boundaries, every
-  // participant compared on equal footing. layerNodes' own Kahn/cycle-break
-  // (reused verbatim) turns that into one layer index per id; a drawn edge
-  // is back exactly when it runs against that order — i.e. it closes a real
-  // cycle once containment is accounted for, which is the one thing that
-  // actually deadlocks the board.
+  // participant compared on equal footing. An edge is back exactly when its
+  // two ends are MUTUALLY reachable in that graph (stronglyConnectedComponents,
+  // Tarjan) — i.e. it sits on a real cycle once containment is accounted
+  // for, which is the one thing that actually deadlocks the board. This is
+  // deliberately not "does it run against a topological layer index": a
+  // layering's own cycle-break has to pick ONE id to force through, and
+  // which edges then look "back" from that depends on which id it picked —
+  // SCC membership doesn't depend on id order at all.
   const globalEdges = depEdges.map((e) => ({ from: e.from, to: e.to }));
   frameList.forEach((f) => {
     effectiveMembers(f.epicId).forEach((m) => globalEdges.push({ from: m, to: f.epicId }));
   });
-  const globalLayer = DEP_GRAPH.layerNodes(ids, globalEdges);
+  const sccOf = stronglyConnectedComponents(ids, globalEdges);
 
   // Endpoint resolution needs no frame/card branch at the anchor itself — a
   // frame's box IS its title-bar-to-bottom rect, so "bottom-center leaving,
@@ -342,7 +403,15 @@ function layoutMap({ ids: rawIds, edges, frames, sizes, maxWidth }) {
     const x2 = toBox.x + toBox.w / 2, y2 = toBox.y;
     drawnEdges.push(Object.assign({}, e, {
       x1, y1, x2, y2,
-      back: globalLayer.get(e.from) >= globalLayer.get(e.to),
+      // `back` (topological — the amber cycle style, see above) and `bow`
+      // (purely geometric — the sideways-vs-downward ROUTING choice) answer
+      // different questions and must stay two fields: an edge can arrive
+      // above where it leaves (e.g. a member's own edge to its enclosing
+      // epic) without being part of any cycle at all, and it still needs the
+      // sideways curve or it draws as a near-vertical sliver hidden behind
+      // whatever sits between the two anchor points.
+      back: e.from === e.to || sccOf.get(e.from) === sccOf.get(e.to),
+      bow: y2 <= y1,
     }));
   });
 

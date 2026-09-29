@@ -1229,8 +1229,12 @@ function buildIsolatedRow(graph, allCards, collapsed) {
 // one coordinate space. Edges (layout.edges, dep-kind only — membership no
 // longer draws at all, containment shows it) arrive with endpoints already
 // resolved (card-to-card, or an epic's own edge attaching to its frame's
-// bottom/top-center) and a `back` flag for "target at/above source", which
-// still bows sideways exactly like the old cycle-break back edge did.
+// bottom/top-center) plus two independent flags: `back` (topological — a
+// real cycle, drawn amber) and `bow` (geometric — the target sits at/above
+// the source, so the curve must go sideways or it hides behind whatever
+// sits between the two anchor points). An edge can bow without being back
+// (e.g. an epic waiting on one of its own members, arriving above where it
+// leaves but not a deadlock) — routing follows `bow`, styling follows `back`.
 function buildMapSvg(graph, layout) {
   const allById = new Map();
   graph.nodes.forEach((n) => allById.set(n.id, Object.assign({ ghost: false }, n)));
@@ -1239,8 +1243,8 @@ function buildMapSvg(graph, layout) {
   const BACK_EDGE_BOW = MAP_NODE_W * 0.9;
 
   let edgesSvg = '';
-  // Canvas width from layout.width can still clip a back edge's sideways
-  // bow (same reasoning the old per-row maxX tracking had) — widen to fit
+  // Canvas width from layout.width can still clip a bowed edge's sideways
+  // curve (same reasoning the old per-row maxX tracking had) — widen to fit
   // every bow actually drawn, never by measuring anything, just the same
   // arithmetic the curve itself uses.
   let canvasWidth = layout.width;
@@ -1248,7 +1252,7 @@ function buildMapSvg(graph, layout) {
     const dimmed = e.fromGhost || e.toGhost;
     const x1 = e.x1, y1 = e.y1, x2 = e.x2, y2 = e.y2;
     let d;
-    if (e.back) {
+    if (e.bow) {
       canvasWidth = Math.max(canvasWidth, x1 + BACK_EDGE_BOW + MAP_PAD, x2 + BACK_EDGE_BOW + MAP_PAD);
       d = `M${x1},${y1} C${x1 + BACK_EDGE_BOW},${y1} ${x2 + BACK_EDGE_BOW},${y2} ${x2},${y2}`;
     } else {

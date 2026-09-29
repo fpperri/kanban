@@ -773,13 +773,19 @@ to `127.0.0.1` only.
   "B waits for A" direction as always. The intra-epic chain still draws SOLID
   EPIC_COLOR orange (a real, gate-enforced dependency, only tinted); the dashed
   membership arrow it used to sit beside is gone — containment (the frame itself) shows
-  membership now. A back edge is decided topologically, not by comparing the two drawn
-  anchor points: every dependency edge plus one implicit edge per member ("a member
-  finishes before its own epic" — containment's own order) feed a single flat layering
-  over every participant, and an edge running against that order is the one that bows
-  sideways rather than hanging or overlapping the normal flow — an epic waiting on one of
-  its own members is the normal case and stays forward; a member waiting on its own
-  enclosing epic is the real deadlock and still bows.
+  membership now. Whether an edge is a real cycle (the amber "back edge" style) and
+  whether it draws as a sideways curve (`bow`, so it doesn't hide under whatever sits
+  between its two anchor points) are two separate questions. Back-ness is decided
+  topologically, not by comparing the two drawn anchor points: every dependency edge plus
+  one implicit edge per member ("a member finishes before its own epic" — containment's
+  own order) feed a single flat graph over every participant, and an edge is back exactly
+  when its two ends are mutually reachable in it (a strongly-connected-components check,
+  independent of which id happens to be lower) — an epic waiting on one of its own
+  members is the normal case and stays forward; a member waiting on its own enclosing
+  epic is the real deadlock and stays back. Bowing is purely geometric — the target sits
+  at or above the source (`y2 <= y1`) — and doesn't care why: an epic's own edge to one of
+  its members is forward (not back) but still arrives above where it leaves, so it still
+  needs the sideways curve, same as a real back edge does.
   **Node treatments:** the border is one neutral weight for every node — status never
   strokes it. A small dot in the node's corner carries the status color (same palette as
   the column headers), its own tooltip naming the **raw on-disk status**; status dots

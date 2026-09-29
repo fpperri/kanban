@@ -49,7 +49,7 @@ test('one epic frame holds its whole chain (both members, not just the terminal)
   assert.strictEqual(out.edges.length, 1);
   assert.deepStrictEqual(out.edges[0], {
     from: 11, to: 12, kind: 'dep', fromGhost: false, toGhost: false,
-    x1: 70, y1: 80, x2: 70, y2: 90, back: false,
+    x1: 70, y1: 80, x2: 70, y2: 90, back: false, bow: false,
   });
 });
 
@@ -106,17 +106,21 @@ test('a member waiting on its own enclosing epic arrives ABOVE where the edge le
   assert.strictEqual(e.x2, 70); // card 1's center
   assert.strictEqual(e.y2, 40); // card 1's top — ABOVE the leaving point (90)
   assert.strictEqual(e.back, true);
+  assert.strictEqual(e.bow, true, 'arrives above where it leaves (y2 <= y1) — routes as a sideways bow regardless of why');
 });
 
 // --- back-ness is topological, not geometric -----------------------------
 
-test('an epic waiting on its own member is NOT a back edge — the member finishing before its epic is the normal case, not a cycle', () => {
+test('an epic waiting on its own member is NOT a back edge — the member finishing before its epic is the normal case, not a cycle — but it still bows, since it still arrives above where it leaves', () => {
   // The member (11) sits INSIDE the frame, so its bottom anchor (leaving
   // point for this edge) is always below the frame's own top anchor
   // (arriving point) — geometrically indistinguishable from the pinned
   // "member waits on its own epic" case above, which IS a real cycle. Only
   // topology (member finishes before its epic, same direction as this edge)
-  // tells them apart.
+  // tells them apart — for `back` (the amber cycle style). `bow` (the
+  // routing choice) stays purely geometric and doesn't care why: this edge
+  // still arrives above where it leaves, so it still needs the sideways
+  // curve, not the downward one, or it hides behind the member's own card.
   const ids = [10, 11];
   const edges = [{ from: 11, to: 10, kind: 'dep', fromGhost: false, toGhost: false }]; // 10 waits on its own member 11
   const frames = [{ epicId: 10, memberIds: [11], ghost: false, missing: false, parentFrameId: null }];
@@ -131,6 +135,7 @@ test('an epic waiting on its own member is NOT a back edge — the member finish
   assert.strictEqual(e.x2, 70); // frame's center: x=10,w=120
   assert.strictEqual(e.y2, 10); // frame's own top — ABOVE the leaving point (80), same geometry as the cycle case
   assert.strictEqual(e.back, false, 'no real cycle: member-before-epic (implicit) and member-before-epic (this edge) agree');
+  assert.strictEqual(e.bow, true, 'still arrives above where it leaves (y2 <= y1) — must still route as a sideways bow, or it hides behind card 11');
 });
 
 test('a cycle made only by lifting — a member\'s OWN edge to an outsider must not fabricate a cycle for an unrelated sibling edge to the frame', () => {
@@ -163,17 +168,86 @@ test('a cycle made only by lifting — a member\'s OWN edge to an outsider must 
   assert.deepStrictEqual(out.edges, [
     {
       from: 20, to: 10, kind: 'dep', fromGhost: false, toGhost: false,
-      x1: 70, y1: 190, x2: 70, y2: 10, back: false, // the edge under test — must NOT be flagged back
+      // the edge under test — must NOT be flagged back; it still bows
+      // (arrives above where it leaves), same as any other upward edge.
+      x1: 70, y1: 190, x2: 70, y2: 10, back: false, bow: true,
     },
     {
       from: 11, to: 12, kind: 'dep', fromGhost: false, toGhost: false,
-      x1: 70, y1: 80, x2: 70, y2: 90, back: false,
+      x1: 70, y1: 80, x2: 70, y2: 90, back: false, bow: false,
     },
     {
       from: 11, to: 20, kind: 'dep', fromGhost: false, toGhost: false,
-      x1: 70, y1: 80, x2: 70, y2: 150, back: false,
+      x1: 70, y1: 80, x2: 70, y2: 150, back: false, bow: false,
     },
   ]);
+});
+
+// --- back-ness must not depend on which id Kahn's own cycle-break happens
+// to pick — only on actual mutual reachability (SCC), so it agrees whichever
+// way the epic/member ids happen to be numbered. ----------------------------
+
+test('a member waiting on its own epic is STILL flagged back when the epic id is LOWER than the member — same deadlock as the pinned case above, ids swapped', () => {
+  // Same shape as "a member waiting on its own enclosing epic" above (10 is
+  // the epic, one of its members waits on it), but with the epic given the
+  // LOWER id and the member the higher one — the usual case on a real board,
+  // since epics are created first. A back flag derived from Kahn's own
+  // lowest-id tie-break reads this edge as forward (the tie-break always
+  // forces the epic's OWN id into the earlier layer, so nothing downstream
+  // of it, including its own member's implicit edge back to it, ever reads
+  // as running against the order) — an id-independent check (SCC) must not.
+  const ids = [10, 11, 12];
+  const edges = [{ from: 10, to: 11, kind: 'dep', fromGhost: false, toGhost: false }]; // 11 waits on its own epic 10
+  const frames = [{ epicId: 10, memberIds: [11, 12], ghost: false, missing: false, parentFrameId: null }];
+  const out = layoutMap({ ids, edges, frames, sizes: SIZES, maxWidth: 1200 });
+
+  assert.strictEqual(out.edges.length, 1);
+  const e = out.edges[0];
+  assert.strictEqual(e.from, 10);
+  assert.strictEqual(e.to, 11);
+  assert.strictEqual(e.back, true, 'a real deadlock (10 and 11 are mutually reachable via the implicit 11->10 edge) regardless of which id is lower');
+});
+
+test('a deadlock through an outsider (epic -> outsider -> member -> its own epic) is flagged even though no single edge looks like a 2-cycle by itself', () => {
+  // 10 is the epic; its member 11 waits on outsider 20; 20 waits on the epic
+  // 10 itself. None of the three drawn edges alone repeats an id, but 10,
+  // 11 and 20 are all mutually reachable once the implicit member->epic edge
+  // (11->10) is added: 10->20->11->10. Every edge on that cycle is a real
+  // deadlock edge, not just whichever one a lowest-id tie-break happens to
+  // land on.
+  const ids = [10, 11, 20];
+  const edges = [
+    { from: 20, to: 11, kind: 'dep', fromGhost: false, toGhost: false }, // 11 waits on outsider 20
+    { from: 10, to: 20, kind: 'dep', fromGhost: false, toGhost: false }, // 20 waits on the epic 10
+  ];
+  const frames = [{ epicId: 10, memberIds: [11], ghost: false, missing: false, parentFrameId: null }];
+  const out = layoutMap({ ids, edges, frames, sizes: SIZES, maxWidth: 1200 });
+
+  assert.strictEqual(out.edges.length, 2);
+  const e1 = out.edges.find((e) => e.from === 20 && e.to === 11);
+  const e2 = out.edges.find((e) => e.from === 10 && e.to === 20);
+  assert.strictEqual(e1.back, true, '20->11 sits on the 10->20->11->10 cycle');
+  assert.strictEqual(e2.back, true, '10->20 sits on the same cycle');
+});
+
+test('an innocent sibling edge off a deadlocked epic must not be flagged just because the epic itself is stuck in a cycle', () => {
+  // 10 is the epic, deadlocked against its own member 11 (10->11, 11->10
+  // implicit). 10 also has a second, UNRELATED outgoing edge to plain card
+  // 5 — 5 is downstream of the stuck epic, but 5 itself is never part of any
+  // cycle (nothing points back from 5 to 10), so 10->5 must read forward.
+  const ids = [10, 11, 5];
+  const edges = [
+    { from: 10, to: 11, kind: 'dep', fromGhost: false, toGhost: false }, // 11 waits on its own epic 10 (the real deadlock)
+    { from: 10, to: 5, kind: 'dep', fromGhost: false, toGhost: false }, // 5 waits on the epic (innocent, not a cycle)
+  ];
+  const frames = [{ epicId: 10, memberIds: [11], ghost: false, missing: false, parentFrameId: null }];
+  const out = layoutMap({ ids, edges, frames, sizes: SIZES, maxWidth: 1200 });
+
+  assert.strictEqual(out.edges.length, 2);
+  const toMember = out.edges.find((e) => e.to === 11);
+  const toOutsider = out.edges.find((e) => e.to === 5);
+  assert.strictEqual(toMember.back, true, 'the real deadlock edge');
+  assert.strictEqual(toOutsider.back, false, 'innocent — 5 is not part of the cycle, however it looks by id order');
 });
 
 // --- a cross-frame dependency --------------------------------------------
@@ -198,7 +272,7 @@ test('a dependency between members of two DIFFERENT frames lifts to connect the 
   assert.strictEqual(out.edges.length, 1);
   assert.deepStrictEqual(out.edges[0], {
     from: 201, to: 101, kind: 'dep', fromGhost: false, toGhost: false,
-    x1: 70, y1: 80, x2: 70, y2: 130, back: false,
+    x1: 70, y1: 80, x2: 70, y2: 130, back: false, bow: false,
   });
 });
 
