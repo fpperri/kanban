@@ -760,7 +760,7 @@ test('the map node label falls back to the prompt via cardTitleDisplay, same hel
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /const titleDisplay = cardTitleDisplay\(n\);/, 'reuses the shared helper on the node, no forked title-fallback logic');
-    assert.match(js, /truncateLabel\(titleDisplay\.text, 22\)/, 'the fallback text still goes through the same truncation as a real title');
+    assert.match(js, /truncateLabel\(titleDisplay\.text, Math\.max\(22, /, 'the fallback text still goes through the same truncation as a real title, 22 characters at card width');
   });
 });
 
@@ -1751,10 +1751,12 @@ test('the map SVG node gets a third archived-ball circle, conditioned on n.archi
     const svg = js.match(/function buildMapSvg\([\s\S]*?\nfunction /);
     assert.match(svg[0], /n\.archived \? `<circle class="map-archived-dot"/, 'map node renders its own SVG archived dot, gated on n.archived');
     assert.match(svg[0], /<title>Archived<\/title>/, 'same tooltip text as the HTML twin');
-    // Same right-edge x column as the status/epic dots (MAP_NODE_W - 10) —
-    // no new horizontal position to risk overlapping the truncated title text.
+    // Same right-edge x column as the status/epic dots (w - 10, the unit's
+    // OWN width — a plain card's MAP_NODE_W or an epic frame's own, usually
+    // wider, title-bar width, the epic-clusters renderUnit taking both) — no new
+    // horizontal position to risk overlapping the truncated title text.
     const archivedCircle = svg[0].match(/<circle class="map-archived-dot"[^>]*>/)[0];
-    assert.match(archivedCircle, /cx="\$\{MAP_NODE_W - 10\}"/, 'archived dot shares the status/epic dots\' x column');
+    assert.match(archivedCircle, /cx="\$\{w - 10\}"/, 'archived dot shares the status/epic dots\' x column');
     // MAP_NODE_H grew to fit three vertically-stacked dots without crowding —
     // pin it's still bigger than the old 46 (the two-dot height).
     const nodeH = js.match(/const MAP_NODE_H = (\d+);/);
@@ -1810,8 +1812,8 @@ test('the map graph and no-dependencies sections are each collapsible, state per
     // renderMapView reads the loaded state and threads it into both section builders.
     const rm = js.match(/function renderMapView\([\s\S]*?\n\}/);
     assert.match(rm[0], /loadMapSectionsCollapsed\(\)/, 'renderMapView loads the persisted per-section state');
-    assert.match(rm[0], /buildMapGraphSection\(graph, participantIds, sections\.graph\)/,
-      'the graph section is built with its own collapse flag');
+    assert.match(rm[0], /buildMapGraphSection\(graph, participantIds, sections\.graph, allCards\)/,
+      'the graph section is built with its own collapse flag; allCards feeds mapFrames (epic clusters)');
     assert.match(rm[0], /buildIsolatedRow\(graph, allCards, sections\.isolated\)/,
       'the isolated-row section is built with its own collapse flag');
     // Collapsed sections skip the expensive build entirely — not just hidden via CSS.

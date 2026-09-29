@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { buildDependencyGraph, layerNodes, treeIds, pathIds } = require('../web/dependency-graph');
+const { buildDependencyGraph, layerNodes, treeIds, pathIds, mapFrames } = require('../web/dependency-graph');
 
 // --- buildDependencyGraph ---------------------------------------------------
 
@@ -392,6 +392,30 @@ test('participants: any-edge-touched nodes + ghosts, in the pure module — epic
   assert.deepStrictEqual(g.isolated, [10, 11, 12]); // no dep edges anywhere — all three
 });
 
+test('participants: an in-epic cycle (no terminal member, so no membership edge exists at all) still pulls the epic in — mapFrames needs it in participants to frame the cycle', () => {
+  const cycleBoard = [
+    { id: 10, title: 'epic', status: 'doing', epic: true, waiting_for: [] },
+    { id: 11, title: 'a', status: 'todo', parent: 10, waiting_for: [12] },
+    { id: 12, title: 'b', status: 'todo', parent: 10, waiting_for: [11] },
+  ];
+  const g = buildDependencyGraph(cycleBoard, null);
+  assert.ok(!g.edges.some((e) => e.kind === 'epic'), 'both members are non-terminal — no membership edge is ever created');
+  assert.deepStrictEqual(g.participants.slice().sort((a, b) => a - b), [10, 11, 12]);
+  assert.deepStrictEqual(mapFrames(cycleBoard, g), [{ epicId: 10, memberIds: [11, 12], parentFrameId: null }]);
+});
+
+test('participants: hiding both the epic and its terminal member drops the membership edge (neither endpoint visible) — the epic still joins participants and gets framed', () => {
+  // epicBoard: 11 -> 12 (dep, kept — one endpoint visible), 12 -> 10 (epic,
+  // terminal-only hop) — a search matching only 11 hides both 10 and 12, so
+  // the membership edge has NEITHER endpoint visible and is dropped entirely
+  // (the shared any-edge rule), leaving nothing to pull the epic in the old way.
+  const g = buildDependencyGraph(epicBoard, new Set([11]));
+  assert.ok(!g.edges.some((e) => e.kind === 'epic'), 'the membership edge is dropped — neither endpoint is visible');
+  assert.deepStrictEqual(g.participants.slice().sort((a, b) => a - b), [10, 11, 12]);
+  assert.ok(g.ghosts.some((gh) => gh.id === 10), 'the epic itself still ghosts in, for buildMapSvg\'s own ghost/missing lookup');
+  assert.deepStrictEqual(mapFrames(epicBoard, g), [{ epicId: 10, memberIds: [11, 12], parentFrameId: null }]);
+});
+
 // --- treeIds (connected component) / pathIds (directed cone) -------
 
 test('treeIds: an isolated card (no edges) is a component of one — itself', () => {
@@ -487,4 +511,105 @@ test('cardToNode carries prompt through onto the built node, same as title/statu
   const g = buildDependencyGraph(withPrompt, null);
   const node = g.nodes.find((n) => n.id === 8);
   assert.strictEqual(node.prompt, 'summarize the PR');
+});
+
+// --- mapFrames (epic clusters: which epics become frames) ------------------
+
+test('a card with no epic (no parent anywhere on the board) yields no frames at all', () => {
+  const g = buildDependencyGraph(CARDS, null); // no `parent` field on any CARDS entry
+  assert.deepStrictEqual(mapFrames(CARDS, g), []);
+});
+
+test('one epic frame holds every laid-out member of a chain, not just the terminal', () => {
+  // epicBoard: 11 -> 12 (dep chain), 12 -> 10 (epic, terminal only) — the
+  // frame must hold BOTH 11 and 12, even though only 12 gets a membership edge.
+  const g = buildDependencyGraph(epicBoard, null);
+  const frames = mapFrames(epicBoard, g);
+  assert.deepStrictEqual(frames, [{ epicId: 10, memberIds: [11, 12], parentFrameId: null }]);
+});
+
+test('a member id present twice (an active and an archived copy) is held once by its frame', () => {
+  const cards = [
+    { id: 10, title: 'epic', status: 'todo', epic: true, waiting_for: [] },
+    { id: 11, title: 'member', status: 'done', parent: 10, waiting_for: [] },
+    { id: 11, title: 'member (archived copy)', status: 'done', parent: 10, waiting_for: [], archived: true },
+    { id: 12, title: 'other member', status: 'todo', parent: 10, waiting_for: [11] },
+  ];
+  const g = buildDependencyGraph(cards, null);
+  assert.deepStrictEqual(mapFrames(cards, g), [{ epicId: 10, memberIds: [11, 12], parentFrameId: null }]);
+});
+
+test('an epic with no members laid out on the map is not a frame — buildDependencyGraph never even sees a parent pointer for it', () => {
+  const cards = [{ id: 20, title: 'lonely epic', status: 'todo', epic: true, waiting_for: [] }];
+  const g = buildDependencyGraph(cards, null);
+  assert.deepStrictEqual(mapFrames(cards, g), []);
+});
+
+test('a hidden epic (search/status-filtered out, but a member is visible) still frames — buildMapSvg reads its ghost status off graph.ghosts, not off mapFrames', () => {
+  const g = buildDependencyGraph(epicBoard, new Set([11, 12])); // epic 10 filtered out
+  const frames = mapFrames(epicBoard, g);
+  assert.deepStrictEqual(frames, [{ epicId: 10, memberIds: [11, 12], parentFrameId: null }]);
+  assert.ok(g.ghosts.some((gh) => gh.id === 10 && !gh.missing), 'the epic\'s own ghost flag lives on graph.ghosts, the one source buildMapSvg reads');
+});
+
+test('a dangling parent id (no card behind it at all) still frames — the missing flag lives on graph.ghosts', () => {
+  const cards = [{ id: 5, title: 'orphan', status: 'todo', parent: 99, waiting_for: [] }];
+  const g = buildDependencyGraph(cards, null);
+  assert.deepStrictEqual(mapFrames(cards, g), [{ epicId: 99, memberIds: [5], parentFrameId: null }]);
+  assert.ok(g.ghosts.some((gh) => gh.id === 99 && gh.missing));
+});
+
+test('nesting: an epic that is itself a member of another framed epic carries that frame\'s id as parentFrameId', () => {
+  const cards = [
+    { id: 1, title: 'outer epic', status: 'doing', epic: true, waiting_for: [] },
+    { id: 2, title: 'inner epic', status: 'doing', epic: true, parent: 1, waiting_for: [] },
+    { id: 3, title: 'leaf', status: 'todo', parent: 2, waiting_for: [] },
+  ];
+  const g = buildDependencyGraph(cards, null);
+  const frames = mapFrames(cards, g);
+  const byEpic = new Map(frames.map((f) => [f.epicId, f]));
+  assert.deepStrictEqual(byEpic.get(1), { epicId: 1, memberIds: [2], parentFrameId: null });
+  assert.deepStrictEqual(byEpic.get(2), { epicId: 2, memberIds: [3], parentFrameId: 1 });
+});
+
+test('a parent cycle (A parents B, B parents A) is broken deterministically — every card still gets exactly one frame entry, no hang', () => {
+  const cards = [
+    { id: 1, title: 'A', status: 'doing', epic: true, parent: 2, waiting_for: [] },
+    { id: 2, title: 'B', status: 'doing', epic: true, parent: 1, waiting_for: [] },
+    { id: 3, title: 'A leaf', status: 'todo', parent: 1, waiting_for: [] },
+    { id: 4, title: 'B leaf', status: 'todo', parent: 2, waiting_for: [] },
+  ];
+  const g = buildDependencyGraph(cards, null);
+  const frames = mapFrames(cards, g);
+  assert.strictEqual(frames.length, 2, 'both A and B still become frames');
+  const byEpic = new Map(frames.map((f) => [f.epicId, f]));
+  // Deterministic break: lower id (1) nests into 2, the higher id keeps null
+  // — see breakFrameNestingCycles' lowest-id-first DFS order.
+  assert.strictEqual(byEpic.get(1).parentFrameId, 2);
+  assert.strictEqual(byEpic.get(2).parentFrameId, null);
+  // Each epic is ALSO a member of the other (mutual parent), on top of its own leaf.
+  assert.deepStrictEqual(byEpic.get(1).memberIds, [2, 3]);
+  assert.deepStrictEqual(byEpic.get(2).memberIds, [1, 4]);
+});
+
+test('a longer parent cycle (A -> B -> C -> A) still terminates with every card framed exactly once', () => {
+  const cards = [
+    { id: 1, title: 'A', status: 'doing', epic: true, parent: 3, waiting_for: [] },
+    { id: 2, title: 'B', status: 'doing', epic: true, parent: 1, waiting_for: [] },
+    { id: 3, title: 'C', status: 'doing', epic: true, parent: 2, waiting_for: [] },
+    { id: 9, title: 'anchor leaf', status: 'todo', parent: 1, waiting_for: [] },
+  ];
+  const g = buildDependencyGraph(cards, null);
+  const frames = mapFrames(cards, g); // must return, not hang
+  assert.strictEqual(frames.length, 3);
+  const byEpic = new Map(frames.map((f) => [f.epicId, f]));
+  const parentLinks = [byEpic.get(1).parentFrameId, byEpic.get(2).parentFrameId, byEpic.get(3).parentFrameId];
+  assert.strictEqual(parentLinks.filter((p) => p === null).length, 1, 'exactly one link in the cycle is cut, breaking it into a chain');
+});
+
+test('mapFrames is deterministic — same input, same output, across repeated calls', () => {
+  const g = buildDependencyGraph(epicBoard, null);
+  const a = mapFrames(epicBoard, g);
+  const b = mapFrames(epicBoard, g);
+  assert.deepStrictEqual(a, b);
 });

@@ -736,25 +736,56 @@ to `127.0.0.1` only.
   layered SVG graph: nodes are cards (id + title), edges are `waiting_for` (arrow from
   the depended-on card to the card waiting on it). Nodes come from both live and
   archived cards — blocking is location-independent.
-  **Epic membership:** the epic is the SINK — it closes only when its children close, so
-  under the map's down-is-later convention it lays out BELOW its children. The epic's
-  color flows ALONG the chain rather than fanning from every member: a `waiting_for`
-  edge whose two endpoints share the same `parent: <epic-id>` draws SOLID EPIC_COLOR
-  orange (still a real, gate-enforced dependency — only tinted), while ONLY the chain's
-  terminal members (no other member of the same epic waits on them; a chainless member
-  counts as its own one-card chain) draw the dashed orange membership hop into the epic,
-  orange arrowhead on both kinds. Terminality is computed on the full board — a search
-  filter never reroutes membership. Mixed edges (one endpoint outside the epic) and
-  cross-epic edges stay plain grey, and every epic shares the one EPIC_COLOR (the color
-  says "epic work flowing to its sink", not which epic). Membership gets the same
-  ghost-stub courtesy as `waiting_for` (hidden endpoint → dimmed stub; dangling id →
-  "not found" stub; self-parent ignored), but it is NOT a dependency: it never makes a
-  card waiting, the `doing` gate ignores it, and the isolated row below stays keyed off
-  `waiting_for` edges only — so an epic whose only edges are membership appears in the
-  graph AND the no-dependencies row, both. A dep edge between terminal and epic in
-  either direction suppresses the membership hop (sequencing wins the pair:
-  same-direction overlap would hide a real dependency under the orange;
-  opposite-direction would fabricate a 2-cycle bow).
+  **Epic clusters:** an epic with at least one laid-out member (a node or a ghost
+  stub) draws as a FRAME — a container box holding exactly those members — instead of
+  membership fanning out as an arrow. The epic card itself becomes the frame's TITLE
+  BAR: its id, title, status dot and (if archived) archived ball, plus its blocked pill
+  when blocked, sit there rather than on a floating node, and the title bar joins the
+  exact same shared card grammar every other map node carries — click opens the detail
+  popup, Ctrl/Shift-click selects, right-click opens the bulk menu, hover/focus
+  highlights, tabindex reaches it by keyboard. An epic with no members laid out on the
+  map stays an ordinary node (dependency-graph.js's `mapFrames`). Filters: a frame whose
+  epic is filtered out (a ghost) or missing (a dangling parent id) still draws, dimmed
+  and dashed like any ghost/missing stub, its title bar click-through to detail only
+  (never selectable) — or "#N not found" for a missing id; a member the filter hides
+  still appears as a ghost stub INSIDE its frame, the same courtesy `waiting_for` gets.
+  Nesting: an epic that is itself a member of another framed epic nests as a frame
+  inside that frame, arbitrarily deep; a parent cycle (A's parent is B and B's parent is
+  A, or longer) is broken deterministically so every card still draws exactly once
+  (`mapFrames`' own cycle-break, lowest id first). Layout (map-layout.js's `layoutMap`,
+  pure, unit-tested): inside each frame, and at the top level, units — cards and nested
+  frames alike — are grouped into connected components by DEPENDENCY edges lifted to
+  that level (an edge between two different sub-frames connects them at this level; one
+  whose endpoints lift to the same unit is internal to it), each component layered
+  top-down (`layerNodes`' own Kahn-layer/cycle-break semantics, reused verbatim) and
+  ordered within a layer by barycenter of the previous layer with id as the tiebreak,
+  then components are shelf-packed left to right into a maximum logical width (~1200px,
+  a named constant the zoom/Fit controls scale — never a DOM measurement mid-rebuild),
+  largest first, wrapping to a new shelf on overflow; a frame packs its own members
+  within that same constant minus its padding, and a frame nested inside another frame
+  minus its padding again for every further level of nesting (a doubly-nested frame's
+  own content wraps at maxWidth − 4×pad, not the maxWidth − 2×pad its parent gets — each
+  level's own padding narrows what its children may fill). Deterministic throughout: the
+  same board always lays out the same way. Dependency edges still draw card to card at
+  absolute positions, crossing frame borders where they must; an edge with an epic as one
+  endpoint (the epic's own `waiting_for`, or a card waiting on the epic) attaches to
+  that epic's frame instead (bottom-center leaving, top-center arriving) — same
+  "B waits for A" direction as always. The intra-epic chain still draws SOLID
+  EPIC_COLOR orange (a real, gate-enforced dependency, only tinted); the dashed
+  membership arrow it used to sit beside is gone — containment (the frame itself) shows
+  membership now. Whether an edge is a real cycle (the amber "back edge" style) and
+  whether it draws as a sideways curve (`bow`, so it doesn't hide under whatever sits
+  between its two anchor points) are two separate questions. Back-ness is decided
+  topologically, not by comparing the two drawn anchor points: every dependency edge plus
+  one implicit edge per member ("a member finishes before its own epic" — containment's
+  own order) feed a single flat graph over every participant, and an edge is back exactly
+  when its two ends are mutually reachable in it (a strongly-connected-components check,
+  independent of which id happens to be lower) — an epic waiting on one of its own
+  members is the normal case and stays forward; a member waiting on its own enclosing
+  epic is the real deadlock and stays back. Bowing is purely geometric — the target sits
+  at or above the source (`y2 <= y1`) — and doesn't care why: an epic's own edge to one of
+  its members is forward (not back) but still arrives above where it leaves, so it still
+  needs the sideways curve, same as a real back edge does.
   **Node treatments:** the border is one neutral weight for every node — status never
   strokes it. A small dot in the node's corner carries the status color (same palette as
   the column headers), its own tooltip naming the **raw on-disk status**; status dots
@@ -819,9 +850,11 @@ to `127.0.0.1` only.
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
-  search terms, resolved over the SAME edge set the map draws (`waiting_for` + `parent:`
-  membership, with sequencing-wins-the-pair/terminal-only suppression already applied —
-  see dependency-graph.js's `treeIds`/`pathIds` for the grammar, not restated here).
+  search terms, resolved over the same `waiting_for` + `parent:` membership edge set
+  that decides the map's participants/frames (with sequencing-wins-the-pair/
+  terminal-only suppression already applied) — even though membership no longer draws
+  its own arrow, it still counts as adjacency for this traversal; see
+  dependency-graph.js's `treeIds`/`pathIds` for the grammar, not restated here.
   `tree:` is the connected component (every card the id's dependency web touches,
   undirected); `path:` is the narrower directed cone — everything transitively upstream
   and downstream through the id, excluding sibling branches. Traversal is ALWAYS over

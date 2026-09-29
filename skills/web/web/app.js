@@ -899,6 +899,20 @@ const MAP_NODE_H = 58;
 const MAP_GAP_X = 24;
 const MAP_GAP_Y = 60;
 const MAP_PAD = 24;
+// Epic clusters: the frame title bar carries exactly the same
+// content a plain node does (id, title, status dot, archived ball, blocked
+// pill — see buildMapSvg's shared renderUnit), so it gets the same height
+// rather than a bespoke, cramped strip. A named alias (not a bare reuse of
+// MAP_NODE_H at every call site) so "this is the title bar's own height" reads
+// at the one place it's actually a distinct concept: map-layout.js's `sizes`.
+const MAP_FRAME_TITLE_H = MAP_NODE_H;
+// The top-level shelf's logical max width (map-layout.js's `maxWidth`) — a
+// FIXED constant, never a DOM measurement: reading clientWidth mid-rebuild is
+// exactly how an earlier gantt bug shipped (the layout and the paint racing
+// each other). The zoom/Fit controls scale the whole canvas afterward, same
+// as they already scale everything buildMapSvg lays out.
+const MAP_LAYOUT_MAX_WIDTH = 1200;
+const MAP_LAYOUT_SIZES = { nodeW: MAP_NODE_W, nodeH: MAP_NODE_H, gapX: MAP_GAP_X, gapY: MAP_GAP_Y, pad: MAP_PAD, titleH: MAP_FRAME_TITLE_H };
 const MAP_STATUSES = ['backlog', 'todo', 'doing', 'done'];
 
 function mapStatusClass(status) {
@@ -955,7 +969,7 @@ function renderMapView() {
   // in the no-dependencies row. The two derivations (and
   // their different kind-keying) are buildDependencyGraph's own, unit-pinned.
   const participantIds = graph.participants;
-  if (participantIds.length) container.appendChild(buildMapGraphSection(graph, participantIds, sections.graph));
+  if (participantIds.length) container.appendChild(buildMapGraphSection(graph, participantIds, sections.graph, allCards));
   if (graph.isolated.length) container.appendChild(buildIsolatedRow(graph, allCards, sections.isolated));
   container.scrollLeft = keepLeft;
   container.scrollTop = keepTop;
@@ -1134,18 +1148,24 @@ function buildMapSectionHeader(section, label, collapsed) {
   return header;
 }
 
-// The layered SVG, wrapped in a collapse/expand toggle — state
+// The epic-clusters SVG, wrapped in a collapse/expand toggle — state
 // persists per board (loadMapSectionsCollapsed) and survives the 5s poll like
-// every other memoized view preference. Collapsed skips layerNodes()/
-// buildMapSvg() entirely (nothing to lay out while hidden), not just a CSS
-// hide — the graph is the expensive part of this view.
-function buildMapGraphSection(graph, participantIds, collapsed) {
+// every other memoized view preference. Collapsed skips mapFrames()/
+// layoutMap()/buildMapSvg() entirely (nothing to lay out while hidden), not
+// just a CSS hide — the graph is the expensive part of this view.
+function buildMapGraphSection(graph, participantIds, collapsed, allCards) {
   const wrap = document.createElement('div');
   wrap.className = 'map-graph-section';
   wrap.appendChild(buildMapSectionHeader('graph', `Dependency graph (${participantIds.length}):`, collapsed));
   if (!collapsed) {
-    const layer = layerNodes(participantIds, graph.edges);
-    const svg = buildMapSvg(graph, layer);
+    // mapFrames/layoutMap replace the old layerNodes()-direct call — epic
+    // clusters: which epics become frames is dependency-graph.js's
+    // job, positioning every unit (plain cards AND frames, nested arbitrarily
+    // deep) is map-layout.js's — both pure, both unit-tested, see their own
+    // file headers. buildMapSvg stays presentation-only either way.
+    const frames = mapFrames(allCards, graph);
+    const layout = layoutMap({ ids: participantIds, edges: graph.edges, frames, sizes: MAP_LAYOUT_SIZES, maxWidth: MAP_LAYOUT_MAX_WIDTH });
+    const svg = buildMapSvg(graph, layout);
     applyMapZoomToSvg(svg, loadMapZoom());
     wrap.appendChild(svg);
   }
@@ -1203,81 +1223,74 @@ function buildIsolatedRow(graph, allCards, collapsed) {
   return wrap;
 }
 
-// Builds the layered SVG: nodes positioned by layerNodes()'s layer assignment
-// (top-down, one row per layer, left-to-right by id within a row), edges as
-// arrowed paths (dep -> waiter: an edge A -> B means "B waits for A"). A
-// "back edge" (target layer <= source layer — only possible when layerNodes
-// had to force-break a cycle) routes as a side-bowed curve instead of a
-// straight line, so a cycle stays visually distinct rather than overlapping
-// the normal downward flow.
-function buildMapSvg(graph, layer) {
+// Builds the epic-clusters SVG: every unit's absolute position
+// comes from map-layout.js's layoutMap() — plain cards (layout.nodes) AND
+// epic frames (layout.frames), nested arbitrarily deep, already flattened to
+// one coordinate space. Edges (layout.edges, dep-kind only — membership no
+// longer draws at all, containment shows it) arrive with endpoints already
+// resolved (card-to-card, or an epic's own edge attaching to its frame's
+// bottom/top-center) plus two independent flags: `back` (topological — a
+// real cycle, drawn amber) and `bow` (geometric — the target sits at/above
+// the source, so the curve must go sideways or it hides behind whatever
+// sits between the two anchor points). An edge can bow without being back
+// (e.g. an epic waiting on one of its own members, arriving above where it
+// leaves but not a deadlock) — routing follows `bow`, styling follows `back`.
+function buildMapSvg(graph, layout) {
   const allById = new Map();
   graph.nodes.forEach((n) => allById.set(n.id, Object.assign({ ghost: false }, n)));
   graph.ghosts.forEach((g) => allById.set(g.id, Object.assign({ ghost: true }, g)));
 
-  const layers = new Map(); // layerIndex -> [ids] sorted ascending
-  for (const [id, l] of layer) {
-    if (!layers.has(l)) layers.set(l, []);
-    layers.get(l).push(id);
-  }
-  for (const ids of layers.values()) ids.sort((a, b) => a - b);
-  const numLayers = layers.size ? Math.max(...layers.keys()) + 1 : 0;
-
-  const pos = new Map(); // id -> {x, y, cx}
-  for (const [l, ids] of layers) {
-    ids.forEach((id, i) => {
-      const x = MAP_PAD + i * (MAP_NODE_W + MAP_GAP_X);
-      const y = MAP_PAD + l * (MAP_NODE_H + MAP_GAP_Y);
-      pos.set(id, { x, y, cx: x + MAP_NODE_W / 2 });
-    });
-  }
-
   const BACK_EDGE_BOW = MAP_NODE_W * 0.9;
-  // Canvas width is the true rightmost extent in play, not just the widest
-  // row of nodes — a back-edge's sideways bow (see below) can reach past
-  // every node's right edge when its row has only one member (e.g. an
-  // isolated 2-cycle, filtered down to just itself), and a width that only
-  // accounted for node columns would clip that curve at the edge.
-  let maxX = MAP_PAD;
-  for (const p of pos.values()) maxX = Math.max(maxX, p.x + MAP_NODE_W);
 
   let edgesSvg = '';
-  graph.edges.forEach((e) => {
-    const from = pos.get(e.from);
-    const to = pos.get(e.to);
-    if (!from || !to) return; // defensive: every edge endpoint is always laid out, but never let a mismatch crash the render
+  // Canvas width from layout.width can still clip a bowed edge's sideways
+  // curve (same reasoning the old per-row maxX tracking had) — widen to fit
+  // every bow actually drawn, never by measuring anything, just the same
+  // arithmetic the curve itself uses.
+  let canvasWidth = layout.width;
+  layout.edges.forEach((e) => {
     const dimmed = e.fromGhost || e.toGhost;
-    const backEdge = (layer.get(e.to) || 0) <= (layer.get(e.from) || 0);
-    const x1 = from.cx, y1 = from.y + MAP_NODE_H, x2 = to.cx, y2 = to.y;
+    const x1 = e.x1, y1 = e.y1, x2 = e.x2, y2 = e.y2;
     let d;
-    if (backEdge) {
-      maxX = Math.max(maxX, x1 + BACK_EDGE_BOW, x2 + BACK_EDGE_BOW);
+    if (e.bow) {
+      canvasWidth = Math.max(canvasWidth, x1 + BACK_EDGE_BOW + MAP_PAD, x2 + BACK_EDGE_BOW + MAP_PAD);
       d = `M${x1},${y1} C${x1 + BACK_EDGE_BOW},${y1} ${x2 + BACK_EDGE_BOW},${y2} ${x2},${y2}`;
     } else {
       const midY = (y1 + y2) / 2;
       d = `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
     }
-    // Membership edges (epic -> child) draw in the epic's own
-    // channel — orange, dashed, its own arrowhead — so sequencing and
-    // membership never read as the same relation. A cycle through a
-    // membership edge still bows (backEdge is layout-derived), keeping the
-    // epic dash over the back-edge amber: the KIND stays visible.
-    const epicEdge = e.kind === 'epic';
     // v3: an intra-epic dep edge (epicChain) draws SOLID orange — a real,
-    // gate-enforced dependency tinted to show whose work it carries; the
-    // dashed orange stays reserved for the terminal's membership hop. Both
-    // take the orange arrowhead (a grey head on an orange line reads broken).
+    // gate-enforced dependency tinted to show whose work it carries. The
+    // membership dash that used to share this channel is gone — containment
+    // (the frame itself) says what that arrow used to say.
     const chainEdge = !!e.epicChain;
-    edgesSvg += `<path class="map-edge${epicEdge ? ' epic-edge' : ''}${chainEdge ? ' epic-chain' : ''}${backEdge ? ' back-edge' : ''}${dimmed ? ' ghost-edge' : ''}" d="${d}" marker-end="url(#${(epicEdge || chainEdge) ? 'map-arrow-epic' : 'map-arrow'})"></path>`;
+    edgesSvg += `<path class="map-edge${chainEdge ? ' epic-chain' : ''}${e.back ? ' back-edge' : ''}${dimmed ? ' ghost-edge' : ''}" d="${d}" marker-end="url(#${chainEdge ? 'map-arrow-epic' : 'map-arrow'})"></path>`;
   });
 
-  const width = maxX + MAP_PAD;
-  const height = Math.max(MAP_NODE_H + MAP_PAD * 2, numLayers * (MAP_NODE_H + MAP_GAP_Y) - MAP_GAP_Y + MAP_PAD * 2);
+  // Frame boxes — the cluster's own container, drawn first (under both the
+  // edges and every card/title-bar) so it reads as ground the cluster sits
+  // on rather than something occluding it. Ghost/missing get the exact same
+  // dimmed/dashed treatment a plain ghost/missing stub already carries (see
+  // .map-frame.ghost/.missing, app.css) — the epic's own node/ghost lookup
+  // (allById) is the ONE source for that, same as every renderUnit call below.
+  let framesSvg = '';
+  layout.frames.forEach((f) => {
+    const n = allById.get(f.epicId);
+    const ghost = !!(n && n.ghost);
+    const missing = !n || !!n.missing;
+    framesSvg += `<rect class="map-frame${ghost ? ' ghost' : ''}${missing ? ' missing' : ''}" x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}" rx="8"></rect>`;
+  });
 
-  let nodesSvg = '';
-  for (const [id, p] of pos) {
+  // Shared unit renderer — a plain card node AND an epic's title bar get the
+  // EXACT same treatment (status dot, archived ball, priority/waiting
+  // stroke, blocked pill, ghost/missing dimming, the card-el
+  // selection/hover/tabindex grammar): the title bar IS the epic's node
+  // representation now, just positioned at its frame's top edge instead of
+  // floating free. An arrow const, not a nested
+  // `function` declaration, so this stays part of buildMapSvg's own body.
+  const renderUnit = (id, x, y, w, h) => {
     const n = allById.get(id);
-    if (!n) continue;
+    if (!n) return ''; // defensive: every drawn id is always laid out, but never let a mismatch crash the render
     const missing = !!n.missing;
     // Only REAL nodes join the shared card-el grammar (selection +
     // context menu). Ghost stubs stay click-through-to-detail only: a ghost
@@ -1321,7 +1334,9 @@ function buildMapSvg(graph, layer) {
     // `prompt` (dependency-graph.js's cardToNode). A missing stub has no
     // card behind it at all, so it keeps its own '(not found)' text instead.
     const titleDisplay = cardTitleDisplay(n);
-    const titleLine = missing ? '(not found)' : truncateLabel(titleDisplay.text, 22);
+    // 22 characters fit a card's width; a frame's title bar spans the whole
+    // frame, so it keeps as many more as its width allows.
+    const titleLine = missing ? '(not found)' : truncateLabel(titleDisplay.text, Math.max(22, Math.floor((22 * w) / MAP_NODE_W)));
     const tooltip = missing
       ? `#${id} — referenced but not found on the board`
       : `#${id} ${titleDisplay.text}${n.archived ? ' (archived)' : ''}`;
@@ -1338,15 +1353,16 @@ function buildMapSvg(graph, layer) {
     // The dot's OWN <title> — SVG-native tooltip — names the RAW on-disk
     // status for every node, not just custom ones.
     const statusDot = missing ? '' :
-      `<circle class="map-status-dot status-${statusColorClass(n.status)}" cx="${MAP_NODE_W - 10}" cy="10" r="4"><title>${escapeHtml(n.status)}</title></circle>`;
+      `<circle class="map-status-dot status-${statusColorClass(n.status)}" cx="${w - 10}" cy="10" r="4"><title>${escapeHtml(n.status)}</title></circle>`;
     // The archived ball: the
     // second right-edge dot, only for a truly archived node — same x column
-    // as status (MAP_NODE_W - 10, already proven clear of the truncated
-    // title text). Never set for a `missing` stub (its `archived` is always
-    // false — dependency-graph.js's own stub shape). Epic is a background
-    // wash, not a dot (.map-node.epic rect above), so status and this ball
-    // are the only right-edge dots.
-    const archivedDot = n.archived ? `<circle class="map-archived-dot" cx="${MAP_NODE_W - 10}" cy="${MAP_NODE_H / 2}" r="4"><title>Archived</title></circle>` : '';
+    // as status (w - 10: the unit's OWN width, MAP_NODE_W for a plain card or
+    // a frame's own — usually wider — box for a title bar, already proven
+    // clear of the truncated title text either way). Never set for a
+    // `missing` stub (its `archived` is always false — dependency-graph.js's
+    // own stub shape). Epic is a background wash, not a dot (.map-node.epic
+    // rect above), so status and this ball are the only right-edge dots.
+    const archivedDot = n.archived ? `<circle class="map-archived-dot" cx="${w - 10}" cy="${h / 2}" r="4"><title>Archived</title></circle>` : '';
     // The red blocked pill — the map twin of the board tile's
     // sticker glyph, bottom-left under the title where no dot column lives.
     // The pill's own <title> carries the reason (SVG-native tooltip; the
@@ -1356,18 +1372,30 @@ function buildMapSvg(graph, layer) {
     // the waiting stroke it doesn't share a channel with the archived grey mute.
     const blockedPill = (!missing && n.blocked)
       ? `<g class="map-blocked-pill"><title>${escapeHtml(n.blockedReason ? `blocked: ${n.blockedReason}` : 'blocked')}</title>` +
-        `<rect x="8" y="${MAP_NODE_H - 18}" width="46" height="13" rx="6.5"></rect>` +
-        `<text x="31" y="${MAP_NODE_H - 8}" text-anchor="middle">blocked</text></g>`
+        `<rect x="8" y="${h - 18}" width="46" height="13" rx="6.5"></rect>` +
+        `<text x="31" y="${h - 8}" text-anchor="middle">blocked</text></g>`
       : '';
-    nodesSvg +=
-      `<g class="${cls}" transform="translate(${p.x},${p.y})"${missing ? '' : ` data-id="${id}"`}${selectable ? ' tabindex="0"' : ''}>` +
+    return `<g class="${cls}" transform="translate(${x},${y})"${missing ? '' : ` data-id="${id}"`}${selectable ? ' tabindex="0"' : ''}>` +
         `<title>${escapeHtml(tooltip)}</title>` +
-        `<rect width="${MAP_NODE_W}" height="${MAP_NODE_H}" rx="6"></rect>` +
+        `<rect width="${w}" height="${h}" rx="6"></rect>` +
         `<text x="10" y="18" class="map-node-id">${escapeHtml(idLabel)}</text>` +
         `<text x="10" y="34" class="map-node-title${!missing && titleDisplay.isPromptFallback ? ' map-node-title--prompt-fallback' : ''}">${escapeHtml(titleLine)}</text>` +
         statusDot + archivedDot + blockedPill +
       `</g>`;
-  }
+  };
+
+  // Cards and frame title bars render in ONE pass, in layout.drawOrder's own
+  // (y, x) order — not nodes-then-frames — so keyboard Tab (which follows
+  // DOM order) reaches a frame's title bar sitting above some plain card
+  // before that card, the same as it would if the title bar were just
+  // another node at that position. Frame rectangles (above) stay their own,
+  // earlier pass regardless: they're never focusable, so their paint order
+  // relative to each other doesn't affect Tab at all.
+  let nodesSvg = '';
+  layout.drawOrder.forEach((u) => { nodesSvg += renderUnit(u.id, u.x, u.y, u.w, u.h); });
+
+  const width = canvasWidth;
+  const height = layout.height;
 
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
@@ -1378,7 +1406,7 @@ function buildMapSvg(graph, layer) {
   // the browser rasterizes from one coordinate system at whatever display
   // size (crisp text/strokes at any zoom, no blur a CSS transform would add).
   // Stashed on the dataset too — the zoom controls' Fit button reads it back
-  // to compute fitMapZoom() without re-running layerNodes()/buildMapSvg().
+  // to compute fitMapZoom() without re-running mapFrames()/layoutMap().
   svg.dataset.logicalWidth = String(width);
   svg.dataset.logicalHeight = String(height);
   svg.setAttribute('width', String(width));
@@ -1387,11 +1415,11 @@ function buildMapSvg(graph, layer) {
   svg.innerHTML =
     `<defs><marker id="map-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">` +
       `<path d="M0,0 L10,5 L0,10 z"></path></marker>` +
-    // the membership arrowhead — same shape, epic orange (a marker
+    // the epic-chain arrowhead — same shape, epic orange (a marker
     // never inherits the path's stroke, so it needs its own def).
     `<marker id="map-arrow-epic" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">` +
       `<path class="map-arrow-epic-head" d="M0,0 L10,5 L0,10 z"></path></marker></defs>` +
-    edgesSvg + nodesSvg;
+    framesSvg + edgesSvg + nodesSvg;
   return svg;
 }
 
@@ -2834,7 +2862,7 @@ function zoomMapStep(direction) {
 
 // Fit: largest zoom (capped at 100%) that shows the whole graph, computed
 // against the SAME logical size applyMapZoomToSvg stashed on the rendered
-// svg's dataset (no re-run of layerNodes()/buildMapSvg() just to measure).
+// svg's dataset (no re-run of mapFrames()/layoutMap()/buildMapSvg() just to measure).
 // No anchor math — once the whole graph fits, there's nothing to scroll to,
 // so this sets the zoom directly and resets scroll to the top-left corner
 // rather than reusing zoomMapAt's pointer-preserving offset.

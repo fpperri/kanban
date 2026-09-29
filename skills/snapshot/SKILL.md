@@ -446,3 +446,10 @@ format still has room to grow; extend the op vocabulary in
 "Drag and drop" above. Touch input stays untouched by that change:
 `kanban.proj#242 snapshot: touch drag and drop with long-press lift` owns touch drag as its own, independently-scoped card,
 so board tiles get no `touchstart`/`pointerdown` handling from this one.
+
+**Map view still uses the flat layered graph, not frames.** kanban-web's Map
+draws an epic with laid-out members as a FRAME (a container box, its title
+bar carrying the epic's own node) with nested/cycle-safe containment and a
+shelf-packed layout. The snapshot's Map keeps the layered graph: an epic is
+an ordinary node, and its chain's terminal members draw the dashed orange
+membership arrow into it — a deliberate gap, not yet mirrored.
