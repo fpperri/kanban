@@ -697,6 +697,11 @@ to `127.0.0.1` only.
   `closeCard` wrappers apply it around `openDetailModal`/`closeDetailModal`, and the
   `popstate` listener calls those two directly (never the wrappers), so a Back/Forward-
   driven open or close never pushes a step of its own.
+- **Tab icon** — `favicon.svg`, served at `/favicon.svg` and linked from `app.html`: three
+  columns of cards, fuller on the left, on a clay tile. The tile is `--accent` in each
+  browser theme through a `prefers-color-scheme` rule inside the SVG (`favicon.test.js`
+  keeps the two equal to `app.css`). It is a served file rather than an inline `data:`
+  icon because the page's CSP loads images only from the board server.
 - **Copy board path** — a small ⧉ button inside the header title copies the board
   directory's **absolute path** (the `GET /api/board` payload carries it as `boardDir`,
   `path.resolve`d server-side — a relative path is useless pasted elsewhere). Same

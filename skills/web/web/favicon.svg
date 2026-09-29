@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The board tab icon: three columns of cards, fuller on the left, on a clay
+       tile. The tile is the accent token of app.css in each theme (favicon.test.js
+       keeps them equal); an SVG icon cannot read the page's tokens. -->
+  <style>
+    .tile { fill: #a94b29; }
+    .card { fill: #fffaf5; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #d97757; }
+      .card { fill: #151515; }
+    }
+  </style>
+  <rect class="tile" x="1" y="1" width="30" height="30" rx="7"/>
+  <rect class="card" x="6.5" y="7" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="6.5" y="13.25" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="6.5" y="19.5" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="13.75" y="7" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="13.75" y="13.25" width="4.5" height="4.5" rx="1"/>
+  <rect class="card" x="21" y="7" width="4.5" height="4.5" rx="1"/>
+</svg>

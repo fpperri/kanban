@@ -7,7 +7,7 @@ const ns = require('./notifications-store');
 const cfg = require('./config-store');
 
 const WEB = path.join(__dirname, '..', 'web');
-const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 // No server-side status whitelist — free-text statuses are legal input end to
 // end (the SPA parks unlisted values in the first column). The doing entry
 // gate (waiting + blocked) stays pinned to the literal 'doing' inside
@@ -15,8 +15,8 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
 
 // The SPA ships no inline script/style anywhere (every script is a
 // separate <script src>, every rule lives in app.css) — so the strictest CSP
-// costs nothing. Sent only on the served HTML; the app has no images/fonts to
-// widen img-src/font-src for.
+// costs nothing. Sent only on the served HTML; the app's one image, the tab
+// icon, is served from here too, so img-src needs nothing wider.
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
   "img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; " +
   "base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
@@ -206,7 +206,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(WEB, 'app.html'));
-      if (req.method === 'GET' && (p === '/app.css' || p === '/app.js' || p === '/refresh-policy.js' || p === '/column-state.js' || p === '/column-sort.js' || p === '/search.js' || p === '/waiting-blocked.js' || p === '/dependency-graph.js' || p === '/map-zoom.js' || p === '/modal-fullscreen.js' || p === '/assignee-badge.js' || p === '/priority-badge.js' || p === '/card-title.js' || p === '/combobox.js' || p === '/bulk-edit.js' || p === '/prose.js' || p === '/notifications.js' || p === '/form-guard.js' || p === '/selection.js' || p === '/calendar-model.js' || p === '/gantt-model.js' || p === '/date-picker.js' || p === '/status-colors.js' || p === '/save-hotkey.js' || p === '/search-hotkey.js' || p === '/assignee-colors.js' || p === '/deep-link.js' || p === '/card-history.js')) {
+      if (req.method === 'GET' && (p === '/app.css' || p === '/app.js' || p === '/refresh-policy.js' || p === '/column-state.js' || p === '/column-sort.js' || p === '/search.js' || p === '/waiting-blocked.js' || p === '/dependency-graph.js' || p === '/map-zoom.js' || p === '/modal-fullscreen.js' || p === '/assignee-badge.js' || p === '/priority-badge.js' || p === '/card-title.js' || p === '/combobox.js' || p === '/bulk-edit.js' || p === '/prose.js' || p === '/notifications.js' || p === '/form-guard.js' || p === '/selection.js' || p === '/calendar-model.js' || p === '/gantt-model.js' || p === '/date-picker.js' || p === '/status-colors.js' || p === '/save-hotkey.js' || p === '/search-hotkey.js' || p === '/assignee-colors.js' || p === '/deep-link.js' || p === '/card-history.js' || p === '/favicon.svg')) {
         return serveStatic(res, path.join(WEB, path.basename(p)));
       }
 
