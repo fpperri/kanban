@@ -279,11 +279,89 @@ function pathIds(cards, rawId) {
   return visited;
 }
 
+// Epic CLUSTERS (card #290): which epics draw as a FRAME on the map, and
+// which laid-out cards/ghosts they hold. Membership here is deliberately
+// NOT the same set the old 'epic'-kind edges above cover (terminal members
+// only, for the arrow that no longer gets drawn) — a frame holds EVERY
+// laid-out member, chain-internal or terminal alike, since containment now
+// carries what the dashed arrow used to. "Laid out" means graph.participants
+// (a node or a ghost stub the map already draws) — a member the search/status
+// filter hid so completely it never even ghosted in draws nowhere, so it
+// can't pull its epic into frame-hood either.
+//
+// ghost/missing describe the EPIC's OWN representation, derived independent
+// of graph.ghosts (that set only fills from edges, and membership edges are
+// going away as a draw path) — a real card that's just not currently a full
+// node is `ghost`, a parent id with no card behind it at all is `missing`,
+// exactly the two stub flavors buildMapSvg already renders elsewhere.
+//
+// Nesting: parentFrameId is the epic's own `parent`, when that parent is
+// ALSO a frame — but only once cycle-broken (see breakFrameNestingCycles),
+// so a chain of parent pointers can never nest a frame inside itself.
+function mapFrames(cards, graph) {
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const participants = new Set(graph.participants);
+  const nodeIds = new Set(graph.nodes.map((n) => n.id));
+
+  const membersByEpic = new Map(); // epicId -> [memberId,...]
+  for (const id of graph.participants) {
+    const card = byId.get(id);
+    if (!card || card.parent == null || card.parent === card.id) continue;
+    if (!membersByEpic.has(card.parent)) membersByEpic.set(card.parent, []);
+    membersByEpic.get(card.parent).push(id);
+  }
+
+  const frames = new Map(); // epicId -> frame
+  for (const [epicId, memberIds] of membersByEpic) {
+    memberIds.sort((a, b) => a - b);
+    frames.set(epicId, {
+      epicId,
+      memberIds,
+      ghost: !nodeIds.has(epicId) && byId.has(epicId),
+      missing: !byId.has(epicId),
+      parentFrameId: null,
+    });
+  }
+
+  for (const frame of frames.values()) {
+    const epicCard = byId.get(frame.epicId);
+    const parent = epicCard ? epicCard.parent : null;
+    frame.parentFrameId = (parent != null && parent !== frame.epicId && frames.has(parent)) ? parent : null;
+  }
+  breakFrameNestingCycles(frames);
+
+  return [...frames.values()].sort((a, b) => a.epicId - b.epicId);
+}
+
+// DFS with an on-stack marker, visiting frames lowest-id-first so the break
+// point is deterministic regardless of Map iteration order: the moment a
+// walk up parentFrameId revisits a frame still on the current stack, that
+// LAST link is the one cut (child keeps no parent) rather than the earlier
+// ones — same "stop rather than loop forever" contract as layerNodes' own
+// cycle break, just over the nesting relation instead of the edge graph.
+function breakFrameNestingCycles(frames) {
+  const state = new Map(); // epicId -> 'visiting' | 'done'
+  const ids = [...frames.keys()].sort((a, b) => a - b);
+  const visit = (id) => {
+    state.set(id, 'visiting');
+    const frame = frames.get(id);
+    const parentId = frame.parentFrameId;
+    if (parentId != null) {
+      const parentState = state.get(parentId);
+      if (parentState === 'visiting') frame.parentFrameId = null; // closing the loop — cut here
+      else if (parentState === undefined) visit(parentId);
+    }
+    state.set(id, 'done');
+  };
+  for (const id of ids) if (!state.has(id)) visit(id);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { buildDependencyGraph, layerNodes, treeIds, pathIds };
+  module.exports = { buildDependencyGraph, layerNodes, treeIds, pathIds, mapFrames };
 } else {
   window.buildDependencyGraph = buildDependencyGraph;
   window.layerNodes = layerNodes;
   window.treeIds = treeIds;
   window.pathIds = pathIds;
+  window.mapFrames = mapFrames;
 }
