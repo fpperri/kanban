@@ -1538,8 +1538,9 @@ const BOW=MW*0.9;
 const edgesG=svgEl("g");
 graph.edges.forEach(e=>{
 // Membership edges (kind "epic") still shape the layout above (fed into
-// layerNodes), but are never drawn — a card's epic is shown on the node
-// itself (the orange wash), not as a line.
+// layerNodes), but are never drawn. The snapshot map paints no epic cue
+// on the node either; only the Epics chip and the epic: search term
+// reach membership here.
 if(e.kind==="epic")return;
 const from=pos.get(e.from),to=pos.get(e.to);
 if(!from||!to)return;

@@ -43,10 +43,9 @@ const ARCHIVE_COLOR = '#868e9a';
 // hash contract). Circles are
 // reserved for STATUS alone, so an epic instead paints a faint
 // background wash on whatever surface it's on (epicColorSoft() below; each
-// surface's `.epic` CSS rule in app.css carries the actual paint). EPIC_COLOR
-// also paints the map's epic-membership edges + arrowhead
-// (lines, not circles) solid. This constant pins the hex
-// via status-colors.test.js so CSS and JS can't drift.
+// surface's `.epic` CSS rule in app.css carries the actual paint). This
+// constant pins the hex via status-colors.test.js so CSS and JS can't
+// drift.
 const EPIC_COLOR = '#f0883e';
 
 // GitHub-dark accent scale — visually distinct from each other and legible on

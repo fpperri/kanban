@@ -820,8 +820,9 @@ to `127.0.0.1` only.
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
-  search terms, resolved over the SAME edge set the map draws (`waiting_for` + `parent:`
-  membership, with sequencing-wins-the-pair/terminal-only suppression already applied —
+  search terms, resolved over the edge set the map's graph is built from (`waiting_for`
+  + `parent:` membership — membership shapes layout but draws no line — with
+  sequencing-wins-the-pair/terminal-only suppression already applied —
   see dependency-graph.js's `treeIds`/`pathIds` for the grammar, not restated here).
   `tree:` is the connected component (every card the id's dependency web touches,
   undirected); `path:` is the narrower directed cone — everything transitively upstream

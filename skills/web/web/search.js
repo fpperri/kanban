@@ -31,8 +31,9 @@
 //                 but ignored, so `epic:foo` matches exactly what `epic:`
 //                 does. No negation either.
 //   tree:74 / tree:#74   card #74's dependency tree — the connected component
-//                 (undirected) reachable from card 74 over the SAME edges the
-//                 map draws (waiting_for + parent: membership).
+//                 (undirected) reachable from card 74 over the edges the
+//                 map's graph is built from (waiting_for + parent: membership —
+//                 membership shapes layout but draws no line).
 //   path:74 / path:#74   card #74's dependency path — the directed cone:
 //                 everything transitively upstream + downstream through card
 //                 74, over the same edges. Narrower than tree: (excludes
@@ -163,7 +164,8 @@ function cardMatchesQuery(card, terms) {
 // resolved ONCE here, up front, against `cards` (the same array filterCards
 // was called with), via dependency-graph.js's treeIds/pathIds — which in turn
 // build their adjacency from buildDependencyGraph(cards, null).edges, the
-// exact edge set (waiting_for + membership) the map draws. Each 'tree'/
+// exact edge set (waiting_for + membership) the map's graph is built from
+// (membership shapes layout but draws no line). Each 'tree'/
 // 'path' term becomes an 'ids' term (an already-resolved Set) before the
 // per-card cardMatchesQuery pass runs, so termMatchesCard's 'ids' case stays a
 // pure, cheap Set.has() with no graph access of its own.

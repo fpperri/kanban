@@ -214,8 +214,8 @@ function layerNodes(nodeIds, edges) {
 // buildDependencyGraph(cards, null).edges as their ONLY source of truth for
 // adjacency — the exact edge set (waiting_for + membership, with its
 // sequencing-wins-the-pair/nonTerminal suppression already applied) that the
-// map draws. Neither function re-derives
-// waiting_for/parent iteration.
+// map's graph is built from (membership shapes layout but draws no line).
+// Neither function re-derives waiting_for/parent iteration.
 //
 // - treeIds: undirected flood-fill (the connected component) — "everything
 //   this card's dependency web touches, in either direction."

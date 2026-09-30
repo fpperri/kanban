@@ -177,8 +177,9 @@ test('the pills are monospace, small, and border-radius:.15rem (no border) per t
 test('the epic chip paints through --id-epic / --epic-wash, not an inline literal hex; the map draws no epic-colored edges', () => {
   assert.match(src, /\.epicchip\.on\{border-color:var\(--id-epic\);color:var\(--id-epic\);background:var\(--epic-wash\)\}/);
   // The map used to draw membership as its own orange/dashed edge — that
-  // class, and its dedicated arrowhead, are gone: membership edges aren't
-  // drawn at all now (only the node's own orange wash shows epic).
+  // class, and its dedicated arrowhead, are gone: membership edges are not
+  // drawn at all now. The snapshot map paints no epic cue on the node
+  // either; only the Epics chip and the epic: search term reach it.
   assert.ok(!/\.medge\.epicedge/.test(src), 'the membership-edge CSS rule is gone');
   assert.ok(!/map-arrow-epic/.test(src), 'the dedicated epic arrowhead (marker + its CSS) is gone');
   // #f0883e legitimately still appears as the DARK-theme --id-epic/--hash-g
@@ -191,6 +192,7 @@ test('the epic chip paints through --id-epic / --epic-wash, not an inline litera
 
 test('the map draws a membership edge (kind "epic") as nothing — not even a plain edge', () => {
   const fn = extractFunction('buildMapSvg');
+  assert.ok(fn.trim().endsWith('return svg}'), 'extractFunction should stop at buildMapSvg\'s own closing brace, not run past it');
   assert.match(fn, /if\(e\.kind===["']epic["']\)return/, 'the edge loop bails out before drawing a membership edge');
   assert.doesNotMatch(fn, /epicedge|map-arrow-epic/, 'no epic-only class or marker reference remains in the drawing code');
 });

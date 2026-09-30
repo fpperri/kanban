@@ -177,7 +177,7 @@ function readCardFile(file, archived = false) {
     // epic membership — the id of the epic this card belongs to.
     // Tolerant read (non-numeric -> null, no membership), never validated,
     // form-unmanaged (an existing line survives edits via the unmanaged-key
-    // machinery). The map draws it as an epic->child membership edge.
+    // machinery). Feeds the map's layout as a child->epic edge; draws no line.
     parent: (() => { const v = get('parent'); return /^\d+$/.test(v) ? parseInt(v, 10) : null; })(),
     updated: get('updated') || null, // machine-maintained, form-unmanaged
     title,
