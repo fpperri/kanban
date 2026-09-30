@@ -924,19 +924,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the board's own "waiting" amber so a cycle reads as a visible anomaly
    rather than blending into the normal top-down flow. */
 .map-edge.back-edge { stroke: var(--id-waiting); stroke-dasharray: 3 3; }
-/* Membership edge (epic -> child, from the child's `parent` field)
-   — the epic's own orange (EPIC_COLOR) with a dash
-   longer than the back-edge's 3 3, so membership, sequencing (plain grey),
-   and cycle-break (amber 3 3) all read as three distinct relations. The
-   back-edge amber cedes to epic orange when a membership edge is itself the
-   cycle-break (declaration order); the bowed routing still marks the cycle. */
-.map-edge.epic-edge { stroke: var(--id-epic); stroke-dasharray: 7 4; }
-/* v3: the chain itself carries the epic color — solid (it's a real,
-   gate-enforced waiting_for edge), orange to show whose work flows here.
-   Placed after .back-edge so a chain edge on a forced cycle-break keeps its
-   orange over the amber, same declaration-order convention as .epic-edge. */
-.map-edge.epic-chain { stroke: var(--id-epic); }
-.map-arrow-epic-head { fill: var(--id-epic); }
 .map-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 /* The graph and the "No dependencies" list are each a collapsible
    section — one shared header shape (buildMapSectionHeader in app.js) for

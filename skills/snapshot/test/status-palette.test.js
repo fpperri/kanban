@@ -174,16 +174,25 @@ test('the pills are monospace, small, and border-radius:.15rem (no border) per t
   assert.ok(!/\.badge\{[^}]*border:/.test(src), 'pills must not declare a border');
 });
 
-test('epic cues (map edges, epic chip) paint through --id-epic / --epic-wash, not an inline literal hex', () => {
-  assert.match(src, /\.medge\.epicedge\{stroke:var\(--id-epic\)/);
-  assert.match(src, /\.map-arrow-epic-head\{fill:var\(--id-epic\)\}/);
+test('the epic chip paints through --id-epic / --epic-wash, not an inline literal hex; the map draws no epic-colored edges', () => {
   assert.match(src, /\.epicchip\.on\{border-color:var\(--id-epic\);color:var\(--id-epic\);background:var\(--epic-wash\)\}/);
+  // The map used to draw membership as its own orange/dashed edge — that
+  // class, and its dedicated arrowhead, are gone: membership edges aren't
+  // drawn at all now (only the node's own orange wash shows epic).
+  assert.ok(!/\.medge\.epicedge/.test(src), 'the membership-edge CSS rule is gone');
+  assert.ok(!/map-arrow-epic/.test(src), 'the dedicated epic arrowhead (marker + its CSS) is gone');
   // #f0883e legitimately still appears as the DARK-theme --id-epic/--hash-g
   // token VALUE itself (theme-tokens.test.js pins that) — this only checks
-  // the three consuming rules above no longer paint it as an inline literal.
+  // the epic chip rule above no longer paints it as an inline literal.
   assert.ok(!/stroke:#f0883e/.test(src));
   assert.ok(!/fill:#f0883e/.test(src));
   assert.ok(!/border-color:#f0883e/.test(src));
+});
+
+test('the map draws a membership edge (kind "epic") as nothing — not even a plain edge', () => {
+  const fn = extractFunction('buildMapSvg');
+  assert.match(fn, /if\(e\.kind===["']epic["']\)return/, 'the edge loop bails out before drawing a membership edge');
+  assert.doesNotMatch(fn, /epicedge|map-arrow-epic/, 'no epic-only class or marker reference remains in the drawing code');
 });
 
 // --- SVG rx small (2-3) per the shop's vocabulary ---

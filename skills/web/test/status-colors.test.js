@@ -155,15 +155,17 @@ test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic
   // It layers the wash over the panel colour instead, so the value stays sourced
   // from epicColorSoft() rather than a hand-blended hex.
   assert.ok(css.includes(`.modal.detail-modal.epic { background: linear-gradient(${soft}, ${soft}), ${MODAL_BG}; }`), 'detail popup epic wash layers OVER the opaque panel');
-  // the membership edge + its arrowhead are LINES, not circles —
-  // they keep wearing solid EPIC_COLOR.
-  assert.ok(css.includes('.map-edge.epic-edge { stroke: var(--id-epic);'), 'membership edge carries EPIC_COLOR');
-  assert.ok(css.includes('.map-edge.epic-chain { stroke: var(--id-epic); }'), 'v3: the intra-epic chain edge carries EPIC_COLOR solid');
-  assert.ok(css.includes('.map-arrow-epic-head { fill: var(--id-epic); }'), 'its arrowhead too');
   // the shared dot glyph and its SVG twin are BOTH gone now — no circle
   // anywhere draws an epic; circles are status-only.
   assert.ok(!css.includes('.epic-dot'), 'the shared HTML epic-dot glyph is gone');
   assert.ok(!css.includes('.map-epic-dot'), 'the map SVG epic-dot circle is gone');
+  // The map no longer draws membership (or an intra-epic chain) as its own
+  // orange line — epic reads on the map only through the node's own wash
+  // above. Their CSS is gone, not just unreferenced.
+  assert.ok(!css.includes('.map-edge.epic-edge'), 'the membership-edge CSS rule is gone');
+  assert.ok(!css.includes('.map-edge.epic-chain'), 'the intra-epic chain CSS rule is gone');
+  assert.ok(!css.includes('.map-arrow-epic-head'), 'its dedicated arrowhead CSS rule is gone');
+  assert.ok(!css.includes('map-arrow-epic'), 'the dedicated epic arrowhead marker id is gone entirely');
 });
 
 // kanban.proj #255: an epic popup must never be see-through. The wash is a

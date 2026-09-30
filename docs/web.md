@@ -54,8 +54,11 @@ column. The search box up top filters every view at once.
 
 The **Map view** lays out `waiting_for` edges as a graph — arrows point from
 the card you depend on to the card that's waiting. An **epic** is the sink: it
-sits *below* its children and closes only when they do, with its membership
-edges tinted orange. Cards with no dependencies drop into a separate row below.
+sits *below* its children and closes only when they do, but membership itself
+draws no line — an epic reads on the map only through its node's orange wash,
+with membership read from each card's `parent` field and surfaced through the
+`epic:` search term / "Epics" chip. Cards with no dependencies drop into a
+separate row below.
 A status-filter pill row (left-click to toggle, right-click to solo) and the
 search box both prune the graph.
 

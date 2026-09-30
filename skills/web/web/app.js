@@ -1243,6 +1243,13 @@ function buildMapSvg(graph, layer) {
 
   let edgesSvg = '';
   graph.edges.forEach((e) => {
+    // Membership edges (epic -> child) still shape the layout (they're
+    // fed into layerNodes and decide graph participation), but they are
+    // never drawn — a card's epic is shown on the node itself (the orange
+    // wash), not as a line. A dependency between two cards in the same
+    // epic is a real, gate-enforced waiting_for edge and draws exactly
+    // like any other dependency below — no special casing.
+    if (e.kind === 'epic') return;
     const from = pos.get(e.from);
     const to = pos.get(e.to);
     if (!from || !to) return; // defensive: every edge endpoint is always laid out, but never let a mismatch crash the render
@@ -1257,18 +1264,7 @@ function buildMapSvg(graph, layer) {
       const midY = (y1 + y2) / 2;
       d = `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
     }
-    // Membership edges (epic -> child) draw in the epic's own
-    // channel — orange, dashed, its own arrowhead — so sequencing and
-    // membership never read as the same relation. A cycle through a
-    // membership edge still bows (backEdge is layout-derived), keeping the
-    // epic dash over the back-edge amber: the KIND stays visible.
-    const epicEdge = e.kind === 'epic';
-    // v3: an intra-epic dep edge (epicChain) draws SOLID orange — a real,
-    // gate-enforced dependency tinted to show whose work it carries; the
-    // dashed orange stays reserved for the terminal's membership hop. Both
-    // take the orange arrowhead (a grey head on an orange line reads broken).
-    const chainEdge = !!e.epicChain;
-    edgesSvg += `<path class="map-edge${epicEdge ? ' epic-edge' : ''}${chainEdge ? ' epic-chain' : ''}${backEdge ? ' back-edge' : ''}${dimmed ? ' ghost-edge' : ''}" d="${d}" marker-end="url(#${(epicEdge || chainEdge) ? 'map-arrow-epic' : 'map-arrow'})"></path>`;
+    edgesSvg += `<path class="map-edge${backEdge ? ' back-edge' : ''}${dimmed ? ' ghost-edge' : ''}" d="${d}" marker-end="url(#map-arrow)"></path>`;
   });
 
   const width = maxX + MAP_PAD;
@@ -1386,11 +1382,7 @@ function buildMapSvg(graph, layer) {
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.innerHTML =
     `<defs><marker id="map-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">` +
-      `<path d="M0,0 L10,5 L0,10 z"></path></marker>` +
-    // the membership arrowhead — same shape, epic orange (a marker
-    // never inherits the path's stroke, so it needs its own def).
-    `<marker id="map-arrow-epic" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">` +
-      `<path class="map-arrow-epic-head" d="M0,0 L10,5 L0,10 z"></path></marker></defs>` +
+      `<path d="M0,0 L10,5 L0,10 z"></path></marker></defs>` +
     edgesSvg + nodesSvg;
   return svg;
 }
