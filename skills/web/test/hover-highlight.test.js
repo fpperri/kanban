@@ -66,10 +66,7 @@ test('gantt gutter label: shares the bar\'s hover-highlight + tabIndex, same car
 
 test('map node: the SVG group gates hover-highlight AND tabindex on `selectable`, same guard .selected uses — ghost/missing stubs stay inert', () => {
   assert.match(appJs, /\$\{selectable && isHoverHighlighted\(hoveredId, id\) \? ' hover-highlight' : ''\}`;/);
-  // Epic clusters: a plain node's own p.x/p.y became the shared
-  // renderUnit's x/y params — a title bar (epic frame) is now the SAME code
-  // path, just called with its frame's x/y/w/h instead of a plain node's.
-  assert.match(appJs, /<g class="\$\{cls\}" transform="translate\(\$\{x\},\$\{y\}\)"\$\{missing \? '' : ` data-id="\$\{id\}"`\}\$\{selectable \? ' tabindex="0"' : ''\}>/);
+  assert.match(appJs, /<g class="\$\{cls\}" transform="translate\(\$\{p\.x\},\$\{p\.y\}\)"\$\{missing \? '' : ` data-id="\$\{id\}"`\}\$\{selectable \? ' tabindex="0"' : ''\}>/);
 });
 
 test('the gantt due diamond is NOT wired for hover — .selected skips it too, so hover stays at parity rather than inventing new treatment', () => {

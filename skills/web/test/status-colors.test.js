@@ -155,14 +155,11 @@ test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic
   // It layers the wash over the panel colour instead, so the value stays sourced
   // from epicColorSoft() rather than a hand-blended hex.
   assert.ok(css.includes(`.modal.detail-modal.epic { background: linear-gradient(${soft}, ${soft}), ${MODAL_BG}; }`), 'detail popup epic wash layers OVER the opaque panel');
-  // the intra-epic chain edge + its arrowhead are LINES, not circles — they
-  // keep wearing solid EPIC_COLOR. The membership hop this used to sit
-  // beside is gone: containment (the frame) shows membership now.
+  // the membership edge + its arrowhead are LINES, not circles —
+  // they keep wearing solid EPIC_COLOR.
+  assert.ok(css.includes('.map-edge.epic-edge { stroke: var(--id-epic);'), 'membership edge carries EPIC_COLOR');
   assert.ok(css.includes('.map-edge.epic-chain { stroke: var(--id-epic); }'), 'v3: the intra-epic chain edge carries EPIC_COLOR solid');
   assert.ok(css.includes('.map-arrow-epic-head { fill: var(--id-epic); }'), 'its arrowhead too');
-  assert.ok(!css.includes('.map-edge.epic-edge'), 'the dashed membership-edge rule is gone — frames draw containment now, not an arrow');
-  // The frame container itself carries the same epic accent.
-  assert.ok(css.includes('.map-frame { fill: var(--epic-wash); stroke: var(--id-epic);'), 'an epic cluster frame carries EPIC_COLOR too');
   // the shared dot glyph and its SVG twin are BOTH gone now — no circle
   // anywhere draws an epic; circles are status-only.
   assert.ok(!css.includes('.epic-dot'), 'the shared HTML epic-dot glyph is gone');
