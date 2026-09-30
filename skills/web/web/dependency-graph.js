@@ -61,13 +61,14 @@ function isCardWaiting(c, byId) {
 //
 // Epic membership edges: a child card's `parent: <epic-id>`
 // becomes a child->epic edge with `kind: 'epic'` (waiting_for edges carry
-// `kind: 'dep'`). These no longer draw at all — the map shows membership as
-// containment (map-layout.js's frames, epic-clusters) — but the edge still
-// exists here: it decides participants (which pulls the epic into
-// frame-hood at all) and it still feeds tree:/path: adjacency. Membership is
-// not sequencing: it gets the same ghost-stub courtesy, but it never makes
-// anyone `waiting` and — deliberately — does NOT count for the isolated
-// row. "No dependencies" means no SEQUENCING deps, so an epic whose only edges are
+// `kind: 'dep'`). The epic is the SINK, not the root — an epic is done only
+// when its children are done, so under the map's "down = completes later"
+// convention it lays out BELOW its children (a 2026-07-13 design review
+// flipped the original epic-on-top build: epic-as-container read as a false
+// prerequisite). Membership is not sequencing: it feeds the layered layout
+// and gets the same ghost-stub courtesy, but it never makes anyone `waiting`
+// and — deliberately — does NOT count for the isolated row. "No
+// dependencies" means no SEQUENCING deps, so an epic whose only edges are
 // membership appears in the graph AND the detached row. A self-parent is
 // nonsense and adds no edge; a dangling parent id ghosts as missing, same
 // as a dangling dep.
@@ -146,6 +147,11 @@ function buildDependencyGraph(cards, visibleIds) {
     }
   }
 
+  const ghosts = [...ghostIds].filter((id) => !nodeIds.has(id))
+    .sort((a, b) => a - b)
+    .map((id) => (byId.has(id) ? cardToNode(byId.get(id), isCardWaiting(byId.get(id), byId))
+      : { id, title: null, status: null, archived: false, epic: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }));
+
   // The isolated row is keyed off SEQUENCING edges only, while the
   // layered graph lays out every node touched by ANY edge (`participants`) —
   // a node whose only edges are epic membership joins the graph and the row
@@ -157,36 +163,6 @@ function buildDependencyGraph(cards, visibleIds) {
     touchedByAny.add(e.from); touchedByAny.add(e.to);
     if (e.kind === 'dep') { touchedByDep.add(e.from); touchedByDep.add(e.to); }
   }
-
-  // Epic clusters: mapFrames frames an epic from graph.participants alone
-  // (map-layout.js's own header comment already documents `ids` as
-  // "graph.participants — plain cards AND epic ids that became frames
-  // alike"), so every ancestor-epic of a touched id must join participants
-  // too — not just the ones a membership edge happened to reach. nonTerminal
-  // suppression, sequencing-wins-the-pair, and an all-cycle epic (no
-  // terminal member at all, so no membership edge exists) can each leave a
-  // real parent link edgeless; without this walk the epic — and therefore
-  // every one of its members — never gets placed on the map at all (a blank
-  // canvas under a nonzero "Dependency graph (N)" header). Fixed-point walk
-  // up `parent` from every touched id: a real, hidden epic ghosts in (same
-  // rule isVisible() already applies elsewhere), a dangling epic id ghosts
-  // in `missing`; the `touchedByAny.has` check stops the walk the moment an
-  // id repeats, so a parent cycle terminates same as everywhere else here.
-  const parentQueue = [...touchedByAny];
-  while (parentQueue.length) {
-    const id = parentQueue.pop();
-    const parent = parentOf(id);
-    if (parent == null || touchedByAny.has(parent)) continue;
-    touchedByAny.add(parent);
-    if (!isVisible(parent)) ghostIds.add(parent);
-    parentQueue.push(parent);
-  }
-
-  const ghosts = [...ghostIds].filter((id) => !nodeIds.has(id))
-    .sort((a, b) => a - b)
-    .map((id) => (byId.has(id) ? cardToNode(byId.get(id), isCardWaiting(byId.get(id), byId))
-      : { id, title: null, status: null, archived: false, epic: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }));
-
   const isolated = nodes.filter((n) => !touchedByDep.has(n.id)).map((n) => n.id);
   const participants = nodes.filter((n) => touchedByAny.has(n.id)).map((n) => n.id)
     .concat(ghosts.map((g) => g.id));
@@ -234,10 +210,10 @@ function layerNodes(nodeIds, edges) {
 // "Dependency tree" (connected component) and "Dependency path"
 // (directed cone) for the tree:<id> / path:<id> search terms. Both reuse
 // buildDependencyGraph(cards, null).edges as their ONLY source of truth for
-// adjacency — waiting_for + membership, with its sequencing-wins-the-pair/
-// nonTerminal suppression already applied — the same edge set that decides
-// the map's participants/frames, even though membership no longer draws its
-// own arrow. Neither function re-derives waiting_for/parent iteration.
+// adjacency — the exact edge set (waiting_for + membership, with its
+// sequencing-wins-the-pair/nonTerminal suppression already applied) that the
+// map draws. Neither function re-derives
+// waiting_for/parent iteration.
 //
 // - treeIds: undirected flood-fill (the connected component) — "everything
 //   this card's dependency web touches, in either direction."
@@ -303,83 +279,11 @@ function pathIds(cards, rawId) {
   return visited;
 }
 
-// Epic CLUSTERS: which epics draw as a FRAME on the map, and
-// which laid-out cards/ghosts they hold. Membership here is deliberately
-// NOT the same set the old 'epic'-kind edges above cover (terminal members
-// only, for the arrow that no longer gets drawn) — a frame holds EVERY
-// laid-out member, chain-internal or terminal alike, since containment now
-// carries what the dashed arrow used to. "Laid out" means graph.participants
-// (a node or a ghost stub the map already draws) — a member the search/status
-// filter hid so completely it never even ghosted in draws nowhere, so it
-// can't pull its epic into frame-hood either.
-//
-// The epic's OWN ghost/missing status is NOT carried here — buildMapSvg
-// already owns that single derivation (allById, built straight off
-// graph.nodes/graph.ghosts) for every drawn id, frame or plain node alike;
-// a second, independent copy of the same fact here would just be a second
-// place for the two to quietly drift apart.
-//
-// Nesting: parentFrameId is the epic's own `parent`, when that parent is
-// ALSO a frame — but only once cycle-broken (see breakFrameNestingCycles),
-// so a chain of parent pointers can never nest a frame inside itself.
-function mapFrames(cards, graph) {
-  const byId = new Map(cards.map((c) => [c.id, c]));
-
-  // A Set per epic: the same id can reach participants twice (an active and
-  // an archived copy of one card), and a frame holds each card once.
-  const membersByEpic = new Map(); // epicId -> Set of memberIds
-  for (const id of graph.participants) {
-    const card = byId.get(id);
-    if (!card || card.parent == null || card.parent === card.id) continue;
-    if (!membersByEpic.has(card.parent)) membersByEpic.set(card.parent, new Set());
-    membersByEpic.get(card.parent).add(id);
-  }
-
-  const frames = new Map(); // epicId -> frame
-  for (const [epicId, memberSet] of membersByEpic) {
-    const memberIds = [...memberSet].sort((a, b) => a - b);
-    frames.set(epicId, { epicId, memberIds, parentFrameId: null });
-  }
-
-  for (const frame of frames.values()) {
-    const epicCard = byId.get(frame.epicId);
-    const parent = epicCard ? epicCard.parent : null;
-    frame.parentFrameId = (parent != null && parent !== frame.epicId && frames.has(parent)) ? parent : null;
-  }
-  breakFrameNestingCycles(frames);
-
-  return [...frames.values()].sort((a, b) => a.epicId - b.epicId);
-}
-
-// DFS with an on-stack marker, visiting frames lowest-id-first so the break
-// point is deterministic regardless of Map iteration order: the moment a
-// walk up parentFrameId revisits a frame still on the current stack, that
-// LAST link is the one cut (child keeps no parent) rather than the earlier
-// ones — same "stop rather than loop forever" contract as layerNodes' own
-// cycle break, just over the nesting relation instead of the edge graph.
-function breakFrameNestingCycles(frames) {
-  const state = new Map(); // epicId -> 'visiting' | 'done'
-  const ids = [...frames.keys()].sort((a, b) => a - b);
-  const visit = (id) => {
-    state.set(id, 'visiting');
-    const frame = frames.get(id);
-    const parentId = frame.parentFrameId;
-    if (parentId != null) {
-      const parentState = state.get(parentId);
-      if (parentState === 'visiting') frame.parentFrameId = null; // closing the loop — cut here
-      else if (parentState === undefined) visit(parentId);
-    }
-    state.set(id, 'done');
-  };
-  for (const id of ids) if (!state.has(id)) visit(id);
-}
-
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { buildDependencyGraph, layerNodes, treeIds, pathIds, mapFrames };
+  module.exports = { buildDependencyGraph, layerNodes, treeIds, pathIds };
 } else {
   window.buildDependencyGraph = buildDependencyGraph;
   window.layerNodes = layerNodes;
   window.treeIds = treeIds;
   window.pathIds = pathIds;
-  window.mapFrames = mapFrames;
 }
