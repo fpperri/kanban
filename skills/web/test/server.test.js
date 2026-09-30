@@ -1586,7 +1586,7 @@ test('the epic cue is a background-wash class on every surface, not a dot or a b
   });
 });
 
-test('card #293: the map draws no orange — membership edges are not drawn at all, and a same-epic dependency draws as a plain edge', async () => {
+test('the map draws no orange — membership edges are not drawn at all, and a same-epic dependency draws as a plain edge', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
