@@ -98,13 +98,13 @@ function buildDependencyGraph(cards, visibleIds) {
     if (!toVisible) ghostIds.add(to);
     edges.push({ from, to, kind, fromGhost: !fromVisible, toGhost: !toVisible });
   };
-  // The epic's color flows ALONG the
-  // chain instead of fanning from every member. `nonTerminal` collects, per
-  // epic, the members some OTHER member of the same epic waits on — their
-  // work continues inside the epic, so they get no direct hop; only the
-  // chain's terminals (nothing downstream inside the epic, a chainless
-  // member being its own one-card chain) hop into the sink. Computed on the
-  // FULL board, like waiting — a search filter must not reroute membership.
+  // Membership hops into the sink ALONG the chain instead of fanning from
+  // every member. `nonTerminal` collects, per epic, the members some OTHER
+  // member of the same epic waits on — their work continues inside the
+  // epic, so they get no direct hop; only the chain's terminals (nothing
+  // downstream inside the epic, a chainless member being its own one-card
+  // chain) hop into the sink. Computed on the FULL board, like waiting — a
+  // search filter must not reroute membership.
   const parentOf = (id) => {
     const card = byId.get(id);
     return card && card.parent != null && card.parent !== card.id ? card.parent : null;
@@ -120,9 +120,10 @@ function buildDependencyGraph(cards, visibleIds) {
   // sequencing-wins-the-pair check below sees the whole dep set — the epic's
   // own waiting_for lives on a DIFFERENT card than the child's parent field.
   // A dep edge between two members of the SAME epic is flagged `epicChain`
-  // (set only when true, so edge shapes elsewhere stay untouched): the view
-  // draws it solid orange — a real, gate-enforced dependency, tinted to show
-  // whose work it carries. Mixed and cross-epic edges stay plain.
+  // (set only when true, so edge shapes elsewhere stay untouched) — it's
+  // still a real, gate-enforced dependency, just one the map draws exactly
+  // like any other edge (no special treatment). Mixed and cross-epic edges
+  // stay plain too.
   for (const c of cards) {
     for (const depId of c.waiting_for || []) {
       addEdge(depId, c.id, 'dep');
@@ -137,9 +138,10 @@ function buildDependencyGraph(cards, visibleIds) {
     // sink; it closes last). `parent` is a single id; self-parent adds
     // nothing. When the pair already has a dep edge IN EITHER DIRECTION (the
     // card waits on its epic, or the epic waits on the card), sequencing
-    // wins the pair: same-direction overlap would draw orange over grey and
-    // hide a real dependency, and opposite-direction overlap would fabricate
-    // a 2-cycle (a back-edge bow for a relation that isn't circular).
+    // wins the pair: same-direction overlap would add a redundant second
+    // edge over a real dependency, and opposite-direction overlap would
+    // fabricate a 2-cycle (a back-edge bow for a relation that isn't
+    // circular).
     if (c.parent != null && c.parent !== c.id
         && !nonTerminal.has(`${c.parent}:${c.id}`)
         && !seenEdges.has(`${c.parent}->${c.id}:dep`) && !seenEdges.has(`${c.id}->${c.parent}:dep`)) {
@@ -212,8 +214,8 @@ function layerNodes(nodeIds, edges) {
 // buildDependencyGraph(cards, null).edges as their ONLY source of truth for
 // adjacency — the exact edge set (waiting_for + membership, with its
 // sequencing-wins-the-pair/nonTerminal suppression already applied) that the
-// map draws. Neither function re-derives
-// waiting_for/parent iteration.
+// map's graph is built from (membership shapes layout but draws no line).
+// Neither function re-derives waiting_for/parent iteration.
 //
 // - treeIds: undirected flood-fill (the connected component) — "everything
 //   this card's dependency web touches, in either direction."

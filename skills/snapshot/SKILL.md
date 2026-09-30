@@ -83,7 +83,8 @@ discarded, so `epic:` and `epic:foo` parse identically, and it filters every
 view (board/map/gantt/calendar), not just the map. `tree:<id>`/`path:<id>`
 (`#`-tolerant, e.g. `tree:#153`): tree is the card's whole dependency
 component (undirected flood-fill over `waiting_for` + `parent:` epic
-membership — the same edges the Map view draws); path is the narrower
+membership — the same edges the Map view's graph is built from, though
+membership itself draws no line there); path is the narrower
 directed cone through the card (everything transitively upstream +
 downstream). An unknown id matches nothing; an isolated card is a component
 of one; traversal always runs over the full live + archived card set

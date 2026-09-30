@@ -1586,6 +1586,32 @@ test('the epic cue is a background-wash class on every surface, not a dot or a b
   });
 });
 
+test('the map draws no orange — membership edges are not drawn at all, and a same-epic dependency draws as a plain edge', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const js = await (await fetch(`${base}/app.js`)).text();
+    const svg = js.match(/function buildMapSvg\([\s\S]*?\nfunction /)[0];
+    // The edge loop bails out before drawing anything for a membership edge —
+    // it still shapes layout (layerNodes/participants, upstream of this
+    // function), but never reaches the <path> it used to draw dashed orange.
+    assert.match(svg, /if \(e\.kind === 'epic'\) return;/,
+      'a membership edge is skipped before any path/marker is built for it');
+    // No trace of the old orange-only vocabulary is left in the drawing code:
+    // no epic-flavored class, no conditional marker choice, no second marker def.
+    assert.doesNotMatch(svg, /epic-edge|epic-chain|epicEdge|chainEdge|epicChain|map-arrow-epic/,
+      'no epic-edge/epic-chain class, epicChain branching, or epic arrowhead reference remains');
+    // Every drawn edge now takes the single plain path/marker shape —
+    // back-edge and ghost-edge are the only remaining class modifiers, and
+    // every edge (including a same-epic epicChain dependency) uses the one
+    // plain arrowhead.
+    assert.match(svg, /class="map-edge\$\{backEdge \? ' back-edge' : ''\}\$\{dimmed \? ' ghost-edge' : ''\}"/,
+      'the path carries only map-edge plus the back-edge/ghost-edge modifiers — no epic-flavored class');
+    assert.match(svg, /marker-end="url\(#map-arrow\)"/, 'every drawn edge uses the one plain arrowhead marker');
+    // The dedicated epic arrowhead <marker> definition is gone from defs too.
+    assert.doesNotMatch(svg, /<marker id="map-arrow-epic"/, 'the epic-only marker definition is removed');
+  });
+});
+
 test('an archived epic keeps its wash in the map\'s isolated row; the board\'s Archive column still withholds it', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {

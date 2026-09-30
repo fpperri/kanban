@@ -486,12 +486,6 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .mnode.ghost .mtitle,.mnode.ghost .mid{fill:var(--mut)}
 .medge{fill:none;stroke:var(--mut);stroke-width:1.5;opacity:.6}
 .medge.ghostedge{stroke:var(--mut);stroke-dasharray:3 3;opacity:.5}
-/* Epic membership edges draw in their own
-   orange/dashed channel with their own arrowhead, mirroring kanban-web's
-   app.css .map-edge.epic-edge — so containment never reads as a real
-   sequencing dependency. */
-.medge.epicedge{stroke:var(--id-epic);stroke-dasharray:7 4;opacity:.85}
-.map-arrow-epic-head{fill:var(--id-epic)}
 .map-iso-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
 .mapiso{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:9px 12px;font-size:12.5px;opacity:.7;cursor:pointer;min-width:118px;max-width:220px}
 .mapiso .cid{display:block;font-size:11px;color:var(--mut);margin-bottom:2px}
@@ -551,8 +545,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
    row's flex gap spaces it identically). Inherits .pillrow button's base
    look; the ON state is its own rule (not .off, which means the OPPOSITE
    here: a status pill defaults ON and dims when off, this chip defaults OFF
-   and lights up --id-epic — same hue as .medge.epicedge above,
-   kanban-web's EPIC_COLOR) when tapped on. */
+   and lights up --id-epic, kanban-web's EPIC_COLOR) when tapped on. */
 .epicchip.on{border-color:var(--id-epic);color:var(--id-epic);background:var(--epic-wash)}
 .card.archcard{opacity:.55}
 .pill{cursor:pointer}
@@ -1544,6 +1537,11 @@ pos.forEach(p=>{maxX=Math.max(maxX,p.x+MW)});
 const BOW=MW*0.9;
 const edgesG=svgEl("g");
 graph.edges.forEach(e=>{
+// Membership edges (kind "epic") still shape the layout above (fed into
+// layerNodes), but are never drawn. The snapshot map paints no epic cue
+// on the node either; only the Epics chip and the epic: search term
+// reach membership here.
+if(e.kind==="epic")return;
 const from=pos.get(e.from),to=pos.get(e.to);
 if(!from||!to)return;
 const back=(layer.get(e.to)||0)<=(layer.get(e.from)||0);
@@ -1552,8 +1550,7 @@ let d;
 if(back){maxX=Math.max(maxX,x1+BOW,x2+BOW);d="M"+x1+","+y1+" C"+(x1+BOW)+","+y1+" "+(x2+BOW)+","+y2+" "+x2+","+y2}
 else{const midY=(y1+y2)/2;d="M"+x1+","+y1+" C"+x1+","+midY+" "+x2+","+midY+" "+x2+","+y2}
 const dimmed=(byId.get(e.from)&&byId.get(e.from).ghost)||(byId.get(e.to)&&byId.get(e.to).ghost);
-const epicEdge=e.kind==="epic";
-edgesG.appendChild(svgEl("path",{d:d,class:"medge"+(epicEdge?" epicedge":"")+(dimmed?" ghostedge":""),"marker-end":"url(#"+(epicEdge?"map-arrow-epic":"map-arrow")+")"}))});
+edgesG.appendChild(svgEl("path",{d:d,class:"medge"+(dimmed?" ghostedge":""),"marker-end":"url(#map-arrow)"}))});
 const nodesG=svgEl("g");
 pos.forEach((p,id)=>{const n=byId.get(id);if(n)nodesG.appendChild(mapNodeGroup(n,p))});
 const width=maxX+MPAD;
@@ -1563,9 +1560,6 @@ const defs=svgEl("defs");
 const marker=svgEl("marker",{id:"map-arrow",viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"7",markerHeight:"7",orient:"auto-start-reverse"});
 marker.appendChild(svgEl("path",{d:"M0,0 L10,5 L0,10 z"}));
 defs.appendChild(marker);
-const epicMarker=svgEl("marker",{id:"map-arrow-epic",viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"7",markerHeight:"7",orient:"auto-start-reverse"});
-epicMarker.appendChild(svgEl("path",{d:"M0,0 L10,5 L0,10 z",class:"map-arrow-epic-head"}));
-defs.appendChild(epicMarker);
 svg.appendChild(defs);
 svg.appendChild(edgesG);svg.appendChild(nodesG);
 return svg}
