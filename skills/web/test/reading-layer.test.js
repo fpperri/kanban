@@ -36,9 +36,8 @@ test('table headers sit on the raised ground over the strong rule; the first col
   assert.match(rule('.detail-body .md-table td:first-child'), /color:\s*var\(--ink-strong\)/);
 });
 
-test('prose stops at 76 characters while tables keep the full width', () => {
-  assert.match(rule('.detail-body > p, .detail-body > ul, .detail-body > ol, .detail-body > h1, .detail-body > h2, .detail-body > h3'), /max-width:\s*76ch/);
-  assert.doesNotMatch(rule('.detail-body .md-table'), /max-width/);
+test('no body block caps its width, so fullscreen prose runs the full modal width', () => {
+  assert.doesNotMatch(css, /\.detail-body[^{]*\{[^}]*max-width:\s*\d/);
 });
 
 test('only a leading heading drops its section rule; a leading rule or code block keeps its own', () => {

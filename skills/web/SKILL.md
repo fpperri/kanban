@@ -483,8 +483,8 @@ to `127.0.0.1` only.
   `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
   `--line-strong` for table-header and evidence rules. Headings and bold take
   `--ink-strong`, so a body has separate lightness steps for headings, prose, code and
-  muted text. Prose blocks stop at 76 characters per line, even in full screen; tables
-  and code blocks keep the full width, and a table's first column carries the heading
+  muted text. Prose, tables and code blocks all run the full width of the modal,
+  full screen included, and a table's first column carries the heading
   ink so a reader can scan down it. A list nested under a task item (the step's proof and evidence lines) reads one step
   quieter behind a thin rail; that is structure only, and no text is recognised.
 - **Last modified** — the detail popup shows a "Last modified" line: the card's
