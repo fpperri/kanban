@@ -699,10 +699,9 @@ to `127.0.0.1` only.
   driven open or close never pushes a step of its own.
 - **Tab icon** — the plugin's official icon (canonical file `assets/icon.svg`, also shown in
   the README and inlined in the snapshot page), served here as `favicon.svg` at
-  `/favicon.svg` and linked from `app.html`: three columns of cards, fuller on the left, on
-  a clay tile. `favicon.test.js` keeps this copy identical to `assets/icon.svg`. The tile is `--accent` in each
-  browser theme through a `prefers-color-scheme` rule inside the SVG (`favicon.test.js`
-  keeps the two equal to `app.css`). It is a served file rather than an inline `data:`
+  `/favicon.svg` and linked from `app.html`: a pink brain with four streams falling out of
+  it, fading into the backlog, todo, doing and done colors. `favicon.test.js` keeps this
+  copy identical to `assets/icon.svg` and the stream colors equal to `status-colors.js`. It is a served file rather than an inline `data:`
   icon because the page's CSP loads images only from the board server.
 - **Copy board path** — a small ⧉ button inside the header title copies the board
   directory's **absolute path** (the `GET /api/board` payload carries it as `boardDir`,
