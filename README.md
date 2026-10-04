@@ -1,4 +1,4 @@
-<img src="assets/icon.svg" alt="kanban icon: three columns of cards on a clay tile" width="72" height="72">
+<img src="assets/icon.svg" alt="kanban icon: a pink brain with four streams falling out of it in the status colors" width="72" height="72">
 
 # kanban
 

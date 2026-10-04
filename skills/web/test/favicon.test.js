@@ -8,18 +8,7 @@ const { createServer } = require('../scripts/server');
 
 const WEB = path.join(__dirname, '..', 'web');
 const svg = fs.readFileSync(path.join(WEB, 'favicon.svg'), 'utf8');
-const css = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8');
 const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8');
-
-// The token blocks in app.css: bare :root (light), then the dark media block.
-function accent(block) {
-  const m = block.match(/--accent:\s*(#[0-9a-fA-F]{6})\s*;/);
-  assert.ok(m, 'an --accent token in the block');
-  return m[1].toLowerCase();
-}
-const lightBlock = css.slice(css.indexOf(':root {'), css.indexOf('}', css.indexOf(':root {')));
-const darkStart = css.indexOf(':root:not([data-theme="light"])');
-const darkBlock = css.slice(darkStart, css.indexOf('}', darkStart));
 
 test('the tab icon is the plugin\'s official icon, assets/icon.svg, byte for byte (line endings aside)', () => {
   const canonical = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'assets', 'icon.svg'), 'utf8');
@@ -37,19 +26,25 @@ test('the page links the tab icon as an SVG served from the board server', () =>
   assert.match(html, /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg">/);
 });
 
-test('the icon tile is the theme accent in each browser theme, so the two cannot drift apart', () => {
-  const tiles = [...svg.matchAll(/\.tile\s*\{\s*fill:\s*(#[0-9a-fA-F]{6})\s*;/g)].map((m) => m[1].toLowerCase());
-  assert.strictEqual(tiles.length, 2, 'one tile colour outside the dark media rule, one inside');
-  assert.strictEqual(tiles[0], accent(lightBlock), 'light tile = light --accent');
-  assert.strictEqual(tiles[1], accent(darkBlock), 'dark tile = dark --accent');
-  assert.ok(svg.indexOf('@media (prefers-color-scheme: dark)') < svg.lastIndexOf('.tile'), 'the second tile colour sits inside the dark rule');
+test('the four streams fade into the board\'s status colors, backlog to done, left to right', () => {
+  const { BUILTIN_STATUS_COLORS } = require('../web/status-colors.js');
+  const streams = [...svg.matchAll(/<rect class="stream" x="([\d.]+)"[^>]*fill="url\(#(\w+)\)"/g)];
+  assert.deepStrictEqual(streams.map((m) => m[2]), ['backlog', 'todo', 'doing', 'done']);
+  const xs = streams.map((m) => Number(m[1]));
+  assert.deepStrictEqual([...xs].sort((p, q) => p - q), xs);
+  for (const status of Object.keys(BUILTIN_STATUS_COLORS)) {
+    const grad = new RegExp(`<linearGradient id="${status}"[^>]*>.*?<stop offset="[\\d.]+" stop-color="(#[0-9a-fA-F]{6})"/></linearGradient>`).exec(svg);
+    assert.ok(grad, `a gradient for ${status}`);
+    assert.strictEqual(grad[1].toLowerCase(), BUILTIN_STATUS_COLORS[status].toLowerCase(), status);
+  }
 });
 
-test('the icon draws three columns of cards, fuller on the left: three, two, one', () => {
-  const xs = [...svg.matchAll(/<rect class="card" x="([\d.]+)"/g)].map((m) => m[1]);
-  const perColumn = new Map();
-  for (const x of xs) perColumn.set(x, (perColumn.get(x) || 0) + 1);
-  assert.deepStrictEqual([...perColumn.values()], [3, 2, 1]);
+test('the streams fall out of the brain: each starts under it and ends below its lowest lobe', () => {
+  const lobes = [...svg.matchAll(/<circle cx="[\d.]+" cy="([\d.]+)" r="([\d.]+)"/g)].map((m) => Number(m[1]) + Number(m[2]));
+  const bottom = Math.max(...lobes);
+  for (const [, y, h] of svg.matchAll(/<rect class="stream" x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="([\d.]+)"/g)) {
+    assert.ok(Number(y) < bottom && Number(y) + Number(h) > bottom + 2);
+  }
 });
 
 test('GET /favicon.svg serves the icon as image/svg+xml', async () => {

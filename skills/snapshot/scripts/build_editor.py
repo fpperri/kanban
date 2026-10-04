@@ -2186,26 +2186,42 @@ renderCalendar();
 # own shows it without fetching anything. A copy of assets/icon.svg, kept
 # identical by test/icon.test.js.
 ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- The kanban plugin's icon: three columns of cards, fuller on the left, on a
-       clay tile. The tile is the accent token of app.css in each theme; an SVG
-       icon cannot read the page's tokens. The canonical file is assets/icon.svg;
-       the web tab icon and the snapshot's inline copy are identical to it, and
-       tests keep them so. -->
-  <style>
-    .tile { fill: #a94b29; }
-    .card { fill: #fffaf5; }
-    @media (prefers-color-scheme: dark) {
-      .tile { fill: #d97757; }
-      .card { fill: #151515; }
-    }
-  </style>
-  <rect class="tile" x="1" y="1" width="30" height="30" rx="7"/>
-  <rect class="card" x="6.5" y="7" width="4.5" height="4.5" rx="1"/>
-  <rect class="card" x="6.5" y="13.25" width="4.5" height="4.5" rx="1"/>
-  <rect class="card" x="6.5" y="19.5" width="4.5" height="4.5" rx="1"/>
-  <rect class="card" x="13.75" y="7" width="4.5" height="4.5" rx="1"/>
-  <rect class="card" x="13.75" y="13.25" width="4.5" height="4.5" rx="1"/>
-  <rect class="card" x="21" y="7" width="4.5" height="4.5" rx="1"/>
+  <!-- The kanban plugin's icon: a pink brain with four streams falling out of
+       it, fading from the brain's pink into the backlog, todo, doing and done
+       colors of status-colors.js. The canonical file is assets/icon.svg; the web
+       tab icon and the snapshot's inline copy are identical to it, and tests
+       keep them so. -->
+  <defs>
+    <radialGradient id="pink" gradientUnits="userSpaceOnUse" cx="13" cy="5" r="14"><stop offset="0" stop-color="#ffd0de"/><stop offset=".6" stop-color="#f2a7bd"/><stop offset="1" stop-color="#d9809d"/></radialGradient>
+    <linearGradient id="backlog" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e88aa8"/><stop offset=".85" stop-color="#39c5cf"/></linearGradient>
+    <linearGradient id="todo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e88aa8"/><stop offset=".85" stop-color="#58a6ff"/></linearGradient>
+    <linearGradient id="doing" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e88aa8"/><stop offset=".85" stop-color="#3fb950"/></linearGradient>
+    <linearGradient id="done" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e88aa8"/><stop offset=".85" stop-color="#a371f7"/></linearGradient>
+  </defs>
+  <rect class="stream" x="8.7" y="9" width="2.6" height="22" rx="1.3" fill="url(#backlog)"/>
+  <rect class="stream" x="12.7" y="9" width="2.6" height="18" rx="1.3" fill="url(#todo)"/>
+  <rect class="stream" x="16.7" y="9" width="2.6" height="20" rx="1.3" fill="url(#doing)"/>
+  <rect class="stream" x="20.7" y="9" width="2.6" height="15" rx="1.3" fill="url(#done)"/>
+  <g class="brain" fill="url(#pink)">
+    <circle cx="10.24" cy="8.58" r="3.96"/>
+    <circle cx="14.2" cy="5.7" r="4.32"/>
+    <circle cx="18.52" cy="5.34" r="4.32"/>
+    <circle cx="22.48" cy="7.86" r="3.6"/>
+    <circle cx="8.44" cy="11.82" r="2.88"/>
+    <circle cx="23.56" cy="11.1" r="2.88"/>
+    <circle cx="12.4" cy="12.54" r="3.96"/>
+    <circle cx="17.8" cy="12.54" r="4.32"/>
+    <circle cx="16" cy="9.3" r="5.4"/>
+    <circle cx="21.4" cy="14.34" r="2.59"/>
+  </g>
+  <g fill="none" stroke="#c96d8a" stroke-width=".9" stroke-linecap="round">
+    <path d="M9.5 8.5c1.2-1.4 2.6.6 3.8-.6"/>
+    <path d="M14.6 3.4c-.6 1.6 1.2 2.4.4 4.2"/>
+    <path d="M18.4 5.6c1.4-.2 2.4 1.2 3.8.6"/>
+    <path d="M8 12.6c1-1.2 2.6-.6 3.4-1.8"/>
+    <path d="M20.6 10.2c1 .8 2.2.4 2.8-.6"/>
+  </g>
+  <ellipse cx="12" cy="4.6" rx="2.6" ry="1.1" transform="rotate(-22 12 4.6)" fill="#fff" opacity=".45"/>
 </svg>
 """
 
