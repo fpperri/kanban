@@ -105,5 +105,5 @@ grammar works in every view.
 ## Other surfaces
 
 The **[mobile snapshot](snapshot.md)** is the tap-through board for a phone or
-tablet. See [`CONTEXT.md`](../CONTEXT.md) for the full parity table across
+tablet. See [`GLOSSARY.md`](../GLOSSARY.md) for the full parity table across
 every surface.

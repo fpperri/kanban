@@ -27,7 +27,7 @@ Options considered:
 
 ## Decision
 
-One page per board: the **Board artifact** (CONTEXT.md). Its URL is recorded
+One page per board: the **Board artifact** (GLOSSARY.md). Its URL is recorded
 in the board's `config.yaml` as `artifact:`. The session that first publishes
 seeds the line and files a notification, mirroring the board-name seed; the
 `kanban` skill's config contract names it as the second exception to "never

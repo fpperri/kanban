@@ -6,7 +6,7 @@
 // scripts/card-store.js and node --test, loaded as a plain <script> in the
 // browser (app.js / dependency-graph.js read these as bare globals).
 //
-// Vocabulary (CONTEXT.md glossary):
+// Vocabulary (GLOSSARY.md glossary):
 // - WAITING is derived, never stored: a card is waiting while any id in its
 //   `waiting_for` list names a card that is not `done`. A dangling id (no
 //   matching card) is non-blocking. A dependency is sequencing, not an
