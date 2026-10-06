@@ -775,7 +775,8 @@ to `127.0.0.1` only.
   layered SVG graph: nodes are cards (id + title), edges are `waiting_for` (arrow from
   the depended-on card to the card waiting on it). Nodes come from both live and
   archived cards — blocking is location-independent.
-  **Parent membership:** a child card's `parent: <id>` feeds the layered layout — the
+  **Parent membership:** a child card's `parent: <id>` (this board's own name in `board#id` form is read as a plain id,
+  here and in `tree:`/`path:`) feeds the layered layout — the
   parent lays out BELOW its children, since down is later on the map and a parent is the
   end of the work under it (its own status stays the human's call: done with open leaves
   warns, never gates) — and decides which cards
@@ -787,7 +788,8 @@ to `127.0.0.1` only.
   same parent is still a real, gate-enforced dependency that draws on the map exactly like
   any other edge (grey, the one plain arrowhead). Membership gets the same ghost-stub
   courtesy as `waiting_for` (hidden endpoint → dimmed stub; dangling id → "not found"
-  stub; self-parent ignored), but it is NOT a dependency: it never makes a card waiting,
+  stub; self-parent ignored; a parent on another board adds nothing to the map), but it is
+  NOT a dependency: it never makes a card waiting,
   the `doing` gate ignores it, and the isolated row below stays keyed off `waiting_for`
   edges only — so a parent whose only edges are membership appears in the graph AND the
   no-dependencies row, both. A dep edge between a terminal child and its parent in either

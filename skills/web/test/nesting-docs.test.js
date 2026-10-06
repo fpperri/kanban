@@ -86,3 +86,21 @@ test('the human web doc says the Archive column keeps id order on a board that n
   const guide = read('..', 'docs', 'web.md').replace(/\s+/g, ' ');
   assert.match(guide, /it is the default sort on a board where any card has a `rank` or a `parent`, except in the Archive column, which keeps id order/);
 });
+
+test('the kanban skill\'s parent bullet is the card-file contract only: short, with no web form or map behaviour and no release wording', () => {
+  const parent = fieldBullet('parent');
+  assert.ok(parent.length < 1000, `${parent.length} characters`);
+  assert.doesNotMatch(parent, /this release|Parent field|web map|kanban-web|edit form|\bmap\b/i);
+  assert.match(parent, /this board's own name in that form counts as this board/);
+});
+
+test('the web skill carries what the parent bullet gave up: the form and the map\'s reading of a parent', () => {
+  const flat = webSkill.replace(/\s+/g, ' ');
+  assert.match(flat, /this board's own name in `board#id` form is read as a plain id/);
+  assert.match(flat, /a parent on another board adds nothing to the map/);
+});
+
+test('the kanban skill says a type that would not read back bare is written in double quotes', () => {
+  const type = fieldBullet('type');
+  assert.match(type, /written in double quotes/);
+});
