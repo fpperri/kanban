@@ -88,6 +88,7 @@ function loadFrontmatter(projectName, assignees) {
     ...require('../web/waiting-blocked'),
     statusColorClass: require('../web/status-colors').statusColorClass,
     assigneeBadge: require('../web/assignee-badge').assigneeBadge,
+    parseParent: require('../web/nesting').parseParent,
     state: { projectName, assignees },
   };
   vm.createContext(sandbox);
@@ -107,6 +108,26 @@ test('frontmatter values the board understands wear its own marks', () => {
   assert.strictEqual(fm('tags', '[v4, shop]'), '<span class="tag">v4</span><span class="tag">shop</span>');
   assert.strictEqual(fm('start_date', '2026-09-24'), '2026-09-24');
   assert.strictEqual(fm('updated', '2026-09-24T18:38:04'), '2026-09-24 | 18:38:04');
+});
+
+test('a parent on this board is a mention that opens it, whichever way it is written', () => {
+  const fm = loadFrontmatter('cortex4.proj', []);
+  const chip = '<code class="mention same" data-card-id="7" tabindex="0" role="link">cortex4.proj#7</code>';
+  assert.strictEqual(fm('parent', ' 7'), chip);
+  assert.strictEqual(fm('parent', ' "7"'), chip);
+  assert.strictEqual(fm('parent', ' cortex4.proj#7'), chip, 'the own board name in board#id is this board');
+});
+
+test('a parent on another board is shown as that board\'s card, not followed', () => {
+  const fm = loadFrontmatter('cortex4.proj', []);
+  assert.strictEqual(fm('parent', ' fpp#4'), '<code class="mention">fpp#4</code>');
+  assert.strictEqual(fm('parent', ' "fpp#4"'), '<code class="mention">fpp#4</code>');
+  assert.ok(!fm('parent', ' <b>x</b>#4').includes('<b>'), 'the other board\'s name is escaped too');
+});
+
+test('a parent that reads as nothing prints as written', () => {
+  const fm = loadFrontmatter('cortex4.proj', []);
+  assert.strictEqual(fm('parent', 'soon'), 'soon');
 });
 
 test('frontmatter values stay escaped on every path', () => {

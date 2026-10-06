@@ -364,6 +364,17 @@ test('a self-parent adds no edge (nonsense membership); parent null/absent adds 
   assert.deepStrictEqual(g.isolated, [1, 2]);
 });
 
+test('a parent on another board (board#id) adds no edge and no ghost: the map does not follow it', () => {
+  const g = buildDependencyGraph([
+    { id: 1, title: 'plain', status: 'todo', waiting_for: [] },
+    { id: 2, title: 'cross', status: 'todo', parent: 'fpp#4', waiting_for: [] },
+    { id: 3, title: 'cross waiting', status: 'todo', parent: 'fpp#4', waiting_for: [1] },
+  ], null);
+  assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['1->3:dep']);
+  assert.deepStrictEqual(g.ghosts, []);
+  assert.ok(g.nodes.every((n) => Number.isInteger(n.id)), 'no node with a non-numeric id');
+});
+
 test('sequencing wins the UNORDERED pair: a dep edge between child and epic in either direction suppresses the membership edge', () => {
   // child waits on its epic — opposite-direction overlap would fabricate a 2-cycle
   const a = buildDependencyGraph([

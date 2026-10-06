@@ -227,7 +227,7 @@ to `127.0.0.1` only.
   header's real rendered height by a `ResizeObserver` (a hardcoded px offset would drift
   the moment the header wraps). Board only — none of this reaches past `#board`.
 - **Per-column sorting** — each (expanded) column header has a sort-field dropdown (ID /
-  Priority / Due date / Last modified / Assignee) and a direction toggle. "Due date"
+  Priority / Due date / Last modified / Assignee / Outline) and a direction toggle. "Due date"
   sorts by the card's schedule — `due_date`, else `end_date`, else `start_date` —
   honoring time within a day (a date-only value reads as start-of-day); dateless cards
   always sort last, in either direction. Under a Due date sort the key driving a card's
@@ -238,11 +238,19 @@ to `127.0.0.1` only.
   in the card popup), so the what-you-see-is-what-sorted promise holds for Due date only.
   "Assignee" groups cards by owner, ranked by the config.yaml assignees registry's ORDER
   (not alphabetically); unregistered handles follow all registered ones alphabetically,
-  and unassigned cards always sort last, in either direction. Priority defaults
+  and unassigned cards always sort last, in either direction. "Outline" puts a parent
+  before its children and siblings in `rank` order (unranked siblings after the ranked
+  ones, by priority then id), computed over the whole board so a child whose parent sits
+  in another column still follows the order; a card with no parent on this board is a
+  root. Priority defaults
   High-first; ties on any field break by id, ascending, so order doesn't reshuffle when
   you flip direction. Each column remembers its own choice independently, defaulting to
-  priority-desc for live columns and id-asc for Archive — persisted in `localStorage`
-  alongside collapse state, surviving reload and the poll, composing with search
+  priority-desc for live columns and id-asc for Archive, except that on a board where
+  any card has a `rank` or a `parent` the live columns default to Outline. Only a column
+  you changed is remembered (in `localStorage`, alongside collapse state, surviving
+  reload and the poll), so a default never freezes into the columns you left alone, and
+  a board that gains its first rank or parent switches those columns to Outline without
+  a reload. Composes with search
   filtering. Hidden while a column is collapsed (nothing to sort there).
 - **Search** — the header search box filters every view as you type; the query survives
   view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
@@ -261,7 +269,7 @@ to `127.0.0.1` only.
   dropdown completes the last segment being typed — the bare term plus every
   field-scoped form of it; nothing is offered once the segment carries a colon, and
   `tree:`/`path:` are excluded (they take a card id, not free text).
-- **Create** — "+ New card" opens a modal (title, status, priority, epic checkbox, tags,
+- **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, epic checkbox, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
   date, due date, description). Dependencies and impediments are separate inputs:
   `f-waiting` ("Waiting for (ids, comma-sep)") takes the `waiting_for` dependency edges;
@@ -295,8 +303,10 @@ to `127.0.0.1` only.
   `<0000-id>.<slug>.card.md` (id zero-padded to 4 digits, e.g. `0009.new-thing.card.md`).
 - **Edit** — click a card's "Edit" to change its fields, title, and description. The body
   (incl. `## Narrative`) and any frontmatter keys the form doesn't manage are preserved
-  verbatim; the form-managed fields (status, priority, epic, tags, waiting_for, blocked,
-  review, prompt, assignee, start/end/due date) are re-written from the form. Clearing
+  verbatim; the form-managed fields (status, priority, parent, rank, epic, tags, waiting_for, blocked,
+  review, prompt, assignee, start/end/due date) are re-written from the form. `parent`
+  takes `42` or `board#42` and `rank` a number; one that reads the same as the card's own
+  is left exactly as written, so a hand-written `parent: "fpp#4"` survives every save. Clearing
   any managed field (a blank priority/assignee/date/prompt, empty tags or waiting_for, a
   blocked or review value failing the sticker predicate, an unchecked Epic) removes its
   frontmatter line entirely — no-data fields (empty string, null, empty array) are never
@@ -1147,8 +1157,8 @@ handle a card carries.
   store. A hashed color follows the theme like a status does; a reserved color paints
   exactly as written in both themes, so pick one that reads on light and dark grounds. See the **Assignee text color** bullet above for where it renders.
 - **`statuses`** (inline or block form) IS the live column set, in order — board
-  columns, drag targets, per-column sort/collapse defaults (priority-desc / expanded for
-  live columns, id-asc / collapsed for Archive), the form's status dropdown, and the
+  columns, drag targets, per-column sort/collapse defaults (priority-desc, or Outline on a
+  board that nests, / expanded for live columns, id-asc / collapsed for Archive), the form's status dropdown, and the
   gantt's group order all follow it. Absent = the built-in four. Unlike the other lists
   it shapes layout, but it still never validates a card: an unlisted on-disk status
   parks the card in the **first** column with a raw-status chip until the human promotes
