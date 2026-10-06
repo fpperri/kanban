@@ -24,6 +24,18 @@ const CARDS = {
     '---\r\nid: 6\r\nstatus: todo\r\nepic: true\r\nupdated: 2026-03-03T11:00:00\r\n---\r\n\r\n# Windows epic\r\n',
   '0007.no-epic.card.md':
     '---\nid: 7\nstatus: todo\n---\n\n# No flag\n',
+  '0008.plain-no-final-newline.card.md':
+    '---\nid: 8\nstatus: todo\n---\n\n# Plain, no final newline',
+  '0009.epic-no-final-newline.card.md':
+    '---\nid: 9\nstatus: todo\nepic: true\nupdated: 2026-04-04T12:00:00\n---\n\n# Epic, no final newline',
+  '0010.crlf-no-final-newline.card.md':
+    '---\r\nid: 10\r\nstatus: todo\r\nepic: true\r\n---\r\n\r\n# Windows epic, no final newline',
+  '0011.blank-type.card.md':
+    '---\nid: 11\nstatus: todo\ntype:\nepic: true\n---\n\n# Blank type\n',
+  '0012.empty-quoted-type.card.md':
+    '---\nid: 12\nstatus: todo\nepic: true\ntype: ""\n---\n\n# Empty quoted type\n',
+  '0013.backticks.card.md':
+    '---\nid: 13\nstatus: todo\nepic: true\n---\n\n# Fix `parse()` and `emit()`\n',
 };
 
 function tmpBoard({ name = 'fixture', notifications = '- id: 3\n  at: 2026-09-01T08:00:00\n  from: "skill:kanban"\n  level: info\n  message: "earlier; more: note"\n  read: false\n' } = {}) {
@@ -83,6 +95,33 @@ test('a card that already has a type keeps it and only loses epic: true', () => 
     '---\nid: 5\nstatus: todo\ntype: objective\nupdated: <stamp>\n---\n\n# Typed epic\n');
 });
 
+test('a card with no final newline and no epic flag is byte-identical, unlisted and uncounted', () => {
+  const dir = tmpBoard();
+  const out = run(dir, '--apply');
+  assert.strictEqual(readCard(dir, '0008.plain-no-final-newline.card.md'), CARDS['0008.plain-no-final-newline.card.md']);
+  assert.ok(!out.includes('0008.plain-no-final-newline'), 'not reported as migrated');
+  const notes = fs.readFileSync(path.join(dir, 'notifications.md'), 'utf8');
+  assert.ok(!notes.includes('fixture#8'), 'not named in the notification');
+});
+
+test('an epic with no final newline gains none, and nothing else changes but the epic line and updated', () => {
+  const dir = tmpBoard();
+  run(dir, '--apply');
+  assert.strictEqual(normalised(readCard(dir, '0009.epic-no-final-newline.card.md')),
+    '---\nid: 9\nstatus: todo\ntype: epic\nupdated: <stamp>\n---\n\n# Epic, no final newline');
+  assert.strictEqual(normalised(readCard(dir, '0010.crlf-no-final-newline.card.md')),
+    '---\r\nid: 10\r\nstatus: todo\r\ntype: epic\r\nupdated: <stamp>\r\n---\r\n\r\n# Windows epic, no final newline');
+});
+
+test('a blank or empty-quoted type reads as no type, so the epic ends with exactly one type line', () => {
+  const dir = tmpBoard();
+  run(dir, '--apply');
+  assert.strictEqual(normalised(readCard(dir, '0011.blank-type.card.md')),
+    '---\nid: 11\nstatus: todo\ntype: epic\nupdated: <stamp>\n---\n\n# Blank type\n');
+  assert.strictEqual(normalised(readCard(dir, '0012.empty-quoted-type.card.md')),
+    '---\nid: 12\nstatus: todo\ntype: epic\nupdated: <stamp>\n---\n\n# Empty quoted type\n');
+});
+
 test('a CRLF card keeps its line endings', () => {
   const dir = tmpBoard();
   run(dir, '--apply');
@@ -124,8 +163,13 @@ test('exactly one notification is filed, with the next id and one mention per mi
     '`fixture#3 Packaged epic`',
     '`fixture#5 Typed epic`',
     '`fixture#6 Windows epic`',
+    '`fixture#9 Epic, no final newline`',
+    '`fixture#10 Windows epic, no final newline`',
+    '`fixture#11 Blank type`',
+    '`fixture#12 Empty quoted type`',
+    '`fixture#13 Fix parse() and emit()`',
   ]) assert.ok(detail.includes(mention), `${mention} is mentioned`);
-  assert.ok(!detail.includes('fixture#4') && !detail.includes('fixture#7'), 'untouched cards are not listed');
+  for (const id of [4, 7, 8]) assert.ok(!new RegExp(`fixture#${id}\\b`).test(detail), `untouched card ${id} is not listed`);
 });
 
 test('the notification names the board by the folder above the board directory when config.yaml has no name', () => {
@@ -162,7 +206,8 @@ test('a dry run prints what would change and touches nothing, not even the notif
   const out = run(dir);
   assert.deepStrictEqual(snapshotDir(dir), before);
   assert.match(out, /would migrate/);
-  assert.match(out, /5 file\(s\) would change/);
+  assert.match(out, /10 file\(s\) would change/, 'only the ten epics count; cards without the flag do not');
+  assert.ok(!out.includes('0008.plain-no-final-newline'), 'a card without the flag is not listed');
 });
 
 test('running --apply a second time migrates nothing and files nothing', () => {

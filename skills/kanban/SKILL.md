@@ -235,7 +235,7 @@ bash <SCRIPTS_DIR>/migrate_epic_to_type.sh <kanban-dir>            # dry run: li
 bash <SCRIPTS_DIR>/migrate_epic_to_type.sh <kanban-dir> --apply    # rewrites them
 ```
 
-It covers the live cards and everything under `archived/` (packages included). On each card whose `epic:` line reads `true` (any case) it rewrites that line in place to `type: epic` and bumps `updated`; a card that already has a `type:` line keeps it and only loses the `epic:` line. Nothing else in the file changes, a card without the flag (or with `epic: false`) is byte-identical, and a second run finds nothing. It then files **one** notification in `notifications.md` listing the migrated cards as card mentions. Run it once on your own board, after the app you use understands `type`; it never touches another board, so each board is migrated by whoever owns it. An epic keeps its color only if the board's `types:` list gives `epic` one.
+It covers the live cards and everything under `archived/` (packages included). On each card whose `epic:` line reads `true` (any case) it rewrites that line in place to `type: epic` and bumps `updated`; a card that already has a `type:` with a value keeps it and only loses the `epic:` line (a blank `type:` counts as none). Nothing else in the file changes, a card without the flag (or with `epic: false`) is byte-identical, and a second run finds nothing. It then files **one** notification in `notifications.md` listing the migrated cards as card mentions. Run it once on your own board, after the app you use understands `type`; it never touches another board, so each board is migrated by whoever owns it. An epic keeps its color only if the board's `types:` list gives `epic` one.
 
 ## Human surfaces (routing)
 

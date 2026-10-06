@@ -7,7 +7,11 @@
 # Per card the first `epic:` line is read the way the app read it (any-case
 # `true`; anything else was "not an epic" and is left alone) and
 #   - becomes `type: epic` where it stood, or
-#   - is dropped when the card already has a `type:` line (that type is kept).
+#   - is dropped when the card already has a `type:` line with a value (that
+#     type is kept). A blank or `""` type reads as no type, so that line
+#     becomes `type: epic` instead.
+# Only a card with `epic: true` is written; every other file stays untouched,
+# and a migrated one keeps whether its last line ended in a newline.
 # `updated` is bumped (ADR 0008: every write re-stamps), and ONE notification
 # listing the migrated cards is appended to <dir>/notifications.md.
 # Idempotent: a second --apply finds nothing and files nothing.
@@ -36,38 +40,54 @@ if [ -z "$BOARD_NAME" ]; then
     BOARD_NAME=$(basename "$(dirname "$(cd "$KANBAN_DIR" && pwd)")")
 fi
 
-# Writes the migrated card to $2. Cards whose frontmatter has no epic: true
-# come out byte-identical, so the caller tells "migrated" from "untouched" by
-# comparing the two files. BINMODE keeps gawk on Windows from eating the CR of
-# a CRLF card.
+# Writes the migrated card to $2 and returns 0, or returns 3 when the card is
+# not an epic (the caller discards $2 and leaves the card alone). The output
+# also keeps the source's last line exactly as it ended: awk's print would add
+# a newline a file without one never had. BINMODE keeps gawk on Windows from
+# eating the CR of a CRLF card.
 rewrite() {
-    awk -v BINMODE=3 -v now="$now" '
-        function flush(   i, line, bare, out) {
+    local tailnl=0
+    [ -z "$(tail -c1 "$1")" ] && tailnl=1
+    awk -v BINMODE=3 -v now="$now" -v tailnl="$tailnl" '
+        function emit(s) { if (started) printf "\n"; printf "%s", s; started = 1 }
+        function flush(   i, line, bare, val) {
+            typeAt = -1
             for (i = 0; i < n; i++) {
                 line = buf[i]; bare = line; sub(/\r$/, "", bare)
-                if (bare ~ /^type:/) hasType = 1
+                if (typeAt < 0 && bare ~ /^type:/) {
+                    typeAt = i
+                    val = bare; sub(/^type:[[:space:]]*/, "", val); sub(/[[:space:]]*$/, "", val)
+                    typed = (val != "" && val != "\"\"")
+                }
                 if (bare ~ /^updated:/) hasUpdated = 1
                 if (!seen && bare ~ /^epic:/) { seen = 1; epicAt = i; isEpic = (bare ~ /^epic:[[:space:]]*[Tt][Rr][Uu][Ee][[:space:]]*$/) }
             }
             for (i = 0; i < n; i++) {
                 line = buf[i]; bare = line; sub(/\r$/, "", bare)
                 cr = (line != bare) ? "\r" : ""
-                if (isEpic && i == epicAt) { if (!hasType) print "type: epic" cr; continue }
-                if (isEpic && bare ~ /^updated:/) { print "updated: " now cr; continue }
-                print line
+                if (isEpic && i == epicAt) { if (typeAt < 0) emit("type: epic" cr); continue }
+                if (isEpic && i == typeAt && !typed) { emit("type: epic" cr); continue }
+                if (isEpic && bare ~ /^updated:/) { emit("updated: " now cr); continue }
+                emit(line)
             }
-            if (isEpic && !hasUpdated) print "updated: " now openerCr
+            if (isEpic && !hasUpdated) emit("updated: " now openerCr)
         }
-        NR == 1 && /^---\r?$/ { fm = 1; openerCr = ($0 ~ /\r$/) ? "\r" : ""; print; next }
-        fm == 1 && /^---\r?$/ { fm = 2; flush(); print; next }
+        NR == 1 && /^---\r?$/ { fm = 1; openerCr = ($0 ~ /\r$/) ? "\r" : ""; emit($0); next }
+        fm == 1 && /^---\r?$/ { fm = 2; flush(); emit($0); next }
         fm == 1 { buf[n++] = $0; next }
-        { print }
-        END { if (fm == 1) for (i = 0; i < n; i++) print buf[i] }
+        { emit($0) }
+        END {
+            if (fm == 1) for (i = 0; i < n; i++) emit(buf[i])
+            if (tailnl) printf "\n"
+            exit (isEpic ? 0 : 3)
+        }
     ' "$1" > "$2"
 }
 
+# Backticks in a title are dropped: a card mention is one code span, and a
+# backtick inside it would close the span early.
 title() {
-    awk '/^---\r?$/{fm++;next} fm==2 && /^# /{sub(/^# /,"");sub(/\r$/,"");print;exit}' "$1"
+    awk '/^---\r?$/{fm++;next} fm==2 && /^# /{sub(/^# /,"");sub(/\r$/,"");gsub(/`/,"");print;exit}' "$1"
 }
 
 migrated=0
@@ -81,14 +101,15 @@ shopt -u nullglob globstar
 for f in "${all_cards[@]}"; do
     [ -f "$f" ] || continue
     tmp="$f.migrate.tmp"
-    if ! rewrite "$f" "$tmp"; then
+    rewrite "$f" "$tmp"
+    rc=$?
+    if [ "$rc" -eq 3 ]; then
+        rm -f "$tmp"
+        continue
+    elif [ "$rc" -ne 0 ]; then
         echo "ERROR (left untouched): $f" >&2
         rm -f "$tmp"
         errors=$((errors + 1))
-        continue
-    fi
-    if cmp -s "$f" "$tmp"; then
-        rm -f "$tmp"
         continue
     fi
 
