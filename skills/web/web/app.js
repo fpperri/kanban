@@ -1868,6 +1868,7 @@ function openModal(card, presetStatus, presetStart) {
   $('#f-priority').value = card ? card.priority : 'Normal';
   $('#f-parent').value = card && card.parent != null ? String(card.parent) : '';
   $('#f-rank').value = card && card.rank != null ? String(card.rank) : '';
+  $('#f-type').value = card && card.type ? card.type : '';
   $('#f-tags').value = card ? card.tags.join(', ') : '';
   $('#f-waiting').value = card ? card.waiting_for.join(', ') : '';
   $('#f-blocked').value = card && card.blocked ? card.blocked : '';
@@ -1908,7 +1909,7 @@ let formSnapshot = null;
 
 function snapshotFormFields() {
   return {
-    title: $('#f-title').value, status: $('#f-status').value, priority: $('#f-priority').value,
+    title: $('#f-title').value, status: $('#f-status').value, priority: $('#f-priority').value, type: $('#f-type').value,
     parent: $('#f-parent').value, rank: $('#f-rank').value,
     tags: $('#f-tags').value, waiting: $('#f-waiting').value, blocked: $('#f-blocked').value, review: $('#f-review').value, prompt: $('#f-prompt').value, assignee: $('#f-assignee').value,
     start: $('#f-start').value, end: $('#f-end').value, due: $('#f-due').value, body: $('#f-body').value, // the whole date triad joins the dirty baseline
@@ -1938,6 +1939,7 @@ async function submitModal(e) {
     priority: $('#f-priority').value,
     parent: $('#f-parent').value.trim(), // blank clears; the store keeps a value that reads the same as the card's as written
     rank: $('#f-rank').value.trim(),
+    type: $('#f-type').value.trim(), // blank clears: the line is removed
     tags: parseTags($('#f-tags').value),
     waiting_for: parseIds($('#f-waiting').value),
     // The sticker's raw text — the store's predicate-judged lean rule strips
@@ -5257,6 +5259,7 @@ attachCombobox($('#f-assignee'), () => state.assignees.map((a) => ({
   value: a.handle, // stored value stays the bare handle — no card migration
   label: `${a.handle}${a.name ? ` — ${a.name}` : ''}${a.kind ? ` (${a.kind})` : ''}`,
 })));
+attachCombobox($('#f-type'), () => state.types.map((t) => ({ value: t.name })));
 attachCombobox($('#f-tags'), () => state.tags.map((v) => ({ value: v })), { tagMode: true });
 
 // --- Date-picker popover: every date field (f-start/f-end/f-due)
