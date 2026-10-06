@@ -146,13 +146,6 @@
       <label>Type <input id="f-type"></label>
       <label>Parent <input id="f-parent" placeholder="42 or board#42"></label>
       <label>Rank <input id="f-rank" inputmode="decimal" placeholder="10, 20, 30"></label>
-      <!-- epic/wayfinder flag — a MANAGED boolean: checked writes
-           `epic: true`, unchecked removes the line (the lean rule), never
-           validated. Rides this .modal-extra row, so the minimal-first
-           create hides it behind "Show more fields" for free. Circles are
-           reserved for status, so its cue is a faint orange background
-           wash, not a dot. -->
-      <label class="epic-check" title="Epic/wayfinder — marks a stretch-of-work card; a faint orange background in every view">Epic <input type="checkbox" id="f-epic"></label>
     </div>
     <!-- waiting_for = dependency edges (sequencing), blocked = the
          manual impediment sticker with the reason as its value. The blocked

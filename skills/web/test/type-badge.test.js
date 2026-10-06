@@ -58,8 +58,3 @@ test('typeBadge escapes the type text, the tooltip and a hostile color value', (
 test('the chip never carries an inline style attribute (strict CSP)', () => {
   assert.doesNotMatch(typeBadge({ type: 'objective' }, TYPES), /style=/);
 });
-
-test('epic: true neither adds nor hides a chip: the flag and the type are independent', () => {
-  assert.strictEqual(typeBadge({ epic: true, type: null }, TYPES), '');
-  assert.match(typeBadge({ epic: true, type: 'story' }, TYPES), /class="type-chip"/);
-});

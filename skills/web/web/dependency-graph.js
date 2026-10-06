@@ -22,7 +22,7 @@ const WB = (typeof module !== 'undefined' && module.exports)
 // the pill's tooltip.
 function cardToNode(c, waiting) {
   return {
-    id: c.id, title: c.title, status: c.status, archived: !!c.archived, epic: !!c.epic,
+    id: c.id, title: c.title, status: c.status, archived: !!c.archived,
     priority: c.priority || '', waiting: !!waiting,
     blocked: WB.isBlockedValue(c.blocked), blockedReason: WB.blockedReason(c.blocked),
     prompt: c.prompt || null, // lets the map label fall back to it (cardTitleDisplay)
@@ -59,16 +59,17 @@ function isCardWaiting(c, byId) {
 //   separately so the caller can render them in a detached cluster instead
 //   of mixing them into the layered graph.
 //
-// Epic membership edges: a child card's `parent: <epic-id>`
-// becomes a child->epic edge with `kind: 'epic'` (waiting_for edges carry
-// `kind: 'dep'`). The epic is the SINK, not the root — an epic is done only
+// Membership edges: a child card's `parent: <parent-id>`
+// becomes a child->parent edge with `kind: 'epic'` (the name predates nesting and
+// is pinned by the map and the snapshot; waiting_for edges carry
+// `kind: 'dep'`). The parent is the SINK, not the root — a parent is done only
 // when its children are done, so under the map's "down = completes later"
 // convention it lays out BELOW its children (a 2026-07-13 design review
-// flipped the original epic-on-top build: epic-as-container read as a false
+// flipped the original parent-on-top build: parent-as-container read as a false
 // prerequisite). Membership is not sequencing: it feeds the layered layout
 // and gets the same ghost-stub courtesy, but it never makes anyone `waiting`
 // and — deliberately — does NOT count for the isolated row. "No
-// dependencies" means no SEQUENCING deps, so an epic whose only edges are
+// dependencies" means no SEQUENCING deps, so a parent whose only edges are
 // membership appears in the graph AND the detached row. A self-parent is
 // nonsense and adds no edge; a dangling parent id ghosts as missing, same
 // as a dangling dep.
@@ -99,17 +100,17 @@ function buildDependencyGraph(cards, visibleIds) {
     edges.push({ from, to, kind, fromGhost: !fromVisible, toGhost: !toVisible });
   };
   // Membership hops into the sink ALONG the chain instead of fanning from
-  // every member. `nonTerminal` collects, per epic, the members some OTHER
-  // member of the same epic waits on — their work continues inside the
-  // epic, so they get no direct hop; only the chain's terminals (nothing
-  // downstream inside the epic, a chainless member being its own one-card
+  // every member. `nonTerminal` collects, per parent, the members some OTHER
+  // member of the same parent waits on — their work continues inside the
+  // parent, so they get no direct hop; only the chain's terminals (nothing
+  // downstream inside the parent, a chainless member being its own one-card
   // chain) hop into the sink. Computed on the FULL board, like waiting — a
   // search filter must not reroute membership.
   const parentOf = (id) => {
     const card = byId.get(id);
     return card && Number.isInteger(card.parent) && card.parent !== card.id ? card.parent : null;
   };
-  const nonTerminal = new Set(); // `${epicId}:${memberId}`
+  const nonTerminal = new Set(); // `${parentId}:${memberId}`
   for (const c of cards) {
     if (parentOf(c.id) == null) continue;
     for (const depId of c.waiting_for || []) {
@@ -117,12 +118,12 @@ function buildDependencyGraph(cards, visibleIds) {
     }
   }
   // Two passes: every dep edge lands before any membership edge, so the
-  // sequencing-wins-the-pair check below sees the whole dep set — the epic's
+  // sequencing-wins-the-pair check below sees the whole dep set — the parent's
   // own waiting_for lives on a DIFFERENT card than the child's parent field.
-  // A dep edge between two members of the SAME epic is flagged `epicChain`
+  // A dep edge between two members of the SAME parent is flagged `epicChain`
   // (set only when true, so edge shapes elsewhere stay untouched) — it's
   // still a real, gate-enforced dependency, just one the map draws exactly
-  // like any other edge (no special treatment). Mixed and cross-epic edges
+  // like any other edge (no special treatment). Mixed and cross-parent edges
   // stay plain too.
   for (const c of cards) {
     for (const depId of c.waiting_for || []) {
@@ -134,10 +135,10 @@ function buildDependencyGraph(cards, visibleIds) {
     }
   }
   for (const c of cards) {
-    // Membership edge, terminal member -> epic (the epic is the
+    // Membership edge, terminal member -> parent (the parent is the
     // sink; it closes last). `parent` is a single id; self-parent adds
     // nothing. When the pair already has a dep edge IN EITHER DIRECTION (the
-    // card waits on its epic, or the epic waits on the card), sequencing
+    // card waits on its parent, or the parent waits on the card), sequencing
     // wins the pair: same-direction overlap would add a redundant second
     // edge over a real dependency, and opposite-direction overlap would
     // fabricate a 2-cycle (a back-edge bow for a relation that isn't
@@ -152,11 +153,11 @@ function buildDependencyGraph(cards, visibleIds) {
   const ghosts = [...ghostIds].filter((id) => !nodeIds.has(id))
     .sort((a, b) => a - b)
     .map((id) => (byId.has(id) ? cardToNode(byId.get(id), isCardWaiting(byId.get(id), byId))
-      : { id, title: null, status: null, archived: false, epic: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }));
+      : { id, title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }));
 
   // The isolated row is keyed off SEQUENCING edges only, while the
   // layered graph lays out every node touched by ANY edge (`participants`) —
-  // a node whose only edges are epic membership joins the graph and the row
+  // a node whose only edges are membership joins the graph and the row
   // both. Both derivations live here, in the pure module, so their different
   // kind-keying stays unit-pinned rather than re-derived in the view.
   const touchedByDep = new Set();

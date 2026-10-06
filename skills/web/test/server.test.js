@@ -548,24 +548,13 @@ test('detail popup title never hops between opens: archived cards RESERVE the hi
   });
 });
 
-test('openDetailModal washes the popup panel for an epic card — the board tile\'s wash treatment mirrored on the detail modal', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const fn = js.match(/async function openDetailModal\([\s\S]*?\n\}/);
-    assert.ok(fn, 'openDetailModal found in app.js');
-    assert.match(fn[0], /\$\('#detail-modal'\)\.querySelector\('\.modal'\)\.classList\.toggle\('epic', !!data\.epic\)/,
-      'toggles .epic on the popup panel from the fetched detail\'s own epic flag');
-  });
-});
-
 test('create form ships the minimal-first pieces: show-more button, .modal-extra groups, and the .minimal hide rule', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const html = await (await fetch(`${base}/`)).text();
     // type="button" so Enter in the Title input submits instead of expanding
     assert.match(html, /<button type="button" id="show-more-btn">Show more fields<\/button>/);
-    // three groups still hide wholesale: status/priority/epic,
+    // three groups still hide wholesale: status/priority/type/parent/rank,
     // tags/waiting/blocked, description. The fourth (assignee+dates) no longer wholesale-hides —
     // Assignee was pulled out of it (see the minimal-form test below), and
     // the modal-desc regex is deliberately loose.
@@ -617,7 +606,7 @@ test('Assignee is the DOM/tab order\'s second focusable field after Title, in EV
     assert.ok(titleIdx < rowIdx, 'Title precedes the assignee+dates row');
     assert.ok(rowIdx < assigneeIdx, 'the row wraps the Assignee input');
     assert.ok(assigneeIdx < showMoreIdx, 'Assignee precedes "Show more fields" — no field sits between Title and Assignee');
-    assert.ok(showMoreIdx < statusRowIdx, 'Status/Priority/Epic (and everything else) still follows "Show more fields"');
+    assert.ok(showMoreIdx < statusRowIdx, 'Status/Priority (and everything else) still follows "Show more fields"');
     // Fixed defect: flex `order` used to fake a visual position
     // while leaving real DOM/tab order pointed elsewhere — a WCAG 2.4.3
     // focus-order violation. Still true: no `order` hack anywhere for this
@@ -1238,15 +1227,6 @@ test('GET /api/cards/1/detail returns raw frontmatter, absolute path, and body',
   });
 });
 
-test('GET /api/cards/:id/detail carries the parsed epic boolean — false for a plain card, true once flagged (the detail popup wash)', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    assert.strictEqual((await req(base, 'GET', '/api/cards/1/detail')).json.epic, false);
-    const created = await req(base, 'POST', '/api/cards', { title: 'Wayfinder', status: 'todo', epic: true });
-    assert.strictEqual((await req(base, 'GET', `/api/cards/${created.json.id}/detail`)).json.epic, true);
-  });
-});
-
 test('GET /api/cards/:id/detail surfaces a genuinely unrecognized frontmatter key verbatim', async () => {
   const dir = tmpBoard();
   fs.writeFileSync(path.join(dir, '3.card.md'),
@@ -1519,74 +1499,7 @@ test('header title carries a copy-board-path button — payload boardDir, clipbo
   });
 });
 
-// --- epic/wayfinder round-trip over the API — create with the flag
-// writes `epic: true`, unchecking on edit removes the line (the lean rule),
-// and the board payload always carries the parsed boolean for the views.
-
-test('epic round-trip: POST with epic: true writes the line, PATCH epic: false removes it', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const created = await req(base, 'POST', '/api/cards', { title: 'Wayfinder', status: 'todo', epic: true });
-    assert.strictEqual(created.status, 201);
-    assert.strictEqual(created.json.epic, true);
-    const file = fs.readdirSync(dir).find((f) => f.startsWith('000') && f.includes('wayfinder'));
-    assert.ok(file, 'card file created');
-    assert.match(fs.readFileSync(path.join(dir, file), 'utf8'), /^epic: true$/m);
-    const board = await req(base, 'GET', '/api/board');
-    const epicCard = board.json.active.find((c) => c.id === created.json.id);
-    assert.strictEqual(epicCard.epic, true, 'board payload carries the flag for the views');
-    assert.strictEqual(board.json.active.find((c) => c.id === 1).epic, false, 'non-epics read false, always a boolean');
-    // uncheck on edit — the line is GONE, not `epic: false` (lean rule)
-    const cleared = await req(base, 'PATCH', `/api/cards/${created.json.id}`, { epic: false });
-    assert.strictEqual(cleared.status, 200);
-    assert.strictEqual(cleared.json.epic, false);
-    assert.doesNotMatch(fs.readFileSync(path.join(dir, file), 'utf8'), /^epic:/m);
-  });
-});
-
-test('the form has an Epic checkbox inside the "Show more fields" section; app.js manages it end to end', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const html = await (await fetch(`${base}/`)).text();
-    assert.match(html, /<input type="checkbox" id="f-epic"/, 'Epic is a checkbox');
-    // Inside a .modal-extra group — hidden by the minimal-first create form
-    // until "Show more fields", like every field below Title.
-    const extra = html.match(/<div class="row modal-extra">[\s\S]*?<\/div>/g) || [];
-    assert.ok(extra.some((block) => block.includes('id="f-epic"')), 'checkbox lives in a .modal-extra row');
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const open = js.match(/function openModal\([\s\S]*?\n\}/);
-    assert.match(open[0], /#f-epic/, 'openModal seeds the checkbox from card.epic — edit preserves it');
-    const submit = js.match(/async function submitModal\([\s\S]*?\n\}/);
-    assert.match(submit[0], /epic: \$\('#f-epic'\)\.checked/, 'the payload sends the checkbox boolean (false clears on edit)');
-    const snap = js.match(/function snapshotFormFields\([\s\S]*?\n\}/);
-    assert.match(snap[0], /#f-epic/, 'epic joins the dirty-check baseline');
-  });
-});
-
-test('the epic cue is a background-wash class on every surface, not a dot or a border', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const tile = js.match(/function cardEl\([\s\S]*?\n\}/);
-    assert.match(tile[0], /\(card\.epic \? ' epic' : ''\)/, 'board tile adds the epic class to its className');
-    assert.doesNotMatch(tile[0], /epicBadge\(\) : ''/, 'no more epicBadge() call on the tile');
-    const chip = js.match(/function calendarChipEl\([\s\S]*?\n\}/);
-    assert.match(chip[0], /\(card\.epic \? ' epic' : ''\)/, 'calendar chip adds the epic class to its className');
-    assert.doesNotMatch(chip[0], /epicBadge\(\) : ''/, 'no more epicBadge() call on the chip');
-    const bar = js.match(/function ganttBarEl\([\s\S]*?\n\}/);
-    assert.match(bar[0], /\(bar\.card\.epic \? ' epic' : ''\)/, 'gantt bar adds the epic class to its className');
-    assert.doesNotMatch(bar[0], /epicBadge\(\) : ''/, 'no more epicBadge() call on the bar');
-    // the epic wash there is a box-shadow (a different property than the
-    // per-status `background`/`borderColor` write below), so that write never
-    // needed — and still doesn't need — gating off epics.
-    assert.doesNotMatch(bar[0], /!bar\.card\.epic/, 'no epic gate on the custom-status inline style write');
-    const svg = js.match(/function buildMapSvg\([\s\S]*?\nfunction /);
-    assert.match(svg[0], /\$\{n\.epic \? ' epic' : ''\}/, 'map node group adds the epic class instead of drawing a circle');
-    assert.doesNotMatch(svg[0], /epicDot|map-epic-dot/, 'no more SVG epic-dot circle');
-  });
-});
-
-test('the map draws no orange — membership edges are not drawn at all, and a same-epic dependency draws as a plain edge', async () => {
+test('the map draws no orange — membership edges are not drawn at all, and a dependency between two cards under one parent draws as a plain edge', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
@@ -1602,7 +1515,7 @@ test('the map draws no orange — membership edges are not drawn at all, and a s
       'no epic-edge/epic-chain class, epicChain branching, or epic arrowhead reference remains');
     // Every drawn edge now takes the single plain path/marker shape —
     // back-edge and ghost-edge are the only remaining class modifiers, and
-    // every edge (including a same-epic epicChain dependency) uses the one
+    // every edge (including one between two cards under the same parent) uses the one
     // plain arrowhead.
     assert.match(svg, /class="map-edge\$\{backEdge \? ' back-edge' : ''\}\$\{dimmed \? ' ghost-edge' : ''\}"/,
       'the path carries only map-edge plus the back-edge/ghost-edge modifiers — no epic-flavored class');
@@ -1612,21 +1525,14 @@ test('the map draws no orange — membership edges are not drawn at all, and a s
   });
 });
 
-test('an archived epic keeps its wash in the map\'s isolated row; the board\'s Archive column still withholds it', async () => {
+test('archiveCardEl takes only the card: the board Archive column and the map\'s isolated row call it the same way', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    const archiveFn = js.match(/function archiveCardEl\([\s\S]*?\n\}/);
-    assert.match(archiveFn[0], /showEpic && card\.epic \? ' epic' : ''/, 'archiveCardEl can add the epic class when asked to');
-    assert.doesNotMatch(archiveFn[0], /epicBadge\(\) : ''/, 'no more epicBadge() glyph anywhere in archiveCardEl');
+    assert.match(js, /function archiveCardEl\(card\) \{/, 'no options argument');
     const isolatedFn = js.match(/function buildIsolatedRow\([\s\S]*?\n\}/);
-    assert.match(isolatedFn[0], /archiveCardEl\(card, \{[^}]*epicDot[^}]*\}\)/,
-      'the isolated row opts in to the epic wash for archived cards, so it matches every other archived node on the map (internal option key name unchanged by #45)');
-    // The board's Archive column call site is a bare archiveCardEl(c)
-    // with no second argument: the Archive column has never
-    // carried the epic cue (SKILL.md's own contract).
-    assert.match(js, /isArchive \? archiveCardEl\(c\) : cardEl\(c\)/,
-      'the board Archive column still calls archiveCardEl with no epic option');
+    assert.match(isolatedFn[0], /card\.archived \? archiveCardEl\(card\) : cardEl\(card\)/);
+    assert.match(js, /isArchive \? archiveCardEl\(c\) : cardEl\(c\)/);
   });
 });
 
@@ -1666,29 +1572,23 @@ test('statusBadge(card) renders on board tiles (live AND archived) and calendar 
     assert.match(tile[0], /statusBadge\(card\)/, 'board tile renders the shared status dot');
     const archiveFn = js.match(/function archiveCardEl\([\s\S]*?\n\}/);
     assert.match(archiveFn[0], /statusBadge\(card\)/,
-      'archived tiles get the status dot unconditionally — unlike the epic wash class, no opts gate (the dot shows the true status color, archived or not)');
+      'archived tiles get the status dot unconditionally, no opts gate (the dot shows the true status color, archived or not)');
     const chip = js.match(/function calendarChipEl\([\s\S]*?\n\}/);
     assert.match(chip[0], /statusBadge\(card\)/, 'calendar chip renders the shared status dot');
   });
 });
 
-test('the gantt gutter row gets the status dot AND the epic wash class; the bar itself (status border/fill) stays untouched', async () => {
+test('the gantt gutter row gets the status dot; the bar itself (status border/fill) stays untouched', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     // The gutter label previously carried neither dot (the dot glyph only reached
-    // the bar) — "all components" means it joins both now. The epic-wash rework
-    // swapped the label's epic dot for its own background-wash class, so a
-    // due-only row (no bar at all) doesn't lose the epic cue entirely.
+    // the bar) — "all components" means it joins both now.
     const render = js.match(/function renderGanttView\([\s\S]*?\n\}/);
-    assert.match(render[0], /label\.className = 'gantt-row gantt-label card-el' \+ \(bar\.card\.epic \? ' epic' : ''\)/,
-      'the gutter label adds the epic class (conditional)');
     assert.match(render[0], /label\.innerHTML = `<span class="gantt-label-id">[^`]*statusBadge\(bar\.card\)/,
       'the gutter label renders statusBadge (unconditional)');
-    assert.doesNotMatch(render[0], /epicBadge\(\) : ''/, 'no more epicBadge() call in the gutter label');
-    // Bars keep exactly their shape (now a class instead of a badge call):
-    // status stays on the border/fill rather than
-    // gaining a redundant dot.
+    // Bars keep exactly their shape: status stays on the border/fill rather
+    // than gaining a redundant dot.
     const bar = js.match(/function ganttBarEl\([\s\S]*?\n\}/);
     assert.doesNotMatch(bar[0], /statusBadge/, 'the bar itself gets no status dot — already colored by status');
   });
@@ -1725,8 +1625,7 @@ test('dense-surface guard: the dots precede the croppable title, and the truncat
 // frontmatter and an additional ball gray for archived" — archivedBadge()
 // (status-colors.js) joins statusBadge() on every surface that renders an
 // ARCHIVED card, and ONLY those. Order: status, archived, everywhere more
-// than one dot lands together (the epic dot that used to
-// lead this order is retired — an epic is a background-wash class now, not a glyph).
+// than one dot lands together.
 
 test('archivedBadge joins the archived tile unconditionally (board Archive column AND the map isolated row) — order status, archived', async () => {
   const dir = tmpBoard();
@@ -1753,7 +1652,7 @@ test('calendarChipEl conditions archivedBadge on the chip\'s own card.archived f
     const js = await (await fetch(`${base}/app.js`)).text();
     const chip = js.match(/function calendarChipEl\([\s\S]*?\n\}/);
     assert.match(chip[0], /statusBadge\(card\)\}\$\{card\.archived \? archivedBadge\(\) : ''\}/,
-      'same "epic, status, archived" glyph order every other surface uses, gated on this chip\'s own card.archived — the calendar renders archived cards opt-in via its Archive pill');
+      'same "status, archived" glyph order every other surface uses, gated on this chip\'s own card.archived — the calendar renders archived cards opt-in via its Archive pill');
     assert.match(chip[0], /el\.draggable = !card\.archived/, 'an archived chip is not draggable — native drag never starts, so there\'s no fake-drag animation to guard against');
   });
 });
@@ -1770,17 +1669,17 @@ test('the gantt Archive-group gutter row gets the archived ball; the bar itself 
   });
 });
 
-test('the map SVG node gets a third archived-ball circle, conditioned on n.archived, alongside status + epic with no overlap', async () => {
+test('the map SVG node gets a third archived-ball circle, conditioned on n.archived, alongside status with no overlap', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     const svg = js.match(/function buildMapSvg\([\s\S]*?\nfunction /);
     assert.match(svg[0], /n\.archived \? `<circle class="map-archived-dot"/, 'map node renders its own SVG archived dot, gated on n.archived');
     assert.match(svg[0], /<title>Archived<\/title>/, 'same tooltip text as the HTML twin');
-    // Same right-edge x column as the status/epic dots (MAP_NODE_W - 10) —
+    // Same right-edge x column as the status dot (MAP_NODE_W - 10) —
     // no new horizontal position to risk overlapping the truncated title text.
     const archivedCircle = svg[0].match(/<circle class="map-archived-dot"[^>]*>/)[0];
-    assert.match(archivedCircle, /cx="\$\{MAP_NODE_W - 10\}"/, 'archived dot shares the status/epic dots\' x column');
+    assert.match(archivedCircle, /cx="\$\{MAP_NODE_W - 10\}"/, 'archived dot shares the status dot\' x column');
     // MAP_NODE_H grew to fit three vertically-stacked dots without crowding —
     // pin it's still bigger than the old 46 (the two-dot height).
     const nodeH = js.match(/const MAP_NODE_H = (\d+);/);

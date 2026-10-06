@@ -26,12 +26,6 @@
 //                 (the shared isReviewValue/isBlockedValue predicate), never
 //                 dropped as mid-typing. `review:PR` / `blocked:vendor` is a
 //                 case-insensitive substring match on the sticker's text.
-//   epic:         bare `epic:` is a COMPLETE term, same
-//                 never-dropped shape as review:/blocked: above, meaning
-//                 "card.epic is true". UNLIKE review:/blocked:, epic: has NO
-//                 value form — anything typed after the colon is parsed
-//                 but ignored, so `epic:foo` matches exactly what `epic:`
-//                 does. No negation either.
 //   tree:74 / tree:#74   card #74's dependency tree — the connected component
 //                 (undirected) reachable from card 74 over the edges the
 //                 map's graph is built from (waiting_for + parent: membership —
@@ -69,12 +63,6 @@ const GRAPH_FIELDS = ['tree', 'path'];
 // bare value is a valid presence term (unlike KNOWN_FIELDS, where a bare
 // scope is dropped as mid-typing), so they're parsed separately below.
 const STICKER_FIELDS = ['review', 'blocked'];
-// epic: is its own single-field family — bare presence,
-// never dropped (same shape as STICKER_FIELDS), but with NO value form:
-// unlike review:/blocked:, whatever follows the colon is discarded rather
-// than kept for a substring match, since "epic" is a plain boolean flag with
-// no text of its own to search.
-const EPIC_FIELDS = ['epic'];
 // `A:`/`a:` is a thin alias for `assignee:` — resolved here,
 // before the KNOWN_FIELDS check, so the alias falls through the exact same
 // value/lowercasing path as the long form rather than duplicating it.
@@ -106,13 +94,6 @@ function parseTerm(token) {
     if (STICKER_FIELDS.includes(key)) {
       return { field: key, value: prefixed[2].trim().toLowerCase() };
     }
-    // Bare epic: is itself a complete "epic-marked" term —
-    // always returned like the sticker fields above, but the value is never
-    // kept (no value form): `epic:` and `epic:anything` parse
-    // identically.
-    if (EPIC_FIELDS.includes(key)) {
-      return { field: key, value: '' };
-    }
   }
 
   return { field: null, value: token.toLowerCase() };
@@ -142,10 +123,6 @@ function termMatchesCard(term, card) {
     // substring term matches, exactly mirroring the pill's own label).
     case 'review': return term.value ? WBS.reviewReason(card.review).toLowerCase().includes(term.value) : WBS.isReviewValue(card.review);
     case 'blocked': return term.value ? WBS.blockedReason(card.blocked).toLowerCase().includes(term.value) : WBS.isBlockedValue(card.blocked);
-    // epic: is a pure presence check on the boolean flag —
-    // term.value is always '' (parseTerm discards it), so there's no
-    // substring branch to mirror review:/blocked:'s.
-    case 'epic': return card.epic === true;
     // pre-resolved by filterCards (below) into an id Set — a raw,
     // unresolved 'tree'/'path' term has no graph to resolve against here (a
     // single (term, card) pair isn't enough), so it matches nothing rather

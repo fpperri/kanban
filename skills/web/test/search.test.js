@@ -54,22 +54,6 @@ test('UNLIKE every other scoped prefix, a bare review:/blocked: (no value) is a 
   assert.deepStrictEqual(parseSearchQuery('blocked:'), [{ field: 'blocked', value: '' }]);
 });
 
-// --- epic: bare-scope term -------------------------------
-
-test('UNLIKE every other scoped prefix (but like review:/blocked:), a bare epic: (no value) is a COMPLETE term, not dropped', () => {
-  assert.deepStrictEqual(parseSearchQuery('epic:'), [{ field: 'epic', value: '' }]);
-});
-
-test('UNLIKE review:/blocked:, epic: has no value form — anything after the colon is discarded, parsing identically to bare epic:', () => {
-  assert.deepStrictEqual(parseSearchQuery('epic:foo'), [{ field: 'epic', value: '' }]);
-  assert.deepStrictEqual(parseSearchQuery('epic:true'), [{ field: 'epic', value: '' }]);
-});
-
-test('epic: field name is case-insensitive, same as every other prefix', () => {
-  assert.deepStrictEqual(parseSearchQuery('EPIC:'), [{ field: 'epic', value: '' }]);
-  assert.deepStrictEqual(parseSearchQuery('Epic:'), [{ field: 'epic', value: '' }]);
-});
-
 test('bare text (no prefix) parses as a null-field term', () => {
   assert.deepStrictEqual(parseSearchQuery('foo'), [{ field: null, value: 'foo' }]);
 });
@@ -214,25 +198,6 @@ test('a bare `review: true`/`blocked: true` sticker (text unspecified) is presen
   const idsFor3 = (q) => filterCards(cards, parseSearchQuery(q)).map((c) => c.id);
   assert.deepStrictEqual(idsFor3('review:'), [1], 'bare presence still matches');
   assert.deepStrictEqual(idsFor3('review:x'), [], 'no text to substring-match against');
-});
-
-test('epic: bare term matches exactly the cards with epic===true', () => {
-  const cards = [
-    { id: 1, title: 'a', body: '', status: 'todo', priority: 'Normal', tags: [], epic: true },
-    { id: 2, title: 'b', body: '', status: 'todo', priority: 'Normal', tags: [], epic: false },
-    { id: 3, title: 'c', body: '', status: 'todo', priority: 'Normal', tags: [] }, // field absent
-  ];
-  const idsFor3 = (q) => filterCards(cards, parseSearchQuery(q)).map((c) => c.id);
-  assert.deepStrictEqual(idsFor3('epic:'), [1]);
-});
-
-test('epic: composes with the rest of the query by plain intersection (AND), same as every other scope', () => {
-  const cards = [
-    { id: 1, title: 'a', body: '', status: 'doing', priority: 'Normal', tags: [], epic: true },
-    { id: 2, title: 'b', body: '', status: 'todo', priority: 'Normal', tags: [], epic: true },
-  ];
-  const idsFor3 = (q) => filterCards(cards, parseSearchQuery(q)).map((c) => c.id);
-  assert.deepStrictEqual(idsFor3('epic: status:doing'), [1]);
 });
 
 test('bare text hits title + body + tags, not status/priority', () => {

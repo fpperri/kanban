@@ -63,7 +63,7 @@ test('POST and PATCH take parent and rank, and the board lists them', async () =
 test('a cross-board parent survives every edit the form can make', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
-    const body = { title: 'Two again', status: 'doing', priority: 'High', tags: ['x'], waiting_for: [], blocked: '', review: '', prompt: '', assignee: '', start_date: '', end_date: '', due_date: '', epic: false, body: 'b', parent: 'fpp#4', rank: '10' };
+    const body = { title: 'Two again', status: 'doing', priority: 'High', tags: ['x'], waiting_for: [], blocked: '', review: '', prompt: '', assignee: '', start_date: '', end_date: '', due_date: '', body: 'b', parent: 'fpp#4', rank: '10' };
     const saved = await req(base, 'PATCH', '/api/cards/2', body);
     assert.strictEqual(saved.status, 200);
     assert.strictEqual(saved.json.parent, 'fpp#4');

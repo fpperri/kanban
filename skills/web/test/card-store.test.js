@@ -136,7 +136,7 @@ test('cardDetail returns the raw frontmatter block, absolute path, title, and bo
 });
 
 // the detail popup's own title fallback needs `prompt`
-// alongside title — cardDetail only carried title/body/epic/etc before.
+// alongside title — cardDetail only carried title/body/etc before.
 test('cardDetail carries prompt so the popup can fall back to it for a titleless card', () => {
   const dir = tmpBoard();
   cs.createCard(dir, { title: '', prompt: 'summarize the PR', status: 'backlog' });
@@ -170,13 +170,6 @@ test('cardDetail flags archived: false for an active card, true for an archived 
   assert.strictEqual(cs.cardDetail(dir, 1).archived, false);
   cs.archiveCard(dir, 1);
   assert.strictEqual(cs.cardDetail(dir, 1).archived, true);
-});
-
-test('cardDetail carries epic: false for a plain card, true for one flagged epic (the detail popup wash)', () => {
-  const dir = tmpBoard();
-  assert.strictEqual(cs.cardDetail(dir, 1).epic, false);
-  const wayfinder = cs.createCard(dir, { title: 'Wayfinder', status: 'todo', epic: true });
-  assert.strictEqual(cs.cardDetail(dir, wayfinder.id).epic, true);
 });
 
 test('readCardFile flags a malformed card (no closing fence) as unparseable', () => {
@@ -480,7 +473,7 @@ test('toJSON exposes the public card shape without internal underscores', () => 
   const dir = tmpBoard();
   const j = cs.toJSON(cs.readCardFile(path.join(dir, '1.card.md')));
   assert.deepStrictEqual(Object.keys(j).sort(), [
-    'archived', 'assignee', 'blocked', 'body', 'due_date', 'end_date', 'epic', 'file', 'id', 'parent', 'priority', 'prompt', 'rank', 'review', 'start_date', 'status', 'tags', 'title', 'type', 'updated', 'waiting_for', // epic joined the shape; waiting_for replaced blocked_by and blocked joined; parent joined; review joined (ADR 0009); prompt joined; rank joined
+    'archived', 'assignee', 'blocked', 'body', 'due_date', 'end_date', 'file', 'id', 'parent', 'priority', 'prompt', 'rank', 'review', 'start_date', 'status', 'tags', 'title', 'type', 'updated', 'waiting_for', // waiting_for replaced blocked_by and blocked joined; parent joined; review joined (ADR 0009); prompt joined; rank joined
   ]);
   assert.strictEqual(j._order, undefined);
 });
@@ -1221,100 +1214,6 @@ test('a compat range (start + due, no end) landing in done gains a real end_date
   assert.strictEqual(c.due_date, '2026-07-20');
 });
 
-// --- `epic: true` — the optional epic/wayfinder flag. A MANAGED
-// boolean field under the lean rule: set writes exactly `epic: true`,
-// unset writes NO line (never a literal `epic: false`). Never validated —
-// the reader is tolerant (any-case 'true' reads epic; anything else doesn't),
-// and the writer normalizes API-shaped junk ('true'/'false' strings) so a
-// JSON string can't sneak a truthy-but-false line onto disk.
-
-test('createCard with epic: true writes the `epic: true` line; reader and toJSON carry it', () => {
-  const dir = tmpBoard();
-  const card = cs.createCard(dir, { title: 'Wayfinder', status: 'todo', epic: true });
-  assert.strictEqual(card.epic, true);
-  assert.strictEqual(cs.toJSON(card).epic, true);
-  const raw = fs.readFileSync(cs.findCardFile(dir, card.id), 'utf8');
-  assert.match(raw, /^epic: true$/m);
-});
-
-test('createCard without epic (or epic: false) writes NO epic line — the lean rule', () => {
-  const dir = tmpBoard();
-  const plain = cs.createCard(dir, { title: 'Plain', status: 'todo' });
-  const unchecked = cs.createCard(dir, { title: 'Unchecked', status: 'todo', epic: false });
-  for (const c of [plain, unchecked]) {
-    assert.strictEqual(c.epic, false);
-    assert.strictEqual(cs.toJSON(c).epic, false);
-    assert.doesNotMatch(fs.readFileSync(cs.findCardFile(dir, c.id), 'utf8'), /^epic:/m,
-      'unset epic is no data — no line, never `epic: false`');
-  }
-});
-
-test('updateCard epic: true adds the line; epic: false removes it — round-trip', () => {
-  const dir = tmpBoard();
-  cs.updateCard(dir, 2, { epic: true });
-  let raw = fs.readFileSync(path.join(dir, 'two.card.md'), 'utf8');
-  assert.match(raw, /^epic: true$/m);
-  const cleared = cs.updateCard(dir, 2, { epic: false });
-  assert.strictEqual(cleared.epic, false);
-  raw = fs.readFileSync(path.join(dir, 'two.card.md'), 'utf8');
-  assert.doesNotMatch(raw, /^epic:/m, 'unchecking on edit removes the line entirely');
-});
-
-test('updateCard leaves an existing epic line alone when epic is not in the patch', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-epic-'));
-  fs.writeFileSync(path.join(dir, '0001.one.card.md'),
-    `---\nid: 1\nstatus: todo\npriority: Normal\nepic: true\n---\n\n# One\n\nbody\n`);
-  cs.updateCard(dir, 1, { priority: 'High' });
-  assert.match(fs.readFileSync(path.join(dir, '0001.one.card.md'), 'utf8'), /^epic: true$/m,
-    'only managed CHANGES apply the rule — an untouched field is not rewritten');
-});
-
-test('reader is tolerant: any-case `epic: True` reads epic; other values do not (never validated)', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-epic-'));
-  fs.writeFileSync(path.join(dir, '0001.a.card.md'),
-    `---\nid: 1\nstatus: todo\nepic: True\n---\n\n# A\n\nbody\n`);
-  fs.writeFileSync(path.join(dir, '0002.b.card.md'),
-    `---\nid: 2\nstatus: todo\nepic: yes\n---\n\n# B\n\nbody\n`);
-  fs.writeFileSync(path.join(dir, '0003.c.card.md'),
-    `---\nid: 3\nstatus: todo\n---\n\n# C\n\nbody\n`);
-  assert.strictEqual(cs.readCardFile(path.join(dir, '0001.a.card.md')).epic, true, 'hand-typed True still reads epic');
-  assert.strictEqual(cs.readCardFile(path.join(dir, '0002.b.card.md')).epic, false, 'non-true free text is not epic — tolerated on READ (a write that includes epic rewrites it; see the PATCH-over-junk test below)');
-  assert.strictEqual(cs.readCardFile(path.join(dir, '0003.c.card.md')).epic, false, 'missing line defaults false');
-});
-
-test('a form-style PATCH over a hand-typed non-true value REMOVES the line — deliberate: epic is managed, junk cannot round-trip the form', () => {
-  // `epic: yes` reads as not-epic, so the edit form opens with the checkbox
-  // unchecked and submits epic: false alongside any unrelated change — the
-  // junk line is then cleared by the lean rule. That's the CHOSEN
-  // behavior (unlike priority/dates, whose free-text inputs re-emit junk
-  // verbatim, the checkbox has no way to carry it): pin it so the data-loss
-  // edge stays a decision, not an accident. Documented in the web SKILL.md's
-  // epic bullet.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-epic-'));
-  fs.writeFileSync(path.join(dir, '0001.a.card.md'),
-    `---\nid: 1\nstatus: todo\nepic: yes\n---\n\n# A\n\nbody\n`);
-  cs.updateCard(dir, 1, { title: 'A retitled', epic: false }); // what submitModal sends for a title-only edit
-  const raw = fs.readFileSync(path.join(dir, '0001.a.card.md'), 'utf8');
-  assert.doesNotMatch(raw, /^epic:/m, 'the junk epic line is gone after an unrelated edit');
-  assert.match(raw, /^# A retitled$/m, 'the unrelated edit itself landed');
-});
-
-test('API-shaped junk: string \'true\' sets, string \'false\'/empty/null clear — no truthy-string trap', () => {
-  const dir = tmpBoard();
-  const viaString = cs.createCard(dir, { title: 'Stringly', status: 'todo', epic: 'true' });
-  assert.strictEqual(viaString.epic, true);
-  const falseString = cs.createCard(dir, { title: 'False String', status: 'todo', epic: 'false' });
-  assert.strictEqual(falseString.epic, false);
-  assert.doesNotMatch(fs.readFileSync(cs.findCardFile(dir, falseString.id), 'utf8'), /^epic:/m,
-    "a JSON 'false' string is unset — a plain truthy gate would have written `epic: true`");
-  cs.updateCard(dir, viaString.id, { epic: 'false' });
-  assert.doesNotMatch(fs.readFileSync(cs.findCardFile(dir, viaString.id), 'utf8'), /^epic:/m);
-  cs.updateCard(dir, falseString.id, { epic: 'true' });
-  assert.match(fs.readFileSync(cs.findCardFile(dir, falseString.id), 'utf8'), /^epic: true$/m);
-  cs.updateCard(dir, falseString.id, { epic: null });
-  assert.doesNotMatch(fs.readFileSync(cs.findCardFile(dir, falseString.id), 'utf8'), /^epic:/m, 'null clears too');
-});
-
 // --- `type:` — optional free-text card type. A MANAGED field under the lean
 // rule: non-empty sets, blank clears, undefined leaves the line alone, no line
 // when absent. The board's `types:` list only suggests; the store never
@@ -1373,7 +1272,7 @@ test('editing any other field leaves the `type:` line byte-for-byte unchanged', 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-type-'));
   const file = typedCard(dir);
   cs.updateCard(dir, 1, { priority: 'High' });
-  cs.updateCard(dir, 1, { title: 'Retitled', assignee: '@alex', tags: ['x'], epic: false });
+  cs.updateCard(dir, 1, { title: 'Retitled', assignee: '@alex', tags: ['x'] });
   cs.updateCard(dir, 1, { status: 'done' });
   const raw = fs.readFileSync(file, 'utf8');
   assert.match(raw, /^type: objective$/m);
@@ -1654,7 +1553,7 @@ test('toJSON carries prompt in the public card shape', () => {
   assert.strictEqual(j.prompt, 'do the thing');
 });
 
-// --- `parent` — epic membership id -------------------------------
+// --- `parent` — the card this one sits under -------------------------------
 
 test('readCardFile parses parent as a number, null when absent or non-numeric; toJSON carries it', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-'));
@@ -1676,21 +1575,4 @@ test('updateCard preserves a parent line verbatim — form-unmanaged frontmatter
   cs.updateCard(dir, 1, { priority: 'High' });
   const raw = fs.readFileSync(path.join(dir, '0001.child.card.md'), 'utf8');
   assert.match(raw, /^parent: 42$/m);
-});
-
-test('epic: true and type: coexist; toggling epic leaves the type line alone, and the reverse', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-type-'));
-  const card = cs.createCard(dir, { title: 'Both', status: 'todo', epic: true, type: 'objective' });
-  const file = cs.findCardFile(dir, card.id);
-  let raw = fs.readFileSync(file, 'utf8');
-  assert.match(raw, /^epic: true$/m);
-  assert.match(raw, /^type: objective$/m);
-  cs.updateCard(dir, card.id, { epic: false });
-  raw = fs.readFileSync(file, 'utf8');
-  assert.doesNotMatch(raw, /^epic:/m);
-  assert.match(raw, /^type: objective$/m);
-  cs.updateCard(dir, card.id, { epic: true, type: '' });
-  raw = fs.readFileSync(file, 'utf8');
-  assert.match(raw, /^epic: true$/m);
-  assert.doesNotMatch(raw, /^type:/m);
 });

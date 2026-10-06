@@ -127,14 +127,6 @@ function readParent(raw) {
   return p.local ? p.id : `${p.board}#${p.id}`;
 }
 
-// epic is a boolean managed field but arrives as raw JSON — accept
-// true / 'true' (any case, matching the reader's tolerance) and treat
-// everything else (false, 'false', '', null, junk) as unset. A plain truthy
-// gate would let an API string 'false' write a literal `epic: true` line.
-function wantsEpic(v) {
-  return v === true || String(v == null ? '' : v).trim().toLowerCase() === 'true';
-}
-
 // Machine-maintained "updated" stamp — local time, no timezone suffix,
 // same shape as notifications.md's "at" field (YYYY-MM-DDTHH:MM:SS).
 function nowLocalISO() {
@@ -183,7 +175,6 @@ function readCardFile(file, archived = false) {
     start_date: get('start_date') || null, // range start ("from"), date or local datetime, never validated
     end_date: get('end_date') || null, // range end ("to"), same tolerant contract
     due_date: get('due_date') || null, // deadline marker; also the compat range end when end_date is absent
-    epic: get('epic').toLowerCase() === 'true', // epic/wayfinder flag — tolerant read (any-case 'true'), missing line = false, never validated
     // The card this one sits under: an id on this board or `board#id` on
     // another. Tolerant read (anything else -> null), never validated.
     parent: readParent(get('parent')),
@@ -437,13 +428,6 @@ function updateCard(dir, id, changes) {
     if (changes.due_date) setField(order, values, 'due_date', changes.due_date);
     else removeField(order, values, 'due_date');
   }
-  // epic — checked writes exactly `epic: true`, unchecked removes
-  // the line (false is no data, the lean rule — never a literal
-  // `epic: false`). wantsEpic normalizes API strings on the way in.
-  if (changes.epic !== undefined) {
-    if (wantsEpic(changes.epic)) setField(order, values, 'epic', 'true');
-    else removeField(order, values, 'epic');
-  }
   // parent and rank are skipped when the value sent reads the same as the one
   // on the card: the form sends every field on every save, and a hand-written
   // `parent: "fpp#4"` or `rank:  10` must not be rewritten by it. A value that
@@ -558,7 +542,6 @@ function createCard(dir, input) {
   if (input.due_date) { order.push('due_date'); values.due_date = ` ${input.due_date}`; }
   const tags = cleanList(input.tags); // same blank-entry drop as waiting_for above
   if (tags.length) { order.push('tags'); values.tags = ` ${formatList(tags)}`; }
-  if (wantsEpic(input.epic)) { order.push('epic'); values.epic = ' true'; } // unset writes NO line (lean rule)
   const parentVal = readParent(input.parent);
   if (parentVal !== null) { order.push('parent'); values.parent = ` ${parentVal}`; }
   const rankVal = parseRank(input.rank);
@@ -615,7 +598,6 @@ function cardDetail(dir, id) {
   return {
     id: card.id, title: card.title, path: path.resolve(file), frontmatter, body: card.body,
     archived: card.archived, updated: card.updated,
-    epic: card.epic, // the detail popup's own epic wash, same tolerant read as the tiles'
     prompt: card.prompt, // lets the popup title fall back to the queued prompt, same as every other view
   };
 }
@@ -625,8 +607,8 @@ function cardDetail(dir, id) {
 // the board (`0011.foo.card.md`), not a filesystem path that would leak the
 // board's on-disk location to every client of this JSON.
 function toJSON(card) {
-  const { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, epic, parent, rank, updated, title, body, archived, file } = card;
-  return { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, epic, parent, rank, updated, title, body, archived, file: path.basename(file) };
+  const { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, parent, rank, updated, title, body, archived, file } = card;
+  return { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, parent, rank, updated, title, body, archived, file: path.basename(file) };
 }
 
 // `pkg` (optional) names an archived/<package>/ grouping folder, created on
