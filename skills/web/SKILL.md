@@ -263,7 +263,7 @@ to `127.0.0.1` only.
   `tree:`/`path:` are excluded (they take a card id, not free text).
 - **Create** — "+ New card" opens a modal (title, status, priority, epic checkbox, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
-  date, due date, description). Dependencies and impediments are separate inputs:
+  date, due date, type, description). Dependencies and impediments are separate inputs:
   `f-waiting` ("Waiting for (ids, comma-sep)") takes the `waiting_for` dependency edges;
   `f-blocked` ("Blocked (reason)") takes the impediment sticker's reason as free text and
   wears a red border exactly while its value passes the blocked predicate, live as you
@@ -296,7 +296,7 @@ to `127.0.0.1` only.
 - **Edit** — click a card's "Edit" to change its fields, title, and description. The body
   (incl. `## Narrative`) and any frontmatter keys the form doesn't manage are preserved
   verbatim; the form-managed fields (status, priority, epic, tags, waiting_for, blocked,
-  review, prompt, assignee, start/end/due date) are re-written from the form. Clearing
+  review, prompt, assignee, type, start/end/due date) are re-written from the form. Clearing
   any managed field (a blank priority/assignee/date/prompt, empty tags or waiting_for, a
   blocked or review value failing the sticker predicate, an unchecked Epic) removes its
   frontmatter line entirely — no-data fields (empty string, null, empty array) are never
@@ -1136,8 +1136,9 @@ handle a card carries.
   edits them; the app only reads.
 - **`types`** (block, bare-entry or inline `[a, b]` form; order kept) names the card
   types the board suggests, each with an OPTIONAL `color` kept as an opaque string
-  (hex, name, anything CSS reads). It feeds the type chip's color only: a card's
-  `type:` may be any text, and a type outside the list still reads as a neutral chip.
+  (hex, name, anything CSS reads). It feeds the form's Type field (suggested in the order
+  listed) and the type chip's color only: a card's `type:` may be any text, and a type
+  outside the list still reads as a neutral chip.
   `GET /api/board` carries it as `types: [{name, color}]` (`color` is `''` when absent;
   `[]` when the key or file is). Human-curated like `tags`; the app only reads.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
