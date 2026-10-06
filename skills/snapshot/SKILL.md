@@ -174,12 +174,20 @@ search term uses).
 
 ## Nested cards
 
-The page embeds `skills/web/web/nesting.js` as is, so parents, outline order,
-roll-ups and the thread follow kanban-web's rules with nothing to keep in sync by
-hand; `test/nesting-embed.test.js` pins the embedded source to that file, and the
-build refuses a module that could close its own script element. The build reads
-that file from the kanban-web skill installed beside this one, so install the two
-together: a snapshot-only install exits with a message naming the missing file.
+The page embeds `skills/web/web/nesting.js` as is, so which card sits under which,
+outline order, the thread and the roll-up counts are kanban-web's own rules, with
+nothing to sync by hand; `test/nesting-embed.test.js` pins the embedded source to
+that file, and the build refuses a module that could close its own script element.
+The build reads that file from the kanban-web skill installed beside this one, so
+install the two together: a snapshot-only install exits with a message naming the
+missing file.
+
+What the page draws with those answers is its own code, and three small helpers are
+written twice, each beside a twin in kanban-web: `typeColor` (the type color match;
+`typeColor` in `type-badge.js`), `rollupSegs` (the order of a roll-up bar's segments;
+`rollupSegments` in `rollup-bar.js`) and `rollupBlock` (the sheet's counts and scope
+line; `rollupBar` and `rollupScopeLine` in `rollup-bar.js`). Change one and change
+its twin; `test/nesting-parity.test.js` fails when they stop giving the same answers.
 
 - **Type chips.** A card with a `type` wears a chip, in the color its `config.yaml`
   `types:` entry gives it (the names match without regard to case) and neutral when
@@ -196,8 +204,8 @@ together: a snapshot-only install exits with a message naming the missing file.
 - **The thread.** A card's sheet shows its parents above it, root first, and lists
   its children below the description in rank order. Each entry is a mention chip
   that opens that card. A parent on another board is named and marked not followed,
-  a parent that is not on the board is marked unresolved, and a loop of parents is
-  flagged where it repeats.
+  a parent that is not on the board is marked unresolved, an archived parent is marked
+  archived like an archived child, and a loop of parents is flagged where it repeats.
 - **Changing type and parent.** The sheet's type pill picks from the declared types
   (plus the card's own and none), and the All fields grid always offers `type` and
   `parent` (a number, or `board#id` for another board's card). Both queue as an
@@ -461,6 +469,14 @@ swipe-down.
 
 **No rank editing.** A card's place among its siblings is changed by dragging in
 kanban-web, or by asking; the payload never carries `rank` (see "Nested cards").
+
+**No warning for a parent marked done with leaves open.** kanban-web warns, after the
+save, when a parent is marked done while leaves below it are open. Here a move to
+`done` queues like any other and says nothing, since the page only queues changes for
+Claude to apply; read the parent's roll-up before marking it done.
+
+**No bar mode.** kanban-web's Bar select (open, collapsed or off) has no counterpart:
+a parent's tile always carries the thin bar and its sheet the open one.
 
 Archived cards are read-only in the tap UI — restore or edit them
 conversationally or in kanban-web. Everything else on a live card is tap-

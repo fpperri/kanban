@@ -43,8 +43,10 @@ A card with a `type` wears a chip in the color `config.yaml` gives that type.
 On a board where cards have a `rank` or a `parent`, each section lists its cards
 in outline order — parents before their children, siblings by rank — and a parent
 card shows how many layers sit below it (`▲2`) with a thin bar of how far along
-the leaves under it are. The page carries kanban-web's own nesting code, so both
-surfaces always agree.
+the leaves under it are. The page carries kanban-web's own nesting rules, so both
+surfaces agree on what sits under what and how it is counted; the drawing and the
+type color match are the snapshot's own. It leaves the done-with-open-leaves warning,
+the bar mode and rank editing to kanban-web.
 
 ## Getting around
 

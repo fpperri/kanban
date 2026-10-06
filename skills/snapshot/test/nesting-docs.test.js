@@ -41,3 +41,35 @@ test('the human guide describes the nested view and keeps rank in the web editor
   assert.match(guide, /## Nested cards/);
   assert.match(guide, /never `rank`, which you change by dragging/);
 });
+
+test('the apply protocol names one way to write a parent that holds a #: quoted', () => {
+  assert.doesNotMatch(protocol, /either way/);
+  assert.ok(protocol.includes('`parent: "fpp#4"`'), 'the quoted line is the one shown');
+  assert.match(protocol.replace(/\s+/g, ' '), /a bare `parent: fpp#4` already on a card reads the same/);
+});
+
+test('the skill lists what the page leaves to kanban-web: the done warning, the bar mode and rank editing', () => {
+  const notDo = skill.slice(skill.indexOf('## What the editor deliberately does not do'));
+  assert.match(notDo, /\*\*No warning for a parent marked done with leaves open\.\*\*/);
+  assert.match(notDo, /\*\*No bar mode\.\*\*/);
+  assert.match(notDo, /\*\*No rank editing\.\*\*/);
+});
+
+test('the skill says which helpers the page writes itself, not that nothing needs syncing by hand', () => {
+  const section = /\n## Nested cards\n([\s\S]*?)\n## /.exec(skill)[1].replace(/\s+/g, ' ');
+  assert.doesNotMatch(section, /nothing to keep in sync by hand/);
+  for (const helper of ['typeColor', 'rollupSegs', 'rollupBlock', 'nesting-parity.test.js']) {
+    assert.ok(section.includes(helper), `${helper} is named`);
+  }
+});
+
+test('the human guide says the rules are shared and the drawing is not', () => {
+  assert.doesNotMatch(guide, /so both surfaces always agree/);
+  assert.match(guide.replace(/\s+/g, ' '), /drawing and the type color match are the snapshot's own/);
+});
+
+test('the cross-harness note says the generator needs the web skill\'s nesting module beside it', () => {
+  const note = read('docs', 'cross-harness.md').replace(/\s+/g, ' ');
+  assert.match(note, /skills\/web\/web\/nesting\.js/);
+  assert.match(note, /kanban-web/);
+});
