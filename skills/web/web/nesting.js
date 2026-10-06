@@ -202,9 +202,20 @@ function outlineOrder(cards, ctx) {
 // is refused. A tile outside the siblings' stretch of the outline (their
 // parent, or a card after their last subtree) only marks that end of it.
 
+// Siblings share the exact parent: cards under a parent on another board, or
+// one missing from this board, are roots in the outline but not siblings of the
+// plain roots, so a drop among those never writes them.
+function parentKey(card, ctx) {
+  const p = parseParent(card.parent, ctx && ctx.board);
+  if (!p) return '';
+  return p.local ? `#${p.id}` : `${p.board}#${p.id}`;
+}
+
 function reorderGroup(tree, card, ctx) {
   const pid = localParentId(card, ctx);
-  return pid !== null && tree.byId.has(pid) ? tree.kids.get(pid) : tree.roots;
+  if (pid !== null && tree.byId.has(pid)) return tree.kids.get(pid);
+  const key = parentKey(card, ctx);
+  return tree.roots.filter((c) => parentKey(c, ctx) === key);
 }
 
 // The sibling a tile stands for: itself, or the sibling above it whose
@@ -257,7 +268,13 @@ function reorderPlan(cards, id, drop, ctx) {
     if (!tile) return { error: `no card ${tileId}` };
     const sibling = reorderSibling(tree, group, tile, ctx);
     if (sibling) return { sibling };
-    const before = outline.get(tileId) < outline.get(group[0].id);
+    const at = outline.get(tileId);
+    if (at > outline.get(group[0].id) && at < outline.get(group[group.length - 1].id)) {
+      // Between two siblings but under neither: a card of another parent shown among them.
+      const near = isAbove ? group.filter((c) => outline.get(c.id) < at).pop() : group.find((c) => outline.get(c.id) > at);
+      return { sibling: near };
+    }
+    const before = at < outline.get(group[0].id);
     return before === isAbove ? {} : { error: `card ${tileId} is not among the siblings of card ${id}` };
   };
   const above = side(drop.prev, true);

@@ -216,10 +216,29 @@ test('a parent dragged to where its own children are shown is placed by the neig
   assert.ok(plan(cards, 6, 7, 8).error, 'inside its own children');
 });
 
-test('roots whose parent is on another board or missing from this one are siblings of the plain roots', () => {
-  const cards = [card(1, { rank: 10 }), card(2, { rank: 20, parent: 'fpp#4' }), card(3, { rank: 30, parent: 99 }), card(4, { rank: 90 })];
-  assert.deepStrictEqual(plan(cards, 4, 1, 2), { rank: 15, renumber: [] });
-  assert.deepStrictEqual(plan(cards, 4, 2, 3), { rank: 25, renumber: [] });
+test('cards whose parent is on another board or missing from this one are not siblings of the plain roots, and a drop among roots never renumbers them', () => {
+  const cards = [card(1, { rank: 10 }), card(4, { rank: 11 }), card(2, { rank: 20, parent: 'fpp#4' }), card(3, { rank: 30, parent: 99 }), card(5, { rank: 90 })];
+  const got = plan(cards, 5, 1, 4);
+  assert.deepStrictEqual(got, { rank: 20, renumber: [{ id: 4, rank: 30 }] });
+  assert.deepStrictEqual(reorderWrites(5, got).map((w) => w.id).sort(), [4, 5]);
+});
+
+test('cards under the same parent on another board are siblings of each other, and of no other card', () => {
+  const cards = [card(1, { rank: 10 }), card(2, { rank: 10, parent: 'fpp#4' }), card(3, { rank: 11, parent: 'fpp#4' }), card(6, { rank: 50, parent: 'fpp#4' }), card(7, { rank: 11, parent: 'fpp#5' })];
+  const got = plan(cards, 6, 2, 3);
+  assert.deepStrictEqual(got, { rank: 20, renumber: [{ id: 3, rank: 30 }] });
+});
+
+test('a card with a missing parent is a sibling only of cards with the same missing parent', () => {
+  const cards = [card(1, { rank: 10 }), card(2, { rank: 10, parent: 99 }), card(3, { rank: 11, parent: 99 }), card(4, { rank: 50, parent: 98 })];
+  assert.deepStrictEqual(plan(cards, 3, null, 2), { rank: 0, renumber: [] });
+  assert.ok(plan(cards, 4, 1, 2).error, 'cards of another missing parent are not siblings of the card');
+});
+
+test('a card of another parent shown between two roots does not make a drop between them refused', () => {
+  const cards = [card(1, { rank: 10 }), card(2, { rank: 12, parent: 'fpp#4' }), card(3, { rank: 20 }), card(4, { rank: 90 })];
+  assert.deepStrictEqual(plan(cards, 4, 2, 3), { rank: 15, renumber: [] }, 'after the stranger, before the next root');
+  assert.deepStrictEqual(plan(cards, 4, 1, 2), { rank: 15, renumber: [] }, 'after the first root, before the stranger');
 });
 
 // --- reading the screen ----------------------------------------------------------
