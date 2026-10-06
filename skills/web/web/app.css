@@ -431,6 +431,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    own when every dep lands. */
 .card.waiting { border-left: 3px solid var(--id-waiting); }
 .card.dragging { opacity: 0.4; }
+/* The drop line of an outline reorder, drawn in the gap beside the tile the drop lands next to. */
+.card.drop-before { box-shadow: 0 -4px 0 0 var(--accent); }
+.card.drop-after { box-shadow: 0 4px 0 0 var(--accent); }
 .card.archived-card { cursor: pointer; opacity: 0.82; }
 /* The head wraps: a tile carrying its id, priority, assignee and both stickers
    moves the overflow to a second line instead of running under the date stack
