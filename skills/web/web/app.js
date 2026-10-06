@@ -2281,6 +2281,47 @@ function renderFrontmatterTable(pairs) {
   return `<table>${rows}</table>`;
 }
 
+// The thread above a card and the children below its body are lists of
+// mention chips, so the detail's one mention listener opens them.
+function relativeMentionHtml(card, board) {
+  const title = cardTitleDisplay(card).text;
+  const label = `${board}#${card.id}${title ? ' ' + title : ''}`;
+  return `<code class="mention same" data-card-id="${escapeHtml(card.id)}" tabindex="0" role="link">${escapeHtml(label)}</code>`;
+}
+
+function threadEntryHtml(entry, board) {
+  if (entry.kind === 'card') return `<li class="thread-item">${relativeMentionHtml(entry.card, board)}</li>`;
+  if (entry.kind === 'loop') return `<li class="thread-item thread-item--loop">${relativeMentionHtml(entry.card, board)}<span class="rel-mark">loop</span></li>`;
+  if (entry.kind === 'other-board') return `<li class="thread-item thread-item--other-board"><code class="mention">${escapeHtml(entry.ref)}</code><span class="rel-mark">not followed</span></li>`;
+  return `<li class="thread-item thread-item--unresolved"><code class="mention">${escapeHtml(board)}#${escapeHtml(entry.id)}</code><span class="rel-mark">unresolved</span></li>`;
+}
+
+function childEntryHtml(card, board) {
+  const mark = card.archived ? '<span class="rel-mark">archived</span>' : '';
+  return `<li class="child-item${card.archived ? ' child-item--archived' : ''}">${relativeMentionHtml(card, board)}${mark}</li>`;
+}
+
+function detailRelativesHtml(cards, id, ctx) {
+  const thread = threadOf(cards, id, ctx);
+  const children = childrenOf(cards, id, ctx);
+  return {
+    threadHtml: thread.length
+      ? `<span class="relatives-label">Thread</span><ol class="thread-list">${thread.map((e) => threadEntryHtml(e, ctx.board)).join('')}</ol>` : '',
+    childrenHtml: children.length
+      ? `<div class="relatives-label">Children</div><ul class="children-list">${children.map((c) => childEntryHtml(c, ctx.board)).join('')}</ul>` : '',
+  };
+}
+
+function renderDetailRelatives(id) {
+  const ctx = { board: state.projectName, priorities: state.priorities };
+  const { threadHtml, childrenHtml } = detailRelativesHtml(state.active.concat(state.archived), id, ctx);
+  for (const [sel, markup] of [['#detail-thread', threadHtml], ['#detail-children', childrenHtml]]) {
+    const el = $(sel);
+    el.innerHTML = markup;
+    el.classList.toggle('hidden', !markup);
+  }
+}
+
 // navigator.clipboard needs a secure context; http://localhost qualifies, but the
 // execCommand fallback is kept so the button never silently no-ops.
 function fallbackCopy(text) {
@@ -2415,6 +2456,7 @@ async function openDetailModal(id, { quiet } = {}) {
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors($('#detail-frontmatter'));
   $('#detail-body').innerHTML = mdToHtml(data.body || '');
+  renderDetailRelatives(data.id);
   // The tile wash (`.card.epic`), same class on the popup's own panel —
   // cardDetail (card-store.js) carries the tolerant any-case read tiles use.
   $('#detail-modal').querySelector('.modal').classList.toggle('epic', !!data.epic);
