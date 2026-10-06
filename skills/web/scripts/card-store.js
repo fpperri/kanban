@@ -486,7 +486,7 @@ function updateCard(dir, id, changes) {
   }
 
   writeAtomic(file, serializeCard({ order, values }, body));
-  return readCardFile(file, false);
+  return readCardFile(file, isArchivedFile(dir, file));
 }
 
 function writeAtomic(file, content) {

@@ -177,6 +177,10 @@ function readNeighbour(v) {
   return undefined;
 }
 
+function boardName(dir, config) {
+  return config.name || cs.projectName(dir);
+}
+
 function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -199,7 +203,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           // else the parent-folder derivation. Wire name kept as projectName —
           // it is also the localStorage namespace for every per-board view
           // preference, so renaming the field would orphan saved state.
-          projectName: config.name || cs.projectName(dir),
+          projectName: boardName(dir, config),
           // the header copy button copies the board dir's ABSOLUTE
           // path — resolve()d because the CLI defaults dir to a relative
           // '.kanban'/'kanban' (resolveDefaultBoardDir()), and a relative
@@ -291,10 +295,9 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           if (prev === undefined || next === undefined) return sendJSON(res, 400, { error: 'prev and next must be card ids' });
           const config = cfg.readConfig(dir);
           const cards = cs.listActive(dir).concat(cs.listArchived(dir)).filter((c) => !c.unparseable);
-          const plan = nesting.reorderPlan(cards, id, { prev, next }, { board: config.name || cs.projectName(dir), priorities: config.priorities });
+          const plan = nesting.reorderPlan(cards, id, { prev, next }, { board: boardName(dir, config), priorities: config.priorities });
           if (plan.error) return sendJSON(res, 400, { error: plan.error });
-          const archived = new Set(cards.filter((c) => c.archived).map((c) => c.id));
-          const written = nesting.reorderWrites(id, plan).map((w) => cs.toJSON(Object.assign(cs.updateCard(dir, w.id, { rank: w.rank }), { archived: archived.has(w.id) })));
+          const written = nesting.reorderWrites(id, plan).map((w) => cs.toJSON(cs.updateCard(dir, w.id, { rank: w.rank })));
           return sendJSON(res, 200, {
             card: written.find((c) => c.id === id) || cs.toJSON(cards.find((c) => c.id === id)),
             renumbered: written.filter((c) => c.id !== id),

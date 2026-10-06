@@ -1576,3 +1576,14 @@ test('updateCard preserves a parent line verbatim — form-unmanaged frontmatter
   const raw = fs.readFileSync(path.join(dir, '0001.child.card.md'), 'utf8');
   assert.match(raw, /^parent: 42$/m);
 });
+
+test('updateCard on an archived card, in a package folder too, returns it as archived', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-'));
+  fs.mkdirSync(path.join(dir, 'archived', 'pkg'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'archived', '0001.old.card.md'), '---\nid: 1\nstatus: done\n---\n\n# Old\n');
+  fs.writeFileSync(path.join(dir, 'archived', 'pkg', '0002.packaged.card.md'), '---\nid: 2\nstatus: done\n---\n\n# Packaged\n');
+  fs.writeFileSync(path.join(dir, '0003.live.card.md'), '---\nid: 3\nstatus: todo\n---\n\n# Live\n');
+  assert.strictEqual(cs.updateCard(dir, 1, { priority: 'High' }).archived, true);
+  assert.strictEqual(cs.updateCard(dir, 2, { priority: 'High' }).archived, true);
+  assert.strictEqual(cs.updateCard(dir, 3, { priority: 'High' }).archived, false);
+});
