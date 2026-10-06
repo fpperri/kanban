@@ -18,6 +18,7 @@ function loadSortWiring(storage, boardState) {
     pick(/function boardIsNested\([\s\S]*?\n\}/),
     pick(/function loadColumnSort\([\s\S]*?\n\}/),
     pick(/function saveColumnSort\([\s\S]*?\n\}/),
+    pick(/function pickSort\([\s\S]*?\n\}/),
     pick(/function setColumnSortField\([\s\S]*?\n\}/),
     pick(/function toggleColumnSortDirection\([\s\S]*?\n\}/),
   ].join('\n');
@@ -114,5 +115,14 @@ test('a changed board or status list re-reads the picks: app.js resets the memo 
     const body = appJs.match(new RegExp(`function ${fn}\\([\\s\\S]*?\\n\\}`))[0];
     assert.match(body, /columnSort = null/);
     assert.match(body, /columnSortPicks = null/, `${fn} also drops the remembered picks`);
+  }
+});
+
+test('both ways of changing a column\'s sort write the pick through one helper', () => {
+  assert.match(appJs, /function pickSort\(/);
+  for (const fn of ['setColumnSortField', 'toggleColumnSortDirection']) {
+    const body = appJs.match(new RegExp(`function ${fn}\\([\\s\\S]*?\\n\\}`))[0];
+    assert.match(body, /pickSort\(/, `${fn} goes through pickSort`);
+    assert.doesNotMatch(body, /columnSortPicks/, `${fn} does not write the picks itself`);
   }
 });

@@ -104,22 +104,21 @@ function saveColumnSort() {
 // (id/due -> asc, priority -> desc/High-first, modified -> desc/newest-first,
 // assignee -> asc/registry-order) rather than keeping whatever
 // direction the previous field happened to be on.
-function setColumnSortField(col, field) {
-  if (!SORT_FIELDS.includes(field)) return;
-  const sort = loadColumnSort();
-  sort[col] = { field, direction: DEFAULT_SORT_DIRECTION[field] };
-  columnSortPicks[col] = Object.assign({}, sort[col]);
+function pickSort(col, entry) {
+  loadColumnSort()[col] = entry;
+  columnSortPicks[col] = Object.assign({}, entry);
   saveColumnSort();
   renderBoard();
 }
 
+function setColumnSortField(col, field) {
+  if (!SORT_FIELDS.includes(field)) return;
+  pickSort(col, { field, direction: DEFAULT_SORT_DIRECTION[field] });
+}
+
 function toggleColumnSortDirection(col) {
-  const sort = loadColumnSort();
-  const current = sort[col];
-  sort[col] = { field: current.field, direction: current.direction === 'asc' ? 'desc' : 'asc' };
-  columnSortPicks[col] = Object.assign({}, sort[col]);
-  saveColumnSort();
-  renderBoard();
+  const current = loadColumnSort()[col];
+  pickSort(col, { field: current.field, direction: current.direction === 'asc' ? 'desc' : 'asc' });
 }
 
 // Which columns' cards the MAP shows — one toggle per column
