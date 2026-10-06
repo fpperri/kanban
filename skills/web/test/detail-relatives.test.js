@@ -26,7 +26,7 @@ function loadRelatives() {
     ...require('../web/nesting'),
   };
   vm.createContext(sandbox);
-  vm.runInContext([fn('relativeMentionHtml'), fn('threadEntryHtml'), fn('childEntryHtml'), fn('detailRelativesHtml')].join('\n'), sandbox);
+  vm.runInContext([fn('relativeMentionHtml'), fn('archivedMarkHtml'), fn('threadEntryHtml'), fn('childEntryHtml'), fn('detailRelativesHtml')].join('\n'), sandbox);
   return (cards, id) => sandbox.detailRelativesHtml(cards, id, CTX);
 }
 
@@ -64,6 +64,15 @@ test('a parent\'s detail lists its children in rank order, unranked after, archi
   assert.deepStrictEqual(ids, [3, 4, 5, 6]);
   assert.strictEqual((childrenHtml.match(/child-item--archived/g) || []).length, 1, 'only the archived child is marked');
   assert.match(childrenHtml, />archived</);
+});
+
+test('an archived parent in the thread is marked archived and dimmed like an archived child, and stays a click target', () => {
+  const rel = loadRelatives();
+  const cards = [card(1, { title: 'Old root', archived: true }), card(2, { parent: 1, title: 'Live parent' }), card(3, { parent: 2, title: 'Leaf' })];
+  const { threadHtml } = rel(cards, 3);
+  assert.strictEqual((threadHtml.match(/thread-item--archived/g) || []).length, 1, 'only the archived parent is marked');
+  assert.strictEqual((threadHtml.match(/>archived</g) || []).length, 1);
+  assert.ok(threadHtml.includes(chip(1, 'Old root')), 'an archived parent still opens');
 });
 
 test('a card whose parent id does not exist shows an unresolved marker', () => {

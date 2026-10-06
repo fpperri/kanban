@@ -1166,10 +1166,12 @@ if(!th.length)return null;
 const box=el("div","relatives"),ol=el("ol","thread-list");
 box.appendChild(el("span","relatives-label","Thread"));
 th.forEach(e=>{
-const li=el("li","thread-item thread-item--"+e.kind);
+const arch=e.kind==="card"&&e.card.archived;
+const li=el("li","thread-item thread-item--"+e.kind+(arch?" thread-item--archived":""));
 if(e.kind==="card"||e.kind==="loop")li.appendChild(relMention(e.id));
 else li.appendChild(el("code","mention",e.kind==="other-board"?e.ref:BOARD+"#"+e.id));
 if(e.kind!=="card")li.appendChild(el("span","rel-mark",e.kind==="other-board"?"not followed":e.kind));
+else if(arch)li.appendChild(el("span","rel-mark","archived"));
 ol.appendChild(li)});
 box.appendChild(ol);return box}
 function childrenBlock(id){

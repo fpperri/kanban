@@ -308,10 +308,19 @@ describe('the thread and the children in a card sheet', () => {
     });
   });
 
-  test('queueing the archive of a parent leaves its children\'s thread whole', () => {
+  test('queueing the archive of a parent leaves its children\'s thread whole, the parent marked archived', () => {
     open(BOARD, (page) => {
       page.run('queue({op:"archive",id:"2"});render()');
-      assert.deepStrictEqual(entries(sheet(page, 4), 'thread-item'), ['fixture#1 Ship it', 'fixture#2 Build']);
+      assert.deepStrictEqual(entries(sheet(page, 4), 'thread-item'), ['fixture#1 Ship it', 'fixture#2 Buildarchived']);
+    });
+  });
+
+  test('an archived parent in the thread is marked archived, like an archived child', () => {
+    const rows = board('', [[4, 'todo', 'Child', { parent: 3 }]], [[3, 'done', 'Old']]);
+    open(rows, (page) => {
+      const [item] = byClass(sheet(page, 4), 'thread-item');
+      assert.deepStrictEqual(byClass(item, 'rel-mark').map((n) => n.textContent), ['archived']);
+      assert.ok(item.classList.contains('thread-item--archived'));
     });
   });
 

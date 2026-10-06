@@ -509,7 +509,8 @@ to `127.0.0.1` only.
   `tags` tag chips. The card path shows its folders muted and the file name in full ink.
 - **Thread and children** — the detail popup shows the card's thread above its
   frontmatter: the parents up to the root, root first, each a mention chip that opens
-  that card (an archived parent too). A parent id with no card on this board ends the
+  that card (an archived parent too, marked `archived` and dimmed like an archived
+  child). A parent id with no card on this board ends the
   thread with an `unresolved` marker; a parent on another board ends it with that
   board's mention marked `not followed` (the single-board release names it and never
   follows it); a loop of parents stops at the card that would repeat and flags it

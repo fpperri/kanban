@@ -694,7 +694,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .thread-item + .thread-item::before { content: "\203A"; color: var(--mut); margin: 0 6px; }
 .children-list { list-style: none; margin: 6px 0 0; padding: 0; }
 .child-item { margin: 4px 0; }
-.child-item--archived code.mention { opacity: 0.7; }
+.thread-item--archived code.mention, .child-item--archived code.mention { opacity: 0.7; }
 .rel-mark { margin-left: 6px; padding: 0 6px; border-radius: .15rem; color: var(--mut); font-size: 0.85em; }
 .thread-item--loop .rel-mark, .thread-item--unresolved .rel-mark, .fm-value .rel-mark { color: var(--warn); background: var(--warn-soft); font-weight: 600; }
 .detail-frontmatter table { width: 100%; border-collapse: collapse; font-size: 0.8em; }

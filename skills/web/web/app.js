@@ -2438,16 +2438,19 @@ function relativeMentionHtml(card, board) {
   return `<code class="mention same" data-card-id="${escapeHtml(card.id)}" tabindex="0" role="link">${escapeHtml(label)}</code>`;
 }
 
+function archivedMarkHtml(card) {
+  return card.archived ? '<span class="rel-mark">archived</span>' : '';
+}
+
 function threadEntryHtml(entry, board) {
-  if (entry.kind === 'card') return `<li class="thread-item">${relativeMentionHtml(entry.card, board)}</li>`;
+  if (entry.kind === 'card') return `<li class="thread-item${entry.card.archived ? ' thread-item--archived' : ''}">${relativeMentionHtml(entry.card, board)}${archivedMarkHtml(entry.card)}</li>`;
   if (entry.kind === 'loop') return `<li class="thread-item thread-item--loop">${relativeMentionHtml(entry.card, board)}<span class="rel-mark">loop</span></li>`;
   if (entry.kind === 'other-board') return `<li class="thread-item thread-item--other-board"><code class="mention">${escapeHtml(entry.ref)}</code><span class="rel-mark">not followed</span></li>`;
   return `<li class="thread-item thread-item--unresolved"><code class="mention">${escapeHtml(board)}#${escapeHtml(entry.id)}</code><span class="rel-mark">unresolved</span></li>`;
 }
 
 function childEntryHtml(card, board) {
-  const mark = card.archived ? '<span class="rel-mark">archived</span>' : '';
-  return `<li class="child-item${card.archived ? ' child-item--archived' : ''}">${relativeMentionHtml(card, board)}${mark}</li>`;
+  return `<li class="child-item${card.archived ? ' child-item--archived' : ''}">${relativeMentionHtml(card, board)}${archivedMarkHtml(card)}</li>`;
 }
 
 function detailRelativesHtml(cards, id, ctx) {
