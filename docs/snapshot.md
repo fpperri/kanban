@@ -90,7 +90,7 @@ fields** grid for everything else (type, parent, dates, tags, `waiting_for`, and
 any custom frontmatter — never `rank`, which you change by dragging in the
 [web editor](web.md)), and
 **Dependency tree / path** buttons that narrow every view down to that card's
-dependency web (no view switch — whatever view you're on just filters to it).
+tree (no view switch — whatever view you're on just filters to it).
 
 ## Creating a card
 

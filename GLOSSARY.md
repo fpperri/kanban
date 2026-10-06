@@ -134,8 +134,20 @@ One `waiting_for` edge: this card waits for that one. Separate from nesting.
 _Avoid_: depends_on (as a field), blocker, link.
 
 **Dependency chain**:
-A run of dependencies, each card waiting for the next.
-_Avoid_: critical path (unless it is the longest chain), thread (that is the parent chain).
+A run of dependencies, each card waiting for the next. Cards whose dependencies branch and rejoin are one chain too.
+_Avoid_: critical path (unless it is the longest chain), thread (that is the parent chain), web.
+
+**Relation**:
+A dependency or a parent link between two cards, the two things the Map joins. A card with no dependency, no parent and no children has no relation.
+_Avoid_: edge, connection.
+
+**Tree** (derived):
+Every card that a chain of relations joins, whichever way each points and whether or not a line is drawn for it. The Map draws one graph per tree, and the `tree:` search term follows the same relations. Wider than a parent's children, and not a thread.
+_Avoid_: component, cluster, web.
+
+**Chain end** (derived):
+Of one parent's children, a child where a chain of its siblings meets the parent: with the parent below, a child no sibling waits for; with the parent above, a child that waits for no sibling. A child with no dependency to or from a sibling is a chain of one and an end both ways. The Map draws a line to the chain ends by default.
+_Avoid_: terminal, leaf (that is a card with no children).
 
 ## Role trio
 

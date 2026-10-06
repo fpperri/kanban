@@ -794,9 +794,9 @@ to `127.0.0.1` only.
   down is later on the map and a parent is the end of the work under it (its own status
   stays the human's call: done with open leaves warns, never gates). Which children get a
   line is the **Parent lines** option. **Chain ends**, the default: per parent, only the
-  children where the siblings' dependency web meets the parent — with the parent below,
+  children where the siblings' dependency chain meets the parent — with the parent below,
   the children no sibling waits for; with it above, the children that wait for no sibling
-  — and always a child with no dependency to or from a sibling (a web that loops has no
+  — and always a child with no dependency to or from a sibling (a chain that loops has no
   end, so all of it takes a line). **All** draws a line to every child and **off** draws
   none. Which children are the ends is read on the whole board, so a search or a status
   pill never moves a line. A parent is not a dependency: it never makes a card waiting,
@@ -836,7 +836,7 @@ to `127.0.0.1` only.
   first. They persist per board in `localStorage` as one object (`map.options`, merged
   defensively: a value this version does not offer reads as its default), survive the
   poll and a reload, and are not URL parameters. The rules behind them (which parent
-  lines, which trees, the row order, the No relations set) are map-relations.js, pure and
+  lines, which trees, the row order, the No relations set, where cards and lines fall) are map-relations.js, pure and
   unit-tested, with no other module behind it so a page without the web app's scripts can
   embed it as is, like nesting.js.
   **Node treatments:** the border is one neutral weight for every node — status never
@@ -894,10 +894,10 @@ to `127.0.0.1` only.
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
   search terms, resolved over dependency-graph.js's dependency edge set (`waiting_for`
-  + `parent:` membership, with sequencing-wins-the-pair/terminal-only suppression
+  + `parent:` relation, with sequencing-wins-the-pair/terminal-only suppression
   already applied — see its `treeIds`/`pathIds` for the grammar, not restated here;
   the map's own graphs are shaped by map-relations.js, above).
-  `tree:` is the connected component (every card the id's dependency web touches,
+  `tree:` is the connected component (every card the id's relations reach,
   undirected); `path:` is the narrower directed cone — everything transitively upstream
   and downstream through the id, excluding sibling branches. Traversal is ALWAYS over
   live + archived cards; an archived member's on-screen visibility still follows the

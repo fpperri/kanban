@@ -78,7 +78,7 @@ predicate) — never dropped as mid-typing; `review:PR`/`blocked:vendor` is a
 case-insensitive substring match on the sticker's own text. `tree:<id>`/`path:<id>`
 (`#`-tolerant, e.g. `tree:#153`): tree is the card's whole dependency
 component (undirected flood-fill over `waiting_for` + `parent:`
-membership — the same relations the Map's trees are made of); path is the narrower
+relations, the ones the Map's trees are made of); path is the narrower
 directed cone through the card (everything transitively upstream +
 downstream). An unknown id matches nothing; an isolated card is a component
 of one; traversal always runs over the full live + archived card set
@@ -218,13 +218,14 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
 ## The Map
 
 The page embeds `skills/web/web/map-relations.js` as is, beside `nesting.js`, so which
-parent lines the Map draws, which cards share a graph, how a row reads and which cards
-have no relation at all are kanban-web's own rules; `test/map-embed.test.js` pins the
-embedded source to that file, under the same build guards as the nesting module. The
-build reads it from the kanban-web skill installed beside this one, like `nesting.js`.
+parent lines the Map draws, which cards share a graph, how a row reads, which cards
+have no relation at all and where cards and lines fall are kanban-web's own rules;
+`test/map-embed.test.js` pins the embedded source to that file, under the same build
+guards as the nesting module. The build reads it from the kanban-web skill installed
+beside this one, like `nesting.js`.
 
-What the page draws with those rules is its own code, and the relations it hands them
-are built twice: `buildRelGraph` here, `buildRelationsGraph` in `dependency-graph.js`
+The page keeps only the drawing of those results as SVG, and the relations it hands the
+rules are built twice: `buildRelGraph` here, `buildRelationsGraph` in `dependency-graph.js`
 there. `test/map-parity.test.js` runs both over a board with every kind of relation,
 whole and filtered, and fails when they stop giving the same graphs. The Map shows the
 board as embedded, like the Gantt and the Calendar: a queued edit does not move it.
