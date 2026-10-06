@@ -66,7 +66,7 @@ function siblingsCompare(a, b, ctx) {
   return pa !== pb ? pa - pb : a.id - b.id;
 }
 
-function nestParentId(card, ctx) {
+function localParentId(card, ctx) {
   const p = parseParent(card.parent, ctx && ctx.board);
   return p && p.local ? p.id : null;
 }
@@ -79,7 +79,7 @@ function nestTree(cards, ctx) {
   const kids = new Map();
   const roots = [];
   for (const c of byId.values()) {
-    const pid = nestParentId(c, ctx);
+    const pid = localParentId(c, ctx);
     if (pid === null || !byId.has(pid)) { roots.push(c); continue; }
     if (!kids.has(pid)) kids.set(pid, []);
     kids.get(pid).push(c);
@@ -102,7 +102,7 @@ function depthOf(cards, id, ctx) {
   let depth = 0;
   let cur = byId.get(id);
   while (cur) {
-    const pid = nestParentId(cur, ctx);
+    const pid = localParentId(cur, ctx);
     if (pid === null || !byId.has(pid) || seen.has(pid)) break;
     seen.add(pid);
     depth++;
@@ -176,7 +176,7 @@ function outlineOrder(cards, ctx) {
     while (!at.has(cur.id)) {
       at.set(cur.id, path.length);
       path.push(cur);
-      cur = byId.get(nestParentId(cur, ctx));
+      cur = byId.get(localParentId(cur, ctx));
     }
     const loop = path.slice(at.get(cur.id));
     walk(loop.reduce((low, x) => (x.id < low.id ? x : low)));
@@ -203,7 +203,7 @@ function outlineOrder(cards, ctx) {
 // parent, or a card after their last subtree) only marks that end of it.
 
 function reorderGroup(tree, card, ctx) {
-  const pid = nestParentId(card, ctx);
+  const pid = localParentId(card, ctx);
   return pid !== null && tree.byId.has(pid) ? tree.kids.get(pid) : tree.roots;
 }
 
@@ -215,7 +215,7 @@ function reorderSibling(tree, group, tile, ctx) {
   while (cur && !seen.has(cur.id)) {
     if (group.includes(cur)) return cur;
     seen.add(cur.id);
-    const pid = nestParentId(cur, ctx);
+    const pid = localParentId(cur, ctx);
     cur = pid === null ? null : tree.byId.get(pid);
   }
   return null;
@@ -380,10 +380,11 @@ function rollupIndex(cards, ctx) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseParent, parseRank, siblingsCompare, childrenOf, depthOf, threadOf, outlineOrder, hasNesting, rollupIndex, reorderPlan, reorderWrites, dropNeighbours, dropSlot };
+  module.exports = { parseParent, parseRank, localParentId, siblingsCompare, childrenOf, depthOf, threadOf, outlineOrder, hasNesting, rollupIndex, reorderPlan, reorderWrites, dropNeighbours, dropSlot };
 } else {
   window.parseParent = parseParent;
   window.parseRank = parseRank;
+  window.localParentId = localParentId;
   window.siblingsCompare = siblingsCompare;
   window.childrenOf = childrenOf;
   window.depthOf = depthOf;

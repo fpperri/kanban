@@ -15,6 +15,11 @@
 const WB = (typeof module !== 'undefined' && module.exports)
   ? require('./waiting-blocked')
   : window;
+// The one place a card's parent is resolved, so the map reads `parent` the way
+// the outline does.
+const NEST = (typeof module !== 'undefined' && module.exports)
+  ? require('./nesting')
+  : window;
 
 // The node carries precomputed gate flags:
 // `waiting` (some waiting_for dep not done — the amber stroke) and `blocked`
@@ -73,7 +78,7 @@ function isCardWaiting(c, byId) {
 // membership appears in the graph AND the detached row. A self-parent is
 // nonsense and adds no edge; a dangling parent id ghosts as missing, same
 // as a dangling dep.
-function buildDependencyGraph(cards, visibleIds) {
+function buildDependencyGraph(cards, visibleIds, ctx) {
   const byId = new Map(cards.map((c) => [c.id, c]));
   // A ghost placeholder from a dangling reference has no card behind it, so
   // "visible" must require actual existence — not just query-membership —
@@ -108,7 +113,8 @@ function buildDependencyGraph(cards, visibleIds) {
   // search filter must not reroute membership.
   const parentOf = (id) => {
     const card = byId.get(id);
-    return card && Number.isInteger(card.parent) && card.parent !== card.id ? card.parent : null;
+    const parent = card ? NEST.localParentId(card, ctx) : null;
+    return parent !== null && parent !== card.id ? parent : null;
   };
   const nonTerminal = new Set(); // `${parentId}:${memberId}`
   for (const c of cards) {
@@ -136,17 +142,18 @@ function buildDependencyGraph(cards, visibleIds) {
   }
   for (const c of cards) {
     // Membership edge, terminal member -> parent (the parent is the
-    // sink; it closes last). `parent` is a single id; self-parent adds
+    // sink; it closes last). A parent on another board adds no edge; self-parent adds
     // nothing. When the pair already has a dep edge IN EITHER DIRECTION (the
     // card waits on its parent, or the parent waits on the card), sequencing
     // wins the pair: same-direction overlap would add a redundant second
     // edge over a real dependency, and opposite-direction overlap would
     // fabricate a 2-cycle (a back-edge bow for a relation that isn't
     // circular).
-    if (Number.isInteger(c.parent) && c.parent !== c.id
-        && !nonTerminal.has(`${c.parent}:${c.id}`)
-        && !seenEdges.has(`${c.parent}->${c.id}:dep`) && !seenEdges.has(`${c.id}->${c.parent}:dep`)) {
-      addEdge(c.id, c.parent, 'epic');
+    const parent = parentOf(c.id);
+    if (parent !== null
+        && !nonTerminal.has(`${parent}:${c.id}`)
+        && !seenEdges.has(`${parent}->${c.id}:dep`) && !seenEdges.has(`${c.id}->${parent}:dep`)) {
+      addEdge(c.id, parent, 'epic');
     }
   }
 
@@ -231,8 +238,8 @@ function layerNodes(nodeIds, edges) {
 // an isolated card (no edges at all) resolves to a one-element Set (itself);
 // visited-set BFS makes both cycle-safe (never hangs, mirrors layerNodes'
 // own cycle tolerance).
-function buildAdjacency(cards) {
-  const { edges } = buildDependencyGraph(cards, null);
+function buildAdjacency(cards, ctx) {
+  const { edges } = buildDependencyGraph(cards, null, ctx);
   const forward = new Map(); // from -> Set(to)
   const backward = new Map(); // to -> Set(from)
   for (const { from, to } of edges) {
@@ -254,10 +261,10 @@ function walkFrom(start, adjacency, visited) {
   }
 }
 
-function treeIds(cards, rawId) {
+function treeIds(cards, rawId, ctx) {
   const id = Number(rawId);
   if (!cards.some((c) => c.id === id)) return new Set();
-  const { forward, backward } = buildAdjacency(cards);
+  const { forward, backward } = buildAdjacency(cards, ctx);
   const visited = new Set([id]);
   // Undirected: a single BFS over the union of both directions' neighbors
   // at each step reaches the whole component regardless of edge direction.
@@ -272,10 +279,10 @@ function treeIds(cards, rawId) {
   return visited;
 }
 
-function pathIds(cards, rawId) {
+function pathIds(cards, rawId, ctx) {
   const id = Number(rawId);
   if (!cards.some((c) => c.id === id)) return new Set();
-  const { forward, backward } = buildAdjacency(cards);
+  const { forward, backward } = buildAdjacency(cards, ctx);
   const visited = new Set([id]);
   walkFrom(id, forward, visited); // descendants (downstream)
   walkFrom(id, backward, visited); // ancestors (upstream)

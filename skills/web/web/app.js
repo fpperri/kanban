@@ -888,7 +888,7 @@ function renderBoardColumns() {
   // matching id set ONCE here, then each column below intersects against it
   // by id rather than re-calling filterCards on its own slice.
   const searchIds = searchActive
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id)) : null;
+    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
   // Columns render FROM the configured statuses list (+ archive at
   // the far right). A card whose status isn't listed renders in the FIRST
   // column via columnForStatus — the catch-all — with cardEl's raw-status chip.
@@ -1028,7 +1028,7 @@ function renderMapView() {
   container.appendChild(buildMapFilterRow());
   container.appendChild(buildMapZoomControls());
   const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms).map((c) => c.id)) : null;
+  const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms, nestingCtx()).map((c) => c.id)) : null;
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildDependencyGraph sees one combined
   // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
@@ -1036,7 +1036,7 @@ function renderMapView() {
   // is column-state.js's intersectVisibleIds — pure and unit-pinned, not glue.
   const statusIds = mapFilterVisibleIds(allCards, loadMapStatusFilter(), state.statuses);
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
-  const graph = buildDependencyGraph(allCards, visibleIds);
+  const graph = buildDependencyGraph(allCards, visibleIds, nestingCtx());
 
   if (!graph.nodes.length && !graph.ghosts.length) {
     const empty = document.createElement('div');
@@ -3347,7 +3347,7 @@ function renderCalendarMonthGrid(container) {
   // card is ever added to `cards` below regardless of whether its id lands
   // in searchIds.
   const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id)) : null;
+  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
   // Status filter composes with search by INTERSECTION — same rule
   // as the map's and the gantt's composition. ganttFilterVisibleIds
   // (not mapFilterVisibleIds) is the right helper here too: the calendar
@@ -3481,7 +3481,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   // live+archived search pool and Archive-pill composition as the month
   // grid too, so the toggle applies to both grids alike.
   const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id)) : null;
+  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
   const statusIds = ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses());
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
   const cards = visibleIds ? state.active.filter((c) => visibleIds.has(c.id)) : state.active;
@@ -4147,7 +4147,7 @@ function renderGanttView() {
   // regardless of whether its id lands in searchIds.
   const searchTerms = currentSearchTerms();
   const searchIds = searchTerms.length
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id))
+    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id))
     : null;
   // NOT mapFilterVisibleIds — that folds an unlisted status
   // into the FIRST column's toggle, correct for the map/board but wrong here.

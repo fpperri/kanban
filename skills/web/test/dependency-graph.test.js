@@ -484,3 +484,27 @@ test('cardToNode carries prompt through onto the built node, same as title/statu
   const node = g.nodes.find((n) => n.id === 8);
   assert.strictEqual(node.prompt, 'summarize the PR');
 });
+
+// --- a parent written as this board's own name ----
+
+const OWN_NAME = [
+  { id: 12, title: 'parent', status: 'doing', waiting_for: [] },
+  { id: 13, title: 'child, own name', status: 'todo', parent: 'kanban#12', waiting_for: [] },
+  { id: 14, title: 'child, other board', status: 'todo', parent: 'fpp#12', waiting_for: [] },
+  { id: 15, title: 'child, digits', status: 'todo', parent: '12', waiting_for: [] },
+];
+
+test('the board\'s own name in `board#id` form is a parent on this board: the map draws its edge too', () => {
+  const g = buildDependencyGraph(OWN_NAME, null, { board: 'kanban' });
+  assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}`).sort(), ['13->12', '15->12']);
+});
+
+test('without the board name, or with another board\'s, `board#id` is no edge', () => {
+  assert.deepStrictEqual(buildDependencyGraph(OWN_NAME, null).edges.map((e) => `${e.from}->${e.to}`), ['15->12']);
+  assert.deepStrictEqual(buildDependencyGraph(OWN_NAME, null, { board: 'fpp' }).edges.map((e) => `${e.from}->${e.to}`).sort(), ['14->12', '15->12']);
+});
+
+test('tree: and path: follow the own-name parent edge', () => {
+  assert.deepStrictEqual([...treeIds(OWN_NAME, 13, { board: 'kanban' })].sort(), [12, 13, 15]);
+  assert.deepStrictEqual([...pathIds(OWN_NAME, 13, { board: 'kanban' })].sort(), [12, 13]);
+});

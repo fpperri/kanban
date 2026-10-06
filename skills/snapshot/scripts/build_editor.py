@@ -39,9 +39,6 @@ def parse_card(path):
     def lst(v):
         if not v or v == "[]": return []
         return [t.strip().strip('"').strip("'") for t in v.strip("[]").split(",") if t.strip()]
-    def parent_id(v):
-        v = (v or "").strip()
-        return int(v) if re.match(r"^\d+$", v) else None
     full_body = "\n".join(rest).strip()
     return {
         "id": int(fm["id"]) if fm.get("id", "").isdigit() else (int(idm.group(1)) if idm else 0),
@@ -60,10 +57,6 @@ def parse_card(path):
         # "finished, approve me" rather than "stuck, act so I can proceed" —
         # same raw-verbatim contract, never gates the doing entry check.
         "rv": fm.get("review", ""),
-        # Strict parent parse (digits only -> int, else null),
-        # same contract as kanban-web's card-store.js parent field — used to
-        # build membership edges for the map + tree:/path: traversal.
-        "pt": parent_id(fm.get("parent")),
         # "bn" ("body length"): the UNCAPPED character count, set before
         # either truncation below runs. The template compares it against the
         # embedded body's own length to know a body was cut and by how much —
@@ -794,6 +787,9 @@ const PRIOS=__PRIORITIES__;
 function acol(a){const t=(a||"").trim();if(!t)return null;if(ASGCOL[t])return ASGCOL[t];return "var(--hash-"+HASH_SLOTS[shash(t.toLowerCase())%HASH_SLOTS.length]+")"}
 const DATA=__DATA__;
 const NOTIFS=__NOTIFS__;
+// The parent on this board, read by the embedded nesting module like the outline does: a plain id, or this board's own name in `board#id` form.
+function localParent(raw){const p=parseParent(raw,BOARD);return p&&p.local?p.id:null}
+DATA.forEach(c=>{c.pt=localParent(c.fm&&c.fm.parent)});
 let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
 // Wide screens open live sections by default (Archive stays collapsed) —
 // the collapsed compact overview is a phone affordance. Evaluated once at load.
@@ -1114,7 +1110,7 @@ if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.
 if(o.fm)e.fm=Object.assign(e.fm||{},o.fm)}
 if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined){c.body=o.body;c.bn=o.body.length}
 if(o.fm&&!isProv(o.id)){c.fm=c.fm||{};for(const k in o.fm){const v=o.fm[k];
-if(k==="parent"){const pv=String(v).trim().replace(/^["']+|["']+$/g,"");c.pt=/^\\d+$/.test(pv)?Number(pv):null}
+if(k==="parent")c.pt=localParent(v);
 if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
 else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v}}

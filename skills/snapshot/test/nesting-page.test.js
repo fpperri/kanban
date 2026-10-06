@@ -359,3 +359,19 @@ test('the embedded module and the page script load together without a name clash
     assert.strictEqual(page.run('typeof outlineOrder + typeof rollupIndex + typeof threadOf'), 'functionfunctionfunction');
   });
 });
+
+describe('the map and a parent written as the board\'s own name', () => {
+  const edgesOf = (page) => JSON.parse(page.run('JSON.stringify(buildDepGraph(DATA).edges)'))
+    .map((e) => `${e.from}->${e.to}`).sort();
+
+  test('`board#id` with this board\'s name draws the same edge as a plain id, another board\'s draws none', () => {
+    const rows = board('', [[1, 'todo', 'A'], [2, 'todo', 'B', { parent: 'order#1' }], [3, 'todo', 'C', { parent: '"order#1"' }],
+      [4, 'todo', 'D', { parent: 1 }], [5, 'todo', 'E', { parent: 'fpp#1' }]]);
+    open(rows, (page) => assert.deepStrictEqual(edgesOf(page), ['2->1', '3->1', '4->1']));
+  });
+
+  test('tree: follows the own-name edge', () => {
+    const rows = board('', [[1, 'todo', 'A'], [2, 'todo', 'B', { parent: 'order#1' }]]);
+    open(rows, (page) => assert.deepStrictEqual([...JSON.parse(page.run('JSON.stringify([...treeIds(1)])'))].sort(), [1, 2]));
+  });
+});

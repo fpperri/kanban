@@ -329,3 +329,15 @@ test('multiple earlier terms all survive into value, space-joined, only the last
   const assigneeItem = items.find((i) => i.label === 'assignee:af');
   assert.deepStrictEqual(assigneeItem, { value: 'status:todo tags:ui assignee:af', label: 'assignee:af' });
 });
+
+test('tree: and path: follow a parent written as the board\'s own name when the board is given', () => {
+  const cards = [
+    { id: 12, title: 'parent', body: '', status: 'doing', priority: 'Normal', tags: [] },
+    { id: 13, title: 'child', body: '', status: 'todo', priority: 'Normal', tags: [], parent: 'kanban#12' },
+    { id: 14, title: 'apart', body: '', status: 'todo', priority: 'Normal', tags: [] },
+  ];
+  const ids = (q, ctx) => filterCards(cards, parseSearchQuery(q), ctx).map((c) => c.id);
+  assert.deepStrictEqual(ids('tree:12', { board: 'kanban' }), [12, 13]);
+  assert.deepStrictEqual(ids('path:13', { board: 'kanban' }), [12, 13]);
+  assert.deepStrictEqual(ids('tree:12'), [12]);
+});

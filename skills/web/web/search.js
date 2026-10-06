@@ -156,19 +156,21 @@ function cardMatchesQuery(card, terms) {
 // never a pre-filtered subset — traversal is always over live + archived
 // cards, by design. A subset would silently produce a
 // wrong/smaller graph with no error.
-function resolveGraphTerms(cards, terms) {
+function resolveGraphTerms(cards, terms, ctx) {
   if (!terms.some((t) => t.field === 'tree' || t.field === 'path')) return terms;
   return terms.map((term) => {
-    if (term.field === 'tree') return { field: 'ids', value: term.value, ids: DG.treeIds(cards, term.value) };
-    if (term.field === 'path') return { field: 'ids', value: term.value, ids: DG.pathIds(cards, term.value) };
+    if (term.field === 'tree') return { field: 'ids', value: term.value, ids: DG.treeIds(cards, term.value, ctx) };
+    if (term.field === 'path') return { field: 'ids', value: term.value, ids: DG.pathIds(cards, term.value, ctx) };
     return term;
   });
 }
 
-// Convenience: empty terms means "no active query" — everything matches.
-function filterCards(cards, terms) {
+// Convenience: empty terms means "no active query" — everything matches. `ctx`
+// is the nesting context ({ board }), which tree:/path: need to read a parent
+// written as this board's own name.
+function filterCards(cards, terms, ctx) {
   if (!terms.length) return cards;
-  const resolved = resolveGraphTerms(cards, terms);
+  const resolved = resolveGraphTerms(cards, terms, ctx);
   return cards.filter((card) => cardMatchesQuery(card, resolved));
 }
 
