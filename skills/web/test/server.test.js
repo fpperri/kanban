@@ -1504,11 +1504,11 @@ test('the map draws no orange — parent edges are not drawn at all, and a depen
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     const svg = js.match(/function buildMapSvg\([\s\S]*?\nfunction /)[0];
-    // The edge loop bails out before drawing anything for a parent edge —
-    // it still shapes layout (layerNodes/participants, upstream of this
-    // function), but never reaches the <path> it used to draw dashed orange.
-    assert.match(svg, /if \(e\.kind === 'parent'\) return;/,
-      'a parent edge is skipped before any path/marker is built for it');
+    // The arrows come from graph.edges, which holds dependencies only: a parent
+    // edge lives in layoutEdges, which places cards and is never drawn.
+    assert.match(svg, /graph\.edges\.forEach/, 'the arrows are drawn from the dependency edges');
+    assert.doesNotMatch(svg, /layoutEdges|e\.kind === 'parent'/,
+      'a parent edge never reaches the <path> it used to draw dashed orange');
     // No trace of the old orange-only vocabulary is left in the drawing code:
     // no epic-flavored class, no conditional marker choice, no second marker def.
     assert.doesNotMatch(svg, /epic-edge|epic-chain|epicEdge|chainEdge|epicChain|map-arrow-epic/,
@@ -1735,7 +1735,7 @@ test('the map graph and No relations sections are each collapsible, state persis
     // renderMapView reads the loaded state and threads it into both section builders.
     const rm = js.match(/function renderMapView\([\s\S]*?\n\}/);
     assert.match(rm[0], /loadMapSectionsCollapsed\(\)/, 'renderMapView loads the persisted per-section state');
-    assert.match(rm[0], /buildMapGraphSection\(view\.graphs, options, sections\.graph, draw\)/,
+    assert.match(rm[0], /buildMapGraphSection\(view\.graphs, draw, sections\.graph\)/,
       'the graph section is built with its own collapse flag');
     assert.match(rm[0], /buildIsolatedRow\(view\.noRelations, allCards, sections\.isolated\)/,
       'the isolated-row section is built with its own collapse flag');

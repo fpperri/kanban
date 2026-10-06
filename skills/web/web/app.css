@@ -846,7 +846,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-zoom-btn:disabled { opacity: 0.45; cursor: default; }
 .map-zoom-pct { font-size: 0.78em; color: var(--mut); min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
 /* Grab affordance on the graph itself — the rest of #map-view (pills,
-   section header, isolated row) keeps the default cursor since only the
+   section header, No relations row) keeps the default cursor since only the
    graph pans (see wireMapPanZoom's `.map-canvas` scoping, app.js). Node
    rects keep their own `cursor: pointer` below (higher specificity) while
    idle — still clickable, still draggable, same as everywhere a tile is

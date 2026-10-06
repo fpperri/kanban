@@ -11,7 +11,7 @@ test('the defaults are the chain-ends, one-graph-per-tree reading', () => {
   assert.deepStrictEqual({ ...MAP_OPTION_DEFAULTS }, CHOSEN);
 });
 
-test('every option offers its default first and nothing outside the card\'s table', () => {
+test('every option offers its default first and only the documented values', () => {
   assert.deepStrictEqual(JSON.parse(JSON.stringify(MAP_OPTION_VALUES)), {
     parentLines: ['chain', 'all', 'off'],
     depLines: ['on', 'off'],

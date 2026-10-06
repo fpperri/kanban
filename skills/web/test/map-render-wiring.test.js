@@ -23,7 +23,7 @@ function constant(name) {
 function headingSandbox() {
   const { escapeHtml } = require('../web/assignee-badge');
   const { cardTitleDisplay } = require('../web/card-title');
-  const sandbox = { escapeHtml, cardTitleDisplay };
+  const sandbox = { escapeHtml, cardTitleDisplay, ...require('../web/map-relations') };
   vm.createContext(sandbox);
   vm.runInContext([fn('truncateLabel'), fn('mapGraphSectionLabel'), fn('mapGraphHeadingHtml')].join('\n'), sandbox);
   return sandbox;
@@ -72,15 +72,14 @@ function richSandbox({ index, mode = 'collapsed', types = [] } = {}) {
   const { altitudeBadge, rollupBar } = require('../web/rollup-bar');
   const { ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED } = require('../web/column-state');
   const sandbox = {
-    typeBadge, altitudeBadge, rollupBar, ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED,
+    typeBadge, altitudeBadge, rollupBar, ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED, mapRichBox: require('../web/map-relations').mapRichBox,
     state: { types },
     nestingIndex: index || { altitudeOf: () => 0, rollup: () => ({ total: 0, counts: {} }) },
     loadRollupBarMode: () => mode,
     loadRollupCountArchived: () => true,
-    boardStatuses: () => ['backlog', 'todo', 'doing', 'done'],
   };
   vm.createContext(sandbox);
-  vm.runInContext(['MAP_NODE_W', 'MAP_NODE_H', 'MAP_RICH_TOP', 'MAP_RICH_META_H', 'MAP_RICH_BAR_OPEN_H', 'MAP_RICH_BAR_THIN_H'].map(constant)
+  vm.runInContext(['MAP_NODE_W', 'MAP_NODE_H', 'MAP_RICH_TOP', 'MAP_RICH_META_H', 'MAP_RICH_BAR_OPEN_H', 'MAP_RICH_BAR_THIN_H', 'MAP_RICH_BARE_H', 'MAP_RICH_DIMS'].map(constant)
     .concat([fn('mapRichLayout'), fn('mapNodeSize'), fn('mapRichHtml')]).join('\n'), sandbox);
   return sandbox;
 }
@@ -90,14 +89,16 @@ const parentIndex = (total) => ({
   rollup: (id) => (id === 1 ? { total, counts: { done: 1, todo: total - 1 } } : { total: 0, counts: {} }),
 });
 const byId = (...cards) => new Map(cards.map((c) => [c.id, c]));
-const RICH = (cards) => ({ rich: true, byId: byId(...cards) });
+const STATUSES = ['backlog', 'todo', 'doing', 'done'];
+const RICH = (cards) => ({ cards: 'rich', byId: byId(...cards), statuses: STATUSES });
 const heightOf = (w, node, opts) => w.mapNodeSize(node, opts).h;
 
 test('plain cards, stubs and cards from another board draw as they always did, at the fixed height', () => {
   const w = richSandbox({ index: parentIndex(3) });
   const card = { id: 1, type: 'epic' };
-  assert.strictEqual(w.mapNodeSize({ id: 1 }, { rich: false, byId: byId(card) }).rich, null);
-  assert.strictEqual(heightOf(w, { id: 1 }, { rich: false, byId: byId(card) }), 58);
+  const plain = { cards: 'plain', byId: byId(card), statuses: STATUSES };
+  assert.strictEqual(w.mapNodeSize({ id: 1 }, plain).rich, null);
+  assert.strictEqual(heightOf(w, { id: 1 }, plain), 58);
   for (const stub of [{ id: 1, ghost: true }, { id: 1, missing: true }, { id: -1, external: 'shop#7' }]) {
     assert.strictEqual(w.mapNodeSize(stub, RICH([card])).rich, null);
     assert.strictEqual(heightOf(w, stub, RICH([card])), 58);
@@ -127,14 +128,14 @@ test('a parent\'s roll-up bar adds a row, thin while the Bar setting is collapse
 
 test('a parent with no leaf counted draws no bar', () => {
   const w = richSandbox({ index: parentIndex(0) });
-  const html = w.mapRichHtml({ id: 1 }, w.mapRichLayout({ id: 1 }, RICH([{ id: 1, type: 'epic' }])));
+  const html = w.mapRichHtml({ id: 1 }, w.mapRichLayout({ id: 1 }, RICH([{ id: 1, type: 'epic' }])), STATUSES);
   assert.doesNotMatch(html, /class="rollup"/);
 });
 
 test('rich markup holds the type chip, the altitude badge and the roll-up bar, as the board draws them', () => {
   const w = richSandbox({ index: parentIndex(3), mode: 'open', types: [{ name: 'epic', color: 'tomato' }] });
   const n = { id: 1 };
-  const html = w.mapRichHtml(n, w.mapRichLayout(n, RICH([{ id: 1, type: 'epic' }])));
+  const html = w.mapRichHtml(n, w.mapRichLayout(n, RICH([{ id: 1, type: 'epic' }])), STATUSES);
   assert.match(html, /<span class="type-chip"[^>]*data-type-color="tomato"[^>]*>epic<\/span>/);
   assert.match(html, /<span class="alt-badge"[^>]*>▲2<\/span>/);
   assert.match(html, /<div class="rollup">/);
@@ -145,15 +146,15 @@ test('rich markup holds the type chip, the altitude badge and the roll-up bar, a
 test('a card\'s type is escaped, however it is written', () => {
   const w = richSandbox();
   const n = { id: 5 };
-  const html = w.mapRichHtml(n, w.mapRichLayout(n, RICH([{ id: 5, type: '<script>x</script>' }])));
+  const html = w.mapRichHtml(n, w.mapRichLayout(n, RICH([{ id: 5, type: '<script>x</script>' }])), STATUSES);
   assert.ok(!html.includes('<script>'));
   assert.match(html, /&lt;script&gt;/);
 });
 
 test('the type chip steps aside for the blocked pill that shares its row', () => {
   const w = richSandbox();
-  const clear = w.mapRichHtml({ id: 5 }, w.mapRichLayout({ id: 5 }, RICH([{ id: 5, type: 'story' }])));
-  const blocked = w.mapRichHtml({ id: 5, blocked: true }, w.mapRichLayout({ id: 5, blocked: true }, RICH([{ id: 5, type: 'story' }])));
+  const clear = w.mapRichHtml({ id: 5 }, w.mapRichLayout({ id: 5 }, RICH([{ id: 5, type: 'story' }])), STATUSES);
+  const blocked = w.mapRichHtml({ id: 5, blocked: true }, w.mapRichLayout({ id: 5, blocked: true }, RICH([{ id: 5, type: 'story' }])), STATUSES);
   const x = (html) => Number(html.match(/<foreignObject class="map-rich" x="(\d+)"/)[1]);
   assert.ok(x(blocked) > x(clear));
 });
@@ -184,14 +185,14 @@ test('each tree is laid out on its own, by the layout edges, and zoomed with the
   assert.match(body, /buildMapSvg\(graph, layer, draw\)/);
   assert.match(body, /applyMapZoomToSvg\(svg, zoom\)/);
   assert.match(body, /if \(!collapsed\)/, 'a collapsed section builds nothing');
-  assert.match(body, /options\.group === 'tree'/, 'headings only when each tree has its own graph');
+  assert.match(body, /draw\.group === 'tree'/, 'headings only when each tree has its own graph');
 });
 
 test('a row is ordered by status before cards are placed, and parent lines are drawn after the arrows', () => {
   const body = fn('buildMapSvg');
   assert.match(body, /mapOrderRow\(ids, graph, draw\.order, draw\.statuses\)/);
-  assert.match(body, /mapRowPositions\(layers, sizes, draw\.align\)/);
-  assert.match(body, /buildParentLinesSvg\(graph, pos, layer, draw\.parentSits\)/);
+  assert.match(body, /mapRowPositions\(layers, heights, draw\.align, MAP_DIMS\)/);
+  assert.match(body, /buildParentLinesSvg\(graph, pos, layer, draw\.parent\)/);
   assert.ok(body.indexOf('map-arrow') < body.indexOf('buildParentLinesSvg('), 'lines after arrows');
 });
 
@@ -213,7 +214,7 @@ test('a click on a roll-up bar flips the Bar setting ahead of any card handling,
   const handler = appSrc.match(/document\.addEventListener\('click', \(e\) => \{\n    if \(e\.target\.closest\('\.rollup'\)[\s\S]*?\n    const el = e\.target\.closest\('\.card-el'\);/);
   assert.ok(handler, 'the shared click grammar checks .rollup before it looks for a card');
   assert.match(handler[0], /toggleRollupBar\(\); return;/);
-  assert.match(fn('mapRichHtml'), /rollupBar\(rich\.rollup, rich\.mode, boardStatuses\(\)\)/, 'the map\'s bar is the board\'s own markup, so the same handler catches it');
+  assert.match(fn('mapRichHtml'), /rollupBar\(rich\.rollup, rich\.mode, statuses\)/, 'the map\'s bar is the board\'s own markup, so the same handler catches it');
 });
 
 test('Fit takes in the widest and tallest of the stacked graphs', () => {

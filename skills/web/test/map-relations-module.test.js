@@ -24,7 +24,11 @@ test('the module cannot close the script element it is embedded in, or hold a bu
 test('loaded as a plain script, with no module object, it puts its functions on window', () => {
   const window = {};
   vm.runInNewContext(source, { window });
-  for (const name of ['MAP_OPTION_VALUES', 'MAP_OPTION_DEFAULTS', 'mergeMapOptions', 'mapParentLineEnds', 'mapShapeRelations', 'mapOrderRow']) {
+  const names = [
+    'MAP_OPTION_VALUES', 'MAP_OPTION_DEFAULTS', 'mergeMapOptions', 'mapParentLineEnds', 'mapShapeRelations', 'mapOrderRow',
+    'mapRowPositions', 'mapParentLinePaths', 'mapRichBox', 'mapPlural', 'mapGraphCounts', 'mapGraphsLabel', 'mapRootsText',
+  ];
+  for (const name of names) {
     assert.ok(name in window, `${name} reaches window`);
   }
   assert.strictEqual(window.mergeMapOptions(null).parentLines, 'chain');

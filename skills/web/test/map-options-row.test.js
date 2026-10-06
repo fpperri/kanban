@@ -29,7 +29,7 @@ const groupsOf = (html) => [...html.matchAll(/<span class="map-option" title="([
   .map((m) => ({ hint: m[1], label: m[2], buttons: [...m[3].matchAll(/<button type="button" class="map-option-btn( active)?" data-key="(\w+)" data-val="(\w+)" aria-pressed="(true|false)">([^<]*)<\/button>/g)]
     .map((b) => ({ active: !!b[1], key: b[2], val: b[3], pressed: b[4] === 'true', text: b[5] })) }));
 
-test('the row has one control per option, labelled as the card names them', () => {
+test('the row has one control per option, labelled as the docs name them', () => {
   const w = rowSandbox();
   const groups = groupsOf(w.mapOptionsRowHtml(w.MAP_OPTION_DEFAULTS));
   assert.deepStrictEqual(groups.map((g) => g.label), [

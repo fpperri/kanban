@@ -40,9 +40,13 @@ test('the modules and the page script load together without a name clash, and th
   });
 });
 
-test('every map-relations.js function the page calls is declared once by the embedded module', () => {
+test('every map-relations.js function the page calls is declared once by the embedded module, geometry and words included', () => {
   withSnapshot(BOARD, (html) => {
-    for (const name of ['mapShapeRelations', 'mapOrderRow', 'mapParentLineEnds', 'mergeMapOptions']) {
+    const names = [
+      'mapShapeRelations', 'mapOrderRow', 'mapParentLineEnds', 'mergeMapOptions',
+      'mapRowPositions', 'mapParentLinePaths', 'mapRichBox', 'mapPlural', 'mapGraphCounts', 'mapGraphsLabel', 'mapRootsText',
+    ];
+    for (const name of names) {
       assert.strictEqual(html.split(`function ${name}(`).length - 1, 1, `${name} is declared once`);
     }
   });

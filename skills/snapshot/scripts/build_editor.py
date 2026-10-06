@@ -1559,6 +1559,7 @@ rb.addEventListener("click",()=>wrap.scrollBy({left:Math.round(wrap.clientWidth*
 nav.appendChild(lb);nav.appendChild(rb);
 return nav}
 const MW=150,MH=54,GX=14,GY=36,MPAD=14;
+const MDIMS={nodeW:MW,nodeH:MH,gapX:GX,gapY:GY,pad:MPAD};
 function switchView(v){
 if(activeView===v)return;
 if(ctxMenuEl)closeCtxMenu();
@@ -1608,11 +1609,8 @@ if(full.nonTerminal.has(p+":"+cid))return;
 if(full.seenDep.has(cid+">"+p)||full.seenDep.has(p+">"+cid))return;
 addEdge(cid,p,"parent")});
 return {edges:edges}}
-// What the map draws, in the shape kanban-web's buildRelationsGraph hands
-// map-relations.js, read from the board as embedded (the map never shows queued
-// edits): the dependency edges, one pair per immediate parent and child, and a
-// dimmed stub for every card the filters hide, every id with no card and every
-// parent on another board. A relation with neither end visible is dropped.
+// The shape kanban-web's buildRelationsGraph hands map-relations.js, read from the
+// board as embedded: the map never shows queued edits.
 function buildRelGraph(visibleIds){
 const byId=new Map(DATA.map(c=>[Number(c.id),c]));
 const isVisible=id=>byId.has(id)&&visibleIds.has(id);
@@ -1630,10 +1628,10 @@ const from=Number(raw),key=from+">"+to;
 if(seen.has(key)||(!isVisible(from)&&!isVisible(to)))return;
 seen.add(key);addStub(from);addStub(to);
 edges.push({from:from,to:to,kind:"dep"})})});
-const members=[];
+const children=[];
 DATA.forEach(c=>{const id=Number(c.id),p=parseParent(c.fm&&c.fm.parent,BOARD);
-if(p&&p.local&&p.id!==id&&byId.has(p.id))members.push({id:id,parent:p.id,waitsOn:(c.w||[]).map(Number)})});
-const ends=mapParentLineEnds(members);
+if(p&&p.local&&p.id!==id&&byId.has(p.id))children.push({id:id,parent:p.id,waitsOn:(c.w||[]).map(Number)})});
+const ends=mapParentLineEnds(children);
 const outside=new Map();
 const outsideStub=ref=>{
 if(!outside.has(ref)){const id=-(outside.size+1);outside.set(ref,id);stubs.set(id,stubNode(id,{external:ref}))}
@@ -1646,7 +1644,6 @@ if(!isVisible(id)&&!isVisible(p.id))return;
 addStub(id);addStub(p.id);
 pairs.push({child:id,parent:p.id,ends:ends.get(id)||null})});
 return {nodes:nodes,ghosts:[...stubs.values()],edges:edges,pairs:pairs}}
-// The map follows map-relations.js's own defaults; it has no options row.
 const MAPOPT=MAP_OPTION_DEFAULTS;
 function mapShape(visibleIds){return mapShapeRelations(buildRelGraph(visibleIds),MAPOPT)}
 // tree:<id>/path:<id> search terms. Both reuse buildDepGraph(DATA)
@@ -1716,21 +1713,14 @@ ready.forEach(id=>{layer.set(id,cur);remaining.delete(id)});
 ready.forEach(id=>{(succ.get(id)||[]).forEach(s=>{if(remaining.has(s))indeg.set(s,indeg.get(s)-1)})});
 cur++}
 return layer}
-// Rich nodes: below the title, one row for the type chip and the altitude badge
-// (the blocked pill takes its left end) and, for a parent with leaves, one for the
-// thin roll-up bar. A node is as tall as what it holds, as in kanban-web's map.
-const RTOP=42,RMETA=16,RBAR=10;
+const RTOP=42,RMETA=16,RBAR=10,RBARE=46;
+const RDIMS={top:RTOP,metaH:RMETA,barGap:3,bottom:8,bareH:RBARE};
 function richOf(n,roll){
 if(n.ghost)return null;
 const type=String((n.card.fm&&n.card.fm.type)||"").trim(),alt=roll.altitudeOf(n.id);
 const rollup=alt?roll.rollup(n.id):null;
 const hasBar=!!(rollup&&rollup.total),hasMeta=!!type||alt>=1||n.blk!=null;
-const out={type:type,alt:alt,rollup:rollup,hasMeta:hasMeta,hasBar:hasBar,barY:0,h:46};
-let end=RTOP;
-if(hasMeta)end+=RMETA;
-if(hasBar){out.barY=hasMeta?end+3:end;end=out.barY+RBAR}
-if(hasMeta||hasBar)out.h=end+8;
-return out}
+return Object.assign({type:type,alt:alt,rollup:rollup,hasMeta:hasMeta,hasBar:hasBar},mapRichBox(hasMeta,hasBar,RBAR,RDIMS))}
 function richNodes(g,n,rich){
 if(rich.type||rich.alt>=1){
 const x0=n.blk!=null?54:8;
@@ -1763,61 +1753,6 @@ const bt=svgEl("text",{x:28,y:RTOP+11,class:"mblkt","text-anchor":"middle"});bt.
 if(rich)richNodes(g,n,rich);
 if(n.archived)g.style.opacity=".55";
 return g}
-// Rows of nodes down the page, each as tall as its tallest node; `rows` is layer ->
-// ids left to right, `heights` id -> node height. Align center sits each row in the
-// middle of the widest one.
-function mapRowPositions(rows,heights,align){
-const rowWidth=count=>count*(MW+GX)-GX;
-const count=rows.size?Math.max(...rows.keys())+1:0;
-let widest=0;
-rows.forEach(ids=>{widest=Math.max(widest,rowWidth(ids.length))});
-const pos=new Map();
-let y=MPAD;
-for(let l=0;l<count;l++){
-const ids=rows.get(l)||[];
-const shift=align==="center"?(widest-rowWidth(ids.length))/2:0;
-ids.forEach((id,i)=>{const x=MPAD+shift+i*(MW+GX);pos.set(id,{x:x,y:y,cx:x+MW/2,h:heights.get(id)})});
-y+=(ids.length?Math.max(...ids.map(id=>heights.get(id))):MH)+GY}
-return {pos:pos,bottom:y-GY}}
-// One dashed line per drawn parent-child pair, in the dependency grey, with a dot
-// on the parent's end. It runs child to parent when the parent sits below and parent
-// to child when above. A line that would lie on a solid arrow is nudged 9px right;
-// one that runs against the layout bows out to the side like a back edge; a parent
-// with three or more lines spreads where they meet it.
-function parentLinesOf(graph,pos,layer,above){
-const stubIds=new Set(graph.ghosts.map(g=>g.id));
-const byParent=new Map();
-graph.lines.forEach(l=>{if(!byParent.has(l.parent))byParent.set(l.parent,[]);byParent.get(l.parent).push(l)});
-const portX=new Map();
-byParent.forEach((list,pid)=>{
-const parent=pos.get(pid);
-if(!parent||list.length<3)return;
-const sorted=list.slice().sort((a,b)=>(pos.get(a.child)||parent).cx-(pos.get(b.child)||parent).cx);
-sorted.forEach((l,i)=>portX.set(l,Math.round((parent.x+MW*(0.14+0.72*i/(sorted.length-1)))*100)/100))});
-const bow=MW*0.65;
-const depFrom=new Set(graph.edges.map(e=>e.from)),depTo=new Set(graph.edges.map(e=>e.to));
-const paths=[];
-let maxX=0;
-graph.lines.forEach(l=>{
-if(!pos.get(l.parent)||!pos.get(l.child))return;
-const fromId=above?l.parent:l.child,toId=above?l.child:l.parent;
-const from=pos.get(fromId),to=pos.get(toId);
-const back=(layer.get(toId)||0)<=(layer.get(fromId)||0);
-const x1=from.cx+(depFrom.has(fromId)?9:0),x2=to.cx+(depTo.has(toId)?9:0);
-const y1=from.y+from.h,y2=to.y,midY=(y1+y2)/2;
-let d;
-if(portX.has(l)&&!back){
-const px1=above?portX.get(l):x1,px2=above?x2:portX.get(l);
-d="M"+px1+","+y1+" C"+px1+","+midY+" "+px2+","+midY+" "+px2+","+y2}
-else if(back){maxX=Math.max(maxX,x1+bow,x2+bow);d="M"+x1+","+y1+" C"+(x1+bow)+","+y1+" "+(x2+bow)+","+y2+" "+x2+","+y2}
-else d="M"+x1+","+y1+" C"+x1+","+midY+" "+x2+","+midY+" "+x2+","+y2;
-const p=svgEl("path",{d:d,class:"medge mpline"+(stubIds.has(l.child)||stubIds.has(l.parent)?" ghostedge":"")});
-p.setAttribute(above?"marker-start":"marker-end","url(#map-parent-dot)");
-paths.push(p)});
-return {paths:paths,maxX:maxX}}
-// One graph: rows by layerNodes over every relation (so no toggle moves a card),
-// each row in map-relations.js's order and centered; arrows for dependencies,
-// dashed lines for the drawn parent pairs.
 function buildMapSvg(graph,roll){
 const byId=new Map(graph.nodes.concat(graph.ghosts).map(n=>[n.id,n]));
 const layer=layerNodes(graph.ids,graph.layoutEdges);
@@ -1826,7 +1761,7 @@ layer.forEach((l,id)=>{if(!rows.has(l))rows.set(l,[]);rows.get(l).push(id)});
 rows.forEach((ids,l)=>{ids.sort((a,b)=>a-b);rows.set(l,mapOrderRow(ids,graph,MAPOPT.order,COLS))});
 const rich=new Map(),heights=new Map();
 layer.forEach((l,id)=>{const r=richOf(byId.get(id),roll);rich.set(id,r);heights.set(id,r?r.h:MH)});
-const placed=mapRowPositions(rows,heights,MAPOPT.align),pos=placed.pos;
+const placed=mapRowPositions(rows,heights,MAPOPT.align,MDIMS),pos=placed.pos;
 let maxX=MPAD;
 pos.forEach(p=>{maxX=Math.max(maxX,p.x+MW)});
 const BOW=MW*0.9;
@@ -1841,8 +1776,11 @@ if(back){maxX=Math.max(maxX,x1+BOW,x2+BOW);d="M"+x1+","+y1+" C"+(x1+BOW)+","+y1+
 else{const midY=(y1+y2)/2;d="M"+x1+","+y1+" C"+x1+","+midY+" "+x2+","+midY+" "+x2+","+y2}
 const dimmed=byId.get(e.from).ghost||byId.get(e.to).ghost;
 edgesG.appendChild(svgEl("path",{d:d,class:"medge"+(dimmed?" ghostedge":""),"marker-end":"url(#map-arrow)"}))});
-const lines=parentLinesOf(graph,pos,layer,MAPOPT.parent==="above");
-lines.paths.forEach(p=>edgesG.appendChild(p));
+const lines=mapParentLinePaths(graph,pos,layer,MAPOPT.parent,MDIMS);
+lines.paths.forEach(l=>{
+const p=svgEl("path",{d:l.d,class:"medge mpline"+(l.dimmed?" ghostedge":"")});
+p.setAttribute(MAPOPT.parent==="above"?"marker-start":"marker-end","url(#map-parent-dot)");
+edgesG.appendChild(p)});
 maxX=Math.max(maxX,lines.maxX);
 const nodesG=svgEl("g");
 pos.forEach((p,id)=>nodesG.appendChild(mapNodeGroup(byId.get(id),p,rich.get(id))));
@@ -1865,14 +1803,11 @@ d.setAttribute("data-mapnode",String(n.id));
 d.appendChild(el("span","cid","#"+n.id));
 d.appendChild(document.createTextNode(truncate(n.title,30)));
 return d}
-const plural=(n,word)=>n+" "+word+(n===1?"":"s");
-// Over one tree: up to three root titles, then how many cards (and stubs) it holds.
 function graphHeading(g){
 const byId=new Map(g.nodes.map(n=>[n.id,n]));
-const named=g.roots.slice(0,3).map(id=>"#"+id+" "+truncate(byId.get(id).title,32)).join(" · ")+(g.roots.length>3?" +"+(g.roots.length-3)+" more":"");
 const h=el("div","map-graph-heading");
-h.appendChild(el("strong",null,named));
-h.appendChild(el("span",null,plural(g.nodes.length,"card")+(g.ghosts.length?" + "+plural(g.ghosts.length,"stub"):"")));
+h.appendChild(el("strong",null,mapRootsText(g,id=>truncate(byId.get(id).title,32))));
+h.appendChild(el("span",null,mapGraphCounts(g)));
 return h}
 function renderMap(){
 const mv=$("mapview");mv.replaceChildren();
@@ -1888,10 +1823,8 @@ legend.appendChild(swatch("blocked","blocked"));
 legend.appendChild(swatch("ghost","not on this board"));
 mv.appendChild(legend);
 if(view.graphs.length){
-// The roll-ups are read off the board as embedded, like the graph, not off what is queued.
 const roll=rollupIndex(DATA.map(c=>nestNode(c)),{board:BOARD,priorities:PRIOS});
-const cards=view.graphs.reduce((n,g)=>n+g.nodes.length,0);
-mv.appendChild(el("div","map-title","Relation trees ("+plural(view.graphs.length,"tree")+", "+plural(cards,"card")+")"));
+mv.appendChild(el("div","map-title",mapGraphsLabel(view.graphs,MAPOPT.group)));
 view.graphs.forEach(g=>{
 mv.appendChild(graphHeading(g));
 const wrap=el("div","map-scroll");
@@ -1937,7 +1870,7 @@ return "range-mid"}
 // Rows group by status in COLS order (config statuses), unlisted
 // statuses appended alphabetically — same tolerance as kanban-web's ganttGroups.
 // Undated cards are NOT dropped (unlike the web gantt): they land in a dimmed
-// chip row below, mirroring the map's "No dependencies" treatment.
+// chip row below, mirroring the map's No relations treatment.
 const GDAY=18,GROWH=30,GLBL=118,GHDR=24,GBARH=14,GMAXD=180;
 const MSHORT=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const isMonday=d=>new Date(dayToUtc(d)).getUTCDay()===1;

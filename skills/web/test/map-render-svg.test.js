@@ -7,7 +7,8 @@ const vm = require('node:vm');
 const WEB = path.join(__dirname, '..', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 const { buildRelationsGraph, layerNodes, treeIds } = require('../web/dependency-graph');
-const { MAP_OPTION_DEFAULTS, mapShapeRelations, mapOrderRow } = require('../web/map-relations');
+const relations = require('../web/map-relations');
+const { MAP_OPTION_DEFAULTS, mapShapeRelations } = relations;
 const { rollupIndex } = require('../web/nesting');
 const { card, familyChainingToOneEnd, treeWithArchivedAndBacklogChildren } = require('./map-fixtures');
 
@@ -62,12 +63,16 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
     boardStatuses: () => STATUSES,
     paintRollupBars: () => {},
     paintTypeColors: () => {},
-    mapOrderRow,
+    mapOrderRow: relations.mapOrderRow,
+    mapRowPositions: relations.mapRowPositions,
+    mapParentLinePaths: relations.mapParentLinePaths,
+    mapRichBox: relations.mapRichBox,
   };
   vm.createContext(sandbox);
   vm.runInContext([
-    'MAP_NODE_W', 'MAP_NODE_H', 'MAP_GAP_X', 'MAP_GAP_Y', 'MAP_PAD', 'MAP_RICH_TOP', 'MAP_RICH_META_H', 'MAP_RICH_BAR_OPEN_H', 'MAP_RICH_BAR_THIN_H',
-  ].map(constant).concat(['truncateLabel', 'mapRichLayout', 'mapNodeSize', 'mapRichHtml', 'mapRowPositions', 'buildMapSvg', 'buildParentLinesSvg'].map(fn)).join('\n'), sandbox);
+    'MAP_NODE_W', 'MAP_NODE_H', 'MAP_GAP_X', 'MAP_GAP_Y', 'MAP_PAD', 'MAP_DIMS',
+    'MAP_RICH_TOP', 'MAP_RICH_META_H', 'MAP_RICH_BAR_OPEN_H', 'MAP_RICH_BAR_THIN_H', 'MAP_RICH_BARE_H', 'MAP_RICH_DIMS',
+  ].map(constant).concat(['truncateLabel', 'mapRichLayout', 'mapNodeSize', 'mapRichHtml', 'buildMapSvg', 'buildParentLinesSvg'].map(fn)).join('\n'), sandbox);
   return sandbox;
 }
 
@@ -77,10 +82,7 @@ function draw(cards, options = {}, rootId = null, extra = {}) {
   const merged = { ...MAP_OPTION_DEFAULTS, ...options };
   const view = mapShapeRelations(buildRelationsGraph(cards, visible, CTX), merged);
   const w = drawing(cards, extra);
-  const look = {
-    parentSits: merged.parent, align: merged.align, order: merged.order, statuses: STATUSES,
-    rich: merged.cards === 'rich', byId: new Map(cards.map((c) => [c.id, c])),
-  };
+  const look = { ...merged, statuses: STATUSES, byId: new Map(cards.map((c) => [c.id, c])) };
   const svgs = view.graphs.map((g) => w.buildMapSvg(g, layerNodes(g.ids, g.layoutEdges), look));
   return { view, svgs, html: svgs.map((s) => s.innerHTML).join('\n') };
 }

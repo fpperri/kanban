@@ -170,7 +170,7 @@ function statusEscape(s) {
 }
 
 // The shared status dot — renders on every card rendering (board
-// tiles live+archived, the map's isolated-row tiles, calendar chips, gantt
+// tiles live+archived, the map's No relations tiles, calendar chips, gantt
 // gutter rows — see app.js's cardEl/archiveCardEl/calendarChipEl and the
 // gantt gutter label). Colored exactly like the map SVG's own status dot
 // (buildMapSvg's <circle>).
@@ -202,7 +202,7 @@ function statusBadge(card) {
 // The second shared dot glyph — a
 // small ARCHIVE_COLOR grey ball with an "Archived" tooltip, joining
 // statusBadge() on every surface that renders an ARCHIVED card (board
-// Archive-column tiles, the map's isolated-row archived tiles, the gantt
+// Archive-column tiles, the map's No relations archived tiles, the gantt
 // Archive-group gutter rows). Live cards NEVER render this — cardEl and
 // calendarChipEl never call it, pinned as served-asset ABSENCE tests in
 // server.test.js, same discipline as every other locked contract here.
