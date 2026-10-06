@@ -227,6 +227,17 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
 
 Generated leftovers from retired skills (`board.md`, `dashboard.html`) may also sit in the folder — stale artifacts, not cards; ignore them.
 
+### Migrating `epic: true` to `type: epic`
+
+The epic flag is retired: the app no longer reads or writes `epic`, and an epic is a card with `type: epic` like any other type. A board written before that still holds `epic: true` lines, which are now ignored (an unknown field, kept through every edit) and show nothing. `scripts/migrate_epic_to_type.sh` rewrites them once:
+
+```bash
+bash <SCRIPTS_DIR>/migrate_epic_to_type.sh <kanban-dir>            # dry run: lists the cards that would change
+bash <SCRIPTS_DIR>/migrate_epic_to_type.sh <kanban-dir> --apply    # rewrites them
+```
+
+It covers the live cards and everything under `archived/` (packages included). On each card whose `epic:` line reads `true` (any case) it rewrites that line in place to `type: epic` and bumps `updated`; a card that already has a `type:` line keeps it and only loses the `epic:` line. Nothing else in the file changes, a card without the flag (or with `epic: false`) is byte-identical, and a second run finds nothing. It then files **one** notification in `notifications.md` listing the migrated cards as card mentions. Run it once on your own board, after the app you use understands `type`; it never touches another board, so each board is migrated by whoever owns it. An epic keeps its color only if the board's `types:` list gives `epic` one.
+
 ## Human surfaces (routing)
 
 This skill is the **AI's** lever set. When the human wants to see or work the board themselves, point them to (or launch) the right surface instead of narrating files:
