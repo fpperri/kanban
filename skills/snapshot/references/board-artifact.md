@@ -1,6 +1,6 @@
 # Board artifact — publish and refresh
 
-One hosted page per board (CONTEXT.md's **Board artifact**), refreshed in
+One hosted page per board (GLOSSARY.md's **Board artifact**), refreshed in
 place by whichever session builds next. Follow this whenever the Artifact
 tool is available. Never mint a new page for a board that already has one.
 

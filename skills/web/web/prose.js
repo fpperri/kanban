@@ -4,7 +4,7 @@
 // here — loaded as a plain <script> before notifications.js and app.js, and
 // required directly by node --test.
 
-// A card mention is one code span opening with `board#id` (CONTEXT.md, Card
+// A card mention is one code span opening with `board#id` (GLOSSARY.md, Card
 // mention); the board token never holds whitespace or '#'.
 const MENTION_RE = /^([^\s#`]+)#(\d+)(?:\s|$)/;
 

@@ -94,7 +94,7 @@ is a self-contained sample board; point the same command at any directory of
 The web editor and the snapshot write under the same board contracts (the
 `doing` entry gate, archive-as-location, id allocation) — the snapshot
 indirectly, through a payload Claude applies. Its own deliberate gaps are
-listed in its skill. See `CONTEXT.md` for the full parity table.
+listed in its skill. See `GLOSSARY.md` for the full parity table.
 
 ## The board data model
 
@@ -172,7 +172,7 @@ adding it to the list.
 - [`docs/cross-harness.md`](docs/cross-harness.md) — cross-harness caveats:
   which skills port cleanly outside Claude Code and which carry the
   (Claude Only) tag, and why.
-- [`CONTEXT.md`](CONTEXT.md) — the ubiquitous-language glossary for every term
+- [`GLOSSARY.md`](GLOSSARY.md) — the ubiquitous-language glossary for every term
   used across the three surfaces (board, card, status, waiting, blocked, the
   role trio, and more).
 - [`SECURITY.md`](SECURITY.md) — `kanban-web`'s threat model: the board files

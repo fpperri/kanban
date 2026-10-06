@@ -151,7 +151,7 @@ follow-up `edit.fm` (`references/apply-protocol.md`).
 
 The create form's assignee suggestions come from the board registry
 (`config.yaml` `assignees`); with no registry it suggests the
-`@human`/`@hitl`/`@afk` role trio (CONTEXT.md's Role trio glossary).
+`@human`/`@hitl`/`@afk` role trio (GLOSSARY.md's Role trio glossary).
 Every place an assignee handle shows (board tile meta line, the archived
 sheet's read-only pill, the editable sheet's assignee pill) has its TEXT
 tinted in that assignee's color — parity with kanban-web's own assignee

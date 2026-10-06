@@ -26,7 +26,7 @@ Entry shape, in order:
 - **Bold TL;DR first** — verb-first, ≤10 words, ends with a period. Readers scan; the first words must carry "what happened." Genuinely trivial pings may skip the bold lead.
 - **1–2 supporting sentences** after it — plain, objective, roughly half the words you'd naturally write.
 - **Backtick every identifier** a reader must match verbatim: card ids, commit hashes, filenames, branch names. They never autolink in repo files, so the code font is doing real work.
-- **Mention a card as one code span, `` `board#id title` ``** — the **Card mention** rule (CONTEXT.md). Qualifier, id and title verbatim inside a single span, so the reader sees where the title ends and the sentence resumes; a title carrying backticks of its own drops them there (nested code does not render). The board qualifier is never dropped, even on the card's own board; the title may be dropped only on a repeat inside the same bullet, leaving `` `board#id` ``. Never paraphrase a title in place of itself. Nothing else takes a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The rule binds everything you write for a human — narrative bullets, notification `message` text, reports, digests, chat handoffs.
+- **Mention a card as one code span, `` `board#id title` ``** — the **Card mention** rule (GLOSSARY.md). Qualifier, id and title verbatim inside a single span, so the reader sees where the title ends and the sentence resumes; a title carrying backticks of its own drops them there (nested code does not render). The board qualifier is never dropped, even on the card's own board; the title may be dropped only on a repeat inside the same bullet, leaving `` `board#id` ``. Never paraphrase a title in place of itself. Nothing else takes a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The rule binds everything you write for a human — narrative bullets, notification `message` text, reports, digests, chat handoffs.
 - **One event per bullet.** Two things happened = two bullets, even same author, same day. Never fuse events into one run-on line.
 - **No sub-bullets, no wrapped continuation lines** — the web renderer flattens nested bullets to siblings and a continuation line breaks the list. Keep each entry a single flat `- ` line.
 
@@ -141,7 +141,7 @@ has to come first to stay unambiguous. Creating a `config.yaml` that holds only
 `name:` is allowed; inventing any other key or list is not.
 
 **Seeding `artifact:` is the second named exception to "never invent a config
-key".** It holds the board's **Board artifact** URL (CONTEXT.md) — the one
+key".** It holds the board's **Board artifact** URL (GLOSSARY.md) — the one
 hosted page a session publishes the snapshot to, refreshed in place rather than
 re-minted. Three cases all write the line and file a notification: adopting
 an existing gallery page (no line yet, a title match found one), creating a
@@ -183,7 +183,7 @@ on existing cards) carries no special meaning.
 
 This `@human`/`@hitl`/`@afk` trio is the canonical default on every board
 and surface (`@ai` is retired as ambiguous) — the one write-up
-lives in CONTEXT.md's Role trio glossary, and when a board's `config.yaml`
+lives in GLOSSARY.md's Role trio glossary, and when a board's `config.yaml`
 has no `assignees` registry, every surface suggests exactly this trio.
 
 Status values are **case-sensitive** — the `doing` entry gate (waiting + blocked) applies to the literal lowercase `doing` only; a column named `Doing` is just another custom column the gate ignores. Curate accordingly.

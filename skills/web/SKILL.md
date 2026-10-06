@@ -14,7 +14,7 @@ files. Desktop/localhost only (ADR 0002); open it in any browser or VSCode's
 The board file contracts — card fields, sticker predicates, the `doing` gate,
 `config.yaml`, `notifications.md` — are defined once, in the `kanban` skill's SKILL.md;
 shared vocabulary (waiting, blocked, review, archive) and cross-surface parity live in
-CONTEXT.md. This skill documents how *this app* renders and edits against those contracts.
+GLOSSARY.md. This skill documents how *this app* renders and edits against those contracts.
 
 ## Locating the board
 
@@ -472,7 +472,7 @@ to `127.0.0.1` only.
   lazy continuation of the last list item's text, appended in place, rather than closing
   the list and stranding a bare paragraph. A task item's tick sits in its own span,
   green when done and muted when open. A code span holding a card mention (`board#id title`, the
-  Card mention rule in CONTEXT.md) renders as an accent chip instead of code; a mention
+  Card mention rule in GLOSSARY.md) renders as an accent chip instead of code; a mention
   of a card on this board opens that card when clicked.
 - **Frontmatter marks** — the detail popup's frontmatter table prints every field as
   written, except the few the board itself understands: `status` gets its status dot and
@@ -710,7 +710,7 @@ to `127.0.0.1` only.
   textarea+execCommand fallback on rejection or absence (load-bearing in VSCode's Simple
   Browser, which doesn't grant the async API a secure context) — with a toast on BOTH
   outcomes (the glyph-sized button has no room for the detail button's label swap).
-  Web-only by design — see CONTEXT.md's parity table.
+  Web-only by design — see GLOSSARY.md's parity table.
 - **Notifications** — the header bell surfaces entries from
   `<kanban-dir>/notifications.md` (writer contract: `/kanban`'s SKILL.md; same file
   shape, not a second contract): unread-count badge, a toast once per session when new
@@ -834,7 +834,7 @@ to `127.0.0.1` only.
   search — a cone edge exiting the focused set renders as the existing ghost stub, no
   new rendering path. The right-click menu offers these as sugar — see Multi-select.
   Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
-  CONTEXT.md's parity table.
+  GLOSSARY.md's parity table.
   **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls
   the `.map-view` panel with the pointer, grab/grabbing cursor, primary button only. A
   drag starting on a node still pans once the pointer clears a small threshold; that
@@ -1072,7 +1072,7 @@ to `127.0.0.1` only.
 
 The canonical `config.yaml` contract — `nextId` discipline, the assignees registry and
 its grab semantics, list curation — lives in `/kanban`'s SKILL.md; the role trio's one
-write-up is CONTEXT.md's Role trio glossary. What follows is how *this app* reads the
+write-up is GLOSSARY.md's Role trio glossary. What follows is how *this app* reads the
 file. Optional, human-edited, per board:
 
 ```yaml
@@ -1135,7 +1135,7 @@ handle a card carries.
   entry, and the `doing` entry gate (waiting + blocked) is pinned regardless of the
   list.
 - **Absent file**: ids come from a max+1 scan, and with no `assignees` registry the
-  assignee combobox suggests the `@human`/`@hitl`/`@afk` role trio (CONTEXT.md's Role
+  assignee combobox suggests the `@human`/`@hitl`/`@afk` role trio (GLOSSARY.md's Role
   trio glossary — `@ai` is retired). The app never creates `config.yaml` on its own.
 - With a counter, new-card ids come from `max(nextId, scanMax+1)` (a stale counter
   self-heals rather than re-issuing a taken id) and the advanced counter is written back
@@ -1159,7 +1159,7 @@ it does not define a second contract. Not a card — only `*.card.md` files are 
   exactly three surfaces: **kanban** (AI-driven card management), **kanban-web** (this —
   the human's live editor, desktop), **kanban-snapshot** (generated single-file HTML board
   for phone/tablet; queued-change payload, Claude applies). Retired skills are deleted
-  outright; CONTEXT.md's Surfaces and parity section carries the cross-surface parity
+  outright; GLOSSARY.md's Surfaces and parity section carries the cross-surface parity
   rule, while each surface names its own deliberate gaps in its own skill doc.
 - `archive` here is a *location* (the `archived/` folder), not a status — ADR 0002's
   data model — but the column has full UI parity (ADR 0005): drag a batch onto Archive
