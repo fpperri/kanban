@@ -890,7 +890,7 @@ function renderBoardColumns() {
   // column via columnForStatus — the catch-all — with cardEl's raw-status chip.
   // A column cannot work out the outline from its own cards (a child's parent
   // may sit in another column), so the whole board is indexed once.
-  const outlineIndex = outlineOrder(state.active.concat(state.archived), { board: state.projectName, priorities: state.priorities }).index;
+  const outlineIndex = outlineOrder(state.active.concat(state.archived), nestingCtx()).index;
   const statuses = boardStatuses();
   for (const col of boardColumnIds()) {
     const isArchive = col === 'archive';
@@ -1767,7 +1767,7 @@ let refusedDrop = { key: '', refused: false };
 function dropRefused(id, prev, next) {
   const key = `${id}:${prev}:${next}`;
   if (refusedDrop.key !== key) {
-    const plan = reorderPlan(state.active.concat(state.archived), id, { prev, next }, { board: state.projectName, priorities: state.priorities });
+    const plan = reorderPlan(state.active.concat(state.archived), id, { prev, next }, nestingCtx());
     refusedDrop = { key, refused: !!plan.error };
   }
   return refusedDrop.refused;
@@ -1783,7 +1783,7 @@ function reorderDrop(col, id, clientY) {
 // shown at once, and put back if the call fails.
 async function reorderCard(id, prev, next) {
   const cards = state.active.concat(state.archived);
-  const plan = reorderPlan(cards, id, { prev, next }, { board: state.projectName, priorities: state.priorities });
+  const plan = reorderPlan(cards, id, { prev, next }, nestingCtx());
   if (plan.error) {
     toast(`#${id} can only be reordered among its siblings.`);
     return;
@@ -2459,7 +2459,7 @@ function detailRelativesHtml(cards, id, ctx) {
 }
 
 function renderDetailRelatives(id) {
-  const ctx = { board: state.projectName, priorities: state.priorities };
+  const ctx = nestingCtx();
   const { threadHtml, childrenHtml } = detailRelativesHtml(state.active.concat(state.archived), id, ctx);
   for (const [sel, markup] of [['#detail-thread', threadHtml], ['#detail-children', childrenHtml]]) {
     const el = $(sel);

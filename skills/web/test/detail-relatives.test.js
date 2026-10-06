@@ -152,7 +152,7 @@ test('openDetailModal fills both containers from the loaded board, after the bod
   assert.ok(open.indexOf("$('#detail-body').innerHTML") < open.indexOf('renderDetailRelatives('));
   const render = fn('renderDetailRelatives');
   assert.match(render, /state\.active\.concat\(state\.archived\)/);
-  assert.match(render, /state\.projectName/);
+  assert.match(render, /nestingCtx\(\)/);
   assert.match(render, /#detail-thread/);
   assert.match(render, /#detail-children/);
   assert.match(render, /classList\.toggle\('hidden'/, 'an empty container is hidden');

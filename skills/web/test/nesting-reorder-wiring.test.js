@@ -46,7 +46,7 @@ function load(overrides) {
     'let pendingDrops = 0;',
     "let refusedDrop = { key: '', refused: false };",
     'function loadColumnSort() { return columnSort; }',
-    fn('isReorderDrop'), fn('dropPoint'), fn('dropAmong'), fn('dropRefused'), fn('reorderDrop'), fn('reorderCard'),
+    fn('nestingCtx'), fn('isReorderDrop'), fn('dropPoint'), fn('dropAmong'), fn('dropRefused'), fn('reorderDrop'), fn('reorderCard'),
   ].join('\n');
   vm.runInContext(src, sandbox);
   sandbox.pending = () => vm.runInContext('pendingDrops', sandbox);

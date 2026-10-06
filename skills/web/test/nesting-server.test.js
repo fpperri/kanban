@@ -112,7 +112,7 @@ test('the board sorts every column against ONE outline index built over active a
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     const render = js.match(/function renderBoardColumns\([\s\S]*?\n\}/);
-    assert.match(render[0], /outlineOrder\(state\.active\.concat\(state\.archived\), \{ board: state\.projectName, priorities: state\.priorities \}\)\.index/);
+    assert.match(render[0], /outlineOrder\(state\.active\.concat\(state\.archived\), nestingCtx\(\)\)\.index/);
     assert.match(render[0], /sortCards\(source, sortState, state\.priorities, [^\n]*, outlineIndex\)/);
     assert.ok(render[0].indexOf('outlineOrder(') < render[0].indexOf('for (const col of boardColumnIds())'), 'computed once, before the column loop');
   });
