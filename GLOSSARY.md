@@ -142,7 +142,7 @@ A dependency or a parent link between two cards, the two things the Map joins. A
 _Avoid_: edge, connection.
 
 **Tree** (derived):
-Every card that a chain of relations joins, whichever way each points and whether or not a line is drawn for it. The Map draws one graph per tree, and the `tree:` search term follows the same relations. Wider than a parent's children, and not a thread.
+Every card that a chain of relations joins, whichever way each points and whether or not a line is drawn for it. The Map draws one graph per tree; the `tree:` search term finds nearly the same set but can differ at the edges (siblings joined only through their parent or through a parent on another board). Wider than a parent's children, and not a thread.
 _Avoid_: component, cluster, web.
 
 **Chain end** (derived):
