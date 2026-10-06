@@ -11,7 +11,7 @@
 // The view switcher is a closed set. Persisted under
 // storageKey(projectName, 'view.mode'); an unknown/corrupt saved value falls
 // back to 'board', same defensive stance as mergeSortState.
-const VIEW_MODES = ['board', 'map', 'calendar', 'gantt'];
+const VIEW_MODES = ['board', 'map', 'calendar', 'gantt', 'graph'];
 
 function mergeViewMode(saved) {
   return VIEW_MODES.includes(saved) ? saved : 'board';

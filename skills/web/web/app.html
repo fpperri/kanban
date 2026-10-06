@@ -25,6 +25,7 @@
       title="Toggle calendar view (month / week / 3-day / day sub-views of start→end ranges plus due-deadline chips, drag chips to reschedule, honors the search filter)">📅 Calendar</button>
     <button id="gantt-toggle-btn" type="button" aria-pressed="false"
       title="Toggle gantt view (ranges as bars, due dates as diamonds, on a day timeline — drag a bar to shift, an edge to resize, a diamond to move its due date; honors the search filter)">📊 Gantt</button>
+    <button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>
     <span id="rollup-ctls" class="rollup-ctls hidden">
       <label class="rollup-ctl" title="How every roll-up bar shows, on board cards and in the card detail; click a bar to flip it">Bar
         <select id="rollup-bar-mode" aria-label="Roll-up bar">
@@ -47,6 +48,7 @@
 <div id="map-view" class="map-view hidden" aria-label="Dependency map view"></div>
 <div id="calendar-view" class="calendar-view hidden" aria-label="Calendar view"></div>
 <div id="gantt-view" class="gantt-view hidden" aria-label="Gantt view"></div>
+<div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>
 
 <div id="modal" class="modal-backdrop hidden">
   <!-- autocomplete=off: the browser's form-history dropdown fights the
@@ -347,6 +349,7 @@
 <script src="/map-zoom.js"></script>
 <script src="/calendar-model.js"></script>
 <script src="/gantt-model.js"></script>
+<script src="/graph-model.js"></script>
 <script src="/date-picker.js"></script>
 <script src="/modal-fullscreen.js"></script>
 <script src="/assignee-badge.js"></script>
@@ -366,6 +369,7 @@
 <script src="/search-hotkey.js"></script>
 <script src="/deep-link.js"></script>
 <script src="/card-history.js"></script>
+<script src="/graph-view.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 'use strict';
-// ?card=<id>&q=<search>&view=<board|map|gantt|calendar> deep links: parses
+// ?card=<id>&q=<search>&view=<board|map|gantt|calendar|graph> deep links: parses
 // location.search into which card to open, which query to filter by, and
 // which view to switch to.
 // Pure parse-only logic, same dual-environment export pattern as
@@ -9,7 +9,7 @@
 // nothing here holds state, so there's nothing that could re-fire on the 5s
 // poll or fight the localStorage-persisted view mode.
 
-const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar']);
+const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar', 'graph']);
 
 // `search` is location.search ("?card=194&view=board"), a plain string so
 // this stays testable from Node without a DOM. "No deep link in play" — the

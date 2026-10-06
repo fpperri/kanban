@@ -29,6 +29,7 @@ function applyStatuses(list) {
   mapStatusFilter = null; // keyed by the same column set
   ganttStatusFilter = null; // keyed by the LIVE statuses (no archive), same invalidation rule
   calendarStatusFilter = null; // same LIVE-statuses key as the gantt's
+  resetGraphViewState(); // the graph's per-board memos too
 }
 
 // column-state.js provides DEFAULT_STATUSES / columnIdsFor / columnForStatus /
@@ -855,8 +856,8 @@ function toggleView(mode) {
 
 // One mode→container map for everything that needs "which element hosts
 // this view" — applyViewMode's hide/show and visibleCardIds' range scope
-// — so a fifth view is one entry here, not two edits.
-const VIEW_CONTAINERS = { board: '#board', map: '#map-view', calendar: '#calendar-view', gantt: '#gantt-view' };
+// — so a sixth view is one entry here, not two edits.
+const VIEW_CONTAINERS = { board: '#board', map: '#map-view', calendar: '#calendar-view', gantt: '#gantt-view', graph: '#graph-view' };
 
 function applyViewMode() {
   const mode = loadViewMode();
@@ -870,9 +871,13 @@ function applyViewMode() {
   const ganttBtn = $('#gantt-toggle-btn');
   ganttBtn.textContent = mode === 'gantt' ? '☰ Board view' : '📊 Gantt';
   ganttBtn.setAttribute('aria-pressed', String(mode === 'gantt'));
+  const graphBtn = $('#graph-toggle-btn');
+  graphBtn.textContent = mode === 'graph' ? '☰ Board view' : '◉ Graph';
+  graphBtn.setAttribute('aria-pressed', String(mode === 'graph'));
   if (mode === 'map') renderMapView();
   if (mode === 'calendar') renderCalendarView();
   if (mode === 'gantt') renderGanttView();
+  if (mode === 'graph') renderGraphView();
 }
 
 function renderBoard() {
@@ -1661,6 +1666,7 @@ function applyProjectName(name) {
     mapOptions = null; // map.options too
     ganttStatusFilter = null; // gantt.statusFilter too — applyStatuses' own reset doesn't fire on a pure rename with an unchanged status list
     calendarStatusFilter = null; // calendar.statusFilter too, same reasoning
+    resetGraphViewState(); // graph memos too
   }
   state.projectName = next;
   document.title = name || 'Kanban App';
@@ -1755,7 +1761,7 @@ function boardControlFocused() {
   // calendar pills (their views are wiped by every render). All focusable,
   // all rebuilt per render — a poll landing while one is focused would
   // silently dump keyboard focus to <body>. No .card-el — see above.
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .map-zoom-btn, .map-option-btn, .gantt-filter-toggle, .calendar-filter-toggle'));
+  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .map-zoom-btn, .map-option-btn, .gantt-filter-toggle, .calendar-filter-toggle, .graph-control'));
 }
 
 function setStale(stale) {
@@ -2007,7 +2013,7 @@ async function reorderCard(id, prev, next) {
   }
 }
 
-// ?card=<id>&q=<search>&view=<board|map|gantt|calendar> deep links
+// ?card=<id>&q=<search>&view=<board|map|gantt|calendar|graph> deep links
 // (deep-link.js owns the pure querystring parse) — consumed exactly ONCE,
 // chained directly onto
 // the very first loadBoard() below. Nothing re-checks location.search after
@@ -5529,7 +5535,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup-ctl, .rollup')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup-ctl, .rollup, #graph-toggle-btn, .graph-control')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();

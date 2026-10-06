@@ -354,6 +354,56 @@ test('index html loads gantt-model.js before app.js (app.js calls it as a bare g
   });
 });
 
+test('GET /graph-model.js and /graph-view.js are served as text/javascript', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    for (const p of ['/graph-model.js', '/graph-view.js']) {
+      const res = await fetch(`${base}${p}`);
+      assert.strictEqual(res.status, 200, p);
+      assert.match(res.headers.get('content-type'), /text\/javascript/, p);
+    }
+    const view = await (await fetch(`${base}/graph-view.js`)).text();
+    assert.match(view, /function renderGraphView\(/);
+    assert.match(view, /function resetGraphViewState\(/);
+  });
+});
+
+test('index html loads graph-model.js after gantt-model.js and graph-view.js right before app.js', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const html = await (await fetch(`${base}/`)).text();
+    const ganttIdx = html.indexOf('/gantt-model.js');
+    const modelIdx = html.indexOf('/graph-model.js');
+    const viewIdx = html.indexOf('/graph-view.js');
+    const appIdx = html.indexOf('/app.js');
+    assert.ok(ganttIdx > -1 && modelIdx > ganttIdx, 'graph-model.js loads after gantt-model.js');
+    assert.ok(viewIdx > modelIdx && viewIdx < appIdx, 'graph-view.js loads before app.js');
+    assert.ok(html.slice(viewIdx, appIdx).indexOf('<script', 1) === html.slice(viewIdx, appIdx).lastIndexOf('<script'), 'nothing but graph-view.js sits between it and app.js');
+  });
+});
+
+test('index html has a top-bar graph toggle button and a graph view container', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const html = await (await fetch(`${base}/`)).text();
+    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>'));
+    assert.ok(html.includes('<div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>'));
+    assert.ok(html.indexOf('id="gantt-toggle-btn"') < html.indexOf('id="graph-toggle-btn"') && html.indexOf('id="graph-toggle-btn"') < html.indexOf('id="rollup-ctls"'));
+  });
+});
+
+test('graph wiring: the sixth view is registered and its toggle/control join the click-away and poll-guard lists', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const js = await (await fetch(`${base}/app.js`)).text();
+    assert.match(js, /graph: '#graph-view'/);
+    assert.match(js, /if \(mode === 'graph'\) renderGraphView\(\);/);
+    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle[^']*\.rollup-ctl, \.rollup, #graph-toggle-btn, \.graph-control'\)/,
+      '#graph-toggle-btn, .graph-control end the click-away exemption list');
+    assert.match(js, /\.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/, '.graph-control ends the poll-guard list');
+  });
+});
+
 test('index html has a top-bar gantt toggle button and a gantt view container', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
@@ -1769,7 +1819,7 @@ test('map section toggles join the poll-guard and Q0 clear-selection exemptions,
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
       'a focused section toggle blocks the auto-refresh — #map-view is wiped by every renderMapView() poll tick, same as the #56 pills');
     assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle, \.map-section-toggle/,
       'a section-toggle click must not wipe a building selection, same curate-the-view exemption as the #56 pills');
@@ -1813,7 +1863,7 @@ test('map status-filter pills join the Q0 clear-selection exemption AND the focu
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
     // innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the sort controls/.cal-nav.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
       'a focused pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -2106,7 +2156,7 @@ test('gantt status-filter pills join the Q0 clear-selection exemption AND the fo
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
       'a focused gantt pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -2229,7 +2279,7 @@ test('calendar status-filter pills join the Q0 clear-selection exemption AND the
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's/gantt's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle'\)/,
+    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
       'a focused calendar pill blocks the auto-refresh like every other rebuilt header control');
   });
 });

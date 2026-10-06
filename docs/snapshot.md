@@ -73,6 +73,8 @@ cards nothing links; rows that read doing, todo, backlog, done from the left and
 centered; and cards that carry their type chip, `▲` badge and roll-up bar. The Map
 options row is kanban-web's: the snapshot always draws these defaults.
 
+The snapshot has no Graph view; that one is kanban-web only.
+
 ![Snapshot gantt](images/snapshot-gantt.jpg)
 *Gantt — working-range bars and due diamonds, grouped by status, with an undated-cards row below.*
 

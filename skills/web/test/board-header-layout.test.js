@@ -132,8 +132,8 @@ test('renderBoardColumns preserves every column\'s own scroll position (and #boa
 
 // --- other views must be untouched (card ask: "other views must be unaffected") -
 
-test('the sticky/stretch board-layout rules never touch #map-view/#calendar-view/#gantt-view', () => {
-  for (const sel of ['.map-view', '.calendar-view', '.gantt-view']) {
+test('the sticky/stretch board-layout rules never touch #map-view/#calendar-view/#gantt-view/#graph-view', () => {
+  for (const sel of ['.map-view', '.calendar-view', '.gantt-view', '.graph-view']) {
     const rule = new RegExp(`${sel.replace('.', '\\.')}\\s*\\{[^}]*\\}`);
     const m = css.match(rule);
     assert.ok(m, `${sel} still has its own rule block`);
