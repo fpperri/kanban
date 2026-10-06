@@ -735,6 +735,14 @@ function saveRollupBarMode() {
   catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
 }
 
+// One setting for every bar: a click on any bar flips it for the board and the open detail alike.
+function toggleRollupBar() {
+  rollupBarMode = nextRollupBar(loadRollupBarMode());
+  saveRollupBarMode();
+  renderBoard();
+  if (currentDetailId != null) renderDetailRollup(currentDetailId);
+}
+
 function loadRollupCountArchived() {
   if (rollupCountArchived !== null) return rollupCountArchived;
   let saved = null;
@@ -790,11 +798,13 @@ window.addEventListener('DOMContentLoaded', () => {
     rollupBarMode = mergeRollupBar(e.target.value);
     saveRollupBarMode();
     renderBoard();
+    if (currentDetailId != null) renderDetailRollup(currentDetailId);
   });
   $('#rollup-archived').addEventListener('change', (e) => {
     rollupCountArchived = e.target.checked;
     saveRollupCountArchived();
     renderBoard();
+    if (currentDetailId != null) renderDetailRollup(currentDetailId);
   });
 });
 
@@ -1525,6 +1535,7 @@ function applyBoardData(data) {
 
 async function loadBoard() {
   applyBoardData(await fetchBoard());
+  refreshOpenDetail();
 }
 
 // --- Auto-refresh: poll loadBoard() every 5s via the same path as the manual
@@ -2466,8 +2477,15 @@ function detailRelativesHtml(cards, id, ctx) {
     threadHtml: thread.length
       ? `<span class="relatives-label">Thread</span><ol class="thread-list">${thread.map((e) => threadEntryHtml(e, ctx.board)).join('')}</ol>` : '',
     childrenHtml: children.length
-      ? `<div class="relatives-label">Children</div><ul class="children-list">${children.map((c) => childEntryHtml(c, ctx.board)).join('')}</ul>` : '',
+      ? `<button type="button" class="relatives-toggle" aria-expanded="false" aria-controls="detail-children-list">` +
+        `<span class="relatives-label">Children</span> <span class="relatives-count">${children.length}</span></button>` +
+        `<ul class="children-list hidden" id="detail-children-list">${children.map((c) => childEntryHtml(c, ctx.board)).join('')}</ul>` : '',
   };
+}
+
+function toggleDetailChildren(btn) {
+  const collapsed = $('#detail-children-list').classList.toggle('hidden');
+  btn.setAttribute('aria-expanded', String(!collapsed));
 }
 
 function renderDetailRelatives(id) {
@@ -2630,6 +2648,14 @@ async function openDetailModal(id, { quiet } = {}) {
   return true;
 }
 
+// A card menu opened from the popup can change or remove the card it shows.
+function refreshOpenDetail() {
+  if (currentDetailId == null) return;
+  const id = currentDetailId;
+  if (!state.active.concat(state.archived).some((c) => c.id === id)) { closeCard(); return; }
+  openDetailModal(id, { quiet: true });
+}
+
 function renderDetailRollup(id) {
   const box = $('#detail-rollup');
   const index = buildNestingIndex();
@@ -2639,8 +2665,10 @@ function renderDetailRollup(id) {
     box.classList.add('hidden');
     return;
   }
+  const mode = loadRollupBarMode();
   const countArchived = loadRollupCountArchived();
-  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived);
+  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived, mode);
+  box.classList.toggle('detail-rollup--collapsed', mode === ROLLUP_BAR_COLLAPSED);
   paintRollupBars(box);
   box.classList.remove('hidden');
 }
@@ -2734,6 +2762,8 @@ window.addEventListener('DOMContentLoaded', () => {
   };
   $('#detail-modal').addEventListener('click', openMentionedCard);
   $('#detail-modal').addEventListener('keydown', openMentionedCard);
+  $('#detail-modal .modal').addEventListener('contextmenu', onDetailContextMenu);
+  $('#detail-modal').addEventListener('click', (e) => { const t = e.target.closest('.relatives-toggle'); if (t) toggleDetailChildren(t); });
   $('#detail-edit-btn').addEventListener('click', editFromDetail);
   $('#detail-archive-btn').addEventListener('click', () => {
     // Belt-and-suspenders: the button is hidden for archived cards, but never
@@ -4819,6 +4849,30 @@ function hideContextMenu() {
   $('#context-menu').classList.add('hidden');
 }
 
+// The menu's subject is the card right-clicked: an unselected card becomes THE
+// selection in the same gesture, a selected one keeps the whole batch.
+function openCardContextMenu(e, id) {
+  const next = contextSelection(selectedIds, id);
+  if (next !== selectedIds) {
+    selectedIds = next;
+    selectionAnchor = id; // the gesture restarted the selection — ranges extend from here
+    renderBoard();
+  }
+  e.preventDefault();
+  showContextMenu(e.clientX, e.clientY);
+}
+
+// Selected text and anything that already handled the right-click itself (a
+// mention with a menu of its own) keep the browser's behaviour.
+function onDetailContextMenu(e) {
+  if (currentDetailId == null || e.defaultPrevented) return;
+  // Links and images keep the browser's own menu (open in new tab, copy link).
+  if (e.target && e.target.closest && e.target.closest('a, img')) return;
+  const picked = window.getSelection();
+  if (picked && !picked.isCollapsed) return;
+  openCardContextMenu(e, currentDetailId);
+}
+
 function showContextMenu(x, y) {
   const menu = $('#context-menu');
   // "Dependency tree"/"Dependency path" only make sense against a
@@ -5147,6 +5201,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // this runs before the Q0 clear-selection handler below, so a plain click
   // on a card empties the selection here and Q0 then no-ops.
   document.addEventListener('click', (e) => {
+    if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
     if (!el) return;
     if (e.target.closest('button, select, input, a')) return;
@@ -5202,14 +5257,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
     if (!el) return;
-    const next = contextSelection(selectedIds, Number(el.dataset.id));
-    if (next !== selectedIds) {
-      selectedIds = next;
-      selectionAnchor = Number(el.dataset.id); // the gesture restarted the selection — ranges extend from here
-      renderBoard();
-    }
-    e.preventDefault();
-    showContextMenu(e.clientX, e.clientY);
+    openCardContextMenu(e, Number(el.dataset.id));
   });
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
@@ -5297,7 +5345,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .rollup-ctl')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar and the roll-up bar choices must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .rollup-ctl, .rollup')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();
