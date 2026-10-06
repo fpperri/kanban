@@ -264,21 +264,29 @@ def read_notifications(kanban_dir):
         })
     return out
 
-NESTING_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web", "nesting.js")
+WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web")
+NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
+MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
 
-def embeddable(source):
+def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
-        sys.exit("the nesting module contains a closing script tag and cannot be embedded in the page")
+        sys.exit(f"{label} contains a closing script tag and cannot be embedded in the page")
     if re.search(r"__[A-Z_]+__", source):
-        sys.exit("the nesting module contains a template placeholder (__NAME__) the build would rewrite")
+        sys.exit(f"{label} contains a template placeholder (__NAME__) the build would rewrite")
     return source
 
-def read_nesting():
+def read_embedded(path, label):
     try:
-        with open(NESTING_JS, encoding="utf-8") as f:
-            return embeddable(f.read())
+        with open(path, encoding="utf-8") as f:
+            return embeddable(f.read(), label)
     except OSError:
-        sys.exit(f"cannot read the nesting module at {os.path.normpath(NESTING_JS)}")
+        sys.exit(f"cannot read {label} at {os.path.normpath(path)}")
+
+def read_nesting():
+    return read_embedded(NESTING_JS, "the nesting module")
+
+def read_map_relations():
+    return read_embedded(MAP_RELATIONS_JS, "the map relations module")
 
 def main():
     p = argparse.ArgumentParser()
@@ -319,6 +327,7 @@ def main():
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
     # First, so a card that names a placeholder is never rewritten inside it.
     html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
+                    .replace("__MAP_RELATIONS_JS__", read_map_relations())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -717,6 +726,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 </div>
 <script>
 __NESTING_JS__</script>
+<script>
+__MAP_RELATIONS_JS__</script>
 <script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
