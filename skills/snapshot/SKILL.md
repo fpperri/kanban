@@ -189,7 +189,9 @@ tree"/"Dependency path" buttons described above.
 The page embeds `skills/web/web/nesting.js` as is, so parents, outline order,
 roll-ups and the thread follow kanban-web's rules with nothing to keep in sync by
 hand; `test/nesting-embed.test.js` pins the embedded source to that file, and the
-build refuses a module that could close its own script element.
+build refuses a module that could close its own script element. The build reads
+that file from the kanban-web skill installed beside this one, so install the two
+together: a snapshot-only install exits with a message naming the missing file.
 
 - **Type chips.** A card with a `type` wears a chip, in the color its `config.yaml`
   `types:` entry gives it (the names match without regard to case) and neutral when

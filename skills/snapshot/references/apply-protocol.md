@@ -47,7 +47,9 @@ assignments: `{"fm":{"type":"epic"}}`, `{"fm":{"parent":"12"}}` for a card on th
 board, `{"fm":{"parent":"fpp#4"}}` for another board's card, and `""` clears
 either. A bare `parent: fpp#4` is legal YAML (a `#` only starts a comment after a
 space) and the quoted form is too, so the quoting rule above may be applied
-either way; kanban-web reads both. The editor never sends `rank`. Three keys are special:
+either way; kanban-web reads both. The editor never sends `rank`.
+
+Three keys are special:
 `id` is ignored outright; `status` in `fm` is treated exactly like a `move`
 op (the `doing` entry gate + date-landing rules apply, never written
 verbatim); an
