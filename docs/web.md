@@ -50,6 +50,11 @@ that column. Outline puts a parent before its children and siblings in `rank`
 order; it is the default sort on a board where any card has a `rank` or a
 `parent`. The search box up top filters every view at once.
 
+Open a card and the parents it sits under show above it, root first, each one a
+click away; below its body come its children in `rank` order. A parent that does not
+exist is marked *unresolved*, a parent on another board is shown but *not followed*,
+and a loop of parents is flagged where it repeats.
+
 ## Dependency map
 
 ![Dependency map](images/web-map.png)

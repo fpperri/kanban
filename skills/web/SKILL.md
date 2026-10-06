@@ -500,6 +500,19 @@ to `127.0.0.1` only.
   colour, `priority: High` the high-priority red, `assignee` its chip, `parent` a
   mention chip that opens the epic, `review` and `blocked` their sticker grounds, and
   `tags` tag chips. The card path shows its folders muted and the file name in full ink.
+- **Thread and children** — the detail popup shows the card's thread above its
+  frontmatter: the parents up to the root, root first, each a mention chip that opens
+  that card (an archived parent too). A parent id with no card on this board ends the
+  thread with an `unresolved` marker; a parent on another board ends it with that
+  board's mention marked `not followed` (the single-board release names it and never
+  follows it); a loop of parents stops at the card that would repeat and flags it
+  `loop`, so a mistake never hangs the popup. Below the body the card's children are
+  listed in rank order (unranked after ranked, then priority, then id), an archived
+  child marked `archived`, each a mention chip too. Both lists are worked out from the
+  board already loaded (`threadOf` and `childrenOf` in `nesting.js`), a root shows no
+  thread and a leaf no child list, and every entry that names a card on this board
+  rides the popup's one mention listener, so opening one is a step in the card popup
+  history.
 - **Reading layer** — card bodies and notifications use four tokens of their own:
   `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
   `--line-strong` for table-header and evidence rules. Headings and bold take
