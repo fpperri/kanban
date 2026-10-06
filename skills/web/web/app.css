@@ -48,7 +48,6 @@
   --btn-bg: #f0eee6;
   --btn-hover: #e6e3d8;
   --hover-wash: #e8e5da;
-  --epic-hover-fill: #e9dac7;
   --handle-wash: rgba(20, 20, 19, 0.12);
   --shadow: 0 1px 2px rgba(20, 20, 19, .06);
   --scrim: rgba(20, 20, 19, 0.5);
@@ -71,12 +70,10 @@
   --id-review: #7d6400;
   --id-high-hover: #d9363e;
   --id-waiting-hover: #a87411;
-  --id-epic: #b34906;
   --blocked-ink: #b62324;
   --blocked-bg: #fde8e6;
   --review-ink: #7d6400;
   --review-bg: #fbf3c9;
-  --epic-wash: rgba(240, 136, 62, 0.12);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -105,7 +102,6 @@
     --btn-bg: #242423;
     --btn-hover: #30302f;
     --hover-wash: #333332;
-    --epic-hover-fill: #4a3d33;
     --handle-wash: rgba(255, 255, 255, 0.12);
     --shadow: 0 1px 2px rgba(0, 0, 0, .3);
     --scrim: rgba(0, 0, 0, 0.72);
@@ -128,12 +124,10 @@
     --id-review: #eac54f;
     --id-high-hover: #ff7b72;
     --id-waiting-hover: #e3b341;
-    --id-epic: #f0883e;
     --blocked-ink: #fc6e63;
     --blocked-bg: #3a1c21;
     --review-ink: #eac54f;
     --review-bg: #332b14;
-    --epic-wash: rgba(240, 136, 62, 0.12);
   }
 }
 :root[data-theme="dark"] {
@@ -163,7 +157,6 @@
   --btn-bg: #242423;
   --btn-hover: #30302f;
   --hover-wash: #333332;
-  --epic-hover-fill: #4a3d33;
   --handle-wash: rgba(255, 255, 255, 0.12);
   --shadow: 0 1px 2px rgba(0, 0, 0, .3);
   --scrim: rgba(0, 0, 0, 0.72);
@@ -186,12 +179,10 @@
   --id-review: #eac54f;
   --id-high-hover: #ff7b72;
   --id-waiting-hover: #e3b341;
-  --id-epic: #f0883e;
   --blocked-ink: #fc6e63;
   --blocked-bg: #3a1c21;
   --review-ink: #eac54f;
   --review-bg: #332b14;
-  --epic-wash: rgba(240, 136, 62, 0.12);
 }
 :root[data-theme="light"] { color-scheme: light; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -359,17 +350,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    out of the tile instead of wrapping. */
 .card-main { flex: 1 1 auto; min-width: 0; }
 .card-menu { flex-basis: 100%; }
-/* Epic reads as a faint background wash, not a
-   dot — circles are reserved for STATUS alone (the status dot
-   below keeps its own channel). EPIC_COLOR at 12% alpha
-   (epicColorSoft() in status-colors.js, sync-pinned by
-   status-colors.test.js), the same wash-language the gantt bar's per-status
-   fill already uses. The calendar chip and gantt gutter label share this
-   exact rule (identical value, no conflict there); the gantt BAR and map
-   node each need their own twin below since their backgrounds are already
-   spoken for (.gantt-bar.epic near the status fill rules, .map-node.epic
-   rect near the map view rules). */
-.card.epic, .cal-chip.epic, .gantt-label.epic { background: var(--epic-wash); }
 /* The shared status dot — same 8px shape as .archived-dot below.
    Color never rides an inline `style="background:..."`
    written by statusBadge() (status-colors.js): a strict `style-src 'self'`
@@ -558,8 +538,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 #f-blocked.blocked-active { border-color: var(--id-high); }
 /* ADR 0009: review is blocked's sibling sticker — "finished,
    approve me" rather than a stop sign, so its own gold/yellow pill, distinct
-   from the waiting amber accent (#d29922), the epic orange wash (#f0883e),
-   and the blocked red (#f85149). Same .state treatment as .blocked-pill
+   from the waiting amber accent (#d29922) and the blocked red (#f85149). Same .state treatment as .blocked-pill
    above — its own ground token, no border — moving together since ADR 0009
    makes them siblings. */
 .review-pill { background: var(--review-bg); border-radius: .15rem; padding: 2px 8px; font-size: 0.7em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; color: var(--review-ink); margin-left: 4px; flex-shrink: 0; }
@@ -611,10 +590,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    own layout. */
 #card-form .row { flex-wrap: wrap; }
 #card-form .row label { flex: 1 1 170px; min-width: 0; }
-/* The Epic checkbox rides the Status/Priority row at its natural
-   width, text+box side by side, baseline-aligned with the inputs beside it —
-   same row-direction checkbox grammar as .bulk-clear-label. */
-#card-form label.epic-check { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 6px; align-self: flex-end; padding-bottom: 7px; cursor: pointer; }
 #card-form input, #card-form select, #card-form textarea, #card-form .date-field { min-width: 0; }
 /* Minimal-first create. openModal() puts .minimal on #card-form for
    new cards only; the .modal-extra groups hide as a block and the show-more
@@ -676,16 +651,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.fullscreen .modal-desc textarea { flex: 1 1 auto; }
 
 .detail-modal { width: min(680px, 92vw); }
-/* The detail popup's own twin of the tile wash (.card.epic above) — same
-   epicColorSoft() 12% alpha, but LAYERED rather than substituted. A tile can
-   replace its background outright because it sits on the opaque .column; a
-   popup sits on the .modal-backdrop and the board, so substituting a 12% alpha
-   left 88% of the panel see-through and the board legible through the text
-   (kanban.proj #255). A two-stop linear-gradient is the flat-overlay idiom:
-   it paints the wash as its own layer over .modal's solid var(--surface) underneath,
-   which keeps the tint sourced from epicColorSoft() instead of freezing a
-   hand-blended hex that would drift the day EPIC_COLOR changes. */
-.modal.detail-modal.epic { background: linear-gradient(var(--epic-wash), var(--epic-wash)), var(--surface); }
 /* row layout lives on .popup-header (below) — see there. */
 /* Headline-role, same reasoning as .modal h2 above — a card's own title. */
 .detail-header h2 { color: var(--ink-strong); font-size: 1.26em; line-height: 1.25; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
@@ -871,16 +836,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    padding and fill are untouched. */
 .map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { opacity: 0.45; border-style: dashed; color: var(--mut); }
-/* The map's "Epics" tap-chip — rides in the SAME row as
-   the status pills above (buildMapFilterRow appends it last; the row's flex
-   `gap` spaces it identically). Base look matches .map-filter-toggle's, but
-   the ON state is its own rule rather than reusing .off: a status pill
-   defaults ON and dashes when turned OFF, while this chip defaults OFF
-   (epic: absent from the search box) and lights up SOLID, epic orange
-   (EPIC_COLOR, #f0883e — same hue as .card.epic's wash and the epic
-   membership edges below), when tapped on. */
-.map-epic-chip { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
-.map-epic-chip.on { border-color: var(--id-epic); color: var(--id-epic); background: var(--epic-wash); }
 /* The zoom toolbar — its own row right after the filter row (see
    buildMapZoomControls, app.js), same small-pill look as .map-filter-toggle
    (comma-joined into that rule above) rather than a full-size <button>, so
@@ -901,9 +856,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-view.map-panning .map-canvas,
 .map-view.map-panning .map-node rect { cursor: grabbing; }
 /* The node border is ONE neutral weight regardless of status — a
-   per-status stroke and an epic stroke would
-   fight over this single channel with each other AND with the archived
-   mute below; status and epic live on their own channels instead, so this
+   per-status stroke would fight over this single channel with the archived
+   mute below; status lives on its own channel (the dot) instead, so this
    rect only ever draws the plain neutral border (or archived's grey — the
    one exception, same as selection glow / ghost dashing /
    the back-edge amber all keeping their own treatments). */
@@ -964,14 +918,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-status-dot.status-palette-5 { fill: var(--hash-f); }
 .map-status-dot.status-palette-6 { fill: var(--hash-g); }
 .map-status-dot.status-palette-7 { fill: var(--hash-h); }
-/* The map's SVG twin of .card.epic — same faint EPIC_COLOR wash,
-   tinting the node's rect fill instead of drawing a circle (circles are
-   status-only). Higher specificity than the plain `.map-node rect` fill above wins outright, but a ghost
-   stub's dimmed-transparent fill below is declared AFTER this rule (same
-   specificity, source order breaks the tie) so a ghosted epic still reads as
-   a ghost first. No archived-mutes rule: epic is a durable identity, not a
-   location, so the wash keeps showing on an archived node. */
-.map-node.epic rect { fill: var(--epic-wash); }
 /* The archived LOCATION ball's SVG twin — same fixed
    ARCHIVE_COLOR as .archived-dot, a dot in the node's right-edge column
    (buildMapSvg, app.js) beside the status dot, vertically centered. */
@@ -1049,10 +995,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-chip-id { color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
 .cal-chip-title--prompt-fallback { font-style: italic; opacity: 0.75; }
-/* Epic washes the whole chip background (.cal-chip.epic, defined
-   near .card.epic above — identical value, no conflict, so one shared rule
-   covers both) — no dot; the priority/waiting left accents and
-   the due rule below need no gating, nothing to win over. */
 .cal-chip.high { border-left-color: var(--id-high); }
 .cal-chip.low { border-left-color: var(--st-archive); opacity: 0.85; }
 .cal-chip.waiting { border-left-color: var(--id-waiting); }
@@ -1228,18 +1170,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .gantt-bar.status-doing { border-color: var(--st-doing); background: rgba(63, 185, 80, 0.12); }
 .gantt-bar.status-done { border-color: var(--st-done); background: rgba(163, 113, 247, 0.12); }
 .gantt-bar.status-unknown { border-color: var(--st-archive); background: rgba(134, 142, 154, 0.12); }
-/* Epic's wash can't reuse `background` here — the per-status fill
-   above already owns that property (and ganttBarEl's inline style for a
-   non-built-in status would beat a class rule on it anyway). box-shadow
-   paints the same EPIC_COLOR wash on top of whatever's already there
-   instead, so it composes with either. A spread this large collapses the
-   shadow's "hole" against the bar's 20px height regardless of its (often
-   much larger) width, so it always fully covers the bar — the standard
-   inset-box-shadow-as-overlay trick. Declared before .dragging below so the
-   live-drag preview's own box-shadow wins during that transient gesture —
-   losing the epic wash for the one bar mid-drag is an acceptable trade, not
-   a requirement. */
-.gantt-bar.epic { box-shadow: inset 0 0 0 9999px var(--epic-wash); }
 .gantt-bar.high { border-left-color: var(--id-high); }
 .gantt-bar.low { border-left-color: var(--st-archive); opacity: 0.85; }
 .gantt-bar.waiting { border-left-color: var(--id-waiting); }
@@ -1361,25 +1291,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    to read as a response at all. var(--hover-wash) sits just under button:hover's
    var(--btn-hover), which keeps the card's own var(--line) border visible instead
    of swallowing it.
-   Declared AFTER every .epic wash
-   and per-status fill above so this wins those ties and a colored
-   card still visibly responds to hover — but BEFORE .selected below so
-   THAT rule keeps winning its own tie against this one. Epic is the one
-   exception, reasserted three-class below. */
+   Declared AFTER every per-status fill above so this wins those ties and a
+   colored card still visibly responds to hover — but BEFORE .selected below
+   so THAT rule keeps winning its own tie against this one. */
 .card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: var(--hover-wash); }
 .map-node.hover-highlight rect { fill: var(--hover-wash); }
-/* Epic survives hover, the same way it survives selection. The rule above is a
-   2-class background and so is .card.epic, so without this the orange wash would
-   vanish the moment the pointer crossed an epic card, and epic is a durable
-   identity rather than a transient status (the .epic.selected block below spells
-   that out; hover is strictly MORE transient than selection, so it has less claim
-   still). Layered rather than substituted, per kanban.proj #255: the alpha wash
-   sits over the hover tone instead of replacing it, so BOTH cues read at once.
-   The SVG rect takes the same two colors pre-blended, since fill has no
-   gradient-over-color form. The gantt BAR needs no twin: its epic cue is a
-   box-shadow, never a background, so there is no tie to lose. */
-.card.epic.hover-highlight, .cal-chip.epic.hover-highlight, .gantt-label.epic.hover-highlight { background: linear-gradient(var(--epic-wash), var(--epic-wash)), var(--hover-wash); }
-.map-node.epic.hover-highlight rect { fill: var(--epic-hover-fill); }
 /* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
    another card takes it away from the card that still holds keyboard focus,
    and a Tab user would be left with no indicator at all. The ring is the
@@ -1402,21 +1318,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .gantt-label.selected { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: .15rem; background: var(--accent-soft); }
 .map-node.selected rect { fill: var(--accent-soft); }
 .map-node.selected { filter: drop-shadow(0 0 4px var(--accent)); }
-/* `.epic` (above) and `.selected` (this block)
-   are both 2-class selectors setting the same property — background here,
-   SVG fill on the map node — and `.selected` is declared later, so it wins
-   the same-specificity tie outright and the epic wash silently disappears
-   the moment an epic card is selected. That's fine for status fills (the
-   comment above is explicit: status color SHOULD cede to the selection
-   wash), but epic is a durable identity, not a transient status, so it
-   shouldn't lose to selection the same way. A 3-class override beats both
-   2-class rules regardless of source order, so the epic wash reasserts
-   itself while selection's own outline/glow (a property epic never
-   touches) keeps showing too. The gantt BAR needs no twin here — its epic
-   wash is already a box-shadow, a different property than
-   .gantt-bar.selected's background, so there was never a tie to lose. */
-.card.epic.selected, .cal-chip.epic.selected, .gantt-label.epic.selected { background: var(--epic-wash); }
-.map-node.epic.selected rect { fill: var(--epic-wash); }
 .context-menu { position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 4px; display: flex; flex-direction: column; min-width: 160px; box-shadow: var(--shadow-pop); }
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
 .context-menu button:hover { background: var(--btn-hover); }

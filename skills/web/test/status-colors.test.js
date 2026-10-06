@@ -3,11 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// .modal's own solid panel colour (app.css). Any wash on a popup has to keep
-// this underneath it or the popup goes transparent.
-const MODAL_BG = 'var(--surface)';
 const {
-  BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, EPIC_COLOR, isBuiltinStatus, statusColor, statusColorClass, statusColorSoft, epicColorSoft, statusBadge, archivedBadge,
+  BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, isBuiltinStatus, statusColor, statusColorClass, statusColorSoft, statusBadge, archivedBadge,
   LIGHT_STATUS_COLORS, LIGHT_ARCHIVE_COLOR, HASH_SLOTS, themeColorTokens, statusColorVar,
 } = require('../web/status-colors');
 
@@ -121,90 +118,6 @@ test('no hashable palette slot is near-grey or the archive grey — grey means a
   }
 });
 
-// --- the epic/wayfinder orange — reserved among the fixed colors ----
-
-test('EPIC_COLOR is orange and no built-in status (or archive) wears it', () => {
-  assert.strictEqual(EPIC_COLOR, '#f0883e');
-  for (const [status, hex] of Object.entries(BUILTIN_STATUS_COLORS)) {
-    assert.notStrictEqual(hex, EPIC_COLOR, `${status} wears the epic orange`);
-  }
-  assert.notStrictEqual(ARCHIVE_COLOR, EPIC_COLOR);
-});
-
-// --- the epic border was replaced by a shared dot glyph, and the dot then
-// retired too — circles are reserved for status alone now, so
-// an epic instead washes its whole surface in a faint background tint. -----
-
-test('epicColorSoft is EPIC_COLOR at 12% alpha — the faint wash every surface\'s .epic rule carries', () => {
-  assert.strictEqual(epicColorSoft(), 'rgba(240, 136, 62, 0.12)');
-});
-
-test('app.css washes every surface\'s .epic class in epicColorSoft() — no epic dot/circle left anywhere', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  const soft = 'var(--epic-wash)';
-  // Board tile, calendar chip, and gantt gutter label share one background rule.
-  assert.ok(css.includes(`.card.epic, .cal-chip.epic, .gantt-label.epic { background: ${soft}; }`), 'tile/chip/gutter-label share one faint background rule');
-  // The gantt BAR can't reuse `background` (the per-status fill already owns
-  // it), so it layers the same wash via box-shadow instead.
-  assert.ok(css.includes(`.gantt-bar.epic { box-shadow: inset 0 0 0 9999px ${soft}; }`), 'gantt bar epic wash is a box-shadow overlay, not background');
-  // The map node tints its SVG rect fill instead of drawing a circle.
-  assert.ok(css.includes(`.map-node.epic rect { fill: ${soft}; }`), 'map node epic wash tints the rect fill, not a circle');
-  // the card detail popup's own twin. A tile can REPLACE its background with the
-  // wash because it sits on the opaque column; a popup sits on the backdrop and
-  // the board, so replacing its background makes it see-through (kanban.proj #255).
-  // It layers the wash over the panel colour instead, so the value stays sourced
-  // from epicColorSoft() rather than a hand-blended hex.
-  assert.ok(css.includes(`.modal.detail-modal.epic { background: linear-gradient(${soft}, ${soft}), ${MODAL_BG}; }`), 'detail popup epic wash layers OVER the opaque panel');
-  // the shared dot glyph and its SVG twin are BOTH gone now — no circle
-  // anywhere draws an epic; circles are status-only.
-  assert.ok(!css.includes('.epic-dot'), 'the shared HTML epic-dot glyph is gone');
-  assert.ok(!css.includes('.map-epic-dot'), 'the map SVG epic-dot circle is gone');
-  // The map no longer draws membership (or an intra-epic chain) as its own
-  // orange line — epic reads on the map only through the node's own wash
-  // above. Their CSS is gone, not just unreferenced.
-  assert.ok(!css.includes('.map-edge.epic-edge'), 'the membership-edge CSS rule is gone');
-  assert.ok(!css.includes('.map-edge.epic-chain'), 'the intra-epic chain CSS rule is gone');
-  assert.ok(!css.includes('.map-arrow-epic-head'), 'its dedicated arrowhead CSS rule is gone');
-  assert.ok(!css.includes('map-arrow-epic'), 'the dedicated epic arrowhead marker id is gone entirely');
-});
-
-// kanban.proj #255: an epic popup must never be see-through. The wash is a
-// 12% alpha, so it can only ever be LAYERED over an opaque colour here, never
-// be the whole background — otherwise 88% of the popup is the board behind it.
-test('the epic detail popup is opaque — the wash never replaces the panel background', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  const soft = 'var(--epic-wash)';
-  const rule = css.match(/\.modal\.detail-modal\.epic \{([^}]*)\}/);
-  assert.ok(rule, '.modal.detail-modal.epic rule is present');
-  const decl = rule[1];
-  assert.ok(decl.includes(MODAL_BG), `the epic popup keeps the modal's opaque ${MODAL_BG} underneath`);
-  assert.ok(decl.includes(soft), 'and still carries the shared epic wash');
-  // the failing shape this test exists to catch: the bare alpha as the whole value
-  assert.notStrictEqual(decl.trim(), `background: ${soft};`, 'the wash alone would leave the popup 88% transparent');
-});
-
-test('epic wash survives selection — a 3-class override beats the same-specificity .epic/.selected tie', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  const soft = 'var(--epic-wash)';
-  // .card.epic and .card.selected are both 2-class selectors that set
-  // `background`; .selected is declared later (the Multi-select block), so
-  // without an override it silently wins the same-specificity tie and the
-  // epic tint vanishes the instant an epic card is ctrl/shift/right-click
-  // selected. Same tie, same property, on the calendar chip / gantt gutter
-  // label (background) and the map node (SVG `fill`). Only a
-  // higher-specificity rule fixes this without re-breaking the OTHER
-  // documented tie a few lines up (.selected must still beat plain
-  // per-status backgrounds/fills).
-  assert.ok(css.includes(`.card.epic.selected, .cal-chip.epic.selected, .gantt-label.epic.selected { background: ${soft}; }`),
-    'board tile / calendar chip / gantt gutter label keep the epic wash once selected');
-  assert.ok(css.includes(`.map-node.epic.selected rect { fill: ${soft}; }`),
-    'map node keeps the epic wash once selected');
-  // The gantt BAR never had this bug: its epic wash is a box-shadow,
-  // a different property than .gantt-bar.selected's `background`, so
-  // there's no tie to lose and no override is needed here.
-  assert.ok(!css.includes('.gantt-bar.epic.selected'), 'gantt bar needs no override — its box-shadow wash already survives selection');
-});
-
 test('the map node border is one neutral weight for every status — status moved to its own dot', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.map-node rect\s*\{[^}]*stroke:\s*var\(--line\)/, 'one neutral stroke color, not per-status');
@@ -264,7 +177,7 @@ test('the blocked sticker\'s red pill is styled on both surfaces it shows (tiles
   assert.match(css, /#f-blocked\.blocked-active\s*\{[^}]*border-color:\s*var\(--id-high\)/, 'edit form input goes red only while the value passes the predicate');
 });
 
-// --- the shared HTML status dot, joining epicBadge() everywhere --
+// --- the shared HTML status dot, on every surface --
 
 test('statusBadge colors a built-in status via a status-dot--* class, never inline style', () => {
   // this used to write `style="background:..."` —
@@ -364,27 +277,13 @@ test('app.css paints a shape-only .status-dot rule, plus one .status-dot--* colo
   });
 });
 
-test('no fused-dot gap rule survives for epic+status — the epic dot that rule existed for is retired', () => {
-  // The original problem: on the two dense surfaces without
-  // .card-head's flex gap (calendar chips, gantt gutter labels),
-  // epicBadge()+statusBadge() emitted with zero whitespace between them and
-  // neither .epic-dot nor .status-dot carried a margin, fusing into one
-  // two-color blob. The epic-wash rework removes the epic dot entirely (an epic is a
-  // background wash now, not a circle standing next to the status circle),
-  // so the adjacent-sibling fix for that specific pair no longer applies —
-  // pin its absence so a future edit doesn't reintroduce a rule for a glyph
-  // that no longer exists.
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  assert.doesNotMatch(css, /\.epic-dot \+ \.status-dot/, 'no leftover epic-dot adjacent-sibling rule');
-});
-
 // --- the archived ball's final design: "show the status color as shown in the
 // frontmatter and an additional ball gray for archived" — a THIRD shared dot
-// glyph, ARCHIVE_COLOR grey, joining epicBadge()/statusBadge() on every
+// glyph, ARCHIVE_COLOR grey, joining statusBadge() on every
 // ARCHIVED-card surface only. Live cards never render it (cardEl/
 // calendarChipEl never call it — pinned as served-asset absence tests in
 // server.test.js). Order picked and applied everywhere it appears in
-// sequence: epic, status, archived.
+// sequence: status, archived.
 
 test('archivedBadge is the shared HTML glyph — a grey dot with an "Archived" tooltip', () => {
   const html = archivedBadge();
@@ -395,11 +294,11 @@ test('archivedBadge is the shared HTML glyph — a grey dot with an "Archived" t
 test('app.css paints the archived-dot glyph in ARCHIVE_COLOR, same 8px shape, plus its map SVG twin', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.archived-dot\s*\{[^}]*width:\s*8px;[^}]*height:\s*8px;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--st-archive\)/,
-    'the shared HTML dot is the same 8px shape as epic-dot/status-dot, carrying ARCHIVE_COLOR');
+    'the shared HTML dot is the same 8px shape as the status dot, carrying ARCHIVE_COLOR');
   assert.ok(css.includes('.map-archived-dot { fill: var(--st-archive);'), 'the map node has its own SVG twin, same grey');
 });
 
-test('a status dot immediately followed by an archived dot gets a gap — the same fused-dot gap fix epic+status got', () => {
+test('a status dot immediately followed by an archived dot gets a gap', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.status-dot \+ \.archived-dot\s*\{[^}]*margin-left:\s*4px/,
     'archived always follows statusBadge() directly (status, archived order) — needs the same adjacent-sibling gap');
@@ -504,15 +403,10 @@ test('the dark identity is the set the status page copies; light is its own part
   const dark = themeColorTokens('dark'), light = themeColorTokens('light');
   assert.strictEqual(dark['st-backlog'], BUILTIN_STATUS_COLORS.backlog);
   assert.strictEqual(dark['st-archive'], ARCHIVE_COLOR);
-  assert.strictEqual(dark['id-epic'], EPIC_COLOR);
   STATUS_PALETTE.forEach((hex, i) => assert.strictEqual(dark[`hash-${HASH_SLOTS[i]}`], hex));
   assert.strictEqual(light['st-backlog'], LIGHT_STATUS_COLORS.backlog);
   assert.strictEqual(light['st-archive'], LIGHT_ARCHIVE_COLOR);
   assert.deepStrictEqual(Object.keys(light).sort(), Object.keys(dark).sort(), 'both themes name the same identities');
-});
-
-test('the epic wash token is epicColorSoft() in every theme block', () => {
-  for (const block of [lightBlock, mediaBlock, darkBlock]) assert.strictEqual(block['epic-wash'], epicColorSoft());
 });
 
 test('statusColorVar hands JavaScript a token, never a hex, over the same value space as statusColorClass', () => {

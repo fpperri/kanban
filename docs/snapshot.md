@@ -62,7 +62,7 @@ The same three extra views as the desktop app, rendered read-only here and
 laid out for a narrow screen:
 
 ![Snapshot map](images/snapshot-map.jpg)
-*Map — the `waiting_for` graph with a workable / waiting / blocked / not-on-board legend; no line marks a card as an epic here — the Epics chip and the `epic:` search term are the only way to reach them.*
+*Map — the `waiting_for` graph with a workable / waiting / blocked / not-on-board legend; a parent link shapes the layout but draws no line.*
 
 ![Snapshot gantt](images/snapshot-gantt.jpg)
 *Gantt — working-range bars and due diamonds, grouped by status, with an undated-cards row below.*

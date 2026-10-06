@@ -177,7 +177,7 @@ async function send(base, method, url, body) {
 function formPayload(extra) {
   return {
     title: 'One', status: 'todo', priority: 'Normal', tags: [], waiting_for: [], blocked: '', review: '', prompt: '',
-    assignee: '', start_date: '', end_date: '', due_date: '', epic: false, body: 'body\n', ...extra,
+    assignee: '', start_date: '', end_date: '', due_date: '', body: 'body\n', ...extra,
   };
 }
 

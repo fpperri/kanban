@@ -76,7 +76,7 @@ test('PATCHing other fields of a typed card (a form-style save) leaves its `type
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const r = await json(base, 'PATCH', '/api/cards/1', {
-      title: 'One, renamed', priority: 'High', assignee: '@alex', tags: ['a'], epic: false, status: 'todo',
+      title: 'One, renamed', priority: 'High', assignee: '@alex', tags: ['a'], status: 'todo',
     });
     assert.strictEqual(r.status, 200);
     assert.strictEqual(r.json.type, 'objective');

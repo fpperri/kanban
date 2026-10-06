@@ -32,7 +32,7 @@ test('isBlockedValue: empty / whitespace / punctuation-only values are not block
 test('isBlockedValue: YAML boolean special-case — false/no clear, true blocks with reason unspecified', () => {
   assert.strictEqual(isBlockedValue('false'), false);
   assert.strictEqual(isBlockedValue('no'), false);
-  assert.strictEqual(isBlockedValue('FALSE'), false, 'any-case, same tolerant stance as the epic flag reader');
+  assert.strictEqual(isBlockedValue('FALSE'), false, 'any-case, tolerant read');
   assert.strictEqual(isBlockedValue('No'), false);
   assert.strictEqual(isBlockedValue(' false '), false, 'trimmed before the special-case');
   assert.strictEqual(isBlockedValue('true'), true);

@@ -62,12 +62,8 @@ def parse_card(path):
         "rv": fm.get("review", ""),
         # Strict parent parse (digits only -> int, else null),
         # same contract as kanban-web's card-store.js parent field — used to
-        # build epic-membership edges for the map + tree:/path: traversal.
+        # build membership edges for the map + tree:/path: traversal.
         "pt": parent_id(fm.get("parent")),
-        # Epic-marked flag, same tolerant any-case 'true'
-        # read as kanban-web's card-store.js (`epic: get('epic').toLowerCase()
-        # === 'true'`) — drives the epic: search term (qMatch's "epic" case).
-        "ep": (fm.get("epic", "") or "").strip().lower() == "true",
         # "bn" ("body length"): the UNCAPPED character count, set before
         # either truncation below runs. The template compares it against the
         # embedded body's own length to know a body was cut and by how much —
@@ -387,9 +383,8 @@ TEMPLATE = """<!DOCTYPE html>
 --on-fill:#ffffff;--btn-bg:#f0eee6;--btn-hover:#e6e3d8;
 --st-backlog:#0c5f65;--st-todo:#0266d7;--st-doing:#117a32;--st-done:#642cba;--st-archive:#626b75;
 --hash-a:#0266d7;--hash-b:#117a32;--hash-c:#906001;--hash-d:#642cba;--hash-e:#b93384;--hash-f:#0c5f65;--hash-g:#b34906;--hash-h:#9e1c37;
---id-high:#ce212d;--id-waiting:#906001;--id-review:#7d6400;--id-epic:#b34906;
+--id-high:#ce212d;--id-waiting:#906001;--id-review:#7d6400;
 --blocked-ink:#b62324;--blocked-bg:#fde8e6;--review-ink:#7d6400;--review-bg:#fbf3c9;
---epic-wash:rgba(240, 136, 62, 0.12);
 --shadow:0 1px 2px rgba(20, 20, 19, .06);--scrim:rgba(20, 20, 19, 0.5);--shadow-pop:0 8px 24px rgba(20, 20, 19, .16)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
 --paper:#151515;--surface:#1f1f1f;--ink:#e5e6e3;--ink-strong:#fafaf7;--prose:#e5e6e3;--mut:#949389;
@@ -398,9 +393,8 @@ TEMPLATE = """<!DOCTYPE html>
 --on-fill:#151515;--btn-bg:#242423;--btn-hover:#30302f;
 --st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
 --hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
---id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
+--id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;
 --blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
---epic-wash:rgba(240, 136, 62, 0.12);
 --shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.72);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}}
 :root[data-theme="dark"]{color-scheme:dark;
 --paper:#151515;--surface:#1f1f1f;--ink:#e5e6e3;--ink-strong:#fafaf7;--prose:#e5e6e3;--mut:#949389;
@@ -409,9 +403,8 @@ TEMPLATE = """<!DOCTYPE html>
 --on-fill:#151515;--btn-bg:#242423;--btn-hover:#30302f;
 --st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
 --hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
---id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
+--id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;
 --blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
---epic-wash:rgba(240, 136, 62, 0.12);
 --shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.72);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}
 :root[data-theme="light"]{color-scheme:light}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -673,13 +666,6 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .pillrow button{font-size:11px;border-radius:.15rem;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--mut)}
 .pillrow button.off{opacity:.4}
 .pillrow .dot{width:8px;height:8px}
-/* The map's "Epics" tap-chip rides in the SAME pillrow
-   as the status pills (renderMap appends it after statusPills()'s row; the
-   row's flex gap spaces it identically). Inherits .pillrow button's base
-   look; the ON state is its own rule (not .off, which means the OPPOSITE
-   here: a status pill defaults ON and dims when off, this chip defaults OFF
-   and lights up --id-epic, kanban-web's EPIC_COLOR) when tapped on. */
-.epicchip.on{border-color:var(--id-epic);color:var(--id-epic);background:var(--epic-wash)}
 .card.archcard{opacity:.55}
 .pill{cursor:pointer}
 /* Tier 1 (560-899px): the single column just grows — nothing else
@@ -1045,11 +1031,6 @@ const GFIELDS=["tree","path"];
 // itself a complete "sticker present" term, UNLIKE every SFIELDS scope
 // above (mirrors kanban-web's search.js STICKER_FIELDS split).
 const STFIELDS=["review","blocked"];
-// epic: is its own single-field family — bare presence,
-// never dropped (same shape as STFIELDS), but with NO value form: whatever
-// follows the colon is discarded rather than kept for a substring match,
-// mirrors kanban-web's search.js EPIC_FIELDS split.
-const EFIELDS=["epic"];
 function parseTerm(tok){
 const m1=/^#(\\d+)$/.exec(tok);if(m1)return{f:"id",v:m1[1]};
 const m2=/^([A-Za-z]+):(.*)$/.exec(tok);
@@ -1057,8 +1038,7 @@ if(m2){const k=m2[1].toLowerCase();
 if(k==="id"){const v=m2[2].trim();return v?{f:"id",v:v}:null}
 if(GFIELDS.indexOf(k)!==-1){const v=m2[2].trim().replace(/^#/,"");return v?{f:k,v:v}:null}
 if(SFIELDS.indexOf(k)!==-1){const v=m2[2].trim().toLowerCase();return v?{f:k,v:v}:null}
-if(STFIELDS.indexOf(k)!==-1)return{f:k,v:m2[2].trim().toLowerCase()}
-if(EFIELDS.indexOf(k)!==-1)return{f:k,v:""}}
+if(STFIELDS.indexOf(k)!==-1)return{f:k,v:m2[2].trim().toLowerCase()}}
 return{f:null,v:tok.toLowerCase()}}
 // tree:/path: terms need the full board's graph to resolve
 // (connected component / directed cone), which a single (term, card) pair
@@ -1084,11 +1064,6 @@ case "type":return String((c.fm&&c.fm.type)||"").toLowerCase().indexOf(t.v)!==-1
 // case-insensitive substring on the sticker's own text.
 case "review":return t.v?String(rvReason(c)||"").toLowerCase().indexOf(t.v)!==-1:rvReason(c)!==null;
 case "blocked":return t.v?String(blkReason(c)||"").toLowerCase().indexOf(t.v)!==-1:blkReason(c)!==null;
-// epic: is a pure presence check on the parsed boolean
-// flag (c.ep, set by parse_card's tolerant any-case 'true' read) — t.v is
-// always "" (parseTerm discards it), so there's no substring branch to
-// mirror review:/blocked:'s.
-case "epic":return c.ep===true;
 case "ids":return t.ids.has(Number(c.id));
 case "tree":case "path":return false;
 default:return title.indexOf(t.v)!==-1||body.indexOf(t.v)!==-1||tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1)}})}
@@ -1142,9 +1117,9 @@ if(o.fm&&!isProv(o.id)){c.fm=c.fm||{};for(const k in o.fm){const v=o.fm[k];
 if(k==="parent"){const pv=String(v).trim().replace(/^["']+|["']+$/g,"");c.pt=/^\\d+$/.test(pv)?Number(pv):null}
 if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
-else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v;else if(k==="epic")c.ep=String(v).trim().toLowerCase()==="true"}}
+else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v}}
 return}
-if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:o.fm||{}});return}}
+if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",body:o.body||"",fm:o.fm||{}});return}}
 let nesting=null;
 function buildNesting(){
 const asNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.s,archived:archived||!!c.arch});
@@ -1602,16 +1577,17 @@ $("calview").style.display=v==="calendar"?"":"none"}
 // ghost stub, same as a stale/deleted reference. Nodes carry both flags:
 // derived done-aware waiting + the manual blocked sticker.
 //
-// A child card's `pt` (parsed `parent:` frontmatter) becomes a child->epic edge,
-// kind "epic" (waiting_for edges are kind "dep"). Two suppression rules —
-// nonTerminal (a member some OTHER same-epic member already depends on
-// skips its own direct hop) and "sequencing wins the pair" (skip the epic
+// A child card's `pt` (parsed `parent:` frontmatter) becomes a child->parent edge,
+// kind "epic" (the name predates nesting and is pinned; waiting_for edges are
+// kind "dep"). Two suppression rules —
+// nonTerminal (a member some OTHER member of the same parent already depends on
+// skips its own direct hop) and "sequencing wins the pair" (skip the membership
 // edge if a dep edge already connects the same two ids, either direction) —
 // are computed over the FULL board (fullEdgeSets, keyed off DATA), never the
 // filtered `cards` this function is called with: a search/status filter must
-// not reroute epic membership, mirroring kanban-web's own comment on this
+// not reroute membership, mirroring kanban-web's own comment on this
 // exact point. An edge is only ADDED when its owning card (the waiter for a
-// dep edge, the member for an epic edge) is present in `cards` — the same
+// dep edge, the member for a membership edge) is present in `cards` — the same
 // asymmetry the original dep-only version already had; the other endpoint
 // ghosts if absent, whether truly off-board or merely filtered out.
 function parentOfIn(byIdMap,id){
@@ -1649,7 +1625,7 @@ const touchedByDep=new Set(),touchedByAny=new Set();
 edges.forEach(e=>{touchedByAny.add(e.from);touchedByAny.add(e.to);if(e.kind==="dep"){touchedByDep.add(e.from);touchedByDep.add(e.to)}});
 // The "no dependencies" row is keyed off SEQUENCING (dep) edges
 // only; the layered graph draws every node touched by ANY edge — a node
-// whose only edge is epic membership joins BOTH.
+// whose only edge is membership joins BOTH.
 const isolated=nodes.filter(n=>!touchedByDep.has(n.id));
 const participants=nodes.filter(n=>touchedByAny.has(n.id));
 return {nodes:nodes,edges:edges,ghosts:ghosts,isolated:isolated,participants:participants}}
@@ -1756,9 +1732,7 @@ const BOW=MW*0.9;
 const edgesG=svgEl("g");
 graph.edges.forEach(e=>{
 // Membership edges (kind "epic") still shape the layout above (fed into
-// layerNodes), but are never drawn. The snapshot map paints no epic cue
-// on the node either; only the Epics chip and the epic: search term
-// reach membership here.
+// layerNodes), but are never drawn.
 if(e.kind==="epic")return;
 const from=pos.get(e.from),to=pos.get(e.to);
 if(!from||!to)return;
@@ -1787,25 +1761,9 @@ d.setAttribute("data-mapnode",String(n.id));
 d.appendChild(el("span","cid","#"+n.id));
 d.appendChild(document.createTextNode(truncate(n.title,30)));
 return d}
-// Mobile-first shortcut for the map's `epic:` search term —
-// rides in the SAME pillrow as the status pills (renderMap only: render()/
-// renderGantt()/renderCalendar() call statusPills() unaugmented, so the chip
-// never shows outside Map view). Toggles: tap writes epic: into #q, tap
-// again removes it — same "write straight into the box, re-render" pattern
-// as the graphfocus tree:/path: buttons, but a TOGGLE since
-// this chip only ever manages the one term (graphfocus always REPLACES).
-function isEpicSearchActive(){
-const raw=String($("q")?$("q").value:"");
-return raw.trim().split(/\\s+/).some(t=>/^epic:/i.test(t))}
-function epicChip(){
-const on=isEpicSearchActive();
-const b=el("button",on?"epicchip on":"epicchip","Epics");
-b.dataset.act="epicchip";
-b.title=on?"Clear the epic: search term":"Filter the map to epic-marked cards (writes epic: into the search box)";
-return b}
 function renderMap(){
 const mv=$("mapview");mv.replaceChildren();
-const pillrow=statusPills();pillrow.appendChild(epicChip());mv.appendChild(pillrow);
+mv.appendChild(statusPills());
 const graph=buildDepGraph(visList());
 if(!graph.nodes.length){mv.appendChild(el("div","map-empty","No cards to show."));return}
 const legend=el("div","map-legend");
@@ -2250,18 +2208,6 @@ if(t.dataset&&t.dataset.coltoggle!==undefined){colOpen[t.dataset.coltoggle]=!col
 if(t.dataset&&t.dataset.caldaytoggle!==undefined){calDayOpen[t.dataset.caldaytoggle]=!calDayOpen[t.dataset.caldaytoggle];renderCalendar();return}
 if(t.dataset&&t.dataset.calhrtoggle!==undefined){calHrOpen[t.dataset.calhrtoggle]=!calHrOpen[t.dataset.calhrtoggle];renderCalendar();return}
 if(t.dataset&&t.dataset.act==="spill"){const k=t.dataset.st;statusVis[k]=!isVis(k);render();renderMap();renderGantt();renderCalendar();return}
-// The map's "Epics" chip — same control-row-checked-first
-// reasoning as the "spill" status pills above; toggles epic: in #q like
-// $("q")'s own input listener does, then re-renders every view (epic:
-// filters board/map/gantt/calendar alike, not just the map it's tapped from).
-if(t.dataset&&t.dataset.act==="epicchip"){
-const toks=String($("q").value||"").trim().split(/\\s+/).filter(Boolean);
-const on=toks.some(x=>/^epic:/i.test(x));
-const next=on?toks.filter(x=>!/^epic:/i.test(x)):toks.concat("epic:");
-$("q").value=next.join(" ");
-focusRoot=null;
-qTerms=resolveGraphTerms(next.map(parseTerm).filter(Boolean));
-render();renderMap();renderGantt();renderCalendar();return}
 if(t.dataset&&t.dataset.tap==="ren"){ren=true;descEd=false;pillEd=null;render();return}
 if(t.dataset&&t.dataset.act==="pill"){pillEd=pillEd===t.dataset.pill?null:t.dataset.pill;ren=false;descEd=false;render();return}
 if(t.getAttribute&&t.getAttribute("data-mapnode")!==null){

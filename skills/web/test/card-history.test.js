@@ -71,10 +71,10 @@ test('opening the card already named by the current URL is a no-op — no duplic
 // --- nextCardHistorySearch: closing --------------------------------------
 
 test('closing removes the card param and keeps the rest', () => {
-  const search = nextCardHistorySearch('?card=42&q=epic%3A&view=gantt', null);
+  const search = nextCardHistorySearch('?card=42&q=type%3Aepic&view=gantt', null);
   const params = new URLSearchParams(search);
   assert.strictEqual(params.has('card'), false);
-  assert.strictEqual(params.get('q'), 'epic:');
+  assert.strictEqual(params.get('q'), 'type:epic');
   assert.strictEqual(params.get('view'), 'gantt');
 });
 
