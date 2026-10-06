@@ -39,9 +39,6 @@ def parse_card(path):
     def lst(v):
         if not v or v == "[]": return []
         return [t.strip().strip('"').strip("'") for t in v.strip("[]").split(",") if t.strip()]
-    def parent_id(v):
-        v = (v or "").strip()
-        return int(v) if re.match(r"^\d+$", v) else None
     full_body = "\n".join(rest).strip()
     return {
         "id": int(fm["id"]) if fm.get("id", "").isdigit() else (int(idm.group(1)) if idm else 0),
@@ -60,14 +57,6 @@ def parse_card(path):
         # "finished, approve me" rather than "stuck, act so I can proceed" —
         # same raw-verbatim contract, never gates the doing entry check.
         "rv": fm.get("review", ""),
-        # Strict parent parse (digits only -> int, else null),
-        # same contract as kanban-web's card-store.js parent field — used to
-        # build epic-membership edges for the map + tree:/path: traversal.
-        "pt": parent_id(fm.get("parent")),
-        # Epic-marked flag, same tolerant any-case 'true'
-        # read as kanban-web's card-store.js (`epic: get('epic').toLowerCase()
-        # === 'true'`) — drives the epic: search term (qMatch's "epic" case).
-        "ep": (fm.get("epic", "") or "").strip().lower() == "true",
         # "bn" ("body length"): the UNCAPPED character count, set before
         # either truncation below runs. The template compares it against the
         # embedded body's own length to know a body was cut and by how much —
@@ -85,17 +74,18 @@ def esc(text):
     return (str(text).replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace('"', "&quot;"))
 
+def _config_text(kanban_dir):
+    try:
+        return open(os.path.join(kanban_dir, "config.yaml"), encoding="utf-8", errors="replace").read()
+    except OSError:
+        return ""
+
 def read_board_name(kanban_dir):
     """config.yaml's top-level `name:` — the BOARD NAME that qualifies every
     card mention and titles this page. Only an UNINDENTED key counts: each
     assignee entry carries its own indented `name:`. Absent, fall back to the
     folder above the board directory — a display default, not a name."""
-    path = os.path.join(kanban_dir, "config.yaml")
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        text = ""
-    m = re.search(r"^name:[ \t]*([^\n]*)$", text, re.M)
+    m = re.search(r"^name:[ \t]*([^\n]*)$", _config_text(kanban_dir), re.M)
     if m:
         val = re.sub(r"\s+#.*$", "", m.group(1)).strip().strip('"').strip("'")
         if val:
@@ -106,35 +96,15 @@ DEFAULT_STATUSES = ["backlog", "todo", "doing", "done"]
 
 def read_statuses(kanban_dir):
     """config.yaml's `statuses` list drives column/group order; the
-    built-in four apply when the file or key is absent. Flow and block YAML
-    list styles both occur in the wild."""
-    path = os.path.join(kanban_dir, "config.yaml")
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        return DEFAULT_STATUSES
-    m = re.search(r"^statuses:\s*\[(.*?)\]", text, re.M)
-    if m:
-        vals = [v.strip().strip('"').strip("'") for v in m.group(1).split(",") if v.strip()]
-        return vals or DEFAULT_STATUSES
-    m = re.search(r"^statuses:\s*\n((?:[ \t]+-[^\n]*\n?)+)", text, re.M)
-    if m:
-        vals = [re.sub(r"^[ \t]+-\s*", "", ln).strip().strip('"').strip("'")
-                for ln in m.group(1).splitlines() if ln.strip()]
-        return vals or DEFAULT_STATUSES
-    return DEFAULT_STATUSES
+    built-in four apply when the file or key is absent or empty."""
+    return _config_scalars(kanban_dir, "statuses") or DEFAULT_STATUSES
 
 DEFAULT_ASSIGNEES = ["@human", "@hitl", "@afk"]
 
 def _assignees_block(kanban_dir):
     """The raw `assignees:` section text, or None — shared by read_assignees
     and read_assignee_colors so both parse the exact same slice."""
-    path = os.path.join(kanban_dir, "config.yaml")
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        return None
-    m = re.search(r"^assignees:[^\n]*\n(.*?)(?=^\S|\Z)", text, re.M | re.S)
+    m = re.search(r"^assignees:[^\n]*\n(.*?)(?=^\S|\Z)", _config_text(kanban_dir), re.M | re.S)
     return m.group(1) if m else None
 
 def read_assignees(kanban_dir):
@@ -159,10 +129,23 @@ def _scalar(raw):
     `color: #ff00ff` is legal — the `[^\\n#]` trick every OTHER field here
     uses would truncate it at that leading hash)."""
     s = raw.strip()
-    if len(s) >= 2 and ((s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")):
-        return s[1:-1]
+    if s[:1] in ('"', "'"):
+        i = 1
+        while i < len(s):
+            if s[i] == "\\":
+                i += 2
+                continue
+            if s[i] == s[0]:
+                return _unquote(s[:i + 1])
+            i += 1
+        return _unquote(s)
     m = re.search(r"\s#", s)
     return s[:m.start()].strip() if m else s
+
+def _unquote(s):
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+    return s
 
 def read_assignee_colors(kanban_dir):
     """config.yaml assignees registry: an OPTIONAL `color:` field
@@ -185,6 +168,73 @@ def read_assignee_colors(kanban_dir):
             if v:
                 colors[cur] = v
     return colors
+
+def _flow_list(raw):
+    s = raw.strip()
+    if not s.startswith("["):
+        return []
+    close = s.find("]")
+    inner = s[1:] if close == -1 else s[1:close]
+    return [v for v in (_scalar(i) for i in inner.split(",")) if v]
+
+def _config_list(kanban_dir, key):
+    """The top-level `key:` list as (flow items, block lines): `key: [a, b]`
+    gives the items, `key:` alone gives the indented lines under it. A comment
+    after the key still opens the block, as the skill's sample config writes
+    it. One reader for every list, matching kanban-web's config-store."""
+    flow, block, in_block = [], [], False
+    for line in _config_text(kanban_dir).splitlines():
+        top = re.match(r"^(\w+):\s*(.*)$", line)
+        if top:
+            in_block = False
+            if top.group(1) == key:
+                rest = top.group(2).strip()
+                if not rest or rest.startswith("#"):
+                    in_block = True
+                else:
+                    flow = _flow_list(rest)
+            continue
+        if in_block:
+            block.append(line)
+    return flow, block
+
+def _config_scalars(kanban_dir, key):
+    flow, block = _config_list(kanban_dir, key)
+    items = [_scalar(m.group(1)) for m in (re.match(r"^\s+-\s*(.*)$", line) for line in block) if m]
+    return [v for v in flow + items if v]
+
+def read_types(kanban_dir):
+    """config.yaml's `types:` list as [{name, color}]."""
+    flow, block = _config_list(kanban_dir, "types")
+    types, cur = [{"name": n, "color": ""} for n in flow], None
+
+    def flush():
+        nonlocal cur
+        if cur is not None:
+            name = _scalar(cur.get("name", ""))
+            if name:
+                types.append({"name": name, "color": _scalar(cur.get("color", ""))})
+            cur = None
+
+    for line in block:
+        start = re.match(r"^\s+-\s+(\w+):\s*(.*)$", line)
+        bare = re.match(r"^\s+-\s*(.*)$", line)
+        field = re.match(r"^\s+(\w+):\s*(.*)$", line)
+        if start:
+            flush()
+            cur = {start.group(1): start.group(2)}
+        elif bare:
+            flush()
+            name = _scalar(bare.group(1))
+            if name:
+                types.append({"name": name, "color": ""})
+        elif field and cur is not None:
+            cur[field.group(1)] = field.group(2)
+    flush()
+    return types
+
+def read_priorities(kanban_dir):
+    return _config_scalars(kanban_dir, "priorities")
 
 def read_notifications(kanban_dir):
     """notifications.md entries, tolerant like the web store:
@@ -213,6 +263,22 @@ def read_notifications(kanban_dir):
             "message": msg, "read": field("read") == "true",
         })
     return out
+
+NESTING_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web", "nesting.js")
+
+def embeddable(source):
+    if re.search(r"</script", source, re.I):
+        sys.exit("the nesting module contains a closing script tag and cannot be embedded in the page")
+    if re.search(r"__[A-Z_]+__", source):
+        sys.exit("the nesting module contains a template placeholder (__NAME__) the build would rewrite")
+    return source
+
+def read_nesting():
+    try:
+        with open(NESTING_JS, encoding="utf-8") as f:
+            return embeddable(f.read())
+    except OSError:
+        sys.exit(f"cannot read the nesting module at {os.path.normpath(NESTING_JS)}")
 
 def main():
     p = argparse.ArgumentParser()
@@ -251,12 +317,16 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    html = (TEMPLATE.replace("__ICON_URI__", quote(ICON_SVG, safe=""))
+    # First, so a card that names a placeholder is never rewritten inside it.
+    html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
+                    .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
                     .replace("__STATUSES__", emb(read_statuses(a.kanban_dir)))
                     .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
+                    .replace("__TYPES__", emb(read_types(a.kanban_dir)))
+                    .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
                     .replace("__DATA__", emb(cards))
                     .replace("__BOARD_NAME_JSON__", emb(read_board_name(a.kanban_dir)))
@@ -277,9 +347,8 @@ TEMPLATE = """<!DOCTYPE html>
 --on-fill:#ffffff;--btn-bg:#f0eee6;--btn-hover:#e6e3d8;
 --st-backlog:#0c5f65;--st-todo:#0266d7;--st-doing:#117a32;--st-done:#642cba;--st-archive:#626b75;
 --hash-a:#0266d7;--hash-b:#117a32;--hash-c:#906001;--hash-d:#642cba;--hash-e:#b93384;--hash-f:#0c5f65;--hash-g:#b34906;--hash-h:#9e1c37;
---id-high:#ce212d;--id-waiting:#906001;--id-review:#7d6400;--id-epic:#b34906;
+--id-high:#ce212d;--id-waiting:#906001;--id-review:#7d6400;
 --blocked-ink:#b62324;--blocked-bg:#fde8e6;--review-ink:#7d6400;--review-bg:#fbf3c9;
---epic-wash:rgba(240, 136, 62, 0.12);
 --shadow:0 1px 2px rgba(20, 20, 19, .06);--scrim:rgba(20, 20, 19, 0.5);--shadow-pop:0 8px 24px rgba(20, 20, 19, .16)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
 --paper:#151515;--surface:#1f1f1f;--ink:#e5e6e3;--ink-strong:#fafaf7;--prose:#e5e6e3;--mut:#949389;
@@ -288,9 +357,8 @@ TEMPLATE = """<!DOCTYPE html>
 --on-fill:#151515;--btn-bg:#242423;--btn-hover:#30302f;
 --st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
 --hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
---id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
+--id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;
 --blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
---epic-wash:rgba(240, 136, 62, 0.12);
 --shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.72);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}}
 :root[data-theme="dark"]{color-scheme:dark;
 --paper:#151515;--surface:#1f1f1f;--ink:#e5e6e3;--ink-strong:#fafaf7;--prose:#e5e6e3;--mut:#949389;
@@ -299,9 +367,8 @@ TEMPLATE = """<!DOCTYPE html>
 --on-fill:#151515;--btn-bg:#242423;--btn-hover:#30302f;
 --st-backlog:#39c5cf;--st-todo:#58a6ff;--st-doing:#3fb950;--st-done:#a371f7;--st-archive:#868e9a;
 --hash-a:#58a6ff;--hash-b:#3fb950;--hash-c:#d29922;--hash-d:#a371f7;--hash-e:#f778ba;--hash-f:#39c5cf;--hash-g:#f0883e;--hash-h:#ff7b72;
---id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;--id-epic:#f0883e;
+--id-high:#f85149;--id-waiting:#d29922;--id-review:#eac54f;
 --blocked-ink:#fc6e63;--blocked-bg:#3a1c21;--review-ink:#eac54f;--review-bg:#332b14;
---epic-wash:rgba(240, 136, 62, 0.12);
 --shadow:0 1px 2px rgba(0, 0, 0, .3);--scrim:rgba(0, 0, 0, 0.72);--shadow-pop:0 8px 24px rgba(0, 0, 0, .5)}
 :root[data-theme="light"]{color-scheme:light}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -401,6 +468,29 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 /* ADR 0009: review is blocked's sibling sticker — its own gold
    family, distinct from --id-waiting (waiting) and --blocked-ink (blocked). */
 .rbadge{background:var(--review-bg);color:var(--review-ink)}
+.type-chip{display:inline-block;font-size:.7rem;margin-left:6px;padding:0 7px;border:1px solid var(--line-strong);border-radius:.15rem;background:var(--btn-bg);color:var(--mut);white-space:nowrap}
+.alt-badge{display:inline-block;margin-left:6px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.65rem;font-weight:600;color:var(--mut);border:1px solid var(--line-strong);border-radius:.15rem;padding:0 5px;white-space:nowrap}
+.rollup{margin-top:6px}
+.rollup-bar{display:flex;height:8px;border-radius:.15rem;overflow:hidden;background:var(--raised)}
+.rollup-bar.thin{height:4px}
+.rollup-seg{flex:0 0 0%;min-width:0;height:100%}
+.rollup-counts{display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:3px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.72rem;color:var(--mut)}
+.rollup-total{color:var(--ink);font-weight:600}
+.rollup-count{white-space:nowrap}
+.detail-rollup{margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:.2rem;background:var(--raised)}
+.rollup-title{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:.85rem;font-weight:600}
+.rollup-title .alt-badge{margin-left:0}
+.rollup-sub{color:var(--mut);font-size:.9em;font-weight:400}
+.rollup-empty{color:var(--mut);font-size:.85rem;margin-top:4px}
+.rollup-scope{color:var(--mut);font-size:.78rem;margin-top:6px}
+.relatives{margin:6px 0;font-size:.8rem}
+.relatives-label{color:var(--mut);font-size:.85em;font-weight:600;text-transform:uppercase;letter-spacing:.09em}
+.thread-list,.children-list{list-style:none;margin:4px 0 0;padding:0}
+.thread-list{display:flex;flex-wrap:wrap;align-items:baseline}
+.thread-item+.thread-item::before{content:"\\203A";color:var(--mut);margin:0 6px}
+.child-item{margin:3px 0}
+.rel-mark{margin-left:6px;padding:0 6px;border-radius:.15rem;color:var(--mut);font-size:.85em}
+.thread-item--loop .rel-mark,.thread-item--unresolved .rel-mark{color:var(--warn);background:var(--warn-soft);font-weight:600}
 .ttl{font-size:14.5px;margin:3px 0 0;overflow-wrap:break-word}
 .meta{font-size:12px;color:var(--mut);margin-top:4px}
 .wline{color:var(--id-waiting)}
@@ -540,13 +630,6 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .pillrow button{font-size:11px;border-radius:.15rem;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--mut)}
 .pillrow button.off{opacity:.4}
 .pillrow .dot{width:8px;height:8px}
-/* The map's "Epics" tap-chip rides in the SAME pillrow
-   as the status pills (renderMap appends it after statusPills()'s row; the
-   row's flex gap spaces it identically). Inherits .pillrow button's base
-   look; the ON state is its own rule (not .off, which means the OPPOSITE
-   here: a status pill defaults ON and dims when off, this chip defaults OFF
-   and lights up --id-epic, kanban-web's EPIC_COLOR) when tapped on. */
-.epicchip.on{border-color:var(--id-epic);color:var(--id-epic);background:var(--epic-wash)}
 .card.archcard{opacity:.55}
 .pill{cursor:pointer}
 /* Tier 1 (560-899px): the single column just grows — nothing else
@@ -601,7 +684,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 </style></head><body>
 <div id="scroll">
 <div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
-<div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:)"></div>
+<div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)"></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>
 <button type="button" data-view="map">Map</button>
@@ -633,6 +716,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 <button id="smore" aria-label="More scroll buttons">&#8943;</button>
 </div>
 <script>
+__NESTING_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -663,6 +748,8 @@ return "var(--hash-"+HASH_SLOTS[shash(v)%HASH_SLOTS.length]+")"}
 const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
+const TYPES=__TYPES__;
+const PRIOS=__PRIORITIES__;
 // Assignee color: a reserved config.yaml `color:` wins (painted exactly as
 // given); else the handle hashes into the SAME --hash-a.."h" token family
 // ccol() above uses for custom statuses -- one shared hash+palette pool, not
@@ -671,7 +758,10 @@ const ASGCOL=__ASSIGNEE_COLORS__;
 function acol(a){const t=(a||"").trim();if(!t)return null;if(ASGCOL[t])return ASGCOL[t];return "var(--hash-"+HASH_SLOTS[shash(t.toLowerCase())%HASH_SLOTS.length]+")"}
 const DATA=__DATA__;
 const NOTIFS=__NOTIFS__;
-let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
+// The parent on this board, read by the embedded nesting module like the outline does: a plain id, or this board's own name in `board#id` form.
+function localParent(raw){const p=parseParent(raw,BOARD);return p&&p.local?p.id:null}
+DATA.forEach(c=>{c.pt=localParent(c.fm&&c.fm.parent)});
+let view=JSON.parse(JSON.stringify(DATA)),ops=[],gone=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
 // Wide screens open live sections by default (Archive stays collapsed) —
 // the collapsed compact overview is a phone affordance. Evaluated once at load.
 if(matchMedia("(min-width:900px)").matches)COLS.forEach(c=>colOpen[c]=true);
@@ -899,7 +989,7 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // an unrecognized foo:bar prefix searches as the literal string; a recognized
 // prefix with no value yet is dropped (mid-keystroke, matches nothing falsely).
 let qTerms=[];
-const SFIELDS=["title","body","status","priority","tags","file"];
+const SFIELDS=["title","body","status","priority","tags","file","type"];
 // tree:/path: graph-focus terms, kept OUT of SFIELDS (numeric
 // id semantics, not a lowercased substring) — mirrors kanban-web's search.js
 // GRAPH_FIELDS split from KNOWN_FIELDS.
@@ -908,11 +998,6 @@ const GFIELDS=["tree","path"];
 // itself a complete "sticker present" term, UNLIKE every SFIELDS scope
 // above (mirrors kanban-web's search.js STICKER_FIELDS split).
 const STFIELDS=["review","blocked"];
-// epic: is its own single-field family — bare presence,
-// never dropped (same shape as STFIELDS), but with NO value form: whatever
-// follows the colon is discarded rather than kept for a substring match,
-// mirrors kanban-web's search.js EPIC_FIELDS split.
-const EFIELDS=["epic"];
 function parseTerm(tok){
 const m1=/^#(\\d+)$/.exec(tok);if(m1)return{f:"id",v:m1[1]};
 const m2=/^([A-Za-z]+):(.*)$/.exec(tok);
@@ -920,8 +1005,7 @@ if(m2){const k=m2[1].toLowerCase();
 if(k==="id"){const v=m2[2].trim();return v?{f:"id",v:v}:null}
 if(GFIELDS.indexOf(k)!==-1){const v=m2[2].trim().replace(/^#/,"");return v?{f:k,v:v}:null}
 if(SFIELDS.indexOf(k)!==-1){const v=m2[2].trim().toLowerCase();return v?{f:k,v:v}:null}
-if(STFIELDS.indexOf(k)!==-1)return{f:k,v:m2[2].trim().toLowerCase()}
-if(EFIELDS.indexOf(k)!==-1)return{f:k,v:""}}
+if(STFIELDS.indexOf(k)!==-1)return{f:k,v:m2[2].trim().toLowerCase()}}
 return{f:null,v:tok.toLowerCase()}}
 // tree:/path: terms need the full board's graph to resolve
 // (connected component / directed cone), which a single (term, card) pair
@@ -942,15 +1026,11 @@ case "status":return String(c.s||"").toLowerCase().indexOf(t.v)!==-1;
 case "priority":return String(c.p||"").toLowerCase().indexOf(t.v)!==-1;
 case "tags":return tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1);
 case "file":return String(c.fn||"").toLowerCase().indexOf(t.v)!==-1;
+case "type":return String((c.fm&&c.fm.type)||"").toLowerCase().indexOf(t.v)!==-1;
 // ADR 0009: bare (no value) = the shared presence predicate; a value =
 // case-insensitive substring on the sticker's own text.
 case "review":return t.v?String(rvReason(c)||"").toLowerCase().indexOf(t.v)!==-1:rvReason(c)!==null;
 case "blocked":return t.v?String(blkReason(c)||"").toLowerCase().indexOf(t.v)!==-1:blkReason(c)!==null;
-// epic: is a pure presence check on the parsed boolean
-// flag (c.ep, set by parse_card's tolerant any-case 'true' read) — t.v is
-// always "" (parseTerm discards it), so there's no substring branch to
-// mirror review:/blocked:'s.
-case "epic":return c.ep===true;
 case "ids":return t.ids.has(Number(c.id));
 case "tree":case "path":return false;
 default:return title.indexOf(t.v)!==-1||body.indexOf(t.v)!==-1||tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1)}})}
@@ -984,7 +1064,7 @@ note="";copied=false;
 if(o.op==="delete"){if(isProv(o.id)){ops=ops.filter(x=>!(x.op==="create"&&x._pid===o.id));view=view.filter(x=>String(x.id)!==String(o.id));return}
 ops=ops.filter(x=>String(x.id)!==String(o.id));ops.push({op:"delete",id:o.id});view=view.filter(x=>String(x.id)!==String(o.id));return}
 if(o.op==="archive"){if(isProv(o.id)){note="Apply the create first, then archive it";return}
-ops=ops.filter(x=>!(String(x.id)===String(o.id)&&(x.op==="move"||x.op==="archive")));ops.push({op:"archive",id:o.id});view=view.filter(x=>String(x.id)!==String(o.id));return}
+ops=ops.filter(x=>!(String(x.id)===String(o.id)&&(x.op==="move"||x.op==="archive")));ops.push({op:"archive",id:o.id});const kept=find(o.id);if(kept)gone.push(kept);view=view.filter(x=>String(x.id)!==String(o.id));return}
 if(o.op==="move"){const c=find(o.id);if(!c)return;
 if(o.to==="doing"){const un=unresolved(c),br=blkReason(c);
 if(un.length||br!==null){const why=[];
@@ -1001,18 +1081,89 @@ if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.
 if(o.fm)e.fm=Object.assign(e.fm||{},o.fm)}
 if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined){c.body=o.body;c.bn=o.body.length}
 if(o.fm&&!isProv(o.id)){c.fm=c.fm||{};for(const k in o.fm){const v=o.fm[k];
+if(k==="parent")c.pt=localParent(v);
 if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
-else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v;else if(k==="epic")c.ep=String(v).trim().toLowerCase()==="true"}}
+else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v}}
 return}
-if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:o.fm||{}});return}}
+if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",body:o.body||"",fm:o.fm||{}});return}}
+let nesting=null;
+function buildNesting(){
+// The status as written (kanban-web counts it so), unless the tray moved the card.
+const asNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.fm&&c.fm.status&&c.fm.status.toLowerCase()===c.s?c.fm.status:c.s,archived:archived||!!c.arch});
+const cards=view.filter(c=>!isProv(c.id)).map(c=>asNode(c));
+// A queued archive has left view, but applied the card still counts as done and still holds its children's thread, with the edits queued before it.
+gone.forEach(c=>cards.push(asNode(c,true)));
+const ctx={board:BOARD,priorities:PRIOS};
+nesting={cards,ctx,nested:hasNesting(cards),order:outlineOrder(cards,ctx).index,roll:rollupIndex(cards,ctx)}}
+function inOutline(list){
+if(!nesting.nested)return list;
+const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
+return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
+// Matched without regard to case, as kanban-web does.
+function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
+function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
+const s=el("span","type-chip",t);s.title=t;
+const col=typeColor(t);if(col){s.style.color=col;s.style.borderColor=col}
+return s}
+function altBadge(n){const b=el("span","alt-badge","\\u25b2"+n);b.title="altitude: layers below";return b}
+function rollupSegs(counts){
+const known=COLS.filter(s=>counts[s]);
+const rest=Object.keys(counts).filter(s=>known.indexOf(s)===-1).sort();
+return known.concat(rest).map(s=>({status:s,n:counts[s]}))}
+function rollupBarNode(r,open){
+if(!r.total)return null;
+const segs=rollupSegs(r.counts),name=s=>s||"(none)";
+const wrap=el("div","rollup"),bar=el("div","rollup-bar"+(open?"":" thin"));
+segs.forEach(g=>{const s=el("span","rollup-seg");s.title=name(g.status)+": "+g.n;s.style.flexGrow=g.n;s.style.background=ccol(g.status);bar.appendChild(s)});
+wrap.appendChild(bar);
+if(open){
+const cn=el("div","rollup-counts");cn.appendChild(el("b","rollup-total",String(r.total)));
+segs.filter(g=>g.status==="done").concat(segs.filter(g=>g.status!=="done")).forEach(g=>{
+const s=el("span","rollup-count",g.n+" "+(g.status==="done"?"done":name(g.status)));s.style.color=ccol(g.status);cn.appendChild(s)});
+wrap.appendChild(cn)}
+return wrap}
+function rollupBlock(id){
+const alt=nesting.roll.altitudeOf(id);
+const box=el("div","detail-rollup");
+const t=el("div","rollup-title","Roll-up ");t.appendChild(el("span","rollup-sub","leaves below"));t.appendChild(altBadge(alt));box.appendChild(t);
+box.appendChild(rollupBarNode(nesting.roll.rollup(id),true)||el("div","rollup-empty","No leaves counted."));
+box.appendChild(el("div","rollup-scope","Counted on this board only ("+BOARD+"). Archived leaves count as done."));
+return box}
+// Mention chips, so the page's one tap handler opens them.
+function relMention(id){const live=find(id),v=live||gone.find(x=>String(x.id)===String(id));const m=el("code",live?"mention same":"mention",BOARD+"#"+id+(v&&v.t?" "+v.t:""));if(live)m.setAttribute("data-mapnode",String(id));return m}
+function threadBlock(id){
+const th=threadOf(nesting.cards,id,nesting.ctx);
+if(!th.length)return null;
+const box=el("div","relatives"),ol=el("ol","thread-list");
+box.appendChild(el("span","relatives-label","Thread"));
+th.forEach(e=>{
+const arch=e.kind==="card"&&e.card.archived;
+const li=el("li","thread-item thread-item--"+e.kind+(arch?" thread-item--archived":""));
+if(e.kind==="card"||e.kind==="loop")li.appendChild(relMention(e.id));
+else li.appendChild(el("code","mention",e.kind==="other-board"?e.ref:BOARD+"#"+e.id));
+if(e.kind!=="card")li.appendChild(el("span","rel-mark",e.kind==="other-board"?"not followed":e.kind));
+else if(arch)li.appendChild(el("span","rel-mark","archived"));
+ol.appendChild(li)});
+box.appendChild(ol);return box}
+function childrenBlock(id){
+const kids=childrenOf(nesting.cards,id,nesting.ctx);
+if(!kids.length)return null;
+const box=el("div","relatives"),ul=el("ul","children-list");
+box.appendChild(el("div","relatives-label","Children"));
+kids.forEach(k=>{const li=el("li","child-item"+(k.archived?" child-item--archived":""));li.appendChild(relMention(k.id));if(k.archived)li.appendChild(el("span","rel-mark","archived"));ul.appendChild(li)});
+box.appendChild(ul);return box}
+// The card's id as a number, null for a card not yet created (the nesting module knows nothing of it).
+function realId(c){return isProv(c.id)?null:Number(c.id)}
 function cardNode(c,detail){
+const nid=realId(c);
 const selc=String(sel)===String(c.id)||(focusRoot!=null&&String(focusRoot)===String(c.id));
 const ro=detail&&!!c.arch;
 const un=unresolved(c),br=blkReason(c),rr=rvReason(c);
 const d=el("div","card"+(selc&&!detail?" sel":"")+(isProv(c.id)?" prov":""));
 d.dataset.card=c.id;
 if(!detail&&!c.arch&&fineMQ.matches&&dragOn)d.draggable=true;
+const th=detail&&nid!==null?threadBlock(nid):null;if(th)d.appendChild(th);
 d.appendChild(el("span","cid",isProv(c.id)?"#new":"#"+c.id));
 if(c.p==="High")d.appendChild(el("span","hitag","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
@@ -1022,11 +1173,15 @@ if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+
 // "Dependency tree/path" replaces the whole query box instead — deliberate
 // gap, not mirrored here).
 if(rr!==null){const rb=el("span","badge rbadge","review");rb.title="review"+(rr?": "+rr:"");d.appendChild(rb)}
+const tc=typeChip(c);if(tc)d.appendChild(tc);
+const alt=nid===null?0:nesting.roll.altitudeOf(nid);
+if(alt&&!detail)d.appendChild(altBadge(alt));
 const tEl=el("div","ttl",c.t);if(detail&&!ro){tEl.dataset.tap="ren";tEl.title="Tap to rename"}d.appendChild(tEl);
 const mp=[];if(c.a){const s=el("span",null);s.style.color=acol(c.a);s.title=c.a;s.appendChild(document.createTextNode(c.a));mp.push(s)}
 if(c.due){const dw=el("span",null);dw.appendChild(document.createTextNode("due "));dw.appendChild(el("span","num",c.due));mp.push(dw)}
 if(c.p==="Low")mp.push(document.createTextNode("Low"));
 if(mp.length){const meta=el("div","meta");mp.forEach((p,i)=>{if(i>0)meta.appendChild(document.createTextNode(" \\u00b7 "));meta.appendChild(p)});d.appendChild(meta)}
+if(alt&&!detail){const rb=rollupBarNode(nesting.roll.rollup(nid),false);if(rb)d.appendChild(rb)}
 if(detail&&ro){
 // Archived cards open READ-ONLY — pills are plain text, no
 // editors/actions/all-fields; restore stays conversational.
@@ -1050,6 +1205,8 @@ const ap=el("button","fpill");ap.dataset.act="pill";ap.dataset.pill="assignee";
 if(c.a)ap.style.color=acol(c.a);
 ap.appendChild(document.createTextNode(c.a||"no assignee"));top.appendChild(ap);
 const pp=btn(c.p,"pill",{pill:"priority"});pp.className="fpill";top.appendChild(pp);
+const cty=String((c.fm&&c.fm.type)||"").trim();
+if(nid!==null){const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp)}
 d.insertBefore(top,d.firstChild);
 const slot=el("div","acts");slot.style.borderTop="none";slot.style.marginTop="0";slot.style.paddingTop="0";
 if(ren){
@@ -1071,11 +1228,18 @@ const s=el("select");s.dataset.act="asg";s.dataset.stop="1";
 const aopts=(c.a&&ASG.indexOf(c.a)===-1)?ASG.concat([c.a]):ASG;
 aopts.forEach(x=>{const o=el("option",null,x||"none");o.value=x;if(c.a===x)o.selected=true;s.appendChild(o)});
 slot.appendChild(s)}
+else if(pillEd==="type"){
+slot.appendChild(el("span","lbl","type"));
+const s=el("select");s.dataset.act="typ";s.dataset.stop="1";
+const names=TYPES.map(x=>x.name);if(cty&&names.indexOf(cty)===-1)names.push(cty);
+[""].concat(names).forEach(x=>{const o=el("option",null,x||"no type");o.value=x;if(cty===x)o.selected=true;s.appendChild(o)});
+slot.appendChild(s)}
 if(slot.children.length)d.insertBefore(slot,d.children[1])}
 if(detail){
 if(un.length)d.appendChild(el("div","meta wline","waiting on "+un.map(x=>"#"+x).join(", ")));
 if(br!==null)d.appendChild(el("div","meta bline","blocked: "+(br||"reason unspecified")));
 if(rr!==null)d.appendChild(el("div","meta rline","review: "+(rr||"text unspecified")));
+if(alt)d.appendChild(rollupBlock(nid));
 if(c.tags&&c.tags.length){const tg=el("div","tags");c.tags.forEach(t=>tg.appendChild(el("span","tag",t)));d.appendChild(tg)}
 const det=[];if(c.start)det.push("start "+c.start);if(c.upd)det.push("updated "+c.upd);
 if(det.length)d.appendChild(el("div","meta",det.join(" \\u00b7 ")));
@@ -1095,8 +1259,9 @@ const fr=el("div","acts");fr.style.borderTop="none";fr.style.paddingTop="4px";
 fr.appendChild(btn((fmOpen?"\\u25be":"\\u25b8")+" All fields","fmtoggle"));
 d.appendChild(fr);
 if(fmOpen){
-const staples=["start_date","end_date","due_date","tags","waiting_for","blocked","review"];
-const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated"].indexOf(k)===-1);
+// rank is set by dragging in kanban-web and never offered here.
+const staples=["type","parent","start_date","end_date","due_date","tags","waiting_for","blocked","review"];
+const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated","rank"].indexOf(k)===-1);
 keys.forEach(k=>{
 const row=el("div","fmrow");
 row.appendChild(el("label",null,k));
@@ -1107,7 +1272,8 @@ row.appendChild(inp);
 row.appendChild(btn("Save","fmsave",{key:k}));
 d.appendChild(row)})}}
 if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit description":"Add description","desc"));d.appendChild(er)}
-if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn))}
+if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn));
+const kb=nid===null?null:childrenBlock(nid);if(kb)d.appendChild(kb)}
 return d}
 function statusPills(){
 const row=el("div","pillrow");
@@ -1118,6 +1284,7 @@ b.appendChild(dot);b.appendChild(document.createTextNode(k==="archive"?"Archive"
 row.appendChild(b)});
 return row}
 function render(){
+buildNesting();
 const board=$("board");board.replaceChildren();
 $("boardpills").replaceChildren(statusPills());
 // Each section (header + its cards) wraps in a .boardcol container at
@@ -1126,7 +1293,7 @@ $("boardpills").replaceChildren(statusPills());
 // query above). Collapsed sections skip .colcards entirely and render as
 // just the header, which the same media query narrows into a strip.
 COLS.filter(col=>isVis(col)).forEach(col=>{
-const cs=view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s))));
+const cs=inOutline(view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s)))));
 const open=!!colOpen[col];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 wrap.dataset.status=col;
@@ -1161,7 +1328,7 @@ else{const e=el("div",null,"no cards");e.style.cssText="font-size:12px;color:var
 wrap.appendChild(cc)}
 board.appendChild(wrap)});
 if(isVis("archive")){
-const acs=view.filter(c=>c.arch&&qMatch(c));
+const acs=inOutline(view.filter(c=>c.arch&&qMatch(c)));
 const open=!!colOpen["archive"];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 const h=el("div","colh");
@@ -1384,16 +1551,17 @@ $("calview").style.display=v==="calendar"?"":"none"}
 // ghost stub, same as a stale/deleted reference. Nodes carry both flags:
 // derived done-aware waiting + the manual blocked sticker.
 //
-// A child card's `pt` (parsed `parent:` frontmatter) becomes a child->epic edge,
-// kind "epic" (waiting_for edges are kind "dep"). Two suppression rules —
-// nonTerminal (a member some OTHER same-epic member already depends on
-// skips its own direct hop) and "sequencing wins the pair" (skip the epic
+// A child card's `pt` (its parent on this board, read by the embedded nesting
+// module) becomes a child->parent edge, kind "parent" (waiting_for edges are
+// kind "dep"). Two suppression rules —
+// nonTerminal (a child some OTHER child of the same parent already depends on
+// skips its own direct edge) and "sequencing wins the pair" (skip the parent
 // edge if a dep edge already connects the same two ids, either direction) —
 // are computed over the FULL board (fullEdgeSets, keyed off DATA), never the
 // filtered `cards` this function is called with: a search/status filter must
-// not reroute epic membership, mirroring kanban-web's own comment on this
+// not reroute parent edges, mirroring kanban-web's own comment on this
 // exact point. An edge is only ADDED when its owning card (the waiter for a
-// dep edge, the member for an epic edge) is present in `cards` — the same
+// dep edge, the child for a parent edge) is present in `cards` — the same
 // asymmetry the original dep-only version already had; the other endpoint
 // ghosts if absent, whether truly off-board or merely filtered out.
 function parentOfIn(byIdMap,id){
@@ -1425,13 +1593,13 @@ const cid=Number(c.id),p=parentOfIn(full.byIdFull,cid);
 if(p==null)return;
 if(full.nonTerminal.has(p+":"+cid))return;
 if(full.seenDep.has(cid+">"+p)||full.seenDep.has(p+">"+cid))return;
-addEdge(cid,p,"epic")});
+addEdge(cid,p,"parent")});
 const ghosts=[...ghostIds].filter(id=>!nodeIds.has(id)).sort((a,b)=>a-b).map(id=>({id:id,title:null,ghost:true}));
 const touchedByDep=new Set(),touchedByAny=new Set();
 edges.forEach(e=>{touchedByAny.add(e.from);touchedByAny.add(e.to);if(e.kind==="dep"){touchedByDep.add(e.from);touchedByDep.add(e.to)}});
 // The "no dependencies" row is keyed off SEQUENCING (dep) edges
 // only; the layered graph draws every node touched by ANY edge — a node
-// whose only edge is epic membership joins BOTH.
+// whose only edge is a parent edge joins BOTH.
 const isolated=nodes.filter(n=>!touchedByDep.has(n.id));
 const participants=nodes.filter(n=>touchedByAny.has(n.id));
 return {nodes:nodes,edges:edges,ghosts:ghosts,isolated:isolated,participants:participants}}
@@ -1537,11 +1705,9 @@ pos.forEach(p=>{maxX=Math.max(maxX,p.x+MW)});
 const BOW=MW*0.9;
 const edgesG=svgEl("g");
 graph.edges.forEach(e=>{
-// Membership edges (kind "epic") still shape the layout above (fed into
-// layerNodes), but are never drawn. The snapshot map paints no epic cue
-// on the node either; only the Epics chip and the epic: search term
-// reach membership here.
-if(e.kind==="epic")return;
+// Parent edges (kind "parent") still shape the layout above (fed into
+// layerNodes), but are never drawn.
+if(e.kind==="parent")return;
 const from=pos.get(e.from),to=pos.get(e.to);
 if(!from||!to)return;
 const back=(layer.get(e.to)||0)<=(layer.get(e.from)||0);
@@ -1569,25 +1735,9 @@ d.setAttribute("data-mapnode",String(n.id));
 d.appendChild(el("span","cid","#"+n.id));
 d.appendChild(document.createTextNode(truncate(n.title,30)));
 return d}
-// Mobile-first shortcut for the map's `epic:` search term —
-// rides in the SAME pillrow as the status pills (renderMap only: render()/
-// renderGantt()/renderCalendar() call statusPills() unaugmented, so the chip
-// never shows outside Map view). Toggles: tap writes epic: into #q, tap
-// again removes it — same "write straight into the box, re-render" pattern
-// as the graphfocus tree:/path: buttons, but a TOGGLE since
-// this chip only ever manages the one term (graphfocus always REPLACES).
-function isEpicSearchActive(){
-const raw=String($("q")?$("q").value:"");
-return raw.trim().split(/\\s+/).some(t=>/^epic:/i.test(t))}
-function epicChip(){
-const on=isEpicSearchActive();
-const b=el("button",on?"epicchip on":"epicchip","Epics");
-b.dataset.act="epicchip";
-b.title=on?"Clear the epic: search term":"Filter the map to epic-marked cards (writes epic: into the search box)";
-return b}
 function renderMap(){
 const mv=$("mapview");mv.replaceChildren();
-const pillrow=statusPills();pillrow.appendChild(epicChip());mv.appendChild(pillrow);
+mv.appendChild(statusPills());
 const graph=buildDepGraph(visList());
 if(!graph.nodes.length){mv.appendChild(el("div","map-empty","No cards to show."));return}
 const legend=el("div","map-legend");
@@ -1839,7 +1989,7 @@ const hint=el("div","hint");hint.textContent="Tap a chip to open its card · col
 cv.appendChild(hint)}
 function rebuild(){
 const q=ops.map(o=>Object.assign({},o));
-view=JSON.parse(JSON.stringify(DATA));ops=[];nseq=0;
+view=JSON.parse(JSON.stringify(DATA));ops=[];gone=[];nseq=0;
 q.forEach(o=>{
 if(o.op==="create")queue({op:"create",title:o.title,status:o.status,priority:o.priority,assignee:o.assignee,body:o.body});
 else if(o.op==="edit"){const e={op:"edit",id:o.id};if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.assignee!==undefined)e.assignee=o.assignee;if(o.body!==undefined)e.body=o.body;if(o.fm!==undefined)e.fm=o.fm;queue(e)}
@@ -2013,7 +2163,8 @@ if(thin!==hdrThin){hdrThin=thin;$("hdr").classList.toggle("thin",thin)}
 },{passive:true});
 document.body.addEventListener("change",e=>{
 const t=e.target;
-if(t.dataset&&t.dataset.act==="asg"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,assignee:t.value});pillEd=null;render()}}});
+if(t.dataset&&t.dataset.act==="asg"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,assignee:t.value});pillEd=null;render()}}
+if(t.dataset&&t.dataset.act==="typ"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,fm:{type:t.value}});pillEd=null;render()}}});
 document.body.addEventListener("input",e=>{
 const t=e.target;
 if(t.id==="fm-blocked")t.style.borderColor=blkTxt(t.value)!==null?"var(--blocked-ink)":"";
@@ -2031,18 +2182,6 @@ if(t.dataset&&t.dataset.coltoggle!==undefined){colOpen[t.dataset.coltoggle]=!col
 if(t.dataset&&t.dataset.caldaytoggle!==undefined){calDayOpen[t.dataset.caldaytoggle]=!calDayOpen[t.dataset.caldaytoggle];renderCalendar();return}
 if(t.dataset&&t.dataset.calhrtoggle!==undefined){calHrOpen[t.dataset.calhrtoggle]=!calHrOpen[t.dataset.calhrtoggle];renderCalendar();return}
 if(t.dataset&&t.dataset.act==="spill"){const k=t.dataset.st;statusVis[k]=!isVis(k);render();renderMap();renderGantt();renderCalendar();return}
-// The map's "Epics" chip — same control-row-checked-first
-// reasoning as the "spill" status pills above; toggles epic: in #q like
-// $("q")'s own input listener does, then re-renders every view (epic:
-// filters board/map/gantt/calendar alike, not just the map it's tapped from).
-if(t.dataset&&t.dataset.act==="epicchip"){
-const toks=String($("q").value||"").trim().split(/\\s+/).filter(Boolean);
-const on=toks.some(x=>/^epic:/i.test(x));
-const next=on?toks.filter(x=>!/^epic:/i.test(x)):toks.concat("epic:");
-$("q").value=next.join(" ");
-focusRoot=null;
-qTerms=resolveGraphTerms(next.map(parseTerm).filter(Boolean));
-render();renderMap();renderGantt();renderCalendar();return}
 if(t.dataset&&t.dataset.tap==="ren"){ren=true;descEd=false;pillEd=null;render();return}
 if(t.dataset&&t.dataset.act==="pill"){pillEd=pillEd===t.dataset.pill?null:t.dataset.pill;ren=false;descEd=false;render();return}
 if(t.getAttribute&&t.getAttribute("data-mapnode")!==null){

@@ -174,26 +174,23 @@ test('the pills are monospace, small, and border-radius:.15rem (no border) per t
   assert.ok(!/\.badge\{[^}]*border:/.test(src), 'pills must not declare a border');
 });
 
-test('the epic chip paints through --id-epic / --epic-wash, not an inline literal hex; the map draws no epic-colored edges', () => {
-  assert.match(src, /\.epicchip\.on\{border-color:var\(--id-epic\);color:var\(--id-epic\);background:var\(--epic-wash\)\}/);
+test('the map draws no epic-colored edges and the snapshot owns no epic color', () => {
   // The map used to draw membership as its own orange/dashed edge — that
   // class, and its dedicated arrowhead, are gone: membership edges are not
-  // drawn at all now. The snapshot map paints no epic cue on the node
-  // either; only the Epics chip and the epic: search term reach it.
+  // drawn at all now.
   assert.ok(!/\.medge\.epicedge/.test(src), 'the membership-edge CSS rule is gone');
   assert.ok(!/map-arrow-epic/.test(src), 'the dedicated epic arrowhead (marker + its CSS) is gone');
-  // #f0883e legitimately still appears as the DARK-theme --id-epic/--hash-g
-  // token VALUE itself (theme-tokens.test.js pins that) — this only checks
-  // the epic chip rule above no longer paints it as an inline literal.
+  // #f0883e legitimately still appears as the dark-theme --hash-g token value
+  // (theme-tokens.test.js pins that); nothing paints it as an inline literal.
   assert.ok(!/stroke:#f0883e/.test(src));
   assert.ok(!/fill:#f0883e/.test(src));
   assert.ok(!/border-color:#f0883e/.test(src));
 });
 
-test('the map draws a membership edge (kind "epic") as nothing — not even a plain edge', () => {
+test('the map draws a parent edge (kind "parent") as nothing — not even a plain edge', () => {
   const fn = extractFunction('buildMapSvg');
   assert.ok(fn.trim().endsWith('return svg}'), 'extractFunction should stop at buildMapSvg\'s own closing brace, not run past it');
-  assert.match(fn, /if\(e\.kind===["']epic["']\)return/, 'the edge loop bails out before drawing a membership edge');
+  assert.match(fn, /if\(e\.kind===["']parent["']\)return/, 'the edge loop bails out before drawing a parent edge');
   assert.doesNotMatch(fn, /epicedge|map-arrow-epic/, 'no epic-only class or marker reference remains in the drawing code');
 });
 

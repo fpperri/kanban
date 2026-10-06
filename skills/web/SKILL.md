@@ -207,9 +207,8 @@ to `127.0.0.1` only.
   `status: archive` **or `archived`** mutes to the archive grey instead of hashing. A
   custom status gets a deterministic color (its name hashed into a fixed 8-color palette)
   used by the column header, the map node's status dot, gantt group/bar, and the shared
-  status-dot glyph (see Status dot). Orange is reserved for epics among the FIXED
-  colors — no built-in status or archive ever wears it — but a custom status can still
-  hash to the palette's orange slot (determinism, not uniqueness, is the hash contract).
+  status-dot glyph (see Status dot). A custom status can hash to any slot of the
+  palette, orange included (determinism, not uniqueness, is the hash contract).
   The form's status dropdown offers the list's values (an unlisted status on the card
   being edited is appended as "(unlisted)" so saving never silently rewrites it), and new
   cards default to the first column (a column header's **+** pre-selects its own column
@@ -227,7 +226,7 @@ to `127.0.0.1` only.
   header's real rendered height by a `ResizeObserver` (a hardcoded px offset would drift
   the moment the header wraps). Board only — none of this reaches past `#board`.
 - **Per-column sorting** — each (expanded) column header has a sort-field dropdown (ID /
-  Priority / Due date / Last modified / Assignee) and a direction toggle. "Due date"
+  Priority / Due date / Last modified / Assignee / Outline) and a direction toggle. "Due date"
   sorts by the card's schedule — `due_date`, else `end_date`, else `start_date` —
   honoring time within a day (a date-only value reads as start-of-day); dateless cards
   always sort last, in either direction. Under a Due date sort the key driving a card's
@@ -238,22 +237,64 @@ to `127.0.0.1` only.
   in the card popup), so the what-you-see-is-what-sorted promise holds for Due date only.
   "Assignee" groups cards by owner, ranked by the config.yaml assignees registry's ORDER
   (not alphabetically); unregistered handles follow all registered ones alphabetically,
-  and unassigned cards always sort last, in either direction. Priority defaults
+  and unassigned cards always sort last, in either direction. "Outline" puts a parent
+  before its children and siblings in `rank` order (unranked siblings after the ranked
+  ones, by priority then id), computed over the whole board so a child whose parent sits
+  in another column still follows the order; a card with no parent on this board is a
+  root. In an Outline column, dragging a card between two tiles reorders it instead of
+  moving it: an accent line shows where it will land (no line shows over a drop that would be refused), and the drop writes `rank` through
+  `POST /api/cards/<id>/reorder` with `prev` and `next`, the ids of the cards above and
+  below the drop in outline order (`null` for none; the answer is `{ card, renumbered }`). Room
+  for a whole number between the two ranks writes that card alone; a full gap renumbers
+  that parent's children in tens and writes only the cards whose rank changes, archived
+  siblings included, and no card outside that parent (cards whose parent is on another
+  board or missing from this one are roots in the outline but siblings only of cards with
+  that same parent, so a drop among plain roots never renumbers them). Siblings the column does not show
+  (another column, hidden by the search) are stepped around, and a drop where the card
+  already stands writes nothing. A drag changes rank, never the parent: a drop among
+  another parent's children is refused with a toast (the call answers 400, an unknown card
+  404). Other columns still move the card, a bulk drag still moves the selection, and the
+  Archive column is not reordered; the rule an AI writer follows is in the kanban skill.
+  Priority defaults
   High-first; ties on any field break by id, ascending, so order doesn't reshuffle when
   you flip direction. Each column remembers its own choice independently, defaulting to
-  priority-desc for live columns and id-asc for Archive — persisted in `localStorage`
-  alongside collapse state, surviving reload and the poll, composing with search
+  priority-desc for live columns and id-asc for Archive, except that on a board where
+  any card has a `rank` or a `parent` the live columns default to Outline. Only a column
+  you changed is remembered (in `localStorage`, alongside collapse state, surviving
+  reload and the poll), so a default never freezes into the columns you left alone, and
+  a board that gains its first rank or parent switches those columns to Outline without
+  a reload. Composes with search
   filtering. Hidden while a column is collapsed (nothing to sort there).
+- **Parent cards: altitude badge and roll-up bar** — a card with children shows `▲n` in its
+  head row (its altitude: the layers of cards below it, whatever their types) and a status
+  bar of the leaves below it, meaning the cards with no children, so an objective over two
+  epics over stories counts the stories and not the epics beside them. Segments run in
+  column order, each in its status's color, with a `status: n` tooltip. One **Bar** setting,
+  open or collapsed, drives every bar on the page: collapsed is a thin line (the default),
+  open adds a count line (the total, the done count, then each other status). The header's
+  **Bar** select sets it, and clicking any bar, on a board card or in the card detail,
+  flips it for all of them without opening the card; a browser that once saved the retired
+  `off` reads as collapsed. The **Archived** checkbox chooses whether archived leaves count
+  (as done, on by default, so archiving a finished story leaves its parent's done count
+  unchanged). Both choices are remembered per board in `localStorage`, surviving reload and
+  the poll, and the controls appear only on a board that has a parent. The card detail shows
+  the roll-up right under the title and thread, above the fields, following the Bar setting:
+  the thin bar when collapsed, the bar with its numbers and a scope line when open. The
+  scope line says the roll-up counts this board only, because a parent cannot
+  know about children on a board it never reads. Marking a parent done while leaves below
+  are still open (a drag, a multi-card drag or the form) shows a warning and saves anyway;
+  only the literal status `done` counts as finished, and an archived leaf counts as
+  finished. Altitude, roll-up and the warning are worked out from the cards on every render
+  and never written to a card.
 - **Search** — the header search box filters every view as you type; the query survives
   view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
-  exact card id; `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` are
+  exact card id; `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
   scope with nothing after the colon yet — `status:` mid-keystroke — is dropped as
   not-yet-a-term rather than matching everything for one keystroke); `review:`/`blocked:`
   are sticker scopes — bare = the sticker is present, `review:PR`/`blocked:vendor` =
   case-insensitive substring on its text; unlike the field scopes, a bare sticker scope
-  is a complete term, never dropped; `epic:` matches every epic-marked card — bare
-  presence only, no value form (anything after the colon is ignored) and no negation;
+  is a complete term, never dropped;
   `tree:<id>`/`path:<id>` are dependency focus, `#` optional (`tree:74` = `tree:#74`) —
   grammar in the Dependency map section; bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
@@ -261,9 +302,9 @@ to `127.0.0.1` only.
   dropdown completes the last segment being typed — the bare term plus every
   field-scoped form of it; nothing is offered once the segment carries a colon, and
   `tree:`/`path:` are excluded (they take a card id, not free text).
-- **Create** — "+ New card" opens a modal (title, status, priority, epic checkbox, tags,
+- **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
-  date, due date, description). Dependencies and impediments are separate inputs:
+  date, due date, type, description). Dependencies and impediments are separate inputs:
   `f-waiting` ("Waiting for (ids, comma-sep)") takes the `waiting_for` dependency edges;
   `f-blocked` ("Blocked (reason)") takes the impediment sticker's reason as free text and
   wears a red border exactly while its value passes the blocked predicate, live as you
@@ -295,15 +336,21 @@ to `127.0.0.1` only.
   `<0000-id>.<slug>.card.md` (id zero-padded to 4 digits, e.g. `0009.new-thing.card.md`).
 - **Edit** — click a card's "Edit" to change its fields, title, and description. The body
   (incl. `## Narrative`) and any frontmatter keys the form doesn't manage are preserved
-  verbatim; the form-managed fields (status, priority, epic, tags, waiting_for, blocked,
-  review, prompt, assignee, start/end/due date) are re-written from the form. Clearing
-  any managed field (a blank priority/assignee/date/prompt, empty tags or waiting_for, a
-  blocked or review value failing the sticker predicate, an unchecked Epic) removes its
+  verbatim; the form-managed fields (status, priority, type, parent, rank, tags, waiting_for, blocked,
+  review, prompt, assignee, start/end/due date) are re-written from the form. `parent`
+  takes `42` or `board#42` and `rank` a number; one that reads the same as the card's own
+  is left exactly as written, so a hand-written `parent: "fpp#4"` survives every save. Text
+  in either that reads as nothing (not a card, not a number) is refused on its own field with a message
+  instead of clearing the line; a blank is how a card loses its parent or rank. Clearing
+  any managed field (a blank priority/assignee/type/parent/rank/date/prompt, empty tags or waiting_for, a
+  blocked or review value failing the sticker predicate) removes its
   frontmatter line entirely — no-data fields (empty string, null, empty array) are never
   written, so no `tags: []` boilerplate; id, status, and `updated` are always written,
   any real value including priority "Normal" stays, and readers default a missing
   priority to Normal. The 📅 pickers work here too. `updated` is machine-managed (see
-  Last modified), never a form field.
+  Last modified), never a form field. An `epic: true` line left on a card from before the
+  flag retired is an unmanaged line like any other: ignored by every view and kept through
+  every edit.
 - **AI prompt** — a hand-rolled inline-SVG sparkle button (ADR 0003 — same icon-btn
   styling as Save/Fullscreen/Close, tooltip "AI prompt") in the create/edit modal's
   header actions reveals/hides a single free-text input (`f-prompt`) writing the optional
@@ -357,37 +404,15 @@ to `127.0.0.1` only.
   degrades with it: `<0000-id>.<slug>.card.md` collapses to the bare zero-padded id
   prefix (`0212.card.md`, no dangling `.`); past id 9999 the filename uses `card-<id>`
   to stay non-empty.
-- **Epic/wayfinder** — the form's Epic checkbox (inside "Show more fields") writes the
-  optional `epic: true` frontmatter field — a MANAGED boolean: unchecked (or a
-  blank/false API value) removes the line entirely per the lean rule, so `epic: false`
-  is never written; never validated (the reader takes any-case `true`). A hand-typed
-  non-`true` value (e.g. `epic: yes`) reads as **not**-epic, so the checkbox opens
-  unchecked and the next form save — however unrelated — removes that line: deliberate
-  (a checkbox, unlike the free-text inputs, has no way to re-emit junk verbatim), pinned
-  by a card-store test. An epic washes its whole surface in a faint EPIC_COLOR
-  background (the `--epic-wash` token, `#f0883e` at 12% alpha, `epicColorSoft()` in status-colors.js) — circles
-  are reserved for STATUS alone, so the epic cue is a wash, never a dot. Board tile,
-  calendar chip, and gantt gutter row share one `background` rule
-  (`.card.epic`/`.cal-chip.epic`/`.gantt-label.epic`); the gantt BAR layers its wash via
-  `box-shadow` (its `background` is the per-status fill's channel — the box-shadow
-  composes with either the CSS-class or inline-style fill); the map node tints its SVG
-  `<rect>` fill. A presence-based class doesn't compete with priority/waiting/due/status
-  on any surface, so nothing needs to win or lose. Archived cards on the map keep the
-  wash — in the graph proper or in the isolated row below: epic is durable identity, not
-  location. The board's own Archive column renders through the same `archiveCardEl`
-  builder but never opts in, so it shows no epic cue — that column isn't the map. The
-  card detail popup gets the same wash on its panel (`.modal.detail-modal.epic`), driven
-  by the fetched detail's `epic` boolean — the raw `epic: true` row still shows in the
-  popup's frontmatter table; the wash is additive. Selection never swallows the wash:
-  `.epic` and `.selected` are both 2-class selectors on the same property (`background`
-  on tile/chip/gutter-label, SVG `fill` on the map node), so a 3-class override
-  (`.card.epic.selected` etc.) outranks both, keeping the wash visible while selection's
-  own outline/glow — properties `.epic` never touches — still show (the gantt bar needs
-  no override: its wash is a `box-shadow`, a different property than
-  `.gantt-bar.selected`'s `background`).
+- **Epic flag (retired)** — the app no longer reads or writes `epic`: no form checkbox,
+  no `epic:` search term, no "Epics" chip on the map, no fixed orange and no wash on any
+  surface. An epic is a card typed `epic`, which shows the Type chip like any other type:
+  in the color the board's `types:` list gives `epic`, or neutral when the list gives none.
+  A leftover `epic: true` line is an unknown frontmatter line (the detail popup's table
+  still lists it) until the kanban skill's `migrate_epic_to_type.sh` rewrites it.
 - **Status dot** — `statusBadge()` (status-colors.js) renders on every card rendering:
-  board tiles (live AND archived — unlike the epic wash, the Archive column gets this
-  one), the map's isolated-row tiles, calendar chips, and gantt gutter rows. A small dot
+  board tiles (live AND archived), the map's isolated-row tiles, calendar chips, and
+  gantt gutter rows. A small dot
   colored via `statusColor()` off the card's RAW on-disk status, tooltipped with that
   same raw status — **the `archived` flag never touches this color**: status dots never
   mute, on any surface. The one exception is the literal on-disk status strings
@@ -442,6 +467,17 @@ to `127.0.0.1` only.
   words too. Not a new glyph anywhere — nothing to lose to, and a card without a deadline
   can never show it. The Archive column's `archiveCardEl` renders the date stack but
   never this: archived retires the deadline by definition.
+- **Card type chip** — a card's optional `type:` frontmatter line (free text) shows as a
+  chip, `typeBadge()` (type-badge.js), in the tile's head row beside the assignee on
+  live and archived tiles, and in the detail popup's frontmatter table in place of the
+  raw word. The board's `types:` list in `config.yaml` may give a type a color; the match
+  is by name, ignoring case and surrounding space, and the chip keeps the card's own
+  spelling. A listed type with a color wears it as text and border; a type the list does
+  not name, or names without a color, is a neutral chip. Like a reserved assignee color,
+  the value is free-form, so the chip rides a `data-type-color` attribute and
+  `paintTypeColors()` (app.js) paints it with CSSOM assignments after `innerHTML` lands
+  (the CSP blocks style attributes). The app attaches no meaning to a type, `epic`
+  included: it wears a color only when the list gives it one.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -477,8 +513,24 @@ to `127.0.0.1` only.
 - **Frontmatter marks** — the detail popup's frontmatter table prints every field as
   written, except the few the board itself understands: `status` gets its status dot and
   colour, `priority: High` the high-priority red, `assignee` its chip, `parent` a
-  mention chip that opens the epic, `review` and `blocked` their sticker grounds, and
+  mention chip that opens the parent card, `review` and `blocked` their sticker grounds, and
   `tags` tag chips. The card path shows its folders muted and the file name in full ink.
+- **Thread and children** — the detail popup shows the card's thread above its
+  frontmatter: the parents up to the root, root first, each a mention chip that opens
+  that card (an archived parent too, marked `archived` and dimmed like an archived
+  child). A parent id with no card on this board ends the
+  thread with an `unresolved` marker; a parent on another board ends it with that
+  board's mention marked `not followed` (the single-board release names it and never
+  follows it); a loop of parents stops at the card that would repeat and flags it
+  `loop`, so a mistake never hangs the popup. Below the body, behind a **Children** header
+  that carries their count, the card's children are listed in rank order (unranked after
+  ranked, then priority, then id), an archived child marked `archived`, each a mention
+  chip too. The list starts collapsed every time a card opens; one click on the header
+  expands it and another collapses it. Both lists are worked out from the
+  board already loaded (`threadOf` and `childrenOf` in `nesting.js`), a root shows no
+  thread and a leaf no child list, and every entry that names a card on this board
+  rides the popup's one mention listener, so opening one is a step in the card popup
+  history.
 - **Reading layer** — card bodies and notifications use four tokens of their own:
   `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
   `--line-strong` for table-header and evidence rules. Headings and bold take
@@ -524,9 +576,12 @@ to `127.0.0.1` only.
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
-  node's border, status dot, and epic wash are unaffected). Right-click: an unselected
+  node's border and status dot are unaffected). Right-click: an unselected
   card becomes the selection in the same gesture; an already-selected one keeps the
-  whole batch as the target. The menu — **Assign…**, **Set priority…**, **Edit tags…**,
+  whole batch as the target. Right-clicking inside an open card detail opens the same
+  menu for the card shown, and once an action has run the popup is read again so it shows
+  the change (or closes if the card is gone); with text selected, or on anything that
+  already handles the right-click itself, the browser's own menu shows instead. The menu — **Assign…**, **Set priority…**, **Edit tags…**,
   **Schedule…**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
   acts on the selection regardless of which view opened it. **Dependency tree**/
   **Dependency path** are sugar over the `tree:<id>`/`path:<id>` search terms: clicking
@@ -560,11 +615,7 @@ to `127.0.0.1` only.
   glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
   hovered/focused at a time), a different tone from selection's own wash (`--accent-soft`) so the two
   never read alike, and never an outline, so a selected card stays reading as selected
-  while hovered. An **epic** card keeps its orange wash while hovered: the hover tone
-  would otherwise substitute it (both are 2-class background rules), so a 3-class
-  override layers the epic alpha OVER the hover tone instead, the same reassertion
-  `.selected` already needed and for the same reason — epic is a durable identity,
-  hover the most transient cue on the board. Applies everywhere `.selected` does (board tiles, archived tiles,
+  while hovered. Applies everywhere `.selected` does (board tiles, archived tiles,
   calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
   labels, map nodes) except the gantt's due diamond, which `.selected` skips too. Every
   card-representing element carries `tabindex="0"` for this (Tab reaches the same cue the
@@ -621,8 +672,8 @@ to `127.0.0.1` only.
   popup: every popup's backdrop covers the whole viewport, hiding the search bar behind
   it, so this hotkey only fires *outside* one and the browser's native find stands in
   while a popup is up.
-- **Comboboxes** — the form's Assignee (and Priority/Tags, incl. the bulk-edit popups'
-  copies) fields suggest values from `config.yaml`'s lists (see below) while still
+- **Comboboxes** — the form's Assignee (and Priority/Tags/Type, incl. the bulk-edit popups'
+  copies of the first two) fields suggest values from `config.yaml`'s lists (see below) while still
   accepting free text. Tab/click focuses and opens the full list; typing filters it.
   ArrowDown/ArrowUp move a wrapping highlight through the open menu (scrolled into view,
   never hidden past the menu's 180px-max-height fold), Enter picks the highlighted row,
@@ -735,24 +786,24 @@ to `127.0.0.1` only.
   layered SVG graph: nodes are cards (id + title), edges are `waiting_for` (arrow from
   the depended-on card to the card waiting on it). Nodes come from both live and
   archived cards — blocking is location-independent.
-  **Epic membership:** a child card's `parent: <epic-id>` feeds the layered layout — the
-  epic is the SINK (it closes only when its children close), so under the map's
-  down-is-later convention it still lays out BELOW its members — and decides which cards
-  are graph participants, but membership is never drawn as a line. On the map, an epic
-  reads entirely through the node's own orange wash (the same `.epic` background every
-  surface shares); membership itself is read from the card's `parent` field and surfaced
-  through the **`epic:` term + "Epics" chip** (below), never a line or an arrowhead.
-  Internally, only the chain's terminal member(s) (no other member of the same epic waits
-  on them; a chainless member counts as its own one-card chain) feed a membership hop
-  into the epic's layer — computed on the full board, so a search filter never reroutes
-  it — and a `waiting_for` edge between two members of the same epic is still a real,
-  gate-enforced dependency that draws on the map exactly like any other edge (grey, the
-  one plain arrowhead — no orange tint). Membership gets the same ghost-stub courtesy as
-  `waiting_for` (hidden endpoint → dimmed stub; dangling id → "not found" stub;
-  self-parent ignored), but it is NOT a dependency: it never makes a card waiting, the
-  `doing` gate ignores it, and the isolated row below stays keyed off `waiting_for` edges
-  only — so an epic whose only edges are membership appears in the graph AND the
-  no-dependencies row, both. A dep edge between a terminal member and its epic in either
+  **Parent membership:** a child card's `parent: <id>` (this board's own name in `board#id` form is read as a plain id,
+  here and in `tree:`/`path:`) feeds the layered layout — the
+  parent lays out BELOW its children, since down is later on the map and a parent is the
+  end of the work under it (its own status stays the human's call: done with open leaves
+  warns, never gates) — and decides which cards
+  are graph participants, but membership is never drawn as a line, and the map carries no
+  cue for a parent or a type. Internally, only the chain's terminal child(ren) (no other
+  child of the same parent waits on them; a chainless child counts as its own one-card
+  chain) feed a membership hop into the parent's layer — computed on the full board, so a
+  search filter never reroutes it — and a `waiting_for` edge between two children of the
+  same parent is still a real, gate-enforced dependency that draws on the map exactly like
+  any other edge (grey, the one plain arrowhead). Membership gets the same ghost-stub
+  courtesy as `waiting_for` (hidden endpoint → dimmed stub; dangling id → "not found"
+  stub; self-parent ignored; a parent on another board adds nothing to the map), but it is
+  NOT a dependency: it never makes a card waiting,
+  the `doing` gate ignores it, and the isolated row below stays keyed off `waiting_for`
+  edges only — so a parent whose only edges are membership appears in the graph AND the
+  no-dependencies row, both. A dep edge between a terminal child and its parent in either
   direction still suppresses the membership hop, so the layered layout never counts the
   same pair twice.
   **Node treatments:** the border is one neutral weight for every node — status never
@@ -802,16 +853,6 @@ to `127.0.0.1` only.
   graph. Real nodes + isolated-row tiles carry the full shared grammar (click for
   detail, ctrl/shift-select, right-click menu); ghost stubs stay click-through only.
   View mode, query, and status filter all persist across the poll's re-render.
-  **`epic:` term + the "Epics" chip** — `epic:` matches every card with `epic: true`
-  (bare-scope term, see Search). It composes with the rest of the query, bare text, and
-  the status pills by the usual intersection rule, and filters board/map/gantt/calendar
-  alike (a plain search term, not map-specific). The map's control row carries an
-  **"Epics" chip** (map view only) that toggles it into the search box — tap sets
-  `epic:`, tap again clears it — the same "write straight into the search box" pattern
-  as the Dependency tree/path menu items, but a toggle rather than a replace. With
-  `epic:` active, matching epics render as full nodes and their members still render as
-  the usual dimmed ghost stubs; right-clicking an epic node still offers `tree:<id>` to
-  expand its subtree.
   **Collapsible sections** — the layered graph and the "No dependencies" row each get
   their own collapse/expand toggle (same chevron + look as the board's per-column
   collapse), sharing one header builder. State persists per board in `localStorage`
@@ -1099,6 +1140,10 @@ assignees:                # who can own cards; feeds the form's assignee combobo
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config, design]    # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
+types:                    # suggested card types; color is OPTIONAL
+  - name: objective
+    color: "#a371f7"
+  - story                 # bare entry = name only, neutral chip
 ```
 
 This app is config-driven and doesn't enforce the grab semantics — it renders whatever
@@ -1119,6 +1164,13 @@ handle a card carries.
   neutral). Absent = built-in `[High, Normal, Low]`.
 - **`tags`** feeds the form's tag suggestions. Both lists are HITL-curated — the human
   edits them; the app only reads.
+- **`types`** (block, bare-entry or inline `[a, b]` form; order kept) names the card
+  types the board suggests, each with an OPTIONAL `color` kept as an opaque string
+  (hex, name, anything CSS reads). It feeds the form's Type field (suggested in the order
+  listed) and the type chip's color only: a card's `type:` may be any text, and a type
+  outside the list still reads as a neutral chip.
+  `GET /api/board` carries it as `types: [{name, color}]` (`color` is `''` when absent;
+  `[]` when the key or file is). Human-curated like `tags`; the app only reads.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's
@@ -1126,8 +1178,8 @@ handle a card carries.
   store. A hashed color follows the theme like a status does; a reserved color paints
   exactly as written in both themes, so pick one that reads on light and dark grounds. See the **Assignee text color** bullet above for where it renders.
 - **`statuses`** (inline or block form) IS the live column set, in order — board
-  columns, drag targets, per-column sort/collapse defaults (priority-desc / expanded for
-  live columns, id-asc / collapsed for Archive), the form's status dropdown, and the
+  columns, drag targets, per-column sort/collapse defaults (priority-desc, or Outline on a
+  board that nests, / expanded for live columns, id-asc / collapsed for Archive), the form's status dropdown, and the
   gantt's group order all follow it. Absent = the built-in four. Unlike the other lists
   it shapes layout, but it still never validates a card: an unlisted on-disk status
   parks the card in the **first** column with a raw-status chip until the human promotes
@@ -1140,8 +1192,8 @@ handle a card carries.
 - With a counter, new-card ids come from `max(nextId, scanMax+1)` (a stale counter
   self-heals rather than re-issuing a taken id) and the advanced counter is written back
   atomically. Agents creating cards by hand should use and advance it too.
-- All three lists **suggest, never validate** (ADR 0004) — the form's comboboxes offer
-  the registered values but free text still saves fine.
+- The assignees, priorities, tags and types lists all **suggest, never validate** (ADR 0004) — the
+  form's comboboxes offer the registered values but free text still saves fine.
 - Not a card — only `*.card.md` files are cards.
 
 ## Notifications file

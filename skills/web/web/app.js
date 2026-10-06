@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -25,6 +25,7 @@ function applyStatuses(list) {
   state.statuses = next;
   collapsedColumns = null;
   columnSort = null;
+  columnSortPicks = null;
   mapStatusFilter = null; // keyed by the same column set
   ganttStatusFilter = null; // keyed by the LIVE statuses (no archive), same invalidation rule
   calendarStatusFilter = null; // same LIVE-statuses key as the gantt's
@@ -68,20 +69,34 @@ function toggleColumn(col) {
 // collapsedColumns above — so the chosen sort survives every renderBoard()
 // call (manual, drag, poll, toggle, search) without re-reading storage.
 let columnSort = null;
+// Only what the user picked is stored: the default depends on the cards
+// (outline order once any card has a rank or a parent), so it must not be
+// written down as if chosen. columnSort is rebuilt when that flips.
+let columnSortPicks = null;
+let columnSortNested = false;
+
+function boardIsNested() {
+  return hasNesting(state.active.concat(state.archived));
+}
 
 function loadColumnSort() {
-  if (columnSort) return columnSort;
-  let saved = null;
-  try {
-    const raw = localStorage.getItem(storageKey(state.projectName, 'columns.sort'));
-    if (raw) saved = JSON.parse(raw);
-  } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to defaults
-  columnSort = mergeSortState(saved, boardColumnIds()); // merge against the board's current column set
+  const nested = boardIsNested();
+  if (columnSort && nested === columnSortNested) return columnSort;
+  if (!columnSortPicks) {
+    let saved = null;
+    try {
+      const raw = localStorage.getItem(storageKey(state.projectName, 'columns.sort'));
+      if (raw) saved = JSON.parse(raw);
+    } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to defaults
+    columnSortPicks = readSortPicks(saved, boardColumnIds());
+  }
+  columnSortNested = nested;
+  columnSort = mergeSortState(columnSortPicks, boardColumnIds(), { nested }); // merge against the board's current column set
   return columnSort;
 }
 
 function saveColumnSort() {
-  try { localStorage.setItem(storageKey(state.projectName, 'columns.sort'), JSON.stringify(columnSort)); }
+  try { localStorage.setItem(storageKey(state.projectName, 'columns.sort'), JSON.stringify({ picked: columnSortPicks })); }
   catch (e) { /* storage unavailable/full — sort choice just won't persist this session */ }
 }
 
@@ -89,20 +104,21 @@ function saveColumnSort() {
 // (id/due -> asc, priority -> desc/High-first, modified -> desc/newest-first,
 // assignee -> asc/registry-order) rather than keeping whatever
 // direction the previous field happened to be on.
-function setColumnSortField(col, field) {
-  if (!SORT_FIELDS.includes(field)) return;
-  const sort = loadColumnSort();
-  sort[col] = { field, direction: DEFAULT_SORT_DIRECTION[field] };
+function pickSort(col, entry) {
+  loadColumnSort()[col] = entry;
+  columnSortPicks[col] = Object.assign({}, entry);
   saveColumnSort();
   renderBoard();
 }
 
+function setColumnSortField(col, field) {
+  if (!SORT_FIELDS.includes(field)) return;
+  pickSort(col, { field, direction: DEFAULT_SORT_DIRECTION[field] });
+}
+
 function toggleColumnSortDirection(col) {
-  const sort = loadColumnSort();
-  const current = sort[col];
-  sort[col] = { field: current.field, direction: current.direction === 'asc' ? 'desc' : 'asc' };
-  saveColumnSort();
-  renderBoard();
+  const current = loadColumnSort()[col];
+  pickSort(col, { field: current.field, direction: current.direction === 'asc' ? 'desc' : 'asc' });
 }
 
 // Which columns' cards the MAP shows — one toggle per column
@@ -504,6 +520,16 @@ function paintAssigneeColors(root) {
   });
 }
 
+// typeBadge() marks a configured chip color with `data-type-color` (free-form
+// value, so no class and no style attribute under the CSP); paint it here once
+// the HTML has landed. Colorless types never carry the attribute and stay neutral.
+function paintTypeColors(root) {
+  root.querySelectorAll('[data-type-color]').forEach((el) => {
+    el.style.color = el.dataset.typeColor;
+    el.style.borderColor = el.dataset.typeColor;
+  });
+}
+
 // The tile's date stack (kanban.proj#260): one line per literal start/end/due
 // field the card carries, via column-sort.js's scheduleRows — glyph/text/
 // overdue per row, missing fields producing no row rather than a blank one.
@@ -530,17 +556,11 @@ function scheduleBlockHtml(card) {
 function cardEl(card) {
   const el = document.createElement('div');
   const pb = priorityBadge(card, state.priorities); // emphasis by rank in the configured list, label pre-escaped
-  // epic is a class (`.card.epic`, app.css), not a dot glyph
-  // — circles are reserved for status alone, so
-  // priority/blocked/column membership need no gating around it.
-  // Archived tiles never call cardEl at all (archiveCardEl is a
-  // separate function without this class), so an archived epic
-  // shows no epic cue on the board.
-  // statusBadge() joins it unconditionally (every card has a
-  // status; unlike epic there's no absent case) — status is already implied
+  // statusBadge() joins unconditionally (every card has a
+  // status) — status is already implied
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
-  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (card.epic ? ' epic' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
+  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   el.draggable = true;
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
@@ -559,6 +579,7 @@ function cardEl(card) {
     ? `<span class="status-chip" title="Status not in the board's statuses list — shown in the first column until promoted in config.yaml">${escapeHtml(card.status)}</span>`
     : '';
   const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
+  const parent = parentTile(card);
   // A card with no title yet but a queued prompt (an
   // AI-dispatched card waiting on kanban-afk to name it) shows the sparkle +
   // prompt text in the title's own spot — a temporary stand-in, never a
@@ -575,12 +596,14 @@ function cardEl(card) {
   // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
-      (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting +
+      (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting + parent.bar +
     `</div>` +
     scheduleHtml;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
+  paintTypeColors(el);
+  paintRollupBars(el);
   // The red blocked pill — the sticker is a human stop sign, so
   // it reads as its own glyph, not a border (borders stay priority/status
   // territory). The reason is USER DATA: it goes in via textContent/title
@@ -609,32 +632,23 @@ function cardEl(card) {
 // already-archived card 404-ing on re-archive is exactly what the idempotency
 // guard on the server exists for, but there's no reason to invite it from the
 // UI) — Restore/Delete stay reachable as tile buttons.
-// The board's Archive column never carries the epic cue — its
-// call site below passes no second argument. But this same function also
-// renders archived tiles in the map's isolated row (buildIsolatedRow), and
-// there epic is a durable identity that must keep showing even off the
-// layered graph (same as the SVG node's own epic wash) — so `opts.epicDot`
-// is an explicit opt-in for that one caller, rather than a blanket change
-// that would put the cue back on the Archive column too.
 // statusBadge(card) needs no opts gate here — it colors straight
 // off the card's true status regardless of card.archived (status
 // dots never mute), so the SAME call is correct whether this renders
 // in the Archive column or the map's isolated row: "board tiles (live AND
 // archived)" gets the dot always, true color always.
 // archivedBadge() joins right after statusBadge(),
-// same unconditional-no-opts-gate reasoning — archiveCardEl only ever
-// renders an archived card (both call sites below pass one), so unlike the
-// epic class's opt-in flag, the archived ball needs no gate either. Glyph
-// order everywhere it appears: epic (a background wash),
-// status, archived.
-function archiveCardEl(card, opts) {
-  const showEpic = !!(opts && opts.epicDot);
+// same unconditional reasoning — archiveCardEl only ever
+// renders an archived card (both call sites below pass one). Glyph
+// order everywhere it appears: status, archived.
+function archiveCardEl(card) {
   const el = document.createElement('div');
-  el.className = 'card card-el archived-card' + (showEpic && card.epic ? ' epic' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
+  el.className = 'card card-el archived-card' + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   el.draggable = true; // drag out of Archive restores to the drop column
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
+  const parent = parentTile(card);
   // Same empty-title-shows-the-prompt fallback as the board
   // tile — reused verbatim via cardTitleDisplay
   // (card-title.js), never re-derived here.
@@ -644,8 +658,9 @@ function archiveCardEl(card, opts) {
     : escapeHtml(card.title);
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+      parent.bar +
     `</div>` +
     scheduleHtml +
     `<div class="card-menu">` +
@@ -653,6 +668,8 @@ function archiveCardEl(card, opts) {
       `<button type="button" data-act="delete-arch" data-id="${card.id}">Delete</button>` +
     `</div>`;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
+  paintTypeColors(el);
+  paintRollupBars(el);
   return el;
 }
 
@@ -699,6 +716,106 @@ function saveViewMode() {
   catch (e) { /* storage unavailable/full — view choice just won't persist this session */ }
 }
 
+// applyProjectName resets both roll-up memos, as it does for every cache keyed
+// by the board name.
+let rollupBarMode = null;
+let rollupCountArchived = null;
+
+function loadRollupBarMode() {
+  if (rollupBarMode) return rollupBarMode;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'rollup.bar')); }
+  catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to collapsed
+  rollupBarMode = mergeRollupBar(saved);
+  return rollupBarMode;
+}
+
+function saveRollupBarMode() {
+  try { localStorage.setItem(storageKey(state.projectName, 'rollup.bar'), rollupBarMode); }
+  catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
+}
+
+// One setting for every bar: a click on any bar flips it for the board and the open detail alike.
+function toggleRollupBar() {
+  rollupBarMode = nextRollupBar(loadRollupBarMode());
+  saveRollupBarMode();
+  renderBoard();
+  if (currentDetailId != null) renderDetailRollup(currentDetailId);
+}
+
+function loadRollupCountArchived() {
+  if (rollupCountArchived !== null) return rollupCountArchived;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'rollup.archived')); }
+  catch (e) { saved = null; } // corrupt/inaccessible storage — archived leaves count
+  rollupCountArchived = mergeRollupCountArchived(saved);
+  return rollupCountArchived;
+}
+
+function saveRollupCountArchived() {
+  try { localStorage.setItem(storageKey(state.projectName, 'rollup.archived'), String(rollupCountArchived)); }
+  catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
+}
+
+// Cards are edited in place (optimistic drops), so the nesting index is rebuilt
+// at the top of every renderBoard() rather than cached across renders; tiles,
+// the map's isolated row and the controls all read it.
+let nestingIndex = null;
+
+function nestingCtx() {
+  return { board: state.projectName, priorities: state.priorities };
+}
+
+function buildNestingIndex() {
+  return rollupIndex(state.active.concat(state.archived), nestingCtx());
+}
+
+function parentTile(card) {
+  const altitude = nestingIndex.altitudeOf(card.id);
+  if (!altitude) return { badge: '', bar: '' };
+  const rollup = nestingIndex.rollup(card.id, { countArchived: loadRollupCountArchived() });
+  return { badge: altitudeBadge(altitude), bar: rollupBar(rollup, loadRollupBarMode(), boardStatuses()) };
+}
+
+// rollupBar() carries each segment's weight as data-n; the CSP forbids a style
+// attribute, so the proportion is set here once the HTML has landed.
+function paintRollupBars(root) {
+  root.querySelectorAll('.rollup-seg[data-n]').forEach((seg) => {
+    seg.style.flexGrow = seg.dataset.n;
+  });
+}
+
+function syncRollupControls() {
+  const ctls = $('#rollup-ctls');
+  if (!ctls) return;
+  ctls.classList.toggle('hidden', !nestingIndex.parents().length);
+  $('#rollup-bar-mode').value = loadRollupBarMode();
+  $('#rollup-archived').checked = loadRollupCountArchived();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  $('#rollup-bar-mode').addEventListener('change', (e) => {
+    rollupBarMode = mergeRollupBar(e.target.value);
+    saveRollupBarMode();
+    renderBoard();
+    if (currentDetailId != null) renderDetailRollup(currentDetailId);
+  });
+  $('#rollup-archived').addEventListener('change', (e) => {
+    rollupCountArchived = e.target.checked;
+    saveRollupCountArchived();
+    renderBoard();
+    if (currentDetailId != null) renderDetailRollup(currentDetailId);
+  });
+});
+
+// A soft warning, never a gate: parents newly done while leaves below are open.
+// Only the literal status done counts. Called after the move has been saved.
+function openLeavesNote(cards, status) {
+  if (status !== 'done') return '';
+  const index = buildNestingIndex();
+  return openLeavesWarning(cards.map((c) => ({ id: c.id, open: index.openLeafCount(c.id) })));
+}
+
 // Each header toggle flips between its own view and the board: map ⇄ board,
 // calendar ⇄ board — and pressing one while the OTHER view is active jumps
 // straight to the pressed view (no board stopover).
@@ -731,6 +848,8 @@ function applyViewMode() {
 }
 
 function renderBoard() {
+  nestingIndex = buildNestingIndex();
+  syncRollupControls();
   renderBoardColumns();
   applyViewMode();
 }
@@ -787,10 +906,13 @@ function renderBoardColumns() {
   // matching id set ONCE here, then each column below intersects against it
   // by id rather than re-calling filterCards on its own slice.
   const searchIds = searchActive
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id)) : null;
+    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
   // Columns render FROM the configured statuses list (+ archive at
   // the far right). A card whose status isn't listed renders in the FIRST
   // column via columnForStatus — the catch-all — with cardEl's raw-status chip.
+  // A column cannot work out the outline from its own cards (a child's parent
+  // may sit in another column), so the whole board is indexed once.
+  const outlineIndex = outlineOrder(state.active.concat(state.archived), nestingCtx()).index;
   const statuses = boardStatuses();
   for (const col of boardColumnIds()) {
     const isArchive = col === 'archive';
@@ -798,7 +920,7 @@ function renderBoardColumns() {
     const sortState = colSort[col];
     // The Assignee sort ranks by registry order, so the comparator
     // gets the config.yaml handles — plumbed exactly like priorities above.
-    const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle));
+    const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
     const cards = searchActive ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
     const isCollapsed = !!collapsed[col];
     const label = columnLabel(col);
@@ -890,11 +1012,8 @@ function renderBoardColumns() {
 // true dependency picture regardless of where a card currently lives.
 const MAP_NODE_W = 176;
 // 58 fits the right-edge dot column (status dot + archived ball) with room
-// to spare — see buildMapSvg's statusDot/archivedDot. The epic cue is a
-// background wash, not a third dot, so status+archived alone don't strictly
-// need the extra room, but there's no harm in the node staying this size,
-// and shrinking it would ripple
-// into every other pinned map-layout measurement for no visual gain.
+// to spare — see buildMapSvg's statusDot/archivedDot. Shrinking the node
+// would ripple into every other pinned map-layout measurement for no visual gain.
 const MAP_NODE_H = 58;
 const MAP_GAP_X = 24;
 const MAP_GAP_Y = 60;
@@ -927,7 +1046,7 @@ function renderMapView() {
   container.appendChild(buildMapFilterRow());
   container.appendChild(buildMapZoomControls());
   const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms).map((c) => c.id)) : null;
+  const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms, nestingCtx()).map((c) => c.id)) : null;
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildDependencyGraph sees one combined
   // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
@@ -935,7 +1054,7 @@ function renderMapView() {
   // is column-state.js's intersectVisibleIds — pure and unit-pinned, not glue.
   const statusIds = mapFilterVisibleIds(allCards, loadMapStatusFilter(), state.statuses);
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
-  const graph = buildDependencyGraph(allCards, visibleIds);
+  const graph = buildDependencyGraph(allCards, visibleIds, nestingCtx());
 
   if (!graph.nodes.length && !graph.ghosts.length) {
     const empty = document.createElement('div');
@@ -950,8 +1069,8 @@ function renderMapView() {
   // renderMapView() call — manual, poll, drag, toggle, search.
   const sections = loadMapSectionsCollapsed();
   // The graph lays out every node touched by ANY edge — dep or
-  // epic membership — while graph.isolated stays dep-keyed; an epic whose only
-  // edges are membership sits in BOTH: laid out in the graph AND listed
+  // parent edge — while graph.isolated stays dep-keyed; a parent whose only
+  // edges are parent edges sits in BOTH: laid out in the graph AND listed
   // in the no-dependencies row. The two derivations (and
   // their different kind-keying) are buildDependencyGraph's own, unit-pinned.
   const participantIds = graph.participants;
@@ -1004,50 +1123,7 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
 function buildMapFilterRow() {
   const row = buildFilterPillRow(loadMapStatusFilter(), boardColumnIds(), 'map-filter-row', 'map-filter-toggle',
     (col, on) => `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the map (hidden cards ghost when a visible card references them)`);
-  // The "Epics" tap-chip rides in the same control row,
-  // map-view only (buildGanttFilterRow/buildCalendarFilterRow below never
-  // call this) — see buildEpicFilterChip.
-  row.appendChild(buildEpicFilterChip());
   return row;
-}
-
-// Mobile-first shortcut for the map's `epic:` search term
-// — same "write straight into #search-input, then renderBoard()"
-// pattern as focusOn()'s tree:/path: buttons and addSearchTerm's
-// assignee/tag click, but a TOGGLE (tap sets `epic:`, tap again clears
-// it) rather than focusOn's always-replace or addSearchTerm's idempotent-add,
-// since this chip only ever manages the one term and composes with whatever
-// else (status pills, other search terms) is already in the box.
-function isEpicSearchActive() {
-  const input = $('#search-input');
-  const raw = input ? input.value : '';
-  return raw.trim().split(/\s+/).some((tok) => /^epic:/i.test(tok));
-}
-
-function toggleEpicSearchTerm() {
-  const input = $('#search-input');
-  if (!input) return;
-  const tokens = input.value.trim().split(/\s+/).filter(Boolean);
-  const on = tokens.some((tok) => /^epic:/i.test(tok));
-  const next = on ? tokens.filter((tok) => !/^epic:/i.test(tok)) : tokens.concat('epic:');
-  input.value = next.join(' ');
-  renderBoard();
-}
-
-// Rebuilt by every renderMapView() call, same as the status-filter row
-// (buildFilterPillRow) — reads the search box fresh each time so its
-// pressed/unpressed look never drifts from whatever's actually in the box
-// (typed by hand, cleared, or toggled by this same chip).
-function buildEpicFilterChip() {
-  const on = isEpicSearchActive();
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.id = 'map-epic-chip';
-  btn.className = 'map-epic-chip' + (on ? ' on' : '');
-  btn.setAttribute('aria-pressed', String(on));
-  btn.title = on ? 'Clear the epic: search term' : 'Filter the map to epic-marked cards (writes epic: into the search box)';
-  btn.textContent = 'Epics';
-  return btn;
 }
 
 // Zoom toolbar — its own row after the filter row (buildFilterPillRow's own
@@ -1186,13 +1262,7 @@ function buildIsolatedRow(graph, allCards, collapsed) {
     graph.isolated.forEach((id) => {
       const card = byId.get(id);
       if (!card) return;
-      // Opt in to the epic cue here — the map is the one place an
-      // archived card appears outside the graph proper, and epic (unlike status)
-      // isn't supposed to mute or disappear just because a card has no edges.
-      // The cue is a background wash, not a dot; the
-      // opt-in flag name carries it (internal option key only, no user-facing
-      // meaning).
-      const tile = card.archived ? archiveCardEl(card, { epicDot: true }) : cardEl(card);
+      const tile = card.archived ? archiveCardEl(card) : cardEl(card);
       tile.draggable = false; // the map isn't a drag surface
       // cardEl/archiveCardEl already stamp card-el + data-id, so the
       // shared grammar handlers cover these tiles with no extra wiring.
@@ -1243,13 +1313,12 @@ function buildMapSvg(graph, layer) {
 
   let edgesSvg = '';
   graph.edges.forEach((e) => {
-    // Membership edges (epic -> child) still shape the layout (they're
-    // fed into layerNodes and decide graph participation), but they are
-    // never drawn — a card's epic is shown on the node itself (the orange
-    // wash), not as a line. A dependency between two cards in the same
-    // epic is a real, gate-enforced waiting_for edge and draws exactly
+    // A card's edge to its parent (child -> parent) still shapes the layout
+    // (it's fed into layerNodes and decides graph participation), but it is
+    // never drawn. A dependency between two cards under the same
+    // parent is a real, gate-enforced waiting_for edge and draws exactly
     // like any other dependency below — no special casing.
-    if (e.kind === 'epic') return;
+    if (e.kind === 'parent') return;
     const from = pos.get(e.from);
     const to = pos.get(e.to);
     if (!from || !to) return; // defensive: every edge endpoint is always laid out, but never let a mismatch crash the render
@@ -1284,9 +1353,8 @@ function buildMapSvg(graph, layer) {
     // and are selectable. A `missing` stub has no card to act on.
     const selectable = !n.ghost && !missing;
     // The node border is one neutral weight for every node (see
-    // .map-node rect in app.css) — status (its own dot) and epic (its own
-    // background wash) never fight over that single stroke
-    // channel with each other or with archive.
+    // .map-node rect in app.css) — status (its own dot) never fights over
+    // that single stroke channel with archive.
     // `archived` still rides the group class: its neutral-grey
     // border mute is the one exception, same as selection glow
     // / ghost dashing / the back-edge amber all keeping their own treatments.
@@ -1302,13 +1370,8 @@ function buildMapSvg(graph, layer) {
     // deps); the manual blocked sticker is the separate red
     // pill below, not a border.
     const pb = (!missing && !n.archived) ? priorityBadge(n, state.priorities) : { className: '' };
-    // epic rides the group class too — .map-node.epic rect (app.css)
-    // tints the node's fill; no separate <circle>. Gated
-    // on n.epic alone (never true for a missing stub — dependency-
-    // graph.js's stub shape has no epic field), it keeps showing on an
-    // archived node (a durable identity, not a location).
     const cls = `map-node${n.ghost ? ' ghost' : ''}${missing ? ' missing' : ''}${n.archived ? ' archived' : ''}` +
-      `${pb.className ? ` ${pb.className}` : ''}${(!missing && !n.archived && n.waiting) ? ' waiting' : ''}${n.epic ? ' epic' : ''}` +
+      `${pb.className ? ` ${pb.className}` : ''}${(!missing && !n.archived && n.waiting) ? ' waiting' : ''}` +
       `${selectable ? ' card-el' : ''}${selectable && selectedIds.has(id) ? ' selected' : ''}` +
       `${selectable && isHoverHighlighted(hoveredId, id) ? ' hover-highlight' : ''}`;
     const idLabel = `#${id}`;
@@ -1339,8 +1402,7 @@ function buildMapSvg(graph, layer) {
     // second right-edge dot, only for a truly archived node — same x column
     // as status (MAP_NODE_W - 10, already proven clear of the truncated
     // title text). Never set for a `missing` stub (its `archived` is always
-    // false — dependency-graph.js's own stub shape). Epic is a background
-    // wash, not a dot (.map-node.epic rect above), so status and this ball
+    // false — dependency-graph.js's own stub shape). Status and this ball
     // are the only right-edge dots.
     const archivedDot = n.archived ? `<circle class="map-archived-dot" cx="${MAP_NODE_W - 10}" cy="${MAP_NODE_H / 2}" r="4"><title>Archived</title></circle>` : '';
     // The red blocked pill — the map twin of the board tile's
@@ -1414,8 +1476,11 @@ function applyProjectName(name) {
     // correct key on next access.
     collapsedColumns = null;
     columnSort = null;
+    columnSortPicks = null;
     modalFullscreen = null;
     viewMode = null; // view.mode joins the same discipline
+    rollupBarMode = null; // rollup.bar too
+    rollupCountArchived = null; // rollup.archived too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     ganttSubview = null; // gantt.subview too
@@ -1446,6 +1511,7 @@ function applyBoardData(data) {
   // for the same reason: the Priority sort/badges read state.priorities at
   // render time (masked pre-move only by priorityRank's built-in fallback).
   applyLists(data.priorities || [], data.tags || []);
+  state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   selectedIds = pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id)); // drop ghosts before render (archived cards are in the domain too)
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -1469,6 +1535,7 @@ function applyBoardData(data) {
 
 async function loadBoard() {
   applyBoardData(await fetchBoard());
+  refreshOpenDetail();
 }
 
 // --- Auto-refresh: poll loadBoard() every 5s via the same path as the manual
@@ -1564,23 +1631,44 @@ function wireDrag() {
       // decides at drop time, so a poll pruning the set mid-drag can't flip
       // a bulk drag into a single-card one halfway through.
       bulkDragIds = (selectedIds.has(Number(el.dataset.id)) && selectedIds.size > 1) ? [...selectedIds] : null;
+      dragCardId = Number(el.dataset.id);
     });
     el.addEventListener('dragend', () => {
       el.classList.remove('dragging');
       isDragging = false;
+      dragCardId = null;
+      refusedDrop.key = '';
+      clearDropMarks();
       bulkDragIds = null; // drop (if any) already consumed it — this catches cancelled drags, which would otherwise replay a stale bulk move
     });
   });
   document.querySelectorAll('.column').forEach((col) => {
-    col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
-    col.addEventListener('dragleave', (e) => { if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over'); });
+    col.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      col.classList.add('drag-over');
+      if (dragCardId !== null && isReorderDrop(bulkDragIds || [dragCardId], col.dataset.col)) {
+        const point = dropPoint(col, dragCardId, e.clientY);
+        const { prev, next } = dropAmong(col, point);
+        if (dropRefused(dragCardId, prev, next)) clearDropMarks();
+        else markDropPoint(point.tiles, point.at);
+      } else {
+        clearDropMarks();
+      }
+    });
+    col.addEventListener('dragleave', (e) => {
+      if (col.contains(e.relatedTarget)) return;
+      col.classList.remove('drag-over');
+      clearDropMarks();
+    });
     col.addEventListener('drop', (e) => {
       e.preventDefault();
       col.classList.remove('drag-over');
+      clearDropMarks();
       const id = Number(e.dataTransfer.getData('text/plain'));
       const ids = bulkDragIds || [id];
       bulkDragIds = null;
       const dest = col.dataset.col;
+      if (isReorderDrop(ids, dest)) { reorderDrop(col, ids[0], e.clientY); return; }
       const touchesArchive = dest === 'archive' || ids.some((i) => state.archived.some((a) => a.id === i));
       if (touchesArchive) archiveAwareDrop(ids, dest);
       else if (ids.length > 1) onBulkDrop(ids, dest);
@@ -1625,6 +1713,8 @@ async function archiveAwareDrop(ids, dest) {
   if (landed) parts.push(`moved ${landed - failed.filter((f) => !plan.toArchive.some((c) => f.startsWith(`#${c.id} `))).length} to ${dest}${plan.toRestore.length ? ` (${plan.toRestore.length} restored)` : ''}`);
   if (plan.refused.length) parts.push(`skipped ${plan.refused.map((c) => `#${c.id} (${refusalWord(c)})`).join(', ')}`);
   if (failed.length) parts.push(`failed: ${failed.join(', ')}`);
+  const note = openLeavesNote(plan.toRestore.concat(plan.toMove).filter((c) => !failed.some((f) => f.startsWith(`#${c.id} `))), dest);
+  if (note) parts.push(note);
   if (parts.length) toast(parts.join('; ') + '.');
 }
 
@@ -1647,6 +1737,8 @@ async function onDrop(id, status) {
   try {
     await api('PATCH', `/api/cards/${id}`, { status });
     await loadBoard();            // resync with disk immediately, in case a poll slipped through mid-flight and needs correcting
+    const note = openLeavesNote([card], status);
+    if (note) toast(`${note}.`);
   } catch (e) {
     card.status = prev;           // revert
     renderBoard();
@@ -1655,6 +1747,88 @@ async function onDrop(id, status) {
     } else {
       toast('Move failed: ' + e.message);
     }
+  } finally {
+    pendingDrops--;
+  }
+}
+
+// A single card dropped on the column it already renders in, while that column
+// is sorted in outline order, writes a rank instead of moving. The Archive
+// column, archived cards and bulk drags keep their own routes.
+function isReorderDrop(ids, dest) {
+  if (ids.length !== 1 || dest === 'archive') return false;
+  const card = state.active.find((c) => c.id === ids[0]);
+  return !!card && columnForStatus(card.status, state.statuses) === dest && loadColumnSort()[dest].field === 'outline';
+}
+
+function dropPoint(col, dragId, clientY) {
+  const tiles = [...col.querySelectorAll('.column-cards > .card')].filter((el) => Number(el.dataset.id) !== dragId);
+  const mids = tiles.map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
+  return { tiles, at: dropSlot(mids, clientY) };
+}
+
+function clearDropMarks() {
+  document.querySelectorAll('.card.drop-before, .card.drop-after').forEach((el) => el.classList.remove('drop-before', 'drop-after'));
+}
+
+function markDropPoint(tiles, at) {
+  clearDropMarks();
+  if (!tiles.length) return;
+  if (at < tiles.length) tiles[at].classList.add('drop-before');
+  else tiles[tiles.length - 1].classList.add('drop-after');
+}
+
+function dropAmong(col, point) {
+  return dropNeighbours(point.tiles.map((el) => Number(el.dataset.id)), point.at, loadColumnSort()[col.dataset.col].direction);
+}
+
+// The drop line is drawn only where reorderCard would take the drop. dragover
+// fires many times a second, so the plan is worked out again only when the
+// pointer moves to another spot.
+let refusedDrop = { key: '', refused: false };
+
+function dropRefused(id, prev, next) {
+  const key = `${id}:${prev}:${next}`;
+  if (refusedDrop.key !== key) {
+    const plan = reorderPlan(state.active.concat(state.archived), id, { prev, next }, nestingCtx());
+    refusedDrop = { key, refused: !!plan.error };
+  }
+  return refusedDrop.refused;
+}
+
+function reorderDrop(col, id, clientY) {
+  const { prev, next } = dropAmong(col, dropPoint(col, id, clientY));
+  if (prev === null && next === null) return;
+  reorderCard(id, prev, next);
+}
+
+// onDrop's lifecycle for a rank: the same pure answer the server will give is
+// shown at once, and put back if the call fails.
+async function reorderCard(id, prev, next) {
+  const cards = state.active.concat(state.archived);
+  const plan = reorderPlan(cards, id, { prev, next }, nestingCtx());
+  if (plan.error) {
+    toast(`#${id} can only be reordered among its siblings.`);
+    return;
+  }
+  const writes = reorderWrites(id, plan);
+  if (!writes.length) return;
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const was = writes.map((w) => [byId.get(w.id), byId.get(w.id).rank]);
+  writes.forEach((w) => { byId.get(w.id).rank = w.rank; });
+  renderBoard();
+  pendingDrops++;
+  try {
+    try {
+      await api('POST', `/api/cards/${id}/reorder`, { prev, next });
+    } catch (e) {
+      was.forEach(([c, rank]) => { c.rank = rank; });
+      renderBoard();
+      toast('Reorder failed: ' + e.message);
+    }
+    await loadBoard(); // after a failure too: the server may have written some of the cards
+  } catch (e) {
+    toast('Load failed: ' + e.message);
   } finally {
     pendingDrops--;
   }
@@ -1677,7 +1851,7 @@ function consumeDeepLink() {
   // card key is unusable still delivers everything else that parsed.
   if (link.q) {
     // Straight into the box, then renderBoard() — the same pattern
-    // toggleEpicSearchTerm/focusOn/addSearchTerm already use. There is no
+    // focusOn/addSearchTerm already use. There is no
     // query state anywhere: currentSearchTerms() re-reads #search-input on
     // every render, so putting the value there IS applying the filter, and
     // it lands somewhere visible that one gesture clears.
@@ -1832,6 +2006,10 @@ function openModal(card, presetStatus, presetStart) {
   renderStatusOptions(card ? card.status : null);
   $('#f-status').value = card ? card.status : (presetStatus || boardStatuses()[0]);
   $('#f-priority').value = card ? card.priority : 'Normal';
+  $('#f-parent').value = card && card.parent != null ? String(card.parent) : '';
+  $('#f-rank').value = card && card.rank != null ? String(card.rank) : '';
+  syncNestingFieldValidity();
+  $('#f-type').value = card && card.type ? card.type : '';
   $('#f-tags').value = card ? card.tags.join(', ') : '';
   $('#f-waiting').value = card ? card.waiting_for.join(', ') : '';
   $('#f-blocked').value = card && card.blocked ? card.blocked : '';
@@ -1848,7 +2026,6 @@ function openModal(card, presetStatus, presetStart) {
   $('#f-start').value = card ? (card.start_date || '') : (presetStart || ''); // calendar click-create prefill
   $('#f-end').value = card && card.end_date ? card.end_date : ''; // the triad's "to"
   $('#f-due').value = card && card.due_date ? card.due_date : '';
-  $('#f-epic').checked = card ? !!card.epic : false; // edit preserves the flag; create starts unchecked
   $('#f-body').value = card ? card.body : '';
   formSnapshot = snapshotFormFields(); // dirty baseline for backdrop-close
   // Create opens minimal (Title + "Show more fields"), edit always
@@ -1872,10 +2049,10 @@ let formSnapshot = null;
 
 function snapshotFormFields() {
   return {
-    title: $('#f-title').value, status: $('#f-status').value, priority: $('#f-priority').value,
+    title: $('#f-title').value, status: $('#f-status').value, priority: $('#f-priority').value, type: $('#f-type').value,
+    parent: $('#f-parent').value, rank: $('#f-rank').value,
     tags: $('#f-tags').value, waiting: $('#f-waiting').value, blocked: $('#f-blocked').value, review: $('#f-review').value, prompt: $('#f-prompt').value, assignee: $('#f-assignee').value,
     start: $('#f-start').value, end: $('#f-end').value, due: $('#f-due').value, body: $('#f-body').value, // the whole date triad joins the dirty baseline
-    epic: $('#f-epic').checked, // a toggled checkbox is typed work too (isDirty compares booleans fine)
   };
 }
 
@@ -1892,13 +2069,34 @@ function parseTags(s) {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
 }
 
+// A blank Parent or Rank clears its line, so text that reads as nothing must
+// stop the save instead of quietly deleting what the card had.
+function parentFieldProblem(text) {
+  const t = text.trim();
+  return t && !parseParent(t, state.projectName) ? 'A card number such as 42, or board#42. Clear the field to remove the parent.' : '';
+}
+
+function rankFieldProblem(text) {
+  const t = text.trim();
+  return t && parseRank(t) === null ? 'A number such as 10 or 12.5. Clear the field to remove the rank.' : '';
+}
+
+function syncNestingFieldValidity() {
+  $('#f-parent').setCustomValidity(parentFieldProblem($('#f-parent').value));
+  $('#f-rank').setCustomValidity(rankFieldProblem($('#f-rank').value));
+}
+
 async function submitModal(e) {
   e.preventDefault();
   const id = $('#f-id').value;
+  const before = id ? state.active.find((c) => String(c.id) === id) : null;
   const payload = {
     title: $('#f-title').value.trim(),
     status: $('#f-status').value,
     priority: $('#f-priority').value,
+    parent: $('#f-parent').value.trim(), // blank clears; the store keeps a value that reads the same as the card's as written
+    rank: $('#f-rank').value.trim(),
+    type: $('#f-type').value.trim(), // blank clears: the line is removed
     tags: parseTags($('#f-tags').value),
     waiting_for: parseIds($('#f-waiting').value),
     // The sticker's raw text — the store's predicate-judged lean rule strips
@@ -1910,7 +2108,6 @@ async function submitModal(e) {
     start_date: $('#f-start').value.trim(), // empty string clears, same as due
     end_date: $('#f-end').value.trim(), // same clear contract
     due_date: $('#f-due').value.trim(),
-    epic: $('#f-epic').checked, // false clears — the line is removed, never written as `epic: false`
     body: $('#f-body').value,
   };
   try {
@@ -1918,6 +2115,8 @@ async function submitModal(e) {
     else await api('POST', '/api/cards', payload);
     closeModal();
     await loadBoard();
+    const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
+    if (note) toast(`${note}.`);
   } catch (e2) {
     if (e2.status === 422) {
       toast(`Can't set doing — ${gate422Text(e2.data)}.`);
@@ -1938,6 +2137,8 @@ window.addEventListener('DOMContentLoaded', () => {
     $('#card-form').classList.toggle('minimal', minimal);
   });
   $('#card-form').addEventListener('submit', submitModal);
+  $('#f-parent').addEventListener('input', syncNestingFieldValidity);
+  $('#f-rank').addEventListener('input', syncNestingFieldValidity);
   $('#f-blocked').addEventListener('input', syncBlockedInputStyle); // live red-border feedback
   $('#f-review').addEventListener('input', syncReviewInputStyle); // ADR 0009: live gold-border feedback
   $('#f-prompt').addEventListener('input', updateTitleRequired); // typing/clearing the prompt live-toggles whether Title is required
@@ -2209,7 +2410,7 @@ function parseFrontmatter(text) {
 
 // The few fields the board itself understands wear the marks it already uses
 // elsewhere: the status dot, the high-priority red, the assignee chip, the
-// sticker grounds, tag chips, and a mention chip for the parent epic. Every
+// sticker grounds, tag chips, and a mention chip for the parent. Every
 // other value prints as written.
 function frontmatterValueHtml(k, v) {
   const plain = v.replace(/^"(.*)"$/, '$1').trim();
@@ -2219,7 +2420,17 @@ function frontmatterValueHtml(k, v) {
   }
   if (k === 'priority' && plain === 'High') return '<span class="fm-high">High</span>';
   if (k === 'assignee' && plain) return assigneeBadge({ assignee: plain }, state.assignees);
-  if (k === 'parent' && /^\d+$/.test(plain)) return `<code class="mention same" data-card-id="${escapeHtml(plain)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(plain)}</code>`;
+  if (k === 'type' && plain) return typeBadge({ type: plain }, state.types);
+  if (k === 'parent') {
+    const ref = parseParent(plain, state.projectName);
+    // a card on this board opens on click; another board's is shown, not followed
+    if (ref && ref.local) {
+      const exists = state.active.concat(state.archived).some((c) => c.id === ref.id);
+      if (!exists) return `<code class="mention">${escapeHtml(state.projectName)}#${escapeHtml(ref.id)}</code><span class="rel-mark">unresolved</span>`;
+      return `<code class="mention same" data-card-id="${escapeHtml(ref.id)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(ref.id)}</code>`;
+    }
+    if (ref) return `<code class="mention">${escapeHtml(ref.board)}#${escapeHtml(ref.id)}</code>`;
+  }
   if (k === 'review' && isReviewValue(plain)) return `<span class="fm-sticker fm-sticker--review">${escapeHtml(reviewReason(plain) || 'review')}</span>`;
   if (k === 'blocked' && isBlockedValue(plain)) return `<span class="fm-sticker fm-sticker--blocked">${escapeHtml(blockedReason(plain) || 'blocked')}</span>`;
   if (k === 'tags' && /^\[.*\]$/.test(plain)) {
@@ -2234,6 +2445,57 @@ function renderFrontmatterTable(pairs) {
     `<tr><td class="fm-key">${escapeHtml(k)}</td><td class="fm-value">${frontmatterValueHtml(k, v)}</td></tr>`
   ).join('');
   return `<table>${rows}</table>`;
+}
+
+// The thread above a card and the children below its body are lists of
+// mention chips, so the detail's one mention listener opens them.
+function relativeMentionHtml(card, board) {
+  const title = cardTitleDisplay(card).text;
+  const label = `${board}#${card.id}${title ? ' ' + title : ''}`;
+  return `<code class="mention same" data-card-id="${escapeHtml(card.id)}" tabindex="0" role="link">${escapeHtml(label)}</code>`;
+}
+
+function archivedMarkHtml(card) {
+  return card.archived ? '<span class="rel-mark">archived</span>' : '';
+}
+
+function threadEntryHtml(entry, board) {
+  if (entry.kind === 'card') return `<li class="thread-item${entry.card.archived ? ' thread-item--archived' : ''}">${relativeMentionHtml(entry.card, board)}${archivedMarkHtml(entry.card)}</li>`;
+  if (entry.kind === 'loop') return `<li class="thread-item thread-item--loop">${relativeMentionHtml(entry.card, board)}<span class="rel-mark">loop</span></li>`;
+  if (entry.kind === 'other-board') return `<li class="thread-item thread-item--other-board"><code class="mention">${escapeHtml(entry.ref)}</code><span class="rel-mark">not followed</span></li>`;
+  return `<li class="thread-item thread-item--unresolved"><code class="mention">${escapeHtml(board)}#${escapeHtml(entry.id)}</code><span class="rel-mark">unresolved</span></li>`;
+}
+
+function childEntryHtml(card, board) {
+  return `<li class="child-item${card.archived ? ' child-item--archived' : ''}">${relativeMentionHtml(card, board)}${archivedMarkHtml(card)}</li>`;
+}
+
+function detailRelativesHtml(cards, id, ctx) {
+  const thread = threadOf(cards, id, ctx);
+  const children = childrenOf(cards, id, ctx);
+  return {
+    threadHtml: thread.length
+      ? `<span class="relatives-label">Thread</span><ol class="thread-list">${thread.map((e) => threadEntryHtml(e, ctx.board)).join('')}</ol>` : '',
+    childrenHtml: children.length
+      ? `<button type="button" class="relatives-toggle" aria-expanded="false" aria-controls="detail-children-list">` +
+        `<span class="relatives-label">Children</span> <span class="relatives-count">${children.length}</span></button>` +
+        `<ul class="children-list hidden" id="detail-children-list">${children.map((c) => childEntryHtml(c, ctx.board)).join('')}</ul>` : '',
+  };
+}
+
+function toggleDetailChildren(btn) {
+  const collapsed = $('#detail-children-list').classList.toggle('hidden');
+  btn.setAttribute('aria-expanded', String(!collapsed));
+}
+
+function renderDetailRelatives(id) {
+  const ctx = nestingCtx();
+  const { threadHtml, childrenHtml } = detailRelativesHtml(state.active.concat(state.archived), id, ctx);
+  for (const [sel, markup] of [['#detail-thread', threadHtml], ['#detail-children', childrenHtml]]) {
+    const el = $(sel);
+    el.innerHTML = markup;
+    el.classList.toggle('hidden', !markup);
+  }
 }
 
 // navigator.clipboard needs a secure context; http://localhost qualifies, but the
@@ -2368,10 +2630,10 @@ async function openDetailModal(id, { quiet } = {}) {
   $('#detail-modified').innerHTML = formatDetailModified(data);
   $('#detail-frontmatter').innerHTML = renderFrontmatterTable(parseFrontmatter(data.frontmatter));
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
+  paintTypeColors($('#detail-frontmatter'));
   $('#detail-body').innerHTML = mdToHtml(data.body || '');
-  // The tile wash (`.card.epic`), same class on the popup's own panel —
-  // cardDetail (card-store.js) carries the tolerant any-case read tiles use.
-  $('#detail-modal').querySelector('.modal').classList.toggle('epic', !!data.epic);
+  renderDetailRollup(data.id);
+  renderDetailRelatives(data.id);
   // Archived cards: Edit only knows about state.active, and Archive on an already-archived
   // card would rename the file again (never clobbers, but pointless/confusing) — hide both.
   // visibility, not .hidden: with the icons leading the header
@@ -2384,6 +2646,31 @@ async function openDetailModal(id, { quiet } = {}) {
   $('#detail-modal').classList.remove('hidden');
   applyModalFullscreen('detail'); // re-apply the persisted per-modal-type preference on every open
   return true;
+}
+
+// A card menu opened from the popup can change or remove the card it shows.
+function refreshOpenDetail() {
+  if (currentDetailId == null) return;
+  const id = currentDetailId;
+  if (!state.active.concat(state.archived).some((c) => c.id === id)) { closeCard(); return; }
+  openDetailModal(id, { quiet: true });
+}
+
+function renderDetailRollup(id) {
+  const box = $('#detail-rollup');
+  const index = buildNestingIndex();
+  const altitude = index.altitudeOf(id);
+  if (!altitude) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    return;
+  }
+  const mode = loadRollupBarMode();
+  const countArchived = loadRollupCountArchived();
+  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived, mode);
+  box.classList.toggle('detail-rollup--collapsed', mode === ROLLUP_BAR_COLLAPSED);
+  paintRollupBars(box);
+  box.classList.remove('hidden');
 }
 
 function closeDetailModal() {
@@ -2475,6 +2762,8 @@ window.addEventListener('DOMContentLoaded', () => {
   };
   $('#detail-modal').addEventListener('click', openMentionedCard);
   $('#detail-modal').addEventListener('keydown', openMentionedCard);
+  $('#detail-modal .modal').addEventListener('contextmenu', onDetailContextMenu);
+  $('#detail-modal').addEventListener('click', (e) => { const t = e.target.closest('.relatives-toggle'); if (t) toggleDetailChildren(t); });
   $('#detail-edit-btn').addEventListener('click', editFromDetail);
   $('#detail-archive-btn').addEventListener('click', () => {
     // Belt-and-suspenders: the button is hidden for archived cards, but never
@@ -2675,13 +2964,6 @@ window.addEventListener('DOMContentLoaded', () => {
       toggleMapStatusFilter(filterBtn.dataset.col);
       return;
     }
-    // The "Epics" chip — same control-row-buttons-checked-
-    // first reasoning as the status pills above.
-    const epicChip = e.target.closest('#map-epic-chip');
-    if (epicChip) {
-      toggleEpicSearchTerm();
-      return;
-    }
     // Zoom toolbar — same control-row-buttons-checked-first reasoning; a
     // disabled button (already at the clamp's edge) still reaches this
     // handler (disabled buttons don't dispatch click at all, so the
@@ -2738,7 +3020,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // Scoped to `.map-canvas` (the graph SVG itself) so pan can start from
 // EITHER empty background OR a node — "a drag that starts on a card node
 // ALSO pans" — while leaving every other control alone by construction:
-// the status pills, epic chip, and section-collapse chevron all sit outside
+// the status pills and section-collapse chevron all sit outside
 // `.map-canvas` (above it in the section header / control rows), and the
 // "No dependencies" row is a sibling of `.map-graph-section` entirely, so
 // its tiles keep native text selection untouched — no separate exclusion
@@ -3037,9 +3319,6 @@ function calendarChipEl(card, pos, time, isDue) {
   // every chip of a multi-day run paints .selected together — they all read
   // the same selectedIds entry on this render. The deadline chip keeps
   // its distinct class on top of the grammar.
-  // epic is a background-wash class (`.cal-chip.epic`,
-  // app.css), not a dot glyph — the priority/
-  // waiting/due rules below need no gating, nothing to win over.
   // Same for archived — priority/waiting keep applying regardless
   // (matching the gantt bar's precedent: colorStatus/mute is a SEPARATE
   // channel from the border accent, so an archived-and-high card still reads
@@ -3053,7 +3332,6 @@ function calendarChipEl(card, pos, time, isDue) {
   const overdue = isDue && isOverdue(card, localTodayStr());
   el.className = `cal-chip card-el ${pos}` + (isDue ? ' cal-chip-due' : '') +
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') +
-    (card.epic ? ' epic' : '') +
     (card.archived ? ' archived' : '') +
     (overdue ? ' overdue' : '') +
     (selectedIds.has(card.id) ? ' selected' : '') +
@@ -3080,8 +3358,7 @@ function calendarChipEl(card, pos, time, isDue) {
   // id/dot near the front.
   // archived joins status — same "status, archived" glyph order
   // every other surface uses (Archived ball), gated
-  // on the chip's own card.archived flag. Epic doesn't ride this glyph
-  // sequence at all (it's the chip's own background wash instead).
+  // on the chip's own card.archived flag.
   // Same empty-title-shows-the-prompt fallback every other
   // view uses (cardTitleDisplay, card-title.js) — reused as-is.
   const titleDisplay = cardTitleDisplay(card);
@@ -3146,7 +3423,7 @@ function renderCalendarMonthGrid(container) {
   // card is ever added to `cards` below regardless of whether its id lands
   // in searchIds.
   const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id)) : null;
+  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
   // Status filter composes with search by INTERSECTION — same rule
   // as the map's and the gantt's composition. ganttFilterVisibleIds
   // (not mapFilterVisibleIds) is the right helper here too: the calendar
@@ -3280,7 +3557,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   // live+archived search pool and Archive-pill composition as the month
   // grid too, so the toggle applies to both grids alike.
   const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id)) : null;
+  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
   const statusIds = ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses());
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
   const cards = visibleIds ? state.active.filter((c) => visibleIds.has(c.id)) : state.active;
@@ -3849,10 +4126,6 @@ function ganttBarEl(bar, win, dayPx) {
   const { clipStart, clipEnd, from, to } = clip;
   const el = document.createElement('div');
   const pb = priorityBadge(bar.card, state.priorities); // same emphasis as tiles/chips
-  // epic is a background-wash class (`.gantt-bar.epic`,
-  // app.css — layered via box-shadow since the status fill below already
-  // owns `background`), not a dot glyph. The status
-  // border/fill stays untouched either way.
   // An archived bar mutes to the neutral archive grey
   // regardless of its parked on-disk status — the BAR keeps this mute
   // (it's a row-level archived cue, like a board tile dimming,
@@ -3865,7 +4138,6 @@ function ganttBarEl(bar, win, dayPx) {
   const colorStatus = bar.card.archived ? 'archive' : bar.card.status;
   el.className = `gantt-bar card-el status-${mapStatusClass(colorStatus)}` + // bars join the shared card-el grammar
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(bar.card) ? ' waiting' : '') +
-    (bar.card.epic ? ' epic' : '') +
     (selectedIds.has(bar.card.id) ? ' selected' : '') +
     (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '') +
     (bar.card.archived ? ' archived' : '') + // an archived bar is drag-read-only — CSS swaps the grab cursor for not-allowed
@@ -3875,10 +4147,7 @@ function ganttBarEl(bar, win, dayPx) {
   el.dataset.archived = bar.card.archived ? '1' : ''; // read by wireGanttPointerDrag's pointerdown guard, same signal used to swap the tooltips below
   // Non-built-in statuses (custom columns, unlisted values) color
   // inline from the deterministic hash — the .status-unknown class beneath
-  // only supplies the shape defaults it overrides. This write is
-  // unconditional: no `.epic` rule ever competes for `background` here
-  // (the `.gantt-bar.epic` wash is a `box-shadow`, layered on top of
-  // whatever `background` resolves to, inline or class-based alike).
+  // only supplies the shape defaults it overrides.
   // 'archive' isn't built-in either, so an archived bar rides
   // this same inline-override path straight to the archive grey.
   if (!isBuiltinStatus(colorStatus)) {
@@ -3954,7 +4223,7 @@ function renderGanttView() {
   // regardless of whether its id lands in searchIds.
   const searchTerms = currentSearchTerms();
   const searchIds = searchTerms.length
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms).map((c) => c.id))
+    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id))
     : null;
   // NOT mapFilterVisibleIds — that folds an unlisted status
   // into the FIRST column's toggle, correct for the map/board but wrong here.
@@ -4093,7 +4362,7 @@ function renderGanttView() {
       // ctrl/shift-click select, right-click menus, exactly like the bar itself
       // (cheap parity, and the only way to reach
       // a bar that's entirely outside the clamped window).
-      label.className = 'gantt-row gantt-label card-el' + (bar.card.epic ? ' epic' : '') + (selectedIds.has(bar.card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '');
+      label.className = 'gantt-row gantt-label card-el' + (selectedIds.has(bar.card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '');
       label.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
       label.dataset.id = bar.card.id;
       // Same fallback every other view uses — reused via
@@ -4102,10 +4371,6 @@ function renderGanttView() {
       label.title = `#${bar.card.id} ${titleDisplay.text}`;
       // The gutter row carries the dots too — "all components" means
       // both surfaces.
-      // epic's cue is the row's own background wash (.gantt-
-      // label.epic, app.css) rather than a second dot — a due-only row (no
-      // bar at all) would otherwise lose the epic cue entirely, since the
-      // label is the only element it has.
       // The Archive group's rows share this
       // exact label builder — no separate branch — so the conditional
       // archivedBadge() covers those gutter rows too, gated on the row's own
@@ -4540,6 +4805,7 @@ let selectedIds = new Set();
 // vanished (poll/delete) or left the active view (filter/view switch).
 let selectionAnchor = null;
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
+let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
 // resting on any ONE piece of a card lights every piece sharing its id —
@@ -4581,6 +4847,30 @@ function visibleCardIds() {
 
 function hideContextMenu() {
   $('#context-menu').classList.add('hidden');
+}
+
+// The menu's subject is the card right-clicked: an unselected card becomes THE
+// selection in the same gesture, a selected one keeps the whole batch.
+function openCardContextMenu(e, id) {
+  const next = contextSelection(selectedIds, id);
+  if (next !== selectedIds) {
+    selectedIds = next;
+    selectionAnchor = id; // the gesture restarted the selection — ranges extend from here
+    renderBoard();
+  }
+  e.preventDefault();
+  showContextMenu(e.clientX, e.clientY);
+}
+
+// Selected text and anything that already handled the right-click itself (a
+// mention with a menu of its own) keep the browser's behaviour.
+function onDetailContextMenu(e) {
+  if (currentDetailId == null || e.defaultPrevented) return;
+  // Links and images keep the browser's own menu (open in new tab, copy link).
+  if (e.target && e.target.closest && e.target.closest('a, img')) return;
+  const picked = window.getSelection();
+  if (picked && !picked.isCollapsed) return;
+  openCardContextMenu(e, currentDetailId);
 }
 
 function showContextMenu(x, y) {
@@ -4725,6 +5015,8 @@ async function onBulkDrop(ids, status) {
   if (movable.length - failed.length) parts.push(`Moved ${movable.length - failed.length} to ${status}`);
   if (refused.length) parts.push(`skipped ${refused.map((c) => `#${c.id} (${refusalWord(c)})`).join(', ')}`);
   if (failed.length) parts.push(`failed: ${failed.join(', ')}`);
+  const note = openLeavesNote(movable.filter((c) => !failed.some((f) => f.startsWith(`#${c.id} `))), status);
+  if (note) parts.push(note);
   if (parts.length) toast(parts.join('; ') + '.');
 }
 
@@ -4909,6 +5201,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // this runs before the Q0 clear-selection handler below, so a plain click
   // on a card empties the selection here and Q0 then no-ops.
   document.addEventListener('click', (e) => {
+    if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
     if (!el) return;
     if (e.target.closest('button, select, input, a')) return;
@@ -4964,14 +5257,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
     if (!el) return;
-    const next = contextSelection(selectedIds, Number(el.dataset.id));
-    if (next !== selectedIds) {
-      selectedIds = next;
-      selectionAnchor = Number(el.dataset.id); // the gesture restarted the selection — ranges extend from here
-      renderBoard();
-    }
-    e.preventDefault();
-    showContextMenu(e.clientX, e.clientY);
+    openCardContextMenu(e, Number(el.dataset.id));
   });
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
@@ -5059,7 +5345,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, and the map zoom toolbar must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .rollup-ctl, .rollup')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();
@@ -5148,8 +5434,8 @@ function attachCombobox(input, getOptions, opts = {}) {
   // its own output by substring-of-the-WHOLE-input would wrongly drop every
   // scoped candidate as soon as the box holds more than one term (their
   // `value` embeds the untouched earlier terms, which no longer appear
-  // verbatim inside the newly-scoped tail). The three form fields (priority/
-  // assignee/tags) don't pass this.
+  // verbatim inside the newly-scoped tail). The form's own fields (priority/
+  // assignee/tags/type) don't pass this.
   const open = (filtered) => {
     items = (filtered && !opts.preFiltered) ? comboboxSuggestions(getOptions(), input.value, opts) : getOptions();
     if (!items.length) return close();
@@ -5211,6 +5497,7 @@ attachCombobox($('#f-assignee'), () => state.assignees.map((a) => ({
   value: a.handle, // stored value stays the bare handle — no card migration
   label: `${a.handle}${a.name ? ` — ${a.name}` : ''}${a.kind ? ` (${a.kind})` : ''}`,
 })));
+attachCombobox($('#f-type'), () => state.types.map((t) => ({ value: t.name })));
 attachCombobox($('#f-tags'), () => state.tags.map((v) => ({ value: v })), { tagMode: true });
 
 // --- Date-picker popover: every date field (f-start/f-end/f-due)

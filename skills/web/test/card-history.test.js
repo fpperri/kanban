@@ -71,10 +71,10 @@ test('opening the card already named by the current URL is a no-op — no duplic
 // --- nextCardHistorySearch: closing --------------------------------------
 
 test('closing removes the card param and keeps the rest', () => {
-  const search = nextCardHistorySearch('?card=42&q=epic%3A&view=gantt', null);
+  const search = nextCardHistorySearch('?card=42&q=type%3Aepic&view=gantt', null);
   const params = new URLSearchParams(search);
   assert.strictEqual(params.has('card'), false);
-  assert.strictEqual(params.get('q'), 'epic:');
+  assert.strictEqual(params.get('q'), 'type:epic');
   assert.strictEqual(params.get('view'), 'gantt');
 });
 
@@ -126,12 +126,13 @@ test('the popstate handler closes/opens directly, never through the pushing wrap
   assert.doesNotMatch(body, /pushCardHistoryStep|nextCardHistorySearch|pushState/, 'popstate handler must not itself push a history step');
 });
 
-// openDetailModal is called directly from exactly 4 places: its own
+// openDetailModal is called directly from exactly 5 places: its own
 // definition line, inside openCard's body, consumeDeepLink (initial load —
 // the URL already carries the id, so pushing would be a no-op anyway, but
-// it's deliberately raw rather than routed through the wrapper), and the
+// it's deliberately raw rather than routed through the wrapper), the
 // popstate handler (which must never push a step for a step the user just
-// took). Every OTHER surface that opens a card from a live user gesture —
+// took) and refreshOpenDetail (a board reload re-reading the card the popup
+// already shows, so there is no step to push). Every OTHER surface that opens a card from a live user gesture —
 // tile, mention-in-body, tray, map ghost — must call the wrapper so
 // Back/Forward see it. A future call site added as a raw openDetailModal()
 // call would silently drop out of history tracking with no other test
@@ -139,8 +140,8 @@ test('the popstate handler closes/opens directly, never through the pushing wrap
 test('every user-gesture call site opens through the openCard wrapper, not openDetailModal directly', () => {
   assert.ok(APP.match(/function openCard\(/), 'no openCard wrapper defined');
   const rawCalls = [...APP.matchAll(/[^.\w]openDetailModal\(/g)].length;
-  assert.strictEqual(rawCalls, 4,
-    `expected exactly 4 raw openDetailModal( call sites (definition, openCard's own call, consumeDeepLink, popstate handler) — found ${rawCalls}; ` +
+  assert.strictEqual(rawCalls, 5,
+    `expected exactly 5 raw openDetailModal( call sites (definition, openCard's own call, consumeDeepLink, popstate handler, refreshOpenDetail) — found ${rawCalls}; ` +
     'a new one should probably go through openCard() instead so Alt+Left/Alt+Right can see it');
   const wrapperCalls = [...APP.matchAll(/[^.\w]openCard\(/g)].length;
   assert.strictEqual(wrapperCalls, 5,

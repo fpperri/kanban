@@ -41,24 +41,41 @@ isn't `done` yet) or **blocked** (a manual sticker). The tile cues you see:
 - a **red left accent** on a High-priority card (`#1`, `#8`),
 - an amber **"Waiting on: #6"** badge (`#7` can't start until `#6` lands),
 - a red **blocked** pill (`#8`),
-- an orange **epic** dot (`#1` is the launch epic),
+- a **type chip** on a typed card (`#1` is typed `epic`, and orange because the board's `types:` list says so),
 - the assignee (`@human` / `@hitl` / `@afk`), tags, and due date.
 
 Each column header carries a sort dropdown (id / priority / due / last-modified
-/ assignee), a collapse toggle, and a `+` to create a card straight into that
-column. The search box up top filters every view at once.
+/ assignee / outline), a collapse toggle, and a `+` to create a card straight into
+that column. Outline puts a parent before its children and siblings in `rank`
+order; it is the default sort on a board where any card has a `rank` or a
+`parent`, except in the Archive column, which keeps id order. In an Outline column, dragging a card between two siblings writes its `rank`:
+one card when there is room between the neighbours, that parent's children renumbered
+in tens when there is not. The search box up top filters every view at once.
+
+A card with children shows `▲n` (how many layers sit below it) and a status bar
+of the leaves under it. The header's **Bar** select sets every bar to collapsed (a thin
+line) or open (with counts), and clicking any bar flips them all; the card detail shows
+the bar under its title and thread, above the fields, the same way, with a line saying
+it counted this board only when open. The **Archived** checkbox decides whether
+archived leaves count (as done, by default); both are remembered in your browser.
+Marking a parent done while leaves below are open warns and saves anyway.
+
+Open a card and the parents it sits under show above it, root first, each one a
+click away; below its body a **Children** header with their count opens the list, in
+`rank` order. A parent that does not
+exist is marked *unresolved*, a parent on another board is shown but *not followed*,
+and a loop of parents is flagged where it repeats.
 
 ## Dependency map
 
 ![Dependency map](images/web-map.png)
 
 The **Map view** lays out `waiting_for` edges as a graph — arrows point from
-the card you depend on to the card that's waiting. An **epic** is the sink: it
-sits *below* its children and closes only when they do, but membership itself
-draws no line — an epic reads on the map only through its node's orange wash,
-with membership read from each card's `parent` field and surfaced through the
-`epic:` search term / "Epics" chip. Cards with no dependencies drop into a
-separate row below.
+the card you depend on to the card that's waiting. A **parent** sits *below* its
+children, as the end of the work under it; its status stays your call, and marking
+it done with leaves still open only warns. Nesting itself draws no line; it is read
+from each card's `parent` field. Cards with no dependencies drop into a separate
+row below.
 A status-filter pill row (left-click to toggle, right-click to solo) and the
 search box both prune the graph.
 
@@ -90,15 +107,16 @@ error), and per-entry archiving.
 ![Notifications inbox](images/web-notifications.png)
 
 **Create & edit** — a minimal-first form (just a title and assignee) that
-expands to the full field set — status, priority, epic, tags, `waiting_for`,
-blocked reason, the date triad, and a Markdown description.
+expands to the full field set — status, priority, parent, rank, tags, `waiting_for`,
+blocked reason, type, the date triad, and a Markdown description.
 
 ![New-card form](images/web-new-card.png)
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
 archive, restore, delete, or focus a dependency tree/path. The same selection
-grammar works in every view.
+grammar works in every view, and right-clicking inside an open card opens the same
+menu for that card.
 
 ![Bulk context menu](images/web-bulk-actions.png)
 

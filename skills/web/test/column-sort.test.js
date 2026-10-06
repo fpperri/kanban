@@ -4,23 +4,25 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   SORT_FIELDS, SORT_FIELD_LABELS, DEFAULT_SORT_DIRECTION, DEFAULT_SORT,
-  mergeSortState, compareCards, sortCards, scheduleKey, scheduleLabel, scheduleRows,
+  defaultSort, mergeSortState, readSortPicks, compareCards, sortCards, scheduleKey, scheduleLabel, scheduleRows,
 } = require('../web/column-sort');
+const { outlineOrder } = require('../web/nesting');
 
 // --- constants --------------------------------------------------------
 
-test('SORT_FIELDS lists exactly id / priority / due / modified / assignee', () => {
-  assert.deepStrictEqual(SORT_FIELDS, ['id', 'priority', 'due', 'modified', 'assignee']);
+test('SORT_FIELDS lists exactly id / priority / due / modified / assignee / outline', () => {
+  assert.deepStrictEqual(SORT_FIELDS, ['id', 'priority', 'due', 'modified', 'assignee', 'outline']);
 });
 
 test('SORT_FIELD_LABELS names the split fields "Due date" and "Last modified" and "Assignee"', () => {
   assert.strictEqual(SORT_FIELD_LABELS.due, 'Due date');
   assert.strictEqual(SORT_FIELD_LABELS.modified, 'Last modified');
   assert.strictEqual(SORT_FIELD_LABELS.assignee, 'Assignee');
+  assert.strictEqual(SORT_FIELD_LABELS.outline, 'Outline');
 });
 
-test('DEFAULT_SORT_DIRECTION: priority and modified start desc (High-first / newest-first), id/due/assignee asc', () => {
-  assert.deepStrictEqual(DEFAULT_SORT_DIRECTION, { id: 'asc', priority: 'desc', due: 'asc', modified: 'desc', assignee: 'asc' });
+test('DEFAULT_SORT_DIRECTION: priority and modified start desc (High-first / newest-first), id/due/assignee/outline asc', () => {
+  assert.deepStrictEqual(DEFAULT_SORT_DIRECTION, { id: 'asc', priority: 'desc', due: 'asc', modified: 'desc', assignee: 'asc', outline: 'asc' });
 });
 
 test('DEFAULT_SORT: live columns priority-desc, Archive id-asc', () => {
@@ -120,6 +122,92 @@ test('mergeSortState tolerates arbitrary column names (dots/spaces) as keys', ()
   const merged = mergeSortState({ 'c d': { field: 'id', direction: 'desc' } }, ids);
   assert.deepStrictEqual(merged['c d'], { field: 'id', direction: 'desc' });
   assert.deepStrictEqual(merged['a.b'], { field: 'priority', direction: 'desc' });
+});
+
+// --- outline sort ------------------------------------------------------
+
+const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
+const OUTLINE_ASC = { field: 'outline', direction: 'asc' };
+const OUTLINE_DESC = { field: 'outline', direction: 'desc' };
+const nested = (cards) => outlineOrder(cards, CTX).index;
+
+test('Outline sort: the parent first, then its children in rank order', () => {
+  const cards = [
+    card({ id: 4, parent: 1, rank: 30 }),
+    card({ id: 2, parent: 1, rank: 20 }),
+    card({ id: 1 }),
+    card({ id: 3, parent: 1, rank: 10 }),
+  ];
+  const sorted = sortCards(cards, OUTLINE_ASC, ['High', 'Normal', 'Low'], [], nested(cards));
+  assert.deepStrictEqual(sorted.map((c) => c.id), [1, 3, 2, 4]);
+});
+
+test('Outline sort: a column holds only some of the cards, yet parents still lead and ranks still rule', () => {
+  const all = [
+    card({ id: 1, status: 'backlog' }),
+    card({ id: 2, parent: 1, rank: 20, status: 'backlog' }),
+    card({ id: 3, parent: 1, rank: 10, status: 'todo' }),
+    card({ id: 4, parent: 3, status: 'todo' }),
+    card({ id: 5, status: 'todo' }),
+    card({ id: 6, parent: 1, rank: 15, status: 'todo' }),
+  ];
+  const todo = all.filter((c) => c.status === 'todo');
+  const sorted = sortCards(todo, OUTLINE_ASC, [], [], nested(all));
+  assert.deepStrictEqual(sorted.map((c) => c.id), [3, 4, 6, 5], 'the parent sits in another column; 3 leads its child 4, rank 15 follows, the loose root 5 comes last');
+});
+
+test('Outline sort: desc flips the order', () => {
+  const cards = [card({ id: 1 }), card({ id: 2, parent: 1, rank: 10 }), card({ id: 3, parent: 1, rank: 20 })];
+  const sorted = sortCards(cards, OUTLINE_DESC, [], [], nested(cards));
+  assert.deepStrictEqual(sorted.map((c) => c.id), [3, 2, 1]);
+});
+
+test('Outline sort: a card the index does not know sorts last in both directions; without an index it is id order', () => {
+  const cards = [card({ id: 5 }), card({ id: 2 }), card({ id: 9 })];
+  const index = new Map([[9, 0]]);
+  assert.deepStrictEqual(sortCards(cards, OUTLINE_ASC, [], [], index).map((c) => c.id), [9, 2, 5]);
+  assert.deepStrictEqual(sortCards(cards, OUTLINE_DESC, [], [], index).map((c) => c.id), [9, 2, 5]);
+  assert.deepStrictEqual(sortCards(cards, OUTLINE_ASC, [], []).map((c) => c.id), [2, 5, 9]);
+});
+
+test('Outline is the default only on a nested board; other boards keep priority-desc and Archive id-asc', () => {
+  assert.deepStrictEqual(defaultSort(['todo', 'archive']), { todo: { field: 'priority', direction: 'desc' }, archive: { field: 'id', direction: 'asc' } });
+  assert.deepStrictEqual(defaultSort(['todo', 'archive'], { nested: false }), defaultSort(['todo', 'archive']));
+  assert.deepStrictEqual(defaultSort(['todo', 'archive'], { nested: true }), { todo: OUTLINE_ASC, archive: { field: 'id', direction: 'asc' } });
+  assert.deepStrictEqual(mergeSortState(null, undefined, { nested: false }), DEFAULT_SORT);
+  assert.deepStrictEqual(mergeSortState({}, ['a', 'archive'], { nested: true }), { a: OUTLINE_ASC, archive: { field: 'id', direction: 'asc' } });
+});
+
+test('a saved Outline entry is valid, and a picked sort beats the nested default', () => {
+  const merged = mergeSortState({ todo: { field: 'due', direction: 'asc' }, done: OUTLINE_DESC }, ['todo', 'done', 'doing'], { nested: true });
+  assert.deepStrictEqual(merged, { todo: { field: 'due', direction: 'asc' }, done: OUTLINE_DESC, doing: OUTLINE_ASC });
+});
+
+// --- what persists: only the picks, never a default that happened to be showing
+
+test('readSortPicks reads the picked entries a user saved', () => {
+  const saved = { picked: { todo: { field: 'due', direction: 'asc' }, done: { field: 'priority', direction: 'desc' } } };
+  assert.deepStrictEqual(readSortPicks(saved, ['todo', 'done', 'archive']), {
+    todo: { field: 'due', direction: 'asc' },
+    done: { field: 'priority', direction: 'desc' },
+  }, 'a deliberate priority-desc pick survives, even though it equals the old default');
+});
+
+test('readSortPicks on a value saved before picks were tracked drops the entries that are just the old default', () => {
+  const legacy = {
+    backlog: { field: 'priority', direction: 'desc' },
+    todo: { field: 'due', direction: 'asc' },
+    archive: { field: 'id', direction: 'asc' },
+  };
+  assert.deepStrictEqual(readSortPicks(legacy, ['backlog', 'todo', 'archive']), { todo: { field: 'due', direction: 'asc' } });
+});
+
+test('readSortPicks migrates a legacy "date" pick and drops malformed or unusable input', () => {
+  assert.deepStrictEqual(readSortPicks({ todo: { field: 'date', direction: 'desc' } }, ['todo']), { todo: { field: 'due', direction: 'desc' } });
+  assert.deepStrictEqual(readSortPicks({ picked: { todo: { field: 'title', direction: 'asc' }, done: 'id' } }, ['todo', 'done']), {});
+  for (const junk of [null, undefined, 'corrupt', 42, ['todo']]) {
+    assert.deepStrictEqual(readSortPicks(junk, ['todo']), {}, `${JSON.stringify(junk)} carries no picks`);
+  }
 });
 
 // --- compareCards: id ----------------------------------------------------

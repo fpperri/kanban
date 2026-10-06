@@ -176,7 +176,7 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
   // on in its own theme (surface, paper, and the chip ground --btn-bg).
   test(`${name}: every status and identity colour clears ${TEXT}:1 as text on surface, paper and the chip ground`, () => {
     const ids = Object.keys(set).filter((k) => /^--(st|hash|id)-/.test(k) && !k.endsWith('-hover'));
-    assert.ok(ids.length >= 17, `expected the identity tokens, found ${ids.length}`);
+    assert.ok(ids.length >= 16, `expected the identity tokens, found ${ids.length}`);
     for (const tok of ids) {
       for (const ground of ['--surface', '--paper', '--btn-bg']) {
         const r = ratio(set, tok, ground);

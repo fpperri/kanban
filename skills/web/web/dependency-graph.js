@@ -15,6 +15,11 @@
 const WB = (typeof module !== 'undefined' && module.exports)
   ? require('./waiting-blocked')
   : window;
+// The one place a card's parent is resolved, so the map reads `parent` the way
+// the outline does.
+const NEST = (typeof module !== 'undefined' && module.exports)
+  ? require('./nesting')
+  : window;
 
 // The node carries precomputed gate flags:
 // `waiting` (some waiting_for dep not done — the amber stroke) and `blocked`
@@ -22,7 +27,7 @@ const WB = (typeof module !== 'undefined' && module.exports)
 // the pill's tooltip.
 function cardToNode(c, waiting) {
   return {
-    id: c.id, title: c.title, status: c.status, archived: !!c.archived, epic: !!c.epic,
+    id: c.id, title: c.title, status: c.status, archived: !!c.archived,
     priority: c.priority || '', waiting: !!waiting,
     blocked: WB.isBlockedValue(c.blocked), blockedReason: WB.blockedReason(c.blocked),
     prompt: c.prompt || null, // lets the map label fall back to it (cardTitleDisplay)
@@ -41,7 +46,8 @@ function isCardWaiting(c, byId) {
 // own isWaiting() check) and the ids currently matching the search box
 // (`visibleIds`: a Set, or null/undefined meaning "no active query — every
 // card is visible", mirroring search.js's own "empty query matches
-// everything").
+// everything"). `ctx` is the nesting context ({ board }), which reads a parent
+// written as this board's own name.
 //
 // Design decisions:
 // - An edge with NEITHER endpoint visible is dropped entirely — only
@@ -59,20 +65,19 @@ function isCardWaiting(c, byId) {
 //   separately so the caller can render them in a detached cluster instead
 //   of mixing them into the layered graph.
 //
-// Epic membership edges: a child card's `parent: <epic-id>`
-// becomes a child->epic edge with `kind: 'epic'` (waiting_for edges carry
-// `kind: 'dep'`). The epic is the SINK, not the root — an epic is done only
-// when its children are done, so under the map's "down = completes later"
-// convention it lays out BELOW its children (a 2026-07-13 design review
-// flipped the original epic-on-top build: epic-as-container read as a false
-// prerequisite). Membership is not sequencing: it feeds the layered layout
+// Parent edges: a child card's `parent: <parent-id>`
+// becomes a child->parent edge with `kind: 'parent'` (waiting_for edges carry
+// `kind: 'dep'`). The parent lays out BELOW its children, not above them: under
+// the map's "down = completes later" convention a parent is the end of the work
+// under it, and above them it read as a false prerequisite. Its status is still
+// the human's call. Nesting is not sequencing: it feeds the layered layout
 // and gets the same ghost-stub courtesy, but it never makes anyone `waiting`
 // and — deliberately — does NOT count for the isolated row. "No
-// dependencies" means no SEQUENCING deps, so an epic whose only edges are
-// membership appears in the graph AND the detached row. A self-parent is
+// dependencies" means no SEQUENCING deps, so a parent whose only edges are
+// parent edges appears in the graph AND the detached row. A self-parent is
 // nonsense and adds no edge; a dangling parent id ghosts as missing, same
 // as a dangling dep.
-function buildDependencyGraph(cards, visibleIds) {
+function buildDependencyGraph(cards, visibleIds, ctx) {
   const byId = new Map(cards.map((c) => [c.id, c]));
   // A ghost placeholder from a dangling reference has no card behind it, so
   // "visible" must require actual existence — not just query-membership —
@@ -98,65 +103,67 @@ function buildDependencyGraph(cards, visibleIds) {
     if (!toVisible) ghostIds.add(to);
     edges.push({ from, to, kind, fromGhost: !fromVisible, toGhost: !toVisible });
   };
-  // Membership hops into the sink ALONG the chain instead of fanning from
-  // every member. `nonTerminal` collects, per epic, the members some OTHER
-  // member of the same epic waits on — their work continues inside the
-  // epic, so they get no direct hop; only the chain's terminals (nothing
-  // downstream inside the epic, a chainless member being its own one-card
-  // chain) hop into the sink. Computed on the FULL board, like waiting — a
-  // search filter must not reroute membership.
+  // Parent edges run ALONG a chain of children instead of fanning from every
+  // child. `nonTerminal` collects, per parent, the children some OTHER child of
+  // the same parent waits on — their work continues inside the parent, so they
+  // get no direct edge; only the chain's terminals (nothing downstream inside
+  // the parent, a chainless child being its own one-card chain) get one into
+  // the parent. Computed on the FULL board, like waiting — a search filter must
+  // not reroute parent edges.
   const parentOf = (id) => {
     const card = byId.get(id);
-    return card && card.parent != null && card.parent !== card.id ? card.parent : null;
+    const parent = card ? NEST.localParentId(card, ctx) : null;
+    return parent !== null && parent !== card.id ? parent : null;
   };
-  const nonTerminal = new Set(); // `${epicId}:${memberId}`
+  const nonTerminal = new Set(); // `${parentId}:${childId}`
   for (const c of cards) {
     if (parentOf(c.id) == null) continue;
     for (const depId of c.waiting_for || []) {
       if (parentOf(depId) === parentOf(c.id)) nonTerminal.add(`${parentOf(c.id)}:${depId}`);
     }
   }
-  // Two passes: every dep edge lands before any membership edge, so the
-  // sequencing-wins-the-pair check below sees the whole dep set — the epic's
+  // Two passes: every dep edge lands before any parent edge, so the
+  // sequencing-wins-the-pair check below sees the whole dep set — the parent's
   // own waiting_for lives on a DIFFERENT card than the child's parent field.
-  // A dep edge between two members of the SAME epic is flagged `epicChain`
+  // A dep edge between two children of the SAME parent is flagged `siblingChain`
   // (set only when true, so edge shapes elsewhere stay untouched) — it's
   // still a real, gate-enforced dependency, just one the map draws exactly
-  // like any other edge (no special treatment). Mixed and cross-epic edges
+  // like any other edge (no special treatment). Mixed and cross-parent edges
   // stay plain too.
   for (const c of cards) {
     for (const depId of c.waiting_for || []) {
       addEdge(depId, c.id, 'dep');
       const e = edges[edges.length - 1];
       if (e && e.from === depId && e.to === c.id && parentOf(depId) != null && parentOf(depId) === parentOf(c.id)) {
-        e.epicChain = true;
+        e.siblingChain = true;
       }
     }
   }
   for (const c of cards) {
-    // Membership edge, terminal member -> epic (the epic is the
-    // sink; it closes last). `parent` is a single id; self-parent adds
+    // Parent edge, terminal child -> parent (a parent lays out below its
+    // children). A parent on another board adds no edge; self-parent adds
     // nothing. When the pair already has a dep edge IN EITHER DIRECTION (the
-    // card waits on its epic, or the epic waits on the card), sequencing
+    // card waits on its parent, or the parent waits on the card), sequencing
     // wins the pair: same-direction overlap would add a redundant second
     // edge over a real dependency, and opposite-direction overlap would
     // fabricate a 2-cycle (a back-edge bow for a relation that isn't
     // circular).
-    if (c.parent != null && c.parent !== c.id
-        && !nonTerminal.has(`${c.parent}:${c.id}`)
-        && !seenEdges.has(`${c.parent}->${c.id}:dep`) && !seenEdges.has(`${c.id}->${c.parent}:dep`)) {
-      addEdge(c.id, c.parent, 'epic');
+    const parent = parentOf(c.id);
+    if (parent !== null
+        && !nonTerminal.has(`${parent}:${c.id}`)
+        && !seenEdges.has(`${parent}->${c.id}:dep`) && !seenEdges.has(`${c.id}->${parent}:dep`)) {
+      addEdge(c.id, parent, 'parent');
     }
   }
 
   const ghosts = [...ghostIds].filter((id) => !nodeIds.has(id))
     .sort((a, b) => a - b)
     .map((id) => (byId.has(id) ? cardToNode(byId.get(id), isCardWaiting(byId.get(id), byId))
-      : { id, title: null, status: null, archived: false, epic: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }));
+      : { id, title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }));
 
   // The isolated row is keyed off SEQUENCING edges only, while the
   // layered graph lays out every node touched by ANY edge (`participants`) —
-  // a node whose only edges are epic membership joins the graph and the row
+  // a node whose only edges are parent edges joins the graph and the row
   // both. Both derivations live here, in the pure module, so their different
   // kind-keying stays unit-pinned rather than re-derived in the view.
   const touchedByDep = new Set();
@@ -212,9 +219,9 @@ function layerNodes(nodeIds, edges) {
 // "Dependency tree" (connected component) and "Dependency path"
 // (directed cone) for the tree:<id> / path:<id> search terms. Both reuse
 // buildDependencyGraph(cards, null).edges as their ONLY source of truth for
-// adjacency — the exact edge set (waiting_for + membership, with its
+// adjacency — the exact edge set (waiting_for + parent edges, with its
 // sequencing-wins-the-pair/nonTerminal suppression already applied) that the
-// map's graph is built from (membership shapes layout but draws no line).
+// map's graph is built from (parent edges shape layout but draw no line).
 // Neither function re-derives waiting_for/parent iteration.
 //
 // - treeIds: undirected flood-fill (the connected component) — "everything
@@ -230,8 +237,8 @@ function layerNodes(nodeIds, edges) {
 // an isolated card (no edges at all) resolves to a one-element Set (itself);
 // visited-set BFS makes both cycle-safe (never hangs, mirrors layerNodes'
 // own cycle tolerance).
-function buildAdjacency(cards) {
-  const { edges } = buildDependencyGraph(cards, null);
+function buildAdjacency(cards, ctx) {
+  const { edges } = buildDependencyGraph(cards, null, ctx);
   const forward = new Map(); // from -> Set(to)
   const backward = new Map(); // to -> Set(from)
   for (const { from, to } of edges) {
@@ -253,10 +260,10 @@ function walkFrom(start, adjacency, visited) {
   }
 }
 
-function treeIds(cards, rawId) {
+function treeIds(cards, rawId, ctx) {
   const id = Number(rawId);
   if (!cards.some((c) => c.id === id)) return new Set();
-  const { forward, backward } = buildAdjacency(cards);
+  const { forward, backward } = buildAdjacency(cards, ctx);
   const visited = new Set([id]);
   // Undirected: a single BFS over the union of both directions' neighbors
   // at each step reaches the whole component regardless of edge direction.
@@ -271,10 +278,10 @@ function treeIds(cards, rawId) {
   return visited;
 }
 
-function pathIds(cards, rawId) {
+function pathIds(cards, rawId, ctx) {
   const id = Number(rawId);
   if (!cards.some((c) => c.id === id)) return new Set();
-  const { forward, backward } = buildAdjacency(cards);
+  const { forward, backward } = buildAdjacency(cards, ctx);
   const visited = new Set([id]);
   walkFrom(id, forward, visited); // descendants (downstream)
   walkFrom(id, backward, visited); // ancestors (upstream)

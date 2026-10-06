@@ -75,6 +75,68 @@ _Avoid_: "the artifact" unqualified, snapshot artifact, session artifact, a page
 The moment a Snapshot build embeds: the base timestamp shown in the page header and carried in every change payload, so Claude can tell whether the board moved after the human looked at it. A Board artifact refresh replaces one base with a newer one; earlier bases remain as the page history.
 _Avoid_: version (that is the page history), snapshot (that is the surface, not the moment), timestamp unqualified.
 
+## Nesting
+
+**Parent** (via **parent**):
+The one card a card sits under, on the same board or on another board (named as `board#id`). Any card may be a parent, whatever its type; being a parent is only the fact that other cards point up at it. Nesting is not sequencing: a parent never makes its children waiting.
+_Avoid_: epic membership, container, group.
+
+**Child**:
+A card whose `parent` names another card. A card's children are found by reading who points up at it; a parent never lists its children.
+_Avoid_: member, subtask (as a field or kind).
+
+**Root**:
+A card with no parent. A loose card and the top of a tall tree are both roots.
+_Avoid_: top-level card, orphan.
+
+**Card type** (via **type**):
+What a card is (goal, strategy, objective, epic, story, ...), usually a word from the board's own suggested list, though any word reads. The kanban renders the word and, if the board's config gives one, its color; it attaches no meaning to it. Rules about types belong to whoever uses the board.
+_Avoid_: tier, category, class, kind; epic flag (retired).
+
+**Rank** (via **rank**):
+Where a card sits among its siblings, as a number stepped by 10 so a card can be slotted between two others without renumbering. Separate from priority: priority is how much a card matters, rank is where it sits in the list.
+_Avoid_: order (as a field), position, sort key, priority.
+
+**Depth** (derived):
+How many parents sit above a card: a root is 0. Worked out at read time, never stored.
+_Avoid_: level number, nesting number (as a stored field).
+
+**Altitude** (derived):
+How many layers of cards sit below a card: a card with no children is 0. Blind to type, so a story with sub-steps and an epic with stories both stand at 1. Worked out at read time, never stored.
+_Avoid_: tier (the cascade position a card's type carries), height, weight, nesting number.
+
+**Leaf**:
+A card with no children: the actual work under a parent.
+_Avoid_: task (as a kind), bottom card.
+
+**Roll-up** (derived):
+The status count of the leaves below a card, archived leaves counting as done, over the boards it could read, which it names. It informs; it never sets the parent's status, which stays the human's call.
+_Avoid_: progress (as a stored value), completion, percent done.
+
+**Thread** (derived):
+The chain of parents from a card up to its root, crossing boards where a parent is named as `board#id`.
+_Avoid_: breadcrumb, lineage, dependency chain (that follows waiting_for).
+
+**Board set** (via **boards:**):
+The boards a board declares it can see, always including itself. Threads and roll-ups follow each board's own set one hop at a time, so a board three levels down is reached through the boards between.
+_Avoid_: multi (retired proposal), linked boards, federation.
+
+**Private board** (via **private: true**):
+A board that declares itself private in its own config. Its cards never leave the desk: a published surface leaves them out of every roll-up and thread and never names the board.
+_Avoid_: hidden board, secret board.
+
+**Outline order** (derived):
+Cards sorted by their chain of ranks from the root down, so a parent comes before its children and siblings follow their rank; unranked siblings come after ranked ones, by priority then id.
+_Avoid_: absolute order (as a stored number), decimal order, sort index.
+
+**Dependency** (via **waiting_for**):
+One `waiting_for` edge: this card waits for that one. Separate from nesting.
+_Avoid_: depends_on (as a field), blocker, link.
+
+**Dependency chain**:
+A run of dependencies, each card waiting for the next.
+_Avoid_: critical path (unless it is the longest chain), thread (that is the parent chain).
+
 ## Role trio
 
 The canonical assignee tiers on every board and surface — this is the ONE

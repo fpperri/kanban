@@ -15,3 +15,6 @@ assignees:
 priorities: [High, Normal, Low]
 tags: [frontend, backend, design, marketing, legal, infra]
 statuses: [backlog, todo, doing, done]
+types:
+  - name: epic
+    color: "#f0883e"

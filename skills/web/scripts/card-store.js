@@ -8,6 +8,7 @@ const { allocateId } = require('./config-store');
 // Dual-environment — the browser loads the same file as a plain <script>, so
 // store and UI can never drift on what "waiting"/"blocked"/"review" means.
 const { isBlockedValue, blockedReason, isReviewValue, unresolvedWaits } = require('../web/waiting-blocked');
+const { parseParent, parseRank } = require('../web/nesting');
 // The `prompt` field's single-line quoting — the same
 // quote/unquote yaml-list.js already gives notifications.md's `message`
 // field, reused here rather than forked (see the field's own writer note in
@@ -75,6 +76,12 @@ function cleanList(arr) {
   return (arr || []).filter((x) => x != null && String(x).trim() !== '');
 }
 
+// Frontmatter holds one value per physical line, so a real newline in a free
+// text value collapses to a space.
+function oneLine(v) {
+  return String(v == null ? '' : v).replace(/\r?\n/g, ' ').trim();
+}
+
 function slugify(title) {
   return String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
@@ -118,12 +125,19 @@ function stripQuotes(s) {
   return t.replace(/^"(.*)"$/, '$1');
 }
 
-// epic is a boolean managed field but arrives as raw JSON — accept
-// true / 'true' (any case, matching the reader's tolerance) and treat
-// everything else (false, 'false', '', null, junk) as unset. A plain truthy
-// gate would let an API string 'false' write a literal `epic: true` line.
-function wantsEpic(v) {
-  return v === true || String(v == null ? '' : v).trim().toLowerCase() === 'true';
+// A parent as the card JSON carries it: a number for a card on this board,
+// `board#id` for another board's, null when the value reads as nothing.
+function readParent(raw) {
+  const p = parseParent(raw, null);
+  if (!p) return null;
+  return p.local ? p.id : `${p.board}#${p.id}`;
+}
+
+// A type is written bare unless that would not read back as typed (`x: y`, a
+// leading `#` or bracket, ` #`, quotes); then it takes the prompt field's quoting.
+const TYPE_NEEDS_QUOTES = /^[#\[\]{}>|&*!%@`'"]|^[-?:](\s|$)|:(\s|$)|\s#/;
+function typeValue(t) {
+  return TYPE_NEEDS_QUOTES.test(t) ? quote(t) : t;
 }
 
 // Machine-maintained "updated" stamp — local time, no timezone suffix,
@@ -170,15 +184,12 @@ function readCardFile(file, archived = false) {
     prompt: unquote(get('prompt')) || null,
     tags: parseList(get('tags')),
     assignee: stripQuotes(get('assignee')) || null,
+    type: unquote(get('type')) || null, // free text; the board's `types:` list only suggests, never validated
     start_date: get('start_date') || null, // range start ("from"), date or local datetime, never validated
     end_date: get('end_date') || null, // range end ("to"), same tolerant contract
     due_date: get('due_date') || null, // deadline marker; also the compat range end when end_date is absent
-    epic: get('epic').toLowerCase() === 'true', // epic/wayfinder flag — tolerant read (any-case 'true'), missing line = false, never validated
-    // epic membership — the id of the epic this card belongs to.
-    // Tolerant read (non-numeric -> null, no membership), never validated,
-    // form-unmanaged (an existing line survives edits via the unmanaged-key
-    // machinery). Feeds the map's layout as a child->epic edge; draws no line.
-    parent: (() => { const v = get('parent'); return /^\d+$/.test(v) ? parseInt(v, 10) : null; })(),
+    parent: readParent(get('parent')),
+    rank: parseRank(get('rank')),
     updated: get('updated') || null, // machine-maintained, form-unmanaged
     title,
     body: description,
@@ -395,7 +406,7 @@ function updateCard(dir, id, changes) {
   // strictly one value per physical line, so a real newline in the value
   // would otherwise split it into a bogus second line.
   if (changes.prompt !== undefined) {
-    const p = String(changes.prompt == null ? '' : changes.prompt).replace(/\r?\n/g, ' ').trim();
+    const p = oneLine(changes.prompt);
     if (p) setField(order, values, 'prompt', quote(p));
     else removeField(order, values, 'prompt');
   }
@@ -407,6 +418,15 @@ function updateCard(dir, id, changes) {
   if (changes.assignee !== undefined) {
     if (String(changes.assignee || '').trim()) setField(order, values, 'assignee', quoteAssignee(changes.assignee));
     else removeField(order, values, 'assignee');
+  }
+  // type: same clear pattern as assignee, and skipped when it reads the same as
+  // the card's own, so a hand-quoted `type: "user story"` survives every form save.
+  if (changes.type !== undefined) {
+    const t = oneLine(changes.type);
+    if (t !== (card.type || '')) {
+      if (t) setField(order, values, 'type', typeValue(t));
+      else removeField(order, values, 'type');
+    }
   }
   // Date triad processed in start, end, due order so a PATCH that
   // introduces several at once appends them in natural range-reading order.
@@ -422,12 +442,23 @@ function updateCard(dir, id, changes) {
     if (changes.due_date) setField(order, values, 'due_date', changes.due_date);
     else removeField(order, values, 'due_date');
   }
-  // epic — checked writes exactly `epic: true`, unchecked removes
-  // the line (false is no data, the lean rule — never a literal
-  // `epic: false`). wantsEpic normalizes API strings on the way in.
-  if (changes.epic !== undefined) {
-    if (wantsEpic(changes.epic)) setField(order, values, 'epic', 'true');
-    else removeField(order, values, 'epic');
+  // parent and rank are skipped when the value sent reads the same as the one
+  // on the card: the form sends every field on every save, and a hand-written
+  // `parent: "fpp#4"` or `rank:  10` must not be rewritten by it. A value that
+  // reads as nothing clears the line, as every blank does.
+  if (changes.parent !== undefined) {
+    const next = readParent(changes.parent);
+    if (next !== card.parent) {
+      if (next === null) removeField(order, values, 'parent');
+      else setField(order, values, 'parent', String(next));
+    }
+  }
+  if (changes.rank !== undefined) {
+    const next = parseRank(changes.rank);
+    if (next !== card.rank) {
+      if (next === null) removeField(order, values, 'rank');
+      else setField(order, values, 'rank', String(next));
+    }
   }
   // A transition INTO the literal 'todo' stamps start_date; into
   // 'done' stamps end_date (date-only local) — the working range builds itself
@@ -455,7 +486,7 @@ function updateCard(dir, id, changes) {
   }
 
   writeAtomic(file, serializeCard({ order, values }, body));
-  return readCardFile(file, false);
+  return readCardFile(file, isArchivedFile(dir, file));
 }
 
 function writeAtomic(file, content) {
@@ -509,10 +540,12 @@ function createCard(dir, input) {
   // refused by it (only waiting_for/blocked gate entry, above).
   if (isReviewValue(input.review)) { order.push('review'); values.review = ` ${String(input.review).trim()}`; }
   // Prompt: same lean rule, always quoted — see updateCard's note.
-  const promptVal = String(input.prompt == null ? '' : input.prompt).replace(/\r?\n/g, ' ').trim();
+  const promptVal = oneLine(input.prompt);
   if (promptVal) { order.push('prompt'); values.prompt = ` ${quote(promptVal)}`; }
   // trimmed guard — a whitespace-only assignee is no data (quoteAssignee trims it to '')
   if (String(input.assignee || '').trim()) { order.push('assignee'); values.assignee = ` ${quoteAssignee(input.assignee)}`; }
+  const typeVal = oneLine(input.type);
+  if (typeVal) { order.push('type'); values.type = ` ${typeValue(typeVal)}`; }
   // A card born directly in literal 'todo'/'done' counts as a
   // transition in — stamp the flow date unless the caller supplied one.
   // Computed before the triad writes so start, end, due still land in order.
@@ -523,7 +556,10 @@ function createCard(dir, input) {
   if (input.due_date) { order.push('due_date'); values.due_date = ` ${input.due_date}`; }
   const tags = cleanList(input.tags); // same blank-entry drop as waiting_for above
   if (tags.length) { order.push('tags'); values.tags = ` ${formatList(tags)}`; }
-  if (wantsEpic(input.epic)) { order.push('epic'); values.epic = ' true'; } // unset writes NO line (lean rule)
+  const parentVal = readParent(input.parent);
+  if (parentVal !== null) { order.push('parent'); values.parent = ` ${parentVal}`; }
+  const rankVal = parseRank(input.rank);
+  if (rankVal !== null) { order.push('rank'); values.rank = ` ${rankVal}`; }
   order.push('updated'); values.updated = ` ${nowLocalISO()}`; // machine-maintained stamp
   // An AI-prompt card may be born with no title at all —
   // no "Untitled" placeholder as long as a prompt stands in for it
@@ -576,7 +612,6 @@ function cardDetail(dir, id) {
   return {
     id: card.id, title: card.title, path: path.resolve(file), frontmatter, body: card.body,
     archived: card.archived, updated: card.updated,
-    epic: card.epic, // the detail popup's own epic wash, same tolerant read as the tiles'
     prompt: card.prompt, // lets the popup title fall back to the queued prompt, same as every other view
   };
 }
@@ -586,8 +621,8 @@ function cardDetail(dir, id) {
 // the board (`0011.foo.card.md`), not a filesystem path that would leak the
 // board's on-disk location to every client of this JSON.
 function toJSON(card) {
-  const { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, start_date, end_date, due_date, epic, parent, updated, title, body, archived, file } = card;
-  return { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, start_date, end_date, due_date, epic, parent, updated, title, body, archived, file: path.basename(file) };
+  const { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, parent, rank, updated, title, body, archived, file } = card;
+  return { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, parent, rank, updated, title, body, archived, file: path.basename(file) };
 }
 
 // `pkg` (optional) names an archived/<package>/ grouping folder, created on

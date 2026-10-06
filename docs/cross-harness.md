@@ -13,7 +13,9 @@ that tag into the installer's selection menu.
   harness that can run a shell command and open a browser.
 - **`kanban-snapshot`** — **partially portable.** The generator
   (`build_editor.py`) and the static HTML it produces are plain Python +
-  browser code with no Claude dependency. But the SKILL.md's delivery/apply
+  browser code with no Claude dependency, though the generator reads the web
+  skill's nesting module (`skills/web/web/nesting.js`) and exits without it, so
+  install it beside `kanban-web`. But the SKILL.md's delivery/apply
   loop names Claude-specific tools and surfaces (`SendUserFile`, "Cowork",
   the Claude mobile app) — another harness can reuse the underlying idea (run
   the script, hand back the HTML, read a pasted payload back into the chat)

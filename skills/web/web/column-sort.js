@@ -12,15 +12,16 @@
 // The old 'date' field was ambiguous (deadline? recency?) and split
 // into 'due' (the triad-aware schedule sort) and 'modified' (the
 // machine-maintained `updated` stamp); mergeSortState still migrates a saved 'date'.
-const SORT_FIELDS = ['id', 'priority', 'due', 'modified', 'assignee'];
-const SORT_FIELD_LABELS = { id: 'ID', priority: 'Priority', due: 'Due date', modified: 'Last modified', assignee: 'Assignee' };
+const SORT_FIELDS = ['id', 'priority', 'due', 'modified', 'assignee', 'outline'];
+const SORT_FIELD_LABELS = { id: 'ID', priority: 'Priority', due: 'Due date', modified: 'Last modified', assignee: 'Assignee', outline: 'Outline' };
 // Natural starting direction when a column is switched to a field for the
 // first time: id/due ascending (oldest id / earliest due date first),
 // priority descending (High first, matching the "High-first by
 // default" rule), modified descending (most recently touched first — recency
 // is what you switch to that sort for), assignee ascending (registry order —
 // human first — is the reading order you switch to that sort for).
-const DEFAULT_SORT_DIRECTION = { id: 'asc', priority: 'desc', due: 'asc', modified: 'desc', assignee: 'asc' };
+// outline ascending: the parent first, then its children, is how an outline reads.
+const DEFAULT_SORT_DIRECTION = { id: 'asc', priority: 'desc', due: 'asc', modified: 'desc', assignee: 'asc', outline: 'asc' };
 
 // Default per column, until the user picks a sort: live columns
 // priority-desc/id-tiebreak, Archive plain id-asc. Kept as the static
@@ -36,13 +37,15 @@ const DEFAULT_SORT = {
 
 // Per-column sort default derived for whatever column set is in play:
 // live columns priority-desc, archive id-asc — the rule DEFAULT_SORT
-// encodes for the built-in set.
-function defaultSort(columnIds) {
+// encodes for the built-in set. On a nested board (any card has a rank or a
+// parent) the live columns open in outline order instead.
+function defaultSort(columnIds, opts) {
+  const live = opts && opts.nested
+    ? { field: 'outline', direction: 'asc' }
+    : { field: 'priority', direction: 'desc' };
   const out = {};
   for (const col of columnIds || Object.keys(DEFAULT_SORT)) {
-    out[col] = col === 'archive'
-      ? { field: 'id', direction: 'asc' }
-      : { field: 'priority', direction: 'desc' };
+    out[col] = col === 'archive' ? { field: 'id', direction: 'asc' } : Object.assign({}, live);
   }
   return out;
 }
@@ -53,33 +56,60 @@ function isValidSortEntry(entry) {
     && (entry.direction === 'asc' || entry.direction === 'desc');
 }
 
-// Merge a value decoded from localStorage (which may be missing, null, not an
-// object, or carry stale/unknown column keys or a malformed entry) with the
-// defaults — same defensive shape as column-state.js's mergeCollapsedState:
-// unknown keys are dropped, missing/invalid entries fall back to the
-// default, only a structurally valid {field, direction} pair is trusted.
+// A structurally valid {field, direction} copy, else null.
+// rename migration: a pre-split saved 'date' sort keeps working
+// as 'due' (same comparator it always resolved to), direction preserved.
+function normalizeSortEntry(entry) {
+  if (entry && typeof entry === 'object' && entry.field === 'date') {
+    entry = { field: 'due', direction: entry.direction };
+  }
+  return isValidSortEntry(entry) ? { field: entry.field, direction: entry.direction } : null;
+}
+
+// Merge the user's picks (a per-column {field, direction} object, which may be
+// missing, null, not an object, or carry stale/unknown column keys or a
+// malformed entry) with the defaults — same defensive shape as
+// column-state.js's mergeCollapsedState: unknown keys are dropped,
+// missing/invalid entries fall back to the default, only a structurally valid
+// {field, direction} pair is trusted.
 // Pass the board's current column ids to merge against a dynamic
-// column set; omitting them keeps the built-in five.
-function mergeSortState(saved, ids) {
-  const defaults = defaultSort(ids);
+// column set; omitting them keeps the built-in five. opts.nested picks the
+// nested board's defaults.
+function mergeSortState(saved, ids, opts) {
+  const defaults = defaultSort(ids, opts);
   const result = {};
   for (const col of Object.keys(defaults)) {
     result[col] = Object.assign({}, defaults[col]);
   }
   if (saved && typeof saved === 'object') {
     for (const col of Object.keys(defaults)) {
-      let entry = saved[col];
-      // rename migration: a pre-split saved 'date' sort keeps working
-      // as 'due' (same comparator it always resolved to), direction preserved.
-      if (entry && typeof entry === 'object' && entry.field === 'date') {
-        entry = { field: 'due', direction: entry.direction };
-      }
-      if (isValidSortEntry(entry)) {
-        result[col] = { field: entry.field, direction: entry.direction };
-      }
+      const entry = normalizeSortEntry(saved[col]);
+      if (entry) result[col] = entry;
     }
   }
   return result;
+}
+
+// Only what the user picked is stored, as { picked: { column: entry } }. The
+// whole merged state used to be stored, which froze whatever default was
+// showing into every column the moment one column was changed — and a default
+// that depends on the cards (outline on a nested board) must stay free to
+// change. A value in that old shape carries picks and frozen defaults alike;
+// an entry equal to the old default is read as not picked.
+function readSortPicks(saved, ids) {
+  const out = {};
+  if (!saved || typeof saved !== 'object') return out;
+  const versioned = !!saved.picked && typeof saved.picked === 'object';
+  const source = versioned ? saved.picked : saved;
+  const frozen = defaultSort(ids);
+  for (const col of Object.keys(source)) {
+    const entry = normalizeSortEntry(source[col]);
+    if (!entry) continue;
+    const old = Object.prototype.hasOwnProperty.call(frozen, col) ? frozen[col] : null;
+    if (!versioned && old && old.field === entry.field && old.direction === entry.direction) continue;
+    out[col] = entry;
+  }
+  return out;
 }
 
 // Rank comes from the board's configured `priorities` list (ordered,
@@ -178,7 +208,10 @@ function scheduleRows(card, todayStr) {
   return rows;
 }
 
-function compareCards(a, b, sort, priorities, assignees) {
+// outlineIndex is nesting.js's Map of card id -> position over the whole board:
+// a column cannot work out the outline from its own cards, since a child's
+// parent may sit in another column.
+function compareCards(a, b, sort, priorities, assignees, outlineIndex) {
   const dir = sort.direction === 'desc' ? -1 : 1;
   switch (sort.field) {
     case 'id':
@@ -237,6 +270,14 @@ function compareCards(a, b, sort, priorities, assignees) {
       const diff = dir * cmp;
       return diff !== 0 ? diff : a.id - b.id;
     }
+    case 'outline': {
+      const ia = outlineIndex ? outlineIndex.get(a.id) : undefined;
+      const ib = outlineIndex ? outlineIndex.get(b.id) : undefined;
+      if ((ia === undefined) !== (ib === undefined)) return ia === undefined ? 1 : -1; // a card outside the index sorts last in both directions
+      if (ia === undefined) return a.id - b.id;
+      const diff = dir * (ia - ib);
+      return diff !== 0 ? diff : a.id - b.id;
+    }
     default:
       return 0;
   }
@@ -245,14 +286,14 @@ function compareCards(a, b, sort, priorities, assignees) {
 // Convenience wrapper: never mutates the input array (renderBoard() needs the
 // same discipline drag-drop/search already rely on — sorting is a pure view
 // concern, state.active/state.archived stay the source of truth).
-function sortCards(cards, sort, priorities, assignees) {
-  return cards.slice().sort((a, b) => compareCards(a, b, sort, priorities, assignees));
+function sortCards(cards, sort, priorities, assignees, outlineIndex) {
+  return cards.slice().sort((a, b) => compareCards(a, b, sort, priorities, assignees, outlineIndex));
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SORT_FIELDS, SORT_FIELD_LABELS, DEFAULT_SORT_DIRECTION, DEFAULT_SORT, DEFAULT_PRIORITIES,
-    defaultSort, mergeSortState, priorityRank, scheduleKey, scheduleLabel, isOverdue, scheduleRows, compareCards, sortCards,
+    defaultSort, mergeSortState, readSortPicks, priorityRank, scheduleKey, scheduleLabel, isOverdue, scheduleRows, compareCards, sortCards,
   };
 } else {
   window.SORT_FIELDS = SORT_FIELDS;
@@ -262,6 +303,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.defaultSort = defaultSort;
   window.DEFAULT_PRIORITIES = DEFAULT_PRIORITIES;
   window.mergeSortState = mergeSortState;
+  window.readSortPicks = readSortPicks;
   window.priorityRank = priorityRank;
   window.scheduleKey = scheduleKey;
   window.scheduleLabel = scheduleLabel;

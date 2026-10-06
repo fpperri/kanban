@@ -50,9 +50,12 @@ Each card's frontmatter supports the following fields:
 - `end_date` — (optional) The working range's **to**: same date/datetime forms. Alone = a 1-day range at end. Nothing validates ordering — a reversed range (start after end) is tolerated (date-aware views treat it as a 1-day event at the range end). **Compat fallback:** when `end_date` is absent but `start_date` AND `due_date` are both present, the range is start→due, so pre-triad cards keep reading as ranges. The `kanban-web` app auto-stamps it with today's local date when a card lands in the literal status `done` and the field is empty — mirror that stamp when moving a card into `done` by hand; never overwrite an existing value.
 - `due_date` — (optional) The **deadline**: same date/datetime forms. Independent of the working range (date-aware views draw it as its own marker, even inside the range) — it only stands in as the range end via the compat fallback above. Write the triad in `start_date`, `end_date`, `due_date` order so ranges read naturally.
 - `tags` — (optional) List of labels.
-- `parent` — (optional) Epic membership: the card id of the epic this card belongs to. Example: `parent: 146`. A single id, tolerant read (non-numeric = no membership), never validated; a dangling id renders a ghost stub on the map, a self-id is ignored. Membership is not sequencing — it never makes the card *waiting* and the `doing` gate ignores it; use `waiting_for` for ordering. The web map renders the epic as the SINK (it closes only when its children close, so it lays out BELOW them), but draws no line for membership itself — an epic reads on the map only through the node's own orange wash, and membership is surfaced through the `epic:` search term / "Epics" chip instead. A `waiting_for` edge between two members of the same epic is still a real, gate-enforced dependency and draws on the map exactly like any other edge (plain grey, no tint). The epic still lists in the no-dependencies row (membership isn't a dependency). Form-unmanaged: write it by hand; every managed write preserves the line verbatim.
-- `epic` — (optional) `epic: true` marks the card as an **epic/wayfinder** — a marker for a stretch of work rather than a single task. Boolean with the lean rule: write exactly `epic: true` when set and **omit the line entirely** when not — never write `epic: false`. Never validated; the `kanban-web` app reads any-case `true` as set and gives epics an orange identity layered on top of the status color in every view (the status/column itself is unchanged).
+- `parent` — (optional) The card this one sits under: `42` for a card on this board, or `board#42` for a card on another board (this board's own name in that form counts as this board). Any card may be a parent, whatever its type. Tolerant read, never validated: anything else is no parent, a missing id leaves the card a root, and a self-id or a loop is tolerated, never fatal. Nesting is not sequencing: a parent never makes its children *waiting* and the `doing` gate ignores it; use `waiting_for` for ordering. A parent never lists its children: they are found by reading who points up at it. Lean rule: omit the line when there is no parent.
+- `type` — (optional) What the card is: free text, usually a word from the board's `types:` list in `config.yaml` (see below), though any word reads and nothing validates it. Example: `type: objective`. Lean rule: write the line only when the card has a type, omit it otherwise. The kanban renders the word as a chip on the card (in the type's configured color, or neutral when the list gives none) and finds it with the `type:` search term; it attaches no meaning to the word, so rules about types belong to whoever uses the board. A type that would not read back bare (it holds `: ` or ` #`, or opens with a quote, a bracket or `#`) is written in double quotes. Every managed write leaves the line alone unless the edit changes the type itself.
+- `rank` — (optional) Where this card sits among its siblings (the cards with the same `parent`): a number, stepped by 10 (`10`, `20`, `30`) so a card can be slotted between two others without renumbering. Separate from `priority`: priority is how much a card matters, rank is where it sits in the list, so a High card can sit third. Siblings read in rank order; **unranked** siblings come after the ranked ones, by priority then id, so a board with no ranks reads as it always did. A value that is not a number reads as no rank. Lean rule: omit the line when there is no rank, never write a blank `rank:`. The edit form's Rank field writes it; a value that reads the same as the card's own is left as written. To slot a card between two siblings, see Ordering a Card Among Its Siblings below.
 - `updated` — (optional, machine-maintained) ISO local datetime, `YYYY-MM-DDTHH:MM:SS` (no timezone suffix — same shape as `notifications.md`'s `at` field). The `kanban-web` app stamps it on card creation and bumps it on every content write (single edits, drag-driven status changes, bulk edits); it does NOT change on archive/restore (those only move the file, they don't touch its content). AI writers editing a card's frontmatter by hand should bump `updated` to the current local datetime too, so the timestamp stays meaningful regardless of which tool made the change.
+
+**Worked out, never written.** A card's *depth* (the parents above it), its *altitude* (the layers of cards below it), the board's *outline order* (parents before their children, siblings by rank), a card's *thread* (the chain of parents up to its root) and a parent's *roll-up* (the status count of the leaves below it) are all worked out each time a view loads. Never write any of them to a card, and never write a list of children on a parent: both go stale the moment a card moves.
 
 ## Creating a Card
 
@@ -95,6 +98,16 @@ If `<kanban-dir>/archived/` does not exist, create it under the active board dir
 
 **`kanban/archived/` is scanned recursively** (ADR 0010): an archived card is any `*.card.md` anywhere under it. Cards may sit at the `archived/` root or inside an optional **package** folder, `kanban/archived/<package>/` — free-form grouping for a batch of finished work, created on demand. A package name is kept verbatim (no slugging — an existing folder must match byte-for-byte) and must be one plain path component: never a nested path, never a `.`/`..` hop. Packages are grouping only — they mean nothing to status, ids, or dependencies, and every reader (board views, id allocation, dependency resolution, restore, delete) finds a card wherever in the tree it sits. Restoring returns the card to `kanban/`, never to a package; the emptied package folder is left in place. Archiving without a package writes to the `archived/` root, and never move a card that is already filed in a package back out to the root unless asked.
 
+## Ordering a Card Among Its Siblings
+
+Ranks step by 10, so most reorders write one card. To put a card between two siblings ranked `a` and `b`, write the whole number halfway between them, rounded down, `floor((a + b) / 2)`: between `10` and `20` write `15`. Write only that card.
+
+When no whole number lies strictly between them (`b` is `a + 1`, or the two ranks are equal), renumber that parent's children instead: give every sibling, the moved card in its new place, `10`, `20`, `30` ... in the order wanted, and write only the cards whose rank changes. Archived siblings count as siblings. Touch no card outside that parent.
+
+At the ends, after the last ranked sibling write `last + 10`, and before the first ranked sibling write `first - 10` (`0` and negative ranks are fine). `last + 10` also lands a card ahead of any unranked sibling, because unranked siblings come after the ranked ones; that is also why one rank cannot put a card among them. To place a card between two unranked siblings, or before the first sibling when none is ranked, rank all of that parent's children in tens in the order they read. Write whole numbers, and leave a card unranked when its place does not matter. Work from the full list of siblings: hidden and archived cards are siblings too.
+
+A drag in `kanban-web`'s Outline sort ends in the same writes, but it first reads the tiles around the drop as siblings (a tile among a sibling's own children stands for that sibling), and like this section it writes `rank` only, never `parent`. Bump `updated` on every card file you write.
+
 ## Board files that aren't cards
 
 Only `*.card.md` files are cards. Two other files in `<kanban-dir>/` are levers you are expected to use:
@@ -122,6 +135,10 @@ assignees:        # registry of who can own cards; suggests handles, never valid
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config]            # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
+types:                            # suggested card types; a color is optional
+  - name: objective
+    color: "#a371f7"
+  - story                         # a bare entry is a name with no color
 ```
 
 **`name` — the board name.** The short token that opens a card mention
@@ -188,6 +205,8 @@ has no `assignees` registry, every surface suggests exactly this trio.
 
 Status values are **case-sensitive** — the `doing` entry gate (waiting + blocked) applies to the literal lowercase `doing` only; a column named `Doing` is just another custom column the gate ignores. Curate accordingly.
 
+**`types` — the card-type list.** Entries give a `type:` word a chip color; they suggest, they never validate, and a card may carry any `type:` text. Accepted forms: a block entry `- name: objective` with an optional indented `color:` (a hex like `"#a371f7"` or a color name, kept as an opaque string), a bare entry `- story` (name only), or an inline `types: [objective, story]`. Entries keep the order written, an entry with no name is skipped, and a type the list does not name (or names without a color) shows a neutral chip. Like `tags`, the list is human-curated: never add to it on your own.
+
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 
 The `statuses` list is different in kind: it drives the **column layout** of every board surface (web columns, this skill's board print, form options, gantt group order), in list order — but like the other lists it never validates a card's on-disk value. A card with an unlisted status renders in the list's **first column** (the catch-all — `backlog` under the default list) with its raw value shown; the file is never rewritten. **Promotion is human-only:** only the human adds a status to the list; on the next read the card files under its real column. Archive is excluded — it stays a location-column at the far right, never a list entry. The `doing` entry gate (waiting + blocked) stays pinned to the **literal** status `doing`, custom list or not.
@@ -216,6 +235,17 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
 **Clear = archive:** clearing/removing entries from the tray MOVES them verbatim (append) to `<kanban-dir>/archived/notifications.md`, creating the file/dir if absent. Deletion never happens. No rotation or cap yet. That file lives at the `archived/` **root** — it is not a card, so archive packages (above) never hold or move it.
 
 Generated leftovers from retired skills (`board.md`, `dashboard.html`) may also sit in the folder — stale artifacts, not cards; ignore them.
+
+### Migrating `epic: true` to `type: epic`
+
+The epic flag is retired: the app no longer reads or writes `epic`, and an epic is a card with `type: epic` like any other type. A board written before that still holds `epic: true` lines, which are now ignored (an unknown field, kept through every edit) and show nothing. `scripts/migrate_epic_to_type.sh` rewrites them once:
+
+```bash
+bash <SCRIPTS_DIR>/migrate_epic_to_type.sh <kanban-dir>            # dry run: lists the cards that would change
+bash <SCRIPTS_DIR>/migrate_epic_to_type.sh <kanban-dir> --apply    # rewrites them
+```
+
+It covers the live cards and everything under `archived/` (packages included). On each card whose `epic:` line reads `true` (any case) it rewrites that line in place to `type: epic` and bumps `updated`; a card that already has a `type:` with a value keeps it and only loses the `epic:` line (a blank `type:` counts as none). Nothing else in the file changes, a card without the flag (or with `epic: false`) is byte-identical, and a second run finds nothing. It then files **one** notification in `notifications.md` listing the migrated cards as card mentions. Run it once on your own board, after the app you use understands `type`; it never touches another board, so each board is migrated by whoever owns it. An epic keeps its color only if the board's `types:` list gives `epic` one.
 
 ## Human surfaces (routing)
 

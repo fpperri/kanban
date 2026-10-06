@@ -54,22 +54,6 @@ test('UNLIKE every other scoped prefix, a bare review:/blocked: (no value) is a 
   assert.deepStrictEqual(parseSearchQuery('blocked:'), [{ field: 'blocked', value: '' }]);
 });
 
-// --- epic: bare-scope term -------------------------------
-
-test('UNLIKE every other scoped prefix (but like review:/blocked:), a bare epic: (no value) is a COMPLETE term, not dropped', () => {
-  assert.deepStrictEqual(parseSearchQuery('epic:'), [{ field: 'epic', value: '' }]);
-});
-
-test('UNLIKE review:/blocked:, epic: has no value form — anything after the colon is discarded, parsing identically to bare epic:', () => {
-  assert.deepStrictEqual(parseSearchQuery('epic:foo'), [{ field: 'epic', value: '' }]);
-  assert.deepStrictEqual(parseSearchQuery('epic:true'), [{ field: 'epic', value: '' }]);
-});
-
-test('epic: field name is case-insensitive, same as every other prefix', () => {
-  assert.deepStrictEqual(parseSearchQuery('EPIC:'), [{ field: 'epic', value: '' }]);
-  assert.deepStrictEqual(parseSearchQuery('Epic:'), [{ field: 'epic', value: '' }]);
-});
-
 test('bare text (no prefix) parses as a null-field term', () => {
   assert.deepStrictEqual(parseSearchQuery('foo'), [{ field: null, value: 'foo' }]);
 });
@@ -216,25 +200,6 @@ test('a bare `review: true`/`blocked: true` sticker (text unspecified) is presen
   assert.deepStrictEqual(idsFor3('review:x'), [], 'no text to substring-match against');
 });
 
-test('epic: bare term matches exactly the cards with epic===true', () => {
-  const cards = [
-    { id: 1, title: 'a', body: '', status: 'todo', priority: 'Normal', tags: [], epic: true },
-    { id: 2, title: 'b', body: '', status: 'todo', priority: 'Normal', tags: [], epic: false },
-    { id: 3, title: 'c', body: '', status: 'todo', priority: 'Normal', tags: [] }, // field absent
-  ];
-  const idsFor3 = (q) => filterCards(cards, parseSearchQuery(q)).map((c) => c.id);
-  assert.deepStrictEqual(idsFor3('epic:'), [1]);
-});
-
-test('epic: composes with the rest of the query by plain intersection (AND), same as every other scope', () => {
-  const cards = [
-    { id: 1, title: 'a', body: '', status: 'doing', priority: 'Normal', tags: [], epic: true },
-    { id: 2, title: 'b', body: '', status: 'todo', priority: 'Normal', tags: [], epic: true },
-  ];
-  const idsFor3 = (q) => filterCards(cards, parseSearchQuery(q)).map((c) => c.id);
-  assert.deepStrictEqual(idsFor3('epic: status:doing'), [1]);
-});
-
 test('bare text hits title + body + tags, not status/priority', () => {
   assert.deepStrictEqual(idsFor('auth').sort(), [1, 42]); // tag/title/body hits
   assert.deepStrictEqual(idsFor('high'), []); // only appears in priority — bare term must NOT match it
@@ -336,6 +301,7 @@ test('typing a bare fragment suggests it plain, plus every KNOWN_FIELDS scoped f
     { value: 'tags:@afk', label: 'tags:@afk' },
     { value: 'file:@afk', label: 'file:@afk' },
     { value: 'assignee:@afk', label: 'assignee:@afk' },
+    { value: 'type:@afk', label: 'type:@afk' },
   ]);
 });
 
@@ -362,4 +328,16 @@ test('multiple earlier terms all survive into value, space-joined, only the last
   assert.deepStrictEqual(items[0], { value: 'status:todo tags:ui af', label: 'af' });
   const assigneeItem = items.find((i) => i.label === 'assignee:af');
   assert.deepStrictEqual(assigneeItem, { value: 'status:todo tags:ui assignee:af', label: 'assignee:af' });
+});
+
+test('tree: and path: follow a parent written as the board\'s own name when the board is given', () => {
+  const cards = [
+    { id: 12, title: 'parent', body: '', status: 'doing', priority: 'Normal', tags: [] },
+    { id: 13, title: 'child', body: '', status: 'todo', priority: 'Normal', tags: [], parent: 'kanban#12' },
+    { id: 14, title: 'apart', body: '', status: 'todo', priority: 'Normal', tags: [] },
+  ];
+  const ids = (q, ctx) => filterCards(cards, parseSearchQuery(q), ctx).map((c) => c.id);
+  assert.deepStrictEqual(ids('tree:12', { board: 'kanban' }), [12, 13]);
+  assert.deepStrictEqual(ids('path:13', { board: 'kanban' }), [12, 13]);
+  assert.deepStrictEqual(ids('tree:12'), [12]);
 });

@@ -7,7 +7,8 @@ const {
   defaultGanttStatusFilter, mergeGanttStatusFilter,
   mapFilterColumn, mapFilterVisibleIds, ganttFilterVisibleIds, intersectVisibleIds,
   soloStatusFilter,
-  MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed } = require('../web/column-state');
+  MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed,
+  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar, mergeRollupCountArchived } = require('../web/column-state');
 
 test('DEFAULT_COLLAPSED has the four live columns expanded and Archive collapsed', () => {
   assert.deepStrictEqual(DEFAULT_COLLAPSED, {
@@ -420,4 +421,32 @@ test('soloStatusFilter treats a missing filter key as ON, same defensive convent
   // col itself missing (never merged in) still counts as "on" when checking whether it's already soloed alone.
   const filter = { backlog: false, todo: false, doing: false, done: false }; // 'archive' key absent -> defensively ON
   assert.deepStrictEqual(soloStatusFilter(filter, COLUMN_IDS, 'archive'), COLUMN_IDS.reduce((o, id) => (o[id] = true, o), {}));
+});
+
+test('mergeRollupBar keeps open or collapsed and falls back to collapsed', () => {
+  assert.deepStrictEqual(ROLLUP_BAR_MODES, ['open', 'collapsed']);
+  for (const mode of ROLLUP_BAR_MODES) assert.strictEqual(mergeRollupBar(mode), mode);
+  for (const junk of [undefined, null, '', 'thin', 'OPEN', 'on', 7, true, {}, ['open']]) {
+    assert.strictEqual(mergeRollupBar(junk), 'collapsed', `${JSON.stringify(junk)} reads as the default`);
+  }
+});
+
+test('a browser that saved off reads as collapsed', () => {
+  assert.strictEqual(mergeRollupBar('off'), 'collapsed');
+});
+
+test('nextRollupBar flips between open and collapsed, and an unreadable value counts as collapsed', () => {
+  assert.strictEqual(nextRollupBar('open'), 'collapsed');
+  assert.strictEqual(nextRollupBar('collapsed'), 'open');
+  assert.strictEqual(nextRollupBar('off'), 'open');
+  assert.strictEqual(nextRollupBar(undefined), 'open');
+  assert.strictEqual(nextRollupBar(nextRollupBar(nextRollupBar('open'))), 'collapsed');
+});
+
+test('mergeRollupCountArchived counts archived leaves unless the saved choice is exactly "false"', () => {
+  assert.strictEqual(mergeRollupCountArchived('true'), true);
+  assert.strictEqual(mergeRollupCountArchived('false'), false);
+  for (const junk of [undefined, null, '', 'no', '0', 'FALSE', 0, {}]) {
+    assert.strictEqual(mergeRollupCountArchived(junk), true, `${JSON.stringify(junk)} reads as the default`);
+  }
 });

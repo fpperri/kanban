@@ -16,8 +16,8 @@
 //   ("finished, approve me" — ADR 0009). Both share ONE presence predicate:
 //   the trimmed value contains >= 1 alphanumeric character, with the YAML
 //   boolean special-case: `false`/`no` -> not present; `true` -> present,
-//   text unspecified. Tolerant any-case reads, same stance as the epic
-//   flag's reader. Unlike `blocked`, `review` does NOT gate `doing` entry.
+//   text unspecified. Tolerant any-case reads.
+//   Unlike `blocked`, `review` does NOT gate `doing` entry.
 
 // The shared sticker-presence predicate. Takes the RAW field value (string
 // from frontmatter/JSON, or a real boolean from an API body) — never a card.

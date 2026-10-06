@@ -48,8 +48,8 @@ test('q and view compose without a card', () => {
 });
 
 test('all three keys compose', () => {
-  assert.deepStrictEqual(parseDeepLink('?card=42&q=epic%3A&view=map'), {
-    hasCard: true, id: 42, q: 'epic:', view: 'map',
+  assert.deepStrictEqual(parseDeepLink('?card=42&q=type%3Aepic&view=map'), {
+    hasCard: true, id: 42, q: 'type:epic', view: 'map',
   });
 });
 
@@ -78,8 +78,8 @@ test('an unusable "card" value still delivers q and view', () => {
 // hasCard is what separates "never asked for a card" from "asked with a bad
 // value" — both leave id null, but only the second owes the user a toast.
 test('hasCard distinguishes an absent card key from an unusable one', () => {
-  assert.strictEqual(parseDeepLink('?q=epic%3A').hasCard, false);
-  assert.strictEqual(parseDeepLink('?card=abc&q=epic%3A').hasCard, true);
+  assert.strictEqual(parseDeepLink('?q=type%3Aepic').hasCard, false);
+  assert.strictEqual(parseDeepLink('?card=abc&q=type%3Aepic').hasCard, true);
 });
 
 test('an empty or whitespace-only "q" reads as absent, not as a match-everything filter', () => {
@@ -122,7 +122,7 @@ test('the shop status page URL shapes parse', () => {
 test('leading zeros / extra params / order do not matter', () => {
   assert.deepStrictEqual(parseDeepLink('?card=007&view=board'), { hasCard: true, id: 7, q: null, view: 'board' });
   assert.deepStrictEqual(parseDeepLink('?view=board&card=194&extra=1'), { hasCard: true, id: 194, q: null, view: 'board' });
-  assert.deepStrictEqual(parseDeepLink('?extra=1&q=epic%3A&card=5'), { hasCard: true, id: 5, q: 'epic:', view: null });
+  assert.deepStrictEqual(parseDeepLink('?extra=1&q=type%3Aepic&card=5'), { hasCard: true, id: 5, q: 'type:epic', view: null });
 });
 
 test('non-string input never throws — resolves to null', () => {

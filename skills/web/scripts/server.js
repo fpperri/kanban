@@ -5,6 +5,7 @@ const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
 const cfg = require('./config-store');
+const nesting = require('../web/nesting');
 
 const WEB = path.join(__dirname, '..', 'web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -167,6 +168,19 @@ function readBody(req) {
   });
 }
 
+// A neighbour in a reorder body: a card id, null when absent, undefined when
+// it is neither.
+function readNeighbour(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return v;
+  if (typeof v === 'string' && /^\d+$/.test(v.trim())) return Number(v);
+  return undefined;
+}
+
+function boardName(dir, config) {
+  return config.name || cs.projectName(dir);
+}
+
 function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -189,7 +203,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           // else the parent-folder derivation. Wire name kept as projectName —
           // it is also the localStorage namespace for every per-board view
           // preference, so renaming the field would orphan saved state.
-          projectName: config.name || cs.projectName(dir),
+          projectName: boardName(dir, config),
           // the header copy button copies the board dir's ABSOLUTE
           // path — resolve()d because the CLI defaults dir to a relative
           // '.kanban'/'kanban' (resolveDefaultBoardDir()), and a relative
@@ -202,11 +216,12 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           priorities: config.priorities,
           tags: config.tags,
           statuses: config.statuses, // ordered column list; [] = built-in four
+          types: config.types, // [{name, color}] card-type vocabulary; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(WEB, 'app.html'));
-      if (req.method === 'GET' && (p === '/app.css' || p === '/app.js' || p === '/refresh-policy.js' || p === '/column-state.js' || p === '/column-sort.js' || p === '/search.js' || p === '/waiting-blocked.js' || p === '/dependency-graph.js' || p === '/map-zoom.js' || p === '/modal-fullscreen.js' || p === '/assignee-badge.js' || p === '/priority-badge.js' || p === '/card-title.js' || p === '/combobox.js' || p === '/bulk-edit.js' || p === '/prose.js' || p === '/notifications.js' || p === '/form-guard.js' || p === '/selection.js' || p === '/calendar-model.js' || p === '/gantt-model.js' || p === '/date-picker.js' || p === '/status-colors.js' || p === '/save-hotkey.js' || p === '/search-hotkey.js' || p === '/assignee-colors.js' || p === '/deep-link.js' || p === '/card-history.js' || p === '/favicon.svg')) {
+      if (req.method === 'GET' && (p === '/app.css' || p === '/app.js' || p === '/refresh-policy.js' || p === '/column-state.js' || p === '/column-sort.js' || p === '/search.js' || p === '/waiting-blocked.js' || p === '/dependency-graph.js' || p === '/nesting.js' || p === '/map-zoom.js' || p === '/modal-fullscreen.js' || p === '/assignee-badge.js' || p === '/priority-badge.js' || p === '/type-badge.js' || p === '/rollup-bar.js' || p === '/card-title.js' || p === '/combobox.js' || p === '/bulk-edit.js' || p === '/prose.js' || p === '/notifications.js' || p === '/form-guard.js' || p === '/selection.js' || p === '/calendar-model.js' || p === '/gantt-model.js' || p === '/date-picker.js' || p === '/status-colors.js' || p === '/save-hotkey.js' || p === '/search-hotkey.js' || p === '/assignee-colors.js' || p === '/deep-link.js' || p === '/card-history.js' || p === '/favicon.svg')) {
         return serveStatic(res, path.join(WEB, path.basename(p)));
       }
 
@@ -235,7 +250,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           throw e;
         }
       }
-      const m = p.match(/^\/api\/cards\/(\d+)(\/archive|\/restore|\/detail)?$/);
+      const m = p.match(/^\/api\/cards\/(\d+)(\/archive|\/restore|\/detail|\/reorder)?$/);
       if (m) {
         const id = Number(m[1]);
         if (!cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${id}` });
@@ -271,6 +286,23 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           }
         }
         if (req.method === 'POST' && m[2] === '/restore') return sendJSON(res, 200, cs.toJSON(cs.restoreCard(dir, id)));
+        // Each card is written on its own, with no transaction across them: a
+        // failure part-way leaves the cards before it written.
+        if (req.method === 'POST' && m[2] === '/reorder') {
+          const body = (await readBody(req)) || {};
+          const prev = readNeighbour(body.prev);
+          const next = readNeighbour(body.next);
+          if (prev === undefined || next === undefined) return sendJSON(res, 400, { error: 'prev and next must be card ids' });
+          const config = cfg.readConfig(dir);
+          const cards = cs.listActive(dir).concat(cs.listArchived(dir)).filter((c) => !c.unparseable);
+          const plan = nesting.reorderPlan(cards, id, { prev, next }, { board: boardName(dir, config), priorities: config.priorities });
+          if (plan.error) return sendJSON(res, 400, { error: plan.error });
+          const written = nesting.reorderWrites(id, plan).map((w) => cs.toJSON(cs.updateCard(dir, w.id, { rank: w.rank })));
+          return sendJSON(res, 200, {
+            card: written.find((c) => c.id === id) || cs.toJSON(cards.find((c) => c.id === id)),
+            renumbered: written.filter((c) => c.id !== id),
+          });
+        }
         if (req.method === 'DELETE' && !m[2]) { cs.deleteCard(dir, id); return sendJSON(res, 200, { ok: true }); }
       }
 

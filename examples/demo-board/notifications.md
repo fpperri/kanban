@@ -16,3 +16,9 @@
   level: info
   message: "Card #6 moved to doing; more: rounding spec #5 landed done, so the settlement engine's wait cleared and the gate let it in."
   read: false
+- id: 4
+  at: 2026-10-06T03:23:58
+  from: "skill:kanban"
+  level: info
+  message: "Migrated 1 card from epic: true to type: epic; more: `examples#1 Launch Tallybird v1.0`, each with updated bumped."
+  read: false

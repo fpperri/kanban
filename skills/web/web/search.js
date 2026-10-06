@@ -18,22 +18,18 @@
 //                 lowercasing logic runs, so it shares every rule below with
 //                 the long form (case-insensitive substring, dropped when
 //                 valueless mid-typing).
+//   type:objective substring on the card's type (free text; the board's
+//                 `types:` list only suggests names, it never filters).
 //   review: / blocked:   sticker scopes (ADR 0009) — UNLIKE every
 //                 KNOWN_FIELDS scope above, a bare `review:`/`blocked:` (no
 //                 value) is a COMPLETE term meaning "the sticker is present"
 //                 (the shared isReviewValue/isBlockedValue predicate), never
 //                 dropped as mid-typing. `review:PR` / `blocked:vendor` is a
 //                 case-insensitive substring match on the sticker's text.
-//   epic:         bare `epic:` is a COMPLETE term, same
-//                 never-dropped shape as review:/blocked: above, meaning
-//                 "card.epic is true". UNLIKE review:/blocked:, epic: has NO
-//                 value form — anything typed after the colon is parsed
-//                 but ignored, so `epic:foo` matches exactly what `epic:`
-//                 does. No negation either.
 //   tree:74 / tree:#74   card #74's dependency tree — the connected component
 //                 (undirected) reachable from card 74 over the edges the
-//                 map's graph is built from (waiting_for + parent: membership —
-//                 membership shapes layout but draws no line).
+//                 map's graph is built from (waiting_for + parent edges —
+//                 parent edges shape layout but draw no line).
 //   path:74 / path:#74   card #74's dependency path — the directed cone:
 //                 everything transitively upstream + downstream through card
 //                 74, over the same edges. Narrower than tree: (excludes
@@ -59,7 +55,7 @@ const DG = (typeof module !== 'undefined' && module.exports) ? require('./depend
 // page scope (every web/*.js top-level name must be unique).
 const WBS = (typeof module !== 'undefined' && module.exports) ? require('./waiting-blocked') : window;
 
-const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee'];
+const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
 // tree:/path: are deliberately NOT in KNOWN_FIELDS — that array drives the
 // lowercased-substring value semantics, which don't apply to a numeric id.
 const GRAPH_FIELDS = ['tree', 'path'];
@@ -67,12 +63,6 @@ const GRAPH_FIELDS = ['tree', 'path'];
 // bare value is a valid presence term (unlike KNOWN_FIELDS, where a bare
 // scope is dropped as mid-typing), so they're parsed separately below.
 const STICKER_FIELDS = ['review', 'blocked'];
-// epic: is its own single-field family — bare presence,
-// never dropped (same shape as STICKER_FIELDS), but with NO value form:
-// unlike review:/blocked:, whatever follows the colon is discarded rather
-// than kept for a substring match, since "epic" is a plain boolean flag with
-// no text of its own to search.
-const EPIC_FIELDS = ['epic'];
 // `A:`/`a:` is a thin alias for `assignee:` — resolved here,
 // before the KNOWN_FIELDS check, so the alias falls through the exact same
 // value/lowercasing path as the long form rather than duplicating it.
@@ -104,13 +94,6 @@ function parseTerm(token) {
     if (STICKER_FIELDS.includes(key)) {
       return { field: key, value: prefixed[2].trim().toLowerCase() };
     }
-    // Bare epic: is itself a complete "epic-marked" term —
-    // always returned like the sticker fields above, but the value is never
-    // kept (no value form): `epic:` and `epic:anything` parse
-    // identically.
-    if (EPIC_FIELDS.includes(key)) {
-      return { field: key, value: '' };
-    }
   }
 
   return { field: null, value: token.toLowerCase() };
@@ -133,16 +116,13 @@ function termMatchesCard(term, card) {
     case 'tags': return tags.some((t) => t.toLowerCase().includes(term.value));
     case 'file': return (card.file || '').toLowerCase().includes(term.value);
     case 'assignee': return (card.assignee || '').toLowerCase().includes(term.value);
+    case 'type': return (card.type || '').toLowerCase().includes(term.value);
     // ADR 0009: bare (no value) = the shared presence predicate; a value =
     // case-insensitive substring on the sticker's own text (never the raw
     // field — a bare `true` sticker's text is '', which no non-empty
     // substring term matches, exactly mirroring the pill's own label).
     case 'review': return term.value ? WBS.reviewReason(card.review).toLowerCase().includes(term.value) : WBS.isReviewValue(card.review);
     case 'blocked': return term.value ? WBS.blockedReason(card.blocked).toLowerCase().includes(term.value) : WBS.isBlockedValue(card.blocked);
-    // epic: is a pure presence check on the boolean flag —
-    // term.value is always '' (parseTerm discards it), so there's no
-    // substring branch to mirror review:/blocked:'s.
-    case 'epic': return card.epic === true;
     // pre-resolved by filterCards (below) into an id Set — a raw,
     // unresolved 'tree'/'path' term has no graph to resolve against here (a
     // single (term, card) pair isn't enough), so it matches nothing rather
@@ -164,8 +144,8 @@ function cardMatchesQuery(card, terms) {
 // resolved ONCE here, up front, against `cards` (the same array filterCards
 // was called with), via dependency-graph.js's treeIds/pathIds — which in turn
 // build their adjacency from buildDependencyGraph(cards, null).edges, the
-// exact edge set (waiting_for + membership) the map's graph is built from
-// (membership shapes layout but draws no line). Each 'tree'/
+// exact edge set (waiting_for + parent edges) the map's graph is built from
+// (parent edges shape layout but draw no line). Each 'tree'/
 // 'path' term becomes an 'ids' term (an already-resolved Set) before the
 // per-card cardMatchesQuery pass runs, so termMatchesCard's 'ids' case stays a
 // pure, cheap Set.has() with no graph access of its own.
@@ -176,19 +156,21 @@ function cardMatchesQuery(card, terms) {
 // never a pre-filtered subset — traversal is always over live + archived
 // cards, by design. A subset would silently produce a
 // wrong/smaller graph with no error.
-function resolveGraphTerms(cards, terms) {
+function resolveGraphTerms(cards, terms, ctx) {
   if (!terms.some((t) => t.field === 'tree' || t.field === 'path')) return terms;
   return terms.map((term) => {
-    if (term.field === 'tree') return { field: 'ids', value: term.value, ids: DG.treeIds(cards, term.value) };
-    if (term.field === 'path') return { field: 'ids', value: term.value, ids: DG.pathIds(cards, term.value) };
+    if (term.field === 'tree') return { field: 'ids', value: term.value, ids: DG.treeIds(cards, term.value, ctx) };
+    if (term.field === 'path') return { field: 'ids', value: term.value, ids: DG.pathIds(cards, term.value, ctx) };
     return term;
   });
 }
 
-// Convenience: empty terms means "no active query" — everything matches.
-function filterCards(cards, terms) {
+// Convenience: empty terms means "no active query" — everything matches. `ctx`
+// is the nesting context ({ board }), which tree:/path: need to read a parent
+// written as this board's own name.
+function filterCards(cards, terms, ctx) {
   if (!terms.length) return cards;
-  const resolved = resolveGraphTerms(cards, terms);
+  const resolved = resolveGraphTerms(cards, terms, ctx);
   return cards.filter((card) => cardMatchesQuery(card, resolved));
 }
 

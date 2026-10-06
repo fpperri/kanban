@@ -70,19 +70,14 @@ every single time and the ceremony is pure overhead forever.
 
 A search box under the header filters every view at once — same query grammar
 as kanban-web: terms AND together, `#id`/`id:` exact,
-`title:`/`body:`/`status:`/`priority:`/`tags:`/`file:` scoped substrings,
+`title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
 bare terms hit title+body+tags. `review:`/`blocked:` (ADR 0009)
 are their own family: UNLIKE every scope above, a bare `review:`/`blocked:`
 (no value) is itself a complete term — "the sticker is present" (the shared
 predicate) — never dropped as mid-typing; `review:PR`/`blocked:vendor` is a
-case-insensitive substring match on the sticker's own text. `epic:`
-is its own single-field family, same never-dropped bare
-shape as `review:`/`blocked:` above, matching every card with `epic: true` —
-but with **no value form and no negation**: whatever follows the colon is
-discarded, so `epic:` and `epic:foo` parse identically, and it filters every
-view (board/map/gantt/calendar), not just the map. `tree:<id>`/`path:<id>`
+case-insensitive substring match on the sticker's own text. `tree:<id>`/`path:<id>`
 (`#`-tolerant, e.g. `tree:#153`): tree is the card's whole dependency
-component (undirected flood-fill over `waiting_for` + `parent:` epic
+component (undirected flood-fill over `waiting_for` + `parent:`
 membership — the same edges the Map view's graph is built from, though
 membership itself draws no line there); path is the narrower
 directed cone through the card (everything transitively upstream +
@@ -175,14 +170,50 @@ writes `tree:<id>`/`path:<id>` into the search box and closes the sheet, no
 view switch; the view underneath re-filters itself immediately (Map redraws
 the pruned graph with ghost stubs where a cone edge exits the focus, Board
 shows only the focused cards in their columns, same machinery every other
-search term uses). Map view's own status-pill row also carries an
-**"Epics" chip** (map view only) that toggles the `epic:` search term into
-the box — tap sets it, tap again clears it — same "write straight into the
-box, then re-render" pattern as the Dependency tree/path buttons above, but
-a toggle rather than an overwrite. Epic-marked matches render as full map
-nodes; their members still render as the usual dimmed ghost stubs, and
-tapping an epic node opens its detail sheet with the same "Dependency
-tree"/"Dependency path" buttons described above.
+search term uses).
+
+## Nested cards
+
+The page embeds `skills/web/web/nesting.js` as is, so which card sits under which,
+outline order, the thread and the roll-up counts are kanban-web's own rules, with
+nothing to sync by hand; `test/nesting-embed.test.js` pins the embedded source to
+that file, and the build refuses a module that could close its own script element.
+The build reads that file from the kanban-web skill installed beside this one, so
+install the two together: a snapshot-only install exits with a message naming the
+missing file.
+
+What the page draws with those answers is its own code, and three small helpers are
+written twice, each beside a twin in kanban-web: `typeColor` (the type color match;
+`typeColor` in `type-badge.js`), `rollupSegs` (the order of a roll-up bar's segments;
+`rollupSegments` in `rollup-bar.js`) and `rollupBlock` (the sheet's counts and scope
+line; `rollupBar` and `rollupScopeLine` in `rollup-bar.js`). Change one and change
+its twin; `test/nesting-parity.test.js` fails when they stop giving the same answers.
+
+- **Type chips.** A card with a `type` wears a chip, in the color its `config.yaml`
+  `types:` entry gives it (the names match without regard to case) and neutral when
+  the entry has no color or the list does not name the type at all. The list only
+  suggests: any word is a type.
+- **Outline order.** On a board where any card has a `rank` or a `parent`, every
+  status section lists its cards in outline order: parents before their children,
+  siblings by rank, then by priority (the `priorities:` order), then by id. A board
+  with neither keeps its card order.
+- **Roll-ups.** A parent card shows its altitude badge (the layers below it, `▲n`)
+  and a thin bar of the status of the leaves under it. Its sheet opens the bar with
+  the counts, says the roll-up counts this board only, and counts archived leaves
+  as done, as kanban-web does by default; there is no switch for that here.
+- **The thread.** A card's sheet shows its parents above it, root first, and lists
+  its children below the description in rank order. Each entry is a mention chip
+  that opens that card. A parent on another board is named and marked not followed,
+  a parent that is not on the board is marked unresolved, an archived parent is marked
+  archived like an archived child, and a loop of parents is flagged where it repeats.
+- **Changing type and parent.** The sheet's type pill picks from the declared types
+  (plus the card's own and none), and the All fields grid always offers `type` and
+  `parent` (a number, or `board#id` for another board's card). Both queue as an
+  `edit` op's `fm`, like any other field, and a queued change shows at once in the
+  chips, the order, the roll-ups and the thread.
+- **Rank is not editable here.** The grid hides `rank` even on a card that has one,
+  and no other control writes it: reorder cards by dragging in kanban-web, or
+  conversationally. A half-working reorder would be worse than none.
 
 ## The change loop
 
@@ -435,6 +466,17 @@ must not steal the drag gesture the way it once stole mobile's
 swipe-down.
 
 ## What the editor deliberately does not do
+
+**No rank editing.** A card's place among its siblings is changed by dragging in
+kanban-web, or by asking; the payload never carries `rank` (see "Nested cards").
+
+**No warning for a parent marked done with leaves open.** kanban-web warns, after the
+save, when a parent is marked done while leaves below it are open. Here a move to
+`done` queues like any other and says nothing, since the page only queues changes for
+Claude to apply; read the parent's roll-up before marking it done.
+
+**No bar mode.** kanban-web's Bar select (open, collapsed or off) has no counterpart:
+a parent's tile always carries the thin bar and its sheet the open one.
 
 Archived cards are read-only in the tap UI — restore or edit them
 conversationally or in kanban-web. Everything else on a live card is tap-
