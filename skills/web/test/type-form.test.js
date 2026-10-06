@@ -113,7 +113,7 @@ function loadOpenModal(form) {
     state: {},
     formSnapshot: null,
     renderStatusOptions() {}, boardStatuses: () => ['todo'], syncBlockedInputStyle() {}, syncReviewInputStyle() {},
-    setPromptRowVisible() {}, syncAssigneeColor() {}, isMinimalCreate: () => false, applyModalFullscreen() {},
+    setPromptRowVisible() {}, syncAssigneeColor() {}, syncNestingFieldValidity() {}, isMinimalCreate: () => false, applyModalFullscreen() {},
     snapshotFormFields() { return {}; },
   };
   sandbox.$ = (sel) => {

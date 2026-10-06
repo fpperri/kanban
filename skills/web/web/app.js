@@ -1967,6 +1967,7 @@ function openModal(card, presetStatus, presetStart) {
   $('#f-priority').value = card ? card.priority : 'Normal';
   $('#f-parent').value = card && card.parent != null ? String(card.parent) : '';
   $('#f-rank').value = card && card.rank != null ? String(card.rank) : '';
+  syncNestingFieldValidity();
   $('#f-type').value = card && card.type ? card.type : '';
   $('#f-tags').value = card ? card.tags.join(', ') : '';
   $('#f-waiting').value = card ? card.waiting_for.join(', ') : '';
@@ -2027,6 +2028,23 @@ function parseTags(s) {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
 }
 
+// A blank Parent or Rank clears its line, so text that reads as nothing must
+// stop the save instead of quietly deleting what the card had.
+function parentFieldProblem(text) {
+  const t = text.trim();
+  return t && !parseParent(t, state.projectName) ? 'A card number such as 42, or board#42. Clear the field to remove the parent.' : '';
+}
+
+function rankFieldProblem(text) {
+  const t = text.trim();
+  return t && parseRank(t) === null ? 'A number such as 10 or 12.5. Clear the field to remove the rank.' : '';
+}
+
+function syncNestingFieldValidity() {
+  $('#f-parent').setCustomValidity(parentFieldProblem($('#f-parent').value));
+  $('#f-rank').setCustomValidity(rankFieldProblem($('#f-rank').value));
+}
+
 async function submitModal(e) {
   e.preventDefault();
   const id = $('#f-id').value;
@@ -2078,6 +2096,8 @@ window.addEventListener('DOMContentLoaded', () => {
     $('#card-form').classList.toggle('minimal', minimal);
   });
   $('#card-form').addEventListener('submit', submitModal);
+  $('#f-parent').addEventListener('input', syncNestingFieldValidity);
+  $('#f-rank').addEventListener('input', syncNestingFieldValidity);
   $('#f-blocked').addEventListener('input', syncBlockedInputStyle); // live red-border feedback
   $('#f-review').addEventListener('input', syncReviewInputStyle); // ADR 0009: live gold-border feedback
   $('#f-prompt').addEventListener('input', updateTitleRequired); // typing/clearing the prompt live-toggles whether Title is required
