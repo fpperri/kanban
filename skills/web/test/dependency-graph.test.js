@@ -367,10 +367,9 @@ test('sequencing wins the UNORDERED pair: a dep edge between child and parent in
     { id: 11, title: 'child+dep', status: 'todo', parent: 10, waiting_for: [10] },
   ], null);
   assert.deepStrictEqual(a.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['10->11:dep']);
-  // parent waits on its child (the natural wayfinder shape) — same-direction
-  // overlap would draw orange over grey. Cross-card: the dep lives on the
-  // EPIC's waiting_for, the membership on the CHILD's parent — the two-pass
-  // edge build is what lets this suppression see it.
+  // parent waits on its child: the dependency lives on the parent's
+  // waiting_for and the parent edge on the child's parent, so only the
+  // two-pass edge build can see the overlap and suppress it.
   const b = buildDependencyGraph([
     { id: 10, title: 'parent', status: 'doing', waiting_for: [11] },
     { id: 11, title: 'child', status: 'todo', parent: 10, waiting_for: [] },
