@@ -132,7 +132,7 @@ test('a saved off flips to open on the first click, since it was reading as coll
 // --- the click grammar ------------------------------------------------------------
 
 function sharedClickHandler() {
-  const m = appSrc.match(/document\.addEventListener\('click', \(e\) => \{\n    if \(e\.target\.closest\('\.rollup'\)\)[\s\S]*?\n  \}\);/);
+  const m = appSrc.match(/document\.addEventListener\('click', \(e\) => \{\n    if \(e\.target\.closest\('\.rollup'\)[\s\S]*?\n  \}\);/);
   assert.ok(m, 'the shared card click handler opens with a roll-up check');
   return m[0];
 }
@@ -214,4 +214,24 @@ test('the collapsed detail block drops the framed box so the bar costs a few pix
   assert.match(rule[1], /padding:\s*0/);
   assert.match(rule[1], /border:\s*0|border:\s*none/);
   assert.doesNotMatch(rule[1], /#[0-9a-fA-F]{3,8}\b/);
+});
+
+test('a ctrl, cmd or shift click on a bar is left to multi-select, not the bar toggle', () => {
+  for (const key of ['ctrlKey', 'metaKey', 'shiftKey']) {
+    const { click, sandbox } = clickHarness();
+    const e = clickOn({ '.rollup': {}, '.card-el': { dataset: { id: '1' } } });
+    e[key] = true;
+    try { click(e); } catch (_) { /* the selection grammar may reach globals this harness does not stub */ }
+    assert.strictEqual(sandbox.calls.toggle, 0, key);
+  }
+});
+
+test('changing the Bar select or the Archived box repaints an open detail too', () => {
+  const src = read('app.js');
+  for (const id of ['#rollup-bar-mode', '#rollup-archived']) {
+    const at = src.indexOf(`$('${id}').addEventListener('change'`);
+    assert.ok(at > 0, id);
+    const body = src.slice(at, src.indexOf('});', at));
+    assert.match(body, /if \(currentDetailId != null\) renderDetailRollup\(currentDetailId\);/, id);
+  }
 });

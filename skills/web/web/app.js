@@ -798,11 +798,13 @@ window.addEventListener('DOMContentLoaded', () => {
     rollupBarMode = mergeRollupBar(e.target.value);
     saveRollupBarMode();
     renderBoard();
+    if (currentDetailId != null) renderDetailRollup(currentDetailId);
   });
   $('#rollup-archived').addEventListener('change', (e) => {
     rollupCountArchived = e.target.checked;
     saveRollupCountArchived();
     renderBoard();
+    if (currentDetailId != null) renderDetailRollup(currentDetailId);
   });
 });
 
@@ -4864,6 +4866,8 @@ function openCardContextMenu(e, id) {
 // mention with a menu of its own) keep the browser's behaviour.
 function onDetailContextMenu(e) {
   if (currentDetailId == null || e.defaultPrevented) return;
+  // Links and images keep the browser's own menu (open in new tab, copy link).
+  if (e.target && e.target.closest && e.target.closest('a, img')) return;
   const picked = window.getSelection();
   if (picked && !picked.isCollapsed) return;
   openCardContextMenu(e, currentDetailId);
@@ -5197,7 +5201,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // this runs before the Q0 clear-selection handler below, so a plain click
   // on a card empties the selection here and Q0 then no-ops.
   document.addEventListener('click', (e) => {
-    if (e.target.closest('.rollup')) { toggleRollupBar(); return; }
+    if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
     if (!el) return;
     if (e.target.closest('button, select, input, a')) return;

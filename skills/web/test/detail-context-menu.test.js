@@ -132,3 +132,13 @@ test('loadBoard refreshes the popup once the new board is applied', () => {
   const body = fn('loadBoard');
   assert.ok(body.indexOf('applyBoardData(') > -1 && body.indexOf('applyBoardData(') < body.indexOf('refreshOpenDetail()'));
 });
+
+test('a right-click on a link or an image in the detail keeps the browser menu', () => {
+  for (const tag of ['a', 'img']) {
+    const s = menuSandbox({ detailId: 7 });
+    const e = rightClick({ target: { closest: (sel) => (sel === 'a, img' ? { tagName: tag } : null) } });
+    s.onDetailContextMenu(e);
+    assert.deepStrictEqual(s.calls.menu, []);
+    assert.strictEqual(e.prevented, false);
+  }
+});
