@@ -84,6 +84,13 @@ test('a visible card whose only relation is a hidden one is in a graph, beside t
   assert.deepStrictEqual(view.graphs[0].ghosts.map((g) => g.id), [1]);
 });
 
+test('a card that blocks others is in a graph, not in No relations, even when a filter hides every card it blocks', () => {
+  const view = shape([card(1, 'done'), card(2, 'todo', { waiting_for: [1] }), card(3, 'todo', { waiting_for: [2] }), card(4, 'backlog')], {}, new Set([1, 4]));
+  assert.deepStrictEqual(view.noRelations, [4]);
+  assert.deepStrictEqual(view.graphs.flatMap((g) => g.ids).sort(), [1, 2]);
+  assert.deepStrictEqual(view.graphs[0].ghosts.map((g) => g.id), [2]);
+});
+
 test('a card whose parent is on another board is in a graph with that stub, not in No relations', () => {
   const view = shape([card(2, 'todo', { parent: 'shop#7' }), card(3, 'todo')]);
   assert.deepStrictEqual(view.noRelations, [3]);
