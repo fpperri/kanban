@@ -32,21 +32,6 @@ test('archived cards are included as full nodes (archive is a location, not excl
   assert.strictEqual(five.archived, true);
 });
 
-test('nodes carry the epic flag as a boolean — set, unset, and ghost stubs alike', () => {
-  const cards = [
-    { id: 1, title: 'Epic Root', status: 'todo', waiting_for: [], archived: false, epic: true },
-    { id: 2, title: 'Plain', status: 'todo', waiting_for: [1, 9], archived: false },
-  ];
-  const g = buildDependencyGraph(cards, null);
-  assert.strictEqual(g.nodes.find((n) => n.id === 1).epic, true);
-  assert.strictEqual(g.nodes.find((n) => n.id === 2).epic, false, 'missing flag defaults false, always a boolean');
-  // A hidden epic ghosts with its flag (buildMapSvg dims it either way); a
-  // dangling-id stub has no card behind it — never epic.
-  const filtered = buildDependencyGraph(cards, new Set([2]));
-  assert.strictEqual(filtered.ghosts.find((gh) => gh.id === 1).epic, true);
-  assert.strictEqual(filtered.ghosts.find((gh) => gh.id === 9).epic, false);
-});
-
 test('nodes carry the raw priority string, defaulting to "" when unset — classification into high/low stays app.js\'s job (priorityBadge)', () => {
   const cards = [
     { id: 1, title: 'Hot', status: 'todo', waiting_for: [], archived: false, priority: 'High' },
@@ -156,7 +141,7 @@ test('a stale/dangling waiting_for id (references a card that no longer exists) 
   const g = buildDependencyGraph(cards, null);
   assert.strictEqual(g.edges.length, 1);
   assert.deepStrictEqual(g.edges[0], { from: 999, to: 10, kind: 'dep', fromGhost: true, toGhost: false });
-  assert.deepStrictEqual(g.ghosts, [{ id: 999, title: null, status: null, archived: false, epic: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }]); // epic joined the node shape; priority/waiting joined it; blocked/blockedReason = the manual sticker
+  assert.deepStrictEqual(g.ghosts, [{ id: 999, title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }]); // priority/waiting joined the node shape; blocked/blockedReason = the manual sticker
 });
 
 test('a duplicate waiting_for entry collapses to a single edge', () => {
@@ -271,7 +256,7 @@ test('layerNodes on a larger graph with an embedded cycle still terminates and l
 // --- epic membership edges (children carry `parent: <epic-id>`) ----
 
 const epicBoard = [
-  { id: 10, title: 'the epic', status: 'doing', epic: true, waiting_for: [] },
+  { id: 10, title: 'the epic', status: 'doing', waiting_for: [] },
   { id: 11, title: 'child a', status: 'todo', parent: 10, waiting_for: [] },
   { id: 12, title: 'child b', status: 'todo', parent: 10, waiting_for: [11] },
 ];
@@ -288,7 +273,7 @@ test('only TERMINAL members hop to the epic — the chain flows card to card, on
 
 test('an intra-epic dep edge is flagged epicChain (both endpoints share the parent); mixed edges are not', () => {
   const g = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', epic: true, waiting_for: [] },
+    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
     { id: 11, title: 'member a', status: 'todo', parent: 10, waiting_for: [] },
     { id: 12, title: 'member b', status: 'todo', parent: 10, waiting_for: [11, 30] },
     { id: 30, title: 'outsider', status: 'todo', waiting_for: [11] },
@@ -303,7 +288,7 @@ test('an intra-epic dep edge is flagged epicChain (both endpoints share the pare
 
 test('a chainless member is its own terminal — it keeps a direct membership hop, nothing orphans silently', () => {
   const g = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', epic: true, waiting_for: [] },
+    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
     { id: 11, title: 'stray note', status: 'todo', parent: 10, waiting_for: [] },
   ], null);
   assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['11->10:epic']);
@@ -378,7 +363,7 @@ test('a parent on another board (board#id) adds no edge and no ghost: the map do
 test('sequencing wins the UNORDERED pair: a dep edge between child and epic in either direction suppresses the membership edge', () => {
   // child waits on its epic — opposite-direction overlap would fabricate a 2-cycle
   const a = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', epic: true, waiting_for: [] },
+    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
     { id: 11, title: 'child+dep', status: 'todo', parent: 10, waiting_for: [10] },
   ], null);
   assert.deepStrictEqual(a.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['10->11:dep']);
@@ -387,7 +372,7 @@ test('sequencing wins the UNORDERED pair: a dep edge between child and epic in e
   // EPIC's waiting_for, the membership on the CHILD's parent — the two-pass
   // edge build is what lets this suppression see it.
   const b = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', epic: true, waiting_for: [11] },
+    { id: 10, title: 'epic', status: 'doing', waiting_for: [11] },
     { id: 11, title: 'child', status: 'todo', parent: 10, waiting_for: [] },
   ], null);
   assert.deepStrictEqual(b.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['11->10:dep']);
@@ -395,7 +380,7 @@ test('sequencing wins the UNORDERED pair: a dep edge between child and epic in e
 
 test('participants: any-edge-touched nodes + ghosts, in the pure module — epic in both participants and isolated', () => {
   const g = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', epic: true, waiting_for: [] },
+    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
     { id: 11, title: 'child', status: 'todo', parent: 10, waiting_for: [] },
     { id: 12, title: 'loner', status: 'todo', waiting_for: [] },
   ], null);
@@ -466,7 +451,7 @@ test('treeIds on an epic is the same whole component as any member (undirected)'
 
 test('pathIds/treeIds respect membership-edge suppression — a suppressed membership edge (sequencing wins the pair) never appears in traversal', () => {
   const board = [
-    { id: 10, title: 'epic', status: 'doing', epic: true, waiting_for: [] },
+    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
     { id: 11, title: 'child+dep', status: 'todo', parent: 10, waiting_for: [10] },
     { id: 20, title: 'unrelated', status: 'todo', waiting_for: [] },
   ];
@@ -493,7 +478,7 @@ test('treeIds/pathIds tolerate a self-referencing waiting_for without hanging', 
 
 // the map node needs `prompt` so its own label can fall
 // back to it exactly like every other view (cardTitleDisplay, card-title.js).
-test('cardToNode carries prompt through onto the built node, same as title/status/epic', () => {
+test('cardToNode carries prompt through onto the built node, same as title/status', () => {
   const withPrompt = [{ id: 8, title: '', prompt: 'summarize the PR', status: 'backlog', waiting_for: [], archived: false }];
   const g = buildDependencyGraph(withPrompt, null);
   const node = g.nodes.find((n) => n.id === 8);

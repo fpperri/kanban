@@ -132,7 +132,6 @@ const SPOT_CHECKS = {
   'id-high': ['#ce212d', '#f85149'],
   'id-waiting': ['#906001', '#d29922'],
   'id-review': ['#7d6400', '#eac54f'],
-  'id-epic': ['#b34906', '#f0883e'],
   'blocked-ink': ['#b62324', '#fc6e63'],
   'blocked-bg': ['#fde8e6', '#3a1c21'],
   'review-ink': ['#7d6400', '#eac54f'],
@@ -146,14 +145,6 @@ Object.entries(SPOT_CHECKS).forEach(([name, [light, dark]]) => {
     assert.strictEqual(re.exec(mediaBlockOuter.body)[1], dark, `--${name} dark value (media)`);
     assert.strictEqual(re.exec(darkAttrRule.body)[1], dark, `--${name} dark value ([data-theme="dark"])`);
   });
-});
-
-test('epic-wash is the identical rgba() in both light and dark (per the brief\'s table)', () => {
-  const re = /--epic-wash:([^;]+);/;
-  const light = re.exec(rootRule.body)[1];
-  const dark = re.exec(mediaBlockOuter.body)[1];
-  assert.strictEqual(light, 'rgba(240, 136, 62, 0.12)');
-  assert.strictEqual(dark, 'rgba(240, 136, 62, 0.12)');
 });
 
 test('shadow/scrim/shadow-pop use the exact rgba() spacing of the web board tokens', () => {

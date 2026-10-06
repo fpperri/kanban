@@ -30,23 +30,10 @@ const BUILTIN_STATUS_COLORS = {
 // validated, so an unlisted on-disk `status: archive` — or `archived`, the
 // kanban/archived/ folder's own name and the likelier hand-typed spelling —
 // must mute like the archive column instead of hashing into a loud accent
-// ('archived' used to hash to done's exact purple). Orange is off the table
-// for any of this — epics claim it.
+// ('archived' used to hash to done's exact purple).
 // Lifted from #6e7681, which measured 3.69:1 as the archive column header on
 // the dark surface (the header is text, so it takes the 4.5:1 floor).
 const ARCHIVE_COLOR = '#868e9a';
-
-// The epic/wayfinder accent — orange, reserved among the fixed
-// colors (no built-in status or archive ever wears it). Same hex as
-// STATUS_PALETTE's orange slot on purpose: a
-// custom status can still hash there (determinism, not uniqueness, is the
-// hash contract). Circles are
-// reserved for STATUS alone, so an epic instead paints a faint
-// background wash on whatever surface it's on (epicColorSoft() below; each
-// surface's `.epic` CSS rule in app.css carries the actual paint). This
-// constant pins the hex via status-colors.test.js so CSS and JS can't
-// drift.
-const EPIC_COLOR = '#f0883e';
 
 // GitHub-dark accent scale — visually distinct from each other and legible on
 // the app's dark background. No grey slot: grey is ceded to archive, so
@@ -78,7 +65,6 @@ const LIGHT_STATUS_COLORS = {
   done: '#642cba',
 };
 const LIGHT_ARCHIVE_COLOR = '#626b75';
-const LIGHT_EPIC_COLOR = '#b34906';
 // Slot h sits a step deeper than the high-priority red, which it would otherwise
 // match in light: dark keeps the two apart by lightness (#ff7b72 / #f85149).
 const LIGHT_STATUS_PALETTE = ['#0266d7', '#117a32', '#906001', '#642cba', '#b93384', '#0c5f65', '#b34906', '#9e1c37'];
@@ -110,7 +96,6 @@ function themeColorTokens(theme) {
   out['id-review'] = signal.review;
   out['id-high-hover'] = signal.highHover;
   out['id-waiting-hover'] = signal.waitingHover;
-  out['id-epic'] = light ? LIGHT_EPIC_COLOR : EPIC_COLOR;
   return out;
 }
 
@@ -175,26 +160,6 @@ function statusColorSoft(status) {
   return `rgba(${r}, ${g}, ${b}, 0.12)`;
 }
 
-// Circles are reserved for STATUS alone, so an epic
-// instead washes its whole surface in a faint EPIC_COLOR tint — no dot
-// glyph. Same 12%-alpha
-// convention statusColorSoft above already uses for the gantt bar's
-// per-status fill, so the two read as one consistent "soft wash" language.
-// Every consuming surface just adds an `epic` class (app.js) — app.css
-// carries the actual rgba() per surface (`.card.epic`/`.cal-chip.epic`
-// share one rule; `.gantt-bar.epic`/`.map-node.epic rect` are their own
-// twins, since the bar's `background` is already spoken for by its
-// per-status fill and the map node paints via SVG `fill`, not CSS
-// `background`) — this function exists only so CSS and JS can't drift on the
-// exact value (pinned by status-colors.test.js). The
-// card detail popup is a surface too (`.modal.detail-modal.epic`) — same
-// class-toggle-on-open pattern, its own rule since `.modal`'s solid
-// background is spoken for like the gantt bar/map node above.
-function epicColorSoft() {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(EPIC_COLOR.slice(i, i + 2), 16));
-  return `rgba(${r}, ${g}, ${b}, 0.12)`;
-}
-
 // Tiny local HTML-attribute escape, same duplication call priority-badge.js's
 // badgeEscape already made rather than requiring assignee-badge.js's
 // escapeHtml cross-file for one line of logic — the raw on-disk status lands
@@ -243,10 +208,8 @@ function statusBadge(card) {
 // server.test.js, same discipline as every other locked contract here.
 // ARCHIVE_COLOR never varies per-card, so this needs no inline style at all;
 // a plain CSS class (.archived-dot, app.css) carries the fixed color. The map
-// SVG node's own twin lives in buildMapSvg (app.js): SVG has no <span> (an
-// epic is
-// a background wash, never a glyph in this sequence). Glyph order,
-// applied identically on every surface that carries more than one dot:
+// SVG node's own twin lives in buildMapSvg (app.js): SVG has no <span>. Glyph
+// order, applied identically on every surface that carries more than one dot:
 // status, archived.
 function archivedBadge() {
   return '<span class="archived-dot" title="Archived"></span>';
@@ -254,20 +217,18 @@ function archivedBadge() {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, EPIC_COLOR, isBuiltinStatus, statusHash, statusColor, statusColorClass, statusColorSoft, epicColorSoft, statusBadge, archivedBadge,
-    LIGHT_STATUS_COLORS, LIGHT_STATUS_PALETTE, LIGHT_ARCHIVE_COLOR, LIGHT_EPIC_COLOR, SIGNAL_COLORS, HASH_SLOTS, themeColorTokens, statusColorVar,
+    BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, isBuiltinStatus, statusHash, statusColor, statusColorClass, statusColorSoft, statusBadge, archivedBadge,
+    LIGHT_STATUS_COLORS, LIGHT_STATUS_PALETTE, LIGHT_ARCHIVE_COLOR, SIGNAL_COLORS, HASH_SLOTS, themeColorTokens, statusColorVar,
   };
 } else {
   window.BUILTIN_STATUS_COLORS = BUILTIN_STATUS_COLORS;
   window.STATUS_PALETTE = STATUS_PALETTE;
   window.ARCHIVE_COLOR = ARCHIVE_COLOR;
-  window.EPIC_COLOR = EPIC_COLOR;
   window.isBuiltinStatus = isBuiltinStatus;
   window.statusHash = statusHash;
   window.statusColor = statusColor;
   window.statusColorClass = statusColorClass;
   window.statusColorSoft = statusColorSoft;
-  window.epicColorSoft = epicColorSoft;
   window.statusBadge = statusBadge;
   window.archivedBadge = archivedBadge;
   window.HASH_SLOTS = HASH_SLOTS;

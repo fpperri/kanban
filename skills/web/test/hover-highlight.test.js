@@ -48,7 +48,7 @@ test('board tile: cardEl reads hoveredId via isHoverHighlighted and is Tab-reach
 });
 
 test('archived tile: archiveCardEl carries the same hover-highlight + tabIndex pair', () => {
-  assert.match(appJs, /archived-card' \+ \(showEpic && card\.epic \? ' epic' : ''\) \+ \(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /archived-card' \+ \(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
 });
 
 test('calendar chip: calendarChipEl (shared by the month grid AND the sub-month grids) carries hover-highlight + tabIndex', () => {
@@ -61,7 +61,7 @@ test('gantt bar: ganttBarEl carries hover-highlight + tabIndex, gated the same a
 });
 
 test('gantt gutter label: shares the bar\'s hover-highlight + tabIndex, same card-el parity .selected already has', () => {
-  assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(bar\.card\.epic \? ' epic' : ''\) \+ \(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
 });
 
 test('map node: the SVG group gates hover-highlight AND tabindex on `selectable`, same guard .selected uses — ghost/missing stubs stay inert', () => {
@@ -109,8 +109,8 @@ test('hoveredId is declared next to selectedIds/bulkDragIds, documented as survi
 });
 
 // --- CSS: a background wash, not an outline; a different tone from
-// .selected's navy so the two never read alike; declared so an epic card
-// still visibly responds AND a selected card still reads as selected.
+// .selected's navy so the two never read alike; declared so a status-colored
+// card still visibly responds AND a selected card still reads as selected.
 
 test('app.css washes every hover-highlight surface with one solid color, no outline', () => {
   assert.ok(appCss.includes(".card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: var(--hover-wash); }"));
@@ -125,16 +125,12 @@ test('the hover wash is a different tone from .selected\'s navy — they must ne
   assert.notStrictEqual(hover[1], selected[1], 'hover and selection never share a token');
 });
 
-test('cascade order: hover-highlight is declared AFTER every .epic wash / per-status background above it, so an epic or colored card still visibly responds to hover', () => {
-  const epicIdx = appCss.indexOf('.card.epic, .cal-chip.epic, .gantt-label.epic { background:');
-  const mapEpicIdx = appCss.indexOf('.map-node.epic rect { fill:');
+test('cascade order: hover-highlight is declared AFTER every per-status background above it, so a colored card still visibly responds to hover', () => {
   const ganttStatusIdx = appCss.indexOf('.gantt-bar.status-backlog');
   const hoverIdx = appCss.indexOf('.card.hover-highlight,');
   const mapHoverIdx = appCss.indexOf('.map-node.hover-highlight rect');
-  assert.ok(epicIdx > -1 && mapEpicIdx > -1 && ganttStatusIdx > -1 && hoverIdx > -1 && mapHoverIdx > -1);
-  assert.ok(hoverIdx > epicIdx, 'card/chip/label hover wash declared after the epic wash it must beat');
+  assert.ok(ganttStatusIdx > -1 && hoverIdx > -1 && mapHoverIdx > -1);
   assert.ok(hoverIdx > ganttStatusIdx, 'gantt bar hover wash declared after the per-status background it must beat');
-  assert.ok(mapHoverIdx > mapEpicIdx, 'map node hover fill declared after the epic fill it must beat');
 });
 
 test('cascade order: .selected is declared AFTER hover-highlight, so a selected card keeps reading as selected while hovered', () => {
@@ -147,20 +143,15 @@ test('cascade order: .selected is declared AFTER hover-highlight, so a selected 
   assert.ok(mapSelectedIdx > mapHoverIdx, '.map-node.selected rect declared after the hover fill — selected wins the tie');
 });
 
-// The BASE hover wash carries no alpha at all, so it never depends on what sits
-// behind it. The epic override is the one rule that does use alpha, and it is
-// allowed to: kanban.proj#255's rule is that an alpha wash needs a guaranteed
-// opaque backdrop, and that rule layers it over an opaque tone inside the SAME
-// background shorthand, which is the guarantee. So the pin is scoped to the base
-// rules rather than to every selector carrying the class.
-test('the base hover wash is a solid color, and only the epic override layers alpha over an opaque tone', () => {
-  const base = appCss.split(/\r?\n/).filter((l) => l.includes('.hover-highlight') && !l.includes('.epic.'));
-  assert.ok(base.length >= 2, 'the base card/chip/bar/label rule and the map rule are both present');
-  for (const line of base) {
-    assert.ok(!line.includes('rgba('), 'no alpha in a base hover rule: ' + line);
+// The hover wash carries no alpha at all, so it never depends on what sits
+// behind it: an alpha wash needs a guaranteed opaque backdrop, and a solid
+// tone sidesteps the question.
+test('the hover wash is a solid color on every surface', () => {
+  const rules = appCss.split(/\r?\n/).filter((l) => l.includes('.hover-highlight'));
+  assert.ok(rules.length >= 2, 'the card/chip/bar/label rule and the map rule are both present');
+  for (const line of rules) {
+    assert.ok(!line.includes('rgba('), 'no alpha in a hover rule: ' + line);
   }
-  const epic = appCss.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
-  assert.ok(epic && epic.includes('), var(--hover-wash)'), 'the epic rule ends on an opaque tone behind its alpha wash');
 });
 
 // The wash rides ONE shared hoveredId, so the pointer moving onto another
@@ -207,22 +198,4 @@ test('SKILL.md documents the hover/focus highlight bullet', () => {
   assert.match(bullet, /--accent-soft/, 'names the selection token it must stay distinct from');
   assert.match(bullet, /tabindex="0"/, 'documents keyboard reachability');
   assert.match(bullet, /due diamond/, 'names the one card-el surface .selected also skips');
-});
-
-// Epic is a durable identity, not a transient status, and app.css already had to
-// reassert it three-class against .selected for exactly that reason. Hover is more
-// transient than selection, so a flat hover background that SUBSTITUTED the epic
-// wash would erase the stronger cue with the weaker one. kanban.proj #255 is the
-// precedent for the shape of the fix: layer the alpha wash over an opaque tone
-// rather than replacing it, so both read at once.
-test('an epic card keeps its orange wash while hovered, layered over the hover tone', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  const rule = css.split(/\r?\n/).find((l) => l.startsWith('.card.epic.hover-highlight'));
-  assert.ok(rule, 'a 3-class epic+hover rule exists, so it beats both 2-class rules regardless of order');
-  assert.ok(rule.includes('linear-gradient(var(--epic-wash), var(--epic-wash)), var(--hover-wash)'),
-    'the epic wash LAYERS over the hover tone rather than substituting it');
-  assert.ok(rule.includes('.cal-chip.epic.hover-highlight'), 'the calendar chip is covered by the same rule');
-  assert.ok(rule.includes('.gantt-label.epic.hover-highlight'), 'and the gantt label');
-  assert.ok(css.includes('.map-node.epic.hover-highlight rect { fill: var(--epic-hover-fill); }'),
-    'the map node carries the pre-blended equivalent, since fill takes no gradient');
 });
