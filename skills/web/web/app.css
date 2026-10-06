@@ -256,6 +256,10 @@ h1 { color: var(--ink); font-size: 1.4em; font-weight: 700; line-height: 1.1; le
 .board-copy-btn { font-size: 0.55em; font-weight: 400; color: var(--mut); padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
 .board-copy-btn:hover { color: var(--ink); }
 .actions { display: flex; gap: 8px; }
+.rollup-ctls { display: flex; align-items: center; gap: 8px; }
+.rollup-ctl { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8em; color: var(--mut); white-space: nowrap; }
+.rollup-ctl select { background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 2px 4px; border-radius: .15rem; font-size: 1em; font-family: inherit; }
+.rollup-ctl select:focus { outline: none; border-color: var(--accent); }
 /* Radius scale mirrors the shop status page verbatim: .15rem for controls/
    chips/pills (first use here), .2rem for panels (first use below, at
    .column), 50% for true circles — nothing else. The loudest single
@@ -447,6 +451,44 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    color paints color + borderColor through the CSSOM (app.js paintTypeColors),
    since the value is free-form and a style attribute is blocked by the CSP. */
 .type-chip { background: var(--btn-bg); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; color: var(--mut); white-space: nowrap; }
+/* Parent cards: the altitude badge sits in the tile's head row, the roll-up bar is
+   its last line. Segment weights arrive through the CSSOM (paintRollupBars sets
+   flex-grow from data-n) because a style attribute is blocked by the CSP; colours
+   are classes, one per statusColorClass() outcome, like .status-dot--*. */
+.alt-badge { font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.65em; font-weight: 600; color: var(--mut); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 0 5px; white-space: nowrap; }
+.rollup { margin-top: 6px; }
+.rollup-bar { display: flex; height: 8px; border-radius: .15rem; overflow: hidden; background: var(--raised); }
+.rollup-bar.thin { height: 4px; }
+.rollup-seg { flex: 0 0 0%; min-width: 0; height: 100%; }
+.rollup-seg--backlog { background: var(--st-backlog); }
+.rollup-seg--todo { background: var(--st-todo); }
+.rollup-seg--doing { background: var(--st-doing); }
+.rollup-seg--done { background: var(--st-done); }
+.rollup-seg--archive { background: var(--st-archive); }
+.rollup-seg--palette-0 { background: var(--hash-a); }
+.rollup-seg--palette-1 { background: var(--hash-b); }
+.rollup-seg--palette-2 { background: var(--hash-c); }
+.rollup-seg--palette-3 { background: var(--hash-d); }
+.rollup-seg--palette-4 { background: var(--hash-e); }
+.rollup-seg--palette-5 { background: var(--hash-f); }
+.rollup-seg--palette-6 { background: var(--hash-g); }
+.rollup-seg--palette-7 { background: var(--hash-h); }
+.rollup-counts { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 3px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.72em; color: var(--mut); }
+.rollup-total { color: var(--ink); font-weight: 600; }
+.rollup-count { white-space: nowrap; }
+.rollup-count--backlog { color: var(--st-backlog); }
+.rollup-count--todo { color: var(--st-todo); }
+.rollup-count--doing { color: var(--st-doing); }
+.rollup-count--done { color: var(--st-done); }
+.rollup-count--archive { color: var(--st-archive); }
+.rollup-count--palette-0 { color: var(--hash-a); }
+.rollup-count--palette-1 { color: var(--hash-b); }
+.rollup-count--palette-2 { color: var(--hash-c); }
+.rollup-count--palette-3 { color: var(--hash-d); }
+.rollup-count--palette-4 { color: var(--hash-e); }
+.rollup-count--palette-5 { color: var(--hash-f); }
+.rollup-count--palette-6 { color: var(--hash-g); }
+.rollup-count--palette-7 { color: var(--hash-h); }
 /* Date stack (kanban.proj#260): the tile's RIGHT-HAND column, top-aligned
    beside the title rather than stacked under it. Kept out of .card-head
    (a nowrap flex row three lines would stretch) and out of the normal flow,
@@ -682,6 +724,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-frontmatter td { padding: 4px 8px; vertical-align: top; }
 .detail-frontmatter td.fm-key { color: var(--mut); white-space: nowrap; width: 1%; padding-left: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .detail-frontmatter td.fm-value { color: var(--ink); word-break: break-word; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+/* The open roll-up in the card detail: bar, numbers, then the scope line saying
+   which board it counted. */
+.detail-rollup { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: .2rem; background: var(--raised); }
+.detail-rollup .rollup { margin-top: 4px; }
+.rollup-title { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 0.85em; font-weight: 600; }
+.rollup-sub { color: var(--mut); font-size: 0.9em; font-weight: 400; }
+.rollup-empty { color: var(--mut); font-size: 0.85em; margin-top: 4px; }
+.rollup-scope { color: var(--mut); font-size: 0.78em; margin-top: 6px; }
 /* Reading layer: headings and bold on --ink-strong, prose one step under on
    --prose, code a warm --code-ink on --raised with no border, muted text on
    --mut. Before it, headings, prose and code all painted --ink, so hierarchy
