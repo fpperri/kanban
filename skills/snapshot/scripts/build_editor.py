@@ -1150,6 +1150,7 @@ if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.
 if(o.fm)e.fm=Object.assign(e.fm||{},o.fm)}
 if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined){c.body=o.body;c.bn=o.body.length}
 if(o.fm&&!isProv(o.id)){c.fm=c.fm||{};for(const k in o.fm){const v=o.fm[k];
+if(k==="parent"){const pv=String(v).trim().replace(/^["']+|["']+$/g,"");c.pt=/^\\d+$/.test(pv)?Number(pv):null}
 if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
 else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v;else if(k==="epic")c.ep=String(v).trim().toLowerCase()==="true"}}
@@ -1275,6 +1276,8 @@ const ap=el("button","fpill");ap.dataset.act="pill";ap.dataset.pill="assignee";
 if(c.a)ap.style.color=acol(c.a);
 ap.appendChild(document.createTextNode(c.a||"no assignee"));top.appendChild(ap);
 const pp=btn(c.p,"pill",{pill:"priority"});pp.className="fpill";top.appendChild(pp);
+const cty=String((c.fm&&c.fm.type)||"").trim();
+const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp);
 d.insertBefore(top,d.firstChild);
 const slot=el("div","acts");slot.style.borderTop="none";slot.style.marginTop="0";slot.style.paddingTop="0";
 if(ren){
@@ -1295,6 +1298,12 @@ slot.appendChild(el("span","lbl","assignee"));
 const s=el("select");s.dataset.act="asg";s.dataset.stop="1";
 const aopts=(c.a&&ASG.indexOf(c.a)===-1)?ASG.concat([c.a]):ASG;
 aopts.forEach(x=>{const o=el("option",null,x||"none");o.value=x;if(c.a===x)o.selected=true;s.appendChild(o)});
+slot.appendChild(s)}
+else if(pillEd==="type"){
+slot.appendChild(el("span","lbl","type"));
+const s=el("select");s.dataset.act="typ";s.dataset.stop="1";
+const names=TYPES.map(x=>x.name);if(cty&&names.indexOf(cty)===-1)names.push(cty);
+[""].concat(names).forEach(x=>{const o=el("option",null,x||"no type");o.value=x;if(cty===x)o.selected=true;s.appendChild(o)});
 slot.appendChild(s)}
 if(slot.children.length)d.insertBefore(slot,d.children[1])}
 if(detail){
@@ -1321,8 +1330,9 @@ const fr=el("div","acts");fr.style.borderTop="none";fr.style.paddingTop="4px";
 fr.appendChild(btn((fmOpen?"\\u25be":"\\u25b8")+" All fields","fmtoggle"));
 d.appendChild(fr);
 if(fmOpen){
-const staples=["start_date","end_date","due_date","tags","waiting_for","blocked","review"];
-const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated"].indexOf(k)===-1);
+// rank is set by dragging in kanban-web and never offered here.
+const staples=["type","parent","start_date","end_date","due_date","tags","waiting_for","blocked","review"];
+const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated","rank"].indexOf(k)===-1);
 keys.forEach(k=>{
 const row=el("div","fmrow");
 row.appendChild(el("label",null,k));
@@ -2241,7 +2251,8 @@ if(thin!==hdrThin){hdrThin=thin;$("hdr").classList.toggle("thin",thin)}
 },{passive:true});
 document.body.addEventListener("change",e=>{
 const t=e.target;
-if(t.dataset&&t.dataset.act==="asg"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,assignee:t.value});pillEd=null;render()}}});
+if(t.dataset&&t.dataset.act==="asg"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,assignee:t.value});pillEd=null;render()}}
+if(t.dataset&&t.dataset.act==="typ"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,fm:{type:t.value}});pillEd=null;render()}}});
 document.body.addEventListener("input",e=>{
 const t=e.target;
 if(t.id==="fm-blocked")t.style.borderColor=blkTxt(t.value)!==null?"var(--blocked-ink)":"";

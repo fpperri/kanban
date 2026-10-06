@@ -1,27 +1,11 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { BOARD, card, withSnapshot } = require('./nesting-fixture');
-const { loadPage, byClass } = require('./page-harness');
+const { BOARD, card } = require('./nesting-fixture');
+const { byClass } = require('./page-harness');
+const { board, column, idsIn, open, sheet, tile, tiles } = require('./nesting-view');
 
 // The snapshot page, run for real against a stand-in DOM: type chips, outline
 // order, roll-ups on parent cards and the thread in a card's sheet.
-
-const WIDE = { matchMedia: (q) => q.includes('min-width:900px') };
-
-function open(board, fn) {
-  return withSnapshot(board, (html, dir) => fn(loadPage(html, WIDE), dir));
-}
-
-const tiles = (page) => page.byId('board').all().filter((n) => n.classList.contains('card'));
-const tile = (page, id) => tiles(page).find((n) => n.dataset.card === String(id));
-const column = (page, status) => page.byId('board').all()
-  .find((n) => n.classList.contains('boardcol') && n.dataset.status === status);
-const idsIn = (page, status) => byClass(column(page, status), 'card').map((n) => Number(n.dataset.card));
-
-function sheet(page, id) {
-  page.click(tile(page, id));
-  return page.byId('modalscroll').children[0];
-}
 
 describe('type chips', () => {
   test('a card with a type wears a chip with that word', () => {
@@ -97,14 +81,6 @@ describe('searching by type', () => {
     });
   });
 });
-
-function board(config, cards, archived) {
-  const files = {};
-  for (const [id, status, title, extra] of cards) files[`${String(id).padStart(4, '0')}.c.card.md`] = card(id, status, title, extra);
-  const arch = {};
-  for (const [id, status, title, extra] of archived || []) arch[`${String(id).padStart(4, '0')}.c.card.md`] = card(id, status, title, extra);
-  return { config: `name: order\nstatuses: [todo, done]\n${config || ''}`, cards: files, archived: archived ? arch : undefined };
-}
 
 describe('outline order', () => {
   const NESTED = board('', [
@@ -341,5 +317,15 @@ describe('the thread and the children in a card sheet', () => {
       page.click(chip);
       assert.strictEqual(byClass(page.byId('modalscroll'), 'ttl')[0].textContent, 'Ship it');
     });
+  });
+});
+
+test('the embedded module and the page script load together without a name clash', () => {
+  const { withSnapshot } = require('./nesting-fixture');
+  const { loadPage } = require('./page-harness');
+  withSnapshot(BOARD, (html) => {
+    const page = loadPage(html);
+    assert.strictEqual(page.scripts.length, 2, 'the module, then the page');
+    assert.strictEqual(page.run('typeof outlineOrder + typeof rollupIndex + typeof threadOf'), 'functionfunctionfunction');
   });
 });
