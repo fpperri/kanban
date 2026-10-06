@@ -272,3 +272,15 @@ test('a migrated card with no title heading is mentioned by board#id alone, with
   assert.ok(message.includes('`fixture#14`'), message);
   assert.ok(message.includes('`fixture#15 Titled`'), message);
 });
+
+test('the demo board holds the notification the migration filed, after its three earlier entries', () => {
+  const text = fs.readFileSync(path.join(demo, 'notifications.md'), 'utf8').replace(/\r\n/g, '\n');
+  const entries = text.split(/^- id: /m).slice(1);
+  assert.strictEqual(entries.length, 4);
+  const added = '- id: ' + entries[3];
+  assert.match(added, /^- id: 4\n/);
+  assert.match(added, /\n {2}from: "skill:kanban"\n/);
+  assert.match(added, /\n {2}read: false\n$/);
+  const message = JSON.parse(added.match(/\n {2}message: (".*")\n/)[1]);
+  assert.match(message, /^Migrated 1 card from epic: true to type: epic; more: `[^`#]+#1 Launch Tallybird v1\.0`, each with updated bumped\.$/);
+});
