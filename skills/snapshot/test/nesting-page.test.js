@@ -375,3 +375,62 @@ describe('the map and a parent written as the board\'s own name', () => {
     open(rows, (page) => assert.deepStrictEqual([...JSON.parse(page.run('JSON.stringify([...treeIds(1)])'))].sort(), [1, 2]));
   });
 });
+
+describe('a queued archive after other queued edits', () => {
+  const counts = (page, id) => byClass(sheet(page, id), 'rollup-count').map((n) => n.textContent);
+  const queueMoveThenArchive = (page) => page.run('queue({op:"edit",id:"5",fm:{parent:"3"}});queue({op:"archive",id:"5"});render()');
+
+  test('a parent queued for a card before its archive moves its count to the new parent', () => {
+    open(BOARD, (page) => {
+      queueMoveThenArchive(page);
+      assert.deepStrictEqual(counts(page, 2), ['2 done']);
+      assert.deepStrictEqual(counts(page, 3), ['1 done', '1 backlog', '1 todo']);
+    });
+  });
+
+  test('a status queued before the archive does not change what the archived card counts as', () => {
+    open(BOARD, (page) => {
+      page.run('queue({op:"move",id:"6",to:"backlog"});queue({op:"edit",id:"6",fm:{parent:"2"}});queue({op:"archive",id:"6"});render()');
+      assert.deepStrictEqual(counts(page, 3), ['1 backlog']);
+      assert.deepStrictEqual(counts(page, 2), ['3 done', '1 doing']);
+    });
+  });
+
+  test('the new parent lists the archived card among its children, marked archived and not tappable', () => {
+    open(BOARD, (page) => {
+      queueMoveThenArchive(page);
+      const items = byClass(sheet(page, 3), 'child-item');
+      const item = items.find((li) => li.children[0].textContent.startsWith('fixture#5 '));
+      assert.ok(item, 'card 5 is listed under card 3');
+      assert.deepStrictEqual(byClass(item, 'rel-mark').map((n) => n.textContent), ['archived']);
+      assert.strictEqual(item.children[0].dataset.mapnode, undefined);
+      assert.ok(!item.children[0].classList.contains('same'));
+      assert.ok(!byClass(sheet(page, 2), 'child-item').some((li) => li.children[0].textContent.startsWith('fixture#5 ')));
+    });
+  });
+
+  test('a card still on the board stays tappable in the children list', () => {
+    open(BOARD, (page) => {
+      const item = byClass(sheet(page, 2), 'child-item').find((li) => li.children[0].textContent.startsWith('fixture#4 '));
+      assert.strictEqual(item.children[0].dataset.mapnode, '4');
+    });
+  });
+});
+
+describe('roll-up counts and the status as written', () => {
+  const countsOf = (node) => Object.fromEntries(byClass(node, 'rollup-seg').map((s) => {
+    const [status, n] = s.title.split(': ');
+    return [status, Number(n)];
+  }));
+
+  test('a leaf whose status is written in another case counts as its own status, the same as in kanban-web', () => {
+    const cardStore = require('../../web/scripts/card-store');
+    const { rollupIndex } = require('../../web/web/nesting');
+    const rows = board('', [[1, 'todo', 'A'], [2, 'Done', 'B', { parent: 1 }], [3, 'done', 'C', { parent: 1 }]]);
+    open(rows, (page, dir) => {
+      const web = rollupIndex(cardStore.listActive(dir).map(cardStore.toJSON), { board: 'order', priorities: [] });
+      assert.deepStrictEqual({ ...web.rollup(1).counts }, { Done: 1, done: 1 });
+      assert.deepStrictEqual(countsOf(tile(page, 1)), { ...web.rollup(1).counts });
+    });
+  });
+});

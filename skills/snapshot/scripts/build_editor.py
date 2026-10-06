@@ -790,7 +790,7 @@ const NOTIFS=__NOTIFS__;
 // The parent on this board, read by the embedded nesting module like the outline does: a plain id, or this board's own name in `board#id` form.
 function localParent(raw){const p=parseParent(raw,BOARD);return p&&p.local?p.id:null}
 DATA.forEach(c=>{c.pt=localParent(c.fm&&c.fm.parent)});
-let view=JSON.parse(JSON.stringify(DATA)),ops=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
+let view=JSON.parse(JSON.stringify(DATA)),ops=[],gone=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
 // Wide screens open live sections by default (Archive stays collapsed) —
 // the collapsed compact overview is a phone affordance. Evaluated once at load.
 if(matchMedia("(min-width:900px)").matches)COLS.forEach(c=>colOpen[c]=true);
@@ -1093,7 +1093,7 @@ note="";copied=false;
 if(o.op==="delete"){if(isProv(o.id)){ops=ops.filter(x=>!(x.op==="create"&&x._pid===o.id));view=view.filter(x=>String(x.id)!==String(o.id));return}
 ops=ops.filter(x=>String(x.id)!==String(o.id));ops.push({op:"delete",id:o.id});view=view.filter(x=>String(x.id)!==String(o.id));return}
 if(o.op==="archive"){if(isProv(o.id)){note="Apply the create first, then archive it";return}
-ops=ops.filter(x=>!(String(x.id)===String(o.id)&&(x.op==="move"||x.op==="archive")));ops.push({op:"archive",id:o.id});view=view.filter(x=>String(x.id)!==String(o.id));return}
+ops=ops.filter(x=>!(String(x.id)===String(o.id)&&(x.op==="move"||x.op==="archive")));ops.push({op:"archive",id:o.id});const kept=find(o.id);if(kept)gone.push(kept);view=view.filter(x=>String(x.id)!==String(o.id));return}
 if(o.op==="move"){const c=find(o.id);if(!c)return;
 if(o.to==="doing"){const un=unresolved(c),br=blkReason(c);
 if(un.length||br!==null){const why=[];
@@ -1118,10 +1118,11 @@ return}
 if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",body:o.body||"",fm:o.fm||{}});return}}
 let nesting=null;
 function buildNesting(){
-const asNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.s,archived:archived||!!c.arch});
+// The status as written (kanban-web counts it so), unless the tray moved the card.
+const asNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.fm&&c.fm.status&&c.fm.status.toLowerCase()===c.s?c.fm.status:c.s,archived:archived||!!c.arch});
 const cards=view.filter(c=>!isProv(c.id)).map(c=>asNode(c));
-// A queued archive has left view, but applied the card still counts as done and still holds its children's thread.
-ops.forEach(o=>{if(o.op==="archive"){const d=DATA.find(x=>String(x.id)===String(o.id));if(d)cards.push(asNode(d,true))}});
+// A queued archive has left view, but applied the card still counts as done and still holds its children's thread, with the edits queued before it.
+gone.forEach(c=>cards.push(asNode(c,true)));
 const ctx={board:BOARD,priorities:PRIOS};
 nesting={cards,ctx,nested:hasNesting(cards),order:outlineOrder(cards,ctx).index,roll:rollupIndex(cards,ctx)}}
 function inOutline(list){
@@ -1158,7 +1159,7 @@ box.appendChild(rollupBarNode(nesting.roll.rollup(id),true)||el("div","rollup-em
 box.appendChild(el("div","rollup-scope","Counted on this board only ("+BOARD+"). Archived leaves count as done."));
 return box}
 // Mention chips, so the page's one tap handler opens them.
-function relMention(id){const v=find(id)||DATA.find(x=>String(x.id)===String(id));const m=el("code","mention same",BOARD+"#"+id+(v&&v.t?" "+v.t:""));m.setAttribute("data-mapnode",String(id));return m}
+function relMention(id){const live=find(id),v=live||gone.find(x=>String(x.id)===String(id));const m=el("code",live?"mention same":"mention",BOARD+"#"+id+(v&&v.t?" "+v.t:""));if(live)m.setAttribute("data-mapnode",String(id));return m}
 function threadBlock(id){
 const th=threadOf(nesting.cards,id,nesting.ctx);
 if(!th.length)return null;
@@ -2011,7 +2012,7 @@ const hint=el("div","hint");hint.textContent="Tap a chip to open its card · col
 cv.appendChild(hint)}
 function rebuild(){
 const q=ops.map(o=>Object.assign({},o));
-view=JSON.parse(JSON.stringify(DATA));ops=[];nseq=0;
+view=JSON.parse(JSON.stringify(DATA));ops=[];gone=[];nseq=0;
 q.forEach(o=>{
 if(o.op==="create")queue({op:"create",title:o.title,status:o.status,priority:o.priority,assignee:o.assignee,body:o.body});
 else if(o.op==="edit"){const e={op:"edit",id:o.id};if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.assignee!==undefined)e.assignee=o.assignee;if(o.body!==undefined)e.body=o.body;if(o.fm!==undefined)e.fm=o.fm;queue(e)}
