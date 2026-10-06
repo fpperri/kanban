@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
-const { BOARD, buildScript, card, lf, nestingPath, withSnapshot } = require('./nesting-fixture');
+const { BOARD, buildScript, card, lf, mapRelationsPath, nestingPath, withSnapshot } = require('./nesting-fixture');
 
 // The snapshot carries the nesting module's source as is, so the page follows
 // the same rules as kanban-web with nothing to keep in sync by hand.
@@ -64,4 +64,9 @@ test('a clean module passes through untouched', () => {
 
 test('the shipped module passes its own build guards', () => {
   assert.strictEqual(embed(nestingSource), nestingSource);
+});
+
+test('the shipped map module passes the same build guards', () => {
+  const mapSource = lf(fs.readFileSync(mapRelationsPath, 'utf8'));
+  assert.strictEqual(embed(mapSource), mapSource);
 });

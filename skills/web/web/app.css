@@ -309,7 +309,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    .column-header keeps its own font-weight and per-status colour untouched. */
 .column-name { flex: 1; text-transform: uppercase; letter-spacing: 0.09em; }
 .column-count { font-weight: 400; opacity: 0.8; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-/* .map-section-toggle (the map's graph/no-dependencies collapse
+/* .map-section-toggle (the map's graphs/No relations collapse
    chevrons) shares this exact look — one rule, not a per-view duplicate. */
 .column-toggle, .map-section-toggle { background: transparent; border: none; color: inherit; padding: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 .column-toggle:hover, .map-section-toggle:hover { color: var(--ink); }
@@ -846,7 +846,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-zoom-btn:disabled { opacity: 0.45; cursor: default; }
 .map-zoom-pct { font-size: 0.78em; color: var(--mut); min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
 /* Grab affordance on the graph itself — the rest of #map-view (pills,
-   section header, isolated row) keeps the default cursor since only the
+   section header, No relations row) keeps the default cursor since only the
    graph pans (see wireMapPanZoom's `.map-canvas` scoping, app.js). Node
    rects keep their own `cursor: pointer` below (higher specificity) while
    idle — still clickable, still draggable, same as everywhere a tile is
@@ -940,12 +940,12 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    rather than blending into the normal top-down flow. */
 .map-edge.back-edge { stroke: var(--id-waiting); stroke-dasharray: 3 3; }
 .map-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
-/* The graph and the "No dependencies" list are each a collapsible
+/* The graphs and the "No relations" list are each a collapsible
    section — one shared header shape (buildMapSectionHeader in app.js) for
    both, so the two toggles read the same and there's no per-section markup. */
 .map-graph-section { margin-bottom: 4px; }
-/* The only true SECTION headings in the app ("Dependencies" / "No
-   dependencies") — the shop status page's h2 eyebrow, verbatim tracking
+/* The only true SECTION headings in the app ("Relation trees" / "No
+   relations") — the shop status page's h2 eyebrow, verbatim tracking
    (.13em): section headings never carry visual weight, so the page reads
    dense on purpose. Never applied to .modal h2 / .detail-header h2 below —
    those are headline-role (herd's h1), not section-role. */
@@ -953,6 +953,32 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-isolated { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .map-isolated-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .map-isolated-row .card { min-width: 160px; max-width: 220px; cursor: pointer; }
+/* Map options (buildMapOptionsRow, app.js): one row of segmented controls. */
+.map-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; font-size: 0.78em; }
+.map-option { display: inline-flex; align-items: center; gap: 6px; }
+.map-option-label { color: var(--mut); white-space: nowrap; }
+.map-option-seg { display: inline-flex; border: 1px solid var(--line); border-radius: .15rem; overflow: hidden; }
+.map-option-btn { background: var(--paper); border: none; color: var(--ink); font: inherit; padding: 2px 9px; cursor: pointer; }
+.map-option-btn + .map-option-btn { border-left: 1px solid var(--line); }
+.map-option-btn:hover:not(.active) { background: var(--hover-wash); }
+.map-option-btn.active { background: var(--ink); color: var(--paper); }
+.map-option-btn:focus-visible { outline-offset: -2px; }
+/* One graph per tree: a heading of root titles and card count above each. */
+.map-graph-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.82em; }
+.map-section-header + .map-graph-heading { margin-top: 4px; border-top: none; padding-top: 0; }
+.map-graph-heading span { color: var(--mut); }
+.map-align-center .map-canvas { margin-left: auto; margin-right: auto; }
+.map-align-center .map-graph-heading { justify-content: center; }
+.map-align-center .map-isolated-row { justify-content: center; }
+/* A parent line is a dependency edge's grey, dashed, with a dot on the parent's end. */
+.map-parent-line { stroke-dasharray: 6 4; }
+.map-parent-dot circle { fill: var(--mut); }
+/* Rich nodes carry HTML rows (type chip, altitude badge, roll-up bar) in foreignObjects. */
+.map-node foreignObject { font-size: 14px; color: var(--ink); overflow: hidden; }
+.map-rich-meta { display: flex; align-items: center; gap: 6px; height: 100%; }
+.map-rich-meta .type-chip { min-width: 0; max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
+.map-rich-bar .rollup { margin-top: 0; padding: 3px 0; }
+.map-rich-bar .rollup-counts { flex-wrap: nowrap; gap: 2px 6px; overflow: hidden; }
 
 /* --- Calendar view ----------------------------------------------
    Month grid, Monday-first. #calendar-view sits alongside #board/#map-view

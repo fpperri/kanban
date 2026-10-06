@@ -64,7 +64,14 @@ The same three extra views as the desktop app, rendered read-only here and
 laid out for a narrow screen:
 
 ![Snapshot map](images/snapshot-map.jpg)
-*Map — the `waiting_for` graph with a workable / waiting / blocked / not-on-board legend; a parent link shapes the layout but draws no line.*
+*Map — the `waiting_for` graph with a workable / waiting / blocked / not-on-board legend.*
+
+The Map draws kanban-web's defaults: dashed lines from a parent to its children, only
+to the children where their dependency chain ends, with the parent below; one graph per
+tree under a heading of its root titles, biggest first; a **No relations** row for the
+cards nothing links; rows that read doing, todo, backlog, done from the left and sit
+centered; and cards that carry their type chip, `▲` badge and roll-up bar. The Map
+options row is kanban-web's: the snapshot always draws these defaults.
 
 ![Snapshot gantt](images/snapshot-gantt.jpg)
 *Gantt — working-range bars and due diamonds, grouped by status, with an undated-cards row below.*
@@ -83,7 +90,7 @@ fields** grid for everything else (type, parent, dates, tags, `waiting_for`, and
 any custom frontmatter — never `rank`, which you change by dragging in the
 [web editor](web.md)), and
 **Dependency tree / path** buttons that narrow every view down to that card's
-dependency web (no view switch — whatever view you're on just filters to it).
+tree (no view switch — whatever view you're on just filters to it).
 
 ## Creating a card
 

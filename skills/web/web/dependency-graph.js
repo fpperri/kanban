@@ -20,6 +20,9 @@ const WB = (typeof module !== 'undefined' && module.exports)
 const NEST = (typeof module !== 'undefined' && module.exports)
   ? require('./nesting')
   : window;
+const MAPREL = (typeof module !== 'undefined' && module.exports)
+  ? require('./map-relations')
+  : window;
 
 // The node carries precomputed gate flags:
 // `waiting` (some waiting_for dep not done — the amber stroke) and `blocked`
@@ -34,6 +37,11 @@ function cardToNode(c, waiting) {
   };
 }
 
+// The stub for an id no card answers to: a stale waiting_for or parent.
+function missingNode(id) {
+  return { id, title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true };
+}
+
 // Same derived-waiting rule as the board's own isWaiting() (app.js) — both
 // are thin wrappers over the shared unresolvedWaits; byId is the caller's
 // own full active+archived lookup (waiting is location-independent).
@@ -41,13 +49,15 @@ function isCardWaiting(c, byId) {
   return WB.unresolvedWaits(c.waiting_for, byId).length > 0;
 }
 
-// Build the node/edge/ghost-stub set for the map from the full card list
-// (active + archived — waiting is location-independent, same as the board's
-// own isWaiting() check) and the ids currently matching the search box
-// (`visibleIds`: a Set, or null/undefined meaning "no active query — every
-// card is visible", mirroring search.js's own "empty query matches
-// everything"). `ctx` is the nesting context ({ board }), which reads a parent
-// written as this board's own name.
+// Build the node/edge/ghost-stub set from the full card list (active + archived
+// — waiting is location-independent, same as the board's own isWaiting() check)
+// and the ids currently matching the search box (`visibleIds`: a Set, or
+// null/undefined meaning "no active query — every card is visible", mirroring
+// search.js's own "empty query matches everything"). `ctx` is the nesting
+// context ({ board }), which reads a parent written as this board's own name.
+// The map does not draw this graph: buildRelationsGraph (below) takes its
+// dependency edges and ghosts and drops its parent edges. The tree: and path:
+// terms walk the whole edge set, parent edges included.
 //
 // Design decisions:
 // - An edge with NEITHER endpoint visible is dropped entirely — only
@@ -61,22 +71,12 @@ function isCardWaiting(c, byId) {
 // - A waiting_for id with no matching card at all (stale/deleted reference)
 //   still gets a ghost stub, marked `missing: true`, rather than silently
 //   vanishing.
-// - Isolated cards (no waiting_for edge in either direction) are reported
-//   separately so the caller can render them in a detached cluster instead
-//   of mixing them into the layered graph.
 //
-// Parent edges: a child card's `parent: <parent-id>`
-// becomes a child->parent edge with `kind: 'parent'` (waiting_for edges carry
-// `kind: 'dep'`). The parent lays out BELOW its children, not above them: under
-// the map's "down = completes later" convention a parent is the end of the work
-// under it, and above them it read as a false prerequisite. Its status is still
-// the human's call. Nesting is not sequencing: it feeds the layered layout
-// and gets the same ghost-stub courtesy, but it never makes anyone `waiting`
-// and — deliberately — does NOT count for the isolated row. "No
-// dependencies" means no SEQUENCING deps, so a parent whose only edges are
-// parent edges appears in the graph AND the detached row. A self-parent is
-// nonsense and adds no edge; a dangling parent id ghosts as missing, same
-// as a dangling dep.
+// Parent edges: a child card's `parent: <parent-id>` becomes a child->parent edge
+// with `kind: 'parent'` (waiting_for edges carry `kind: 'dep'`). Nesting is not
+// sequencing: a parent edge gets the same ghost-stub courtesy but never makes
+// anyone `waiting`. A self-parent is nonsense and adds no edge; a dangling parent
+// id ghosts as missing, same as a dangling dep.
 function buildDependencyGraph(cards, visibleIds, ctx) {
   const byId = new Map(cards.map((c) => [c.id, c]));
   // A ghost placeholder from a dangling reference has no card behind it, so
@@ -159,24 +159,9 @@ function buildDependencyGraph(cards, visibleIds, ctx) {
   const ghosts = [...ghostIds].filter((id) => !nodeIds.has(id))
     .sort((a, b) => a - b)
     .map((id) => (byId.has(id) ? cardToNode(byId.get(id), isCardWaiting(byId.get(id), byId))
-      : { id, title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }));
+      : missingNode(id)));
 
-  // The isolated row is keyed off SEQUENCING edges only, while the
-  // layered graph lays out every node touched by ANY edge (`participants`) —
-  // a node whose only edges are parent edges joins the graph and the row
-  // both. Both derivations live here, in the pure module, so their different
-  // kind-keying stays unit-pinned rather than re-derived in the view.
-  const touchedByDep = new Set();
-  const touchedByAny = new Set();
-  for (const e of edges) {
-    touchedByAny.add(e.from); touchedByAny.add(e.to);
-    if (e.kind === 'dep') { touchedByDep.add(e.from); touchedByDep.add(e.to); }
-  }
-  const isolated = nodes.filter((n) => !touchedByDep.has(n.id)).map((n) => n.id);
-  const participants = nodes.filter((n) => touchedByAny.has(n.id)).map((n) => n.id)
-    .concat(ghosts.map((g) => g.id));
-
-  return { nodes, edges, ghosts, isolated, participants };
+  return { nodes, edges, ghosts };
 }
 
 // Assign a top-down layer index (0 = topmost / least-waited-on) to every id
@@ -220,12 +205,11 @@ function layerNodes(nodeIds, edges) {
 // (directed cone) for the tree:<id> / path:<id> search terms. Both reuse
 // buildDependencyGraph(cards, null).edges as their ONLY source of truth for
 // adjacency — the exact edge set (waiting_for + parent edges, with its
-// sequencing-wins-the-pair/nonTerminal suppression already applied) that the
-// map's graph is built from (parent edges shape layout but draw no line).
+// sequencing-wins-the-pair/nonTerminal suppression already applied).
 // Neither function re-derives waiting_for/parent iteration.
 //
 // - treeIds: undirected flood-fill (the connected component) — "everything
-//   this card's dependency web touches, in either direction."
+//   this card's relations reach, in either direction."
 // - pathIds: directed cone — everything transitively upstream (ancestors,
 //   walking `to->from` backward) UNION everything transitively downstream
 //   (descendants, walking `from->to` forward) UNION the card itself. A
@@ -288,10 +272,63 @@ function pathIds(cards, rawId, ctx) {
   return visited;
 }
 
+// Every relation the map can draw, for the cards in `visibleIds` (null = all):
+// the dependency edges of buildDependencyGraph plus one pair per immediate parent
+// and child, never a grandparent and grandchild. A pair is not an edge:
+// map-relations.js decides which become lines and how they place cards. A parent
+// on another board is one stub per mention, with an id below zero that no card
+// can have. `ends` (see mapParentLineEnds) is read on the whole board, so a filter
+// never moves a line; a pair into a stub has none.
+function buildRelationsGraph(cards, visibleIds, ctx) {
+  const base = buildDependencyGraph(cards, visibleIds, ctx);
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const isVisible = (id) => byId.has(id) && (!visibleIds || visibleIds.has(id));
+  const children = [];
+  for (const c of cards) {
+    const parent = NEST.localParentId(c, ctx);
+    if (parent !== null && parent !== c.id && byId.has(parent)) children.push({ id: c.id, parent, waitsOn: c.waiting_for });
+  }
+  const ends = MAPREL.mapParentLineEnds(children);
+
+  const ghosts = base.ghosts.slice();
+  const ghostIds = new Set(ghosts.map((g) => g.id));
+  const ensureGhost = (id) => {
+    if (isVisible(id) || ghostIds.has(id)) return;
+    ghostIds.add(id);
+    const card = byId.get(id);
+    ghosts.push(card ? cardToNode(card, isCardWaiting(card, byId)) : missingNode(id));
+  };
+  const external = new Map();
+  const externalStub = (ref) => {
+    if (!external.has(ref)) {
+      const id = -(external.size + 1);
+      external.set(ref, id);
+      ghosts.push(Object.assign(missingNode(id), { external: ref }));
+    }
+    return external.get(ref);
+  };
+
+  const pairs = [];
+  for (const c of cards) {
+    const parsed = NEST.parseParent(c.parent, ctx && ctx.board);
+    if (!parsed || (parsed.local && parsed.id === c.id)) continue;
+    if (!parsed.local) {
+      if (isVisible(c.id)) pairs.push({ child: c.id, parent: externalStub(`${parsed.board}#${parsed.id}`), ends: null });
+      continue;
+    }
+    if (!isVisible(c.id) && !isVisible(parsed.id)) continue;
+    ensureGhost(c.id);
+    ensureGhost(parsed.id);
+    pairs.push({ child: c.id, parent: parsed.id, ends: ends.get(c.id) || null });
+  }
+  return { nodes: base.nodes, ghosts, edges: base.edges.filter((e) => e.kind === 'dep'), pairs };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { buildDependencyGraph, layerNodes, treeIds, pathIds };
+  module.exports = { buildDependencyGraph, buildRelationsGraph, layerNodes, treeIds, pathIds };
 } else {
   window.buildDependencyGraph = buildDependencyGraph;
+  window.buildRelationsGraph = buildRelationsGraph;
   window.layerNodes = layerNodes;
   window.treeIds = treeIds;
   window.pathIds = pathIds;

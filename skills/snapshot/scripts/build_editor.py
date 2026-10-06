@@ -264,21 +264,29 @@ def read_notifications(kanban_dir):
         })
     return out
 
-NESTING_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web", "nesting.js")
+WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web")
+NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
+MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
 
-def embeddable(source):
+def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
-        sys.exit("the nesting module contains a closing script tag and cannot be embedded in the page")
+        sys.exit(f"{label} contains a closing script tag and cannot be embedded in the page")
     if re.search(r"__[A-Z_]+__", source):
-        sys.exit("the nesting module contains a template placeholder (__NAME__) the build would rewrite")
+        sys.exit(f"{label} contains a template placeholder (__NAME__) the build would rewrite")
     return source
 
-def read_nesting():
+def read_embedded(path, label):
     try:
-        with open(NESTING_JS, encoding="utf-8") as f:
-            return embeddable(f.read())
+        with open(path, encoding="utf-8") as f:
+            return embeddable(f.read(), label)
     except OSError:
-        sys.exit(f"cannot read the nesting module at {os.path.normpath(NESTING_JS)}")
+        sys.exit(f"cannot read {label} at {os.path.normpath(path)}")
+
+def read_nesting():
+    return read_embedded(NESTING_JS, "the nesting module")
+
+def read_map_relations():
+    return read_embedded(MAP_RELATIONS_JS, "the map relations module")
 
 def main():
     p = argparse.ArgumentParser()
@@ -319,6 +327,7 @@ def main():
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
     # First, so a card that names a placeholder is never rewritten inside it.
     html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
+                    .replace("__MAP_RELATIONS_JS__", read_map_relations())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -580,6 +589,18 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .mapiso{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:9px 12px;font-size:12.5px;opacity:.7;cursor:pointer;min-width:118px;max-width:220px}
 .mapiso .cid{display:block;font-size:11px;color:var(--mut);margin-bottom:2px}
 .map-empty{font-size:12.5px;color:var(--mut);padding:10px 2px}
+.map-graph-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:16px 0 4px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
+.map-title+.map-graph-heading{margin-top:4px;border-top:none;padding-top:0}
+.map-graph-heading span{color:var(--mut)}
+.map-align-center .map-canvas{margin-left:auto;margin-right:auto}
+.map-align-center .map-graph-heading,.map-align-center .map-iso-row{justify-content:center}
+.mpline{stroke-dasharray:6 4}
+.map-parent-dot circle{fill:var(--mut)}
+.mnode foreignObject{overflow:hidden}
+.map-rich-meta{display:flex;align-items:center;gap:6px;height:100%}
+.map-rich-meta .type-chip{margin-left:0;min-width:0;max-width:84px;overflow:hidden;text-overflow:ellipsis}
+.map-rich-meta .alt-badge{margin-left:0}
+.map-rich-bar .rollup{margin-top:0;padding:3px 0}
 .hnav{display:flex;gap:8px;justify-content:flex-end;margin:0 0 6px}
 .hnav button{font-size:13px;padding:6px 16px}
 .glbl{font-size:11px;fill:var(--ink);font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
@@ -717,6 +738,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 </div>
 <script>
 __NESTING_JS__</script>
+<script>
+__MAP_RELATIONS_JS__</script>
 <script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
@@ -1088,12 +1111,12 @@ else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else i
 return}
 if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",body:o.body||"",fm:o.fm||{}});return}}
 let nesting=null;
-function buildNesting(){
 // The status as written (kanban-web counts it so), unless the tray moved the card.
-const asNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.fm&&c.fm.status&&c.fm.status.toLowerCase()===c.s?c.fm.status:c.s,archived:archived||!!c.arch});
-const cards=view.filter(c=>!isProv(c.id)).map(c=>asNode(c));
+const nestNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.fm&&c.fm.status&&c.fm.status.toLowerCase()===c.s?c.fm.status:c.s,archived:archived||!!c.arch});
+function buildNesting(){
+const cards=view.filter(c=>!isProv(c.id)).map(c=>nestNode(c));
 // A queued archive has left view, but applied the card still counts as done and still holds its children's thread, with the edits queued before it.
-gone.forEach(c=>cards.push(asNode(c,true)));
+gone.forEach(c=>cards.push(nestNode(c,true)));
 const ctx={board:BOARD,priorities:PRIOS};
 nesting={cards,ctx,nested:hasNesting(cards),order:outlineOrder(cards,ctx).index,roll:rollupIndex(cards,ctx)}}
 function inOutline(list){
@@ -1536,6 +1559,7 @@ rb.addEventListener("click",()=>wrap.scrollBy({left:Math.round(wrap.clientWidth*
 nav.appendChild(lb);nav.appendChild(rb);
 return nav}
 const MW=150,MH=54,GX=14,GY=36,MPAD=14;
+const MDIMS={nodeW:MW,nodeH:MH,gapX:GX,gapY:GY,pad:MPAD};
 function switchView(v){
 if(activeView===v)return;
 if(ctxMenuEl)closeCtxMenu();
@@ -1545,11 +1569,9 @@ $("boardview").style.display=v==="board"?"":"none";
 $("mapview").style.display=v==="map"?"":"none";
 $("ganttview").style.display=v==="gantt"?"":"none";
 $("calview").style.display=v==="calendar"?"":"none"}
-// Mirrors kanban-web's dependency-graph.js semantics (edge = dependency ->
-// waiter: an edge A -> B means "B waits for A") but reads
-// the snapshot's own DATA snapshot; a waiting_for id not embedded renders as a
-// ghost stub, same as a stale/deleted reference. Nodes carry both flags:
-// derived done-aware waiting + the manual blocked sticker.
+// The edges tree:/path: walk, mirroring kanban-web's dependency-graph.js (edge =
+// dependency -> waiter: an edge A -> B means "B waits for A") over the snapshot's
+// own DATA. The Map does not draw these: it draws buildRelGraph, below.
 //
 // A child card's `pt` (its parent on this board, read by the embedded nesting
 // module) becomes a child->parent edge, kind "parent" (waiting_for edges are
@@ -1560,10 +1582,7 @@ $("calview").style.display=v==="calendar"?"":"none"}
 // are computed over the FULL board (fullEdgeSets, keyed off DATA), never the
 // filtered `cards` this function is called with: a search/status filter must
 // not reroute parent edges, mirroring kanban-web's own comment on this
-// exact point. An edge is only ADDED when its owning card (the waiter for a
-// dep edge, the child for a parent edge) is present in `cards` — the same
-// asymmetry the original dep-only version already had; the other endpoint
-// ghosts if absent, whether truly off-board or merely filtered out.
+// exact point.
 function parentOfIn(byIdMap,id){
 const c=byIdMap.get(id);
 return (c&&c.pt!=null&&c.pt!==c.id)?c.pt:null}
@@ -1576,15 +1595,10 @@ if(p==null)return;
 (c.w||[]).forEach(raw=>{const depId=Number(raw);if(parentOfIn(byIdFull,depId)===p)nonTerminal.add(p+":"+depId)})});
 return {byIdFull:byIdFull,seenDep:seenDep,nonTerminal:nonTerminal}}
 function buildDepGraph(cards){
-const byId=new Map(cards.map(c=>[Number(c.id),c]));
-const nodes=cards.map(c=>({id:Number(c.id),title:c.t,status:c.s,waiting:unresolved(c),blk:blkReason(c),arch:!!c.arch}));
-const nodeIds=new Set(nodes.map(n=>n.id));
-const edges=[],seen=new Set(),ghostIds=new Set();
+const edges=[],seen=new Set();
 const addEdge=(from,to,kind)=>{
 const key=from+">"+to+":"+kind;
 if(seen.has(key))return;seen.add(key);
-if(!byId.has(from))ghostIds.add(from);
-if(!byId.has(to))ghostIds.add(to);
 edges.push({from:from,to:to,kind:kind})};
 cards.forEach(c=>{(c.w||[]).forEach(raw=>addEdge(Number(raw),Number(c.id),"dep"))});
 const full=fullEdgeSets();
@@ -1594,15 +1608,44 @@ if(p==null)return;
 if(full.nonTerminal.has(p+":"+cid))return;
 if(full.seenDep.has(cid+">"+p)||full.seenDep.has(p+">"+cid))return;
 addEdge(cid,p,"parent")});
-const ghosts=[...ghostIds].filter(id=>!nodeIds.has(id)).sort((a,b)=>a-b).map(id=>({id:id,title:null,ghost:true}));
-const touchedByDep=new Set(),touchedByAny=new Set();
-edges.forEach(e=>{touchedByAny.add(e.from);touchedByAny.add(e.to);if(e.kind==="dep"){touchedByDep.add(e.from);touchedByDep.add(e.to)}});
-// The "no dependencies" row is keyed off SEQUENCING (dep) edges
-// only; the layered graph draws every node touched by ANY edge — a node
-// whose only edge is a parent edge joins BOTH.
-const isolated=nodes.filter(n=>!touchedByDep.has(n.id));
-const participants=nodes.filter(n=>touchedByAny.has(n.id));
-return {nodes:nodes,edges:edges,ghosts:ghosts,isolated:isolated,participants:participants}}
+return {edges:edges}}
+// The shape kanban-web's buildRelationsGraph hands map-relations.js, read from the
+// board as embedded: the map never shows queued edits.
+function buildRelGraph(visibleIds){
+const byId=new Map(DATA.map(c=>[Number(c.id),c]));
+const isVisible=id=>byId.has(id)&&visibleIds.has(id);
+const nodeOf=c=>({id:Number(c.id),title:c.t,status:c.s,archived:!!c.arch,waiting:unresolved(c),blk:blkReason(c),card:c});
+const stubs=new Map();
+const stubNode=(id,more)=>Object.assign({id:id,title:null,status:null,archived:false,ghost:true,missing:true},more);
+const addStub=id=>{
+if(isVisible(id)||stubs.has(id))return;
+const c=byId.get(id);
+stubs.set(id,c?Object.assign(nodeOf(c),{ghost:true}):stubNode(id))};
+const nodes=DATA.filter(c=>isVisible(Number(c.id))).map(nodeOf);
+const edges=[],seen=new Set();
+DATA.forEach(c=>{const to=Number(c.id);(c.w||[]).forEach(raw=>{
+const from=Number(raw),key=from+">"+to;
+if(seen.has(key)||(!isVisible(from)&&!isVisible(to)))return;
+seen.add(key);addStub(from);addStub(to);
+edges.push({from:from,to:to,kind:"dep"})})});
+const children=[];
+DATA.forEach(c=>{const id=Number(c.id),p=parseParent(c.fm&&c.fm.parent,BOARD);
+if(p&&p.local&&p.id!==id&&byId.has(p.id))children.push({id:id,parent:p.id,waitsOn:(c.w||[]).map(Number)})});
+const ends=mapParentLineEnds(children);
+const outside=new Map();
+const outsideStub=ref=>{
+if(!outside.has(ref)){const id=-(outside.size+1);outside.set(ref,id);stubs.set(id,stubNode(id,{external:ref}))}
+return outside.get(ref)};
+const pairs=[];
+DATA.forEach(c=>{const id=Number(c.id),p=parseParent(c.fm&&c.fm.parent,BOARD);
+if(!p||(p.local&&p.id===id))return;
+if(!p.local){if(isVisible(id))pairs.push({child:id,parent:outsideStub(p.board+"#"+p.id),ends:null});return}
+if(!isVisible(id)&&!isVisible(p.id))return;
+addStub(id);addStub(p.id);
+pairs.push({child:id,parent:p.id,ends:ends.get(id)||null})});
+return {nodes:nodes,ghosts:[...stubs.values()],edges:edges,pairs:pairs}}
+const MAPOPT=MAP_OPTION_DEFAULTS;
+function mapShape(visibleIds){return mapShapeRelations(buildRelGraph(visibleIds),MAPOPT)}
 // tree:<id>/path:<id> search terms. Both reuse buildDepGraph(DATA)
 // (the full live+archived board, ALWAYS — never a filtered slice, so a query
 // can't shrink its own graph) as the sole adjacency source: treeIds is the
@@ -1670,62 +1713,87 @@ ready.forEach(id=>{layer.set(id,cur);remaining.delete(id)});
 ready.forEach(id=>{(succ.get(id)||[]).forEach(s=>{if(remaining.has(s))indeg.set(s,indeg.get(s)-1)})});
 cur++}
 return layer}
-function mapNodeGroup(n,p){
-const cls="mnode"+(n.ghost?" ghost":"")+(n.waiting&&n.waiting.length?" waiting":"")+(n.blk!=null?" blocked":"");
+const RTOP=42,RMETA=16,RBAR=10,RBARE=46;
+const RDIMS={top:RTOP,metaH:RMETA,barGap:3,bottom:8,bareH:RBARE};
+function richOf(n,roll){
+if(n.ghost)return null;
+const type=String((n.card.fm&&n.card.fm.type)||"").trim(),alt=roll.altitudeOf(n.id);
+const rollup=alt?roll.rollup(n.id):null;
+const hasBar=!!(rollup&&rollup.total),hasMeta=!!type||alt>=1||n.blk!=null;
+return Object.assign({type:type,alt:alt,rollup:rollup,hasMeta:hasMeta,hasBar:hasBar},mapRichBox(hasMeta,hasBar,RBAR,RDIMS))}
+function richNodes(g,n,rich){
+if(rich.type||rich.alt>=1){
+const x0=n.blk!=null?54:8;
+const fo=svgEl("foreignObject",{x:x0,y:RTOP,width:MW-x0-6,height:RMETA});
+const row=el("div","map-rich-meta");
+const tc=typeChip(n.card);if(tc)row.appendChild(tc);
+if(rich.alt>=1)row.appendChild(altBadge(rich.alt));
+fo.appendChild(row);g.appendChild(fo)}
+if(rich.hasBar){
+const fo=svgEl("foreignObject",{x:8,y:rich.barY,width:MW-16,height:RBAR});
+const box=el("div","map-rich-bar");box.appendChild(rollupBarNode(rich.rollup,false));
+fo.appendChild(box);g.appendChild(fo)}}
+function mapNodeGroup(n,p,rich){
+const cls="mnode"+(n.ghost?" ghost":"")+(!n.ghost&&n.waiting.length?" waiting":"")+(!n.ghost&&n.blk!=null?" blocked":"");
 const g=svgEl("g",{class:cls,transform:"translate("+p.x+","+p.y+")"});
 if(!n.ghost)g.setAttribute("data-mapnode",String(n.id));
 const tt=svgEl("title");
-tt.textContent=n.ghost?("#"+n.id+" \\u2014 referenced but not on this board"):("#"+n.id+" "+n.title+(n.waiting.length?" (waiting on "+n.waiting.map(x=>"#"+x).join(", ")+")":"")+(n.blk!=null?" (blocked"+(n.blk?": "+n.blk:"")+")":"")+(n.arch?" (archived)":""));
+tt.textContent=n.external?(n.external+" — parent on another board, not drawn on this map"):n.missing?("#"+n.id+" — referenced but not on this board"):("#"+n.id+" "+n.title+(!n.ghost&&n.waiting.length?" (waiting on "+n.waiting.map(x=>"#"+x).join(", ")+")":"")+(!n.ghost&&n.blk!=null?" (blocked"+(n.blk?": "+n.blk:"")+")":"")+(n.archived?" (archived)":""));
 g.appendChild(tt);
-g.appendChild(svgEl("rect",{width:MW,height:MH,rx:3}));
-const idt=svgEl("text",{x:10,y:19,class:"mid"});idt.textContent="#"+n.id;g.appendChild(idt);
-const tl=svgEl("text",{x:10,y:37,class:"mtitle"});tl.textContent=n.ghost?"(not on board)":truncate(n.title,20);g.appendChild(tl);
-if(!n.ghost){const dot=svgEl("circle",{cx:MW-12,cy:12,r:4});dot.style.fill=n.arch?ARCHC:ccol(n.status);g.appendChild(dot)}
+g.appendChild(svgEl("rect",{width:MW,height:p.h,rx:3}));
+const idt=svgEl("text",{x:10,y:19,class:"mid"});idt.textContent=n.external||"#"+n.id;g.appendChild(idt);
+const tl=svgEl("text",{x:10,y:37,class:"mtitle"});tl.textContent=n.external?"(other board)":n.missing?"(not on board)":truncate(n.title,20);g.appendChild(tl);
+if(!n.missing){const dot=svgEl("circle",{cx:MW-12,cy:12,r:4});dot.style.fill=n.archived?ARCHC:ccol(n.status);g.appendChild(dot)}
 if(!n.ghost&&n.blk!=null){
 // red PILL, not a border — borders stay priority/status territory, and
 // the pill leaves the amber waiting stroke visible on a node
 // that is both waiting and blocked.
-g.appendChild(svgEl("rect",{x:MW-46,y:MH-17,width:40,height:12,rx:3,class:"mblk"}));
-const bt=svgEl("text",{x:MW-26,y:MH-8,class:"mblkt","text-anchor":"middle"});bt.textContent="blocked";g.appendChild(bt)}
-if(n.arch)g.style.opacity=".55";
+g.appendChild(svgEl("rect",{x:8,y:RTOP+2,width:40,height:12,rx:3,class:"mblk"}));
+const bt=svgEl("text",{x:28,y:RTOP+11,class:"mblkt","text-anchor":"middle"});bt.textContent="blocked";g.appendChild(bt)}
+if(rich)richNodes(g,n,rich);
+if(n.archived)g.style.opacity=".55";
 return g}
-function buildMapSvg(graph,participants){
-const allNodes=participants.concat(graph.ghosts);
-const byId=new Map(allNodes.map(n=>[n.id,n]));
-const ids=allNodes.map(n=>n.id);
-const layer=layerNodes(ids,graph.edges);
-const layers=new Map();
-layer.forEach((l,id)=>{if(!layers.has(l))layers.set(l,[]);layers.get(l).push(id)});
-layers.forEach(arr=>arr.sort((a,b)=>a-b));
-const numLayers=layers.size?Math.max(...layers.keys())+1:0;
-const pos=new Map();
-layers.forEach((arr,l)=>{arr.forEach((id,i)=>{const x=MPAD+i*(MW+GX),y=MPAD+l*(MH+GY);pos.set(id,{x:x,y:y,cx:x+MW/2})})});
+function buildMapSvg(graph,roll){
+const byId=new Map(graph.nodes.concat(graph.ghosts).map(n=>[n.id,n]));
+const layer=layerNodes(graph.ids,graph.layoutEdges);
+const rows=new Map();
+layer.forEach((l,id)=>{if(!rows.has(l))rows.set(l,[]);rows.get(l).push(id)});
+rows.forEach((ids,l)=>{ids.sort((a,b)=>a-b);rows.set(l,mapOrderRow(ids,graph,MAPOPT.order,COLS))});
+const rich=new Map(),heights=new Map();
+layer.forEach((l,id)=>{const r=richOf(byId.get(id),roll);rich.set(id,r);heights.set(id,r?r.h:MH)});
+const placed=mapRowPositions(rows,heights,MAPOPT.align,MDIMS),pos=placed.pos;
 let maxX=MPAD;
 pos.forEach(p=>{maxX=Math.max(maxX,p.x+MW)});
 const BOW=MW*0.9;
 const edgesG=svgEl("g");
 graph.edges.forEach(e=>{
-// Parent edges (kind "parent") still shape the layout above (fed into
-// layerNodes), but are never drawn.
-if(e.kind==="parent")return;
 const from=pos.get(e.from),to=pos.get(e.to);
 if(!from||!to)return;
 const back=(layer.get(e.to)||0)<=(layer.get(e.from)||0);
-const x1=from.cx,y1=from.y+MH,x2=to.cx,y2=to.y;
+const x1=from.cx,y1=from.y+from.h,x2=to.cx,y2=to.y;
 let d;
 if(back){maxX=Math.max(maxX,x1+BOW,x2+BOW);d="M"+x1+","+y1+" C"+(x1+BOW)+","+y1+" "+(x2+BOW)+","+y2+" "+x2+","+y2}
 else{const midY=(y1+y2)/2;d="M"+x1+","+y1+" C"+x1+","+midY+" "+x2+","+midY+" "+x2+","+y2}
-const dimmed=(byId.get(e.from)&&byId.get(e.from).ghost)||(byId.get(e.to)&&byId.get(e.to).ghost);
+const dimmed=byId.get(e.from).ghost||byId.get(e.to).ghost;
 edgesG.appendChild(svgEl("path",{d:d,class:"medge"+(dimmed?" ghostedge":""),"marker-end":"url(#map-arrow)"}))});
+const lines=mapParentLinePaths(graph,pos,layer,MAPOPT.parent,MDIMS);
+lines.paths.forEach(l=>{
+const p=svgEl("path",{d:l.d,class:"medge mpline"+(l.dimmed?" ghostedge":"")});
+p.setAttribute(MAPOPT.parent==="above"?"marker-start":"marker-end","url(#map-parent-dot)");
+edgesG.appendChild(p)});
+maxX=Math.max(maxX,lines.maxX);
 const nodesG=svgEl("g");
-pos.forEach((p,id)=>{const n=byId.get(id);if(n)nodesG.appendChild(mapNodeGroup(n,p))});
+pos.forEach((p,id)=>nodesG.appendChild(mapNodeGroup(byId.get(id),p,rich.get(id))));
 const width=maxX+MPAD;
-const height=Math.max(MH+MPAD*2,numLayers*(MH+GY)-GY+MPAD*2);
+const height=Math.max(MH+MPAD*2,placed.bottom+MPAD);
 const svg=svgEl("svg",{class:"map-canvas",width:String(width),height:String(height),viewBox:"0 0 "+width+" "+height});
 const defs=svgEl("defs");
 const marker=svgEl("marker",{id:"map-arrow",viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"7",markerHeight:"7",orient:"auto-start-reverse"});
 marker.appendChild(svgEl("path",{d:"M0,0 L10,5 L0,10 z"}));
 defs.appendChild(marker);
+const dot=svgEl("marker",{id:"map-parent-dot",class:"map-parent-dot",viewBox:"0 0 10 10",refX:"5",refY:"5",markerWidth:"5",markerHeight:"5"});
+dot.appendChild(svgEl("circle",{cx:"5",cy:"5",r:"4"}));
+defs.appendChild(dot);
 svg.appendChild(defs);
 svg.appendChild(edgesG);svg.appendChild(nodesG);
 return svg}
@@ -1735,11 +1803,18 @@ d.setAttribute("data-mapnode",String(n.id));
 d.appendChild(el("span","cid","#"+n.id));
 d.appendChild(document.createTextNode(truncate(n.title,30)));
 return d}
+function graphHeading(g){
+const byId=new Map(g.nodes.map(n=>[n.id,n]));
+const h=el("div","map-graph-heading");
+h.appendChild(el("strong",null,mapRootsText(g,id=>truncate(byId.get(id).title,32))));
+h.appendChild(el("span",null,mapGraphCounts(g)));
+return h}
 function renderMap(){
 const mv=$("mapview");mv.replaceChildren();
+mv.classList.toggle("map-align-center",MAPOPT.align==="center");
 mv.appendChild(statusPills());
-const graph=buildDepGraph(visList());
-if(!graph.nodes.length){mv.appendChild(el("div","map-empty","No cards to show."));return}
+const view=mapShape(new Set(visList().map(c=>Number(c.id))));
+if(!view.graphs.length&&!view.noRelations.length){mv.appendChild(el("div","map-empty","No cards to show."));return}
 const legend=el("div","map-legend");
 const swatch=(cls,label)=>{const s=el("span");s.appendChild(el("span","map-swatch"+(cls?" "+cls:"")));s.appendChild(document.createTextNode(label));return s};
 legend.appendChild(swatch("","workable"));
@@ -1747,17 +1822,20 @@ legend.appendChild(swatch("waiting","waiting"));
 legend.appendChild(swatch("blocked","blocked"));
 legend.appendChild(swatch("ghost","not on this board"));
 mv.appendChild(legend);
-const participants=graph.participants;
-if(participants.length||graph.ghosts.length){
-mv.appendChild(el("div","map-title","Dependency graph ("+participants.length+")"));
+if(view.graphs.length){
+const roll=rollupIndex(DATA.map(c=>nestNode(c)),{board:BOARD,priorities:PRIOS});
+mv.appendChild(el("div","map-title",mapGraphsLabel(view.graphs,MAPOPT.group)));
+view.graphs.forEach(g=>{
+mv.appendChild(graphHeading(g));
 const wrap=el("div","map-scroll");
-wrap.appendChild(buildMapSvg(graph,participants));
+wrap.appendChild(buildMapSvg(g,roll));
 mv.appendChild(hscrollNav(wrap));
-mv.appendChild(wrap)}
-if(graph.isolated.length){
-mv.appendChild(el("div","map-title","No dependencies ("+graph.isolated.length+")"));
+mv.appendChild(wrap)})}
+if(view.noRelations.length){
+mv.appendChild(el("div","map-title","No relations ("+view.noRelations.length+")"));
+const titles=new Map(DATA.map(c=>[Number(c.id),c.t]));
 const row=el("div","map-iso-row");
-graph.isolated.forEach(n=>row.appendChild(isoChip(n)));
+view.noRelations.forEach(id=>row.appendChild(isoChip({id:id,title:titles.get(id)})));
 mv.appendChild(row)}}
 // --- date triad model, ported from kanban-web's calendar-model.js / gantt-model.js ---
 // Working range = start->end, with the compat fallback start->due when end is
@@ -1792,7 +1870,7 @@ return "range-mid"}
 // Rows group by status in COLS order (config statuses), unlisted
 // statuses appended alphabetically — same tolerance as kanban-web's ganttGroups.
 // Undated cards are NOT dropped (unlike the web gantt): they land in a dimmed
-// chip row below, mirroring the map's "No dependencies" treatment.
+// chip row below, mirroring the map's No relations treatment.
 const GDAY=18,GROWH=30,GLBL=118,GHDR=24,GBARH=14,GMAXD=180;
 const MSHORT=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const isMonday=d=>new Date(dayToUtc(d)).getUTCDay()===1;

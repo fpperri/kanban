@@ -7,6 +7,7 @@ const { execFileSync } = require('node:child_process');
 
 const buildScript = path.join(__dirname, '..', 'scripts', 'build_editor.py');
 const nestingPath = path.join(__dirname, '..', '..', 'web', 'web', 'nesting.js');
+const mapRelationsPath = path.join(__dirname, '..', '..', 'web', 'web', 'map-relations.js');
 
 const lf = (text) => text.replace(/\r\n/g, '\n');
 
@@ -69,4 +70,4 @@ function withSnapshot(board, fn) {
   }
 }
 
-module.exports = { BOARD, buildScript, card, lf, nestingPath, withSnapshot, writeBoard };
+module.exports = { BOARD, buildScript, card, lf, mapRelationsPath, nestingPath, withSnapshot, writeBoard };

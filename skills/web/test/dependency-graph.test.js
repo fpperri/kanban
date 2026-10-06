@@ -22,7 +22,6 @@ test('no active filter (visibleIds null): every card is a full node, every waiti
   );
   assert.ok(g.edges.every((e) => !e.fromGhost && !e.toGhost));
   assert.deepStrictEqual(g.ghosts, []);
-  assert.deepStrictEqual(g.isolated, [4]);
 });
 
 test('archived cards are included as full nodes (archive is a location, not exclusion — matches board isWaiting semantics)', () => {
@@ -153,52 +152,32 @@ test('a duplicate waiting_for entry collapses to a single edge', () => {
   assert.strictEqual(g.edges.length, 1);
 });
 
-test('a card with no dependencies in either direction is isolated', () => {
-  const g = buildDependencyGraph(CARDS, null);
-  assert.deepStrictEqual(g.isolated, [4]);
-});
-
-// Reported bug — "a card not blocked by anyone but that BLOCKS
-// others may land in the map's 'No dependencies' row instead of the graph."
-// Investigated: the isolation predicate (touchedIds, above) adds BOTH e.from
-// and e.to for every surviving edge, so a blocker with an empty waiting_for
-// (card 1, "Root A") is touched — and therefore never isolated — the instant
-// it has ANY outgoing edge, full stop; it doesn't matter whether the blocked
-// endpoint is itself visible, ghosted, or (per the two cases below) hidden by
-// a status-filter/search composition. Exhaustively verified over every
-// subset of CARDS' visibleIds (64 combinations) plus 500 randomized graphs
-// composed through the real mapFilterVisibleIds + intersectVisibleIds
-// pipeline (column-state.js): no composition reproduces the report. This
-// pins the correct behavior rather than a bug fix; no product code changed.
-test('an unblocked card (empty waiting_for) that blocks another card is NEVER isolated — even when the filter hides every card it blocks, ghost-stubbing them instead', () => {
+test('an unblocked card (empty waiting_for) that blocks another card keeps its edge even when the filter hides every card it blocks, ghost-stubbing them instead', () => {
   // visible = {1, 4}: hides 2 (directly blocked by 1) and 3 (transitively).
   const g = buildDependencyGraph(CARDS, new Set([1, 4]));
   assert.ok(g.nodes.some((n) => n.id === 1), 'the blocker itself is still a real graph node');
-  assert.strictEqual(g.isolated.includes(1), false, 'must never fall into the detached "No dependencies" row');
   const edge12 = g.edges.find((e) => e.from === 1 && e.to === 2);
   assert.ok(edge12, 'its outgoing edge survives as a ghost-stub edge, not dropped');
   assert.strictEqual(edge12.toGhost, true);
   assert.ok(g.ghosts.find((gh) => gh.id === 2), 'the hidden blocked card ghosts in — it does not orphan the blocker');
 });
 
-test('archived blocker variant: card 5 blocks archived-adjacent card 6; hiding 6 alone still keeps 5 out of isolated', () => {
+test('archived blocker variant: card 5 blocks card 6; hiding 6 alone keeps the edge as a ghost stub', () => {
   // visible = {1, 4, 5}: hides 2, 3, 6 — 5's only edge (5 -> 6) is now a ghost stub.
   const g = buildDependencyGraph(CARDS, new Set([1, 4, 5]));
-  assert.strictEqual(g.isolated.includes(5), false);
   const edge56 = g.edges.find((e) => e.from === 5 && e.to === 6);
   assert.ok(edge56);
   assert.strictEqual(edge56.toGhost, true);
 });
 
-test('a self-referencing waiting_for (a card blocking itself) is not reported isolated — it does have an edge, just a degenerate one', () => {
+test('a self-referencing waiting_for (a card blocking itself) is an edge, just a degenerate one', () => {
   const cards = [{ id: 7, title: 'Self-blocked', status: 'todo', waiting_for: [7], archived: false }];
   const g = buildDependencyGraph(cards, null);
   assert.deepStrictEqual(g.edges, [{ from: 7, to: 7, kind: 'dep', fromGhost: false, toGhost: false }]);
-  assert.deepStrictEqual(g.isolated, []);
 });
 
 test('an empty card list yields an empty graph, no throw', () => {
-  assert.deepStrictEqual(buildDependencyGraph([], null), { nodes: [], edges: [], ghosts: [], isolated: [], participants: [] });
+  assert.deepStrictEqual(buildDependencyGraph([], null), { nodes: [], edges: [], ghosts: [] });
 });
 
 // --- layerNodes --------------------------------------------------------------
@@ -301,14 +280,9 @@ test('terminality is computed on the FULL board — a search-hidden downstream c
   assert.deepStrictEqual(parentEdges.map((e) => `${e.from}->${e.to}:${e.fromGhost}`), ['12->10:true']);
 });
 
-test('a parent with only parent edges joins the graph AND stays in the no-dependencies row — isolated is keyed off dep edges only', () => {
+test('a parent with only parent edges is on the end of a parent edge, which tree: and path: walk', () => {
   const g = buildDependencyGraph(family, null);
-  // the parent participates in edges, so the layered graph will lay it out...
-  assert.ok(g.edges.some((e) => e.to === 10));
-  // ...but "No dependencies" means no SEQUENCING deps, so it still lists there
-  assert.deepStrictEqual(g.isolated, [10]);
-  // the children ride dep edges (11->12), so neither is isolated
-  assert.ok(!g.isolated.includes(11) && !g.isolated.includes(12));
+  assert.ok(g.edges.some((e) => e.to === 10 && e.kind === 'parent'));
 });
 
 test('parent does not make anyone waiting — nesting is not sequencing', () => {
@@ -346,7 +320,6 @@ test('a self-parent adds no edge (nonsense); parent null/absent adds nothing', (
     { id: 2, title: 'self', status: 'todo', parent: 2, waiting_for: [] },
   ], null);
   assert.deepStrictEqual(g.edges, []);
-  assert.deepStrictEqual(g.isolated, [1, 2]);
 });
 
 test('a parent on another board (board#id) adds no edge and no ghost: the map does not follow it', () => {
@@ -375,16 +348,6 @@ test('sequencing wins the UNORDERED pair: a dep edge between child and parent in
     { id: 11, title: 'child', status: 'todo', parent: 10, waiting_for: [] },
   ], null);
   assert.deepStrictEqual(b.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['11->10:dep']);
-});
-
-test('participants: any-edge-touched nodes + ghosts, in the pure module — parent in both participants and isolated', () => {
-  const g = buildDependencyGraph([
-    { id: 10, title: 'parent', status: 'doing', waiting_for: [] },
-    { id: 11, title: 'child', status: 'todo', parent: 10, waiting_for: [] },
-    { id: 12, title: 'loner', status: 'todo', waiting_for: [] },
-  ], null);
-  assert.deepStrictEqual(g.participants, [10, 11]);
-  assert.deepStrictEqual(g.isolated, [10, 11, 12]); // no dep edges anywhere — all three
 });
 
 // --- treeIds (connected component) / pathIds (directed cone) -------

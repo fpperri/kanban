@@ -78,8 +78,7 @@ predicate) — never dropped as mid-typing; `review:PR`/`blocked:vendor` is a
 case-insensitive substring match on the sticker's own text. `tree:<id>`/`path:<id>`
 (`#`-tolerant, e.g. `tree:#153`): tree is the card's whole dependency
 component (undirected flood-fill over `waiting_for` + `parent:`
-membership — the same edges the Map view's graph is built from, though
-membership itself draws no line there); path is the narrower
+relations, the ones the Map's trees are made of); path is the narrower
 directed cone through the card (everything transitively upstream +
 downstream). An unknown id matches nothing; an isolated card is a component
 of one; traversal always runs over the full live + archived card set
@@ -156,8 +155,9 @@ statuses (same hash, same hexes), so a handle colors identically on both
 surfaces. An unregistered handle just hashes, same as an unlisted status.
 
 Besides the board, the editor ships three read-only views over the same
-embedded snapshot: **Map** (`waiting_for` dependency graph,
-ghost stubs for off-board references), **Gantt** (working-range bars + due
+embedded snapshot: **Map** (`waiting_for` arrows and dashed parent lines, one
+graph per tree, stubs for what a filter hides or the board does not hold; see
+"The Map"), **Gantt** (working-range bars + due
 diamonds per the date-triad semantics, grouped in `statuses` order, undated
 cards in a chip row below), and **Calendar** (Monday-start month grid, range
 chips + due markers, tap month navigation, and month/week/3-day/day sub-views
@@ -214,6 +214,42 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
 - **Rank is not editable here.** The grid hides `rank` even on a card that has one,
   and no other control writes it: reorder cards by dragging in kanban-web, or
   conversationally. A half-working reorder would be worse than none.
+
+## The Map
+
+The page embeds `skills/web/web/map-relations.js` as is, beside `nesting.js`, so which
+parent lines the Map draws, which cards share a graph, how a row reads, which cards
+have no relation at all and where cards and lines fall are kanban-web's own rules;
+`test/map-embed.test.js` pins the embedded source to that file, under the same build
+guards as the nesting module. The build reads it from the kanban-web skill installed
+beside this one, like `nesting.js`.
+
+The page keeps only the drawing of those results as SVG, and the relations it hands the
+rules are built twice: `buildRelGraph` here, `buildRelationsGraph` in `dependency-graph.js`
+there. `test/map-parity.test.js` runs both over a board with every kind of relation,
+whole and filtered, and fails when they stop giving the same graphs. The Map shows the
+board as embedded, like the Gantt and the Calendar: a queued edit does not move it.
+
+It always draws kanban-web's defaults:
+
+- **Parent lines.** A dashed line in the dependency grey joins a parent to the children
+  where their dependency chain ends: with the parent below its children, the children
+  no sibling waits on. A child with no dependency to or from a sibling always has its
+  line. A parent on another board is one dimmed stub per `board#id`, a parent that is
+  not on the board is a stub too, and each child keeps its line to it. There is never a
+  line from a grandparent to a grandchild.
+- **One graph per tree.** Cards joined by any dependency or parent share a graph,
+  stacked biggest first, each under a heading with its root titles and card count and
+  with its own scroll buttons. A status pill or a search that hides a card turns it into
+  a dimmed stub where a card that is shown relates to it.
+- **No relations.** The last row holds only the cards with no dependency, no parent and
+  no children. A card with only a parent is in a graph, not in this row.
+- **Row order and alignment.** A row reads doing, todo, backlog, any other live status
+  in the board's order, done, archived, then stubs, and sits centered in its graph, each
+  graph centered on the page.
+- **Rich cards.** A node carries the type chip, the altitude badge and, on a parent, the
+  thin roll-up bar read off the board as embedded, and is as tall as what it holds. A
+  tap anywhere on a node, the bar included, opens the card.
 
 ## The change loop
 
@@ -274,8 +310,8 @@ was reverted. It's still gated by the exact same "any ops queued, or a
 note to show" check `render()` always used, so it only appears while
 there's something to show.
 
-`hnav` (the horizontal-scroll step buttons on the Map view's dependency
-graph) hides on `(hover:hover) and (pointer:fine)` — a **capability** query,
+`hnav` (the horizontal-scroll step buttons above each of the Map view's
+graphs) hides on `(hover:hover) and (pointer:fine)` — a **capability** query,
 not a width breakpoint, so a touch device keeps the buttons regardless of
 screen size and a mouse/trackpad loses them regardless of screen size
 (scrollbars and shift-wheel cover it there). The scroll-button stack
@@ -477,6 +513,11 @@ Claude to apply; read the parent's roll-up before marking it done.
 
 **No bar mode.** kanban-web's Bar select (open, collapsed or off) has no counterpart:
 a parent's tile always carries the thin bar and its sheet the open one.
+
+**No Map options.** kanban-web's Map options row (parent lines, dependency lines,
+graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map
+always draws the defaults in "The Map", and with no bar mode to flip, a click on a
+roll-up bar opens the card.
 
 Archived cards are read-only in the tap UI — restore or edit them
 conversationally or in kanban-web. Everything else on a live card is tap-

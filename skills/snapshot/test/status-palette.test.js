@@ -187,17 +187,19 @@ test('the map draws no epic-colored edges and the snapshot owns no epic color', 
   assert.ok(!/border-color:#f0883e/.test(src));
 });
 
-test('the map draws a parent edge (kind "parent") as nothing — not even a plain edge', () => {
+test('the map draws a parent as a dashed line, never as an arrow: the arrows are the dependency edges, and the layout edges are not drawn', () => {
   const fn = extractFunction('buildMapSvg');
   assert.ok(fn.trim().endsWith('return svg}'), 'extractFunction should stop at buildMapSvg\'s own closing brace, not run past it');
-  assert.match(fn, /if\(e\.kind===["']parent["']\)return/, 'the edge loop bails out before drawing a parent edge');
+  assert.match(fn, /graph\.edges\.forEach/, 'the arrows come from the drawn dependency edges');
+  assert.doesNotMatch(fn, /layoutEdges\.forEach/, 'the layout edges place cards and are never drawn');
+  assert.match(src, /class:"medge mpline/, 'a parent line is its own dashed class');
   assert.doesNotMatch(fn, /epicedge|map-arrow-epic/, 'no epic-only class or marker reference remains in the drawing code');
 });
 
 // --- SVG rx small (2-3) per the shop's vocabulary ---
 
 test('SVG rect corner radii (map node, blocked pill, gantt bar) are small (2-3), not the old 8/6/4', () => {
-  assert.match(src, /svgEl\("rect",\{width:MW,height:MH,rx:[23]\}\)/);
+  assert.match(src, /svgEl\("rect",\{width:MW,height:p\.h,rx:[23]\}\)/);
   assert.match(src, /rx:[23],class:"mblk"/);
   assert.match(src, /rx:[23],class:"gbar"/);
 });
