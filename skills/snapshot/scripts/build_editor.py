@@ -74,17 +74,18 @@ def esc(text):
     return (str(text).replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace('"', "&quot;"))
 
+def _config_text(kanban_dir):
+    try:
+        return open(os.path.join(kanban_dir, "config.yaml"), encoding="utf-8", errors="replace").read()
+    except OSError:
+        return ""
+
 def read_board_name(kanban_dir):
     """config.yaml's top-level `name:` — the BOARD NAME that qualifies every
     card mention and titles this page. Only an UNINDENTED key counts: each
     assignee entry carries its own indented `name:`. Absent, fall back to the
     folder above the board directory — a display default, not a name."""
-    path = os.path.join(kanban_dir, "config.yaml")
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        text = ""
-    m = re.search(r"^name:[ \t]*([^\n]*)$", text, re.M)
+    m = re.search(r"^name:[ \t]*([^\n]*)$", _config_text(kanban_dir), re.M)
     if m:
         val = re.sub(r"\s+#.*$", "", m.group(1)).strip().strip('"').strip("'")
         if val:
@@ -95,35 +96,15 @@ DEFAULT_STATUSES = ["backlog", "todo", "doing", "done"]
 
 def read_statuses(kanban_dir):
     """config.yaml's `statuses` list drives column/group order; the
-    built-in four apply when the file or key is absent. Flow and block YAML
-    list styles both occur in the wild."""
-    path = os.path.join(kanban_dir, "config.yaml")
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        return DEFAULT_STATUSES
-    m = re.search(r"^statuses:\s*\[(.*?)\]", text, re.M)
-    if m:
-        vals = [v.strip().strip('"').strip("'") for v in m.group(1).split(",") if v.strip()]
-        return vals or DEFAULT_STATUSES
-    m = re.search(r"^statuses:\s*\n((?:[ \t]+-[^\n]*\n?)+)", text, re.M)
-    if m:
-        vals = [re.sub(r"^[ \t]+-\s*", "", ln).strip().strip('"').strip("'")
-                for ln in m.group(1).splitlines() if ln.strip()]
-        return vals or DEFAULT_STATUSES
-    return DEFAULT_STATUSES
+    built-in four apply when the file or key is absent or empty."""
+    return _config_scalars(kanban_dir, "statuses") or DEFAULT_STATUSES
 
 DEFAULT_ASSIGNEES = ["@human", "@hitl", "@afk"]
 
 def _assignees_block(kanban_dir):
     """The raw `assignees:` section text, or None — shared by read_assignees
     and read_assignee_colors so both parse the exact same slice."""
-    path = os.path.join(kanban_dir, "config.yaml")
-    try:
-        text = open(path, encoding="utf-8", errors="replace").read()
-    except OSError:
-        return None
-    m = re.search(r"^assignees:[^\n]*\n(.*?)(?=^\S|\Z)", text, re.M | re.S)
+    m = re.search(r"^assignees:[^\n]*\n(.*?)(?=^\S|\Z)", _config_text(kanban_dir), re.M | re.S)
     return m.group(1) if m else None
 
 def read_assignees(kanban_dir):
@@ -188,12 +169,6 @@ def read_assignee_colors(kanban_dir):
                 colors[cur] = v
     return colors
 
-def _config_text(kanban_dir):
-    try:
-        return open(os.path.join(kanban_dir, "config.yaml"), encoding="utf-8", errors="replace").read()
-    except OSError:
-        return ""
-
 def _flow_list(raw):
     s = raw.strip()
     if not s.startswith("["):
@@ -202,10 +177,36 @@ def _flow_list(raw):
     inner = s[1:] if close == -1 else s[1:close]
     return [v for v in (_scalar(i) for i in inner.split(",")) if v]
 
+def _config_list(kanban_dir, key):
+    """The top-level `key:` list as (flow items, block lines): `key: [a, b]`
+    gives the items, `key:` alone gives the indented lines under it. A comment
+    after the key still opens the block, as the skill's sample config writes
+    it. One reader for every list, matching kanban-web's config-store."""
+    flow, block, in_block = [], [], False
+    for line in _config_text(kanban_dir).splitlines():
+        top = re.match(r"^(\w+):\s*(.*)$", line)
+        if top:
+            in_block = False
+            if top.group(1) == key:
+                rest = top.group(2).strip()
+                if not rest or rest.startswith("#"):
+                    in_block = True
+                else:
+                    flow = _flow_list(rest)
+            continue
+        if in_block:
+            block.append(line)
+    return flow, block
+
+def _config_scalars(kanban_dir, key):
+    flow, block = _config_list(kanban_dir, key)
+    items = [_scalar(m.group(1)) for m in (re.match(r"^\s+-\s*(.*)$", line) for line in block) if m]
+    return [v for v in flow + items if v]
+
 def read_types(kanban_dir):
-    """config.yaml's `types:` list as [{name, color}]. A comment after the key
-    still opens the block, as the skill's sample config writes it."""
-    types, cur, in_types = [], None, False
+    """config.yaml's `types:` list as [{name, color}]."""
+    flow, block = _config_list(kanban_dir, "types")
+    types, cur = [{"name": n, "color": ""} for n in flow], None
 
     def flush():
         nonlocal cur
@@ -215,20 +216,7 @@ def read_types(kanban_dir):
                 types.append({"name": name, "color": _scalar(cur.get("color", ""))})
             cur = None
 
-    for line in _config_text(kanban_dir).splitlines():
-        top = re.match(r"^(\w+):\s*(.*)$", line)
-        if top:
-            flush()
-            in_types = False
-            if top.group(1) == "types":
-                rest = top.group(2).strip()
-                if not rest or rest.startswith("#"):
-                    in_types = True
-                else:
-                    types[:] = [{"name": n, "color": ""} for n in _flow_list(rest)]
-            continue
-        if not in_types:
-            continue
+    for line in block:
         start = re.match(r"^\s+-\s+(\w+):\s*(.*)$", line)
         bare = re.match(r"^\s+-\s*(.*)$", line)
         field = re.match(r"^\s+(\w+):\s*(.*)$", line)
@@ -246,24 +234,7 @@ def read_types(kanban_dir):
     return types
 
 def read_priorities(kanban_dir):
-    out, in_list = [], False
-    for line in _config_text(kanban_dir).splitlines():
-        top = re.match(r"^(\w+):\s*(.*)$", line)
-        if top:
-            in_list = False
-            if top.group(1) == "priorities":
-                rest = top.group(2).strip()
-                if not rest or rest.startswith("#"):
-                    in_list = True
-                else:
-                    out[:] = _flow_list(rest)
-            continue
-        item = re.match(r"^\s+-\s*(.*)$", line)
-        if in_list and item:
-            v = _scalar(item.group(1))
-            if v:
-                out.append(v)
-    return out
+    return _config_scalars(kanban_dir, "priorities")
 
 def read_notifications(kanban_dir):
     """notifications.md entries, tolerant like the web store:

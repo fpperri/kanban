@@ -74,3 +74,21 @@ test('a comment after the priorities key opens the block, and kanban-web reads i
 test('no priorities key leaves the list empty, so the module falls back to High, Normal, Low', () => {
   assert.deepStrictEqual(prioritiesFor('name: b\n'), []);
 });
+
+function statusesFor(config) {
+  return withSnapshot({ ...BOARD, config }, (html) => embeddedConst(html, 'COLS'));
+}
+
+test('the statuses list reads the way kanban-web reads it in every form, and falls back to the built-in four', () => {
+  for (const config of [
+    'name: b\nstatuses: [todo, done]\n',
+    'name: b\nstatuses: [todo, "in review", done] # columns\n',
+    'name: b\nstatuses:\n  - todo\n  - "done" # last\n',
+    'name: b\nstatuses:   # columns\n  - todo\n  - done\n',
+    'name: b\nstatuses: []\nnextId: 4\n',
+    'name: b\n',
+  ]) {
+    const web = parseConfig(config).statuses;
+    assert.deepStrictEqual(statusesFor(config), web.length ? web : ['backlog', 'todo', 'doing', 'done'], JSON.stringify(config));
+  }
+});
