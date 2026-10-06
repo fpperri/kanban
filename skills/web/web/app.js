@@ -1782,12 +1782,16 @@ async function reorderCard(id, prev, next) {
   renderBoard();
   pendingDrops++;
   try {
-    await api('POST', `/api/cards/${id}/reorder`, { prev, next });
-    await loadBoard();
+    try {
+      await api('POST', `/api/cards/${id}/reorder`, { prev, next });
+    } catch (e) {
+      was.forEach(([c, rank]) => { c.rank = rank; });
+      renderBoard();
+      toast('Reorder failed: ' + e.message);
+    }
+    await loadBoard(); // after a failure too: the server may have written some of the cards
   } catch (e) {
-    was.forEach(([c, rank]) => { c.rank = rank; });
-    renderBoard();
-    toast('Reorder failed: ' + e.message);
+    toast('Load failed: ' + e.message);
   } finally {
     pendingDrops--;
   }

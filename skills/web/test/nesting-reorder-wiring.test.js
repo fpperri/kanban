@@ -150,12 +150,23 @@ test('a full gap shows every renumbered sibling at once', async () => {
   assert.deepStrictEqual(plain(s.calls[0]), ['render', JSON.stringify([null, 10, 30, 20])]);
 });
 
-test('when the call fails the ranks go back and the failure is shown', async () => {
+test('when the call fails the ranks go back, the failure is shown and the board is reloaded from the server', async () => {
   const s = load({ async api() { throw new Error('disk full'); } });
   await s.reorderCard(4, 2, 3);
   assert.deepStrictEqual(plain(s.state.active.map((c) => c.rank)), [null, 10, 20, 30]);
-  assert.deepStrictEqual(s.calls.map((c) => c[0]), ['render', 'render', 'toast']);
+  assert.deepStrictEqual(s.calls.map((c) => c[0]), ['render', 'render', 'toast', 'load']);
   assert.match(s.calls[2][1], /Reorder failed: disk full/);
+  assert.strictEqual(s.pending(), 0);
+});
+
+test('a failed reload after a call that went through is not a failed reorder', async () => {
+  const s = load({ async loadBoard() { throw new Error('offline'); } });
+  await s.reorderCard(4, 2, 3);
+  assert.deepStrictEqual(plain(s.state.active.map((c) => c.rank)), [null, 10, 20, 15], 'the new order stays on screen');
+  const toasts = s.calls.filter((c) => c[0] === 'toast').map((c) => c[1]);
+  assert.strictEqual(toasts.length, 1);
+  assert.doesNotMatch(toasts[0], /Reorder failed/);
+  assert.match(toasts[0], /offline/);
   assert.strictEqual(s.pending(), 0);
 });
 
