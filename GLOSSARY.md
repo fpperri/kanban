@@ -149,6 +149,14 @@ _Avoid_: component, cluster, web.
 Of one parent's children, a child where a chain of its siblings meets the parent: with the parent below, a child no sibling waits for; with the parent above, a child that waits for no sibling. A child with no dependency to or from a sibling is a chain of one and an end both ways. The Map draws a line to the chain ends by default.
 _Avoid_: terminal, leaf (that is a card with no children).
 
+**Graph view** (web only):
+The view that draws every card at once as a dot, joined by its relations, in one of three layouts: tiers (the default), force or status. Not the Map's "graph": the Map draws one graph per tree, under a heading, while the Graph view puts every card on one canvas. A card with no parent and no children is **unnested**; the tiers layout rings those on the outermost circle.
+_Avoid_: network, node-link diagram, the Map (that is a different view).
+
+**Unnested**:
+A card with no parent and no children. It may still wait for a card or be waited for.
+_Avoid_: orphan, isolated.
+
 ## Role trio
 
 The canonical assignee tiers on every board and surface — this is the ONE
@@ -177,12 +185,13 @@ hard `doing` entry gate (waiting + blocked), archive-as-location, id
 allocation, `config.yaml`'s suggest-never-validate lists — defined once, in
 the `kanban` skill. Web carries the full operation set (CRUD, multi-select
 bulk actions with per-card skips, speedbumps on every destructive action,
-notifications inbox, dependency/gantt/calendar views); the snapshot carries
+notifications inbox, dependency/gantt/calendar/graph views); the snapshot carries
 the same board contracts through a tap UI whose changes Claude applies, and
 names its own deliberate gaps in `skills/snapshot/SKILL.md`'s "What the
 editor deliberately does not do". A feature added to one editor lands in the
 other (or gets a line in that surface's own skill doc saying why not).
 Retired skills are deleted outright.
+The Graph view is web-only: the snapshot does not draw it.
 Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
 the snapshot as `tree:`/`path:` search terms plus card-sheet "Dependency
 tree"/"Dependency path" tap actions.

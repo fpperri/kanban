@@ -107,6 +107,30 @@ sub-views). Working ranges render as linked chips; a `due_date` is its own
 amber deadline chip. Drag a chip to move the range or the deadline. Same
 status-filter pills and search as the other views.
 
+## Graph
+
+The **Graph** view (the header's "◉ Graph" button) draws every card at once as
+a dot, joined by its relations: a solid line from a parent to its child, a
+dashed arrow from a card to the card it waits for. Three layouts, remembered
+per board, with **Tiers** first:
+
+- **Tiers** puts the roots at the centre and each depth on its own ring; a
+  root's tree gets its own sector, and cards with no parent and no children sit
+  on the outer ring.
+- **Force** pulls related cards together and rings the unrelated ones round the
+  edge.
+- **Status** makes one ring per status, with the last column innermost (done,
+  doing, todo, backlog from the centre out). Archived cards form a second group
+  when the Archive pill is on.
+
+A dot takes its status colour, grows with its relations, goes hollow when done
+and dim when archived. A ring around it means children; red is blocked, amber
+waiting, gold review. Hover or focus a dot to dim everything but that card and
+its relations. Click, ctrl-click, shift-click and right-click work as on the
+board. Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.
+The status pills and search work as on the Gantt, Archive off by default.
+Open it directly with `?view=graph`.
+
 ## More on the board
 
 **Notifications inbox** — the header bell surfaces messages agents leave in

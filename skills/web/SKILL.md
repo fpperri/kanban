@@ -567,17 +567,18 @@ to `127.0.0.1` only.
   one plain path component; a nested path or a `.`/`..` hop is refused with a 400.
 - **Delete** — permanently removes the card file (after a confirm).
 
-- **Multi-select** — one interaction grammar, uniform across **all four views**
+- **Multi-select** — one interaction grammar, uniform across **all five views**
   (ADR 0006), with file-manager gestures: click a card's representation to open its
   detail popup, ctrl+click (cmd on mac) to toggle it in/out of the selection,
   shift+click to ADD the whole range between the anchor (the last toggled/range-started
   card) and the target — in the active view's rendered order, additive, never
   deselecting — right-click for the bulk context menu. Applies on board tiles (live and
-  archived), map nodes and the map's No relations tiles, calendar chips (every chip of a
+  archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
-  node's border and status dot are unaffected). Right-click: an unselected
+  node's border and status dot are unaffected; graph: an accent outline on the dot plus
+  a glow). Right-click: an unselected
   card becomes the selection in the same gesture; an already-selected one keeps the
   whole batch as the target. Right-clicking inside an open card detail opens the same
   menu for the card shown, and once an action has run the popup is read again so it shows
@@ -591,7 +592,7 @@ to `127.0.0.1` only.
   hidden: the other seven always render (mixed-selection handling lives inside each
   click handler), these two hide whenever the effective selection is more than one card.
   Any plain click outside the context menu / bulk popups clears the selection (empty
-  calendar day cells and map/gantt whitespace included); the view-toggle buttons are
+  calendar day cells and map/gantt whitespace included); the view-toggle buttons (Graph's too) are
   exempt, so the selection **survives switching views**, and it survives the poll.
   Exceptions: the map's dimmed ghost stubs are click-through-to-detail only, never
   selectable — they stand for cards the active filters hid; a dangling-id stub (no such
@@ -618,7 +619,7 @@ to `127.0.0.1` only.
   never read alike, and never an outline, so a selected card stays reading as selected
   while hovered. Applies everywhere `.selected` does (board tiles, archived tiles,
   calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
-  labels, map nodes) except the gantt's due diamond, which `.selected` skips too. Every
+  labels, map nodes, graph nodes) except the gantt's due diamond, which `.selected` skips too. Every
   card-representing element carries `tabindex="0"` for this (Tab reaches the same cue the
   mouse does), plus a dashed grey `:focus-visible` ring — the wash rides one shared
   `hoveredId`, so the pointer wandering onto another card takes it off the card that still
@@ -691,7 +692,7 @@ to `127.0.0.1` only.
   immediately. View mode, query, filters, selection, and collapse/sort state all survive
   the poll.
 - **Deep links** — loading the app with `?card=<id>`, `?q=<search>` and/or
-  `?view=<board|map|gantt|calendar>` in the URL switches to the named view, filters the
+  `?view=<board|map|gantt|calendar|graph>` in the URL switches to the named view, filters the
   board by the query, opens that card's detail popup, and scrolls its representation
   into view (found by `data-id` in whichever view container is now active, same lookup
   the shared card-el grammar's click handler uses) — a bookmarkable or shared link
@@ -970,7 +971,7 @@ to `127.0.0.1` only.
   their one field. Dragging the **due chip** moves the due date alone (time preserved) —
   on a compat card that also moves the rendered range's end, since due IS that range's
   end field. Same-day drops don't write. Composes with search exactly like the board;
-  the displayed month + query survive the poll. Board/map/calendar/gantt is a four-way
+  the displayed month + query survive the poll. Board/map/calendar/gantt/graph is a five-way
   switch persisted per board in `localStorage` (unknown saved values fall back to
   board).
   **Status-filter row** — a pill row above the grid (month AND every sub-view alike),
@@ -1141,6 +1142,48 @@ to `127.0.0.1` only.
   re-derives from the cards on each poll (a sized sub-view's window instead re-derives
   from its own anchor day + span, not from the cards) while the timeline's horizontal
   scroll position is carried across re-renders.
+- **Graph view** — a top-bar "◉ Graph" button (`aria-pressed`; it reads "☰ Board view"
+  while the graph is up) swaps the board for the **Graph**: every card at once as a dot,
+  joined by its relations, in one of three **layouts** picked from a button row in the
+  graph's own header (`aria-pressed` marks the active one). **Tiers** opens first and is
+  the default for any unknown saved value. Tiers puts the roots at the centre with each
+  depth on its own ring, a root's tree in its own sector of the circle, and the
+  **unnested** cards (no parent and no children) on the outermost ring. **Force** pulls
+  related cards together and rings the unrelated ones round the edge; it is a fixed
+  simulation with no randomness, so the same cards always land in the same place. **Status**
+  draws one ring per status, the board's last column innermost: done, doing, todo,
+  backlog from the centre out, each ring sized by how many cards it holds (its label
+  shows the count). With the Archive pill on, archived cards form a second group titled
+  "archive" beside the live one.
+  **A dot** shows the card's status colour (the same fixed hues and palette as the rest
+  of the app), is bigger the more relations the card has, is hollow when the card is
+  `done`, and is dimmed when archived. An outer ring marks a card with children; a red
+  ring is **blocked**, an amber ring **waiting**, a gold ring **review**. A card's id
+  prints beside its dot when it has three or more relations, is hovered or selected, when
+  the view is zoomed in, or when the graph is small. **Relations:** a solid line joins a
+  parent to its child, and a dashed arrow runs from a card to the card it waits for.
+  A parent is drawn only when it is also drawn on this view, otherwise the card is a
+  root there; a card waiting on a hidden card still reads waiting.
+  The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
+  status, right-click solos it (right-click the soloed pill to restore all), and the
+  Archive pill is **off by default**. The search box composes with the pills by
+  **intersection**, and the search spans live and archived cards alike. A count of cards
+  and relations sits in the header; a board with nothing to draw says "No cards to show".
+  **Hover or keyboard focus** on a dot dims everything but that card and the cards it
+  has a relation with, with the lines between them. Every dot carries `.card-el` and
+  `data-id`, so click (detail), ctrl/cmd+click (toggle), shift+click (range) and
+  right-click (bulk menu) are the shared grammar of ADR 0006, with no handler of the
+  graph's own; a shift-click range runs in **outline order** (parents before children,
+  siblings by rank), which is the dots' DOM order. **Pan** by dragging the background
+  (a drag moves past 4px and the click that ends it is swallowed, so it never clears the
+  selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
+  about the centre or fit every card in the panel. Picking a layout re-fits the view; after
+  that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
+  Per board in `localStorage`: the layout under `graph.layout` and the pill row under
+  `graph.statusFilter` (same defensive merge as the Gantt's: a saved value with no
+  `archive` key merges in OFF). The 5-second poll rebuilds the view and keeps the
+  layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
+  Graph view.
 
 ## Board config: `config.yaml`
 

@@ -5,7 +5,7 @@ Amended: 2026-07-13 (selection gestures — see Amendment below)
 
 ## Context
 
-Board, map, calendar, and gantt each grew their own click/selection wiring.
+Board, map, calendar, gantt, and later the graph each grew their own click/selection wiring.
 Four grammars means four drift surfaces.
 
 ## Decision
