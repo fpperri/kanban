@@ -138,7 +138,7 @@ test('an archived card\'s read-only sheet has no type pill', () => {
   open(BOARD, (page) => {
     page.run('statusVis.archive=true;colOpen["archive"]=true;render()');
     sheet(page, 9);
-    assert.strictEqual(control(page, (n) => n.dataset.pill === 'type'), undefined);
+    assert.ok(!control(page, (n) => n.dataset.pill === 'type'));
   });
 });
 
