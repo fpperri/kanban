@@ -271,7 +271,7 @@ to `127.0.0.1` only.
   `tree:`/`path:` are excluded (they take a card id, not free text).
 - **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, epic checkbox, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
-  date, due date, description). Dependencies and impediments are separate inputs:
+  date, due date, type, description). Dependencies and impediments are separate inputs:
   `f-waiting` ("Waiting for (ids, comma-sep)") takes the `waiting_for` dependency edges;
   `f-blocked` ("Blocked (reason)") takes the impediment sticker's reason as free text and
   wears a red border exactly while its value passes the blocked predicate, live as you
@@ -303,7 +303,7 @@ to `127.0.0.1` only.
   `<0000-id>.<slug>.card.md` (id zero-padded to 4 digits, e.g. `0009.new-thing.card.md`).
 - **Edit** — click a card's "Edit" to change its fields, title, and description. The body
   (incl. `## Narrative`) and any frontmatter keys the form doesn't manage are preserved
-  verbatim; the form-managed fields (status, priority, parent, rank, epic, tags, waiting_for, blocked,
+  verbatim; the form-managed fields (status, priority, type, parent, rank, epic, tags, waiting_for, blocked,
   review, prompt, assignee, start/end/due date) are re-written from the form. `parent`
   takes `42` or `board#42` and `rank` a number; one that reads the same as the card's own
   is left exactly as written, so a hand-written `parent: "fpp#4"` survives every save. Clearing
@@ -1158,8 +1158,9 @@ handle a card carries.
   edits them; the app only reads.
 - **`types`** (block, bare-entry or inline `[a, b]` form; order kept) names the card
   types the board suggests, each with an OPTIONAL `color` kept as an opaque string
-  (hex, name, anything CSS reads). It feeds the type chip's color only: a card's
-  `type:` may be any text, and a type outside the list still reads as a neutral chip.
+  (hex, name, anything CSS reads). It feeds the form's Type field (suggested in the order
+  listed) and the type chip's color only: a card's `type:` may be any text, and a type
+  outside the list still reads as a neutral chip.
   `GET /api/board` carries it as `types: [{name, color}]` (`color` is `''` when absent;
   `[]` when the key or file is). Human-curated like `tags`; the app only reads.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
