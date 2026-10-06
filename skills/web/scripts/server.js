@@ -5,6 +5,7 @@ const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
 const cfg = require('./config-store');
+const nesting = require('../web/nesting');
 
 const WEB = path.join(__dirname, '..', 'web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -167,6 +168,15 @@ function readBody(req) {
   });
 }
 
+// A neighbour in a reorder body: a card id, null when absent, undefined when
+// it is neither.
+function readNeighbour(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return v;
+  if (typeof v === 'string' && /^\d+$/.test(v.trim())) return Number(v);
+  return undefined;
+}
+
 function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -236,7 +246,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           throw e;
         }
       }
-      const m = p.match(/^\/api\/cards\/(\d+)(\/archive|\/restore|\/detail)?$/);
+      const m = p.match(/^\/api\/cards\/(\d+)(\/archive|\/restore|\/detail|\/reorder)?$/);
       if (m) {
         const id = Number(m[1]);
         if (!cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${id}` });
@@ -272,6 +282,25 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           }
         }
         if (req.method === 'POST' && m[2] === '/restore') return sendJSON(res, 200, cs.toJSON(cs.restoreCard(dir, id)));
+        // The new neighbours of a dragged card in outline order. nesting.js
+        // answers with the rank to write and any siblings to renumber; each
+        // card is written whole on its own, with no transaction across them.
+        if (req.method === 'POST' && m[2] === '/reorder') {
+          const body = (await readBody(req)) || {};
+          const prev = readNeighbour(body.prev);
+          const next = readNeighbour(body.next);
+          if (prev === undefined || next === undefined) return sendJSON(res, 400, { error: 'prev and next must be card ids' });
+          const config = cfg.readConfig(dir);
+          const cards = cs.listActive(dir).concat(cs.listArchived(dir)).filter((c) => !c.unparseable);
+          const plan = nesting.reorderPlan(cards, id, { prev, next }, { board: config.name || cs.projectName(dir), priorities: config.priorities });
+          if (plan.error) return sendJSON(res, 400, { error: plan.error });
+          const archived = new Set(cards.filter((c) => c.archived).map((c) => c.id));
+          const written = nesting.reorderWrites(id, plan).map((w) => cs.toJSON(Object.assign(cs.updateCard(dir, w.id, { rank: w.rank }), { archived: archived.has(w.id) })));
+          return sendJSON(res, 200, {
+            card: written.find((c) => c.id === id) || cs.toJSON(cards.find((c) => c.id === id)),
+            renumbered: written.filter((c) => c.id !== id),
+          });
+        }
         if (req.method === 'DELETE' && !m[2]) { cs.deleteCard(dir, id); return sendJSON(res, 200, { ok: true }); }
       }
 
