@@ -1123,7 +1123,8 @@ segs.filter(g=>g.status==="done").concat(segs.filter(g=>g.status!=="done")).forE
 const s=el("span","rollup-count",g.n+" "+(g.status==="done"?"done":name(g.status)));s.style.color=ccol(g.status);cn.appendChild(s)});
 wrap.appendChild(cn)}
 return wrap}
-function rollupBlock(id,alt){
+function rollupBlock(id){
+const alt=nesting.roll.altitudeOf(id);
 const box=el("div","detail-rollup");
 const t=el("div","rollup-title","Roll-up ");t.appendChild(el("span","rollup-sub","leaves below"));t.appendChild(altBadge(alt));box.appendChild(t);
 box.appendChild(rollupBarNode(nesting.roll.rollup(id),true)||el("div","rollup-empty","No leaves counted."));
@@ -1152,14 +1153,17 @@ const box=el("div","relatives"),ul=el("ul","children-list");
 box.appendChild(el("div","relatives-label","Children"));
 kids.forEach(k=>{const li=el("li","child-item"+(k.archived?" child-item--archived":""));li.appendChild(relMention(k.id));if(k.archived)li.appendChild(el("span","rel-mark","archived"));ul.appendChild(li)});
 box.appendChild(ul);return box}
+// The card's id as a number, null for a card not yet created (the nesting module knows nothing of it).
+function realId(c){return isProv(c.id)?null:Number(c.id)}
 function cardNode(c,detail){
+const nid=realId(c);
 const selc=String(sel)===String(c.id)||(focusRoot!=null&&String(focusRoot)===String(c.id));
 const ro=detail&&!!c.arch;
 const un=unresolved(c),br=blkReason(c),rr=rvReason(c);
 const d=el("div","card"+(selc&&!detail?" sel":"")+(isProv(c.id)?" prov":""));
 d.dataset.card=c.id;
 if(!detail&&!c.arch&&fineMQ.matches&&dragOn)d.draggable=true;
-const th=detail&&!isProv(c.id)?threadBlock(Number(c.id)):null;if(th)d.appendChild(th);
+const th=detail&&nid!==null?threadBlock(nid):null;if(th)d.appendChild(th);
 d.appendChild(el("span","cid",isProv(c.id)?"#new":"#"+c.id));
 if(c.p==="High")d.appendChild(el("span","hitag","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
@@ -1170,14 +1174,14 @@ if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+
 // gap, not mirrored here).
 if(rr!==null){const rb=el("span","badge rbadge","review");rb.title="review"+(rr?": "+rr:"");d.appendChild(rb)}
 const tc=typeChip(c);if(tc)d.appendChild(tc);
-const alt=isProv(c.id)?0:nesting.roll.altitudeOf(Number(c.id));
+const alt=nid===null?0:nesting.roll.altitudeOf(nid);
 if(alt&&!detail)d.appendChild(altBadge(alt));
 const tEl=el("div","ttl",c.t);if(detail&&!ro){tEl.dataset.tap="ren";tEl.title="Tap to rename"}d.appendChild(tEl);
 const mp=[];if(c.a){const s=el("span",null);s.style.color=acol(c.a);s.title=c.a;s.appendChild(document.createTextNode(c.a));mp.push(s)}
 if(c.due){const dw=el("span",null);dw.appendChild(document.createTextNode("due "));dw.appendChild(el("span","num",c.due));mp.push(dw)}
 if(c.p==="Low")mp.push(document.createTextNode("Low"));
 if(mp.length){const meta=el("div","meta");mp.forEach((p,i)=>{if(i>0)meta.appendChild(document.createTextNode(" \\u00b7 "));meta.appendChild(p)});d.appendChild(meta)}
-if(alt&&!detail){const rb=rollupBarNode(nesting.roll.rollup(Number(c.id)),false);if(rb)d.appendChild(rb)}
+if(alt&&!detail){const rb=rollupBarNode(nesting.roll.rollup(nid),false);if(rb)d.appendChild(rb)}
 if(detail&&ro){
 // Archived cards open READ-ONLY — pills are plain text, no
 // editors/actions/all-fields; restore stays conversational.
@@ -1202,7 +1206,7 @@ if(c.a)ap.style.color=acol(c.a);
 ap.appendChild(document.createTextNode(c.a||"no assignee"));top.appendChild(ap);
 const pp=btn(c.p,"pill",{pill:"priority"});pp.className="fpill";top.appendChild(pp);
 const cty=String((c.fm&&c.fm.type)||"").trim();
-if(!isProv(c.id)){const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp)}
+if(nid!==null){const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp)}
 d.insertBefore(top,d.firstChild);
 const slot=el("div","acts");slot.style.borderTop="none";slot.style.marginTop="0";slot.style.paddingTop="0";
 if(ren){
@@ -1235,7 +1239,7 @@ if(detail){
 if(un.length)d.appendChild(el("div","meta wline","waiting on "+un.map(x=>"#"+x).join(", ")));
 if(br!==null)d.appendChild(el("div","meta bline","blocked: "+(br||"reason unspecified")));
 if(rr!==null)d.appendChild(el("div","meta rline","review: "+(rr||"text unspecified")));
-if(alt)d.appendChild(rollupBlock(Number(c.id),alt));
+if(alt)d.appendChild(rollupBlock(nid));
 if(c.tags&&c.tags.length){const tg=el("div","tags");c.tags.forEach(t=>tg.appendChild(el("span","tag",t)));d.appendChild(tg)}
 const det=[];if(c.start)det.push("start "+c.start);if(c.upd)det.push("updated "+c.upd);
 if(det.length)d.appendChild(el("div","meta",det.join(" \\u00b7 ")));
@@ -1269,7 +1273,7 @@ row.appendChild(btn("Save","fmsave",{key:k}));
 d.appendChild(row)})}}
 if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit description":"Add description","desc"));d.appendChild(er)}
 if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn));
-const kb=isProv(c.id)?null:childrenBlock(Number(c.id));if(kb)d.appendChild(kb)}
+const kb=nid===null?null:childrenBlock(nid);if(kb)d.appendChild(kb)}
 return d}
 function statusPills(){
 const row=el("div","pillrow");
