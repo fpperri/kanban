@@ -207,9 +207,8 @@ to `127.0.0.1` only.
   `status: archive` **or `archived`** mutes to the archive grey instead of hashing. A
   custom status gets a deterministic color (its name hashed into a fixed 8-color palette)
   used by the column header, the map node's status dot, gantt group/bar, and the shared
-  status-dot glyph (see Status dot). Orange is reserved for epics among the FIXED
-  colors — no built-in status or archive ever wears it — but a custom status can still
-  hash to the palette's orange slot (determinism, not uniqueness, is the hash contract).
+  status-dot glyph (see Status dot). A custom status can hash to any slot of the
+  palette, orange included (determinism, not uniqueness, is the hash contract).
   The form's status dropdown offers the list's values (an unlisted status on the card
   being edited is appended as "(unlisted)" so saving never silently rewrites it), and new
   cards default to the first column (a column header's **+** pre-selects its own column
@@ -260,8 +259,7 @@ to `127.0.0.1` only.
   not-yet-a-term rather than matching everything for one keystroke); `review:`/`blocked:`
   are sticker scopes — bare = the sticker is present, `review:PR`/`blocked:vendor` =
   case-insensitive substring on its text; unlike the field scopes, a bare sticker scope
-  is a complete term, never dropped; `epic:` matches every epic-marked card — bare
-  presence only, no value form (anything after the colon is ignored) and no negation;
+  is a complete term, never dropped;
   `tree:<id>`/`path:<id>` are dependency focus, `#` optional (`tree:74` = `tree:#74`) —
   grammar in the Dependency map section; bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
@@ -269,7 +267,7 @@ to `127.0.0.1` only.
   dropdown completes the last segment being typed — the bare term plus every
   field-scoped form of it; nothing is offered once the segment carries a colon, and
   `tree:`/`path:` are excluded (they take a card id, not free text).
-- **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, epic checkbox, tags,
+- **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
   date, due date, type, description). Dependencies and impediments are separate inputs:
   `f-waiting` ("Waiting for (ids, comma-sep)") takes the `waiting_for` dependency edges;
@@ -303,17 +301,19 @@ to `127.0.0.1` only.
   `<0000-id>.<slug>.card.md` (id zero-padded to 4 digits, e.g. `0009.new-thing.card.md`).
 - **Edit** — click a card's "Edit" to change its fields, title, and description. The body
   (incl. `## Narrative`) and any frontmatter keys the form doesn't manage are preserved
-  verbatim; the form-managed fields (status, priority, type, parent, rank, epic, tags, waiting_for, blocked,
+  verbatim; the form-managed fields (status, priority, type, parent, rank, tags, waiting_for, blocked,
   review, prompt, assignee, start/end/due date) are re-written from the form. `parent`
   takes `42` or `board#42` and `rank` a number; one that reads the same as the card's own
   is left exactly as written, so a hand-written `parent: "fpp#4"` survives every save. Clearing
   any managed field (a blank priority/assignee/date/prompt, empty tags or waiting_for, a
-  blocked or review value failing the sticker predicate, an unchecked Epic) removes its
+  blocked or review value failing the sticker predicate) removes its
   frontmatter line entirely — no-data fields (empty string, null, empty array) are never
   written, so no `tags: []` boilerplate; id, status, and `updated` are always written,
   any real value including priority "Normal" stays, and readers default a missing
   priority to Normal. The 📅 pickers work here too. `updated` is machine-managed (see
-  Last modified), never a form field.
+  Last modified), never a form field. An `epic: true` line left on a card from before the
+  flag retired is an unmanaged line like any other: ignored by every view and kept through
+  every edit.
 - **AI prompt** — a hand-rolled inline-SVG sparkle button (ADR 0003 — same icon-btn
   styling as Save/Fullscreen/Close, tooltip "AI prompt") in the create/edit modal's
   header actions reveals/hides a single free-text input (`f-prompt`) writing the optional
@@ -367,37 +367,15 @@ to `127.0.0.1` only.
   degrades with it: `<0000-id>.<slug>.card.md` collapses to the bare zero-padded id
   prefix (`0212.card.md`, no dangling `.`); past id 9999 the filename uses `card-<id>`
   to stay non-empty.
-- **Epic/wayfinder** — the form's Epic checkbox (inside "Show more fields") writes the
-  optional `epic: true` frontmatter field — a MANAGED boolean: unchecked (or a
-  blank/false API value) removes the line entirely per the lean rule, so `epic: false`
-  is never written; never validated (the reader takes any-case `true`). A hand-typed
-  non-`true` value (e.g. `epic: yes`) reads as **not**-epic, so the checkbox opens
-  unchecked and the next form save — however unrelated — removes that line: deliberate
-  (a checkbox, unlike the free-text inputs, has no way to re-emit junk verbatim), pinned
-  by a card-store test. An epic washes its whole surface in a faint EPIC_COLOR
-  background (the `--epic-wash` token, `#f0883e` at 12% alpha, `epicColorSoft()` in status-colors.js) — circles
-  are reserved for STATUS alone, so the epic cue is a wash, never a dot. Board tile,
-  calendar chip, and gantt gutter row share one `background` rule
-  (`.card.epic`/`.cal-chip.epic`/`.gantt-label.epic`); the gantt BAR layers its wash via
-  `box-shadow` (its `background` is the per-status fill's channel — the box-shadow
-  composes with either the CSS-class or inline-style fill); the map node tints its SVG
-  `<rect>` fill. A presence-based class doesn't compete with priority/waiting/due/status
-  on any surface, so nothing needs to win or lose. Archived cards on the map keep the
-  wash — in the graph proper or in the isolated row below: epic is durable identity, not
-  location. The board's own Archive column renders through the same `archiveCardEl`
-  builder but never opts in, so it shows no epic cue — that column isn't the map. The
-  card detail popup gets the same wash on its panel (`.modal.detail-modal.epic`), driven
-  by the fetched detail's `epic` boolean — the raw `epic: true` row still shows in the
-  popup's frontmatter table; the wash is additive. Selection never swallows the wash:
-  `.epic` and `.selected` are both 2-class selectors on the same property (`background`
-  on tile/chip/gutter-label, SVG `fill` on the map node), so a 3-class override
-  (`.card.epic.selected` etc.) outranks both, keeping the wash visible while selection's
-  own outline/glow — properties `.epic` never touches — still show (the gantt bar needs
-  no override: its wash is a `box-shadow`, a different property than
-  `.gantt-bar.selected`'s `background`).
+- **Epic flag (retired)** — the app no longer reads or writes `epic`: no form checkbox,
+  no `epic:` search term, no "Epics" chip on the map, no fixed orange and no wash on any
+  surface. An epic is a card typed `epic`, which shows the Type chip like any other type:
+  in the color the board's `types:` list gives `epic`, or neutral when the list gives none.
+  A leftover `epic: true` line is an unknown frontmatter line (the detail popup's table
+  still lists it) until the kanban skill's `migrate_epic_to_type.sh` rewrites it.
 - **Status dot** — `statusBadge()` (status-colors.js) renders on every card rendering:
-  board tiles (live AND archived — unlike the epic wash, the Archive column gets this
-  one), the map's isolated-row tiles, calendar chips, and gantt gutter rows. A small dot
+  board tiles (live AND archived), the map's isolated-row tiles, calendar chips, and
+  gantt gutter rows. A small dot
   colored via `statusColor()` off the card's RAW on-disk status, tooltipped with that
   same raw status — **the `archived` flag never touches this color**: status dots never
   mute, on any surface. The one exception is the literal on-disk status strings
@@ -461,8 +439,8 @@ to `127.0.0.1` only.
   not name, or names without a color, is a neutral chip. Like a reserved assignee color,
   the value is free-form, so the chip rides a `data-type-color` attribute and
   `paintTypeColors()` (app.js) paints it with CSSOM assignments after `innerHTML` lands
-  (the CSP blocks style attributes). The app attaches no meaning to a type. Existing
-  `epic: true` cards are unchanged.
+  (the CSP blocks style attributes). The app attaches no meaning to a type, `epic`
+  included: it wears a color only when the list gives it one.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -498,7 +476,7 @@ to `127.0.0.1` only.
 - **Frontmatter marks** — the detail popup's frontmatter table prints every field as
   written, except the few the board itself understands: `status` gets its status dot and
   colour, `priority: High` the high-priority red, `assignee` its chip, `parent` a
-  mention chip that opens the epic, `review` and `blocked` their sticker grounds, and
+  mention chip that opens the parent card, `review` and `blocked` their sticker grounds, and
   `tags` tag chips. The card path shows its folders muted and the file name in full ink.
 - **Reading layer** — card bodies and notifications use four tokens of their own:
   `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
@@ -545,7 +523,7 @@ to `127.0.0.1` only.
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
-  node's border, status dot, and epic wash are unaffected). Right-click: an unselected
+  node's border and status dot are unaffected). Right-click: an unselected
   card becomes the selection in the same gesture; an already-selected one keeps the
   whole batch as the target. The menu — **Assign…**, **Set priority…**, **Edit tags…**,
   **Schedule…**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
@@ -581,11 +559,7 @@ to `127.0.0.1` only.
   glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
   hovered/focused at a time), a different tone from selection's own wash (`--accent-soft`) so the two
   never read alike, and never an outline, so a selected card stays reading as selected
-  while hovered. An **epic** card keeps its orange wash while hovered: the hover tone
-  would otherwise substitute it (both are 2-class background rules), so a 3-class
-  override layers the epic alpha OVER the hover tone instead, the same reassertion
-  `.selected` already needed and for the same reason — epic is a durable identity,
-  hover the most transient cue on the board. Applies everywhere `.selected` does (board tiles, archived tiles,
+  while hovered. Applies everywhere `.selected` does (board tiles, archived tiles,
   calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
   labels, map nodes) except the gantt's due diamond, which `.selected` skips too. Every
   card-representing element carries `tabindex="0"` for this (Tab reaches the same cue the
@@ -756,24 +730,21 @@ to `127.0.0.1` only.
   layered SVG graph: nodes are cards (id + title), edges are `waiting_for` (arrow from
   the depended-on card to the card waiting on it). Nodes come from both live and
   archived cards — blocking is location-independent.
-  **Epic membership:** a child card's `parent: <epic-id>` feeds the layered layout — the
-  epic is the SINK (it closes only when its children close), so under the map's
-  down-is-later convention it still lays out BELOW its members — and decides which cards
-  are graph participants, but membership is never drawn as a line. On the map, an epic
-  reads entirely through the node's own orange wash (the same `.epic` background every
-  surface shares); membership itself is read from the card's `parent` field and surfaced
-  through the **`epic:` term + "Epics" chip** (below), never a line or an arrowhead.
-  Internally, only the chain's terminal member(s) (no other member of the same epic waits
-  on them; a chainless member counts as its own one-card chain) feed a membership hop
-  into the epic's layer — computed on the full board, so a search filter never reroutes
-  it — and a `waiting_for` edge between two members of the same epic is still a real,
-  gate-enforced dependency that draws on the map exactly like any other edge (grey, the
-  one plain arrowhead — no orange tint). Membership gets the same ghost-stub courtesy as
-  `waiting_for` (hidden endpoint → dimmed stub; dangling id → "not found" stub;
-  self-parent ignored), but it is NOT a dependency: it never makes a card waiting, the
-  `doing` gate ignores it, and the isolated row below stays keyed off `waiting_for` edges
-  only — so an epic whose only edges are membership appears in the graph AND the
-  no-dependencies row, both. A dep edge between a terminal member and its epic in either
+  **Parent membership:** a child card's `parent: <id>` feeds the layered layout — the
+  parent is the SINK (it closes only when its children close), so under the map's
+  down-is-later convention it still lays out BELOW its children — and decides which cards
+  are graph participants, but membership is never drawn as a line, and the map carries no
+  cue for a parent or a type. Internally, only the chain's terminal child(ren) (no other
+  child of the same parent waits on them; a chainless child counts as its own one-card
+  chain) feed a membership hop into the parent's layer — computed on the full board, so a
+  search filter never reroutes it — and a `waiting_for` edge between two children of the
+  same parent is still a real, gate-enforced dependency that draws on the map exactly like
+  any other edge (grey, the one plain arrowhead). Membership gets the same ghost-stub
+  courtesy as `waiting_for` (hidden endpoint → dimmed stub; dangling id → "not found"
+  stub; self-parent ignored), but it is NOT a dependency: it never makes a card waiting,
+  the `doing` gate ignores it, and the isolated row below stays keyed off `waiting_for`
+  edges only — so a parent whose only edges are membership appears in the graph AND the
+  no-dependencies row, both. A dep edge between a terminal child and its parent in either
   direction still suppresses the membership hop, so the layered layout never counts the
   same pair twice.
   **Node treatments:** the border is one neutral weight for every node — status never
@@ -823,16 +794,6 @@ to `127.0.0.1` only.
   graph. Real nodes + isolated-row tiles carry the full shared grammar (click for
   detail, ctrl/shift-select, right-click menu); ghost stubs stay click-through only.
   View mode, query, and status filter all persist across the poll's re-render.
-  **`epic:` term + the "Epics" chip** — `epic:` matches every card with `epic: true`
-  (bare-scope term, see Search). It composes with the rest of the query, bare text, and
-  the status pills by the usual intersection rule, and filters board/map/gantt/calendar
-  alike (a plain search term, not map-specific). The map's control row carries an
-  **"Epics" chip** (map view only) that toggles it into the search box — tap sets
-  `epic:`, tap again clears it — the same "write straight into the search box" pattern
-  as the Dependency tree/path menu items, but a toggle rather than a replace. With
-  `epic:` active, matching epics render as full nodes and their members still render as
-  the usual dimmed ghost stubs; right-clicking an epic node still offers `tree:<id>` to
-  expand its subtree.
   **Collapsible sections** — the layered graph and the "No dependencies" row each get
   their own collapse/expand toggle (same chevron + look as the board's per-column
   collapse), sharing one header builder. State persists per board in `localStorage`

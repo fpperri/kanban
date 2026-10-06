@@ -41,7 +41,7 @@ isn't `done` yet) or **blocked** (a manual sticker). The tile cues you see:
 - a **red left accent** on a High-priority card (`#1`, `#8`),
 - an amber **"Waiting on: #6"** badge (`#7` can't start until `#6` lands),
 - a red **blocked** pill (`#8`),
-- an orange **epic** dot (`#1` is the launch epic),
+- a **type chip** on a typed card (`#1` is typed `epic`, and orange because the board's `types:` list says so),
 - the assignee (`@human` / `@hitl` / `@afk`), tags, and due date.
 
 Each column header carries a sort dropdown (id / priority / due / last-modified
@@ -55,12 +55,10 @@ order; it is the default sort on a board where any card has a `rank` or a
 ![Dependency map](images/web-map.png)
 
 The **Map view** lays out `waiting_for` edges as a graph — arrows point from
-the card you depend on to the card that's waiting. An **epic** is the sink: it
+the card you depend on to the card that's waiting. A **parent** is the sink: it
 sits *below* its children and closes only when they do, but membership itself
-draws no line — an epic reads on the map only through its node's orange wash,
-with membership read from each card's `parent` field and surfaced through the
-`epic:` search term / "Epics" chip. Cards with no dependencies drop into a
-separate row below.
+draws no line; it is read from each card's `parent` field. Cards with no
+dependencies drop into a separate row below.
 A status-filter pill row (left-click to toggle, right-click to solo) and the
 search box both prune the graph.
 
@@ -92,7 +90,7 @@ error), and per-entry archiving.
 ![Notifications inbox](images/web-notifications.png)
 
 **Create & edit** — a minimal-first form (just a title and assignee) that
-expands to the full field set — status, priority, epic, tags, `waiting_for`,
+expands to the full field set — status, priority, parent, rank, tags, `waiting_for`,
 blocked reason, type, the date triad, and a Markdown description.
 
 ![New-card form](images/web-new-card.png)
