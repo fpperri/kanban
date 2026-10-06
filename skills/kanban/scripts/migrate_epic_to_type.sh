@@ -114,7 +114,8 @@ for f in "${all_cards[@]}"; do
     fi
 
     id=$(awk '/^---\r?$/{fm++;next} fm==1 && /^id:/{sub(/^id:[[:space:]]*/,"");sub(/[[:space:]]*$/,"");print;exit}' "$f")
-    mention="\`$BOARD_NAME#$id $(title "$f")\`"
+    heading=$(title "$f")
+    mention="\`$BOARD_NAME#$id${heading:+ $heading}\`"
     if [ "$MODE" = "--apply" ]; then
         if mv "$tmp" "$f"; then
             echo "MIGRATED: $f"

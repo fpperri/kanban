@@ -261,3 +261,14 @@ test('the demo board gives epic its old orange in types:, so the screenshots sta
   const config = fs.readFileSync(path.join(demo, 'config.yaml'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(config, /^types:\n {2}- name: epic\n {4}color: "#f0883e"$/m);
 });
+
+test('a migrated card with no title heading is mentioned by board#id alone, with no stray space in the code span', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-epic-notitle-'));
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: fixture\n');
+  fs.writeFileSync(path.join(dir, '0014.untitled.card.md'), '---\nid: 14\nstatus: todo\nepic: true\n---\n\nbody only\n');
+  fs.writeFileSync(path.join(dir, '0015.titled.card.md'), '---\nid: 15\nstatus: todo\nepic: true\n---\n\n# Titled\n');
+  run(dir, '--apply');
+  const message = JSON.parse(fs.readFileSync(path.join(dir, 'notifications.md'), 'utf8').match(/\n {2}message: (".*")\n/)[1]);
+  assert.ok(message.includes('`fixture#14`'), message);
+  assert.ok(message.includes('`fixture#15 Titled`'), message);
+});
