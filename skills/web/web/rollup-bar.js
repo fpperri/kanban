@@ -10,6 +10,9 @@ const ROLLUP_ASSIGNEE_BADGE = (typeof module !== 'undefined' && module.exports)
 const ROLLUP_STATUS_COLORS = (typeof module !== 'undefined' && module.exports)
   ? require('./status-colors')
   : window;
+const ROLLUP_COLUMN_STATE = (typeof module !== 'undefined' && module.exports)
+  ? require('./column-state')
+  : window;
 
 function altitudeBadge(altitude) {
   if (!(altitude >= 1)) return '';
@@ -23,17 +26,19 @@ function rollupSegments(counts, order) {
   return known.concat(rest).map((status) => ({ status, n: counts[status] }));
 }
 
-// mode: 'open' (bar and numbers), 'collapsed' (thin bar), anything else draws nothing.
+// mode: open (bar and numbers), collapsed (thin bar), anything else draws nothing.
 function rollupBar(rollup, mode, order) {
-  if ((mode !== 'open' && mode !== 'collapsed') || !rollup.total) return '';
+  const open = ROLLUP_COLUMN_STATE.ROLLUP_BAR_OPEN;
+  const collapsed = ROLLUP_COLUMN_STATE.ROLLUP_BAR_COLLAPSED;
+  if ((mode !== open && mode !== collapsed) || !rollup.total) return '';
   const esc = ROLLUP_ASSIGNEE_BADGE.escapeHtml;
   const segments = rollupSegments(rollup.counts, order);
   const label = (status) => esc(status || '(none)');
   const segs = segments.map(({ status, n }) =>
     `<span class="rollup-seg rollup-seg--${ROLLUP_STATUS_COLORS.statusColorClass(status)}" data-n="${n}" title="${label(status)}: ${n}"></span>`
   ).join('');
-  const bar = `<div class="rollup-bar${mode === 'collapsed' ? ' thin' : ''}">${segs}</div>`;
-  if (mode === 'collapsed') return `<div class="rollup">${bar}</div>`;
+  const bar = `<div class="rollup-bar${mode === collapsed ? ' thin' : ''}">${segs}</div>`;
+  if (mode === collapsed) return `<div class="rollup">${bar}</div>`;
   const done = segments.filter(({ status }) => status === 'done').map(({ n }) => `<span class="rollup-count">${n} done</span>`);
   const others = segments.filter(({ status }) => status !== 'done').map(({ status, n }) =>
     `<span class="rollup-count rollup-count--${ROLLUP_STATUS_COLORS.statusColorClass(status)}">${n} ${label(status)}</span>`);
@@ -53,7 +58,7 @@ function rollupScopeLine(rollup, countArchived) {
 }
 
 function rollupDetailHtml(rollup, altitude, order, countArchived) {
-  const bar = rollupBar(rollup, 'open', order) || '<div class="rollup-empty">No leaves counted.</div>';
+  const bar = rollupBar(rollup, ROLLUP_COLUMN_STATE.ROLLUP_BAR_OPEN, order) || '<div class="rollup-empty">No leaves counted.</div>';
   return `<div class="rollup-title">Roll-up <span class="rollup-sub">leaves below</span> ${altitudeBadge(altitude)}</div>` +
     bar +
     `<div class="rollup-scope">${rollupScopeLine(rollup, countArchived)}</div>`;

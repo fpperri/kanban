@@ -170,3 +170,13 @@ test('app.css gives the bar its shape: 8px open, 4px thin, weighted by flex-grow
     assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b/, `${sel} uses tokens, not a hex`);
   }
 });
+
+test('the bar modes are named once, in column-state.js, and rollup-bar.js uses those names', () => {
+  const columnState = require('../web/column-state');
+  assert.deepStrictEqual([columnState.ROLLUP_BAR_OPEN, columnState.ROLLUP_BAR_COLLAPSED, columnState.ROLLUP_BAR_OFF], ['open', 'collapsed', 'off']);
+  assert.deepStrictEqual(columnState.ROLLUP_BAR_MODES, ['open', 'collapsed', 'off']);
+  const code = fs.readFileSync(path.join(__dirname, '..', 'web', 'rollup-bar.js'), 'utf8')
+    .split('\n').filter((line) => !/^\s*\/\//.test(line)).join('\n');
+  assert.doesNotMatch(code, /'open'|'collapsed'|'off'/);
+  assert.match(code, /ROLLUP_COLUMN_STATE\.ROLLUP_BAR_OPEN/);
+});
