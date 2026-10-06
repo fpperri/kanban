@@ -242,7 +242,19 @@ to `127.0.0.1` only.
   before its children and siblings in `rank` order (unranked siblings after the ranked
   ones, by priority then id), computed over the whole board so a child whose parent sits
   in another column still follows the order; a card with no parent on this board is a
-  root. Priority defaults
+  root. In an Outline column, dragging a card between two tiles reorders it instead of
+  moving it: an accent line shows where it will land, and the drop writes `rank` through
+  `POST /api/cards/<id>/reorder` with `prev` and `next`, the ids of the cards above and
+  below the drop in outline order (`null` for none; the answer is `{ card, renumbered }`). Room
+  for a whole number between the two ranks writes that card alone; a full gap renumbers
+  that parent's children in tens and writes only the cards whose rank changes, archived
+  siblings included, and no card outside that parent. Siblings the column does not show
+  (another column, hidden by the search) are stepped around, and a drop where the card
+  already stands writes nothing. A drag changes rank, never the parent: a drop among
+  another parent's children is refused with a toast (the call answers 400, an unknown card
+  404). Other columns still move the card, a bulk drag still moves the selection, and the
+  Archive column is not reordered; the rule an AI writer follows is in the kanban skill.
+  Priority defaults
   High-first; ties on any field break by id, ascending, so order doesn't reshuffle when
   you flip direction. Each column remembers its own choice independently, defaulting to
   priority-desc for live columns and id-asc for Archive, except that on a board where
