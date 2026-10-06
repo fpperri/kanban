@@ -187,6 +187,29 @@ describe('roll-ups on parent cards', () => {
     });
   });
 
+  test('queueing the archive of a finished leaf changes no count, since archived counts as done', () => {
+    open(BOARD, (page) => {
+      page.run('queue({op:"archive",id:"4"});render()');
+      assert.ok(!tile(page, 4), 'the leaf has left the board');
+      assert.deepStrictEqual(countsOf(tile(page, 2)), { doing: 1, done: 2 });
+      assert.deepStrictEqual(countsOf(tile(page, 1)), { backlog: 1, todo: 1, doing: 1, done: 2 });
+    });
+  });
+
+  test('queueing the archive of a parent leaves the roll-up above it as it was', () => {
+    open(BOARD, (page) => {
+      page.run('queue({op:"archive",id:"2"});render()');
+      assert.deepStrictEqual(countsOf(tile(page, 1)), { backlog: 1, todo: 1, doing: 1, done: 2 });
+    });
+  });
+
+  test('queueing the delete of a leaf takes it out of the counts', () => {
+    open(BOARD, (page) => {
+      page.run('queue({op:"delete",id:"4"});render()');
+      assert.deepStrictEqual(countsOf(tile(page, 2)), { doing: 1, done: 1 });
+    });
+  });
+
   test('the sheet opens the bar with its numbers, the leaves counted and where they were counted', () => {
     open(BOARD, (page) => {
       const box = byClass(sheet(page, 1), 'detail-rollup')[0];
@@ -282,6 +305,13 @@ describe('the thread and the children in a card sheet', () => {
       assert.deepStrictEqual(items.map((li) => li.children[0].textContent), ['order#1 A', 'order#2 B']);
       assert.deepStrictEqual(byClass(items[0], 'rel-mark').map((n) => n.textContent), ['loop']);
       assert.deepStrictEqual(byClass(items[1], 'rel-mark'), []);
+    });
+  });
+
+  test('queueing the archive of a parent leaves its children\'s thread whole', () => {
+    open(BOARD, (page) => {
+      page.run('queue({op:"archive",id:"2"});render()');
+      assert.deepStrictEqual(entries(sheet(page, 4), 'thread-item'), ['fixture#1 Ship it', 'fixture#2 Build']);
     });
   });
 

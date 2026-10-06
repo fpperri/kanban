@@ -125,6 +125,15 @@ test('choosing no type queues the blank that removes it', () => {
   });
 });
 
+test('a card created in the tray has no type pill, since its create carries no type', () => {
+  open(BOARD, (page) => {
+    page.run('queue({op:"create",title:"Fresh",status:"todo"});render()');
+    sheet(page, 'n1');
+    assert.ok(!control(page, (n) => n.dataset.pill === 'type'), 'no type pill');
+    assert.ok(control(page, (n) => n.dataset.pill === 'priority'), 'the sheet itself is open');
+  });
+});
+
 test('an archived card\'s read-only sheet has no type pill', () => {
   open(BOARD, (page) => {
     page.run('statusVis.archive=true;colOpen["archive"]=true;render()');

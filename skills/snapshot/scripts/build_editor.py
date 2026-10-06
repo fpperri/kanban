@@ -214,12 +214,8 @@ def _flow_list(raw):
     return [v for v in (_scalar(i) for i in inner.split(",")) if v]
 
 def read_types(kanban_dir):
-    """config.yaml's `types:` list as [{name, color}], in the order written, read
-    the way kanban-web's config-store.js reads it: block entries (`- name: x`
-    with an optional indented `color:`), bare entries (`- x`), or an inline
-    `types: [a, b]`. Suggested, never validated. One difference, on purpose: a
-    comment after the key (`types:   # suggested`) still opens the block, as in
-    the skill's own example."""
+    """config.yaml's `types:` list as [{name, color}]. A comment after the key
+    still opens the block, as the skill's sample config writes it."""
     types, cur, in_types = [], None, False
 
     def flush():
@@ -261,8 +257,6 @@ def read_types(kanban_dir):
     return types
 
 def read_priorities(kanban_dir):
-    """config.yaml's `priorities:` order, highest first, inline or block; [] when
-    absent (the nesting module then falls back to High, Normal, Low)."""
     out, in_list = [], False
     for line in _config_text(kanban_dir).splitlines():
         top = re.match(r"^(\w+):\s*(.*)$", line)
@@ -313,10 +307,6 @@ def read_notifications(kanban_dir):
 NESTING_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web", "nesting.js")
 
 def embeddable(source):
-    """The shared nesting module's source, checked for what would break it inside
-    an inline <script> once the build has substituted it: a closing script tag
-    would end the element early, and a __NAME__ token would be rewritten by the
-    later placeholder replaces. The module is embedded as is, never escaped."""
     if re.search(r"</script", source, re.I):
         sys.exit("the nesting module contains a closing script tag and cannot be embedded in the page")
     if re.search(r"__[A-Z_]+__", source):
@@ -367,8 +357,7 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    # The module goes in before any board text does, so a card that mentions a
-    # placeholder never reaches it.
+    # First, so a card that names a placeholder is never rewritten inside it.
     html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
@@ -1156,31 +1145,24 @@ if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_da
 else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v;else if(k==="epic")c.ep=String(v).trim().toLowerCase()==="true"}}
 return}
 if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:o.fm||{}});return}}
-// What the nesting module answers over the live view, queued edits included,
-// rebuilt at the top of every render(). The module is embedded as is, so the
-// rules are kanban-web's. Cards created in the tray have no number yet and
-// take no part until they are applied.
 let nesting=null;
 function buildNesting(){
-const cards=view.filter(c=>!isProv(c.id)).map(c=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.s,archived:!!c.arch}));
+const asNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.s,archived:archived||!!c.arch});
+const cards=view.filter(c=>!isProv(c.id)).map(c=>asNode(c));
+// A queued archive has left view, but applied the card still counts as done and still holds its children's thread.
+ops.forEach(o=>{if(o.op==="archive"){const d=DATA.find(x=>String(x.id)===String(o.id));if(d)cards.push(asNode(d,true))}});
 const ctx={board:BOARD,priorities:PRIOS};
 nesting={cards,ctx,nested:hasNesting(cards),order:outlineOrder(cards,ctx).index,roll:rollupIndex(cards,ctx)}}
-// A board that uses rank or parent lists each column in outline order; any
-// other board keeps its card order.
 function inOutline(list){
 if(!nesting.nested)return list;
 const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
 return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
-// The card-type chip. A configured color paints it, any other type stays
-// neutral; the name is matched without regard to case, as in kanban-web.
+// Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
 function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
 const s=el("span","type-chip",t);s.title=t;
 const col=typeColor(t);if(col){s.style.color=col;s.style.borderColor=col}
 return s}
-// The altitude badge and the roll-up bar of a parent card, from the module's
-// rollupIndex. Archived leaves count as done, as in kanban-web's default; the
-// roll-up counts this board only.
 function altBadge(n){const b=el("span","alt-badge","\\u25b2"+n);b.title="altitude: layers below";return b}
 function rollupSegs(counts){
 const known=COLS.filter(s=>counts[s]);
@@ -1204,10 +1186,8 @@ const t=el("div","rollup-title","Roll-up ");t.appendChild(el("span","rollup-sub"
 box.appendChild(rollupBarNode(nesting.roll.rollup(id),true)||el("div","rollup-empty","No leaves counted."));
 box.appendChild(el("div","rollup-scope","Counted on this board only ("+BOARD+"). Archived leaves count as done."));
 return box}
-// The thread above a card (root first) and the children below its body are
-// mention chips, so the page's one tap handler opens them. A parent on another
-// board is named and not followed; a parent that is missing is marked.
-function relMention(id){const v=find(id);const m=el("code","mention same",BOARD+"#"+id+(v&&v.t?" "+v.t:""));m.setAttribute("data-mapnode",String(id));return m}
+// Mention chips, so the page's one tap handler opens them.
+function relMention(id){const v=find(id)||DATA.find(x=>String(x.id)===String(id));const m=el("code","mention same",BOARD+"#"+id+(v&&v.t?" "+v.t:""));m.setAttribute("data-mapnode",String(id));return m}
 function threadBlock(id){
 const th=threadOf(nesting.cards,id,nesting.ctx);
 if(!th.length)return null;
@@ -1277,7 +1257,7 @@ if(c.a)ap.style.color=acol(c.a);
 ap.appendChild(document.createTextNode(c.a||"no assignee"));top.appendChild(ap);
 const pp=btn(c.p,"pill",{pill:"priority"});pp.className="fpill";top.appendChild(pp);
 const cty=String((c.fm&&c.fm.type)||"").trim();
-const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp);
+if(!isProv(c.id)){const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp)}
 d.insertBefore(top,d.firstChild);
 const slot=el("div","acts");slot.style.borderTop="none";slot.style.marginTop="0";slot.style.paddingTop="0";
 if(ren){
