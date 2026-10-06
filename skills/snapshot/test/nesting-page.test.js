@@ -397,7 +397,7 @@ describe('a queued archive after other queued edits', () => {
     });
   });
 
-  test('a status queued before the archive does not change what the archived card counts as', () => {
+  test('a card moved and given a parent in the tray before its archive counts as done under that parent', () => {
     open(BOARD, (page) => {
       page.run('queue({op:"move",id:"6",to:"backlog"});queue({op:"edit",id:"6",fm:{parent:"2"}});queue({op:"archive",id:"6"});render()');
       assert.deepStrictEqual(counts(page, 3), ['1 backlog']);

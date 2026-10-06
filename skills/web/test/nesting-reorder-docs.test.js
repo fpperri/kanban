@@ -74,3 +74,9 @@ test('the kanban skill states the ranked/unranked boundary as the module does, a
   assert.doesNotMatch(s, /follows this same rule/);
   assert.match(s, /reads the tiles around the drop as siblings/);
 });
+
+test('the web skill says no line shows over a refused drop, and who counts as a sibling at the roots', () => {
+  const sorting = webSkill.slice(webSkill.indexOf('**Per-column sorting**'), webSkill.indexOf('**Search**')).replace(/\s+/g, ' ');
+  assert.match(sorting, /no line shows over a drop that would be refused/);
+  assert.match(sorting, /siblings only of cards with that same parent/);
+});
