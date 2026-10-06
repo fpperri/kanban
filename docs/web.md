@@ -100,7 +100,7 @@ error), and per-entry archiving.
 
 **Create & edit** — a minimal-first form (just a title and assignee) that
 expands to the full field set — status, priority, epic, tags, `waiting_for`,
-blocked reason, the date triad, and a Markdown description.
+blocked reason, type, the date triad, and a Markdown description.
 
 ![New-card form](images/web-new-card.png)
 
