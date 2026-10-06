@@ -27,6 +27,11 @@
 //       description: "…"
 //       color: "#a371f7"  # OPTIONAL reserved color; absent = hashed
 //
+//   types:                # card types: a suggested vocabulary, never validated
+//     - name: objective   # a card's `type:` may be any text; this list gives
+//       color: "#a371f7"  # known names an OPTIONAL chip colour (absent = neutral)
+//     - story             # bare entry = name only; `types: [a, b]` also works
+//
 // Same tolerant hand-rolled parsing discipline as notifications-store: skip
 // what doesn't parse, never fatal. The registry suggests, it never validates.
 // notifications.md stays separate on purpose — high-churn agent appends vs.
@@ -55,9 +60,10 @@ function parseFlowList(raw) {
 const LIST_KEYS = ['priorities', 'tags', 'statuses'];
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] };
-  let section = null; // 'assignees' | one of LIST_KEYS | null
+  const config = { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] };
+  let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
+  let curType = null;
   const flush = () => {
     if (cur) {
       const handle = scalar(cur.handle !== undefined ? cur.handle : '');
@@ -75,6 +81,11 @@ function parseConfig(text) {
         });
       }
       cur = null;
+    }
+    if (curType) {
+      const name = scalar(curType.name !== undefined ? curType.name : '');
+      if (name !== '') config.types.push({ name, color: scalar(curType.color !== undefined ? curType.color : '') });
+      curType = null;
     }
   };
   for (const line of String(text || '').split(/\r?\n/)) {
@@ -113,6 +124,13 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'assignees') {
         section = 'assignees';
+      } else if (top[1] === 'types') {
+        if (top[2].trim() !== '') {
+          config.types = parseFlowList(top[2]).map((name) => ({ name, color: '' }));
+          section = null;
+        } else {
+          section = 'types';
+        }
       } else if (LIST_KEYS.includes(top[1])) {
         if (top[2].trim() !== '') {
           config[top[1]] = parseFlowList(top[2]); // inline flow form
@@ -138,6 +156,17 @@ function parseConfig(text) {
       const field = line.match(/^\s+(\w+):\s*(.*)$/);
       if (start) { flush(); cur = {}; cur[start[1]] = start[2]; }
       else if (field && cur) { cur[field[1]] = field[2]; }
+    }
+    if (section === 'types') {
+      const start = line.match(/^\s+-\s+(\w+):\s*(.*)$/);
+      const bare = line.match(/^\s+-\s*(.*)$/);
+      const field = line.match(/^\s+(\w+):\s*(.*)$/);
+      if (start) { flush(); curType = {}; curType[start[1]] = start[2]; }
+      else if (bare) {
+        flush();
+        const name = scalar(bare[1]);
+        if (name !== '') config.types.push({ name, color: '' });
+      } else if (field && curType) { curType[field[1]] = field[2]; }
     }
   }
   flush();
@@ -168,7 +197,7 @@ function configFile(dir) {
 
 function readConfig(dir) {
   const file = configFile(dir);
-  if (!fs.existsSync(file)) return { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] };
+  if (!fs.existsSync(file)) return { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] };
   return parseConfig(fs.readFileSync(file, 'utf8'));
 }
 

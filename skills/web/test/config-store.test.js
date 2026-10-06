@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -76,7 +76,7 @@ test('serializeConfig round-trips through parseConfig', () => {
 
 test('readConfig returns defaults when config.yaml is absent', () => {
   const dir = tmpBoard();
-  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [] });
+  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] });
 });
 
 // --- `statuses` joins LIST_KEYS — the official column list ----------
@@ -93,6 +93,57 @@ test('parseConfig reads a block-form statuses list', () => {
 
 test('parseConfig defaults statuses to [] when the key is absent (built-in four apply)', () => {
   assert.deepStrictEqual(cfg.parseConfig('nextId: 5\n').statuses, []);
+});
+
+// --- `types` — the card-type vocabulary: entries are {name, color} ----
+
+test('parseConfig reads block-form types entries with an optional color, config order kept', () => {
+  const c = cfg.parseConfig('types:\n  - name: objective\n    color: "#a371f7"\n  - name: task\n');
+  assert.deepStrictEqual(c.types, [
+    { name: 'objective', color: '#a371f7' },
+    { name: 'task', color: '' },
+  ]);
+});
+
+test('parseConfig reads bare and inline types lists as colourless entries', () => {
+  assert.deepStrictEqual(cfg.parseConfig('types:\n  - epic\n  - "user story"\n').types, [
+    { name: 'epic', color: '' },
+    { name: 'user story', color: '' },
+  ]);
+  assert.deepStrictEqual(cfg.parseConfig('types: [epic, story]   # suggested\n').types, [
+    { name: 'epic', color: '' },
+    { name: 'story', color: '' },
+  ]);
+});
+
+test('parseConfig mixes bare and block types entries without reordering them', () => {
+  const c = cfg.parseConfig('types:\n  - epic\n  - name: story\n    color: tomato\n  - task\n');
+  assert.deepStrictEqual(c.types.map((t) => t.name), ['epic', 'story', 'task']);
+  assert.strictEqual(c.types[1].color, 'tomato');
+});
+
+test('parseConfig takes an unquoted hex types color as the value and drops a trailing comment', () => {
+  const c = cfg.parseConfig('types:\n  - name: epic\n    color: #a371f7   # purple\n');
+  assert.deepStrictEqual(c.types, [{ name: 'epic', color: '#a371f7' }]);
+});
+
+test('parseConfig skips types entries without a name and defaults types to [] when absent', () => {
+  const c = cfg.parseConfig('types:\n  - color: "#fff"\n  - name: ""\n  - name: ok\n');
+  assert.deepStrictEqual(c.types, [{ name: 'ok', color: '' }]);
+  assert.deepStrictEqual(cfg.parseConfig('nextId: 5\n').types, []);
+});
+
+test('types entries do not leak into assignees, and the next top-level key ends the section', () => {
+  const c = cfg.parseConfig('types:\n  - name: epic\n    color: red\nassignees:\n  - handle: "@a"\n    name: "A"\nnextId: 9\n');
+  assert.deepStrictEqual(c.types, [{ name: 'epic', color: 'red' }]);
+  assert.deepStrictEqual(c.assignees.map((a) => a.handle), ['@a']);
+  assert.strictEqual(c.nextId, 9);
+});
+
+test('assignee fields after a types block still belong to the assignee', () => {
+  const c = cfg.parseConfig('assignees:\n  - handle: "@a"\n    color: "#111"\ntypes:\n  - name: t\n    color: "#222"\n');
+  assert.strictEqual(c.assignees[0].color, '#111');
+  assert.strictEqual(c.types[0].color, '#222');
 });
 
 test('allocateId without config.yaml falls back to the scan candidate and does NOT create the file', () => {

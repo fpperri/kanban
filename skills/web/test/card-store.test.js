@@ -480,7 +480,7 @@ test('toJSON exposes the public card shape without internal underscores', () => 
   const dir = tmpBoard();
   const j = cs.toJSON(cs.readCardFile(path.join(dir, '1.card.md')));
   assert.deepStrictEqual(Object.keys(j).sort(), [
-    'archived', 'assignee', 'blocked', 'body', 'due_date', 'end_date', 'epic', 'file', 'id', 'parent', 'priority', 'prompt', 'review', 'start_date', 'status', 'tags', 'title', 'updated', 'waiting_for', // epic joined the shape; waiting_for replaced blocked_by and blocked joined; parent joined; review joined (ADR 0009); prompt joined
+    'archived', 'assignee', 'blocked', 'body', 'due_date', 'end_date', 'epic', 'file', 'id', 'parent', 'priority', 'prompt', 'review', 'start_date', 'status', 'tags', 'title', 'type', 'updated', 'waiting_for', // epic joined the shape; waiting_for replaced blocked_by and blocked joined; parent joined; review joined (ADR 0009); prompt joined
   ]);
   assert.strictEqual(j._order, undefined);
 });
@@ -1315,6 +1315,79 @@ test('API-shaped junk: string \'true\' sets, string \'false\'/empty/null clear �
   assert.doesNotMatch(fs.readFileSync(cs.findCardFile(dir, falseString.id), 'utf8'), /^epic:/m, 'null clears too');
 });
 
+// --- `type:` — optional free-text card type. A MANAGED field under the lean
+// rule: non-empty sets, blank clears, undefined leaves the line alone, no line
+// when absent. The board's `types:` list only suggests; the store never
+// validates a value against it.
+
+function typedCard(dir, extra = '') {
+  const file = path.join(dir, '0001.one.card.md');
+  fs.writeFileSync(file, `---\nid: 1\nstatus: todo\npriority: Normal\ntype: objective\n${extra}---\n\n# One\n\nbody\n`);
+  return file;
+}
+
+test('reader carries `type` (quotes stripped); an absent line reads null; toJSON exposes it', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-type-'));
+  const file = typedCard(dir);
+  assert.strictEqual(cs.readCardFile(file).type, 'objective');
+  assert.strictEqual(cs.toJSON(cs.readCardFile(file)).type, 'objective');
+  fs.writeFileSync(file, `---\nid: 1\nstatus: todo\ntype: "user story"\n---\n\n# One\n`);
+  assert.strictEqual(cs.readCardFile(file).type, 'user story');
+  fs.writeFileSync(file, `---\nid: 1\nstatus: todo\n---\n\n# One\n`);
+  assert.strictEqual(cs.readCardFile(file).type, null);
+  assert.strictEqual(cs.toJSON(cs.readCardFile(file)).type, null);
+});
+
+test('createCard with a type writes the `type:` line; without one (or blank) writes NO line', () => {
+  const dir = tmpBoard();
+  const typed = cs.createCard(dir, { title: 'Typed', status: 'todo', type: '  objective ' });
+  assert.strictEqual(typed.type, 'objective');
+  assert.match(fs.readFileSync(cs.findCardFile(dir, typed.id), 'utf8'), /^type: objective$/m);
+  for (const type of [undefined, '', '   ', null]) {
+    const c = cs.createCard(dir, { title: 'Plain', status: 'todo', type });
+    assert.strictEqual(c.type, null);
+    assert.doesNotMatch(fs.readFileSync(cs.findCardFile(dir, c.id), 'utf8'), /^type:/m);
+  }
+});
+
+test('updateCard type: sets, replaces, and a blank value clears the line', () => {
+  const dir = tmpBoard();
+  cs.updateCard(dir, 2, { type: 'objective' });
+  assert.match(fs.readFileSync(path.join(dir, 'two.card.md'), 'utf8'), /^type: objective$/m);
+  assert.strictEqual(cs.updateCard(dir, 2, { type: 'story' }).type, 'story');
+  const raw = fs.readFileSync(path.join(dir, 'two.card.md'), 'utf8');
+  assert.match(raw, /^type: story$/m);
+  assert.strictEqual(raw.match(/^type:/gm).length, 1);
+  assert.strictEqual(cs.updateCard(dir, 2, { type: '   ' }).type, null);
+  assert.doesNotMatch(fs.readFileSync(path.join(dir, 'two.card.md'), 'utf8'), /^type:/m);
+});
+
+test('updateCard collapses a newline in type so frontmatter keeps one value per line', () => {
+  const dir = tmpBoard();
+  const c = cs.updateCard(dir, 2, { type: 'two\nlines' });
+  assert.strictEqual(c.type, 'two lines');
+  assert.match(fs.readFileSync(path.join(dir, 'two.card.md'), 'utf8'), /^type: two lines$/m);
+});
+
+test('editing any other field leaves the `type:` line byte-for-byte unchanged', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-type-'));
+  const file = typedCard(dir);
+  cs.updateCard(dir, 1, { priority: 'High' });
+  cs.updateCard(dir, 1, { title: 'Retitled', assignee: '@alex', tags: ['x'], epic: false });
+  cs.updateCard(dir, 1, { status: 'done' });
+  const raw = fs.readFileSync(file, 'utf8');
+  assert.match(raw, /^type: objective$/m);
+  assert.strictEqual(raw.match(/^type:/gm).length, 1);
+});
+
+test('an unusual hand-typed type value survives an unrelated edit verbatim', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-type-'));
+  const file = path.join(dir, '0001.one.card.md');
+  fs.writeFileSync(file, `---\nid: 1\nstatus: todo\ntype:   Objective ~ q3   # hand note\n---\n\n# One\n`);
+  cs.updateCard(dir, 1, { priority: 'Low' });
+  assert.match(fs.readFileSync(file, 'utf8'), /^type:   Objective ~ q3   # hand note$/m);
+});
+
 // --- the blocked sticker in the store — parse, serialize (lean
 // rule judged by the shared predicate), and its half of the doing entry gate.
 
@@ -1603,4 +1676,21 @@ test('updateCard preserves a parent line verbatim — form-unmanaged frontmatter
   cs.updateCard(dir, 1, { priority: 'High' });
   const raw = fs.readFileSync(path.join(dir, '0001.child.card.md'), 'utf8');
   assert.match(raw, /^parent: 42$/m);
+});
+
+test('epic: true and type: coexist; toggling epic leaves the type line alone, and the reverse', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-type-'));
+  const card = cs.createCard(dir, { title: 'Both', status: 'todo', epic: true, type: 'objective' });
+  const file = cs.findCardFile(dir, card.id);
+  let raw = fs.readFileSync(file, 'utf8');
+  assert.match(raw, /^epic: true$/m);
+  assert.match(raw, /^type: objective$/m);
+  cs.updateCard(dir, card.id, { epic: false });
+  raw = fs.readFileSync(file, 'utf8');
+  assert.doesNotMatch(raw, /^epic:/m);
+  assert.match(raw, /^type: objective$/m);
+  cs.updateCard(dir, card.id, { epic: true, type: '' });
+  raw = fs.readFileSync(file, 'utf8');
+  assert.match(raw, /^epic: true$/m);
+  assert.doesNotMatch(raw, /^type:/m);
 });
