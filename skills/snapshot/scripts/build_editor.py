@@ -155,10 +155,23 @@ def _scalar(raw):
     `color: #ff00ff` is legal — the `[^\\n#]` trick every OTHER field here
     uses would truncate it at that leading hash)."""
     s = raw.strip()
-    if len(s) >= 2 and ((s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")):
-        return s[1:-1]
+    if s[:1] in ('"', "'"):
+        i = 1
+        while i < len(s):
+            if s[i] == "\\":
+                i += 2
+                continue
+            if s[i] == s[0]:
+                return _unquote(s[:i + 1])
+            i += 1
+        return _unquote(s)
     m = re.search(r"\s#", s)
     return s[:m.start()].strip() if m else s
+
+def _unquote(s):
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+    return s
 
 def read_assignee_colors(kanban_dir):
     """config.yaml assignees registry: an OPTIONAL `color:` field
@@ -181,6 +194,83 @@ def read_assignee_colors(kanban_dir):
             if v:
                 colors[cur] = v
     return colors
+
+def _config_text(kanban_dir):
+    try:
+        return open(os.path.join(kanban_dir, "config.yaml"), encoding="utf-8", errors="replace").read()
+    except OSError:
+        return ""
+
+def _flow_list(raw):
+    s = raw.strip()
+    if not s.startswith("["):
+        return []
+    close = s.find("]")
+    inner = s[1:] if close == -1 else s[1:close]
+    return [v for v in (_scalar(i) for i in inner.split(",")) if v]
+
+def read_types(kanban_dir):
+    """config.yaml's `types:` list as [{name, color}]. A comment after the key
+    still opens the block, as the skill's sample config writes it."""
+    types, cur, in_types = [], None, False
+
+    def flush():
+        nonlocal cur
+        if cur is not None:
+            name = _scalar(cur.get("name", ""))
+            if name:
+                types.append({"name": name, "color": _scalar(cur.get("color", ""))})
+            cur = None
+
+    for line in _config_text(kanban_dir).splitlines():
+        top = re.match(r"^(\w+):\s*(.*)$", line)
+        if top:
+            flush()
+            in_types = False
+            if top.group(1) == "types":
+                rest = top.group(2).strip()
+                if not rest or rest.startswith("#"):
+                    in_types = True
+                else:
+                    types[:] = [{"name": n, "color": ""} for n in _flow_list(rest)]
+            continue
+        if not in_types:
+            continue
+        start = re.match(r"^\s+-\s+(\w+):\s*(.*)$", line)
+        bare = re.match(r"^\s+-\s*(.*)$", line)
+        field = re.match(r"^\s+(\w+):\s*(.*)$", line)
+        if start:
+            flush()
+            cur = {start.group(1): start.group(2)}
+        elif bare:
+            flush()
+            name = _scalar(bare.group(1))
+            if name:
+                types.append({"name": name, "color": ""})
+        elif field and cur is not None:
+            cur[field.group(1)] = field.group(2)
+    flush()
+    return types
+
+def read_priorities(kanban_dir):
+    out, in_list = [], False
+    for line in _config_text(kanban_dir).splitlines():
+        top = re.match(r"^(\w+):\s*(.*)$", line)
+        if top:
+            in_list = False
+            if top.group(1) == "priorities":
+                rest = top.group(2).strip()
+                if not rest or rest.startswith("#"):
+                    in_list = True
+                else:
+                    out[:] = _flow_list(rest)
+            continue
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        if in_list and item:
+            v = _scalar(item.group(1))
+            if v:
+                out.append(v)
+    return out
 
 def read_notifications(kanban_dir):
     """notifications.md entries, tolerant like the web store:
@@ -209,6 +299,22 @@ def read_notifications(kanban_dir):
             "message": msg, "read": field("read") == "true",
         })
     return out
+
+NESTING_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web", "nesting.js")
+
+def embeddable(source):
+    if re.search(r"</script", source, re.I):
+        sys.exit("the nesting module contains a closing script tag and cannot be embedded in the page")
+    if re.search(r"__[A-Z_]+__", source):
+        sys.exit("the nesting module contains a template placeholder (__NAME__) the build would rewrite")
+    return source
+
+def read_nesting():
+    try:
+        with open(NESTING_JS, encoding="utf-8") as f:
+            return embeddable(f.read())
+    except OSError:
+        sys.exit(f"cannot read the nesting module at {os.path.normpath(NESTING_JS)}")
 
 def main():
     p = argparse.ArgumentParser()
@@ -247,12 +353,16 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    html = (TEMPLATE.replace("__ICON_URI__", quote(ICON_SVG, safe=""))
+    # First, so a card that names a placeholder is never rewritten inside it.
+    html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
+                    .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
                     .replace("__STATUSES__", emb(read_statuses(a.kanban_dir)))
                     .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
+                    .replace("__TYPES__", emb(read_types(a.kanban_dir)))
+                    .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
                     .replace("__DATA__", emb(cards))
                     .replace("__BOARD_NAME_JSON__", emb(read_board_name(a.kanban_dir)))
@@ -394,6 +504,29 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 /* ADR 0009: review is blocked's sibling sticker — its own gold
    family, distinct from --id-waiting (waiting) and --blocked-ink (blocked). */
 .rbadge{background:var(--review-bg);color:var(--review-ink)}
+.type-chip{display:inline-block;font-size:.7rem;margin-left:6px;padding:0 7px;border:1px solid var(--line-strong);border-radius:.15rem;background:var(--btn-bg);color:var(--mut);white-space:nowrap}
+.alt-badge{display:inline-block;margin-left:6px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.65rem;font-weight:600;color:var(--mut);border:1px solid var(--line-strong);border-radius:.15rem;padding:0 5px;white-space:nowrap}
+.rollup{margin-top:6px}
+.rollup-bar{display:flex;height:8px;border-radius:.15rem;overflow:hidden;background:var(--raised)}
+.rollup-bar.thin{height:4px}
+.rollup-seg{flex:0 0 0%;min-width:0;height:100%}
+.rollup-counts{display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:3px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.72rem;color:var(--mut)}
+.rollup-total{color:var(--ink);font-weight:600}
+.rollup-count{white-space:nowrap}
+.detail-rollup{margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:.2rem;background:var(--raised)}
+.rollup-title{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:.85rem;font-weight:600}
+.rollup-title .alt-badge{margin-left:0}
+.rollup-sub{color:var(--mut);font-size:.9em;font-weight:400}
+.rollup-empty{color:var(--mut);font-size:.85rem;margin-top:4px}
+.rollup-scope{color:var(--mut);font-size:.78rem;margin-top:6px}
+.relatives{margin:6px 0;font-size:.8rem}
+.relatives-label{color:var(--mut);font-size:.85em;font-weight:600;text-transform:uppercase;letter-spacing:.09em}
+.thread-list,.children-list{list-style:none;margin:4px 0 0;padding:0}
+.thread-list{display:flex;flex-wrap:wrap;align-items:baseline}
+.thread-item+.thread-item::before{content:"\\203A";color:var(--mut);margin:0 6px}
+.child-item{margin:3px 0}
+.rel-mark{margin-left:6px;padding:0 6px;border-radius:.15rem;color:var(--mut);font-size:.85em}
+.thread-item--loop .rel-mark,.thread-item--unresolved .rel-mark{color:var(--warn);background:var(--warn-soft);font-weight:600}
 .ttl{font-size:14.5px;margin:3px 0 0;overflow-wrap:break-word}
 .meta{font-size:12px;color:var(--mut);margin-top:4px}
 .wline{color:var(--id-waiting)}
@@ -587,7 +720,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 </style></head><body>
 <div id="scroll">
 <div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
-<div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:)"></div>
+<div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)"></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>
 <button type="button" data-view="map">Map</button>
@@ -619,6 +752,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 <button id="smore" aria-label="More scroll buttons">&#8943;</button>
 </div>
 <script>
+__NESTING_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -649,6 +784,8 @@ return "var(--hash-"+HASH_SLOTS[shash(v)%HASH_SLOTS.length]+")"}
 const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
+const TYPES=__TYPES__;
+const PRIOS=__PRIORITIES__;
 // Assignee color: a reserved config.yaml `color:` wins (painted exactly as
 // given); else the handle hashes into the SAME --hash-a.."h" token family
 // ccol() above uses for custom statuses -- one shared hash+palette pool, not
@@ -885,7 +1022,7 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // an unrecognized foo:bar prefix searches as the literal string; a recognized
 // prefix with no value yet is dropped (mid-keystroke, matches nothing falsely).
 let qTerms=[];
-const SFIELDS=["title","body","status","priority","tags","file"];
+const SFIELDS=["title","body","status","priority","tags","file","type"];
 // tree:/path: graph-focus terms, kept OUT of SFIELDS (numeric
 // id semantics, not a lowercased substring) — mirrors kanban-web's search.js
 // GRAPH_FIELDS split from KNOWN_FIELDS.
@@ -922,6 +1059,7 @@ case "status":return String(c.s||"").toLowerCase().indexOf(t.v)!==-1;
 case "priority":return String(c.p||"").toLowerCase().indexOf(t.v)!==-1;
 case "tags":return tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1);
 case "file":return String(c.fn||"").toLowerCase().indexOf(t.v)!==-1;
+case "type":return String((c.fm&&c.fm.type)||"").toLowerCase().indexOf(t.v)!==-1;
 // ADR 0009: bare (no value) = the shared presence predicate; a value =
 // case-insensitive substring on the sticker's own text.
 case "review":return t.v?String(rvReason(c)||"").toLowerCase().indexOf(t.v)!==-1:rvReason(c)!==null;
@@ -976,11 +1114,74 @@ if(o.title!==undefined)e.title=o.title;if(o.priority)e.priority=o.priority;if(o.
 if(o.fm)e.fm=Object.assign(e.fm||{},o.fm)}
 if(o.title!==undefined)c.t=o.title;if(o.priority)c.p=o.priority;if(o.assignee!==undefined)c.a=o.assignee;if(o.body!==undefined){c.body=o.body;c.bn=o.body.length}
 if(o.fm&&!isProv(o.id)){c.fm=c.fm||{};for(const k in o.fm){const v=o.fm[k];
+if(k==="parent"){const pv=String(v).trim().replace(/^["']+|["']+$/g,"");c.pt=/^\\d+$/.test(pv)?Number(pv):null}
 if(v)c.fm[k]=v;else delete c.fm[k];
 if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_date")c.due=v;
 else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v}}
 return}
 if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",body:o.body||"",fm:o.fm||{}});return}}
+let nesting=null;
+function buildNesting(){
+const asNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.s,archived:archived||!!c.arch});
+const cards=view.filter(c=>!isProv(c.id)).map(c=>asNode(c));
+// A queued archive has left view, but applied the card still counts as done and still holds its children's thread.
+ops.forEach(o=>{if(o.op==="archive"){const d=DATA.find(x=>String(x.id)===String(o.id));if(d)cards.push(asNode(d,true))}});
+const ctx={board:BOARD,priorities:PRIOS};
+nesting={cards,ctx,nested:hasNesting(cards),order:outlineOrder(cards,ctx).index,roll:rollupIndex(cards,ctx)}}
+function inOutline(list){
+if(!nesting.nested)return list;
+const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
+return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
+// Matched without regard to case, as kanban-web does.
+function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
+function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
+const s=el("span","type-chip",t);s.title=t;
+const col=typeColor(t);if(col){s.style.color=col;s.style.borderColor=col}
+return s}
+function altBadge(n){const b=el("span","alt-badge","\\u25b2"+n);b.title="altitude: layers below";return b}
+function rollupSegs(counts){
+const known=COLS.filter(s=>counts[s]);
+const rest=Object.keys(counts).filter(s=>known.indexOf(s)===-1).sort();
+return known.concat(rest).map(s=>({status:s,n:counts[s]}))}
+function rollupBarNode(r,open){
+if(!r.total)return null;
+const segs=rollupSegs(r.counts),name=s=>s||"(none)";
+const wrap=el("div","rollup"),bar=el("div","rollup-bar"+(open?"":" thin"));
+segs.forEach(g=>{const s=el("span","rollup-seg");s.title=name(g.status)+": "+g.n;s.style.flexGrow=g.n;s.style.background=ccol(g.status);bar.appendChild(s)});
+wrap.appendChild(bar);
+if(open){
+const cn=el("div","rollup-counts");cn.appendChild(el("b","rollup-total",String(r.total)));
+segs.filter(g=>g.status==="done").concat(segs.filter(g=>g.status!=="done")).forEach(g=>{
+const s=el("span","rollup-count",g.n+" "+(g.status==="done"?"done":name(g.status)));s.style.color=ccol(g.status);cn.appendChild(s)});
+wrap.appendChild(cn)}
+return wrap}
+function rollupBlock(id,alt){
+const box=el("div","detail-rollup");
+const t=el("div","rollup-title","Roll-up ");t.appendChild(el("span","rollup-sub","leaves below"));t.appendChild(altBadge(alt));box.appendChild(t);
+box.appendChild(rollupBarNode(nesting.roll.rollup(id),true)||el("div","rollup-empty","No leaves counted."));
+box.appendChild(el("div","rollup-scope","Counted on this board only ("+BOARD+"). Archived leaves count as done."));
+return box}
+// Mention chips, so the page's one tap handler opens them.
+function relMention(id){const v=find(id)||DATA.find(x=>String(x.id)===String(id));const m=el("code","mention same",BOARD+"#"+id+(v&&v.t?" "+v.t:""));m.setAttribute("data-mapnode",String(id));return m}
+function threadBlock(id){
+const th=threadOf(nesting.cards,id,nesting.ctx);
+if(!th.length)return null;
+const box=el("div","relatives"),ol=el("ol","thread-list");
+box.appendChild(el("span","relatives-label","Thread"));
+th.forEach(e=>{
+const li=el("li","thread-item thread-item--"+e.kind);
+if(e.kind==="card"||e.kind==="loop")li.appendChild(relMention(e.id));
+else li.appendChild(el("code","mention",e.kind==="other-board"?e.ref:BOARD+"#"+e.id));
+if(e.kind!=="card")li.appendChild(el("span","rel-mark",e.kind==="other-board"?"not followed":e.kind));
+ol.appendChild(li)});
+box.appendChild(ol);return box}
+function childrenBlock(id){
+const kids=childrenOf(nesting.cards,id,nesting.ctx);
+if(!kids.length)return null;
+const box=el("div","relatives"),ul=el("ul","children-list");
+box.appendChild(el("div","relatives-label","Children"));
+kids.forEach(k=>{const li=el("li","child-item"+(k.archived?" child-item--archived":""));li.appendChild(relMention(k.id));if(k.archived)li.appendChild(el("span","rel-mark","archived"));ul.appendChild(li)});
+box.appendChild(ul);return box}
 function cardNode(c,detail){
 const selc=String(sel)===String(c.id)||(focusRoot!=null&&String(focusRoot)===String(c.id));
 const ro=detail&&!!c.arch;
@@ -988,6 +1189,7 @@ const un=unresolved(c),br=blkReason(c),rr=rvReason(c);
 const d=el("div","card"+(selc&&!detail?" sel":"")+(isProv(c.id)?" prov":""));
 d.dataset.card=c.id;
 if(!detail&&!c.arch&&fineMQ.matches&&dragOn)d.draggable=true;
+const th=detail&&!isProv(c.id)?threadBlock(Number(c.id)):null;if(th)d.appendChild(th);
 d.appendChild(el("span","cid",isProv(c.id)?"#new":"#"+c.id));
 if(c.p==="High")d.appendChild(el("span","hitag","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
@@ -997,11 +1199,15 @@ if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+
 // "Dependency tree/path" replaces the whole query box instead — deliberate
 // gap, not mirrored here).
 if(rr!==null){const rb=el("span","badge rbadge","review");rb.title="review"+(rr?": "+rr:"");d.appendChild(rb)}
+const tc=typeChip(c);if(tc)d.appendChild(tc);
+const alt=isProv(c.id)?0:nesting.roll.altitudeOf(Number(c.id));
+if(alt&&!detail)d.appendChild(altBadge(alt));
 const tEl=el("div","ttl",c.t);if(detail&&!ro){tEl.dataset.tap="ren";tEl.title="Tap to rename"}d.appendChild(tEl);
 const mp=[];if(c.a){const s=el("span",null);s.style.color=acol(c.a);s.title=c.a;s.appendChild(document.createTextNode(c.a));mp.push(s)}
 if(c.due){const dw=el("span",null);dw.appendChild(document.createTextNode("due "));dw.appendChild(el("span","num",c.due));mp.push(dw)}
 if(c.p==="Low")mp.push(document.createTextNode("Low"));
 if(mp.length){const meta=el("div","meta");mp.forEach((p,i)=>{if(i>0)meta.appendChild(document.createTextNode(" \\u00b7 "));meta.appendChild(p)});d.appendChild(meta)}
+if(alt&&!detail){const rb=rollupBarNode(nesting.roll.rollup(Number(c.id)),false);if(rb)d.appendChild(rb)}
 if(detail&&ro){
 // Archived cards open READ-ONLY — pills are plain text, no
 // editors/actions/all-fields; restore stays conversational.
@@ -1025,6 +1231,8 @@ const ap=el("button","fpill");ap.dataset.act="pill";ap.dataset.pill="assignee";
 if(c.a)ap.style.color=acol(c.a);
 ap.appendChild(document.createTextNode(c.a||"no assignee"));top.appendChild(ap);
 const pp=btn(c.p,"pill",{pill:"priority"});pp.className="fpill";top.appendChild(pp);
+const cty=String((c.fm&&c.fm.type)||"").trim();
+if(!isProv(c.id)){const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp)}
 d.insertBefore(top,d.firstChild);
 const slot=el("div","acts");slot.style.borderTop="none";slot.style.marginTop="0";slot.style.paddingTop="0";
 if(ren){
@@ -1046,11 +1254,18 @@ const s=el("select");s.dataset.act="asg";s.dataset.stop="1";
 const aopts=(c.a&&ASG.indexOf(c.a)===-1)?ASG.concat([c.a]):ASG;
 aopts.forEach(x=>{const o=el("option",null,x||"none");o.value=x;if(c.a===x)o.selected=true;s.appendChild(o)});
 slot.appendChild(s)}
+else if(pillEd==="type"){
+slot.appendChild(el("span","lbl","type"));
+const s=el("select");s.dataset.act="typ";s.dataset.stop="1";
+const names=TYPES.map(x=>x.name);if(cty&&names.indexOf(cty)===-1)names.push(cty);
+[""].concat(names).forEach(x=>{const o=el("option",null,x||"no type");o.value=x;if(cty===x)o.selected=true;s.appendChild(o)});
+slot.appendChild(s)}
 if(slot.children.length)d.insertBefore(slot,d.children[1])}
 if(detail){
 if(un.length)d.appendChild(el("div","meta wline","waiting on "+un.map(x=>"#"+x).join(", ")));
 if(br!==null)d.appendChild(el("div","meta bline","blocked: "+(br||"reason unspecified")));
 if(rr!==null)d.appendChild(el("div","meta rline","review: "+(rr||"text unspecified")));
+if(alt)d.appendChild(rollupBlock(Number(c.id),alt));
 if(c.tags&&c.tags.length){const tg=el("div","tags");c.tags.forEach(t=>tg.appendChild(el("span","tag",t)));d.appendChild(tg)}
 const det=[];if(c.start)det.push("start "+c.start);if(c.upd)det.push("updated "+c.upd);
 if(det.length)d.appendChild(el("div","meta",det.join(" \\u00b7 ")));
@@ -1070,8 +1285,9 @@ const fr=el("div","acts");fr.style.borderTop="none";fr.style.paddingTop="4px";
 fr.appendChild(btn((fmOpen?"\\u25be":"\\u25b8")+" All fields","fmtoggle"));
 d.appendChild(fr);
 if(fmOpen){
-const staples=["start_date","end_date","due_date","tags","waiting_for","blocked","review"];
-const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated"].indexOf(k)===-1);
+// rank is set by dragging in kanban-web and never offered here.
+const staples=["type","parent","start_date","end_date","due_date","tags","waiting_for","blocked","review"];
+const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated","rank"].indexOf(k)===-1);
 keys.forEach(k=>{
 const row=el("div","fmrow");
 row.appendChild(el("label",null,k));
@@ -1082,7 +1298,8 @@ row.appendChild(inp);
 row.appendChild(btn("Save","fmsave",{key:k}));
 d.appendChild(row)})}}
 if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit description":"Add description","desc"));d.appendChild(er)}
-if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn))}
+if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn));
+const kb=isProv(c.id)?null:childrenBlock(Number(c.id));if(kb)d.appendChild(kb)}
 return d}
 function statusPills(){
 const row=el("div","pillrow");
@@ -1093,6 +1310,7 @@ b.appendChild(dot);b.appendChild(document.createTextNode(k==="archive"?"Archive"
 row.appendChild(b)});
 return row}
 function render(){
+buildNesting();
 const board=$("board");board.replaceChildren();
 $("boardpills").replaceChildren(statusPills());
 // Each section (header + its cards) wraps in a .boardcol container at
@@ -1101,7 +1319,7 @@ $("boardpills").replaceChildren(statusPills());
 // query above). Collapsed sections skip .colcards entirely and render as
 // just the header, which the same media query narrows into a strip.
 COLS.filter(col=>isVis(col)).forEach(col=>{
-const cs=view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s))));
+const cs=inOutline(view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s)))));
 const open=!!colOpen[col];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 wrap.dataset.status=col;
@@ -1136,7 +1354,7 @@ else{const e=el("div",null,"no cards");e.style.cssText="font-size:12px;color:var
 wrap.appendChild(cc)}
 board.appendChild(wrap)});
 if(isVis("archive")){
-const acs=view.filter(c=>c.arch&&qMatch(c));
+const acs=inOutline(view.filter(c=>c.arch&&qMatch(c)));
 const open=!!colOpen["archive"];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 const h=el("div","colh");
@@ -1971,7 +2189,8 @@ if(thin!==hdrThin){hdrThin=thin;$("hdr").classList.toggle("thin",thin)}
 },{passive:true});
 document.body.addEventListener("change",e=>{
 const t=e.target;
-if(t.dataset&&t.dataset.act==="asg"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,assignee:t.value});pillEd=null;render()}}});
+if(t.dataset&&t.dataset.act==="asg"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,assignee:t.value});pillEd=null;render()}}
+if(t.dataset&&t.dataset.act==="typ"){const card=t.closest("[data-card]");if(card){queue({op:"edit",id:card.dataset.card,fm:{type:t.value}});pillEd=null;render()}}});
 document.body.addEventListener("input",e=>{
 const t=e.target;
 if(t.id==="fm-blocked")t.style.borderColor=blkTxt(t.value)!==null?"var(--blocked-ink)":"";
