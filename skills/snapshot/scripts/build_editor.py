@@ -522,6 +522,29 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 /* ADR 0009: review is blocked's sibling sticker — its own gold
    family, distinct from --id-waiting (waiting) and --blocked-ink (blocked). */
 .rbadge{background:var(--review-bg);color:var(--review-ink)}
+.type-chip{display:inline-block;font-size:.7rem;margin-left:6px;padding:0 7px;border:1px solid var(--line-strong);border-radius:.15rem;background:var(--btn-bg);color:var(--mut);white-space:nowrap}
+.alt-badge{display:inline-block;margin-left:6px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.65rem;font-weight:600;color:var(--mut);border:1px solid var(--line-strong);border-radius:.15rem;padding:0 5px;white-space:nowrap}
+.rollup{margin-top:6px}
+.rollup-bar{display:flex;height:8px;border-radius:.15rem;overflow:hidden;background:var(--raised)}
+.rollup-bar.thin{height:4px}
+.rollup-seg{flex:0 0 0%;min-width:0;height:100%}
+.rollup-counts{display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:3px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.72rem;color:var(--mut)}
+.rollup-total{color:var(--ink);font-weight:600}
+.rollup-count{white-space:nowrap}
+.detail-rollup{margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:.2rem;background:var(--raised)}
+.rollup-title{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:.85rem;font-weight:600}
+.rollup-title .alt-badge{margin-left:0}
+.rollup-sub{color:var(--mut);font-size:.9em;font-weight:400}
+.rollup-empty{color:var(--mut);font-size:.85rem;margin-top:4px}
+.rollup-scope{color:var(--mut);font-size:.78rem;margin-top:6px}
+.relatives{margin:6px 0;font-size:.8rem}
+.relatives-label{color:var(--mut);font-size:.85em;font-weight:600;text-transform:uppercase;letter-spacing:.09em}
+.thread-list,.children-list{list-style:none;margin:4px 0 0;padding:0}
+.thread-list{display:flex;flex-wrap:wrap;align-items:baseline}
+.thread-item+.thread-item::before{content:"\\203A";color:var(--mut);margin:0 6px}
+.child-item{margin:3px 0}
+.rel-mark{margin-left:6px;padding:0 6px;border-radius:.15rem;color:var(--mut);font-size:.85em}
+.thread-item--loop .rel-mark,.thread-item--unresolved .rel-mark{color:var(--warn);background:var(--warn-soft);font-weight:600}
 .ttl{font-size:14.5px;margin:3px 0 0;overflow-wrap:break-word}
 .meta{font-size:12px;color:var(--mut);margin-top:4px}
 .wline{color:var(--id-waiting)}
@@ -722,7 +745,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 </style></head><body>
 <div id="scroll">
 <div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
-<div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:)"></div>
+<div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)"></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>
 <button type="button" data-view="map">Map</button>
@@ -1024,7 +1047,7 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // an unrecognized foo:bar prefix searches as the literal string; a recognized
 // prefix with no value yet is dropped (mid-keystroke, matches nothing falsely).
 let qTerms=[];
-const SFIELDS=["title","body","status","priority","tags","file"];
+const SFIELDS=["title","body","status","priority","tags","file","type"];
 // tree:/path: graph-focus terms, kept OUT of SFIELDS (numeric
 // id semantics, not a lowercased substring) — mirrors kanban-web's search.js
 // GRAPH_FIELDS split from KNOWN_FIELDS.
@@ -1067,6 +1090,7 @@ case "status":return String(c.s||"").toLowerCase().indexOf(t.v)!==-1;
 case "priority":return String(c.p||"").toLowerCase().indexOf(t.v)!==-1;
 case "tags":return tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1);
 case "file":return String(c.fn||"").toLowerCase().indexOf(t.v)!==-1;
+case "type":return String((c.fm&&c.fm.type)||"").toLowerCase().indexOf(t.v)!==-1;
 // ADR 0009: bare (no value) = the shared presence predicate; a value =
 // case-insensitive substring on the sticker's own text.
 case "review":return t.v?String(rvReason(c)||"").toLowerCase().indexOf(t.v)!==-1:rvReason(c)!==null;
@@ -1131,6 +1155,77 @@ if(k==="start_date")c.start=v;else if(k==="end_date")c.end=v;else if(k==="due_da
 else if(k==="tags")c.tags=lstJS(v);else if(k==="waiting_for")c.w=lstJS(v);else if(k==="blocked")c.bl=v;else if(k==="review")c.rv=v;else if(k==="epic")c.ep=String(v).trim().toLowerCase()==="true"}}
 return}
 if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",ep:false,body:o.body||"",fm:o.fm||{}});return}}
+// What the nesting module answers over the live view, queued edits included,
+// rebuilt at the top of every render(). The module is embedded as is, so the
+// rules are kanban-web's. Cards created in the tray have no number yet and
+// take no part until they are applied.
+let nesting=null;
+function buildNesting(){
+const cards=view.filter(c=>!isProv(c.id)).map(c=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.s,archived:!!c.arch}));
+const ctx={board:BOARD,priorities:PRIOS};
+nesting={cards,ctx,nested:hasNesting(cards),order:outlineOrder(cards,ctx).index,roll:rollupIndex(cards,ctx)}}
+// A board that uses rank or parent lists each column in outline order; any
+// other board keeps its card order.
+function inOutline(list){
+if(!nesting.nested)return list;
+const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
+return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
+// The card-type chip. A configured color paints it, any other type stays
+// neutral; the name is matched without regard to case, as in kanban-web.
+function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
+function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
+const s=el("span","type-chip",t);s.title=t;
+const col=typeColor(t);if(col){s.style.color=col;s.style.borderColor=col}
+return s}
+// The altitude badge and the roll-up bar of a parent card, from the module's
+// rollupIndex. Archived leaves count as done, as in kanban-web's default; the
+// roll-up counts this board only.
+function altBadge(n){const b=el("span","alt-badge","\\u25b2"+n);b.title="altitude: layers below";return b}
+function rollupSegs(counts){
+const known=COLS.filter(s=>counts[s]);
+const rest=Object.keys(counts).filter(s=>known.indexOf(s)===-1).sort();
+return known.concat(rest).map(s=>({status:s,n:counts[s]}))}
+function rollupBarNode(r,open){
+if(!r.total)return null;
+const segs=rollupSegs(r.counts),name=s=>s||"(none)";
+const wrap=el("div","rollup"),bar=el("div","rollup-bar"+(open?"":" thin"));
+segs.forEach(g=>{const s=el("span","rollup-seg");s.title=name(g.status)+": "+g.n;s.style.flexGrow=g.n;s.style.background=ccol(g.status);bar.appendChild(s)});
+wrap.appendChild(bar);
+if(open){
+const cn=el("div","rollup-counts");cn.appendChild(el("b","rollup-total",String(r.total)));
+segs.filter(g=>g.status==="done").concat(segs.filter(g=>g.status!=="done")).forEach(g=>{
+const s=el("span","rollup-count",g.n+" "+(g.status==="done"?"done":name(g.status)));s.style.color=ccol(g.status);cn.appendChild(s)});
+wrap.appendChild(cn)}
+return wrap}
+function rollupBlock(id,alt){
+const box=el("div","detail-rollup");
+const t=el("div","rollup-title","Roll-up ");t.appendChild(el("span","rollup-sub","leaves below"));t.appendChild(altBadge(alt));box.appendChild(t);
+box.appendChild(rollupBarNode(nesting.roll.rollup(id),true)||el("div","rollup-empty","No leaves counted."));
+box.appendChild(el("div","rollup-scope","Counted on this board only ("+BOARD+"). Archived leaves count as done."));
+return box}
+// The thread above a card (root first) and the children below its body are
+// mention chips, so the page's one tap handler opens them. A parent on another
+// board is named and not followed; a parent that is missing is marked.
+function relMention(id){const v=find(id);const m=el("code","mention same",BOARD+"#"+id+(v&&v.t?" "+v.t:""));m.setAttribute("data-mapnode",String(id));return m}
+function threadBlock(id){
+const th=threadOf(nesting.cards,id,nesting.ctx);
+if(!th.length)return null;
+const box=el("div","relatives"),ol=el("ol","thread-list");
+box.appendChild(el("span","relatives-label","Thread"));
+th.forEach(e=>{
+const li=el("li","thread-item thread-item--"+e.kind);
+if(e.kind==="card"||e.kind==="loop")li.appendChild(relMention(e.id));
+else li.appendChild(el("code","mention",e.kind==="other-board"?e.ref:BOARD+"#"+e.id));
+if(e.kind!=="card")li.appendChild(el("span","rel-mark",e.kind==="other-board"?"not followed":e.kind));
+ol.appendChild(li)});
+box.appendChild(ol);return box}
+function childrenBlock(id){
+const kids=childrenOf(nesting.cards,id,nesting.ctx);
+if(!kids.length)return null;
+const box=el("div","relatives"),ul=el("ul","children-list");
+box.appendChild(el("div","relatives-label","Children"));
+kids.forEach(k=>{const li=el("li","child-item"+(k.archived?" child-item--archived":""));li.appendChild(relMention(k.id));if(k.archived)li.appendChild(el("span","rel-mark","archived"));ul.appendChild(li)});
+box.appendChild(ul);return box}
 function cardNode(c,detail){
 const selc=String(sel)===String(c.id)||(focusRoot!=null&&String(focusRoot)===String(c.id));
 const ro=detail&&!!c.arch;
@@ -1138,6 +1233,7 @@ const un=unresolved(c),br=blkReason(c),rr=rvReason(c);
 const d=el("div","card"+(selc&&!detail?" sel":"")+(isProv(c.id)?" prov":""));
 d.dataset.card=c.id;
 if(!detail&&!c.arch&&fineMQ.matches&&dragOn)d.draggable=true;
+const th=detail&&!isProv(c.id)?threadBlock(Number(c.id)):null;if(th)d.appendChild(th);
 d.appendChild(el("span","cid",isProv(c.id)?"#new":"#"+c.id));
 if(c.p==="High")d.appendChild(el("span","hitag","HIGH"));
 if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on "+un.map(x=>"#"+x).join(", ");d.appendChild(wb)}
@@ -1147,11 +1243,15 @@ if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+
 // "Dependency tree/path" replaces the whole query box instead — deliberate
 // gap, not mirrored here).
 if(rr!==null){const rb=el("span","badge rbadge","review");rb.title="review"+(rr?": "+rr:"");d.appendChild(rb)}
+const tc=typeChip(c);if(tc)d.appendChild(tc);
+const alt=isProv(c.id)?0:nesting.roll.altitudeOf(Number(c.id));
+if(alt&&!detail)d.appendChild(altBadge(alt));
 const tEl=el("div","ttl",c.t);if(detail&&!ro){tEl.dataset.tap="ren";tEl.title="Tap to rename"}d.appendChild(tEl);
 const mp=[];if(c.a){const s=el("span",null);s.style.color=acol(c.a);s.title=c.a;s.appendChild(document.createTextNode(c.a));mp.push(s)}
 if(c.due){const dw=el("span",null);dw.appendChild(document.createTextNode("due "));dw.appendChild(el("span","num",c.due));mp.push(dw)}
 if(c.p==="Low")mp.push(document.createTextNode("Low"));
 if(mp.length){const meta=el("div","meta");mp.forEach((p,i)=>{if(i>0)meta.appendChild(document.createTextNode(" \\u00b7 "));meta.appendChild(p)});d.appendChild(meta)}
+if(alt&&!detail){const rb=rollupBarNode(nesting.roll.rollup(Number(c.id)),false);if(rb)d.appendChild(rb)}
 if(detail&&ro){
 // Archived cards open READ-ONLY — pills are plain text, no
 // editors/actions/all-fields; restore stays conversational.
@@ -1201,6 +1301,7 @@ if(detail){
 if(un.length)d.appendChild(el("div","meta wline","waiting on "+un.map(x=>"#"+x).join(", ")));
 if(br!==null)d.appendChild(el("div","meta bline","blocked: "+(br||"reason unspecified")));
 if(rr!==null)d.appendChild(el("div","meta rline","review: "+(rr||"text unspecified")));
+if(alt)d.appendChild(rollupBlock(Number(c.id),alt));
 if(c.tags&&c.tags.length){const tg=el("div","tags");c.tags.forEach(t=>tg.appendChild(el("span","tag",t)));d.appendChild(tg)}
 const det=[];if(c.start)det.push("start "+c.start);if(c.upd)det.push("updated "+c.upd);
 if(det.length)d.appendChild(el("div","meta",det.join(" \\u00b7 ")));
@@ -1232,7 +1333,8 @@ row.appendChild(inp);
 row.appendChild(btn("Save","fmsave",{key:k}));
 d.appendChild(row)})}}
 if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit description":"Add description","desc"));d.appendChild(er)}
-if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn))}
+if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn));
+const kb=isProv(c.id)?null:childrenBlock(Number(c.id));if(kb)d.appendChild(kb)}
 return d}
 function statusPills(){
 const row=el("div","pillrow");
@@ -1243,6 +1345,7 @@ b.appendChild(dot);b.appendChild(document.createTextNode(k==="archive"?"Archive"
 row.appendChild(b)});
 return row}
 function render(){
+buildNesting();
 const board=$("board");board.replaceChildren();
 $("boardpills").replaceChildren(statusPills());
 // Each section (header + its cards) wraps in a .boardcol container at
@@ -1251,7 +1354,7 @@ $("boardpills").replaceChildren(statusPills());
 // query above). Collapsed sections skip .colcards entirely and render as
 // just the header, which the same media query narrows into a strip.
 COLS.filter(col=>isVis(col)).forEach(col=>{
-const cs=view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s))));
+const cs=inOutline(view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s)))));
 const open=!!colOpen[col];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 wrap.dataset.status=col;
@@ -1286,7 +1389,7 @@ else{const e=el("div",null,"no cards");e.style.cssText="font-size:12px;color:var
 wrap.appendChild(cc)}
 board.appendChild(wrap)});
 if(isVis("archive")){
-const acs=view.filter(c=>c.arch&&qMatch(c));
+const acs=inOutline(view.filter(c=>c.arch&&qMatch(c)));
 const open=!!colOpen["archive"];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 const h=el("div","colh");
