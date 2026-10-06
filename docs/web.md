@@ -45,8 +45,10 @@ isn't `done` yet) or **blocked** (a manual sticker). The tile cues you see:
 - the assignee (`@human` / `@hitl` / `@afk`), tags, and due date.
 
 Each column header carries a sort dropdown (id / priority / due / last-modified
-/ assignee), a collapse toggle, and a `+` to create a card straight into that
-column. The search box up top filters every view at once.
+/ assignee / outline), a collapse toggle, and a `+` to create a card straight into
+that column. Outline puts a parent before its children and siblings in `rank`
+order; it is the default sort on a board where any card has a `rank` or a
+`parent`. The search box up top filters every view at once.
 
 ## Dependency map
 
