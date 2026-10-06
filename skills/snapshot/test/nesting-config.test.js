@@ -27,6 +27,7 @@ const FORMS = {
   'an inline list': 'name: b\ntypes: [objective, "two words", story]\n',
   'an empty inline list': 'name: b\ntypes: []\n',
   'keys after the list': 'name: b\ntypes:\n  - name: epic\n    color: red\nstatuses: [todo, done]\n',
+  'a comment after the key': 'name: b\ntypes:   # suggested card types\n  - name: objective\n    color: "#a371f7"\n  - story\n',
   'no types key': 'name: b\nstatuses: [todo, done]\n',
 };
 
@@ -62,6 +63,12 @@ function prioritiesFor(config) {
 test('the priority order is the configured one, inline or block', () => {
   assert.deepStrictEqual(prioritiesFor('name: b\npriorities: [Urgent, High, Normal]\n'), ['Urgent', 'High', 'Normal']);
   assert.deepStrictEqual(prioritiesFor('name: b\npriorities:\n  - Urgent\n  - "High"\n'), ['Urgent', 'High']);
+});
+
+test('a comment after the priorities key opens the block, and kanban-web reads it the same way', () => {
+  const config = 'name: b\npriorities:   # high first\n  - Urgent\n  - Normal\n';
+  assert.deepStrictEqual(prioritiesFor(config), ['Urgent', 'Normal']);
+  assert.deepStrictEqual(prioritiesFor(config), parseConfig(config).priorities);
 });
 
 test('no priorities key leaves the list empty, so the module falls back to High, Normal, Low', () => {

@@ -328,3 +328,10 @@ test('advanceCounter keeps a line-1 name byte-for-byte when the web app allocate
   assert.strictEqual(after.split('\n')[0], 'name: webapp   # board name for card mentions');
   assert.strictEqual(after, raw.replace('nextId: 40', 'nextId: 41'));
 });
+
+test('a comment after the types or priorities key opens the block list, as the docs write it', () => {
+  const c = cfg.parseConfig('types:   # suggested card types\n  - name: objective\n    color: "#a371f7"\n  - story\npriorities:   # high first\n  - Urgent\n  - Normal\ntags: # areas\n  - ui\n');
+  assert.deepStrictEqual(c.types, [{ name: 'objective', color: '#a371f7' }, { name: 'story', color: '' }]);
+  assert.deepStrictEqual(c.priorities, ['Urgent', 'Normal']);
+  assert.deepStrictEqual(c.tags, ['ui']);
+});

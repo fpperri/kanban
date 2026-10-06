@@ -53,6 +53,13 @@ function parseFlowList(raw) {
   return inner.split(',').map((item) => scalar(item)).filter((v) => v !== '');
 }
 
+// A list key whose value is blank or only a comment (`types:   # note`) starts
+// a block list; the snapshot's readers open it the same way.
+function opensBlock(tail) {
+  const t = String(tail).trim();
+  return t === '' || t[0] === '#';
+}
+
 // priorities/tags — suggest, never validate. statuses — the official COLUMN
 // list (ordered = column order; absent = built-in four).
 // It drives the board's layout but still never validates a card's on-disk
@@ -125,14 +132,14 @@ function parseConfig(text) {
       } else if (top[1] === 'assignees') {
         section = 'assignees';
       } else if (top[1] === 'types') {
-        if (top[2].trim() !== '') {
+        if (!opensBlock(top[2])) {
           config.types = parseFlowList(top[2]).map((name) => ({ name, color: '' }));
           section = null;
         } else {
           section = 'types';
         }
       } else if (LIST_KEYS.includes(top[1])) {
-        if (top[2].trim() !== '') {
+        if (!opensBlock(top[2])) {
           config[top[1]] = parseFlowList(top[2]); // inline flow form
           section = null;
         } else {
