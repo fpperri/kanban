@@ -128,7 +128,9 @@ and dim when archived. A ring around it means children; red is blocked, amber
 waiting, gold review. Hover or focus a dot to dim everything but that card and
 its relations. Click, ctrl-click, shift-click and right-click work as on the
 board. Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.
-The status pills and search work as on the Gantt, Archive off by default.
+The status pills and search work as on the Gantt, Archive off by default. A card
+whose parent is hidden (archived, or filtered out by a status pill or the search)
+is drawn as a root, and Archive starts off here, unlike the Map.
 Open it directly with `?view=graph`.
 
 ## More on the board

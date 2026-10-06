@@ -5535,7 +5535,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup-ctl, .rollup, #graph-toggle-btn')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup-ctl, .rollup, #graph-toggle-btn, .graph-control')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();

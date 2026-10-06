@@ -30,7 +30,7 @@ function mergeGraphLayout(saved) {
 // cards is the whole pool (active + archived). visibleIds narrows what is
 // DRAWN; waits still resolve against the full pool so a card waiting on a
 // hidden card still reads waiting. A parent link exists only when the parent is
-// a drawn card on this board; otherwise the card is a root of the drawn forest.
+// a drawn card on this board; otherwise the card is a root of the drawn trees.
 // Nodes come back in outline order (parents before children, siblings by
 // rank): that is the view's DOM order and defines shift-click range selection.
 
@@ -144,6 +144,7 @@ function graphFinish(model, pos, rings, spokes, titles) {
     grow(p.x - r, p.y - r, p.x + r, p.y + r);
   }
   for (const r of rings) grow(r.cx - r.r, -r.r, r.cx + r.r, r.r);
+  for (const t of titles) grow(t.x, t.y - 16, t.x + 80, t.y + 4);
   const bounds = Number.isFinite(x0) ? { x0, y0, x1, y1 } : { x0: -100, y0: -100, x1: 100, y1: 100 };
   return { pos, rings, spokes, titles, bounds };
 }
@@ -152,7 +153,8 @@ function graphFinish(model, pos, rings, spokes, titles) {
 
 const GRAPH_TIER_BASE = 90;
 const GRAPH_TIER_STEP = 85;
-const graphTierRing = (d) => GRAPH_TIER_BASE + GRAPH_TIER_STEP * d;
+const GRAPH_TIER_LEAF_ARC = 18;
+const GRAPH_TIER_LOOSE_ARC = 9;
 
 function graphLayoutTiers(model) {
   const { nodes } = model;
@@ -177,31 +179,50 @@ function graphLayoutTiers(model) {
   if (!trees.length) share = 1;
   else if (unnested.length) share = Math.max(0.15, Math.min(0.5, unnested.length / nodes.length));
 
+  // A ring holding a leaf must be wide enough that the angle one leaf gets
+  // still spaces neighbouring dots apart; inner rings only keep the fixed step.
+  const leafAngle = Math.PI * 2 * (1 - share) / totalLeaves;
+  const leafDepth = new Array(maxDepth + 1).fill(false);
+  for (const n of nodes) if (!kidsOf.has(n.id) && (n.parentId !== null || n.kids > 0)) leafDepth[n.depth] = true;
+  const ringR = [GRAPH_TIER_BASE];
+  for (let d = 1; d <= maxDepth; d++) {
+    ringR.push(Math.max(ringR[d - 1] + GRAPH_TIER_STEP, leafDepth[d] && leafAngle > 0 ? GRAPH_TIER_LEAF_ARC / leafAngle : 0));
+  }
+  if (leafDepth[0] && leafAngle > 0) ringR[0] = Math.max(ringR[0], GRAPH_TIER_LEAF_ARC / leafAngle);
+
   const pos = new Map();
   const spokes = [];
-  const place = (id, a0, a1) => {
-    const n = model.byId.get(id);
-    const ang = (a0 + a1) / 2;
-    const rad = graphTierRing(n.depth);
-    pos.set(id, { x: Math.cos(ang) * rad, y: Math.sin(ang) * rad });
-    const list = kidsOf.get(id);
-    if (!list) return;
-    let s = a0;
-    for (const k of list) {
-      const w = (a1 - a0) * leaves.get(k) / leaves.get(id);
-      place(k, s, s + w);
-      s += w;
+  const stack = [];
+  const place = (rootId, rootA0, rootA1) => {
+    stack.push([rootId, rootA0, rootA1]);
+    while (stack.length) {
+      const [id, a0, a1] = stack.pop();
+      const n = model.byId.get(id);
+      const ang = (a0 + a1) / 2;
+      const rad = ringR[n.depth];
+      pos.set(id, { x: Math.cos(ang) * rad, y: Math.sin(ang) * rad });
+      const list = kidsOf.get(id);
+      if (!list) continue;
+      let s = a0;
+      for (const k of list) {
+        const w = (a1 - a0) * leaves.get(k) / leaves.get(id);
+        stack.push([k, s, s + w]);
+        s += w;
+      }
     }
   };
   let a = -Math.PI / 2;
   for (const t of trees) {
     const w = Math.PI * 2 * (1 - share) * leaves.get(t.id) / totalLeaves;
-    spokes.push({ angle: a, r0: 0, r1: 0 });
+    spokes.push({ angle: a, r1: 0 });
     place(t.id, a, a + w);
     a += w;
   }
   const sector = Math.PI * 2 * share;
-  const outer = graphTierRing(maxDepth + 1);
+  const outer = Math.max(
+    ringR[maxDepth] + GRAPH_TIER_STEP,
+    unnested.length ? unnested.length * GRAPH_TIER_LOOSE_ARC / sector : 0,
+  );
   unnested.forEach((n, i) => {
     const ang = a + sector * (i + 0.5) / unnested.length;
     const rad = outer + (i % 2 ? 24 : 0);
@@ -211,13 +232,13 @@ function graphLayoutTiers(model) {
   const rings = [];
   if (trees.length) {
     for (let d = 0; d <= maxDepth; d++) {
-      rings.push({ cx: 0, r: graphTierRing(d), label: d === 0 ? 'roots' : `depth ${d}` });
+      rings.push({ cx: 0, r: ringR[d], label: d === 0 ? 'roots' : `depth ${d}` });
     }
   }
   if (unnested.length) rings.push({ cx: 0, r: outer, label: 'unnested' });
   const reach = rings.length ? rings[rings.length - 1].r + 30 : 0;
   for (const s of spokes) s.r1 = reach;
-  return graphFinish(model, pos, rings, spokes, []);
+  return graphFinish(model, pos, rings, spokes.length > 1 ? spokes : [], []);
 }
 
 // --- layout: status ------------------------------------------------------------
@@ -308,7 +329,7 @@ function graphLayoutForce(model) {
     py[i] = Math.sin(i * GRAPH_GOLDEN) * 12 * Math.sqrt(i);
   });
   const springs = model.links.map((l) => ({ a: at.get(l.from), b: at.get(l.to), want: l.kind === 'parent' ? 55 : 90 }));
-  const iterations = n <= 150 ? 300 : n <= 400 ? 150 : 80;
+  const iterations = n <= 150 ? 300 : n <= 400 ? 150 : n <= 1000 ? 80 : n <= 2000 ? 40 : 20;
   let alpha = 1;
   for (let it = 0; it < iterations; it++) {
     for (let i = 0; i < n; i++) {
@@ -425,8 +446,7 @@ const graphRound = (v) => Math.round(v * 100) / 100;
 function graphPlan(model, layout, opts) {
   const o = opts || {};
   const selected = o.selectedIds || new Set();
-  const isHover = o.isHover || ((id) => o.hoveredId != null && o.hoveredId === id);
-  const statusClass = o.statusClass || ((s) => String(s));
+  const statusClass = o.statusClass || ((s) => String(s).toLowerCase().replace(/[^a-z0-9-]/g, '-'));
   const titleOf = o.titleOf || ((c) => c.title || '');
   const curved = layout.rings.length > 0 || layout.spokes.length > 0;
   const kind = o.kind || (layout.rings.some((r) => r.status !== undefined) ? 'status' : curved ? 'tiers' : 'force');
@@ -440,15 +460,14 @@ function graphPlan(model, layout, opts) {
     const p = layout.pos.get(n.id);
     const cls = ['graph-node', 'card-el', `status-${statusClass(n.status)}`];
     if (selected.has(n.id)) cls.push('selected');
-    if (isHover(n.id)) cls.push('hover-highlight');
+    if (o.hoveredId != null && o.hoveredId === n.id) cls.push('hover-highlight');
     if (n.archived) cls.push('archived');
     if (n.status === 'done') cls.push('is-done');
     if (n.kids > 0) cls.push('has-kids');
     if (n.blocked) cls.push('is-blocked');
     if (n.waiting) cls.push('is-waiting');
     if (n.review) cls.push('is-review');
-    const hub = n.deg >= 3;
-    if (hub) cls.push('graph-hub');
+    if (n.deg >= 3) cls.push('graph-hub');
     return {
       id: n.id,
       x: graphRound(p.x),
@@ -456,7 +475,6 @@ function graphPlan(model, layout, opts) {
       r: graphRadius(n),
       cls: cls.join(' '),
       title: `#${n.id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`,
-      hub,
     };
   });
 

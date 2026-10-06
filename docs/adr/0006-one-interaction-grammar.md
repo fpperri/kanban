@@ -24,7 +24,7 @@ New views join the grammar by stamping the class/attribute pair. Exceptions
 are explicit: map ghost stubs (filter-hidden cards) are never selectable;
 bulk-drag of a selection stays board-only. Gantt clicks ride the native
 post-pointerup click with a one-shot phantom-click suppressor — the one
-timing-sensitive spot (documented at suppressGanttPhantomClick).
+timing-sensitive spot (documented at suppressGanttPhantomClick). The Graph's pan swallows the phantom click after a drag too, alongside the Gantt's, but arms a one-shot capture listener per pan instead of keeping a flag.
 
 ## Amendment (2026-07-13): file-manager selection gestures
 

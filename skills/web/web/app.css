@@ -1169,7 +1169,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-ring { fill: none; stroke: var(--line-strong); stroke-width: 1px; stroke-dasharray: 4 4; opacity: 0.6; }
 .graph-spoke { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; }
 .graph-ring-label, .graph-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
-.graph-title { fill: var(--ink); font-weight: 600; }
+.graph-ring-label { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
+.graph-title { fill: var(--ink); font-weight: 600; font-size: calc(15px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 
 .graph-link { fill: none; stroke-width: 1.4px; }
 .graph-link-parent { stroke: var(--mut); opacity: 0.4; }
@@ -1205,7 +1206,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-node.hover-highlight .graph-dot { stroke: var(--ink); stroke-width: 2px; }
 .graph-node:focus-visible .graph-dot { stroke: var(--accent); stroke-width: 2.5px; stroke-dasharray: 3 2; }
 
-.graph-node-id { display: none; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-node-id { display: none; font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); dominant-baseline: central; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
 .graph-node.graph-hub .graph-node-id, .graph-node.hover-highlight .graph-node-id, .graph-node.selected .graph-node-id, .graph-labels-all .graph-node-id { display: inline; }
 
 .graph-dim .graph-node:not(.graph-near) { opacity: 0.15; }

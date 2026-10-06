@@ -27,6 +27,8 @@ const graphViews = new Map();
 let graphCur = null;
 let graphPan = null;
 let graphClickSwallow = null;
+let graphFrame = 0;
+let graphLastError = null;
 
 function graphLoadLayout() {
   if (graphLayoutKind) return graphLayoutKind;
@@ -60,7 +62,7 @@ function graphSaveFilter() {
 
 function graphToggleFilter(col) {
   const filter = graphLoadFilter();
-  if (!(col in filter)) return;
+  if (!Object.prototype.hasOwnProperty.call(filter, col)) return;
   filter[col] = !filter[col];
   graphSaveFilter();
   renderGraphView();
@@ -68,6 +70,7 @@ function graphToggleFilter(col) {
 
 function graphSoloFilter(col) {
   const filter = graphLoadFilter();
+  if (!Object.prototype.hasOwnProperty.call(filter, col)) return;
   Object.assign(filter, soloStatusFilter(filter, boardColumnIds(), col));
   graphSaveFilter();
   renderGraphView();
@@ -78,6 +81,7 @@ function resetGraphViewState() {
   graphStatusFilter = null;
   graphViews.clear();
   graphCur = null;
+  if (graphPan && graphPan.moved) isDragging = false;
   graphPan = null;
 }
 
@@ -145,25 +149,18 @@ function graphApplyTransform() {
   const { svg, world, view, arrow } = graphCur;
   const k = view.k;
   world.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${k})`);
-  for (const t of svg.querySelectorAll('.graph-node-id')) {
-    t.setAttribute('font-size', 11 / k);
-    t.setAttribute('stroke-width', 4 / k);
-    t.setAttribute('x', Number(t.dataset.r) + 3 / k);
-    t.setAttribute('y', 4 / k);
-  }
-  for (const t of svg.querySelectorAll('.graph-ring-label')) {
-    t.setAttribute('font-size', 11 / k);
-    t.setAttribute('stroke-width', 4 / k);
-    t.setAttribute('x', Number(t.dataset.cx) + 4 / k);
-    t.setAttribute('y', -Number(t.dataset.r) - 3 / k);
-  }
-  for (const t of svg.querySelectorAll('.graph-title')) {
-    t.setAttribute('font-size', 15 / k);
-    t.setAttribute('stroke-width', 4 / k);
-  }
+  svg.style.setProperty('--graph-k', String(k));
   arrow.setAttribute('markerWidth', 9 / k);
   arrow.setAttribute('markerHeight', 9 / k);
   svg.classList.toggle('graph-labels-all', k >= GRAPH_LABELS_ALL_K || graphCur.nodeCount <= GRAPH_LABELS_ALL_MAX_NODES);
+}
+
+function graphScheduleTransform() {
+  if (graphFrame) return;
+  graphFrame = requestAnimationFrame(() => {
+    graphFrame = 0;
+    graphApplyTransform();
+  });
 }
 
 function graphFitNow() {
@@ -175,7 +172,7 @@ function graphFitNow() {
 function graphZoomBy(factor, px, py) {
   if (!graphCur) return;
   Object.assign(graphCur.view, graphZoomAt(graphCur.view, px, py, factor), { touched: true });
-  graphApplyTransform();
+  graphScheduleTransform();
 }
 
 // --- hover focus ---------------------------------------------------------------
@@ -239,17 +236,14 @@ function graphDrawPlan(plan) {
     const flagged = / is-(blocked|waiting|review)/.test(n.cls);
     if (kids) g.appendChild(fixed(graphEl('circle', { r: n.r + 3 }, 'graph-kids-ring')));
     if (flagged) g.appendChild(fixed(graphEl('circle', { r: n.r + (kids ? 6 : 3) }, 'graph-flag-ring')));
-    const label = graphEl('text', {}, 'graph-node-id');
-    label.dataset.r = String(n.r);
+    const label = graphEl('text', { x: n.r + 3 }, 'graph-node-id');
     label.textContent = String(n.id);
     g.appendChild(label);
     world.appendChild(g);
     nodeEls.set(n.id, g);
   }
   for (const r of plan.rings) {
-    const t = graphEl('text', {}, 'graph-ring-label');
-    t.dataset.cx = String(r.cx);
-    t.dataset.r = String(r.r);
+    const t = graphEl('text', { x: r.cx + 4, y: -r.r - 3 }, 'graph-ring-label');
     t.textContent = r.label;
     world.appendChild(t);
   }
@@ -264,21 +258,29 @@ function graphDrawPlan(plan) {
 
 function renderGraphView() {
   const host = document.getElementById('graph-view');
+  let kind, filter, model, layout, layoutOpts, plan;
+  try {
+    kind = graphLoadLayout();
+    filter = graphLoadFilter();
+    const pool = state.active.concat(state.archived);
+    const terms = currentSearchTerms();
+    const searchIds = terms.length ? new Set(filterCards(pool, terms, nestingCtx()).map((c) => c.id)) : null;
+    const visibleIds = graphVisibleIds(pool, searchIds, filter, boardStatuses());
+    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds });
+    layoutOpts = { statuses: boardStatuses() };
+    layout = graphLayout(model, kind, layoutOpts);
+    plan = graphPlan(model, layout, {
+      selectedIds, hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text,
+    });
+  } catch (err) {
+    const msg = String(err && err.message || err);
+    if (msg !== graphLastError) console.error('graph view: render failed', err);
+    graphLastError = msg;
+    return;
+  }
+  graphLastError = null;
   host.textContent = '';
   graphCur = null;
-  const kind = graphLoadLayout();
-  const filter = graphLoadFilter();
-
-  const pool = state.active.concat(state.archived);
-  const terms = currentSearchTerms();
-  const searchIds = terms.length ? new Set(filterCards(pool, terms, nestingCtx()).map((c) => c.id)) : null;
-  const visibleIds = graphVisibleIds(pool, searchIds, filter, boardStatuses());
-  const model = graphBuild(pool, { ctx: nestingCtx(), visibleIds });
-  const layoutOpts = { statuses: boardStatuses() };
-  const layout = graphLayout(model, kind, layoutOpts);
-  const plan = graphPlan(model, layout, {
-    selectedIds, hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text,
-  });
 
   host.appendChild(graphBuildControls(kind, filter, model.nodes.length, model.links.length));
   if (!plan.nodes.length) {
@@ -344,6 +346,7 @@ function wireGraphView(host) {
     if (pill) { graphToggleFilter(pill.dataset.col); return; }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
     if (layoutBtn) {
+      if (mergeGraphLayout(layoutBtn.dataset.layout) === graphLoadLayout()) return;
       graphLayoutKind = mergeGraphLayout(layoutBtn.dataset.layout);
       graphViews.delete(graphLayoutKind);
       graphSaveLayout();
@@ -355,6 +358,7 @@ function wireGraphView(host) {
     const action = zoomBtn.dataset.graphAction;
     if (action === 'fit') graphFitNow();
     else graphZoomBy(action === 'in' ? GRAPH_BUTTON_ZOOM : 1 / GRAPH_BUTTON_ZOOM, graphCur.w / 2, graphCur.h / 2);
+    zoomBtn.blur();
   });
   host.addEventListener('contextmenu', (e) => {
     if (isDragging) return;
@@ -390,10 +394,11 @@ function wireGraphView(host) {
     graphCur.view.x = graphPan.vx + dx;
     graphCur.view.y = graphPan.vy + dy;
     graphCur.view.touched = true;
-    graphApplyTransform();
+    graphScheduleTransform();
   });
   host.addEventListener('pointerup', (e) => { if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan(); });
   host.addEventListener('pointercancel', (e) => { if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan(); });
+  host.addEventListener('lostpointercapture', (e) => { if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan(); });
 
   const enter = (e) => {
     const el = e.target.closest('.graph-node');

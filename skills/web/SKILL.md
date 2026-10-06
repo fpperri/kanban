@@ -1166,7 +1166,8 @@ to `127.0.0.1` only.
   root there; a card waiting on a hidden card still reads waiting.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
-  Archive pill is **off by default**. The search box composes with the pills by
+  Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
+  (archived, or filtered out by a pill or the search) is drawn as a root. The search box composes with the pills by
   **intersection**, and the search spans live and archived cards alike. A count of cards
   and relations sits in the header; a board with nothing to draw says "No cards to show".
   **Hover or keyboard focus** on a dot dims everything but that card and the cards it

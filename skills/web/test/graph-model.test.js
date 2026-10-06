@@ -104,13 +104,13 @@ test('radius grows with degree and with having kids', () => {
 
 // --- tiers -----------------------------------------------------------------------
 
-const forest = () => build([
+const trees = () => build([
   card(1), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { parent: 2 }), card(5, { parent: 2 }),
   card(6), card(7, { parent: 6 }), card(8), card(9),
 ]);
 
 test('tiers: each depth sits on ring 90 + 85 * depth', () => {
-  const m = forest();
+  const m = trees();
   const l = graphLayoutTiers(m);
   for (const n of m.nodes.filter((x) => x.parentId !== null || x.kids)) {
     const p = l.pos.get(n.id);
@@ -122,7 +122,7 @@ test('tiers: each depth sits on ring 90 + 85 * depth', () => {
 });
 
 test('tiers: children sit inside the parent sector and share it by leaf count', () => {
-  const m = forest();
+  const m = trees();
   const l = graphLayoutTiers(m);
   const a = (id) => ang(l.pos.get(id));
   const within = (id, lo, hi) => {
@@ -147,7 +147,7 @@ test('tiers: children sit inside the parent sector and share it by leaf count', 
 });
 
 test('tiers: unnested cards go on the outer ring, alternating outward', () => {
-  const m = forest();
+  const m = trees();
   const l = graphLayoutTiers(m);
   const outer = 90 + 85 * 3;
   const radii = [8, 9].map((id) => Math.hypot(l.pos.get(id).x, l.pos.get(id).y));
@@ -156,7 +156,7 @@ test('tiers: unnested cards go on the outer ring, alternating outward', () => {
 });
 
 test('tiers: deterministic, finite, and safe on 0 and 1 node', () => {
-  const m = forest();
+  const m = trees();
   assert.deepStrictEqual(plain(graphLayoutTiers(m)), plain(graphLayoutTiers(m)));
   assert.ok(finite(graphLayoutTiers(m)));
   assert.ok(finite(graphLayoutTiers(build([]))));
@@ -164,7 +164,7 @@ test('tiers: deterministic, finite, and safe on 0 and 1 node', () => {
 });
 
 test('tiers: bounds contain every node including its radius', () => {
-  const m = forest();
+  const m = trees();
   const l = graphLayoutTiers(m);
   for (const n of m.nodes) {
     const p = l.pos.get(n.id);
@@ -224,6 +224,15 @@ test('status: archived cards form a second clump to the right with the same ring
   assert.ok(Math.abs(ringOfNode(l, 2, l.rings[4].cx) - l.rings[4].r) < 1e-6);
   assert.deepStrictEqual(l.titles.map((t) => t.text), ['live', 'archive']);
   assert.ok(finite(l));
+});
+
+test('status: the group titles sit inside the bounds the view fits to', () => {
+  const m = build([card(1, { status: 'todo' }), card(2, { status: 'done', archived: true })]);
+  const l = graphLayoutStatus(m, { statuses: ['backlog', 'todo', 'doing', 'done'] });
+  for (const t of l.titles) {
+    assert.ok(t.y - 16 >= l.bounds.y0, `title ${t.text} is clipped above the bounds`);
+    assert.ok(t.x >= l.bounds.x0 && t.x + 80 <= l.bounds.x1);
+  }
 });
 
 test('status: a crowded ring spills onto a second track without overlap', () => {
@@ -348,7 +357,7 @@ test('cache: holds at most 8 entries, evicting the oldest', () => {
 
 test('layout dispatcher: unknown kind falls back to tiers', () => {
   graphLayoutCacheClear();
-  const m = forest();
+  const m = trees();
   assert.deepStrictEqual(plain(graphLayout(m, 'nope')), plain(graphLayoutTiers(m)));
 });
 
@@ -378,15 +387,14 @@ test('plan: node classes, order and title', () => {
   assert.ok(by(6).cls.includes('archived'));
   assert.strictEqual(by(6).title, '#6 card 6 (done, archived)');
   assert.strictEqual(by(3).title, '#3 card 3 (todo)');
-  assert.strictEqual(by(1).hub, true);
-  assert.strictEqual(by(5).hub, false);
+  assert.ok(!by(5).cls.includes('graph-hub'));
 });
 
-test('plan: isHover predicate wins over hoveredId', () => {
-  const m = build([card(1), card(2)]);
-  const plan = graphPlan(m, graphLayout(m, 'force'), planOpts({ isHover: (id) => id === 2, hoveredId: 1 }));
-  assert.ok(!plan.nodes[0].cls.includes('hover-highlight'));
-  assert.ok(plan.nodes[1].cls.includes('hover-highlight'));
+test('plan: the default status class cannot smuggle a second class', () => {
+  const m = build([card(1, { status: 'a hidden' })]);
+  const plan = graphPlan(m, graphLayout(m, 'force'), { titleOf: (c) => c.title });
+  assert.ok(!plan.nodes[0].cls.split(' ').includes('hidden'));
+  assert.ok(plan.nodes[0].cls.includes('status-a-hidden'));
 });
 
 test('plan: parent links curve in tiers and status, straight in force; waits end at the rim', () => {
@@ -432,8 +440,9 @@ test('plan: rings, spokes and titles come from the layout; output is finite and 
     assert.ok(a.rings.every((r) => r.cls === 'graph-ring'));
     assert.ok(!JSON.stringify(a).includes('NaN'));
   }
-  const tiers = graphPlan(m, graphLayout(m, 'tiers'), planOpts());
-  assert.ok(tiers.spokes.length > 0);
+  assert.strictEqual(graphPlan(m, graphLayout(m, 'tiers'), planOpts()).spokes.length, 0, 'one tree needs no sector dividers');
+  const two = build([card(1), card(2, { parent: 1 }), card(3), card(4, { parent: 3 })]);
+  assert.ok(graphPlan(two, graphLayout(two, 'tiers'), planOpts()).spokes.length > 1, 'two trees get dividers');
   const empty = build([]);
   const e = graphPlan(empty, graphLayout(empty, 'tiers'), planOpts());
   assert.deepStrictEqual(e.nodes, []);
@@ -458,4 +467,28 @@ test('zoomAt: the world point under the pointer stays put and k clamps', () => {
   assert.strictEqual(graphZoomAt(v, 0, 0, 0.0001).k, 0.1);
   assert.strictEqual(graphZoomAt(v, 0, 0, 1).k, 1.5);
   assert.deepStrictEqual(graphZoomAt(v, 5, 5, 3, 0.5, 2).k, 2);
+});
+
+test('tiers: one root with 150 children keeps neighbours on the ring apart', () => {
+  const cards = [card(1)];
+  for (let i = 2; i <= 151; i++) cards.push(card(i, { parent: 1 }));
+  const m = build(cards);
+  const l = graphLayoutTiers(m);
+  assert.ok(finite(l));
+  const kids = m.nodes.filter((n) => n.parentId === 1).map((n) => l.pos.get(n.id));
+  kids.sort((p, q) => ang(p) - ang(q));
+  for (let i = 0; i < kids.length; i++) {
+    const a = kids[i];
+    const b = kids[(i + 1) % kids.length];
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 14, `gap ${i}`);
+  }
+});
+
+test('tiers: a 6000-deep parent chain lays out without recursing', () => {
+  const cards = [card(1)];
+  for (let i = 2; i <= 6000; i++) cards.push(card(i, { parent: i - 1 }));
+  const m = build(cards);
+  const l = graphLayoutTiers(m);
+  assert.strictEqual(l.pos.size, 6000);
+  assert.ok(finite(l));
 });

@@ -108,5 +108,36 @@ test('the graph block keeps a CSP-safe, token-only palette', () => {
   const block = css.slice(start, end);
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), 'no literal hex colours');
   const defined = new Set([...css.slice(0, css.indexOf('}')).matchAll(/(--[a-z0-9-]+):/g)].map((m) => m[1]));
-  for (const m of block.matchAll(/var\((--[a-z0-9-]+)/g)) assert.ok(defined.has(m[1]), m[1]);
+  for (const m of block.matchAll(/var\((--[a-z0-9-]+)/g)) assert.ok(m[1] === '--graph-k' || defined.has(m[1]), m[1]);
+});
+
+test('the transform is O(1): one CSS custom property, no per-label sweeps, one write per frame', () => {
+  const body = fn('graphApplyTransform');
+  assert.ok(!/querySelectorAll|dataset/.test(body));
+  assert.match(body, /style\.setProperty\('--graph-k', String\(k\)\)/);
+  assert.match(fn('graphScheduleTransform'), /requestAnimationFrame/);
+  assert.ok(!/graphApplyTransform\(\)/.test(fn('graphZoomBy')));
+  for (const sel of ['.graph-node-id', '.graph-ring-label', '.graph-title']) {
+    const m = css.match(new RegExp(`${sel.replace('.', '\.')} \{[^}]*\}`, 'g')) || [];
+    assert.ok(m.some((r) => /font-size: calc\(\d+px \/ var\(--graph-k/.test(r)), sel);
+    assert.ok(m.some((r) => /stroke-width: calc\(4px \/ var\(--graph-k/.test(r)), sel);
+  }
+});
+
+test('resetGraphViewState clears isDragging for a moved pan; lostpointercapture finishes a pan', () => {
+  assert.match(fn('resetGraphViewState'), /graphPan\.moved\) isDragging = false/);
+  assert.match(fn('wireGraphView'), /addEventListener\('lostpointercapture'/);
+});
+
+test('render computes before touching the DOM and survives a throw', () => {
+  const body = fn('renderGraphView');
+  assert.ok(body.indexOf("host.textContent = ''") > body.indexOf('graphPlan('));
+  assert.match(body, /catch \(err\)[\s\S]*console\.error/);
+});
+
+test('filter handlers guard with hasOwnProperty; layout re-click and zoom buttons are handled', () => {
+  assert.match(fn('graphToggleFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
+  assert.match(fn('graphSoloFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
+  assert.match(fn('wireGraphView'), /=== graphLoadLayout\(\)\) return;/);
+  assert.match(fn('wireGraphView'), /zoomBtn\.blur\(\)/);
 });

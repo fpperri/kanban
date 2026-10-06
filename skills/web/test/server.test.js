@@ -386,7 +386,7 @@ test('index html has a top-bar graph toggle button and a graph view container', 
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const html = await (await fetch(`${base}/`)).text();
-    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations"></button>'));
+    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>'));
     assert.ok(html.includes('<div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>'));
     assert.ok(html.indexOf('id="gantt-toggle-btn"') < html.indexOf('id="graph-toggle-btn"') && html.indexOf('id="graph-toggle-btn"') < html.indexOf('id="rollup-ctls"'));
   });
@@ -398,8 +398,8 @@ test('graph wiring: the sixth view is registered and its toggle/control join the
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /graph: '#graph-view'/);
     assert.match(js, /if \(mode === 'graph'\) renderGraphView\(\);/);
-    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle[^']*\.rollup-ctl, \.rollup, #graph-toggle-btn'\)/,
-      '#graph-toggle-btn ends the click-away exemption list');
+    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle[^']*\.rollup-ctl, \.rollup, #graph-toggle-btn, \.graph-control'\)/,
+      '#graph-toggle-btn, .graph-control end the click-away exemption list');
     assert.match(js, /\.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/, '.graph-control ends the poll-guard list');
   });
 });
