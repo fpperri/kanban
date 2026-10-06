@@ -251,6 +251,23 @@ to `127.0.0.1` only.
   a board that gains its first rank or parent switches those columns to Outline without
   a reload. Composes with search
   filtering. Hidden while a column is collapsed (nothing to sort there).
+- **Parent cards: altitude badge and roll-up bar** — a card with children shows `▲n` in its
+  head row (its altitude: the layers of cards below it, whatever their types) and a status
+  bar of the leaves below it, meaning the cards with no children, so an objective over two
+  epics over stories counts the stories and not the epics beside them. Segments run in
+  column order, each in its status's color, with a `status: n` tooltip. The header's **Bar**
+  select switches board cards between collapsed (a thin line, the default), open (the bar
+  plus a count line: the total, the done count, then each other status) and off; the
+  **Archived** checkbox chooses whether archived leaves count (as done, on by default, so
+  archiving a finished story leaves its parent's done count unchanged). Both choices are
+  remembered per board in `localStorage`, surviving reload and the poll, and the controls
+  appear only on a board that has a parent. The card detail always shows the open bar under
+  the body with a scope line: the roll-up counts this board only, because a parent cannot
+  know about children on a board it never reads. Marking a parent done while leaves below
+  are still open (a drag, a multi-card drag or the form) shows a warning and saves anyway;
+  only the literal status `done` counts as finished, and an archived leaf counts as
+  finished. Altitude, roll-up and the warning are worked out from the cards on every render
+  and never written to a card.
 - **Search** — the header search box filters every view as you type; the query survives
   view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
   exact card id; `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
@@ -478,6 +495,19 @@ to `127.0.0.1` only.
   colour, `priority: High` the high-priority red, `assignee` its chip, `parent` a
   mention chip that opens the parent card, `review` and `blocked` their sticker grounds, and
   `tags` tag chips. The card path shows its folders muted and the file name in full ink.
+- **Thread and children** — the detail popup shows the card's thread above its
+  frontmatter: the parents up to the root, root first, each a mention chip that opens
+  that card (an archived parent too). A parent id with no card on this board ends the
+  thread with an `unresolved` marker; a parent on another board ends it with that
+  board's mention marked `not followed` (the single-board release names it and never
+  follows it); a loop of parents stops at the card that would repeat and flags it
+  `loop`, so a mistake never hangs the popup. Below the body the card's children are
+  listed in rank order (unranked after ranked, then priority, then id), an archived
+  child marked `archived`, each a mention chip too. Both lists are worked out from the
+  board already loaded (`threadOf` and `childrenOf` in `nesting.js`), a root shows no
+  thread and a leaf no child list, and every entry that names a card on this board
+  rides the popup's one mention listener, so opening one is a step in the card popup
+  history.
 - **Reading layer** — card bodies and notifications use four tokens of their own:
   `--prose` for body text, `--code-ink` for code on a borderless `--raised` ground, and
   `--line-strong` for table-header and evidence rules. Headings and bold take

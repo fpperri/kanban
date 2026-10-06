@@ -580,6 +580,7 @@ function cardEl(card) {
     ? `<span class="status-chip" title="Status not in the board's statuses list — shown in the first column until promoted in config.yaml">${escapeHtml(card.status)}</span>`
     : '';
   const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
+  const parent = parentTile(card);
   // A card with no title yet but a queued prompt (an
   // AI-dispatched card waiting on kanban-afk to name it) shows the sparkle +
   // prompt text in the title's own spot — a temporary stand-in, never a
@@ -596,13 +597,14 @@ function cardEl(card) {
   // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
-      (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting +
+      (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting + parent.bar +
     `</div>` +
     scheduleHtml;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors(el);
+  paintRollupBars(el);
   // The red blocked pill — the sticker is a human stop sign, so
   // it reads as its own glyph, not a border (borders stay priority/status
   // territory). The reason is USER DATA: it goes in via textContent/title
@@ -647,6 +649,7 @@ function archiveCardEl(card) {
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
+  const parent = parentTile(card);
   // Same empty-title-shows-the-prompt fallback as the board
   // tile — reused verbatim via cardTitleDisplay
   // (card-title.js), never re-derived here.
@@ -656,8 +659,9 @@ function archiveCardEl(card) {
     : escapeHtml(card.title);
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
+      parent.bar +
     `</div>` +
     scheduleHtml +
     `<div class="card-menu">` +
@@ -666,6 +670,7 @@ function archiveCardEl(card) {
     `</div>`;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors(el);
+  paintRollupBars(el);
   return el;
 }
 
@@ -712,6 +717,87 @@ function saveViewMode() {
   catch (e) { /* storage unavailable/full — view choice just won't persist this session */ }
 }
 
+// --- Roll-up bar on parent cards: how it shows on board tiles (open, collapsed
+// or off) and whether archived leaves count toward it. Two per-browser choices,
+// same lazy-load / try-catch discipline as viewMode above; applyProjectName
+// resets both memos, as it does for every cache keyed by the board name.
+let rollupBarMode = null;
+let rollupCountArchived = null;
+
+function loadRollupBarMode() {
+  if (rollupBarMode) return rollupBarMode;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'rollup.bar')); }
+  catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to collapsed
+  rollupBarMode = mergeRollupBar(saved);
+  return rollupBarMode;
+}
+
+function saveRollupBarMode() {
+  try { localStorage.setItem(storageKey(state.projectName, 'rollup.bar'), rollupBarMode); }
+  catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
+}
+
+function loadRollupCountArchived() {
+  if (rollupCountArchived !== null) return rollupCountArchived;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'rollup.archived')); }
+  catch (e) { saved = null; } // corrupt/inaccessible storage — archived leaves count
+  rollupCountArchived = mergeRollupCountArchived(saved);
+  return rollupCountArchived;
+}
+
+function saveRollupCountArchived() {
+  try { localStorage.setItem(storageKey(state.projectName, 'rollup.archived'), String(rollupCountArchived)); }
+  catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
+}
+
+// Cards are edited in place (optimistic drops), so the nesting index is rebuilt
+// at the top of every renderBoard() rather than cached across renders; tiles,
+// the map's isolated row and the controls all read it.
+let nestingIndex = null;
+
+function nestingCtx() {
+  return { board: state.projectName, priorities: state.priorities };
+}
+
+function buildNestingIndex() {
+  return rollupIndex(state.active.concat(state.archived), nestingCtx());
+}
+
+// The altitude badge and roll-up bar a parent card carries, '' for a leaf.
+function parentTile(card) {
+  const altitude = nestingIndex.altitudeOf(card.id);
+  if (!altitude) return { badge: '', bar: '' };
+  const rollup = nestingIndex.rollup(card.id, { countArchived: loadRollupCountArchived() });
+  return { badge: altitudeBadge(altitude), bar: rollupBar(rollup, loadRollupBarMode(), boardStatuses()) };
+}
+
+// rollupBar() carries each segment's weight as data-n; the CSP forbids a style
+// attribute, so the proportion is set here once the HTML has landed.
+function paintRollupBars(root) {
+  root.querySelectorAll('.rollup-seg[data-n]').forEach((seg) => {
+    seg.style.flexGrow = seg.dataset.n;
+  });
+}
+
+// Header controls show only on a board that has parents.
+function syncRollupControls() {
+  const ctls = $('#rollup-ctls');
+  if (!ctls) return;
+  ctls.classList.toggle('hidden', !nestingIndex.parents().length);
+  $('#rollup-bar-mode').value = loadRollupBarMode();
+  $('#rollup-archived').checked = loadRollupCountArchived();
+}
+
+// A soft warning, never a gate: parents newly done while leaves below are open.
+// Only the literal status done counts. Called after the move has been saved.
+function openLeavesNote(cards, status) {
+  if (status !== 'done') return '';
+  const index = buildNestingIndex();
+  return openLeavesWarning(cards.map((c) => ({ id: c.id, open: index.openLeafCount(c.id) })));
+}
+
 // Each header toggle flips between its own view and the board: map ⇄ board,
 // calendar ⇄ board — and pressing one while the OTHER view is active jumps
 // straight to the pressed view (no board stopover).
@@ -744,6 +830,8 @@ function applyViewMode() {
 }
 
 function renderBoard() {
+  nestingIndex = buildNestingIndex();
+  syncRollupControls();
   renderBoardColumns();
   applyViewMode();
 }
@@ -1373,6 +1461,8 @@ function applyProjectName(name) {
     columnSortPicks = null;
     modalFullscreen = null;
     viewMode = null; // view.mode joins the same discipline
+    rollupBarMode = null; // rollup.bar too
+    rollupCountArchived = null; // rollup.archived too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     ganttSubview = null; // gantt.subview too
@@ -1583,6 +1673,8 @@ async function archiveAwareDrop(ids, dest) {
   if (landed) parts.push(`moved ${landed - failed.filter((f) => !plan.toArchive.some((c) => f.startsWith(`#${c.id} `))).length} to ${dest}${plan.toRestore.length ? ` (${plan.toRestore.length} restored)` : ''}`);
   if (plan.refused.length) parts.push(`skipped ${plan.refused.map((c) => `#${c.id} (${refusalWord(c)})`).join(', ')}`);
   if (failed.length) parts.push(`failed: ${failed.join(', ')}`);
+  const note = openLeavesNote(plan.toRestore.concat(plan.toMove).filter((c) => !failed.some((f) => f.startsWith(`#${c.id} `))), dest);
+  if (note) parts.push(note);
   if (parts.length) toast(parts.join('; ') + '.');
 }
 
@@ -1605,6 +1697,8 @@ async function onDrop(id, status) {
   try {
     await api('PATCH', `/api/cards/${id}`, { status });
     await loadBoard();            // resync with disk immediately, in case a poll slipped through mid-flight and needs correcting
+    const note = openLeavesNote([card], status);
+    if (note) toast(`${note}.`);
   } catch (e) {
     card.status = prev;           // revert
     renderBoard();
@@ -1855,6 +1949,7 @@ function parseTags(s) {
 async function submitModal(e) {
   e.preventDefault();
   const id = $('#f-id').value;
+  const before = id ? state.active.find((c) => String(c.id) === id) : null;
   const payload = {
     title: $('#f-title').value.trim(),
     status: $('#f-status').value,
@@ -1880,6 +1975,8 @@ async function submitModal(e) {
     else await api('POST', '/api/cards', payload);
     closeModal();
     await loadBoard();
+    const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
+    if (note) toast(`${note}.`);
   } catch (e2) {
     if (e2.status === 422) {
       toast(`Can't set doing — ${gate422Text(e2.data)}.`);
@@ -2204,6 +2301,47 @@ function renderFrontmatterTable(pairs) {
   return `<table>${rows}</table>`;
 }
 
+// The thread above a card and the children below its body are lists of
+// mention chips, so the detail's one mention listener opens them.
+function relativeMentionHtml(card, board) {
+  const title = cardTitleDisplay(card).text;
+  const label = `${board}#${card.id}${title ? ' ' + title : ''}`;
+  return `<code class="mention same" data-card-id="${escapeHtml(card.id)}" tabindex="0" role="link">${escapeHtml(label)}</code>`;
+}
+
+function threadEntryHtml(entry, board) {
+  if (entry.kind === 'card') return `<li class="thread-item">${relativeMentionHtml(entry.card, board)}</li>`;
+  if (entry.kind === 'loop') return `<li class="thread-item thread-item--loop">${relativeMentionHtml(entry.card, board)}<span class="rel-mark">loop</span></li>`;
+  if (entry.kind === 'other-board') return `<li class="thread-item thread-item--other-board"><code class="mention">${escapeHtml(entry.ref)}</code><span class="rel-mark">not followed</span></li>`;
+  return `<li class="thread-item thread-item--unresolved"><code class="mention">${escapeHtml(board)}#${escapeHtml(entry.id)}</code><span class="rel-mark">unresolved</span></li>`;
+}
+
+function childEntryHtml(card, board) {
+  const mark = card.archived ? '<span class="rel-mark">archived</span>' : '';
+  return `<li class="child-item${card.archived ? ' child-item--archived' : ''}">${relativeMentionHtml(card, board)}${mark}</li>`;
+}
+
+function detailRelativesHtml(cards, id, ctx) {
+  const thread = threadOf(cards, id, ctx);
+  const children = childrenOf(cards, id, ctx);
+  return {
+    threadHtml: thread.length
+      ? `<span class="relatives-label">Thread</span><ol class="thread-list">${thread.map((e) => threadEntryHtml(e, ctx.board)).join('')}</ol>` : '',
+    childrenHtml: children.length
+      ? `<div class="relatives-label">Children</div><ul class="children-list">${children.map((c) => childEntryHtml(c, ctx.board)).join('')}</ul>` : '',
+  };
+}
+
+function renderDetailRelatives(id) {
+  const ctx = { board: state.projectName, priorities: state.priorities };
+  const { threadHtml, childrenHtml } = detailRelativesHtml(state.active.concat(state.archived), id, ctx);
+  for (const [sel, markup] of [['#detail-thread', threadHtml], ['#detail-children', childrenHtml]]) {
+    const el = $(sel);
+    el.innerHTML = markup;
+    el.classList.toggle('hidden', !markup);
+  }
+}
+
 // navigator.clipboard needs a secure context; http://localhost qualifies, but the
 // execCommand fallback is kept so the button never silently no-ops.
 function fallbackCopy(text) {
@@ -2338,6 +2476,8 @@ async function openDetailModal(id, { quiet } = {}) {
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors($('#detail-frontmatter'));
   $('#detail-body').innerHTML = mdToHtml(data.body || '');
+  renderDetailRollup(data.id);
+  renderDetailRelatives(data.id);
   // Archived cards: Edit only knows about state.active, and Archive on an already-archived
   // card would rename the file again (never clobbers, but pointless/confusing) — hide both.
   // visibility, not .hidden: with the icons leading the header
@@ -2350,6 +2490,22 @@ async function openDetailModal(id, { quiet } = {}) {
   $('#detail-modal').classList.remove('hidden');
   applyModalFullscreen('detail'); // re-apply the persisted per-modal-type preference on every open
   return true;
+}
+
+// The open roll-up under the card's body, worked out from state (no extra fetch).
+function renderDetailRollup(id) {
+  const box = $('#detail-rollup');
+  const index = buildNestingIndex();
+  const altitude = index.altitudeOf(id);
+  if (!altitude) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    return;
+  }
+  const countArchived = loadRollupCountArchived();
+  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived);
+  paintRollupBars(box);
+  box.classList.remove('hidden');
 }
 
 function closeDetailModal() {
@@ -2624,6 +2780,16 @@ window.addEventListener('DOMContentLoaded', () => {
 //   A `missing` stub (a waiting_for id with no matching card at all) has
 //   nothing to open and never gets data-id.
 window.addEventListener('DOMContentLoaded', () => {
+  $('#rollup-bar-mode').addEventListener('change', (e) => {
+    rollupBarMode = mergeRollupBar(e.target.value);
+    saveRollupBarMode();
+    renderBoard();
+  });
+  $('#rollup-archived').addEventListener('change', (e) => {
+    rollupCountArchived = e.target.checked;
+    saveRollupCountArchived();
+    renderBoard();
+  });
   $('#map-toggle-btn').addEventListener('click', () => toggleView('map'));
   $('#map-view').addEventListener('click', (e) => {
     // Section collapse toggles — control-row buttons, checked first
@@ -4667,6 +4833,8 @@ async function onBulkDrop(ids, status) {
   if (movable.length - failed.length) parts.push(`Moved ${movable.length - failed.length} to ${status}`);
   if (refused.length) parts.push(`skipped ${refused.map((c) => `#${c.id} (${refusalWord(c)})`).join(', ')}`);
   if (failed.length) parts.push(`failed: ${failed.join(', ')}`);
+  const note = openLeavesNote(movable.filter((c) => !failed.some((f) => f.startsWith(`#${c.id} `))), status);
+  if (note) parts.push(note);
   if (parts.length) toast(parts.join('; ') + '.');
 }
 
@@ -5001,7 +5169,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, and the map zoom toolbar must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .rollup-ctl')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar and the roll-up bar choices must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();

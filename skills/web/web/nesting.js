@@ -111,6 +111,41 @@ function depthOf(cards, id, ctx) {
   return depth;
 }
 
+// The chain of parents above a card, root first, the card itself left out.
+// Entries: { kind: 'card', id, card } for a parent found on this board;
+// terminal markers, always first: { kind: 'unresolved', id } for a parent id
+// with no card here, { kind: 'other-board', board, id, ref } for a parent on
+// another board (named, not followed), { kind: 'loop', id, card } for the
+// card the walk would visit twice. A root's thread is [].
+function threadOf(cards, id, ctx) {
+  const { byId } = nestTree(cards, ctx);
+  const board = ctx && ctx.board;
+  const seen = new Set([id]);
+  const chain = [];
+  let cur = byId.get(id);
+  while (cur) {
+    const p = parseParent(cur.parent, board);
+    if (!p) break;
+    if (!p.local) {
+      chain.push({ kind: 'other-board', board: p.board, id: p.id, ref: `${p.board}#${p.id}` });
+      break;
+    }
+    if (seen.has(p.id)) {
+      chain.push({ kind: 'loop', id: p.id, card: byId.get(p.id) });
+      break;
+    }
+    const parent = byId.get(p.id);
+    if (!parent) {
+      chain.push({ kind: 'unresolved', id: p.id });
+      break;
+    }
+    seen.add(p.id);
+    chain.push({ kind: 'card', id: p.id, card: parent });
+    cur = parent;
+  }
+  return chain.reverse();
+}
+
 // Parents before their children, siblings in sibling order, over every card
 // given (pass active and archived together: an archived parent is still a
 // parent). Cards on a parent loop have no root to reach; the lowest id of the
@@ -156,14 +191,75 @@ function hasNesting(cards) {
   return cards.some((c) => parseRank(c.rank) !== null || parseParent(c.parent) !== null);
 }
 
+// What sits below a card, answered from one tree built once per render. Altitude
+// counts every layer, archived or not (structure); the roll-up counts only the
+// leaves, because a parent's own status says little about the work under it.
+// A loop of parents never revisits a card. Rebuild the index when a card changes.
+function rollupIndex(cards, ctx) {
+  const { byId, kids } = nestTree(cards, ctx);
+  const board = (ctx && ctx.board) || '';
+
+  const below = (id) => {
+    const seen = new Set([id]);
+    const out = [];
+    const stack = [id];
+    while (stack.length) {
+      const list = kids.get(stack.pop());
+      if (!list) continue;
+      const fresh = list.filter((c) => !seen.has(c.id));
+      fresh.forEach((c) => seen.add(c.id));
+      for (let i = fresh.length - 1; i >= 0; i--) stack.push(fresh[i].id);
+      out.push(...fresh);
+    }
+    return out;
+  };
+
+  const climb = (id, path) => {
+    let best = 0;
+    for (const c of kids.get(id) || []) {
+      if (path.has(c.id)) continue;
+      path.add(c.id);
+      best = Math.max(best, 1 + climb(c.id, path));
+      path.delete(c.id);
+    }
+    return best;
+  };
+
+  const leavesBelow = (id) => below(id).filter((c) => !kids.has(c.id));
+
+  return {
+    altitudeOf: (id) => (byId.has(id) ? climb(id, new Set([id])) : 0),
+    leavesBelow,
+    // counts is keyed by the raw status string (free text, case-sensitive), so it
+    // has no prototype: a status called "constructor" is just a key.
+    rollup(id, opts) {
+      const countArchived = !opts || opts.countArchived !== false;
+      const counts = Object.create(null);
+      const leaves = [];
+      for (const c of leavesBelow(id)) {
+        if (c.archived && !countArchived) continue;
+        const status = c.archived ? 'done' : String(c.status == null ? '' : c.status);
+        counts[status] = (counts[status] || 0) + 1;
+        leaves.push(c.id);
+      }
+      return { total: leaves.length, counts, leaves, scope: { board } };
+    },
+    // Leaves below that are not finished: only the literal status done, or archived.
+    openLeafCount: (id) => leavesBelow(id).filter((c) => !c.archived && c.status !== 'done').length,
+    parents: () => [...kids.keys()],
+  };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseParent, parseRank, siblingsCompare, childrenOf, depthOf, outlineOrder, hasNesting };
+  module.exports = { parseParent, parseRank, siblingsCompare, childrenOf, depthOf, threadOf, outlineOrder, hasNesting, rollupIndex };
 } else {
   window.parseParent = parseParent;
   window.parseRank = parseRank;
   window.siblingsCompare = siblingsCompare;
   window.childrenOf = childrenOf;
   window.depthOf = depthOf;
+  window.threadOf = threadOf;
   window.outlineOrder = outlineOrder;
   window.hasNesting = hasNesting;
+  window.rollupIndex = rollupIndex;
 }

@@ -50,6 +50,18 @@ that column. Outline puts a parent before its children and siblings in `rank`
 order; it is the default sort on a board where any card has a `rank` or a
 `parent`. The search box up top filters every view at once.
 
+A card with children shows `▲n` (how many layers sit below it) and a thin status bar
+of the leaves under it; the card detail opens the bar with counts and a line saying
+it counted this board only. The header's **Bar** select switches the board cards
+between collapsed, open and off, and the **Archived** checkbox decides whether
+archived leaves count (as done, by default); both are remembered in your browser.
+Marking a parent done while leaves below are open warns and saves anyway.
+
+Open a card and the parents it sits under show above it, root first, each one a
+click away; below its body come its children in `rank` order. A parent that does not
+exist is marked *unresolved*, a parent on another board is shown but *not followed*,
+and a loop of parents is flagged where it repeats.
+
 ## Dependency map
 
 ![Dependency map](images/web-map.png)

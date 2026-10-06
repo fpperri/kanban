@@ -234,6 +234,21 @@ function mergeMapSectionsCollapsed(saved) {
   return result;
 }
 
+// --- roll-up bar on a parent card -----------------------------------------
+// Two per-browser choices, each its own storageKey feature: how the bar shows on
+// board cards (a closed set) and whether archived leaves count toward it. Same
+// tolerant stance as mergeViewMode: anything unrecognised is the default.
+const ROLLUP_BAR_MODES = ['open', 'collapsed', 'off'];
+
+function mergeRollupBar(saved) {
+  return ROLLUP_BAR_MODES.includes(saved) ? saved : 'collapsed';
+}
+
+// Stored as the strings 'true' / 'false' (localStorage keeps nothing else).
+function mergeRollupCountArchived(saved) {
+  return saved !== 'false';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     COLUMN_IDS, COLUMN_LABELS, DEFAULT_COLLAPSED, DEFAULT_STATUSES,
@@ -243,6 +258,7 @@ if (typeof module !== 'undefined' && module.exports) {
     defaultGanttStatusFilter, mergeGanttStatusFilter,
     soloStatusFilter,
     MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed,
+    ROLLUP_BAR_MODES, mergeRollupBar, mergeRollupCountArchived,
   };
 } else {
   window.COLUMN_IDS = COLUMN_IDS;
@@ -269,4 +285,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.MAP_SECTIONS = MAP_SECTIONS;
   window.DEFAULT_MAP_SECTIONS_COLLAPSED = DEFAULT_MAP_SECTIONS_COLLAPSED;
   window.mergeMapSectionsCollapsed = mergeMapSectionsCollapsed;
+  window.ROLLUP_BAR_MODES = ROLLUP_BAR_MODES;
+  window.mergeRollupBar = mergeRollupBar;
+  window.mergeRollupCountArchived = mergeRollupCountArchived;
 }
