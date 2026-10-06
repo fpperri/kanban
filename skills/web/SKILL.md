@@ -269,14 +269,18 @@ to `127.0.0.1` only.
   head row (its altitude: the layers of cards below it, whatever their types) and a status
   bar of the leaves below it, meaning the cards with no children, so an objective over two
   epics over stories counts the stories and not the epics beside them. Segments run in
-  column order, each in its status's color, with a `status: n` tooltip. The header's **Bar**
-  select switches board cards between collapsed (a thin line, the default), open (the bar
-  plus a count line: the total, the done count, then each other status) and off; the
-  **Archived** checkbox chooses whether archived leaves count (as done, on by default, so
-  archiving a finished story leaves its parent's done count unchanged). Both choices are
-  remembered per board in `localStorage`, surviving reload and the poll, and the controls
-  appear only on a board that has a parent. The card detail always shows the open bar under
-  the body with a scope line: the roll-up counts this board only, because a parent cannot
+  column order, each in its status's color, with a `status: n` tooltip. One **Bar** setting,
+  open or collapsed, drives every bar on the page: collapsed is a thin line (the default),
+  open adds a count line (the total, the done count, then each other status). The header's
+  **Bar** select sets it, and clicking any bar, on a board card or in the card detail,
+  flips it for all of them without opening the card; a browser that once saved the retired
+  `off` reads as collapsed. The **Archived** checkbox chooses whether archived leaves count
+  (as done, on by default, so archiving a finished story leaves its parent's done count
+  unchanged). Both choices are remembered per board in `localStorage`, surviving reload and
+  the poll, and the controls appear only on a board that has a parent. The card detail shows
+  the roll-up right under the title and thread, above the fields, following the Bar setting:
+  the thin bar when collapsed, the bar with its numbers and a scope line when open. The
+  scope line says the roll-up counts this board only, because a parent cannot
   know about children on a board it never reads. Marking a parent done while leaves below
   are still open (a drag, a multi-card drag or the form) shows a warning and saves anyway;
   only the literal status `done` counts as finished, and an archived leaf counts as
@@ -518,9 +522,11 @@ to `127.0.0.1` only.
   thread with an `unresolved` marker; a parent on another board ends it with that
   board's mention marked `not followed` (the single-board release names it and never
   follows it); a loop of parents stops at the card that would repeat and flags it
-  `loop`, so a mistake never hangs the popup. Below the body the card's children are
-  listed in rank order (unranked after ranked, then priority, then id), an archived
-  child marked `archived`, each a mention chip too. Both lists are worked out from the
+  `loop`, so a mistake never hangs the popup. Below the body, behind a **Children** header
+  that carries their count, the card's children are listed in rank order (unranked after
+  ranked, then priority, then id), an archived child marked `archived`, each a mention
+  chip too. The list starts collapsed every time a card opens; one click on the header
+  expands it and another collapses it. Both lists are worked out from the
   board already loaded (`threadOf` and `childrenOf` in `nesting.js`), a root shows no
   thread and a leaf no child list, and every entry that names a card on this board
   rides the popup's one mention listener, so opening one is a step in the card popup
@@ -572,7 +578,10 @@ to `127.0.0.1` only.
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
   node's border and status dot are unaffected). Right-click: an unselected
   card becomes the selection in the same gesture; an already-selected one keeps the
-  whole batch as the target. The menu — **Assign…**, **Set priority…**, **Edit tags…**,
+  whole batch as the target. Right-clicking inside an open card detail opens the same
+  menu for the card shown, and once an action has run the popup is read again so it shows
+  the change (or closes if the card is gone); with text selected, or on anything that
+  already handles the right-click itself, the browser's own menu shows instead. The menu — **Assign…**, **Set priority…**, **Edit tags…**,
   **Schedule…**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
   acts on the selection regardless of which view opened it. **Dependency tree**/
   **Dependency path** are sugar over the `tree:<id>`/`path:<id>` search terms: clicking

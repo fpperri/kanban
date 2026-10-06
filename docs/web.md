@@ -52,15 +52,17 @@ order; it is the default sort on a board where any card has a `rank` or a
 one card when there is room between the neighbours, that parent's children renumbered
 in tens when there is not. The search box up top filters every view at once.
 
-A card with children shows `▲n` (how many layers sit below it) and a thin status bar
-of the leaves under it; the card detail opens the bar with counts and a line saying
-it counted this board only. The header's **Bar** select switches the board cards
-between collapsed, open and off, and the **Archived** checkbox decides whether
+A card with children shows `▲n` (how many layers sit below it) and a status bar
+of the leaves under it. The header's **Bar** select sets every bar to collapsed (a thin
+line) or open (with counts), and clicking any bar flips them all; the card detail shows
+the bar under its title and thread, above the fields, the same way, with a line saying
+it counted this board only when open. The **Archived** checkbox decides whether
 archived leaves count (as done, by default); both are remembered in your browser.
 Marking a parent done while leaves below are open warns and saves anyway.
 
 Open a card and the parents it sits under show above it, root first, each one a
-click away; below its body come its children in `rank` order. A parent that does not
+click away; below its body a **Children** header with their count opens the list, in
+`rank` order. A parent that does not
 exist is marked *unresolved*, a parent on another board is shown but *not followed*,
 and a loop of parents is flagged where it repeats.
 
@@ -113,7 +115,8 @@ blocked reason, type, the date triad, and a Markdown description.
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
 archive, restore, delete, or focus a dependency tree/path. The same selection
-grammar works in every view.
+grammar works in every view, and right-clicking inside an open card opens the same
+menu for that card.
 
 ![Bulk context menu](images/web-bulk-actions.png)
 
