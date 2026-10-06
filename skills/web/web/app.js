@@ -785,6 +785,19 @@ function syncRollupControls() {
   $('#rollup-archived').checked = loadRollupCountArchived();
 }
 
+window.addEventListener('DOMContentLoaded', () => {
+  $('#rollup-bar-mode').addEventListener('change', (e) => {
+    rollupBarMode = mergeRollupBar(e.target.value);
+    saveRollupBarMode();
+    renderBoard();
+  });
+  $('#rollup-archived').addEventListener('change', (e) => {
+    rollupCountArchived = e.target.checked;
+    saveRollupCountArchived();
+    renderBoard();
+  });
+});
+
 // A soft warning, never a gate: parents newly done while leaves below are open.
 // Only the literal status done counts. Called after the move has been saved.
 function openLeavesNote(cards, status) {
@@ -2904,16 +2917,6 @@ window.addEventListener('DOMContentLoaded', () => {
 //   A `missing` stub (a waiting_for id with no matching card at all) has
 //   nothing to open and never gets data-id.
 window.addEventListener('DOMContentLoaded', () => {
-  $('#rollup-bar-mode').addEventListener('change', (e) => {
-    rollupBarMode = mergeRollupBar(e.target.value);
-    saveRollupBarMode();
-    renderBoard();
-  });
-  $('#rollup-archived').addEventListener('change', (e) => {
-    rollupCountArchived = e.target.checked;
-    saveRollupCountArchived();
-    renderBoard();
-  });
   $('#map-toggle-btn').addEventListener('click', () => toggleView('map'));
   $('#map-view').addEventListener('click', (e) => {
     // Section collapse toggles — control-row buttons, checked first

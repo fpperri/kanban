@@ -276,3 +276,12 @@ test('archiving a done story leaves the tile\'s done weight unchanged; leaving a
   assert.strictEqual(segCount(tileSandbox(cards).parentTile({ id: 2 }).bar), 2);
   assert.strictEqual(segCount(tileSandbox(cards, { countArchived: false }).parentTile({ id: 2 }).bar), 1);
 });
+
+test('the roll-up controls are wired in a block of their own, ahead of the map view wiring', () => {
+  const wiring = appSrc.indexOf('// --- Map view wiring');
+  const bar = appSrc.indexOf("$('#rollup-bar-mode').addEventListener('change'");
+  const archived = appSrc.indexOf("$('#rollup-archived').addEventListener('change'");
+  assert.ok(wiring > 0 && bar > 0 && archived > 0);
+  assert.ok(bar < wiring && archived < wiring, 'neither listener sits in the map block');
+  assert.ok(bar > appSrc.indexOf('function syncRollupControls('), 'the block follows syncRollupControls');
+});
