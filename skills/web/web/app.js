@@ -25,6 +25,7 @@ function applyStatuses(list) {
   state.statuses = next;
   collapsedColumns = null;
   columnSort = null;
+  columnSortPicks = null;
   mapStatusFilter = null; // keyed by the same column set
   ganttStatusFilter = null; // keyed by the LIVE statuses (no archive), same invalidation rule
   calendarStatusFilter = null; // same LIVE-statuses key as the gantt's
@@ -68,20 +69,34 @@ function toggleColumn(col) {
 // collapsedColumns above — so the chosen sort survives every renderBoard()
 // call (manual, drag, poll, toggle, search) without re-reading storage.
 let columnSort = null;
+// Only what the user picked is stored: the default depends on the cards
+// (outline order once any card has a rank or a parent), so it must not be
+// written down as if chosen. columnSort is rebuilt when that flips.
+let columnSortPicks = null;
+let columnSortNested = false;
+
+function boardIsNested() {
+  return hasNesting(state.active.concat(state.archived));
+}
 
 function loadColumnSort() {
-  if (columnSort) return columnSort;
-  let saved = null;
-  try {
-    const raw = localStorage.getItem(storageKey(state.projectName, 'columns.sort'));
-    if (raw) saved = JSON.parse(raw);
-  } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to defaults
-  columnSort = mergeSortState(saved, boardColumnIds()); // merge against the board's current column set
+  const nested = boardIsNested();
+  if (columnSort && nested === columnSortNested) return columnSort;
+  if (!columnSortPicks) {
+    let saved = null;
+    try {
+      const raw = localStorage.getItem(storageKey(state.projectName, 'columns.sort'));
+      if (raw) saved = JSON.parse(raw);
+    } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to defaults
+    columnSortPicks = readSortPicks(saved, boardColumnIds());
+  }
+  columnSortNested = nested;
+  columnSort = mergeSortState(columnSortPicks, boardColumnIds(), { nested }); // merge against the board's current column set
   return columnSort;
 }
 
 function saveColumnSort() {
-  try { localStorage.setItem(storageKey(state.projectName, 'columns.sort'), JSON.stringify(columnSort)); }
+  try { localStorage.setItem(storageKey(state.projectName, 'columns.sort'), JSON.stringify({ picked: columnSortPicks })); }
   catch (e) { /* storage unavailable/full — sort choice just won't persist this session */ }
 }
 
@@ -93,6 +108,7 @@ function setColumnSortField(col, field) {
   if (!SORT_FIELDS.includes(field)) return;
   const sort = loadColumnSort();
   sort[col] = { field, direction: DEFAULT_SORT_DIRECTION[field] };
+  columnSortPicks[col] = Object.assign({}, sort[col]);
   saveColumnSort();
   renderBoard();
 }
@@ -101,6 +117,7 @@ function toggleColumnSortDirection(col) {
   const sort = loadColumnSort();
   const current = sort[col];
   sort[col] = { field: current.field, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+  columnSortPicks[col] = Object.assign({}, sort[col]);
   saveColumnSort();
   renderBoard();
 }
@@ -791,6 +808,9 @@ function renderBoardColumns() {
   // Columns render FROM the configured statuses list (+ archive at
   // the far right). A card whose status isn't listed renders in the FIRST
   // column via columnForStatus — the catch-all — with cardEl's raw-status chip.
+  // A column cannot work out the outline from its own cards (a child's parent
+  // may sit in another column), so the whole board is indexed once.
+  const outlineIndex = outlineOrder(state.active.concat(state.archived), { board: state.projectName, priorities: state.priorities }).index;
   const statuses = boardStatuses();
   for (const col of boardColumnIds()) {
     const isArchive = col === 'archive';
@@ -798,7 +818,7 @@ function renderBoardColumns() {
     const sortState = colSort[col];
     // The Assignee sort ranks by registry order, so the comparator
     // gets the config.yaml handles — plumbed exactly like priorities above.
-    const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle));
+    const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
     const cards = searchActive ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
     const isCollapsed = !!collapsed[col];
     const label = columnLabel(col);
@@ -1414,6 +1434,7 @@ function applyProjectName(name) {
     // correct key on next access.
     collapsedColumns = null;
     columnSort = null;
+    columnSortPicks = null;
     modalFullscreen = null;
     viewMode = null; // view.mode joins the same discipline
     mapStatusFilter = null; // map.statusFilter too
@@ -1832,6 +1853,8 @@ function openModal(card, presetStatus, presetStart) {
   renderStatusOptions(card ? card.status : null);
   $('#f-status').value = card ? card.status : (presetStatus || boardStatuses()[0]);
   $('#f-priority').value = card ? card.priority : 'Normal';
+  $('#f-parent').value = card && card.parent != null ? String(card.parent) : '';
+  $('#f-rank').value = card && card.rank != null ? String(card.rank) : '';
   $('#f-tags').value = card ? card.tags.join(', ') : '';
   $('#f-waiting').value = card ? card.waiting_for.join(', ') : '';
   $('#f-blocked').value = card && card.blocked ? card.blocked : '';
@@ -1873,6 +1896,7 @@ let formSnapshot = null;
 function snapshotFormFields() {
   return {
     title: $('#f-title').value, status: $('#f-status').value, priority: $('#f-priority').value,
+    parent: $('#f-parent').value, rank: $('#f-rank').value,
     tags: $('#f-tags').value, waiting: $('#f-waiting').value, blocked: $('#f-blocked').value, review: $('#f-review').value, prompt: $('#f-prompt').value, assignee: $('#f-assignee').value,
     start: $('#f-start').value, end: $('#f-end').value, due: $('#f-due').value, body: $('#f-body').value, // the whole date triad joins the dirty baseline
     epic: $('#f-epic').checked, // a toggled checkbox is typed work too (isDirty compares booleans fine)
@@ -1899,6 +1923,8 @@ async function submitModal(e) {
     title: $('#f-title').value.trim(),
     status: $('#f-status').value,
     priority: $('#f-priority').value,
+    parent: $('#f-parent').value.trim(), // blank clears; the store keeps a value that reads the same as the card's as written
+    rank: $('#f-rank').value.trim(),
     tags: parseTags($('#f-tags').value),
     waiting_for: parseIds($('#f-waiting').value),
     // The sticker's raw text — the store's predicate-judged lean rule strips
@@ -2209,7 +2235,7 @@ function parseFrontmatter(text) {
 
 // The few fields the board itself understands wear the marks it already uses
 // elsewhere: the status dot, the high-priority red, the assignee chip, the
-// sticker grounds, tag chips, and a mention chip for the parent epic. Every
+// sticker grounds, tag chips, and a mention chip for the parent. Every
 // other value prints as written.
 function frontmatterValueHtml(k, v) {
   const plain = v.replace(/^"(.*)"$/, '$1').trim();
@@ -2219,7 +2245,12 @@ function frontmatterValueHtml(k, v) {
   }
   if (k === 'priority' && plain === 'High') return '<span class="fm-high">High</span>';
   if (k === 'assignee' && plain) return assigneeBadge({ assignee: plain }, state.assignees);
-  if (k === 'parent' && /^\d+$/.test(plain)) return `<code class="mention same" data-card-id="${escapeHtml(plain)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(plain)}</code>`;
+  if (k === 'parent') {
+    const ref = parseParent(plain, state.projectName);
+    // a card on this board opens on click; another board's is shown, not followed
+    if (ref && ref.local) return `<code class="mention same" data-card-id="${escapeHtml(ref.id)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(ref.id)}</code>`;
+    if (ref) return `<code class="mention">${escapeHtml(ref.board)}#${escapeHtml(ref.id)}</code>`;
+  }
   if (k === 'review' && isReviewValue(plain)) return `<span class="fm-sticker fm-sticker--review">${escapeHtml(reviewReason(plain) || 'review')}</span>`;
   if (k === 'blocked' && isBlockedValue(plain)) return `<span class="fm-sticker fm-sticker--blocked">${escapeHtml(blockedReason(plain) || 'blocked')}</span>`;
   if (k === 'tags' && /^\[.*\]$/.test(plain)) {

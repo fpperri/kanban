@@ -480,7 +480,7 @@ test('toJSON exposes the public card shape without internal underscores', () => 
   const dir = tmpBoard();
   const j = cs.toJSON(cs.readCardFile(path.join(dir, '1.card.md')));
   assert.deepStrictEqual(Object.keys(j).sort(), [
-    'archived', 'assignee', 'blocked', 'body', 'due_date', 'end_date', 'epic', 'file', 'id', 'parent', 'priority', 'prompt', 'review', 'start_date', 'status', 'tags', 'title', 'updated', 'waiting_for', // epic joined the shape; waiting_for replaced blocked_by and blocked joined; parent joined; review joined (ADR 0009); prompt joined
+    'archived', 'assignee', 'blocked', 'body', 'due_date', 'end_date', 'epic', 'file', 'id', 'parent', 'priority', 'prompt', 'rank', 'review', 'start_date', 'status', 'tags', 'title', 'updated', 'waiting_for', // epic joined the shape; waiting_for replaced blocked_by and blocked joined; parent joined; review joined (ADR 0009); prompt joined; rank joined
   ]);
   assert.strictEqual(j._order, undefined);
 });

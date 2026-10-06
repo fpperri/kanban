@@ -107,7 +107,7 @@ function buildDependencyGraph(cards, visibleIds) {
   // search filter must not reroute membership.
   const parentOf = (id) => {
     const card = byId.get(id);
-    return card && card.parent != null && card.parent !== card.id ? card.parent : null;
+    return card && Number.isInteger(card.parent) && card.parent !== card.id ? card.parent : null;
   };
   const nonTerminal = new Set(); // `${epicId}:${memberId}`
   for (const c of cards) {
@@ -142,7 +142,7 @@ function buildDependencyGraph(cards, visibleIds) {
     // edge over a real dependency, and opposite-direction overlap would
     // fabricate a 2-cycle (a back-edge bow for a relation that isn't
     // circular).
-    if (c.parent != null && c.parent !== c.id
+    if (Number.isInteger(c.parent) && c.parent !== c.id
         && !nonTerminal.has(`${c.parent}:${c.id}`)
         && !seenEdges.has(`${c.parent}->${c.id}:dep`) && !seenEdges.has(`${c.id}->${c.parent}:dep`)) {
       addEdge(c.id, c.parent, 'epic');
