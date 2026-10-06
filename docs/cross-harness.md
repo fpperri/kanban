@@ -14,7 +14,8 @@ that tag into the installer's selection menu.
 - **`kanban-snapshot`** — **partially portable.** The generator
   (`build_editor.py`) and the static HTML it produces are plain Python +
   browser code with no Claude dependency, though the generator reads the web
-  skill's nesting module (`skills/web/web/nesting.js`) and exits without it, so
+  skill's nesting and map modules (`skills/web/web/nesting.js`,
+  `skills/web/web/map-relations.js`) and exits without them, so
   install it beside `kanban-web`. But the SKILL.md's delivery/apply
   loop names Claude-specific tools and surfaces (`SendUserFile`, "Cowork",
   the Claude mobile app) — another harness can reuse the underlying idea (run
