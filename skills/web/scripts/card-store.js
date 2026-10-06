@@ -179,6 +179,7 @@ function readCardFile(file, archived = false) {
     prompt: unquote(get('prompt')) || null,
     tags: parseList(get('tags')),
     assignee: stripQuotes(get('assignee')) || null,
+    type: stripQuotes(get('type')) || null, // free text; the board's `types:` list only suggests, never validated
     start_date: get('start_date') || null, // range start ("from"), date or local datetime, never validated
     end_date: get('end_date') || null, // range end ("to"), same tolerant contract
     due_date: get('due_date') || null, // deadline marker; also the compat range end when end_date is absent
@@ -416,6 +417,12 @@ function updateCard(dir, id, changes) {
     if (String(changes.assignee || '').trim()) setField(order, values, 'assignee', quoteAssignee(changes.assignee));
     else removeField(order, values, 'assignee');
   }
+  // type: same clear pattern as assignee; one value per frontmatter line.
+  if (changes.type !== undefined) {
+    const t = String(changes.type == null ? '' : changes.type).replace(/\r?\n/g, ' ').trim();
+    if (t) setField(order, values, 'type', t);
+    else removeField(order, values, 'type');
+  }
   // Date triad processed in start, end, due order so a PATCH that
   // introduces several at once appends them in natural range-reading order.
   if (changes.start_date !== undefined) { // same clear pattern as due_date
@@ -539,6 +546,8 @@ function createCard(dir, input) {
   if (promptVal) { order.push('prompt'); values.prompt = ` ${quote(promptVal)}`; }
   // trimmed guard — a whitespace-only assignee is no data (quoteAssignee trims it to '')
   if (String(input.assignee || '').trim()) { order.push('assignee'); values.assignee = ` ${quoteAssignee(input.assignee)}`; }
+  const typeVal = String(input.type == null ? '' : input.type).replace(/\r?\n/g, ' ').trim();
+  if (typeVal) { order.push('type'); values.type = ` ${typeVal}`; }
   // A card born directly in literal 'todo'/'done' counts as a
   // transition in — stamp the flow date unless the caller supplied one.
   // Computed before the triad writes so start, end, due still land in order.
@@ -616,8 +625,8 @@ function cardDetail(dir, id) {
 // the board (`0011.foo.card.md`), not a filesystem path that would leak the
 // board's on-disk location to every client of this JSON.
 function toJSON(card) {
-  const { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, start_date, end_date, due_date, epic, parent, rank, updated, title, body, archived, file } = card;
-  return { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, start_date, end_date, due_date, epic, parent, rank, updated, title, body, archived, file: path.basename(file) };
+  const { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, epic, parent, rank, updated, title, body, archived, file } = card;
+  return { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, epic, parent, rank, updated, title, body, archived, file: path.basename(file) };
 }
 
 // `pkg` (optional) names an archived/<package>/ grouping folder, created on

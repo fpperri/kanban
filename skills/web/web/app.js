@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -521,6 +521,16 @@ function paintAssigneeColors(root) {
   });
 }
 
+// typeBadge() marks a configured chip color with `data-type-color` (free-form
+// value, so no class and no style attribute under the CSP); paint it here once
+// the HTML has landed. Colorless types never carry the attribute and stay neutral.
+function paintTypeColors(root) {
+  root.querySelectorAll('[data-type-color]').forEach((el) => {
+    el.style.color = el.dataset.typeColor;
+    el.style.borderColor = el.dataset.typeColor;
+  });
+}
+
 // The tile's date stack (kanban.proj#260): one line per literal start/end/due
 // field the card carries, via column-sort.js's scheduleRows — glyph/text/
 // overdue per row, missing fields producing no row rather than a blank one.
@@ -592,12 +602,13 @@ function cardEl(card) {
   // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
       (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting +
     `</div>` +
     scheduleHtml;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
+  paintTypeColors(el);
   // The red blocked pill — the sticker is a human stop sign, so
   // it reads as its own glyph, not a border (borders stay priority/status
   // territory). The reason is USER DATA: it goes in via textContent/title
@@ -661,7 +672,7 @@ function archiveCardEl(card, opts) {
     : escapeHtml(card.title);
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
     `</div>` +
     scheduleHtml +
@@ -670,6 +681,7 @@ function archiveCardEl(card, opts) {
       `<button type="button" data-act="delete-arch" data-id="${card.id}">Delete</button>` +
     `</div>`;
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
+  paintTypeColors(el);
   return el;
 }
 
@@ -1467,6 +1479,7 @@ function applyBoardData(data) {
   // for the same reason: the Priority sort/badges read state.priorities at
   // render time (masked pre-move only by priorityRank's built-in fallback).
   applyLists(data.priorities || [], data.tags || []);
+  state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   selectedIds = pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id)); // drop ghosts before render (archived cards are in the domain too)
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -2245,6 +2258,7 @@ function frontmatterValueHtml(k, v) {
   }
   if (k === 'priority' && plain === 'High') return '<span class="fm-high">High</span>';
   if (k === 'assignee' && plain) return assigneeBadge({ assignee: plain }, state.assignees);
+  if (k === 'type' && plain) return typeBadge({ type: plain }, state.types);
   if (k === 'parent') {
     const ref = parseParent(plain, state.projectName);
     // a card on this board opens on click; another board's is shown, not followed
@@ -2399,6 +2413,7 @@ async function openDetailModal(id, { quiet } = {}) {
   $('#detail-modified').innerHTML = formatDetailModified(data);
   $('#detail-frontmatter').innerHTML = renderFrontmatterTable(parseFrontmatter(data.frontmatter));
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
+  paintTypeColors($('#detail-frontmatter'));
   $('#detail-body').innerHTML = mdToHtml(data.body || '');
   // The tile wash (`.card.epic`), same class on the popup's own panel —
   // cardDetail (card-store.js) carries the tolerant any-case read tiles use.

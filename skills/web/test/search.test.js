@@ -336,6 +336,7 @@ test('typing a bare fragment suggests it plain, plus every KNOWN_FIELDS scoped f
     { value: 'tags:@afk', label: 'tags:@afk' },
     { value: 'file:@afk', label: 'file:@afk' },
     { value: 'assignee:@afk', label: 'assignee:@afk' },
+    { value: 'type:@afk', label: 'type:@afk' },
   ]);
 });
 
