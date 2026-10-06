@@ -5391,8 +5391,8 @@ function attachCombobox(input, getOptions, opts = {}) {
   // its own output by substring-of-the-WHOLE-input would wrongly drop every
   // scoped candidate as soon as the box holds more than one term (their
   // `value` embeds the untouched earlier terms, which no longer appear
-  // verbatim inside the newly-scoped tail). The three form fields (priority/
-  // assignee/tags) don't pass this.
+  // verbatim inside the newly-scoped tail). The form's own fields (priority/
+  // assignee/tags/type) don't pass this.
   const open = (filtered) => {
     items = (filtered && !opts.preFiltered) ? comboboxSuggestions(getOptions(), input.value, opts) : getOptions();
     if (!items.length) return close();

@@ -60,3 +60,24 @@ test('nothing says a parent closes only when its children do: its status is the 
   const adr = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'adr', '0012-cards-nest-type-and-rank-replace-the-epic-flag.md'), 'utf8').replace(/\s+/g, ' ');
   assert.match(adr, /status stays the human's call: marking a parent done while leaves below are open shows a warning, never a gate/);
 });
+
+test('the web skill names Type among the combobox fields and the fields a blank clears, and no longer counts three lists', () => {
+  const flat = webSkill.replace(/\s+/g, ' ');
+  const combo = flat.slice(flat.indexOf('- **Comboboxes**'), flat.indexOf('- **Comboboxes**') + 300);
+  assert.match(combo, /Priority\/Tags\/Type/);
+  const edit = flat.slice(flat.indexOf('- **Edit**'), flat.indexOf('- **AI prompt**'));
+  assert.match(edit, /a blank priority\/assignee\/type\/parent\/rank\/date\/prompt/);
+  assert.doesNotMatch(flat, /All three lists/);
+  assert.match(flat, /assignees, priorities, tags and types lists all \*\*suggest, never validate\*\*/);
+});
+
+test('the web skill says a Parent or Rank that reads as nothing is refused on its field, not cleared', () => {
+  const flat = webSkill.replace(/\s+/g, ' ');
+  const edit = flat.slice(flat.indexOf('- **Edit**'), flat.indexOf('- **AI prompt**'));
+  assert.match(edit, /refused on its own field with a message/);
+});
+
+test('app.js does not call the combobox form fields three', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  assert.doesNotMatch(app, /The three form fields/);
+});

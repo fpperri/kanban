@@ -333,8 +333,10 @@ to `127.0.0.1` only.
   verbatim; the form-managed fields (status, priority, type, parent, rank, tags, waiting_for, blocked,
   review, prompt, assignee, start/end/due date) are re-written from the form. `parent`
   takes `42` or `board#42` and `rank` a number; one that reads the same as the card's own
-  is left exactly as written, so a hand-written `parent: "fpp#4"` survives every save. Clearing
-  any managed field (a blank priority/assignee/date/prompt, empty tags or waiting_for, a
+  is left exactly as written, so a hand-written `parent: "fpp#4"` survives every save. Text
+  in either that reads as nothing (not a card, not a number) is refused on its own field with a message
+  instead of clearing the line; a blank is how a card loses its parent or rank. Clearing
+  any managed field (a blank priority/assignee/type/parent/rank/date/prompt, empty tags or waiting_for, a
   blocked or review value failing the sticker predicate) removes its
   frontmatter line entirely — no-data fields (empty string, null, empty array) are never
   written, so no `tags: []` boilerplate; id, status, and `updated` are always written,
@@ -659,8 +661,8 @@ to `127.0.0.1` only.
   popup: every popup's backdrop covers the whole viewport, hiding the search bar behind
   it, so this hotkey only fires *outside* one and the browser's native find stands in
   while a popup is up.
-- **Comboboxes** — the form's Assignee (and Priority/Tags, incl. the bulk-edit popups'
-  copies) fields suggest values from `config.yaml`'s lists (see below) while still
+- **Comboboxes** — the form's Assignee (and Priority/Tags/Type, incl. the bulk-edit popups'
+  copies of the first two) fields suggest values from `config.yaml`'s lists (see below) while still
   accepting free text. Tab/click focuses and opens the full list; typing filters it.
   ArrowDown/ArrowUp move a wrapping highlight through the open menu (scrolled into view,
   never hidden past the menu's 180px-max-height fold), Enter picks the highlighted row,
@@ -1177,8 +1179,8 @@ handle a card carries.
 - With a counter, new-card ids come from `max(nextId, scanMax+1)` (a stale counter
   self-heals rather than re-issuing a taken id) and the advanced counter is written back
   atomically. Agents creating cards by hand should use and advance it too.
-- All three lists **suggest, never validate** (ADR 0004) — the form's comboboxes offer
-  the registered values but free text still saves fine.
+- The assignees, priorities, tags and types lists all **suggest, never validate** (ADR 0004) — the
+  form's comboboxes offer the registered values but free text still saves fine.
 - Not a card — only `*.card.md` files are cards.
 
 ## Notifications file
