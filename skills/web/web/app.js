@@ -273,7 +273,7 @@ function soloCalendarStatusFilter(col) {
 }
 
 // Map section collapse — one boolean per section (the layered graph,
-// the "No dependencies" list). column-state.js's MAP_SECTIONS/mergeMapSectionsCollapsed
+// the "No relations" list). column-state.js's MAP_SECTIONS/mergeMapSectionsCollapsed
 // own the fixed two-key shape (not a dynamic column set, unlike collapse/sort/
 // status-filter above); same memoize-once-mutate-in-place discipline and own
 // feature key, so a collapsed/expanded section survives every renderMapView()
@@ -330,6 +330,35 @@ function loadMapZoom() {
 function saveMapZoom() {
   try { localStorage.setItem(storageKey(state.projectName, 'map.zoom'), JSON.stringify(mapZoom)); }
   catch (e) { /* storage unavailable/full — zoom choice just won't persist this session */ }
+}
+
+// The Map options row: eight choices, kept per board as one object under
+// 'map.options'. map-relations.js owns the values and the defensive merge, so a
+// stale or hand-edited value reads as its default.
+let mapOptions = null;
+
+function loadMapOptions() {
+  if (mapOptions) return mapOptions;
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(storageKey(state.projectName, 'map.options'));
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to the defaults
+  mapOptions = mergeMapOptions(saved);
+  return mapOptions;
+}
+
+function saveMapOptions() {
+  try { localStorage.setItem(storageKey(state.projectName, 'map.options'), JSON.stringify(mapOptions)); }
+  catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
+}
+
+function setMapOption(key, value) {
+  const values = MAP_OPTION_VALUES[key];
+  if (!values || !values.includes(value)) return;
+  loadMapOptions()[key] = value;
+  saveMapOptions();
+  renderBoard();
 }
 
 // Sets + persists the zoom, but does NOT render — callers own the render
@@ -1037,6 +1066,8 @@ function renderMapView() {
   const keepLeft = container.scrollLeft, keepTop = container.scrollTop;
   container.innerHTML = '';
   const allCards = state.active.concat(state.archived);
+  const options = loadMapOptions();
+  container.classList.toggle('map-align-center', options.align === 'center');
   // The status-filter row renders first and UNCONDITIONALLY — if it
   // vanished with the graph on the everything-filtered-out state, there'd be
   // no control left to toggle a status back ON. The zoom toolbar rides right
@@ -1044,19 +1075,20 @@ function renderMapView() {
   // board that then filters everything away shouldn't strand the human with
   // no way to zoom back before turning a pill back on).
   container.appendChild(buildMapFilterRow());
+  container.appendChild(buildMapOptionsRow());
   container.appendChild(buildMapZoomControls());
   const searchTerms = currentSearchTerms();
   const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms, nestingCtx()).map((c) => c.id)) : null;
   // Status filter composes with search by INTERSECTION — a card is
-  // visible only if BOTH say so, and buildDependencyGraph sees one combined
+  // visible only if BOTH say so, and buildRelationsGraph sees one combined
   // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
   // for free. The rule (incl. either side's null "not filtering" pass-through)
   // is column-state.js's intersectVisibleIds — pure and unit-pinned, not glue.
   const statusIds = mapFilterVisibleIds(allCards, loadMapStatusFilter(), state.statuses);
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
-  const graph = buildDependencyGraph(allCards, visibleIds, nestingCtx());
+  const rel = buildRelationsGraph(allCards, visibleIds, nestingCtx());
 
-  if (!graph.nodes.length && !graph.ghosts.length) {
+  if (!rel.nodes.length && !rel.ghosts.length) {
     const empty = document.createElement('div');
     empty.className = 'map-empty';
     empty.textContent = 'No cards match the current search/status filters.';
@@ -1068,14 +1100,16 @@ function renderMapView() {
   // mutate-in-place, same as loadMapStatusFilter above), so it survives every
   // renderMapView() call — manual, poll, drag, toggle, search.
   const sections = loadMapSectionsCollapsed();
-  // The graph lays out every node touched by ANY edge — dep or
-  // parent edge — while graph.isolated stays dep-keyed; a parent whose only
-  // edges are parent edges sits in BOTH: laid out in the graph AND listed
-  // in the no-dependencies row. The two derivations (and
-  // their different kind-keying) are buildDependencyGraph's own, unit-pinned.
-  const participantIds = graph.participants;
-  if (participantIds.length) container.appendChild(buildMapGraphSection(graph, participantIds, sections.graph));
-  if (graph.isolated.length) container.appendChild(buildIsolatedRow(graph, allCards, sections.isolated));
+  // A card is in a graph when ANY relation touches it, drawn or not, so a line
+  // toggle never moves a card; a card no relation touches is in the No relations
+  // row. Nothing is in both. The rules are map-relations.js's own, unit-pinned.
+  const view = mapShapeRelations(rel, options);
+  const draw = {
+    parentSits: options.parent, align: options.align, order: options.order, statuses: boardStatuses(),
+    rich: options.cards === 'rich', byId: new Map(allCards.map((c) => [c.id, c])),
+  };
+  if (view.graphs.length) container.appendChild(buildMapGraphSection(view.graphs, options, sections.graph, draw));
+  if (view.noRelations.length) container.appendChild(buildIsolatedRow(view.noRelations, allCards, sections.isolated));
   container.scrollLeft = keepLeft;
   container.scrollTop = keepTop;
 }
@@ -1163,6 +1197,70 @@ function buildMapZoomControls() {
   return row;
 }
 
+// The Map options row: one segmented control per option, built from
+// MAP_OPTION_VALUES so a value the options module offers cannot go unlabelled.
+// Clicks ride #map-view's delegated listener (data-key / data-val).
+const MAP_OPTION_LABELS = {
+  parentLines: {
+    label: 'Parent lines',
+    hint: 'A dashed line joins a parent to its children. Chain ends: only the children where their dependency chain meets the parent (parent below: the children no sibling waits for; parent above: the children that wait for no sibling), plus every child with no dependency to a sibling. All: every child. Off: none.',
+    values: { chain: 'chain ends', all: 'all', off: 'off' },
+  },
+  depLines: {
+    label: 'Dependency lines',
+    hint: 'The solid arrows for waiting_for.',
+    values: { on: 'on', off: 'off' },
+  },
+  group: {
+    label: 'Graphs',
+    hint: 'One small graph per tree (cards joined by any dependency or parent, drawn or not), biggest first, each under its root titles; or everything in one graph.',
+    values: { tree: 'one per tree', one: 'one graph' },
+  },
+  parent: {
+    label: 'Parent sits',
+    hint: 'Below its children, as the end of their work, or above them, as a tree reads.',
+    values: { below: 'below', above: 'above' },
+  },
+  align: {
+    label: 'Align',
+    hint: 'Where each row of cards sits in its graph, and each graph on the page.',
+    values: { center: 'center', left: 'left' },
+  },
+  order: {
+    label: 'Row order',
+    hint: 'Left to right within each row. By status: doing, todo, backlog, other live statuses in column order, done, archived, then stubs; ties keep the layout order. Layout: as the layout falls.',
+    values: { status: 'by status', layout: 'layout' },
+  },
+  relayout: {
+    label: 'Layout',
+    hint: 'Keep: cards stay where every relation puts them, so a line toggle never moves one. Reflow: cards are placed by the lines drawn.',
+    values: { keep: 'keep', reflow: 'reflow' },
+  },
+  cards: {
+    label: 'Cards',
+    hint: 'Rich: the type chip, the altitude badge and, on a parent, its roll-up bar (a click on the bar flips the Bar setting). Plain: id and title only.',
+    values: { rich: 'rich', plain: 'plain' },
+  },
+};
+
+function mapOptionsRowHtml(options) {
+  return Object.keys(MAP_OPTION_VALUES).map((key) => {
+    const meta = MAP_OPTION_LABELS[key];
+    const buttons = MAP_OPTION_VALUES[key].map((value) => {
+      const on = options[key] === value;
+      return `<button type="button" class="map-option-btn${on ? ' active' : ''}" data-key="${key}" data-val="${value}" aria-pressed="${on}">${escapeHtml(meta.values[value])}</button>`;
+    }).join('');
+    return `<span class="map-option" title="${escapeHtml(meta.hint)}"><span class="map-option-label">${escapeHtml(meta.label)}</span><span class="map-option-seg" role="group" aria-label="${escapeHtml(meta.label)}">${buttons}</span></span>`;
+  }).join('');
+}
+
+function buildMapOptionsRow() {
+  const row = document.createElement('div');
+  row.className = 'map-options';
+  row.innerHTML = mapOptionsRowHtml(loadMapOptions());
+  return row;
+}
+
 // Same mechanism, gantt-scoped — statuses + Archive (boardColumnIds(),
 // same id list as the map's row; the Archive
 // pseudo-pill defaults OFF — see loadGanttStatusFilter). No ghost
@@ -1210,22 +1308,48 @@ function buildMapSectionHeader(section, label, collapsed) {
   return header;
 }
 
-// The layered SVG, wrapped in a collapse/expand toggle — state
+// The layered SVGs, wrapped in a collapse/expand toggle — state
 // persists per board (loadMapSectionsCollapsed) and survives the 5s poll like
 // every other memoized view preference. Collapsed skips layerNodes()/
 // buildMapSvg() entirely (nothing to lay out while hidden), not just a CSS
-// hide — the graph is the expensive part of this view.
-function buildMapGraphSection(graph, participantIds, collapsed) {
+// hide — the graph is the expensive part of this view. One graph per tree gets
+// a heading of its root titles; one big graph needs none.
+function buildMapGraphSection(graphs, options, collapsed, draw) {
   const wrap = document.createElement('div');
   wrap.className = 'map-graph-section';
-  wrap.appendChild(buildMapSectionHeader('graph', `Dependency graph (${participantIds.length}):`, collapsed));
+  wrap.appendChild(buildMapSectionHeader('graph', mapGraphSectionLabel(graphs, options.group), collapsed));
   if (!collapsed) {
-    const layer = layerNodes(participantIds, graph.edges);
-    const svg = buildMapSvg(graph, layer);
-    applyMapZoomToSvg(svg, loadMapZoom());
-    wrap.appendChild(svg);
+    const zoom = loadMapZoom();
+    for (const graph of graphs) {
+      if (options.group === 'tree') {
+        const heading = document.createElement('div');
+        heading.className = 'map-graph-heading';
+        heading.innerHTML = mapGraphHeadingHtml(graph);
+        wrap.appendChild(heading);
+      }
+      const layer = layerNodes(graph.ids, graph.layoutEdges);
+      const svg = buildMapSvg(graph, layer, draw);
+      applyMapZoomToSvg(svg, zoom);
+      wrap.appendChild(svg);
+    }
   }
   return wrap;
+}
+
+function mapGraphSectionLabel(graphs, group) {
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const cards = plural(graphs.reduce((sum, g) => sum + g.nodes.length, 0), 'card');
+  return group === 'tree' ? `Relation trees (${plural(graphs.length, 'tree')}, ${cards}):` : `Relations graph (${cards}):`;
+}
+
+// The heading over one tree: up to three root titles, then the card count.
+function mapGraphHeadingHtml(graph) {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const named = graph.roots.slice(0, 3).map((id) => `#${id} ${truncateLabel(cardTitleDisplay(byId.get(id)).text, 32)}`).join(' · ');
+  const more = graph.roots.length > 3 ? ` +${graph.roots.length - 3} more` : '';
+  const cards = graph.nodes.length;
+  const stubs = graph.ghosts.length ? ` + ${graph.ghosts.length} stub${graph.ghosts.length === 1 ? '' : 's'}` : '';
+  return `<strong>${escapeHtml(named + more)}</strong><span>${cards} card${cards === 1 ? '' : 's'}${stubs}</span>`;
 }
 
 // Scales the SVG's rendered width/height attributes by `zoom`, leaving the
@@ -1241,25 +1365,25 @@ function applyMapZoomToSvg(svg, zoom) {
   svg.setAttribute('height', String(logicalHeight * zoom));
 }
 
-// Isolated cards (no waiting_for edge in either direction) render as a
-// detached row below the layered graph, never hidden behind a "show
-// isolated" toggle: a toggle would be one more piece of UI
+// Cards no relation touches (no dependency and no parent in either direction,
+// and no children) render as a detached row below the graphs, never hidden
+// behind a "show" toggle: a toggle would be one more piece of UI
 // state to persist/compose with view mode + search + sort + collapse, for a
-// case (no dependencies at all) that's common on most boards and cheap to
+// case that's common on most boards and cheap to
 // just always show. Reuses cardEl's board tile look so a card reads the same
 // wherever it appears.
 // The section IS collapsible, though —
 // loadMapSectionsCollapsed's own state (not a fresh toggle-per-view) is what
 // makes it cheap: one more merged boolean, not new persisted UI state design.
-function buildIsolatedRow(graph, allCards, collapsed) {
+function buildIsolatedRow(ids, allCards, collapsed) {
   const byId = new Map(allCards.map((c) => [c.id, c]));
   const wrap = document.createElement('div');
   wrap.className = 'map-isolated';
-  wrap.appendChild(buildMapSectionHeader('isolated', `No dependencies (${graph.isolated.length}):`, collapsed));
+  wrap.appendChild(buildMapSectionHeader('isolated', `No relations (${ids.length}):`, collapsed));
   if (!collapsed) {
     const row = document.createElement('div');
     row.className = 'map-isolated-row';
-    graph.isolated.forEach((id) => {
+    ids.forEach((id) => {
       const card = byId.get(id);
       if (!card) return;
       const tile = card.archived ? archiveCardEl(card) : cardEl(card);
@@ -1273,34 +1397,103 @@ function buildIsolatedRow(graph, allCards, collapsed) {
   return wrap;
 }
 
+// Rich nodes: under the title, one row for the type chip and the altitude badge
+// (and the blocked pill, which the SVG draws) and, for a parent with leaves, one
+// row for the roll-up bar, following the shared Bar setting. A node's height
+// follows what it holds. The rows are HTML in foreignObjects so typeBadge,
+// altitudeBadge and rollupBar are the board's own renderers, and a click on a bar
+// reaches the board's own handler (the Bar setting flips; the card does not open).
+const MAP_RICH_TOP = 40;
+const MAP_RICH_META_H = 16;
+const MAP_RICH_BAR_OPEN_H = 30;
+const MAP_RICH_BAR_THIN_H = 10;
+
+function mapRichLayout(n, draw) {
+  if (!draw.rich || !n || n.ghost || n.missing || n.external) return null;
+  const card = draw.byId && draw.byId.get(n.id);
+  const type = card && card.type != null ? String(card.type).trim() : '';
+  const alt = nestingIndex.altitudeOf(n.id);
+  const mode = loadRollupBarMode();
+  const rollup = alt ? nestingIndex.rollup(n.id, { countArchived: loadRollupCountArchived() }) : null;
+  const hasBar = !!(rollup && rollup.total);
+  const hasMeta = !!type || alt >= 1 || !!n.blocked;
+  const out = { type, alt, rollup, mode, hasMeta, hasBar, metaY: MAP_RICH_TOP, barY: 0, barH: 0, h: 46 };
+  let end = MAP_RICH_TOP;
+  if (hasMeta) end += MAP_RICH_META_H;
+  if (hasBar) {
+    out.barY = hasMeta ? end + 3 : end;
+    out.barH = mode === ROLLUP_BAR_OPEN ? MAP_RICH_BAR_OPEN_H : MAP_RICH_BAR_THIN_H;
+    end = out.barY + out.barH;
+  }
+  if (hasMeta || hasBar) out.h = end + 8;
+  return out;
+}
+
+function mapNodeSize(n, draw) {
+  const rich = mapRichLayout(n, draw);
+  return { h: rich ? rich.h : MAP_NODE_H, rich };
+}
+
+function mapRichHtml(n, rich) {
+  let html = '';
+  const x0 = n.blocked ? 56 : 8;
+  if (rich.type || rich.alt >= 1) {
+    html += `<foreignObject class="map-rich" x="${x0}" y="${rich.metaY}" width="${MAP_NODE_W - x0 - 8}" height="${MAP_RICH_META_H}">` +
+      `<div class="map-rich-meta">${typeBadge({ type: rich.type }, state.types)}${altitudeBadge(rich.alt)}</div></foreignObject>`;
+  }
+  if (rich.hasBar) {
+    html += `<foreignObject class="map-rich" x="8" y="${rich.barY}" width="${MAP_NODE_W - 16}" height="${rich.barH}">` +
+      `<div class="map-rich-bar">${rollupBar(rich.rollup, rich.mode, boardStatuses())}</div></foreignObject>`;
+  }
+  return html;
+}
+
+// Rows of nodes down the page, each row as tall as its tallest node. `rows` is
+// layer -> ids left to right, `sizes` id -> { h }. Align center sits each row in
+// the middle of the widest one. Returns each node's box and the bottom edge.
+function mapRowPositions(rows, sizes, align) {
+  const rowWidth = (count) => count * (MAP_NODE_W + MAP_GAP_X) - MAP_GAP_X;
+  const count = rows.size ? Math.max(...rows.keys()) + 1 : 0;
+  let widest = 0;
+  for (const ids of rows.values()) widest = Math.max(widest, rowWidth(ids.length));
+  const pos = new Map(); // id -> {x, y, cx, h}
+  let y = MAP_PAD;
+  for (let l = 0; l < count; l++) {
+    const ids = rows.get(l) || [];
+    const shift = align === 'center' ? (widest - rowWidth(ids.length)) / 2 : 0;
+    ids.forEach((id, i) => {
+      const x = MAP_PAD + shift + i * (MAP_NODE_W + MAP_GAP_X);
+      pos.set(id, { x, y, cx: x + MAP_NODE_W / 2, h: sizes.get(id).h });
+    });
+    y += (ids.length ? Math.max(...ids.map((id) => sizes.get(id).h)) : MAP_NODE_H) + MAP_GAP_Y;
+  }
+  return { pos, bottom: y - MAP_GAP_Y };
+}
+
 // Builds the layered SVG: nodes positioned by layerNodes()'s layer assignment
-// (top-down, one row per layer, left-to-right by id within a row), edges as
+// (top-down, one row per layer, left-to-right by draw.order within a row), edges as
 // arrowed paths (dep -> waiter: an edge A -> B means "B waits for A"). A
 // "back edge" (target layer <= source layer — only possible when layerNodes
 // had to force-break a cycle) routes as a side-bowed curve instead of a
 // straight line, so a cycle stays visually distinct rather than overlapping
 // the normal downward flow.
-function buildMapSvg(graph, layer) {
+function buildMapSvg(graph, layer, draw) {
   const allById = new Map();
   graph.nodes.forEach((n) => allById.set(n.id, Object.assign({ ghost: false }, n)));
   graph.ghosts.forEach((g) => allById.set(g.id, Object.assign({ ghost: true }, g)));
 
-  const layers = new Map(); // layerIndex -> [ids] sorted ascending
+  const layers = new Map(); // layerIndex -> [ids] left to right
   for (const [id, l] of layer) {
     if (!layers.has(l)) layers.set(l, []);
     layers.get(l).push(id);
   }
-  for (const ids of layers.values()) ids.sort((a, b) => a - b);
-  const numLayers = layers.size ? Math.max(...layers.keys()) + 1 : 0;
-
-  const pos = new Map(); // id -> {x, y, cx}
   for (const [l, ids] of layers) {
-    ids.forEach((id, i) => {
-      const x = MAP_PAD + i * (MAP_NODE_W + MAP_GAP_X);
-      const y = MAP_PAD + l * (MAP_NODE_H + MAP_GAP_Y);
-      pos.set(id, { x, y, cx: x + MAP_NODE_W / 2 });
-    });
+    ids.sort((a, b) => a - b); // the layout's own order is the tie-break for the status order
+    layers.set(l, mapOrderRow(ids, graph, draw.order, draw.statuses));
   }
+  const sizes = new Map();
+  for (const id of layer.keys()) sizes.set(id, mapNodeSize(allById.get(id), draw));
+  const { pos, bottom } = mapRowPositions(layers, sizes, draw.align);
 
   const BACK_EDGE_BOW = MAP_NODE_W * 0.9;
   // Canvas width is the true rightmost extent in play, not just the widest
@@ -1313,18 +1506,16 @@ function buildMapSvg(graph, layer) {
 
   let edgesSvg = '';
   graph.edges.forEach((e) => {
-    // A card's edge to its parent (child -> parent) still shapes the layout
-    // (it's fed into layerNodes and decides graph participation), but it is
-    // never drawn. A dependency between two cards under the same
-    // parent is a real, gate-enforced waiting_for edge and draws exactly
-    // like any other dependency below — no special casing.
+    // A parent is never an arrow: it is a dashed line, drawn below. A dependency
+    // between two cards under the same parent is a real, gate-enforced
+    // waiting_for edge and draws exactly like any other dependency — no special casing.
     if (e.kind === 'parent') return;
     const from = pos.get(e.from);
     const to = pos.get(e.to);
     if (!from || !to) return; // defensive: every edge endpoint is always laid out, but never let a mismatch crash the render
     const dimmed = e.fromGhost || e.toGhost;
     const backEdge = (layer.get(e.to) || 0) <= (layer.get(e.from) || 0);
-    const x1 = from.cx, y1 = from.y + MAP_NODE_H, x2 = to.cx, y2 = to.y;
+    const x1 = from.cx, y1 = from.y + from.h, x2 = to.cx, y2 = to.y;
     let d;
     if (backEdge) {
       maxX = Math.max(maxX, x1 + BACK_EDGE_BOW, x2 + BACK_EDGE_BOW);
@@ -1336,8 +1527,14 @@ function buildMapSvg(graph, layer) {
     edgesSvg += `<path class="map-edge${backEdge ? ' back-edge' : ''}${dimmed ? ' ghost-edge' : ''}" d="${d}" marker-end="url(#map-arrow)"></path>`;
   });
 
+  if (graph.lines.length) {
+    const drawn = buildParentLinesSvg(graph, pos, layer, draw.parentSits);
+    edgesSvg += drawn.svg;
+    maxX = Math.max(maxX, drawn.maxX);
+  }
+
   const width = maxX + MAP_PAD;
-  const height = Math.max(MAP_NODE_H + MAP_PAD * 2, numLayers * (MAP_NODE_H + MAP_GAP_Y) - MAP_GAP_Y + MAP_PAD * 2);
+  const height = Math.max(MAP_NODE_H + MAP_PAD * 2, bottom + MAP_PAD);
 
   let nodesSvg = '';
   for (const [id, p] of pos) {
@@ -1374,14 +1571,16 @@ function buildMapSvg(graph, layer) {
       `${pb.className ? ` ${pb.className}` : ''}${(!missing && !n.archived && n.waiting) ? ' waiting' : ''}` +
       `${selectable ? ' card-el' : ''}${selectable && selectedIds.has(id) ? ' selected' : ''}` +
       `${selectable && isHoverHighlighted(hoveredId, id) ? ' hover-highlight' : ''}`;
-    const idLabel = `#${id}`;
+    const idLabel = n.external ? n.external : `#${id}`;
     // Same empty-title-shows-the-prompt fallback every
     // other view uses (cardTitleDisplay, card-title.js) — n already carries
     // `prompt` (dependency-graph.js's cardToNode). A missing stub has no
     // card behind it at all, so it keeps its own '(not found)' text instead.
     const titleDisplay = cardTitleDisplay(n);
-    const titleLine = missing ? '(not found)' : truncateLabel(titleDisplay.text, 22);
-    const tooltip = missing
+    const titleLine = n.external ? '(other board)' : missing ? '(not found)' : truncateLabel(titleDisplay.text, 22);
+    const tooltip = n.external
+      ? `${n.external} — parent on another board, not drawn on this map`
+      : missing
       ? `#${id} — referenced but not found on the board`
       : `#${id} ${titleDisplay.text}${n.archived ? ' (archived)' : ''}`;
     // Status lives on its own dot — a filled circle. A non-built-in
@@ -1412,18 +1611,20 @@ function buildMapSvg(graph, layer) {
     // SVG). Skipped for missing stubs (no card behind them) but NOT gated
     // off archived — a stop sign is identity, not location, and unlike
     // the waiting stroke it doesn't share a channel with the archived grey mute.
+    const rich = sizes.get(id).rich;
+    const pillY = rich ? rich.metaY + 1 : MAP_NODE_H - 18;
     const blockedPill = (!missing && n.blocked)
       ? `<g class="map-blocked-pill"><title>${escapeHtml(n.blockedReason ? `blocked: ${n.blockedReason}` : 'blocked')}</title>` +
-        `<rect x="8" y="${MAP_NODE_H - 18}" width="46" height="13" rx="6.5"></rect>` +
-        `<text x="31" y="${MAP_NODE_H - 8}" text-anchor="middle">blocked</text></g>`
+        `<rect x="8" y="${pillY}" width="46" height="13" rx="6.5"></rect>` +
+        `<text x="31" y="${pillY + 10}" text-anchor="middle">blocked</text></g>`
       : '';
     nodesSvg +=
       `<g class="${cls}" transform="translate(${p.x},${p.y})"${missing ? '' : ` data-id="${id}"`}${selectable ? ' tabindex="0"' : ''}>` +
         `<title>${escapeHtml(tooltip)}</title>` +
-        `<rect width="${MAP_NODE_W}" height="${MAP_NODE_H}" rx="6"></rect>` +
+        `<rect width="${MAP_NODE_W}" height="${p.h}" rx="6"></rect>` +
         `<text x="10" y="18" class="map-node-id">${escapeHtml(idLabel)}</text>` +
         `<text x="10" y="34" class="map-node-title${!missing && titleDisplay.isPromptFallback ? ' map-node-title--prompt-fallback' : ''}">${escapeHtml(titleLine)}</text>` +
-        statusDot + archivedDot + blockedPill +
+        statusDot + archivedDot + blockedPill + (rich ? mapRichHtml(n, rich) : '') +
       `</g>`;
   }
 
@@ -1444,9 +1645,70 @@ function buildMapSvg(graph, layer) {
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.innerHTML =
     `<defs><marker id="map-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">` +
-      `<path d="M0,0 L10,5 L0,10 z"></path></marker></defs>` +
+      `<path d="M0,0 L10,5 L0,10 z"></path></marker>` +
+      `<marker id="map-parent-dot" class="map-parent-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5">` +
+      `<circle cx="5" cy="5" r="4"></circle></marker></defs>` +
     edgesSvg + nodesSvg;
+  paintRollupBars(svg);
+  paintTypeColors(svg);
   return svg;
+}
+
+// One dashed line per drawn parent-child pair, in the grey of a dependency edge.
+// It runs from the child to the parent when the parent sits below (the way the
+// arrows run) and from the parent to the child when it sits above, with a dot on
+// the parent's end because it has no arrowhead. A line that would lie on a solid
+// dependency arrow is nudged 9px right; one that runs against the layout bows
+// out to the side like a back edge. A parent with three or more lines spreads
+// where they meet it instead of one point.
+function buildParentLinesSvg(graph, pos, layer, parentSits) {
+  const above = parentSits === 'above';
+  const stubIds = new Set(graph.ghosts.map((g) => g.id));
+  const byParent = new Map();
+  for (const l of graph.lines) {
+    if (!byParent.has(l.parent)) byParent.set(l.parent, []);
+    byParent.get(l.parent).push(l);
+  }
+  const portX = new Map();
+  for (const [pid, list] of byParent) {
+    const parentNode = pos.get(pid);
+    if (!parentNode || list.length < 3) continue;
+    const sorted = list.slice().sort((a, b) => (pos.get(a.child) || parentNode).cx - (pos.get(b.child) || parentNode).cx);
+    sorted.forEach((l, i) => portX.set(l, Math.round((parentNode.x + MAP_NODE_W * (0.14 + 0.72 * i / (sorted.length - 1))) * 100) / 100));
+  }
+  const bow = MAP_NODE_W * 0.65;
+  const depLeaves = new Set(graph.edges.map((e) => e.from));
+  const depArrives = new Set(graph.edges.map((e) => e.to));
+  let svg = '';
+  let maxX = 0;
+  for (const l of graph.lines) {
+    if (!pos.get(l.parent) || !pos.get(l.child)) continue;
+    const fromId = above ? l.parent : l.child;
+    const toId = above ? l.child : l.parent;
+    const from = pos.get(fromId);
+    const to = pos.get(toId);
+    const back = (layer.get(toId) || 0) <= (layer.get(fromId) || 0);
+    const x1 = from.cx + (depLeaves.has(fromId) ? 9 : 0);
+    const x2 = to.cx + (depArrives.has(toId) ? 9 : 0);
+    const y1 = from.y + from.h;
+    const y2 = to.y;
+    let d;
+    if (portX.has(l) && !back) {
+      const px1 = above ? portX.get(l) : x1;
+      const px2 = above ? x2 : portX.get(l);
+      const midY = (y1 + y2) / 2;
+      d = `M${px1},${y1} C${px1},${midY} ${px2},${midY} ${px2},${y2}`;
+    } else if (back) {
+      maxX = Math.max(maxX, x1 + bow, x2 + bow);
+      d = `M${x1},${y1} C${x1 + bow},${y1} ${x2 + bow},${y2} ${x2},${y2}`;
+    } else {
+      const midY = (y1 + y2) / 2;
+      d = `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
+    }
+    const dimmed = stubIds.has(l.child) || stubIds.has(l.parent);
+    svg += `<path class="map-edge map-parent-line${dimmed ? ' ghost-edge' : ''}" d="${d}" ${above ? 'marker-start' : 'marker-end'}="url(#map-parent-dot)"></path>`;
+  }
+  return { svg, maxX };
 }
 
 async function fetchBoard() {
@@ -1486,6 +1748,7 @@ function applyProjectName(name) {
     ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
     mapZoom = null; // map.zoom too
+    mapOptions = null; // map.options too
     ganttStatusFilter = null; // gantt.statusFilter too — applyStatuses' own reset doesn't fire on a pure rename with an unchanged status list
     calendarStatusFilter = null; // calendar.statusFilter too, same reasoning
   }
@@ -1576,13 +1839,13 @@ function boardControlFocused() {
   const el = document.activeElement;
   // .cal-nav: calendar nav; .column-add: the header +;
   // .column-add-ai: its sparkle twin; .map-filter-toggle/
-  // .map-section-toggle/.map-zoom-btn: the map pills and zoom toolbar;
+  // .map-section-toggle/.map-zoom-btn/.map-option-btn: the map pills, zoom toolbar and options;
   // .gantt-filter-toggle: the
   // gantt pills; .calendar-filter-toggle: the
   // calendar pills (their views are wiped by every render). All focusable,
   // all rebuilt per render — a poll landing while one is focused would
   // silently dump keyboard focus to <body>. No .card-el — see above.
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .map-zoom-btn, .gantt-filter-toggle, .calendar-filter-toggle'));
+  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .map-zoom-btn, .map-option-btn, .gantt-filter-toggle, .calendar-filter-toggle'));
 }
 
 function setStale(stale) {
@@ -2964,6 +3227,11 @@ window.addEventListener('DOMContentLoaded', () => {
       toggleMapStatusFilter(filterBtn.dataset.col);
       return;
     }
+    const optionBtn = e.target.closest('.map-option-btn[data-key][data-val]');
+    if (optionBtn) {
+      setMapOption(optionBtn.dataset.key, optionBtn.dataset.val);
+      return;
+    }
     // Zoom toolbar — same control-row-buttons-checked-first reasoning; a
     // disabled button (already at the clamp's edge) still reaches this
     // handler (disabled buttons don't dispatch click at all, so the
@@ -3022,7 +3290,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ALSO pans" — while leaving every other control alone by construction:
 // the status pills and section-collapse chevron all sit outside
 // `.map-canvas` (above it in the section header / control rows), and the
-// "No dependencies" row is a sibling of `.map-graph-section` entirely, so
+// "No relations" row is a sibling of `.map-graph-section` entirely, so
 // its tiles keep native text selection untouched — no separate exclusion
 // list to keep in sync with the markup.
 let mapPan = null; // { pointerId, startX, startY, startScrollLeft, startScrollTop, moved }
@@ -3128,6 +3396,12 @@ function zoomMapFit() {
   const container = $('#map-view');
   const svg = container.querySelector('.map-canvas');
   if (!svg) return; // collapsed section, or no graph at all — nothing to fit
+  let fitW = 0;
+  let fitH = 0;
+  container.querySelectorAll('.map-canvas').forEach((s) => {
+    fitW = Math.max(fitW, Number(s.dataset.logicalWidth));
+    fitH = Math.max(fitH, Number(s.dataset.logicalHeight));
+  });
   const style = getComputedStyle(container);
   const padLeft = parseFloat(style.paddingLeft) || 0;
   const padRight = parseFloat(style.paddingRight) || 0;
@@ -3135,7 +3409,7 @@ function zoomMapFit() {
   const { originY } = mapSvgOrigin(container, svg);
   const availableWidth = container.clientWidth - padLeft - padRight;
   const availableHeight = container.clientHeight - originY - padBottom;
-  const fit = fitMapZoom(Number(svg.dataset.logicalWidth), Number(svg.dataset.logicalHeight), availableWidth, availableHeight);
+  const fit = fitMapZoom(fitW, fitH, availableWidth, availableHeight);
   setMapZoom(fit);
   renderMapView();
   container.scrollLeft = 0;
@@ -5345,7 +5619,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .rollup-ctl, .rollup')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup-ctl, .rollup')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();

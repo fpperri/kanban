@@ -213,7 +213,7 @@ function mergeCollapsedState(saved, ids) {
   return result;
 }
 
-// --- map view section collapse (the graph + the "No dependencies"
+// --- map view section collapse (the graphs + the "No relations"
 // list) --------------------------------------------------------------------
 // A fixed small key set — not a dynamic column set like the collapse/
 // status-filter state above — so the merge needs no `ids` param. Same
