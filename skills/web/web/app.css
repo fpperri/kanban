@@ -1165,6 +1165,9 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-stage { position: relative; flex: 1; min-height: 0; }
 .graph-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; user-select: none; touch-action: none; }
 .graph-canvas.graph-panning { cursor: grabbing; }
+.graph-canvas.graph-kind-force .graph-node { cursor: grab; }
+.graph-canvas.graph-kind-force .graph-node.is-loose { cursor: pointer; }
+.graph-canvas.graph-dragging, .graph-canvas.graph-dragging .graph-node { cursor: grabbing; }
 
 .graph-ring { fill: none; stroke: var(--line-strong); stroke-width: 1px; stroke-dasharray: 4 4; opacity: 0.6; }
 .graph-spoke { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; }

@@ -3,12 +3,19 @@
 // is a full idempotent rebuild (the 5s poll, every search keystroke and every
 // selection change re-run it), so pan/zoom and the per-board choices live in the
 // module variables below, never in the DOM. Plain <script> sharing one global
-// scope with app.js, so every top-level name here is graph-prefixed. Clicks,
-// selection and the context menu on a node are NOT wired here: ADR 0006's
-// document-level delegated grammar drives any .card-el[data-id].
+// scope with app.js, so every top-level name here is graph-prefixed. Ctrl/shift
+// clicks and the context menu on a node are NOT wired here: ADR 0006's
+// document-level delegated grammar drives any .card-el[data-id]. The Graph is
+// the one deliberate exception for a plain click: it selects (painted in
+// place) and a double click opens, because dragging a card makes a bare click
+// a selection gesture.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
+const GRAPH_DRAG_ALPHA = 0.3;
+const GRAPH_DRAG_STEPS = 2;
+const GRAPH_COOL_FRAMES = 40;
+const GRAPH_SETTLED_ALPHA = 0.004;
 const GRAPH_ZOOM_STEP = 1.12;
 const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
@@ -27,6 +34,9 @@ const graphViews = new Map();
 let graphCur = null;
 let graphPan = null;
 let graphClickSwallow = null;
+let graphDrag = null;
+const graphArrangements = new Map();
+const GRAPH_ARRANGEMENTS_MAX = 6;
 let graphFrame = 0;
 let graphLastError = null;
 
@@ -80,6 +90,8 @@ function resetGraphViewState() {
   graphLayoutKind = null;
   graphStatusFilter = null;
   graphViews.clear();
+  graphStopDrag(false);
+  graphArrangements.clear();
   graphCur = null;
   if (graphPan && graphPan.moved) isDragging = false;
   graphPan = null;
@@ -194,6 +206,24 @@ function graphSetFocus(id) {
   });
 }
 
+function graphRestFocus() {
+  if (graphCur && selectedIds.size === 1) graphSetFocus([...selectedIds][0]);
+  else graphClearFocus();
+}
+
+function graphSettleFocus() {
+  if (graphCur && hoveredId != null && graphCur.model.byId.has(hoveredId)) graphSetFocus(hoveredId);
+  else graphRestFocus();
+}
+
+function graphSelectOnly(id) {
+  selectedIds = new Set([id]);
+  selectionAnchor = id;
+  if (!graphCur) return;
+  for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', nid === id);
+  graphRestFocus();
+}
+
 // --- render --------------------------------------------------------------------
 
 function graphDrawPlan(plan) {
@@ -258,7 +288,8 @@ function graphDrawPlan(plan) {
 
 function renderGraphView() {
   const host = document.getElementById('graph-view');
-  let kind, filter, model, layout, layoutOpts, plan;
+  graphStopDrag(true);
+  let kind, filter, model, layout, layoutOpts, plan, sig;
   try {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
@@ -269,6 +300,8 @@ function renderGraphView() {
     model = graphBuild(pool, { ctx: nestingCtx(), visibleIds });
     layoutOpts = { statuses: boardStatuses() };
     layout = graphLayout(model, kind, layoutOpts);
+    sig = graphSignature(model, kind, layoutOpts);
+    if (kind === 'force' && graphArrangements.has(sig)) layout = graphWithPositions(layout, model, graphArrangements.get(sig));
     plan = graphPlan(model, layout, {
       selectedIds, hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text,
     });
@@ -295,7 +328,7 @@ function renderGraphView() {
   host.appendChild(drawn.stage);
   const w = drawn.stage.clientWidth || 800;
   const h = drawn.stage.clientHeight || 600;
-  const sig = graphSignature(model, kind, layoutOpts);
+  drawn.svg.classList.add(`graph-kind-${kind}`);
   let view = graphViews.get(kind);
   const refit = !view || (view.sig !== sig && !view.touched);
   if (!view) {
@@ -304,12 +337,12 @@ function renderGraphView() {
   }
   view.sig = sig;
   graphCur = {
-    model, layout, view, w, h, nodeCount: plan.nodes.length,
+    kind, sig, model, layout, view, w, h, nodeCount: plan.nodes.length,
     svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls,
   };
   if (refit) Object.assign(view, graphFit(layout.bounds, w, h), { touched: false });
   graphApplyTransform();
-  if (hoveredId != null) graphSetFocus(hoveredId);
+  graphSettleFocus();
 }
 
 // --- wiring --------------------------------------------------------------------
@@ -338,6 +371,112 @@ function graphFinishPan() {
   if (moved) isDragging = false;
   graphPan = null;
   if (moved) graphSwallowNextClick();
+}
+
+// --- node drag (force layout) --------------------------------------------------
+// Dragging a card pins it to the pointer and lets the cards related to it
+// follow: the same force step as the layout, continued from what is on screen.
+// One rAF loop at most; every exit path goes through graphStopDrag.
+
+function graphWorldPoint(e) {
+  const rect = graphCur.svg.getBoundingClientRect();
+  const v = graphCur.view;
+  return { x: (e.clientX - rect.left - v.x) / v.k, y: (e.clientY - rect.top - v.y) / v.k };
+}
+
+function graphPaintDrag(d) {
+  for (const [id, p] of graphForcePositions(d.sim)) {
+    d.pos.set(id, p);
+    graphCur.nodeEls.get(id).setAttribute('transform', `translate(${graphRound(p.x)} ${graphRound(p.y)})`);
+  }
+  const paths = graphLinkPaths(graphCur.model, d.layout, 'force');
+  for (let i = 0; i < paths.length; i++) graphCur.linkEls[i].setAttribute('d', paths[i]);
+}
+
+function graphDragKick(d) {
+  if (!d.raf) d.raf = requestAnimationFrame(graphDragFrame);
+}
+
+function graphDragFrame() {
+  const d = graphDrag;
+  if (!d || !d.sim || !graphCur) return;
+  d.raf = 0;
+  for (let i = 0; i < GRAPH_DRAG_STEPS; i++) {
+    graphForceStep(d.sim, d.alpha, d.pin);
+    d.alpha *= 0.985;
+  }
+  graphPaintDrag(d);
+  if (d.released) {
+    d.frames--;
+    if (d.frames <= 0) { graphStopDrag(true); return; }
+  } else if (d.alpha < GRAPH_SETTLED_ALPHA) {
+    return;
+  }
+  d.raf = requestAnimationFrame(graphDragFrame);
+}
+
+function graphBeginDrag(d) {
+  d.moved = true;
+  isDragging = true;
+  try { document.getElementById('graph-view').setPointerCapture(d.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
+  graphCur.svg.classList.add('graph-dragging');
+  graphSetFocus(d.id);
+  d.sim = graphForceSim(graphCur.model, graphCur.layout.pos);
+  d.pos = new Map(graphCur.layout.pos);
+  d.layout = { pos: d.pos, rings: [], spokes: [], titles: [] };
+  d.sig = graphCur.sig;
+  d.alpha = GRAPH_DRAG_ALPHA;
+}
+
+function graphDragMove(e) {
+  const d = graphDrag;
+  if (!d || e.pointerId !== d.pointerId || d.released || !graphCur) return;
+  if (d.moved && e.pointerType === 'mouse' && e.buttons === 0) { graphReleaseDrag(e); return; }
+  const w = graphWorldPoint(e);
+  if (!d.moved) {
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) <= GRAPH_PAN_THRESHOLD) return;
+    graphBeginDrag(d);
+    const at = d.pos.get(d.id);
+    const down = graphWorldPoint({ clientX: d.sx, clientY: d.sy });
+    d.grab = { x: at.x - down.x, y: at.y - down.y };
+  }
+  d.pin = { id: d.id, x: w.x + d.grab.x, y: w.y + d.grab.y };
+  d.alpha = Math.max(d.alpha, GRAPH_DRAG_ALPHA);
+  graphDragKick(d);
+}
+
+function graphReleaseDrag(e) {
+  const d = graphDrag;
+  if (!d || d.released) return;
+  if (!d.moved) { graphDrag = null; return; }
+  d.released = true;
+  d.pin = null;
+  d.alpha = Math.max(d.alpha, GRAPH_DRAG_ALPHA);
+  d.frames = GRAPH_COOL_FRAMES;
+  graphSwallowNextClick();
+  const under = e && e.type === 'pointerup' && document.elementFromPoint(e.clientX, e.clientY);
+  const node = under && under.closest && under.closest('.graph-node');
+  if (node) graphSetFocus(Number(node.dataset.id));
+  else graphRestFocus();
+  graphDragKick(d);
+}
+
+// commit keeps the simulated arrangement for the signature it was made under.
+function graphStopDrag(commit) {
+  const d = graphDrag;
+  if (!d) return;
+  graphDrag = null;
+  if (d.raf) cancelAnimationFrame(d.raf);
+  if (!d.moved) return;
+  isDragging = false;
+  if (commit && d.sim) {
+    const positions = graphForcePositions(d.sim);
+    graphArrangements.delete(d.sig);
+    graphArrangements.set(d.sig, positions);
+    while (graphArrangements.size > GRAPH_ARRANGEMENTS_MAX) graphArrangements.delete(graphArrangements.keys().next().value);
+    if (graphCur) graphCur.layout = graphWithPositions(graphCur.layout, graphCur.model, positions);
+  }
+  if (graphCur) graphCur.svg.classList.remove('graph-dragging');
 }
 
 function wireGraphView(host) {
@@ -375,7 +514,18 @@ function wireGraphView(host) {
   }, { passive: false });
 
   host.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || graphPan || !graphCur) return;
+    if (e.button !== 0 || !graphCur) return;
+    if (graphDrag) graphStopDrag(true);
+    const node = e.target.closest('.graph-node');
+    if (node) {
+      if (graphCur.kind !== 'force' || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      const id = Number(node.dataset.id);
+      const model = graphCur.model.byId.get(id);
+      if (!model || model.deg === 0) return;
+      graphDrag = { pointerId: e.pointerId, id, sx: e.clientX, sy: e.clientY, moved: false, released: false, raf: 0, sim: null, pin: null };
+      return;
+    }
+    if (graphPan) return;
     if (!e.target.closest('.graph-canvas') || e.target.closest('.card-el')) return;
     const v = graphCur.view;
     graphPan = { pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false };
@@ -396,9 +546,35 @@ function wireGraphView(host) {
     graphCur.view.touched = true;
     graphScheduleTransform();
   });
-  host.addEventListener('pointerup', (e) => { if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan(); });
-  host.addEventListener('pointercancel', (e) => { if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan(); });
-  host.addEventListener('lostpointercapture', (e) => { if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan(); });
+  host.addEventListener('pointermove', graphDragMove);
+  const finish = (e) => {
+    if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan();
+    if (graphDrag && e.pointerId === graphDrag.pointerId) graphReleaseDrag(e);
+  };
+  host.addEventListener('pointerup', finish);
+  host.addEventListener('pointercancel', finish);
+  host.addEventListener('lostpointercapture', finish);
+
+  host.addEventListener('click', (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || !graphCur) return;
+    const node = e.target.closest('.graph-node');
+    if (!node) return;
+    e.stopPropagation();
+    hideContextMenu();
+    graphSelectOnly(Number(node.dataset.id));
+  }, true);
+  host.addEventListener('dblclick', (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const node = e.target.closest('.graph-node');
+    if (node) openCard(Number(node.dataset.id));
+  });
+  host.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    const node = e.target.closest('.graph-node');
+    if (!node) return;
+    if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(Number(node.dataset.id)); }
+    else if (e.key === ' ') { e.preventDefault(); graphSelectOnly(Number(node.dataset.id)); }
+  });
 
   const enter = (e) => {
     const el = e.target.closest('.graph-node');
@@ -410,7 +586,7 @@ function wireGraphView(host) {
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');
     if (to === from) return;
     if (to) graphSetFocus(Number(to.dataset.id));
-    else graphClearFocus();
+    else graphRestFocus();
   };
   host.addEventListener('mouseover', enter);
   host.addEventListener('mouseout', leave);

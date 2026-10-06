@@ -1171,11 +1171,17 @@ to `127.0.0.1` only.
   **intersection**, and the search spans live and archived cards alike. A count of cards
   and relations sits in the header; a board with nothing to draw says "No cards to show".
   **Hover or keyboard focus** on a dot dims everything but that card and the cards it
-  has a relation with, with the lines between them. Every dot carries `.card-el` and
-  `data-id`, so click (detail), ctrl/cmd+click (toggle), shift+click (range) and
-  right-click (bulk menu) are the shared grammar of ADR 0006, with no handler of the
-  graph's own; a shift-click range runs in **outline order** (parents before children,
-  siblings by rank), which is the dots' DOM order. **Pan** by dragging the background
+  has a relation with, with the lines between them. **Click** a dot to select it (painted
+  in place, so a double click is not interrupted by a rebuild); while exactly one dot is
+  selected its relations stay lit after the pointer leaves, and hovering another dot
+  shows that one's relations until the pointer leaves. **Double-click** (or **Enter** on a
+  focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
+  "click opens" (ADR 0006). Every dot carries `.card-el` and `data-id`, so ctrl/cmd+click
+  (toggle), shift+click (range) and right-click (bulk menu) are the shared grammar of
+  ADR 0006; a shift-click range runs in **outline order** (parents before children,
+  siblings by rank), which is the dots' DOM order. In **Force**, **dragging a dot** pulls
+  the cards related to it along, like pulling on a thread; the arrangement stays until
+  the cards change or the page reloads (Tiers and Status do not drag). **Pan** by dragging the background
   (a drag moves past 4px and the click that ends it is swallowed, so it never clears the
   selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
   about the centre or fit every card in the panel. Picking a layout re-fits the view; after

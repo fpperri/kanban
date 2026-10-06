@@ -314,59 +314,83 @@ function graphLayoutStatus(model, opts) {
 
 const GRAPH_GOLDEN = 2.399963229728653;
 
-function graphLayoutForce(model) {
-  const sim = model.nodes.filter((n) => n.deg > 0).sort((a, b) => a.id - b.id);
-  const loose = model.nodes.filter((n) => n.deg === 0).sort((a, b) => a.id - b.id);
-  const n = sim.length;
+function graphForceIterations(n) {
+  return n <= 150 ? 300 : n <= 400 ? 150 : n <= 1000 ? 80 : n <= 2000 ? 40 : 20;
+}
+
+// seed (Map id -> {x, y}) starts the nodes where they are drawn instead of on
+// the golden spiral, so a drag continues from what is on screen.
+function graphForceSim(model, seed) {
+  const nodes = model.nodes.filter((n) => n.deg > 0).sort((a, b) => a.id - b.id);
+  const n = nodes.length;
   const px = new Float64Array(n);
   const py = new Float64Array(n);
   const vx = new Float64Array(n);
   const vy = new Float64Array(n);
   const at = new Map();
-  sim.forEach((node, i) => {
+  nodes.forEach((node, i) => {
     at.set(node.id, i);
-    px[i] = Math.cos(i * GRAPH_GOLDEN) * 12 * Math.sqrt(i);
-    py[i] = Math.sin(i * GRAPH_GOLDEN) * 12 * Math.sqrt(i);
+    const s = seed && seed.get(node.id);
+    px[i] = s ? s.x : Math.cos(i * GRAPH_GOLDEN) * 12 * Math.sqrt(i);
+    py[i] = s ? s.y : Math.sin(i * GRAPH_GOLDEN) * 12 * Math.sqrt(i);
   });
   const springs = model.links.map((l) => ({ a: at.get(l.from), b: at.get(l.to), want: l.kind === 'parent' ? 55 : 90 }));
-  const iterations = n <= 150 ? 300 : n <= 400 ? 150 : n <= 1000 ? 80 : n <= 2000 ? 40 : 20;
+  return { nodes, n, px, py, vx, vy, at, springs, iterations: graphForceIterations(n) };
+}
+
+function graphForceStep(sim, alpha, pin) {
+  const { n, px, py, vx, vy, springs } = sim;
+  const pi = pin && sim.at.has(pin.id) ? sim.at.get(pin.id) : -1;
+  if (pi >= 0) { px[pi] = pin.x; py[pi] = pin.y; vx[pi] = 0; vy[pi] = 0; }
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      let dx = px[j] - px[i];
+      let dy = py[j] - py[i];
+      const d2 = dx * dx + dy * dy + 0.01;
+      if (d2 > 90000) continue;
+      const f = 1800 / d2 * alpha;
+      const d = Math.sqrt(d2);
+      dx /= d;
+      dy /= d;
+      vx[i] -= dx * f; vy[i] -= dy * f;
+      vx[j] += dx * f; vy[j] += dy * f;
+    }
+  }
+  for (const s of springs) {
+    const dx = px[s.b] - px[s.a];
+    const dy = py[s.b] - py[s.a];
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    const f = (d - s.want) * 0.04 * alpha;
+    vx[s.a] += dx / d * f; vy[s.a] += dy / d * f;
+    vx[s.b] -= dx / d * f; vy[s.b] -= dy / d * f;
+  }
+  for (let i = 0; i < n; i++) {
+    vx[i] -= px[i] * 0.004 * alpha;
+    vy[i] -= py[i] * 0.004 * alpha;
+    vx[i] *= 0.6; vy[i] *= 0.6;
+    px[i] += vx[i]; py[i] += vy[i];
+  }
+  if (pi >= 0) { px[pi] = pin.x; py[pi] = pin.y; vx[pi] = 0; vy[pi] = 0; }
+}
+
+function graphForcePositions(sim) {
+  const pos = new Map();
+  sim.nodes.forEach((node, i) => pos.set(node.id, { x: sim.px[i], y: sim.py[i] }));
+  return pos;
+}
+
+function graphLayoutForce(model) {
+  const sim = graphForceSim(model);
+  const loose = model.nodes.filter((n) => n.deg === 0).sort((a, b) => a.id - b.id);
   let alpha = 1;
-  for (let it = 0; it < iterations; it++) {
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        let dx = px[j] - px[i];
-        let dy = py[j] - py[i];
-        const d2 = dx * dx + dy * dy + 0.01;
-        if (d2 > 90000) continue;
-        const f = 1800 / d2 * alpha;
-        const d = Math.sqrt(d2);
-        dx /= d;
-        dy /= d;
-        vx[i] -= dx * f; vy[i] -= dy * f;
-        vx[j] += dx * f; vy[j] += dy * f;
-      }
-    }
-    for (const s of springs) {
-      const dx = px[s.b] - px[s.a];
-      const dy = py[s.b] - py[s.a];
-      const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      const f = (d - s.want) * 0.04 * alpha;
-      vx[s.a] += dx / d * f; vy[s.a] += dy / d * f;
-      vx[s.b] -= dx / d * f; vy[s.b] -= dy / d * f;
-    }
-    for (let i = 0; i < n; i++) {
-      vx[i] -= px[i] * 0.004 * alpha;
-      vy[i] -= py[i] * 0.004 * alpha;
-      vx[i] *= 0.6; vy[i] *= 0.6;
-      px[i] += vx[i]; py[i] += vy[i];
-    }
+  for (let it = 0; it < sim.iterations; it++) {
+    graphForceStep(sim, alpha, null);
     alpha *= 0.985;
   }
-  const pos = new Map();
+  const pos = graphForcePositions(sim);
   let far = 0;
-  sim.forEach((node, i) => {
-    pos.set(node.id, { x: px[i], y: py[i] });
-    far = Math.max(far, Math.hypot(px[i], py[i]) + graphRadius(node));
+  sim.nodes.forEach((node, i) => {
+    far = Math.max(far, Math.hypot(sim.px[i], sim.py[i]) + graphRadius(node));
   });
   const many = loose.length > 16;
   let base = far + 60;
@@ -377,6 +401,14 @@ function graphLayoutForce(model) {
     pos.set(node.id, { x: Math.cos(ang) * rad, y: Math.sin(ang) * rad });
   });
   return graphFinish(model, pos, [], [], []);
+}
+
+// A new layout with some cards moved (a dragged arrangement): layouts are
+// shared through the memo, so the input is never touched.
+function graphWithPositions(layout, model, overrides) {
+  const pos = new Map(layout.pos);
+  for (const [id, p] of overrides) if (pos.has(id)) pos.set(id, { x: p.x, y: p.y });
+  return graphFinish(model, pos, layout.rings, layout.spokes, layout.titles);
 }
 
 // --- dispatcher + memo ---------------------------------------------------------
@@ -443,18 +475,53 @@ function graphZoomAt(view, px, py, factor, min = 0.1, max = 8) {
 
 const graphRound = (v) => Math.round(v * 100) / 100;
 
+function graphKindOf(layout, kind) {
+  if (kind) return kind;
+  if (layout.rings.some((r) => r.status !== undefined)) return 'status';
+  return layout.rings.length > 0 || layout.spokes.length > 0 ? 'tiers' : 'force';
+}
+
+function graphClumps(layout, kind) {
+  const centres = [];
+  if (kind === 'status') for (const r of layout.rings) if (!centres.includes(r.cx)) centres.push(r.cx);
+  if (!centres.length) centres.push(0);
+  // Status layout: live cards sit in the first clump, archived ones in the second.
+  return { centres, clumpOf: (n) => (kind === 'status' && n.archived && centres.length > 1 ? 1 : 0) };
+}
+
+// One path string per model.links entry, in order. Wait links stop at the
+// target's rim so the arrow head is not buried under the dot.
+function graphLinkPaths(model, layout, kind) {
+  const curved = layout.rings.length > 0 || layout.spokes.length > 0;
+  const { centres, clumpOf } = graphClumps(layout, graphKindOf(layout, kind));
+  return model.links.map((l) => {
+    const b = model.byId.get(l.to);
+    const pa = layout.pos.get(l.from);
+    const pb = layout.pos.get(l.to);
+    const head = `M${graphRound(pa.x)} ${graphRound(pa.y)}`;
+    if (l.kind === 'wait') {
+      const dx = pb.x - pa.x;
+      const dy = pb.y - pa.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const trim = graphRadius(b) + 2;
+      return `${head}L${graphRound(pb.x - (dx / dist) * trim)} ${graphRound(pb.y - (dy / dist) * trim)}`;
+    }
+    if (curved) {
+      const qx = graphRound((pa.x + pb.x) / 2 * 0.8 + centres[clumpOf(b)] * 0.2);
+      const qy = graphRound((pa.y + pb.y) / 2 * 0.8);
+      return `${head}Q${qx} ${qy} ${graphRound(pb.x)} ${graphRound(pb.y)}`;
+    }
+    return `${head}L${graphRound(pb.x)} ${graphRound(pb.y)}`;
+  });
+}
+
 function graphPlan(model, layout, opts) {
   const o = opts || {};
   const selected = o.selectedIds || new Set();
   const statusClass = o.statusClass || ((s) => String(s).toLowerCase().replace(/[^a-z0-9-]/g, '-'));
   const titleOf = o.titleOf || ((c) => c.title || '');
-  const curved = layout.rings.length > 0 || layout.spokes.length > 0;
-  const kind = o.kind || (layout.rings.some((r) => r.status !== undefined) ? 'status' : curved ? 'tiers' : 'force');
-  const centres = [];
-  if (kind === 'status') for (const r of layout.rings) if (!centres.includes(r.cx)) centres.push(r.cx);
-  if (!centres.length) centres.push(0);
-  // Status layout: live cards sit in the first clump, archived ones in the second.
-  const clumpOf = (n) => (kind === 'status' && n.archived && centres.length > 1 ? 1 : 0);
+  const kind = graphKindOf(layout, o.kind);
+  const { clumpOf } = graphClumps(layout, kind);
 
   const nodes = model.nodes.map((n) => {
     const p = layout.pos.get(n.id);
@@ -468,6 +535,7 @@ function graphPlan(model, layout, opts) {
     if (n.waiting) cls.push('is-waiting');
     if (n.review) cls.push('is-review');
     if (n.deg >= 3) cls.push('graph-hub');
+    if (n.deg === 0) cls.push('is-loose');
     return {
       id: n.id,
       x: graphRound(p.x),
@@ -478,30 +546,11 @@ function graphPlan(model, layout, opts) {
     };
   });
 
-  const links = model.links.map((l) => {
-    const a = model.byId.get(l.from);
-    const b = model.byId.get(l.to);
-    const pa = layout.pos.get(l.from);
-    const pb = layout.pos.get(l.to);
-    const cross = kind === 'status' && clumpOf(a) !== clumpOf(b);
+  const paths = graphLinkPaths(model, layout, kind);
+  const links = model.links.map((l, i) => {
+    const cross = kind === 'status' && clumpOf(model.byId.get(l.from)) !== clumpOf(model.byId.get(l.to));
     const cls = `graph-link graph-link-${l.kind}${cross ? ' graph-link-cross' : ''}`;
-    const head = `M${graphRound(pa.x)} ${graphRound(pa.y)}`;
-    if (l.kind === 'wait') {
-      const dx = pb.x - pa.x;
-      const dy = pb.y - pa.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const trim = graphRadius(b) + 2;
-      const ex = graphRound(pb.x - (dx / dist) * trim);
-      const ey = graphRound(pb.y - (dy / dist) * trim);
-      return { from: l.from, to: l.to, kind: l.kind, d: `${head}L${ex} ${ey}`, cls, arrow: true };
-    }
-    let d = `${head}L${graphRound(pb.x)} ${graphRound(pb.y)}`;
-    if (curved) {
-      const qx = graphRound((pa.x + pb.x) / 2 * 0.8 + centres[clumpOf(b)] * 0.2);
-      const qy = graphRound((pa.y + pb.y) / 2 * 0.8);
-      d = `${head}Q${qx} ${qy} ${graphRound(pb.x)} ${graphRound(pb.y)}`;
-    }
-    return { from: l.from, to: l.to, kind: l.kind, d, cls, arrow: false };
+    return { from: l.from, to: l.to, kind: l.kind, d: paths[i], cls, arrow: l.kind === 'wait' };
   });
 
   const rings = layout.rings.map((r) => ({ cx: graphRound(r.cx), r: graphRound(r.r), label: r.label, cls: 'graph-ring' }));
@@ -520,6 +569,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GRAPH_LAYOUTS, mergeGraphLayout,
     graphBuild, graphRadius, graphNeighbours,
     graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
+    graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
     graphVisibleIds, graphZoomAt, graphPlan,
   };
@@ -532,6 +582,11 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphLayoutTiers = graphLayoutTiers;
   window.graphLayoutStatus = graphLayoutStatus;
   window.graphLayoutForce = graphLayoutForce;
+  window.graphForceSim = graphForceSim;
+  window.graphForceStep = graphForceStep;
+  window.graphForcePositions = graphForcePositions;
+  window.graphWithPositions = graphWithPositions;
+  window.graphLinkPaths = graphLinkPaths;
   window.graphLayout = graphLayout;
   window.graphSignature = graphSignature;
   window.graphLayoutCacheClear = graphLayoutCacheClear;

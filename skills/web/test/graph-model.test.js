@@ -6,6 +6,7 @@ const {
   graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
   graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
   graphVisibleIds, graphZoomAt, graphPlan,
+  graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
 } = require('../web/graph-model');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
@@ -224,6 +225,14 @@ test('status: archived cards form a second clump to the right with the same ring
   assert.ok(Math.abs(ringOfNode(l, 2, l.rings[4].cx) - l.rings[4].r) < 1e-6);
   assert.deepStrictEqual(l.titles.map((t) => t.text), ['live', 'archive']);
   assert.ok(finite(l));
+});
+
+test('plan: a card with no relation is marked loose so the view can skip the grab cursor', () => {
+  const m = build([card(1), card(2, { parent: 1 }), card(3)]);
+  const plan = graphPlan(m, graphLayout(m, 'force'), planOpts());
+  const cls = (id) => plan.nodes.find((n) => n.id === id).cls.split(' ');
+  assert.ok(cls(3).includes('is-loose'));
+  assert.ok(!cls(1).includes('is-loose') && !cls(2).includes('is-loose'));
 });
 
 test('status: the group titles sit inside the bounds the view fits to', () => {
@@ -491,4 +500,70 @@ test('tiers: a 6000-deep parent chain lays out without recursing', () => {
   const l = graphLayoutTiers(m);
   assert.strictEqual(l.pos.size, 6000);
   assert.ok(finite(l));
+});
+
+// --- force stepper ---------------------------------------------------------------
+
+const starCards = () => [card(1), ...[2, 3, 4, 5].map((i) => card(i, { parent: 1 })), card(6, { parent: 5 }), card(7), card(8, { parent: 7 })];
+
+test('force stepper: graphLayoutForce equals a stepper run of the documented schedule', () => {
+  const m = build(starCards());
+  const sim = graphForceSim(m);
+  let alpha = 1;
+  for (let i = 0; i < sim.iterations; i++) { graphForceStep(sim, alpha, null); alpha *= 0.985; }
+  const stepped = graphForcePositions(sim);
+  const layout = graphLayoutForce(m);
+  for (const [id, p] of stepped) assert.deepStrictEqual(layout.pos.get(id), p);
+  assert.strictEqual(sim.iterations, 300);
+});
+
+test('force stepper: deterministic, finite, and a seed starts the nodes where they are', () => {
+  const m = build(starCards());
+  const run = () => { const s = graphForceSim(m); for (let i = 0; i < 20; i++) graphForceStep(s, 0.5, null); return [...graphForcePositions(s)]; };
+  assert.deepStrictEqual(run(), run());
+  for (const [, p] of run()) assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
+  const seed = new Map([[1, { x: 500, y: -40 }]]);
+  const s = graphForceSim(m, seed);
+  assert.deepStrictEqual(graphForcePositions(s).get(1), { x: 500, y: -40 });
+});
+
+test('force stepper: a pinned node stays exactly at its pin and pulls its neighbours along', () => {
+  const m = build(starCards());
+  const layout = graphLayoutForce(m);
+  const sim = graphForceSim(m, layout.pos);
+  const start = graphForcePositions(sim);
+  const home = start.get(1);
+  const pin = { id: 1, x: home.x + 200, y: home.y };
+  for (let i = 0; i < 40; i++) graphForceStep(sim, 0.3, pin);
+  const end = graphForcePositions(sim);
+  assert.deepStrictEqual(end.get(1), { x: pin.x, y: pin.y });
+  const d = (p) => Math.hypot(p.x - pin.x, p.y - pin.y);
+  const gain = (id) => d(start.get(id)) - d(end.get(id));
+  assert.ok(gain(2) > 0 && gain(3) > 0 && gain(4) > 0 && gain(5) > 0);
+  assert.ok(gain(2) > gain(7), 'a direct neighbour follows more than an unrelated card');
+  assert.ok([...end.values()].every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)));
+});
+
+test('graphLinkPaths matches the d strings graphPlan emits, in every layout', () => {
+  const m = build([card(1), card(2, { parent: 1 }), card(3, { parent: 1, waiting_for: [2] }), card(4, { status: 'done', archived: true, waiting_for: [1] })]);
+  for (const kind of GRAPH_LAYOUTS) {
+    const layout = graphLayout(m, kind, { statuses: ['todo', 'done'] });
+    const plan = graphPlan(m, layout, { kind });
+    assert.deepStrictEqual(graphLinkPaths(m, layout, kind), plan.links.map((l) => l.d), kind);
+    assert.strictEqual(graphLinkPaths(m, layout).length, m.links.length);
+  }
+});
+
+test('graphWithPositions returns a new layout, moves only the named cards and refits the bounds', () => {
+  const m = build(starCards());
+  const layout = graphLayoutForce(m);
+  const before = JSON.stringify({ pos: [...layout.pos], bounds: layout.bounds });
+  const next = graphWithPositions(layout, m, new Map([[1, { x: 5000, y: 0 }], [99, { x: 1, y: 1 }]]));
+  assert.notStrictEqual(next, layout);
+  assert.notStrictEqual(next.pos, layout.pos);
+  assert.strictEqual(JSON.stringify({ pos: [...layout.pos], bounds: layout.bounds }), before);
+  assert.deepStrictEqual(next.pos.get(1), { x: 5000, y: 0 });
+  assert.deepStrictEqual(next.pos.get(2), layout.pos.get(2));
+  assert.ok(!next.pos.has(99));
+  assert.ok(next.bounds.x1 >= 5000);
 });

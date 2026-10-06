@@ -24,7 +24,9 @@ New views join the grammar by stamping the class/attribute pair. Exceptions
 are explicit: map ghost stubs (filter-hidden cards) are never selectable;
 bulk-drag of a selection stays board-only. Gantt clicks ride the native
 post-pointerup click with a one-shot phantom-click suppressor — the one
-timing-sensitive spot (documented at suppressGanttPhantomClick). The Graph's pan swallows the phantom click after a drag too, alongside the Gantt's, but arms a one-shot capture listener per pan instead of keeping a flag.
+timing-sensitive spot (documented at suppressGanttPhantomClick). The Graph's pan and node drag swallow the phantom click after a drag too, alongside the Gantt's, but arm a one-shot capture listener per drag instead of keeping a flag.
+
+The Graph is a deliberate exception to "click opens": a plain click on a Graph card selects it (painted in place, no re-render) and a double click, or Enter on a focused card, opens it. Dragging a card in the Force layout makes a bare click a selection gesture, so opening moves to the double click. A capture-phase listener on the Graph stops a plain click before the shared document handler sees it; ctrl/cmd+click, shift+click and right-click stay the shared grammar.
 
 ## Amendment (2026-07-13): file-manager selection gestures
 

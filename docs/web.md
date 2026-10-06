@@ -126,8 +126,11 @@ per board, with **Tiers** first:
 A dot takes its status colour, grows with its relations, goes hollow when done
 and dim when archived. A ring around it means children; red is blocked, amber
 waiting, gold review. Hover or focus a dot to dim everything but that card and
-its relations. Click, ctrl-click, shift-click and right-click work as on the
-board. Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.
+its relations. Click selects a dot and keeps its relations lit; double-click (or
+Enter) opens the card. Ctrl-click, shift-click and right-click work as on the
+board. In Force, drag a dot and the cards related to it follow, like pulling on
+a thread; the arrangement stays until the cards change or the page reloads.
+Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.
 The status pills and search work as on the Gantt, Archive off by default. A card
 whose parent is hidden (archived, or filtered out by a status pill or the search)
 is drawn as a root, and Archive starts off here, unlike the Map.

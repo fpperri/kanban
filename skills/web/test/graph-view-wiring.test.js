@@ -141,3 +141,83 @@ test('filter handlers guard with hasOwnProperty; layout re-click and zoom button
   assert.match(fn('wireGraphView'), /=== graphLoadLayout\(\)\) return;/);
   assert.match(fn('wireGraphView'), /zoomBtn\.blur\(\)/);
 });
+
+test('a plain click on a node is caught in the capture phase, selects in place and skips modifier clicks', () => {
+  const body = fn('wireGraphView');
+  const m = body.match(/host\.addEventListener\('click', \(e\) => \{\n    if \(e\.ctrlKey[\s\S]*?\}, true\);/);
+  assert.ok(m, 'capture-phase click listener on the host');
+  assert.match(m[0], /e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey \|\| !graphCur\) return/);
+  assert.match(m[0], /closest\('\.graph-node'\)/);
+  assert.match(m[0], /e\.stopPropagation\(\)/);
+  assert.match(m[0], /graphSelectOnly\(/);
+  const sel = fn('graphSelectOnly');
+  assert.match(sel, /selectedIds = new Set\(\[id\]\)/);
+  assert.match(sel, /selectionAnchor = id/);
+  assert.match(sel, /classList\.toggle\('selected'/);
+  assert.ok(!/renderBoard|renderGraphView/.test(sel), 'painted in place, no rebuild');
+});
+
+test('a double click opens the card, Enter opens and Space selects', () => {
+  const body = fn('wireGraphView');
+  assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(Number\(node\.dataset\.id\)\)/);
+  assert.match(body, /host\.addEventListener\('keydown'/);
+  assert.match(body, /e\.key === 'Enter'\) \{ e\.preventDefault\(\); if \(!e\.repeat\) openCard\(/);
+  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphSelectOnly\(/);
+});
+
+test('a single selected card keeps its relations lit; hover is temporary and render re-applies the rest focus', () => {
+  assert.match(fn('graphRestFocus'), /selectedIds\.size === 1/);
+  assert.match(fn('graphRestFocus'), /graphSetFocus\(/);
+  assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);
+  const render = fn('renderGraphView');
+  assert.ok(render.trim().endsWith('graphSettleFocus();\n}'));
+  assert.match(fn('graphSettleFocus'), /hoveredId/);
+});
+
+test('the node drag is force-only, left button, no modifier, and starts only past the threshold', () => {
+  const body = fn('wireGraphView');
+  assert.match(body, /graphCur\.kind !== 'force' \|\| e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey \|\| e\.altKey\) return/);
+  assert.match(body, /e\.button !== 0/);
+  assert.match(fn('graphDragMove'), /GRAPH_PAN_THRESHOLD\) return;\n    graphBeginDrag\(d\)/);
+  const begin = fn('graphBeginDrag');
+  assert.match(begin, /isDragging = true/);
+  assert.match(begin, /graph-dragging/);
+  assert.match(begin, /graphForceSim\(graphCur\.model, graphCur\.layout\.pos\)/);
+  assert.match(fn('graphDragMove'), /graphWorldPoint\(e\)/);
+  assert.match(fn('graphDragMove'), /Math\.max\(d\.alpha, GRAPH_DRAG_ALPHA\)/);
+  assert.match(fn('graphDragFrame'), /graphForceStep\(d\.sim, d\.alpha, d\.pin\)/);
+  assert.match(fn('graphPaintDrag'), /setAttribute\('transform'/);
+  assert.match(fn('graphPaintDrag'), /graphLinkPaths\(/);
+  assert.ok(!/renderGraphView/.test(fn('graphPaintDrag')), 'no full re-render per frame');
+  assert.ok(src.includes('GRAPH_DRAG_STEPS = 2') && src.includes('GRAPH_COOL_FRAMES = 40'));
+});
+
+test('one rAF loop: renderGraphView and resetGraphViewState stop it; every exit clears isDragging', () => {
+  assert.match(fn('renderGraphView'), /graphStopDrag\(true\)/);
+  assert.ok(fn('renderGraphView').indexOf('graphStopDrag(true)') < fn('renderGraphView').indexOf('graphLoadLayout()'));
+  assert.match(fn('resetGraphViewState'), /graphStopDrag\(false\)/);
+  assert.match(fn('resetGraphViewState'), /graphArrangements\.clear\(\)/);
+  const stop = fn('graphStopDrag');
+  assert.match(stop, /cancelAnimationFrame\(d\.raf\)/);
+  assert.match(stop, /isDragging = false/);
+  assert.match(fn('graphDragKick'), /if \(!d\.raf\)/);
+  const wire = fn('wireGraphView');
+  assert.match(wire, /host\.addEventListener\('pointercancel', finish\)/);
+  assert.match(wire, /host\.addEventListener\('lostpointercapture', finish\)/);
+  assert.match(wire, /graphReleaseDrag\(e\)/);
+  assert.match(fn('graphReleaseDrag'), /graphSwallowNextClick\(\)/);
+  assert.match(fn('graphDragFrame'), /graphStopDrag\(true\)/);
+});
+
+test('dragged positions are committed with their signature and applied only when it still matches', () => {
+  assert.match(fn('graphStopDrag'), /graphArrangements\.set\(d\.sig, positions\)/);
+  const render = fn('renderGraphView');
+    assert.match(render, /kind === 'force' && graphArrangements\.has\(sig\)\) layout = graphWithPositions\(layout, model, graphArrangements\.get\(sig\)\)/);
+});
+
+test('the force layout shows a grab cursor and a drag a grabbing one, from CSS alone', () => {
+  assert.match(css, /\.graph-canvas\.graph-kind-force \.graph-node \{ cursor: grab; \}/);
+  assert.match(css, /\.graph-canvas\.graph-dragging[^{]*\{ cursor: grabbing; \}/);
+  assert.match(css, /\.graph-canvas \{[^}]*user-select: none/);
+  assert.match(src, /classList\.add\(`graph-kind-\$\{kind\}`\)/);
+});
