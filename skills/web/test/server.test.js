@@ -1499,16 +1499,16 @@ test('header title carries a copy-board-path button — payload boardDir, clipbo
   });
 });
 
-test('the map draws no orange — membership edges are not drawn at all, and a dependency between two cards under one parent draws as a plain edge', async () => {
+test('the map draws no orange — parent edges are not drawn at all, and a dependency between two cards under one parent draws as a plain edge', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     const svg = js.match(/function buildMapSvg\([\s\S]*?\nfunction /)[0];
-    // The edge loop bails out before drawing anything for a membership edge —
+    // The edge loop bails out before drawing anything for a parent edge —
     // it still shapes layout (layerNodes/participants, upstream of this
     // function), but never reaches the <path> it used to draw dashed orange.
-    assert.match(svg, /if \(e\.kind === 'epic'\) return;/,
-      'a membership edge is skipped before any path/marker is built for it');
+    assert.match(svg, /if \(e\.kind === 'parent'\) return;/,
+      'a parent edge is skipped before any path/marker is built for it');
     // No trace of the old orange-only vocabulary is left in the drawing code:
     // no epic-flavored class, no conditional marker choice, no second marker def.
     assert.doesNotMatch(svg, /epic-edge|epic-chain|epicEdge|chainEdge|epicChain|map-arrow-epic/,

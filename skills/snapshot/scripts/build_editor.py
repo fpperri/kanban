@@ -1576,17 +1576,17 @@ $("calview").style.display=v==="calendar"?"":"none"}
 // ghost stub, same as a stale/deleted reference. Nodes carry both flags:
 // derived done-aware waiting + the manual blocked sticker.
 //
-// A child card's `pt` (parsed `parent:` frontmatter) becomes a child->parent edge,
-// kind "epic" (the name predates nesting and is pinned; waiting_for edges are
+// A child card's `pt` (its parent on this board, read by the embedded nesting
+// module) becomes a child->parent edge, kind "parent" (waiting_for edges are
 // kind "dep"). Two suppression rules —
-// nonTerminal (a member some OTHER member of the same parent already depends on
-// skips its own direct hop) and "sequencing wins the pair" (skip the membership
+// nonTerminal (a child some OTHER child of the same parent already depends on
+// skips its own direct edge) and "sequencing wins the pair" (skip the parent
 // edge if a dep edge already connects the same two ids, either direction) —
 // are computed over the FULL board (fullEdgeSets, keyed off DATA), never the
 // filtered `cards` this function is called with: a search/status filter must
-// not reroute membership, mirroring kanban-web's own comment on this
+// not reroute parent edges, mirroring kanban-web's own comment on this
 // exact point. An edge is only ADDED when its owning card (the waiter for a
-// dep edge, the member for a membership edge) is present in `cards` — the same
+// dep edge, the child for a parent edge) is present in `cards` — the same
 // asymmetry the original dep-only version already had; the other endpoint
 // ghosts if absent, whether truly off-board or merely filtered out.
 function parentOfIn(byIdMap,id){
@@ -1618,13 +1618,13 @@ const cid=Number(c.id),p=parentOfIn(full.byIdFull,cid);
 if(p==null)return;
 if(full.nonTerminal.has(p+":"+cid))return;
 if(full.seenDep.has(cid+">"+p)||full.seenDep.has(p+">"+cid))return;
-addEdge(cid,p,"epic")});
+addEdge(cid,p,"parent")});
 const ghosts=[...ghostIds].filter(id=>!nodeIds.has(id)).sort((a,b)=>a-b).map(id=>({id:id,title:null,ghost:true}));
 const touchedByDep=new Set(),touchedByAny=new Set();
 edges.forEach(e=>{touchedByAny.add(e.from);touchedByAny.add(e.to);if(e.kind==="dep"){touchedByDep.add(e.from);touchedByDep.add(e.to)}});
 // The "no dependencies" row is keyed off SEQUENCING (dep) edges
 // only; the layered graph draws every node touched by ANY edge — a node
-// whose only edge is membership joins BOTH.
+// whose only edge is a parent edge joins BOTH.
 const isolated=nodes.filter(n=>!touchedByDep.has(n.id));
 const participants=nodes.filter(n=>touchedByAny.has(n.id));
 return {nodes:nodes,edges:edges,ghosts:ghosts,isolated:isolated,participants:participants}}
@@ -1730,9 +1730,9 @@ pos.forEach(p=>{maxX=Math.max(maxX,p.x+MW)});
 const BOW=MW*0.9;
 const edgesG=svgEl("g");
 graph.edges.forEach(e=>{
-// Membership edges (kind "epic") still shape the layout above (fed into
+// Parent edges (kind "parent") still shape the layout above (fed into
 // layerNodes), but are never drawn.
-if(e.kind==="epic")return;
+if(e.kind==="parent")return;
 const from=pos.get(e.from),to=pos.get(e.to);
 if(!from||!to)return;
 const back=(layer.get(e.to)||0)<=(layer.get(e.from)||0);

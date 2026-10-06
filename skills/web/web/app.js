@@ -1051,8 +1051,8 @@ function renderMapView() {
   // renderMapView() call — manual, poll, drag, toggle, search.
   const sections = loadMapSectionsCollapsed();
   // The graph lays out every node touched by ANY edge — dep or
-  // parent membership — while graph.isolated stays dep-keyed; a parent whose only
-  // edges are membership sits in BOTH: laid out in the graph AND listed
+  // parent edge — while graph.isolated stays dep-keyed; a parent whose only
+  // edges are parent edges sits in BOTH: laid out in the graph AND listed
   // in the no-dependencies row. The two derivations (and
   // their different kind-keying) are buildDependencyGraph's own, unit-pinned.
   const participantIds = graph.participants;
@@ -1295,12 +1295,12 @@ function buildMapSvg(graph, layer) {
 
   let edgesSvg = '';
   graph.edges.forEach((e) => {
-    // Membership edges (parent -> child) still shape the layout (they're
-    // fed into layerNodes and decide graph participation), but they are
+    // A card's edge to its parent (child -> parent) still shapes the layout
+    // (it's fed into layerNodes and decides graph participation), but it is
     // never drawn. A dependency between two cards under the same
     // parent is a real, gate-enforced waiting_for edge and draws exactly
     // like any other dependency below — no special casing.
-    if (e.kind === 'epic') return;
+    if (e.kind === 'parent') return;
     const from = pos.get(e.from);
     const to = pos.get(e.to);
     if (!from || !to) return; // defensive: every edge endpoint is always laid out, but never let a mismatch crash the render

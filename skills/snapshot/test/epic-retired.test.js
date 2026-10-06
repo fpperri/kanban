@@ -28,8 +28,8 @@ function build(config) {
 
 const source = fs.readFileSync(buildScript, 'utf8').replace(/\r\n/g, '\n');
 
-test('the builder names an epic only for the map\'s membership edge kind', () => {
-  const stray = source.split('\n').filter((l) => EPIC_WORD.test(l) && !/kind\s*[!=]==?\s*["']epic["']|kind "epic"|addEdge\(cid,p,"epic"\)/.test(l));
+test('the builder never says epic', () => {
+  const stray = source.split('\n').filter((l) => EPIC_WORD.test(l));
   assert.deepStrictEqual(stray, []);
 });
 

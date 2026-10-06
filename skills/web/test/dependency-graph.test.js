@@ -253,57 +253,57 @@ test('layerNodes on a larger graph with an embedded cycle still terminates and l
   assert.ok(layer.get(2) < layer.get(3) || layer.get(3) < layer.get(2)); // both assigned, some order
 });
 
-// --- epic membership edges (children carry `parent: <epic-id>`) ----
+// --- parent edges (children carry `parent: <parent-id>`) ----
 
-const epicBoard = [
-  { id: 10, title: 'the epic', status: 'doing', waiting_for: [] },
+const family = [
+  { id: 10, title: 'the parent', status: 'doing', waiting_for: [] },
   { id: 11, title: 'child a', status: 'todo', parent: 10, waiting_for: [] },
   { id: 12, title: 'child b', status: 'todo', parent: 10, waiting_for: [11] },
 ];
 
-test('only TERMINAL members hop to the epic — the chain flows card to card, one dashed edge into the sink', () => {
-  // 11 -> 12 is the chain; 12 is the terminal (no member waits on it), so
-  // only 12 hops to the epic. 11's work reaches the epic THROUGH the chain.
-  const g = buildDependencyGraph(epicBoard, null);
-  const epicEdges = g.edges.filter((e) => e.kind === 'epic');
-  assert.deepStrictEqual(epicEdges.map((e) => `${e.from}->${e.to}`), ['12->10']);
+test('only TERMINAL children hop to the parent — the chain flows card to card, one edge into the parent', () => {
+  // 11 -> 12 is the chain; 12 is the terminal (no child waits on it), so
+  // only 12 hops to the parent. 11's work reaches the parent THROUGH the chain.
+  const g = buildDependencyGraph(family, null);
+  const parentEdges = g.edges.filter((e) => e.kind === 'parent');
+  assert.deepStrictEqual(parentEdges.map((e) => `${e.from}->${e.to}`), ['12->10']);
   const depEdges = g.edges.filter((e) => e.kind === 'dep');
   assert.deepStrictEqual(depEdges.map((e) => `${e.from}->${e.to}`), ['11->12']);
 });
 
-test('an intra-epic dep edge is flagged epicChain (both endpoints share the parent); mixed edges are not', () => {
+test('a dep edge between two children of one parent is flagged siblingChain (both endpoints share the parent); mixed edges are not', () => {
   const g = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
-    { id: 11, title: 'member a', status: 'todo', parent: 10, waiting_for: [] },
-    { id: 12, title: 'member b', status: 'todo', parent: 10, waiting_for: [11, 30] },
+    { id: 10, title: 'parent', status: 'doing', waiting_for: [] },
+    { id: 11, title: 'child a', status: 'todo', parent: 10, waiting_for: [] },
+    { id: 12, title: 'child b', status: 'todo', parent: 10, waiting_for: [11, 30] },
     { id: 30, title: 'outsider', status: 'todo', waiting_for: [11] },
   ], null);
-  const flags = Object.fromEntries(g.edges.filter((e) => e.kind === 'dep').map((e) => [`${e.from}->${e.to}`, !!e.epicChain]));
+  const flags = Object.fromEntries(g.edges.filter((e) => e.kind === 'dep').map((e) => [`${e.from}->${e.to}`, !!e.siblingChain]));
   assert.deepStrictEqual(flags, {
-    '11->12': true,   // member -> member, same epic: the chain wears the color
-    '30->12': false,  // outsider -> member: plain grey
-    '11->30': false,  // member -> outsider: plain grey
+    '11->12': true,   // child -> child, same parent
+    '30->12': false,  // outsider -> child: plain grey
+    '11->30': false,  // child -> outsider: plain grey
   });
 });
 
-test('a chainless member is its own terminal — it keeps a direct membership hop, nothing orphans silently', () => {
+test('a chainless child is its own terminal — it keeps a direct parent edge, nothing orphans silently', () => {
   const g = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
+    { id: 10, title: 'parent', status: 'doing', waiting_for: [] },
     { id: 11, title: 'stray note', status: 'todo', parent: 10, waiting_for: [] },
   ], null);
-  assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['11->10:epic']);
+  assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['11->10:parent']);
 });
 
-test('terminality is computed on the FULL board — a search-hidden downstream member still absorbs the upstream hop', () => {
+test('terminality is computed on the FULL board — a search-hidden downstream child still absorbs the upstream hop', () => {
   // 12 (hidden) waits on 11: 11 is NOT terminal even though its downstream is filtered out.
-  const g = buildDependencyGraph(epicBoard, new Set([10, 11]));
-  const epicEdges = g.edges.filter((e) => e.kind === 'epic');
-  assert.deepStrictEqual(epicEdges.map((e) => `${e.from}->${e.to}:${e.fromGhost}`), ['12->10:true']);
+  const g = buildDependencyGraph(family, new Set([10, 11]));
+  const parentEdges = g.edges.filter((e) => e.kind === 'parent');
+  assert.deepStrictEqual(parentEdges.map((e) => `${e.from}->${e.to}:${e.fromGhost}`), ['12->10:true']);
 });
 
-test('an epic with only membership edges joins the graph AND stays in the no-dependencies row — isolated is keyed off dep edges only', () => {
-  const g = buildDependencyGraph(epicBoard, null);
-  // the epic participates in edges, so the layered graph will lay it out...
+test('a parent with only parent edges joins the graph AND stays in the no-dependencies row — isolated is keyed off dep edges only', () => {
+  const g = buildDependencyGraph(family, null);
+  // the parent participates in edges, so the layered graph will lay it out...
   assert.ok(g.edges.some((e) => e.to === 10));
   // ...but "No dependencies" means no SEQUENCING deps, so it still lists there
   assert.deepStrictEqual(g.isolated, [10]);
@@ -311,11 +311,11 @@ test('an epic with only membership edges joins the graph AND stays in the no-dep
   assert.ok(!g.isolated.includes(11) && !g.isolated.includes(12));
 });
 
-test('parent does not make anyone waiting — membership is not sequencing', () => {
-  const g = buildDependencyGraph(epicBoard, null);
-  const epicNode = g.nodes.find((n) => n.id === 10);
+test('parent does not make anyone waiting — nesting is not sequencing', () => {
+  const g = buildDependencyGraph(family, null);
+  const parentNode = g.nodes.find((n) => n.id === 10);
   const childA = g.nodes.find((n) => n.id === 11);
-  assert.strictEqual(epicNode.waiting, false);
+  assert.strictEqual(parentNode.waiting, false);
   assert.strictEqual(childA.waiting, false); // parent: 10 (not done) imposes nothing
   const childB = g.nodes.find((n) => n.id === 12);
   assert.strictEqual(childB.waiting, true); // waiting_for: [11] still does
@@ -324,23 +324,23 @@ test('parent does not make anyone waiting — membership is not sequencing', () 
 test('a dangling parent id renders a missing ghost stub, same courtesy as waiting_for', () => {
   const g = buildDependencyGraph([{ id: 5, title: 'orphan', status: 'todo', parent: 99, waiting_for: [] }], null);
   assert.deepStrictEqual(g.ghosts.map((gh) => [gh.id, gh.missing]), [[99, true]]);
-  assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}:${e.toGhost}`), ['5->99:epic:true']);
+  assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}:${e.toGhost}`), ['5->99:parent:true']);
 });
 
-test('a search-hidden epic ghosts into its visible terminal\'s graph', () => {
-  const g = buildDependencyGraph(epicBoard, new Set([12])); // 12 is the terminal; epic 10 hidden
-  assert.deepStrictEqual(g.edges.filter((e) => e.kind === 'epic').map((e) => `${e.from}->${e.to}:${e.toGhost}`), ['12->10:true']);
+test('a search-hidden parent ghosts into its visible terminal\'s graph', () => {
+  const g = buildDependencyGraph(family, new Set([12])); // 12 is the terminal; parent 10 hidden
+  assert.deepStrictEqual(g.edges.filter((e) => e.kind === 'parent').map((e) => `${e.from}->${e.to}:${e.toGhost}`), ['12->10:true']);
   assert.ok(g.ghosts.some((gh) => gh.id === 10 && !gh.missing));
 });
 
-test('layerNodes puts the epic BELOW its children — the epic closes last, so it sinks', () => {
-  const g = buildDependencyGraph(epicBoard, null);
+test('layerNodes puts the parent BELOW its children — down is later, and a parent ends the work under it', () => {
+  const g = buildDependencyGraph(family, null);
   const ids = new Set(); g.edges.forEach((e) => { ids.add(e.from); ids.add(e.to); });
   const layer = layerNodes([...ids], g.edges);
   assert.ok(layer.get(10) > layer.get(11) && layer.get(10) > layer.get(12));
 });
 
-test('a self-parent adds no edge (nonsense membership); parent null/absent adds nothing', () => {
+test('a self-parent adds no edge (nonsense); parent null/absent adds nothing', () => {
   const g = buildDependencyGraph([
     { id: 1, title: 'plain', status: 'todo', waiting_for: [] },
     { id: 2, title: 'self', status: 'todo', parent: 2, waiting_for: [] },
@@ -360,27 +360,27 @@ test('a parent on another board (board#id) adds no edge and no ghost: the map do
   assert.ok(g.nodes.every((n) => Number.isInteger(n.id)), 'no node with a non-numeric id');
 });
 
-test('sequencing wins the UNORDERED pair: a dep edge between child and epic in either direction suppresses the membership edge', () => {
-  // child waits on its epic — opposite-direction overlap would fabricate a 2-cycle
+test('sequencing wins the UNORDERED pair: a dep edge between child and parent in either direction suppresses the parent edge', () => {
+  // child waits on its parent — opposite-direction overlap would fabricate a 2-cycle
   const a = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
+    { id: 10, title: 'parent', status: 'doing', waiting_for: [] },
     { id: 11, title: 'child+dep', status: 'todo', parent: 10, waiting_for: [10] },
   ], null);
   assert.deepStrictEqual(a.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['10->11:dep']);
-  // epic waits on its child (the natural wayfinder shape) — same-direction
+  // parent waits on its child (the natural wayfinder shape) — same-direction
   // overlap would draw orange over grey. Cross-card: the dep lives on the
   // EPIC's waiting_for, the membership on the CHILD's parent — the two-pass
   // edge build is what lets this suppression see it.
   const b = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', waiting_for: [11] },
+    { id: 10, title: 'parent', status: 'doing', waiting_for: [11] },
     { id: 11, title: 'child', status: 'todo', parent: 10, waiting_for: [] },
   ], null);
   assert.deepStrictEqual(b.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['11->10:dep']);
 });
 
-test('participants: any-edge-touched nodes + ghosts, in the pure module — epic in both participants and isolated', () => {
+test('participants: any-edge-touched nodes + ghosts, in the pure module — parent in both participants and isolated', () => {
   const g = buildDependencyGraph([
-    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
+    { id: 10, title: 'parent', status: 'doing', waiting_for: [] },
     { id: 11, title: 'child', status: 'todo', parent: 10, waiting_for: [] },
     { id: 12, title: 'loner', status: 'todo', waiting_for: [] },
   ], null);
@@ -413,13 +413,13 @@ test('treeIds/pathIds accept a numeric-string id (as tree:<id>/path:<id> pass th
   assert.deepStrictEqual(pathIds(CARDS, '3'), pathIds(CARDS, 3));
 });
 
-test('treeIds: the whole chain 1->2->3 is one component from any member', () => {
+test('treeIds: the whole chain 1->2->3 is one component from any child', () => {
   assert.deepStrictEqual(treeIds(CARDS, 1), new Set([1, 2, 3]));
   assert.deepStrictEqual(treeIds(CARDS, 2), new Set([1, 2, 3]));
   assert.deepStrictEqual(treeIds(CARDS, 3), new Set([1, 2, 3]));
 });
 
-test('treeIds spans an archived member — archive is a location, not exclusion, same as buildDependencyGraph', () => {
+test('treeIds spans an archived child — archive is a location, not exclusion, same as buildDependencyGraph', () => {
   assert.deepStrictEqual(treeIds(CARDS, 6), new Set([5, 6]));
 });
 
@@ -436,26 +436,26 @@ test('cone vs component divergence: pathIds excludes a sibling branch that tree 
   assert.deepStrictEqual(pathIds(fork, 2), new Set([1, 2]));
 });
 
-test('pathIds: membership edge direction — the epic sink is downstream of a member (walking forward from the member reaches its epic)', () => {
-  // epicBoard: 11 -> 12 (dep), 12 -> 10 (epic, terminal-only hop)
-  assert.deepStrictEqual(pathIds(epicBoard, 11), new Set([11, 12, 10]));
+test('pathIds: parent edge direction — the parent is downstream of a child (walking forward from the child reaches its parent)', () => {
+  // family: 11 -> 12 (dep), 12 -> 10 (parent, terminal-only hop)
+  assert.deepStrictEqual(pathIds(family, 11), new Set([11, 12, 10]));
 });
 
-test('pathIds on an epic pulls in all member chains upstream (walking backward from the epic reaches every member transitively)', () => {
-  assert.deepStrictEqual(pathIds(epicBoard, 10), new Set([10, 12, 11]));
+test('pathIds on a parent pulls in all child chains upstream (walking backward from the parent reaches every child transitively)', () => {
+  assert.deepStrictEqual(pathIds(family, 10), new Set([10, 12, 11]));
 });
 
-test('treeIds on an epic is the same whole component as any member (undirected)', () => {
-  assert.deepStrictEqual(treeIds(epicBoard, 10), new Set([10, 11, 12]));
+test('treeIds on a parent is the same whole component as any child (undirected)', () => {
+  assert.deepStrictEqual(treeIds(family, 10), new Set([10, 11, 12]));
 });
 
-test('pathIds/treeIds respect membership-edge suppression — a suppressed membership edge (sequencing wins the pair) never appears in traversal', () => {
+test('pathIds/treeIds respect parent-edge suppression — a suppressed parent edge (sequencing wins the pair) never appears in traversal', () => {
   const board = [
-    { id: 10, title: 'epic', status: 'doing', waiting_for: [] },
+    { id: 10, title: 'parent', status: 'doing', waiting_for: [] },
     { id: 11, title: 'child+dep', status: 'todo', parent: 10, waiting_for: [10] },
     { id: 20, title: 'unrelated', status: 'todo', waiting_for: [] },
   ];
-  // Only the dep edge 10->11 survives (the membership edge is suppressed);
+  // Only the dep edge 10->11 survives (the parent edge is suppressed);
   // 20 shares no edge with either, so it's excluded from both traversals.
   assert.deepStrictEqual(treeIds(board, 10), new Set([10, 11]));
   assert.deepStrictEqual(pathIds(board, 11), new Set([11, 10]));

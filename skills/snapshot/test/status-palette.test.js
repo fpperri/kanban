@@ -187,10 +187,10 @@ test('the map draws no epic-colored edges and the snapshot owns no epic color', 
   assert.ok(!/border-color:#f0883e/.test(src));
 });
 
-test('the map draws a membership edge (kind "epic") as nothing — not even a plain edge', () => {
+test('the map draws a parent edge (kind "parent") as nothing — not even a plain edge', () => {
   const fn = extractFunction('buildMapSvg');
   assert.ok(fn.trim().endsWith('return svg}'), 'extractFunction should stop at buildMapSvg\'s own closing brace, not run past it');
-  assert.match(fn, /if\(e\.kind===["']epic["']\)return/, 'the edge loop bails out before drawing a membership edge');
+  assert.match(fn, /if\(e\.kind===["']parent["']\)return/, 'the edge loop bails out before drawing a parent edge');
   assert.doesNotMatch(fn, /epicedge|map-arrow-epic/, 'no epic-only class or marker reference remains in the drawing code');
 });
 

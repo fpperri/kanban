@@ -46,7 +46,8 @@ function isCardWaiting(c, byId) {
 // own isWaiting() check) and the ids currently matching the search box
 // (`visibleIds`: a Set, or null/undefined meaning "no active query — every
 // card is visible", mirroring search.js's own "empty query matches
-// everything").
+// everything"). `ctx` is the nesting context ({ board }), which reads a parent
+// written as this board's own name.
 //
 // Design decisions:
 // - An edge with NEITHER endpoint visible is dropped entirely — only
@@ -65,8 +66,7 @@ function isCardWaiting(c, byId) {
 //   of mixing them into the layered graph.
 //
 // Parent edges: a child card's `parent: <parent-id>`
-// becomes a child->parent edge with `kind: 'epic'` (the name predates nesting and
-// is pinned by the map and the snapshot; waiting_for edges carry
+// becomes a child->parent edge with `kind: 'parent'` (waiting_for edges carry
 // `kind: 'dep'`). The parent lays out BELOW its children, not above them: under
 // the map's "down = completes later" convention a parent is the end of the work
 // under it, and above them it read as a false prerequisite. Its status is still
@@ -103,29 +103,29 @@ function buildDependencyGraph(cards, visibleIds, ctx) {
     if (!toVisible) ghostIds.add(to);
     edges.push({ from, to, kind, fromGhost: !fromVisible, toGhost: !toVisible });
   };
-  // Membership hops into the sink ALONG the chain instead of fanning from
-  // every member. `nonTerminal` collects, per parent, the members some OTHER
-  // member of the same parent waits on — their work continues inside the
-  // parent, so they get no direct hop; only the chain's terminals (nothing
-  // downstream inside the parent, a chainless member being its own one-card
-  // chain) hop into the sink. Computed on the FULL board, like waiting — a
-  // search filter must not reroute membership.
+  // Parent edges run ALONG a chain of children instead of fanning from every
+  // child. `nonTerminal` collects, per parent, the children some OTHER child of
+  // the same parent waits on — their work continues inside the parent, so they
+  // get no direct edge; only the chain's terminals (nothing downstream inside
+  // the parent, a chainless child being its own one-card chain) get one into
+  // the parent. Computed on the FULL board, like waiting — a search filter must
+  // not reroute parent edges.
   const parentOf = (id) => {
     const card = byId.get(id);
     const parent = card ? NEST.localParentId(card, ctx) : null;
     return parent !== null && parent !== card.id ? parent : null;
   };
-  const nonTerminal = new Set(); // `${parentId}:${memberId}`
+  const nonTerminal = new Set(); // `${parentId}:${childId}`
   for (const c of cards) {
     if (parentOf(c.id) == null) continue;
     for (const depId of c.waiting_for || []) {
       if (parentOf(depId) === parentOf(c.id)) nonTerminal.add(`${parentOf(c.id)}:${depId}`);
     }
   }
-  // Two passes: every dep edge lands before any membership edge, so the
+  // Two passes: every dep edge lands before any parent edge, so the
   // sequencing-wins-the-pair check below sees the whole dep set — the parent's
   // own waiting_for lives on a DIFFERENT card than the child's parent field.
-  // A dep edge between two members of the SAME parent is flagged `epicChain`
+  // A dep edge between two children of the SAME parent is flagged `siblingChain`
   // (set only when true, so edge shapes elsewhere stay untouched) — it's
   // still a real, gate-enforced dependency, just one the map draws exactly
   // like any other edge (no special treatment). Mixed and cross-parent edges
@@ -135,13 +135,13 @@ function buildDependencyGraph(cards, visibleIds, ctx) {
       addEdge(depId, c.id, 'dep');
       const e = edges[edges.length - 1];
       if (e && e.from === depId && e.to === c.id && parentOf(depId) != null && parentOf(depId) === parentOf(c.id)) {
-        e.epicChain = true;
+        e.siblingChain = true;
       }
     }
   }
   for (const c of cards) {
-    // Membership edge, terminal member -> parent (the parent is the
-    // sink; it closes last). A parent on another board adds no edge; self-parent adds
+    // Parent edge, terminal child -> parent (a parent lays out below its
+    // children). A parent on another board adds no edge; self-parent adds
     // nothing. When the pair already has a dep edge IN EITHER DIRECTION (the
     // card waits on its parent, or the parent waits on the card), sequencing
     // wins the pair: same-direction overlap would add a redundant second
@@ -152,7 +152,7 @@ function buildDependencyGraph(cards, visibleIds, ctx) {
     if (parent !== null
         && !nonTerminal.has(`${parent}:${c.id}`)
         && !seenEdges.has(`${parent}->${c.id}:dep`) && !seenEdges.has(`${c.id}->${parent}:dep`)) {
-      addEdge(c.id, parent, 'epic');
+      addEdge(c.id, parent, 'parent');
     }
   }
 
@@ -163,7 +163,7 @@ function buildDependencyGraph(cards, visibleIds, ctx) {
 
   // The isolated row is keyed off SEQUENCING edges only, while the
   // layered graph lays out every node touched by ANY edge (`participants`) —
-  // a node whose only edges are membership joins the graph and the row
+  // a node whose only edges are parent edges joins the graph and the row
   // both. Both derivations live here, in the pure module, so their different
   // kind-keying stays unit-pinned rather than re-derived in the view.
   const touchedByDep = new Set();
@@ -219,9 +219,9 @@ function layerNodes(nodeIds, edges) {
 // "Dependency tree" (connected component) and "Dependency path"
 // (directed cone) for the tree:<id> / path:<id> search terms. Both reuse
 // buildDependencyGraph(cards, null).edges as their ONLY source of truth for
-// adjacency — the exact edge set (waiting_for + membership, with its
+// adjacency — the exact edge set (waiting_for + parent edges, with its
 // sequencing-wins-the-pair/nonTerminal suppression already applied) that the
-// map's graph is built from (membership shapes layout but draws no line).
+// map's graph is built from (parent edges shape layout but draw no line).
 // Neither function re-derives waiting_for/parent iteration.
 //
 // - treeIds: undirected flood-fill (the connected component) — "everything

@@ -153,13 +153,15 @@ test('an epic wears the color the board\'s types: list gives it, and a neutral c
 
 // --- the browser sources ---------------------------------------------------------
 
-test('app.js names an epic only for the map\'s membership edge kind', () => {
-  const stray = web('app.js').split('\n').filter((l) => EPIC_WORD.test(l) && !/kind\s*[!=]==?\s*'epic'/.test(l));
+test('app.js never says epic, and the map\'s parent edges carry the kind parent', () => {
+  const stray = web('app.js').split('\n').filter((l) => EPIC_WORD.test(l));
   assert.deepStrictEqual(stray, []);
+  const g = buildDependencyGraph([{ id: 1, title: 'P', status: 'todo', waiting_for: [] }, { id: 2, title: 'C', status: 'todo', parent: 1, waiting_for: [] }], null);
+  assert.deepStrictEqual(g.edges.map((e) => e.kind), ['parent']);
 });
 
-test('the browser modules other than the map graph and its pinned edge kind never say epic', () => {
-  for (const f of ['search.js', 'status-colors.js', 'app.html', 'app.css']) {
+test('no browser module or page says epic', () => {
+  for (const f of ['dependency-graph.js', 'search.js', 'status-colors.js', 'app.html', 'app.css']) {
     const stray = web(f).split('\n').filter((l) => EPIC_WORD.test(l));
     assert.deepStrictEqual(stray, [], f);
   }
