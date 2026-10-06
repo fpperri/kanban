@@ -65,3 +65,12 @@ test('the web skill documents the drag, the reorder call and what it refuses', (
 test('the human web doc mentions the drag', () => {
   assert.match(webDoc.replace(/\s+/g, ' '), /dragging a card between two siblings writes its `rank`/i);
 });
+
+test('the kanban skill states the ranked/unranked boundary as the module does, and does not call a drag the same rule', () => {
+  const s = section(kanbanSkill, '## Ordering a Card Among Its Siblings');
+  assert.match(s, /`last \+ 10` also lands a card ahead of any unranked sibling/);
+  assert.match(s, /between two unranked siblings, or before the first sibling when none is ranked, rank all of that parent's children/);
+  assert.match(s, /hidden and archived cards are siblings too/);
+  assert.doesNotMatch(s, /follows this same rule/);
+  assert.match(s, /reads the tiles around the drop as siblings/);
+});

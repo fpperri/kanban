@@ -104,9 +104,9 @@ Ranks step by 10, so most reorders write one card. To put a card between two sib
 
 When no whole number lies strictly between them (`b` is `a + 1`, or the two ranks are equal), renumber that parent's children instead: give every sibling, the moved card in its new place, `10`, `20`, `30` ... in the order wanted, and write only the cards whose rank changes. Archived siblings count as siblings. Touch no card outside that parent.
 
-At the ends, after the last ranked sibling write `last + 10` and before the first write `first - 10` (`0` and negative ranks are fine). Unranked siblings come after the ranked ones, so a card cannot be put among them with one rank: to place a card next to an unranked sibling, rank all of that parent's children in tens in the order they read. Write whole numbers, and leave a card unranked when its place does not matter.
+At the ends, after the last ranked sibling write `last + 10`, and before the first ranked sibling write `first - 10` (`0` and negative ranks are fine). `last + 10` also lands a card ahead of any unranked sibling, because unranked siblings come after the ranked ones; that is also why one rank cannot put a card among them. To place a card between two unranked siblings, or before the first sibling when none is ranked, rank all of that parent's children in tens in the order they read. Write whole numbers, and leave a card unranked when its place does not matter. Work from the full list of siblings: hidden and archived cards are siblings too.
 
-A drag in `kanban-web`'s Outline sort follows this same rule, and like it writes `rank` only, never `parent`. Bump `updated` on every card file you write.
+A drag in `kanban-web`'s Outline sort ends in the same writes, but it first reads the tiles around the drop as siblings (a tile among a sibling's own children stands for that sibling), and like this section it writes `rank` only, never `parent`. Bump `updated` on every card file you write.
 
 ## Board files that aren't cards
 

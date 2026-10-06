@@ -81,3 +81,8 @@ test('app.js does not call the combobox form fields three', () => {
   const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
   assert.doesNotMatch(app, /The three form fields/);
 });
+
+test('the human web doc says the Archive column keeps id order on a board that nests', () => {
+  const guide = read('..', 'docs', 'web.md').replace(/\s+/g, ' ');
+  assert.match(guide, /it is the default sort on a board where any card has a `rank` or a `parent`, except in the Archive column, which keeps id order/);
+});

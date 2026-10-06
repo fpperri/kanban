@@ -287,3 +287,20 @@ test('a tile that lies the wrong side of the siblings is refused', () => {
   assert.ok(plan(cards, 2, 8, null).error, 'a tile after the children cannot be above the drop');
   assert.ok(plan(cards, 7, null, 3).error, 'a tile before the children cannot be below the drop');
 });
+
+// --- the ranked/unranked boundary, which the kanban skill states in words ----
+
+test('between the last ranked sibling and the first unranked one a single rank, last + 10, is enough', () => {
+  const cards = [card(1), card(2, { parent: 1, rank: 10 }), card(3, { parent: 1, rank: 20 }), card(4, { parent: 1 }), card(5, { parent: 1 })];
+  assert.deepStrictEqual(plan(cards, 5, 3, 4), { rank: 30, renumber: [] });
+});
+
+test('between two unranked siblings every child of the parent is ranked in tens, the ranked ones included', () => {
+  const cards = [card(1), card(2, { parent: 1, rank: 10 }), card(4, { parent: 1 }), card(5, { parent: 1 }), card(6, { parent: 1 })];
+  assert.deepStrictEqual(plan(cards, 6, 4, 5), { rank: 30, renumber: [{ id: 4, rank: 20 }, { id: 5, rank: 40 }] });
+});
+
+test('before an unranked first sibling, with none ranked, every child of the parent is ranked in tens', () => {
+  const cards = [card(1), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { parent: 1 })];
+  assert.deepStrictEqual(plan(cards, 4, null, 2), { rank: 10, renumber: [{ id: 2, rank: 20 }, { id: 3, rank: 30 }] });
+});
