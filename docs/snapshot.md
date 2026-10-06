@@ -37,6 +37,15 @@ Gantt / Calendar, and the header carries search and a notifications bell. Cards
 show the same cues as the desktop board — here `#7` wears the amber **waiting**
 tag.
 
+## Nested cards
+
+A card with a `type` wears a chip in the color `config.yaml` gives that type.
+On a board where cards have a `rank` or a `parent`, each section lists its cards
+in outline order — parents before their children, siblings by rank — and a parent
+card shows how many layers sit below it (`▲2`) with a thin bar of how far along
+the leaves under it are. The page carries kanban-web's own nesting code, so both
+surfaces always agree.
+
 ## Getting around
 
 ![Scroll-button stack](images/snapshot-scroll-stack.jpg)
@@ -65,9 +74,12 @@ laid out for a narrow screen:
 
 ![Snapshot card sheet](images/snapshot-card-detail.jpg)
 
-Tapping a card opens its sheet in place: a status / assignee / priority pill row
-(tap a pill to edit that field), the description, an **All fields** grid for
-everything else (dates, tags, `waiting_for`, and any custom frontmatter), and
+Tapping a card opens its sheet in place: a status / assignee / priority / type
+pill row (tap a pill to edit that field), the thread of parents above it and the
+roll-up of a parent's leaves, the description, the card's children, an **All
+fields** grid for everything else (type, parent, dates, tags, `waiting_for`, and
+any custom frontmatter — never `rank`, which you change by dragging in the
+[web editor](web.md)), and
 **Dependency tree / path** buttons that narrow every view down to that card's
 dependency web (no view switch — whatever view you're on just filters to it).
 

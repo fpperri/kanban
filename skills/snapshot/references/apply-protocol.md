@@ -42,7 +42,12 @@ newline in it collapses to a space (kanban SKILL.md, `prompt`) — the editor's
 prompt field is free text a human typed on a phone, so a `:` in it is the
 common case, not the edge case. Flow-style list values (below) are the
 exception: those go in bare.
-`""` removes the key (lean frontmatter). Three keys are special:
+`""` removes the key (lean frontmatter). `type` and `parent` are ordinary raw
+assignments: `{"fm":{"type":"epic"}}`, `{"fm":{"parent":"12"}}` for a card on this
+board, `{"fm":{"parent":"fpp#4"}}` for another board's card, and `""` clears
+either. A bare `parent: fpp#4` is legal YAML (a `#` only starts a comment after a
+space) and the quoted form is too, so the quoting rule above may be applied
+either way; kanban-web reads both. The editor never sends `rank`. Three keys are special:
 `id` is ignored outright; `status` in `fm` is treated exactly like a `move`
 op (the `doing` entry gate + date-landing rules apply, never written
 verbatim); an
