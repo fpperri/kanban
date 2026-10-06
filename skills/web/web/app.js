@@ -2363,7 +2363,11 @@ function frontmatterValueHtml(k, v) {
   if (k === 'parent') {
     const ref = parseParent(plain, state.projectName);
     // a card on this board opens on click; another board's is shown, not followed
-    if (ref && ref.local) return `<code class="mention same" data-card-id="${escapeHtml(ref.id)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(ref.id)}</code>`;
+    if (ref && ref.local) {
+      const exists = state.active.concat(state.archived).some((c) => c.id === ref.id);
+      if (!exists) return `<code class="mention">${escapeHtml(state.projectName)}#${escapeHtml(ref.id)}</code><span class="rel-mark">unresolved</span>`;
+      return `<code class="mention same" data-card-id="${escapeHtml(ref.id)}" tabindex="0" role="link">${escapeHtml(state.projectName)}#${escapeHtml(ref.id)}</code>`;
+    }
     if (ref) return `<code class="mention">${escapeHtml(ref.board)}#${escapeHtml(ref.id)}</code>`;
   }
   if (k === 'review' && isReviewValue(plain)) return `<span class="fm-sticker fm-sticker--review">${escapeHtml(reviewReason(plain) || 'review')}</span>`;
