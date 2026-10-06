@@ -282,9 +282,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           }
         }
         if (req.method === 'POST' && m[2] === '/restore') return sendJSON(res, 200, cs.toJSON(cs.restoreCard(dir, id)));
-        // The new neighbours of a dragged card in outline order. nesting.js
-        // answers with the rank to write and any siblings to renumber; each
-        // card is written whole on its own, with no transaction across them.
+        // Each card is written on its own, with no transaction across them: a
+        // failure part-way leaves the cards before it written.
         if (req.method === 'POST' && m[2] === '/reorder') {
           const body = (await readBody(req)) || {};
           const prev = readNeighbour(body.prev);

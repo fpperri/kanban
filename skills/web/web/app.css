@@ -415,7 +415,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    own when every dep lands. */
 .card.waiting { border-left: 3px solid var(--id-waiting); }
 .card.dragging { opacity: 0.4; }
-/* The drop line of an outline reorder, drawn in the gap beside the tile the drop lands next to. */
 .card.drop-before { box-shadow: 0 -4px 0 0 var(--accent); }
 .card.drop-after { box-shadow: 0 4px 0 0 var(--accent); }
 .card.archived-card { cursor: pointer; opacity: 0.82; }
@@ -686,7 +685,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    #calendar-toggle-btn/#gantt-toggle-btn below — a filled highlight while
    #row-prompt is revealed. */
 #modal-ai-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-/* The thread of parents (root first) above the card, the children below its body. */
 .detail-thread { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 2px 0 10px; font-size: 0.8em; }
 .detail-children { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.9em; }
 .relatives-label { color: var(--mut); font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
@@ -703,8 +701,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-frontmatter td { padding: 4px 8px; vertical-align: top; }
 .detail-frontmatter td.fm-key { color: var(--mut); white-space: nowrap; width: 1%; padding-left: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .detail-frontmatter td.fm-value { color: var(--ink); word-break: break-word; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-/* The open roll-up in the card detail: bar, numbers, then the scope line saying
-   which board it counted. */
 .detail-rollup { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: .2rem; background: var(--raised); }
 .detail-rollup .rollup { margin-top: 4px; }
 .rollup-title { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 0.85em; font-weight: 600; }

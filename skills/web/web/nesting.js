@@ -310,7 +310,6 @@ function reorderRenumber(rest, at, dragged) {
   return { rank, renumber };
 }
 
-// The cards to write for a plan, the dragged one first.
 function reorderWrites(id, plan) {
   return (plan.rank === null ? [] : [{ id, rank: plan.rank }]).concat(plan.renumber);
 }
@@ -325,14 +324,12 @@ function dropNeighbours(ids, at, direction) {
   return direction === 'desc' ? { prev: below, next: above } : { prev: above, next: below };
 }
 
-// How many tile middles lie above the pointer.
 function dropSlot(mids, y) {
   let n = 0;
   while (n < mids.length && mids[n] < y) n++;
   return n;
 }
 
-// True when any card has a rank or a parent, however written.
 function hasNesting(cards) {
   return cards.some((c) => parseRank(c.rank) !== null || parseParent(c.parent) !== null);
 }

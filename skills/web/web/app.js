@@ -717,10 +717,8 @@ function saveViewMode() {
   catch (e) { /* storage unavailable/full — view choice just won't persist this session */ }
 }
 
-// --- Roll-up bar on parent cards: how it shows on board tiles (open, collapsed
-// or off) and whether archived leaves count toward it. Two per-browser choices,
-// same lazy-load / try-catch discipline as viewMode above; applyProjectName
-// resets both memos, as it does for every cache keyed by the board name.
+// applyProjectName resets both roll-up memos, as it does for every cache keyed
+// by the board name.
 let rollupBarMode = null;
 let rollupCountArchived = null;
 
@@ -765,7 +763,6 @@ function buildNestingIndex() {
   return rollupIndex(state.active.concat(state.archived), nestingCtx());
 }
 
-// The altitude badge and roll-up bar a parent card carries, '' for a leaf.
 function parentTile(card) {
   const altitude = nestingIndex.altitudeOf(card.id);
   if (!altitude) return { badge: '', bar: '' };
@@ -781,7 +778,6 @@ function paintRollupBars(root) {
   });
 }
 
-// Header controls show only on a board that has parents.
 function syncRollupControls() {
   const ctls = $('#rollup-ctls');
   if (!ctls) return;
@@ -1742,8 +1738,6 @@ function isReorderDrop(ids, dest) {
   return !!card && columnForStatus(card.status, state.statuses) === dest && loadColumnSort()[dest].field === 'outline';
 }
 
-// The column's tiles without the dragged one, top to bottom, and how many lie
-// above the pointer.
 function dropPoint(col, dragId, clientY) {
   const tiles = [...col.querySelectorAll('.column-cards > .card')].filter((el) => Number(el.dataset.id) !== dragId);
   const mids = tiles.map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
@@ -2624,7 +2618,6 @@ async function openDetailModal(id, { quiet } = {}) {
   return true;
 }
 
-// The open roll-up under the card's body, worked out from state (no extra fetch).
 function renderDetailRollup(id) {
   const box = $('#detail-rollup');
   const index = buildNestingIndex();

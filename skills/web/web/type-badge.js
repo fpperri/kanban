@@ -1,8 +1,4 @@
 'use strict';
-// Pure helpers for the card-type chip. No DOM access — same dual-environment
-// pattern as assignee-badge.js: a plain <script> in the browser, required
-// directly by node --test.
-//
 // A card's `type` is free text; the board's `types:` list (config.yaml) only
 // suggests names and may give one an OPTIONAL color. A type the list does not
 // know, or one listed without a color, is a neutral chip. A configured color

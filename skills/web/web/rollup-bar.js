@@ -1,7 +1,4 @@
 'use strict';
-// Pure HTML for a parent card's altitude badge and roll-up bar. No DOM access,
-// same dual-environment pattern as type-badge.js.
-//
 // Segment weights are data (data-n), never a style string: the strict
 // style-src 'self' CSP blocks style="..." and app.js sets each segment's
 // flex-grow through the CSSOM after insertion. Colours are classes, one per

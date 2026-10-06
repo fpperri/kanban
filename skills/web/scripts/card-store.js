@@ -182,10 +182,8 @@ function readCardFile(file, archived = false) {
     start_date: get('start_date') || null, // range start ("from"), date or local datetime, never validated
     end_date: get('end_date') || null, // range end ("to"), same tolerant contract
     due_date: get('due_date') || null, // deadline marker; also the compat range end when end_date is absent
-    // The card this one sits under: an id on this board or `board#id` on
-    // another. Tolerant read (anything else -> null), never validated.
     parent: readParent(get('parent')),
-    rank: parseRank(get('rank')), // place among siblings, a number; anything else reads as no rank
+    rank: parseRank(get('rank')),
     updated: get('updated') || null, // machine-maintained, form-unmanaged
     title,
     body: description,
