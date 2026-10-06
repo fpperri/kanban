@@ -93,3 +93,41 @@ test('/type-badge.js is served, and app.html loads it before app.js', async () =
     assert.ok(html.indexOf('/type-badge.js') < html.indexOf('/app.js'));
   });
 });
+
+test('a save that sends back the card\'s own type leaves a hand-quoted `type:` line byte-identical', async () => {
+  const dir = tmpBoard();
+  const file = path.join(dir, '0001.one.card.md');
+  fs.writeFileSync(file, '---\nid: 1\nstatus: todo\npriority: Normal\ntype: "user story"\n---\n\n# One\n\nbody\n');
+  await withServer(dir, async (base) => {
+    const r = await json(base, 'PATCH', '/api/cards/1', { type: 'user story', priority: 'High' });
+    assert.strictEqual(r.json.type, 'user story');
+    assert.match(fs.readFileSync(file, 'utf8'), /^type: "user story"$/m);
+  });
+});
+
+test('a type that would break the YAML bare is written quoted, reads back as typed, and survives a re-save', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    for (const typed of ['x: y', '#tag', '[a]', '- a', '"hi" there', 'a #b']) {
+      const patched = await json(base, 'PATCH', '/api/cards/2', { type: typed });
+      assert.strictEqual(patched.json.type, typed);
+      const text = fs.readFileSync(path.join(dir, '0002.two.card.md'), 'utf8');
+      assert.match(text, /^type: ".*"$/m, `${typed} is quoted`);
+      const resaved = await json(base, 'PATCH', '/api/cards/2', { type: typed, priority: 'High' });
+      assert.strictEqual(resaved.json.type, typed);
+      assert.strictEqual(fs.readFileSync(path.join(dir, '0002.two.card.md'), 'utf8').match(/^type: .*$/m)[0], text.match(/^type: .*$/m)[0]);
+    }
+    const created = await json(base, 'POST', '/api/cards', { title: 'Odd', status: 'todo', type: 'x: y' });
+    assert.strictEqual(created.json.type, 'x: y');
+    const made = fs.readdirSync(dir).find((f) => f.includes('odd'));
+    assert.match(fs.readFileSync(path.join(dir, made), 'utf8'), /^type: "x: y"$/m);
+  });
+});
+
+test('a plain type is still written bare', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    await json(base, 'PATCH', '/api/cards/2', { type: 'user story' });
+    assert.match(fs.readFileSync(path.join(dir, '0002.two.card.md'), 'utf8'), /^type: user story$/m);
+  });
+});
