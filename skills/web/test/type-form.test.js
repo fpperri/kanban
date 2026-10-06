@@ -75,6 +75,7 @@ function loadSubmitModal(form) {
   const calls = [];
   const sandbox = {
     $: form.$,
+    state: { active: [] },
     api: async (method, url, payload) => { calls.push({ method, url, payload }); },
     parseTags: (s) => s.split(',').map((x) => x.trim()).filter(Boolean),
     parseIds: () => [],
