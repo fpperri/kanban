@@ -1845,6 +1845,7 @@ function openModal(card, presetStatus, presetStart) {
   renderStatusOptions(card ? card.status : null);
   $('#f-status').value = card ? card.status : (presetStatus || boardStatuses()[0]);
   $('#f-priority').value = card ? card.priority : 'Normal';
+  $('#f-type').value = card && card.type ? card.type : '';
   $('#f-tags').value = card ? card.tags.join(', ') : '';
   $('#f-waiting').value = card ? card.waiting_for.join(', ') : '';
   $('#f-blocked').value = card && card.blocked ? card.blocked : '';
@@ -1885,7 +1886,7 @@ let formSnapshot = null;
 
 function snapshotFormFields() {
   return {
-    title: $('#f-title').value, status: $('#f-status').value, priority: $('#f-priority').value,
+    title: $('#f-title').value, status: $('#f-status').value, priority: $('#f-priority').value, type: $('#f-type').value,
     tags: $('#f-tags').value, waiting: $('#f-waiting').value, blocked: $('#f-blocked').value, review: $('#f-review').value, prompt: $('#f-prompt').value, assignee: $('#f-assignee').value,
     start: $('#f-start').value, end: $('#f-end').value, due: $('#f-due').value, body: $('#f-body').value, // the whole date triad joins the dirty baseline
     epic: $('#f-epic').checked, // a toggled checkbox is typed work too (isDirty compares booleans fine)
@@ -1912,6 +1913,7 @@ async function submitModal(e) {
     title: $('#f-title').value.trim(),
     status: $('#f-status').value,
     priority: $('#f-priority').value,
+    type: $('#f-type').value.trim(), // blank clears: the line is removed
     tags: parseTags($('#f-tags').value),
     waiting_for: parseIds($('#f-waiting').value),
     // The sticker's raw text — the store's predicate-judged lean rule strips
@@ -5226,6 +5228,7 @@ attachCombobox($('#f-assignee'), () => state.assignees.map((a) => ({
   value: a.handle, // stored value stays the bare handle — no card migration
   label: `${a.handle}${a.name ? ` — ${a.name}` : ''}${a.kind ? ` (${a.kind})` : ''}`,
 })));
+attachCombobox($('#f-type'), () => state.types.map((t) => ({ value: t.name })));
 attachCombobox($('#f-tags'), () => state.tags.map((v) => ({ value: v })), { tagMode: true });
 
 // --- Date-picker popover: every date field (f-start/f-end/f-due)
