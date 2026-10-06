@@ -76,6 +76,12 @@ function cleanList(arr) {
   return (arr || []).filter((x) => x != null && String(x).trim() !== '');
 }
 
+// Frontmatter holds one value per physical line, so a real newline in a free
+// text value collapses to a space.
+function oneLine(v) {
+  return String(v == null ? '' : v).replace(/\r?\n/g, ' ').trim();
+}
+
 function slugify(title) {
   return String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
@@ -400,7 +406,7 @@ function updateCard(dir, id, changes) {
   // strictly one value per physical line, so a real newline in the value
   // would otherwise split it into a bogus second line.
   if (changes.prompt !== undefined) {
-    const p = String(changes.prompt == null ? '' : changes.prompt).replace(/\r?\n/g, ' ').trim();
+    const p = oneLine(changes.prompt);
     if (p) setField(order, values, 'prompt', quote(p));
     else removeField(order, values, 'prompt');
   }
@@ -416,7 +422,7 @@ function updateCard(dir, id, changes) {
   // type: same clear pattern as assignee, and skipped when it reads the same as
   // the card's own, so a hand-quoted `type: "user story"` survives every form save.
   if (changes.type !== undefined) {
-    const t = String(changes.type == null ? '' : changes.type).replace(/\r?\n/g, ' ').trim();
+    const t = oneLine(changes.type);
     if (t !== (card.type || '')) {
       if (t) setField(order, values, 'type', typeValue(t));
       else removeField(order, values, 'type');
@@ -534,11 +540,11 @@ function createCard(dir, input) {
   // refused by it (only waiting_for/blocked gate entry, above).
   if (isReviewValue(input.review)) { order.push('review'); values.review = ` ${String(input.review).trim()}`; }
   // Prompt: same lean rule, always quoted — see updateCard's note.
-  const promptVal = String(input.prompt == null ? '' : input.prompt).replace(/\r?\n/g, ' ').trim();
+  const promptVal = oneLine(input.prompt);
   if (promptVal) { order.push('prompt'); values.prompt = ` ${quote(promptVal)}`; }
   // trimmed guard — a whitespace-only assignee is no data (quoteAssignee trims it to '')
   if (String(input.assignee || '').trim()) { order.push('assignee'); values.assignee = ` ${quoteAssignee(input.assignee)}`; }
-  const typeVal = String(input.type == null ? '' : input.type).replace(/\r?\n/g, ' ').trim();
+  const typeVal = oneLine(input.type);
   if (typeVal) { order.push('type'); values.type = ` ${typeValue(typeVal)}`; }
   // A card born directly in literal 'todo'/'done' counts as a
   // transition in — stamp the flow date unless the caller supplied one.
