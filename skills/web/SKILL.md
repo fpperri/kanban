@@ -388,7 +388,7 @@ to `127.0.0.1` only.
   but a prompt — e.g. dispatched by an external process before it's been given a
   title — shows the sparkle + the prompt text itself in the title's own spot, everywhere
   a title renders: board/Archive-column tiles, map node labels and the map's
-  isolated-row tiles, gantt bar text / gutter label / due-marker tooltip, calendar chips
+  No relations tiles, gantt bar text / gutter label / due-marker tooltip, calendar chips
   and their "+N more" overflow tooltip, the detail popup's header title, and the
   single-card Archive/Delete `confirm()` text. Every call site reuses
   `cardTitleDisplay()` (card-title.js) — no forked title-fallback logic anywhere —
@@ -411,7 +411,7 @@ to `127.0.0.1` only.
   A leftover `epic: true` line is an unknown frontmatter line (the detail popup's table
   still lists it) until the kanban skill's `migrate_epic_to_type.sh` rewrites it.
 - **Status dot** — `statusBadge()` (status-colors.js) renders on every card rendering:
-  board tiles (live AND archived), the map's isolated-row tiles, calendar chips, and
+  board tiles (live AND archived), the map's No relations tiles, calendar chips, and
   gantt gutter rows. A small dot
   colored via `statusColor()` off the card's RAW on-disk status, tooltipped with that
   same raw status — **the `archived` flag never touches this color**: status dots never
@@ -424,7 +424,7 @@ to `127.0.0.1` only.
 - **Archived ball** — a second shared dot, `archivedBadge()` (status-colors.js): a fixed
   `ARCHIVE_COLOR` grey circle, tooltipped "Archived", joining `statusBadge()` on every
   surface that renders an **archived** card, and *only* those: Archive-column tiles and
-  the map's isolated-row archived tiles (both through `archiveCardEl`, which calls it
+  the map's No relations archived tiles (both through `archiveCardEl`, which calls it
   unconditionally — that builder never renders a live card), the map's own SVG nodes (a
   `map-archived-dot` circle twin, gated per node), the gantt's Archive-group gutter
   rows, and calendar chips (gated on `card.archived`, once the calendar's Archive pill
@@ -432,7 +432,8 @@ to `127.0.0.1` only.
   surface that structurally can't show an archived card. Glyph order, identical
   everywhere both dots land together: **status, archived** —
   `.status-dot + .archived-dot { margin-left: 4px; }` keeps the pair from fusing. On the
-  map SVG the node is 58px tall, roomy for the dot column on its right edge. The gantt
+  map SVG a plain node is 58px tall, roomy for the dot column on its right edge; a rich node's
+  height follows its content (Dependency map). The gantt
   bar and the board tile's dim/grey-border cues are untouched — one more glyph on top,
   not a replacement.
 - **Board tile date stack** (kanban.proj#260) — `scheduleRows()` (column-sort.js) reads
@@ -492,7 +493,7 @@ to `127.0.0.1` only.
   assignment after the tile's `innerHTML` lands — never a string style attribute (the
   CSP ships `style-src 'self'` without `unsafe-inline`, so inline `style` attributes are
   blocked; CSSOM assignment is the compliant path). Renders wherever `assigneeBadge()`
-  reaches: board tiles (live and archived) and the map's isolated-row tiles. The
+  reaches: board tiles (live and archived) and the map's No relations tiles. The
   edit/create modal tints the assignee input's own text directly (`syncAssigneeColor()`,
   always CSSOM) — synced on open and on every keystroke/combobox pick, the same
   "reflect the live typed value" pattern as the blocked input's red border. The snapshot
@@ -572,7 +573,7 @@ to `127.0.0.1` only.
   shift+click to ADD the whole range between the anchor (the last toggled/range-started
   card) and the target — in the active view's rendered order, additive, never
   deselecting — right-click for the bulk context menu. Applies on board tiles (live and
-  archived), map nodes and the map's isolated-row tiles, calendar chips (every chip of a
+  archived), map nodes and the map's No relations tiles, calendar chips (every chip of a
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
@@ -783,29 +784,61 @@ to `127.0.0.1` only.
   managed rewrite (mark-read / remove / clear-all) moves their raw blocks verbatim to
   the archive too — deletion never happens, malformed writes included.
 - **Dependency map** — a top-bar "🕸 Map view" button swaps the board for a hand-rolled
-  layered SVG graph: nodes are cards (id + title), edges are `waiting_for` (arrow from
-  the depended-on card to the card waiting on it). Nodes come from both live and
-  archived cards — blocking is location-independent.
-  **Parent membership:** a child card's `parent: <id>` (this board's own name in `board#id` form is read as a plain id,
-  here and in `tree:`/`path:`) feeds the layered layout — the
-  parent lays out BELOW its children, since down is later on the map and a parent is the
-  end of the work under it (its own status stays the human's call: done with open leaves
-  warns, never gates) — and decides which cards
-  are graph participants, but membership is never drawn as a line, and the map carries no
-  cue for a parent or a type. Internally, only the chain's terminal child(ren) (no other
-  child of the same parent waits on them; a chainless child counts as its own one-card
-  chain) feed a membership hop into the parent's layer — computed on the full board, so a
-  search filter never reroutes it — and a `waiting_for` edge between two children of the
-  same parent is still a real, gate-enforced dependency that draws on the map exactly like
-  any other edge (grey, the one plain arrowhead). Membership gets the same ghost-stub
-  courtesy as `waiting_for` (hidden endpoint → dimmed stub; dangling id → "not found"
-  stub; self-parent ignored; a parent on another board adds nothing to the map), but it is
-  NOT a dependency: it never makes a card waiting,
-  the `doing` gate ignores it, and the isolated row below stays keyed off `waiting_for`
-  edges only — so a parent whose only edges are membership appears in the graph AND the
-  no-dependencies row, both. A dep edge between a terminal child and its parent in either
-  direction still suppresses the membership hop, so the layered layout never counts the
-  same pair twice.
+  layered SVG graph: nodes are cards (id + title), solid edges are `waiting_for` (arrow from
+  the depended-on card to the card waiting on it), dashed lines are parents (below).
+  Nodes come from both live and archived cards — blocking is location-independent.
+  **Parent lines:** a child card's `parent: <id>` (this board's own name in `board#id` form is read as a plain id,
+  here and in `tree:`/`path:`) is drawn as a dashed line in the dependency grey, one hop
+  from a parent to an immediate child and never from a grandparent to a grandchild, with
+  a small dot on the parent's end. The parent sits **below** its children by default —
+  down is later on the map and a parent is the end of the work under it (its own status
+  stays the human's call: done with open leaves warns, never gates). Which children get a
+  line is the **Parent lines** option. **Chain ends**, the default: per parent, only the
+  children where the siblings' dependency web meets the parent — with the parent below,
+  the children no sibling waits for; with it above, the children that wait for no sibling
+  — and always a child with no dependency to or from a sibling (a web that loops has no
+  end, so all of it takes a line). **All** draws a line to every child and **off** draws
+  none. Which children are the ends is read on the whole board, so a search or a status
+  pill never moves a line. A parent is not a dependency: it never makes a card waiting,
+  the `doing` gate ignores it, and a card with only a parent relation is in a graph, not
+  in the No relations row. A parent hidden by a filter, or with no card, is a dimmed stub
+  ("not found" when no card answers to the id) and a parent on another board is one
+  dimmed stub per `board#id` mention, labelled with it and not clickable; each child keeps
+  its own line to the stub, drawn dimmed. Self-parent is ignored. A child that waits on
+  its parent, or the reverse, is placed by that dependency alone and still gets its
+  parent line. A parent line that runs against the layout (a loop of parents, or a
+  dependency that put the parent on the other side) bows out to the side like a back
+  edge, one that would lie on a solid arrow is nudged 9px aside, and a parent with three
+  or more lines spreads where they meet it.
+  **Graphs and rows:** by default one small graph per **tree** — every card any
+  dependency or parent relation joins, drawn or not — stacked biggest first (ties by the
+  lowest card), each under a heading with its root titles (three at most, then "+N more")
+  and its card count, stubs counted apart. The **Graphs** option's "one graph" shows
+  everything in a single graph with no headings. A card is in a graph when any relation
+  touches it, so turning a kind of line off never moves a card out of its tree; the
+  bottom row, **No relations**, holds only cards with no dependency, no parent and no
+  children. Within each row the **Row order** option's "by status" (the default) reads
+  left to right: doing, todo, backlog, any other live status in column order, done,
+  archived, then stubs, ties keeping the layout order (lowest id first); "layout" leaves
+  the layout's own order. The **Layout** option's "keep" (the default) places cards by
+  every relation, so toggling lines never moves one; "reflow" places them by the lines
+  drawn. **Align** centers each row in its graph and each graph on the page, or sets them
+  left. **Rich nodes** (the **Cards** option, the default) carry, under the title, the
+  type chip and the ▲ altitude badge and, on a parent whose leaves are counted, the
+  roll-up bar following the shared Bar setting (thin while collapsed, with counts when
+  open); a click on a bar flips the Bar setting and never opens the card. A node's
+  height follows what it holds (a plain node is 58px tall), and stubs stay plain; "plain"
+  draws id and title only.
+  **Map options:** one compact row under the status pills holds the eight choices as
+  segmented controls — Parent lines (chain ends / all / off), Dependency lines (on / off),
+  Graphs (one per tree / one graph), Parent sits (below / above), Align (center / left),
+  Row order (by status / layout), Layout (keep / reflow), Cards (rich / plain) — defaults
+  first. They persist per board in `localStorage` as one object (`map.options`, merged
+  defensively: a value this version does not offer reads as its default), survive the
+  poll and a reload, and are not URL parameters. The rules behind them (which parent
+  lines, which trees, the row order, the No relations set) are map-relations.js, pure and
+  unit-tested, with no other module behind it so a page without the web app's scripts can
+  embed it as is, like nesting.js.
   **Node treatments:** the border is one neutral weight for every node — status never
   strokes it. A small dot in the node's corner carries the status color (same palette as
   the column headers), its own tooltip naming the **raw on-disk status**; status dots
@@ -846,24 +879,24 @@ to `127.0.0.1` only.
   search by **intersection** — a card stays visible only when both agree. The active
   search query filters the map exactly as it filters the board: matching cards are full
   nodes; a card hidden by either filter that's still referenced by a visible one's
-  `waiting_for` (in either direction) renders as a dimmed, dashed ghost stub — never
+  `waiting_for` or `parent` (in either direction) renders as a dimmed, dashed ghost stub — never
   silently dropped — and is itself clickable through to its detail popup. A
-  `waiting_for` id with no matching card at all renders as a "not found" ghost. Cards
-  with no dependencies in either direction always render in a detached row below the
-  graph. Real nodes + isolated-row tiles carry the full shared grammar (click for
+  `waiting_for` or `parent` id with no matching card at all renders as a "not found" ghost. Cards
+  with no relation at all always render in the No relations row below the
+  graphs. Real nodes + No relations tiles carry the full shared grammar (click for
   detail, ctrl/shift-select, right-click menu); ghost stubs stay click-through only.
   View mode, query, and status filter all persist across the poll's re-render.
-  **Collapsible sections** — the layered graph and the "No dependencies" row each get
-  their own collapse/expand toggle (same chevron + look as the board's per-column
+  **Collapsible sections** — the graphs (one section for all of them) and the No
+  relations row each get their own collapse/expand toggle (same chevron + look as the board's per-column
   collapse), sharing one header builder. State persists per board in `localStorage`
   (`map.sections.collapsed`, merged defensively) and survives the poll; collapsing
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
-  search terms, resolved over the edge set the map's graph is built from (`waiting_for`
-  + `parent:` membership — membership shapes layout but draws no line — with
-  sequencing-wins-the-pair/terminal-only suppression already applied —
-  see dependency-graph.js's `treeIds`/`pathIds` for the grammar, not restated here).
+  search terms, resolved over dependency-graph.js's dependency edge set (`waiting_for`
+  + `parent:` membership, with sequencing-wins-the-pair/terminal-only suppression
+  already applied — see its `treeIds`/`pathIds` for the grammar, not restated here;
+  the map's own graphs are shaped by map-relations.js, above).
   `tree:` is the connected component (every card the id's dependency web touches,
   undirected); `path:` is the narrower directed cone — everything transitively upstream
   and downstream through the id, excluding sibling branches. Traversal is ALWAYS over
@@ -885,8 +918,8 @@ to `127.0.0.1` only.
   delegated parent, not the specific node pressed — and deliberately deferred until the
   drag clears the threshold: claiming it at pointerdown retargets the click that follows
   EVERY press (including an unmoved one) to the container, which broke plain-click/
-  Ctrl-click on a node entirely. The pill row, section header
-  and the "No dependencies" row are outside the drag surface, so filter clicks, the
+  Ctrl-click on a node entirely. The pill row, options row,
+  section header, graph headings and the No relations row are outside the drag surface, so filter clicks, the
   collapse chevron and text selection there are untouched. A zoom toolbar
   (−/percentage/+/Fit) rides right after the filter row: the buttons step the zoom by one
   rung of a 1.25^n ladder (10%–200%) around the panel's center, rounding the current zoom
@@ -897,7 +930,7 @@ to `127.0.0.1` only.
   against the SVG's actual on-screen origin — not the panel's raw (0,0) — since the
   panel's own padding and the rows above the graph don't scale with zoom;
   `preventDefault`ed so it never falls through to the browser's own page zoom. Fit sets
-  the largest zoom (capped at 100%) that shows the whole graph, measured against the space
+  the largest zoom (capped at 100%) that shows the widest and tallest graph, measured against the space
   actually left for it once the panel's padding and those same rows above are subtracted
   out. Zoom scales the SVG's `width`/`height` attributes with the `viewBox` held fixed, so
   text/strokes stay crisp at any zoom and the panel's scroll range matches exactly what a

@@ -70,12 +70,21 @@ and a loop of parents is flagged where it repeats.
 
 ![Dependency map](images/web-map.png)
 
-The **Map view** lays out `waiting_for` edges as a graph — arrows point from
-the card you depend on to the card that's waiting. A **parent** sits *below* its
-children, as the end of the work under it; its status stays your call, and marking
-it done with leaves still open only warns. Nesting itself draws no line; it is read
-from each card's `parent` field. Cards with no dependencies drop into a separate
-row below.
+The **Map view** draws every relation between your cards: solid arrows for
+`waiting_for`, pointing from the card you depend on to the card that's waiting, and
+dashed lines from a **parent** to its children. A parent sits *below* its children,
+as the end of the work under it; its status stays your call, and marking it done
+with leaves still open only warns. By default a parent is joined only to the
+children where their dependency chain ends, so a family with one long chain shows
+one dashed line rather than one per child.
+Each tree, the cards joined by any dependency or parent, is its own small graph under
+a heading with its roots, the biggest first. Cards with no relation at all drop into a
+**No relations** row below. Within each row the cards in play come first: doing, todo,
+backlog, then done and archived.
+A **Map options** row sets which parent lines are drawn, the dependency lines, one graph
+per tree or one graph, which side the parent sits, alignment, row order, whether a
+toggled line moves the cards, and how much detail a card shows (type, altitude and the
+roll-up bar). Each choice is remembered per board in your browser.
 A status-filter pill row (left-click to toggle, right-click to solo) and the
 search box both prune the graph.
 

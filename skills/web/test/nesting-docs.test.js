@@ -97,7 +97,7 @@ test('the kanban skill\'s parent bullet is the card-file contract only: short, w
 test('the web skill carries what the parent bullet gave up: the form and the map\'s reading of a parent', () => {
   const flat = webSkill.replace(/\s+/g, ' ');
   assert.match(flat, /this board's own name in `board#id` form is read as a plain id/);
-  assert.match(flat, /a parent on another board adds nothing to the map/);
+  assert.match(flat, /a parent on another board is one\s+dimmed stub per `board#id` mention/);
 });
 
 test('the kanban skill says a type that would not read back bare is written in double quotes', () => {
