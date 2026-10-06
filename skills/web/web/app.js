@@ -1688,23 +1688,41 @@ function wireDrag() {
       // decides at drop time, so a poll pruning the set mid-drag can't flip
       // a bulk drag into a single-card one halfway through.
       bulkDragIds = (selectedIds.has(Number(el.dataset.id)) && selectedIds.size > 1) ? [...selectedIds] : null;
+      dragCardId = Number(el.dataset.id);
     });
     el.addEventListener('dragend', () => {
       el.classList.remove('dragging');
       isDragging = false;
+      dragCardId = null;
+      clearDropMarks();
       bulkDragIds = null; // drop (if any) already consumed it — this catches cancelled drags, which would otherwise replay a stale bulk move
     });
   });
   document.querySelectorAll('.column').forEach((col) => {
-    col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
-    col.addEventListener('dragleave', (e) => { if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over'); });
+    col.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      col.classList.add('drag-over');
+      if (dragCardId !== null && isReorderDrop(bulkDragIds || [dragCardId], col.dataset.col)) {
+        const point = dropPoint(col, dragCardId, e.clientY);
+        markDropPoint(point.tiles, point.at);
+      } else {
+        clearDropMarks();
+      }
+    });
+    col.addEventListener('dragleave', (e) => {
+      if (col.contains(e.relatedTarget)) return;
+      col.classList.remove('drag-over');
+      clearDropMarks();
+    });
     col.addEventListener('drop', (e) => {
       e.preventDefault();
       col.classList.remove('drag-over');
+      clearDropMarks();
       const id = Number(e.dataTransfer.getData('text/plain'));
       const ids = bulkDragIds || [id];
       bulkDragIds = null;
       const dest = col.dataset.col;
+      if (isReorderDrop(ids, dest)) { reorderDrop(col, ids[0], e.clientY); return; }
       const touchesArchive = dest === 'archive' || ids.some((i) => state.archived.some((a) => a.id === i));
       if (touchesArchive) archiveAwareDrop(ids, dest);
       else if (ids.length > 1) onBulkDrop(ids, dest);
@@ -1783,6 +1801,69 @@ async function onDrop(id, status) {
     } else {
       toast('Move failed: ' + e.message);
     }
+  } finally {
+    pendingDrops--;
+  }
+}
+
+// A single card dropped on the column it already renders in, while that column
+// is sorted in outline order, writes a rank instead of moving. The Archive
+// column, archived cards and bulk drags keep their own routes.
+function isReorderDrop(ids, dest) {
+  if (ids.length !== 1 || dest === 'archive') return false;
+  const card = state.active.find((c) => c.id === ids[0]);
+  return !!card && columnForStatus(card.status, state.statuses) === dest && loadColumnSort()[dest].field === 'outline';
+}
+
+// The column's tiles without the dragged one, top to bottom, and how many lie
+// above the pointer.
+function dropPoint(col, dragId, clientY) {
+  const tiles = [...col.querySelectorAll('.column-cards > .card')].filter((el) => Number(el.dataset.id) !== dragId);
+  const mids = tiles.map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
+  return { tiles, at: dropSlot(mids, clientY) };
+}
+
+function clearDropMarks() {
+  document.querySelectorAll('.card.drop-before, .card.drop-after').forEach((el) => el.classList.remove('drop-before', 'drop-after'));
+}
+
+function markDropPoint(tiles, at) {
+  clearDropMarks();
+  if (!tiles.length) return;
+  if (at < tiles.length) tiles[at].classList.add('drop-before');
+  else tiles[tiles.length - 1].classList.add('drop-after');
+}
+
+function reorderDrop(col, id, clientY) {
+  const point = dropPoint(col, id, clientY);
+  const { prev, next } = dropNeighbours(point.tiles.map((el) => Number(el.dataset.id)), point.at, loadColumnSort()[col.dataset.col].direction);
+  if (prev === null && next === null) return;
+  reorderCard(id, prev, next);
+}
+
+// onDrop's lifecycle for a rank: the same pure answer the server will give is
+// shown at once, and put back if the call fails.
+async function reorderCard(id, prev, next) {
+  const cards = state.active.concat(state.archived);
+  const plan = reorderPlan(cards, id, { prev, next }, { board: state.projectName, priorities: state.priorities });
+  if (plan.error) {
+    toast(`#${id} can only be reordered among its siblings.`);
+    return;
+  }
+  const writes = reorderWrites(id, plan);
+  if (!writes.length) return;
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const was = writes.map((w) => [byId.get(w.id), byId.get(w.id).rank]);
+  writes.forEach((w) => { byId.get(w.id).rank = w.rank; });
+  renderBoard();
+  pendingDrops++;
+  try {
+    await api('POST', `/api/cards/${id}/reorder`, { prev, next });
+    await loadBoard();
+  } catch (e) {
+    was.forEach(([c, rank]) => { c.rank = rank; });
+    renderBoard();
+    toast('Reorder failed: ' + e.message);
   } finally {
     pendingDrops--;
   }
@@ -4754,6 +4835,7 @@ let selectedIds = new Set();
 // vanished (poll/delete) or left the active view (filter/view switch).
 let selectionAnchor = null;
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
+let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
 // resting on any ONE piece of a card lights every piece sharing its id —
