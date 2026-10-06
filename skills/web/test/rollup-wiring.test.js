@@ -46,12 +46,16 @@ test('the bar mode defaults to collapsed, reads the saved choice, and is namespa
   assert.strictEqual(prefSandbox({ stored: { 'kanban.shop.rollup.bar': 'garbage' } }).loadRollupBarMode(), 'collapsed');
 });
 
+test('a browser that saved off before it was retired reads as collapsed', () => {
+  assert.strictEqual(prefSandbox({ stored: { 'kanban.shop.rollup.bar': 'off' } }).loadRollupBarMode(), 'collapsed');
+});
+
 test('the bar mode survives a reload: what is saved is what the next page load reads', () => {
   const first = prefSandbox();
-  vm.runInContext("rollupBarMode = 'off'; saveRollupBarMode();", first);
-  assert.deepStrictEqual(first.writes, { 'kanban.shop.rollup.bar': 'off' });
+  vm.runInContext("rollupBarMode = 'open'; saveRollupBarMode();", first);
+  assert.deepStrictEqual(first.writes, { 'kanban.shop.rollup.bar': 'open' });
   const reloaded = prefSandbox({ stored: first.writes });
-  assert.strictEqual(reloaded.loadRollupBarMode(), 'off');
+  assert.strictEqual(reloaded.loadRollupBarMode(), 'open');
 });
 
 test('archived leaves count by default, and the choice to leave them out survives a reload', () => {
@@ -126,7 +130,8 @@ test('the tile reads the remembered mode and the archived choice', () => {
 test('the header carries the bar mode select and the archived checkbox, wired to save and repaint', () => {
   assert.match(html, /<span id="rollup-ctls" class="rollup-ctls hidden">/);
   assert.match(html, /<select id="rollup-bar-mode"/);
-  for (const v of ['open', 'collapsed', 'off']) assert.match(html, new RegExp(`<option value="${v}">`));
+  for (const v of ['open', 'collapsed']) assert.match(html, new RegExp(`<option value="${v}">`));
+  assert.doesNotMatch(html.match(/<select id="rollup-bar-mode"[\s\S]*?<\/select>/)[0], /off/, 'the bar has no off choice');
   assert.match(html, /<input type="checkbox" id="rollup-archived"/);
   assert.match(appSrc, /\$\('#rollup-bar-mode'\)\.addEventListener\('change'/);
   assert.match(appSrc, /\$\('#rollup-archived'\)\.addEventListener\('change'/);
@@ -140,9 +145,10 @@ test('a click on the roll-up controls keeps a building multi-selection', () => {
   assert.match(line, /\.rollup-ctl\b/);
 });
 
-test('the card detail has a roll-up block between the body and whatever follows, filled from state', () => {
+test('the card detail has a roll-up block under the thread and above the fields, filled from state', () => {
   assert.match(html, /<div id="detail-rollup" class="detail-rollup hidden"><\/div>/);
-  assert.ok(html.indexOf('id="detail-rollup"') > html.indexOf('id="detail-body"'), 'below the body');
+  assert.ok(html.indexOf('id="detail-rollup"') > html.indexOf('id="detail-thread"'), 'below the thread');
+  assert.ok(html.indexOf('id="detail-rollup"') < html.indexOf('id="detail-frontmatter"'), 'above the fields');
   const body = fn('openDetailModal');
   assert.match(body, /renderDetailRollup\(data\.id\)/);
   const render = fn('renderDetailRollup');
@@ -262,12 +268,13 @@ test('an objective over two epics with stories shows ▲2 and a bar counting onl
   assert.strictEqual(leaf.bar, '');
 });
 
-test('the remembered open mode puts numbers on the tile, off keeps the badge and drops the bar', () => {
+test('the remembered open mode puts numbers on the tile, and a saved off still draws the thin bar', () => {
   const open = tileSandbox(tileCards(), { mode: 'open' }).parentTile({ id: 1 });
   assert.match(open.bar, /<b class="rollup-total">3<\/b>/);
   const off = tileSandbox(tileCards(), { mode: 'off' }).parentTile({ id: 1 });
   assert.match(off.badge, /▲2/);
-  assert.strictEqual(off.bar, '');
+  assert.match(off.bar, /rollup-bar thin/);
+  assert.doesNotMatch(off.bar, /rollup-total/);
 });
 
 test('archiving a done story leaves the tile\'s done weight unchanged; leaving archived out drops it', () => {

@@ -26,11 +26,10 @@
     <button id="gantt-toggle-btn" type="button" aria-pressed="false"
       title="Toggle gantt view (ranges as bars, due dates as diamonds, on a day timeline — drag a bar to shift, an edge to resize, a diamond to move its due date; honors the search filter)">📊 Gantt</button>
     <span id="rollup-ctls" class="rollup-ctls hidden">
-      <label class="rollup-ctl" title="How a parent card's roll-up bar shows on board cards; the card detail always shows it open">Bar
-        <select id="rollup-bar-mode" aria-label="Roll-up bar on board cards">
+      <label class="rollup-ctl" title="How every roll-up bar shows, on board cards and in the card detail; click a bar to flip it">Bar
+        <select id="rollup-bar-mode" aria-label="Roll-up bar">
           <option value="open">open</option>
           <option value="collapsed">collapsed</option>
-          <option value="off">off</option>
         </select>
       </label>
       <label class="rollup-ctl" title="Count archived leaves as done in roll-up bars"><input type="checkbox" id="rollup-archived"> Archived</label>
@@ -204,9 +203,9 @@
       </div>
     </div>
     <div id="detail-thread" class="detail-thread hidden"></div>
+    <div id="detail-rollup" class="detail-rollup hidden"></div>
     <div id="detail-frontmatter" class="detail-frontmatter"></div>
     <div id="detail-body" class="detail-body"></div>
-    <div id="detail-rollup" class="detail-rollup hidden"></div>
     <div id="detail-children" class="detail-children hidden"></div>
   </div>
 </div>

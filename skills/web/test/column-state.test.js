@@ -8,7 +8,7 @@ const {
   mapFilterColumn, mapFilterVisibleIds, ganttFilterVisibleIds, intersectVisibleIds,
   soloStatusFilter,
   MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed,
-  ROLLUP_BAR_MODES, mergeRollupBar, mergeRollupCountArchived } = require('../web/column-state');
+  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar, mergeRollupCountArchived } = require('../web/column-state');
 
 test('DEFAULT_COLLAPSED has the four live columns expanded and Archive collapsed', () => {
   assert.deepStrictEqual(DEFAULT_COLLAPSED, {
@@ -423,12 +423,24 @@ test('soloStatusFilter treats a missing filter key as ON, same defensive convent
   assert.deepStrictEqual(soloStatusFilter(filter, COLUMN_IDS, 'archive'), COLUMN_IDS.reduce((o, id) => (o[id] = true, o), {}));
 });
 
-test('mergeRollupBar keeps one of open, collapsed or off and falls back to collapsed', () => {
-  assert.deepStrictEqual(ROLLUP_BAR_MODES, ['open', 'collapsed', 'off']);
+test('mergeRollupBar keeps open or collapsed and falls back to collapsed', () => {
+  assert.deepStrictEqual(ROLLUP_BAR_MODES, ['open', 'collapsed']);
   for (const mode of ROLLUP_BAR_MODES) assert.strictEqual(mergeRollupBar(mode), mode);
   for (const junk of [undefined, null, '', 'thin', 'OPEN', 'on', 7, true, {}, ['open']]) {
     assert.strictEqual(mergeRollupBar(junk), 'collapsed', `${JSON.stringify(junk)} reads as the default`);
   }
+});
+
+test('a browser that saved off reads as collapsed', () => {
+  assert.strictEqual(mergeRollupBar('off'), 'collapsed');
+});
+
+test('nextRollupBar flips between open and collapsed, and an unreadable value counts as collapsed', () => {
+  assert.strictEqual(nextRollupBar('open'), 'collapsed');
+  assert.strictEqual(nextRollupBar('collapsed'), 'open');
+  assert.strictEqual(nextRollupBar('off'), 'open');
+  assert.strictEqual(nextRollupBar(undefined), 'open');
+  assert.strictEqual(nextRollupBar(nextRollupBar(nextRollupBar('open'))), 'collapsed');
 });
 
 test('mergeRollupCountArchived counts archived leaves unless the saved choice is exactly "false"', () => {

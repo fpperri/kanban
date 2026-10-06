@@ -438,7 +438,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    flex-grow from data-n) because a style attribute is blocked by the CSP; colours
    are classes, one per statusColorClass() outcome, like .status-dot--*. */
 .alt-badge { font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.65em; font-weight: 600; color: var(--mut); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 0 5px; white-space: nowrap; }
-.rollup { margin-top: 6px; }
+.rollup { margin-top: 3px; padding: 3px 0; cursor: pointer; }
 .rollup-bar { display: flex; height: 8px; border-radius: .15rem; overflow: hidden; background: var(--raised); }
 .rollup-bar.thin { height: 4px; }
 .rollup-seg { flex: 0 0 0%; min-width: 0; height: 100%; }
@@ -690,6 +690,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .relatives-label { color: var(--mut); font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .thread-list { display: flex; flex-wrap: wrap; align-items: baseline; list-style: none; margin: 0; padding: 0; }
 .thread-item + .thread-item::before { content: "\203A"; color: var(--mut); margin: 0 6px; }
+.relatives-toggle { display: inline-flex; align-items: baseline; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.relatives-toggle::before { content: "\25B8"; color: var(--mut); }
+.relatives-toggle[aria-expanded="true"]::before { content: "\25BE"; }
+.relatives-count { color: var(--mut); font-variant-numeric: tabular-nums; }
 .children-list { list-style: none; margin: 6px 0 0; padding: 0; }
 .child-item { margin: 4px 0; }
 .thread-item--archived code.mention, .child-item--archived code.mention { opacity: 0.7; }
@@ -702,7 +706,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-frontmatter td.fm-key { color: var(--mut); white-space: nowrap; width: 1%; padding-left: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .detail-frontmatter td.fm-value { color: var(--ink); word-break: break-word; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .detail-rollup { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: .2rem; background: var(--raised); }
-.detail-rollup .rollup { margin-top: 4px; }
+.detail-rollup .rollup { margin-top: 1px; }
+.detail-rollup--collapsed { margin: 0 0 8px; padding: 0; border: 0; background: none; }
+.detail-rollup--collapsed .rollup { margin-top: 0; }
 .rollup-title { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 0.85em; font-weight: 600; }
 .rollup-sub { color: var(--mut); font-size: 0.9em; font-weight: 400; }
 .rollup-empty { color: var(--mut); font-size: 0.85em; margin-top: 4px; }

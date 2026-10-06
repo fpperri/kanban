@@ -51,7 +51,7 @@ test('rollupBar: open adds the total, the done count, then each other status in 
   ]);
 });
 
-test('rollupBar: off, and a roll-up with nothing counted, draw nothing', () => {
+test('rollupBar: an unknown mode, and a roll-up with nothing counted, draw nothing', () => {
   assert.strictEqual(rollupBar(roll({ done: 1 }), 'off', ORDER), '');
   assert.strictEqual(rollupBar(roll({}), 'open', ORDER), '');
   assert.strictEqual(rollupBar(roll({}), 'collapsed', ORDER), '');
@@ -111,6 +111,26 @@ test('rollupDetailHtml: the open bar, then the scope line', () => {
   assert.match(html, /<b class="rollup-total">3<\/b>/);
   assert.ok(html.indexOf('rollup-scope') > html.indexOf('rollup-bar'), 'scope line comes after the bar');
   assert.match(html, /<div class="rollup-scope">Counted on this board only \(kanban\)\. Archived leaves count as done\.<\/div>/);
+});
+
+test('rollupDetailHtml: collapsed is the thin bar alone, no title, numbers or scope line', () => {
+  const html = rollupDetailHtml(roll({ done: 2, todo: 1 }), 2, ORDER, true, 'collapsed');
+  assert.match(html, /^<div class="rollup"><div class="rollup-bar thin">/);
+  assert.strictEqual((html.match(/data-n="/g) || []).length, 2, 'one segment per status');
+  for (const gone of ['rollup-counts', 'rollup-total', 'rollup-scope', 'rollup-title', 'alt-badge']) {
+    assert.ok(!html.includes(gone), `${gone} is for the open bar`);
+  }
+});
+
+test('rollupDetailHtml: open spelled out is the same block as the default', () => {
+  const args = [roll({ done: 2, todo: 1 }), 2, ORDER, true];
+  assert.strictEqual(rollupDetailHtml(...args, 'open'), rollupDetailHtml(...args));
+});
+
+test('rollupDetailHtml: collapsed with nothing counted still says so', () => {
+  const html = rollupDetailHtml(roll({}), 1, ORDER, true, 'collapsed');
+  assert.match(html, /No leaves counted\./);
+  assert.ok(!html.includes('rollup-bar'));
 });
 
 test('rollupDetailHtml: with nothing counted it says so and still names the scope', () => {
@@ -173,8 +193,8 @@ test('app.css gives the bar its shape: 8px open, 4px thin, weighted by flex-grow
 
 test('the bar modes are named once, in column-state.js, and rollup-bar.js uses those names', () => {
   const columnState = require('../web/column-state');
-  assert.deepStrictEqual([columnState.ROLLUP_BAR_OPEN, columnState.ROLLUP_BAR_COLLAPSED, columnState.ROLLUP_BAR_OFF], ['open', 'collapsed', 'off']);
-  assert.deepStrictEqual(columnState.ROLLUP_BAR_MODES, ['open', 'collapsed', 'off']);
+  assert.deepStrictEqual([columnState.ROLLUP_BAR_OPEN, columnState.ROLLUP_BAR_COLLAPSED], ['open', 'collapsed']);
+  assert.deepStrictEqual(columnState.ROLLUP_BAR_MODES, ['open', 'collapsed']);
   const code = fs.readFileSync(path.join(__dirname, '..', 'web', 'rollup-bar.js'), 'utf8')
     .split('\n').filter((line) => !/^\s*\/\//.test(line)).join('\n');
   assert.doesNotMatch(code, /'open'|'collapsed'|'off'/);

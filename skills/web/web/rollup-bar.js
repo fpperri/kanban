@@ -57,8 +57,12 @@ function rollupScopeLine(rollup, countArchived) {
   return `${rollupWhere(rollup)} ${countArchived ? 'Archived leaves count as done.' : 'Archived leaves are left out.'}`;
 }
 
-function rollupDetailHtml(rollup, altitude, order, countArchived) {
-  const bar = rollupBar(rollup, ROLLUP_COLUMN_STATE.ROLLUP_BAR_OPEN, order) || '<div class="rollup-empty">No leaves counted.</div>';
+// The detail follows the shared Bar setting like a tile does: collapsed is the
+// thin bar alone, open adds the title, the numbers and the scope line.
+function rollupDetailHtml(rollup, altitude, order, countArchived, mode = ROLLUP_COLUMN_STATE.ROLLUP_BAR_OPEN) {
+  const empty = '<div class="rollup-empty">No leaves counted.</div>';
+  if (mode === ROLLUP_COLUMN_STATE.ROLLUP_BAR_COLLAPSED) return rollupBar(rollup, mode, order) || empty;
+  const bar = rollupBar(rollup, ROLLUP_COLUMN_STATE.ROLLUP_BAR_OPEN, order) || empty;
   return `<div class="rollup-title">Roll-up <span class="rollup-sub">leaves below</span> ${altitudeBadge(altitude)}</div>` +
     bar +
     `<div class="rollup-scope">${rollupScopeLine(rollup, countArchived)}</div>`;
