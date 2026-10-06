@@ -185,7 +185,7 @@ test('clicking the rest of the card still opens it', () => {
 test('a click on a roll-up bar keeps a building multi-selection', () => {
   const line = appSrc.split('\n').find((l) => l.includes("e.target.closest('#context-menu, #bulk-single"));
   assert.ok(line, 'the Q0 exemption selector is there');
-  assert.match(line, /, \.rollup'\)\) return;/, 'the bar itself is exempt, not only the header controls');
+  assert.match(line, /, \.rollup(, #graph-toggle-btn)?'\)\) return;/, 'the bar itself is exempt, not only the header controls');
 });
 
 test('the bar looks clickable and its hit area is taller than the thin line', () => {

@@ -15,14 +15,14 @@ const {
   calendarCreateStart,
 } = require('../web/calendar-model');
 
-// --- view mode (board / map / calendar / gantt) ------
+// --- view mode (board / map / calendar / gantt / graph) ------
 
-test('VIEW_MODES lists exactly board / map / calendar / gantt', () => {
-  assert.deepStrictEqual(VIEW_MODES, ['board', 'map', 'calendar', 'gantt']);
+test('VIEW_MODES lists exactly board / map / calendar / gantt / graph', () => {
+  assert.deepStrictEqual(VIEW_MODES, ['board', 'map', 'calendar', 'gantt', 'graph']);
 });
 
 test('mergeViewMode passes through every known mode', () => {
-  for (const mode of ['board', 'map', 'calendar', 'gantt']) {
+  for (const mode of ['board', 'map', 'calendar', 'gantt', 'graph']) {
     assert.strictEqual(mergeViewMode(mode), mode);
   }
 });

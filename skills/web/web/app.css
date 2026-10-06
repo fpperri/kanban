@@ -682,7 +682,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .icon-btn svg { width: 16px; height: 16px; display: block; }
 .icon-btn.danger:hover { background: var(--crit-soft); border-color: var(--crit); color: var(--crit); }
 /* Same active-toggle treatment as #map-toggle-btn/
-   #calendar-toggle-btn/#gantt-toggle-btn below — a filled highlight while
+   #calendar-toggle-btn/#gantt-toggle-btn/#graph-toggle-btn below — a filled highlight while
    #row-prompt is revealed. */
 #modal-ai-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .detail-thread { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 2px 0 10px; font-size: 0.8em; }
@@ -1143,6 +1143,13 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-resize-handle.top { top: 0; }
 .cal-resize-handle.bottom { bottom: 0; }
 .cal-timeblock:hover .cal-resize-handle { background: var(--handle-wash); }
+
+/* --- Graph view ---
+   Every card as a dot, joined by its relations. #graph-view sits alongside
+   #board/#map-view/#calendar-view/#gantt-view — same .hidden swap. Same box
+   as .map-view, but it pans itself, so overflow is hidden, not auto. */
+#graph-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.graph-view { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; height: calc(100vh - var(--board-header-h, 64px) - 48px); }
 
 /* --- Gantt view --------------------------------------------------
    Dated cards as bars on a day timeline, rows grouped by status. #gantt-view

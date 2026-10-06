@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { parseDeepLink, DEEP_LINK_VIEWS } = require('../web/deep-link');
 
-// ?card=<id>&q=<search>&view=<board|map|gantt|calendar> deep links. Pure
+// ?card=<id>&q=<search>&view=<board|map|gantt|calendar|graph> deep links. Pure
 // querystring parse only — app.js's DOMContentLoaded handler does the DOM part
 // (search box, view switch, openDetailModal, scrollIntoView), consumed exactly
 // once right after the first loadBoard() resolves.
@@ -12,8 +12,8 @@ const { parseDeepLink, DEEP_LINK_VIEWS } = require('../web/deep-link');
 // `card` points at ONE card, `q` points at a SET, `view` points at neither, so
 // each key stands on its own — a link may carry any combination of the three.
 
-test('the recognized view set is exactly board/map/gantt/calendar', () => {
-  assert.deepStrictEqual([...DEEP_LINK_VIEWS].sort(), ['board', 'calendar', 'gantt', 'map']);
+test('the recognized view set is exactly board/map/gantt/calendar/graph', () => {
+  assert.deepStrictEqual([...DEEP_LINK_VIEWS].sort(), ['board', 'calendar', 'gantt', 'graph', 'map']);
 });
 
 test('?card=<id>&view=<view> parses both fields', () => {
