@@ -120,6 +120,15 @@ test('rollupDetailHtml: with nothing counted it says so and still names the scop
   assert.match(html, /Archived leaves are left out\./);
 });
 
+test('the numbers of an open bar carry the scope in their tooltip, escaped; the thin bar has none to carry', () => {
+  const open = rollupBar(roll({ done: 2, todo: 1 }), 'open', ORDER);
+  assert.match(open, /<div class="rollup-counts" title="Counted on this board only \(kanban\)\.">/);
+  assert.ok(!rollupBar(roll({ done: 2 }), 'collapsed', ORDER).includes('Counted on this board'));
+  const hostile = rollupBar(roll({ done: 1 }, '"><img src=x>'), 'open', ORDER);
+  assert.ok(!hostile.includes('<img'));
+  assert.match(rollupBar(roll({ done: 1 }, ''), 'open', ORDER), /title="Counted on this board only\."/);
+});
+
 test('the board name in the scope line is escaped', () => {
   const html = rollupDetailHtml(roll({ done: 1 }, '<script>x</script>'), 1, ORDER, true);
   assert.ok(!html.includes('<script>'));

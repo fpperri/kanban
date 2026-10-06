@@ -41,15 +41,18 @@ function rollupBar(rollup, mode, order) {
   const others = segments.filter(({ status }) => status !== 'done').map(({ status, n }) =>
     `<span class="rollup-count rollup-count--${ROLLUP_STATUS_COLORS.statusColorClass(status)}">${n} ${label(status)}</span>`);
   const items = done.concat(others);
-  return `<div class="rollup">${bar}<div class="rollup-counts"><b class="rollup-total">${rollup.total}</b> ${items.join(' ')}</div></div>`;
+  return `<div class="rollup">${bar}<div class="rollup-counts" title="${rollupWhere(rollup)}"><b class="rollup-total">${rollup.total}</b> ${items.join(' ')}</div></div>`;
 }
 
 // The roll-up counts only this board's cards: a parent cannot know about
 // children on a board it never reads.
-function rollupScopeLine(rollup, countArchived) {
+function rollupWhere(rollup) {
   const board = rollup.scope && rollup.scope.board;
-  const where = board ? `Counted on this board only (${ROLLUP_ASSIGNEE_BADGE.escapeHtml(board)}).` : 'Counted on this board only.';
-  return `${where} ${countArchived ? 'Archived leaves count as done.' : 'Archived leaves are left out.'}`;
+  return board ? `Counted on this board only (${ROLLUP_ASSIGNEE_BADGE.escapeHtml(board)}).` : 'Counted on this board only.';
+}
+
+function rollupScopeLine(rollup, countArchived) {
+  return `${rollupWhere(rollup)} ${countArchived ? 'Archived leaves count as done.' : 'Archived leaves are left out.'}`;
 }
 
 function rollupDetailHtml(rollup, altitude, order, countArchived) {
