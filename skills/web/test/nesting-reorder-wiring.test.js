@@ -44,8 +44,9 @@ function load(overrides) {
   vm.createContext(sandbox);
   const src = [
     'let pendingDrops = 0;',
+    "let refusedDrop = { key: '', refused: false };",
     'function loadColumnSort() { return columnSort; }',
-    fn('isReorderDrop'), fn('dropPoint'), fn('reorderDrop'), fn('reorderCard'),
+    fn('isReorderDrop'), fn('dropPoint'), fn('dropAmong'), fn('dropRefused'), fn('reorderDrop'), fn('reorderCard'),
   ].join('\n');
   vm.runInContext(src, sandbox);
   sandbox.pending = () => vm.runInContext('pendingDrops', sandbox);
@@ -229,4 +230,41 @@ test('dragstart remembers the card for dragover, which cannot read the data tran
 test('the drop line is drawn in the accent token above or below the tile', () => {
   assert.match(css, /\.card\.drop-before \{[^}]*var\(--accent\)/);
   assert.match(css, /\.card\.drop-after \{[^}]*var\(--accent\)/);
+});
+
+// --- the drop line only shows where a drop would be taken -----------------------
+
+// wireDrag run against one fake column, to see what the dragover handler draws.
+function dragoverOn(tiles, dragId, clientY, extra) {
+  const s = load(extra);
+  s.state.active.push(card(6), card(7, { parent: 6, rank: 10 }), card(8, { parent: 6, rank: 20 }));
+  const handlers = {};
+  const col = {
+    dataset: { col: 'todo' },
+    classList: { add() {}, remove() {} },
+    contains: () => false,
+    querySelectorAll: () => tiles,
+    addEventListener(type, fn2) { handlers[type] = fn2; },
+  };
+  s.document = { querySelectorAll: (sel) => (sel === '.column' ? [col] : []) };
+  const board = { querySelectorAll: () => [] };
+  s.$ = () => board;
+  s.markDropPoint = (shown, at) => s.calls.push(['mark', shown.map((t) => t.dataset.id).join(','), at]);
+  s.clearDropMarks = () => s.calls.push(['clear']);
+  vm.runInContext('let dragCardId = null, bulkDragIds = null, isDragging = false; const selectedIds = new Set();', s);
+  vm.runInContext(`${wire}\nwireDrag();\ndragCardId = ${dragId};`, s);
+  handlers.dragover({ preventDefault() {}, clientY });
+  return s.calls;
+}
+
+const OUTLINE_TILES = [1, 2, 3, 6, 7, 8].map((id, i) => tile(id, i * 50, 40));
+
+test('dragging over a spot between two siblings draws the drop line', () => {
+  const calls = dragoverOn(OUTLINE_TILES, 4, 100);
+  assert.deepStrictEqual(plain(calls), [['mark', '1,2,3,6,7,8', 2]]);
+});
+
+test('dragging over another parent\'s children draws no line, since the drop would be refused', () => {
+  const calls = dragoverOn(OUTLINE_TILES, 4, 250);
+  assert.deepStrictEqual(plain(calls), [['clear']]);
 });

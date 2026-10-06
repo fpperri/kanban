@@ -1618,6 +1618,7 @@ function wireDrag() {
       el.classList.remove('dragging');
       isDragging = false;
       dragCardId = null;
+      refusedDrop.key = '';
       clearDropMarks();
       bulkDragIds = null; // drop (if any) already consumed it — this catches cancelled drags, which would otherwise replay a stale bulk move
     });
@@ -1628,7 +1629,9 @@ function wireDrag() {
       col.classList.add('drag-over');
       if (dragCardId !== null && isReorderDrop(bulkDragIds || [dragCardId], col.dataset.col)) {
         const point = dropPoint(col, dragCardId, e.clientY);
-        markDropPoint(point.tiles, point.at);
+        const { prev, next } = dropAmong(col, point);
+        if (dropRefused(dragCardId, prev, next)) clearDropMarks();
+        else markDropPoint(point.tiles, point.at);
       } else {
         clearDropMarks();
       }
@@ -1758,9 +1761,26 @@ function markDropPoint(tiles, at) {
   else tiles[tiles.length - 1].classList.add('drop-after');
 }
 
+function dropAmong(col, point) {
+  return dropNeighbours(point.tiles.map((el) => Number(el.dataset.id)), point.at, loadColumnSort()[col.dataset.col].direction);
+}
+
+// The drop line is drawn only where reorderCard would take the drop. dragover
+// fires many times a second, so the plan is worked out again only when the
+// pointer moves to another spot.
+let refusedDrop = { key: '', refused: false };
+
+function dropRefused(id, prev, next) {
+  const key = `${id}:${prev}:${next}`;
+  if (refusedDrop.key !== key) {
+    const plan = reorderPlan(state.active.concat(state.archived), id, { prev, next }, { board: state.projectName, priorities: state.priorities });
+    refusedDrop = { key, refused: !!plan.error };
+  }
+  return refusedDrop.refused;
+}
+
 function reorderDrop(col, id, clientY) {
-  const point = dropPoint(col, id, clientY);
-  const { prev, next } = dropNeighbours(point.tiles.map((el) => Number(el.dataset.id)), point.at, loadColumnSort()[col.dataset.col].direction);
+  const { prev, next } = dropAmong(col, dropPoint(col, id, clientY));
   if (prev === null && next === null) return;
   reorderCard(id, prev, next);
 }
