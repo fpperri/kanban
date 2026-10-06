@@ -246,7 +246,7 @@ to `127.0.0.1` only.
   filtering. Hidden while a column is collapsed (nothing to sort there).
 - **Search** — the header search box filters every view as you type; the query survives
   view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
-  exact card id; `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` are
+  exact card id; `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
   scope with nothing after the colon yet — `status:` mid-keystroke — is dropped as
   not-yet-a-term rather than matching everything for one keystroke); `review:`/`blocked:`
@@ -442,6 +442,17 @@ to `127.0.0.1` only.
   words too. Not a new glyph anywhere — nothing to lose to, and a card without a deadline
   can never show it. The Archive column's `archiveCardEl` renders the date stack but
   never this: archived retires the deadline by definition.
+- **Card type chip** — a card's optional `type:` frontmatter line (free text) shows as a
+  chip, `typeBadge()` (type-badge.js), in the tile's head row beside the assignee on
+  live and archived tiles, and in the detail popup's frontmatter table in place of the
+  raw word. The board's `types:` list in `config.yaml` may give a type a color; the match
+  is by name, ignoring case and surrounding space, and the chip keeps the card's own
+  spelling. A listed type with a color wears it as text and border; a type the list does
+  not name, or names without a color, is a neutral chip. Like a reserved assignee color,
+  the value is free-form, so the chip rides a `data-type-color` attribute and
+  `paintTypeColors()` (app.js) paints it with CSSOM assignments after `innerHTML` lands
+  (the CSP blocks style attributes). The app attaches no meaning to a type. Existing
+  `epic: true` cards are unchanged.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -1099,6 +1110,10 @@ assignees:                # who can own cards; feeds the form's assignee combobo
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config, design]    # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
+types:                    # suggested card types; color is OPTIONAL
+  - name: objective
+    color: "#a371f7"
+  - story                 # bare entry = name only, neutral chip
 ```
 
 This app is config-driven and doesn't enforce the grab semantics — it renders whatever
@@ -1119,6 +1134,12 @@ handle a card carries.
   neutral). Absent = built-in `[High, Normal, Low]`.
 - **`tags`** feeds the form's tag suggestions. Both lists are HITL-curated — the human
   edits them; the app only reads.
+- **`types`** (block, bare-entry or inline `[a, b]` form; order kept) names the card
+  types the board suggests, each with an OPTIONAL `color` kept as an opaque string
+  (hex, name, anything CSS reads). It feeds the type chip's color only: a card's
+  `type:` may be any text, and a type outside the list still reads as a neutral chip.
+  `GET /api/board` carries it as `types: [{name, color}]` (`color` is `''` when absent;
+  `[]` when the key or file is). Human-curated like `tags`; the app only reads.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's

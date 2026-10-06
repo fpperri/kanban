@@ -443,6 +443,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    vocabulary (border 1px, color mut); the dashed border stays, it is the
    part of this chip that means something (unrecognized status). */
 .status-chip { background: var(--btn-bg); border: 1px dashed var(--mut); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mut); margin-left: 6px; }
+/* Card-type chip. Neutral by default; a type the board's `types:` list gives a
+   color paints color + borderColor through the CSSOM (app.js paintTypeColors),
+   since the value is free-form and a style attribute is blocked by the CSP. */
+.type-chip { background: var(--btn-bg); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; color: var(--mut); white-space: nowrap; }
 /* Date stack (kanban.proj#260): the tile's RIGHT-HAND column, top-aligned
    beside the title rather than stacked under it. Kept out of .card-head
    (a nowrap flex row three lines would stretch) and out of the normal flow,

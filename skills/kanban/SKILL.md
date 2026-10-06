@@ -51,6 +51,7 @@ Each card's frontmatter supports the following fields:
 - `due_date` — (optional) The **deadline**: same date/datetime forms. Independent of the working range (date-aware views draw it as its own marker, even inside the range) — it only stands in as the range end via the compat fallback above. Write the triad in `start_date`, `end_date`, `due_date` order so ranges read naturally.
 - `tags` — (optional) List of labels.
 - `parent` — (optional) Epic membership: the card id of the epic this card belongs to. Example: `parent: 146`. A single id, tolerant read (non-numeric = no membership), never validated; a dangling id renders a ghost stub on the map, a self-id is ignored. Membership is not sequencing — it never makes the card *waiting* and the `doing` gate ignores it; use `waiting_for` for ordering. The web map renders the epic as the SINK (it closes only when its children close, so it lays out BELOW them), but draws no line for membership itself — an epic reads on the map only through the node's own orange wash, and membership is surfaced through the `epic:` search term / "Epics" chip instead. A `waiting_for` edge between two members of the same epic is still a real, gate-enforced dependency and draws on the map exactly like any other edge (plain grey, no tint). The epic still lists in the no-dependencies row (membership isn't a dependency). Form-unmanaged: write it by hand; every managed write preserves the line verbatim.
+- `type` — (optional) What the card is: free text, usually a word from the board's `types:` list in `config.yaml` (see below), though any word reads and nothing validates it. Example: `type: objective`. Lean rule: write the line only when the card has a type, omit it otherwise. The kanban renders the word as a chip on the card (in the type's configured color, or neutral when the list gives none) and finds it with the `type:` search term; it attaches no meaning to the word, so rules about types belong to whoever uses the board. Every managed write leaves the line alone unless the edit changes the type itself.
 - `epic` — (optional) `epic: true` marks the card as an **epic/wayfinder** — a marker for a stretch of work rather than a single task. Boolean with the lean rule: write exactly `epic: true` when set and **omit the line entirely** when not — never write `epic: false`. Never validated; the `kanban-web` app reads any-case `true` as set and gives epics an orange identity layered on top of the status color in every view (the status/column itself is unchanged).
 - `updated` — (optional, machine-maintained) ISO local datetime, `YYYY-MM-DDTHH:MM:SS` (no timezone suffix — same shape as `notifications.md`'s `at` field). The `kanban-web` app stamps it on card creation and bumps it on every content write (single edits, drag-driven status changes, bulk edits); it does NOT change on archive/restore (those only move the file, they don't touch its content). AI writers editing a card's frontmatter by hand should bump `updated` to the current local datetime too, so the timestamp stays meaningful regardless of which tool made the change.
 
@@ -122,6 +123,10 @@ assignees:        # registry of who can own cards; suggests handles, never valid
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config]            # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
+types:                            # suggested card types; a color is optional
+  - name: objective
+    color: "#a371f7"
+  - story                         # a bare entry is a name with no color
 ```
 
 **`name` — the board name.** The short token that opens a card mention
@@ -187,6 +192,8 @@ lives in GLOSSARY.md's Role trio glossary, and when a board's `config.yaml`
 has no `assignees` registry, every surface suggests exactly this trio.
 
 Status values are **case-sensitive** — the `doing` entry gate (waiting + blocked) applies to the literal lowercase `doing` only; a column named `Doing` is just another custom column the gate ignores. Curate accordingly.
+
+**`types` — the card-type list.** Entries give a `type:` word a chip color; they suggest, they never validate, and a card may carry any `type:` text. Accepted forms: a block entry `- name: objective` with an optional indented `color:` (a hex like `"#a371f7"` or a color name, kept as an opaque string), a bare entry `- story` (name only), or an inline `types: [objective, story]`. Entries keep the order written, an entry with no name is skipped, and a type the list does not name (or names without a color) shows a neutral chip. Like `tags`, the list is human-curated: never add to it on your own.
 
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 

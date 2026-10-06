@@ -153,6 +153,10 @@ assignees: # role-trio registry
 priorities: [High, Normal, Low] # ordered highest first
 tags: [skills, config, design] # curated tag vocabulary
 statuses: [backlog, todo, doing, done] # official column list, in board order
+types: # card types: name plus an optional chip color
+  - name: objective
+    color: "#a371f7"
+  - story
 ```
 
 Every list here **suggests, never validates** — free text still saves and

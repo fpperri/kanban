@@ -18,6 +18,8 @@
 //                 lowercasing logic runs, so it shares every rule below with
 //                 the long form (case-insensitive substring, dropped when
 //                 valueless mid-typing).
+//   type:objective substring on the card's type (free text; the board's
+//                 `types:` list only suggests names, it never filters).
 //   review: / blocked:   sticker scopes (ADR 0009) — UNLIKE every
 //                 KNOWN_FIELDS scope above, a bare `review:`/`blocked:` (no
 //                 value) is a COMPLETE term meaning "the sticker is present"
@@ -59,7 +61,7 @@ const DG = (typeof module !== 'undefined' && module.exports) ? require('./depend
 // page scope (every web/*.js top-level name must be unique).
 const WBS = (typeof module !== 'undefined' && module.exports) ? require('./waiting-blocked') : window;
 
-const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee'];
+const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
 // tree:/path: are deliberately NOT in KNOWN_FIELDS — that array drives the
 // lowercased-substring value semantics, which don't apply to a numeric id.
 const GRAPH_FIELDS = ['tree', 'path'];
@@ -133,6 +135,7 @@ function termMatchesCard(term, card) {
     case 'tags': return tags.some((t) => t.toLowerCase().includes(term.value));
     case 'file': return (card.file || '').toLowerCase().includes(term.value);
     case 'assignee': return (card.assignee || '').toLowerCase().includes(term.value);
+    case 'type': return (card.type || '').toLowerCase().includes(term.value);
     // ADR 0009: bare (no value) = the shared presence predicate; a value =
     // case-insensitive substring on the sticker's own text (never the raw
     // field — a bare `true` sticker's text is '', which no non-empty
