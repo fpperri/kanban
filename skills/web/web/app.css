@@ -1149,7 +1149,68 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    #board/#map-view/#calendar-view/#gantt-view — same .hidden swap. Same box
    as .map-view, but it pans itself, so overflow is hidden, not auto. */
 #graph-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.graph-view { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; height: calc(100vh - var(--board-header-h, 64px) - 48px); }
+.graph-view { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; height: calc(100vh - var(--board-header-h, 64px) - 48px); display: flex; flex-direction: column; }
+
+/* Graph view */
+.graph-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 8px; }
+.graph-layouts, .graph-zoom { display: flex; gap: 6px; }
+.graph-layout-btn, .graph-zoom-btn, .graph-filter-toggle { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.graph-layout-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.graph-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.graph-filter-toggle.off { opacity: 0.45; border-style: dashed; color: var(--mut); }
+.graph-key, .graph-count { color: var(--mut); font-size: 0.78em; }
+.graph-key { margin-bottom: 8px; }
+.graph-count { margin-left: auto; }
+.graph-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
+.graph-stage { position: relative; flex: 1; min-height: 0; }
+.graph-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; user-select: none; touch-action: none; }
+.graph-canvas.graph-panning { cursor: grabbing; }
+
+.graph-ring { fill: none; stroke: var(--line-strong); stroke-width: 1px; stroke-dasharray: 4 4; opacity: 0.6; }
+.graph-spoke { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; }
+.graph-ring-label, .graph-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-title { fill: var(--ink); font-weight: 600; }
+
+.graph-link { fill: none; stroke-width: 1.4px; }
+.graph-link-parent { stroke: var(--mut); opacity: 0.4; }
+.graph-link-wait { stroke: var(--id-waiting); stroke-dasharray: 5 3; opacity: 0.8; }
+.graph-link-cross { opacity: 0.07; }
+.graph-arrow { fill: var(--id-waiting); }
+
+.graph-node { cursor: pointer; color: var(--st-archive); outline: none; }
+.graph-node.status-backlog { color: var(--st-backlog); }
+.graph-node.status-todo { color: var(--st-todo); }
+.graph-node.status-doing { color: var(--st-doing); }
+.graph-node.status-done { color: var(--st-done); }
+.graph-node.status-unknown, .graph-node.status-archive { color: var(--st-archive); }
+.graph-node.status-palette-0 { color: var(--hash-a); }
+.graph-node.status-palette-1 { color: var(--hash-b); }
+.graph-node.status-palette-2 { color: var(--hash-c); }
+.graph-node.status-palette-3 { color: var(--hash-d); }
+.graph-node.status-palette-4 { color: var(--hash-e); }
+.graph-node.status-palette-5 { color: var(--hash-f); }
+.graph-node.status-palette-6 { color: var(--hash-g); }
+.graph-node.status-palette-7 { color: var(--hash-h); }
+.graph-dot { fill: currentColor; stroke: none; }
+.graph-node.is-done .graph-dot { fill: var(--surface); stroke: currentColor; stroke-width: 1.8px; }
+.graph-node.archived { opacity: 0.65; }
+.graph-kids-ring, .graph-flag-ring { fill: none; stroke-width: 1.4px; pointer-events: none; }
+.graph-node.has-kids .graph-kids-ring { stroke: var(--mut); }
+.graph-flag-ring { stroke: transparent; }
+.graph-node.is-review .graph-flag-ring { stroke: var(--id-review); }
+.graph-node.is-waiting .graph-flag-ring { stroke: var(--id-waiting); }
+.graph-node.is-blocked .graph-flag-ring { stroke: var(--blocked-ink); }
+.graph-node.selected .graph-dot { stroke: var(--accent); stroke-width: 3px; }
+.graph-node.selected { filter: drop-shadow(0 0 4px var(--accent)); }
+.graph-node.hover-highlight .graph-dot { stroke: var(--ink); stroke-width: 2px; }
+.graph-node:focus-visible .graph-dot { stroke: var(--accent); stroke-width: 2.5px; stroke-dasharray: 3 2; }
+
+.graph-node-id { display: none; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-node.graph-hub .graph-node-id, .graph-node.hover-highlight .graph-node-id, .graph-node.selected .graph-node-id, .graph-labels-all .graph-node-id { display: inline; }
+
+.graph-dim .graph-node:not(.graph-near) { opacity: 0.15; }
+.graph-dim .graph-link:not(.graph-near) { opacity: 0.06; }
+.graph-dim .graph-link.graph-near { opacity: 0.85; }
 
 /* --- Gantt view --------------------------------------------------
    Dated cards as bars on a day timeline, rows grouped by status. #gantt-view

@@ -401,12 +401,109 @@ function graphFit(bounds, width, height, pad = 60, maxK = 2.5) {
   return { x: width / 2 - cx * k, y: height / 2 - cy * k, k };
 }
 
+// --- visible ids + zoom --------------------------------------------------------
+// The status pills and the search compose by intersection, like every other
+// view. null means "draw everything".
+
+function graphVisibleIds(pool, searchIds, filter, statuses) {
+  const statusIds = GRAPH_COLS.mapFilterVisibleIds(pool, filter, statuses);
+  return GRAPH_COLS.intersectVisibleIds(searchIds || null, statusIds);
+}
+
+function graphZoomAt(view, px, py, factor, min = 0.1, max = 8) {
+  const k = Math.min(max, Math.max(min, view.k * factor));
+  const s = k / view.k;
+  return { x: px - (px - view.x) * s, y: py - (py - view.y) * s, k };
+}
+
+// --- render plan ---------------------------------------------------------------
+// Plain data the view turns into SVG: no DOM here. Nodes keep model order
+// (outline order), which is the DOM order and so the shift-click range order.
+
+const graphRound = (v) => Math.round(v * 100) / 100;
+
+function graphPlan(model, layout, opts) {
+  const o = opts || {};
+  const selected = o.selectedIds || new Set();
+  const isHover = o.isHover || ((id) => o.hoveredId != null && o.hoveredId === id);
+  const statusClass = o.statusClass || ((s) => String(s));
+  const titleOf = o.titleOf || ((c) => c.title || '');
+  const curved = layout.rings.length > 0 || layout.spokes.length > 0;
+  const kind = o.kind || (layout.rings.some((r) => r.status !== undefined) ? 'status' : curved ? 'tiers' : 'force');
+  const centres = [];
+  if (kind === 'status') for (const r of layout.rings) if (!centres.includes(r.cx)) centres.push(r.cx);
+  if (!centres.length) centres.push(0);
+  // Status layout: live cards sit in the first clump, archived ones in the second.
+  const clumpOf = (n) => (kind === 'status' && n.archived && centres.length > 1 ? 1 : 0);
+
+  const nodes = model.nodes.map((n) => {
+    const p = layout.pos.get(n.id);
+    const cls = ['graph-node', 'card-el', `status-${statusClass(n.status)}`];
+    if (selected.has(n.id)) cls.push('selected');
+    if (isHover(n.id)) cls.push('hover-highlight');
+    if (n.archived) cls.push('archived');
+    if (n.status === 'done') cls.push('is-done');
+    if (n.kids > 0) cls.push('has-kids');
+    if (n.blocked) cls.push('is-blocked');
+    if (n.waiting) cls.push('is-waiting');
+    if (n.review) cls.push('is-review');
+    const hub = n.deg >= 3;
+    if (hub) cls.push('graph-hub');
+    return {
+      id: n.id,
+      x: graphRound(p.x),
+      y: graphRound(p.y),
+      r: graphRadius(n),
+      cls: cls.join(' '),
+      title: `#${n.id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`,
+      hub,
+    };
+  });
+
+  const links = model.links.map((l) => {
+    const a = model.byId.get(l.from);
+    const b = model.byId.get(l.to);
+    const pa = layout.pos.get(l.from);
+    const pb = layout.pos.get(l.to);
+    const cross = kind === 'status' && clumpOf(a) !== clumpOf(b);
+    const cls = `graph-link graph-link-${l.kind}${cross ? ' graph-link-cross' : ''}`;
+    const head = `M${graphRound(pa.x)} ${graphRound(pa.y)}`;
+    if (l.kind === 'wait') {
+      const dx = pb.x - pa.x;
+      const dy = pb.y - pa.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const trim = graphRadius(b) + 2;
+      const ex = graphRound(pb.x - (dx / dist) * trim);
+      const ey = graphRound(pb.y - (dy / dist) * trim);
+      return { from: l.from, to: l.to, kind: l.kind, d: `${head}L${ex} ${ey}`, cls, arrow: true };
+    }
+    let d = `${head}L${graphRound(pb.x)} ${graphRound(pb.y)}`;
+    if (curved) {
+      const qx = graphRound((pa.x + pb.x) / 2 * 0.8 + centres[clumpOf(b)] * 0.2);
+      const qy = graphRound((pa.y + pb.y) / 2 * 0.8);
+      d = `${head}Q${qx} ${qy} ${graphRound(pb.x)} ${graphRound(pb.y)}`;
+    }
+    return { from: l.from, to: l.to, kind: l.kind, d, cls, arrow: false };
+  });
+
+  const rings = layout.rings.map((r) => ({ cx: graphRound(r.cx), r: graphRound(r.r), label: r.label, cls: 'graph-ring' }));
+  const spokes = layout.spokes.map((s) => ({
+    x1: 0,
+    y1: 0,
+    x2: graphRound(Math.cos(s.angle - 0.02) * s.r1),
+    y2: graphRound(Math.sin(s.angle - 0.02) * s.r1),
+  }));
+  const titles = layout.titles.map((t) => ({ x: graphRound(t.x), y: graphRound(t.y), text: t.text }));
+  return { nodes, links, rings, spokes, titles };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_LAYOUTS, mergeGraphLayout,
     graphBuild, graphRadius, graphNeighbours,
     graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
+    graphVisibleIds, graphZoomAt, graphPlan,
   };
 } else {
   window.GRAPH_LAYOUTS = GRAPH_LAYOUTS;
@@ -421,4 +518,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphSignature = graphSignature;
   window.graphLayoutCacheClear = graphLayoutCacheClear;
   window.graphFit = graphFit;
+  window.graphVisibleIds = graphVisibleIds;
+  window.graphZoomAt = graphZoomAt;
+  window.graphPlan = graphPlan;
 }

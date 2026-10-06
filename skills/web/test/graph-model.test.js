@@ -5,6 +5,7 @@ const {
   graphBuild, graphRadius, graphNeighbours,
   graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
   graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
+  graphVisibleIds, graphZoomAt, graphPlan,
 } = require('../web/graph-model');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
@@ -349,4 +350,112 @@ test('layout dispatcher: unknown kind falls back to tiers', () => {
   graphLayoutCacheClear();
   const m = forest();
   assert.deepStrictEqual(plain(graphLayout(m, 'nope')), plain(graphLayoutTiers(m)));
+});
+
+// --- plan ------------------------------------------------------------------------
+
+const planOpts = (extra = {}) => ({ statusClass: (s) => s, titleOf: (c) => c.title, ...extra });
+const sampleCards = () => [
+  card(1, { status: 'doing' }),
+  card(2, { parent: 1, status: 'done' }),
+  card(3, { parent: 1, blocked: true }),
+  card(4, { parent: 1, waiting_for: [2, 3], review: true }),
+  card(5, { waiting_for: [9] }),
+  card(6, { archived: true, status: 'done' }),
+];
+
+test('plan: node classes, order and title', () => {
+  const m = build(sampleCards());
+  const plan = graphPlan(m, graphLayout(m, 'tiers'), planOpts({ selectedIds: new Set([3]), hoveredId: 2 }));
+  assert.deepStrictEqual(plan.nodes.map((n) => n.id), m.nodes.map((n) => n.id));
+  const by = (id) => plan.nodes.find((n) => n.id === id);
+  assert.match(by(1).cls, /^graph-node card-el status-doing/);
+  assert.ok(by(1).cls.includes('has-kids'));
+  assert.ok(by(1).cls.includes('graph-hub'));
+  assert.ok(by(2).cls.includes('is-done') && by(2).cls.includes('hover-highlight'));
+  assert.ok(by(3).cls.includes('selected') && by(3).cls.includes('is-blocked'));
+  assert.ok(by(4).cls.includes('is-waiting') && by(4).cls.includes('is-review'));
+  assert.ok(by(6).cls.includes('archived'));
+  assert.strictEqual(by(6).title, '#6 card 6 (done, archived)');
+  assert.strictEqual(by(3).title, '#3 card 3 (todo)');
+  assert.strictEqual(by(1).hub, true);
+  assert.strictEqual(by(5).hub, false);
+});
+
+test('plan: isHover predicate wins over hoveredId', () => {
+  const m = build([card(1), card(2)]);
+  const plan = graphPlan(m, graphLayout(m, 'force'), planOpts({ isHover: (id) => id === 2, hoveredId: 1 }));
+  assert.ok(!plan.nodes[0].cls.includes('hover-highlight'));
+  assert.ok(plan.nodes[1].cls.includes('hover-highlight'));
+});
+
+test('plan: parent links curve in tiers and status, straight in force; waits end at the rim', () => {
+  const m = build(sampleCards());
+  for (const kind of ['tiers', 'status']) {
+    const plan = graphPlan(m, graphLayout(m, kind), planOpts());
+    const parent = plan.links.find((l) => l.kind === 'parent');
+    assert.match(parent.d, /^M[-\d.]+ [-\d.]+Q/, kind);
+    assert.strictEqual(parent.arrow, false);
+  }
+  const force = graphPlan(m, graphLayout(m, 'force'), planOpts());
+  assert.match(force.links.find((l) => l.kind === 'parent').d, /^M[-\d.]+ [-\d.]+L/);
+  const lay = graphLayout(m, 'tiers');
+  const plan = graphPlan(m, lay, planOpts());
+  const wait = plan.links.find((l) => l.kind === 'wait' && l.from === 4 && l.to === 2);
+  assert.strictEqual(wait.arrow, true);
+  assert.match(wait.cls, /graph-link-wait/);
+  const [ex, ey] = wait.d.split('L')[1].split(' ').map(Number);
+  const t = lay.pos.get(2);
+  assert.ok(Math.abs(Math.hypot(ex - t.x, ey - t.y) - (graphRadius(m.byId.get(2)) + 2)) < 0.05);
+});
+
+test('plan: status layout marks cross-clump links', () => {
+  const m = build([card(1, { archived: true, status: 'done' }), card(2, { parent: 1 }), card(3), card(4, { parent: 3 })]);
+  const plan = graphPlan(m, graphLayout(m, 'status', { statuses: ['todo', 'doing', 'done'] }), planOpts());
+  const cross = plan.links.filter((l) => l.cls.includes('graph-link-cross'));
+  assert.deepStrictEqual(cross.map((l) => `${l.from}>${l.to}`), ['1>2']);
+  const tiers = graphPlan(m, graphLayout(m, 'tiers'), planOpts());
+  assert.ok(tiers.links.every((l) => !l.cls.includes('cross')));
+});
+
+test('plan: rings, spokes and titles come from the layout; output is finite and deterministic', () => {
+  const m = build(sampleCards());
+  for (const kind of GRAPH_LAYOUTS) {
+    const lay = graphLayout(m, kind, { statuses: ['backlog', 'todo', 'doing', 'done'] });
+    const a = graphPlan(m, lay, planOpts());
+    const b = graphPlan(m, lay, planOpts());
+    assert.deepStrictEqual(a, b);
+    const nums = JSON.stringify(a).match(/-?\d+(\.\d+)?(e-?\d+)?/g).map(Number);
+    assert.ok(nums.every(Number.isFinite));
+    assert.strictEqual(a.rings.length, lay.rings.length);
+    assert.strictEqual(a.spokes.length, lay.spokes.length);
+    assert.ok(a.rings.every((r) => r.cls === 'graph-ring'));
+    assert.ok(!JSON.stringify(a).includes('NaN'));
+  }
+  const tiers = graphPlan(m, graphLayout(m, 'tiers'), planOpts());
+  assert.ok(tiers.spokes.length > 0);
+  const empty = build([]);
+  const e = graphPlan(empty, graphLayout(empty, 'tiers'), planOpts());
+  assert.deepStrictEqual(e.nodes, []);
+});
+
+test('visibleIds: filter composes with search by intersection, null when nothing narrows', () => {
+  const pool = [card(1), card(2, { status: 'done' }), card(3, { archived: true })];
+  const statuses = ['todo', 'done'];
+  const filter = { todo: true, done: true, archive: false };
+  assert.deepStrictEqual([...graphVisibleIds(pool, null, filter, statuses)].sort(), [1, 2]);
+  assert.deepStrictEqual([...graphVisibleIds(pool, new Set([2, 3]), filter, statuses)], [2]);
+  assert.strictEqual(graphVisibleIds(pool, null, { todo: true, done: true, archive: true }, statuses), null);
+  assert.deepStrictEqual([...graphVisibleIds(pool, new Set([3]), { todo: true, done: true, archive: true }, statuses)], [3]);
+});
+
+test('zoomAt: the world point under the pointer stays put and k clamps', () => {
+  const v = { x: 40, y: -10, k: 1.5 };
+  const z = graphZoomAt(v, 300, 200, 1.4);
+  assert.ok(Math.abs((300 - z.x) / z.k - (300 - v.x) / v.k) < 1e-9);
+  assert.ok(Math.abs((200 - z.y) / z.k - (200 - v.y) / v.k) < 1e-9);
+  assert.strictEqual(graphZoomAt(v, 0, 0, 100).k, 8);
+  assert.strictEqual(graphZoomAt(v, 0, 0, 0.0001).k, 0.1);
+  assert.strictEqual(graphZoomAt(v, 0, 0, 1).k, 1.5);
+  assert.deepStrictEqual(graphZoomAt(v, 5, 5, 3, 0.5, 2).k, 2);
 });
