@@ -774,8 +774,9 @@ to `127.0.0.1` only.
   the depended-on card to the card waiting on it). Nodes come from both live and
   archived cards — blocking is location-independent.
   **Parent membership:** a child card's `parent: <id>` feeds the layered layout — the
-  parent is the SINK (it closes only when its children close), so under the map's
-  down-is-later convention it still lays out BELOW its children — and decides which cards
+  parent lays out BELOW its children, since down is later on the map and a parent is the
+  end of the work under it (its own status stays the human's call: done with open leaves
+  warns, never gates) — and decides which cards
   are graph participants, but membership is never drawn as a line, and the map carries no
   cue for a parent or a type. Internally, only the chain's terminal child(ren) (no other
   child of the same parent waits on them; a chainless child counts as its own one-card

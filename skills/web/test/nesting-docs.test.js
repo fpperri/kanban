@@ -46,3 +46,17 @@ test('the web skill documents the Outline sort, its default, and the Parent and 
   const edit = webSkill.slice(webSkill.indexOf('- **Edit**'), webSkill.indexOf('- **Edit**') + 2500);
   assert.match(edit, /parent, rank/);
 });
+
+test('nothing says a parent closes only when its children do: its status is the human\'s call, and done with open leaves only warns', () => {
+  const files = [
+    ['docs', 'web.md'], ['docs', 'snapshot.md'], ['README.md'], ['GLOSSARY.md'],
+    ['skills', 'kanban', 'SKILL.md'], ['skills', 'web', 'SKILL.md'], ['skills', 'snapshot', 'SKILL.md'],
+    ['skills', 'web', 'web', 'dependency-graph.js'], ['skills', 'snapshot', 'scripts', 'build_editor.py'],
+  ];
+  for (const file of files) {
+    const text = fs.readFileSync(path.join(__dirname, '..', '..', '..', ...file), 'utf8').replace(/\s+(\/\/\s+)?/g, ' ');
+    assert.doesNotMatch(text, /closes only when|done only when its children|only when its children (close|are done)|only when they do/i, file.join('/'));
+  }
+  const adr = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'adr', '0012-cards-nest-type-and-rank-replace-the-epic-flag.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(adr, /status stays the human's call: marking a parent done while leaves below are open shows a warning, never a gate/);
+});

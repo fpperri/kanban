@@ -64,18 +64,17 @@ function isCardWaiting(c, byId) {
 //   separately so the caller can render them in a detached cluster instead
 //   of mixing them into the layered graph.
 //
-// Membership edges: a child card's `parent: <parent-id>`
+// Parent edges: a child card's `parent: <parent-id>`
 // becomes a child->parent edge with `kind: 'epic'` (the name predates nesting and
 // is pinned by the map and the snapshot; waiting_for edges carry
-// `kind: 'dep'`). The parent is the SINK, not the root — a parent is done only
-// when its children are done, so under the map's "down = completes later"
-// convention it lays out BELOW its children (a 2026-07-13 design review
-// flipped the original parent-on-top build: parent-as-container read as a false
-// prerequisite). Membership is not sequencing: it feeds the layered layout
+// `kind: 'dep'`). The parent lays out BELOW its children, not above them: under
+// the map's "down = completes later" convention a parent is the end of the work
+// under it, and above them it read as a false prerequisite. Its status is still
+// the human's call. Nesting is not sequencing: it feeds the layered layout
 // and gets the same ghost-stub courtesy, but it never makes anyone `waiting`
 // and — deliberately — does NOT count for the isolated row. "No
 // dependencies" means no SEQUENCING deps, so a parent whose only edges are
-// membership appears in the graph AND the detached row. A self-parent is
+// parent edges appears in the graph AND the detached row. A self-parent is
 // nonsense and adds no edge; a dangling parent id ghosts as missing, same
 // as a dangling dep.
 function buildDependencyGraph(cards, visibleIds, ctx) {

@@ -69,10 +69,11 @@ and a loop of parents is flagged where it repeats.
 ![Dependency map](images/web-map.png)
 
 The **Map view** lays out `waiting_for` edges as a graph — arrows point from
-the card you depend on to the card that's waiting. A **parent** is the sink: it
-sits *below* its children and closes only when they do, but membership itself
-draws no line; it is read from each card's `parent` field. Cards with no
-dependencies drop into a separate row below.
+the card you depend on to the card that's waiting. A **parent** sits *below* its
+children, as the end of the work under it; its status stays your call, and marking
+it done with leaves still open only warns. Nesting itself draws no line; it is read
+from each card's `parent` field. Cards with no dependencies drop into a separate
+row below.
 A status-filter pill row (left-click to toggle, right-click to solo) and the
 search box both prune the graph.
 
