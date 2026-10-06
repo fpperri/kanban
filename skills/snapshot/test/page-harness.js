@@ -80,8 +80,6 @@ class El {
     return n;
   }
 
-  removeChild(n) { this.children = this.children.filter((c) => c !== n); n.parentNode = null; return n; }
-
   replaceChildren(...nodes) {
     this.children = [];
     this._text = '';
@@ -99,11 +97,7 @@ class El {
     return k in this.attrs ? this.attrs[k] : null;
   }
 
-  removeAttribute(k) { if (k.startsWith('data-')) delete this.dataset[camel(k)]; else delete this.attrs[k]; }
-
   addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
-
-  removeEventListener() {}
 
   matches(selector) {
     return selector.split(',').some((part) => {
@@ -123,10 +117,6 @@ class El {
   all() {
     return this.children.filter((c) => c.nodeType === 1).flatMap((c) => [c, ...c.all()]);
   }
-
-  querySelectorAll(selector) { return this.all().filter((n) => n.matches(selector)); }
-
-  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 
   contains(n) { for (let p = n; p; p = p.parentNode) if (p === this) return true; return false; }
 
@@ -169,7 +159,7 @@ function loadPage(html, opts = {}) {
     document: doc,
     navigator: { clipboard: { writeText: () => Promise.resolve() } },
     localStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) },
-    matchMedia: (q) => ({ matches: opts.matchMedia ? !!opts.matchMedia(q) : false, addEventListener() {}, removeEventListener() {} }),
+    matchMedia: (q) => ({ matches: opts.matchMedia ? !!opts.matchMedia(q) : false, addEventListener() {} }),
     addEventListener() {},
     innerWidth: 1024,
     innerHeight: 768,
@@ -181,7 +171,6 @@ function loadPage(html, opts = {}) {
 
   const page = {
     scripts,
-    document: doc,
     byId: (id) => doc.getElementById(id),
     // Evaluate an expression among the page's own top-level names.
     run: (code) => new vm.Script(code).runInContext(ctx),
