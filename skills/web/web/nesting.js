@@ -151,13 +151,142 @@ function outlineOrder(cards, ctx) {
   return { ids, index };
 }
 
+// --- Reordering ----------------------------------------------------------
+// A drop among siblings answers with the rank to write and, when no whole
+// number fits, the siblings to renumber in tens. Siblings are every card with
+// the same parent, archived ones too, wherever they sit on the board and
+// whether or not a search hides them: a drop names the visible tiles around it,
+// so those are resolved against this full list, and the card goes into the
+// first spot between them with room for a whole number.
+//
+// Ranks written are whole numbers. A card dropped first goes ten below the
+// lowest rank, which may be 0 or negative; last goes ten above the highest.
+// Ranked cards sort before unranked ones, so a rank cannot place a card among
+// unranked siblings: that drop ranks every child of the parent in tens.
+// A drag never changes the parent, so a drop among another parent's children
+// is refused. A tile outside the siblings' stretch of the outline (their
+// parent, or a card after their last subtree) only marks that end of it.
+
+function reorderGroup(tree, card, ctx) {
+  const pid = nestParentId(card, ctx);
+  return pid !== null && tree.byId.has(pid) ? tree.kids.get(pid) : tree.roots;
+}
+
+// The sibling a tile stands for: itself, or the sibling above it whose
+// children it is shown among. null when it hangs under no sibling.
+function reorderSibling(tree, group, tile, ctx) {
+  const seen = new Set();
+  let cur = tile;
+  while (cur && !seen.has(cur.id)) {
+    if (group.includes(cur)) return cur;
+    seen.add(cur.id);
+    const pid = nestParentId(cur, ctx);
+    cur = pid === null ? null : tree.byId.get(pid);
+  }
+  return null;
+}
+
+// The whole-number rank for a card inserted at index `at` of the other
+// siblings, or null when one rank cannot put it there.
+function reorderSlot(rest, at) {
+  const left = rest[at - 1];
+  const right = rest[at];
+  const l = left ? parseRank(left.rank) : null;
+  const r = right ? parseRank(right.rank) : null;
+  if (l !== null && r !== null) {
+    const lo = Math.floor(l) + 1;
+    const hi = Math.ceil(r) - 1;
+    return lo <= hi ? Math.floor((lo + hi) / 2) : null;
+  }
+  if (l !== null) return Math.ceil(l) + 10;
+  if (!left && r !== null) return Math.floor(r) - 10;
+  return null;
+}
+
+// { rank, renumber: [{ id, rank }] } or { error }. `rank` is the dragged
+// card's new rank, null when it needs no write; `renumber` the other siblings
+// that need one. `drop` names the tiles above and below the drop point as
+// { prev, next } card ids, null where there is none, in outline order.
+function reorderPlan(cards, id, drop, ctx) {
+  const tree = nestTree(cards, ctx);
+  const dragged = tree.byId.get(id);
+  if (!dragged) return { error: `no card ${id}` };
+  const group = reorderGroup(tree, dragged, ctx);
+  const rest = group.filter((c) => c !== dragged);
+  const cur = group.indexOf(dragged);
+  const outline = outlineOrder(cards, ctx).index;
+  const side = (tileId, isAbove) => {
+    if (tileId === null || tileId === undefined) return {};
+    if (tileId === id) return { error: 'a card cannot be its own neighbour' };
+    const tile = tree.byId.get(tileId);
+    if (!tile) return { error: `no card ${tileId}` };
+    const sibling = reorderSibling(tree, group, tile, ctx);
+    if (sibling) return { sibling };
+    const before = outline.get(tileId) < outline.get(group[0].id);
+    return before === isAbove ? {} : { error: `card ${tileId} is not among the siblings of card ${id}` };
+  };
+  const above = side(drop.prev, true);
+  const below = side(drop.next, false);
+  if (above.error || below.error) return { error: above.error || below.error };
+  if (above.sibling === dragged && below.sibling === dragged) return { error: 'a card cannot be dropped among its own children' };
+  // A tile among the dragged card's own children bounds the drop at the spot it already holds.
+  const first = !above.sibling ? 0 : above.sibling === dragged ? cur : rest.indexOf(above.sibling) + 1;
+  const last = !below.sibling ? rest.length : below.sibling === dragged ? cur : rest.indexOf(below.sibling);
+  if (first > last) return { error: 'the drop is not between two siblings in outline order' };
+  if (cur >= first && cur <= last) return { rank: null, renumber: [] };
+  const fromTop = !!above.sibling;
+  for (let k = 0; k <= last - first; k++) {
+    const at = fromTop ? first + k : last - k;
+    const rank = reorderSlot(rest, at);
+    if (rank !== null) return { rank, renumber: [] };
+  }
+  return reorderRenumber(rest, fromTop ? first : last, dragged);
+}
+
+// Every sibling in the order the drop leaves them, at 10, 20, 30...; only
+// the cards whose rank actually changes are listed.
+function reorderRenumber(rest, at, dragged) {
+  const finalOrder = rest.slice(0, at).concat(dragged, rest.slice(at));
+  let rank = null;
+  const renumber = [];
+  finalOrder.forEach((c, i) => {
+    const want = (i + 1) * 10;
+    if (parseRank(c.rank) === want) return;
+    if (c === dragged) rank = want;
+    else renumber.push({ id: c.id, rank: want });
+  });
+  return { rank, renumber };
+}
+
+// The cards to write for a plan, the dragged one first.
+function reorderWrites(id, plan) {
+  return (plan.rank === null ? [] : [{ id, rank: plan.rank }]).concat(plan.renumber);
+}
+
+// The tiles around a drop point. `ids` are the tiles shown top to bottom with
+// the dragged one left out, `at` how many of them lie above the point. A
+// descending column shows the outline backwards, so what lies above the point
+// comes later in the outline.
+function dropNeighbours(ids, at, direction) {
+  const above = at > 0 ? ids[at - 1] : null;
+  const below = at < ids.length ? ids[at] : null;
+  return direction === 'desc' ? { prev: below, next: above } : { prev: above, next: below };
+}
+
+// How many tile middles lie above the pointer.
+function dropSlot(mids, y) {
+  let n = 0;
+  while (n < mids.length && mids[n] < y) n++;
+  return n;
+}
+
 // True when any card has a rank or a parent, however written.
 function hasNesting(cards) {
   return cards.some((c) => parseRank(c.rank) !== null || parseParent(c.parent) !== null);
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseParent, parseRank, siblingsCompare, childrenOf, depthOf, outlineOrder, hasNesting };
+  module.exports = { parseParent, parseRank, siblingsCompare, childrenOf, depthOf, outlineOrder, hasNesting, reorderPlan, reorderWrites, dropNeighbours, dropSlot };
 } else {
   window.parseParent = parseParent;
   window.parseRank = parseRank;
@@ -166,4 +295,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.depthOf = depthOf;
   window.outlineOrder = outlineOrder;
   window.hasNesting = hasNesting;
+  window.reorderPlan = reorderPlan;
+  window.reorderWrites = reorderWrites;
+  window.dropNeighbours = dropNeighbours;
+  window.dropSlot = dropSlot;
 }
