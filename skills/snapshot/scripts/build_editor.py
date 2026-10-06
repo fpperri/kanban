@@ -159,10 +159,23 @@ def _scalar(raw):
     `color: #ff00ff` is legal — the `[^\\n#]` trick every OTHER field here
     uses would truncate it at that leading hash)."""
     s = raw.strip()
-    if len(s) >= 2 and ((s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")):
-        return s[1:-1]
+    if s[:1] in ('"', "'"):
+        i = 1
+        while i < len(s):
+            if s[i] == "\\":
+                i += 2
+                continue
+            if s[i] == s[0]:
+                return _unquote(s[:i + 1])
+            i += 1
+        return _unquote(s)
     m = re.search(r"\s#", s)
     return s[:m.start()].strip() if m else s
+
+def _unquote(s):
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        return s[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+    return s
 
 def read_assignee_colors(kanban_dir):
     """config.yaml assignees registry: an OPTIONAL `color:` field
@@ -185,6 +198,89 @@ def read_assignee_colors(kanban_dir):
             if v:
                 colors[cur] = v
     return colors
+
+def _config_text(kanban_dir):
+    try:
+        return open(os.path.join(kanban_dir, "config.yaml"), encoding="utf-8", errors="replace").read()
+    except OSError:
+        return ""
+
+def _flow_list(raw):
+    s = raw.strip()
+    if not s.startswith("["):
+        return []
+    close = s.find("]")
+    inner = s[1:] if close == -1 else s[1:close]
+    return [v for v in (_scalar(i) for i in inner.split(",")) if v]
+
+def read_types(kanban_dir):
+    """config.yaml's `types:` list as [{name, color}], in the order written, read
+    the way kanban-web's config-store.js reads it: block entries (`- name: x`
+    with an optional indented `color:`), bare entries (`- x`), or an inline
+    `types: [a, b]`. Suggested, never validated. One difference, on purpose: a
+    comment after the key (`types:   # suggested`) still opens the block, as in
+    the skill's own example."""
+    types, cur, in_types = [], None, False
+
+    def flush():
+        nonlocal cur
+        if cur is not None:
+            name = _scalar(cur.get("name", ""))
+            if name:
+                types.append({"name": name, "color": _scalar(cur.get("color", ""))})
+            cur = None
+
+    for line in _config_text(kanban_dir).splitlines():
+        top = re.match(r"^(\w+):\s*(.*)$", line)
+        if top:
+            flush()
+            in_types = False
+            if top.group(1) == "types":
+                rest = top.group(2).strip()
+                if not rest or rest.startswith("#"):
+                    in_types = True
+                else:
+                    types[:] = [{"name": n, "color": ""} for n in _flow_list(rest)]
+            continue
+        if not in_types:
+            continue
+        start = re.match(r"^\s+-\s+(\w+):\s*(.*)$", line)
+        bare = re.match(r"^\s+-\s*(.*)$", line)
+        field = re.match(r"^\s+(\w+):\s*(.*)$", line)
+        if start:
+            flush()
+            cur = {start.group(1): start.group(2)}
+        elif bare:
+            flush()
+            name = _scalar(bare.group(1))
+            if name:
+                types.append({"name": name, "color": ""})
+        elif field and cur is not None:
+            cur[field.group(1)] = field.group(2)
+    flush()
+    return types
+
+def read_priorities(kanban_dir):
+    """config.yaml's `priorities:` order, highest first, inline or block; [] when
+    absent (the nesting module then falls back to High, Normal, Low)."""
+    out, in_list = [], False
+    for line in _config_text(kanban_dir).splitlines():
+        top = re.match(r"^(\w+):\s*(.*)$", line)
+        if top:
+            in_list = False
+            if top.group(1) == "priorities":
+                rest = top.group(2).strip()
+                if not rest or rest.startswith("#"):
+                    in_list = True
+                else:
+                    out[:] = _flow_list(rest)
+            continue
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        if in_list and item:
+            v = _scalar(item.group(1))
+            if v:
+                out.append(v)
+    return out
 
 def read_notifications(kanban_dir):
     """notifications.md entries, tolerant like the web store:
@@ -213,6 +309,26 @@ def read_notifications(kanban_dir):
             "message": msg, "read": field("read") == "true",
         })
     return out
+
+NESTING_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web", "nesting.js")
+
+def embeddable(source):
+    """The shared nesting module's source, checked for what would break it inside
+    an inline <script> once the build has substituted it: a closing script tag
+    would end the element early, and a __NAME__ token would be rewritten by the
+    later placeholder replaces. The module is embedded as is, never escaped."""
+    if re.search(r"</script", source, re.I):
+        sys.exit("the nesting module contains a closing script tag and cannot be embedded in the page")
+    if re.search(r"__[A-Z_]+__", source):
+        sys.exit("the nesting module contains a template placeholder (__NAME__) the build would rewrite")
+    return source
+
+def read_nesting():
+    try:
+        with open(NESTING_JS, encoding="utf-8") as f:
+            return embeddable(f.read())
+    except OSError:
+        sys.exit(f"cannot read the nesting module at {os.path.normpath(NESTING_JS)}")
 
 def main():
     p = argparse.ArgumentParser()
@@ -251,12 +367,17 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    html = (TEMPLATE.replace("__ICON_URI__", quote(ICON_SVG, safe=""))
+    # The module goes in before any board text does, so a card that mentions a
+    # placeholder never reaches it.
+    html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
+                    .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
                     .replace("__STATUSES__", emb(read_statuses(a.kanban_dir)))
                     .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
+                    .replace("__TYPES__", emb(read_types(a.kanban_dir)))
+                    .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
                     .replace("__DATA__", emb(cards))
                     .replace("__BOARD_NAME_JSON__", emb(read_board_name(a.kanban_dir)))
@@ -633,6 +754,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 <button id="smore" aria-label="More scroll buttons">&#8943;</button>
 </div>
 <script>
+__NESTING_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -663,6 +786,8 @@ return "var(--hash-"+HASH_SLOTS[shash(v)%HASH_SLOTS.length]+")"}
 const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
+const TYPES=__TYPES__;
+const PRIOS=__PRIORITIES__;
 // Assignee color: a reserved config.yaml `color:` wins (painted exactly as
 // given); else the handle hashes into the SAME --hash-a.."h" token family
 // ccol() above uses for custom statuses -- one shared hash+palette pool, not
