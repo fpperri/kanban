@@ -48,7 +48,9 @@ Each column header carries a sort dropdown (id / priority / due / last-modified
 / assignee / outline), a collapse toggle, and a `+` to create a card straight into
 that column. Outline puts a parent before its children and siblings in `rank`
 order; it is the default sort on a board where any card has a `rank` or a
-`parent`. The search box up top filters every view at once.
+`parent`. In an Outline column, dragging a card between two siblings writes its `rank`:
+one card when there is room between the neighbours, that parent's children renumbered
+in tens when there is not. The search box up top filters every view at once.
 
 A card with children shows `▲n` (how many layers sit below it) and a thin status bar
 of the leaves under it; the card detail opens the bar with counts and a line saying
