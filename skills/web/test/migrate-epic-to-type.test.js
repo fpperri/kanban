@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test: baseTest } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -6,6 +6,21 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const script = path.join(__dirname, '..', '..', 'kanban', 'scripts', 'migrate_epic_to_type.sh');
+
+// A bare `bash` is the WSL stub when the suite runs from PowerShell: it cannot
+// open this script, so every test below would fail with the same cryptic error.
+// Probe once with a dry run on an empty board, fail once with the cause, and
+// skip the rest.
+let bashProblem = null;
+try {
+  const probe = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-epic-probe-'));
+  try { execFileSync('bash', [script, probe], { stdio: 'pipe' }); } finally { fs.rmSync(probe, { recursive: true, force: true }); }
+} catch (e) {
+  const why = String((e && (e.stderr || e.message)) || '').split('\n').map((l) => l.trim()).find(Boolean) || 'no output';
+  bashProblem = `the bash on PATH cannot run the migration script (${why}). On Windows, PowerShell resolves bash to the WSL stub: run these tests from Git Bash`;
+}
+const test = bashProblem ? (name, fn) => baseTest(name, { skip: 'see "bash can run the migration script"' }, fn) : baseTest;
+baseTest('bash can run the migration script', () => { assert.strictEqual(bashProblem, null, bashProblem); });
 
 const STAMP = /^updated: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 
