@@ -6,6 +6,7 @@ const path = require('node:path');
 const http = require('node:http');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
+const { clickAwayExemptions, pollGuardSelectors, assertHasSelectors } = require('./helpers/selector-list');
 const { createServer, start, resolvePort, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
 
 function tmpBoard() {
@@ -398,9 +399,9 @@ test('graph wiring: the sixth view is registered and its toggle/control join the
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /graph: '#graph-view'/);
     assert.match(js, /if \(mode === 'graph'\) renderGraphView\(\);/);
-    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle[^']*\.rollup-ctl, \.rollup, #graph-toggle-btn, \.graph-control'\)/,
-      '#graph-toggle-btn, .graph-control end the click-away exemption list');
-    assert.match(js, /\.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/, '.graph-control ends the poll-guard list');
+    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.rollup-ctl', '.rollup', '#graph-toggle-btn', '.graph-control'],
+      '#graph-toggle-btn, .graph-control are in the click-away exemption list');
+    assertHasSelectors(pollGuardSelectors(js), ['.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'], '.graph-control is in the poll-guard list');
   });
 });
 
@@ -1819,9 +1820,9 @@ test('map section toggles join the poll-guard and Q0 clear-selection exemptions,
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
       'a focused section toggle blocks the auto-refresh — #map-view is wiped by every renderMapView() poll tick, same as the #56 pills');
-    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle, \.map-section-toggle/,
+    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle'],
       'a section-toggle click must not wipe a building selection, same curate-the-view exemption as the #56 pills');
   });
 });
@@ -1858,12 +1859,12 @@ test('map status-filter pills join the Q0 clear-selection exemption AND the focu
     // document-level clear-selection handler — without the exemption, toggling
     // a status to declutter the map wipes the shift-click batch being built
     // (the same curate-before-acting class .cal-nav was exempted for).
-    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle/,
+    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle'],
       'pill clicks must not wipe a building selection');
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
     // innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the sort controls/.cal-nav.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
       'a focused pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -2151,12 +2152,12 @@ test('gantt status-filter pills join the Q0 clear-selection exemption AND the fo
     // Q0: a pill click bubbles past the #gantt-view delegated handler to the
     // document-level clear-selection handler — without the exemption, toggling
     // a status to declutter the timeline wipes the shift-click batch being built.
-    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle/,
+    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a gantt pill click must not wipe a building selection — this pin also names .calendar-filter-toggle (verify-fix: it previously stopped at .gantt-filter-toggle, an unanchored prefix match that no longer proved the #99 calendar pill\'s presence in this exemption list)');
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
       'a focused gantt pill blocks the auto-refresh like every other rebuilt header control');
   });
 });
@@ -2274,12 +2275,12 @@ test('calendar status-filter pills join the Q0 clear-selection exemption AND the
     // Q0: a pill click bubbles past the #calendar-view delegated handler to the
     // document-level clear-selection handler — without the exemption, toggling
     // a status to declutter the calendar wipes the shift-click batch being built.
-    assert.match(js, /#map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, \.cal-nav, \.map-filter-toggle, \.map-section-toggle, \.gantt-filter-toggle, \.calendar-filter-toggle/,
+    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a calendar pill click must not wipe a building selection');
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's/gantt's pills.
-    assert.match(js, /closest\('\.column-sort-field, \.column-sort-dir, \.cal-nav, \.column-add, \.column-add-ai, \.map-filter-toggle, \.map-section-toggle, \.map-zoom-btn, \.map-option-btn, \.gantt-filter-toggle, \.calendar-filter-toggle, \.graph-control'\)/,
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
       'a focused calendar pill blocks the auto-refresh like every other rebuilt header control');
   });
 });

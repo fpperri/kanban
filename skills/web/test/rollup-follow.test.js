@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { clickAwayExemptions, assertHasSelectors } = require('./helpers/selector-list');
 
 const WEB = path.join(__dirname, '..', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
@@ -183,9 +184,10 @@ test('clicking the rest of the card still opens it', () => {
 });
 
 test('a click on a roll-up bar keeps a building multi-selection', () => {
-  const line = appSrc.split('\n').find((l) => l.includes("e.target.closest('#context-menu, #bulk-single"));
+  const line = appSrc.split('\n').find((l) => /e\.target\.closest\('[^']*#bulk-single/.test(l));
   assert.ok(line, 'the Q0 exemption selector is there');
-  assert.match(line, /, \.rollup, #graph-toggle-btn, \.graph-control'\)\) return;/, 'the bar itself is exempt, not only the header controls');
+  assert.match(line, /e\.target\.closest\('[^']*'\)\) return;/, 'the exemption returns early');
+  assertHasSelectors(clickAwayExemptions(appSrc), ['.rollup', '#graph-toggle-btn', '.graph-control'], 'the bar itself is exempt, not only the header controls');
 });
 
 test('the bar looks clickable and its hit area is taller than the thin line', () => {
