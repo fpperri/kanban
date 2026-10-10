@@ -122,7 +122,12 @@ class El {
 
   scrollTo() {}
 
-  focus() {}
+  focus(opts) { this.ownerDocument.activeElement = this; this.focusOpts = opts; }
+
+  querySelector(selector) {
+    const attrs = [...selector.matchAll(/\[([\w-]+)="([^"]*)"\]/g)].map((m) => [camel(m[1]), m[2]]);
+    return this.all().find((n) => attrs.every(([k, v]) => n.dataset[k] === v)) || null;
+  }
 
   select() {}
 
