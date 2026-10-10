@@ -84,7 +84,8 @@ function buildDependencyGraph(cards, visibleIds, ctx) {
   // or an unfiltered board would wrongly treat a stale id as a real node.
   const isVisible = (id) => byId.has(id) && (!visibleIds || visibleIds.has(id));
 
-  const nodes = cards.filter((c) => isVisible(c.id)).map((c) => cardToNode(c, isCardWaiting(c, byId)));
+  // A repeated id keeps only the copy byId resolves (the last), the one every lookup uses.
+  const nodes = cards.filter((c) => byId.get(c.id) === c && isVisible(c.id)).map((c) => cardToNode(c, isCardWaiting(c, byId)));
   const nodeIds = new Set(nodes.map((n) => n.id));
 
   const seenEdges = new Set();
