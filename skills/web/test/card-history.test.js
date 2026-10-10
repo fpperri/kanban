@@ -170,9 +170,11 @@ test('popstate opens quietly — a stale/deleted card must not toast', () => {
 
 test('openDetailModal reports success/failure so callers can tell a real open from a failed one', () => {
   const fn = APP.slice(APP.indexOf('async function openDetailModal('));
-  // \r\n line endings: an unindented closing brace ends its own line with
-  // \r\n too, so the marker is \n}\r\n, not \n}\n.
-  const body = fn.slice(0, fn.indexOf('\n}\r\n') + 2);
+  // An unindented closing brace on its own line ends the function. The line
+  // ending after it is CRLF in a Windows checkout and LF everywhere else.
+  const end = fn.search(/\n\}\r?\n/);
+  assert.ok(end > 0, 'could not find the end of openDetailModal');
+  const body = fn.slice(0, end + 2);
   assert.match(body, /return true;/, 'openDetailModal must return true once the card is actually showing');
   assert.match(body, /return false;/, 'openDetailModal must return false on a failed fetch (superseded or not)');
 });

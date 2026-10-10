@@ -1,0 +1,10 @@
+{
+  "name": "kanban",
+  "private": true,
+  "description": "Test entry points for the kanban plugin repo. The plugin has no dependencies.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test \"skills/web/test/*.test.js\" \"skills/snapshot/test/*.test.js\"",
+    "test:browser": "node skills/web/test/browser/run.js"
+  }
+}
