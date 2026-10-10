@@ -193,3 +193,9 @@ test('keepPillFocus refocuses without scrolling', () => {
   assert.strictEqual(opts.length, 1);
   assert.strictEqual(opts[0] && opts[0].preventScroll, true);
 });
+
+test('an off pill shows a hollow dot: ring kept, fill gone', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  assert.match(css, /\.off > \.pill-dot \{ background: transparent; \}/);
+  assert.match(css, /\.pill-dot \{[^}]*background: currentColor; border: 1px solid currentColor;/);
+});

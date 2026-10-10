@@ -27,6 +27,8 @@ async function withServer(dir, fn) {
 
 // --- board-directory discovery: .kanban/ preferred, kanban/ legacy fallback ---
 
+const PILL_CLASSES = ['.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle'];
+
 test('resolveDefaultBoardDir prefers .kanban over kanban when both exist', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-discover-'));
   fs.mkdirSync(path.join(base, '.kanban'));
@@ -401,7 +403,7 @@ test('graph wiring: the sixth view is registered and its toggle/control join the
     assert.match(js, /if \(mode === 'graph'\) renderGraphView\(\);/);
     assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.rollup-ctl', '.rollup', '#graph-toggle-btn', '.graph-control'],
       '#graph-toggle-btn, .graph-control are in the click-away exemption list');
-    assertHasSelectors(pollGuardSelectors(js), ['.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'], '.graph-control is in the poll-guard list');
+    assert.ok(pollGuardSelectors(js).includes('.graph-control:not(.graph-filter-toggle)'), 'graph buttons other than the pills are in the poll-guard list');
   });
 });
 
@@ -1820,8 +1822,8 @@ test('map section toggles join the poll-guard and Q0 clear-selection exemptions,
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
-      'a focused section toggle blocks the auto-refresh — #map-view is wiped by every renderMapView() poll tick, same as the #56 pills');
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
     assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle'],
       'a section-toggle click must not wipe a building selection, same curate-the-view exemption as the #56 pills');
   });
@@ -1864,8 +1866,8 @@ test('map status-filter pills join the Q0 clear-selection exemption AND the focu
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
     // innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the sort controls/.cal-nav.
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
-      'a focused pill blocks the auto-refresh like every other rebuilt header control');
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
 });
 
@@ -2157,8 +2159,8 @@ test('gantt status-filter pills join the Q0 clear-selection exemption AND the fo
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's pills.
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
-      'a focused gantt pill blocks the auto-refresh like every other rebuilt header control');
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
 });
 
@@ -2280,8 +2282,8 @@ test('calendar status-filter pills join the Q0 clear-selection exemption AND the
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
     // via innerHTML='' on every 5s tick — a focused pill would be destroyed
     // mid-keyboard-interaction, same reasoning as the map's/gantt's pills.
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-filter-toggle', '.map-section-toggle', '.map-zoom-btn', '.map-option-btn', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-control'],
-      'a focused calendar pill blocks the auto-refresh like every other rebuilt header control');
+    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
 });
 

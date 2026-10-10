@@ -518,8 +518,8 @@ to `127.0.0.1` only.
   `tags` tag chips. The card path shows its folders muted and the file name in full ink.
 - **Thread and children** — the detail popup shows the card's thread above its
   frontmatter: the parents up to the root, root first, each a mention chip that opens
-  that card (an archived parent too, marked `archived` and dimmed like an archived
-  child). A parent id with no card on this board ends the
+  that card (an archived parent too, marked `archived`, as an archived
+  child is). A parent id with no card on this board ends the
   thread with an `unresolved` marker; a parent on another board ends it with that
   board's mention marked `not followed` (the single-board release names it and never
   follows it); a loop of parents stops at the card that would repeat and flags it
@@ -780,7 +780,7 @@ to `127.0.0.1` only.
   card-mention chips (a mention of this board's card opens it) and `**bold**` render as
   DOM nodes, never HTML. The meta line shows the writer and the time as
   `YYYY-MM-DD | HH:MM:SS`, plus the level when it isn't `info`, and `level` tints the
-  entry — `debug` dimmed, `warning` amber, `error` red, absent = `info`; all levels show,
+  entry — `debug` muted with a dashed edge, `warning` amber, `error` red, absent = `info`; all levels show,
   no filtering. Per-entry remove and clear-all
   ARCHIVE, never delete: entries move verbatim (append) to
   `<kanban-dir>/archived/notifications.md`, created if absent. Entries missing a numeric
@@ -1118,7 +1118,7 @@ to `127.0.0.1` only.
   live columns" placement as the board's Archive column. Archived rows split across two
   channels, deliberately: the BAR's border/fill and the group label key off the literal
   `'archive'` string, which `statusColor()` mutes to the neutral archive grey — a
-  row-level archived cue like a board tile's dimming, same as the bar's not-allowed drag
+  row-level archived cue, same as the bar's not-allowed drag
   cursor — while the gutter row's own status dot does NOT follow that mute (status dots
   never mute, gantt gutter included) and colors off the card's true on-disk status
   regardless of `card.archived`. The rendered window includes archived bars/diamonds

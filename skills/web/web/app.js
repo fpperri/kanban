@@ -4341,7 +4341,7 @@ function ganttBarEl(bar, win, dayPx) {
   const pb = priorityBadge(bar.card, state.priorities); // same emphasis as tiles/chips
   // An archived bar mutes to the neutral archive grey
   // regardless of its parked on-disk status — the BAR keeps this mute
-  // (it's a row-level archived cue, like a board tile dimming,
+  // (it's a row-level archived cue,
   // not the status-dot channel locked to "never mutes"; the
   // gutter row's own dot, built lower down in renderGanttView, colors off
   // the card's true status instead). 'archive' is also the literal key
@@ -4855,7 +4855,7 @@ function renderNotifList() {
   // rides string-built HTML. splitNotification (notifications.js) gives the
   // TLDR and the detail; the detail sits under a More label, broken into its
   // clauses when it runs on. Code spans, card mentions and **bold** render
-  // through appendInline. level paints the row (debug dimmed, warning amber,
+  // through appendInline. level paints the row (debug muted with a dashed edge, warning amber,
   // error red; absent = info).
   el.replaceChildren(...list.map((n) => {
     const row = document.createElement('div');

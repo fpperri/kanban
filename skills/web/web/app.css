@@ -822,8 +822,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* The status-filter pill row. Border color is inline per pill
    (statusColor() — covers custom statuses' hashed hues, which have no CSS
    rule; same reasoning as the column headers), so the rules here only shape
-   the pill and encode ON/OFF. An OFF pill dims + dashes — the same visual
-   vocabulary the ghost stubs below use for "filtered out". The
+   the pill and encode ON/OFF. An OFF pill turns muted with a struck-through
+   label and a hollow dot, never opacity. The
    gantt's own pill row (.gantt-filter-row/.gantt-filter-toggle, see the Gantt
    view section below) shares these declarations via comma — one pill LOOK
    for both views, not a duplicated rule per view. The calendar's
@@ -832,7 +832,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-filter-row, .gantt-filter-row, .calendar-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 /* 1px, not 2px: after header claims 2px var(--ink) as the page-boundary
    weight, these were the only other 2px chrome borders in the file — the
-   ON/OFF signal already rides opacity + border-style (dashed on .off), not
+   ON/OFF signal already rides colour, strike-through and the dot's fill, not
    weight, so dropping to 1px costs nothing and keeps the border scale a
    scale rather than a coincidence. Still a visibly tappable control: radius,
    padding and fill are untouched. */
@@ -929,7 +929,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    (buildMapSvg, app.js) beside the status dot, vertically centered. */
 .map-archived-dot { fill: var(--st-archive); }
 /* Ghost stub: a hidden card that a visible one waits on / is waited on by,
-   kept on the map (never silently dropped) but visually dimmed and dashed so
+   kept on the map (never silently dropped) but muted and dashed so
    it reads as "not part of the current search slice" rather than a normal node. */
 .map-node.ghost rect { fill: transparent; stroke-dasharray: 4 3; }
 .map-node.ghost .map-node-title, .map-node.ghost .map-node-id { fill: var(--mut); }
@@ -1321,7 +1321,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    edge; fixed-in-body escapes every overflow context (app.js computes
    left/top from the 📅 button's getBoundingClientRect). z-index above the
    .modal-backdrop (30) it floats over. The grid reuses the calendar view's
-   vocabulary: dimmed outside-month days, accent today ring, selected fill. */
+   vocabulary: muted outside-month days, accent today ring, selected fill. */
 .date-field { display: flex; gap: 4px; align-items: center; }
 .date-field input { flex: 1; min-width: 0; }
 .date-pick-btn { flex-shrink: 0; padding: 4px 6px; font-size: 0.9em; line-height: 1; }
@@ -1339,8 +1339,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .dp-day.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .dp-day.selected:hover { background: var(--accent-soft); border-color: var(--accent-strong); }
 /* Clock toggle. ON state highlights like .dp-day.selected (same
-   accent-fill vocabulary); disabled (no parseable day yet) fades like
-   .dp-day.outside. The revealed HH:MM control is a plain text input styled
+   accent-fill vocabulary); disabled (no parseable day yet) fades with
+   opacity. The revealed HH:MM control is a plain text input styled
    like the date fields themselves — no native <input type="time">, same
    ADR 0003 reasoning as the rest of this popover. */
 .date-picker-time { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
