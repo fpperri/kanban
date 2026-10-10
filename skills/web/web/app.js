@@ -1149,9 +1149,16 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
   return row;
 }
 
+const PILL_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle';
+
 function pillSelector(el) {
   const key = el.dataset.col !== undefined ? 'col' : 'section';
-  return `.${el.classList[0]}[data-${key}="${String(el.dataset[key]).replace(/"/g, '\\"')}"]`;
+  return `.${el.classList[0]}[data-${key}="${String(el.dataset[key]).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+}
+
+function focusedPill() {
+  const el = document.activeElement;
+  return el && el.closest ? el.closest(PILL_SELECTOR) : null;
 }
 
 // A pill or fold toggle is rebuilt by the render its own press triggers, so
@@ -1160,7 +1167,7 @@ function keepPillFocus(el, action) {
   const selector = pillSelector(el);
   action();
   const next = document.querySelector(selector);
-  if (next) next.focus();
+  if (next) next.focus({ preventScroll: true });
 }
 
 // One pill per board column in column order (statuses + Archive:
@@ -1719,7 +1726,13 @@ function applyBoardData(data) {
   const focusedCard = document.activeElement && document.activeElement.closest && document.activeElement.closest('.card-el');
   const focusedCardId = focusedCard ? focusedCard.dataset.id : null;
   const pointerId = hoveredId;
+  const pill = focusedPill();
+  const pillSel = pill ? pillSelector(pill) : null;
   renderBoard();
+  if (pillSel) {
+    const again = document.querySelector(pillSel);
+    if (again) again.focus({ preventScroll: true });
+  }
   if (focusedCard) {
     const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);
     if (again) again.focus({ preventScroll: true });
@@ -1766,18 +1779,12 @@ function anyModalOpen() {
 // and nothing takes that focus back, so listing .card-el here would freeze
 // the poll for the rest of the session — no stale indicator, no error, just a
 // board that quietly stops updating. applyBoardData re-finds the focused card
-// after its render instead.
+// and pill after its render instead.
 function boardControlFocused() {
   const el = document.activeElement;
-  // .cal-nav: calendar nav; .column-add: the header +;
-  // .column-add-ai: its sparkle twin; .map-filter-toggle/
-  // .map-section-toggle/.map-zoom-btn/.map-option-btn: the map pills, zoom toolbar and options;
-  // .gantt-filter-toggle: the
-  // gantt pills; .calendar-filter-toggle: the
-  // calendar pills (their views are wiped by every render). All focusable,
-  // all rebuilt per render — a poll landing while one is focused would
-  // silently dump keyboard focus to <body>. No .card-el — see above.
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .map-zoom-btn, .map-option-btn, .gantt-filter-toggle, .calendar-filter-toggle, .graph-control'));
+  // Pills and fold toggles are not here: they are rebuilt by every render, so
+  // applyBoardData refocuses the focused one instead of freezing the poll.
+  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-zoom-btn, .map-option-btn, .graph-control:not(.graph-filter-toggle)'));
 }
 
 function setStale(stale) {

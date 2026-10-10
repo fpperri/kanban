@@ -110,3 +110,86 @@ test('the pill and fold toggles are focusable controls the stylesheet rings', ()
     assert.ok(rule && rule.includes('outline: 2px solid var(--accent)'), cls + ' has no focus ring');
   }
 });
+
+const PILL_CLASSES = ['map-filter-toggle', 'map-section-toggle', 'gantt-filter-toggle', 'calendar-filter-toggle', 'graph-filter-toggle graph-control'];
+
+function pollSandbox() {
+  const policy = require('../web/refresh-policy.js');
+  const doc = { activeElement: null, current: null };
+  const matches = (el, sel) => sel.split(',').map((x) => x.trim()).some((x) => {
+    const notM = /:not\(\.([\w-]+)\)/.exec(x);
+    const base = x.replace(/:not\(.*$/, '').split('.').filter(Boolean);
+    return base.every((c) => el.classList.includes(c)) && !(notM && el.classList.includes(notM[1]));
+  });
+  const makeEl = (cls, data) => ({
+    classList: cls.split(' '), dataset: data, attached: true,
+    closest(sel) { return matches(this, sel) ? this : null; },
+    focus() { if (this.attached) doc.activeElement = this; },
+  });
+  doc.querySelector = (sel) => {
+    const c = doc.current;
+    return c && c.attached && sel === `.${c.classList[0]}[data-${c.dataset.col !== undefined ? 'col' : 'section'}="${c.dataset.col !== undefined ? c.dataset.col : c.dataset.section}"]` ? c : null;
+  };
+  const sandbox = {
+    document: doc, state: {}, selectedIds: new Set(), hoveredId: null,
+    applyProjectName() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
+    pruneSelection: (s) => s, setHoveredId() {}, renderBoard() {},
+  };
+  vm.createContext(sandbox);
+  const names = ['boardControlFocused', 'pillSelector', 'keepPillFocus', 'focusedPill', 'applyBoardData'];
+  const pillConst = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/);
+  vm.runInContext((pillConst ? pillConst[0] : '') + names.map((n) => (appSrc.includes('function ' + n + '(') ? fn(n) : '')).join('\n'), sandbox);
+  return { sandbox, doc, makeEl, shouldSkip: policy.shouldSkipAutoRefresh };
+}
+
+test('a focused pill does not freeze the 5s poll, for every view', () => {
+  for (const cls of PILL_CLASSES) {
+    const { sandbox, doc, makeEl, shouldSkip } = pollSandbox();
+    doc.activeElement = makeEl(cls, { col: 'done' });
+    assert.strictEqual(sandbox.boardControlFocused(), false, cls);
+    assert.strictEqual(shouldSkip({ modalOpen: false, dragging: false, hidden: false, boardControlFocused: sandbox.boardControlFocused() }), false, cls);
+  }
+});
+
+test('real form controls and graph buttons still hold the poll', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  for (const cls of ['column-sort-field', 'cal-nav', 'column-add', 'map-zoom-btn', 'map-option-btn', 'graph-layout-btn graph-control']) {
+    doc.activeElement = makeEl(cls, {});
+    assert.strictEqual(sandbox.boardControlFocused(), true, cls);
+  }
+});
+
+test('a poll render hands focus back to the rebuilt pill, without scrolling', () => {
+  for (const cls of PILL_CLASSES) {
+    const { sandbox, doc, makeEl } = pollSandbox();
+    const data = cls.startsWith('map-section') ? { section: 'layered' } : { col: 'done' };
+    const pill = makeEl(cls, data);
+    doc.current = pill;
+    doc.activeElement = pill;
+    let opts;
+    sandbox.renderBoard = () => {
+      pill.attached = false;
+      const next = makeEl(cls, data);
+      next.focus = function (o) { opts = o; doc.activeElement = this; };
+      doc.current = next;
+      doc.activeElement = { closest: () => null };
+    };
+    sandbox.applyBoardData({ active: [], archived: [] });
+    assert.strictEqual(doc.activeElement, doc.current, `${cls}: focus is on the rebuilt pill`);
+    assert.strictEqual(opts && opts.preventScroll, true);
+  }
+});
+
+test('pillSelector escapes a backslash before a quote', () => {
+  const s = focusSandbox();
+  assert.strictEqual(s.pillSelector({ classList: ['map-filter-toggle'], dataset: { col: 'a\\"b' } }), '.map-filter-toggle[data-col="a\\\\\\"b"]');
+});
+
+test('keepPillFocus refocuses without scrolling', () => {
+  const opts = [];
+  const sandbox = { document: { querySelector: () => ({ focus: (o) => opts.push(o) }) } };
+  vm.runInNewContext(fn('pillSelector') + '\n' + fn('keepPillFocus'), sandbox);
+  sandbox.keepPillFocus({ classList: ['map-filter-toggle'], dataset: { col: 'x' } }, () => {});
+  assert.strictEqual(opts.length, 1);
+  assert.strictEqual(opts[0] && opts[0].preventScroll, true);
+});

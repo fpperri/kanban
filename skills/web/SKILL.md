@@ -627,6 +627,9 @@ to `127.0.0.1` only.
   deliberately NOT in the `boardControlFocused` poll guard the other rebuilt controls sit
   in: a plain click leaves a card focused indefinitely, so blocking there would quietly
   freeze the refresh; `applyBoardData` re-finds the focused card after the render instead.
+  The status pills and fold toggles of every view are treated the same way (a click or a
+  keypress leaves one focused, so guarding them would stop the 5s refresh): the guard keeps
+  only real form controls, and `applyBoardData` refocuses the focused pill without scrolling.
   Two delegated pairs on `document`, mirroring the click/contextmenu pair
   above: `mouseover`/`mouseout` and `focusin`/`focusout`, each just keeping `hoveredId`
   current and repainting the *current* DOM directly — a full `renderBoard()` per mouse
