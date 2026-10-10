@@ -339,10 +339,66 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
       ['.card.hover-highlight .tag', ['--ink']],
       ['.card.hover-highlight .card-schedule-row', ['--ink']],
       ['.card.hover-highlight .card-schedule-row.overdue', ['--ink-strong']],
+      ['.card.hover-highlight .alt-badge', ['--ink']],
+      ['.card.hover-highlight .rollup-counts', ['--ink']],
+      ['.card.hover-highlight .rollup-count', ['--ink']],
+      ['.card.hover-highlight .waiting-badge', ['--ink']],
+      ['.card.hover-highlight [class*="assignee-text--palette"]', ['--ink']],
+      ['.map-node.hover-highlight .alt-badge', ['--ink']],
+      ['.map-node.hover-highlight .rollup-counts', ['--ink']],
+      ['.map-node.hover-highlight .rollup-count', ['--ink']],
+      ['.map-node.hover-highlight [class*="assignee-text--palette"]', ['--ink']],
+      ['.cal-chip.hover-highlight .cal-chip-id', ['--ink']],
+      ['.gantt-bar.hover-highlight .gantt-bar-id', ['--ink']],
+      ['.gantt-label.hover-highlight .gantt-label-id', ['--ink']],
     ]) {
       const tok = tokenIn(declsFor(sel).color, sel);
       assert.ok(allowed.includes(tok), `${sel} uses ${tok}`);
       clears(set, tok, ground, TEXT, sel);
+    }
+  });
+
+  test(`${name}: a map node's id reads ink on the hover wash`, () => {
+    const d = declsFor('.map-node.hover-highlight .map-node-id');
+    clears(set, tokenIn(d.fill, 'map id fill'), '--hover-wash', TEXT, 'map node id');
+  });
+
+  test(`${name}: an outside date reads ink on the picker's hover ground`, () => {
+    const hov = declsFor('.dp-day.outside:hover');
+    const wash = parse(set[tokenIn(declsFor('.dp-day:hover').background, 'dp hover ground')]);
+    const ground = over(wash, parse(set['--surface']));
+    const ink = parse(set[tokenIn(hov.color, 'outside hover ink')]);
+    const r = (Math.max(lum(ink), lum(ground)) + 0.05) / (Math.min(lum(ink), lum(ground)) + 0.05);
+    assert.ok(r >= TEXT, `.dp-day.outside:hover is ${r.toFixed(2)}:1 on the wash over the popup, under ${TEXT}`);
+  });
+
+  test(`${name}: outside-month calendar days stay distinct without opacity: muted number against ink, raised ground, dashed edge, chips unchanged`, () => {
+    const outside = declsFor('.cal-day.outside');
+    assert.ok(!('opacity' in outside));
+    assert.match(outside['border-style'] || '', /dashed/);
+    assert.strictEqual(tokenIn(declsFor('.cal-day-num').color, 'in-month number'), '--ink');
+    const num = tokenIn(declsFor('.cal-day.outside .cal-day-num').color, 'outside number');
+    assert.strictEqual(num, '--mut');
+    clears(set, num, tokenIn(outside.background, 'outside ground'), TEXT, 'outside day number');
+    clears(set, '--mut', '--surface', TEXT, 'chip id inside an outside day');
+  });
+
+  test(`${name}: a debug notification recedes by muted headline and message plus a dashed edge`, () => {
+    assert.match(declsFor('.notif-row.level-debug')['border-style'] || '', /dashed/);
+    for (const sel of ['.notif-row.level-debug .notif-tldr', '.notif-row.level-debug .notif-message']) {
+      const tok = tokenIn(declsFor(sel).color, sel);
+      assert.strictEqual(tok, '--mut');
+      clears(set, tok, '--paper', TEXT, sel);
+    }
+  });
+
+  test(`${name}: a ghost map stub is muted text with a dashed edge, not opacity, and holds the floor on the canvas`, () => {
+    for (const r of RULES) if (r.selectors.some((x) => x.startsWith('.map-node.ghost'))) assert.ok(!/(^|[;\s])opacity\s*:/.test(r.body), `${r.selectors} dims with opacity`);
+    assert.ok(declsFor('.map-node.ghost rect')['stroke-dasharray']);
+    for (const sel of ['.map-node.ghost .map-node-title', '.map-node.ghost .map-node-id']) {
+      const tok = tokenIn(declsFor(sel).fill, sel);
+      assert.strictEqual(tok, '--mut');
+      clears(set, tok, '--paper', TEXT, sel);
     }
   });
 
@@ -367,7 +423,8 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
 }
 
 test('no rule dims live text with opacity', () => {
-  const NOT_TEXT = /:disabled|\.dragging|\.ghost|^\.graph-|\.gantt-today-line/;
+  // --prompt-fallback: the italic stand-in for an empty title keeps its dimming; its worst ratio is 7.09:1, far above the floor.
+  const NOT_TEXT = /:disabled|\.dragging|^\.graph-|\.gantt-today-line|--prompt-fallback/;
   const offenders = [];
   for (const r of RULES) {
     if (!/(^|[;\s])opacity\s*:/.test(r.body)) continue;

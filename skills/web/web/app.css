@@ -516,7 +516,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    temporary (italic + muted), not a real title — gone the instant the card
    gets one. The sparkle sits inline before the prompt text, same 14px size
    as the column-toggle chevrons above. */
-.card-title--prompt-fallback { font-style: italic; color: var(--ink); }
+.card-title--prompt-fallback { font-style: italic; opacity: 0.75; }
 .card-title--prompt-fallback svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 6px; }
 /* Tags blend: uppercase and tracked like a label, but plain muted text with no chip box. */
@@ -654,7 +654,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* Headline-role, same reasoning as .modal h2 above — a card's own title. */
 .detail-header h2 { color: var(--ink-strong); font-size: 1.26em; line-height: 1.25; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
-.detail-title--prompt-fallback { font-style: italic; }
+.detail-title--prompt-fallback { font-style: italic; opacity: 0.85; }
 .detail-path-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .detail-path { color: var(--mut); font-size: 0.78em; word-break: break-all; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 #detail-copy-btn { flex-shrink: 0; }
@@ -932,7 +932,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    kept on the map (never silently dropped) but visually dimmed and dashed so
    it reads as "not part of the current search slice" rather than a normal node. */
 .map-node.ghost rect { fill: transparent; stroke-dasharray: 4 3; }
-.map-node.ghost { opacity: 0.55; }
+.map-node.ghost .map-node-title, .map-node.ghost .map-node-id { fill: var(--mut); }
 .map-node.ghost:not(.missing) { cursor: pointer; }
 .map-node.missing rect { stroke-dasharray: 2 3; }
 .map-node.missing { cursor: default; }
@@ -1018,15 +1018,16 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the remainder, so chip rows stay 20px right under the day number. */
 .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: minmax(16px, auto) repeat(var(--cal-week-rows), minmax(20px, auto)) minmax(0, 1fr); gap: 4px; }
 .cal-day { background: var(--paper); border: 1px solid var(--line-soft); border-radius: .2rem; min-height: 96px; padding: 4px; min-width: 0; }
-.cal-day.outside { background: var(--raised); }
+.cal-day.outside { background: var(--raised); border-style: dashed; }
 .cal-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .cal-day.drag-over { border-color: var(--accent); background: var(--accent-soft); }
-.cal-day-num { color: var(--mut); font-size: 0.72em; text-align: right; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+.cal-day-num { color: var(--ink); font-size: 0.72em; text-align: right; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+.cal-day.outside .cal-day-num { color: var(--mut); }
 .cal-day.today .cal-day-num { color: var(--accent); font-weight: 700; }
 .cal-chip { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: .15rem; padding: 2px 6px; font-size: 0.72em; color: var(--ink); cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-chip-id { color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
-.cal-chip-title--prompt-fallback { font-style: italic; }
+.cal-chip-title--prompt-fallback { font-style: italic; opacity: 0.75; }
 .cal-chip.high { border-left-color: var(--id-high); }
 .cal-chip.low { border-left-color: var(--st-archive); }
 .cal-chip.waiting { border-left-color: var(--id-waiting); }
@@ -1261,7 +1262,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .gantt-label-id { color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 /* Same italic/muted read as .card-title--prompt-fallback
    (board tile, card-title.js) for the two gantt surfaces. */
-.gantt-label-title--prompt-fallback, .gantt-bar-text--prompt-fallback { font-style: italic; }
+.gantt-label-title--prompt-fallback, .gantt-bar-text--prompt-fallback { font-style: italic; opacity: 0.75; }
 .gantt-bar-row { position: relative; z-index: 2; }
 .gantt-bar { position: absolute; top: 3px; height: 20px; display: flex; align-items: stretch; background: var(--paper); border: 1px solid var(--line); border-left-width: 3px; border-radius: .15rem; font-size: 0.7em; color: var(--ink); cursor: grab; user-select: none; touch-action: none; overflow: hidden; }
 .gantt-bar-text { flex: 1; min-width: 0; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; pointer-events: none; }
@@ -1333,6 +1334,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .dp-day { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid var(--line-soft); border-radius: .15rem; font-size: 0.75em; color: var(--ink); cursor: pointer; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .dp-day:hover { background: var(--accent-wash); }
 .dp-day.outside { color: var(--mut); }
+.dp-day.outside:hover { color: var(--ink); }
 .dp-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .dp-day.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .dp-day.selected:hover { background: var(--accent-soft); border-color: var(--accent-strong); }
@@ -1360,7 +1362,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* Levels — declared BEFORE .unread so the accent unread left-edge
    still wins on tinted rows (same specificity, later rule takes the edge) */
 .notif-row.level-debug { border-style: dashed; }
-.notif-row.level-debug .notif-message { color: var(--mut); }
+.notif-row.level-debug .notif-tldr, .notif-row.level-debug .notif-message { color: var(--mut); }
 .notif-row.level-warning { background: var(--warn-soft); border-color: var(--warn); }
 .notif-row.level-error { background: var(--crit-soft); border-color: var(--crit); }
 .notif-row.unread { border-left: 3px solid var(--accent); }
@@ -1402,8 +1404,10 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    so THAT rule keeps winning its own tie against this one. */
 .card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: var(--hover-wash); }
 .map-node.hover-highlight rect { fill: var(--hover-wash); }
-.card.hover-highlight .card-id, .card.hover-highlight .tag, .card.hover-highlight .card-schedule-row { color: var(--ink); }
+.card.hover-highlight .card-id, .card.hover-highlight .tag, .card.hover-highlight .card-schedule-row, .card.hover-highlight .alt-badge, .card.hover-highlight .rollup-counts, .card.hover-highlight .rollup-count, .card.hover-highlight .waiting-badge, .card.hover-highlight [class*="assignee-text--palette"] { color: var(--ink); }
 .card.hover-highlight .card-schedule-row.overdue { color: var(--ink-strong); }
+.map-node.hover-highlight .alt-badge, .map-node.hover-highlight .rollup-counts, .map-node.hover-highlight .rollup-count, .map-node.hover-highlight [class*="assignee-text--palette"], .cal-chip.hover-highlight .cal-chip-id, .gantt-bar.hover-highlight .gantt-bar-id, .gantt-label.hover-highlight .gantt-label-id { color: var(--ink); }
+.map-node.hover-highlight .map-node-id { fill: var(--ink); }
 /* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
    another card takes it away from the card that still holds keyboard focus,
    and a Tab user would be left with no indicator at all. The ring is the
