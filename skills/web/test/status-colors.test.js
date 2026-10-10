@@ -476,7 +476,7 @@ test('app.js paints status and assignee colours only through the theme-following
   assert.doesNotMatch(app, /\bstatusColor\(/, 'statusColor() returns the dark hex: paint with statusColorVar()');
   assert.doesNotMatch(app, /\bassigneeColor\(/, 'assigneeColor() returns the dark hex: paint with assigneeColorVar()');
   assert.match(app, /\.column-header'\)\.style\.color = statusColorVar\(col\)/, 'custom column headers');
-  assert.match(app, /btn\.style\.borderColor = statusColorVar\(col\)/, 'filter pills');
+  assert.match(app, /dot\.style\.color = statusColorVar\(col\)/, 'filter pill dots');
   assert.match(app, /glabel\.style\.color = statusColorVar\(group\.status\)/, 'gantt group labels');
   assert.match(app, /input\.style\.color = handle \? \(assigneeColorVar\(/, 'the assignee input');
 });

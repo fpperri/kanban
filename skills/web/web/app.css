@@ -841,7 +841,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-filter-toggle:hover, .gantt-filter-toggle:hover, .calendar-filter-toggle:hover { background: var(--btn-bg); }
 .pill-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: currentColor; border: 1px solid currentColor; vertical-align: 0.05em; }
 .off > .pill-dot { background: transparent; }
-.map-filter-toggle:focus-visible, .gantt-filter-toggle:focus-visible, .calendar-filter-toggle:focus-visible, .graph-filter-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.map-filter-toggle:focus-visible, .gantt-filter-toggle:focus-visible, .calendar-filter-toggle:focus-visible, .graph-filter-toggle:focus-visible, .map-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* The zoom toolbar — its own row right after the filter row (see
    buildMapZoomControls, app.js), same small-pill look as .map-filter-toggle
    (comma-joined into that rule above) rather than a full-size <button>, so
