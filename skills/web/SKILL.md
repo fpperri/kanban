@@ -864,15 +864,16 @@ to `127.0.0.1` only.
   doesn't share a channel with the archived grey. Cycles in `waiting_for` render as a
   visibly distinct amber curved "back edge" rather than hanging the layout.
   **Status-filter row** — one toggle pill per board column (the configured statuses in
-  column order + Archive, the location pseudo-column), each bordered in its column's
-  color — all ON by default, and the row renders even when everything is filtered out
+  column order + Archive, the location pseudo-column), each led by a dot in its column's
+  color (hollow, with the label struck through, when the pill is off) — all ON by default, and the row renders even when everything is filtered out
   (so a toggle can always be turned back on). **Pill interaction grammar, shared by
-  every status-filter row in the app** (this one, the gantt's, and the calendar's):
+  every status-filter row in the app** (this one, the gantt's, the calendar's and the graph's):
   left-click toggles that one pill on/off; right-click SOLOs it — that pill on, every
   other pill in the row off — and right-clicking the already-soloed pill again restores
-  ALL pills on. `contextmenu` is suppressed only while the pointer is over the pill row
-  itself; everywhere else (map nodes, isolated tiles, calendar chips, gantt bars) keeps
-  the shared right-click bulk menu untouched. A pill OFF hides that column's cards from
+  ALL pills on. `contextmenu` is suppressed only on a pill itself, not on the gap between
+  pills; everywhere else (map nodes, isolated tiles, calendar chips, gantt bars) keeps
+  the shared right-click bulk menu untouched. Each pill is a button with `aria-pressed`
+  and a visible focus ring, and focus stays on the pill after a toggle, a solo or a fold. A pill OFF hides that column's cards from
   the map: an unlisted on-disk status follows the FIRST column's pill (the catch-all —
   exactly where the board files the card) and archived cards follow the Archive pill
   regardless of their parked status. The choice persists per board in `localStorage`
@@ -947,7 +948,7 @@ to `127.0.0.1` only.
   a document-level pointerup/pointercancel/lostpointercapture net so a release that lands
   outside `#map-view` before capture is even claimed can't leave that guard stuck forever.
 - **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
-  (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
+  (weeks start Monday; prev/next/Today controls; outside-month days on the raised ground, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
   Archive pill below. The **working range** (start→end inclusive; compat: start→due when
   there's no end date) renders as ONE chip spanning its real day columns, not a chip
