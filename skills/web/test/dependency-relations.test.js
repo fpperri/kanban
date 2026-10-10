@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { buildRelationsGraph } = require('../web/dependency-graph');
+const { buildRelationsGraph, buildDependencyGraph } = require('../web/dependency-graph');
 const { mapShapeRelations } = require('../web/map-relations');
 const { card, familyChainingToOneEnd } = require('./map-fixtures');
 
@@ -113,4 +113,7 @@ test('a card id present twice is one node, the copy the card lookup resolves (th
   assert.strictEqual(rel.nodes[0].archived, true);
   assert.strictEqual(rel.nodes[0].status, 'done');
   assert.deepStrictEqual(mapShapeRelations(rel, {}).noRelations, [5]);
+  const dep = buildDependencyGraph(cards, null, CTX);
+  assert.deepStrictEqual(dep.nodes.map((n) => n.id), [5, 6, 7]);
+  assert.strictEqual(dep.nodes[0].archived, true);
 });
