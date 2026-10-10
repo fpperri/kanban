@@ -1621,7 +1621,7 @@ const addStub=id=>{
 if(isVisible(id)||stubs.has(id))return;
 const c=byId.get(id);
 stubs.set(id,c?Object.assign(nodeOf(c),{ghost:true}):stubNode(id))};
-const nodes=DATA.filter(c=>isVisible(Number(c.id))).map(nodeOf);
+const nodes=DATA.filter(c=>byId.get(Number(c.id))===c&&isVisible(Number(c.id))).map(nodeOf);
 const edges=[],seen=new Set();
 DATA.forEach(c=>{const to=Number(c.id);(c.w||[]).forEach(raw=>{
 const from=Number(raw),key=from+">"+to;

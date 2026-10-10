@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { buildRelationsGraph } = require('../web/dependency-graph');
+const { buildRelationsGraph, buildDependencyGraph } = require('../web/dependency-graph');
+const { mapShapeRelations } = require('../web/map-relations');
 const { card, familyChainingToOneEnd } = require('./map-fixtures');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
@@ -103,4 +104,16 @@ test('a hidden child in the middle of a chain is a stub of its visible parent, t
   ], new Set([1, 4]), CTX);
   assert.deepStrictEqual(ids(rel.ghosts), [2, 3]);
   assert.deepStrictEqual(pairKeys(rel), ['2>1', '3>1', '4>1']);
+});
+
+test('a card id present twice is one node, the copy the card lookup resolves (the archived one)', () => {
+  const cards = [card(5, 'todo'), card(5, 'done', { archived: true }), card(6, 'todo'), card(7, 'todo', { waiting_for: [6] })];
+  const rel = buildRelationsGraph(cards, null, CTX);
+  assert.deepStrictEqual(rel.nodes.map((n) => n.id), [5, 6, 7]);
+  assert.strictEqual(rel.nodes[0].archived, true);
+  assert.strictEqual(rel.nodes[0].status, 'done');
+  assert.deepStrictEqual(mapShapeRelations(rel, {}).noRelations, [5]);
+  const dep = buildDependencyGraph(cards, null, CTX);
+  assert.deepStrictEqual(dep.nodes.map((n) => n.id), [5, 6, 7]);
+  assert.strictEqual(dep.nodes[0].archived, true);
 });
