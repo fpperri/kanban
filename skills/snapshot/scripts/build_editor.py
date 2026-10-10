@@ -532,7 +532,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .bodymd li>ul{margin:.25em 0 .25em 1em}
 .bodymd strong{color:var(--ink-strong);font-weight:650}
 .bodymd em{font-style:italic}
-.bodymd pre{background:var(--paper);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
+.bodymd pre{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
 .bodymd pre code{background:none;padding:0}
 .bodymd .md-table{overflow-x:auto;margin:.9em 0}
 .bodymd table{border-collapse:collapse;font-size:.92em}
@@ -638,7 +638,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .cal-rowchip.range-mid{opacity:.8}
 .cal-norows{font-size:11px;color:var(--mut);margin-top:4px}
 #modal{position:fixed;inset:0;background:var(--scrim);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px 16px}
-#modalscroll{background:var(--paper);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);max-width:560px;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 10px 12px}
+#modalscroll{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);max-width:560px;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 10px 12px}
 #modalscroll .card{cursor:default;border:none;background:none;margin:4px 0}
 .toprow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
 .fpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:.15rem;padding:3px 10px;font-size:12px;font-weight:600;color:var(--mut)}
@@ -648,9 +648,11 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .fmrow input{flex:1;min-width:0;font-size:13px;padding:6px 8px}
 .fmrow button{flex:none;font-size:12px;padding:6px 10px}
 .pillrow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
-.pillrow button{font-size:11px;border-radius:.15rem;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--mut)}
-.pillrow button.off{opacity:.4}
-.pillrow .dot{width:8px;height:8px}
+.pillrow button{font-size:11px;border-radius:.15rem;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--ink)}
+.pillrow button:hover{background:var(--btn-bg)}
+.pillrow button.off{color:var(--mut);text-decoration:line-through}
+.pillrow .dot{width:8px;height:8px;background:currentColor;border:1px solid currentColor}
+.pillrow button.off .dot{background:transparent}
 .card.archcard{opacity:.55}
 .pill{cursor:pointer}
 /* Tier 1 (560-899px): the single column just grows — nothing else
@@ -1301,9 +1303,12 @@ return d}
 function statusPills(){
 const row=el("div","pillrow");
 COLS.concat(["archive"]).forEach(k=>{
-const b=el("button",isVis(k)?null:"off");b.dataset.act="spill";b.dataset.st=k;
-const dot=el("span","dot");dot.style.background=k==="archive"?ARCHC:ccol(k);
-b.appendChild(dot);b.appendChild(document.createTextNode(k==="archive"?"Archive":cname(k)));
+const on=isVis(k),nm=k==="archive"?"Archive":cname(k);
+const b=el("button",on?null:"off");b.dataset.act="spill";b.dataset.st=k;
+b.setAttribute("aria-pressed",String(on));
+b.title=(on?"Hide ":"Show ")+nm+" cards. Right-click to solo (right-click the soloed pill again to restore all).";
+const dot=el("span","dot");dot.style.color=k==="archive"?ARCHC:ccol(k);
+b.appendChild(dot);b.appendChild(document.createTextNode(nm));
 row.appendChild(b)});
 return row}
 function render(){
@@ -2162,12 +2167,19 @@ m.style.left=left+"px";m.style.top=top+"px"}
 // NEVER intercepted (no preventDefault runs unless the gate + a live,
 // non-archived board card both resolve first). Archived cards are excluded
 // v1 — the native menu still shows for them.
+function soloVis(k){
+const ids=COLS.concat(["archive"]);
+const soloed=isVis(k)&&ids.every(i=>i===k||!isVis(i));
+ids.forEach(i=>{statusVis[i]=soloed?true:i===k})}
 document.body.addEventListener("contextmenu",e=>{
 if(!fineMQ.matches)return;
+const sp=e.target.closest("[data-st]");
+const pillEl=sp&&sp.dataset.act==="spill"?sp:null;
 const card=e.target.closest("#board [data-card]");
 const c=card?find(card.dataset.card):null;
-if(!c||c.arch){if(ctxMenuEl)closeCtxMenu();return}
+if(!pillEl){if(!c||c.arch){if(ctxMenuEl)closeCtxMenu();return}}
 e.preventDefault();
+if(pillEl){soloVis(pillEl.dataset.st);render();renderMap();renderGantt();renderCalendar();return}
 openCtxMenu(c.id,e.clientX,e.clientY)});
 // Pointer drag (kanban.proj #241): native HTML5 DnD, gated live per-event on
 // fineMQ + the Drag switch exactly like the right-click menu above -- never

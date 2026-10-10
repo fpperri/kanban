@@ -87,7 +87,9 @@ gates *display* of an archived member, never whether it counts for
 connectivity), and the resolved id set intersects normally with every other
 term and pill, same as any other search term.
 
-Every view carries a status-pill row: statuses default on,
+Every view carries a status-pill row (each pill a button with `aria-pressed`; a tap toggles
+one, a right-click solos it and a right-click on the soloed pill turns all back on; an off
+pill is struck through with a hollow dot): statuses default on,
 **Archive defaults off** — toggling the Archive pill reveals archived cards
 (embedded read-only, **bodies NOT stripped — re-capped at 1500 characters**,
 and tappable, opening a read-only detail sheet; archive is a location, not a

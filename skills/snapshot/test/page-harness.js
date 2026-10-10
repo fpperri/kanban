@@ -179,6 +179,13 @@ function loadPage(html, opts = {}) {
       const ev = { target, stopPropagation() {}, preventDefault() {} };
       for (const fn of doc.body.listeners.click || []) fn(ev);
     },
+    // A right-click (or the ContextMenu key) on target; reports whether the page kept the browser menu away.
+    contextmenu(target) {
+      let prevented = false;
+      const ev = { target, clientX: 0, clientY: 0, stopPropagation() {}, preventDefault() { prevented = true; } };
+      for (const fn of doc.body.listeners.contextmenu || []) fn(ev);
+      return prevented;
+    },
     change(target) {
       const ev = { target, stopPropagation() {}, preventDefault() {} };
       for (const fn of doc.body.listeners.change || []) fn(ev);
