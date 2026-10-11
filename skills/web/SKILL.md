@@ -162,7 +162,7 @@ exactly as it always has. The CSP (`'self'`) needs no change: the browser
 still sees one origin, whichever one it loaded the app from.
 
 `--home-url <url>` (or `--home-url=<url>`) puts a small home icon before the board title
-that leads to that address, for a shop page that links up to its boards. Only `http://` and
+that leads to that address, giving the board a home page to link up to. Only `http://` and
 `https://` addresses are accepted; anything else is a startup error with a message, like a
 bad `--allow-origin`. Without the flag there is no icon. The double-click launcher replays
 the flag with the port and the allowed origins.

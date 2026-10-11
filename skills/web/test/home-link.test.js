@@ -29,8 +29,8 @@ function loadApply() {
 test('the header holds one real link before the board title, with an accessible name and an inline svg', () => {
   assert.ok(anchor, 'anchor with id home-link');
   const tag = anchor[0].match(/^<a\b[^>]*>/)[0];
-  assert.match(tag, /aria-label="Up to the shop page"/);
-  assert.match(tag, /rel="noopener"/);
+  assert.match(tag, /aria-label="Up to the home page"/);
+  assert.match(tag, /rel="noopener noreferrer"/);
   assert.match(tag, /class="[^"]*\bhidden\b/, 'starts hidden');
   assert.doesNotMatch(tag, /href=/, 'no empty link until a home url arrives');
   assert.doesNotMatch(tag, /style=/);
