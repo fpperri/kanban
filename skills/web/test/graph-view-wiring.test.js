@@ -221,3 +221,8 @@ test('the force layout shows a grab cursor and a drag a grabbing one, from CSS a
   assert.match(css, /\.graph-canvas \{[^}]*user-select: none/);
   assert.match(src, /classList\.add\(`graph-kind-\$\{kind\}`\)/);
 });
+
+test('the key says the dashed arrow points at the card that waits', () => {
+  assert.match(src, /const GRAPH_KEY = '[^']*dashed arrow: points at the card that waits[,']/);
+  assert.ok(!src.includes('dashed arrow: waits for'));
+});

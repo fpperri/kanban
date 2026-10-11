@@ -104,7 +104,8 @@ function graphBuild(cards, opts) {
     nodes.push(node);
     byId.set(id, node);
     if (parentId !== null) addLink(parentId, id, 'parent');
-    for (const w of waits) if (w !== id && drawn.has(w)) addLink(id, w, 'wait');
+    // Heads draw at a link's end: a wait runs from the card waited for to the card that waits.
+    for (const w of waits) if (w !== id && drawn.has(w)) addLink(w, id, 'wait');
   }
   for (const l of links) {
     byId.get(l.from).deg++;

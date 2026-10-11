@@ -26,7 +26,7 @@ const GRAPH_LAYOUT_TITLES = {
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
 const GRAPH_LAYOUT_LABELS = { tiers: 'Tiers', force: 'Force', status: 'Status' };
-const GRAPH_KEY = 'solid line: parent, dashed arrow: waits for, red ring: blocked, amber ring: waiting, gold ring: review';
+const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
 let graphLayoutKind = null;
 let graphStatusFilter = null;

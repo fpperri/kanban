@@ -1161,7 +1161,7 @@ to `127.0.0.1` only.
   ring is **blocked**, an amber ring **waiting**, a gold ring **review**. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
   the view is zoomed in, or when the graph is small. **Relations:** a solid line joins a
-  parent to its child, and a dashed arrow runs from a card to the card it waits for.
+  parent to its child, and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
   root there; a card waiting on a hidden card still reads waiting.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a

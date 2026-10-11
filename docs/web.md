@@ -111,7 +111,7 @@ status-filter pills and search as the other views.
 
 The **Graph** view (the header's "◉ Graph" button) draws every card at once as
 a dot, joined by its relations: a solid line from a parent to its child, a
-dashed arrow from a card to the card it waits for. Three layouts, remembered
+dashed arrow from a card to the card that waits for it. Three layouts, remembered
 per board, with **Tiers** first:
 
 - **Tiers** puts the roots at the centre and each depth on its own ring; a

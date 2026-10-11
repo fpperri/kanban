@@ -21,11 +21,11 @@ const ang = (p) => Math.atan2(p.y, p.x);
 
 // --- build -----------------------------------------------------------------------
 
-test('build: parent links run parent to child, wait links run waiter to waited', () => {
+test('build: parent links run parent to child, wait links run waited-for to waiter (the head sits on the card that waits)', () => {
   const m = build([card(1), card(2, { parent: 1 }), card(3, { waiting_for: [2] })]);
   assert.deepStrictEqual(m.links, [
     { from: 1, to: 2, kind: 'parent' },
-    { from: 3, to: 2, kind: 'wait' },
+    { from: 2, to: 3, kind: 'wait' },
   ]);
   const n1 = m.byId.get(1);
   assert.strictEqual(n1.kids, 1);
@@ -65,7 +65,7 @@ test('build: a parent cycle loses the smallest id parent link', () => {
 
 test('build: dangling, self and duplicate waits are dropped', () => {
   const m = build([card(1, { waiting_for: [1, 99, 2, 2] }), card(2)]);
-  assert.deepStrictEqual(m.links, [{ from: 1, to: 2, kind: 'wait' }]);
+  assert.deepStrictEqual(m.links, [{ from: 2, to: 1, kind: 'wait' }]);
 });
 
 test('build: a card waiting on a hidden card still reads waiting; done waits do not', () => {
@@ -418,12 +418,12 @@ test('plan: parent links curve in tiers and status, straight in force; waits end
   assert.match(force.links.find((l) => l.kind === 'parent').d, /^M[-\d.]+ [-\d.]+L/);
   const lay = graphLayout(m, 'tiers');
   const plan = graphPlan(m, lay, planOpts());
-  const wait = plan.links.find((l) => l.kind === 'wait' && l.from === 4 && l.to === 2);
+  const wait = plan.links.find((l) => l.kind === 'wait' && l.from === 2 && l.to === 4);
   assert.strictEqual(wait.arrow, true);
   assert.match(wait.cls, /graph-link-wait/);
   const [ex, ey] = wait.d.split('L')[1].split(' ').map(Number);
-  const t = lay.pos.get(2);
-  assert.ok(Math.abs(Math.hypot(ex - t.x, ey - t.y) - (graphRadius(m.byId.get(2)) + 2)) < 0.05);
+  const t = lay.pos.get(4);
+  assert.ok(Math.abs(Math.hypot(ex - t.x, ey - t.y) - (graphRadius(m.byId.get(4)) + 2)) < 0.05);
 });
 
 test('plan: status layout marks cross-clump links', () => {
