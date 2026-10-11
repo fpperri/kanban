@@ -36,3 +36,20 @@ test('the cli port is still found with a home url ahead of it', () => {
   assert.strictEqual(launcher.cliPortFromServerArgs(['--home-url', 'http://a/', '7801']), 7801);
   assert.strictEqual(launcher.cliPortFromServerArgs(['--home-url=http://a/', '7801']), 7801);
 });
+
+test('a launcher written with a home url carries it, and a refused one writes nothing', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-launcher-home-'));
+  try {
+    const board = path.join(parent, '.kanban');
+    fs.mkdirSync(board);
+    assert.throws(() => launcher.writeLauncher(board, ['7801', '--home-url', 'javascript:alert(1)']), /home url/);
+    assert.deepStrictEqual(fs.readdirSync(board), []);
+    const content = fs.readFileSync(launcher.writeLauncher(board, ['7801', '--home-url', 'http://127.0.0.1:7791/']), 'utf8');
+    assert.ok(content.includes('--home-url=http://127.0.0.1:7791/'), content);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
