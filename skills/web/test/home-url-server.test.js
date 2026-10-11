@@ -63,3 +63,9 @@ test('the CLI stops at startup on a non-http(s) home url, with a message and a n
     assert.match(r.stderr, /--home-url/, args.join(' '));
   }
 });
+
+test('parseHomeUrl refuses an address carrying credentials', () => {
+  for (const bad of ['http://user:pw@h.example/', 'https://user@h.example/', 'http://:pw@h.example/']) {
+    assert.throws(() => parseHomeUrl(bad), /--home-url/, bad);
+  }
+});

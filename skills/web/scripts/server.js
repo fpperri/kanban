@@ -152,6 +152,9 @@ function parseHomeUrl(value) {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new Error(`invalid home url ${JSON.stringify(trimmed)}: only http:// and https:// addresses are allowed (--home-url)`);
   }
+  if (parsed.username || parsed.password) {
+    throw new Error(`invalid home url ${JSON.stringify(trimmed)}: an address carrying credentials is not allowed (--home-url)`);
+  }
   return parsed.href;
 }
 
