@@ -450,7 +450,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 #bell{font-size:14px;padding:3px 9px;border-radius:.15rem;line-height:1.2}
 #bellcnt{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-size:10px;font-weight:700;color:var(--on-fill);background:var(--crit);border-radius:.15rem;padding:0 5px;margin-left:4px;vertical-align:1px}
 .nrow{border:1px solid var(--line);border-radius:.2rem;padding:8px 10px;margin:8px 0;font-size:13px;overflow-wrap:break-word}
-.nrow.nlv-debug{border-style:dashed}
+.nrow.nlv-debug{border-style:dashed;border-color:var(--line-strong)}
 .nrow.nlv-debug .ntldr,.nrow.nlv-debug .nmore{color:var(--mut)}
 .nrow.unread{border-left:3px solid var(--accent)}
 .nrow.nlv-warning{border-color:var(--warn)}
@@ -582,7 +582,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .mnode.ghost rect{fill:none;stroke:var(--mut);stroke-width:1.5;stroke-dasharray:4 3}
 .mnode{cursor:pointer}
 .mnode.ghost{cursor:default}
-.mnode.arch rect{stroke-dasharray:4 3}
+.mnode.arch rect{stroke-dasharray:4 3;stroke:var(--line-strong)}
 .mnode.arch .mtitle{fill:var(--mut)}
 .grow.arch .glbl{fill:var(--mut)}
 .mnode .mid{font-size:10px;fill:var(--mut);font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
@@ -592,7 +592,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .medge.ghostedge{stroke:var(--mut);stroke-dasharray:3 3;opacity:.5}
 .map-iso-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
 .mapiso{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:9px 12px;font-size:12.5px;cursor:pointer;min-width:118px;max-width:220px}
-.mapiso.arch{border-style:dashed}
+.mapiso.arch{border-style:dashed;border-color:var(--line-strong)}
 .mapiso .cid{display:block;font-size:11px;color:var(--mut);margin-bottom:2px}
 .map-empty{font-size:12.5px;color:var(--mut);padding:10px 2px}
 .map-graph-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:16px 0 4px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
@@ -622,7 +622,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .cal-dow{font-size:10px;color:var(--mut);text-align:center;padding:2px 0}
 .cal-cell{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;min-height:52px;padding:2px;overflow:hidden}
-.cal-cell.out{background:var(--raised);border-style:dashed}
+.cal-cell.out{background:var(--raised);border-style:dashed;border-color:var(--line-strong)}
+.cal-cell.out .cal-chip.duechip,.cal-cell.out .cal-rowchip.duechip{background:var(--surface)}
 .cal-cell.out .cal-daynum{color:var(--mut)}
 .cal-cell.today{border-color:var(--accent)}
 .cal-daynum{font-size:10px;color:var(--ink);padding:0 2px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
@@ -659,7 +660,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .pillrow button.off{color:var(--mut);text-decoration:line-through}
 .pillrow .dot{width:8px;height:8px;background:currentColor;border:1px solid currentColor}
 .pillrow button.off .dot{background:transparent}
-.card.archcard{border-style:dashed}
+.card.archcard{border-style:dashed;border-color:var(--line-strong)}
+.card.archcard.sel{border-color:var(--accent)}
 .pill{cursor:pointer}
 /* Tier 1 (560-899px): the single column just grows — nothing else
    changes, so phone widths below 560px stay pixel-identical (unreached
@@ -2177,7 +2179,7 @@ m.style.left=left+"px";m.style.top=top+"px"}
 function keepSpillFocus(b,action){
 const home=b.closest("#boardpills,#mapview,#ganttview,#calview"),k=b.dataset.st;
 action();
-const next=home&&home.querySelector('[data-act="spill"][data-st="'+k+'"]');
+const next=home&&Array.from(home.querySelectorAll('[data-act="spill"]')).find(x=>x.dataset.st===k);
 if(next)next.focus({preventScroll:true})}
 function soloVis(k){
 const ids=COLS.concat(["archive"]);

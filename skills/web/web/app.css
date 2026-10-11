@@ -931,7 +931,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* Ghost stub: a hidden card that a visible one waits on / is waited on by,
    kept on the map (never silently dropped) but muted and dashed so
    it reads as "not part of the current search slice" rather than a normal node. */
-.map-node.ghost rect { fill: transparent; stroke-dasharray: 4 3; }
+.map-node.ghost rect { fill: transparent; stroke: var(--line-strong); stroke-dasharray: 4 3; }
 .map-node.ghost .map-node-title, .map-node.ghost .map-node-id { fill: var(--mut); }
 .map-node.ghost:not(.missing) { cursor: pointer; }
 .map-node.missing rect { stroke-dasharray: 2 3; }
@@ -1018,7 +1018,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the remainder, so chip rows stay 20px right under the day number. */
 .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: minmax(16px, auto) repeat(var(--cal-week-rows), minmax(20px, auto)) minmax(0, 1fr); gap: 4px; }
 .cal-day { background: var(--paper); border: 1px solid var(--line-soft); border-radius: .2rem; min-height: 96px; padding: 4px; min-width: 0; }
-.cal-day.outside { background: var(--raised); border-style: dashed; }
+.cal-day.outside { background: var(--raised); border-style: dashed; border-color: var(--line-strong); }
 .cal-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .cal-day.drag-over { border-color: var(--accent); background: var(--accent-soft); }
 .cal-day-num { color: var(--ink); font-size: 0.72em; text-align: right; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
@@ -1361,7 +1361,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .notif-row { display: flex; align-items: flex-start; gap: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; }
 /* Levels — declared BEFORE .unread so the accent unread left-edge
    still wins on tinted rows (same specificity, later rule takes the edge) */
-.notif-row.level-debug { border-style: dashed; }
+.notif-row.level-debug { border-style: dashed; border-color: var(--line-strong); }
 .notif-row.level-debug .notif-tldr, .notif-row.level-debug .notif-message { color: var(--mut); }
 .notif-row.level-warning { background: var(--warn-soft); border-color: var(--warn); }
 .notif-row.level-error { background: var(--crit-soft); border-color: var(--crit); }
@@ -1406,7 +1406,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-node.hover-highlight rect { fill: var(--hover-wash); }
 .card.hover-highlight .card-id, .card.hover-highlight .tag, .card.hover-highlight .card-schedule-row, .card.hover-highlight .alt-badge, .card.hover-highlight .rollup-counts, .card.hover-highlight .rollup-count, .card.hover-highlight .waiting-badge, .card.hover-highlight [class*="assignee-text--palette"] { color: var(--ink); }
 .card.hover-highlight .card-schedule-row.overdue { color: var(--ink-strong); }
-.map-node.hover-highlight .alt-badge, .map-node.hover-highlight .rollup-counts, .map-node.hover-highlight .rollup-count, .map-node.hover-highlight [class*="assignee-text--palette"], .cal-chip.hover-highlight .cal-chip-id, .gantt-bar.hover-highlight .gantt-bar-id, .gantt-label.hover-highlight .gantt-label-id { color: var(--ink); }
+.map-node.hover-highlight .alt-badge, .map-node.hover-highlight .rollup-counts, .map-node.hover-highlight .rollup-count, .cal-chip.hover-highlight .cal-chip-id, .gantt-bar.hover-highlight .gantt-bar-id, .gantt-label.hover-highlight .gantt-label-id { color: var(--ink); }
 .map-node.hover-highlight .map-node-id { fill: var(--ink); }
 /* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
    another card takes it away from the card that still holds keyboard focus,

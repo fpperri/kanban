@@ -79,6 +79,8 @@ test('a coarse pointer keeps its own long-press menu on a pill', () => {
   });
 });
 
+const opacityUses = (text) => text.match(/style\.opacity|cssText[^\n]*opacity|setProperty\(\s*["']opacity/g) || [];
+
 const VIEWS = ['boardpills', 'mapview', 'ganttview', 'calview'];
 const pillIn = (page, view, st) => byClass(page.byId(view), 'pillrow')[0].children.find((b) => b.dataset.st === st);
 
@@ -130,7 +132,7 @@ test('the template dims no live text with opacity, in CSS or through style.opaci
     for (const sel of m[1].split(',').map((x) => x.trim())) if (!ICON_OR_LINE.test(sel)) offenders.push(sel);
   }
   assert.deepStrictEqual(offenders, []);
-  assert.deepStrictEqual(src.match(/style\.opacity/g), null);
+  assert.deepStrictEqual(opacityUses(src), []);
 });
 
 test('archived and debug items recede by a dashed edge and muted text', () => {
@@ -143,4 +145,66 @@ test('archived and debug items recede by a dashed edge and muted text', () => {
   assert.strictEqual(decls('.cal-daynum').color, 'var(--ink)');
   assert.strictEqual(decls('.grow.arch .glbl').fill, 'var(--mut)');
   assert.match(decls('.mnode.arch rect')['stroke-dasharray'], /\d/);
+});
+
+function tokens(block) {
+  const out = {};
+  for (const m of block.matchAll(/--([a-z-]+):(#[0-9a-f]{6})/gi)) out[m[1]] = m[2];
+  return out;
+}
+const DARK_AT = css.indexOf(':root[data-theme="dark"]{');
+const THEMES = {
+  light: tokens(css.slice(css.indexOf(':root{'), css.indexOf('@media(prefers-color-scheme:dark)'))),
+  dark: tokens(css.slice(DARK_AT, css.indexOf('}', DARK_AT))),
+};
+function lumOf(hex) {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function ratioOf(theme, fg, bg) {
+  const a = lumOf(THEMES[theme][fg]), b = lumOf(THEMES[theme][bg]);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+const tok = (v) => /var\(--([a-z-]+)\)/.exec(v)[1];
+
+for (const theme of ['light', 'dark']) {
+  test(`${theme}: a due chip in an outside calendar cell holds 4.5:1 on its own ground`, () => {
+    const chip = decls('.cal-cell.out .cal-chip.duechip');
+    const r = ratioOf(theme, tok(decls('.cal-chip.duechip').color), tok(chip.background));
+    assert.ok(r >= 4.5, `due chip on the outside cell is ${r.toFixed(2)}:1`);
+    const row = decls('.cal-cell.out .cal-rowchip.duechip');
+    const r2 = ratioOf(theme, tok(decls('.cal-rowchip.duechip').color), tok(row.background));
+    assert.ok(r2 >= 4.5, `due row chip on the outside cell is ${r2.toFixed(2)}:1`);
+  });
+
+  test(`${theme}: muted text holds 4.5:1 on the grounds the receded items sit on`, () => {
+    for (const g of ['raised', 'surface']) assert.ok(ratioOf(theme, 'mut', g) >= 4.5, `mut on ${g}`);
+  });
+}
+
+test('the dashed edges that mark a receded item use the stronger line', () => {
+  for (const sel of ['.cal-cell.out', '.card.archcard', '.mapiso.arch', '.nrow.nlv-debug']) {
+    assert.strictEqual(tok(decls(sel)['border-color']), 'line-strong', sel);
+  }
+  assert.strictEqual(tok(decls('.mnode.arch rect').stroke), 'line-strong');
+});
+
+test('a status containing a double quote does not break a pill toggle', () => {
+  open(BOARD, (page) => {
+    page.run('COLS.push(\'we"ird\')');
+    page.run('render();renderMap();renderGantt();renderCalendar()');
+    const pill = pillIn(page, 'mapview', 'we"ird');
+    assert.ok(pill, 'the odd status has a pill');
+    pill.focus();
+    page.click(pill);
+    assert.ok(page.run('document.activeElement') === pillIn(page, 'mapview', 'we"ird'), 'focus is on the rebuilt pill');
+  });
+});
+
+test('the opacity scan catches a cssText assignment and a setProperty call', () => {
+  assert.ok(opacityUses('el.style.cssText="color:red;opacity:.5"').length);
+  assert.ok(opacityUses("el.style.cssText+=';opacity:.5'").length);
+  assert.ok(opacityUses('el.style.setProperty("opacity",".5")').length);
+  assert.ok(opacityUses('g.style.opacity=".5"').length);
+  assert.deepStrictEqual(opacityUses('el.style.color="red"'), []);
 });

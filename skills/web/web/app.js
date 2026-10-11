@@ -1732,6 +1732,7 @@ function applyBoardData(data) {
   if (pillSel) {
     const again = document.querySelector(pillSel);
     if (again) again.focus({ preventScroll: true });
+    if (hoveredId !== pointerId) setHoveredId(pointerId);
   }
   if (focusedCard) {
     const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);

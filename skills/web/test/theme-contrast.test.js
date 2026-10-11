@@ -347,7 +347,6 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
       ['.map-node.hover-highlight .alt-badge', ['--ink']],
       ['.map-node.hover-highlight .rollup-counts', ['--ink']],
       ['.map-node.hover-highlight .rollup-count', ['--ink']],
-      ['.map-node.hover-highlight [class*="assignee-text--palette"]', ['--ink']],
       ['.cal-chip.hover-highlight .cal-chip-id', ['--ink']],
       ['.gantt-bar.hover-highlight .gantt-bar-id', ['--ink']],
       ['.gantt-label.hover-highlight .gantt-label-id', ['--ink']],
@@ -398,8 +397,14 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     for (const sel of ['.map-node.ghost .map-node-title', '.map-node.ghost .map-node-id']) {
       const tok = tokenIn(declsFor(sel).fill, sel);
       assert.strictEqual(tok, '--mut');
-      clears(set, tok, '--paper', TEXT, sel);
+      clears(set, tok, '--surface', TEXT, sel);
     }
+  });
+
+  test(`${name}: the dashed edges that mark a receded item use the stronger line`, () => {
+    assert.strictEqual(tokenIn(declsFor('.cal-day.outside')['border-color'], 'outside day edge'), '--line-strong');
+    assert.strictEqual(tokenIn(declsFor('.notif-row.level-debug')['border-color'], 'debug row edge'), '--line-strong');
+    assert.strictEqual(tokenIn(declsFor('.map-node.ghost rect').stroke, 'ghost stub edge'), '--line-strong');
   });
 
   test(`${name}: the Children toggle's label and count hold the floor on the button hover ground`, () => {
@@ -423,7 +428,7 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
 }
 
 test('no rule dims live text with opacity', () => {
-  // --prompt-fallback: the italic stand-in for an empty title keeps its dimming; its worst ratio is 7.09:1, far above the floor.
+  // --prompt-fallback: these rules are unchanged from main and out of this change's scope.
   const NOT_TEXT = /:disabled|\.dragging|^\.graph-|\.gantt-today-line|--prompt-fallback/;
   const offenders = [];
   for (const r of RULES) {

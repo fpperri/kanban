@@ -113,13 +113,15 @@ test('the pill and fold toggles are focusable controls the stylesheet rings', ()
 
 const PILL_CLASSES = ['map-filter-toggle', 'map-section-toggle', 'gantt-filter-toggle', 'calendar-filter-toggle', 'graph-filter-toggle graph-control'];
 
-function pollSandbox() {
+function pollSandbox(mutateGuard) {
   const policy = require('../web/refresh-policy.js');
-  const doc = { activeElement: null, current: null };
+  const doc = { activeElement: null, current: null, visibilityState: 'visible' };
+  const camel = (a) => a.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
   const matches = (el, sel) => sel.split(',').map((x) => x.trim()).some((x) => {
     const notM = /:not\(\.([\w-]+)\)/.exec(x);
-    const base = x.replace(/:not\(.*$/, '').split('.').filter(Boolean);
-    return base.every((c) => el.classList.includes(c)) && !(notM && el.classList.includes(notM[1]));
+    const attrs = [...x.matchAll(/\[([\w-]+)\]/g)].map((m) => camel(m[1]));
+    const base = x.replace(/:not\(.*$/, '').replace(/\[[^\]]*\]/g, '').split('.').filter(Boolean);
+    return base.every((c) => el.classList.includes(c)) && attrs.every((a) => a in el.dataset) && !(notM && el.classList.includes(notM[1]));
   });
   const makeEl = (cls, data) => ({
     classList: cls.split(' '), dataset: data, attached: true,
@@ -134,11 +136,16 @@ function pollSandbox() {
     document: doc, state: {}, selectedIds: new Set(), hoveredId: null,
     applyProjectName() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
     pruneSelection: (s) => s, setHoveredId() {}, renderBoard() {},
+    shouldSkipAutoRefresh: policy.shouldSkipAutoRefresh, isDragging: false, pendingDrops: 0,
+    fetchBoard: async () => ({ active: [], archived: [] }), setStale() {},
   };
   vm.createContext(sandbox);
-  const names = ['boardControlFocused', 'pillSelector', 'keepPillFocus', 'focusedPill', 'applyBoardData'];
+  const names = ['boardControlFocused', 'pillSelector', 'keepPillFocus', 'focusedPill', 'applyBoardData', 'anyModalOpen', 'autoRefreshSkipState', 'autoRefreshTick'];
   const pillConst = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/);
-  vm.runInContext((pillConst ? pillConst[0] : '') + names.map((n) => (appSrc.includes('function ' + n + '(') ? fn(n) : '')).join('\n'), sandbox);
+  let code = (pillConst ? pillConst[0] : '') + names.map((n) => (appSrc.includes('function ' + n + '(') ? (appSrc.includes('async function ' + n + '(') ? 'async ' : '') + fn(n) : '')).join('\n');
+  if (mutateGuard) code = code.replace("closest('.column-sort-field,", "closest('" + mutateGuard + ", .column-sort-field,");
+  vm.runInContext(code, sandbox);
+  doc.querySelector = ((orig) => (sel) => (sel === '.modal-backdrop:not(.hidden)' ? null : orig(sel)))(doc.querySelector);
   return { sandbox, doc, makeEl, shouldSkip: policy.shouldSkipAutoRefresh };
 }
 
@@ -198,4 +205,31 @@ test('an off pill shows a hollow dot: ring kept, fill gone', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.off > \.pill-dot \{ background: transparent; \}/);
   assert.match(css, /\.pill-dot \{[^}]*background: currentColor; border: 1px solid currentColor;/);
+});
+
+test('the matcher catches a pill re-added to the poll guard with an attribute selector', () => {
+  const { sandbox, doc, makeEl } = pollSandbox('.gantt-filter-toggle[data-col]');
+  doc.activeElement = makeEl('gantt-filter-toggle', { col: 'done' });
+  assert.strictEqual(sandbox.boardControlFocused(), true);
+});
+
+test('a real poll tick with the pointer resting on a card and a pill focused keeps the hover wash', async () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  const pill = makeEl('gantt-filter-toggle', { col: 'done' });
+  doc.current = pill;
+  doc.activeElement = pill;
+  sandbox.hoveredId = 7;
+  sandbox.setHoveredId = (id) => { sandbox.hoveredId = id; };
+  let rendered = 0;
+  sandbox.renderBoard = () => {
+    rendered++;
+    pill.attached = false;
+    const next = makeEl('gantt-filter-toggle', { col: 'done' });
+    next.focus = function () { doc.activeElement = this; sandbox.hoveredId = null; };
+    doc.current = next;
+    doc.activeElement = { closest: () => null };
+  };
+  await sandbox.autoRefreshTick();
+  assert.strictEqual(rendered, 1, 'the tick was not skipped');
+  assert.strictEqual(sandbox.hoveredId, 7);
 });
