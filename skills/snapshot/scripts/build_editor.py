@@ -2119,7 +2119,7 @@ function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=fa
 function graphFocus(gk,id){
 const term=gk+":"+id;
 $("q").value=term;
-qTerms=resolveGraphTerms(String(term).trim().split(/\\s+/).filter(Boolean).map(t=>parseTerm(t)).filter(Boolean));
+qTerms=resolveGraphTerms(String(term).trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
 focusRoot=id;
 closeCard();
 renderMap();renderGantt();renderCalendar()}
@@ -2230,7 +2230,7 @@ if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
 $("q").addEventListener("input",()=>{
 focusRoot=null;
-qTerms=resolveGraphTerms(String($("q").value||"").trim().split(/\\s+/).filter(Boolean).map(t=>parseTerm(t)).filter(Boolean));
+qTerms=resolveGraphTerms(String($("q").value||"").trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
 render();renderMap();renderGantt();renderCalendar()});
 sc.addEventListener("touchmove",e=>e.stopPropagation(),{passive:true});
 sc.addEventListener("scroll",()=>{if(ctxMenuEl)closeCtxMenu()},{passive:true});
