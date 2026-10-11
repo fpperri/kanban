@@ -717,7 +717,7 @@ function archiveCardEl(card) {
 // (pure, no DOM), loaded as a bare global same as refresh-policy.js.
 function currentSearchTerms() {
   const input = $('#search-input');
-  return parseSearchQuery(input ? input.value : '');
+  return parseSearchQuery(input ? input.value : '', state.projectName);
 }
 
 // --- View mode: board (columns) / dependency map / calendar
@@ -1673,10 +1673,23 @@ function applyProjectName(name) {
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
 
+function applyHomeUrl(url) {
+  const link = $('#home-link');
+  if (!link) return;
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    link.href = url;
+    link.classList.remove('hidden');
+  } else {
+    link.removeAttribute('href');
+    link.classList.add('hidden');
+  }
+}
+
 function applyBoardData(data) {
   state.active = data.active;
   state.archived = data.archived;
   state.boardDir = data.boardDir || ''; // absolute board path for the header copy button (defensive ||: an old server without the field degrades to the honest empty-path toast)
+  applyHomeUrl(data.homeUrl);
   applyProjectName(data.projectName); // must run before renderBoard: collapse state's storage key is namespaced by projectName
   applyStatuses(data.statuses || []); // must also run before renderBoard — the column set drives every render below
   // The registry feeds the form's assignee suggestions — and

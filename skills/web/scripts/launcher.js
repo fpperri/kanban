@@ -310,16 +310,21 @@ function anchoredExcludeName(prefix, name) {
 // and each --allow-origin is re-emitted from ITS OWN `new URL(v).origin` —
 // which can only ever be `<scheme>://<host>[:<port>]`, so whatever garbage
 // followed the real origin in the input is simply not part of the output.
-// Any argument that isn't exactly the port or an --allow-origin flag is
+// Any argument that isn't exactly the port, an --allow-origin flag or a
+// --home-url flag (re-emitted from its parsed href) is
 // rejected outright: this replays a `server.js` start, never arbitrary
 // strings. The win32 character check below is belt-and-braces on top of
 // that — normalization already rules every one of these characters out for
 // a URL's `.origin`, but a future scheme this doesn't anticipate should
 // fail loudly here rather than reach the wrapper.
 function sanitizeServerArgsForWrapper(serverArgs, platform) {
-  const { origins, rest } = srv.extractAllowOriginArgs(serverArgs || []);
+  const { origins, rest: afterOrigins } = srv.extractAllowOriginArgs(serverArgs || []);
+  let homeUrl, rest;
+  try { ({ homeUrl, rest } = srv.extractHomeUrlArg(afterOrigins)); } catch (e) {
+    throw new Error(`launcher.js write: ${e.message}`);
+  }
   if (rest.length > 1) {
-    throw new Error(`launcher.js write: unexpected server argument(s) ${rest.slice(1).map((a) => JSON.stringify(a)).join(', ')} — only a port and --allow-origin are replayed`);
+    throw new Error(`launcher.js write: unexpected server argument(s) ${rest.slice(1).map((a) => JSON.stringify(a)).join(', ')} — only a port, --allow-origin and --home-url are replayed`);
   }
   const out = [];
   if (rest.length === 1) {
@@ -335,6 +340,13 @@ function sanitizeServerArgsForWrapper(serverArgs, platform) {
       throw new Error(`launcher.js write: --allow-origin value ${JSON.stringify(origin)} is not a valid URL`);
     }
     out.push(`--allow-origin=${normalized}`);
+  }
+  if (homeUrl !== undefined) {
+    let href;
+    try { href = srv.parseHomeUrl(homeUrl); } catch (e) {
+      throw new Error(`launcher.js write: ${e.message}`);
+    }
+    out.push(`--home-url=${href}`);
   }
   if (platform === 'win32') {
     for (const a of out) {
@@ -383,7 +395,10 @@ function candidatePorts({ pairedPort, appPort, cliPort, configPort }) {
 // running check can probe that port too before deciding whether to spawn.
 function cliPortFromServerArgs(serverArgs) {
   let rest;
-  try { ({ rest } = srv.extractAllowOriginArgs(serverArgs || [])); } catch (_) { return null; }
+  try {
+    ({ rest } = srv.extractAllowOriginArgs(serverArgs || []));
+    ({ rest } = srv.extractHomeUrlArg(rest));
+  } catch (_) { return null; }
   const arg = rest[0];
   if (arg === undefined || arg === null || String(arg).trim() === '') return null;
   const n = Number(arg);
@@ -580,7 +595,7 @@ function openBrowser(url) {
 // `launcher.js write` — (re)writes the current OS's wrapper + registers its
 // names in info/exclude. Returns the wrapper's absolute path. `serverArgs`
 // is every argument the skill just passed to `server.js` after the board
-// dir (a port and/or `--allow-origin ...`), embedded verbatim into the
+// dir (a port, `--allow-origin ...` and/or `--home-url ...`), embedded verbatim into the
 // wrapper's exec line so `launcher.js run` replays the exact same start.
 // cmd.exe's own command-line buffer tops out at 8191 characters; a longer
 // physical line silently truncates or splits instead of erroring — the root
@@ -616,7 +631,7 @@ function writeLauncher(boardDirArg, serverArgs = []) {
   if (platform === 'win32') {
     const execLine = text.split('\r\n').find((l) => l.endsWith('&& exit /b 0 || (pause & exit /b 1)'));
     if (execLine && execLine.length > MAX_WIN32_EXEC_LINE) {
-      throw new Error(`launcher.js write: the rendered command line is ${execLine.length} characters, over cmd.exe's safe ${MAX_WIN32_EXEC_LINE}-character limit — shorten the board path or the --allow-origin arguments`);
+      throw new Error(`launcher.js write: the rendered command line is ${execLine.length} characters, over cmd.exe's safe ${MAX_WIN32_EXEC_LINE}-character limit — shorten the board path, the --allow-origin arguments or the --home-url`);
     }
   }
 
@@ -1214,7 +1229,7 @@ async function findServedPort(boardDirAbs, pidPath, appPidPath, platform, cliPor
 // invoking wrapper names, never a marker-order guess; falls back to the
 // guess only for an older wrapper that never passed one. `serverArgs` is
 // everything the wrapper was written with after the board dir/baseName (a
-// port and/or --allow-origin — see writeLauncher/renderWrapper), replayed
+// port, --allow-origin and/or --home-url — see writeLauncher/renderWrapper), replayed
 // verbatim into the spawned server.js so a board started the documented way
 // restarts with the exact same port/origin instead of drifting to 7777.
 async function runLauncher(boardDirArg, explicitBaseName, serverArgs = []) {

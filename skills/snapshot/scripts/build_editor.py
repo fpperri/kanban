@@ -1023,6 +1023,9 @@ const GFIELDS=["tree","path"];
 const STFIELDS=["review","blocked"];
 function parseTerm(tok){
 const m1=/^#(\\d+)$/.exec(tok);if(m1)return{f:"id",v:m1[1]};
+// <this board's name>#<id> finds the card like #<id>; split at the LAST # (names hold dots and hyphens)
+const hi=tok.lastIndexOf("#");
+if(BOARD&&hi>0&&/^\\d+$/.test(tok.slice(hi+1))&&tok.slice(0,hi).toLowerCase()===String(BOARD).toLowerCase())return{f:"id",v:tok.slice(hi+1)};
 const m2=/^([A-Za-z]+):(.*)$/.exec(tok);
 if(m2){const k=m2[1].toLowerCase();
 if(k==="id"){const v=m2[2].trim();return v?{f:"id",v:v}:null}
