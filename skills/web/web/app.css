@@ -246,6 +246,9 @@ h1 { color: var(--ink); font-size: 1.4em; font-weight: 700; line-height: 1.1; le
    from its 1.4em to control scale; muted until hovered */
 .board-copy-btn { font-size: 0.55em; font-weight: 400; color: var(--mut); padding: 2px 7px; margin-left: 6px; vertical-align: middle; }
 .board-copy-btn:hover { color: var(--ink); }
+.title-group { display: flex; align-items: center; gap: 10px; }
+.home-link { display: inline-flex; align-items: center; color: var(--mut); padding: 2px; border-radius: .2rem; }
+.home-link:hover, .home-link:focus-visible { color: var(--ink); }
 .actions { display: flex; gap: 8px; }
 .rollup-ctls { display: flex; align-items: center; gap: 8px; }
 .rollup-ctl { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8em; color: var(--mut); white-space: nowrap; }

@@ -10,7 +10,10 @@
 <body>
 <header>
   <!-- copy button INSIDE the h1 so it rides beside the title when the flex header wraps -->
-  <h1><span id="project-name" class="project-name"></span> <button type="button" id="board-copy-btn" class="board-copy-btn" title="Copy the board folder's absolute path" aria-label="Copy the board folder's absolute path">&#x29C9;</button></h1>
+  <div class="title-group">
+    <a id="home-link" class="home-link hidden" rel="noopener" title="Up to the shop page" aria-label="Up to the shop page"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-6h4v6"/></svg></a>
+    <h1><span id="project-name" class="project-name"></span> <button type="button" id="board-copy-btn" class="board-copy-btn" title="Copy the board folder's absolute path" aria-label="Copy the board folder's absolute path">&#x29C9;</button></h1>
+  </div>
   <div class="search-bar">
     <input type="search" id="search-input" class="search-input" autocomplete="off"
       placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
