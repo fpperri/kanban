@@ -141,6 +141,40 @@ function extractAllowOriginArgs(argv) {
   return { origins, rest };
 }
 
+// The address the header's home icon leads to. Same strictness as the origin
+// allowlist: http(s) only, so a javascript: or data: value can never become an href.
+function parseHomeUrl(value) {
+  const trimmed = String(value == null ? '' : value).trim();
+  let parsed;
+  try { parsed = new URL(trimmed); } catch (_) {
+    throw new Error(`invalid home url ${JSON.stringify(trimmed)} (--home-url)`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`invalid home url ${JSON.stringify(trimmed)}: only http:// and https:// addresses are allowed (--home-url)`);
+  }
+  return parsed.href;
+}
+
+function extractHomeUrlArg(argv) {
+  let homeUrl;
+  const rest = [];
+  const EQ = '--home-url=';
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--home-url') {
+      i += 1;
+      if (i >= argv.length || !argv[i]) throw new Error('--home-url requires a value');
+      homeUrl = argv[i];
+    } else if (arg.startsWith(EQ)) {
+      if (!arg.slice(EQ.length)) throw new Error('--home-url requires a value');
+      homeUrl = arg.slice(EQ.length);
+    } else {
+      rest.push(arg);
+    }
+  }
+  return { homeUrl, rest };
+}
+
 function sendJSON(res, code, obj) {
   const buf = Buffer.from(JSON.stringify(obj));
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'content-length': buf.length, 'cache-control': 'no-store' });
@@ -181,7 +215,7 @@ function boardName(dir, config) {
   return config.name || cs.projectName(dir);
 }
 
-function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
+function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const p = url.pathname;
@@ -204,6 +238,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
           // it is also the localStorage namespace for every per-board view
           // preference, so renaming the field would orphan saved state.
           projectName: boardName(dir, config),
+          homeUrl,
           // the header copy button copies the board dir's ABSOLUTE
           // path — resolve()d because the CLI defaults dir to a relative
           // '.kanban'/'kanban' (resolveDefaultBoardDir()), and a relative
@@ -322,10 +357,10 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS) {
 //   busy PINNED port is a startup error, never a silent increment (auto-increment
 //   survives only for the unpinned default case).
 function start(dir, port, attempts = 20, opts = {}) {
-  const { pinned = false, extraOrigins = NO_EXTRA_ORIGINS } = opts;
+  const { pinned = false, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null } = opts;
   // The dir must exist (checked by the CLI entry below); an empty board is allowed
   // so you can create the first card from the app.
-  const srv = createServer(dir, extraOrigins);
+  const srv = createServer(dir, extraOrigins, homeUrl);
   srv.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
       if (pinned) {
@@ -334,7 +369,7 @@ function start(dir, port, attempts = 20, opts = {}) {
         return; // belt-and-braces: never fall through to auto-increment below,
                 // even if something stubs process.exit (e.g. tests)
       }
-      if (attempts > 0) return start(dir, port + 1, attempts - 1, { extraOrigins });
+      if (attempts > 0) return start(dir, port + 1, attempts - 1, { extraOrigins, homeUrl });
     }
     console.error(e.message); process.exit(1);
   });
@@ -401,9 +436,11 @@ function resolveDefaultBoardDir(baseDir) {
 }
 
 if (require.main === module) {
-  let cliOrigins, rest;
+  let cliOrigins, rest, rawHomeUrl, homeUrl = null;
   try {
     ({ origins: cliOrigins, rest } = extractAllowOriginArgs(process.argv.slice(2)));
+    ({ homeUrl: rawHomeUrl, rest } = extractHomeUrlArg(rest));
+    if (rawHomeUrl !== undefined) homeUrl = parseHomeUrl(rawHomeUrl);
   } catch (e) { console.error(e.message); process.exit(1); }
   const dir = rest[0] || resolveDefaultBoardDir();
   if (!fs.existsSync(dir)) { console.error(`Board dir not found: ${dir}`); process.exit(1); }
@@ -412,10 +449,10 @@ if (require.main === module) {
   try {
     extraOrigins = parseAllowedOrigins(cliOrigins, process.env.KANBAN_WEB_ALLOWED_ORIGINS);
   } catch (e) { console.error(e.message); process.exit(1); }
-  start(dir, port, 20, { pinned, extraOrigins });
+  start(dir, port, 20, { pinned, extraOrigins, homeUrl });
 }
 
 module.exports = {
   createServer, start, originAllowed, resolveDefaultBoardDir,
-  parseAllowedOrigins, extractAllowOriginArgs, resolvePort,
+  parseAllowedOrigins, extractAllowOriginArgs, resolvePort, parseHomeUrl, extractHomeUrlArg,
 };
