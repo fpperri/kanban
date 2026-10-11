@@ -19,8 +19,10 @@ test('SKILL.md ties the solo grammar to the left-click single-pill toggle', () =
   assert.match(webSkill, /left-click toggles that one pill on\/off/);
 });
 
-test('SKILL.md documents contextmenu suppression as scoped to the pill row only, not the shared card bulk menu', () => {
-  assert.match(webSkill, /suppressed only[\s\S]{0,80}pill row/);
+test('SKILL.md documents contextmenu suppression as scoped to a pill only, not the shared card bulk menu', () => {
+  assert.match(webSkill, /suppressed only on a pill itself/);
+  assert.doesNotMatch(webSkill, /suppressed only while the pointer is over the pill row/);
+  assert.match(webSkill, /the gantt's, the calendar's and the graph's/, 'all four pill rows are named');
   assert.match(webSkill, /shared right-click bulk\s*\n?\s*menu untouched/);
 });
 

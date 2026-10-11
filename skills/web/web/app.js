@@ -1117,10 +1117,10 @@ function renderMapView() {
 // shared verbatim between the map and the gantt rather than each
 // view duplicating the markup/build-loop. Only the filter state, the id list,
 // the row/pill class (so each view's own delegated listener and its own
-// poll-guard/Q0-exemption selector keep targeting just their own pills), and
+// Q0-exemption selector keep targeting just their own pills), and
 // the tooltip wording differ per caller. The look itself is ALSO shared, not
 // duplicated — app.css comma-joins the two views' pill classes onto one
-// declaration each. Border color comes from statusColorVar() for EVERY pill —
+// declaration each. The identity dot's color comes from statusColorVar() for EVERY pill —
 // built-in, custom (their hashed hue; no CSS rule exists, same reasoning as
 // the column headers), and archive's neutral grey where the map's
 // row includes it.
@@ -1140,11 +1140,34 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
     btn.dataset.col = col;
     btn.setAttribute('aria-pressed', String(on));
     btn.title = titleFor(col, on) + ' Right-click to solo (right-click the soloed pill again to restore all).';
-    btn.style.borderColor = statusColorVar(col);
-    btn.textContent = columnLabel(col);
+    const dot = document.createElement('span');
+    dot.className = 'pill-dot';
+    dot.style.color = statusColorVar(col);
+    btn.append(dot, columnLabel(col));
     row.appendChild(btn);
   }
   return row;
+}
+
+const PILL_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle';
+
+function pillSelector(el) {
+  const key = el.dataset.col !== undefined ? 'col' : 'section';
+  return `.${el.classList[0]}[data-${key}="${String(el.dataset[key]).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+}
+
+function focusedPill() {
+  const el = document.activeElement;
+  return el && el.closest ? el.closest(PILL_SELECTOR) : null;
+}
+
+// A pill or fold toggle is rebuilt by the render its own press triggers, so
+// focus has to be handed back to the new element.
+function keepPillFocus(el, action) {
+  const selector = pillSelector(el);
+  action();
+  const next = document.querySelector(selector);
+  if (next) next.focus({ preventScroll: true });
 }
 
 // One pill per board column in column order (statuses + Archive:
@@ -1716,7 +1739,14 @@ function applyBoardData(data) {
   const focusedCard = document.activeElement && document.activeElement.closest && document.activeElement.closest('.card-el');
   const focusedCardId = focusedCard ? focusedCard.dataset.id : null;
   const pointerId = hoveredId;
+  const pill = focusedPill();
+  const pillSel = pill ? pillSelector(pill) : null;
   renderBoard();
+  if (pillSel) {
+    const again = document.querySelector(pillSel);
+    if (again) again.focus({ preventScroll: true });
+    if (hoveredId !== pointerId) setHoveredId(pointerId);
+  }
   if (focusedCard) {
     const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);
     if (again) again.focus({ preventScroll: true });
@@ -1763,18 +1793,12 @@ function anyModalOpen() {
 // and nothing takes that focus back, so listing .card-el here would freeze
 // the poll for the rest of the session — no stale indicator, no error, just a
 // board that quietly stops updating. applyBoardData re-finds the focused card
-// after its render instead.
+// and pill after its render instead.
 function boardControlFocused() {
   const el = document.activeElement;
-  // .cal-nav: calendar nav; .column-add: the header +;
-  // .column-add-ai: its sparkle twin; .map-filter-toggle/
-  // .map-section-toggle/.map-zoom-btn/.map-option-btn: the map pills, zoom toolbar and options;
-  // .gantt-filter-toggle: the
-  // gantt pills; .calendar-filter-toggle: the
-  // calendar pills (their views are wiped by every render). All focusable,
-  // all rebuilt per render — a poll landing while one is focused would
-  // silently dump keyboard focus to <body>. No .card-el — see above.
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-filter-toggle, .map-section-toggle, .map-zoom-btn, .map-option-btn, .gantt-filter-toggle, .calendar-filter-toggle, .graph-control'));
+  // Pills and fold toggles are not here: they are rebuilt by every render, so
+  // applyBoardData refocuses the focused one instead of freezing the poll.
+  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-zoom-btn, .map-option-btn, .graph-control:not(.graph-filter-toggle)'));
 }
 
 function setStale(stale) {
@@ -3146,14 +3170,14 @@ window.addEventListener('DOMContentLoaded', () => {
     // through to card-el).
     const sectionBtn = e.target.closest('.map-section-toggle[data-section]');
     if (sectionBtn) {
-      toggleMapSection(sectionBtn.dataset.section);
+      keepPillFocus(sectionBtn, () => toggleMapSection(sectionBtn.dataset.section));
       return;
     }
     // Status-filter pills — control-row buttons, checked first for
     // the same reason data-act buttons are (never fall through to card-el).
     const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
     if (filterBtn) {
-      toggleMapStatusFilter(filterBtn.dataset.col);
+      keepPillFocus(filterBtn, () => toggleMapStatusFilter(filterBtn.dataset.col));
       return;
     }
     const optionBtn = e.target.closest('.map-option-btn[data-key][data-val]');
@@ -3196,7 +3220,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    soloMapStatusFilter(filterBtn.dataset.col);
+    keepPillFocus(filterBtn, () => soloMapStatusFilter(filterBtn.dataset.col));
   });
   wireMapPanZoom();
 });
@@ -4161,7 +4185,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // the same reason the map's and the gantt's pills are (never fall
     // through to the sub-view switcher/nav/card-el handling below).
     const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
-    if (filterBtn) { toggleCalendarStatusFilter(filterBtn.dataset.col); return; }
+    if (filterBtn) { keepPillFocus(filterBtn, () => toggleCalendarStatusFilter(filterBtn.dataset.col)); return; }
     // The sub-view switcher rides the same delegated listener as
     // prev/today/next — all four button sets are rebuilt every render.
     const sv = e.target.closest('.cal-subview-btn');
@@ -4198,7 +4222,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    soloCalendarStatusFilter(filterBtn.dataset.col);
+    keepPillFocus(filterBtn, () => soloCalendarStatusFilter(filterBtn.dataset.col));
   });
 });
 
@@ -4331,7 +4355,7 @@ function ganttBarEl(bar, win, dayPx) {
   const pb = priorityBadge(bar.card, state.priorities); // same emphasis as tiles/chips
   // An archived bar mutes to the neutral archive grey
   // regardless of its parked on-disk status — the BAR keeps this mute
-  // (it's a row-level archived cue, like a board tile dimming,
+  // (it's a row-level archived cue,
   // not the status-dot channel locked to "never mutes"; the
   // gutter row's own dot, built lower down in renderGanttView, colors off
   // the card's true status instead). 'archive' is also the literal key
@@ -4703,7 +4727,7 @@ function wireGanttPointerDrag() {
   // (never fall through to the pointer-drag/card-el handling below).
   container.addEventListener('click', (e) => {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (filterBtn) { toggleGanttStatusFilter(filterBtn.dataset.col); return; }
+    if (filterBtn) { keepPillFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setGanttSubview(sv.dataset.subview); return; }
     if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
@@ -4718,7 +4742,7 @@ function wireGanttPointerDrag() {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    soloGanttStatusFilter(filterBtn.dataset.col);
+    keepPillFocus(filterBtn, () => soloGanttStatusFilter(filterBtn.dataset.col));
   });
   container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || ganttDrag) return;
@@ -4845,7 +4869,7 @@ function renderNotifList() {
   // rides string-built HTML. splitNotification (notifications.js) gives the
   // TLDR and the detail; the detail sits under a More label, broken into its
   // clauses when it runs on. Code spans, card mentions and **bold** render
-  // through appendInline. level paints the row (debug dimmed, warning amber,
+  // through appendInline. level paints the row (debug muted with a dashed edge, warning amber,
   // error red; absent = info).
   el.replaceChildren(...list.map((n) => {
     const row = document.createElement('div');

@@ -482,7 +482,7 @@ function graphStopDrag(commit) {
 function wireGraphView(host) {
   host.addEventListener('click', (e) => {
     const pill = e.target.closest('.graph-filter-toggle[data-col]');
-    if (pill) { graphToggleFilter(pill.dataset.col); return; }
+    if (pill) { keepPillFocus(pill, () => graphToggleFilter(pill.dataset.col)); return; }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
     if (layoutBtn) {
       if (mergeGraphLayout(layoutBtn.dataset.layout) === graphLoadLayout()) return;
@@ -504,7 +504,7 @@ function wireGraphView(host) {
     const pill = e.target.closest('.graph-filter-toggle[data-col]');
     if (!pill) return;
     e.preventDefault();
-    graphSoloFilter(pill.dataset.col);
+    keepPillFocus(pill, () => graphSoloFilter(pill.dataset.col));
   });
   host.addEventListener('wheel', (e) => {
     if (!graphCur || !e.target.closest('.graph-stage')) return;

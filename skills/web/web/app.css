@@ -311,7 +311,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    inherit into the sort <select>'s option text and the +/chevron glyphs.
    .column-header keeps its own font-weight and per-status colour untouched. */
 .column-name { flex: 1; text-transform: uppercase; letter-spacing: 0.09em; }
-.column-count { font-weight: 400; opacity: 0.8; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+.column-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 /* .map-section-toggle (the map's graphs/No relations collapse
    chevrons) shares this exact look — one rule, not a per-view duplicate. */
 .column-toggle, .map-section-toggle { background: transparent; border: none; color: inherit; padding: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
@@ -385,7 +385,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    fusing into one blob (status+archived is the one adjacent dot pair). */
 .status-dot + .archived-dot { margin-left: 4px; }
 .card.high { border-left: 3px solid var(--id-high); }
-.card.low { border-left: 3px solid var(--st-archive); opacity: 0.85; } /* muted last-tier priority */
+.card.low { border-left: 3px solid var(--st-archive); } /* muted last-tier priority */
 /* hand-rolled combobox menu — native datalist misrenders in VSCode's Simple Browser */
 .combobox-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; max-height: 180px; overflow-y: auto; box-shadow: var(--shadow-pop); }
 .combobox-item { padding: 5px 10px; cursor: pointer; font-size: 13px; }
@@ -420,7 +420,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.dragging { opacity: 0.4; }
 .card.drop-before { box-shadow: 0 -4px 0 0 var(--accent); }
 .card.drop-after { box-shadow: 0 4px 0 0 var(--accent); }
-.card.archived-card { cursor: pointer; opacity: 0.82; }
+.card.archived-card { cursor: pointer; }
 /* The head wraps: a tile carrying its id, priority, assignee and both stickers
    moves the overflow to a second line instead of running under the date stack
    beside it. The id keeps its priority label on the same line. */
@@ -661,8 +661,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-path-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .detail-path { color: var(--mut); font-size: 0.78em; word-break: break-all; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 #detail-copy-btn { flex-shrink: 0; }
-#detail-copy-btn.copy-success { color: var(--ok); border-color: var(--ok); }
-#detail-copy-btn.copy-failed { color: var(--crit); border-color: var(--crit); }
+#detail-copy-btn.copy-success { border-color: var(--ok); }
+#detail-copy-btn.copy-failed { border-color: var(--crit); }
 /* Every popup's header is TWO flex rows, not one — row 1 is
    the control-icon group ALONE, pinned top-left; row 2 is
    the title/content block, full width, never sharing the icons' line. ONE
@@ -697,9 +697,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .relatives-toggle::before { content: "\25B8"; color: var(--mut); }
 .relatives-toggle[aria-expanded="true"]::before { content: "\25BE"; }
 .relatives-count { color: var(--mut); font-variant-numeric: tabular-nums; }
+.relatives-toggle:hover .relatives-label, .relatives-toggle:hover .relatives-count { color: var(--ink); }
 .children-list { list-style: none; margin: 6px 0 0; padding: 0; }
 .child-item { margin: 4px 0; }
-.thread-item--archived code.mention, .child-item--archived code.mention { opacity: 0.7; }
 .rel-mark { margin-left: 6px; padding: 0 6px; border-radius: .15rem; color: var(--mut); font-size: 0.85em; }
 .thread-item--loop .rel-mark, .thread-item--unresolved .rel-mark, .fm-value .rel-mark { color: var(--warn); background: var(--warn-soft); font-weight: 600; }
 .detail-frontmatter table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
@@ -740,7 +740,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body li.task > ul { list-style: none; margin: 0.3em 0 0.7em 0.3em; padding-left: 0.95em; border-left: 1px solid var(--line-strong); color: var(--mut); font-size: 0.93em; }
 .detail-body li.task > ul > li { margin: 0.22em 0; }
 .detail-body code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.1em 0.35em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-.detail-body pre { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; overflow-x: auto; margin: 0.8em 0; }
+.detail-body pre { background: var(--raised); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; overflow-x: auto; margin: 0.8em 0; }
 .detail-body pre code { background: none; padding: 0; color: var(--code-ink); }
 /* Markdown tables in a card body (kanban.proj #256). The scroller is the point:
    a ladder or a comparison table is often wider than the popup, and without its
@@ -825,8 +825,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* The status-filter pill row. Border color is inline per pill
    (statusColor() — covers custom statuses' hashed hues, which have no CSS
    rule; same reasoning as the column headers), so the rules here only shape
-   the pill and encode ON/OFF. An OFF pill dims + dashes — the same visual
-   vocabulary the ghost stubs below use for "filtered out". The
+   the pill and encode ON/OFF. An OFF pill turns muted with a struck-through
+   label and a hollow dot, never opacity. The
    gantt's own pill row (.gantt-filter-row/.gantt-filter-toggle, see the Gantt
    view section below) shares these declarations via comma — one pill LOOK
    for both views, not a duplicated rule per view. The calendar's
@@ -835,12 +835,16 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-filter-row, .gantt-filter-row, .calendar-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 /* 1px, not 2px: after header claims 2px var(--ink) as the page-boundary
    weight, these were the only other 2px chrome borders in the file — the
-   ON/OFF signal already rides opacity + border-style (dashed on .off), not
+   ON/OFF signal already rides colour, strike-through and the dot's fill, not
    weight, so dropping to 1px costs nothing and keeps the border scale a
    scale rather than a coincidence. Still a visibly tappable control: radius,
    padding and fill are untouched. */
 .map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
-.map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { opacity: 0.45; border-style: dashed; color: var(--mut); }
+.map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { color: var(--mut); text-decoration: line-through; }
+.map-filter-toggle:hover, .gantt-filter-toggle:hover, .calendar-filter-toggle:hover { background: var(--btn-bg); }
+.pill-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: currentColor; border: 1px solid currentColor; vertical-align: 0.05em; }
+.off > .pill-dot { background: transparent; }
+.map-filter-toggle:focus-visible, .gantt-filter-toggle:focus-visible, .calendar-filter-toggle:focus-visible, .graph-filter-toggle:focus-visible, .map-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* The zoom toolbar — its own row right after the filter row (see
    buildMapZoomControls, app.js), same small-pill look as .map-filter-toggle
    (comma-joined into that rule above) rather than a full-size <button>, so
@@ -928,10 +932,10 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    (buildMapSvg, app.js) beside the status dot, vertically centered. */
 .map-archived-dot { fill: var(--st-archive); }
 /* Ghost stub: a hidden card that a visible one waits on / is waited on by,
-   kept on the map (never silently dropped) but visually dimmed and dashed so
+   kept on the map (never silently dropped) but muted and dashed so
    it reads as "not part of the current search slice" rather than a normal node. */
-.map-node.ghost rect { fill: transparent; stroke-dasharray: 4 3; }
-.map-node.ghost { opacity: 0.55; }
+.map-node.ghost rect { fill: transparent; stroke: var(--line-strong); stroke-dasharray: 4 3; }
+.map-node.ghost .map-node-title, .map-node.ghost .map-node-id { fill: var(--mut); }
 .map-node.ghost:not(.missing) { cursor: pointer; }
 .map-node.missing rect { stroke-dasharray: 2 3; }
 .map-node.missing { cursor: default; }
@@ -1017,17 +1021,18 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the remainder, so chip rows stay 20px right under the day number. */
 .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: minmax(16px, auto) repeat(var(--cal-week-rows), minmax(20px, auto)) minmax(0, 1fr); gap: 4px; }
 .cal-day { background: var(--paper); border: 1px solid var(--line-soft); border-radius: .2rem; min-height: 96px; padding: 4px; min-width: 0; }
-.cal-day.outside { opacity: 0.45; }
+.cal-day.outside { background: var(--raised); border-style: dashed; border-color: var(--line-strong); }
 .cal-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .cal-day.drag-over { border-color: var(--accent); background: var(--accent-soft); }
-.cal-day-num { color: var(--mut); font-size: 0.72em; text-align: right; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+.cal-day-num { color: var(--ink); font-size: 0.72em; text-align: right; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+.cal-day.outside .cal-day-num { color: var(--mut); }
 .cal-day.today .cal-day-num { color: var(--accent); font-weight: 700; }
 .cal-chip { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: .15rem; padding: 2px 6px; font-size: 0.72em; color: var(--ink); cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-chip-id { color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 /* same italic/muted read as .card-title--prompt-fallback (board tile) */
 .cal-chip-title--prompt-fallback { font-style: italic; opacity: 0.75; }
 .cal-chip.high { border-left-color: var(--id-high); }
-.cal-chip.low { border-left-color: var(--st-archive); opacity: 0.85; }
+.cal-chip.low { border-left-color: var(--st-archive); }
 .cal-chip.waiting { border-left-color: var(--id-waiting); }
 .cal-chip.dragging { opacity: 0.4; }
 /* Range position classes from calendar-model.js's chipPositionForDay. No
@@ -1160,7 +1165,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-layout-btn, .graph-zoom-btn, .graph-filter-toggle { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .graph-layout-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .graph-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.graph-filter-toggle.off { opacity: 0.45; border-style: dashed; color: var(--mut); }
+.graph-filter-toggle.off { color: var(--mut); text-decoration: line-through; }
+.graph-filter-toggle:hover { background: var(--btn-bg); }
 .graph-key, .graph-count { color: var(--mut); font-size: 0.78em; }
 .graph-key { margin-bottom: 8px; }
 .graph-count { margin-left: auto; }
@@ -1274,7 +1280,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .gantt-bar.status-done { border-color: var(--st-done); background: rgba(163, 113, 247, 0.12); }
 .gantt-bar.status-unknown { border-color: var(--st-archive); background: rgba(134, 142, 154, 0.12); }
 .gantt-bar.high { border-left-color: var(--id-high); }
-.gantt-bar.low { border-left-color: var(--st-archive); opacity: 0.85; }
+.gantt-bar.low { border-left-color: var(--st-archive); }
 .gantt-bar.waiting { border-left-color: var(--id-waiting); }
 /* mid-drag: the bar itself is the live preview, so keep it readable and above
    the today/week lines rather than fading it like a ghosted HTML5 drag */
@@ -1318,7 +1324,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    edge; fixed-in-body escapes every overflow context (app.js computes
    left/top from the 📅 button's getBoundingClientRect). z-index above the
    .modal-backdrop (30) it floats over. The grid reuses the calendar view's
-   vocabulary: dimmed outside-month days, accent today ring, selected fill. */
+   vocabulary: muted outside-month days, accent today ring, selected fill. */
 .date-field { display: flex; gap: 4px; align-items: center; }
 .date-field input { flex: 1; min-width: 0; }
 .date-pick-btn { flex-shrink: 0; padding: 4px 6px; font-size: 0.9em; line-height: 1; }
@@ -1330,13 +1336,14 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .dp-dow { text-align: center; color: var(--mut); font-size: 0.68em; font-weight: 600; padding: 2px 0; text-transform: uppercase; letter-spacing: 0.09em; }
 .dp-day { width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid var(--line-soft); border-radius: .15rem; font-size: 0.75em; color: var(--ink); cursor: pointer; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .dp-day:hover { background: var(--accent-wash); }
-.dp-day.outside { opacity: 0.45; }
+.dp-day.outside { color: var(--mut); }
+.dp-day.outside:hover { color: var(--ink); }
 .dp-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .dp-day.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.dp-day.selected:hover { background: var(--accent-strong); }
+.dp-day.selected:hover { background: var(--accent-soft); border-color: var(--accent-strong); }
 /* Clock toggle. ON state highlights like .dp-day.selected (same
-   accent-fill vocabulary); disabled (no parseable day yet) fades like
-   .dp-day.outside. The revealed HH:MM control is a plain text input styled
+   accent-fill vocabulary); disabled (no parseable day yet) fades with
+   opacity. The revealed HH:MM control is a plain text input styled
    like the date fields themselves — no native <input type="time">, same
    ADR 0003 reasoning as the rest of this popover. */
 .date-picker-time { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
@@ -1357,7 +1364,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .notif-row { display: flex; align-items: flex-start; gap: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; padding: 10px 12px; }
 /* Levels — declared BEFORE .unread so the accent unread left-edge
    still wins on tinted rows (same specificity, later rule takes the edge) */
-.notif-row.level-debug { opacity: 0.55; }
+.notif-row.level-debug { border-style: dashed; border-color: var(--line-strong); }
+.notif-row.level-debug .notif-tldr, .notif-row.level-debug .notif-message { color: var(--mut); }
 .notif-row.level-warning { background: var(--warn-soft); border-color: var(--warn); }
 .notif-row.level-error { background: var(--crit-soft); border-color: var(--crit); }
 .notif-row.unread { border-left: 3px solid var(--accent); }
@@ -1399,6 +1407,10 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    so THAT rule keeps winning its own tie against this one. */
 .card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: var(--hover-wash); }
 .map-node.hover-highlight rect { fill: var(--hover-wash); }
+.card.hover-highlight .card-id, .card.hover-highlight .tag, .card.hover-highlight .card-schedule-row, .card.hover-highlight .alt-badge, .card.hover-highlight .rollup-counts, .card.hover-highlight .rollup-count, .card.hover-highlight .waiting-badge, .card.hover-highlight [class*="assignee-text--palette"] { color: var(--ink); }
+.card.hover-highlight .card-schedule-row.overdue { color: var(--ink-strong); }
+.map-node.hover-highlight .alt-badge, .map-node.hover-highlight .rollup-counts, .map-node.hover-highlight .rollup-count, .cal-chip.hover-highlight .cal-chip-id, .gantt-bar.hover-highlight .gantt-bar-id, .gantt-label.hover-highlight .gantt-label-id { color: var(--ink); }
+.map-node.hover-highlight .map-node-id { fill: var(--ink); }
 /* The wash is a SHARED cue: one `hoveredId`, so the pointer wandering onto
    another card takes it away from the card that still holds keyboard focus,
    and a Tab user would be left with no indicator at all. The ring is the

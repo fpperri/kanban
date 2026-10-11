@@ -389,7 +389,8 @@ body{font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI"
 #scrollbtns button{width:46px;height:46px;border-radius:50%;font-size:19px;line-height:1;padding:0;background:var(--surface);border:1px solid var(--line);color:var(--mut);box-shadow:var(--shadow-pop)}
 #scrollbtns button svg{display:block;margin:auto}
 #scrollbtns button.armed{border-color:var(--crit);color:var(--crit)}
-#scrollbtns button.off{opacity:.4}
+#scrollbtns button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+#scrollbtns button.off{border-style:dashed}
 button{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:7px 13px;color:var(--ink);font-size:13px;cursor:pointer}
 button:active{transform:scale(.98)}
 input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:8px 10px;color:var(--ink);font-size:15px;width:100%}
@@ -449,8 +450,9 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 #bell{font-size:14px;padding:3px 9px;border-radius:.15rem;line-height:1.2}
 #bellcnt{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-size:10px;font-weight:700;color:var(--on-fill);background:var(--crit);border-radius:.15rem;padding:0 5px;margin-left:4px;vertical-align:1px}
 .nrow{border:1px solid var(--line);border-radius:.2rem;padding:8px 10px;margin:8px 0;font-size:13px;overflow-wrap:break-word}
+.nrow.nlv-debug{border-style:dashed;border-color:var(--line-strong)}
+.nrow.nlv-debug .ntldr,.nrow.nlv-debug .nmore{color:var(--mut)}
 .nrow.unread{border-left:3px solid var(--accent)}
-.nrow.nlv-debug{opacity:.55}
 .nrow.nlv-warning{border-color:var(--warn)}
 .nrow.nlv-error{border-color:var(--crit)}
 .nmeta{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-size:11px;color:var(--mut);margin-top:4px}
@@ -532,7 +534,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .bodymd li>ul{margin:.25em 0 .25em 1em}
 .bodymd strong{color:var(--ink-strong);font-weight:650}
 .bodymd em{font-style:italic}
-.bodymd pre{background:var(--paper);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
+.bodymd pre{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
 .bodymd pre code{background:none;padding:0}
 .bodymd .md-table{overflow-x:auto;margin:.9em 0}
 .bodymd table{border-collapse:collapse;font-size:.92em}
@@ -580,13 +582,17 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .mnode.ghost rect{fill:none;stroke:var(--mut);stroke-width:1.5;stroke-dasharray:4 3}
 .mnode{cursor:pointer}
 .mnode.ghost{cursor:default}
+.mnode.arch rect{stroke-dasharray:4 3;stroke:var(--line-strong)}
+.mnode.arch .mtitle{fill:var(--mut)}
+.grow.arch .glbl{fill:var(--mut)}
 .mnode .mid{font-size:10px;fill:var(--mut);font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
 .mnode .mtitle{font-size:12px;fill:var(--ink);font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif}
 .mnode.ghost .mtitle,.mnode.ghost .mid{fill:var(--mut)}
 .medge{fill:none;stroke:var(--mut);stroke-width:1.5;opacity:.6}
 .medge.ghostedge{stroke:var(--mut);stroke-dasharray:3 3;opacity:.5}
 .map-iso-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
-.mapiso{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:9px 12px;font-size:12.5px;opacity:.7;cursor:pointer;min-width:118px;max-width:220px}
+.mapiso{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;padding:9px 12px;font-size:12.5px;cursor:pointer;min-width:118px;max-width:220px}
+.mapiso.arch{border-style:dashed;border-color:var(--line-strong)}
 .mapiso .cid{display:block;font-size:11px;color:var(--mut);margin-bottom:2px}
 .map-empty{font-size:12.5px;color:var(--mut);padding:10px 2px}
 .map-graph-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:16px 0 4px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
@@ -616,9 +622,11 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .cal-dow{font-size:10px;color:var(--mut);text-align:center;padding:2px 0}
 .cal-cell{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;min-height:52px;padding:2px;overflow:hidden}
-.cal-cell.out{opacity:.45}
+.cal-cell.out{background:var(--raised);border-style:dashed;border-color:var(--line-strong)}
+.cal-cell.out .cal-chip.duechip,.cal-cell.out .cal-rowchip.duechip{background:var(--surface)}
+.cal-cell.out .cal-daynum{color:var(--mut)}
 .cal-cell.today{border-color:var(--accent)}
-.cal-daynum{font-size:10px;color:var(--mut);padding:0 2px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.cal-daynum{font-size:10px;color:var(--ink);padding:0 2px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
 .cal-chip{display:block;border-radius:.15rem;padding:0 3px;margin-top:2px;font-size:9.5px;font-weight:600;color:var(--on-fill);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
 .cal-chip.range-start{border-radius:.15rem 0 0 .15rem}
 .cal-chip.range-mid{border-radius:0}
@@ -635,10 +643,9 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .cal-rowchip.duechip{background:none;border:1px solid var(--crit);color:var(--crit)}
 .cal-rowchip.range-start{border-left:3px solid var(--on-fill)}
 .cal-rowchip.range-end{border-right:3px solid var(--on-fill)}
-.cal-rowchip.range-mid{opacity:.8}
 .cal-norows{font-size:11px;color:var(--mut);margin-top:4px}
 #modal{position:fixed;inset:0;background:var(--scrim);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:12px 12px 16px}
-#modalscroll{background:var(--paper);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);max-width:560px;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 10px 12px}
+#modalscroll{background:var(--surface);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);max-width:560px;width:100%;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 10px 12px}
 #modalscroll .card{cursor:default;border:none;background:none;margin:4px 0}
 .toprow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
 .fpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:.15rem;padding:3px 10px;font-size:12px;font-weight:600;color:var(--mut)}
@@ -648,10 +655,13 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .fmrow input{flex:1;min-width:0;font-size:13px;padding:6px 8px}
 .fmrow button{flex:none;font-size:12px;padding:6px 10px}
 .pillrow{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
-.pillrow button{font-size:11px;border-radius:.15rem;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--mut)}
-.pillrow button.off{opacity:.4}
-.pillrow .dot{width:8px;height:8px}
-.card.archcard{opacity:.55}
+.pillrow button{font-size:11px;border-radius:.15rem;padding:3px 10px;display:inline-flex;align-items:center;gap:5px;color:var(--ink)}
+.pillrow button:hover{background:var(--btn-bg)}
+.pillrow button.off{color:var(--mut);text-decoration:line-through}
+.pillrow .dot{width:8px;height:8px;background:currentColor;border:1px solid currentColor}
+.pillrow button.off .dot{background:transparent}
+.card.archcard{border-style:dashed;border-color:var(--line-strong)}
+.card.archcard.sel{border-color:var(--accent)}
 .pill{cursor:pointer}
 /* Tier 1 (560-899px): the single column just grows — nothing else
    changes, so phone widths below 560px stay pixel-identical (unreached
@@ -1304,9 +1314,12 @@ return d}
 function statusPills(){
 const row=el("div","pillrow");
 COLS.concat(["archive"]).forEach(k=>{
-const b=el("button",isVis(k)?null:"off");b.dataset.act="spill";b.dataset.st=k;
-const dot=el("span","dot");dot.style.background=k==="archive"?ARCHC:ccol(k);
-b.appendChild(dot);b.appendChild(document.createTextNode(k==="archive"?"Archive":cname(k)));
+const on=isVis(k),nm=k==="archive"?"Archive":cname(k);
+const b=el("button",on?null:"off");b.dataset.act="spill";b.dataset.st=k;
+b.setAttribute("aria-pressed",String(on));
+b.title=(on?"Hide ":"Show ")+nm+" cards. Right-click to solo (right-click the soloed pill again to restore all).";
+const dot=el("span","dot");dot.style.color=k==="archive"?ARCHC:ccol(k);
+b.appendChild(dot);b.appendChild(document.createTextNode(nm));
 row.appendChild(b)});
 return row}
 function render(){
@@ -1754,7 +1767,7 @@ if(!n.ghost&&n.blk!=null){
 g.appendChild(svgEl("rect",{x:8,y:RTOP+2,width:40,height:12,rx:3,class:"mblk"}));
 const bt=svgEl("text",{x:28,y:RTOP+11,class:"mblkt","text-anchor":"middle"});bt.textContent="blocked";g.appendChild(bt)}
 if(rich)richNodes(g,n,rich);
-if(n.archived)g.style.opacity=".55";
+if(n.archived)g.classList.add("arch");
 return g}
 function buildMapSvg(graph,roll){
 const byId=new Map(graph.nodes.concat(graph.ghosts).map(n=>[n.id,n]));
@@ -1944,7 +1957,7 @@ const s2=r.startDay<win.start?win.start:r.startDay,e2=r.endDay>wEnd?wEnd:r.endDa
 if(s2<=e2){
 const bar=svgEl("rect",{x:dx(s2),y:cy-GBARH/2,width:(diffDays(s2,e2)+1)*GDAY-2,height:GBARH,rx:3,class:"gbar"});
 bar.style.fill=r.c.arch?ARCHC:ccol(r.c.s);g.appendChild(bar)}}
-if(r.c.arch)g.style.opacity=".55";
+if(r.c.arch)g.classList.add("arch");
 if(r.dueDay&&r.dueDay>=win.start&&r.dueDay<=wEnd){
 const cx2=dx(r.dueDay)+GDAY/2;
 g.appendChild(svgEl("path",{d:"M"+cx2+","+(cy-6)+" L"+(cx2+6)+","+cy+" L"+cx2+","+(cy+6)+" L"+(cx2-6)+","+cy+" z",class:"gdue"}))}
@@ -1953,7 +1966,7 @@ const wrap=el("div","map-scroll");wrap.appendChild(svg);gv.appendChild(hscrollNa
 if(gd.undated.length){
 gv.appendChild(el("div","map-title","No dates ("+gd.undated.length+")"));
 const row=el("div","map-iso-row");
-gd.undated.forEach(c=>{const chip=isoChip({id:c.id,title:c.t});if(c.arch)chip.style.opacity=".55";row.appendChild(chip)});
+gd.undated.forEach(c=>{const chip=isoChip({id:c.id,title:c.t});if(c.arch)chip.classList.add("arch");row.appendChild(chip)});
 gv.appendChild(row)}}
 // --- calendar view ---------------------------------------------------------------------
 // Month grid, weeks starting Monday, 5-6 rows (same as kanban-web's monthGrid);
@@ -1989,7 +2002,7 @@ scheds.forEach(x=>{
 const pos=chipPositionForDay(x.sch,day);
 if(pos){
 const ch=el("span","cal-rowchip "+pos,"#"+x.c.id+" "+truncate(x.c.t,42));
-ch.style.background=x.c.arch?ARCHC:ccol(x.c.s);if(x.c.arch)ch.style.opacity=".6";
+ch.style.background=x.c.arch?ARCHC:ccol(x.c.s);
 ch.setAttribute("data-mapnode",String(x.c.id));
 let tm="";
 if(x.sch.kind==="single")tm=x.sch.time||"";
@@ -2028,7 +2041,7 @@ ce.appendChild(el("div","cal-daynum",String(cell.day)));
 const chips=[];
 scheds.forEach(x=>{
 const pos=chipPositionForDay(x.sch,cell.date);
-if(pos){const ch=el("span","cal-chip "+pos,"#"+x.c.id);ch.style.background=x.c.arch?ARCHC:ccol(x.c.s);if(x.c.arch)ch.style.opacity=".6";ch.setAttribute("data-mapnode",String(x.c.id));ch.title="#"+x.c.id+" "+x.c.t;chips.push(ch)}
+if(pos){const ch=el("span","cal-chip "+pos,"#"+x.c.id);ch.style.background=x.c.arch?ARCHC:ccol(x.c.s);ch.setAttribute("data-mapnode",String(x.c.id));ch.title="#"+x.c.id+" "+x.c.t;chips.push(ch)}
 if(x.due===cell.date){const dc=el("span","cal-chip duechip","◆"+x.c.id);dc.setAttribute("data-mapnode",String(x.c.id));dc.title="#"+x.c.id+" "+x.c.t+" — due";chips.push(dc)}});
 chips.slice(0,4).forEach(ch=>ce.appendChild(ch));
 if(chips.length>4)ce.appendChild(el("div","cal-more","+"+(chips.length-4)));
@@ -2102,6 +2115,7 @@ $("stop").style.display=ext?"":"none";
 $("sbot").style.display=ext?"":"none";
 $("sdrag").style.display=ext?"":"none";
 $("sdrag").classList.toggle("off",!dragOn);
+$("sdrag").setAttribute("aria-pressed",String(dragOn));
 $("sup").style.display=med?"":"none";
 $("sdn").style.display=med?"":"none";
 $("mclose").style.display=(med&&mo)?"":"none";
@@ -2160,6 +2174,15 @@ const r=m.getBoundingClientRect();
 const left=Math.max(4,Math.min(x,window.innerWidth-r.width-4));
 const top=Math.max(4,Math.min(y,window.innerHeight-r.height-4));
 m.style.left=left+"px";m.style.top=top+"px"}
+function keepSpillFocus(b,action){
+const home=b.closest("#boardpills,#mapview,#ganttview,#calview"),k=b.dataset.st;
+action();
+const next=home&&Array.from(home.querySelectorAll('[data-act="spill"]')).find(x=>x.dataset.st===k);
+if(next)next.focus({preventScroll:true})}
+function soloVis(k){
+const ids=COLS.concat(["archive"]);
+const soloed=isVis(k)&&ids.every(i=>i===k||!isVis(i));
+ids.forEach(i=>{statusVis[i]=soloed?true:i===k})}
 // Delegated like the click handler above it: one listener, gated per-event
 // on fineMQ so a coarse-pointer device's own contextmenu/long-press is
 // NEVER intercepted (no preventDefault runs unless the gate + a live,
@@ -2167,10 +2190,13 @@ m.style.left=left+"px";m.style.top=top+"px"}
 // v1 — the native menu still shows for them.
 document.body.addEventListener("contextmenu",e=>{
 if(!fineMQ.matches)return;
+const sp=e.target.closest("[data-st]");
+const pillEl=sp&&sp.dataset.act==="spill"?sp:null;
 const card=e.target.closest("#board [data-card]");
 const c=card?find(card.dataset.card):null;
-if(!c||c.arch){if(ctxMenuEl)closeCtxMenu();return}
+if(!pillEl){if(!c||c.arch){if(ctxMenuEl)closeCtxMenu();return}}
 e.preventDefault();
+if(pillEl){closeCtxMenu();keepSpillFocus(pillEl,()=>{soloVis(pillEl.dataset.st);render();renderMap();renderGantt();renderCalendar()});return}
 openCtxMenu(c.id,e.clientX,e.clientY)});
 // Pointer drag (kanban.proj #241): native HTML5 DnD, gated live per-event on
 // fineMQ + the Drag switch exactly like the right-click menu above -- never
@@ -2262,7 +2288,7 @@ if(t.dataset&&t.dataset.view!==undefined){switchView(t.dataset.view);return}
 if(t.dataset&&t.dataset.coltoggle!==undefined){colOpen[t.dataset.coltoggle]=!colOpen[t.dataset.coltoggle];render();return}
 if(t.dataset&&t.dataset.caldaytoggle!==undefined){calDayOpen[t.dataset.caldaytoggle]=!calDayOpen[t.dataset.caldaytoggle];renderCalendar();return}
 if(t.dataset&&t.dataset.calhrtoggle!==undefined){calHrOpen[t.dataset.calhrtoggle]=!calHrOpen[t.dataset.calhrtoggle];renderCalendar();return}
-if(t.dataset&&t.dataset.act==="spill"){const k=t.dataset.st;statusVis[k]=!isVis(k);render();renderMap();renderGantt();renderCalendar();return}
+if(t.dataset&&t.dataset.act==="spill"){const k=t.dataset.st;keepSpillFocus(t,()=>{statusVis[k]=!isVis(k);render();renderMap();renderGantt();renderCalendar()});return}
 if(t.dataset&&t.dataset.tap==="ren"){ren=true;descEd=false;pillEd=null;render();return}
 if(t.dataset&&t.dataset.act==="pill"){pillEd=pillEd===t.dataset.pill?null:t.dataset.pill;ren=false;descEd=false;render();return}
 if(t.getAttribute&&t.getAttribute("data-mapnode")!==null){

@@ -442,7 +442,7 @@ to `127.0.0.1` only.
   `.status-dot + .archived-dot { margin-left: 4px; }` keeps the pair from fusing. On the
   map SVG a plain node is 58px tall, roomy for the dot column on its right edge; a rich node's
   height follows its content (Dependency map). The gantt
-  bar and the board tile's dim/grey-border cues are untouched — one more glyph on top,
+  bar and the board tile's grey-border cues are untouched — one more glyph on top,
   not a replacement.
 - **Board tile date stack** (kanban.proj#260) — `scheduleRows()` (column-sort.js) reads
   the card's three LITERAL frontmatter fields directly (`start_date`/`end_date`/
@@ -526,8 +526,8 @@ to `127.0.0.1` only.
   `tags` tag chips. The card path shows its folders muted and the file name in full ink.
 - **Thread and children** — the detail popup shows the card's thread above its
   frontmatter: the parents up to the root, root first, each a mention chip that opens
-  that card (an archived parent too, marked `archived` and dimmed like an archived
-  child). A parent id with no card on this board ends the
+  that card (an archived parent too, marked `archived`, as an archived
+  child is). A parent id with no card on this board ends the
   thread with an `unresolved` marker; a parent on another board ends it with that
   board's mention marked `not followed` (the single-board release names it and never
   follows it); a loop of parents stops at the card that would repeat and flags it
@@ -602,7 +602,7 @@ to `127.0.0.1` only.
   Any plain click outside the context menu / bulk popups clears the selection (empty
   calendar day cells and map/gantt whitespace included); the view-toggle buttons (Graph's too) are
   exempt, so the selection **survives switching views**, and it survives the poll.
-  Exceptions: the map's dimmed ghost stubs are click-through-to-detail only, never
+  Exceptions: the map's muted, dashed ghost stubs are click-through-to-detail only, never
   selectable — they stand for cards the active filters hid; a dangling-id stub (no such
   card) is fully inert, and a filtered-out card can't join a selection anywhere else
   either. Assign/priority open a single-choice popup with the usual combobox suggestions
@@ -635,6 +635,9 @@ to `127.0.0.1` only.
   deliberately NOT in the `boardControlFocused` poll guard the other rebuilt controls sit
   in: a plain click leaves a card focused indefinitely, so blocking there would quietly
   freeze the refresh; `applyBoardData` re-finds the focused card after the render instead.
+  The status pills and fold toggles of every view are treated the same way (a click or a
+  keypress leaves one focused, so guarding them would stop the 5s refresh): the guard keeps
+  only real form controls, and `applyBoardData` refocuses the focused pill without scrolling.
   Two delegated pairs on `document`, mirroring the click/contextmenu pair
   above: `mouseover`/`mouseout` and `focusin`/`focusout`, each just keeping `hoveredId`
   current and repainting the *current* DOM directly — a full `renderBoard()` per mouse
@@ -785,7 +788,7 @@ to `127.0.0.1` only.
   card-mention chips (a mention of this board's card opens it) and `**bold**` render as
   DOM nodes, never HTML. The meta line shows the writer and the time as
   `YYYY-MM-DD | HH:MM:SS`, plus the level when it isn't `info`, and `level` tints the
-  entry — `debug` dimmed, `warning` amber, `error` red, absent = `info`; all levels show,
+  entry — `debug` muted with a dashed edge, `warning` amber, `error` red, absent = `info`; all levels show,
   no filtering. Per-entry remove and clear-all
   ARCHIVE, never delete: entries move verbatim (append) to
   `<kanban-dir>/archived/notifications.md`, created if absent. Entries missing a numeric
@@ -872,15 +875,16 @@ to `127.0.0.1` only.
   doesn't share a channel with the archived grey. Cycles in `waiting_for` render as a
   visibly distinct amber curved "back edge" rather than hanging the layout.
   **Status-filter row** — one toggle pill per board column (the configured statuses in
-  column order + Archive, the location pseudo-column), each bordered in its column's
-  color — all ON by default, and the row renders even when everything is filtered out
+  column order + Archive, the location pseudo-column), each led by a dot in its column's
+  color (hollow, with the label struck through, when the pill is off) — all ON by default, and the row renders even when everything is filtered out
   (so a toggle can always be turned back on). **Pill interaction grammar, shared by
-  every status-filter row in the app** (this one, the gantt's, and the calendar's):
+  every status-filter row in the app** (this one, the gantt's, the calendar's and the graph's):
   left-click toggles that one pill on/off; right-click SOLOs it — that pill on, every
   other pill in the row off — and right-clicking the already-soloed pill again restores
-  ALL pills on. `contextmenu` is suppressed only while the pointer is over the pill row
-  itself; everywhere else (map nodes, isolated tiles, calendar chips, gantt bars) keeps
-  the shared right-click bulk menu untouched. A pill OFF hides that column's cards from
+  ALL pills on. `contextmenu` is suppressed only on a pill itself, not on the gap between
+  pills; everywhere else (map nodes, isolated tiles, calendar chips, gantt bars) keeps
+  the shared right-click bulk menu untouched. Each pill is a button with `aria-pressed`
+  and a visible focus ring, and focus stays on the pill after a toggle, a solo or a fold. A pill OFF hides that column's cards from
   the map: an unlisted on-disk status follows the FIRST column's pill (the catch-all —
   exactly where the board files the card) and archived cards follow the Archive pill
   regardless of their parked status. The choice persists per board in `localStorage`
@@ -955,7 +959,7 @@ to `127.0.0.1` only.
   a document-level pointerup/pointercancel/lostpointercapture net so a release that lands
   outside `#map-view` before capture is even claimed can't leave that guard stuck forever.
 - **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
-  (weeks start Monday; prev/next/Today controls; outside-month days dimmed, today
+  (weeks start Monday; prev/next/Today controls; outside-month days on the raised ground, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
   Archive pill below. The **working range** (start→end inclusive; compat: start→due when
   there's no end date) renders as ONE chip spanning its real day columns, not a chip
@@ -1122,7 +1126,7 @@ to `127.0.0.1` only.
   live columns" placement as the board's Archive column. Archived rows split across two
   channels, deliberately: the BAR's border/fill and the group label key off the literal
   `'archive'` string, which `statusColor()` mutes to the neutral archive grey — a
-  row-level archived cue like a board tile's dimming, same as the bar's not-allowed drag
+  row-level archived cue, same as the bar's not-allowed drag
   cursor — while the gutter row's own status dot does NOT follow that mute (status dots
   never mute, gantt gutter included) and colors off the card's true on-disk status
   regardless of `card.archived`. The rendered window includes archived bars/diamonds

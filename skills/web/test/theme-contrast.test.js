@@ -273,3 +273,172 @@ test('both dark blocks produce identical accent contrast — one dark palette, n
     );
   }
 });
+
+// --- floors from the shop's visual standard, checked on the rules themselves ---
+// Each test reads the declaration the stylesheet actually paints and computes
+// the pair from the tokens, so a rule that is changed back to a failing colour
+// (or to opacity) fails here rather than in a reviewer's eye.
+
+const RULES = [];
+for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  RULES.push({ selectors: m[1].split(',').map((s) => s.trim()), body: m[2] });
+}
+
+function declsFor(selector) {
+  const found = RULES.filter((r) => r.selectors.includes(selector));
+  assert.ok(found.length, `no rule for ${selector} in app.css`);
+  const out = {};
+  for (const r of found) for (const d of r.body.matchAll(/([a-z-]+)\s*:\s*([^;]+);?/g)) out[d[1]] = d[2].trim();
+  return out;
+}
+
+function tokenIn(value, what) {
+  const m = /var\((--[a-z-]+)\)/.exec(value || '');
+  assert.ok(m, `${what} is not a var(--token): ${value}`);
+  return m[1];
+}
+
+function clears(set, fg, bg, floor, what) {
+  const r = ratio(set, fg, bg);
+  assert.ok(r >= floor, `${what}: ${fg} on ${bg} is ${r.toFixed(2)}:1, under ${floor}`);
+}
+
+const PILLS = ['.map-filter-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle'];
+
+for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
+  test(`${name}: an off filter pill is muted text with a strike-through, never opacity, and holds the floor on its ground and its hover`, () => {
+    for (const p of PILLS) {
+      const off = declsFor(`${p}.off`);
+      assert.ok(!('opacity' in off), `${p}.off dims with opacity`);
+      assert.match(off['text-decoration'] || '', /line-through/, `${p}.off is not struck through`);
+      assert.ok(!/dashed/.test(off['border-style'] || ''), `${p}.off carries a dashed edge, a state the standard does not have`);
+      const ink = tokenIn(off.color, `${p}.off colour`);
+      assert.strictEqual(ink, '--mut');
+      const hover = declsFor(`${p}:hover`);
+      const hoverGround = tokenIn(hover.background, `${p}:hover ground`);
+      assert.strictEqual(hoverGround, '--btn-bg');
+      clears(set, ink, tokenIn(declsFor(p).background, `${p} ground`), TEXT, `${p}.off`);
+      clears(set, ink, hoverGround, TEXT, `${p}.off:hover`);
+    }
+  });
+
+  test(`${name}: copy feedback leaves the label ink and rides the border, which clears the mark floor on both button grounds`, () => {
+    for (const [cls, border] of [['copy-success', '--ok'], ['copy-failed', '--crit']]) {
+      const d = declsFor(`#detail-copy-btn.${cls}`);
+      assert.ok(!('color' in d), `#detail-copy-btn.${cls} recolours the label`);
+      assert.strictEqual(tokenIn(d['border-color'], `${cls} border`), border);
+      for (const ground of ['--btn-bg', '--btn-hover']) clears(set, border, ground, UI, `${cls} border`);
+    }
+    for (const ground of ['--btn-bg', '--btn-hover']) clears(set, '--ink', ground, TEXT, 'copy label');
+  });
+
+  test(`${name}: on a card's hover wash the id, tags, dates and overdue date use only wash-safe inks`, () => {
+    const ground = '--hover-wash';
+    for (const [sel, allowed] of [
+      ['.card.hover-highlight .card-id', ['--ink']],
+      ['.card.hover-highlight .tag', ['--ink']],
+      ['.card.hover-highlight .card-schedule-row', ['--ink']],
+      ['.card.hover-highlight .card-schedule-row.overdue', ['--ink-strong']],
+      ['.card.hover-highlight .alt-badge', ['--ink']],
+      ['.card.hover-highlight .rollup-counts', ['--ink']],
+      ['.card.hover-highlight .rollup-count', ['--ink']],
+      ['.card.hover-highlight .waiting-badge', ['--ink']],
+      ['.card.hover-highlight [class*="assignee-text--palette"]', ['--ink']],
+      ['.map-node.hover-highlight .alt-badge', ['--ink']],
+      ['.map-node.hover-highlight .rollup-counts', ['--ink']],
+      ['.map-node.hover-highlight .rollup-count', ['--ink']],
+      ['.cal-chip.hover-highlight .cal-chip-id', ['--ink']],
+      ['.gantt-bar.hover-highlight .gantt-bar-id', ['--ink']],
+      ['.gantt-label.hover-highlight .gantt-label-id', ['--ink']],
+    ]) {
+      const tok = tokenIn(declsFor(sel).color, sel);
+      assert.ok(allowed.includes(tok), `${sel} uses ${tok}`);
+      clears(set, tok, ground, TEXT, sel);
+    }
+  });
+
+  test(`${name}: a map node's id reads ink on the hover wash`, () => {
+    const d = declsFor('.map-node.hover-highlight .map-node-id');
+    clears(set, tokenIn(d.fill, 'map id fill'), '--hover-wash', TEXT, 'map node id');
+  });
+
+  test(`${name}: an outside date reads ink on the picker's hover ground`, () => {
+    const hov = declsFor('.dp-day.outside:hover');
+    const wash = parse(set[tokenIn(declsFor('.dp-day:hover').background, 'dp hover ground')]);
+    const ground = over(wash, parse(set['--surface']));
+    const ink = parse(set[tokenIn(hov.color, 'outside hover ink')]);
+    const r = (Math.max(lum(ink), lum(ground)) + 0.05) / (Math.min(lum(ink), lum(ground)) + 0.05);
+    assert.ok(r >= TEXT, `.dp-day.outside:hover is ${r.toFixed(2)}:1 on the wash over the popup, under ${TEXT}`);
+  });
+
+  test(`${name}: outside-month calendar days stay distinct without opacity: muted number against ink, raised ground, dashed edge, chips unchanged`, () => {
+    const outside = declsFor('.cal-day.outside');
+    assert.ok(!('opacity' in outside));
+    assert.match(outside['border-style'] || '', /dashed/);
+    assert.strictEqual(tokenIn(declsFor('.cal-day-num').color, 'in-month number'), '--ink');
+    const num = tokenIn(declsFor('.cal-day.outside .cal-day-num').color, 'outside number');
+    assert.strictEqual(num, '--mut');
+    clears(set, num, tokenIn(outside.background, 'outside ground'), TEXT, 'outside day number');
+    clears(set, '--mut', '--surface', TEXT, 'chip id inside an outside day');
+  });
+
+  test(`${name}: a debug notification recedes by muted headline and message plus a dashed edge`, () => {
+    assert.match(declsFor('.notif-row.level-debug')['border-style'] || '', /dashed/);
+    for (const sel of ['.notif-row.level-debug .notif-tldr', '.notif-row.level-debug .notif-message']) {
+      const tok = tokenIn(declsFor(sel).color, sel);
+      assert.strictEqual(tok, '--mut');
+      clears(set, tok, '--paper', TEXT, sel);
+    }
+  });
+
+  test(`${name}: a ghost map stub is muted text with a dashed edge, not opacity, and holds the floor on the canvas`, () => {
+    for (const r of RULES) if (r.selectors.some((x) => x.startsWith('.map-node.ghost'))) assert.ok(!/(^|[;\s])opacity\s*:/.test(r.body), `${r.selectors} dims with opacity`);
+    assert.ok(declsFor('.map-node.ghost rect')['stroke-dasharray']);
+    for (const sel of ['.map-node.ghost .map-node-title', '.map-node.ghost .map-node-id']) {
+      const tok = tokenIn(declsFor(sel).fill, sel);
+      assert.strictEqual(tok, '--mut');
+      clears(set, tok, '--surface', TEXT, sel);
+    }
+  });
+
+  test(`${name}: the dashed edges that mark a receded item use the stronger line`, () => {
+    assert.strictEqual(tokenIn(declsFor('.cal-day.outside')['border-color'], 'outside day edge'), '--line-strong');
+    assert.strictEqual(tokenIn(declsFor('.notif-row.level-debug')['border-color'], 'debug row edge'), '--line-strong');
+    assert.strictEqual(tokenIn(declsFor('.map-node.ghost rect').stroke, 'ghost stub edge'), '--line-strong');
+  });
+
+  test(`${name}: the Children toggle's label and count hold the floor on the button hover ground`, () => {
+    for (const sel of ['.relatives-toggle:hover .relatives-label', '.relatives-toggle:hover .relatives-count']) {
+      clears(set, tokenIn(declsFor(sel).color, sel), '--btn-hover', TEXT, sel);
+    }
+  });
+
+  test(`${name}: a selected date keeps its own pair on hover`, () => {
+    const sel = declsFor('.dp-day.selected');
+    const hov = declsFor('.dp-day.selected:hover');
+    assert.strictEqual(tokenIn(hov.background, 'hover ground'), tokenIn(sel.background, 'selected ground'));
+    clears(set, tokenIn(sel.color, 'selected ink'), tokenIn(hov.background, 'hover ground'), TEXT, '.dp-day.selected:hover');
+  });
+
+  test(`${name}: dimmed-by-colour states hold the floor on their grounds`, () => {
+    clears(set, tokenIn(declsFor('.dp-day.outside').color, 'dp outside'), '--paper', TEXT, '.dp-day.outside');
+    clears(set, tokenIn(declsFor('.notif-row.level-debug .notif-message').color, 'debug message'), '--paper', TEXT, 'debug notification');
+    clears(set, '--mut', tokenIn(declsFor('.cal-day.outside').background, 'cal outside ground'), TEXT, '.cal-day.outside day number');
+  });
+}
+
+test('no rule dims live text with opacity', () => {
+  // --prompt-fallback: these rules are unchanged from main and out of this change's scope.
+  const NOT_TEXT = /:disabled|\.dragging|^\.graph-|\.gantt-today-line|--prompt-fallback/;
+  const offenders = [];
+  for (const r of RULES) {
+    if (!/(^|[;\s])opacity\s*:/.test(r.body)) continue;
+    for (const s of r.selectors) if (!NOT_TEXT.test(s)) offenders.push(s);
+  }
+  assert.deepStrictEqual(offenders, []);
+});
+
+test('a code block sits on the raised ground, as the stylesheet says, and its ink holds the floor there', () => {
+  assert.strictEqual(tokenIn(declsFor('.detail-body pre').background, 'code block ground'), '--raised');
+  for (const set of [LIGHT, DARK]) clears(set, '--code-ink', '--raised', TEXT, 'code block');
+});
