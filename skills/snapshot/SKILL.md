@@ -69,7 +69,7 @@ publishing puts real content on a hosted page, so the answer is *ask first*
 every single time and the ceremony is pure overhead forever.
 
 A search box under the header filters every view at once — same query grammar
-as kanban-web: terms AND together, `#id`/`id:` exact,
+as kanban-web: terms AND together, `#id`/`id:` exact (`<this board's name>#id` too),
 `title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
 bare terms hit title+body+tags. `review:`/`blocked:` (ADR 0009)
 are their own family: UNLIKE every scope above, a bare `review:`/`blocked:`

@@ -80,14 +80,15 @@ also paste the URL into VSCode's **Simple Browser** (Command Palette → "Simple
 
 Right after reading that URL line, run
 `node <SCRIPTS_DIR>/launcher.js write <kanban-dir> <the same server arguments just used>`
-— the exact port and/or `--allow-origin` arguments (if any) just passed to `server.js`,
-verbatim and in the same order, so a double-click restart binds the same port and keeps
-the same tunnel origin allowlisted instead of drifting back to `7777` with nothing
+— the exact port, `--allow-origin` and/or `--home-url` arguments (if any) just passed to `server.js`,
+verbatim and in the same order, so a double-click restart binds the same port, keeps
+the same tunnel origin allowlisted and the home icon in place instead of drifting back to `7777` with nothing
 allowlisted — unasked, on every successful start — and tell the human the printed
 launcher path (in the board folder, beside the cards) in your report; see **Double-click launcher** below. Only arguments are
 replayed, never the environment: an origin given through `KANBAN_WEB_ALLOWED_ORIGINS`
 goes to `launcher.js write` as `--allow-origin <origin>`. A port must be a number and each
-origin is re-emitted as `--allow-origin=<its parsed origin>`; anything else is refused.
+origin is re-emitted as `--allow-origin=<its parsed origin>`; a `--home-url` is re-emitted as
+`--home-url=<its parsed address>`; anything else is refused.
 
 ### Double-click launcher
 
@@ -159,6 +160,12 @@ never comes up half-configured. Both are opt-in and
 default to nothing extra allowed — leave them unset and the guard behaves
 exactly as it always has. The CSP (`'self'`) needs no change: the browser
 still sees one origin, whichever one it loaded the app from.
+
+`--home-url <url>` (or `--home-url=<url>`) puts a small home icon before the board title
+that leads to that address, for a shop page that links up to its boards. Only `http://` and
+`https://` addresses are accepted; anything else is a startup error with a message, like a
+bad `--allow-origin`. Without the flag there is no icon. The double-click launcher replays
+the flag with the port and the allowed origins.
 
 ## Stopping
 
@@ -288,7 +295,8 @@ to `127.0.0.1` only.
   and never written to a card.
 - **Search** — the header search box filters every view as you type; the query survives
   view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
-  exact card id; `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
+  exact card id, and a pasted `webapp#42` is the same when `webapp` is this board's name (any
+  case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
   scope with nothing after the colon yet — `status:` mid-keystroke — is dropped as
   not-yet-a-term rather than matching everything for one keystroke); `review:`/`blocked:`
