@@ -317,9 +317,10 @@ function anchoredExcludeName(prefix, name) {
 // a URL's `.origin`, but a future scheme this doesn't anticipate should
 // fail loudly here rather than reach the wrapper.
 function sanitizeServerArgsForWrapper(serverArgs, platform) {
-  const { origins, rest } = srv.extractAllowOriginArgs(serverArgs || []);
+  const { origins, rest: afterOrigins } = srv.extractAllowOriginArgs(serverArgs || []);
+  const { homeUrl, rest } = srv.extractHomeUrlArg(afterOrigins);
   if (rest.length > 1) {
-    throw new Error(`launcher.js write: unexpected server argument(s) ${rest.slice(1).map((a) => JSON.stringify(a)).join(', ')} — only a port and --allow-origin are replayed`);
+    throw new Error(`launcher.js write: unexpected server argument(s) ${rest.slice(1).map((a) => JSON.stringify(a)).join(', ')} — only a port, --allow-origin and --home-url are replayed`);
   }
   const out = [];
   if (rest.length === 1) {
@@ -335,6 +336,13 @@ function sanitizeServerArgsForWrapper(serverArgs, platform) {
       throw new Error(`launcher.js write: --allow-origin value ${JSON.stringify(origin)} is not a valid URL`);
     }
     out.push(`--allow-origin=${normalized}`);
+  }
+  if (homeUrl !== undefined) {
+    let href;
+    try { href = srv.parseHomeUrl(homeUrl); } catch (e) {
+      throw new Error(`launcher.js write: ${e.message}`);
+    }
+    out.push(`--home-url=${href}`);
   }
   if (platform === 'win32') {
     for (const a of out) {
@@ -383,7 +391,10 @@ function candidatePorts({ pairedPort, appPort, cliPort, configPort }) {
 // running check can probe that port too before deciding whether to spawn.
 function cliPortFromServerArgs(serverArgs) {
   let rest;
-  try { ({ rest } = srv.extractAllowOriginArgs(serverArgs || [])); } catch (_) { return null; }
+  try {
+    ({ rest } = srv.extractAllowOriginArgs(serverArgs || []));
+    ({ rest } = srv.extractHomeUrlArg(rest));
+  } catch (_) { return null; }
   const arg = rest[0];
   if (arg === undefined || arg === null || String(arg).trim() === '') return null;
   const n = Number(arg);
