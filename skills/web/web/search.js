@@ -5,7 +5,7 @@
 // directly by node --test.
 //
 // Syntax (space-separated terms AND together; each prefix binds to its own term):
-//   #42 / id:42   exact card id
+//   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
 //   title:foo     substring on title
 //   body:foo      substring on markdown body
 //   status:doing  substring on status
@@ -68,9 +68,17 @@ const STICKER_FIELDS = ['review', 'blocked'];
 // value/lowercasing path as the long form rather than duplicating it.
 const FIELD_ALIASES = { a: 'assignee' };
 
-function parseTerm(token) {
+function parseTerm(token, board) {
   const idShorthand = token.match(/^#(\d+)$/);
   if (idShorthand) return { field: 'id', value: idShorthand[1] };
+
+  // `<this board's name>#<id>` is how cards are named in chat; pasted, it
+  // finds the card like `#<id>`. Split at the LAST '#': board names may hold dots and hyphens.
+  const hash = token.lastIndexOf('#');
+  if (board && hash > 0 && /^\d+$/.test(token.slice(hash + 1))
+    && token.slice(0, hash).toLowerCase() === String(board).toLowerCase()) {
+    return { field: 'id', value: token.slice(hash + 1) };
+  }
 
   const prefixed = token.match(/^([A-Za-z]+):(.*)$/);
   if (prefixed) {
@@ -99,8 +107,8 @@ function parseTerm(token) {
   return { field: null, value: token.toLowerCase() };
 }
 
-function parseSearchQuery(raw) {
-  return String(raw || '').trim().split(/\s+/).filter(Boolean).map(parseTerm).filter(Boolean);
+function parseSearchQuery(raw, board) {
+  return String(raw || '').trim().split(/\s+/).filter(Boolean).map((token) => parseTerm(token, board)).filter(Boolean);
 }
 
 function termMatchesCard(term, card) {

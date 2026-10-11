@@ -717,7 +717,7 @@ function archiveCardEl(card) {
 // (pure, no DOM), loaded as a bare global same as refresh-policy.js.
 function currentSearchTerms() {
   const input = $('#search-input');
-  return parseSearchQuery(input ? input.value : '');
+  return parseSearchQuery(input ? input.value : '', state.projectName);
 }
 
 // --- View mode: board (columns) / dependency map / calendar
