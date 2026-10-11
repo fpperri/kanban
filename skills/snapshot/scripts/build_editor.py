@@ -2171,11 +2171,6 @@ const r=m.getBoundingClientRect();
 const left=Math.max(4,Math.min(x,window.innerWidth-r.width-4));
 const top=Math.max(4,Math.min(y,window.innerHeight-r.height-4));
 m.style.left=left+"px";m.style.top=top+"px"}
-// Delegated like the click handler above it: one listener, gated per-event
-// on fineMQ so a coarse-pointer device's own contextmenu/long-press is
-// NEVER intercepted (no preventDefault runs unless the gate + a live,
-// non-archived board card both resolve first). Archived cards are excluded
-// v1 — the native menu still shows for them.
 function keepSpillFocus(b,action){
 const home=b.closest("#boardpills,#mapview,#ganttview,#calview"),k=b.dataset.st;
 action();
@@ -2185,6 +2180,11 @@ function soloVis(k){
 const ids=COLS.concat(["archive"]);
 const soloed=isVis(k)&&ids.every(i=>i===k||!isVis(i));
 ids.forEach(i=>{statusVis[i]=soloed?true:i===k})}
+// Delegated like the click handler above it: one listener, gated per-event
+// on fineMQ so a coarse-pointer device's own contextmenu/long-press is
+// NEVER intercepted (no preventDefault runs unless the gate + a live,
+// non-archived board card both resolve first). Archived cards are excluded
+// v1 — the native menu still shows for them.
 document.body.addEventListener("contextmenu",e=>{
 if(!fineMQ.matches)return;
 const sp=e.target.closest("[data-st]");

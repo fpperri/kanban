@@ -434,7 +434,7 @@ to `127.0.0.1` only.
   `.status-dot + .archived-dot { margin-left: 4px; }` keeps the pair from fusing. On the
   map SVG a plain node is 58px tall, roomy for the dot column on its right edge; a rich node's
   height follows its content (Dependency map). The gantt
-  bar and the board tile's dim/grey-border cues are untouched — one more glyph on top,
+  bar and the board tile's grey-border cues are untouched — one more glyph on top,
   not a replacement.
 - **Board tile date stack** (kanban.proj#260) — `scheduleRows()` (column-sort.js) reads
   the card's three LITERAL frontmatter fields directly (`start_date`/`end_date`/
@@ -594,7 +594,7 @@ to `127.0.0.1` only.
   Any plain click outside the context menu / bulk popups clears the selection (empty
   calendar day cells and map/gantt whitespace included); the view-toggle buttons (Graph's too) are
   exempt, so the selection **survives switching views**, and it survives the poll.
-  Exceptions: the map's dimmed ghost stubs are click-through-to-detail only, never
+  Exceptions: the map's muted, dashed ghost stubs are click-through-to-detail only, never
   selectable — they stand for cards the active filters hid; a dangling-id stub (no such
   card) is fully inert, and a filtered-out card can't join a selection anywhere else
   either. Assign/priority open a single-choice popup with the usual combobox suggestions

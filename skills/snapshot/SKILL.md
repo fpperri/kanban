@@ -94,7 +94,7 @@ pill is struck through with a hollow dot): statuses default on,
 (embedded read-only, **bodies NOT stripped — re-capped at 1500 characters**,
 and tappable, opening a read-only detail sheet; archive is a location, not a
 status) as a muted trailing board section, a muted gantt
-group, dimmed map nodes, and gray calendar chips. **What that means before you publish one of these.** Every archived card's body
+group, dashed map nodes, and gray calendar chips. **What that means before you publish one of these.** Every archived card's body
 travels inside the file, truncated but not removed, and live bodies ride along
 capped at 4000 characters. The generator takes no flag to leave archived cards
 out, so the only way to build a snapshot without them today is to stage a
@@ -488,7 +488,7 @@ nothing.
 
 A **Drag** switch lives in the ⋯ stack's extended mode alongside
 ＋ ⤒ ⤓ (see "Mobile snapshot notes" above) — a move/arrows glyph,
-tinted at reduced opacity when off. Default on; the choice persists per
+with a dashed border when off, and `aria-pressed` carrying the state. Default on; the choice persists per
 page in `localStorage` (key `kanbanViewer.drag`; a missing key or a
 blocked/throwing read both fall back to on — only a stored `"0"` turns
 it off), read live by the same `dragstart` gate, same pattern as

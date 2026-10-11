@@ -1117,7 +1117,7 @@ function renderMapView() {
 // shared verbatim between the map and the gantt rather than each
 // view duplicating the markup/build-loop. Only the filter state, the id list,
 // the row/pill class (so each view's own delegated listener and its own
-// poll-guard/Q0-exemption selector keep targeting just their own pills), and
+// Q0-exemption selector keep targeting just their own pills), and
 // the tooltip wording differ per caller. The look itself is ALSO shared, not
 // duplicated — app.css comma-joins the two views' pill classes onto one
 // declaration each. The identity dot's color comes from statusColorVar() for EVERY pill —

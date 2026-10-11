@@ -395,7 +395,7 @@ test('index html has a top-bar graph toggle button and a graph view container', 
   });
 });
 
-test('graph wiring: the sixth view is registered and its toggle/control join the click-away and poll-guard lists', async () => {
+test('graph wiring: the sixth view is registered, its toggle/control join the click-away list and its buttons (not its pills) the poll guard', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
@@ -1818,7 +1818,7 @@ test('the map graph and No relations sections are each collapsible, state persis
   });
 });
 
-test('map section toggles join the poll-guard and Q0 clear-selection exemptions, same as the map status-filter pills', async () => {
+test('map section toggles join the Q0 clear-selection exemption and stay out of the poll guard, same as the map status-filter pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
@@ -1853,7 +1853,7 @@ test('app.js applyBoardData applies the assignee registry and official lists BEF
 // guards, the search∩status composition rides a pinned pure helper, and the
 // sub-month all-day chips stop shadowing their drop cells.
 
-test('map status-filter pills join the Q0 clear-selection exemption AND the focused-control poll guard', async () => {
+test('map status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
@@ -1864,8 +1864,9 @@ test('map status-filter pills join the Q0 clear-selection exemption AND the focu
     assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle'],
       'pill clicks must not wipe a building selection');
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
-    // innerHTML='' on every 5s tick — a focused pill would be destroyed
-    // mid-keyboard-interaction, same reasoning as the sort controls/.cal-nav.
+    // innerHTML='' on every 5s tick. They stay out of the guard, because a
+    // pressed pill keeps focus and would freeze the refresh; applyBoardData
+    // refocuses the rebuilt pill instead. The rebuilt header buttons stay in.
     assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
     assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
@@ -2147,7 +2148,7 @@ test('a click on a gantt pill calls toggleGanttStatusFilter, checked before the 
   });
 });
 
-test('gantt status-filter pills join the Q0 clear-selection exemption AND the focused-control poll guard, same as the map pills', async () => {
+test('gantt status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard, same as the map pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
@@ -2157,8 +2158,7 @@ test('gantt status-filter pills join the Q0 clear-selection exemption AND the fo
     assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a gantt pill click must not wipe a building selection — this pin also names .calendar-filter-toggle (verify-fix: it previously stopped at .gantt-filter-toggle, an unanchored prefix match that no longer proved the #99 calendar pill\'s presence in this exemption list)');
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
-    // via innerHTML='' on every 5s tick — a focused pill would be destroyed
-    // mid-keyboard-interaction, same reasoning as the map's pills.
+    // via innerHTML='' on every 5s tick; they stay out of the guard, as the map's do.
     assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
     assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
@@ -2270,7 +2270,7 @@ test('a click on a calendar pill calls toggleCalendarStatusFilter, checked in th
   });
 });
 
-test('calendar status-filter pills join the Q0 clear-selection exemption AND the focused-control poll guard, same as the map/gantt pills', async () => {
+test('calendar status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard, same as the map/gantt pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
@@ -2280,8 +2280,7 @@ test('calendar status-filter pills join the Q0 clear-selection exemption AND the
     assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a calendar pill click must not wipe a building selection');
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
-    // via innerHTML='' on every 5s tick — a focused pill would be destroyed
-    // mid-keyboard-interaction, same reasoning as the map's/gantt's pills.
+    // via innerHTML='' on every 5s tick; they stay out of the guard, as the map's/gantt's do.
     assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
     assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
