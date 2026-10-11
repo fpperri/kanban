@@ -1023,6 +1023,9 @@ const GFIELDS=["tree","path"];
 const STFIELDS=["review","blocked"];
 function parseTerm(tok){
 const m1=/^#(\\d+)$/.exec(tok);if(m1)return{f:"id",v:m1[1]};
+// <this board's name>#<id> finds the card like #<id>; split at the LAST # (names hold dots and hyphens)
+const hi=tok.lastIndexOf("#");
+if(BOARD&&hi>0&&/^\\d+$/.test(tok.slice(hi+1))&&tok.slice(0,hi).toLowerCase()===String(BOARD).toLowerCase())return{f:"id",v:tok.slice(hi+1)};
 const m2=/^([A-Za-z]+):(.*)$/.exec(tok);
 if(m2){const k=m2[1].toLowerCase();
 if(k==="id"){const v=m2[2].trim();return v?{f:"id",v:v}:null}
@@ -2116,7 +2119,7 @@ function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=fa
 function graphFocus(gk,id){
 const term=gk+":"+id;
 $("q").value=term;
-qTerms=resolveGraphTerms(String(term).trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
+qTerms=resolveGraphTerms(String(term).trim().split(/\\s+/).filter(Boolean).map(t=>parseTerm(t)).filter(Boolean));
 focusRoot=id;
 closeCard();
 renderMap();renderGantt();renderCalendar()}
@@ -2227,7 +2230,7 @@ if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
 $("q").addEventListener("input",()=>{
 focusRoot=null;
-qTerms=resolveGraphTerms(String($("q").value||"").trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
+qTerms=resolveGraphTerms(String($("q").value||"").trim().split(/\\s+/).filter(Boolean).map(t=>parseTerm(t)).filter(Boolean));
 render();renderMap();renderGantt();renderCalendar()});
 sc.addEventListener("touchmove",e=>e.stopPropagation(),{passive:true});
 sc.addEventListener("scroll",()=>{if(ctxMenuEl)closeCtxMenu()},{passive:true});
