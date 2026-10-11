@@ -53,3 +53,18 @@ test('a launcher written with a home url carries it, and a refused one writes no
     fs.rmSync(parent, { recursive: true, force: true });
   }
 });
+
+test('a home url carrying credentials is refused', () => {
+  assert.throws(() => san(['--home-url', 'http://user:pw@h.example/']), /launcher\.js write: .*home url/);
+});
+
+test('a backslash that survives URL parsing in the query or fragment is refused on win32 only', () => {
+  for (const url of ['http://h.example/?a\\', 'http://h.example/#a\\']) {
+    assert.throws(() => san(['--home-url', url], 'win32'), /cannot be safely embedded/, url);
+    assert.deepStrictEqual(san(['--home-url', url], 'linux'), [`--home-url=${url}`]);
+  }
+});
+
+test('a missing home url value carries the launcher prefix', () => {
+  assert.throws(() => san(['7801', '--home-url']), /^Error: launcher\.js write: --home-url requires a value/);
+});
