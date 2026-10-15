@@ -276,7 +276,7 @@ test('the toggle, the fold control and the pills show a focus ring, and a pill t
 test('the pills use their own class, never a status pill\'s, so those rules, the poll\'s focus keeper and the click-away list never reach them', () => {
   assert.doesNotMatch(panelSrc, /map-filter-toggle|gantt-filter-toggle|calendar-filter-toggle|graph-filter-toggle|map-section-toggle/);
   assert.match(panelSrc, /className = 'query-pill'/);
-  const keeper = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/)[0];
+  const keeper = appSrc.match(/const REFOCUS_SELECTOR = [^\n]*\n/)[0];
   assert.doesNotMatch(keeper, /query-pill/);
 });
 

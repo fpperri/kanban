@@ -387,10 +387,10 @@ test('a poll hands focus back to the option that had it, found again by its opti
   const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
   const button = groups(s.row()).flatMap((x) => x.buttons).find((b) => b.key === 'lines' && b.val === 'all').el;
   s.page.ctx.__button = button;
-  assert.ok(s.run('PILL_SELECTOR').split(', ').includes('.graph-option-btn'), 'it is one of the controls that get focus back after a render');
-  assert.strictEqual(s.run('pillSelector(__button)'), '.graph-option-btn[data-key="lines"][data-val="all"]');
+  assert.ok(s.run('REFOCUS_SELECTOR').split(', ').includes('.graph-option-btn'), 'it is one of the controls that get focus back after a render');
+  assert.strictEqual(s.run('refocusSelector(__button)'), '.graph-option-btn[data-key="lines"][data-val="all"]');
   s.page.ctx.__toggle = toggleButton();
-  assert.strictEqual(s.run('pillSelector(__toggle)'), '.map-section-toggle[data-section="graph-options"]', 'the toggle has a selector of its own, not the Map\'s');
+  assert.strictEqual(s.run('refocusSelector(__toggle)'), '.map-section-toggle[data-section="graph-options"]', 'the toggle has a selector of its own, not the Map\'s');
 });
 
 test('the Graph lights the lines it draws: a counted line lights with its parent', async () => {

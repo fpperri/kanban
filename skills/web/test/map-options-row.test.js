@@ -204,7 +204,7 @@ test('a click on the Options toggle goes through the section branch, ahead of th
   const handler = click[0];
   const section = handler.indexOf("closest('.map-section-toggle[data-section]')");
   assert.ok(section !== -1);
-  assert.match(handler, /keepPillFocus\(sectionBtn, \(\) => toggleMapSection\(sectionBtn\.dataset\.section\)\)/, 'focus follows the rebuilt toggle');
+  assert.match(handler, /keepControlFocus\(sectionBtn, \(\) => toggleMapSection\(sectionBtn\.dataset\.section\)\)/, 'focus follows the rebuilt toggle');
   assert.ok(section < handler.indexOf("closest('.map-option-btn[data-key][data-val]')"));
   assert.ok(section < handler.indexOf("closest('button[data-act]')"));
 });

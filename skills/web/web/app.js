@@ -1341,11 +1341,12 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
   return row;
 }
 
-const PILL_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn';
+const REFOCUS_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn';
 
-// What finds a status pill or a toggle again after a render: its class and what names it,
-// a column or a section, or for a button of the Graph's option row its option and its value.
-function pillSelector(el) {
+// What finds a rebuilt control again after a render: its class and what names it, a status
+// pill's column or a fold toggle's section, or for a button of the Graph's option row its
+// option and its value.
+function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
   if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
@@ -1353,15 +1354,15 @@ function pillSelector(el) {
   return `.${el.classList[0]}${named('section')}`;
 }
 
-function focusedPill() {
+function focusedRebuiltControl() {
   const el = document.activeElement;
-  return el && el.closest ? el.closest(PILL_SELECTOR) : null;
+  return el && el.closest ? el.closest(REFOCUS_SELECTOR) : null;
 }
 
-// A pill or fold toggle is rebuilt by the render its own press triggers, so
-// focus has to be handed back to the new element.
-function keepPillFocus(el, action) {
-  const selector = pillSelector(el);
+// A status pill, a fold toggle or an option button is rebuilt by the render its own press
+// triggers, so focus has to be handed back to the new element.
+function keepControlFocus(el, action) {
+  const selector = refocusSelector(el);
   action();
   const next = document.querySelector(selector);
   if (next) next.focus({ preventScroll: true });
@@ -1944,8 +1945,8 @@ function applyBoardData(data) {
   const focusedCard = document.activeElement && document.activeElement.closest && document.activeElement.closest('.card-el');
   const focusedCardId = focusedCard ? focusedCard.dataset.id : null;
   const pointerId = hoveredId;
-  const control = focusedPill();
-  const controlSel = control ? pillSelector(control) : null;
+  const control = focusedRebuiltControl();
+  const controlSel = control ? refocusSelector(control) : null;
   // A caption of the Graph's tier fan is a tab stop the render rebuilds, so it is found
   // again by its key (graphCaptionEl); focusing it shows its tip again.
   const caption = document.activeElement && document.activeElement.closest ? document.activeElement.closest('[data-caption]') : null;
@@ -2006,13 +2007,13 @@ function anyModalOpen() {
 // and nothing takes that focus back, so listing .card-el here would freeze
 // the poll for the rest of the session — no stale indicator, no error, just a
 // board that quietly stops updating. applyBoardData re-finds the focused card
-// and pill after its render instead.
+// and rebuilt control after its render instead.
 // The controls that hold the poll carry data-holds-poll; a control built by a
-// render path must wear it, and a pill or fold toggle must not.
+// render path must wear it, and a status pill, fold toggle or option button must not.
 function boardControlFocused() {
   const el = document.activeElement;
-  // Pills and fold toggles are not here: they are rebuilt by every render, so
-  // applyBoardData refocuses the focused one instead of freezing the poll.
+  // Status pills, fold toggles and option buttons are not here: they are rebuilt by every
+  // render, so applyBoardData refocuses the focused one instead of freezing the poll.
   return !!(el && el.closest && el.closest('[data-holds-poll]'));
 }
 
@@ -3528,14 +3529,14 @@ window.addEventListener('DOMContentLoaded', () => {
     // through to card-el).
     const sectionBtn = e.target.closest('.map-section-toggle[data-section]');
     if (sectionBtn) {
-      keepPillFocus(sectionBtn, () => toggleMapSection(sectionBtn.dataset.section));
+      keepControlFocus(sectionBtn, () => toggleMapSection(sectionBtn.dataset.section));
       return;
     }
     // Status-filter pills — control-row buttons, checked first for
     // the same reason data-act buttons are (never fall through to card-el).
     const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
     if (filterBtn) {
-      keepPillFocus(filterBtn, () => toggleMapStatusFilter(filterBtn.dataset.col));
+      keepControlFocus(filterBtn, () => toggleMapStatusFilter(filterBtn.dataset.col));
       return;
     }
     const optionBtn = e.target.closest('.map-option-btn[data-key][data-val]');
@@ -3578,7 +3579,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    keepPillFocus(filterBtn, () => soloMapStatusFilter(filterBtn.dataset.col));
+    keepControlFocus(filterBtn, () => soloMapStatusFilter(filterBtn.dataset.col));
   });
   wireMapPanZoom();
 });
@@ -4564,7 +4565,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // the same reason the map's and the gantt's pills are (never fall
     // through to the sub-view switcher/nav/card-el handling below).
     const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
-    if (filterBtn) { keepPillFocus(filterBtn, () => toggleCalendarStatusFilter(filterBtn.dataset.col)); return; }
+    if (filterBtn) { keepControlFocus(filterBtn, () => toggleCalendarStatusFilter(filterBtn.dataset.col)); return; }
     // The sub-view switcher rides the same delegated listener as
     // prev/today/next — all four button sets are rebuilt every render.
     const sv = e.target.closest('.cal-subview-btn');
@@ -4601,7 +4602,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    keepPillFocus(filterBtn, () => soloCalendarStatusFilter(filterBtn.dataset.col));
+    keepControlFocus(filterBtn, () => soloCalendarStatusFilter(filterBtn.dataset.col));
   });
 });
 
@@ -5157,7 +5158,7 @@ function wireGanttPointerDrag() {
   // (never fall through to the pointer-drag/card-el handling below).
   container.addEventListener('click', (e) => {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (filterBtn) { keepPillFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
+    if (filterBtn) { keepControlFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setGanttSubview(sv.dataset.subview); return; }
     if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
@@ -5172,7 +5173,7 @@ function wireGanttPointerDrag() {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    keepPillFocus(filterBtn, () => soloGanttStatusFilter(filterBtn.dataset.col));
+    keepControlFocus(filterBtn, () => soloGanttStatusFilter(filterBtn.dataset.col));
   });
   container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || ganttDrag) return;

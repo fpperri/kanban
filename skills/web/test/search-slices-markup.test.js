@@ -91,7 +91,7 @@ test('the section\'s script writes no style, no markup and no inline handler: it
   assert.match(src, /className = 'slice-entry'/);
   assert.doesNotMatch(src, /query-pill|map-filter-toggle|gantt-filter-toggle|calendar-filter-toggle|graph-filter-toggle|map-section-toggle/, 'never a pill\'s class');
   assert.doesNotMatch(src, /holdsPoll|data-holds-poll/);
-  const keeper = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/)[0];
+  const keeper = appSrc.match(/const REFOCUS_SELECTOR = [^\n]*\n/)[0];
   assert.doesNotMatch(keeper, /slice-entry/, 'the poll\'s focus keeper does not rebuild them');
 });
 

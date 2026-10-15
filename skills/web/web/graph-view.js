@@ -272,7 +272,7 @@ function graphPlural(n, word) {
 // The fan's option row: a fold toggle (the Map's, from app.js) and, while it is open, one
 // segmented control for each option in the model's table. Every control keeps the
 // selection and none holds the poll: a press rebuilds the row and hands focus back to the
-// control (keepPillFocus), the way a status pill does. The row is only for Tiers.
+// control (keepControlFocus), the way a status pill does. The row is only for Tiers.
 function graphBuildOptionsRow(options, folded) {
   const row = document.createElement('div');
   row.className = 'graph-options';
@@ -790,11 +790,11 @@ function graphStopDrag(commit) {
 function wireGraphView(host) {
   host.addEventListener('click', (e) => {
     const pill = e.target.closest('.graph-filter-toggle[data-col]');
-    if (pill) { keepPillFocus(pill, () => graphToggleFilter(pill.dataset.col)); return; }
+    if (pill) { keepControlFocus(pill, () => graphToggleFilter(pill.dataset.col)); return; }
     const fold = e.target.closest('.map-section-toggle[data-section="graph-options"]');
-    if (fold) { keepPillFocus(fold, graphToggleOptions); return; }
+    if (fold) { keepControlFocus(fold, graphToggleOptions); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
-    if (option) { keepPillFocus(option, () => graphSetOption(option.dataset.key, option.dataset.val)); return; }
+    if (option) { keepControlFocus(option, () => graphSetOption(option.dataset.key, option.dataset.val)); return; }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
     if (layoutBtn) {
       if (mergeGraphLayout(layoutBtn.dataset.layout) === graphLoadLayout()) return;
@@ -821,7 +821,7 @@ function wireGraphView(host) {
     const pill = e.target.closest('.graph-filter-toggle[data-col]');
     if (!pill) return;
     e.preventDefault();
-    keepPillFocus(pill, () => graphSoloFilter(pill.dataset.col));
+    keepControlFocus(pill, () => graphSoloFilter(pill.dataset.col));
   });
   host.addEventListener('wheel', (e) => {
     if (!graphCur || !e.target.closest('.graph-stage')) return;
@@ -940,8 +940,8 @@ function onGraphNamesKey(e) {
   if (loadViewMode() !== 'graph' || graphLoadLayout() !== 'tiers') return;
   e.preventDefault();
   const step = () => graphSetOption('names', graphFanNextNames(graphLoadOptions().names));
-  const control = focusedPill();
-  if (control) keepPillFocus(control, step);
+  const control = focusedRebuiltControl();
+  if (control) keepControlFocus(control, step);
   else step();
 }
 
