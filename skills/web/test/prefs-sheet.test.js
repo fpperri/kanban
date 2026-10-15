@@ -485,7 +485,7 @@ function escPage({ open = [] } = {}) {
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
     requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),
     closeSearchPanel: () => (open.includes('#search-panel') ? (calls.push('panel'), true) : false),
-    escapeStep: () => calls.push('step'), closePrefsSheet: () => calls.push('prefs'), isolateEscapeKeepsBox: () => {},
+    escapeStep: () => calls.push('step'), closePrefsSheet: () => calls.push('prefs'),
   };
   vm.createContext(sandbox);
   vm.runInContext(escHandler(), sandbox);

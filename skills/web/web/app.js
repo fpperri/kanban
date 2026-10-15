@@ -3246,8 +3246,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
     if (closeSearchPanel()) { e.preventDefault(); return; } // the search panel closes on its own Esc, ahead of the selection step, and a search field's own Esc must not clear the box as well
     if (e.repeat) return; // a held Esc is one press: it runs one stage
-    isolateEscapeKeepsBox(e);
-    escapeStep();
+    escapeStep(e);
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable
   // popup is open — the keyboard twin of that popup's toggle button, going
@@ -3392,11 +3391,16 @@ function selectionFollowingBox(selection) {
 // of the Esc chain lives. The key guard (key-guard.js) says which: with focus in
 // the search box Esc clears the box and leaves the selection; with nothing open
 // and nobody typing it steps the selection back and leaves the box as it was;
-// anywhere else (another text field, a select, an open surface) it does nothing.
-function escapeStep() {
+// anywhere else (another text field, a select, an open surface) it does nothing. While
+// isolated the box holds the isolate text, and Esc in it gives back the text it held
+// instead of clearing: the browser's own Esc, which clears a search field, is stopped (`e` is
+// the key's event), or it would take that text away again.
+function escapeStep(e) {
   const action = keyGuardEscape(document, $('#search-input'));
-  if (action === 'clear-box') { if (!isolateTurnOff()) clearSearch(); } // while isolated the box holds the isolate text, and Esc gives back the one it held
-  else if (action === 'step') stepSelectionBack();
+  if (action === 'clear-box') {
+    if (isolateTurnOff()) e.preventDefault();
+    else clearSearch();
+  } else if (action === 'step') stepSelectionBack();
 }
 
 // One stage back, as selectionAfterEscape (selection.js) works it out: isolate goes off

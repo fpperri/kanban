@@ -16,8 +16,9 @@
 // While it is on, a click on a card moves the anchor only: nothing the selection does writes the
 // box (boxAfterGraphClick, selection.js), and a click or a double click on empty space leaves the
 // selection. Esc steps back in three stages, and isolate off is the first (selectionAfterEscape,
-// selection.js; escapeStep and stepSelectionBack in app.js); with the search panel open the first
-// Esc closes the panel and the second turns isolate off. A hand edit of the box, a pill or a slice
+// selection.js; escapeStep and stepSelectionBack in app.js, where escapeStep also stops the
+// browser's own Esc, which clears a search field, so the box gets its text back and keeps it); with
+// the search panel open the first Esc closes the panel and the second turns isolate off. A hand edit of the box, a pill or a slice
 // is an edit of the query: isolate stays on while the box holds one, and ends when it holds none
 // (isolateAfterWrite, selection.js). With nothing to write the switch says so and stays off, and
 // Esc with focus in the box turns isolate off like Esc anywhere else.
@@ -165,14 +166,6 @@ function onIsolateKey(e) {
   if (keyGuardOff(document)) return;
   e.preventDefault();
   isolateFlip();
-}
-
-// Esc with focus in the box while isolated: escapeStep turns isolate off and gives the box its
-// text back, so the browser's own Esc, which clears a search field, is stopped, as it is when the
-// panel closes (search-panel.js), or it would take the text away again.
-function isolateEscapeKeepsBox(e) {
-  if (isolateFrom === null || keyGuardEscape(document, $('#search-input')) !== 'clear-box') return;
-  e.preventDefault();
 }
 
 // A write to the box that leaves it holding no query ends isolate: its text is gone, and so is

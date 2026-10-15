@@ -418,7 +418,7 @@ test('Esc with no popup open runs the one step function', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/);
   assert.ok(handler, 'the document Esc handler is found');
   const lines = handler[0].trimEnd().split('\n');
-  assert.strictEqual(lines[lines.length - 2].trim(), 'escapeStep();', 'the end of the chain is the one step');
+  assert.strictEqual(lines[lines.length - 2].trim(), 'escapeStep(e);', 'the end of the chain is the one step');
   assert.doesNotMatch(handler[0], /clearSearch\(\)/, 'the handler itself no longer clears the box');
 });
 
@@ -428,11 +428,11 @@ test('Esc with no popup open runs the one step function', () => {
 // while its menu is open, before this document listener ever sees the key.
 test('the Esc chain keeps its order and ends in the one step, behind a single document listener', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['hideContextMenu()', 'closeNotifModal()', 'closePrefsSheet()', 'closeCard()', 'requestCloseModal()', 'closeAnyBulkPopup()', 'anyModalOpen()', 'escapeStep()'].map((s) => handler.indexOf(s));
+  const order = ['hideContextMenu()', 'closeNotifModal()', 'closePrefsSheet()', 'closeCard()', 'requestCloseModal()', 'closeAnyBulkPopup()', 'anyModalOpen()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link of the chain is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');
   assert.strictEqual(appSrc.split("if (e.key !== 'Escape') return;").length - 1, 1, 'one document listener reads Esc: the step adds no second keydown listener');
-  assert.strictEqual(appSrc.split('escapeStep()').length - 1, 2, 'the step is called from the handler alone (and defined once)');
+  assert.strictEqual(appSrc.split('escapeStep(e)').length - 1, 2, 'the step is called from the handler alone (and defined once)');
   assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 2, 'the selection step is called from the Esc step alone (and defined once)');
 });
 
