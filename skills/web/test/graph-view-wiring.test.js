@@ -246,7 +246,7 @@ function fakeDocument() {
 function drawn(cards, types) {
   const sandbox = { document: fakeDocument() };
   vm.createContext(sandbox);
-  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphDrawPlan')}`, sandbox);
+  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphTspan')}\n${fn('graphCaptionEl')}\n${fn('graphDrawPlan')}`, sandbox);
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] }, types });
   const plan = graphPlan(model, graphLayout(model, 'tiers'), { statusClass: (s) => s, titleOf: (c) => c.title });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
@@ -321,8 +321,15 @@ test('the render passes the board\'s hierarchy to the model, so a card is in the
   assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\bhierarchy: state\.hierarchy[^}]*\}\)/);
 });
 
-test('the Tiers button says what the layout draws: a band per tier, then a ring per depth', () => {
-  assert.match(src, /tiers: 'Tiers: a band per tier, then a ring per depth for the cards without a tier'/);
+test('the Tiers button describes the fan: a band per tier, a ring per depth, a sector per tree and the Unnested block', () => {
+  const title = src.match(/tiers: '(Tiers: [^']*)'/);
+  assert.ok(title, 'the Tiers title is a plain string');
+  assert.match(title[1], /a band for each tier/);
+  assert.match(title[1], /tier 1 nearest the centre/);
+  assert.match(title[1], /a ring for each depth of the cards without a tier/);
+  assert.match(title[1], /a sector for each tree/);
+  assert.match(title[1], /Unnested block/);
+  assert.match(title[1], /its name and count/);
 });
 
 test('the dot rule paints a path as well as a circle: filled in the status colour, round-cornered when stroked', () => {

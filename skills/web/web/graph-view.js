@@ -24,7 +24,7 @@ const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
 const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_LAYOUT_TITLES = {
-  tiers: 'Tiers: a band per tier, then a ring per depth for the cards without a tier',
+  tiers: 'Tiers: the tier fan, a band for each tier with its name and count, tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent or children and no tier sit in the Unnested block outside the rim, a column for each status',
   force: 'Force: related cards pull together, loose cards sit around the edge',
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
@@ -106,6 +106,22 @@ function graphEl(tag, attrs, cls) {
   const el = document.createElementNS(GRAPH_SVG_NS, tag);
   if (cls) el.setAttribute('class', cls);
   for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+  return el;
+}
+
+function graphTspan(text, cls, attrs) {
+  const el = graphEl('tspan', attrs, cls);
+  el.textContent = text;
+  return el;
+}
+
+// A caption of the fan: a name and its count, both from the plan, in a text that keeps
+// its size on screen (app.css). `anchor` says which end of the text sits at x.
+function graphCaptionEl(c, anchor) {
+  const el = graphEl('text', { x: c.x, y: c.y, 'text-anchor': anchor }, c.cls);
+  if (c.dy) el.setAttribute('dy', c.dy);
+  el.appendChild(graphTspan(c.name, 'graph-caption-name'));
+  el.appendChild(graphTspan(String(c.count), 'graph-caption-count', { dx: '0.4em' }));
   return el;
 }
 
@@ -281,8 +297,13 @@ function graphDrawPlan(plan) {
   for (const r of plan.rings) {
     world.appendChild(fixed(graphEl('circle', { cx: r.cx, cy: 0, r: r.r }, r.cls)));
   }
-  for (const s of plan.spokes) {
-    world.appendChild(fixed(graphEl('line', { x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }, 'graph-spoke')));
+  for (const g of plan.guides) world.appendChild(fixed(graphEl('path', { d: g.d }, g.cls)));
+  for (const d of plan.dividers) {
+    world.appendChild(fixed(graphEl('line', { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 }, 'graph-divider')));
+  }
+  if (plan.block) {
+    const b = plan.block;
+    world.appendChild(fixed(graphEl('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 4 }, b.cls)));
   }
   const linkEls = plan.links.map((l) => {
     const p = fixed(graphEl('path', { d: l.d }, l.cls));
@@ -319,6 +340,13 @@ function graphDrawPlan(plan) {
     const el = graphEl('text', { x: t.x, y: t.y }, 'graph-title');
     el.textContent = t.text;
     world.appendChild(el);
+  }
+  // The fan's captions stand on the flat edge, centred over their rings; the others start at their x.
+  for (const c of plan.captions) world.appendChild(graphCaptionEl(c, 'middle'));
+  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption, 'start'));
+  if (plan.block) {
+    world.appendChild(graphCaptionEl(plan.block.title, 'start'));
+    for (const col of plan.block.columns) world.appendChild(graphCaptionEl(col.caption, 'start'));
   }
   stage.appendChild(svg);
   return { stage, svg, world, arrow, linkEls, nodeEls };

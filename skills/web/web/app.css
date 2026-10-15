@@ -1182,10 +1182,22 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-canvas.graph-dragging, .graph-canvas.graph-dragging .graph-node { cursor: grabbing; }
 
 .graph-ring { fill: none; stroke: var(--line-strong); stroke-width: 1px; stroke-dasharray: 4 4; opacity: 0.6; }
-.graph-spoke { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; }
+.graph-guide { fill: none; stroke: var(--line-strong); stroke-width: 1px; opacity: 0.55; pointer-events: none; }
+.graph-guide-sub { stroke-dasharray: 2 5; opacity: 0.4; }
+.graph-guide-empty { stroke-dasharray: 4 4; opacity: 0.35; }
+.graph-divider { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; pointer-events: none; }
+.graph-block-frame { fill: none; stroke: var(--line); stroke-width: 1px; stroke-dasharray: 4 4; pointer-events: none; }
 .graph-ring-label, .graph-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
 .graph-ring-label { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-title { fill: var(--ink); font-weight: 600; font-size: calc(15px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
+
+.graph-caption, .graph-block-caption, .graph-block-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-caption, .graph-block-caption { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
+.graph-block-title { fill: var(--ink); font-weight: 600; font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
+.graph-caption-name { fill: var(--ink); }
+.graph-caption-count { fill: var(--mut); }
+.graph-caption-muted .graph-caption-name { fill: var(--mut); }
+.graph-loose-caption { font-style: italic; }
 
 .graph-link { fill: none; stroke-width: 1.4px; }
 .graph-link-parent { stroke: var(--mut); opacity: 0.4; }
