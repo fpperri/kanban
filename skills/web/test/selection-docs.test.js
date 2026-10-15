@@ -32,7 +32,7 @@ test('the multi-select section says what a click, Shift and Ctrl do in the Graph
   assert.match(text, /In the \*\*Graph\*\* a click makes the card the anchor of a new selection/);
   assert.match(text, /shift\+click or ctrl\/cmd\+click adds one card to the selection or takes it out/);
   assert.match(text, /no reading order to range over/);
-  assert.match(text, /a click on the empty Graph clears it/);
+  assert.match(text, /a click on the empty Graph leaves it; a double click on the empty Graph clears it/);
 });
 
 test('the multi-select section says taking a card out of a query, path or tree part turns that part into its other cards', () => {

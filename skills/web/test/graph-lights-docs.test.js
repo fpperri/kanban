@@ -52,7 +52,7 @@ test('the Graph section says only a slice: term on its own hides, and the rest o
 
 test('the Graph section says what drops the typed anchor and what a click does to it', () => {
   const text = graph();
-  assert.match(text, /Emptying the box, \*\*Esc\*\* and a click on the empty Graph drop the anchor and the dimming/);
+  assert.match(text, /Emptying the box, \*\*Esc\*\* and a double click on the empty Graph drop the anchor and the dimming/);
   assert.match(text, /a plain click on a card sets a new card anchor and clears the box/);
   assert.match(text, /shift\+click or ctrl\/cmd\+click on an unlit card adds it and keeps the query/);
   assert.match(text, /turns the query into its other cards, which clears the box/);
