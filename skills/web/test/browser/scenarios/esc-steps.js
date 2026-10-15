@@ -3,12 +3,14 @@
 // Graph, after a click and two Shift+clicks, the first Esc leaves only the anchor
 // and the second clears the selection. On the Board, after Ctrl+clicks on three
 // cards, the first Esc leaves the first card and the second clears the selection.
-// With text in the search box and a selection, Esc with focus in the box clears
-// the box and keeps the selection, and Esc with focus outside the box steps the
-// selection back and leaves the box text as it was. Each step waits on the page,
-// never on a fixed sleep. Escape goes through the runner's key helper, a real key
-// press; a card's dot is found by its class and clicked only where it is the
-// topmost thing, and a Board card at a point that is not a cue, a button or a bar.
+// With text in the search box and a selection, focus in the box opens its
+// suggestion menu, and that menu takes the first Esc: it closes and the selection
+// is untouched. The next Esc clears the box and keeps the selection. Esc with
+// focus outside the box steps the selection back and leaves the box text as it
+// was. Each step waits on the page, never on a fixed sleep. Escape goes through
+// the runner's key helper, a real key press; a card's dot is found by its class
+// and clicked only where it is the topmost thing, and a Board card at a point
+// that is not a cue, a button or a bar.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // selectedIds, selectionState.
@@ -25,6 +27,9 @@ module.exports = {
     const hasSelection = (n) => waitFor(`selectedIds.size===${n}`);
     const noCardOpen = () => ev(`!/card=\\d+/.test(location.search)`);
     const boxText = () => ev(`document.getElementById('search-input').value`);
+    const MENU_OPEN = `(()=>{const m=document.querySelector('#search-input ~ .combobox-menu');return !!m&&!m.hidden})()`;
+    // Focus the box afresh with the caret after its text, so its focus handler runs and the menu opens the same way every time.
+    const focusBoxAtEnd = () => ev(`(()=>{const i=document.getElementById('search-input');i.blur();i.setSelectionRange(i.value.length,i.value.length);i.focus()})()`);
     const escape = () => key('Escape');
 
     // The centre of a card's dot in the Graph, or null when another dot covers it.
@@ -96,11 +101,15 @@ module.exports = {
     await clickCard(z, { modifiers: 2 });
     check('a search narrows the Board and three of its cards are selected', shown.length >= 3 && shown.length < everything.length && await hasSelection(3) && sameIds(await picked(), sorted(x, y, z)) && (await boxText()) === 'zephyr', { shown, picked: await picked(), box: await boxText() });
 
-    await ev(`document.getElementById('search-input').focus()`);
+    await focusBoxAtEnd();
+    check('focus in the box holding text opens its suggestion menu', await waitFor(MENU_OPEN), { open: await ev(MENU_OPEN), box: await boxText() });
     await escape();
-    check('Esc in the search box clears the box and keeps the selection', await waitFor(`document.getElementById('search-input').value===''`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { box: await boxText(), picked: await picked(), parts: await parts() });
+    // An open menu takes the first Esc. The box text is not asserted after this press: a search field also clears itself on Esc by the browser's own default, so the text left differs by browser. What is pinned is that the menu closed and the selection stood.
+    check('the first Esc in the search box closes the suggestion menu and keeps the selection', await waitFor(`!(${MENU_OPEN})`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { open: await ev(MENU_OPEN), picked: await picked(), parts: await parts() });
+    await escape();
+    check('the next Esc in the search box clears the box and keeps the selection', await waitFor(`document.getElementById('search-input').value===''`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { box: await boxText(), picked: await picked(), parts: await parts() });
 
-    await ev(`document.getElementById('search-input').focus()`);
+    await focusBoxAtEnd();
     await send('Input.insertText', { text: 'zephyr' });
     await waitFor(`document.getElementById('search-input').value==='zephyr'`);
     await ev(`document.activeElement.blur()`);

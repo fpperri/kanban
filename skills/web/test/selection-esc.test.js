@@ -6,9 +6,9 @@ const {
 const { parseSearchQuery, filterCards } = require('../web/search');
 
 // Esc steps the selection back one stage at a time: the first Esc drops every
-// addition at once and leaves the anchor, the next drops the anchor (R5). A bulk
+// addition at once and leaves the anchor, the next drops the anchor. A bulk
 // action takes its list of target cards once, when it starts, from the resolved
-// selection (R6). These are the pure parts; where the page wires them is pinned
+// selection. These are the pure parts; where the page wires them is pinned
 // in selection-plumbing.test.js.
 
 const grown = (...parts) => parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
@@ -68,7 +68,7 @@ test('with nothing picked Esc changes nothing, whatever the range start', () => 
   assert.strictEqual(selectionAfterEscape(state), state);
 });
 
-// --- bulk targets are fixed when the action starts (R6) --------------------------------
+// --- bulk targets are fixed when the action starts ------------------------------------
 
 function boardOf(cards) {
   const matchQuery = (text) => new Set(filterCards(cards, parseSearchQuery(text, 'board'), {}).map((c) => c.id));

@@ -7,7 +7,7 @@ const { selectionGlobals } = require('./helpers/selection-globals');
 const { parseSearchQuery, filterCards } = require('../web/search');
 
 // A bulk action takes its list of target cards once, when it starts, from the
-// resolved selection (R6). Writes, re-renders and polls during the action never
+// resolved selection. Writes, re-renders and polls during the action never
 // change the list. The selection here holds a query part, which is the case that
 // can move under an action: an assign on `assignee:@afk` takes its cards off the
 // query one write at a time. The page's own functions run in a sandbox with the
