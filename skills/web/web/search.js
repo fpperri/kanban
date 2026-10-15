@@ -536,6 +536,18 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
   return changed ? resolved : terms;
 }
 
+// The slices of the whole board, { axis, byId } (the slices module's), built once
+// for a pass through `memo` when it is given. A cut and the suggestions the box
+// offers for one read it alike, so they cannot disagree about what a slice is. null
+// when the page has not loaded the slices and nesting modules.
+function searchSlices(cards, ctx, memo) {
+  if (typeof SLM.sliceCards !== 'function' || typeof NSM.depthMap !== 'function') return null;
+  const build = () => SLM.sliceCards(cards, ctx && ctx.hierarchy, NSM.depthMap(cards, ctx));
+  if (!memo) return build();
+  if (!memo.slices) memo.slices = build();
+  return memo.slices;
+}
+
 // Where an end of a cut sits on the axis (a tier by name, a depth by number),
 // -1 when the axis has no such slice or the end is empty.
 function sliceEndIndex(axis, text) {
@@ -548,9 +560,9 @@ function sliceEndIndex(axis, text) {
 // so a value with neither end known is no cut. A page that has not loaded the
 // slices module (the snapshot, until it embeds it) cuts nothing.
 function sliceIds(cards, value, ctx, memo) {
-  if (typeof SLM.sliceCards !== 'function' || typeof NSM.depthMap !== 'function') return new Set(cards.map((c) => Number(c.id)));
-  if (!memo.slices) memo.slices = SLM.sliceCards(cards, ctx && ctx.hierarchy, NSM.depthMap(cards, ctx));
-  const { axis, byId } = memo.slices;
+  const slices = searchSlices(cards, ctx, memo);
+  if (!slices) return new Set(cards.map((c) => Number(c.id)));
+  const { axis, byId } = slices;
   const dots = value.indexOf('..');
   let from = sliceEndIndex(axis, dots < 0 ? value : value.slice(0, dots));
   let to = sliceEndIndex(axis, dots < 0 ? value : value.slice(dots + 2));
@@ -567,6 +579,49 @@ function filterCards(cards, terms, ctx) {
   if (!terms.length) return cards;
   const resolved = resolveTerms(cards, terms, ctx);
   return cards.filter((card) => cardMatchesQuery(card, resolved));
+}
+
+// The names a slice: term can be written with on this board: the tiers of its
+// hierarchy in order, then the depths that hold a card. A tier nobody is in is still
+// a name a cut can start or end at, and the fan captions it, but a depth with no
+// card is no slice anyone could want, so it is left out, like the fan's empty rings.
+function searchSliceNames(cards, ctx) {
+  const slices = Array.isArray(cards) ? searchSlices(cards, ctx, null) : null;
+  if (!slices) return [];
+  return slices.axis.filter((s) => s.kind === 'tier' || s.count > 0).map((s) => (s.kind === 'tier' ? s.name : String(s.depth)));
+}
+
+// The suggestions for a slice: token: after `slice:` and after `..`, the board's slice
+// names that start with what is typed there, each written as the whole term it
+// would complete. The caret says which end is being typed: before the dots (or with
+// none) the first, after them the second, and the end under the caret is the one
+// replaced, the other kept as it stands. A name with a space is written quoted, and
+// the quote then holds both ends (`slice:"big goal..objective"`), the one form the
+// parser reads a spaced name in. Nothing for a term already typed in full. `null`
+// when the token is not a slice: one.
+function searchSliceItems(text, token, at, namesOf) {
+  const raw = text.slice(token.start, token.end);
+  const scope = /^slice:/i.exec(raw);
+  if (!scope) return null;
+  const names = namesOf();
+  const quoted = raw[scope[0].length] === '"';
+  const from = token.start + scope[0].length + (quoted ? 1 : 0);
+  const to = token.end - (quoted && !token.open ? 1 : 0);
+  const body = text.slice(from, Math.max(from, to));
+  const pos = Math.max(0, Math.min(at - from, body.length));
+  const dots = body.indexOf('..');
+  const second = dots >= 0 && pos >= dots + 2;
+  const head = second ? body.slice(0, dots + 2) : '';
+  const tail = !second && dots >= 0 ? body.slice(dots) : '';
+  const typed = (second ? body.slice(dots + 2, pos) : body.slice(0, dots >= 0 ? Math.min(pos, dots) : pos)).trim().toLowerCase();
+  const items = [];
+  for (const name of names) {
+    if (!name.toLowerCase().startsWith(typed)) continue;
+    const label = searchTermText('slice', head + name + tail);
+    if (label.toLowerCase() === raw.toLowerCase()) continue;
+    items.push({ value: text.slice(0, token.start) + label + text.slice(token.end), label });
+  }
+  return items;
 }
 
 // The search box's autocomplete dropdown. Pure candidate
@@ -586,6 +641,10 @@ function filterCards(cards, terms, ctx) {
 // card id, not free text, so completing e.g. "tree:@afk" would never match
 // anything.
 //
+// A `slice:` token is the one scoped token that is completed: given the board's
+// cards and context (the arguments filterCards takes) it offers the slice names
+// after the colon and after `..` (searchSliceItems). Without them it offers none.
+//
 // No suggestions (empty array, dropdown stays closed) when:
 // - no token is being typed (nothing typed yet, trailing whitespace, or the
 //   caret is on a bracket or a `|` — same "not-yet-a-term" contract parseTerm
@@ -601,13 +660,15 @@ function filterCards(cards, terms, ctx) {
 // logic needed. `label` is just the new term, undecorated by the text around
 // it, so the menu reads as "here's what this word could become" rather than
 // repeating the whole query back on every row.
-function searchSuggestionItems(raw, caret) {
+function searchSuggestionItems(raw, caret, cards, ctx) {
   const text = String(raw || '');
   const at = Number.isInteger(caret) ? Math.max(0, Math.min(caret, text.length)) : text.length;
   // The token being typed is the text token the caret sits in or at the end of.
   // A bracket, a | or a space is not one, so none of them is completed.
   const token = lexSearch(text).tokens.find((t) => t.kind === 'text' && t.start < at && at <= t.end);
   if (!token) return [];
+  const slices = searchSliceItems(text, token, at, () => searchSliceNames(cards, ctx));
+  if (slices) return slices;
   const segment = text.slice(token.start, token.end);
   if (segment.includes(':') || segment === '"') return [];
   const before = text.slice(0, token.start);

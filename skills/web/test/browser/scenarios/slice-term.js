@@ -14,6 +14,14 @@
 // over each board's own cards, so a wrong expectation fails in the unit suite and
 // not only in a browser.
 //
+// The search box also suggests what a slice: term can say: typing slice: opens a list of
+// the board's slices, the tiers in hierarchy order and then the depths that hold a card,
+// and pressing a row completes the term, which cuts as one typed by hand. On the plan
+// board, pressing slice:strategy keeps the two strategy cards, then typing the dots lists
+// the slices as the second end, and pressing slice:strategy..objective keeps the
+// strategy and objective cards. The list and its rows are the combobox's own, a real
+// press on a row writes the box, and what each list holds is in CASES.plan.suggest.
+//
 // The plan board's live cards are 1 to 18 and 22 to 29. Its goal cards are 1 and
 // 25, its strategies 2 and 26, its objective 7. Only cards 28 and 29, both tasks
 // with no parent, carry dates (in 2031 and 2020), so slice:0 keeps both of them
@@ -30,6 +38,17 @@ const CASES = {
     live: [...range(1, 18), ...range(22, 29)],
     cut: { query: CUT, shows: [1, 2, 7, 25, 26] },
     depthZero: { query: 'slice:0', datedShows: [28, 29] },
+    suggest: {
+      typed: 'slice:',
+      labels: ['slice:goal', 'slice:strategy', 'slice:objective', 'slice:epic', 'slice:0', 'slice:1', 'slice:2', 'slice:4', 'slice:5'],
+      first: { pick: 'slice:strategy', shows: [2, 26] },
+      second: {
+        typed: '..',
+        labels: ['slice:strategy..goal', 'slice:strategy..strategy', 'slice:strategy..objective', 'slice:strategy..epic', 'slice:strategy..0', 'slice:strategy..1', 'slice:strategy..2', 'slice:strategy..4', 'slice:strategy..5'],
+        pick: 'slice:strategy..objective',
+        shows: [2, 7, 26],
+      },
+    },
   },
   fixture: {
     live: range(1, 18),
@@ -67,7 +86,7 @@ module.exports = {
   CASES,
   SELECTORS,
   async run(page) {
-    const { ev, open, waitFor, check, shot } = page;
+    const { ev, send, open, waitFor, check, shot, click } = page;
 
     // A page that is being left still answers for a moment after the navigation
     // starts, so a wait on the new page would read the old one. The old page is
@@ -84,6 +103,19 @@ module.exports = {
     const drawn = (selector) => waitFor(`document.querySelectorAll(${JSON.stringify(selector)}).length>0`, 10000);
 
     const { board: BOARD, map: MAP, gantt: GANTT, calendar: CALENDAR, graph: GRAPH } = SELECTORS;
+
+    // The search box's list: the rows the combobox draws under the box while it is open.
+    const ROWS = `JSON.stringify([...document.querySelectorAll('#search-input ~ .combobox-menu:not([hidden]) .combobox-item')].map((e)=>e.textContent))`;
+    const rowsAre = (labels) => waitFor(`${ROWS}===${JSON.stringify(JSON.stringify(labels))}`, 10000);
+    const rowsNow = () => ev(ROWS);
+    const boxNow = () => ev(`document.getElementById('search-input').value`);
+    const typeInBox = (text) => send('Input.insertText', { text });
+    // A real press on the row: the combobox takes the press itself, and keeps the focus in the box.
+    const pressRow = async (label) => {
+      const at = await ev(`(()=>{const e=[...document.querySelectorAll('#search-input ~ .combobox-menu .combobox-item')].find((x)=>x.textContent===${JSON.stringify(label)});if(!e)return null;const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      if (at === null) throw new Error(`the list has no row ${label}`);
+      await click(at.x, at.y);
+    };
 
     // --- the plan board, one view after another -----------------------------------------------
     const plan = CASES.plan;
@@ -115,6 +147,23 @@ module.exports = {
     await write(plan.cut.query);
     check('plan: the Graph draws no dot outside the cut', await shows(GRAPH, plan.cut.shows), await shownNow(GRAPH));
     await shot('slice-graph');
+
+    // --- the suggestions: the list after slice: and after .., and a row pressed -----------------------
+    const suggest = plan.suggest;
+    await load('/', 'plan');
+    check('plan: the Board shows every live card before the box is typed in', await shows(BOARD, plan.live, 10000), await shownNow(BOARD));
+    await ev(`document.getElementById('search-input').focus()`);
+    await typeInBox(suggest.typed);
+    check('plan: typing slice: lists the slices of the board, the tiers in hierarchy order and then the depths that hold a card', await rowsAre(suggest.labels), await rowsNow());
+    await shot('slice-suggest');
+    await pressRow(suggest.first.pick);
+    check('plan: pressing slice:strategy writes it in the box and shuts the list', await waitFor(`document.getElementById('search-input').value===${JSON.stringify(suggest.first.pick)}`) && await rowsAre([]), await boxNow());
+    check('plan: the Board then keeps only the strategy cards', await shows(BOARD, suggest.first.shows), await shownNow(BOARD));
+    await typeInBox(suggest.second.typed);
+    check('plan: typing the dots after it lists the slices as the second end of the cut', await rowsAre(suggest.second.labels), await rowsNow());
+    await pressRow(suggest.second.pick);
+    check('plan: pressing slice:strategy..objective writes the whole cut in the box', await waitFor(`document.getElementById('search-input').value===${JSON.stringify(suggest.second.pick)}`), await boxNow());
+    check('plan: the Board then keeps the strategy and objective cards', await shows(BOARD, suggest.second.shows), await shownNow(BOARD));
 
     // --- today's fixture board: no hierarchy, so a slice is a depth ------------------------------
     const fixture = CASES.fixture;

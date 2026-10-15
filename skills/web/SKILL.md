@@ -344,8 +344,16 @@ to `127.0.0.1` only.
   alternative of what the box holds (a value with spaces is written quoted). An
   autocomplete dropdown completes the token under the caret, inside brackets, inside
   quotes and after a `|` — the bare term plus every field-scoped form of it; nothing is
-  offered once the token carries a colon, and `tree:`/`path:` are excluded (they take a
-  card id, not free text). The leading `#` that Ctrl+F prefills stays while the box holds
+  offered once the token carries a colon, except after `slice:` and after `..`, and
+  `tree:`/`path:` are excluded (they take a card id, not free text). After `slice:` and
+  after `..` the dropdown lists the board's slices, narrowed to the names that start with
+  what is typed (any letter case): the tiers of the `hierarchy:` in hierarchy order, every
+  one it names, then the depth numbers that hold a card. Picking a row writes the whole
+  term (`slice:goal..objective`, the end under the caret replaced and the other end kept),
+  and a tier named with a space is written quoted, the quote holding both ends
+  (`slice:"big goal..2"`). The dropdown is asked with the whole board, archived cards
+  included, the arguments the cut is made with, so what it lists is what the cut reads,
+  and a Graph caption's tooltip shows one of these same terms. The leading `#` that Ctrl+F prefills stays while the box holds
   one id being typed, and through a query such as `#12 | #14`.
 - **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
