@@ -66,7 +66,7 @@ archived leaves count (as done, by default); both are remembered in your browser
 Marking a parent done while leaves below are open warns and saves anyway.
 
 Open a card and the parents it sits under show above it, root first, each one a
-click away; below its body a **Children** header with their count opens the list, in
+click away; right under the roll-up bar a **Children** header with their count opens the list, in
 `rank` order. A parent that does not
 exist is marked *unresolved*, a parent on another board is shown but *not followed*,
 and a loop of parents is flagged where it repeats.

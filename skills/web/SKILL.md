@@ -531,7 +531,8 @@ to `127.0.0.1` only.
   thread with an `unresolved` marker; a parent on another board ends it with that
   board's mention marked `not followed` (the single-board release names it and never
   follows it); a loop of parents stops at the card that would repeat and flags it
-  `loop`, so a mistake never hangs the popup. Below the body, behind a **Children** header
+  `loop`, so a mistake never hangs the popup. Right under the roll-up bar, above the
+  frontmatter and the body, behind a **Children** header
   that carries their count, the card's children are listed in rank order (unranked after
   ranked, then priority, then id), an archived child marked `archived`, each a mention
   chip too. The list starts collapsed every time a card opens; one click on the header
