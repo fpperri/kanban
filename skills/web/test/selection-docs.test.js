@@ -45,3 +45,30 @@ test('the Graph section no longer says a shift-click ranges there', () => {
   assert.doesNotMatch(text, /outline order \(parents before children/);
   assert.match(text, /shift\+click or ctrl\/cmd\+click adds one card or takes it out/);
 });
+
+test('the multi-select section says Esc steps the selection back one stage at a time: every addition at once, then the anchor', () => {
+  const text = bullet('- **Multi-select**');
+  assert.match(text, /\*\*Esc\*\* steps the selection back one stage at a time/);
+  assert.match(text, /the first Esc drops every addition at once and leaves the anchor/);
+  assert.match(text, /the next drops the anchor/);
+});
+
+test('the multi-select section says where the Esc step runs: with nothing open and nobody typing, and how it differs in the search box', () => {
+  const text = bullet('- **Multi-select**');
+  assert.match(text, /only while nothing is open and nobody is typing/);
+  assert.match(text, /with focus in the search box Esc clears the box and leaves the selection/);
+  assert.match(text, /away from the box Esc no longer clears it/);
+});
+
+test('the multi-select section says bulk targets are fixed when an action starts, and that the confirmations name that count', () => {
+  const text = bullet('- **Multi-select**');
+  assert.match(text, /takes its list of target cards once, when it starts/);
+  assert.match(text, /writes, repaints and polls during the action never change the list/);
+  assert.match(text, /archive and delete confirmations name the count of that list/);
+});
+
+test('the Speedbumps section sends Esc with nothing open to the selection, and the key guard paragraph names the Esc question', () => {
+  const text = bullet('- **Speedbumps**');
+  assert.match(text, /With nothing open, Esc steps the selection back/);
+  assert.match(text, /Esc's selection step reads the same guard, with the search box as the one text field it is for/);
+});

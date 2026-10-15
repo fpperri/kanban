@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a config-keys, a smoke and a calendar-jump scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, an esc-steps, a config-keys, a smoke and a calendar-jump scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'config-keys', 'smoke', 'calendar-jump']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'esc-steps', 'config-keys', 'smoke', 'calendar-jump']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -309,4 +309,43 @@ test('the selection scenario finds a card\'s dot by its class and clicks it only
   const src = code(source('selection.js'));
   assert.ok(src.includes('.graph-dot') && !/circle/.test(src));
   assert.ok(/elementFromPoint/.test(src));
+});
+
+// Esc steps the selection back one stage at a time, on the plan board: in the
+// Graph after a click and two Shift+clicks, on the Board after three Ctrl+clicks,
+// and with text in the search box, where Esc in the box clears the box and Esc
+// away from it steps the selection.
+const ESC_STEPS_CHECKS = [
+  'the Graph draws the plan board', 'three cards can be clicked without another dot in the way',
+  'a click and two Shift+clicks select three cards, the clicked card the anchor',
+  'the first Esc in the Graph leaves only the anchor selected', 'the second Esc in the Graph clears the selection',
+  'the Board draws the plan board', 'Ctrl+clicks on three cards select them, the first the anchor',
+  'the first Esc on the Board leaves the first card selected', 'the second Esc on the Board clears the selection',
+  'a search narrows the Board and three of its cards are selected', 'Esc in the search box clears the box and keeps the selection',
+  'the box has text again and focus has left it',
+  'Esc with focus outside the search box steps the selection back and leaves the box text as it was',
+  'none of those clicks opened a card',
+];
+
+test('the esc-steps scenario runs on the plan board and makes every check of the Esc steps', () => {
+  assert.strictEqual(byName('esc-steps').board, 'plan');
+  assert.strictEqual(byName('esc-steps').alsoBoards, undefined);
+  const src = source('esc-steps.js');
+  assert.deepStrictEqual(ESC_STEPS_CHECKS.filter((n) => !src.includes(`check('${n}'`)), []);
+  const made = [...src.matchAll(/\bcheck\('((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]);
+  assert.deepStrictEqual(made.filter((n) => !ESC_STEPS_CHECKS.includes(n)), [], 'a check this list does not name');
+});
+
+test('the esc-steps scenario presses Escape through the runner\'s key helper, holds Shift and Ctrl on a click, and waits on the page, never on a fixed sleep', () => {
+  const src = code(source('esc-steps.js'));
+  assert.ok(src.includes("key('Escape')"), 'a real key press, not a synthetic event');
+  assert.ok(src.includes('modifiers: 8') && src.includes('modifiers: 2'), 'Shift and Ctrl');
+  assert.ok(!/\bsleep\(/.test(src));
+  assert.ok(!/dispatchEvent|new KeyboardEvent/.test(src), 'no hand-made key event');
+});
+
+test('the esc-steps scenario checks the box both ways: Esc with focus in the box, and Esc with focus outside it', () => {
+  const src = code(source('esc-steps.js'));
+  assert.ok(/getElementById\('search-input'\)\.focus\(\)/.test(src), 'focus goes into the box');
+  assert.ok(/activeElement\.blur\(\)/.test(src), 'and out of it');
 });
