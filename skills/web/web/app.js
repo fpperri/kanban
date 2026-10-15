@@ -804,10 +804,8 @@ function viewCardIds(withSearch) {
   } else if (mode === 'map') {
     visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
   } else if (mode === 'gantt' || mode === 'calendar') {
-    const filter = mode === 'gantt' ? loadGanttStatusFilter() : loadCalendarStatusFilter();
-    const live = ganttFilterVisibleIds(state.active, filter, boardStatuses());
-    const drawn = state.active.filter((c) => !live || live.has(c.id)).concat(filter.archive === true ? state.archived : []);
-    visible = intersectVisibleIds(searchIds, new Set(drawn.filter(cardIsScheduled).map((c) => c.id)));
+    const shown = viewShownCards(timelineViewInput(mode === 'gantt' ? loadGanttStatusFilter() : loadCalendarStatusFilter(), searchIds));
+    visible = new Set(shown.live.concat(shown.archived).filter(cardIsScheduled).map((c) => c.id));
   } else {
     const collapsed = loadCollapsedColumns();
     const open = pool.filter((c) => !collapsed[mapFilterColumn(c, boardStatuses())]);
@@ -3965,20 +3963,25 @@ function calendarChipEl(card, pos, time, isDue) {
 // The sub-view label set for the switcher + the nav buttons' spans.
 const CAL_SUBVIEW_LABELS = { month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
-// The three inputs the Calendar's grids compose before they draw (see
-// renderCalendarMonthGrid and renderCalendarTimeGrid: the search result, the
-// status filter's visible ids and the Archive pill), as the jump to the nearest
-// match needs them. viewShownCards (calendar-model.js) composes them the way the
-// grids do, and calendar-gantt-jump-page.test.js pins that what it answers is
-// what the grids hand to their layout.
-function calendarViewInput(match = currentSearchMatch()) {
+// The three inputs a timeline view (the Calendar or the Gantt) composes before it draws
+// (see renderCalendarMonthGrid, renderCalendarTimeGrid and renderGanttView: the search
+// result, the status filter's visible ids and the Archive pill), as the jump to the nearest
+// match and the cards a selection can reach (viewCardIds) need them. `filter` is the view's
+// status filter and `searchIds` the box's match, null for no query. viewShownCards
+// (calendar-model.js) composes them the way the grids and rows do, and
+// calendar-gantt-jump-page.test.js pins that what it answers is what they hand to their layout.
+function timelineViewInput(filter, searchIds) {
   return {
     active: state.active,
     archived: state.archived,
-    searchIds: match.ids,
-    statusIds: ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses()),
-    archiveOn: loadCalendarStatusFilter().archive === true,
+    searchIds,
+    statusIds: ganttFilterVisibleIds(state.active, filter, boardStatuses()),
+    archiveOn: filter.archive === true,
   };
+}
+
+function calendarViewInput(match = currentSearchMatch()) {
+  return timelineViewInput(loadCalendarStatusFilter(), match.ids);
 }
 
 function renderCalendarView() {
@@ -4840,17 +4843,10 @@ function ganttBarEl(bar, win, dayPx) {
   return el;
 }
 
-// The three inputs renderGanttView composes before it draws (the search result,
-// the Gantt's status filter's visible ids and its Archive pill), as the jump to
-// the nearest match needs them; the same shape as calendarViewInput.
+// What renderGanttView composes before it draws, as the jump needs it: the same shape as
+// calendarViewInput, over the Gantt's status filter (timelineViewInput).
 function ganttViewInput(match = currentSearchMatch()) {
-  return {
-    active: state.active,
-    archived: state.archived,
-    searchIds: match.ids,
-    statusIds: ganttFilterVisibleIds(state.active, loadGanttStatusFilter(), boardStatuses()),
-    archiveOn: loadGanttStatusFilter().archive === true,
-  };
+  return timelineViewInput(loadGanttStatusFilter(), match.ids);
 }
 
 function renderGanttView() {
