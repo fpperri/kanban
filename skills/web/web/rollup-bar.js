@@ -38,12 +38,12 @@ function rollupBar(rollup, mode, order) {
     `<span class="rollup-seg rollup-seg--${ROLLUP_STATUS_COLORS.statusColorClass(status)}" data-n="${n}" title="${label(status)}: ${n}"></span>`
   ).join('');
   const bar = `<div class="rollup-bar${mode === collapsed ? ' thin' : ''}">${segs}</div>`;
-  if (mode === collapsed) return `<div class="rollup">${bar}</div>`;
+  if (mode === collapsed) return `<div class="rollup" data-keeps-selection>${bar}</div>`;
   const done = segments.filter(({ status }) => status === 'done').map(({ n }) => `<span class="rollup-count">${n} done</span>`);
   const others = segments.filter(({ status }) => status !== 'done').map(({ status, n }) =>
     `<span class="rollup-count rollup-count--${ROLLUP_STATUS_COLORS.statusColorClass(status)}">${n} ${label(status)}</span>`);
   const items = done.concat(others);
-  return `<div class="rollup">${bar}<div class="rollup-counts" title="${rollupWhere(rollup)}"><b class="rollup-total">${rollup.total}</b> ${items.join(' ')}</div></div>`;
+  return `<div class="rollup" data-keeps-selection>${bar}<div class="rollup-counts" title="${rollupWhere(rollup)}"><b class="rollup-total">${rollup.total}</b> ${items.join(' ')}</div></div>`;
 }
 
 // The roll-up counts only this board's cards: a parent cannot know about

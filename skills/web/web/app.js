@@ -964,13 +964,13 @@ function renderBoardColumns() {
     // persisted per-column state, so a re-render (poll/drag/toggle/search)
     // never visually resets the control out from under the user.
     const sortControls = isCollapsed ? '' :
-      `<select class="column-sort-field" data-col="${escapeHtml(col)}" ` +
+      `<select class="column-sort-field" data-holds-poll data-col="${escapeHtml(col)}" ` +
         `aria-label="Sort ${escapeHtml(label)} column by" title="Sort by">` +
         SORT_FIELDS.map((f) =>
           `<option value="${f}"${sortState.field === f ? ' selected' : ''}>${escapeHtml(SORT_FIELD_LABELS[f])}</option>`
         ).join('') +
       `</select>` +
-      `<button type="button" class="column-sort-dir" data-col="${escapeHtml(col)}" ` +
+      `<button type="button" class="column-sort-dir" data-holds-poll data-col="${escapeHtml(col)}" ` +
         `aria-label="Toggle sort direction, currently ${sortState.direction === 'desc' ? 'descending' : 'ascending'}" ` +
         `title="Sort direction: ${sortState.direction === 'desc' ? 'descending' : 'ascending'} (click to toggle)">` +
         (sortState.direction === 'desc' ? '&#8595;' : '&#8593;') +
@@ -993,9 +993,9 @@ function renderBoardColumns() {
         // row already revealed (see enableAiPrompt(), wired in the delegated
         // click listener below).
         (showsColumnAdd(col, isCollapsed) ?
-          `<button type="button" class="column-add" data-col="${escapeHtml(col)}" ` +
+          `<button type="button" class="column-add" data-holds-poll data-col="${escapeHtml(col)}" ` +
             `aria-label="New card in ${escapeHtml(label)}" title="New card in ${escapeHtml(label)}">+</button>` +
-          `<button type="button" class="column-add-ai" data-col="${escapeHtml(col)}" ` +
+          `<button type="button" class="column-add-ai" data-holds-poll data-col="${escapeHtml(col)}" ` +
             `aria-label="New AI-prompt card in ${escapeHtml(label)}" title="New card in ${escapeHtml(label)} with AI prompt enabled">${AI_PROMPT_ICON}</button>` : '') +
       `</div>`;
     // Custom columns get their deterministic hashed color inline
@@ -1123,6 +1123,7 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
     btn.type = 'button';
     btn.className = pillClass + (on ? '' : ' off');
     btn.dataset.col = col;
+    btn.dataset.keepsSelection = '';
     btn.setAttribute('aria-pressed', String(on));
     btn.title = titleFor(col, on) + ' Right-click to solo (right-click the soloed pill again to restore all).';
     const dot = document.createElement('span');
@@ -1187,6 +1188,8 @@ function buildMapZoomControls() {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'map-zoom-btn';
+    b.dataset.keepsSelection = '';
+    b.dataset.holdsPoll = '';
     b.dataset.zoomAction = action;
     b.title = title;
     b.setAttribute('aria-label', title);
@@ -1254,7 +1257,7 @@ function mapOptionsRowHtml(options) {
     const meta = MAP_OPTION_LABELS[key];
     const buttons = MAP_OPTION_VALUES[key].map((value) => {
       const on = options[key] === value;
-      return `<button type="button" class="map-option-btn${on ? ' active' : ''}" data-key="${key}" data-val="${value}" aria-pressed="${on}">${escapeHtml(meta.values[value])}</button>`;
+      return `<button type="button" class="map-option-btn${on ? ' active' : ''}" data-key="${key}" data-val="${value}" aria-pressed="${on}" data-keeps-selection data-holds-poll>${escapeHtml(meta.values[value])}</button>`;
     }).join('');
     return `<span class="map-option" title="${escapeHtml(meta.hint)}"><span class="map-option-label">${escapeHtml(meta.label)}</span><span class="map-option-seg" role="group" aria-label="${escapeHtml(meta.label)}">${buttons}</span></span>`;
   }).join('');
@@ -1311,7 +1314,7 @@ function buildMapSectionHeader(section, label, collapsed) {
   header.className = 'map-section-header';
   header.innerHTML =
     `<button type="button" class="map-section-toggle" data-section="${section}" ` +
-      `aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escapeHtml(label)}" aria-expanded="${!collapsed}">` +
+      `aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escapeHtml(label)}" aria-expanded="${!collapsed}" data-keeps-selection>` +
       (collapsed ? CHEVRON_RIGHT_ICON : CHEVRON_LEFT_ICON) +
     `</button>` +
     `<span>${escapeHtml(label)}</span>`;
@@ -1716,7 +1719,7 @@ function applyBoardData(data) {
   applyLists(data.priorities || [], data.tags || []);
   state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
-  selectedIds = pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id)); // drop ghosts before render (archived cards are in the domain too)
+  setSelection(pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id))); // drop ghosts before render (archived cards are in the domain too)
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
   // them, so an unattended poll would drop a Tab-navigating user's focus to
   // <body>. The header controls solve that by blocking the refresh
@@ -1782,11 +1785,13 @@ function anyModalOpen() {
 // the poll for the rest of the session — no stale indicator, no error, just a
 // board that quietly stops updating. applyBoardData re-finds the focused card
 // and pill after its render instead.
+// The controls that hold the poll carry data-holds-poll; a control built by a
+// render path must wear it, and a pill or fold toggle must not.
 function boardControlFocused() {
   const el = document.activeElement;
   // Pills and fold toggles are not here: they are rebuilt by every render, so
   // applyBoardData refocuses the focused one instead of freezing the poll.
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-zoom-btn, .map-option-btn, .graph-control:not(.graph-filter-toggle)'));
+  return !!(el && el.closest && el.closest('[data-holds-poll]'));
 }
 
 function setStale(stale) {
@@ -1834,7 +1839,8 @@ function wireDrag() {
       // whole selection. Captured at dragstart — the flag, not the live set,
       // decides at drop time, so a poll pruning the set mid-drag can't flip
       // a bulk drag into a single-card one halfway through.
-      bulkDragIds = (selectedIds.has(Number(el.dataset.id)) && selectedIds.size > 1) ? [...selectedIds] : null;
+      const dragged = bulkTargets();
+      bulkDragIds = (dragged.length > 1 && dragged.some((c) => c.id === Number(el.dataset.id))) ? dragged.map((c) => c.id) : null;
       dragCardId = Number(el.dataset.id);
     });
     el.addEventListener('dragend', () => {
@@ -3001,7 +3007,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
-    clearSearch();
+    escapeStep();
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable
   // popup is open — the keyboard twin of that popup's toggle button, going
@@ -3074,6 +3080,12 @@ function clearSearch() {
   const input = $('#search-input');
   if (!input || !input.value) return;
   writeSearch('', 'clear');
+}
+
+// What Esc does when nothing is open for it to close: today it clears the
+// search box. The one place the end of the Esc chain lives.
+function escapeStep() {
+  clearSearch();
 }
 
 function onSearchSlashKey(e) {
@@ -3630,16 +3642,16 @@ function renderCalendarView() {
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =
-    `<button type="button" id="cal-prev-btn" class="cal-nav" title="Previous ${spanNoun}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
-    `<button type="button" id="cal-today-btn" class="cal-nav" title="Jump back to today">Today</button>` +
-    `<button type="button" id="cal-next-btn" class="cal-nav" title="Next ${spanNoun}" aria-label="Next ${spanNoun}">&#8250;</button>` +
+    `<button type="button" id="cal-prev-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Previous ${spanNoun}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
+    `<button type="button" id="cal-today-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Jump back to today">Today</button>` +
+    `<button type="button" id="cal-next-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Next ${spanNoun}" aria-label="Next ${spanNoun}">&#8250;</button>` +
     `<span class="cal-title">${escapeHtml(subviewTitle(subview, currentCalendarAnchor()))}</span>` +
     // The sub-view switcher. cal-nav class on purpose: it joins the
     // focused-control poll guard AND the Q0 clear-selection exemption, same
     // as prev/today/next (these buttons are rebuilt every render too).
     `<span class="cal-subview-switch" role="group" aria-label="Calendar span">` +
     CALENDAR_SUBVIEWS.map((sv) =>
-      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" ` +
+      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${CAL_SUBVIEW_LABELS[sv]}</button>`).join('') +
     `</span>`;
   container.appendChild(controls);
@@ -4379,13 +4391,13 @@ function buildGanttControls() {
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =
-    `<button type="button" id="gantt-prev-btn" class="cal-nav"${disabledAttr} title="${prevTitle}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
-    `<button type="button" id="gantt-today-btn" class="cal-nav"${disabledAttr} title="${todayTitle}">Today</button>` +
-    `<button type="button" id="gantt-next-btn" class="cal-nav"${disabledAttr} title="${nextTitle}" aria-label="Next ${spanNoun}">&#8250;</button>` +
+    `<button type="button" id="gantt-prev-btn" class="cal-nav" data-keeps-selection data-holds-poll${disabledAttr} title="${prevTitle}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
+    `<button type="button" id="gantt-today-btn" class="cal-nav" data-keeps-selection data-holds-poll${disabledAttr} title="${todayTitle}">Today</button>` +
+    `<button type="button" id="gantt-next-btn" class="cal-nav" data-keeps-selection data-holds-poll${disabledAttr} title="${nextTitle}" aria-label="Next ${spanNoun}">&#8250;</button>` +
     `<span class="cal-title">${escapeHtml(title)}</span>` +
     `<span class="cal-subview-switch" role="group" aria-label="Gantt span">` +
     GANTT_SUBVIEWS.map((sv) =>
-      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" ` +
+      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${GANTT_SUBVIEW_LABELS[sv]}</button>`).join('') +
     `</span>`;
   return controls;
@@ -5086,19 +5098,29 @@ window.addEventListener('DOMContentLoaded', () => {
 // chips, and gantt bars + gutter labels all carry the card-el contract and
 // share one interaction grammar — click opens detail, ctrl/cmd+click toggles
 // one card in the selection, shift+click adds the whole range between the
-// anchor and the target (the file-manager grammar), right-click
+// range start and the target (the file-manager grammar), right-click
 // selects + opens the context menu (whose actions were already view-agnostic:
-// they act on selectedIds, not on DOM). Only the map's ghost stubs opt out
+// they act on the selection, not on DOM). Only the map's ghost stubs opt out
 // (see buildMapSvg).
-let selectedIds = new Set();
-// The range anchor — the last card a selection gesture landed on
-// (ctrl+click, a range-starting shift+click, or a right-click that replaced
-// the selection). Never persisted, and never trusted blindly: shift+click
+// The selection: the ids picked, and the range start — the last card a
+// selection gesture landed on (ctrl+click, a range-starting shift+click, or a
+// right-click that replaced the selection). Written only by setSelection.
+// Never persisted, and the range start is never trusted blindly: shift+click
 // re-validates it against the rendered order and re-plants it when the card
 // vanished (poll/delete) or left the active view (filter/view switch).
-let selectionAnchor = null;
+let selectionState = { ids: new Set(), rangeStart: null };
+// What every view paints from and every bulk edit reads, derived from the
+// selection state by setSelection.
+let selectedIds = selectionState.ids;
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
 let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
+
+// The one entry point for every write to the selection. A write that names no
+// range start keeps the one the selection had.
+function setSelection(ids, rangeStart = selectionState.rangeStart) {
+  selectionState = { ids, rangeStart };
+  selectedIds = selectionState.ids;
+}
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
 // resting on any ONE piece of a card lights every piece sharing its id —
@@ -5147,8 +5169,7 @@ function hideContextMenu() {
 function openCardContextMenu(e, id) {
   const next = contextSelection(selectedIds, id);
   if (next !== selectedIds) {
-    selectedIds = next;
-    selectionAnchor = id; // the gesture restarted the selection — ranges extend from here
+    setSelection(next, id); // the gesture restarted the selection — ranges extend from here
     renderBoard();
   }
   e.preventDefault();
@@ -5164,6 +5185,70 @@ function onDetailContextMenu(e) {
   const picked = window.getSelection();
   if (picked && !picked.isCollapsed) return;
   openCardContextMenu(e, currentDetailId);
+}
+
+// An assignee cue or a tag is a search shortcut, not a way to open/select the
+// card underneath it. See addSearchTerm for the additive/no-op contract. ADR
+// 0009: the blocked/review pills join the same shortcut — always the bare
+// presence term, read from state, never the pill's own text (the reason itself
+// isn't a search key).
+function searchByCue(cue, id) {
+  const card = state.active.concat(state.archived).find((c) => c.id === id);
+  if (!card) return;
+  if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(`assignee:${card.assignee}`);
+  else if (cue.classList.contains('tag')) addSearchTerm(`tags:${cue.textContent}`);
+  else if (cue.classList.contains('blocked-pill')) addSearchTerm('blocked:');
+  else if (cue.classList.contains('review-pill')) addSearchTerm('review:');
+}
+
+// Carries out what cardClickAction (selection.js) decided about a click on a
+// card. File-manager selection grammar: Shift+click ADDS the whole range
+// between the range start and the target, in the active view's rendered order;
+// ctrl/cmd+click toggles one card and plants the range start; a plain click
+// breaks any selection, then opens the card (or, in a view whose plain click
+// selects, selects it alone). renderBoard() repaints whichever view is active
+// — board columns always, plus the active map/calendar/gantt.
+function applyCardClick(action, id, cue) {
+  if (action === 'cue') { searchByCue(cue, id); return; }
+  if (action === 'range') {
+    const order = visibleCardIds();
+    // no usable range start (never set, card gone, or filtered out of this
+    // view) — this click starts the range: select the target, start here
+    const start = order.includes(selectionState.rangeStart) ? selectionState.rangeStart : id;
+    setSelection(rangeSelection(selectedIds, order, start, id), start);
+    renderBoard();
+    return;
+  }
+  if (action === 'toggle') {
+    setSelection(toggleSelection(selectedIds, id), id);
+    renderBoard();
+    return;
+  }
+  if (action === 'select') {
+    setSelection(new Set([id]), id);
+    renderBoard();
+    return;
+  }
+  const hadSelection = selectedIds.size > 0;
+  setSelection(new Set(), null);
+  if (hadSelection) renderBoard();
+  openCard(id);
+}
+
+// Q0: any plain click that isn't on a control marked data-keeps-selection
+// drops the multi-selection. Ctrl-, cmd- and shift-clicks build it. The marked
+// controls are the ones that must not wipe a building selection: the context
+// menu and the bulk popups (so they don't kill their own target batch), the
+// view toggle buttons (the selection must survive a view switch), the
+// date-picker popover (it renders into document.body, outside #modal), and the
+// curate-the-view controls: month paging, the status pills, the section
+// collapse toggles, the map options and zoom toolbar, the roll-up bars and the
+// Graph's controls. A control built by a render path must wear the marker.
+function onClickAway(e) {
+  if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
+  if (e.target.closest('[data-keeps-selection]')) return;
+  setSelection(new Set(), null); // a dead selection must not leave an invisible range start behind
+  renderBoard();
 }
 
 function showContextMenu(x, y) {
@@ -5206,8 +5291,10 @@ function focusOn(kind) {
 // — the drag-to-Archive and tile/detail Archive paths never ask at all.
 async function bulkArchive() {
   hideContextMenu();
-  const skipped = selectedCards().filter((c) => c.archived).length; // already archived (mixed selections)
-  const toArchive = selectedCards().filter((c) => !c.archived);
+  captureBulkTargets();
+  const targets = bulkTargets(bulkPopupIds);
+  const skipped = targets.filter((c) => c.archived).length; // already archived (mixed selections)
+  const toArchive = targets.filter((c) => !c.archived);
   const ids = toArchive.map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Everything selected is already archived.'); return; }
   // one speedbump for the batch, not one per card — skipped entirely
@@ -5223,22 +5310,23 @@ function openBulkArchive(count) {
   $('#bulk-archive-input').focus();
 }
 
-// The popup's Archive button. Re-derives the batch from the live selection
-// (the poll may have moved cards under the popup) and sends the package with
-// every POST — a blank box sends none, so the request is byte-identical to
-// the package-less archive paths.
+// The popup's Archive button. Archives the cards the popup captured when the
+// action started, read again (the poll may have moved cards under the popup),
+// and sends the package with every POST — a blank box sends none, so the
+// request is byte-identical to the package-less archive paths.
 async function applyBulkArchive() {
   const pkg = $('#bulk-archive-input').value.trim();
   $('#bulk-archive').classList.add('hidden');
-  const skipped = selectedCards().filter((c) => c.archived).length;
-  const ids = selectedCards().filter((c) => !c.archived).map((c) => c.id);
+  const targets = bulkTargets(bulkPopupIds);
+  const skipped = targets.filter((c) => c.archived).length;
+  const ids = targets.filter((c) => !c.archived).map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Everything selected is already archived.'); return; }
   const failed = [];
   for (const id of ids) {
     try { await api('POST', `/api/cards/${id}/archive`, pkg ? { package: pkg } : undefined); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  selectedIds = new Set();
+  setSelection(new Set());
   await loadBoard();
   const where = pkg ? ` into ${pkg}` : '';
   const skipNote = skipped ? `; skipped ${skipped} already archived` : '';
@@ -5250,8 +5338,9 @@ async function applyBulkArchive() {
 // destination, the menu doesn't). Live cards in a mixed selection skip.
 async function bulkRestore() {
   hideContextMenu();
-  const skipped = selectedCards().filter((c) => !c.archived).length;
-  const ids = selectedCards().filter((c) => c.archived).map((c) => c.id);
+  const targets = bulkTargets();
+  const skipped = targets.filter((c) => !c.archived).length;
+  const ids = targets.filter((c) => c.archived).map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Nothing selected is archived.'); return; }
   const failed = [];
   for (const id of ids) {
@@ -5265,7 +5354,7 @@ async function bulkRestore() {
 
 async function bulkDelete() {
   hideContextMenu();
-  const ids = [...selectedIds];
+  const ids = bulkTargets().map((c) => c.id);
   if (!ids.length) return;
   if (!confirm(`Permanently delete ${ids.length} card(s)? This cannot be undone.`)) return;
   const failed = [];
@@ -5273,7 +5362,7 @@ async function bulkDelete() {
     try { await api('DELETE', `/api/cards/${id}`); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  selectedIds = new Set();
+  setSelection(new Set());
   await loadBoard();
   toast(failed.length ? `Deleted ${ids.length - failed.length}; failed: ${failed.join(', ')}` : `Deleted ${ids.length} card(s).`);
 }
@@ -5290,7 +5379,7 @@ async function onBulkDrop(ids, status) {
   if (!movable.length && !refused.length) return;
   const prev = new Map(movable.map((c) => [c.id, c.status]));
   movable.forEach((c) => { c.status = status; }); // optimistic
-  selectedIds = new Set();
+  setSelection(new Set());
   renderBoard();
   pendingDrops++; // same poll guard as single onDrop
   const failed = [];
@@ -5318,17 +5407,30 @@ async function onBulkDrop(ids, status) {
 // speedbump (edits are reversible, unlike archive/delete) — and the
 // selection survives so bulk actions chain on the same batch.
 let bulkSingleMode = null; // 'assignee' | 'priority'
+let bulkPopupIds = []; // the ids an open bulk popup captured when it opened; the next popup replaces them
 
-function selectedCards() {
-  return [...state.active, ...state.archived].filter((c) => selectedIds.has(c.id));
+// The one reader of the cards a bulk action acts on, live or archived, in the
+// order they were selected; an id with no card (deleted mid-selection) is
+// dropped. With no argument it reads the selection as it is now. A popup that
+// stays open while the poll and the user move on passes the ids it captured.
+function bulkTargets(ids = [...selectedIds]) {
+  const byId = new Map([...state.active, ...state.archived].map((c) => [c.id, c]));
+  return ids.map((id) => byId.get(id)).filter(Boolean);
+}
+
+// A popup's copy of its targets, taken when it opens, so it acts on the cards it
+// showed whatever happens to the selection while it is open.
+function captureBulkTargets() {
+  bulkPopupIds = bulkTargets().map((c) => c.id);
 }
 
 function openBulkSingle(mode) {
   hideContextMenu();
-  if (!selectedIds.size) return;
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
   bulkSingleMode = mode;
   $('#bulk-single-title').textContent = mode === 'assignee'
-    ? `Assign ${selectedIds.size} card(s)` : `Set priority on ${selectedIds.size} card(s)`;
+    ? `Assign ${bulkPopupIds.length} card(s)` : `Set priority on ${bulkPopupIds.length} card(s)`;
   $('#bulk-single-hint').textContent = mode === 'assignee' ? 'Leave empty to unassign.' : '';
   $('#bulk-single-input').value = '';
   $('#bulk-single-apply').disabled = mode === 'priority'; // priority requires a value
@@ -5355,11 +5457,11 @@ async function applyBulkSingle() {
   const label = mode === 'assignee'
     ? (value ? `Assigned ${value} to` : 'Unassigned')
     : `Priority ${value} set on`;
-  await bulkPatch([...selectedIds], () => (mode === 'assignee' ? { assignee: value } : { priority: value }), (n) => `${label} ${n} card(s)`);
+  await bulkPatch(bulkTargets(bulkPopupIds).map((c) => c.id), () => (mode === 'assignee' ? { assignee: value } : { priority: value }), (n) => `${label} ${n} card(s)`);
 }
 
 function renderBulkTags() {
-  const cards = selectedCards();
+  const cards = bulkTargets(bulkPopupIds);
   $('#bulk-tags-title').textContent = `Edit tags on ${cards.length} card(s)`;
   const list = $('#bulk-tag-list');
   const union = tagUnion(cards);
@@ -5381,7 +5483,8 @@ function renderBulkTags() {
 
 function openBulkTags() {
   hideContextMenu();
-  if (!selectedIds.size) return;
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
   $('#bulk-tag-input').value = '';
   renderBulkTags();
   applyModalFullscreen('bulkTags'); // re-apply the persisted preference on every open
@@ -5393,7 +5496,7 @@ function openBulkTags() {
 async function bulkAddTag() {
   const tag = $('#bulk-tag-input').value.trim();
   if (!tag) return;
-  const changes = addTagChanges(selectedCards(), tag);
+  const changes = addTagChanges(bulkTargets(bulkPopupIds), tag);
   $('#bulk-tag-input').value = '';
   if (!changes.length) { toast(`All selected cards already have "${tag}".`); return; }
   const byId = new Map(changes.map((c) => [c.id, c.tags]));
@@ -5404,7 +5507,7 @@ async function bulkAddTag() {
 async function bulkRemoveTags() {
   const chosen = [...$('#bulk-tag-list').querySelectorAll('input:checked')].map((cb) => cb.value);
   if (!chosen.length) { toast('Tick the tags to remove first.'); return; }
-  const changes = removeTagsChanges(selectedCards(), chosen);
+  const changes = removeTagsChanges(bulkTargets(bulkPopupIds), chosen);
   const byId = new Map(changes.map((c) => [c.id, c.tags]));
   await bulkPatch([...byId.keys()], (id) => ({ tags: byId.get(id) }), (n) => `Removed ${chosen.join(', ')} from ${n} card(s)`);
   renderBulkTags();
@@ -5447,8 +5550,9 @@ function refreshScheduleControls() {
 
 function openBulkSchedule() {
   hideContextMenu();
-  if (!selectedIds.size) return;
-  $('#bulk-schedule-title').textContent = `Schedule ${selectedIds.size} card(s)`;
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
+  $('#bulk-schedule-title').textContent = `Schedule ${bulkPopupIds.length} card(s)`;
   for (const [, inputSel, clearSel] of SCHEDULE_ROWS) { // fresh slate on every open
     $(inputSel).value = '';
     $(clearSel).checked = false;
@@ -5463,7 +5567,7 @@ async function applyBulkSchedule() {
   const changes = scheduleChanges(readScheduleFields());
   $('#bulk-schedule').classList.add('hidden');
   if (!changes) return; // untouched — Apply is disabled then, but belt-and-braces: just close
-  await bulkPatch([...selectedIds], () => changes, (n) => `Scheduled ${n} card(s): ${scheduleSummary(changes)}`);
+  await bulkPatch(bulkTargets(bulkPopupIds).map((c) => c.id), () => changes, (n) => `Scheduled ${n} card(s): ${scheduleSummary(changes)}`);
 }
 
 // Esc must never be a true no-op on a fullscreen
@@ -5497,49 +5601,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const el = e.target.closest('.card-el');
     if (!el) return;
     if (e.target.closest('button, select, input, a')) return;
-    const id = Number(el.dataset.id);
-    // An assignee cue or a tag is a search shortcut, not a
-    // way to open/select the card underneath it — handled here, ahead of the
-    // select/open logic below, an additive guard
-    // only. See addSearchTerm for the additive/no-op
-    // contract. ADR 0009: the blocked/review pills join the same
-    // shortcut — always the bare presence term, read from state, never the
-    // pill's own text (the reason itself isn't a search key).
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
-    if (cue) {
-      const card = state.active.concat(state.archived).find((c) => c.id === id);
-      if (card) {
-        if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(`assignee:${card.assignee}`);
-        else if (cue.classList.contains('tag')) addSearchTerm(`tags:${cue.textContent}`);
-        else if (cue.classList.contains('blocked-pill')) addSearchTerm('blocked:');
-        else if (cue.classList.contains('review-pill')) addSearchTerm('review:');
-      }
-      return;
-    }
-    // File-manager selection grammar:
-    // Shift+click ADDS the whole range between the anchor and the target, in
-    // the active view's rendered order; ctrl/cmd+click toggles one card and
-    // plants the anchor. renderBoard() repaints whichever view is active —
-    // board columns always, plus the active map/calendar/gantt.
-    if (e.shiftKey) {
-      const order = visibleCardIds();
-      // no usable anchor (never set, card gone, or filtered out of this
-      // view) — this click starts the range: select the target, anchor here
-      if (!order.includes(selectionAnchor)) selectionAnchor = id;
-      selectedIds = rangeSelection(selectedIds, order, selectionAnchor, id);
-      renderBoard();
-      return;
-    }
-    if (e.ctrlKey || e.metaKey) {
-      selectedIds = toggleSelection(selectedIds, id);
-      selectionAnchor = id;
-      renderBoard();
-      return;
-    }
-    // Plain click breaks any selection, then just opens the card as always.
-    selectionAnchor = null;
-    if (selectedIds.size) { selectedIds = new Set(); renderBoard(); }
-    openCard(id);
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(loadViewMode()) });
+    applyCardClick(action, Number(el.dataset.id), cue);
   });
   // Right-click on any card-el opens the bulk menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page).
@@ -5628,20 +5692,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     if (!$('#context-menu').classList.contains('hidden') && !e.target.closest('#context-menu')) hideContextMenu();
   });
-  // Q0: any plain click that isn't inside the context menu or a
-  // bulk popup drops the multi-selection. Ctrl-, cmd- and shift-clicks build
-  // it; the menu and popups are exempt so they don't kill their
-  // own target batch. The view toggle buttons are exempt too: the
-  // selection must survive a view switch. The date-picker popover
-  // renders into document.body (outside #modal), so it and the schedule
-  // popup are exempt as well.
-  document.addEventListener('click', (e) => {
-    if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup, #graph-toggle-btn, .graph-control')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar and the roll-up bars must not wipe a building selection
-    selectedIds = new Set();
-    selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
-    renderBoard();
-  });
+  document.addEventListener('click', onClickAway);
   window.addEventListener('resize', hideContextMenu);
   // Backdrop click on the edit/new-card form goes through the dirty guard.
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') requestCloseModal(); });
@@ -5824,6 +5875,7 @@ function datePickerPop() {
   if (pop) return pop;
   pop = document.createElement('div');
   pop.className = 'date-picker-pop';
+  pop.dataset.keepsSelection = '';
   pop.hidden = true;
   // One delegated listener outlives every re-render (renderDatePicker swaps
   // the children on each nav click) — same discipline as #calendar-view's.
