@@ -301,6 +301,76 @@ async function drive(base, cdpPort, shotsDir) {
   await send('Page.navigate', { url: `${base}/?q=status%3Adoing` });
   check('a ?q= link writes the box and narrows the columns', (await waitFor(`document.getElementById('search-input').value==='status:doing'`)) && (await boardShows([1, 2, 9, 15])), { box: await boxText(), shown: await shownNow() });
 
+  // The address follows the box: the address's q is replaced as the box changes, never pushed, so typing adds no
+  // history, and a reload or a copied link opens with the same search. Alt+Left and Alt+Right are browser shortcuts a
+  // headless page is never sent, so Back and Forward are the same history traversal through history.back() and
+  // history.forward(). Every wait is on the address or the box, never on a timer.
+  const addressParams = () => ev(`Object.fromEntries(new URLSearchParams(location.search))`);
+  const addressHas = (expected) => waitFor(`(()=>{const p=new URLSearchParams(location.search);const want=${JSON.stringify(expected)};return Object.keys(want).every((k)=>p.get(k)===want[k])&&[...p.keys()].every((k)=>k in want)})()`);
+  const entryCount = () => ev(`history.length`);
+  const typeKeys = async (text) => { for (const ch of text) await send('Input.insertText', { text: ch }); };
+  const focusBoxAtEnd = () => ev(`(()=>{const i=document.getElementById('search-input');i.focus();i.setSelectionRange(i.value.length,i.value.length)})()`);
+  const selectBoxText = () => ev(`(()=>{const i=document.getElementById('search-input');i.focus();i.select()})()`);
+  const detailShown = (on) => waitFor(`document.getElementById('detail-modal').classList.contains('hidden')===${on ? 'false' : 'true'}`, 5000);
+  const openTile = (id) => ev(`document.querySelector('#board .card-el[data-id="${id}"]').click()`);
+
+  await send('Page.navigate', { url: `${base}/?view=board` });
+  await boardShows(liveIds, 10000);
+  const entriesBeforeTyping = await entryCount();
+  await focusBoxAtEnd();
+  await typeKeys('zephyr');
+  check('typing zephyr puts it in the address as q and keeps view', await addressHas({ view: 'board', q: 'zephyr' }), await addressParams());
+  check('the browser history does not grow while typing', (await entryCount()) === entriesBeforeTyping, { before: entriesBeforeTyping, now: await entryCount() });
+  check('and the board shows the matches', await boardShows([1, 2, 7, 11]), await shownNow());
+
+  await send('Page.reload');
+  check('after a reload the box holds zephyr and the board shows only its matches', (await waitFor(`document.getElementById('search-input').value==='zephyr'`, 10000)) && (await boardShows([1, 2, 7, 11])), { box: await boxText(), shown: await shownNow() });
+  check('and the reload left the address as it was', await addressHas({ view: 'board', q: 'zephyr' }), await addressParams());
+
+  await ev(`document.getElementById('search-clear-btn').click()`);
+  check('clearing the box drops q from the address and keeps view', await addressHas({ view: 'board' }), await addressParams());
+  check('and the history still did not grow', (await entryCount()) === entriesBeforeTyping, await entryCount());
+
+  const compound = '#12 | (tags:"next-up" status:doing)';
+  await ev(`writeSearch(${JSON.stringify(compound)}, 'menu')`);
+  check('a compound query reaches the address whole', (await waitFor(`new URLSearchParams(location.search).get('q')===${JSON.stringify(compound)}`)) && !(await ev(`location.hash`)), await addressParams());
+  await send('Page.reload');
+  check('a box holding #12 | (tags:"next-up" status:doing) comes back unchanged after a reload', (await waitFor(`document.getElementById('search-input').value===${JSON.stringify(compound)}`, 10000)) && (await addressHas({ view: 'board', q: compound })), { box: await boxText(), address: await addressParams() });
+
+  await send('Page.navigate', { url: `${base}/?q=zephyr&view=graph` });
+  check('a link opened with q and view=graph shows the graph and the query', (await waitFor(`document.querySelectorAll('.graph-node').length>0`, 10000)) && (await boxText()) === 'zephyr', { box: await boxText() });
+  check('and leaves the address as the link had it', await addressHas({ q: 'zephyr', view: 'graph' }), await addressParams());
+  await focusBoxAtEnd();
+  await typeKeys('x');
+  check('one more keystroke makes q equal the box and keeps view', (await waitFor(`document.getElementById('search-input').value==='zephyrx'`)) && (await addressHas({ q: 'zephyrx', view: 'graph' })), { box: await boxText(), address: await addressParams() });
+
+  await send('Page.navigate', { url: `${base}/?q=zephyr` });
+  await boardShows([1, 2, 7, 11], 10000);
+  const entriesBeforeOpen = await entryCount();
+  await openTile(1);
+  check('opening a card with a query in the box adds one history step carrying card and q', (await detailShown(true)) && (await addressHas({ q: 'zephyr', card: '1' })) && (await entryCount()) === entriesBeforeOpen + 1, { address: await addressParams(), before: entriesBeforeOpen, now: await entryCount() });
+  await ev(`history.back()`);
+  check('going Back closes the card and the box keeps the query', (await detailShown(false)) && (await addressHas({ q: 'zephyr' })) && (await boxText()) === 'zephyr', { box: await boxText(), address: await addressParams() });
+  await ev(`history.forward()`);
+  check('going Forward reopens it and the box keeps the query', (await detailShown(true)) && (await addressHas({ q: 'zephyr', card: '1' })) && (await boxText()) === 'zephyr', { box: await boxText(), address: await addressParams() });
+  check('and the traversal added no entry', (await entryCount()) === entriesBeforeOpen + 1, await entryCount());
+
+  await send('Page.navigate', { url: `${base}/?q=zephyr` });
+  await boardShows([1, 2, 7, 11], 10000);
+  await openTile(1);
+  await detailShown(true);
+  await ev(`document.getElementById('detail-close').click()`);
+  check('closing the card is a step without card and with q', (await detailShown(false)) && (await addressHas({ q: 'zephyr' })));
+  await selectBoxText();
+  await typeKeys('draft');
+  check('a new query typed after the close reaches the address', (await waitFor(`document.getElementById('search-input').value==='draft'`)) && (await addressHas({ q: 'draft' })), { box: await boxText(), address: await addressParams() });
+  const entriesBeforeBack = await entryCount();
+  await ev(`history.back()`);
+  check('Back reopens the card, the box keeps the new query, and the address\'s q equals the box', (await detailShown(true)) && (await addressHas({ q: 'draft', card: '1' })) && (await boxText()) === 'draft', { box: await boxText(), address: await addressParams() });
+  check('the entry Back landed on was replaced, not added to', (await entryCount()) === entriesBeforeBack, { before: entriesBeforeBack, now: await entryCount() });
+  await ev(`document.getElementById('detail-close').click()`);
+  await detailShown(false);
+
   await send('Page.navigate', { url: `${base}/?view=graph` });
   check('graph renders after deep link ?view=graph', await waitFor(`document.querySelectorAll('.graph-node').length>0`, 10000));
   await waitFor(layoutIs('tiers'));
