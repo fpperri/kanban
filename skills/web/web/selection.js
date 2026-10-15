@@ -421,6 +421,17 @@ function selectionAfterBoxEdit(state, boxText, holds) {
   return { selection, rangeStart: selection.anchor && selection.anchor.kind === 'card' ? selection.anchor.id : null };
 }
 
+// The pill queries a step from `before` to `after` took out of the selection, in
+// the order they were picked. Esc's step reads it to take them out of the box as
+// well: the additions go together, then the anchor. A card, a path, a tree and a
+// typed query are not pill queries.
+function pillQueriesDropped(before, after) {
+  const kept = partsOf(after);
+  return partsOf(before)
+    .filter((part) => part.kind === 'query' && !part.source && !kept.some((k) => samePart(k, part)))
+    .map((part) => part.text);
+}
+
 // The card a click picked on its own, or null: a selection that is one card part,
 // the anchor with no additions. Only such a card lights with its relations; a
 // query or a path that matches one card lights that card alone.
@@ -430,11 +441,12 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
   window.selectionAfterBoxEdit = selectionAfterBoxEdit;
+  window.pillQueriesDropped = pillQueriesDropped;
   window.typedQueryPart = typedQueryPart;
   window.isTypedAnchor = isTypedAnchor;
   window.selectionAfterTyping = selectionAfterTyping;

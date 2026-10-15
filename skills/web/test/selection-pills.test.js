@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, addPart, stepBack, resolveSelection,
-  selectionAfterPill, selectionAfterBoxEdit,
+  selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped,
 } = require('../web/selection');
 const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt } = require('../web/search');
 
@@ -255,4 +255,36 @@ test('an edit never changes the selection it is given', () => {
   const before = JSON.stringify(grown);
   afterEdit(grown, '');
   assert.strictEqual(JSON.stringify(grown), before);
+});
+
+// --- Esc takes the pills a step drops out of the box ----------------------------------
+
+test('a step back reports the pill queries it dropped: the additions first, then the anchor', () => {
+  const grown = selectionOf(queryPart(REVIEW), queryPart(BLOCKED), queryPart(WAITING));
+  const first = stepBack(grown);
+  assert.deepStrictEqual(pillQueriesDropped(grown, first), [BLOCKED, WAITING]);
+  const second = stepBack(first);
+  assert.deepStrictEqual(pillQueriesDropped(first, second), [REVIEW]);
+  assert.deepStrictEqual(pillQueriesDropped(second, stepBack(second)), []);
+});
+
+test('cards, paths and a typed query are not pill queries, so a step that drops only those reports nothing', () => {
+  const picked = selectionOf(cardPart(1), pathPart(2), typedQueryPart('zeph'));
+  assert.deepStrictEqual(pillQueriesDropped(picked, stepBack(picked)), []);
+  assert.deepStrictEqual(pillQueriesDropped(picked, NO_SELECTION), []);
+});
+
+test('a pill query that is still in the selection afterwards is not reported', () => {
+  const grown = selectionOf(cardPart(1), queryPart(REVIEW));
+  assert.deepStrictEqual(pillQueriesDropped(grown, grown), []);
+});
+
+test('stepping back from a grown pill selection and taking each step out of the box gets the box to "review:" and then to nothing', () => {
+  const two = gesture('add', BLOCKED, gesture('click', REVIEW, NO_SELECTION, '').selection, 'review:');
+  const one = stepBack(two.selection);
+  const boxOne = pillQueriesDropped(two.selection, one).reduce((text, query) => searchRemoveAlt(text, query), two.boxText);
+  assert.strictEqual(boxOne, 'review:');
+  const none = stepBack(one);
+  const boxNone = pillQueriesDropped(one, none).reduce((text, query) => searchRemoveAlt(text, query), boxOne);
+  assert.strictEqual(boxNone, '');
 });
