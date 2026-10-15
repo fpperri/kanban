@@ -59,6 +59,16 @@ test('the panel text describes the slice section: the tiers the board uses and t
   assert.ok(text.includes('`slice:strategy..`'));
 });
 
+test('the panel text says the keep-only gestures need a fine pointer, and what a tap does on a phone', () => {
+  const text = flat(panel[0]);
+  assert.match(text, /right-click[^.]*context-menu key[^.]*Shift\+F10[^.]*only where the pointer is fine and hovers/);
+  assert.match(text, /on a phone a long-press neither keeps a pill alone nor keeps only a slice/);
+  assert.match(text, /a tap on a slice entry grows the run, drops an end or removes the cut/);
+  const docs = flat(read('docs', 'snapshot.md'));
+  const at = docs.indexOf('## Search panel');
+  assert.match(docs.slice(at, docs.indexOf('##', at + 5)), /right-clicks need a mouse[^.]*a tap/);
+});
+
 test('the panel text says what the counts are taken over, and describes the chip and the keyboard', () => {
   const text = flat(panel[0]);
   assert.match(text, /after the status pills and the Archive pill, before the box and the cut/);

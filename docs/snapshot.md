@@ -64,7 +64,9 @@ from `config.yaml`, a `field:*` entry giving one pill per value, eight shown and
 a right-click keeps only that pill, and each shows how many cards it leaves. The slice section,
 folded to start, lists the tiers the board uses with their icons, then the depths, each with a count;
 a click grows or shrinks the run, a right-click keeps only that slice, and `[` `]` `{` `}` move the
-run's ends. Counts are taken over the cards the status pills and Archive leave, before the box and
+run's ends. The right-clicks need a mouse, a fine pointer that hovers: on a phone a long-press shows
+the browser's own menu, and a tap turns a pill on or off or grows, narrows or clears the run of
+slices. Counts are taken over the cards the status pills and Archive leave, before the box and
 the cut, so turning a pill on never changes the others. With the panel closed, a chip in the box
 counts what is on. There is no Isolate switch here, since the page has no selection to isolate.
 
