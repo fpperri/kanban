@@ -588,3 +588,118 @@ test('graphWithPositions returns a new layout, moves only the named cards and re
   assert.ok(!next.pos.has(99));
   assert.ok(next.bounds.x1 >= 5000);
 });
+
+// --- type icons ------------------------------------------------------------------
+
+const ICON_TYPES = [
+  { name: 'goal', color: '', icon: 'star' },
+  { name: 'epic', color: '', icon: 'square' },
+  { name: 'story', color: '', icon: 'circle' },
+  { name: 'bug', color: '', icon: 'blob' },
+  { name: 'task', color: '' },
+];
+const buildTyped = (cards, types = ICON_TYPES) => graphBuild(cards, { ctx: CTX, types });
+const planOf = (m) => graphPlan(m, graphLayout(m, 'tiers'), planOpts());
+const cornerPoints = (d) => [...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map((p) => Math.hypot(Number(p[1]), Number(p[2])));
+const SHAPES = ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star'];
+
+test('build: a node whose type has an icon carries that shape', () => {
+  const m = buildTyped([card(1, { type: 'goal' }), card(2, { type: 'epic' }), card(3, { type: 'Goal ' })]);
+  assert.strictEqual(m.byId.get(1).shape, 'star');
+  assert.strictEqual(m.byId.get(2).shape, 'square');
+  assert.strictEqual(m.byId.get(3).shape, 'star', 'the type matches without regard to case or space, as the chip does');
+});
+
+test('build: a node with no icon, an unknown icon, no type or an unlisted type gets the circle', () => {
+  const m = buildTyped([
+    card(1, { type: 'task' }), card(2, { type: 'bug' }), card(3), card(4, { type: 'spike' }), card(5, { type: 'story' }), card(6, { type: '' }),
+  ]);
+  for (const id of [1, 2, 3, 4, 5, 6]) assert.strictEqual(m.byId.get(id).shape, 'circle', `card ${id}`);
+});
+
+test('build: an icon name that is hostile text, not one of the six, gives the circle', () => {
+  const types = ['__proto__', 'constructor', 'toString', 'Star', '<script>', 'star"><x', 7, ['star']].map((icon, i) => ({ name: `t${i}`, color: '', icon }));
+  const m = buildTyped(types.map((t, i) => card(i + 1, { type: t.name })), types);
+  for (const n of m.nodes) assert.strictEqual(n.shape, 'circle', n.card.type);
+});
+
+test('build: with no types list at all (an old server, no config) every node is a circle', () => {
+  const m = graphBuild([card(1, { type: 'goal' })], { ctx: CTX });
+  assert.strictEqual(m.byId.get(1).shape, 'circle');
+  assert.strictEqual(graphBuild([card(1, { type: 'goal' })], { ctx: CTX, types: null }).byId.get(1).shape, 'circle');
+});
+
+test('plan: a node of a type with an icon is drawn in that outline, and a circle node has none', () => {
+  const m = buildTyped([card(1, { type: 'goal' }), card(2, { type: 'epic' }), card(3, { type: 'bug' }), card(4, { type: 'story' }), card(5)]);
+  const by = (id) => planOf(m).nodes.find((n) => n.id === id);
+  assert.strictEqual(by(1).shape, 'star');
+  assert.match(by(1).d, /^M.*Z$/);
+  assert.strictEqual(cornerPoints(by(1).d).length, 10, 'a star has ten corners');
+  assert.strictEqual(cornerPoints(by(2).d).length, 4, 'a square has four');
+  for (const id of [3, 4, 5]) {
+    assert.strictEqual(by(id).shape, 'circle', `card ${id}`);
+    assert.strictEqual(by(id).d, '', `card ${id} draws the round dot`);
+  }
+});
+
+test('plan: the outline is drawn for the node radius, so it grows with the degree', () => {
+  const m = buildTyped([card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { type: 'goal' })]);
+  const plan = planOf(m);
+  const hub = plan.nodes.find((n) => n.id === 1);
+  const loose = plan.nodes.find((n) => n.id === 4);
+  assert.ok(hub.r > loose.r);
+  assert.ok(Math.max(...cornerPoints(hub.d)) > Math.max(...cornerPoints(loose.d)));
+  assert.ok(Math.abs(Math.max(...cornerPoints(loose.d)) - loose.r * 1.4) < 0.02, 'a star reaches 1.4 times the dot radius');
+});
+
+test('plan: the child ring and the flag ring clear every shape, the star included', () => {
+  for (const shape of SHAPES) {
+    const types = [{ name: 't', color: '', icon: shape }];
+    const kids = buildTyped([card(1, { type: 't', blocked: true }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { parent: 1 })], types);
+    const withKids = planOf(kids).nodes.find((n) => n.id === 1);
+    const farthest = shape === 'circle' ? withKids.r : Math.max(...cornerPoints(withKids.d));
+    assert.ok(withKids.kidsRing > farthest + 2, `${shape}: the child ring ${withKids.kidsRing} clears a corner at ${farthest}`);
+    assert.ok(withKids.flagRing > withKids.kidsRing + 2, `${shape}: the flag ring sits outside the child ring`);
+
+    const flagged = buildTyped([card(1, { type: 't', review: true })], types);
+    const alone = planOf(flagged).nodes[0];
+    const reach = shape === 'circle' ? alone.r : Math.max(...cornerPoints(alone.d));
+    assert.ok(alone.flagRing > reach + 2, `${shape}: the flag ring ${alone.flagRing} clears a corner at ${reach}`);
+  }
+});
+
+test('plan: a node with no icon keeps the rings and label it had, 3 and 6 beyond its radius', () => {
+  const m = buildTyped([card(1, { blocked: true }), card(2, { parent: 1 }), card(3, { review: true })]);
+  const plan = planOf(m);
+  const parent = plan.nodes.find((n) => n.id === 1);
+  assert.strictEqual(parent.kidsRing, parent.r + 3);
+  assert.strictEqual(parent.flagRing, parent.r + 6);
+  assert.strictEqual(parent.reach, parent.r);
+  const single = plan.nodes.find((n) => n.id === 3);
+  assert.strictEqual(single.flagRing, single.r + 3);
+});
+
+test('plan: the id label starts beyond the shape, not inside it', () => {
+  const m = buildTyped([card(1, { type: 'goal' }), card(2, { type: 'task' })]);
+  const plan = planOf(m);
+  assert.ok(plan.nodes.find((n) => n.id === 1).reach > plan.nodes.find((n) => n.id === 1).r);
+  assert.strictEqual(plan.nodes.find((n) => n.id === 2).reach, plan.nodes.find((n) => n.id === 2).r);
+});
+
+test('plan: a type with an icon changes no position, whatever layout draws it', () => {
+  const cards = [card(1, { type: 'goal' }), card(2, { parent: 1, type: 'epic' }), card(3, { parent: 1 })];
+  for (const kind of GRAPH_LAYOUTS) {
+    const typed = graphPlan(buildTyped(cards), graphLayout(buildTyped(cards), kind), planOpts({ kind }));
+    const bare = graphPlan(build(cards), graphLayout(build(cards), kind), planOpts({ kind }));
+    assert.deepStrictEqual(typed.nodes.map((n) => [n.id, n.x, n.y, n.r]), bare.nodes.map((n) => [n.id, n.x, n.y, n.r]), kind);
+    assert.deepStrictEqual(typed.links, bare.links, kind);
+  }
+});
+
+test('plan: no class, title or attribute the plan emits carries the icon name', () => {
+  const m = buildTyped([card(1, { type: 'goal' })], [{ name: 'goal', color: '', icon: 'star' }]);
+  const node = planOf(m).nodes[0];
+  assert.ok(!/star/.test(node.cls));
+  assert.ok(!/star/.test(node.title));
+  assert.ok(!/star/.test(node.d));
+});

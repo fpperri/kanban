@@ -19,6 +19,9 @@ const GRAPH_WB = (typeof module !== 'undefined' && module.exports)
 const GRAPH_COLS = (typeof module !== 'undefined' && module.exports)
   ? require('./column-state')
   : window;
+const GRAPH_ICONS = (typeof module !== 'undefined' && module.exports)
+  ? require('./type-icons')
+  : window;
 
 const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
 
@@ -33,10 +36,13 @@ function mergeGraphLayout(saved) {
 // a drawn card on this board; otherwise the card is a root of the drawn trees.
 // Nodes come back in outline order (parents before children, siblings by
 // rank): that is the view's DOM order and defines shift-click range selection.
+// opts.types is the board's `types:` list; a node whose type has an icon there
+// carries that icon's name as its shape, every other node is a circle.
 
 function graphBuild(cards, opts) {
   const ctx = (opts && opts.ctx) || null;
   const visibleIds = (opts && opts.visibleIds) || null;
+  const types = (opts && opts.types) || null;
   const pool = new Map();
   for (const c of cards || []) if (!pool.has(c.id)) pool.set(c.id, c);
   const drawn = new Map();
@@ -91,6 +97,7 @@ function graphBuild(cards, opts) {
       id,
       card,
       status: card.status,
+      shape: GRAPH_ICONS.typeIconOf(card.type, types) || 'circle',
       archived: !!card.archived,
       blocked: GRAPH_WB.isBlockedValue(card.blocked),
       review: GRAPH_WB.isReviewValue(card.review),
@@ -473,6 +480,10 @@ function graphZoomAt(view, px, py, factor, min = 0.1, max = 8) {
 // --- render plan ---------------------------------------------------------------
 // Plain data the view turns into SVG: no DOM here. Nodes keep model order
 // (outline order), which is the DOM order and so the shift-click range order.
+// A node of a type with an icon carries the outline `d` its dot is drawn in
+// (a circle node has none: the view draws the round dot), and its `reach`, how
+// far that shape goes from the centre. The child ring, the flag ring and the id
+// label are placed from the reach, so they clear every corner of every shape.
 
 const graphRound = (v) => Math.round(v * 100) / 100;
 
@@ -537,11 +548,20 @@ function graphPlan(model, layout, opts) {
     if (n.review) cls.push('is-review');
     if (n.deg >= 3) cls.push('graph-hub');
     if (n.deg === 0) cls.push('is-loose');
+    const r = graphRadius(n);
+    const iconed = n.shape !== undefined && n.shape !== 'circle';
+    const reach = iconed ? GRAPH_ICONS.typeIconReach(n.shape, r) : r;
+    const ring = (extra) => (iconed ? graphRound(reach + extra) : r + extra);
     return {
       id: n.id,
       x: graphRound(p.x),
       y: graphRound(p.y),
-      r: graphRadius(n),
+      r,
+      shape: iconed ? n.shape : 'circle',
+      d: iconed ? GRAPH_ICONS.typeIconOutline(n.shape, r) : '',
+      reach,
+      kidsRing: ring(3),
+      flagRing: ring(n.kids > 0 ? 6 : 3),
       cls: cls.join(' '),
       title: `#${n.id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`,
     };
