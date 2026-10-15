@@ -111,3 +111,66 @@ test('the statuses list reads the way kanban-web reads it in every form, and fal
     assert.deepStrictEqual(statusesFor(config), web.length ? web : ['backlog', 'todo', 'doing', 'done'], JSON.stringify(config));
   }
 });
+
+// The board's own pills: each entry of `pills:` is a query, or a one-key map from
+// a label to a query. The snapshot holds them in config order for the panel that
+// lists them; this table pins its reader to kanban-web's, entry form by entry
+// form, the malformed ones included.
+
+function pillsFor(config) {
+  return withSnapshot({ ...BOARD, config }, (html) => embeddedConst(html, 'PILLS'));
+}
+
+const PILL_FORMS = {
+  'quoted queries, a bare query and one-key maps': 'name: b\npills:\n  - "assignee:@human"\n  - \'status:doing\'\n  - blocked\n  - next: \'tags:"next-up"\'\n  - "review it": "review:"\n',
+  'assignee:@human and tags:* bare and quoted stay queries': 'name: b\npills:\n  - assignee:@human\n  - tags:*\n  - "tags:*"\n',
+  'a colon followed by a space makes a map: "- tags: grill" is the label tags with the query grill': 'name: b\npills:\n  - tags: grill\n',
+  'a map value that is quoted, bare or has a trailing comment, with colons inside': 'name: b\npills:\n  - mine: assignee:@human   # who I am\n  - both: "tags:a tags:b"  # two tags\n  - note: \'title:"fix: auth"\'\n',
+  'a name key is a literal label like any other word': 'name: b\npills:\n  - name: tags:x\n  - "name": "tags:y"\n',
+  'an empty label, an empty query and comment-only entries are skipped': 'name: b\npills:\n  -\n  - ""\n  - "": tags:x\n  - next:\n  - next: ""\n  - # only a comment\n  # a comment line\n  - next: # only a comment\n  - tags: grill\n',
+  'extra keys on a map are ignored': 'name: b\npills:\n  - next: \'tags:"next-up"\'\n    color: red\n    query: ignored\n  - "assignee:@human"\n',
+  'a scalar value answers none': 'name: b\npills: tags:*\n',
+  'an inline list answers none': 'name: b\npills: ["tags:*", "assignee:@human"]\n',
+  'an empty inline list answers none': 'name: b\npills: []\n',
+  'an empty key answers none': 'name: b\npills:\n',
+  'no pills key answers none': 'name: b\nstatuses: [todo, done]\n',
+  'a comment after the key opens the block': 'name: b\npills:   # one-click queries\n  - next: x\n',
+  'CRLF text that stops at the next top-level key': 'name: b\r\npills:\r\n  - next: "tags:next-up"\r\nstatuses: [todo, done]\r\n  - stray\r\n',
+  'an unindented list is skipped, as for every other list': 'name: b\npills:\n- next: x\n  - "assignee:@human"\n- tags:*\n',
+  'a single-quoted entry keeps YAML\'s doubled quote as it is': "name: b\npills:\n  - 'it''s'\n  - 'it''s': 'a''b'\n  - n: 'a''b'\n",
+  'backslash escapes apply in both quote styles': 'name: b\npills:\n  - "say \\"hi\\"": "title:\\"x\\""\n  - \'a\\\\b\': \'c\\\\d\'\n  - "tags:\\\\x"\n',
+  'an unterminated quote': 'name: b\npills:\n  - "next: x\n  - \'tags:y\n  - "ok": "tags:z\n',
+  'a quoted label with nothing after the colon, and a quoted query ending in a colon': 'name: b\npills:\n  - "next":\n  - "blocked:"\n  - "review it": "review:"\n  - blocked:\n',
+  'a hash that is part of a query, and one that starts a comment': 'name: b\npills:\n  - tags:#x\n  - next: tags:#y # note\n  - tags:z # note\n  - "tags:#w" # note\n',
+  'a label with spaces and a query with markup': 'name: b\npills:\n  - review it: title:<b>x</b>\n  - "<i>label</i>": "body:\\"<script>\\""\n',
+  'two pills keys in one file': 'name: b\npills:\n  - a: x\nstatuses: [todo, done]\npills:\n  - b: y\n',
+  'pills between the other lists': 'name: b\ntypes:\n  - name: goal\n    icon: star\npills:\n  - next: "tags:next-up"\n  - "assignee:@human"\nhierarchy: [goal, epic]\nstatuses: [todo, done]\n',
+};
+
+for (const [label, config] of Object.entries(PILL_FORMS)) {
+  test(`pills: ${label} reads the way kanban-web reads it`, () => {
+    assert.deepStrictEqual(pillsFor(config), parseConfig(config).pills);
+  });
+}
+
+test('pills keep the order they are written in, each a label and a query', () => {
+  const config = 'name: b\npills:\n  - next: \'tags:"next-up"\'\n  - "assignee:@human"\n  - tags:*\n  - tags: grill\n  - -\n';
+  assert.deepStrictEqual(pillsFor(config), [
+    { label: 'next', query: 'tags:"next-up"' },
+    { label: 'assignee:@human', query: 'assignee:@human' },
+    { label: 'tags:*', query: 'tags:*' },
+    { label: 'tags', query: 'grill' },
+    { label: '-', query: '-' },
+  ]);
+});
+
+test('a board without a pills key holds an empty list', () => {
+  assert.deepStrictEqual(pillsFor('name: b\n'), []);
+  assert.deepStrictEqual(pillsFor(BOARD.config), []);
+});
+
+test('pill labels and queries that look like markup cannot close the script element, and arrive as the text they are', () => {
+  withSnapshot({ ...BOARD, config: 'name: b\npills:\n  - "</script><b>": "title:</SCRIPT >x"\n' }, (html) => {
+    assert.deepStrictEqual(embeddedConst(html, 'PILLS'), [{ label: '</script><b>', query: 'title:</SCRIPT >x' }]);
+  });
+});

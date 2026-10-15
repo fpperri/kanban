@@ -246,6 +246,61 @@ def read_types(kanban_dir):
     flush()
     return types
 
+def _closing_quote(s):
+    """Index of the quote that closes the quoted text opening `s`, or -1."""
+    i = 1
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+            continue
+        if s[i] == s[0]:
+            return i
+        i += 1
+    return -1
+
+def _split_pill_entry(text):
+    """One `pills:` entry (the text after its dash) as {label, query}, or None
+    when it is blank, only a comment, or has an empty label or query. The same
+    rules as splitPillEntry() in kanban-web's config-store.js: an entry is a
+    query on its own (the label is then the query text) or a one-key map from a
+    label to a query, and a map key ends at the first colon followed by a space
+    or the end of the entry, so `tags: grill` is the label tags with the query
+    grill while `tags:*` and `assignee:@human` stay whole queries. Anything
+    after the first pair is another key, which the caller ignores."""
+    t = text.strip()
+    if t == "" or t[0] == "#":
+        return None
+    label, value = None, t
+    close = _closing_quote(t) if t[0] in ('"', "'") else -1
+    if close != -1:
+        after = t[close + 1:]
+        sep = re.match(r"\s*:(?:\s|\Z)", after)
+        if sep:
+            label, value = _unquote(t[:close + 1]), after[sep.end():]
+    else:
+        colon = re.search(r":(?:\s|\Z)", t)
+        comment = re.search(r"\s#", t)
+        if colon and (not comment or colon.start() < comment.start()):
+            label, value = t[:colon.start()].strip(), t[colon.start() + 1:]
+    query = "" if value.strip()[:1] == "#" else _scalar(value)
+    if query == "":
+        return None
+    if label is None:
+        label = query
+    return None if label == "" else {"label": label, "query": query}
+
+def read_pills(kanban_dir):
+    """config.yaml's `pills:` block as [{label, query}] in the order written.
+    Block form only: a scalar or inline value answers none, as in kanban-web."""
+    _, block = _config_list(kanban_dir, "pills")
+    pills = []
+    for line in block:
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        pill = _split_pill_entry(item.group(1)) if item else None
+        if pill:
+            pills.append(pill)
+    return pills
+
 def read_priorities(kanban_dir):
     return _config_scalars(kanban_dir, "priorities")
 
@@ -358,6 +413,7 @@ def main():
                     .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
                     .replace("__TYPES__", emb(read_types(a.kanban_dir)))
+                    .replace("__PILLS__", emb(read_pills(a.kanban_dir)))
                     .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
                     .replace("__DATA__", emb(cards))
@@ -809,6 +865,8 @@ const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
 const TYPES=__TYPES__;
+// The board's own one-click queries from config.yaml, in the order written: [{label, query}].
+const PILLS=__PILLS__;
 const PRIOS=__PRIORITIES__;
 // Assignee color: a reserved config.yaml `color:` wins (painted exactly as
 // given); else the handle hashes into the SAME --hash-a.."h" token family
