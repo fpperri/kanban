@@ -28,11 +28,51 @@ const GRAPH_SEARCH = (typeof module !== 'undefined' && module.exports)
 const GRAPH_SLICES = (typeof module !== 'undefined' && module.exports)
   ? require('./slices')
   : window;
+const GRAPH_MAPREL = (typeof module !== 'undefined' && module.exports)
+  ? require('./map-relations')
+  : window;
 
 const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
 
 function mergeGraphLayout(saved) {
   return GRAPH_LAYOUTS.includes(saved) ? saved : 'tiers';
+}
+
+// The tier fan's option row: each option and what it may be set to, the default
+// first. A new option is one more entry here, its label in graph-view.js.
+//   lines         which parent lines the fan draws: folded (chain ends only, and a
+//                 parent's other children on one ring share one counted line), chain
+//                 (a line to every chain end, as the Map draws them), all (a line to
+//                 every child) or off.
+//   dependencies  the dashed arrows for waiting_for: on or off.
+//   order         how siblings are ordered within a sector, the way the Map orders
+//                 its rows: by status (doing, todo, backlog, ..., done, archived) or
+//                 by rank, the outline's own order.
+const GRAPH_FAN_OPTION_VALUES = Object.freeze({
+  lines: Object.freeze(['folded', 'chain', 'all', 'off']),
+  dependencies: Object.freeze(['on', 'off']),
+  order: Object.freeze(['status', 'rank']),
+});
+
+const GRAPH_FAN_OPTION_DEFAULTS = Object.freeze(Object.fromEntries(
+  Object.entries(GRAPH_FAN_OPTION_VALUES).map(([key, values]) => [key, values[0]]),
+));
+
+// What a browser stored for a board, from an older or hand-edited store: keep what
+// this version still offers, read the rest as its default.
+function mergeGraphFanOptions(saved) {
+  const own = saved !== null && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+  const merged = {};
+  for (const key of Object.keys(GRAPH_FAN_OPTION_VALUES)) {
+    const value = Object.prototype.hasOwnProperty.call(own, key) ? own[key] : undefined;
+    merged[key] = GRAPH_FAN_OPTION_VALUES[key].includes(value) ? value : GRAPH_FAN_OPTION_DEFAULTS[key];
+  }
+  return merged;
+}
+
+// The option row starts folded, like the Map's: it is controls, not content.
+function mergeGraphOptionsFolded(saved) {
+  return typeof saved === 'boolean' ? saved : true;
 }
 
 // --- model ---------------------------------------------------------------------
@@ -64,9 +104,27 @@ function graphBuild(cards, opts) {
   const whole = [...pool.values()];
   const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
   const nested = new Set();
+  const siblings = [];
+  const parentIn = new Map();
   for (const c of whole) {
     const pid = GRAPH_NEST.localParentId(c, ctx);
-    if (pid !== null && pid !== c.id && pool.has(pid)) { nested.add(c.id); nested.add(pid); }
+    if (pid !== null && pid !== c.id && pool.has(pid)) {
+      nested.add(c.id);
+      nested.add(pid);
+      parentIn.set(c.id, pid);
+      siblings.push({ id: c.id, parent: pid, waitsOn: (c.waiting_for || []).map(Number) });
+    }
+  }
+  // The sibling chains, read on the whole board like the slices: hiding a card with a
+  // pill or a search never moves a parent line. `chainEnd` is the Map's own reading of
+  // where a child's chain meets its parent (mapParentLineEnds, the children no sibling
+  // waits for); `chained` is a child that has a dependency to or from a sibling.
+  const ends = GRAPH_MAPREL.mapParentLineEnds(siblings);
+  const chained = new Set();
+  for (const s of siblings) {
+    for (const dep of s.waitsOn) {
+      if (dep !== s.id && parentIn.get(dep) === s.parent) { chained.add(s.id); chained.add(dep); }
+    }
   }
 
   const parentOf = new Map();
@@ -130,6 +188,8 @@ function graphBuild(cards, opts) {
       parentId,
       sliceIndex: slices.byId.get(id).index,
       nested: nested.has(id),
+      chainEnd: ends.has(id) ? ends.get(id).below : true,
+      chained: chained.has(id),
     };
     nodes.push(node);
     byId.set(id, node);
@@ -323,6 +383,55 @@ function graphFanPlace(model, opts) {
   const columns = statuses.filter((s) => live.get(s).length).map((s) => ({ label: s, ids: live.get(s) }));
   if (archived.length) columns.push({ label: 'archived', ids: archived });
   return { places, bands, sectors, columns };
+}
+
+// --- the tier fan's lines ------------------------------------------------------
+// Which lines the fan draws under its options (GRAPH_FAN_OPTION_VALUES), decided
+// from the model and the places of graphFanPlace alone, so a line option never moves
+// a card to another band. The model keeps every relation; this list is what is drawn,
+// in the order of model.links, and the view, the lighting and the tests all read it.
+// A line is { from, to, kind, link } for one relation (`link` indexes model.links), or,
+// for the counted line of the folded mode, { from: parent, to: parent, kind: 'parent',
+// link: null, kids, count }: one line for the children `kids` of one parent that sit on
+// one ring, both its ends the parent, so it lights whenever its parent does.
+//   all      a line to every child.
+//   chain    a line to every chain end (node.chainEnd, the Map's reading): the child no
+//            sibling waits for, and every child with no dependency to a sibling. A child
+//            in the middle or at the start of a chain has none.
+//   folded   the chain ends as chain draws them, but a chain end that is alone (a chain
+//            of one: no dependency to or from a sibling) shares one counted line with
+//            the parent's other such children on its ring; one that is alone on its ring
+//            keeps its own line, and so does an end in a real chain.
+//   off      no parent line.
+// Dependencies on draws a line for each wait, from the card waited for to the card that
+// waits; off draws none.
+function graphFanLines(model, places, fan) {
+  const o = mergeGraphFanOptions(fan);
+  const lines = [];
+  const groups = new Map();
+  model.links.forEach((l, link) => {
+    if (l.kind === 'wait') {
+      if (o.dependencies === 'on') lines.push({ from: l.from, to: l.to, kind: 'wait', link });
+      return;
+    }
+    if (o.lines === 'off') return;
+    const child = model.byId.get(l.to);
+    if (o.lines !== 'all' && !child.chainEnd) return;
+    if (o.lines === 'folded' && !child.chained) {
+      const place = places.get(l.to);
+      const key = `${l.from}|${place.band}:${place.sub}`;
+      if (groups.has(key)) { groups.get(key).kids.push(l.to); return; }
+      const line = { from: l.from, to: l.to, kind: 'parent', link };
+      groups.set(key, { line, kids: [l.to] });
+      lines.push(line);
+      return;
+    }
+    lines.push({ from: l.from, to: l.to, kind: 'parent', link });
+  });
+  for (const g of groups.values()) {
+    if (g.kids.length > 1) Object.assign(g.line, { to: g.line.from, link: null, kids: g.kids, count: g.kids.length });
+  }
+  return lines;
 }
 
 // --- layout: tiers -------------------------------------------------------------
@@ -577,32 +686,49 @@ function graphLayoutTiers(model, opts) {
     width.set(id, w);
     next.set(id, at + (w - (w * (below.get(id) || 0)) / span.get(id)) / 2);
   };
+  // Siblings are seated in the order the option asks for, the way the Map orders its
+  // rows: by status, or by rank, which is the outline's own order. The order moves a
+  // card along its own stretch only, so no card changes its band, ring or sector.
+  const how = mergeGraphFanOptions(opts).order === 'status' ? 'status' : 'layout';
+  const statuses = GRAPH_COLS.liveStatuses(opts && opts.statuses);
+  const sort = (ids) => GRAPH_MAPREL.mapOrderRow(ids, { nodes: ids.map((id) => model.byId.get(id)) }, how, statuses);
+  const kidsOf = new Map();
+  for (const n of nodes) {
+    if (n.parentId === null || places.get(n.id).sector === null) continue;
+    if (!kidsOf.has(n.parentId)) kidsOf.set(n.parentId, []);
+    kidsOf.get(n.parentId).push(n.id);
+  }
   let at = 0;
   const sectors = fan.sectors.map((s) => {
     const left = GRAPH_FAN_FROM - at;
-    for (const id of s.tops) {
+    const tops = s.kind === 'loose' ? sort(s.tops) : s.tops;
+    for (const id of tops) {
       const w = span.get(id) * scale;
       seat(id, at, w);
       at += w;
     }
-    const placed = { ...s, from: left, to: GRAPH_FAN_FROM - at };
+    const placed = { ...s, tops, from: left, to: GRAPH_FAN_FROM - at };
     at += gap;
     return placed;
   });
   for (const n of nodes) {
-    if (n.parentId === null || places.get(n.id).sector === null) continue;
-    const w = (width.get(n.parentId) * span.get(n.id)) / span.get(n.parentId);
-    const start = next.get(n.parentId);
-    next.set(n.parentId, start + w);
-    seat(n.id, start, w);
+    if (!kidsOf.has(n.id)) continue;
+    for (const id of sort(kidsOf.get(n.id))) {
+      const w = (width.get(n.id) * span.get(id)) / span.get(n.id);
+      const start = next.get(n.id);
+      next.set(n.id, start + w);
+      seat(id, start, w);
+    }
   }
 
   const pos = new Map();
+  const polar = new Map();
   for (const n of nodes) {
     if (places.get(n.id).sector === null) continue;
     const ang = GRAPH_FAN_FROM - (from.get(n.id) + width.get(n.id) / 2);
     const rad = ringOf(n.id) * grow;
     pos.set(n.id, { x: Math.cos(ang) * rad, y: Math.sin(ang) * rad });
+    polar.set(n.id, { a: ang, r: rad });
   }
 
   const grown = bands.map((b) => ({
@@ -630,7 +756,7 @@ function graphLayoutTiers(model, opts) {
   }));
   if (looseCaption) boxes.push(looseCaption.box);
   return graphFinish(model, pos, rings, spokes, [], {
-    bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places, captions, looseCaption, boxes, textScale: text,
+    bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places, polar, captions, looseCaption, boxes, textScale: text,
   });
 }
 
@@ -828,7 +954,10 @@ function graphSignature(model, kind, opts) {
   const links = model.links.map((l) => `${l.from}>${l.to}${l.kind === 'wait' ? 'w' : 'p'}`).join(',');
   const statuses = ((opts && opts.statuses) || []).join(',');
   const key = [kind, statuses, nodes, links];
-  if (fan) key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
+  if (fan) {
+    key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
+    key.push(mergeGraphFanOptions(opts).order);
+  }
   return key.join('|');
 }
 
@@ -1081,8 +1210,9 @@ function graphPlan(model, layout, opts) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_LAYOUTS, mergeGraphLayout,
+    GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions, mergeGraphOptionsFolded,
     graphBuild, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
-    graphFanPlace, graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
+    graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
     graphVisibleIds, graphZoomAt, graphPlan,
@@ -1090,6 +1220,10 @@ if (typeof module !== 'undefined' && module.exports) {
 } else {
   window.GRAPH_LAYOUTS = GRAPH_LAYOUTS;
   window.mergeGraphLayout = mergeGraphLayout;
+  window.GRAPH_FAN_OPTION_VALUES = GRAPH_FAN_OPTION_VALUES;
+  window.GRAPH_FAN_OPTION_DEFAULTS = GRAPH_FAN_OPTION_DEFAULTS;
+  window.mergeGraphFanOptions = mergeGraphFanOptions;
+  window.mergeGraphOptionsFolded = mergeGraphOptionsFolded;
   window.graphBuild = graphBuild;
   window.graphRadius = graphRadius;
   window.graphNeighbours = graphNeighbours;
@@ -1097,6 +1231,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphQueryEffect = graphQueryEffect;
   window.graphRestLit = graphRestLit;
   window.graphFanPlace = graphFanPlace;
+  window.graphFanLines = graphFanLines;
   window.graphLayoutTiers = graphLayoutTiers;
   window.graphLayoutStatus = graphLayoutStatus;
   window.graphLayoutForce = graphLayoutForce;
