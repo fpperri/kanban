@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { parseSearchQuery, filterCards } = require('../web/search');
-const { pillList, pillIsOn, pillsOn, panelChip } = require('../web/pills');
+const { parseSearchQuery, filterCards, searchTermText } = require('../web/search');
+const { pillList, pillEntries, pillIsOn, pillsOn, pillStep, panelChip } = require('../web/pills');
 const { NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, addPart } = require('../web/selection');
 
 // The pills the search panel lists: blocked, review and waiting, in that order,
@@ -135,6 +135,77 @@ test('the pills that are on come back in list order, whatever order they were pi
   assert.deepStrictEqual(pillsOn(NO_SELECTION, PILLS), []);
 });
 
+// --- stepping through the pills ------------------------------------------------------
+
+// The m key's step is a solo, like a right-click: pillStep answers the pill whose solo is the
+// next step. The cycle runs off, then every pill in list order, then off again; a solo of the
+// pill that is on alone turns every pill off, so the step after the last pill answers that pill.
+const CYCLE = pillEntries({ pills: [{ label: 'next', query: 'tags:"next-up"' }, 'assignee:"@human"'] });
+const keysOf = (list) => list.map((p) => p.key);
+const aloneOn = (pill) => selectionOf(queryPart(pill.query));
+
+test('with every pill off, m steps to the first pill and Shift+m to the last', () => {
+  assert.strictEqual(pillStep(CYCLE, NO_SELECTION, 1).key, 'blocked');
+  assert.strictEqual(pillStep(CYCLE, NO_SELECTION, -1).key, CYCLE[CYCLE.length - 1].key);
+});
+
+test('with one pill on alone, m steps to the next pill in list order, then the pills a board defines', () => {
+  assert.deepStrictEqual(keysOf(CYCLE), ['blocked', 'review', 'waiting', 'pill:tags:"next-up"', 'pill:assignee:"@human"']);
+  const walked = [];
+  for (let at = 0; at < CYCLE.length - 1; at++) walked.push(pillStep(CYCLE, aloneOn(CYCLE[at]), 1).key);
+  assert.deepStrictEqual(walked, keysOf(CYCLE).slice(1));
+});
+
+test('with one pill on alone, Shift+m steps to the pill before it', () => {
+  const walked = [];
+  for (let at = CYCLE.length - 1; at > 0; at--) walked.push(pillStep(CYCLE, aloneOn(CYCLE[at]), -1).key);
+  assert.deepStrictEqual(walked, keysOf(CYCLE).slice(0, -1).reverse());
+});
+
+test('after the last pill m steps to off, and before the first Shift+m does: the step is the solo of the pill that is on alone', () => {
+  const last = CYCLE[CYCLE.length - 1];
+  assert.strictEqual(pillStep(CYCLE, aloneOn(last), 1), last);
+  assert.strictEqual(pillStep(CYCLE, aloneOn(CYCLE[0]), -1), CYCLE[0]);
+});
+
+test('with several pills on, the step starts the cycle over: the first pill for m and the last for Shift+m', () => {
+  const several = selectionOf(queryPart('review:'), queryPart('waiting:'));
+  assert.strictEqual(pillStep(CYCLE, several, 1).key, 'blocked');
+  assert.strictEqual(pillStep(CYCLE, several, -1).key, CYCLE[CYCLE.length - 1].key);
+});
+
+test('a card, a path or a typed search is not a pill on: the step starts the cycle', () => {
+  assert.strictEqual(pillStep(CYCLE, selectionOf(cardPart(1), pathPart(2)), 1).key, 'blocked');
+  assert.strictEqual(pillStep(CYCLE, selectionOf(typedQueryPart('review:')), 1).key, 'blocked');
+});
+
+test('a pill on beside a card is on alone: the step goes on from it', () => {
+  assert.strictEqual(pillStep(CYCLE, selectionOf(cardPart(1), queryPart('review:')), 1).key, 'waiting');
+});
+
+test('a pill that is on but no longer listed counts as nothing on, and a list with no pill answers null', () => {
+  assert.strictEqual(pillStep(CYCLE, selectionOf(queryPart('tags:gone')), 1).key, 'blocked');
+  assert.strictEqual(pillStep([], NO_SELECTION, 1), null);
+});
+
+// A board pill and a value pill can hold one query (a `next` pill for tags:"next-up" and the
+// tag next-up of a `tags:*` entry). Both show as on together, and one filter is one step.
+test('pills that share a query are one step: soloing the first never leaves the cycle stuck on it', () => {
+  const same = pillEntries({
+    pills: [{ label: 'next', query: 'tags:"next-up"' }, 'assignee:@human', 'tags:*'],
+    cards: [{ tags: ['grill', 'next-up'] }],
+    term: searchTermText,
+  });
+  assert.deepStrictEqual(keysOf(same), ['blocked', 'review', 'waiting', 'pill:tags:"next-up"', 'pill:assignee:@human', 'value:tags:grill', 'value:tags:next-up']);
+  const next = same[3];
+  const bothOn = selectionOf(queryPart(next.query));
+  assert.deepStrictEqual(keysOf(pillsOn(bothOn, same)), ['pill:tags:"next-up"', 'value:tags:next-up']);
+  assert.strictEqual(pillStep(same, bothOn, 1).key, 'pill:assignee:@human');
+  assert.strictEqual(pillStep(same, bothOn, -1).key, 'waiting');
+  const lastOnly = selectionOf(queryPart('tags:"grill"'));
+  assert.strictEqual(pillStep(same, lastOnly, 1).key, 'value:tags:grill', 'the last step is the soloed pill again, which turns it off');
+});
+
 // --- the chip ---------------------------------------------------------------------
 
 test('the chip counts what is on and its name says what', () => {
@@ -165,7 +236,7 @@ test('loaded alone as a plain script, the pill-list module lists the pills from 
   const window = {};
   const page = vm.createContext({ window });
   vm.runInContext(source, page);
-  for (const name of ['pillList', 'pillIsOn', 'pillsOn', 'panelChip']) assert.strictEqual(typeof window[name], 'function', name);
+  for (const name of ['pillList', 'pillIsOn', 'pillsOn', 'pillStep', 'panelChip']) assert.strictEqual(typeof window[name], 'function', name);
   const list = window.pillList([card(1, { blocked: 'x' })], (q) => (q === 'blocked:' ? [1] : []));
   assert.deepStrictEqual(Array.from(list, (p) => p.count), [1, 0, 0]);
 });

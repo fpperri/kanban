@@ -1,7 +1,7 @@
 'use strict';
 // The one guard behind the single-key shortcuts: `/` focuses the search box, `p`
-// flips the search panel's switch, and the keys added later (the slice keys, `n`)
-// read the same guard unchanged.
+// flips the search panel's switch, `m` steps through the pills, and the keys added
+// later (the slice keys, `n`) read the same guard unchanged.
 // It has two parts. The typing check is for a key that would insert a
 // character: it stays off while focus is in a field. The surface check is for
 // a key that would act on the board behind an open popup: it stays off while

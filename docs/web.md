@@ -206,9 +206,13 @@ matches leave the selection. A right-click solos a pill, so it alone is on and t
 holds its query alone, and a right-click on the soloed pill turns every pill off (the
 status pills turn all back on, since they start all on). The first pill on is the anchor
 of the selection and later ones are additions, so Esc takes the later pills out first and
-then the anchor. A pill is on while its query is the anchor or an addition, and is
+then the anchor. The `m` key steps through the pills: each press turns on the next pill
+alone, so the box holds its query alone, in the panel's order, off, blocked, review,
+waiting, then the board's own pills, then off again, and Shift+m steps backwards. It works
+in every view, except while you type in a field or a menu, a dialog, the notifications
+panel or the preferences sheet is up. A pill is on while its query is the anchor or an addition, and is
 announced as pressed, and typing in the box turns it off. With the panel
-closed, a chip in the box counts what is on, and its name for a screen reader says which.
+closed, a chip in the box counts what is on, and its name for a screen reader, and its hover text, say which.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
@@ -217,6 +221,28 @@ focus is in it, or steps the selection back, which also takes the added pills ba
 the box. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
+
+**Slice section** — the first region of the search panel lists the board's slices, top to
+bottom: the tiers some card of the board is in, each with the icon its type has in the
+config, then every depth (`depth 0`, `depth 1`, ...). Each entry shows how many of the
+cards the view shows it holds, counted after the status pills and Archive and before the
+search box and the run, so setting a run never zeroes the entries you need to grow it again.
+The entries in the run are pressed, and each one's name for a screen reader says its label,
+its count and whether it is in the run. The run is the `slice:` term in the search box, so
+typing one updates the entries, and a run that covers every slice writes no term. A click
+on an entry outside the run grows the run to it, a click on an end of the run drops that
+end, a click on a run of one brings every slice back, and a click inside the run that is not
+an end changes nothing. A right-click keeps only that slice, and so do the context-menu key
+and Shift+F10 on a focused entry. A run set on a query that holds `|` brackets the query, so
+`tags:ui | #12` becomes `(tags:ui | #12) slice:goal..objective` and the run cuts all of it. In the
+Graph the run hides the cards outside it while the rest of the query lights. The keys `[`
+and `]` move the bottom of the run up and down, and `{` and `}` move its top, in every view
+and with the panel open or closed; each stops at the ends, and the top never passes the
+bottom. They stand still while you type in a field (the search box included) or a menu, a
+dialog, the notifications panel or the preferences sheet is up. With the panel closed, the
+chip counts a run that cuts. The section folds, and *Slice section starts folded* in the
+preferences sheet (on by default) says how it starts. Tab reaches the fold control and every
+entry, and Enter and Space act as a click.
 
 **Board pills** — the pill section also lists the board's own pills, after blocked, review
 and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
@@ -274,6 +300,8 @@ never written to the board's files.
 - *Count archived leaves as done* is on by default. Off, the board's tiles, the Map's
   cards and the card detail (whose scope line says so) leave archived leaves out of the
   count.
+- *Slice section starts folded* is on by default. It says how the search panel's slice
+  section starts; its fold control still unfolds it for the visit.
 - *Pill section starts folded* is off by default. It says how the search panel's pill
   section starts; its fold control still folds it for the visit.
 - *Panel opens when the search box is focused* is on by default. It is the switch at the

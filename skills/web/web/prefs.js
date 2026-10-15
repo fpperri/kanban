@@ -2,9 +2,9 @@
 // The preferences sheet's settings, kept in the browser per board and never
 // written to the board: what a plain click on a card does in each view (opens
 // the card, or selects it), whether archived leaves count as done in the
-// roll-ups, whether the search panel's pill section starts folded, and whether the
-// panel opens when the search box is focused (the arrow's switch and the p key
-// flip the same choice). One
+// roll-ups, whether the search panel's pill section starts folded, whether its slice
+// section starts folded (it does, by default), and whether the panel opens when the
+// search box is focused (the arrow's switch and the p key flip the same choice). One
 // entry per board under the app's per-board key, validated on every read, so a
 // hand-edited or stale value falls back to its default.
 //
@@ -30,7 +30,7 @@ function prefsDefaults() {
   const click = {};
   for (const view of PREFS_CLICK_VIEWS) click[view] = 'opens';
   click.graph = PREFS_GRAPH_CLICK;
-  return { click, archivedDone: true, pillsFolded: false, panelOnFocus: true };
+  return { click, archivedDone: true, pillsFolded: false, slicesFolded: true, panelOnFocus: true };
 }
 
 function prefsParse(saved) {
@@ -56,12 +56,13 @@ function mergePrefs(saved) {
   }
   if (typeof value.archivedDone === 'boolean') prefs.archivedDone = value.archivedDone;
   if (typeof value.pillsFolded === 'boolean') prefs.pillsFolded = value.pillsFolded;
+  if (typeof value.slicesFolded === 'boolean') prefs.slicesFolded = value.slicesFolded;
   if (typeof value.panelOnFocus === 'boolean') prefs.panelOnFocus = value.panelOnFocus;
   return prefs;
 }
 
 // The set with one change from the sheet applied: { click: { board: 'selects' } }
-// { archivedDone: false }, { pillsFolded: true } or { panelOnFocus: false }. The change goes through the same validation as a
+// { archivedDone: false }, { pillsFolded: true }, { slicesFolded: false } or { panelOnFocus: false }. The change goes through the same validation as a
 // stored value, so one the sheet cannot make (a bad choice, the Graph set to
 // opens) leaves the set as it was. The set passed in is not touched.
 function prefsWith(prefs, change) {
@@ -72,6 +73,7 @@ function prefsWith(prefs, change) {
   }
   if (change && typeof change.archivedDone === 'boolean') next.archivedDone = change.archivedDone;
   if (change && typeof change.pillsFolded === 'boolean') next.pillsFolded = change.pillsFolded;
+  if (change && typeof change.slicesFolded === 'boolean') next.slicesFolded = change.slicesFolded;
   if (change && typeof change.panelOnFocus === 'boolean') next.panelOnFocus = change.panelOnFocus;
   return next;
 }

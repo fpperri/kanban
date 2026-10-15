@@ -924,6 +924,14 @@ function setPillsFolded(on) {
   foldSearchPills(on);
 }
 
+// Whether the search panel's slice section starts folded; the section takes the choice now
+// (search-slices.js).
+function setSlicesFolded(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { slicesFolded: on });
+  savePrefsState();
+  foldSearchSlices(on);
+}
+
 // Whether the search panel opens when the search box is focused: the switch at the end
 // of the box, flipped by a click on the arrow and by the p key (which open the panel at
 // once when they turn it on), and shown and set in the preferences sheet (which does
@@ -948,6 +956,7 @@ function prefOptionOn(opt) {
 function syncPrefsSheet() {
   $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
   $('#prefs-archived-done').checked = countArchivedLeaves();
+  $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
@@ -3255,8 +3264,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // still works from inside a text field. Ctrl+F has its own `#`-prefill/
 // select-all logic — see onSearchChordKey.
 //
-// The one writer of the box: typing, the clear button, a cue click, the Ctrl+F
-// prefill and a ?q= link all come through writeSearch(text, reason). It sets the
+// The one writer of the box: typing, the clear button, a cue click, a pill, a click or a key
+// of the slice section, the Ctrl+F prefill and a ?q= link all come through writeSearch(text,
+// reason). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write
@@ -3318,6 +3328,10 @@ onSearchWrite(followSearchInAddress);
 // one repaint paints the new anchor, and parses and matches the box once. The other
 // views keep filtering and select nothing.
 //
+// A run of slices written by the slice section (the reason 'slice') is a cut, not a search:
+// it never makes the box the anchor, and a typed anchor keeps following the box, so the
+// Graph still lights what the whole query, the cut included, matches.
+//
 // A write by hand, typing or the clear button, also takes a pill off when the box no
 // longer holds its query (selectionAfterBoxEdit, selection.js), in every view. A
 // pill's own write (the reason 'pill') changes the selection and the box together
@@ -3330,6 +3344,7 @@ function selectionFollowingBox(selection) {
   boxWritten = null;
   if (!reason || reason === 'pill') return selection;
   const text = $('#search-input').value;
+  if (reason === 'slice') return loadViewMode() === 'graph' && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
   const followed = loadViewMode() === 'graph' ? selectionAfterTyping(selection, text) : selection;
   if (reason !== 'typing' && reason !== 'clear') return followed;
   return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
@@ -6001,6 +6016,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-close').addEventListener('click', closePrefsSheet);
   $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
+  $('#prefs-slices-folded').addEventListener('change', (e) => setSlicesFolded(e.target.checked));
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
   $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
