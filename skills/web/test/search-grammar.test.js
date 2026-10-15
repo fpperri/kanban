@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm, searchBracket,
+  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchSuggestionItems,
 } = require('../web/search');
 
 // The search grammar beyond space-separated terms: `|` for or, round brackets,
@@ -443,4 +443,59 @@ test('bracketing a single term, an empty query or a query already in one bracket
   assert.strictEqual(searchBracket('   '), '');
   assert.strictEqual(searchBracket('(a | b)'), '(a | b)');
   assert.strictEqual(searchBracket('((a b))'), '((a b))');
+});
+
+// --- suggestions complete the token under the caret --------------------------
+
+const FIELD_NAMES = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
+const complete = (before, segment, after = '') => [{ value: before + segment + after, label: segment }]
+  .concat(FIELD_NAMES.map((f) => ({ value: `${before}${f}:${segment}${after}`, label: `${f}:${segment}` })));
+
+test('suggestions complete the token typed after an open bracket, leaving the bracket and the terms before it', () => {
+  assert.deepStrictEqual(searchSuggestionItems('(sta'), complete('(', 'sta'));
+  assert.deepStrictEqual(searchSuggestionItems('tags:ui (sta'), complete('tags:ui (', 'sta'));
+  assert.deepStrictEqual(searchSuggestionItems('tags:ui ((sta'), complete('tags:ui ((', 'sta'));
+});
+
+test('suggestions complete the token typed after a |, leaving what stands before it', () => {
+  assert.deepStrictEqual(searchSuggestionItems('status:todo | @af'), complete('status:todo | ', '@af'));
+  assert.deepStrictEqual(searchSuggestionItems('(a | b) | c'), complete('(a | b) | ', 'c'));
+  assert.deepStrictEqual(searchSuggestionItems('tags:ui (status:doing | sta'), complete('tags:ui (status:doing | ', 'sta'));
+});
+
+test('suggestions complete the token typed inside a quote, keeping the quote open as it is', () => {
+  assert.deepStrictEqual(searchSuggestionItems('"two wo'), complete('', '"two wo'));
+  assert.deepStrictEqual(searchSuggestionItems('tags:ui "two wo'), complete('tags:ui ', '"two wo'));
+  assert.deepStrictEqual(searchSuggestionItems('(a | "two wo'), complete('(a | ', '"two wo'));
+});
+
+test('a token the caret is not in is not completed: nothing after a bar, a closed bracket or a space', () => {
+  assert.deepStrictEqual(searchSuggestionItems('a |'), []);
+  assert.deepStrictEqual(searchSuggestionItems('a | '), []);
+  assert.deepStrictEqual(searchSuggestionItems('('), []);
+  assert.deepStrictEqual(searchSuggestionItems('(a '), []);
+  assert.deepStrictEqual(searchSuggestionItems('(a)'), []);
+  assert.deepStrictEqual(searchSuggestionItems('"two words" '), []);
+  assert.deepStrictEqual(searchSuggestionItems('"'), []);
+});
+
+test('a token that already names a scope is not completed, quoted or not', () => {
+  assert.deepStrictEqual(searchSuggestionItems('(status:do'), []);
+  assert.deepStrictEqual(searchSuggestionItems('tags:"gri'), []);
+  assert.deepStrictEqual(searchSuggestionItems('a | owner:bob'), []);
+});
+
+test('with a caret the token under it is completed and the text after it is kept', () => {
+  const text = '(sta | status:todo)';
+  assert.deepStrictEqual(searchSuggestionItems(text, 4), complete('(', 'sta', ' | status:todo)'));
+  assert.deepStrictEqual(searchSuggestionItems('a "two wo b', 9), complete('a ', '"two wo b'), 'an open quote reads to the end, caret or not');
+  assert.deepStrictEqual(searchSuggestionItems('one two three', 7), complete('one ', 'two', ' three'));
+  assert.deepStrictEqual(searchSuggestionItems(text, 5), [], 'a caret in the space after the token completes nothing');
+  assert.deepStrictEqual(searchSuggestionItems('(sta)', 5), [], 'a caret after the closing bracket completes nothing');
+  assert.deepStrictEqual(searchSuggestionItems('(sta)', 4), complete('(', 'sta', ')'));
+});
+
+test('without a caret the end of the text is where the typing is, as before', () => {
+  assert.deepStrictEqual(searchSuggestionItems('status:todo @afk').slice(0, 1), [{ value: 'status:todo @afk', label: '@afk' }]);
+  assert.deepStrictEqual(searchSuggestionItems('one two', undefined), complete('one ', 'two'));
 });

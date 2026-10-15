@@ -429,12 +429,14 @@ function filterCards(cards, terms, ctx) {
 }
 
 // The search box's autocomplete dropdown. Pure candidate
-// generation — no DOM, mirrors every other module here. Only the LAST
-// whitespace-separated segment of the query is ever completed (the terms
-// before it are query grammar the parser already accepted; re-suggesting
-// scopes for them would be noise), same "complete what's currently being
-// typed" contract as combobox.js's tagMode, just space- instead of
-// comma-delimited.
+// generation — no DOM, mirrors every other module here. Only the token under
+// the caret (the end of the text when no caret is given) is ever completed:
+// the terms around it are query grammar the parser already accepted, and
+// re-suggesting scopes for them would be noise. The lexer finds the token, so
+// one typed after an open bracket, after a `|` or inside an open quote is
+// completed as it stands, bracket, bar or quote left where it is. Same
+// "complete what's currently being typed" contract as combobox.js's tagMode,
+// just space- instead of comma-delimited.
 //
 // Given that segment, offers the bare term plus every KNOWN_FIELDS scoped
 // form (title:/body:/status:/priority:/tags:/file:/assignee: — literally
@@ -444,30 +446,35 @@ function filterCards(cards, terms, ctx) {
 // anything.
 //
 // No suggestions (empty array, dropdown stays closed) when:
-// - the segment is empty (nothing typed yet, or trailing whitespace —
-//   same "not-yet-a-term" contract parseTerm uses for a bare "status:")
+// - no token is being typed (nothing typed yet, trailing whitespace, or the
+//   caret is on a bracket or a `|` — same "not-yet-a-term" contract parseTerm
+//   uses for a bare "status:")
 // - the segment already carries a recognized OR unrecognized `foo:` prefix
 //   (a colon anywhere in it) — it's already scoped, or already a bare
 //   fallback term; re-offering scopes on top of that reads as broken, not
 //   helpful
 //
-// `value` is the FULL replacement text for the input (prior terms preserved
-// verbatim, segment replaced) — so picking a suggestion is a plain whole-
-// value swap, no special-cased "insert at cursor" logic needed. `label` is
-// just the new term, undecorated by the terms before it, so the menu reads
-// as "here's what this word could become" rather than repeating the whole
-// query back on every row.
-function searchSuggestionItems(raw) {
+// `value` is the FULL replacement text for the input (the text before and
+// after the token preserved verbatim, the token replaced) — so picking a
+// suggestion is a plain whole-value swap, no special-cased "insert at cursor"
+// logic needed. `label` is just the new term, undecorated by the text around
+// it, so the menu reads as "here's what this word could become" rather than
+// repeating the whole query back on every row.
+function searchSuggestionItems(raw, caret) {
   const text = String(raw || '');
-  if (/\s$/.test(text)) return []; // trailing space: no segment is being typed right now
-  const parts = text.split(/\s+/).filter(Boolean);
-  const segment = parts.pop() || '';
-  if (!segment || segment.includes(':')) return [];
-  const prefix = parts.length ? `${parts.join(' ')} ` : '';
-  const items = [{ value: prefix + segment, label: segment }];
+  const at = Number.isInteger(caret) ? Math.max(0, Math.min(caret, text.length)) : text.length;
+  // The token being typed is the text token the caret sits in or at the end of.
+  // A bracket, a | or a space is not one, so none of them is completed.
+  const token = lexSearch(text).tokens.find((t) => t.kind === 'text' && t.start < at && at <= t.end);
+  if (!token) return [];
+  const segment = text.slice(token.start, token.end);
+  if (segment.includes(':') || segment === '"') return [];
+  const before = text.slice(0, token.start);
+  const after = text.slice(token.end);
+  const items = [{ value: before + segment + after, label: segment }];
   KNOWN_FIELDS.forEach((field) => {
     const label = `${field}:${segment}`;
-    items.push({ value: prefix + label, label });
+    items.push({ value: before + label + after, label });
   });
   return items;
 }
