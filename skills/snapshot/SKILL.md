@@ -87,7 +87,9 @@ board does not have is left open, and a single unknown name, `slice:..` and a ha
 cut nothing. A board with no hierarchy cuts by depth (`slice:1` keeps the depth-1 cards), and
 `slice:` combines like any term (`tags:ui (slice:goal | #12)`). Slices are counted over every
 card of the board, archived ones included, as the page was built: a queued edit does not move a
-card to another slice until it is applied. The box suggests as the web's does, from the same
+card to another slice until it is applied, and a card queued with + New card sits where a new card
+does, a root at depth 0 or the tier its type names, so a cut that holds depth 0 shows it and one that
+cuts nothing cuts it nothing. The box suggests as the web's does, from the same
 module: a list under the box completes the token under the caret, and after `slice:` and after
 `..` it shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
 to the deepest card with no tier, narrowed to the names that start with what is typed; a tap on a row writes the
@@ -99,7 +101,8 @@ only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does 
 `title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
 `assignee:` (`a:` is its alias) is a case-insensitive substring match on the assignee handle,
 bare terms hit title+body+tags. Edits still queued in the tray count: a card a
-queued edit makes match shows under the query.
+queued edit makes match shows under the query, `waiting:` included (a queued `waiting_for`
+makes a card wait, and a queued move to done frees the cards that waited for it).
 `review:`/`blocked:` (ADR 0009)
 are their own family: UNLIKE every scope above, a bare `review:`/`blocked:`
 (no value) is itself a complete term — "the sticker is present" (the shared

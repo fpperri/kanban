@@ -1216,8 +1216,19 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 let qTerms=[];
 const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
 const searchCtx={board:BOARD,hierarchy:HIERARCHY,graph:searchGraph};
-function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
-function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),searchCtx)}
+// A card queued with + New card has no number yet (n1, n2, ...), so the search reads it under a
+// number of its own, below zero, which no card of the board has.
+const searchId=c=>isProv(c.id)?-Number(String(c.id).slice(1)):c.id;
+function searchCard(c){return{id:searchId(c),title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
+// What a query resolves over. The slices, tree: and path: read the board as it was built plus the
+// cards queued to be created, which sit where a new card does (a root, or the tier its type
+// names), so a cut that holds depth 0 holds them and one that cuts nothing cuts them nothing; a
+// queued edit moves no card between slices until it is applied. waiting: reads the cards as the page
+// holds them, a queued edit counted, as a bare term does (unresolved, the page's own rule).
+const searchUniverse=()=>DATA.map(searchCard).concat(view.filter(c=>isProv(c.id)).map(searchCard));
+const waitingIds=()=>new Set(view.concat(gone).filter(c=>!isProv(c.id)&&unresolved(c).length).map(c=>Number(c.id)));
+const resolveQuery=(terms,universe,waiting)=>resolveTerms(universe,terms,searchCtx,{waiting});
+function setQuery(text){qTerms=resolveQuery(parseSearchQuery(text,BOARD),searchUniverse(),waitingIds())}
 const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
 // Waiting vs blocked/review (review is ADR 0009):
 // waiting is DERIVED — a waiting_for id whose card isn't done
@@ -1500,14 +1511,15 @@ if(host.children[i]!==b)host.insertBefore(b,host.children[i]||null)})}
 function panelBoard(){return{pills:PILLS,cards:view.filter(c=>!c.arch).map(searchCard),term:searchTermText}}
 const pillEntriesNow=()=>pillEntries(panelBoard());
 // The ids a pill's query matches among the cards the page holds. The query resolves as the box's
-// does, over every card of the board as built, so waiting: and tree: see the cards the status pills
-// hide; an edit still queued counts, as it does under the box. Text that is no term yet matches nothing.
+// does (resolveQuery), over every card of the board, so waiting: and tree: see the cards the status
+// pills hide; an edit still queued counts, as it does under the box. Text that is no term yet
+// matches nothing.
 function pillMatcher(){
-const all=DATA.map(searchCard);
+const all=searchUniverse(),waiting=waitingIds();
 return text=>{
 const terms=parseSearchQuery(text,BOARD);
 if(!terms.length)return[];
-const resolved=resolveTerms(all,terms,searchCtx);
+const resolved=resolveQuery(terms,all,waiting);
 return view.filter(c=>cardMatchesQuery(searchCard(c),resolved)).map(c=>c.id)}}
 const pillOn=pill=>searchHasAlt($("q").value,pill.query);
 // Two pills with one query (a board's pill for tags:"next-up" and that tag's own value pill) are one filter.
