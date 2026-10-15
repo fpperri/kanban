@@ -7,6 +7,7 @@ const {
   TYPE_ICON_NAMES, typeIconGlyph, typeIconOutline, typeIconReach, typeIconOf,
 } = require('../web/type-icons');
 const { ICON_NAMES } = require('../scripts/config-store');
+const { topLevelDeclarations, collisions } = require('./helpers/global-scope');
 
 const NAMES = ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star'];
 const GLYPHS = { circle: '\u25cf', square: '\u25a0', diamond: '\u25c6', triangle: '\u25b2', hexagon: '\u2b22', star: '\u2605' };
@@ -134,4 +135,15 @@ test('the module has no dependencies: it loads in a page scope with no require a
   }
   assert.strictEqual(window.typeIconOutline('diamond', 10), 'M13 0L0 13L-13 0L0 -13Z');
   assert.deepStrictEqual([...window.TYPE_ICON_NAMES], NAMES);
+});
+
+test('the module shares no top-level name with any other page script, and declares only type-icon names', () => {
+  const webDir = path.join(__dirname, '..', 'web');
+  const sources = fs.readdirSync(webDir).filter((f) => f.endsWith('.js')).map((f) => ({ label: f, source: fs.readFileSync(path.join(webDir, f), 'utf8') }));
+  const mine = sources.find((s) => s.label === 'type-icons.js');
+  assert.ok(mine, 'type-icons.js is one of the page scripts');
+  const names = topLevelDeclarations(mine.source);
+  assert.ok(names.includes('typeIconGlyph') && names.includes('TYPE_ICON_NAMES'));
+  for (const name of names) assert.match(name, /^(TYPE_ICON_|typeIcon)/, `${name} is named for the module`);
+  assert.deepStrictEqual(collisions(sources), []);
 });

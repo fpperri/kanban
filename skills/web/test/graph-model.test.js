@@ -617,6 +617,12 @@ test('build: a node with no icon, an unknown icon, no type or an unlisted type g
   for (const id of [1, 2, 3, 4, 5, 6]) assert.strictEqual(m.byId.get(id).shape, 'circle', `card ${id}`);
 });
 
+test('build: an icon name that is hostile text, not one of the six, gives the circle', () => {
+  const types = ['__proto__', 'constructor', 'toString', 'Star', '<script>', 'star"><x', 7, ['star']].map((icon, i) => ({ name: `t${i}`, color: '', icon }));
+  const m = buildTyped(types.map((t, i) => card(i + 1, { type: t.name })), types);
+  for (const n of m.nodes) assert.strictEqual(n.shape, 'circle', n.card.type);
+});
+
 test('build: with no types list at all (an old server, no config) every node is a circle', () => {
   const m = graphBuild([card(1, { type: 'goal' })], { ctx: CTX });
   assert.strictEqual(m.byId.get(1).shape, 'circle');
