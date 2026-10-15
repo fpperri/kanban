@@ -803,7 +803,8 @@ to `127.0.0.1` only.
   every view and with the search panel open or closed. Each stops at the ends of the axis, and
   the top never passes the bottom. They read the shared key guard, so they do nothing while a
   text field (the search box too) has focus or while a card menu, a dialog, the notifications
-  panel or the preferences sheet is up, and a chord (Ctrl, Cmd, Alt) is not them. With the panel
+  panel or the preferences sheet is up, and a chord (Ctrl, Cmd, Alt) is not them (AltGr, which
+  types the brackets on a layout with none of its own, is not a chord). With the panel
   closed, the chip counts a run that cuts and its name says so (`1 on: slice goal..objective`). The
   section folds with its fold control for the visit, and the preferences sheet's **Slice
   section starts folded** (on by default) says how it starts. The entries are `.slice-entry`

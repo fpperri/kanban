@@ -3264,8 +3264,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // still works from inside a text field. Ctrl+F has its own `#`-prefill/
 // select-all logic — see onSearchChordKey.
 //
-// The one writer of the box: typing, the clear button, a cue click, the Ctrl+F
-// prefill and a ?q= link all come through writeSearch(text, reason). It sets the
+// The one writer of the box: typing, the clear button, a cue click, a pill, a click or a key
+// of the slice section, the Ctrl+F prefill and a ?q= link all come through writeSearch(text,
+// reason). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write

@@ -595,6 +595,17 @@ test('a chord with Ctrl, Cmd or Alt, and any other key, leave the run alone', as
   assert.strictEqual(s.box(), '');
 });
 
+test('AltGr, which types the brackets on layouts that have none of their own, is not a chord: the keys work with it, and a plain Ctrl+Alt still does not', async () => {
+  const s = await open();
+  s.focusOn(button());
+  const altGr = { ctrlKey: true, altKey: true, getModifierState: (name) => name === 'AltGraph' };
+  assert.strictEqual(s.key('[', altGr), 1);
+  assert.strictEqual(s.box(), 'slice:..1');
+  assert.strictEqual(s.key('[', { ctrlKey: true, altKey: true, getModifierState: () => false }), 0, 'Ctrl+Alt held as a chord');
+  assert.strictEqual(s.key('[', { ctrlKey: true, getModifierState: (name) => name === 'AltGraph' }), 1, 'a layout that reports AltGr without the Ctrl and Alt keys');
+  assert.strictEqual(s.key('[', { metaKey: true, getModifierState: (name) => name === 'AltGraph' }), 0, 'Cmd is a chord whatever else is held');
+});
+
 test('a key on a board with no cards does nothing', async () => {
   const s = await open({ board: makeBoard({ active: [] }) });
   s.focusOn(button());

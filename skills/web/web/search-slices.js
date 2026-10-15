@@ -196,10 +196,18 @@ function onSliceEntryKey(e) {
   applySliceGesture('keep', button);
 }
 
+// A chord (Ctrl, Cmd, Alt held with a key). AltGr is not one: on a layout with no brackets of its
+// own it is how they are typed, and the browser reports it as Ctrl and Alt together, with the
+// AltGraph modifier on.
+function sliceKeyIsChord(e) {
+  const altGraph = typeof e.getModifierState === 'function' && e.getModifierState('AltGraph');
+  return !!e.metaKey || ((!!e.ctrlKey || !!e.altKey) && !altGraph);
+}
+
 // [ ] { }: a key that types nothing but reads a character, so it reads the whole key guard.
-// Shift is not checked: { and } are Shift with [ and ]. A chord (Ctrl, Cmd, Alt) is not it.
+// Shift is not checked: { and } are Shift with [ and ].
 function onSliceKey(e) {
-  if (!SLICE_RUN_KEYS.includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!SLICE_RUN_KEYS.includes(e.key) || sliceKeyIsChord(e)) return;
   if (keyGuardOff(document)) return;
   const now = searchSlicesNow();
   if (!now.list.length) return;
