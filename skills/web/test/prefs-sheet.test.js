@@ -130,7 +130,7 @@ test('the sheet sits after the page\'s other popups and before the scripts', () 
 });
 
 test('the sheet\'s settings are not written to the board: nothing in the sheet code calls the server', () => {
-  for (const name of ['openPrefsSheet', 'closePrefsSheet', 'syncPrefsSheet', 'onPrefsSheetClick', 'setClickPref', 'setArchivedDone', 'setRollupBarMode']) {
+  for (const name of ['openPrefsSheet', 'closePrefsSheet', 'syncPrefsSheet', 'onPrefsSheetClick', 'setClickPref', 'setArchivedDone', 'setPillsFolded', 'setRollupBarMode']) {
     assert.doesNotMatch(fn(name), /\bapi\(|fetch\(|XMLHttpRequest/, name);
   }
 });
@@ -160,12 +160,13 @@ function fakeEl(id, classes = []) {
 function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const colState = require('../web/column-state');
   const writes = {};
-  const log = { renders: 0, details: [], focused: null };
+  const log = { renders: 0, details: [], folds: [], focused: null };
   const sheet = fakeEl('prefs-sheet', ['modal-backdrop', 'hidden']);
   const gear = fakeEl('prefs-btn');
   gear.setAttribute('aria-expanded', 'false');
   const close = fakeEl('prefs-close');
   const archived = fakeEl('prefs-archived-done');
+  const pillsFolded = fakeEl('prefs-pills-folded');
   const opts = [];
   const opt = (pref, value, extra = {}) => {
     const o = fakeEl(`${pref}-${value}`);
@@ -180,8 +181,8 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   for (const value of ['open', 'collapsed']) opt('bar', value);
   sheet.querySelectorAll = (sel) => { assert.strictEqual(sel, '.prefs-opt'); return opts; };
   const owner = log;
-  for (const e of [sheet, gear, close, archived, ...opts]) e.owner = owner;
-  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#prefs-close': close, '#prefs-archived-done': archived };
+  for (const e of [sheet, gear, close, archived, pillsFolded, ...opts]) e.owner = owner;
+  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded };
   const sandbox = {
     state: { projectName: 'shop' },
     ...colState,
@@ -193,15 +194,16 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
     $: (sel) => { assert.ok(byId[sel], `the page looks up ${sel}`); return byId[sel]; },
     renderBoard: () => { log.renders++; },
     renderDetailRollup: (id) => { log.details.push(id); },
+    foldSearchPills: (folded) => { log.folds.push(folded); },
     currentDetailId: detailOpen ? 4 : null,
-    sheet, gear, close, archived, opts, writes, log,
+    sheet, gear, close, archived, pillsFolded, opts, writes, log,
   };
   vm.createContext(sandbox);
   const memo = (re, what) => { const m = appSrc.match(re); assert.ok(m, what); return m[0]; };
   vm.runInContext([
     memo(/^let rollupBarMode = null;$/m, 'bar memo'), memo(/^let prefsMemo = null;$/m, 'prefs memo'),
     fn('loadRollupBarMode'), fn('saveRollupBarMode'), fn('prefsStorage'), fn('loadPrefsState'), fn('savePrefsState'), fn('countArchivedLeaves'),
-    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'),
+    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setPillsFolded'),
     fn('prefOptionOn'), fn('syncPrefsSheet'), fn('openPrefsSheet'), fn('closePrefsSheet'), fn('onPrefsSheetClick'),
   ].join('\n'), sandbox);
   return sandbox;
@@ -271,6 +273,28 @@ test('a choice is kept per board: another board\'s name reads its own entry', ()
   assert.deepStrictEqual(Object.keys(p.writes), ['kanban.shop.prefs']);
 });
 
+test('the sheet shows the pill section as starting unfolded, and as folded when the browser kept that for this board', () => {
+  const none = sheetPage();
+  none.openPrefsSheet();
+  assert.strictEqual(none.pillsFolded.checked, false);
+  const kept = sheetPage({ stored: { 'kanban.shop.prefs': JSON.stringify({ pillsFolded: true }) } });
+  kept.openPrefsSheet();
+  assert.strictEqual(kept.pillsFolded.checked, true);
+});
+
+test('choosing that the pill section starts folded saves it in the prefs entry, folds the section now, and repaints nothing', () => {
+  const p = sheetPage();
+  p.setPillsFolded(true);
+  assert.deepStrictEqual(Object.keys(p.writes), ['kanban.shop.prefs']);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).pillsFolded, true);
+  assert.deepStrictEqual(p.log.folds, [true]);
+  assert.strictEqual(p.log.renders, 0);
+  p.setPillsFolded(false);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).pillsFolded, false);
+  assert.deepStrictEqual(p.log.folds, [true, false]);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).archivedDone, true, 'the other settings are left alone');
+});
+
 test('the fixed Graph choice cannot be changed from the sheet', () => {
   const p = sheetPage();
   p.onPrefsSheetClick({ target: { id: 'x', closest: () => optOf(p, 'click', 'selects', 'graph') } });
@@ -335,6 +359,14 @@ test('the checkbox, the close button and the gear are wired in the DOMContentLoa
   assert.match(appSrc, /\$\('#prefs-close'\)\.addEventListener\('click', closePrefsSheet\);/);
   assert.match(appSrc, /\$\('#prefs-sheet'\)\.addEventListener\('click', onPrefsSheetClick\);/);
   assert.match(appSrc, /\$\('#prefs-archived-done'\)\.addEventListener\('change', \(e\) => setArchivedDone\(e\.target\.checked\)\);/);
+  assert.match(appSrc, /\$\('#prefs-pills-folded'\)\.addEventListener\('change', \(e\) => setPillsFolded\(e\.target\.checked\)\);/);
+});
+
+test('the pill-section choice is a checkbox in its own group of the sheet, and says what it is', () => {
+  const [box] = tagsOf(sheetHtml, /<input[^>]*id="prefs-pills-folded"[^>]*>/);
+  assert.ok(box);
+  assert.strictEqual(attr(box, 'type'), 'checkbox');
+  assert.match(sheetHtml, /<input[^>]*id="prefs-pills-folded"[^>]*>\s*Pill section starts folded/);
 });
 
 // --- Esc, the poll, the key guard ------------------------------------------------------------
@@ -356,7 +388,8 @@ function escPage({ open = [] } = {}) {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     $: (sel) => els[sel],
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
-    requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.length > 0,
+    requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),
+    closeSearchPanel: () => (open.includes('#search-panel') ? (calls.push('panel'), true) : false),
     escapeStep: () => calls.push('step'), closePrefsSheet: () => calls.push('prefs'),
   };
   vm.createContext(sandbox);
@@ -369,6 +402,15 @@ test('Esc closes the open preferences sheet, and nothing else', () => {
   const p = escPage({ open: ['#prefs-sheet'] });
   p.esc();
   assert.deepStrictEqual(p.calls, ['prefs']);
+});
+
+test('an open search panel takes Esc after the popups and before the end of the chain: it closes, and nothing else runs', () => {
+  const p = escPage({ open: ['#search-panel'] });
+  p.esc();
+  assert.deepStrictEqual(p.calls, ['panel']);
+  const withMenu = escPage({ open: ['#context-menu', '#search-panel'] });
+  withMenu.esc();
+  assert.deepStrictEqual(withMenu.calls, ['menu'], 'a popup that is open takes it first');
 });
 
 test('with the sheet closed, Esc does what it did: the menu, then the dialogs, then the end of the chain', () => {

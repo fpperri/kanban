@@ -122,16 +122,18 @@ for (const [view, f] of Object.entries(FILTERS)) {
 }
 
 // The Graph is not among them: a search typed there hides nothing and is the anchor
-// of the selection, which graph-lights-wiring.test.js pins.
+// of the selection, which graph-lights-wiring.test.js pins. The cards here are
+// picked by hand: a pill's query is the part that typing drops, since the box no
+// longer holds it (search-panel.test.js).
 for (const view of ['board', 'map', 'calendar', 'gantt']) {
   test(`${view}: a search that hides a card takes it out of the id set, and clearing the box brings it back`, async () => {
     const s = await open({ view });
-    s.select('cardPart(1)', "queryPart('tags:ui')");
-    assert.deepStrictEqual(s.ids().slice(0, 3), [1, 2, 5]);
+    s.select('cardPart(1)', 'cardPart(2)', 'cardPart(5)');
+    assert.deepStrictEqual(s.ids(), [1, 2, 5]);
     s.page.input.typed('status:todo');
-    assert.deepStrictEqual(s.ids(), [2], 'the box leaves cards 2 and 4; the selection reaches 1, 2, 5 (and 8 where archived cards show)');
+    assert.deepStrictEqual(s.ids(), [2], 'the box leaves cards 2 and 4; the selection reaches 1, 2, 5');
     s.page.input.typed('');
-    assert.deepStrictEqual(s.ids().slice(0, 3), [1, 2, 5]);
+    assert.deepStrictEqual(s.ids(), [1, 2, 5]);
   });
 }
 

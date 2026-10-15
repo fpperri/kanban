@@ -783,13 +783,15 @@ function selectionMatchIds(text) {
 // Board shows the cards of its expanded columns, the other views the cards their
 // status pills, their Archive pill and the search box leave). It reads the same
 // filters each view draws with, so the id set follows what is on screen.
-function shownCardIds() {
+// `withSearch` false leaves the search box and its cut out: the cards the status
+// pills and Archive leave, which is what the pill counts are taken over.
+function viewCardIds(withSearch) {
   const pool = state.active.concat(state.archived);
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withSearch ? currentSearchMatch().ids : null;
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
-    visible = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, graphLoadFilter(), boardStatuses());
+    visible = graphVisibleIds(pool, withSearch ? currentGraphQueryEffect().visibleIds : null, graphLoadFilter(), boardStatuses());
   } else if (mode === 'map') {
     visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
   } else if (mode === 'gantt' || mode === 'calendar') {
@@ -803,6 +805,17 @@ function shownCardIds() {
     visible = intersectVisibleIds(searchIds, new Set(open.map((c) => c.id)));
   }
   return visible || new Set(pool.map((c) => c.id));
+}
+
+function shownCardIds() {
+  return viewCardIds(true);
+}
+
+// The cards the view shows before the search box and any cut: what the pill counts
+// are taken over, so turning one pill on leaves the others' counts as they were.
+function cardsBeforeSearch() {
+  const ids = viewCardIds(false);
+  return state.active.concat(state.archived).filter((c) => ids.has(c.id));
 }
 
 // --- View mode: board (columns) / dependency map / calendar
@@ -903,6 +916,14 @@ function setArchivedDone(on) {
   repaintRollups();
 }
 
+// Whether the search panel's pill section starts folded; the section takes the
+// choice now (search-panel.js).
+function setPillsFolded(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { pillsFolded: on });
+  savePrefsState();
+  foldSearchPills(on);
+}
+
 // --- The preferences sheet, opened by the gear in the header. It lists the
 // settings above and the roll-up bar mode, and writes each to the browser the
 // moment it is chosen. It sits on the modal backdrop (so the poll pauses and
@@ -917,6 +938,7 @@ function prefOptionOn(opt) {
 function syncPrefsSheet() {
   $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
   $('#prefs-archived-done').checked = countArchivedLeaves();
+  $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
 }
 
 function openPrefsSheet() {
@@ -1025,6 +1047,7 @@ function renderBoard() {
     setSelection(selectionFollowingBox(selectionState.selection)); // what the view shows may have changed: a pill, the box, a view switch, a poll
     renderBoardColumns();
     applyViewMode();
+    renderSearchPanel(); // the chip, and the pills' counts in place while the panel is open
   } finally {
     searchMatchMemo = null;
   }
@@ -3170,6 +3193,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
+    if (closeSearchPanel()) return; // the search panel closes on its own Esc, ahead of the selection step
     if (e.repeat) return; // a held Esc is one press: it runs one stage
     escapeStep();
   });
@@ -3239,7 +3263,7 @@ function writeSearch(text, reason, repaint = true) {
   if (!input) return;
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
   if (repaint) {
-    boxWritten = true;
+    boxWritten = reason;
     renderBoard();
   }
   searchWriteListeners.forEach((listener) => listener(text, reason));
@@ -3277,17 +3301,27 @@ onSearchWrite(followSearchInAddress);
 
 // The selection follows the box while the Graph is shown: a search typed there is
 // the anchor of the selection (selectionAfterTyping, selection.js), so the Graph
-// lights its matches instead of hiding the rest. The writer marks that it wrote and
-// the repaint it makes takes the box into the selection, through setSelection like
-// every other write, before the id set is worked out: the one repaint paints the
-// new anchor, and parses and matches the box once. The other views keep filtering
-// and select nothing.
-let boxWritten = false;
+// lights its matches instead of hiding the rest. The writer marks why it wrote (the
+// reason it was given) and the repaint it makes takes the box into the selection,
+// through setSelection like every other write, before the id set is worked out: the
+// one repaint paints the new anchor, and parses and matches the box once. The other
+// views keep filtering and select nothing.
+//
+// A write by hand, typing or the clear button, also takes a pill off when the box no
+// longer holds its query (selectionAfterBoxEdit, selection.js), in every view. A
+// pill's own write (the reason 'pill') changes the selection and the box together
+// first, so the box is not taken for a typed search: a pill's query is not the typed
+// anchor, and stays the anchor when the Graph is left.
+let boxWritten = null;
 
 function selectionFollowingBox(selection) {
-  const written = boxWritten;
-  boxWritten = false;
-  return written && loadViewMode() === 'graph' ? selectionAfterTyping(selection, $('#search-input').value) : selection;
+  const reason = boxWritten;
+  boxWritten = null;
+  if (!reason || reason === 'pill') return selection;
+  const text = $('#search-input').value;
+  const followed = loadViewMode() === 'graph' ? selectionAfterTyping(selection, text) : selection;
+  if (reason !== 'typing' && reason !== 'clear') return followed;
+  return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
 }
 
 // What Esc does when nothing is open for it to close, and the one place the end
@@ -3304,13 +3338,18 @@ function escapeStep() {
 // One stage back, as selectionAfterEscape (selection.js) works it out: every
 // addition goes at once and the anchor stays; the next one drops the anchor.
 // Nothing picked, nothing to repaint. A box that was the anchor (a search typed in
-// the Graph) goes with it, as it does on a click on the empty Graph.
+// the Graph) goes with it, as it does on a click on the empty Graph. A pill the step
+// drops goes out of the box too (the additions first, so the box is back to the
+// anchor's query, and then the anchor's), while any other text in the box stays.
 function stepSelectionBack() {
   const next = selectionAfterEscape(selectionState);
   if (next === selectionState) return;
   const boxWasAnchor = isTypedAnchor(selectionState.selection) && !next.selection.anchor;
+  const box = $('#search-input').value;
+  const shrunk = pillQueriesDropped(selectionState.selection, next.selection).reduce((text, query) => searchRemoveAlt(text, query), box);
   setSelection(next.selection, next.rangeStart);
   if (boxWasAnchor) writeSearch('', 'selection');
+  else if (shrunk !== box) writeSearch(shrunk, 'pill');
   else renderBoard();
 }
 
@@ -5919,6 +5958,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-close').addEventListener('click', closePrefsSheet);
   $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
+  $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
   // contextmenu grammar above) plus focusin/focusout so Tab reaches the
