@@ -86,8 +86,13 @@ test('the ids and classes the scenario drives are in the page', () => {
 
 // A stand-in for the page: every expression the scenario sends is parsed, so a typo in one fails here,
 // and the clicks, keys and links it makes are logged. Whether each check holds is for the browser.
+// It also keeps the one thing of the page that decides what can be right-clicked: whether isolate is on. The entry of the
+// menus and the switch flip it, a page opened cold starts with it off unless the link carries it, and a reload keeps it.
 function standIn() {
-  const log = { exprs: [], bad: [], checks: [], opened: [], sent: [], keys: [], clicks: [], rightClicks: [] };
+  const log = { exprs: [], bad: [], checks: [], opened: [], sent: [], keys: [], clicks: [], rightClicks: [], rightClicksWhileIsolated: [], hidden: [] };
+  const drawnWhileIsolated = [...CASES.picked, ...CASES.zephyr.picked];
+  let isolated = false;
+  let centred = null;
   const parse = (expr) => {
     try { new vm.Script(`(${expr})`); } catch (e) { log.bad.push(`${e.message}: ${String(expr).slice(0, 140)}`); }
   };
@@ -107,14 +112,29 @@ function standIn() {
   };
   return {
     log,
-    ev: async (expr) => { log.exprs.push(expr); parse(expr); return answer(expr); },
+    ev: async (expr) => {
+      log.exprs.push(expr); parse(expr);
+      if (/getElementById\("isolate-switch"\)\.click\(\)/.test(expr)) isolated = !isolated;
+      return answer(expr);
+    },
     send: async (method, params) => { log.exprs.push(`send ${method}`); log.sent.push([method, params]); return params; },
-    open: async (p) => { log.opened.push(p); },
+    open: async (p) => { log.opened.push(p); isolated = /[?&]isolate=1/.test(p) && /[?&]q=/.test(p); },
     waitFor: async (expr) => { log.exprs.push(expr); parse(expr); return true; },
-    centre: async () => ({ x: 10, y: 10 }),
-    click: async (x, y, extra) => { log.clicks.push(extra || {}); },
+    centre: async (selector) => { centred = selector; return { x: 10, y: 10 }; },
+    click: async (x, y, extra) => {
+      log.clicks.push(extra || {});
+      if (!(extra && extra.modifiers) && centred === '#ctx-isolate') isolated = !isolated;
+    },
     key: async (name, mods = {}) => { log.keys.push([name, mods]); },
-    rightClick: async (sel) => { log.rightClicks.push(sel); return true; },
+    rightClick: async (sel) => {
+      log.rightClicks.push(sel);
+      const card = /\.card-el\[data-id="(\d+)"\]/.exec(sel);
+      if (isolated && card) {
+        log.rightClicksWhileIsolated.push(sel);
+        if (!drawnWhileIsolated.includes(Number(card[1]))) log.hidden.push(sel);
+      }
+      return true;
+    },
     check: (name, ok) => log.checks.push([name, ok]),
     shot: async () => {},
   };
@@ -187,4 +207,12 @@ test('it right-clicks real cards, picks with Ctrl+clicks and chooses the entry w
   assert.ok(page.log.clicks.filter((e) => e.modifiers === 2).length >= 8, 'Ctrl+clicks on the Board, each time the cards are picked');
   assert.ok(page.log.clicks.filter((e) => !e.modifiers).length >= 7, 'a real click on the entry each time it is chosen');
   assert.ok(page.log.keys.some(([k]) => k === 'Escape'));
+});
+
+test('it right-clicks no card that isolate is hiding, which the view does not draw and a right-click cannot reach', async () => {
+  const page = standIn();
+  await scenario.run(page);
+  assert.deepStrictEqual(page.log.hidden, [], 'a right-click on a card while isolate hides it');
+  assert.ok(page.log.rightClicksWhileIsolated.length >= 2, 'the scenario right-clicks cards while isolated, on the Board and in the Graph');
+  assert.ok(page.log.rightClicksWhileIsolated.some((s) => s.startsWith('#graph-view ')), 'one of them in the Graph');
 });

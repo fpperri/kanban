@@ -194,14 +194,18 @@ module.exports = {
     check('choosing it turns isolate off, and every dot is drawn again', await switchIs(false) && await waitFor(`${dotsDrawn}===${total}`), { dots: await ev(dotsDrawn), total });
     check('with the two cards still selected', await pickedIs(wanted));
     check('and the menu closed', await menuGone());
+    // Isolate is off, so every dot is drawn, the card outside the selection among them: isolated, the Graph draws no such card to right-click.
+    await rightClick(`#graph-view .card-el[data-id="${CASES.outside}"]`);
+    check('the menu of a card outside the selection, opened after the canvas menu, has every entry again, and still no Isolate', await menuUp() && (await visibleEntries()).length > 5 && (await offered()) === false && same(await lead(), ['Peek', 'Add to selection']), await visibleEntries());
+    await closeMenu();
     const spotAgain = await emptyPoint(canvas);
     check('the empty canvas right-click is kept from the browser again', !!spotAgain && await rightClickKept(spotAgain), spotAgain);
     check('and opens a menu with Isolate alone, as Isolate, over the Graph', await menuUp() && same(await visibleEntries(), ['ctx-isolate']) && (await entryLabel()) === 'Isolate', await visibleEntries());
     await choose();
     check('choosing it turns isolate on, and only the two cards are drawn', await switchIs(true) && await shows(SELECTORS.graph, wanted), await nowShown(SELECTORS.graph));
     check('with no dot dimmed', await ev(notDimmed));
-    await rightClick(`#graph-view .card-el[data-id="${CASES.outside}"]`);
-    check('the menu of a card opened after the canvas menu has every entry again, and still no Isolate for a card outside the selection', await menuUp() && (await visibleEntries()).length > 5 && (await offered()) === false, await visibleEntries());
+    await rightClick(`#graph-view .card-el[data-id="${a}"]`);
+    check('the menu of a card inside the selection, opened after the canvas menu, has every entry again, and reads Turn isolate off', await menuUp() && (await visibleEntries()).length > 5 && await offered() && (await entryLabel()) === 'Turn isolate off', await visibleEntries());
     await closeMenu();
 
     // --- the Map: the empty canvas -----------------------------------------------------------------------------------------------
