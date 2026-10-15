@@ -257,13 +257,17 @@ function stepBack(selection) {
   return selection.anchor ? NO_SELECTION : selection;
 }
 
-// What Esc does to the selection state ({ selection, rangeStart }): one stepBack,
-// with the range start kept honest. After the additions go the range start is the
+// What Esc does to the selection state ({ selection, rangeStart, isolate }): three
+// stages. With isolate on, the first Esc turns it off and leaves the selection and
+// the range start exactly as they were (isolate is { previous }, the text the box
+// held before; the caller gives the box that text back). Then one stepBack, with the
+// range start kept honest. After the additions go the range start is the
 // anchor card, as if it had just been clicked, so a Shift range cannot begin at a
 // card that is no longer picked; with no anchor card it is dropped, so a dead
-// selection leaves no invisible range start behind. Nothing picked: the same
-// state comes back, and the caller skips the repaint.
+// selection leaves no invisible range start behind. Nothing picked and no isolate:
+// the same state comes back, and the caller skips the repaint.
 function selectionAfterEscape(state) {
+  if (state.isolate) return { selection: state.selection, rangeStart: state.rangeStart, isolate: null };
   const next = stepBack(state.selection);
   if (next === state.selection) return state;
   const anchor = next.anchor;
@@ -450,6 +454,33 @@ function pillQueriesDropped(before, after) {
     .map((part) => part.text);
 }
 
+// --- Isolate -------------------------------------------------------------------
+// Isolate shows only the selection by writing it into the search box as a query
+// (searchIsolateBox, search.js), so it is no selection state: it is a flag, { previous },
+// the text the box held before, kept while it is on (null while off). A click on a
+// card while it is on moves the anchor and writes nothing to the box, and it ends
+// when the box is left holding no query.
+
+// The text the box holds after a click on a card in the Graph, given the gesture
+// (`action`, from cardClickAction) and whether the selection's anchor was the typed
+// query before and after it. A plain click sets a new anchor and clears the box. Shift
+// or Ctrl keeps the query, unless it took out a card the typed query lit: the query is
+// then its other cards, and the box no longer names the anchor. While isolated the box
+// holds the isolate text, which a click never touches: it moves the anchor only.
+function boxAfterGraphClick(action, { boxText, typedBefore, typedAfter, isolated }) {
+  if (isolated) return boxText;
+  return action === 'select' || (typedBefore && !typedAfter) ? '' : boxText;
+}
+
+// The isolate state after the box was written with `reason`. Isolate is a query in the
+// box, so a write that leaves the box holding none (a hand edit, the clear button, a
+// pill turned off) ends it. Its own writes, turning it on and off, never do: the page
+// ends it itself when it gives the box its text back.
+function isolateAfterWrite(isolate, text, reason) {
+  if (!isolate || reason === 'isolate') return isolate;
+  return String(text == null ? '' : text).trim() ? isolate : null;
+}
+
 // The card a click picked on its own, or null: a selection that is one card part,
 // the anchor with no additions. Only such a card lights with its relations; a
 // query or a path that matches one card lights that card alone.
@@ -459,7 +490,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -482,6 +513,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.stepBack = stepBack;
   window.selectionAfterEscape = selectionAfterEscape;
   window.pruneSelectionParts = pruneSelectionParts;
+  window.boxAfterGraphClick = boxAfterGraphClick;
+  window.isolateAfterWrite = isolateAfterWrite;
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
   window.cardMenuFor = cardMenuFor;

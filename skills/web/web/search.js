@@ -503,6 +503,52 @@ function searchRemoveAlt(raw, term) {
   return left.length === have.length ? text : searchJoinSlice(searchAltsText(left), slices);
 }
 
+// --- Isolate. Switching it on writes the selection into the box as `part | part | ...`
+// (the isolate text), each part by its criterion rather than a frozen list of cards, so a
+// card that comes to match a query part joins on the next poll, and the address carries it.
+// A card is `#id`, a path `path:id`, a tree `tree:id`; a query is its own text, in brackets
+// when it holds a | or spaces (searchBracket, so the grammar's token-edge rules apply). A
+// query part that is not a term yet (`status:`) selects nothing, so it writes nothing: a
+// lone half-typed term would otherwise isolate every card. A query part with a card taken
+// out is already its other cards by then (selection.js removeCard), so it is written as
+// them. `parts` are the selection's parts, { kind: 'card' | 'path' | 'tree', id } or
+// { kind: 'query', text }. What the text matches is what the selection resolves to over
+// the whole board.
+
+function searchIsolatePartText(part) {
+  if (!part) return '';
+  if (part.kind === 'card') return `#${Number(part.id)}`;
+  if (part.kind === 'path' || part.kind === 'tree') return `${part.kind}:${Number(part.id)}`;
+  if (part.kind !== 'query') return '';
+  const text = String(part.text == null ? '' : part.text).trim();
+  return parseSearchQuery(text).length ? searchBracket(text) : '';
+}
+
+function searchIsolateText(parts) {
+  return (Array.isArray(parts) ? parts : []).map(searchIsolatePartText).filter(Boolean).join(' | ');
+}
+
+// What the box holds while isolated: the isolate text, with the run of slices the box held
+// put back after it (searchSplitSlice, searchJoinSlice). The cut stays in effect, because
+// the selection only covers the cards the view shows and a card the cut hides is not in
+// it. The rest of the previous text goes; the page remembers it. No part to write, no text.
+function searchIsolateBox(previous, parts) {
+  const text = searchIsolateText(parts);
+  if (!text) return '';
+  return searchJoinSlice(text, searchSplitSlice(previous).slices);
+}
+
+// What the box holds when isolate goes off: the text it held before, exactly as it was,
+// except that the run of slices is the one the box holds now, since the slice section may
+// have moved it while isolated and the cut is not part of what isolate takes away. A cut
+// that did not move leaves the previous text untouched, as it was typed.
+function searchIsolateRestore(current, previous) {
+  const was = searchSplitSlice(previous);
+  const now = searchSplitSlice(current).slices;
+  if (now.join(' ') === was.slices.join(' ')) return String(previous == null ? '' : previous);
+  return searchJoinSlice(was.rest, now);
+}
+
 function termMatchesCard(term, card) {
   const title = (card.title || '').toLowerCase();
   const body = (card.body || '').toLowerCase();
@@ -688,6 +734,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
     searchSplitSlice, searchJoinSlice, searchSetSlice,
+    searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -705,4 +752,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchSplitSlice = searchSplitSlice;
   window.searchJoinSlice = searchJoinSlice;
   window.searchSetSlice = searchSetSlice;
+  window.searchIsolateText = searchIsolateText;
+  window.searchIsolateBox = searchIsolateBox;
+  window.searchIsolateRestore = searchIsolateRestore;
 }

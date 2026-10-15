@@ -752,8 +752,9 @@ function currentSearchMatch() {
 // What the box does in the Graph: the cards it hides (a slice: term's cut, from the
 // whole board and its hierarchy) and the cards it lights. The Graph's one decision
 // about a query, read by what is drawn, what is lit and what a selection can reach.
+// While isolate is on the whole query is a cut, as it is in every other view.
 function currentGraphQueryEffect() {
-  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx());
+  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx(), { isolated: isolateNow() !== null });
 }
 
 // The cards one piece of search text matches, over the whole board like the box.
@@ -1027,7 +1028,8 @@ function toggleView(mode) {
   const from = loadViewMode();
   viewMode = from === mode ? 'board' : mode;
   saveViewMode();
-  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText: $('#search-input').value }); // a search typed in the Graph is not the anchor anywhere else
+  const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
   if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
@@ -3215,6 +3217,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
     if (closeSearchPanel()) { e.preventDefault(); return; } // the search panel closes on its own Esc, ahead of the selection step, and a search field's own Esc must not clear the box as well
     if (e.repeat) return; // a held Esc is one press: it runs one stage
+    isolateEscapeKeepsBox(e);
     escapeStep();
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable
@@ -3336,16 +3339,19 @@ onSearchWrite(followSearchInAddress);
 // longer holds its query (selectionAfterBoxEdit, selection.js), in every view. A
 // pill's own write (the reason 'pill') changes the selection and the box together
 // first, so the box is not taken for a typed search: a pill's query is not the typed
-// anchor, and stays the anchor when the Graph is left.
+// anchor, and stays the anchor when the Graph is left. Isolate's own write (the reason
+// 'isolate') leaves the selection as it is, and while isolate is on the box holds the
+// isolate text, which is never a typed search: it does not become the anchor.
 let boxWritten = null;
 
 function selectionFollowingBox(selection) {
   const reason = boxWritten;
   boxWritten = null;
-  if (!reason || reason === 'pill') return selection;
+  if (!reason || reason === 'pill' || reason === 'isolate') return selection;
   const text = $('#search-input').value;
-  if (reason === 'slice') return loadViewMode() === 'graph' && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
-  const followed = loadViewMode() === 'graph' ? selectionAfterTyping(selection, text) : selection;
+  const isolated = isolateNow() !== null;
+  if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
+  const followed = loadViewMode() === 'graph' && !isolated ? selectionAfterTyping(selection, text) : selection;
   if (reason !== 'typing' && reason !== 'clear') return followed;
   return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
 }
@@ -3357,19 +3363,22 @@ function selectionFollowingBox(selection) {
 // anywhere else (another text field, a select, an open surface) it does nothing.
 function escapeStep() {
   const action = keyGuardEscape(document, $('#search-input'));
-  if (action === 'clear-box') clearSearch();
+  if (action === 'clear-box') { if (!isolateTurnOff()) clearSearch(); } // while isolated the box holds the isolate text, and Esc gives back the one it held
   else if (action === 'step') stepSelectionBack();
 }
 
-// One stage back, as selectionAfterEscape (selection.js) works it out: every
-// addition goes at once and the anchor stays; the next one drops the anchor.
-// Nothing picked, nothing to repaint. A box that was the anchor (a search typed in
-// the Graph) goes with it, as it does on a double click on the empty Graph. A pill the
-// step drops goes out of the box too (the additions first, so the box is back to the
-// anchor's query, and then the anchor's), while any other text in the box stays.
+// One stage back, as selectionAfterEscape (selection.js) works it out: isolate goes off
+// first and gives the box its text back; then every addition goes at once and the anchor
+// stays; the next one drops the anchor. Nothing picked, nothing to repaint. A box that was
+// the anchor (a search typed in the Graph) goes with it, as it does on a double click on
+// the empty Graph. A pill the step drops goes out of the box too (the additions first, so
+// the box is back to the anchor's query, and then the anchor's), while any other text in
+// the box stays.
 function stepSelectionBack() {
-  const next = selectionAfterEscape(selectionState);
-  if (next === selectionState) return;
+  const state = { ...selectionState, isolate: isolateNow() };
+  const next = selectionAfterEscape(state);
+  if (next === state) return;
+  if (state.isolate && !next.isolate) { isolateTurnOff(); return; }
   moveSelectionTo(next);
 }
 
@@ -3443,7 +3452,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // broken #<id> one. Caret shifts left by the same 1 char the strip
   // removed from the front, so typing feels uninterrupted.
   input.addEventListener('input', () => {
-    const stripped = searchHashStrip(input.value);
+    const stripped = isolateNow() ? null : searchHashStrip(input.value); // the isolate text's leading # is a card, not an id still being typed
     const caret = stripped === null ? null : Math.max(0, input.selectionStart - 1);
     writeSearch(stripped === null ? input.value : stripped, 'typing');
     if (caret !== null) input.setSelectionRange(caret, caret);
@@ -5615,6 +5624,7 @@ function onClickAway(e) {
   if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
   if (e.target.closest(NOT_EMPTY_SPACE) || e.target.closest(DOUBLE_CLICK_OWNED)) return;
+  if (isolateNow()) return; // isolated, the empty canvas clears nothing: clicks move the anchor only
   if (!selectionState.selection.anchor) return;
   if (isTypedAnchor(selectionState.selection) && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a double click on the header or the box
   moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // a dead selection must not leave an invisible range start behind
