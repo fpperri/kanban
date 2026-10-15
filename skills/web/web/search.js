@@ -25,7 +25,9 @@
 // quote or bracket reads to the end, a stray closing bracket is ignored.
 // searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
 // interface for code that writes the box; searchHasAlt/searchAddAlt/searchRemoveAlt
-// are its other half, for a query that joins the box as one more alternative.
+// are its other half, for a query that joins the box as one more alternative, and
+// searchSetSlice/searchSliceValues are its third, for the run of slices the slice
+// section writes and reads.
 //
 // The terms:
 //   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
@@ -366,12 +368,76 @@ function searchBracket(raw) {
   return alts.length === 1 && alts[0].length <= 1 ? text : `(${text})`;
 }
 
+// --- The run of slices. The slice section writes its run as a slice: term at the top
+// level of the query: one of the terms ANDed over the whole of it, as the parse reads
+// them, which is the same term the Graph hides by (graphQueryEffect). A slice: term
+// inside a bracket that holds a |, or in one alternative of a query that holds one, is
+// the query's own and stays where it is. A run added to a query that holds | brackets
+// that query, or it would cut only the last group. The run is not an alternative of the
+// box: the alternatives below (the pills' side) set it apart and put it back.
+
+// The alternatives of `alts` that hold at least one term: the parser drops the others.
+function searchLiveAlts(alts, text) {
+  return alts.filter((alt) => alt.some((item) => (item.group
+    ? searchLiveAlts(item.group, text).length > 0
+    : !!parseTerm(text.slice(item.start, item.end)))));
+}
+
+// The query split into its top-level slice: terms, as typed (a value still open in a
+// quote is shut), and the rest of it. Where a query has two or more live alternatives
+// nothing in it is at the top level. The rest is written as its alternatives, with an
+// outer bracket opened ((a | b) slice:x leaves a | b); a query with no such term is its
+// own rest, as it was typed.
+function searchSplitSlice(raw) {
+  const text = String(raw == null ? '' : raw);
+  const slices = [];
+  const strip = (alts) => {
+    if (searchLiveAlts(alts, text).length > 1) return alts;
+    return alts.map((alt) => alt.flatMap((item) => {
+      if (item.group) return [{ group: strip(item.group) }];
+      if (!/^slice:/i.test(text.slice(item.start, item.end))) return [item];
+      slices.push(searchItemText(item, text));
+      return [];
+    }));
+  };
+  const left = strip(parseSearchAlts(lexSearch(text).tokens));
+  if (!slices.length) return { rest: text, slices };
+  return { rest: searchAltUnwrapped(searchRenderAlts(left, text)), slices };
+}
+
+// What searchSplitSlice set apart, put back: after the rest, bracketed when the rest
+// has more than one alternative.
+function searchJoinSlice(rest, slices) {
+  const tail = slices.join(' ');
+  if (!tail) return rest;
+  const alts = searchAltTexts(rest);
+  if (!alts.length) return tail;
+  return `${alts.length > 1 ? `(${alts.join(' | ')})` : alts[0]} ${tail}`;
+}
+
+// The query with its top-level slice: terms replaced by one for `value` (the text after
+// `slice:`), or by none when the value is empty. The rest of the query keeps its meaning,
+// and a query with nothing to change comes back as it was.
+function searchSetSlice(raw, value) {
+  const text = String(raw == null ? '' : raw);
+  const { rest, slices } = searchSplitSlice(text);
+  const run = String(value == null ? '' : value).trim() ? [searchTermText('slice', value)] : [];
+  if (!slices.length && !run.length) return text;
+  return searchJoinSlice(rest, run);
+}
+
+// The values of the top-level slice: terms of the query, as the parse reads them.
+function searchSliceValues(raw) {
+  return parseSearchQuery(raw).filter((t) => t.field === 'slice').map((t) => t.value);
+}
+
 // --- The alternatives of the box. A query joins the box as one more alternative
 // (`review: | blocked:`) and leaves it the same way, whole, whatever else the
 // box holds, since `|` binds loosest. An alternative that holds spaces is
 // bracketed once the box holds more than one, so it reads as one unit; a
 // bracket and what is inside it are one alternative; a query with a | of its
-// own counts as its parts.
+// own counts as its parts. A run of slices (above) is not one: it stays out of them and
+// is put back where it was.
 
 // The box as a list of its alternatives, each as text; the empty ones are left out.
 function searchAltTexts(raw) {
@@ -404,7 +470,7 @@ function searchAltsText(list) {
 function searchHasAlt(raw, term) {
   const wanted = searchAltTexts(searchTermString(term)).map(searchAltKey);
   if (!wanted.length) return false;
-  const have = new Set(searchAltTexts(raw).map(searchAltKey));
+  const have = new Set(searchAltTexts(searchSplitSlice(raw).rest).map(searchAltKey));
   return wanted.every((key) => have.has(key));
 }
 
@@ -413,7 +479,8 @@ function searchHasAlt(raw, term) {
 // the term is empty, the text comes back as it was.
 function searchAddAlt(raw, term) {
   const text = String(raw == null ? '' : raw);
-  const have = searchAltTexts(text);
+  const { rest, slices } = searchSplitSlice(text);
+  const have = searchAltTexts(rest);
   const keys = new Set(have.map(searchAltKey));
   const fresh = [];
   for (const alt of searchAltTexts(searchTermString(term))) {
@@ -422,7 +489,7 @@ function searchAddAlt(raw, term) {
     keys.add(key);
     fresh.push(alt);
   }
-  return fresh.length ? searchAltsText(have.concat(fresh)) : text;
+  return fresh.length ? searchJoinSlice(searchAltsText(have.concat(fresh)), slices) : text;
 }
 
 // Takes `term` out of the box as the alternative it is, whatever else the box
@@ -433,9 +500,10 @@ function searchRemoveAlt(raw, term) {
   const text = String(raw == null ? '' : raw);
   const gone = new Set(searchAltTexts(searchTermString(term)).map(searchAltKey));
   if (!gone.size) return text;
-  const have = searchAltTexts(text);
+  const { rest, slices } = searchSplitSlice(text);
+  const have = searchAltTexts(rest);
   const left = have.filter((alt) => !gone.has(searchAltKey(alt)));
-  return left.length === have.length ? text : searchAltsText(left);
+  return left.length === have.length ? text : searchJoinSlice(searchAltsText(left), slices);
 }
 
 function termMatchesCard(term, card) {
@@ -622,6 +690,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
+    searchSplitSlice, searchJoinSlice, searchSetSlice, searchSliceValues,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -636,4 +705,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchHasAlt = searchHasAlt;
   window.searchAddAlt = searchAddAlt;
   window.searchRemoveAlt = searchRemoveAlt;
+  window.searchSplitSlice = searchSplitSlice;
+  window.searchJoinSlice = searchJoinSlice;
+  window.searchSetSlice = searchSetSlice;
+  window.searchSliceValues = searchSliceValues;
 }
