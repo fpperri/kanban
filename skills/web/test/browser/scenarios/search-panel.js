@@ -3,13 +3,15 @@
 // says which, the header is as tall either way, and focusing the box opens nothing.
 // The panel lists the built-in pills, blocked, review and waiting, each with a count
 // taken before the search box, so turning one pill on leaves the others' counts as
-// they were, and a status pill that is off takes its cards out of them. On the Board a
-// click on a pill, with either mouse button, puts its query in the box, shows only its
-// cards and selects them (the card menu's bulk popup counts them); a click on it
-// again clears the box; Shift+click on a second pill grows the box to
-// "review: | blocked:" and selects both sets, and Shift+click again takes the second
-// out. With the panel closed Esc outside the box takes the added pill back out of the
-// box, and the next Esc clears it. A pill is on, and announced as pressed, while its
+// they were, and a status pill that is off takes its cards out of them. The pills
+// follow the status pills' rules. On the Board a click on a pill puts its query in the
+// box, shows only its cards and selects them (the card menu's bulk popup counts them);
+// a click on it again clears the box; a click on a second pill, with Shift or without,
+// grows the box to "review: | blocked:" and selects both sets, and a click on it again
+// takes it out and leaves the first. A right-click solos a pill, so the box holds its
+// query alone and the other pills are off, and a right-click on the soloed pill turns
+// every pill off. With the panel closed Esc outside the box takes the added pill back
+// out of the box, and the next Esc clears it. A pill is on, and announced as pressed, while its
 // query is the anchor or an addition, and typing in the box turns it off. A closed
 // panel shows a chip counting what is on, named for a screen reader. Tab reaches the
 // toggle, the fold control and every pill, and Enter and Space act as a click. Esc
@@ -42,7 +44,9 @@ const CASES = {
   counts: { blocked: 1, review: 2, waiting: 3 },
   review: [10, 12],
   both: [9, 10, 12],
+  blocked: [9],
   waiting: [4, 6, 8],
+  waitingReview: [4, 6, 8, 10, 12],
   lonePatched: 3,
   patchedCounts: { blocked: 2, review: 2, waiting: 3 },
   doneOffCounts: { blocked: 2, review: 1, waiting: 3 },
@@ -172,26 +176,45 @@ module.exports = {
     check('a second click on review turns the pill off', await pillShut('review'));
     check('a second click on review brings every card back to the Board', await shownIs(liveIds));
 
-    // --- either mouse button ------------------------------------------------------------------------
-    await rightClick(pillSel('review'));
-    check('a right-click on review puts review: in the box and selects its cards', await boxIs('review:') && await pickedIs(CASES.review) && await shownIs(CASES.review));
-    check('the browser\'s own menu did not open over the pill', await ev(`document.getElementById('context-menu').classList.contains('hidden')`));
-    await rightClick(pillSel('review'));
-    check('a right-click on it again turns it off', await boxIs('') && await pickedIs([]));
-
-    // --- Shift+click adds a second pill ---------------------------------------------------------------
+// --- a click on a second pill, with Shift or without ---------------------------------------------
     await clickOn(pillSel('review'));
     await boxIs('review:');
+    await clickOn(pillSel('blocked'));
+    check('a click on blocked turns it on beside review: the box holds both and both pills are on', await boxIs('review: | blocked:') && await pillPressed('review') && await pillPressed('blocked'), await boxText());
+    check('a click on blocked selects both sets and the Board shows both', await shownIs(CASES.both) && await pickedIs(CASES.both), await picked());
+    check('the counts have not moved after a plain click', await countsAre(CASES.counts));
+    await clickOn(pillSel('blocked'));
+    check('a click on blocked again turns it off and returns the box to "review:"', await boxIs('review:') && await pillShut('blocked') && await pillPressed('review'), await boxText());
+    check('a click on blocked again leaves the review cards selected and shown', await pickedIs(CASES.review) && await shownIs(CASES.review));
     await clickOn(pillSel('blocked'), { modifiers: 8 });
     check('Shift+click on blocked grows the box to "review: | blocked:"', await boxIs('review: | blocked:'), await boxText());
     check('the Board shows both sets and selects them', await shownIs(CASES.both) && await pickedIs(CASES.both), await picked());
     check('both pills are on', await pillPressed('review') && await pillPressed('blocked'));
     check('the counts have not moved', await countsAre(CASES.counts));
     await clickOn(pillSel('blocked'), { modifiers: 8 });
-    check('Shift+click on blocked again returns the box to "review:"', await boxIs('review:'), await boxText());
+    check('Shift+click on blocked does what a click does: it turns blocked off and leaves review on', await boxIs('review:') && await pillShut('blocked') && await pillPressed('review'), await boxText());
     check('Shift+click on blocked again returns the selection to the review cards and turns blocked off', await pickedIs(CASES.review) && await shownIs(CASES.review) && await pillShut('blocked'));
+    await clickOn(pillSel('review'));
+    check('a click on the only pill that is on clears the box', await boxIs('') && await pillShut('review') && await pickedIs([]), await boxText());
+
+    // --- a right-click solos a pill ---------------------------------------------------------------------
+    await rightClick(pillSel('review'));
+    check('a right-click on review puts review: in the box and selects its cards', await boxIs('review:') && await pickedIs(CASES.review) && await shownIs(CASES.review));
+    check('the browser\'s own menu did not open over the pill', await ev(`document.getElementById('context-menu').classList.contains('hidden')`));
+    await clickOn(pillSel('blocked'));
+    await boxIs('review: | blocked:');
+    await clickOn(pillSel('waiting'));
+    check('a click on waiting turns it on beside the others: the box holds all three', await boxIs('review: | blocked: | waiting:') && await pillPressed('review') && await pillPressed('blocked') && await pillPressed('waiting'), await boxText());
+    await rightClick(pillSel('blocked'));
+    check('a right-click on blocked solos it: the box holds blocked: alone and the other pills are off', await boxIs('blocked:') && await pillPressed('blocked') && await pillShut('review') && await pillShut('waiting'), await boxText());
+    check('a right-click on blocked leaves its cards the selection and the only ones shown', await pickedIs(CASES.blocked) && await shownIs(CASES.blocked), await picked());
+    await rightClick(pillSel('blocked'));
+    check('a right-click on the soloed pill turns every pill off and empties the box', await boxIs('') && await pillShut('blocked') && await pillShut('review') && await pillShut('waiting'), await boxText());
+    check('a right-click on the soloed pill empties the selection and brings every card back', await pickedIs([]) && await shownIs(liveIds));
 
     // --- Esc with the panel closed takes the added pill out, then the anchor ------------------------------------
+    await clickOn(pillSel('review'));
+    await boxIs('review:');
     await clickOn(pillSel('blocked'), { modifiers: 8 });
     await boxIs('review: | blocked:');
     await closePanel();
@@ -229,7 +252,7 @@ module.exports = {
     check('the pill keeps focus after Enter', (await focusId()) === 'waiting', await focusId());
     await key('Tab', { shift: true });
     await key(' ');
-    check('Space on a pill acts as a click too', await boxIs('review:') && await pickedIs(CASES.review), await boxText());
+    check('Space on a pill acts as a click too: it turns review on beside waiting', await boxIs('waiting: | review:') && await pickedIs(CASES.waitingReview), await boxText());
     check('the pill keeps focus after Space', (await focusId()) === 'review', await focusId());
     await key('Tab', { shift: true });
     await key('Tab', { shift: true });

@@ -732,17 +732,23 @@ to `127.0.0.1` only.
   each with a count of the cards its query matches, done cards included. The counts are
   taken over the cards the view shows after its status pills and the Archive pill and
   before the search box and any cut, so turning one pill on leaves the others' counts as
-  they were, and a status pill that is off takes its cards out of them. A click on a pill,
-  with either mouse button, makes its query the **anchor** of the selection and writes it
-  into the box (`review:`): outside the Graph its matches are the selection and so the bulk
-  targets, and the box shows only them; in the Graph they light and nothing is hidden. A
-  click on the only pill that is on turns it off and clears the box. Shift+click adds the
-  pill's matches to the selection instead and grows the box so they are not hidden, to
-  `review: | blocked:`; Shift+click again takes that part back out of both (in the Graph
-  too, so a switch to another view keeps the added cards shown and selected). A pill is on
-  while its query is the anchor or an addition, and is announced as pressed; typing in the
-  box, or clearing it, turns off every pill whose query the box no longer holds (in the
-  Graph the typed text becomes the anchor). A pill's anchor is not a typed search, so it
+  they were, and a status pill that is off takes its cards out of them. The pills
+  follow the status pills' rules, with every pill off to start. A click on a pill
+  (Shift+click is a plain click) turns that one pill on or off and leaves the others as
+  they were. On, its query joins the box as one more alternative (`review:`, then
+  `review: | blocked:`) and its matches join the selection: outside the Graph they are
+  the selection and so the bulk targets, and the box shows them; in the Graph they light
+  and nothing is hidden, and the box grows there too, so a switch to another view keeps
+  the added cards shown and selected. Off, its query leaves the box and its matches leave
+  the selection; the only pill that is on turns off and clears the box. A right-click
+  solos a pill: it alone is on and the box holds its query alone, whatever else was on or
+  in the box; a right-click on the soloed pill turns every pill off, the pills' default
+  (the status pills' default is all on, so theirs turns all back on). The first pill on
+  is the **anchor** of the selection and later ones are additions, so Esc takes the later
+  pills out first and then the anchor. A pill is on while its query is the anchor or an
+  addition, and is announced as pressed (`aria-pressed`); typing in the box, or clearing
+  it, turns off every pill whose query the box no longer holds (in the Graph the typed
+  text becomes the anchor). A pill's anchor is not a typed search, so it
   stays the anchor when the Graph is left. With the panel closed, a chip inside the box
   counts what is on and its accessible name says what (`1 on: review`); with nothing on
   there is no chip. The pill section folds with its fold control for the visit, and the

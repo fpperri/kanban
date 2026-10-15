@@ -130,13 +130,43 @@ test('a click on a label inside a pill, not the button, is a click on the pill',
   assert.strictEqual(s.page.input.value, 'blocked:');
 });
 
-test('shift on a second pill draws both as pressed, and the box holds both', async () => {
+test('a click on a second pill, with Shift or without, draws both as pressed, and the box holds both', async () => {
+  for (const shiftKey of [false, true]) {
+    const s = await open();
+    s.page.run('setSearchPanelOpen(true)');
+    s.host.fire('click', { target: s.host.children[1], shiftKey: false, preventDefault() {} });
+    s.host.fire('click', { target: s.host.children[0], shiftKey, preventDefault() {} });
+    assert.deepStrictEqual(s.host.children.map((b) => b.attrs['aria-pressed']), ['true', 'true', 'false'], `shift ${shiftKey}`);
+    assert.strictEqual(s.page.input.value, 'review: | blocked:');
+    s.host.fire('click', { target: s.host.children[1], shiftKey, preventDefault() {} });
+    assert.deepStrictEqual(s.host.children.map((b) => b.attrs['aria-pressed']), ['true', 'false', 'false'], 'a click on an on pill turns that one off');
+  }
+});
+
+test('a right-click solos a pill, so only its button is pressed, and a right-click on it again leaves none pressed', async () => {
   const s = await open();
   s.page.run('setSearchPanelOpen(true)');
-  s.host.fire('click', { target: s.host.children[1], shiftKey: false, preventDefault() {} });
-  s.host.fire('click', { target: s.host.children[0], shiftKey: true, preventDefault() {} });
+  const press = (at, type) => s.host.fire(type, { target: s.host.children[at], shiftKey: false, preventDefault() {} });
+  press(0, 'click');
+  press(1, 'click');
   assert.deepStrictEqual(s.host.children.map((b) => b.attrs['aria-pressed']), ['true', 'true', 'false']);
-  assert.strictEqual(s.page.input.value, 'review: | blocked:');
+  press(2, 'contextmenu');
+  assert.deepStrictEqual(s.host.children.map((b) => b.attrs['aria-pressed']), ['false', 'false', 'true']);
+  assert.deepStrictEqual(s.host.children.map((b) => b.classList.contains('on')), [false, false, true]);
+  assert.strictEqual(s.page.input.value, 'waiting:');
+  press(2, 'contextmenu');
+  assert.deepStrictEqual(s.host.children.map((b) => b.attrs['aria-pressed']), ['false', 'false', 'false']);
+  assert.strictEqual(s.page.input.value, '');
+});
+
+test('a pill\'s tooltip says what a click and a right-click do', async () => {
+  const s = await open();
+  s.page.run('setSearchPanelOpen(true)');
+  for (const b of s.host.children) {
+    assert.match(b.title, /click: turn it on or off/);
+    assert.match(b.title, /right-click: only this pill/);
+    assert.doesNotMatch(b.title, /shift/i, 'Shift+click is a plain click, so the tooltip does not offer it');
+  }
 });
 
 test('a poll updates the buttons where they stand: the same elements, the new count, and the one with focus is still the one with focus', async () => {
