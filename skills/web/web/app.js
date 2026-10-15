@@ -5672,10 +5672,12 @@ function onClickAway(e) {
 
 // The canvas of the view on show, where a right-click on empty space opens the menu of Isolate
 // alone: the Graph's and the Map's. Empty is what the click-away rule calls empty space, and no
-// Map node either (a ghost stub opens a card). Every other view, and a point of these views
-// outside their canvas (a toolbar, a section header), keeps the browser's own menu.
+// Map node either (a ghost stub opens a card), and no relation line: a link between two cards, the
+// Graph's line and its count and the Map's edge, belongs to the cards it joins. Every other view,
+// and a point of these views outside their canvas (a toolbar, a section header), keeps the
+// browser's own menu.
 const CANVAS_OF_VIEW = { graph: '#graph-view .graph-canvas', map: '#map-view .map-canvas' };
-const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node`;
+const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node, .graph-link, .graph-link-count, .map-edge`;
 
 function openCanvasContextMenu(e) {
   const canvas = CANVAS_OF_VIEW[loadViewMode()];
