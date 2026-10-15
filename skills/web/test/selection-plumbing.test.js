@@ -155,12 +155,11 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
-  const marked = () => vm.runInContext('selectionGestureClick', sandbox);
-  return { click: listeners[0][1], state, calls, marked };
+  return { click: listeners[0][1], state, calls };
 }
 
 const cardEvent = (id, { cue = null, ...mods } = {}) => ({
@@ -237,25 +236,6 @@ test('a view whose plain click opens the card opens it on every click of a doubl
   s.click(cardEvent(2, { detail: 2 }));
   assert.deepStrictEqual(s.calls.open, [2, 2]);
   assert.deepStrictEqual(s.state(), { ids: [], rangeStart: null });
-});
-
-test('the handler marks the click that selected a card or peeked at one, and no other, for the click-away rule', () => {
-  const s = clickSandbox({ view: 'board', click: { board: 'selects' } });
-  const first = cardEvent(2, { detail: 1 });
-  s.click(first);
-  assert.strictEqual(s.marked(), first, 'a plain click that selected the card');
-  const second = cardEvent(2, { detail: 2 });
-  s.click(second);
-  assert.strictEqual(s.marked(), second, 'the peek of a double click');
-  const ctrl = cardEvent(3, { ctrlKey: true });
-  s.click(ctrl);
-  assert.strictEqual(s.marked(), second, 'a modified click is not marked: the click-away rule already lets it by');
-  const opening = clickSandbox({ view: 'board' });
-  opening.click(cardEvent(2));
-  assert.strictEqual(opening.marked(), null, 'a click that opened the card');
-  const cue = clickSandbox({ view: 'board', click: { board: 'selects' } });
-  cue.click(cardEvent(2, { cue: cueEl('tag', 'ui') }));
-  assert.strictEqual(cue.marked(), null, 'a click on a cue');
 });
 
 test('a choice made for one view leaves a plain click in the others opening the card', () => {
@@ -357,14 +337,13 @@ function clickAwaySandbox({ selected = [1, 2], rangeStart = 1 } = {}) {
   const sandbox = { ...selectionGlobals(), $: () => input, searchRemoveAlt: (text) => text, renderBoard: () => { calls.render++; }, calls };
   vm.createContext(sandbox);
   vm.runInContext([
-    declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), declaration('searchWriteListeners', 'const'),
+    declaration('selectionState'), declaration('selectedIds'), declaration('searchWriteListeners', 'const'),
     declaration('CALENDAR_CREATE_DAY_CELLS', 'const'), declaration('CALENDAR_CREATE_COLUMNS', 'const'), declaration('NOT_EMPTY_SPACE', 'const'), declaration('DOUBLE_CLICK_OWNED', 'const'),
     fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('onClickAway'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
-  const markClick = (e) => vm.runInContext('(e) => { selectionGestureClick = e; }', sandbox)(e);
-  return { onClickAway: sandbox.onClickAway, state, calls, markClick };
+  return { onClickAway: sandbox.onClickAway, state, calls };
 }
 
 // An element and its ancestors, the way closest() reads them.
@@ -396,18 +375,6 @@ test('a double click on an element carrying the marker, or inside one, never cle
     assert.deepStrictEqual(s.state(), { ids: [1, 2], rangeStart: 1 });
     assert.strictEqual(s.calls.render, 0);
   }
-});
-
-test('the click the card handler marked as a selection gesture never clears the selection, and the next double click does', () => {
-  const s = clickAwaySandbox({ selected: [3], rangeStart: 3 });
-  const gesture = { target: within(plain), ...noMods };
-  s.markClick(gesture);
-  s.onClickAway(gesture);
-  assert.deepStrictEqual(s.state(), { ids: [3], rangeStart: 3 });
-  assert.strictEqual(s.calls.render, 0);
-  s.onClickAway({ target: within(plain), ...noMods });
-  assert.deepStrictEqual(s.state(), { ids: [], rangeStart: null });
-  assert.strictEqual(s.calls.render, 1);
 });
 
 test('a double click while Shift, Ctrl or Cmd is held builds the selection, so it never clears it', () => {

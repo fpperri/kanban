@@ -126,7 +126,7 @@ test('every control in the bar and the panel is marked to keep a selection, the 
 
 test('a click on the toggle, the fold control or the panel\'s empty space leaves a selection as it was', () => {
   const { KEEPS } = require('./helpers/markers');
-  const sandbox = { setSelection() { throw new Error('the selection was cleared'); }, renderBoard() { throw new Error('the board repainted'); }, selectedIds: new Set([1, 2]), selectionGestureClick: null };
+  const sandbox = { setSelection() { throw new Error('the selection was cleared'); }, renderBoard() { throw new Error('the board repainted'); }, selectedIds: new Set([1, 2]) };
   vm.createContext(sandbox);
   const m = appSrc.match(/function onClickAway\([\s\S]*?\n\}/);
   vm.runInContext(m[0], sandbox);

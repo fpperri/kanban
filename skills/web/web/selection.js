@@ -172,14 +172,6 @@ function cardOpenAction({ shiftKey, ctrlKey, metaKey, plainClick }) {
   return plainClick === 'selects' ? 'open' : 'none';
 }
 
-// Whether a click the card grammar carried out left a selection standing that the
-// click-away rule must not drop: the card a plain click selected, and the
-// selection a peek left alone. Opening a card empties the selection itself, and a
-// click on a cue is left to the click-away rule as it always was.
-function clickKeepsSelection(action) {
-  return action === 'select' || action === 'peek';
-}
-
 // --- The selection: an anchor plus an ordered list of additions ---------------
 // A selection grows from an anchor (one card, or one query) by additions (cards,
 // paths, trees, queries), in the order they were added. It is a value: every
@@ -510,7 +502,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -548,7 +540,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.plainClickBehaviour = plainClickBehaviour;
   window.cardClickAction = cardClickAction;
   window.cardOpenAction = cardOpenAction;
-  window.clickKeepsSelection = clickKeepsSelection;
   window.shiftAddsRange = shiftAddsRange;
   window.selectionAfterClick = selectionAfterClick;
 }

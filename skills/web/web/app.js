@@ -5634,11 +5634,6 @@ function onCardOpenKey(e) {
   openCard(Number(el.dataset.id));
 }
 
-// The click the card handler last carried out as a selection (a plain click that
-// selected a card, or the peek of a double click). The click-away rule below sees
-// the same click and must not drop what that click built or kept.
-let selectionGestureClick = null;
-
 // The click-away rule. A click on empty space can be an accident, so a single click
 // there leaves the selection, its anchor, the pills and the box as they were. A
 // double click clears it all: the additions, the anchor, and the anchor's text in the
@@ -5667,7 +5662,6 @@ const DOUBLE_CLICK_OWNED = `${CALENDAR_CREATE_DAY_CELLS}, ${CALENDAR_CREATE_COLU
 function onClickAway(e) {
   if (e.detail !== 2) return;
   if (e.shiftKey || e.ctrlKey || e.metaKey) return;
-  if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
   if (e.target.closest(NOT_EMPTY_SPACE) || e.target.closest(DOUBLE_CLICK_OWNED)) return;
   if (isolateNow()) return; // isolated, the empty canvas clears nothing: clicks move the anchor only
@@ -6062,8 +6056,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // click landing on a button/select inside or around a card-el (archive
   // tile's Restore/Delete, column sort controls, calendar nav) belongs to
   // that control, never to the card grammar. Registration order matters:
-  // this runs before the click-away rule (onClickAway), so the card's own gesture
-  // sets selectionGestureClick first and the rule leaves what the click built.
+  // a card is not empty space, so the click-away rule (onClickAway) leaves what
+  // the click built.
   document.addEventListener('click', (e) => {
     if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
@@ -6073,7 +6067,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const view = loadViewMode();
     const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
     applyCardClick(action, Number(el.dataset.id), cue);
-    if (clickKeepsSelection(action)) selectionGestureClick = e;
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page), except the empty

@@ -339,19 +339,6 @@ test('a cue, Shift, Ctrl or Cmd wins over the second click of a double click', (
   }
 });
 
-// --- the click-away rule leaves alone what a card click built or kept.
-
-const { clickKeepsSelection } = require('../web/selection');
-
-test('a selection the card click built or kept survives the click-away rule: a select and a peek', () => {
-  assert.strictEqual(clickKeepsSelection('select'), true);
-  assert.strictEqual(clickKeepsSelection('peek'), true);
-});
-
-test('every other card click leaves the click-away rule as it was', () => {
-  for (const action of ['open', 'cue', 'toggle', 'range', 'none', undefined]) assert.strictEqual(clickKeepsSelection(action), false, String(action));
-});
-
 // --- Enter on a focused card opens it where a plain click only selects.
 
 const { cardOpenAction } = require('../web/selection');
