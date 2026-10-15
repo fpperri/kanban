@@ -749,6 +749,13 @@ function currentSearchMatch() {
   return searchMatchMemo || computeSearchMatch();
 }
 
+// What the box does in the Graph: the cards it hides (a slice: term's cut, from the
+// whole board and its hierarchy) and the cards it lights. The Graph's one decision
+// about a query, read by what is drawn, what is lit and what a selection can reach.
+function currentGraphQueryEffect() {
+  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx());
+}
+
 // The cards one piece of search text matches, over the whole board like the box.
 // It is the matcher a selection resolves its query, path and tree parts through,
 // so a part and its search term cannot disagree. Text that is not a term yet
@@ -757,6 +764,19 @@ function currentSearchMatch() {
 function searchMatchIds(text) {
   const terms = parseSearchQuery(text, state.projectName);
   return terms.length ? matchedIds(terms) : new Set();
+}
+
+// The matcher the selection resolves its parts through: the search module's, except
+// for the text the box holds while the Graph is shown. That text is the typed
+// anchor (or a pill's query written to the box), and what it lights is the Graph's
+// query decision, read off the one match this render made instead of matching the
+// board again. A query that is no term yet lights nothing, never everything.
+function selectionMatchIds(text) {
+  if (loadViewMode() === 'graph' && text === $('#search-input').value) {
+    const lit = currentGraphQueryEffect().litIds;
+    return lit ? new Set(lit) : new Set();
+  }
+  return searchMatchIds(text);
 }
 
 // The cards the view being shown shows, which is all a selection can reach (the
@@ -769,7 +789,7 @@ function shownCardIds() {
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
-    visible = graphVisibleIds(pool, searchIds, graphLoadFilter(), boardStatuses());
+    visible = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, graphLoadFilter(), boardStatuses());
   } else if (mode === 'map') {
     visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
   } else if (mode === 'gantt' || mode === 'calendar') {
@@ -962,8 +982,11 @@ function openLeavesNote(cards, status) {
 // calendar ⇄ board — and pressing one while the OTHER view is active jumps
 // straight to the pressed view (no board stopover).
 function toggleView(mode) {
-  viewMode = loadViewMode() === mode ? 'board' : mode;
+  const from = loadViewMode();
+  viewMode = from === mode ? 'board' : mode;
   saveViewMode();
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText: $('#search-input').value }); // a search typed in the Graph is not the anchor anywhere else
+  if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
@@ -999,7 +1022,7 @@ function renderBoard() {
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
   try {
-    setSelection(selectionState.selection); // what the view shows may have changed: a pill, the box, a view switch, a poll
+    setSelection(selectionFollowingBox(selectionState.selection)); // what the view shows may have changed: a pill, the box, a view switch, a poll
     renderBoardColumns();
     applyViewMode();
   } finally {
@@ -3200,18 +3223,24 @@ window.addEventListener('DOMContentLoaded', () => {
 // prefill and a ?q= link all come through writeSearch(text, reason). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
-// writer. The poll repaints without writing the box, so it tells no one.
+// writer. The poll repaints without writing the box, so it tells no one. A write
+// whose caller paints in place passes repaint false (a click in the Graph that
+// clears the box): it must not replace the card under the pointer, or a double
+// click would never reach it.
 const searchWriteListeners = [];
 
 function onSearchWrite(listener) {
   searchWriteListeners.push(listener);
 }
 
-function writeSearch(text, reason) {
+function writeSearch(text, reason, repaint = true) {
   const input = $('#search-input');
   if (!input) return;
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
-  renderBoard();
+  if (repaint) {
+    boxWritten = true;
+    renderBoard();
+  }
   searchWriteListeners.forEach((listener) => listener(text, reason));
 }
 
@@ -3244,6 +3273,21 @@ function followSearchInAddress(text) {
 }
 
 onSearchWrite(followSearchInAddress);
+
+// The selection follows the box while the Graph is shown: a search typed there is
+// the anchor of the selection (selectionAfterTyping, selection.js), so the Graph
+// lights its matches instead of hiding the rest. The writer marks that it wrote and
+// the repaint it makes takes the box into the selection, through setSelection like
+// every other write, before the id set is worked out: the one repaint paints the
+// new anchor, and parses and matches the box once. The other views keep filtering
+// and select nothing.
+let boxWritten = false;
+
+function selectionFollowingBox(selection) {
+  const written = boxWritten;
+  boxWritten = false;
+  return written && loadViewMode() === 'graph' ? selectionAfterTyping(selection, $('#search-input').value) : selection;
+}
 
 // What Esc does when nothing is open for it to close: today it clears the
 // search box. The one place the end of the Esc chain lives.
@@ -5297,7 +5341,7 @@ function dropGoneCards() {
 // they reach among the cards the view shows.
 function setSelection(selection, rangeStart = selectionState.rangeStart) {
   selectionState = { selection, rangeStart };
-  selectedIds = resolveSelection(selection, searchMatchIds, shownCardIds);
+  selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -5389,7 +5433,7 @@ function selectByClick(action, id) {
     resolved: selectedIds,
     rangeStart: selectionState.rangeStart,
     order: action === 'range' ? visibleCardIds() : [],
-    matchQuery: searchMatchIds,
+    matchQuery: selectionMatchIds,
   });
   setSelection(next.selection, next.rangeStart);
 }
@@ -5451,11 +5495,15 @@ let selectionGestureClick = null;
 // collapse toggles, the map options and zoom toolbar, the roll-up bars and the
 // Graph's controls. A control built by a render path must wear the marker.
 function onClickAway(e) {
-  if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
+  if (e.shiftKey || e.ctrlKey || e.metaKey) return;
   if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
+  const typed = isTypedAnchor(selectionState.selection);
+  if (!selectedIds.size && !typed) return;
+  if (typed && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a click on the header or the box
   setSelection(NO_SELECTION, null); // a dead selection must not leave an invisible range start behind
-  renderBoard();
+  if (typed) writeSearch('', 'selection'); // the anchor was the box, so the box goes with it
+  else renderBoard();
 }
 
 function showContextMenu(x, y) {

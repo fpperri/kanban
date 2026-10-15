@@ -100,14 +100,14 @@ test('no script writes the selection or its derived id set anywhere but the entr
 test('the entry point is the one place that assigns the derived id set', () => {
   const body = fn('setSelection');
   assert.match(body, /selectionState = \{ selection, rangeStart \}/);
-  assert.match(body, /selectedIds = resolveSelection\(selection, searchMatchIds, shownCardIds\)/);
+  assert.match(body, /selectedIds = resolveSelection\(selection, selectionMatchIds, shownCardIds\)/);
 });
 
 test('the pieces that wrote the selection before now call the entry point', () => {
   const calls = {
     applyBoardData: /dropGoneCards\(\)/,
     dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
-    renderBoard: /setSelection\(selectionState\.selection\)/,
+    renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
     addCardToSelection: /setSelection\(addPart\(selectionState\.selection, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
     addDependencyToSelection: /setSelection\(addPart\(selectionState\.selection, part\(menuSubject\.ids\[0\]\)\)\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,

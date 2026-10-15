@@ -22,6 +22,9 @@ const GRAPH_COLS = (typeof module !== 'undefined' && module.exports)
 const GRAPH_ICONS = (typeof module !== 'undefined' && module.exports)
   ? require('./type-icons')
   : window;
+const GRAPH_SEARCH = (typeof module !== 'undefined' && module.exports)
+  ? require('./search')
+  : window;
 
 const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
 
@@ -133,6 +136,60 @@ function graphNeighbours(model, id) {
     if (l.to === id) out.add(l.from);
   }
   return out;
+}
+
+// --- lighting ------------------------------------------------------------------
+// The Graph dims everything but what is lit. One lighting drives the dimming whoever
+// asks: the pointer on a card, a lone card picked by a click, a selection, a typed
+// query's matches. A lighting is { nodes: Set of card ids, links: Set of indexes
+// into model.links } or null when there is nothing to light, which dims nothing.
+
+// The cards among `ids` that the Graph draws, and the relations that run between
+// two of them.
+function graphLit(model, ids) {
+  const nodes = new Set();
+  for (const id of ids || []) if (model.byId.has(id)) nodes.add(id);
+  if (!nodes.size) return null;
+  const links = new Set();
+  model.links.forEach((l, i) => {
+    if (nodes.has(l.from) && nodes.has(l.to)) links.add(i);
+  });
+  return { nodes, links };
+}
+
+// What a query typed in the Graph does, as one decision: which cards it hides
+// and which it lights. `match` is the page's shared match result for the box
+// ({ terms, ids }, ids null when there is no query). A typed query is the anchor
+// of the selection, so it lights exactly its matches, done cards included, and
+// hides nothing: visibleIds is null, the way graphVisibleIds reads "draw
+// everything". The one exception is a slice: term that stands on its own in the
+// query, as it does in every other view: it hides the cards outside its cut, and
+// the rest of the query lights inside the cut (litIds is null when nothing else
+// is left to light). A slice: term under | or in a bracket of alternatives is
+// only a term to match, so it lights and hides nothing; a bracket that holds one
+// alternative is spliced into the query by the parser, so it counts as on its own.
+// The cut is the search module's, over the whole board (`pool`, live and
+// archived) and the board's hierarchy (in `ctx`), so a card sits in the same slice
+// whatever the view draws. Isolate, which shows only the lit cards, changes this
+// decision and nothing else.
+function graphQueryEffect(match, pool, ctx) {
+  const ids = match && match.ids ? match.ids : null;
+  const terms = (match && match.terms) || [];
+  const slices = terms.filter((t) => t && t.field === 'slice');
+  if (!ids || !slices.length) return { visibleIds: null, litIds: ids };
+  if (!pool) throw new Error('graphQueryEffect: a slice: term needs the board to cut');
+  const cut = new Set(GRAPH_SEARCH.filterCards(pool, slices, ctx).map((c) => c.id));
+  return { visibleIds: cut, litIds: slices.length < terms.length ? ids : null };
+}
+
+// What the Graph lights when the pointer is not on a card. A lone card picked by
+// a click lights with its one-hop relations, as hovering it does; any other
+// selection, a typed query's matches included, lights its own cards and the lines
+// between them, so a query that matches one card lights that card alone.
+// `loneCardId` is the selection's one card part, or null.
+function graphRestLit(model, { selectedIds, loneCardId }) {
+  if (loneCardId !== null && loneCardId !== undefined && model.byId.has(loneCardId)) return graphLit(model, graphNeighbours(model, loneCardId));
+  return graphLit(model, selectedIds);
 }
 
 // --- layout plumbing -----------------------------------------------------------
@@ -588,7 +645,7 @@ function graphPlan(model, layout, opts) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_LAYOUTS, mergeGraphLayout,
-    graphBuild, graphRadius, graphNeighbours,
+    graphBuild, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
@@ -600,6 +657,9 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphBuild = graphBuild;
   window.graphRadius = graphRadius;
   window.graphNeighbours = graphNeighbours;
+  window.graphLit = graphLit;
+  window.graphQueryEffect = graphQueryEffect;
+  window.graphRestLit = graphRestLit;
   window.graphLayoutTiers = graphLayoutTiers;
   window.graphLayoutStatus = graphLayoutStatus;
   window.graphLayoutForce = graphLayoutForce;

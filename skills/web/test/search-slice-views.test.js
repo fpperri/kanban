@@ -42,6 +42,8 @@ const ACTIVE = BOARD.active.map((c) => c.id);
 const ARCHIVED = BOARD.archived.map((c) => c.id);
 
 // The cards each query matches over the whole board, live and archived, written out by hand.
+// A third entry of false marks a query whose slice: term sits under |: the Graph does
+// not cut for it, it lights the matches and draws every card.
 const MATCHES = [
   ['slice:goal..objective', [1, 2, 3]],
   ['slice:..strategy', [1, 2]],
@@ -51,7 +53,7 @@ const MATCHES = [
   ['slice:1', [7]],
   ['slice:4..', [5]],
   ['slice:nowhere', [1, 2, 3, 4, 5, 6, 7, 8]],
-  ['slice:goal..objective | #6', [1, 2, 3, 6]],
+  ['slice:goal..objective | #6', [1, 2, 3, 6], false],
 ];
 
 const VIEWS = {
@@ -66,9 +68,11 @@ const VIEWS = {
 // The cards a view shows for a match, by the rules the views have always had: the
 // Board lists every card in its columns, the live views take the live cards and
 // add the archived ones only while their Archive pill is on, and the Map hands its
-// filter the matching ids.
-function expected(view, match, archive) {
+// filter the matching ids. The Graph cuts for a slice: term on its own and, for one
+// under |, draws everything, since a query typed there lights and hides nothing else.
+function expected(view, match, archive, cuts = true) {
   const sorted = (list) => list.slice().sort((a, b) => a - b);
+  if (view === 'graph' && !cuts) return sorted(archive ? ACTIVE.concat(ARCHIVED) : ACTIVE);
   if (view === 'board') return sorted(match);
   if (view === 'map') return sorted(match);
   return sorted(match.filter((id) => archive || ACTIVE.includes(id)));
@@ -111,7 +115,7 @@ function shown(name, seen, archive) {
     case 'calendarMonth': return seen.month;
     case 'calendarGrid': return seen.grid;
     case 'gantt': return sorted(seen.gantt.concat(archive ? seen.ganttArchive : []));
-    case 'graph': return seen.graph;
+    case 'graph': return seen.graph || sorted(ACTIVE.concat(ARCHIVED));
     default: throw new Error(name);
   }
 }
@@ -120,11 +124,11 @@ for (const name of Object.keys(VIEWS)) {
   for (const archive of name === 'board' || name === 'map' ? [false] : [false, true]) {
     test(`${name}${archive ? ' with Archive on' : ''} shows, for each slice: query, the cards in the cut`, async () => {
       const { page, seen } = await openView(name, { archive });
-      for (const [query, match] of MATCHES) {
+      for (const [query, match, cuts] of MATCHES) {
         seen.tiles.length = 0;
         seen.relations = seen.month = seen.grid = seen.gantt = seen.ganttArchive = seen.graph = undefined;
         page.input.typed(query);
-        assert.deepStrictEqual(shown(name, seen, archive), expected(name, match, archive), `${name}, query ${JSON.stringify(query)}`);
+        assert.deepStrictEqual(shown(name, seen, archive), expected(name, match, archive, cuts), `${name}, query ${JSON.stringify(query)}`);
       }
     });
   }

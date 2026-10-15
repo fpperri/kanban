@@ -294,8 +294,10 @@ to `127.0.0.1` only.
   only the literal status `done` counts as finished, and an archived leaf counts as
   finished. Altitude, roll-up and the warning are worked out from the cards on every render
   and never written to a card.
-- **Search** — the header search box filters every view as you type; the query survives
-  view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
+- **Search** — the header search box filters every view as you type, except the Graph,
+  where a typed search lights its matches and hides nothing but a `slice:` cut (see the Graph
+  view entry); the
+  query survives view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
   exact card id, and a pasted `webapp#42` is the same when `webapp` is this board's name (any
   case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
@@ -638,7 +640,9 @@ to `127.0.0.1` only.
   **Graph** a click makes the card the anchor of a new selection, and shift+click or
   ctrl/cmd+click adds one card to the selection or takes it out — the layout has no reading
   order to range over, so Shift does not add a range there; a double click (or Enter) opens
-  the card, a pan keeps the selection, and a click on the empty Graph clears it. Applies on
+  the card, a pan keeps the selection, and a click on the empty Graph clears it. A search
+  typed in the Graph is the anchor of the selection: its matches are the selected cards, and
+  it stops being the anchor when the Graph is left (see the Graph view entry). Applies on
   board tiles (live and archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
@@ -832,8 +836,9 @@ to `127.0.0.1` only.
     actually carried a `card` key can produce that toast, so the status page's
     card-less links never fire one.
   - **The address follows the box.** Whatever the search box holds is in the address as
-    `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, Path and
-    Tree from a card's menu, a `?q=` link) replaces `q` with the box's text, and an empty
+    `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, a `?q=`
+    link, and a click in the Graph that drops a typed search) replaces `q` with the box's
+    text, and an empty
     or blank box drops `q`; `card` and `view` ride along untouched. The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
@@ -1326,15 +1331,36 @@ to `127.0.0.1` only.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
-  (archived, or filtered out by a pill or the search) is drawn as a root. The search box composes with the pills by
-  **intersection**, and the search spans live and archived cards alike. A count of cards
+  (archived, or filtered out by a pill) is drawn as a root. The search box hides nothing
+  here but a `slice:` cut (see **Lighting**), and it spans live and archived cards alike. A count of cards
   and relations sits in the header; a board with nothing to draw says "No cards to show".
-  **Hover or keyboard focus** on a dot dims everything but that card and the cards it
-  has a relation with, with the lines between them. **Click** a dot to select it (painted
-  in place, so a double click is not interrupted by a rebuild); while exactly one dot is
-  selected its relations stay lit after the pointer leaves, and hovering another dot
-  shows that one's relations until the pointer leaves. **Double-click** (or **Enter** on a
-  focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
+  **Lighting.** The Graph dims everything but what is lit, and one dimming serves the
+  pointer, a lone card, a selection and a search typed in the box. **Hover or keyboard
+  focus** on a dot lights that card and the cards it has a relation with, with the lines
+  between them, until the pointer leaves. **Click** a dot to select it (painted in place,
+  so a double click is not interrupted by a rebuild): a **lone card** picked by a click
+  stays lit with its one-hop relations after the pointer leaves, and the relations light
+  without being selected; hovering another dot shows that one's relations until the
+  pointer leaves. A selection of several cards lights exactly those cards and the lines
+  between them, not their relations, and the rest dims. A **search typed in the Graph** is
+  the anchor of the selection instead of a filter: nothing hides, every dot stays where it
+  is (typing does not run the layout again), and the matches light, done cards included,
+  while the rest dims; a query that matches one card lights that card alone, without its
+  relations. The one thing it hides is the cards outside the cut of a `slice:` term that
+  stands on its own in the query, as in every other view: the rest of the query lights
+  inside the cut, and a `slice:` term under `|` or in a bracket of alternatives is only a
+  term to match, so it lights and hides nothing. Emptying the box, **Esc** and a click on the empty Graph drop the anchor and
+  the dimming; a plain click on a card sets a new card anchor and clears the box;
+  shift+click or ctrl/cmd+click on an unlit card adds it and keeps the query, and on a card
+  the query lit takes it out and turns the query into its other cards, which clears the
+  box, since it no longer names the anchor. The status pills still decide which cards are
+  drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
+  search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
+  Calendar keep hiding what does not match, nothing is selected by it there, and a bulk
+  action has no cards to act on. Back in the Graph with the box unchanged and nothing
+  selected, its matches light again; a selection carried in from another view stays, and
+  the box has no effect in the Graph until it is edited. **Double-click** (or **Enter** on
+  a focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
   "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and
   shift+click or ctrl/cmd+click adds one card or takes it out (the layout has no reading
   order, so there is no range). Every dot carries `.card-el` and `data-id`, so right-click
