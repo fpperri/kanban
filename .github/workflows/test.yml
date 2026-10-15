@@ -20,3 +20,25 @@ jobs:
         with:
           python-version: '3.11'
       - run: npm test
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      KANBAN_BROWSER_NO_SANDBOX: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run test:browser -- --shots browser-shots
+      - run: npm run test:browser -- --reverse --shots browser-shots-reverse
+      - run: node skills/web/test/browser/fault-check.js
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots
+          path: |
+            browser-shots
+            browser-shots-reverse
+          if-no-files-found: ignore
