@@ -20,4 +20,5 @@ module.exports = [
   require('./calendar-jump'),
   require('./card-menu'),
   require('./slice-term'),
+  require('./tier-fan'),
 ];
