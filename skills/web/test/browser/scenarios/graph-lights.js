@@ -86,6 +86,9 @@ module.exports = {
     const rect = await ev(`(()=>{const r=document.querySelector('.graph-canvas').getBoundingClientRect();return {r:r.right,b:r.bottom}})()`);
     const bg = { x: rect.r - 14, y: rect.b - 14 };
     check('the empty corner of the Graph is not a card', await ev(`!document.elementFromPoint(${bg.x},${bg.y}).closest('.card-el')`));
+    // The panel opens when the box is focused and hangs over the top of the Graph, where a dot may lie, and takes
+    // an Esc of its own, so the arrow switches it off here; the search-panel scenario holds the panel itself.
+    await ev(`(()=>{const t=document.getElementById('search-panel-toggle');if(t.getAttribute('aria-pressed')==='true')t.click()})()`);
 
     // Back to a Graph with nothing typed and nothing selected, lit by nothing, and the
     // pointer on the empty corner, so no dot under it lights its relations over what
