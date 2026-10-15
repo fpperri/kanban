@@ -2921,7 +2921,13 @@ function closeCard() {
 // close rather than openDetailModal's normal toast — state.active/archived
 // can still name a card whose file a poll hasn't caught up with yet, since
 // the poll itself is paused for as long as this popup is open).
+//
+// Back and Forward never write the search box: the box keeps its text, and an
+// entry that landed with another `q` is replaced to carry the box's text, so
+// the address always says what the box says. This comes first, ahead of the
+// bail-out below, because the address moved whether or not the popup does.
 window.addEventListener('popstate', () => {
+  followSearchInAddress($('#search-input').value);
   // An edit/new-card form, or any other popup, covers the same z-index slot
   // as the detail popup and may hold unsaved typing (formSnapshot) that
   // openDetailModal would silently overwrite if Edit were then clicked on

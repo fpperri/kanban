@@ -171,3 +171,120 @@ test('the address replaces the entry on which the box changed: earlier entries a
   page.input.typed('two');
   assert.deepStrictEqual(session.entries.map(qOf), ['one', 'two'], 'the first entry keeps what the box held then');
 });
+
+// --- card history: opening and closing a card still push one step each, and
+// the query rides in them; Back and Forward never write the box ------------
+
+const closeCard = (session) => session.close.fire('click');
+const shownCard = (page) => page.run('currentDetailId');
+
+test('with a query in the box, opening a card adds one history step carrying both card and q; Back closes the card, Forward reopens it, and the box keeps the query throughout', async () => {
+  const { page, session } = await openAt();
+  page.input.typed('zephyr');
+  const entries = session.entries.length;
+  clickTile(page, 1);
+  await page.settle();
+  assert.strictEqual(session.entries.length, entries + 1, 'one step for the open');
+  assert.strictEqual(session.pushes, 1);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', card: '1' });
+  assert.strictEqual(shownCard(page), 1);
+
+  session.back();
+  await page.settle();
+  assert.strictEqual(shownCard(page), null, 'Back closes the card');
+  assert.strictEqual(page.input.value, 'zephyr');
+  assert.strictEqual(session.search, '?q=zephyr');
+
+  session.forward();
+  await page.settle();
+  assert.strictEqual(shownCard(page), 1, 'Forward reopens it');
+  assert.strictEqual(page.input.value, 'zephyr');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', card: '1' });
+  assert.strictEqual(session.pushes, 1, 'stepping between the entries pushed nothing');
+  assert.strictEqual(session.replaces, 1, 'and replaced nothing: q already equalled the box on every entry it landed on');
+});
+
+test('after opening a card, closing it and typing a new query, Back reopens the card, the box keeps the new query, and the entry it landed on has q equal to the box', async () => {
+  const { page, session } = await openAt();
+  page.input.typed('old');
+  clickTile(page, 1);
+  await page.settle();
+  closeCard(session);
+  assert.strictEqual(session.search, '?q=old', 'closing pushed a step without the card');
+  page.input.typed('new');
+  assert.deepStrictEqual(session.entries.map(qOf), ['old', 'old', 'new']);
+  const pushes = session.pushes;
+
+  session.back();
+  await page.settle();
+  assert.strictEqual(shownCard(page), 1, 'Back reopens the card');
+  assert.strictEqual(page.input.value, 'new', 'the box keeps the new query');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'new', card: '1' }, 'the address is brought back in line with the box');
+  assert.strictEqual(session.pushes, pushes, 'by replacing the entry it landed on, not pushing one');
+  assert.strictEqual(session.entries.length, 3);
+  assert.deepStrictEqual(session.entries.map(qOf), ['old', 'new', 'new']);
+
+  session.forward();
+  await page.settle();
+  assert.strictEqual(shownCard(page), null, 'Forward closes it again');
+  assert.strictEqual(page.input.value, 'new');
+  assert.strictEqual(session.search, '?q=new');
+});
+
+test('Back onto an entry from before the box had text keeps the box and gives that entry the query', async () => {
+  const { page, session } = await openAt();
+  clickTile(page, 1);
+  await page.settle();
+  page.input.typed('abc');
+  assert.deepStrictEqual(paramsOf(session.search), { card: '1', q: 'abc' });
+  session.back();
+  await page.settle();
+  assert.strictEqual(shownCard(page), null);
+  assert.strictEqual(page.input.value, 'abc');
+  assert.strictEqual(session.search, '?q=abc');
+  assert.strictEqual(session.entries.length, 2);
+});
+
+test('Back onto an entry that has q while the box is empty drops q from that entry and leaves the box empty', async () => {
+  const { page, session } = await openAt();
+  page.input.typed('abc');
+  clickTile(page, 1);
+  await page.settle();
+  page.clear.fire('click');
+  assert.deepStrictEqual(paramsOf(session.search), { card: '1' });
+  session.back();
+  await page.settle();
+  assert.strictEqual(page.input.value, '');
+  assert.strictEqual(session.search, '');
+});
+
+test('Back is brought in line with the box even while another popup is open, which still keeps the detail popup from moving', async () => {
+  const { page, session } = await openAt();
+  page.input.typed('old');
+  clickTile(page, 1);
+  await page.settle();
+  closeCard(session);
+  page.input.typed('new');
+  session.popupOpen = true;
+  session.back();
+  await page.settle();
+  assert.strictEqual(shownCard(page), null, 'the card does not open under the other popup');
+  assert.strictEqual(page.input.value, 'new');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'new', card: '1' });
+});
+
+test('landing never writes the box: a Back onto a step with another q tells no search listener', async () => {
+  const { page, session } = await openAt();
+  page.input.typed('old');
+  clickTile(page, 1);
+  await page.settle();
+  closeCard(session);
+  page.input.typed('new');
+  const told = [];
+  page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  const writes = page.input.writes.length;
+  session.back();
+  await page.settle();
+  assert.deepStrictEqual(told, []);
+  assert.strictEqual(page.input.writes.length, writes);
+});

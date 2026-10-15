@@ -66,6 +66,8 @@ function attachSessionHistory(page, { detail = (id) => ({ id, title: `Card ${id}
     back() { if (index > 0) land(index - 1); },
     forward() { if (index < entries.length - 1) land(index + 1); },
   };
+  session.back = () => ctx.history.back();
+  session.forward = () => ctx.history.forward();
   Object.defineProperty(session, 'index', { get: () => index });
   Object.defineProperty(session, 'search', { get: () => entries[index] });
 
