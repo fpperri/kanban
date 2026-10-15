@@ -663,13 +663,13 @@ to `127.0.0.1` only.
   does not touch the selection) and **Add to selection** (the card joins as an addition, or becomes
   the anchor of an empty selection). A card inside the selection opens the menu for the whole
   resolved selection, the cards a path, a tree or a pill added included, and the menu has neither
-  Peek nor Add to selection. Right-clicking inside an open card detail opens the same
+  Peek nor Add to selection but offers **Isolate** (see Isolate). Right-clicking inside an open card detail opens the same
   menu for the card shown, without Peek, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
   already handles the right-click itself, the browser's own menu shows instead. The card details
   keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add to selection**,
   **Assign…**, **Set priority…**, **Edit tags…**,
-  **Schedule…**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
+  **Schedule…**, **Isolate**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
   acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
   selection inside it, regardless of which view opened it. The subject is fixed when the menu
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
@@ -680,8 +680,15 @@ to `127.0.0.1` only.
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
   names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
-  show only when the subject is one card; the others always render (mixed-selection handling
-  lives inside each click handler).
+  show only when the subject is one card, and Isolate shows only inside the selection and never
+  in the card details' own menu; the others always render (mixed-selection handling
+  lives inside each click handler). A right-click on the **empty Graph or Map canvas** (the
+  Graph's or the Map's canvas, where no card, Graph dot, Map node, link or control is) opens the
+  same menu with every entry but Isolate out of it (`canvas-menu` in the stylesheet), in place of
+  the browser's own menu, and leaves the selection as it is; on any other view, or outside the
+  canvas (a toolbar, a section header), the browser's menu shows. The entry reads **Isolate**, and
+  **Turn isolate off** while isolate is on; with nothing selected, choosing it says so and leaves
+  isolate off, as the switch does.
   A click on empty space leaves the selection, its anchor, the pills and the search box as
   they were, since it can be an accident. A **double click** on empty space clears them: the
   additions, the anchor, and the anchor's text in the box (a pill's query, a search typed in
@@ -889,6 +896,27 @@ to `127.0.0.1` only.
   in the selection module (`selectionAfterEscape`, `boxAfterGraphClick`, `isolateAfterWrite`),
   and the page carries it out in `isolate.js`, which writes the box only through `writeSearch`
   with the reason `isolate` and never writes the selection.
+  **The menus offer it.** A right-click on a card inside the selection offers **Isolate** in
+  the menu that acts on the selection (`cardMenuFor`, `isolate`), which does what the switch
+  does, and the menu of a card outside the selection and the card details' own menu do not offer
+  it. A right-click on the empty Graph or Map canvas opens a menu of that one entry (see
+  Multi-select). The entry mirrors the switch: it reads **Isolate**, and **Turn isolate off**
+  while isolate is on, and with nothing selected it says so and changes nothing.
+  **The link carries it.** While isolate is on the address holds a second parameter beside `q`,
+  `isolate=1`, so the address is `?q=%2312+%7C+%235&isolate=1` for the box `#12 | #5`. It is written
+  by the box's own address listener (see Deep links), as the box changes and never as a history
+  entry; it is dropped when isolate is off and when the box holds no query, since an isolate with
+  no query is nothing. A reload keeps isolate on: the link opens with the switch on, the box
+  text, the address and the chip that says isolated, and so does a link opened in another
+  browser, where the Graph, with no dot dimmed, and every other view show only the isolated set.
+  The text the box held before isolating is kept in the browser per board (`localStorage`, the
+  board's `isolate.kept` entry, beside its other remembered choices), with the isolate text it
+  goes with, and given back when isolate is turned off after the reload; where it is unknown (no
+  record, storage that is blocked, or a record kept for another isolate) the box ends up empty.
+  The page works without browser storage. Opening a card while isolated keeps the parameter,
+  and Back and Forward bring the entry they land on in line with the box, isolate included.
+  A link with `isolate=1` and no usable `q` opens with isolate off, and any value but `1` is no
+  request.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
@@ -1019,7 +1047,8 @@ to `127.0.0.1` only.
   the poll.
 - **Deep links** — loading the app with `?card=<id>`, `?q=<search>` and/or
   `?view=<board|map|gantt|calendar|graph>` in the URL switches to the named view, filters the
-  board by the query, opens that card's detail popup, and scrolls its representation
+  board by the query (and, with `isolate=1` beside a query, shows it as an isolate, see
+  Isolate), opens that card's detail popup, and scrolls its representation
   into view (found by `data-id` in whichever view container is now active, same lookup
   the shared card-el grammar's click handler uses) — a bookmarkable or shared link
   straight to one card, or to a set of them. **The three keys are independent**: `card`
@@ -1046,7 +1075,9 @@ to `127.0.0.1` only.
     `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, a `?q=`
     link, and a click in the Graph that drops a typed search) replaces `q` with the box's
     text, and an empty
-    or blank box drops `q`; `card` and `view` ride along untouched. The address replaces
+    or blank box drops `q`; `card` and `view` ride along untouched. While isolate is on,
+    `isolate=1` stands beside `q` (and goes with it when the box is emptied), written by the
+    same listener. The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
     when `q` would change. A browser may refuse a replacement when there are too many in

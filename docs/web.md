@@ -272,6 +272,20 @@ back in three stages: isolate off, then the additions, then the anchor; with the
 first Esc closes the panel, and the second turns isolate off. The switch is announced as on or
 off, and Tab reaches it, and Enter and Space flip it.
 
+Isolate is in the menus too. A right-click on a card inside the selection offers **Isolate** in
+the menu that acts on the selection, and it does what the switch does; the menu of a card outside
+the selection, and the card details' own menu, do not offer it. A right-click on the empty Graph
+or Map canvas, never on a card, a link or a control, opens a small menu with that one entry in
+place of the browser's own. Both read **Turn isolate off** while isolate is on. With nothing
+selected the entry says so, as the switch does.
+
+The link carries it. While isolate is on, the address holds a second parameter beside `q`,
+`isolate=1`, written as the box changes and never as a history entry. A reload, or a link opened
+in another browser, opens isolated: the Graph and every other view show only the isolated set.
+The text the box held before isolating is kept in your browser, per board, so turning isolate
+off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
+the parameter and no query opens with isolate off.
+
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
 error), and per-entry archiving.
@@ -286,7 +300,8 @@ blocked reason, type, the date triad, and a Markdown description.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
-archive, restore, delete, or add a dependency tree/path to the selection. A
+archive, restore, delete, isolate (inside the selection only), or add a dependency tree/path to
+the selection. A
 right-click on a card outside the selection opens the menu for that card alone,
 leading with Peek (open its details) and Add to selection, and leaves your
 selection as it was. The same selection grammar works in every view, and

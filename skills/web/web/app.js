@@ -2273,6 +2273,8 @@ function consumeDeepLink() {
   // it lands somewhere visible that one gesture clears. The view is set
   // first, so that repaint and the listeners told after it see the link's view.
   if (link.q) {
+    // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
+    // and the listeners told of it (the address, the chip) see it on.
     if (deepLinkIsolates(location.search)) isolateFromLink(link.q);
     writeSearch(link.q, 'link');
   } else if (link.view) renderBoard();
@@ -3311,7 +3313,8 @@ function clearSearch() {
 // past it, so a refused replacement is let go: the address lags the box, and the
 // next write that changes `q` catches it up, while the listeners after this one
 // still hear of the write. card-history.js decides what the address becomes;
-// `card` and `view` ride along untouched. The popstate listener calls this too,
+// `card` and `view` ride along untouched, and `isolate=1` stands beside `q` while
+// isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
   const search = nextSearchAddress(location.search, text, isolateNow() !== null);
@@ -6032,9 +6035,11 @@ window.addEventListener('DOMContentLoaded', () => {
     if (clickKeepsSelection(action)) selectionGestureClick = e;
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the
-  // browser's own context menu (don't hijack the whole page). A card outside
-  // the selection gets a menu for that card alone and the selection stays; a
-  // selected one gets a menu for the whole batch.
+  // browser's own context menu (don't hijack the whole page), except the empty
+  // canvas of the Graph and the Map, which opens a menu of Isolate alone
+  // (openCanvasContextMenu). A card outside the selection gets a menu for that
+  // card alone and the selection stays; a selected one gets a menu for the whole
+  // batch.
   document.addEventListener('contextmenu', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');

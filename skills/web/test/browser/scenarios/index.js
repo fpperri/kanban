@@ -28,4 +28,5 @@ module.exports = [
   require('./slice-section'),
   require('./pill-step'),
   require('./isolate'),
+  require('./isolate-link'),
 ];
