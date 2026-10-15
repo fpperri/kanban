@@ -277,7 +277,9 @@ it, except while you type in a field or a menu, a dialog, the notifications pane
 preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
 selection into the search box as `part | part | ...`, each part by what it names, such as
 `#12 | path:40 | tags:grill` for a card, the path through card 40 and the `grill` tag, so a card
-that comes to match joins on the next refresh. The text the box held is kept. The Board, Map,
+that comes to match joins on the next refresh. The text the box held is kept, and where it was
+hiding cards a picked path or card would bring back, it stays beside them in the box
+(`path:40 tags:ui`), so those cards stay hidden. The Board, Map,
 Gantt and Calendar show only the matches, and so does the Graph, where a typed search only
 lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
 on, a click on a card moves the anchor and leaves the box and the shown cards as they are, and a

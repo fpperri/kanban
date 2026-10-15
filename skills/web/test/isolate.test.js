@@ -266,7 +266,7 @@ test('Esc away from the box turns isolate off and gives the box its text back; t
   s.type('zephyr');
   s.pick('cardPart(1)', 'cardPart(2)', 'cardPart(3)');
   s.flip();
-  assert.strictEqual(s.box(), '#1 | #2 | #3');
+  assert.strictEqual(s.box(), '(#1 | #2 | #3) zephyr', 'the box hid cards 2 and 3, and the selection holds only card 1, so zephyr stays');
   s.press();
   assert.strictEqual(s.isolate(), null);
   assert.strictEqual(s.box(), 'zephyr');
@@ -286,7 +286,7 @@ test('the pills a step drops go out of the box on the later stages, as they did 
   s.page.run('setSearchPanelOpen(false)');
   s.pick("queryPart('review:')", 'cardPart(3)');
   s.flip();
-  assert.strictEqual(s.box(), 'review: | #3');
+  assert.strictEqual(s.box(), '(review: | #3) review:', 'card 3 is no review card, so the pill hid it and the selection never held it');
   s.press();
   assert.strictEqual(s.box(), 'review:', 'isolate off: the box is what it was');
   s.press();
@@ -524,4 +524,47 @@ test('the poll never makes the jump: a paged month stays where it was put', asyn
   s.page.run(`calendarAnchor = '2026-07-15'`);
   await s.poll();
   assert.strictEqual(s.page.run('calendarAnchor'), '2026-07-15');
+});
+
+// --- what the box hid stays hidden -------------------------------------------------------
+
+test('outside the Graph the text the box held goes on hiding what it hid: a path picked under tags:ui isolates only its ui cards', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.shown(), [2, 5]);
+  s.pick('pathPart(1)');
+  assert.deepStrictEqual(s.ids(), [2], 'the path through 1 holds 1, 2 and 3, and the box shows only card 2 of them');
+  s.flip();
+  assert.strictEqual(s.box(), 'path:1 tags:ui');
+  assert.deepStrictEqual(s.shown(), [2], 'cards 1 and 3 are not ui and stay hidden');
+  assert.deepStrictEqual(s.ids(), [2]);
+  s.flip();
+  assert.strictEqual(s.box(), 'tags:ui', 'turned off, the box has the text it held');
+});
+
+test('a card picked by hand and then hidden by the box does not come back when isolate is turned on', async () => {
+  const s = await open();
+  s.ctrlClick(4);
+  s.ctrlClick(5);
+  assert.deepStrictEqual(s.ids(), [4, 5]);
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.ids(), [5], 'card 4 is hidden by the box, so it is out of the selection');
+  s.flip();
+  assert.strictEqual(s.box(), '(#4 | #5) tags:ui');
+  assert.deepStrictEqual(s.shown(), [5]);
+});
+
+test('a pill is an alternative of the box and the text isolate writes is just the pill', async () => {
+  const s = await open();
+  s.pillClick('review');
+  s.flip();
+  assert.strictEqual(s.box(), 'review:');
+});
+
+test('in the Graph the typed text only lights, so it does not join the isolate text beside a card', async () => {
+  const s = await open({ view: 'graph' });
+  s.type('tags:ui');
+  s.nodeClick(4, { shiftKey: true });
+  s.flip();
+  assert.strictEqual(s.box(), 'tags:ui | #4');
 });

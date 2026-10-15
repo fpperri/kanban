@@ -875,7 +875,10 @@ to `127.0.0.1` only.
   the path through card 40 and the `grill` tag make `#12 | path:40 | tags:grill`; a query part
   with a card taken out of it is already its other cards (see Multi-select), so it is written as
   them. The text the box held is kept, and so is a run of slices in it, applied to the whole of
-  the isolated text, because the selection only covers the cards the view shows. With nothing to
+  the isolated text, because the selection only covers the cards the view shows. Outside the
+  Graph, where the box hides what it does not match, a path, a tree or a card the box was
+  hiding is not in the selection, so when the parts alone would bring such cards back the
+  box's own text stays beside them, ANDed on (`(#4 | path:40) tags:ui`). With nothing to
   write (nothing selected, or only a half-typed term) the switch stays off and a toast says
   nothing is selected. While isolate is on, **every view shows only the matches**: the Board,
   the Map, the Gantt and the Calendar filter by the box as they always do, and the Graph, where

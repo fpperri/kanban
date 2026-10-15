@@ -157,3 +157,76 @@ test('a cut changed while isolated is kept: the run of slices is not part of wha
   assert.strictEqual(searchIsolateRestore('#12', 'tags:ui slice:epic'), 'tags:ui', 'a cut taken off while isolated stays off');
   assert.strictEqual(searchIsolateRestore('(#12 | #13) slice:1', 'tags:ui | tags:grill'), '(tags:ui | tags:grill) slice:1');
 });
+
+// --- the box's own text, outside the Graph ---------------------------------------------
+// Outside the Graph the box hides what it does not match, and a selection only covers the cards the
+// view shows, so a path, a tree or a card picked by hand reaches only those of them the box
+// leaves. Isolate writes the selection into the box, so the text the box held goes on hiding what
+// it hid, or the cards it hid would come back (`limits`). In the Graph the box only lights and
+// the previous text is not kept.
+
+const SHOWN_BY = [
+  card(40, { tags: ['ui'], waiting_for: [41] }),
+  card(41, { waiting_for: [42] }),
+  card(42, { tags: ['ui'] }),
+  card(43, { waiting_for: [41] }),
+  card(50, { tags: ['ui'] }),
+  card(51),
+];
+const shownMatch = (text) => new Set(filterCards(SHOWN_BY, parseSearchQuery(text, 'kanban'), CTX).map((c) => c.id));
+const shownBy = (box) => (box.trim() ? shownMatch(box) : new Set(SHOWN_BY.map((c) => c.id)));
+// What the selection resolves to over the cards the view shows (the box's), and what the isolate text matches.
+const resolvedBy = (selection, box) => idsOf(resolveSelection(selection, shownMatch, shownBy(box)));
+const isolatedBy = (box, selection, limits) => idsOf(shownMatch(searchIsolateBox(box, partsOf(selection), { limits })));
+
+test('a path picked under tags:ui reaches the ui cards of the path, and isolate writes the box\'s text on, so card 41 stays hidden', () => {
+  const selection = grown(pathPart(40));
+  assert.deepStrictEqual(resolvedBy(selection, 'tags:ui'), [40, 42]);
+  assert.strictEqual(searchIsolateBox('tags:ui', partsOf(selection), { limits: true }), 'path:40 tags:ui');
+  assert.deepStrictEqual(isolatedBy('tags:ui', selection, true), [40, 42]);
+  assert.deepStrictEqual(isolatedBy('tags:ui', selection, false), [40, 41, 42], 'without it the text brings card 41 back');
+});
+
+test('a tree and a card picked by hand are held to the box the same way, and several parts are bracketed once', () => {
+  const tree = grown(treePart(40));
+  assert.deepStrictEqual(resolvedBy(tree, 'tags:ui'), [40, 42]);
+  assert.deepStrictEqual(isolatedBy('tags:ui', tree, true), [40, 42]);
+  const mixed = grown(cardPart(50), pathPart(40), cardPart(51));
+  assert.deepStrictEqual(resolvedBy(mixed, 'tags:ui'), [40, 42, 50], 'card 51 is not ui, so the box hides it and the selection never held it');
+  assert.strictEqual(searchIsolateBox('tags:ui', partsOf(mixed), { limits: true }), '(#50 | path:40 | #51) tags:ui');
+  assert.deepStrictEqual(isolatedBy('tags:ui', mixed, true), [40, 42, 50]);
+});
+
+test('a box that holds | alternatives is bracketed, and its cut stays at the top level', () => {
+  const selection = grown(pathPart(40));
+  assert.strictEqual(searchIsolateBox('tags:ui | #43', partsOf(selection), { limits: true }), 'path:40 (tags:ui | #43)');
+  assert.deepStrictEqual(isolatedBy('tags:ui | #43', selection, true), resolvedBy(selection, 'tags:ui | #43'));
+  assert.strictEqual(searchIsolateBox('tags:ui slice:epic..2', partsOf(selection), { limits: true }), 'path:40 tags:ui slice:epic..2');
+  assert.strictEqual(searchIsolateBox('slice:epic..2', partsOf(selection), { limits: true }), 'path:40 slice:epic..2', 'the cut alone is the cut: no text to keep');
+});
+
+test('an empty box, a box with no term yet, and a selection of queries alone add nothing to the isolate text', () => {
+  const selection = grown(pathPart(40));
+  assert.strictEqual(searchIsolateBox('', partsOf(selection), { limits: true }), 'path:40');
+  assert.strictEqual(searchIsolateBox('status:', partsOf(selection), { limits: true }), 'path:40', 'a half-typed term shows everything');
+  const pills = grown(queryPart('tags:ui'), queryPart('review:'));
+  assert.strictEqual(searchIsolateBox('tags:ui | review:', partsOf(pills), { limits: true }), 'tags:ui | review:', 'a pill\'s query is in the box already and is the box\'s alternative');
+});
+
+test('the box does not limit the isolate text in the Graph, where it only lights', () => {
+  const selection = grown(typedQueryPart('tags:ui'), cardPart(51));
+  assert.strictEqual(searchIsolateBox('tags:ui', partsOf(selection)), 'tags:ui | #51');
+  assert.strictEqual(searchIsolateBox('tags:ui', partsOf(selection), { limits: false }), 'tags:ui | #51');
+});
+
+test('with a path, a tree or a card in the selection the isolate text matches what the selection resolves to over the box\'s cards, whatever the box', () => {
+  const boxes = ['tags:ui', 'tags:ui | #43', '41 | #40', 'status:todo', '(tags:ui | #51) #50'];
+  const selections = [grown(pathPart(40)), grown(treePart(41)), grown(cardPart(50), cardPart(51)), grown(queryPart('tags:ui'), pathPart(41))];
+  for (const box of boxes) {
+    for (const selection of selections) {
+      const text = searchIsolateBox(box, partsOf(selection), { limits: true });
+      const want = resolvedBy(selection, box);
+      assert.deepStrictEqual(idsOf(shownMatch(text)), want, `${JSON.stringify(partsOf(selection))} under ${box}`);
+    }
+  }
+});

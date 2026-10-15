@@ -9,7 +9,9 @@
 // In the Graph the same query hides what it does not match instead of lighting it
 // (graphQueryEffect in graph-model.js, told by isolateNow). The box's text from before is kept in
 // the flag, `{ previous }`, and turning isolate off gives it back (searchIsolateRestore), with
-// the run of slices as the box holds it now.
+// the run of slices as the box holds it now. Outside the Graph the text the box held also stays
+// in the isolate text beside a card, a path or a tree that would bring back cards it hid (the
+// selection only covers the cards the view shows), so those stay hidden.
 //
 // While it is on, a click on a card moves the anchor only: nothing the selection does writes the
 // box (boxAfterGraphClick, selection.js), and a click or a double click on empty space leaves the
@@ -37,7 +39,8 @@
 // write is guarded, and the page works without it.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads: $, state,
-// storageKey, prefsStorage, selectionState, writeSearch, onSearchWrite, renderSearchPanel, toast,
+// storageKey, prefsStorage, selectionState, selectedIds, viewCardIds, searchMatchIds, loadViewMode,
+// writeSearch, onSearchWrite, renderSearchPanel, toast,
 // hideContextMenu, keyGuardOff, partsOf (selection.js) and the search module's isolate functions. The i key reads the shared key guard (key-guard.js): off
 // while a field has focus and while a menu, a dialog, the notifications panel or the preferences
 // sheet is up; the search panel is no surface, so i works with it open.
@@ -101,13 +104,25 @@ function syncIsolateSwitch() {
   if (el.title !== title) el.title = title;
 }
 
+// Whether the text the box held has to stay in the isolate text: outside the Graph, where the
+// box hides what it does not match, when the text of the parts alone would show cards the
+// selection does not hold (a path or a card the box was hiding). Where it would not, the
+// parts say it all and the box gets nothing it did not need.
+function isolateNeedsBox(box, parts) {
+  if (loadViewMode() === 'graph') return false;
+  const shown = viewCardIds(false);
+  for (const id of searchMatchIds(searchIsolateBox(box, parts))) if (shown.has(id) && !selectedIds.has(id)) return true;
+  return false;
+}
+
 // Writes the selection into the box and remembers what it held. Nothing selected, or nothing
 // the selection names that the box can say, leaves the box and the switch as they were and
 // says why.
 function isolateTurnOn() {
   if (isolateFrom) return false;
   const box = $('#search-input').value;
-  const text = searchIsolateBox(box, partsOf(selectionState.selection));
+  const parts = partsOf(selectionState.selection);
+  const text = searchIsolateBox(box, parts, { limits: isolateNeedsBox(box, parts) });
   if (!text) { toast('Nothing is selected to isolate. Pick a card, a pill, or add a path or a tree first.'); return false; }
   isolateFrom = { previous: box };
   isolateKeep(box, text);
