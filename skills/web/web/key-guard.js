@@ -1,7 +1,7 @@
 'use strict';
-// The one guard behind the single-key shortcuts: `/` focuses the search box, `p`
-// flips the search panel's switch, `m` steps through the pills, and the keys added
-// later (the slice keys, `n`) read the same guard unchanged.
+// The one guard behind the single-key shortcuts: every key hotkeys.js lists that types
+// nothing but reads a character (`/`, `p`, `m`, `i`, `n`, `?` and the slice keys) reads it,
+// and so does Esc, through keyGuardEscape.
 // It has two parts. The typing check is for a key that would insert a
 // character: it stays off while focus is in a field. The surface check is for
 // a key that would act on the board behind an open popup: it stays off while
@@ -10,7 +10,10 @@
 //
 // The surfaces are pinned by name. The search panel is deliberately not one:
 // the slice keys work while it is open. The preferences sheet is one: the
-// single-key shortcuts and Ctrl+F stay off while it is up.
+// single-key shortcuts and Ctrl+F stay off while it is up. On the real page
+// #notif-modal and #prefs-sheet are .modal-backdrop too, so the 'dialog' entry answers for
+// them and keyGuardSurface never names 'notifications' or 'preferences' there; those two
+// entries are a safety net behind it, for a surface that stops being a .modal-backdrop.
 //
 // Pure: callers pass the document, so Node tests drive it with a fake. Same
 // dual-environment export pattern as save-hotkey.js and search-hotkey.js.

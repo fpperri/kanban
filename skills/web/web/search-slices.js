@@ -32,7 +32,10 @@
 //
 // This script reads app.js's and search-panel.js's globals at the moment it runs, never
 // when it loads: $, state, searchCtx, currentSearchMatch, viewCardIds, writeSearch,
-// loadPrefsState, searchPanelIsOpen, keyGuardOff, syncKeyedChildren.
+// loadPrefsState, searchPanelIsOpen, syncKeyedChildren. It also calls the page globals of
+// the search module (searchSetSlice, searchSlices), slice-run.js (the run's arithmetic and
+// the keys), type-icons.js (typeIconGlyph, typeIconOf), prefs.js (loadPrefs) and
+// key-guard.js (keyGuardOff).
 
 // Whether the section is folded for this visit; null until it is read from the preferences,
 // which have to wait for the board's name (they are kept per board).
@@ -43,10 +46,10 @@ const SEARCH_SLICES_HINT = 'click: grow the run to this slice, or drop it from a
 
 // --- what the section shows now ------------------------------------------------------------------
 
-// Every slice of the board, live and archived, as slice: cuts by them.
+// Every slice of the board, live and archived, as the search module builds them for the cut,
+// so the section and slice: cannot disagree about what a slice is.
 function searchSlicesSliced() {
-  const cards = state.active.concat(state.archived);
-  return sliceCards(cards, state.hierarchy, depthMap(cards, searchCtx()));
+  return searchSlices(state.active.concat(state.archived), searchCtx(), null);
 }
 
 // The values of the box's slice: terms at the top level of its query, which is where the

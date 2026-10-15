@@ -141,3 +141,9 @@ test('an entry has its own rules, apart from a pill\'s: only the focus ring is s
 test('an icon with no glyph takes no room', () => {
   assert.match(block, /\.slice-entry-icon:empty \{[^}]*display: none/);
 });
+
+test('the section lists the slices the search module builds for the cut, and does not build an axis of its own', () => {
+  const src = code(sliceSrc);
+  assert.match(src.match(/function searchSlicesSliced\([\s\S]*?\n\}/)[0], /searchSlices\(/);
+  assert.doesNotMatch(src, /sliceCards\(|depthMap\(/);
+});

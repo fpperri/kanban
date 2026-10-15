@@ -42,8 +42,12 @@
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
-// searchMatchIds, searchTermText, cardsBeforeSearch, loadPrefsState, setPanelOnFocus,
-// keyGuardOff.
+// searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus. It also calls the
+// page globals of selection.js (selectionAfterPill, pillQueriesDropped), pills.js, isolate.js
+// (isolateNow, syncIsolateSwitch), search-slices.js (renderSearchSlices,
+// searchSlicesChipNames), the search module (searchTermText and the alternatives and slice
+// functions: searchSplitSlice, searchJoinSlice, searchAddAlt, searchRemoveGrownAlt),
+// prefs.js (loadPrefs) and key-guard.js (keyGuardOff).
 
 let searchPanelOpen = false;
 // Whether the pill section is folded for this visit; null until it is read from the

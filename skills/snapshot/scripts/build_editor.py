@@ -1577,7 +1577,7 @@ renderSearchPanel()}
 // --- the slices
 function sliceNow(){
 const cards=DATA.map(searchCard);
-const sliced=sliceCards(cards,HIERARCHY,depthMap(cards,searchCtx));
+const sliced=searchSlices(cards,searchCtx,null);
 const list=sliceListOf(sliced,panelCards().map(c=>c.id));
 const values=parseSearchQuery($("q").value,BOARD).filter(t=>t.field==="slice").map(t=>t.value);
 return{list,values,run:sliceRunOf(sliced,list,values)}}
