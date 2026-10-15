@@ -28,8 +28,9 @@
 // its count changes under it. A click on the toggle, the fold control or the panel's
 // empty space never clears a card selection, and a double click on the Board's empty
 // space does. In the Graph a click on a pill lights its
-// cards, a done one included, and hides nothing, and with the Done status pill off the
-// done cards leave the counts. The preference "Pill section starts folded", set in the
+// cards, a done one included, and hides nothing; a second pill grows the box and lights
+// both sets, a click on it takes it out, a right-click solos a pill and a second one turns
+// every pill off; and with the Done status pill off the done cards leave the counts. The preference "Pill section starts folded", set in the
 // preferences sheet, folds the section after a reload.
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. Card 9 is blocked, card 10
@@ -53,6 +54,9 @@ const CASES = {
   counts: { blocked: 1, review: 2, waiting: 3 },
   review: [10, 12],
   both: [9, 10, 12],
+  // The same sets once card 3 has been blocked through the board's API (the Board part of the scenario does it), as the Graph part sees them.
+  graphBlocked: [3, 9],
+  graphBoth: [3, 9, 10, 12],
   blocked: [9],
   waiting: [4, 6, 8],
   waitingReview: [4, 6, 8, 10, 12],
@@ -420,6 +424,19 @@ module.exports = {
     check('a click on review in the Graph dims the rest', await ev(`document.querySelector('.graph-canvas').classList.contains('graph-dim')`));
     check('a click on review in the Graph hides no dot', (await ev(`document.querySelectorAll('.graph-node').length`)) === dots);
     check('the box holds the pill\'s query', (await boxText()) === 'review:');
+    const litIs = (ids) => waitFor(`${idsExpr(LIT)}===${JSON.stringify(JSON.stringify(ids))}`);
+    const dimmed = `document.querySelector('.graph-canvas').classList.contains('graph-dim')`;
+    await clickOn(pillSel('blocked'));
+    check('a click on blocked in the Graph grows the box to review: | blocked: and lights both sets', await boxIs('review: | blocked:') && await litIs(CASES.graphBoth), await ev(LIT));
+    check('both pills are on in the Graph, and no dot is hidden', await pillPressed('review') && await pillPressed('blocked') && (await ev(`document.querySelectorAll('.graph-node').length`)) === dots);
+    await clickOn(pillSel('blocked'));
+    check('a click on blocked again in the Graph takes only it out: review stays on and lit', await boxIs('review:') && await pillPressed('review') && await pillShut('blocked') && await litIs(CASES.review), await boxText());
+    await rightClick(pillSel('waiting'));
+    check('a right-click on waiting in the Graph solos it: the box holds waiting: alone and its cards are lit', await boxIs('waiting:') && await pillPressed('waiting') && await pillShut('review') && await litIs(CASES.waiting), await boxText());
+    await rightClick(pillSel('waiting'));
+    check('a right-click on the soloed pill in the Graph turns every pill off, empties the box and dims nothing', await boxIs('') && await pillShut('waiting') && await pillShut('review') && await pillShut('blocked') && await waitFor(`!(${dimmed})`), await boxText());
+    await clickOn(pillSel('review'));
+    check('a click on review in the Graph turns it on again, with its query in the box and its cards lit', await boxIs('review:') && await litIs(CASES.review), await boxText());
     await ev(`document.querySelector('.graph-filter-toggle[data-col="done"]').click()`);
     check('with the Done status pill off, the done cards leave the pill counts', await countsAre(CASES.doneOffCounts), await counts());
     check('with the Done status pill off the done review card is no longer lit', await waitFor(`${idsExpr(LIT)}===${JSON.stringify(JSON.stringify([CASES.review[0]]))}`), await ev(LIT));

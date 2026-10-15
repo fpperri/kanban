@@ -74,6 +74,10 @@ test('a second card, blocked through the API, and the Done status pill off, move
   });
   const live = patched.filter((c) => !c.archived);
   assert.deepStrictEqual(countsOver(live, patched), panel.CASES.patchedCounts);
+  const patchedIds = (q) => sorted(filterCards(patched, parseSearchQuery(q, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => live.some((c) => c.id === id)));
+  assert.deepStrictEqual(patchedIds('blocked:'), panel.CASES.graphBlocked, 'the blocked cards the Graph part sees, the card the Board part blocked included');
+  assert.deepStrictEqual(patchedIds('review: | blocked:'), panel.CASES.graphBoth);
+  assert.deepStrictEqual(patchedIds('waiting:'), panel.CASES.waiting);
   assert.deepStrictEqual(countsOver(live.filter((c) => c.status !== 'done'), patched), panel.CASES.doneOffCounts);
   assert.ok(panel.CASES.doneOffCounts.review < panel.CASES.patchedCounts.review, 'a done card was among the review cards');
 });
@@ -149,6 +153,21 @@ test('Esc with focus on a pill closes the panel and puts focus back on the toggl
   const before = code.slice(code.lastIndexOf('await openPanel();', at), at);
   assert.ok(/pillSel\('review'\)[^\n]*\.focus\(\)/.test(before) && before.includes("key('Escape')"), 'focus goes on a pill, then Esc');
   assert.ok(/waitFor\(panelShut\)/.test(code.slice(at, at + 300)) && /activeElement===\$\{TOGGLE\}/.test(code.slice(at, at + 300)), 'the panel is shut and focus is on the toggle');
+});
+
+test('the Graph part drives a second pill, a click off, a right-click solo and its undo, and each is held to the lit cards and the box', () => {
+  const graph = code.slice(code.indexOf("goto('/?view=graph'"), code.indexOf('the Board draws the plan board once more'));
+  assert.ok(graph.length > 500, 'the Graph part is found');
+  for (const name of [
+    'a click on blocked in the Graph grows the box to review: | blocked: and lights both sets',
+    'a click on blocked again in the Graph takes only it out: review stays on and lit',
+    'a right-click on waiting in the Graph solos it: the box holds waiting: alone and its cards are lit',
+    'a right-click on the soloed pill in the Graph turns every pill off, empties the box and dims nothing',
+    'a click on review in the Graph turns it on again, with its query in the box and its cards lit',
+  ]) assert.ok(graph.includes(`check('${name}'`), name);
+  assert.ok(/clickOn\(pillSel\('blocked'\)\)/.test(graph) && /rightClick\(pillSel\('waiting'\)\)/.test(graph));
+  assert.strictEqual(graph.split("rightClick(pillSel('waiting'))").length - 1, 2, 'solo, then solo off');
+  assert.ok(/litIs\(CASES\.graphBoth\)/.test(graph) && /litIs\(CASES\.waiting\)/.test(graph) && /litIs\(CASES\.review\)/.test(graph));
 });
 
 test('the ids and classes the scenario drives are in the page the panel is drawn on', () => {
