@@ -55,7 +55,7 @@ function stamp(model, layout, kind) {
 const board = loadBoard('plan');
 const fanOf = (kind) => {
   const model = drawnModel(board);
-  return stamp(model, graphLayout(model, kind, { statuses: STATUSES }), kind);
+  return stamp(model, graphLayout(model, kind, { statuses: STATUSES, unnested: 'table' }), kind);
 };
 
 test('the fan is stamped from the plan: an arc for each guide, a line for each divider, both hairlines at any zoom', () => {
@@ -101,7 +101,7 @@ test('the loose caption is stamped where the plan puts it, outside the rim, anch
   assert.ok(c);
   assert.deepStrictEqual([c.attrs.x, c.attrs.y, c.attrs.dy, c.attrs['text-anchor']], ['x', 'y', 'dy', 'anchor'].map((k) => String(v.plan.looseCaption[k])));
   const lone = buildOf([card(1, { type: 'goal' }), card(2, { type: 'epic' })]);
-  const bottom = stamp(lone, graphLayout(lone, 'tiers', { statuses: STATUSES }), 'tiers').by('graph-loose-caption')[0];
+  const bottom = stamp(lone, graphLayout(lone, 'tiers', { statuses: STATUSES, unnested: 'table' }), 'tiers').by('graph-loose-caption')[0];
   assert.strictEqual(bottom.attrs['text-anchor'], 'middle', 'a caption under the fan is centred on its point');
   assert.deepStrictEqual(c.children.map((t) => t.textContent), ['Unnested, with a tier']);
 });

@@ -792,7 +792,7 @@ function viewCardIds(withSearch) {
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
-    visible = graphVisibleIds(pool, withSearch ? currentGraphQueryEffect().visibleIds : null, graphLoadFilter(), boardStatuses());
+    visible = graphVisibleIds(pool, withSearch ? currentGraphQueryEffect().visibleIds : null, graphLoadFilter(), boardStatuses(), graphLeftOut(pool));
   } else if (mode === 'map') {
     visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
   } else if (mode === 'gantt' || mode === 'calendar') {

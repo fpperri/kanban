@@ -2,7 +2,9 @@
 // The tier fan, drawn. In Tiers the plan board draws a band for each tier of its
 // hierarchy (goal, strategy, objective, epic), tier 1 nearest the centre, then a
 // ring for each depth that holds a card without a tier, and the loose cards
-// without a tier sit in the Unnested block outside the fan. The fan goes all the
+// without a tier sit in the Unnested block outside the fan. The Graph opens with
+// the Unnested option on its outermost ring, so this scenario sets it to table on each
+// board first (the option row and the other modes are tier-fan-unnested's). The fan goes all the
 // way round the centre but for a narrow seam at the top, where the band captions
 // (a name, no count) stand one above another, neighbours on opposite sides of it.
 // A caption shows its name alone and is a tab stop: the pointer or keyboard focus on
@@ -38,7 +40,7 @@
 // icon and card 14's type an icon name that is not one.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// graphCur.
+// graphCur, graphLoadOptions, graphSetOption.
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
@@ -90,8 +92,9 @@ const CASES = {
 // id -> { x, y } of every dot in the Graph, null where a translate is not a number.
 const DOTS = `(()=>{const out={};for(const n of document.querySelectorAll('#graph-view .graph-node')){const m=/translate\\(([-\\d.e]+) ([-\\d.e]+)\\)/.exec(n.getAttribute('transform')||'');out[n.dataset.id]=m?{x:Number(m[1]),y:Number(m[2])}:null}return out})()`;
 
-// The outer edge of every tier band, tier 1 first, and of the last band of all.
-const BAND_EDGES = `(()=>{const bands=graphCur.layout.bands;return {tiers:bands.filter((b)=>b.slice.kind==='tier').map((b)=>b.r1),outer:bands.length?bands[bands.length-1].r1:0}})()`;
+// The outer edge of every tier band, tier 1 first, and of the last band of all (the ring of
+// unnested cards has no slice, and is the last band when it is drawn).
+const BAND_EDGES = `(()=>{const bands=graphCur.layout.bands;return {tiers:bands.filter((b)=>!!b.slice&&b.slice.kind==='tier').map((b)=>b.r1),outer:bands.length?bands[bands.length-1].r1:0}})()`;
 
 // What the fan draws around its dots, as the page has it: each caption (its name,
 // kind and place), every guide arc's path, every divider's ends, the caption
@@ -149,6 +152,10 @@ const RECTS = `(()=>{const r=(e)=>{const b=e.getBoundingClientRect();return {l:b
 const CIRCLE = `(()=>{const v=graphCur.view;const s=document.querySelector('#graph-view .graph-canvas').getBoundingClientRect();`
   + `const R=Math.max(...graphCur.layout.rings.map((r)=>r.r));const at=(x,y)=>({x:s.left+v.x+x*v.k,y:s.top+v.y+y*v.k});`
   + `return {stage:{l:s.left,t:s.top,r:s.right,b:s.bottom},points:[at(-R,0),at(R,0),at(0,-R),at(0,R)]}})()`;
+
+// The Unnested option set to table, as a press of its button does, and what shows it is drawn.
+const USE_TABLE = `graphSetOption('unnested','table')`;
+const TABLE_DRAWN = `graphLoadOptions().unnested==='table'&&!!graphCur&&graphCur.layout.bands.every((b)=>!!b.slice)&&document.querySelectorAll('#graph-view .graph-node').length>0`;
 
 const TIERS_PRESSED = `(document.querySelector('.graph-layout-btn[aria-pressed=true]')||{dataset:{}}).dataset.layout==='tiers'`;
 const DRAWN = `document.querySelectorAll('#graph-view .graph-node').length>0`;
@@ -234,6 +241,8 @@ module.exports = {
   SWEEP,
   CIRCLE,
   RECTS,
+  USE_TABLE,
+  TABLE_DRAWN,
   TIERS_PRESSED,
   DRAWN,
   ARCHIVE_PILL,
@@ -284,6 +293,8 @@ module.exports = {
       await load('/?view=graph', key);
       const drawn = await waitFor(`${DRAWN}&&${TIERS_PRESSED}`, 10000);
       check(`${key}: the Graph draws in Tiers`, drawn);
+      await ev(USE_TABLE);
+      await waitFor(TABLE_DRAWN, 6000);
       return drawn;
     };
     const pick = async (name) => {
