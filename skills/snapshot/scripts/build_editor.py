@@ -1466,12 +1466,13 @@ return d}
 // The search panel: kanban-web's panel under the search box, of slices and pills, without its
 // Isolate switch, since this page has no selection to isolate. The pill list, the run of slices
 // and their arithmetic are kanban-web's own modules (pills.js, slice-run.js, embedded above);
-// the drawing and the gestures are this page's, and test/panel-parity.test.js holds them to the
-// web's counts and terms. Everything the panel does goes through the one writer of the box
-// (writeBox), so a pill, a slice and a typed search are all the box's text and nothing else is
-// kept: a pill is on while the box holds its query as one of its alternatives, and the run is the
-// slice: term the box holds. Counts are taken over the cards the status pills and the Archive
-// pill leave, before the box and the cut, so a pill turned on never zeroes the others.
+// the drawing and the gestures are this page's, and test/panel-pills.test.js and
+// test/panel-slices.test.js hold them to the web's counts and terms. Everything the panel does
+// goes through the one writer of the box (writeBox), so a pill, a slice and a typed search are
+// all the box's text and nothing else is kept: a pill is on while the box holds its query as one
+// of its alternatives, and the run is the slice: term the box holds. Counts are taken over the
+// cards the status pills and the Archive pill leave, before the box and the cut, so a pill turned
+// on never zeroes the others.
 let panelOpen=false,panelSwitchOn=true,pillsFolded=false,slicesFolded=true;
 const pillGroupsOpen=new Set();
 const PILL_HINT="click: turn it on or off, right-click: only this pill (again: every pill off)";

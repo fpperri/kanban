@@ -358,7 +358,7 @@ test('the contextmenu listener checks fineMQ.matches FIRST, before resolving a c
 
 test('preventDefault is called only inside gated listeners (contextmenu, dragstart, dragover, drop, beforeunload, and the press and the keys of the search suggestions while their menu is open) — no unconditional interception exists anywhere', () => {
   const matches = [...src.matchAll(/\.preventDefault\(\)/g)];
-  assert.strictEqual(matches.length, 12, 'expected exactly twelve preventDefault() calls: the contextmenu gate (the card menu, and a right-click on a pill or slice entry of the search panel), dragstart/dragover/drop for pointer drag (kanban.proj #241), the pending-ops close guard (kanban.proj #251), the two the search suggestions make, a press on a row (so the box keeps its focus) and the keys the open menu takes, and the search panel itself: the Esc that closes it, and the context-menu key, the slice keys and p (panelKey)');
+  assert.strictEqual(matches.length, 12, 'expected exactly twelve preventDefault() calls: the contextmenu gate (the card menu, and a right-click on a pill or slice entry of the search panel), dragstart/dragover/drop for pointer drag, the pending-ops close guard, the two the search suggestions make, a press on a row (so the box keeps its focus) and the keys the open menu takes, and the search panel itself: the Esc that closes it, and the context-menu key, the slice keys and p (panelKey)');
   const spans = [
     ['document.body.addEventListener("contextmenu"', 'openCtxMenu(c.id,e.clientX,e.clientY)});'],
     ['document.body.addEventListener("dragstart"', 'e.dataTransfer.effectAllowed="move"});'],
