@@ -5,7 +5,8 @@
 // that is not named below answers like a harmless element: any property is a
 // new such stand-in, a call returns one, a write is dropped. The search box,
 // its clear button, the card menu's Path and Tree items and the document are
-// real enough to be driven and watched. Not a test file (the suite runs
+// real enough to be driven and watched; a test may hand in more elements to
+// drive, by selector, through the `elements` option. Not a test file (the suite runs
 // *.test.js only).
 const fs = require('node:fs');
 const path = require('node:path');
@@ -82,7 +83,7 @@ function searchBox() {
 // answers that none is, so the key guard sees a quiet page.
 const OPEN_SURFACE_PROBE = /:not\(\.hidden\)$/;
 
-function loadPage({ board, search = '', stored = {}, scripts } = {}) {
+function loadPage({ board, search = '', stored = {}, scripts, elements: more = {} } = {}) {
   const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8');
   const files = scripts || [...html.matchAll(/<script src="\/([^"]+)"/g)].map((m) => m[1]);
   const input = searchBox();
@@ -91,7 +92,7 @@ function loadPage({ board, search = '', stored = {}, scripts } = {}) {
   const documentListeners = {};
   const windowListeners = {};
   const failures = [];
-  const elements = { '#search-input': input, '#search-clear-btn': clear, '#ctx-path': menu.path, '#ctx-tree': menu.tree };
+  const elements = { '#search-input': input, '#search-clear-btn': clear, '#ctx-path': menu.path, '#ctx-tree': menu.tree, ...more };
   const doc = new Proxy({
     activeElement: null,
     visibilityState: 'visible',
@@ -174,4 +175,4 @@ function loadPage({ board, search = '', stored = {}, scripts } = {}) {
   return page;
 }
 
-module.exports = { loadPage, harmless };
+module.exports = { loadPage, harmless, control };

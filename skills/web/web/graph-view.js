@@ -3,12 +3,13 @@
 // is a full idempotent rebuild (the 5s poll, every search keystroke and every
 // selection change re-run it), so pan/zoom and the per-board choices live in the
 // module variables below, never in the DOM. Plain <script> sharing one global
-// scope with app.js, so every top-level name here is graph-prefixed. Ctrl/shift
-// clicks and the context menu on a node are NOT wired here: ADR 0006's
-// document-level delegated grammar drives any .card-el[data-id]. The Graph is
-// the one deliberate exception for a plain click: it selects (painted in
-// place) and a double click opens, because dragging a card makes a bare click
-// a selection gesture.
+// scope with app.js, so every top-level name here is graph-prefixed. The context
+// menu on a node is NOT wired here: ADR 0006's document-level delegated grammar
+// drives any .card-el[data-id]. The Graph is the one deliberate exception for a
+// click: a plain click makes the card the anchor of a new selection, Shift or
+// Ctrl/Cmd adds one card or takes it out (the layout has no reading order to
+// range over), all painted in place, and a double click opens, because
+// dragging a card makes a bare click a selection gesture.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
@@ -75,7 +76,7 @@ function graphToggleFilter(col) {
   if (!Object.prototype.hasOwnProperty.call(filter, col)) return;
   filter[col] = !filter[col];
   graphSaveFilter();
-  renderGraphView();
+  renderBoard(); // a status pill changes the cards the selection can reach, as in the other views
 }
 
 function graphSoloFilter(col) {
@@ -83,7 +84,7 @@ function graphSoloFilter(col) {
   if (!Object.prototype.hasOwnProperty.call(filter, col)) return;
   Object.assign(filter, soloStatusFilter(filter, boardColumnIds(), col));
   graphSaveFilter();
-  renderGraphView();
+  renderBoard();
 }
 
 function resetGraphViewState() {
@@ -218,11 +219,22 @@ function graphSettleFocus() {
   else graphRestFocus();
 }
 
-function graphSelectOnly(id) {
-  setSelection(new Set([id]), id);
+function graphPaintSelection() {
   if (!graphCur) return;
-  for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', nid === id);
+  for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', selectedIds.has(nid));
   graphRestFocus();
+}
+
+// A click on a card in the Graph, whatever the modifier: the shared decision
+// with the Graph's own answers (a plain click selects; Shift adds one card, as
+// Ctrl does), written to the selection and painted in place, no rebuild.
+function graphClickNode(id, mods) {
+  const action = cardClickAction({
+    cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
+    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'),
+  });
+  selectByClick(action, id);
+  graphPaintSelection();
 }
 
 // --- render --------------------------------------------------------------------
@@ -558,12 +570,12 @@ function wireGraphView(host) {
   host.addEventListener('lostpointercapture', finish);
 
   host.addEventListener('click', (e) => {
-    if (e.ctrlKey || e.metaKey || e.shiftKey || !graphCur) return;
+    if (!graphCur) return;
     const node = e.target.closest('.graph-node');
     if (!node) return;
     e.stopPropagation();
     hideContextMenu();
-    graphSelectOnly(Number(node.dataset.id));
+    graphClickNode(Number(node.dataset.id), e);
   }, true);
   host.addEventListener('dblclick', (e) => {
     if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -575,7 +587,7 @@ function wireGraphView(host) {
     const node = e.target.closest('.graph-node');
     if (!node) return;
     if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(Number(node.dataset.id)); }
-    else if (e.key === ' ') { e.preventDefault(); graphSelectOnly(Number(node.dataset.id)); }
+    else if (e.key === ' ') { e.preventDefault(); graphClickNode(Number(node.dataset.id), {}); }
   });
 
   const enter = (e) => {

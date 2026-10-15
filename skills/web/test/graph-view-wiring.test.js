@@ -142,18 +142,20 @@ test('filter handlers guard with hasOwnProperty; layout re-click and zoom button
   assert.match(fn('wireGraphView'), /zoomBtn\.blur\(\)/);
 });
 
-test('a plain click on a node is caught in the capture phase, selects in place and skips modifier clicks', () => {
+test('a click on a node is caught in the capture phase whatever the modifier, written to the selection and painted in place', () => {
   const body = fn('wireGraphView');
-  const m = body.match(/host\.addEventListener\('click', \(e\) => \{\n    if \(e\.ctrlKey[\s\S]*?\}, true\);/);
+  const m = body.match(/host\.addEventListener\('click', \(e\) => \{\n    if \(!graphCur\) return;[\s\S]*?\}, true\);/);
   assert.ok(m, 'capture-phase click listener on the host');
-  assert.match(m[0], /e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey \|\| !graphCur\) return/);
+  assert.doesNotMatch(m[0], /ctrlKey|metaKey|shiftKey/, 'no modifier lets a click fall through to the shared grammar');
   assert.match(m[0], /closest\('\.graph-node'\)/);
   assert.match(m[0], /e\.stopPropagation\(\)/);
-  assert.match(m[0], /graphSelectOnly\(/);
-  const sel = fn('graphSelectOnly');
-  assert.match(sel, /setSelection\(new Set\(\[id\]\), id\)/, 'the node becomes the whole selection and the range start, through the one entry point');
-  assert.match(sel, /classList\.toggle\('selected'/);
-  assert.ok(!/renderBoard|renderGraphView/.test(sel), 'painted in place, no rebuild');
+  assert.match(m[0], /graphClickNode\(Number\(node\.dataset\.id\), e\)/);
+  const click = fn('graphClickNode');
+  assert.match(click, /plainClick: plainClickBehaviour\('graph'\), ranges: shiftAddsRange\('graph'\)/, 'the Graph asks the lookups for its own answers');
+  assert.match(click, /selectByClick\(action, id\)/, 'the selection is written through the step the shared grammar uses');
+  const paint = fn('graphPaintSelection');
+  assert.match(paint, /classList\.toggle\('selected', selectedIds\.has\(nid\)\)/, 'every node is painted from the id set, so a card taken out loses its mark');
+  assert.ok(!/renderBoard|renderGraphView/.test(click + paint), 'painted in place, no rebuild');
 });
 
 test('a double click opens the card, Enter opens and Space selects', () => {
@@ -161,7 +163,7 @@ test('a double click opens the card, Enter opens and Space selects', () => {
   assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(Number\(node\.dataset\.id\)\)/);
   assert.match(body, /host\.addEventListener\('keydown'/);
   assert.match(body, /e\.key === 'Enter'\) \{ e\.preventDefault\(\); if \(!e\.repeat\) openCard\(/);
-  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphSelectOnly\(/);
+  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(Number\(node\.dataset\.id\), \{\}\); \}/, 'Space acts as a plain click');
 });
 
 test('a single selected card keeps its relations lit; hover is temporary and render re-applies the rest focus', () => {

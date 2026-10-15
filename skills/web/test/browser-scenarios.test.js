@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a config-keys, a type-icons, a smoke and a calendar-jump scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a config-keys, a type-icons, a smoke and a calendar-jump scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'config-keys', 'type-icons', 'smoke', 'calendar-jump']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'config-keys', 'type-icons', 'smoke', 'calendar-jump']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -274,4 +274,39 @@ test('the card-click scenario opens the card menu with the right-click helper an
   assert.ok(/page\.rightClick|rightClick\(cardIn/.test(src));
   assert.ok(!/contextmenu/.test(src), 'a hand-made contextmenu event');
   assert.ok(!/\bsleep\(/.test(src));
+});
+
+// The selection's browser drive, on the plan board: how a selection grows from an
+// anchor in the Graph, and that the Board shows the same cards after a view
+// switch and a poll.
+const SELECTION_CHECKS = [
+  'the Graph draws the plan board', 'three cards can be clicked without another dot in the way',
+  'a click on a card selects that card alone and makes it the anchor', 'Shift+click on a second card adds exactly that card',
+  'the first card picked is the anchor and the second is an addition', 'Shift+click on the added card takes it out and leaves the anchor',
+  'Ctrl+click does the same as Shift+click: it adds one card and takes it out',
+  'a click on another card starts a new selection holding that card alone', 'the empty corner of the Graph is not a card',
+  'a pan keeps the selection', 'a click on the empty Graph clears the selection', 'the Board shows after the view switch',
+  'two cards picked in the Graph with Shift show as selected on the Board after a view switch', 'the poll repainted the Board',
+  'and the two cards are still selected after the poll', 'none of those clicks opened a card',
+];
+
+test('the selection scenario runs on the plan board and makes every check of how a selection grows in the Graph', () => {
+  assert.strictEqual(byName('selection').board, 'plan');
+  assert.strictEqual(byName('selection').alsoBoards, undefined);
+  const src = source('selection.js');
+  assert.deepStrictEqual(SELECTION_CHECKS.filter((n) => !src.includes(`check('${n}'`)), []);
+  const made = [...src.matchAll(/\bcheck\('((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]);
+  assert.deepStrictEqual(made.filter((n) => !SELECTION_CHECKS.includes(n)), [], 'a check this list does not name');
+});
+
+test('the selection scenario holds Shift and Ctrl on a click, and waits on the page, never on a fixed sleep', () => {
+  const src = code(source('selection.js'));
+  assert.ok(src.includes('modifiers: 8') && src.includes('modifiers: 2'), 'Shift and Ctrl');
+  assert.ok(!/\bsleep\(/.test(src));
+});
+
+test('the selection scenario finds a card\'s dot by its class and clicks it only where it is the topmost thing', () => {
+  const src = code(source('selection.js'));
+  assert.ok(src.includes('.graph-dot') && !/circle/.test(src));
+  assert.ok(/elementFromPoint/.test(src));
 });
