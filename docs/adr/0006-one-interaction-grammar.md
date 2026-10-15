@@ -1,7 +1,7 @@
 # 0006. One interaction grammar across all views
 
 Date: 2026-07-09 · Status: accepted
-Amended: 2026-07-13 (selection gestures — see Amendment below)
+Amended: 2026-07-13 (selection gestures), 2026-10-14 (anchor, peek, isolate) — see Amendments below
 
 ## Context
 
@@ -41,3 +41,29 @@ target. Everything else above stands: click = detail, right-click = menu,
 plain click elsewhere = clear (selection AND anchor). Range logic is pure
 (rangeSelection, selection.js); only the grammar handler mutates anchor
 state.
+
+## Amendment (2026-10-14): anchor, peek and isolate
+
+A selection now grows from an **anchor**: one card, or one query (a pill, or
+the search box in the Graph). A plain click on a card or a pill, with either
+button, sets the anchor and drops the rest; with Shift it adds to the
+selection instead. A Path or Tree from the menu adds that card's path or tree.
+In the Graph, Shift+click adds one card, because its layout has no reading
+order for a range; the other views keep the range. Esc steps back one stage at
+a time: isolate off, then the additions, then the anchor.
+
+A right-click outside the selection no longer replaces it. The menu opens for
+that card alone and leads with **Peek** (open the card, selection untouched)
+and **Add to selection**. Losing a hand-built selection to a right-click was
+the cost the old rule carried.
+
+**Isolate** shows only the selection in every view. It writes the selection
+into the search box as a query that keeps each part's criterion
+(`#12 | path:40 | tags:grill`) rather than freezing a list of cards, so the
+address carries it and a card that comes to match a pill joins on the next
+load. It takes a copy when switched on; later clicks move the anchor inside the
+isolated set without rewriting it.
+
+What a plain click on a card does (open it, or select it) becomes a per-view
+preference, kept in the browser per board. The defaults stay as above: the
+Graph selects, the other views open.
