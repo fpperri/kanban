@@ -201,8 +201,17 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
 
 - **Type chips.** A card with a `type` wears a chip, in the color its `config.yaml`
   `types:` entry gives it (the names match without regard to case) and neutral when
-  the entry has no color or the list does not name the type at all. The list only
-  suggests: any word is a type.
+  the entry has no color or the list does not name the type at all. A type whose
+  entry sets an `icon:` (circle, square, diamond, triangle, hexagon or star, in any
+  case) starts its chip with that glyph, in the chip's own color, wherever the page
+  draws the chip; a type with no icon, or an unknown icon name, wears the chip it
+  always wore. The glyphs are kanban-web's own `skills/web/web/type-icons.js`,
+  embedded as is (`test/type-icons-embed.test.js` pins it to that file), and never
+  the web's type chip module, whose two-argument color function would replace the
+  page's own. The page also holds the board's `pills:` entries, a label and a query
+  each, in config order. The readers of `icon:` and `pills:` are written twice, here
+  and in kanban-web's `config-store.js`, and `test/nesting-config.test.js` fails when
+  they stop reading the same entries alike. The list only suggests: any word is a type.
 - **Outline order.** On a board where any card has a `rank` or a `parent`, every
   status section lists its cards in outline order: parents before their children,
   siblings by rank, then by priority (the `priorities:` order), then by id. A board

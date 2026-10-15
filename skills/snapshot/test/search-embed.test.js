@@ -48,7 +48,7 @@ test('the waiting rules load ahead of the search module, and both ahead of the p
     const searchAt = html.indexOf(source('search.js'));
     assert.ok(waiting !== -1 && waiting < searchAt && searchAt < html.indexOf('const BASE='));
     const page = loadPage(html);
-    assert.strictEqual(page.scripts.length, 5, 'the nesting module, the map module, the waiting rules, the search module, then the page');
+    assert.strictEqual(page.scripts.length, 6, 'the nesting module, the map module, the waiting rules, the search module, the type icons, then the page');
     assert.strictEqual(page.run('typeof parseSearchQuery + typeof resolveTerms + typeof cardMatchesQuery + typeof isReviewValue'),
       'functionfunctionfunctionfunction');
   });
@@ -62,11 +62,9 @@ function buildWithAltered(file, alter) {
     const script = path.join(root, 'snapshot', 'scripts', 'build_editor.py');
     fs.mkdirSync(path.dirname(script), { recursive: true });
     fs.copyFileSync(buildScript, script);
-    fs.mkdirSync(path.join(root, 'web', 'web'), { recursive: true });
-    for (const name of ['nesting.js', 'map-relations.js', 'waiting-blocked.js', 'search.js']) {
-      const text = fs.readFileSync(path.join(webDir, name), 'utf8');
-      fs.writeFileSync(path.join(root, 'web', 'web', name), name === file ? alter(text) : text);
-    }
+    fs.cpSync(webDir, path.join(root, 'web', 'web'), { recursive: true });
+    const target = path.join(root, 'web', 'web', file);
+    fs.writeFileSync(target, alter(fs.readFileSync(target, 'utf8')));
     const board = path.join(root, 'board');
     fs.mkdirSync(board);
     writeBoard(board, BOARD);
