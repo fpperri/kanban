@@ -160,3 +160,116 @@ test('half-typed input never throws, whatever the mix of bars, brackets and pref
     }, JSON.stringify(q));
   });
 });
+
+// --- quotes ------------------------------------------------------------------
+
+test('tags:"grill" matches a card tagged grill and not a card tagged only grilling', () => {
+  assert.deepStrictEqual(ids('tags:grill'), [1, 4], 'unquoted is still a substring');
+  assert.deepStrictEqual(ids('tags:"grill"'), [1]);
+  assert.deepStrictEqual(ids('tags:"grilling"'), [4]);
+});
+
+test('a quoted value matches the whole value, ignoring case, or any one element of a list field', () => {
+  assert.deepStrictEqual(ids('tags:"GRILL"'), [1]);
+  assert.deepStrictEqual(ids('tags:"ui"'), [1, 2, 3], 'one of several tags is enough');
+  assert.deepStrictEqual(ids('tags:"gri"'), [], 'a part of a tag is not the tag');
+  assert.deepStrictEqual(ids('status:"doing"'), [1, 4]);
+  assert.deepStrictEqual(ids('status:"do"'), []);
+  const people = [card(7, { assignee: '@afk', priority: 'High', type: 'goal' }), card(8, { assignee: '@afk-extra', priority: 'Highest', type: 'goal-x' })];
+  assert.deepStrictEqual(ids('assignee:"@AFK"', people), [7]);
+  assert.deepStrictEqual(ids('a:"@afk"', people), [7]);
+  assert.deepStrictEqual(ids('priority:"high"', people), [7]);
+  assert.deepStrictEqual(ids('type:"goal"', people), [7]);
+  assert.deepStrictEqual(ids('file:"0007.card.md"', people), [7]);
+});
+
+test('a quoted title: or body: value matches only a card whose whole field is that text, in any letter case', () => {
+  assert.deepStrictEqual(ids('title:"zephyr migration"'), [1]);
+  assert.deepStrictEqual(ids('title:"ZEPHYR Migration"'), [1]);
+  assert.deepStrictEqual(ids('title:"zephyr"'), [], 'a word of the title is not the title');
+  assert.deepStrictEqual(ids('title:zephyr'), [1], 'unquoted is still a substring');
+  const bodied = [card(7, { body: 'Ship the release notes' }), card(8, { body: 'Ship the release notes and the changelog' })];
+  assert.deepStrictEqual(ids('body:"ship the release notes"', bodied), [7]);
+  assert.deepStrictEqual(ids('body:"release notes"', bodied), []);
+});
+
+test('a quoted value keeps its spaces and the terms around it keep theirs', () => {
+  assert.deepStrictEqual(ids('title:"move the data layer" status:todo'), [2]);
+  assert.deepStrictEqual(ids('status:todo title:"move the data layer"'), [2]);
+  assert.deepStrictEqual(ids('title:"move the data layer" | #1'), [1, 2]);
+});
+
+test('quoted text with no field matches the phrase in a title, body or tag, and not words that are apart', () => {
+  const phrased = [
+    card(7, { title: 'Fix two words here' }),
+    card(8, { title: 'Two apart words' }),
+    card(9, { body: 'The body says two words too.' }),
+    card(10, { tags: ['two words'] }),
+    card(11, { title: 'words two' }),
+    card(12, { body: 'two\nwords across a line break' }),
+  ];
+  assert.deepStrictEqual(ids('"two words"', phrased), [7, 9, 10, 12]);
+  assert.deepStrictEqual(ids('"TWO WORDS"', phrased), [7, 9, 10, 12]);
+  assert.deepStrictEqual(ids('two words', phrased), [7, 8, 9, 10, 11, 12], 'unquoted words are two terms that may be apart');
+});
+
+test('a quoted term parses to an exact scoped term or a phrase, and an unquoted one is unchanged', () => {
+  assert.deepStrictEqual(parseSearchQuery('tags:"Grill"'), [{ field: 'tags', value: 'grill', exact: true }]);
+  assert.deepStrictEqual(parseSearchQuery('title:"Two  words"'), [{ field: 'title', value: 'two words', exact: true }]);
+  assert.deepStrictEqual(parseSearchQuery('"Two  words"'), [{ field: null, value: 'two words' }]);
+  assert.deepStrictEqual(parseSearchQuery('tags:grill'), [{ field: 'tags', value: 'grill' }]);
+});
+
+test('inside quotes a | a bracket and a prefix are plain text', () => {
+  const marked = [card(7, { title: 'a | b' }), card(8, { title: 'fix (auth) now' }), card(9, { title: 'status:doing is how it reads' })];
+  assert.deepStrictEqual(ids('"a | b"', marked), [7]);
+  assert.deepStrictEqual(ids('title:"a | b"', marked), [7]);
+  assert.deepStrictEqual(ids('"(auth)"', marked), [8]);
+  assert.deepStrictEqual(ids('("fix (auth)" | zzz)', marked), [8]);
+  assert.deepStrictEqual(ids('"status:doing"', marked), [9]);
+});
+
+test('a quote opens only at the start of a token or right after a field prefix, and elsewhere is literal', () => {
+  assert.deepStrictEqual(parseSearchQuery('5"'), [{ field: null, value: '5"' }]);
+  assert.deepStrictEqual(parseSearchQuery('say"hi there"'), [{ field: null, value: 'say"hi' }, { field: null, value: 'there"' }]);
+  assert.deepStrictEqual(parseSearchQuery('owner:"bob smith"'), [{ field: null, value: 'owner:"bob' }, { field: null, value: 'smith"' }]);
+  assert.deepStrictEqual(parseSearchQuery('waiting:"x"'), [{ field: null, value: 'waiting:"x"' }]);
+});
+
+test('a bracket can hold a quote and a quote can end right before a closing bracket', () => {
+  assert.deepStrictEqual(ids('("two words")', [card(7, { title: 'a two words b' })]), [7]);
+  assert.deepStrictEqual(ids('tags:ui (title:"zephyr migration" | title:"retire the scheduler")'), [1]);
+  assert.deepStrictEqual(ids('(title:"zephyr migration" | title:"retire the scheduler") tags:"ui"'), [1]);
+});
+
+test('an unclosed quote reads to the end of the input, and an empty quote is not a term', () => {
+  const all = CARDS.map((c) => c.id);
+  assert.deepStrictEqual(ids('tags:"grill'), [1]);
+  assert.deepStrictEqual(ids('tags:"two words'), []);
+  assert.deepStrictEqual(ids('"zephyr mig'), [1]);
+  assert.deepStrictEqual(ids('"'), all);
+  assert.deepStrictEqual(ids('""'), all);
+  assert.deepStrictEqual(ids('tags:""'), all);
+  assert.deepStrictEqual(ids('tags:"'), all);
+  assert.deepStrictEqual(ids('tags:ui | ""'), ids('tags:ui'));
+  assert.deepStrictEqual(ids('tags:"ui" "'), ids('tags:"ui"'));
+});
+
+test('half-typed quotes mixed with bars and brackets never throw', () => {
+  const pieces = ['|', '(', ')', '"', 'a', 'tags:', ' ', 'title:"', 'x"'];
+  const queries = new Set();
+  for (const x of pieces) for (const y of pieces) for (const z of pieces) queries.add(x + y + z);
+  queries.forEach((q) => {
+    assert.doesNotThrow(() => filterCards(CARDS, parseSearchQuery(q)), JSON.stringify(q));
+  });
+});
+
+test('quoted id:, tree: and path: values are the same as unquoted ones, and a quoted sticker text matches the whole text', () => {
+  assert.deepStrictEqual(ids('id:"12"'), [12]);
+  assert.deepStrictEqual(parseSearchQuery('tree:"#12"'), parseSearchQuery('tree:12'));
+  const stuck = [card(7, { blocked: 'vendor outage' }), card(8, { blocked: 'vendor' }), card(9, { review: 'PR #6' })];
+  assert.deepStrictEqual(ids('blocked:vendor', stuck), [7, 8]);
+  assert.deepStrictEqual(ids('blocked:"vendor"', stuck), [8]);
+  assert.deepStrictEqual(ids('blocked:"Vendor Outage"', stuck), [7]);
+  assert.deepStrictEqual(ids('review:"pr #6"', stuck), [9]);
+});

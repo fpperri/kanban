@@ -68,7 +68,36 @@ const STICKER_FIELDS = ['review', 'blocked'];
 // value/lowercasing path as the long form rather than duplicating it.
 const FIELD_ALIASES = { a: 'assignee' };
 
+// The scope a prefix names, or null when it names none. Only these scopes open
+// a quote after their colon; `foo:"bar baz"` with an unknown prefix is text.
+function searchScope(prefix) {
+  const low = prefix.toLowerCase();
+  const key = FIELD_ALIASES[low] || low;
+  return key === 'id' || KNOWN_FIELDS.includes(key) || GRAPH_FIELDS.includes(key) || STICKER_FIELDS.includes(key) ? key : null;
+}
+
+// A quoted token: `"two words"` or `title:"two words"`, closed or still open
+// at the end of the input. Whitespace inside collapses to one space. A quoted
+// scoped value is an exact one (`exact`: the whole value, or any one element of
+// a list); id:, tree: and path: take the value as they would unquoted; quoted
+// text with no scope is a phrase, matched like bare text. Nothing inside the
+// quotes is a term yet: `tags:""` is dropped, like `tags:`.
+function parseQuotedTerm(scope, rest) {
+  const inner = (rest.endsWith('"') ? rest.slice(0, -1) : rest).replace(/\s+/g, ' ').trim();
+  if (!inner) return null;
+  if (!scope) return { field: null, value: inner.toLowerCase() };
+  if (scope === 'id') return { field: 'id', value: inner };
+  if (GRAPH_FIELDS.includes(scope)) return { field: scope, value: inner.replace(/^#/, '') };
+  return { field: scope, value: inner.toLowerCase(), exact: true };
+}
+
 function parseTerm(token, board) {
+  const quoted = /^(?:([A-Za-z]+):)?"([\s\S]*)$/.exec(token);
+  if (quoted) {
+    const scope = quoted[1] ? searchScope(quoted[1]) : null;
+    if (!quoted[1] || scope) return parseQuotedTerm(scope, quoted[2]);
+  }
+
   const idShorthand = token.match(/^#(\d+)$/);
   if (idShorthand) return { field: 'id', value: idShorthand[1] };
 
@@ -118,6 +147,16 @@ function searchClosers(body) {
   return run - Math.min(run, Math.max(0, opened));
 }
 
+// Where a quote opens in the chunk starting at `start`: the chunk's first
+// character, or the character after a recognized scope's colon. -1 for none.
+function searchQuoteAt(s, start) {
+  if (s[start] === '"') return start;
+  const scoped = /([A-Za-z]+):"/y;
+  scoped.lastIndex = start;
+  const m = scoped.exec(s);
+  return m && searchScope(m[1]) ? start + m[0].length - 1 : -1;
+}
+
 // The lexer: the query as tokens with their place in the text. A token is
 // `text` (one term as typed), `or` (a lone |), `open` (a ( at the front of a
 // chunk) or `close` (a ) at the back). Brackets and | count only at a token's
@@ -125,15 +164,27 @@ function searchClosers(body) {
 function lexSearch(raw) {
   const s = String(raw == null ? '' : raw);
   const tokens = [];
-  const word = /\S+/g;
-  let m;
-  while ((m = word.exec(s))) {
-    let start = m.index;
-    const end = start + m[0].length;
-    while (start < end && s[start] === '(') tokens.push({ kind: 'open', start, end: ++start });
+  const close = (at) => tokens.push({ kind: 'close', start: at, end: at + 1 });
+  let at = 0;
+  while (at < s.length) {
+    if (/\s/.test(s[at])) { at++; continue; }
+    while (s[at] === '(') tokens.push({ kind: 'open', start: at, end: ++at });
+    if (at >= s.length || /\s/.test(s[at])) continue;
+    const start = at;
+    const quote = searchQuoteAt(s, start);
+    if (quote >= 0) {
+      // A quote runs to the next quote, or to the end of the input when unclosed.
+      const shut = s.indexOf('"', quote + 1);
+      at = shut < 0 ? s.length : shut + 1;
+      tokens.push({ kind: 'text', start, end: at });
+      while (s[at] === ')') close(at++);
+      continue;
+    }
+    let end = start;
+    while (end < s.length && !/\s/.test(s[end])) end++;
     const bodyEnd = end - searchClosers(s.slice(start, end));
     if (bodyEnd > start) tokens.push({ kind: s.slice(start, bodyEnd) === '|' ? 'or' : 'text', start, end: bodyEnd });
-    for (let at = bodyEnd; at < end; at++) tokens.push({ kind: 'close', start: at, end: at + 1 });
+    for (at = bodyEnd; at < end; at++) close(at);
   }
   return { text: s, tokens };
 }
@@ -178,26 +229,39 @@ function parseSearchQuery(raw, board) {
   return searchAltsToTerms(parseSearchAlts(lexed.tokens), lexed.text, board);
 }
 
+// Runs of whitespace as one space, so a phrase or a whole title or body reads
+// the same across a line break.
+function searchFlat(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+// A scoped term's test on one field's text: a substring, or with `exact` (a
+// quoted value) the whole text, in either case ignoring letter case.
+function searchFieldHit(text, term) {
+  const low = String(text || '').toLowerCase();
+  return term.exact ? searchFlat(low) === term.value : low.includes(term.value);
+}
+
 function termMatchesCard(term, card) {
   const title = (card.title || '').toLowerCase();
   const body = (card.body || '').toLowerCase();
   const tags = card.tags || [];
   switch (term.field) {
     case 'id': return String(card.id) === term.value;
-    case 'title': return title.includes(term.value);
-    case 'body': return body.includes(term.value);
-    case 'status': return (card.status || '').toLowerCase().includes(term.value);
-    case 'priority': return (card.priority || '').toLowerCase().includes(term.value);
-    case 'tags': return tags.some((t) => t.toLowerCase().includes(term.value));
-    case 'file': return (card.file || '').toLowerCase().includes(term.value);
-    case 'assignee': return (card.assignee || '').toLowerCase().includes(term.value);
-    case 'type': return (card.type || '').toLowerCase().includes(term.value);
+    case 'title': return searchFieldHit(title, term);
+    case 'body': return searchFieldHit(body, term);
+    case 'status': return searchFieldHit(card.status, term);
+    case 'priority': return searchFieldHit(card.priority, term);
+    case 'tags': return tags.some((t) => searchFieldHit(t, term));
+    case 'file': return searchFieldHit(card.file, term);
+    case 'assignee': return searchFieldHit(card.assignee, term);
+    case 'type': return searchFieldHit(card.type, term);
     // ADR 0009: bare (no value) = the shared presence predicate; a value =
     // case-insensitive substring on the sticker's own text (never the raw
     // field — a bare `true` sticker's text is '', which no non-empty
     // substring term matches, exactly mirroring the pill's own label).
-    case 'review': return term.value ? WBS.reviewReason(card.review).toLowerCase().includes(term.value) : WBS.isReviewValue(card.review);
-    case 'blocked': return term.value ? WBS.blockedReason(card.blocked).toLowerCase().includes(term.value) : WBS.isBlockedValue(card.blocked);
+    case 'review': return term.value ? searchFieldHit(WBS.reviewReason(card.review), term) : WBS.isReviewValue(card.review);
+    case 'blocked': return term.value ? searchFieldHit(WBS.blockedReason(card.blocked), term) : WBS.isBlockedValue(card.blocked);
     // pre-resolved by filterCards (below) into an id Set — a raw,
     // unresolved 'tree'/'path' term has no graph to resolve against here (a
     // single (term, card) pair isn't enough), so it matches nothing rather
@@ -205,9 +269,11 @@ function termMatchesCard(term, card) {
     case 'tree': case 'path': return false;
     case 'ids': return term.ids.has(Number(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
-    default: // bare term: title + body + tags
-      return title.includes(term.value) || body.includes(term.value)
-        || tags.some((t) => t.toLowerCase().includes(term.value));
+    default: { // bare term: title + body + tags; a phrase reads across a line break
+      const flat = term.value.includes(' ') ? searchFlat : (text) => text;
+      return flat(title).includes(term.value) || flat(body).includes(term.value)
+        || tags.some((t) => flat(t.toLowerCase()).includes(term.value));
+    }
   }
 }
 
