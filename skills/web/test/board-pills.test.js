@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { parseSearchQuery, filterCards, searchTermText } = require('../web/search');
+const { parseSearchQuery, filterCards, searchTermText, searchAddAlt, searchRemoveAlt } = require('../web/search');
 const { pillList, pillEntries, pillRows, pillIsOn, pillsOn } = require('../web/pills');
 const { NO_SELECTION, queryPart, addPart } = require('../web/selection');
 
@@ -136,6 +136,14 @@ test('a value with a space stays one exact term, and the pill\'s query reads bac
   assert.strictEqual(pill.query, 'tags:"two words"');
   assert.deepStrictEqual(parseSearchQuery(pill.query), [{ field: 'tags', value: 'two words', exact: true }]);
   assert.strictEqual(pill.count, 1);
+});
+
+test('a value holding a bar or brackets stays one exact term, so its pill joins the box and leaves it without touching the rest', () => {
+  const cards = [card(1, { tags: ['a | b (c)'] }), card(2, { tags: ['a'] })];
+  const pill = pillList(cards, matchOver(cards), { pills: [{ query: 'tags:*' }], cards, term: searchTermText }).find((p) => p.label === 'a | b (c)');
+  assert.deepStrictEqual([...matchOver(cards)(pill.query)], [1]);
+  assert.strictEqual(searchAddAlt('review:', pill.query), `review: | ${pill.query}`);
+  assert.strictEqual(searchRemoveAlt(`review: | ${pill.query}`, pill.query), 'review:');
 });
 
 test('a value is written the way the search module writes an exact term, so the query is the module\'s own text', () => {
