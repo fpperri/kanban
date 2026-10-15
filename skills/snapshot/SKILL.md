@@ -110,6 +110,56 @@ gates *display* of an archived member, never whether it counts for
 connectivity), and the resolved id set intersects normally with every other
 term and pill, same as any other search term.
 
+The search box has a panel of slices and pills under it, kanban-web's panel without its Isolate
+switch. The arrow at the box's right end is a switch (`aria-pressed`): with it on, the default,
+focusing the box opens the panel. A click on the arrow switches it off, which closes the panel
+now and stops the box opening it, and a second click switches it on and opens the panel; the
+`p` key flips the same switch, except while a field has focus or a card sheet, a card menu or
+the change tray is up. Esc closes an open panel (a card sheet or a card menu takes Esc first),
+with focus going back to the arrow, or staying in the box when Esc was pressed there, and the
+box keeps its text. A press anywhere outside the search bar closes it too, leaving the switch as
+it was. The panel hangs from the box and adds nothing to the header's height. The switch and the
+two folds are kept for the visit only, since the page has no preferences sheet.
+
+The **pill section** lists blocked, review and waiting, then the board's own pills, the `pills:` entries
+of `config.yaml` in the order written, a label and a query each. A `field:*` entry (`tags:*`,
+`assignee:*`, and also `status:*`, `priority:*` and `type:*`) stands for one pill per value among
+the board's live cards, each matching its value exactly (`tags:"grill"`, which never catches
+`grilling`); the first eight values of a field show and the rest sit behind a **+N more** button,
+which opens them and folds them again. Pills filter, by the status pills' rules: a click turns a
+pill on, its query joining the box as one more alternative (`review: | blocked:` after review and
+then blocked), and a click on a pill that is on turns it off, taking only its query out of the box;
+a right-click keeps only that pill, the box holding its query alone, and a right-click on the pill
+that is alone turns it off. A pill is on while the box holds its query as one of its alternatives,
+so typing a pill's query turns the pill on and typing anything else turns it off. A pill is a
+button with `aria-pressed`, and its accessible name says its label and its count. A pill click only
+writes the box: there is no selection here to take an anchor or an addition.
+
+The **slice section**, folded to start, lists the tiers of `hierarchy:` that some card of the board
+is in (live or archived), each with the icon its type has in `types:`, and then every depth. The
+entries in the run are pressed. A click on an entry outside the run grows it, a click on an end
+drops that end, a click on a run of one removes the cut, and a click inside the run that is not an
+end changes nothing; a right-click, the context-menu key and Shift+F10 on a focused entry keep only
+that slice. The run is the `slice:` term the box holds, written as the web writes it, so a run
+that reaches an end of the list leaves that end open (`slice:strategy..`). `[` and `]` move the
+bottom of the run up and down and `{` and `}` move its top, with the panel open or closed, except
+while a field has focus or a card sheet, a card menu or the change tray is up; a chord is not them,
+and AltGr, which types the brackets on a layout with none of its own, is not a chord. A slice
+entry's accessible name says its label, its count and whether it is in the run.
+
+Every count is taken over the cards left after the status pills and the Archive pill, before the box
+and the cut, and a queued edit counts as it does under the box; so turning a pill on or setting a
+cut leaves every other count as it was, hiding Done takes the done cards out of them, and a run
+never zeroes the entries needed to grow it again. A count changes in the button it is in, so a
+button that has focus keeps it. With the panel closed, a chip in the box counts the pills that are
+on and a run that cuts, and its accessible name says which (`2 on: review, slice goal..strategy`);
+with nothing on there is no chip. Tab reaches the arrow, both fold controls, every slice entry and
+every pill, and Enter and Space act as a click. The pill list and the run of slices are kanban-web's
+own `skills/web/web/pills.js` and `skills/web/web/slice-run.js`, embedded as they are
+(`test/pills-embed.test.js` and `test/slice-run-embed.test.js` pin them to those files); the drawing
+and the gestures are the page's own, and `test/panel-pills.test.js` and `test/panel-slices.test.js`
+hold its counts and its terms to the web's.
+
 Every view carries a status-pill row (each pill a button with `aria-pressed`; a tap toggles
 one, a right-click solos it and a right-click on the soloed pill turns all back on; an off
 pill is struck through with a hollow dot): statuses default on,
@@ -548,6 +598,12 @@ Claude to apply; read the parent's roll-up before marking it done.
 **No bar mode.** kanban-web's click on a bar, which flips every bar between open and
 collapsed, has no counterpart: a parent's tile always carries the thin bar and its
 sheet the open one.
+
+**No Isolate switch and no selection.** kanban-web's panel has an Isolate switch in its foot, which
+shows only the selection in every view, and a selection that a click on a card, a path, a tree or a
+pill builds. This page has neither: a tap opens a card, the panel has no foot, and a pill click only
+writes the box, with no anchor and no Shift addition. It has no `m` key that steps through the
+pills either, and no preferences sheet for the panel's switch and folds.
 
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map

@@ -4,6 +4,7 @@ const { pillList } = require('../../web/web/pills');
 const { searchTermText } = require('../../web/web/search');
 const { readConfig } = require('../../web/scripts/config-store');
 const { byClass } = require('./page-harness');
+const { board: smallBoard, open } = require('./nesting-view');
 const { planCards, shownIds, webContext, webIds, withBuiltBoard } = require('./search-table');
 const { boxText, moreButton, openPanel, pill, pills } = require('./panel-table');
 
@@ -227,6 +228,26 @@ describe('the counts', () => {
       assert.strictEqual(pill(page, 'review').count, 1);
       page.run("queue({ op: 'edit', id: 3, fm: { review: 'look' } }); render();");
       assert.strictEqual(pill(page, 'review').count, 2);
+    });
+  });
+});
+
+describe('a field:* entry', () => {
+  test('gives one pill per value among the live cards only, so a tag only an archived card holds has none', () => {
+    const board = smallBoard('pills:\n  - "tags:*"\n', [[1, 'todo', 'Live', { tags: '[new]' }]], [[2, 'done', 'Old', { tags: '[old]' }]]);
+    open(board, (page) => {
+      openPanel(page);
+      assert.deepStrictEqual(labels(page), ['blocked', 'review', 'waiting', 'new']);
+    });
+  });
+
+  test('is a pill per value read as written, with a label and a query a person could have put in markup carried as text', () => {
+    const board = smallBoard('pills:\n  - "<b>x</b>": \'title:"<i>"\'\n', [[1, 'todo', 'Live']]);
+    open(board, (page) => {
+      openPanel(page);
+      assert.deepStrictEqual(labels(page), ['blocked', 'review', 'waiting', '<b>x</b>']);
+      assert.strictEqual(pill(page, '<b>x</b>').el.children[0].textContent, '<b>x</b>');
+      assert.strictEqual(pill(page, '<b>x</b>').el.children[0].children.length, 0, 'a text node, never an element');
     });
   });
 });

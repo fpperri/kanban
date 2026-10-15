@@ -80,6 +80,16 @@ describe('the slice section lists the board\'s slices', () => {
     });
   });
 
+  test('a tier only an archived card is in is listed, with no count until the Archive pill is on', () => {
+    const config = 'hierarchy: [goal, strategy]\n';
+    open(smallBoard(config, [[1, 'todo', 'Top', { type: 'goal' }]], [[2, 'done', 'Old', { type: 'strategy' }]]), (page) => {
+      openPanel(page);
+      assert.deepStrictEqual(sliceEntries(page).map((s) => [s.label, s.count]), [['goal', 1], ['strategy', 0]]);
+      page.click(statusPill(page, 'archive'));
+      assert.deepStrictEqual(sliceEntries(page).map((s) => [s.label, s.count]), [['goal', 1], ['strategy', 1]]);
+    });
+  });
+
   test('a board with no hierarchy lists depths only', () => {
     withBuiltBoard('fixture', (page, dir) => {
       openPanel(page);
