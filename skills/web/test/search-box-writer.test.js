@@ -198,3 +198,63 @@ test('no code outside the writer assigns the search box', () => {
   const rest = section.replace(/\nfunction writeSearch\([\s\S]*?\n\}/, '');
   assert.deepStrictEqual(rest.split('\n').filter((l) => /\binput\.value\s*=[^=]/.test(l)), [], 'the wiring section assigns the box only inside writeSearch');
 });
+
+// A cue click edits the query through the search module's term interface, so a
+// term lands in every alternative and a value with spaces stays one term.
+
+const STICKERS = {
+  ...BOARD,
+  active: [
+    card(1, { title: 'Blocked plain', blocked: 'vendor' }),
+    card(2, { title: 'Blocked and ui', blocked: 'vendor', tags: ['ui'], assignee: '@afk' }),
+    card(3, { title: 'Review and ui', review: 'copy', tags: ['ui'] }),
+    card(4, { title: 'Review plain', review: 'copy' }),
+    card(5, { title: 'Only ui', tags: ['ui', 'two words'] }),
+  ],
+};
+
+const matchedIds = (page) => page.run('[...currentSearchMatch().ids].sort((a, b) => a - b).join(",")');
+
+test('a tag cue click with "blocked: | review:" in the box keeps the tag in both alternatives', async () => {
+  const { page, told } = await pageWithListener({ board: STICKERS });
+  page.input.typed('blocked: | review:');
+  assert.strictEqual(matchedIds(page), '1,2,3,4');
+  told.length = 0;
+  clickCue(page, 'tag', 2, 'ui');
+  assert.deepStrictEqual(told.map((t) => [t.text, t.reason]), [['blocked: tags:ui | review: tags:ui', 'cue']]);
+  assert.strictEqual(page.input.value, 'blocked: tags:ui | review: tags:ui');
+  assert.strictEqual(matchedIds(page), '2,3', 'the blocked and the review cards that are ui, and not every blocked card');
+});
+
+test('a second cue click with a bar in the box lands in every alternative, and a repeat of it is not a write', async () => {
+  const { page, told } = await pageWithListener({ board: STICKERS });
+  page.input.typed('blocked: | review:');
+  told.length = 0;
+  clickCue(page, 'tag', 2, 'ui');
+  clickCue(page, 'card-assignee', 2);
+  assert.deepStrictEqual(told.map((t) => t.text), ['blocked: tags:ui | review: tags:ui', 'blocked: tags:ui assignee:@afk | review: tags:ui assignee:@afk']);
+  clickCue(page, 'card-assignee', 2);
+  clickCue(page, 'tag', 2, 'ui');
+  assert.strictEqual(told.length, 2, 'both terms are already in both alternatives');
+});
+
+test('a tag with a space in it is written as one quoted term', async () => {
+  const { page, told } = await pageWithListener({ board: STICKERS });
+  page.input.typed('only');
+  told.length = 0;
+  clickCue(page, 'tag', 5, 'two words');
+  assert.deepStrictEqual(told.map((t) => [t.text, t.reason]), [['only tags:"two words"', 'cue']]);
+  assert.strictEqual(matchedIds(page), '5');
+  clickCue(page, 'tag', 5, 'two words');
+  assert.strictEqual(told.length, 1, 'clicked again, the quoted term is found and nothing is written');
+});
+
+test('the suggestion list is asked for the token under the caret, not only the end of the text', async () => {
+  const page = loadPage({ board: STICKERS });
+  const asked = [];
+  page.ctx.searchSuggestionItems = (text, caret) => { asked.push([text, caret]); return []; };
+  await page.start();
+  page.input.typed('tags:ui (sta | #3)', 12);
+  page.input.fire('focus');
+  assert.deepStrictEqual(asked.pop(), ['tags:ui (sta | #3)', 12]);
+});

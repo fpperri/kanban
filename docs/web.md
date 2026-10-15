@@ -145,6 +145,20 @@ Open it directly with `?view=graph`.
 
 ## More on the board
 
+**Search** — the box in the header filters every view as you type. Terms separated by
+spaces AND together (`tags:ui status:doing`), and four forms go further, one example each:
+
+- `|` is or, and a space binds tighter: `tags:ui status:doing | #12` is ui and doing, or card 12.
+- Round brackets group and can nest: `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo.
+- Quotes match a whole value, ignoring case, or any one element of a list: `tags:"grill"` finds a card tagged grill and not one tagged grilling. Quoted text with no field is a phrase in a title, body or tag: `"two words"`.
+- `waiting:` finds the cards waiting for at least one card that is not done, as `blocked:` and `review:` find the stickers.
+
+A `|` counts only as a token of its own and a bracket only at a token's edge, so `a|b`
+and `fix(auth)` stay literal text, and so does `waiting:3`. Half-typed input never
+throws, and an empty alternative is dropped rather than matching every card. Clicking a
+tag, assignee, blocked or review cue on a card adds that term to every alternative of
+what the box holds.
+
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
 error), and per-entry archiving.

@@ -4,7 +4,29 @@
 // plain <script> in the browser (app.js calls these as bare globals) AND required
 // directly by node --test.
 //
-// Syntax (space-separated terms AND together; each prefix binds to its own term):
+// Syntax (space-separated terms AND together; each prefix binds to its own term).
+// Grammar around the terms, lexed by lexSearch and parsed by parseSearchAlts:
+//   a | b         or: `|` binds looser than a space, so `tags:ui status:doing | #12`
+//                 is (ui and doing) or card 12. The parse of an or is one term,
+//                 { field: 'or', alts: [[term, ...], ...] }; a query with no or
+//                 is the same flat list of terms as before. An empty alternative
+//                 (a trailing `|`, `a | status:`) is dropped, never every card.
+//   ( a | b )     round brackets group and nest. A bracket holding no or is spliced
+//                 into the terms around it, so `(draft)` parses as `draft`.
+//   "two words"   quotes: with no scope a phrase, matched like bare text; after a
+//                 scope (`tags:"grill"`) the whole value, ignoring case, or any one
+//                 element of a list, and for title:/body: the whole field. A scoped
+//                 quoted term carries `exact: true`.
+//   waiting:      bare only: the card waits for at least one card that is not done.
+//                 A value (`waiting:3`) is literal text.
+// `|` counts only as a token of its own and brackets only at a token's edge, so
+// `a|b` and `fix(auth)` stay literal; a quote opens only at the start of a token
+// or after a scope's colon. Nothing here throws on half-typed input: an unclosed
+// quote or bracket reads to the end, a stray closing bracket is ignored.
+// searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
+// interface for code that writes the box.
+//
+// The terms:
 //   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
 //   title:foo     substring on title
 //   body:foo      substring on markdown body
@@ -68,7 +90,36 @@ const STICKER_FIELDS = ['review', 'blocked'];
 // value/lowercasing path as the long form rather than duplicating it.
 const FIELD_ALIASES = { a: 'assignee' };
 
+// The scope a prefix names, or null when it names none. Only these scopes open
+// a quote after their colon; `foo:"bar baz"` with an unknown prefix is text.
+function searchScope(prefix) {
+  const low = prefix.toLowerCase();
+  const key = FIELD_ALIASES[low] || low;
+  return key === 'id' || KNOWN_FIELDS.includes(key) || GRAPH_FIELDS.includes(key) || STICKER_FIELDS.includes(key) ? key : null;
+}
+
+// A quoted token: `"two words"` or `title:"two words"`, closed or still open
+// at the end of the input. Whitespace inside collapses to one space. A quoted
+// scoped value is an exact one (`exact`: the whole value, or any one element of
+// a list); id:, tree: and path: take the value as they would unquoted; quoted
+// text with no scope is a phrase, matched like bare text. Nothing inside the
+// quotes is a term yet: `tags:""` is dropped, like `tags:`.
+function parseQuotedTerm(scope, rest) {
+  const inner = (rest.endsWith('"') ? rest.slice(0, -1) : rest).replace(/\s+/g, ' ').trim();
+  if (!inner) return null;
+  if (!scope) return { field: null, value: inner.toLowerCase() };
+  if (scope === 'id') return { field: 'id', value: inner };
+  if (GRAPH_FIELDS.includes(scope)) return { field: scope, value: inner.replace(/^#/, '') };
+  return { field: scope, value: inner.toLowerCase(), exact: true };
+}
+
 function parseTerm(token, board) {
+  const quoted = /^(?:([A-Za-z]+):)?"([\s\S]*)$/.exec(token);
+  if (quoted) {
+    const scope = quoted[1] ? searchScope(quoted[1]) : null;
+    if (!quoted[1] || scope) return parseQuotedTerm(scope, quoted[2]);
+  }
+
   const idShorthand = token.match(/^#(\d+)$/);
   if (idShorthand) return { field: 'id', value: idShorthand[1] };
 
@@ -97,6 +148,9 @@ function parseTerm(token, board) {
       const value = prefixed[2].trim().toLowerCase();
       return value ? { field: key, value } : null;
     }
+    // waiting: is a complete term of its own, like review:/blocked:, and takes
+    // no value: `waiting:3` falls through to bare text below.
+    if (key === 'waiting' && !prefixed[2]) return { field: 'waiting', value: '' };
     // ADR 0009: bare review:/blocked: is itself a complete "sticker present"
     // term — always returned, even with an empty value (never dropped).
     if (STICKER_FIELDS.includes(key)) {
@@ -107,8 +161,192 @@ function parseTerm(token, board) {
   return { field: null, value: token.toLowerCase() };
 }
 
+// How many of a chunk's trailing ) close a group. A ) that closes a ( inside
+// the same chunk is part of the text, which keeps fix(auth) literal.
+function searchClosers(body) {
+  let run = 0;
+  while (run < body.length && body[body.length - 1 - run] === ')') run++;
+  if (!run) return 0;
+  const before = body.slice(0, body.length - run);
+  const opened = before.split('(').length - before.split(')').length;
+  return run - Math.min(run, Math.max(0, opened));
+}
+
+// Where a quote opens in the chunk starting at `start`: the chunk's first
+// character, or the character after a recognized scope's colon. -1 for none.
+function searchQuoteAt(s, start) {
+  if (s[start] === '"') return start;
+  const scoped = /([A-Za-z]+):"/y;
+  scoped.lastIndex = start;
+  const m = scoped.exec(s);
+  return m && searchScope(m[1]) ? start + m[0].length - 1 : -1;
+}
+
+// The lexer: the query as tokens with their place in the text. A token is
+// `text` (one term as typed), `or` (a lone |), `open` (a ( at the front of a
+// chunk) or `close` (a ) at the back). Brackets and | count only at a token's
+// edge, so a|b stays one text token.
+function lexSearch(raw) {
+  const s = String(raw == null ? '' : raw);
+  const tokens = [];
+  const close = (at) => tokens.push({ kind: 'close', start: at, end: at + 1 });
+  let at = 0;
+  while (at < s.length) {
+    if (/\s/.test(s[at])) { at++; continue; }
+    while (s[at] === '(') tokens.push({ kind: 'open', start: at, end: ++at });
+    if (at >= s.length || /\s/.test(s[at])) continue;
+    const start = at;
+    const quote = searchQuoteAt(s, start);
+    if (quote >= 0) {
+      // A quote runs to the next quote, or to the end of the input when unclosed.
+      const shut = s.indexOf('"', quote + 1);
+      at = shut < 0 ? s.length : shut + 1;
+      tokens.push({ kind: 'text', start, end: at, open: shut < 0 });
+      while (s[at] === ')') close(at++);
+      continue;
+    }
+    let end = start;
+    while (end < s.length && !/\s/.test(s[end])) end++;
+    const bodyEnd = end - searchClosers(s.slice(start, end));
+    if (bodyEnd > start) tokens.push({ kind: s.slice(start, bodyEnd) === '|' ? 'or' : 'text', start, end: bodyEnd });
+    for (at = bodyEnd; at < end; at++) close(at);
+  }
+  return { text: s, tokens };
+}
+
+// The parser: tokens to alternatives, each a list of items (a text token, or
+// { group } holding the alternatives inside a bracket). An unclosed bracket
+// reads to the end of the input; a closing bracket with no bracket open is
+// ignored.
+function parseSearchAlts(tokens) {
+  let at = 0;
+  const read = (depth) => {
+    const alts = [[]];
+    while (at < tokens.length) {
+      const token = tokens[at++];
+      if (token.kind === 'or') alts.push([]);
+      else if (token.kind === 'open') alts[alts.length - 1].push({ group: read(depth + 1) });
+      else if (token.kind === 'close') { if (depth > 0) return alts; }
+      else alts[alts.length - 1].push(token);
+    }
+    return alts;
+  };
+  return read(0);
+}
+
+// Alternatives to terms: an empty alternative (no items, or only not-yet-terms)
+// is dropped, since an all-of-nothing check is true and it would match every
+// card while someone types. One alternative left is the flat term list, and a
+// bracket holding one is spliced into the list around it; two or more are one
+// `or` term holding them.
+function searchAltsToTerms(alts, text, board) {
+  const lists = alts
+    .map((alt) => alt.flatMap((item) => (item.group
+      ? searchAltsToTerms(item.group, text, board)
+      : [parseTerm(text.slice(item.start, item.end), board)].filter(Boolean))))
+    .filter((list) => list.length);
+  if (lists.length <= 1) return lists[0] || [];
+  return [{ field: 'or', alts: lists }];
+}
+
 function parseSearchQuery(raw, board) {
-  return String(raw || '').trim().split(/\s+/).filter(Boolean).map((token) => parseTerm(token, board)).filter(Boolean);
+  const lexed = lexSearch(raw);
+  return searchAltsToTerms(parseSearchAlts(lexed.tokens), lexed.text, board);
+}
+
+// Runs of whitespace as one space, so a phrase or a whole title or body reads
+// the same across a line break.
+function searchFlat(text) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+// A scoped term's test on one field's text: a substring, or with `exact` (a
+// quoted value) the whole text, in either case ignoring letter case.
+function searchFieldHit(text, term) {
+  const low = String(text || '').toLowerCase();
+  return term.exact ? searchFlat(low) === term.value : low.includes(term.value);
+}
+
+// --- The term interface. Code that writes to the box (a cue click, and later a
+// pill, a slice or isolate) edits the text through these, never by joining
+// strings: `|` binds looser than a space, so a term appended to `a | b` would
+// bind to b only. Each returns the new text, and the text it was handed when
+// nothing changed, so a caller can tell a no-op by comparing.
+
+// One item of the parse as text: a term as it was typed, or a bracket rebuilt
+// around what is left in it (nothing, when it is empty). A quote still open is
+// shut, so a term written after it is not read as part of its text.
+function searchItemText(item, text) {
+  if (!item.group) return text.slice(item.start, item.end) + (item.open ? '"' : '');
+  const inner = searchRenderAlts(item.group, text);
+  return inner ? `(${inner})` : '';
+}
+
+function searchRenderAlts(alts, text) {
+  return alts
+    .map((alt) => alt.map((item) => searchItemText(item, text)).filter(Boolean).join(' '))
+    .filter(Boolean)
+    .join(' | ');
+}
+
+// A term as it is written in the box. A value holding spaces is quoted so it
+// stays one term (which makes a scoped value an exact one); a quote inside a
+// value cannot be written, so it is left out. Bare text that would read as a
+// bracket or a bar is quoted too.
+function searchTermText(field, value) {
+  const v = String(value == null ? '' : value).replace(/"/g, '').replace(/\s+/g, ' ').trim();
+  const quote = /\s/.test(v) || (!field && /^\(|\)$|^\|$/.test(v));
+  const written = quote ? `"${v}"` : v;
+  return field ? `${field}:${written}` : written;
+}
+
+function searchTermString(term) {
+  return typeof term === 'string' ? term.trim() : searchTermText(term.field, term.value);
+}
+
+// Adds `term` (text, or { field, value }) to every alternative of the query. An
+// alternative that already holds it keeps it once; an empty alternative is
+// dropped, not given a lone term.
+function searchAddTerm(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const add = searchTermString(term);
+  if (!add) return text;
+  const alts = parseSearchAlts(lexSearch(text).tokens).filter((alt) => alt.length);
+  if (!alts.length) return add;
+  let changed = false;
+  const written = alts.map((alt) => {
+    const parts = alt.map((item) => searchItemText(item, text)).filter(Boolean);
+    if (!parts.includes(add)) { parts.push(add); changed = true; }
+    return parts.join(' ');
+  });
+  return changed ? written.join(' | ') : text;
+}
+
+// Removes `term` wherever it stands, inside brackets too, and drops a bracket
+// or an alternative that is left empty.
+function searchRemoveTerm(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const drop = searchTermString(term);
+  if (!drop) return text;
+  let removed = false;
+  const strip = (alts) => alts.map((alt) => alt.flatMap((item) => {
+    if (item.group) return [{ group: strip(item.group) }];
+    if (text.slice(item.start, item.end) !== drop) return [item];
+    removed = true;
+    return [];
+  }));
+  const left = strip(parseSearchAlts(lexSearch(text).tokens));
+  return removed ? searchRenderAlts(left, text) : text;
+}
+
+// Wraps a query that holds more than one term, or a |, in round brackets, so it
+// can stand as one term of a longer query. One term (a quoted value with spaces
+// is one), an empty query and a query that is already one bracket come back as
+// they are, trimmed.
+function searchBracket(raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  const alts = parseSearchAlts(lexSearch(text).tokens);
+  return alts.length === 1 && alts[0].length <= 1 ? text : `(${text})`;
 }
 
 function termMatchesCard(term, card) {
@@ -117,29 +355,32 @@ function termMatchesCard(term, card) {
   const tags = card.tags || [];
   switch (term.field) {
     case 'id': return String(card.id) === term.value;
-    case 'title': return title.includes(term.value);
-    case 'body': return body.includes(term.value);
-    case 'status': return (card.status || '').toLowerCase().includes(term.value);
-    case 'priority': return (card.priority || '').toLowerCase().includes(term.value);
-    case 'tags': return tags.some((t) => t.toLowerCase().includes(term.value));
-    case 'file': return (card.file || '').toLowerCase().includes(term.value);
-    case 'assignee': return (card.assignee || '').toLowerCase().includes(term.value);
-    case 'type': return (card.type || '').toLowerCase().includes(term.value);
+    case 'title': return searchFieldHit(title, term);
+    case 'body': return searchFieldHit(body, term);
+    case 'status': return searchFieldHit(card.status, term);
+    case 'priority': return searchFieldHit(card.priority, term);
+    case 'tags': return tags.some((t) => searchFieldHit(t, term));
+    case 'file': return searchFieldHit(card.file, term);
+    case 'assignee': return searchFieldHit(card.assignee, term);
+    case 'type': return searchFieldHit(card.type, term);
     // ADR 0009: bare (no value) = the shared presence predicate; a value =
     // case-insensitive substring on the sticker's own text (never the raw
     // field — a bare `true` sticker's text is '', which no non-empty
     // substring term matches, exactly mirroring the pill's own label).
-    case 'review': return term.value ? WBS.reviewReason(card.review).toLowerCase().includes(term.value) : WBS.isReviewValue(card.review);
-    case 'blocked': return term.value ? WBS.blockedReason(card.blocked).toLowerCase().includes(term.value) : WBS.isBlockedValue(card.blocked);
+    case 'review': return term.value ? searchFieldHit(WBS.reviewReason(card.review), term) : WBS.isReviewValue(card.review);
+    case 'blocked': return term.value ? searchFieldHit(WBS.blockedReason(card.blocked), term) : WBS.isBlockedValue(card.blocked);
     // pre-resolved by filterCards (below) into an id Set — a raw,
-    // unresolved 'tree'/'path' term has no graph to resolve against here (a
-    // single (term, card) pair isn't enough), so it matches nothing rather
-    // than throwing. Always goes through filterCards in practice.
-    case 'tree': case 'path': return false;
+    // unresolved 'tree'/'path'/'waiting' term has no graph to resolve against
+    // here (a single (term, card) pair isn't enough), so it matches nothing
+    // rather than throwing. Always goes through filterCards in practice.
+    case 'tree': case 'path': case 'waiting': return false;
     case 'ids': return term.ids.has(Number(card.id));
-    default: // bare term: title + body + tags
-      return title.includes(term.value) || body.includes(term.value)
-        || tags.some((t) => t.toLowerCase().includes(term.value));
+    case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
+    default: { // bare term: title + body + tags; a phrase reads across a line break
+      const flat = term.value.includes(' ') ? searchFlat : (text) => text;
+      return flat(title).includes(term.value) || flat(body).includes(term.value)
+        || tags.some((t) => flat(t.toLowerCase()).includes(term.value));
+    }
   }
 }
 
@@ -155,10 +396,9 @@ function cardMatchesQuery(card, terms) {
 // termMatchesCard's 'ids' case stays a pure, cheap Set.has() with no graph
 // access of its own.
 //
-// resolveTerms is that one pass, and it is recursive: a group term carries
-// `alts`, arrays of terms, and each array resolves by the same call. Nothing
-// produces a group yet; or-groups, `waiting:` and `slice:` resolve here too
-// once the grammar has them.
+// resolveTerms is that one pass, and it is recursive: an or term carries
+// `alts`, arrays of terms, and each array resolves by the same call. `waiting:`
+// resolves here, and `slice:` will too.
 //
 // The context says where the graph comes from. By default it is
 // dependency-graph.js's treeIds/pathIds — which in turn build their adjacency
@@ -174,15 +414,26 @@ function cardMatchesQuery(card, terms) {
 // never a pre-filtered subset — traversal is always over live + archived
 // cards, by design. A subset would silently produce a
 // wrong/smaller graph with no error.
-function resolveTerms(cards, terms, ctx) {
+//
+// waiting: resolves here too, over the same whole board: the ids of the cards
+// waiting for at least one card that is not done (waiting-blocked.js's
+// unresolvedWaits, so a dangling id never makes a card waiting). `memo` is the
+// recursion's own, so the board is walked once however many groups hold it.
+function resolveTerms(cards, terms, ctx, memo = {}) {
   const graph = (ctx && ctx.graph) || DG;
   let changed = false;
   const resolved = terms.map((term) => {
     let next = term;
     if (term.field === 'tree') next = { field: 'ids', value: term.value, ids: graph.treeIds(cards, term.value, ctx) };
     else if (term.field === 'path') next = { field: 'ids', value: term.value, ids: graph.pathIds(cards, term.value, ctx) };
-    else if (Array.isArray(term.alts)) {
-      const alts = term.alts.map((alt) => resolveTerms(cards, alt, ctx));
+    else if (term.field === 'waiting') {
+      if (!memo.waiting) {
+        const byId = new Map(cards.filter((c) => Number.isFinite(Number(c.id))).map((c) => [Number(c.id), c]));
+        memo.waiting = new Set(cards.filter((c) => WBS.unresolvedWaits(c.waiting_for, byId).length > 0).map((c) => Number(c.id)));
+      }
+      next = { field: 'ids', value: term.value, ids: memo.waiting };
+    } else if (Array.isArray(term.alts)) {
+      const alts = term.alts.map((alt) => resolveTerms(cards, alt, ctx, memo));
       if (alts.some((alt, i) => alt !== term.alts[i])) next = Object.assign({}, term, { alts });
     }
     if (next !== term) changed = true;
@@ -201,12 +452,14 @@ function filterCards(cards, terms, ctx) {
 }
 
 // The search box's autocomplete dropdown. Pure candidate
-// generation — no DOM, mirrors every other module here. Only the LAST
-// whitespace-separated segment of the query is ever completed (the terms
-// before it are query grammar the parser already accepted; re-suggesting
-// scopes for them would be noise), same "complete what's currently being
-// typed" contract as combobox.js's tagMode, just space- instead of
-// comma-delimited.
+// generation — no DOM, mirrors every other module here. Only the token under
+// the caret (the end of the text when no caret is given) is ever completed:
+// the terms around it are query grammar the parser already accepted, and
+// re-suggesting scopes for them would be noise. The lexer finds the token, so
+// one typed after an open bracket, after a `|` or inside an open quote is
+// completed as it stands, bracket, bar or quote left where it is. Same
+// "complete what's currently being typed" contract as combobox.js's tagMode,
+// just space- instead of comma-delimited.
 //
 // Given that segment, offers the bare term plus every KNOWN_FIELDS scoped
 // form (title:/body:/status:/priority:/tags:/file:/assignee: — literally
@@ -216,40 +469,52 @@ function filterCards(cards, terms, ctx) {
 // anything.
 //
 // No suggestions (empty array, dropdown stays closed) when:
-// - the segment is empty (nothing typed yet, or trailing whitespace —
-//   same "not-yet-a-term" contract parseTerm uses for a bare "status:")
+// - no token is being typed (nothing typed yet, trailing whitespace, or the
+//   caret is on a bracket or a `|` — same "not-yet-a-term" contract parseTerm
+//   uses for a bare "status:")
 // - the segment already carries a recognized OR unrecognized `foo:` prefix
 //   (a colon anywhere in it) — it's already scoped, or already a bare
 //   fallback term; re-offering scopes on top of that reads as broken, not
 //   helpful
 //
-// `value` is the FULL replacement text for the input (prior terms preserved
-// verbatim, segment replaced) — so picking a suggestion is a plain whole-
-// value swap, no special-cased "insert at cursor" logic needed. `label` is
-// just the new term, undecorated by the terms before it, so the menu reads
-// as "here's what this word could become" rather than repeating the whole
-// query back on every row.
-function searchSuggestionItems(raw) {
+// `value` is the FULL replacement text for the input (the text before and
+// after the token preserved verbatim, the token replaced) — so picking a
+// suggestion is a plain whole-value swap, no special-cased "insert at cursor"
+// logic needed. `label` is just the new term, undecorated by the text around
+// it, so the menu reads as "here's what this word could become" rather than
+// repeating the whole query back on every row.
+function searchSuggestionItems(raw, caret) {
   const text = String(raw || '');
-  if (/\s$/.test(text)) return []; // trailing space: no segment is being typed right now
-  const parts = text.split(/\s+/).filter(Boolean);
-  const segment = parts.pop() || '';
-  if (!segment || segment.includes(':')) return [];
-  const prefix = parts.length ? `${parts.join(' ')} ` : '';
-  const items = [{ value: prefix + segment, label: segment }];
+  const at = Number.isInteger(caret) ? Math.max(0, Math.min(caret, text.length)) : text.length;
+  // The token being typed is the text token the caret sits in or at the end of.
+  // A bracket, a | or a space is not one, so none of them is completed.
+  const token = lexSearch(text).tokens.find((t) => t.kind === 'text' && t.start < at && at <= t.end);
+  if (!token) return [];
+  const segment = text.slice(token.start, token.end);
+  if (segment.includes(':') || segment === '"') return [];
+  const before = text.slice(0, token.start);
+  const after = text.slice(token.end);
+  const items = [{ value: before + segment + after, label: segment }];
   KNOWN_FIELDS.forEach((field) => {
     const label = `${field}:${segment}`;
-    items.push({ value: prefix + label, label });
+    items.push({ value: before + label + after, label });
   });
   return items;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems };
+  module.exports = {
+    parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
+    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket,
+  };
 } else {
   window.parseSearchQuery = parseSearchQuery;
   window.cardMatchesQuery = cardMatchesQuery;
   window.filterCards = filterCards;
   window.resolveTerms = resolveTerms;
   window.searchSuggestionItems = searchSuggestionItems;
+  window.searchTermText = searchTermText;
+  window.searchAddTerm = searchAddTerm;
+  window.searchRemoveTerm = searchRemoveTerm;
+  window.searchBracket = searchBracket;
 }

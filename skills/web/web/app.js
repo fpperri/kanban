@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — the board's config, held for the readers that come after (slices, the tier fan, the pill row). assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -727,6 +727,9 @@ function currentSearchTerms() {
 // once per render and every view reads it through currentSearchMatch(). A view
 // repainted on its own (calendar paging, a status pill) makes its own.
 let searchMatchMemo = null;
+// What the last renderBoard matched, kept after it so the jump to the nearest
+// match, which runs right after a repaint, reads it instead of matching again.
+let lastSearchMatch = null;
 
 function computeSearchMatch() {
   const terms = currentSearchTerms();
@@ -919,6 +922,7 @@ function toggleView(mode) {
   viewMode = loadViewMode() === mode ? 'board' : mode;
   saveViewMode();
   renderBoard();
+  moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
 // One mode→container map for everything that needs "which element hosts
@@ -950,6 +954,7 @@ function applyViewMode() {
 function renderBoard() {
   nestingIndex = buildNestingIndex();
   searchMatchMemo = computeSearchMatch();
+  lastSearchMatch = searchMatchMemo;
   try {
     renderBoardColumns();
     applyViewMode();
@@ -1800,6 +1805,8 @@ function applyBoardData(data) {
   // render time (masked pre-move only by priorityRank's built-in fallback).
   applyLists(data.priorities || [], data.tags || []);
   state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
+  state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
+  state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   setSelection(pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id))); // drop ghosts before render (archived cards are in the domain too)
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -3014,7 +3021,13 @@ function closeCard() {
 // close rather than openDetailModal's normal toast — state.active/archived
 // can still name a card whose file a poll hasn't caught up with yet, since
 // the poll itself is paused for as long as this popup is open).
+//
+// Back and Forward never write the search box: the box keeps its text, and an
+// entry that landed with another `q` is replaced to carry the box's text, so
+// the address always says what the box says. This comes first, ahead of the
+// bail-out below, because the address moved whether or not the popup does.
 window.addEventListener('popstate', () => {
+  followSearchInAddress($('#search-input').value);
   // An edit/new-card form, or any other popup, covers the same z-index slot
   // as the detail popup and may hold unsaved typing (formSnapshot) that
   // openDetailModal would silently overwrite if Edit were then clicked on
@@ -3165,6 +3178,30 @@ function clearSearch() {
   writeSearch('', 'clear');
 }
 
+// The address follows the box: one more listener of the writer, so every write,
+// whatever its reason, leaves the address's `q` equal to the box's text (an
+// empty box drops it), and the poll, which never writes the box, never moves
+// it. It REPLACES the history entry the page is on, never pushes one, so typing
+// adds nothing to Back and Forward, and only when `q` would change. Replacing
+// only on a change does not keep fast typing under the browser's limit on
+// replacements (every keystroke changes `q`), and Safari throws a SecurityError
+// past it, so a refused replacement is let go: the address lags the box, and the
+// next write that changes `q` catches it up, while the listeners after this one
+// still hear of the write. card-history.js decides what the address becomes;
+// `card` and `view` ride along untouched. The popstate listener calls this too,
+// after Back or Forward lands.
+function followSearchInAddress(text) {
+  const search = nextSearchAddress(location.search, text);
+  if (search == null) return;
+  try {
+    history.replaceState(null, '', location.pathname + search);
+  } catch (e) {
+    /* the address lags the box until the next change */
+  }
+}
+
+onSearchWrite(followSearchInAddress);
+
 // What Esc does when nothing is open for it to close: today it clears the
 // search box. The one place the end of the Esc chain lives.
 function escapeStep() {
@@ -3201,18 +3238,20 @@ function onSearchChordKey(e) {
   input.setSelectionRange(result.selectionStart, result.selectionEnd);
 }
 
-// Append a scoped term to whatever's already in the search
+// Add a scoped term to whatever's already in the search
 // box (assignee cue / tag click on a card tile) and re-render — same direct-
 // call convention as focusOn() (further down): set the box, call
-// renderBoard() straight, no synthetic 'input' event needed. Idempotent
-// rather than a toggle: clicking the same assignee/tag again while its term
-// is already present is a no-op — simpler than tracking "did I add this" to
-// support removing it again.
+// renderBoard() straight, no synthetic 'input' event needed. The term goes
+// through the search module's term interface, so it lands in every alternative
+// of a query holding `|` and a value with spaces stays one quoted term.
+// Idempotent rather than a toggle: clicking the same assignee/tag again while
+// its term is already present is a no-op — simpler than tracking "did I add
+// this" to support removing it again.
 function addSearchTerm(term) {
   const input = $('#search-input');
-  const terms = input.value.trim() ? input.value.trim().split(/\s+/) : [];
-  if (terms.includes(term)) return;
-  writeSearch(terms.concat(term).join(' '), 'cue');
+  const next = searchAddTerm(input.value, term);
+  if (next === input.value) return;
+  writeSearch(next, 'cue');
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -3236,10 +3275,11 @@ window.addEventListener('DOMContentLoaded', () => {
   // <datalist> misrenders in VSCode's Simple Browser — see attachCombobox's
   // own header comment) the create/edit form uses for priority/assignee/tags.
   // getOptions reads input.value itself (searchSuggestionItems computes
-  // fresh candidates from whatever's currently typed) rather than a static
-  // list — preFiltered/selectOnFocus:false are the two opt-outs that make
-  // that fit; see attachCombobox's comments at each for why.
-  attachCombobox(input, () => searchSuggestionItems(input.value), { preFiltered: true, selectOnFocus: false });
+  // fresh candidates from whatever's currently typed, at the caret, so a token
+  // inside a bracket or a quote or after a `|` completes in place) rather than
+  // a static list — preFiltered/selectOnFocus:false are the two opt-outs that
+  // make that fit; see attachCombobox's comments at each for why.
+  attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart), { preFiltered: true, selectOnFocus: false });
 });
 
 // --- Map view wiring: top-bar toggle + the bits
@@ -3695,6 +3735,22 @@ function calendarChipEl(card, pos, time, isDue) {
 
 // The sub-view label set for the switcher + the nav buttons' spans.
 const CAL_SUBVIEW_LABELS = { month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
+
+// The three inputs the Calendar's grids compose before they draw (see
+// renderCalendarMonthGrid and renderCalendarTimeGrid: the search result, the
+// status filter's visible ids and the Archive pill), as the jump to the nearest
+// match needs them. viewShownCards (calendar-model.js) composes them the way the
+// grids do, and calendar-gantt-jump-page.test.js pins that what it answers is
+// what the grids hand to their layout.
+function calendarViewInput(match = currentSearchMatch()) {
+  return {
+    active: state.active,
+    archived: state.archived,
+    searchIds: match.ids,
+    statusIds: ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses()),
+    archiveOn: loadCalendarStatusFilter().archive === true,
+  };
+}
 
 function renderCalendarView() {
   const container = $('#calendar-view');
@@ -4397,6 +4453,46 @@ function shiftGanttWindow(delta) {
   renderGanttView();
 }
 
+// --- Jump to the nearest match -------------------------------------------------
+// When a change to the search box leaves no shown match inside the visible
+// range of the Calendar or the Gantt, the view moves to the match nearest it:
+// nearestMatchDay (calendar-model.js) decides for both, the Gantt reaching it
+// through ganttNearestMatchDay, whose all sub-view never jumps. Two triggers
+// and no others. A write to the box: a listener of writeSearch, registered
+// below without touching the writer, so Isolate and any later writer get the
+// jump for free. Entering the view: toggleView makes the check once. The 5s
+// poll, a plain re-render, paging with previous and next, Today and a sub-view
+// switch never make it, which is why the poll keeps a paged month and paging
+// after a jump works as usual. An empty box has no matches, so clearing it
+// moves nothing. Both triggers run right after a renderBoard, so the check
+// reads the match that repaint made (lastSearchMatch) and the box is matched
+// once per write; a view that moved repaints on its own.
+function jumpCalendarToMatch() {
+  const input = calendarViewInput(lastSearchMatch || currentSearchMatch());
+  const day = nearestMatchDay(input, calendarVisibleRange(loadCalendarSubview(), currentCalendarAnchor()));
+  if (!day) return false;
+  calendarAnchor = day;
+  return true;
+}
+
+function jumpGanttToMatch() {
+  const input = ganttViewInput(lastSearchMatch || currentSearchMatch());
+  const day = ganttNearestMatchDay(input, loadGanttSubview(), currentGanttAnchor());
+  if (!day) return false;
+  ganttAnchor = day;
+  return true;
+}
+
+// Moves the anchor of the view showing, if it is the Calendar or the Gantt,
+// and repaints that view when it moved.
+function moveViewToNearestMatch() {
+  const mode = loadViewMode();
+  if (mode === 'calendar' && jumpCalendarToMatch()) renderCalendarView();
+  else if (mode === 'gantt' && jumpGanttToMatch()) renderGanttView();
+}
+
+onSearchWrite(moveViewToNearestMatch);
+
 const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
 // The controls row: same markup shape and CSS classes as the calendar's own
@@ -4504,6 +4600,19 @@ function ganttBarEl(bar, win, dayPx) {
     `<span class="gantt-bar-text${titleDisplay.isPromptFallback ? ' gantt-bar-text--prompt-fallback' : ''}"><span class="gantt-bar-id">#${bar.card.id}</span> ${escapeHtml(titleDisplay.text)}</span>` +
     (clipEnd ? '' : `<span class="gantt-handle end" title="${endHint}"></span>`);
   return el;
+}
+
+// The three inputs renderGanttView composes before it draws (the search result,
+// the Gantt's status filter's visible ids and its Archive pill), as the jump to
+// the nearest match needs them; the same shape as calendarViewInput.
+function ganttViewInput(match = currentSearchMatch()) {
+  return {
+    active: state.active,
+    archived: state.archived,
+    searchIds: match.ids,
+    statusIds: ganttFilterVisibleIds(state.active, loadGanttStatusFilter(), boardStatuses()),
+    archiveOn: loadGanttStatusFilter().archive === true,
+  };
 }
 
 function renderGanttView() {
@@ -5209,8 +5318,8 @@ function onDetailContextMenu(e) {
 function searchByCue(cue, id) {
   const card = state.active.concat(state.archived).find((c) => c.id === id);
   if (!card) return;
-  if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(`assignee:${card.assignee}`);
-  else if (cue.classList.contains('tag')) addSearchTerm(`tags:${cue.textContent}`);
+  if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(searchTermText('assignee', card.assignee));
+  else if (cue.classList.contains('tag')) addSearchTerm(searchTermText('tags', cue.textContent));
   else if (cue.classList.contains('blocked-pill')) addSearchTerm('blocked:');
   else if (cue.classList.contains('review-pill')) addSearchTerm('review:');
 }

@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { cardIdFromSearch, nextCardHistorySearch } = require('../web/card-history');
+const { cardIdFromSearch, nextCardHistorySearch, nextSearchAddress } = require('../web/card-history');
+const { parseDeepLink } = require('../web/deep-link');
 
 // Pure decision logic for the card popup's browser-history wiring.
 // No DOM — app.js's click handlers and popstate listener
@@ -106,6 +107,64 @@ test('round trip: pushing an open step, then reading the id back off it, yields 
 test('round trip: pushing a close step, then reading it back, yields null (close)', () => {
   const search = nextCardHistorySearch('?card=194&view=board', null);
   assert.strictEqual(cardIdFromSearch(search), null);
+});
+
+// --- nextSearchAddress: the address follows the search box ----------------
+//
+// Given the address (location.search) and the box's text, the one step that
+// puts the box's text in `q` and leaves every other parameter as it found it.
+// null when the address already matches, so the caller replaces nothing.
+
+const paramsOf = (search) => [...new URLSearchParams(search).entries()];
+
+test('nextSearchAddress: a box with text sets q on a bare address', () => {
+  assert.strictEqual(nextSearchAddress('', 'zephyr'), '?q=zephyr');
+  assert.strictEqual(nextSearchAddress('?', 'zephyr'), '?q=zephyr');
+});
+
+test('nextSearchAddress: changes only q — card and view ride along, in their place', () => {
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?card=42&view=graph', 'zephyr')),
+    [['card', '42'], ['view', 'graph'], ['q', 'zephyr']]);
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?view=map&q=old&card=7', 'new text')),
+    [['view', 'map'], ['q', 'new text'], ['card', '7']]);
+});
+
+test('nextSearchAddress: an empty box drops q and keeps the rest', () => {
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=zephyr&view=graph', '')), [['view', 'graph']]);
+  assert.strictEqual(nextSearchAddress('?q=zephyr', ''), '', 'nothing left is the empty string, not "?"');
+});
+
+test('nextSearchAddress: a blank box drops q like an empty one', () => {
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=zephyr&view=graph', '   ')), [['view', 'graph']]);
+  assert.strictEqual(nextSearchAddress('?q=zephyr', ' \t '), '');
+});
+
+test('nextSearchAddress: returns nothing when the address already matches', () => {
+  assert.strictEqual(nextSearchAddress('?q=zephyr', 'zephyr'), null);
+  assert.strictEqual(nextSearchAddress('?view=graph&q=zephyr&card=3', 'zephyr'), null);
+  assert.strictEqual(nextSearchAddress('', ''), null, 'no q and an empty box');
+  assert.strictEqual(nextSearchAddress('?view=graph', '   '), null, 'no q and a blank box');
+  assert.strictEqual(nextSearchAddress('?q=%2312+%7C+%28tags%3A%22next-up%22%29', '#12 | (tags:"next-up")'), null, 'an encoded q is compared decoded');
+});
+
+test('nextSearchAddress: a trailing space is part of the box text, so q equals the box', () => {
+  assert.strictEqual(new URLSearchParams(nextSearchAddress('?q=a', 'a ')).get('q'), 'a ');
+  assert.strictEqual(nextSearchAddress('?q=a+', 'a '), null);
+});
+
+test('nextSearchAddress: # | quotes and spaces are encoded, never a fragment, and the deep-link reader gets the text back', () => {
+  const text = '#12 | (tags:"next-up" status:doing)';
+  const search = nextSearchAddress('?view=graph', text);
+  assert.ok(search.startsWith('?'), search);
+  assert.doesNotMatch(search, /[# |"]/, 'no raw #, space, | or quote in the address');
+  assert.strictEqual(parseDeepLink(search).q, text);
+  assert.strictEqual(parseDeepLink(search).view, 'graph');
+});
+
+test('nextSearchAddress: non-string input never throws', () => {
+  assert.strictEqual(nextSearchAddress(null, 'zephyr'), '?q=zephyr');
+  assert.strictEqual(nextSearchAddress(undefined, undefined), null);
+  assert.strictEqual(nextSearchAddress('?q=zephyr', null), '');
 });
 
 // --- wiring smoke tests: pins app.js's use of this module, the same way

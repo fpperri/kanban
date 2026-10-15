@@ -267,6 +267,8 @@ def read_notifications(kanban_dir):
 WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web")
 NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
 MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
+WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
+SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
@@ -287,6 +289,12 @@ def read_nesting():
 
 def read_map_relations():
     return read_embedded(MAP_RELATIONS_JS, "the map relations module")
+
+def read_waiting_blocked():
+    return read_embedded(WAITING_BLOCKED_JS, "the waiting rules")
+
+def read_search():
+    return read_embedded(SEARCH_JS, "the search module")
 
 def main():
     p = argparse.ArgumentParser()
@@ -328,6 +336,8 @@ def main():
     # First, so a card that names a placeholder is never rewritten inside it.
     html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
                     .replace("__MAP_RELATIONS_JS__", read_map_relations())
+                    .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
+                    .replace("__SEARCH_JS__", read_search())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -751,6 +761,10 @@ __NESTING_JS__</script>
 <script>
 __MAP_RELATIONS_JS__</script>
 <script>
+__WAITING_BLOCKED_JS__</script>
+<script>
+__SEARCH_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -1017,59 +1031,16 @@ return wrap}
 const find=id=>view.find(c=>String(c.id)===String(id));
 const isProv=id=>String(id).startsWith("n");
 const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()).filter(Boolean);
-// Search: ported from kanban-web's search.js — space-separated
-// terms AND; #id/id: exact; scoped substrings; bare terms hit title+body+tags;
-// an unrecognized foo:bar prefix searches as the literal string; a recognized
-// prefix with no value yet is dropped (mid-keystroke, matches nothing falsely).
+// Search: kanban-web's own search.js, embedded above with the waiting rules it
+// reads (waiting-blocked.js), so a query finds here what it finds at the desk.
+// This page only adapts its short-keyed cards to the module's card shape, hands in
+// its own dependency functions for tree: and path: (the resolver's graph), and
+// resolves the terms once per query change.
 let qTerms=[];
-const SFIELDS=["title","body","status","priority","tags","file","type"];
-// tree:/path: graph-focus terms, kept OUT of SFIELDS (numeric
-// id semantics, not a lowercased substring) — mirrors kanban-web's search.js
-// GRAPH_FIELDS split from KNOWN_FIELDS.
-const GFIELDS=["tree","path"];
-// ADR 0009: review:/blocked: sticker scopes — a bare value is
-// itself a complete "sticker present" term, UNLIKE every SFIELDS scope
-// above (mirrors kanban-web's search.js STICKER_FIELDS split).
-const STFIELDS=["review","blocked"];
-function parseTerm(tok){
-const m1=/^#(\\d+)$/.exec(tok);if(m1)return{f:"id",v:m1[1]};
-// <this board's name>#<id> finds the card like #<id>; split at the LAST # (names hold dots and hyphens)
-const hi=tok.lastIndexOf("#");
-if(BOARD&&hi>0&&/^\\d+$/.test(tok.slice(hi+1))&&tok.slice(0,hi).toLowerCase()===String(BOARD).toLowerCase())return{f:"id",v:tok.slice(hi+1)};
-const m2=/^([A-Za-z]+):(.*)$/.exec(tok);
-if(m2){const k=m2[1].toLowerCase();
-if(k==="id"){const v=m2[2].trim();return v?{f:"id",v:v}:null}
-if(GFIELDS.indexOf(k)!==-1){const v=m2[2].trim().replace(/^#/,"");return v?{f:k,v:v}:null}
-if(SFIELDS.indexOf(k)!==-1){const v=m2[2].trim().toLowerCase();return v?{f:k,v:v}:null}
-if(STFIELDS.indexOf(k)!==-1)return{f:k,v:m2[2].trim().toLowerCase()}}
-return{f:null,v:tok.toLowerCase()}}
-// tree:/path: terms need the full board's graph to resolve
-// (connected component / directed cone), which a single (term, card) pair
-// doesn't have — resolveGraphTerms (defined near buildDepGraph, below) pre-
-// resolves them into an {f:"ids"} term ONCE per query change, mirroring
-// kanban-web's search.js resolveGraphTerms. qMatch's own "tree"/"path" cases
-// are an unresolved-fallback safety net — in practice qTerms is always
-// resolved before qMatch runs.
-function qMatch(c){
-if(!qTerms.length)return true;
-return qTerms.every(t=>{
-const title=String(c.t||"").toLowerCase(),body=String(c.body||"").toLowerCase(),tags=c.tags||[];
-switch(t.f){
-case "id":return String(c.id)===t.v;
-case "title":return title.indexOf(t.v)!==-1;
-case "body":return body.indexOf(t.v)!==-1;
-case "status":return String(c.s||"").toLowerCase().indexOf(t.v)!==-1;
-case "priority":return String(c.p||"").toLowerCase().indexOf(t.v)!==-1;
-case "tags":return tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1);
-case "file":return String(c.fn||"").toLowerCase().indexOf(t.v)!==-1;
-case "type":return String((c.fm&&c.fm.type)||"").toLowerCase().indexOf(t.v)!==-1;
-// ADR 0009: bare (no value) = the shared presence predicate; a value =
-// case-insensitive substring on the sticker's own text.
-case "review":return t.v?String(rvReason(c)||"").toLowerCase().indexOf(t.v)!==-1:rvReason(c)!==null;
-case "blocked":return t.v?String(blkReason(c)||"").toLowerCase().indexOf(t.v)!==-1:blkReason(c)!==null;
-case "ids":return t.ids.has(Number(c.id));
-case "tree":case "path":return false;
-default:return title.indexOf(t.v)!==-1||body.indexOf(t.v)!==-1||tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1)}})}
+const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
+function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,review:c.rv,blocked:c.bl,waiting_for:c.w}}
+function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),{board:BOARD,graph:searchGraph})}
+const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
 // Waiting vs blocked/review (review is ADR 0009):
 // waiting is DERIVED — a waiting_for id whose card isn't done
 // (archived deps count as their status field; dangling ids are
@@ -1087,7 +1058,7 @@ const rvReason=c=>blkTxt(c.rv);
 // listed column) and stay visible in the date/graph views.
 let statusVis={archive:false};
 const isVis=k=>k==="archive"?statusVis.archive===true:statusVis[k]!==false;
-const visList=()=>DATA.filter(c=>qMatch(c)&&(c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true)));
+const visList=()=>DATA.filter(c=>inQuery(c)&&(c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true)));
 function opLabel(o){
 if(o.op==="move")return "Move #"+o.id+" \\u2192 "+o.to;
 if(o.op==="create")return "Create \\""+(o.title.length>34?o.title.slice(0,34)+"\\u2026":o.title)+"\\""+(o.status&&o.status!=="backlog"?" in "+o.status:"");
@@ -1332,7 +1303,7 @@ $("boardpills").replaceChildren(statusPills());
 // query above). Collapsed sections skip .colcards entirely and render as
 // just the header, which the same media query narrows into a strip.
 COLS.filter(col=>isVis(col)).forEach(col=>{
-const cs=inOutline(view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s)))));
+const cs=inOutline(view.filter(c=>inQuery(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s)))));
 const open=!!colOpen[col];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 wrap.dataset.status=col;
@@ -1367,7 +1338,7 @@ else{const e=el("div",null,"no cards");e.style.cssText="font-size:12px;color:var
 wrap.appendChild(cc)}
 board.appendChild(wrap)});
 if(isVis("archive")){
-const acs=inOutline(view.filter(c=>c.arch&&qMatch(c)));
+const acs=inOutline(view.filter(c=>c.arch&&inQuery(c)));
 const open=!!colOpen["archive"];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 const h=el("div","colh");
@@ -1699,15 +1670,6 @@ const visited=new Set([id]);
 walkFrom(id,forward,visited);
 walkFrom(id,backward,visited);
 return visited}
-// Pre-resolve tree:/path: terms into an already-resolved {f:"ids"}
-// term BEFORE qMatch's per-card pass — a single (term, card) pair has no
-// graph to resolve against. Mirrors kanban-web's search.js resolveGraphTerms.
-function resolveGraphTerms(terms){
-if(!terms.some(t=>t.f==="tree"||t.f==="path"))return terms;
-return terms.map(t=>{
-if(t.f==="tree")return{f:"ids",v:t.v,ids:treeIds(t.v)};
-if(t.f==="path")return{f:"ids",v:t.v,ids:pathIds(t.v)};
-return t})}
 // Kahn's algorithm, top-down layer per node; force-breaks a cycle by taking the
 // lowest remaining id so this always terminates (same approach as kanban-web's
 // layerNodes in dependency-graph.js).
@@ -2133,7 +2095,7 @@ function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=fa
 function graphFocus(gk,id){
 const term=gk+":"+id;
 $("q").value=term;
-qTerms=resolveGraphTerms(String(term).trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
+setQuery(term);
 focusRoot=id;
 closeCard();
 renderMap();renderGantt();renderCalendar()}
@@ -2256,7 +2218,7 @@ if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
 $("q").addEventListener("input",()=>{
 focusRoot=null;
-qTerms=resolveGraphTerms(String($("q").value||"").trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
+setQuery($("q").value);
 render();renderMap();renderGantt();renderCalendar()});
 sc.addEventListener("touchmove",e=>e.stopPropagation(),{passive:true});
 sc.addEventListener("scroll",()=>{if(ctxMenuEl)closeCtxMenu()},{passive:true});
