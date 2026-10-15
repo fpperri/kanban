@@ -1,5 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 const { depthOf, depthMap } = require('../web/nesting');
 const { sliceCards } = require('../web/slices');
 
@@ -247,4 +250,33 @@ test('a card the depth map does not know is read as a root, and a damaged depth 
   const m = sliceCards([card(1), card(2), card(3), card(4)], HIERARCHY, new Map([[2, -3], [3, 1.5], [4, 'deep']]));
   assert.deepStrictEqual(placesOf(m), { 1: 0, 2: 0, 3: 0, 4: 0 });
   assert.deepStrictEqual(axisOf(m).slice(4), [[0, 4]]);
+});
+
+// --- loading ---------------------------------------------------------------------
+
+// The snapshot embeds both files as they are, into a page where no other module
+// is loaded and a build step rewrites __NAME__ tokens.
+const WEB = path.join(__dirname, '..', 'web');
+const sourceOf = (file) => fs.readFileSync(path.join(WEB, file), 'utf8').split('\r\n').join('\n');
+
+test('the slice module needs no other module, cannot close the script element it is embedded in, and holds no build placeholder', () => {
+  const source = sourceOf('slices.js');
+  assert.doesNotMatch(source, /\brequire\(/);
+  assert.doesNotMatch(source, /\bimport\b/);
+  assert.doesNotMatch(source, /<\/script/i);
+  assert.doesNotMatch(source, /__[A-Z_]+__/);
+});
+
+test('loaded as plain scripts into one page scope, the nesting and slice modules slice a board from window', () => {
+  const window = {};
+  const page = vm.createContext({ window });
+  vm.runInContext(sourceOf('nesting.js'), page);
+  vm.runInContext(sourceOf('slices.js'), page);
+  assert.strictEqual(typeof window.depthMap, 'function');
+  assert.strictEqual(typeof window.sliceCards, 'function');
+  const cards = fixture();
+  const m = window.sliceCards(cards, HIERARCHY, window.depthMap(cards, CTX));
+  assert.strictEqual(m.axis.length, 10);
+  assert.strictEqual(m.byId.get(7).name, 'goal');
+  assert.strictEqual(m.byId.get(6).depth, 5);
 });
