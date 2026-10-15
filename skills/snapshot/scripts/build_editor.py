@@ -121,6 +121,18 @@ def read_assignees(kanban_dir):
     handles = [h for h in handles if h]
     return handles or DEFAULT_ASSIGNEES
 
+def _closing_quote(s):
+    """Index of the quote that closes the quoted text opening `s`, or -1."""
+    i = 1
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+            continue
+        if s[i] == s[0]:
+            return i
+        i += 1
+    return -1
+
 def _scalar(raw):
     """Same trailing-comment/quote contract as kanban-web's yaml-list.js
     scalar(): a quoted value keeps everything between the quotes verbatim
@@ -130,17 +142,15 @@ def _scalar(raw):
     uses would truncate it at that leading hash)."""
     s = raw.strip()
     if s[:1] in ('"', "'"):
-        i = 1
-        while i < len(s):
-            if s[i] == "\\":
-                i += 2
-                continue
-            if s[i] == s[0]:
-                return _unquote(s[:i + 1])
-            i += 1
-        return _unquote(s)
+        close = _closing_quote(s)
+        return _unquote(s[:close + 1] if close != -1 else s)
     m = re.search(r"\s#", s)
     return s[:m.start()].strip() if m else s
+
+def _value_or_comment(text):
+    """The scalar `text` holds, or '' when it holds only a comment."""
+    t = text.strip()
+    return "" if t[:1] == "#" else _scalar(t)
 
 def _unquote(s):
     if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
@@ -212,8 +222,7 @@ def _icon_name(raw):
     lowercased, a trailing comment stripped, '' (no icon) for a blank value or
     one that is only a comment. Any name is kept; the page draws an unknown
     one as no icon."""
-    t = (raw or "").strip()
-    return "" if t[:1] == "#" else _scalar(t).lower()
+    return _value_or_comment(raw or "").lower()
 
 def read_types(kanban_dir):
     """config.yaml's `types:` list as [{name, color}], plus `icon` on a type
@@ -250,18 +259,6 @@ def read_types(kanban_dir):
     flush()
     return types
 
-def _closing_quote(s):
-    """Index of the quote that closes the quoted text opening `s`, or -1."""
-    i = 1
-    while i < len(s):
-        if s[i] == "\\":
-            i += 2
-            continue
-        if s[i] == s[0]:
-            return i
-        i += 1
-    return -1
-
 def _split_pill_entry(text):
     """One `pills:` entry (the text after its dash) as {label, query}, or None
     when it is blank, only a comment, or has an empty label or query. The same
@@ -286,7 +283,7 @@ def _split_pill_entry(text):
         comment = re.search(r"\s#", t)
         if colon and (not comment or colon.start() < comment.start()):
             label, value = t[:colon.start()].strip(), t[colon.start() + 1:]
-    query = "" if value.strip()[:1] == "#" else _scalar(value)
+    query = _value_or_comment(value)
     if query == "":
         return None
     if label is None:
@@ -314,8 +311,7 @@ def read_hierarchy(kanban_dir):
     names = list(flow)
     for line in block:
         item = re.match(r"^\s+-\s*(.*)$", line)
-        text = item.group(1).strip() if item else ""
-        name = "" if text[:1] == "#" else _scalar(text)
+        name = _value_or_comment(item.group(1)) if item else ""
         if name:
             names.append(name)
     return names
