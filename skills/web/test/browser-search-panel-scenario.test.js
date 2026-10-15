@@ -250,7 +250,7 @@ test('it presses Escape through the three links of the chain, and Tab, Enter and
   assert.strictEqual(count('p'), 7, 'p off, on, in the box, under a card menu, under the sheet, off again before the reload, on after it');
 });
 
-test('the scenario drives the switch in order: focus opens the panel, a click switches it off, focus and a click open nothing, a second click opens it, then the p key in each place the ticket names, the reload, and the preferences sheet last', () => {
+test('the scenario drives the switch in order: focus opens the panel, a click switches it off, focus and a click open nothing, a second click opens it, then the p key in the box, under a card menu and under the sheet, the reload, and the preferences sheet last', () => {
   const at = (name) => code.indexOf(`check('${name}'`);
   const names = [
     'the arrow starts pressed, the switch on, and says the panel is collapsed',
