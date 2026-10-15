@@ -45,3 +45,26 @@ test('the Graph section no longer says a shift-click ranges there', () => {
   assert.doesNotMatch(text, /outline order \(parents before children/);
   assert.match(text, /shift\+click or ctrl\/cmd\+click adds one card or takes it out/);
 });
+
+test('the multi-select section describes the right-click menu: Peek and Add to selection outside the selection, the selection untouched', () => {
+  const text = bullet('- **Multi-select**');
+  assert.match(text, /a card outside the selection opens a menu for that card alone and leaves the selection/);
+  assert.match(text, /\*\*Peek\*\* \(opens the card's details/);
+  assert.match(text, /\*\*Add to selection\*\*/);
+  assert.match(text, /A card inside the selection opens the menu for the whole resolved selection/);
+  assert.match(text, /menu for the card shown, without Peek/);
+});
+
+test('the multi-select section says Path and Tree add to the selection as one part and no longer write the search box', () => {
+  const text = bullet('- **Multi-select**');
+  assert.match(text, /\*\*Dependency path\*\* add the card's tree or path to the selection as one part/);
+  assert.match(text, /They no longer write the search box/);
+  assert.doesNotMatch(text, /sugar over the/);
+  assert.match(text, /Archive and Delete keep their confirmation, which names the resolved count/);
+});
+
+test('the Map section says the menu adds a tree or a path to the selection instead of writing a term', () => {
+  const text = bullet('**Dependency tree / Dependency path** — a second way');
+  assert.match(text, /adds a card's tree or path to the selection instead of writing a term/);
+  assert.doesNotMatch(text, /offers these as sugar/);
+});

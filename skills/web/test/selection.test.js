@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
+const { toggleSelection, pruneSelection, cardMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
 
 test('toggleSelection adds an unselected id and removes a selected one, without mutating input', () => {
   const s0 = new Set([1]);
@@ -59,22 +59,68 @@ test('rangeSelection with a target not in the rendered order returns the input s
   assert.strictEqual(rangeSelection(s0, [10, 20], 10, 99), s0);
 });
 
-// --- right-click selection semantics, shared by every view.
+// --- the card menu's subject, shared by every view.
+// A right-click outside the selection opens the menu for that card alone and
+// leaves the selection as it was; inside, the menu is for the whole resolved
+// selection. The menu leads with Peek and Add to selection only outside the
+// selection (the card details' own menu has no Peek), and offers Path and Tree
+// only when its subject is one card.
 
-test('contextSelection replaces the selection with an unselected id, without mutating input', () => {
-  const s0 = new Set([1, 2]);
-  const s1 = contextSelection(s0, 3);
-  assert.deepStrictEqual([...s1], [3]);
-  assert.deepStrictEqual([...s0].sort(), [1, 2]); // input untouched
+const frozenSelection = (parts) => {
+  const selection = parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
+  return Object.freeze({ anchor: Object.freeze(selection.anchor), additions: Object.freeze(selection.additions.map((p) => Object.freeze(p))) });
+};
+const pathOfFive = (text) => new Set(text === 'path:5' ? [4, 5, 6] : []);
+
+test('a right-click on a card outside the selection makes that card alone the menu\'s subject and writes nothing to the selection', () => {
+  const selection = frozenSelection([cardPart(1), cardPart(2)]);
+  const resolved = resolveSelection(selection, pathOfFive, null);
+  const menu = cardMenuFor(resolved, 3);
+  assert.deepStrictEqual(menu.ids, [3]);
+  assert.strictEqual(menu.inSelection, false);
+  assert.deepStrictEqual([...resolved], [1, 2], 'the resolved set is untouched');
+  assert.deepStrictEqual(selection, { anchor: { kind: 'card', id: 1 }, additions: [{ kind: 'card', id: 2 }] }, 'and so is the selection it came from');
 });
 
-test('contextSelection keeps the whole batch when the id is already selected — same reference, no re-render needed', () => {
-  const s0 = new Set([1, 2]);
-  assert.strictEqual(contextSelection(s0, 2), s0);
+test('a right-click on a card outside an empty selection also has that card alone as its subject', () => {
+  assert.deepStrictEqual(cardMenuFor(new Set(), 7).ids, [7]);
 });
 
-test('contextSelection on an empty selection selects exactly the target', () => {
-  assert.deepStrictEqual([...contextSelection(new Set(), 7)], [7]);
+test('a right-click on a card inside the selection makes the whole resolved selection the subject, a path\'s cards included, in the order they were picked', () => {
+  const selection = frozenSelection([cardPart(1), pathPart(5), cardPart(9)]);
+  const resolved = resolveSelection(selection, pathOfFive, null);
+  const menu = cardMenuFor(resolved, 6);
+  assert.deepStrictEqual(menu.ids, [1, 4, 5, 6, 9]);
+  assert.strictEqual(menu.inSelection, true);
+});
+
+test('the subject of a menu inside the selection is a copy: changing it does not change the resolved set', () => {
+  const resolved = new Set([1, 2]);
+  cardMenuFor(resolved, 2).ids.push(99);
+  assert.deepStrictEqual([...resolved], [1, 2]);
+});
+
+test('outside the selection the menu leads with Peek and Add to selection; inside it offers neither', () => {
+  const outside = cardMenuFor(new Set([1, 2]), 3);
+  assert.strictEqual(outside.peek, true);
+  assert.strictEqual(outside.add, true);
+  const inside = cardMenuFor(new Set([1, 2]), 2);
+  assert.strictEqual(inside.peek, false);
+  assert.strictEqual(inside.add, false);
+});
+
+test('the card details\' own menu has no Peek, and still offers Add to selection for a card outside the selection', () => {
+  const fromDetail = cardMenuFor(new Set([1, 2]), 3, { fromDetail: true });
+  assert.strictEqual(fromDetail.peek, false);
+  assert.strictEqual(fromDetail.add, true);
+  assert.strictEqual(cardMenuFor(new Set([1, 2]), 2, { fromDetail: true }).add, false, 'a card already picked has nothing to add');
+});
+
+test('Path and Tree are offered when the subject is one card, outside the selection or alone inside it, and not when it is several', () => {
+  assert.strictEqual(cardMenuFor(new Set([1, 2]), 3).dependency, true, 'one card outside a selection');
+  assert.strictEqual(cardMenuFor(new Set([4]), 4).dependency, true, 'a selection of one');
+  assert.strictEqual(cardMenuFor(new Set([4, 5]), 5).dependency, false, 'a selection of two');
+  assert.strictEqual(cardMenuFor(new Set(), 3).dependency, true, 'nothing selected');
 });
 
 test('partitionByMovable: gate-refused cards (waiting or blocked) are skipped only for doing; same-status cards are no-ops', () => {
