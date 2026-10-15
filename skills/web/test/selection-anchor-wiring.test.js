@@ -121,7 +121,9 @@ for (const [view, f] of Object.entries(FILTERS)) {
   });
 }
 
-for (const view of ['board', 'map', 'calendar', 'gantt', 'graph']) {
+// The Graph is not among them: a search typed there hides nothing and is the anchor
+// of the selection, which graph-lights-wiring.test.js pins.
+for (const view of ['board', 'map', 'calendar', 'gantt']) {
   test(`${view}: a search that hides a card takes it out of the id set, and clearing the box brings it back`, async () => {
     const s = await open({ view });
     s.select('cardPart(1)', "queryPart('tags:ui')");
@@ -220,15 +222,16 @@ test('Board: a plain click opens the card and empties the selection', async () =
   assert.strictEqual(s.rangeStart(), null);
 });
 
-test('a right-click on a card outside the selection makes it the anchor and drops the rest; inside it, the selection stays', async () => {
+test('a right-click on a card, outside the selection or inside it, leaves the selection and its range start as they were', async () => {
   const s = await open();
   s.select('cardPart(1)', 'cardPart(2)');
+  s.page.run('setSelection(selectionState.selection, 2)');
   const event = (id) => ({ target: cardTarget(id), clientX: 0, clientY: 0 });
   s.page.fireDocument('contextmenu', event(2));
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
   s.page.fireDocument('contextmenu', event(4));
-  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [] });
-  assert.strictEqual(s.rangeStart(), 4);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
+  assert.strictEqual(s.rangeStart(), 2);
 });
 
 test('a click on empty space clears the selection and its range start', async () => {

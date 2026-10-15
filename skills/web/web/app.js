@@ -731,8 +731,13 @@ let searchMatchMemo = null;
 // match, which runs right after a repaint, reads it instead of matching again.
 let lastSearchMatch = null;
 
+// What a query resolves against: the nesting context, and the board's hierarchy for slice:.
+function searchCtx() {
+  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy });
+}
+
 function matchedIds(terms) {
-  return new Set(filterCards(state.active.concat(state.archived), terms, nestingCtx()).map((c) => c.id));
+  return new Set(filterCards(state.active.concat(state.archived), terms, searchCtx()).map((c) => c.id));
 }
 
 function computeSearchMatch() {
@@ -742,6 +747,13 @@ function computeSearchMatch() {
 
 function currentSearchMatch() {
   return searchMatchMemo || computeSearchMatch();
+}
+
+// What the box does in the Graph: the cards it hides (a slice: term's cut, from the
+// whole board and its hierarchy) and the cards it lights. The Graph's one decision
+// about a query, read by what is drawn, what is lit and what a selection can reach.
+function currentGraphQueryEffect() {
+  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx());
 }
 
 // The cards one piece of search text matches, over the whole board like the box.
@@ -754,6 +766,19 @@ function searchMatchIds(text) {
   return terms.length ? matchedIds(terms) : new Set();
 }
 
+// The matcher the selection resolves its parts through: the search module's, except
+// for the text the box holds while the Graph is shown. That text is the typed
+// anchor (or a pill's query written to the box), and what it lights is the Graph's
+// query decision, read off the one match this render made instead of matching the
+// board again. A query that is no term yet lights nothing, never everything.
+function selectionMatchIds(text) {
+  if (loadViewMode() === 'graph' && text === $('#search-input').value) {
+    const lit = currentGraphQueryEffect().litIds;
+    return lit ? new Set(lit) : new Set();
+  }
+  return searchMatchIds(text);
+}
+
 // The cards the view being shown shows, which is all a selection can reach (the
 // Board shows the cards of its expanded columns, the other views the cards their
 // status pills, their Archive pill and the search box leave). It reads the same
@@ -764,7 +789,7 @@ function shownCardIds() {
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
-    visible = graphVisibleIds(pool, searchIds, graphLoadFilter(), boardStatuses());
+    visible = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, graphLoadFilter(), boardStatuses());
   } else if (mode === 'map') {
     visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
   } else if (mode === 'gantt' || mode === 'calendar') {
@@ -957,8 +982,11 @@ function openLeavesNote(cards, status) {
 // calendar ⇄ board — and pressing one while the OTHER view is active jumps
 // straight to the pressed view (no board stopover).
 function toggleView(mode) {
-  viewMode = loadViewMode() === mode ? 'board' : mode;
+  const from = loadViewMode();
+  viewMode = from === mode ? 'board' : mode;
   saveViewMode();
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText: $('#search-input').value }); // a search typed in the Graph is not the anchor anywhere else
+  if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
@@ -994,7 +1022,7 @@ function renderBoard() {
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
   try {
-    setSelection(selectionState.selection); // what the view shows may have changed: a pill, the box, a view switch, a poll
+    setSelection(selectionFollowingBox(selectionState.selection)); // what the view shows may have changed: a pill, the box, a view switch, a poll
     renderBoardColumns();
     applyViewMode();
   } finally {
@@ -3192,22 +3220,27 @@ window.addEventListener('DOMContentLoaded', () => {
 // select-all logic — see onSearchChordKey.
 //
 // The one writer of the box: typing, the clear button, a cue click, the Ctrl+F
-// prefill, Path and Tree from a card's menu and a ?q= link all come through
-// writeSearch(text, reason). It sets the box, repaints the board, then tells
-// each listener (text, reason). Code that must react to a write registers
-// with onSearchWrite rather than editing a writer. The poll repaints without
-// writing the box, so it tells no one.
+// prefill and a ?q= link all come through writeSearch(text, reason). It sets the
+// box, repaints the board, then tells each listener (text, reason). Code that
+// must react to a write registers with onSearchWrite rather than editing a
+// writer. The poll repaints without writing the box, so it tells no one. A write
+// whose caller paints in place passes repaint false (a click in the Graph that
+// clears the box): it must not replace the card under the pointer, or a double
+// click would never reach it.
 const searchWriteListeners = [];
 
 function onSearchWrite(listener) {
   searchWriteListeners.push(listener);
 }
 
-function writeSearch(text, reason) {
+function writeSearch(text, reason, repaint = true) {
   const input = $('#search-input');
   if (!input) return;
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
-  renderBoard();
+  if (repaint) {
+    boxWritten = true;
+    renderBoard();
+  }
   searchWriteListeners.forEach((listener) => listener(text, reason));
 }
 
@@ -3241,6 +3274,21 @@ function followSearchInAddress(text) {
 
 onSearchWrite(followSearchInAddress);
 
+// The selection follows the box while the Graph is shown: a search typed there is
+// the anchor of the selection (selectionAfterTyping, selection.js), so the Graph
+// lights its matches instead of hiding the rest. The writer marks that it wrote and
+// the repaint it makes takes the box into the selection, through setSelection like
+// every other write, before the id set is worked out: the one repaint paints the
+// new anchor, and parses and matches the box once. The other views keep filtering
+// and select nothing.
+let boxWritten = false;
+
+function selectionFollowingBox(selection) {
+  const written = boxWritten;
+  boxWritten = false;
+  return written && loadViewMode() === 'graph' ? selectionAfterTyping(selection, $('#search-input').value) : selection;
+}
+
 // What Esc does when nothing is open for it to close, and the one place the end
 // of the Esc chain lives. The key guard (key-guard.js) says which: with focus in
 // the search box Esc clears the box and leaves the selection; with nothing open
@@ -3254,12 +3302,15 @@ function escapeStep() {
 
 // One stage back, as selectionAfterEscape (selection.js) works it out: every
 // addition goes at once and the anchor stays; the next one drops the anchor.
-// Nothing picked, nothing to repaint.
+// Nothing picked, nothing to repaint. A box that was the anchor (a search typed in
+// the Graph) goes with it, as it does on a click on the empty Graph.
 function stepSelectionBack() {
   const next = selectionAfterEscape(selectionState);
   if (next === selectionState) return;
+  const boxWasAnchor = isTypedAnchor(selectionState.selection) && !next.selection.anchor;
   setSelection(next.selection, next.rangeStart);
-  renderBoard();
+  if (boxWasAnchor) writeSearch('', 'selection');
+  else renderBoard();
 }
 
 function onSearchSlashKey(e) {
@@ -5276,12 +5327,13 @@ window.addEventListener('DOMContentLoaded', () => {
 // share one interaction grammar — click opens detail, ctrl/cmd+click toggles
 // one card in the selection, shift+click adds the whole range between the
 // range start and the target (the file-manager grammar), right-click
-// selects + opens the context menu (whose actions were already view-agnostic:
-// they act on the selection, not on DOM). Only the map's ghost stubs opt out
+// opens the card menu (for the card alone outside the selection, for the whole
+// selection inside it; its actions are view-agnostic: they act on the menu's
+// subject, not on DOM). Only the map's ghost stubs opt out
 // (see buildMapSvg).
 // The selection: the anchor and the additions that make it up, and the range
-// start — the last card a selection gesture landed on (ctrl+click, a
-// range-starting shift+click, or a right-click that replaced the selection). The
+// start — the last card a selection gesture landed on (ctrl+click or a
+// range-starting shift+click; a right-click leaves it alone). The
 // range start is not the selection's anchor: it only says where a Board range
 // begins. Written only by setSelection. Never persisted, and the range start is
 // never trusted blindly: shift+click re-validates it against the rendered order
@@ -5307,7 +5359,7 @@ function dropGoneCards() {
 // they reach among the cards the view shows.
 function setSelection(selection, rangeStart = selectionState.rangeStart) {
   selectionState = { selection, rangeStart };
-  selectedIds = resolveSelection(selection, searchMatchIds, shownCardIds);
+  selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -5352,13 +5404,12 @@ function hideContextMenu() {
   $('#context-menu').classList.add('hidden');
 }
 
-// The menu's subject is the card right-clicked: an unselected card becomes the
-// anchor of a new selection in the same gesture, a selected one keeps the whole batch.
-function openCardContextMenu(e, id) {
-  if (!selectedIds.has(id)) {
-    setSelection(setAnchor(selectionState.selection, cardPart(id)), id); // the gesture restarted the selection — ranges extend from here
-    renderBoard();
-  }
+// The menu's subject is decided by cardMenuFor (selection.js) and nothing is
+// written to the selection: a card outside it gets a menu for that card alone, a
+// card inside it a menu for the whole selection. `fromDetail` is the card details'
+// own menu, which has no Peek.
+function openCardContextMenu(e, id, { fromDetail = false } = {}) {
+  menuSubject = cardMenuFor(selectedIds, id, { fromDetail });
   e.preventDefault();
   showContextMenu(e.clientX, e.clientY);
 }
@@ -5371,7 +5422,7 @@ function onDetailContextMenu(e) {
   if (e.target && e.target.closest && e.target.closest('a, img')) return;
   const picked = window.getSelection();
   if (picked && !picked.isCollapsed) return;
-  openCardContextMenu(e, currentDetailId);
+  openCardContextMenu(e, currentDetailId, { fromDetail: true });
 }
 
 // An assignee cue or a tag is a search shortcut, not a way to open/select the
@@ -5400,7 +5451,7 @@ function selectByClick(action, id) {
     resolved: selectedIds,
     rangeStart: selectionState.rangeStart,
     order: action === 'range' ? visibleCardIds() : [],
-    matchQuery: searchMatchIds,
+    matchQuery: selectionMatchIds,
   });
   setSelection(next.selection, next.rangeStart);
 }
@@ -5462,25 +5513,29 @@ let selectionGestureClick = null;
 // collapse toggles, the map options and zoom toolbar, the roll-up bars and the
 // Graph's controls. A control built by a render path must wear the marker.
 function onClickAway(e) {
-  if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
+  if (e.shiftKey || e.ctrlKey || e.metaKey) return;
   if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
+  const typed = isTypedAnchor(selectionState.selection);
+  if (!selectedIds.size && !typed) return;
+  if (typed && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a click on the header or the box
   setSelection(NO_SELECTION, null); // a dead selection must not leave an invisible range start behind
-  renderBoard();
+  if (typed) writeSearch('', 'selection'); // the anchor was the box, so the box goes with it
+  else renderBoard();
 }
 
 function showContextMenu(x, y) {
   const menu = $('#context-menu');
-  // "Dependency tree"/"Dependency path" only make sense against a
-  // single card — hidden whenever the effective selection is more than one.
-  // The caller (the document contextmenu handler) has already resolved
-  // selectedIds via contextSelection() and reassigned it before calling here,
-  // so selectedIds.size is the "effective selection" at this point. First
-  // conditionally-hidden menu items — the other seven always render; mixed-
-  // selection handling for them lives inside each click handler instead.
-  const singleSelected = selectedIds.size <= 1;
-  $('#ctx-tree').classList.toggle('hidden', !singleSelected);
-  $('#ctx-path').classList.toggle('hidden', !singleSelected);
+  // Peek and Add to selection lead a menu for a card outside the selection; the
+  // card details' menu leaves Peek out. "Dependency tree"/"Dependency path" only
+  // make sense against a single card — hidden whenever the menu's subject is
+  // more than one. The caller has already decided menuSubject. These are the only
+  // conditionally-hidden items — the others always render; mixed-selection
+  // handling for them lives inside each click handler instead.
+  $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
+  $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
+  $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
+  $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
   menu.classList.remove('hidden');
   // Clamp to the viewport so the menu never opens half off-screen.
   const rect = menu.getBoundingClientRect();
@@ -5488,17 +5543,31 @@ function showContextMenu(x, y) {
   menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
 }
 
-// Writes "tree:<id>"/"path:<id>" into the search box (REPLACING its
-// content — not appended) through writeSearch, closes the menu, and runs the
-// normal search flow — no synthetic 'input' event, and no view switch.
-// Single-card only; showContextMenu already hides these items for a
-// multi-card selection, but this guards the no-selection edge case too (e.g. a
-// stale/empty selectedIds).
-function focusOn(kind) {
+// Peek opens the card's details through the same path a plain open takes (so card
+// history takes its step) and leaves the selection and the range start alone.
+function peekCard() {
   hideContextMenu();
-  const id = [...selectedIds][0];
-  if (id == null) return;
-  writeSearch(`${kind}:${id}`, 'menu');
+  openCard(menuSubject.ids[0]);
+}
+
+// Add to selection: the card joins as an addition, or becomes the anchor of an
+// empty selection. The range start stays where it was.
+function addCardToSelection() {
+  hideContextMenu();
+  setSelection(addPart(selectionState.selection, cardPart(menuSubject.ids[0])));
+  renderBoard();
+}
+
+// Dependency tree / path: the card's tree or path joins the selection as one part,
+// resolved with the others on every render (selection.js); the search box is left
+// alone. One card only; showContextMenu already hides these items for a menu whose
+// subject is several, and this guards the empty subject too.
+function addDependencyToSelection(kind) {
+  hideContextMenu();
+  if (menuSubject.ids.length !== 1) return;
+  const part = kind === 'tree' ? treePart : pathPart;
+  setSelection(addPart(selectionState.selection, part(menuSubject.ids[0])));
+  renderBoard();
 }
 
 // Bulk archive asks WHERE before it moves anything (ADR 0010): the
@@ -5544,7 +5613,7 @@ async function applyBulkArchive() {
     try { await api('POST', `/api/cards/${id}/archive`, pkg ? { package: pkg } : undefined); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  setSelection(NO_SELECTION);
+  if (menuSubject.inSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
   await loadBoard();
   const where = pkg ? ` into ${pkg}` : '';
   const skipNote = skipped ? `; skipped ${skipped} already archived` : '';
@@ -5556,7 +5625,7 @@ async function applyBulkArchive() {
 // destination, the menu doesn't). Live cards in a mixed selection skip.
 async function bulkRestore() {
   hideContextMenu();
-  const targets = bulkTargets();
+  const targets = bulkTargets(menuSubject.ids);
   const skipped = targets.filter((c) => !c.archived).length;
   const ids = targets.filter((c) => c.archived).map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Nothing selected is archived.'); return; }
@@ -5572,15 +5641,16 @@ async function bulkRestore() {
 
 async function bulkDelete() {
   hideContextMenu();
-  const ids = bulkTargets().map((c) => c.id);
+  const ids = bulkTargets(menuSubject.ids).map((c) => c.id);
   if (!ids.length) return;
+  const wasSelection = menuSubject.inSelection;
   if (!confirm(`Permanently delete ${ids.length} card(s)? This cannot be undone.`)) return;
   const failed = [];
   for (const id of ids) {
     try { await api('DELETE', `/api/cards/${id}`); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  setSelection(NO_SELECTION);
+  if (wasSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
   await loadBoard();
   toast(failed.length ? `Deleted ${ids.length - failed.length}; failed: ${failed.join(', ')}` : `Deleted ${ids.length} card(s).`);
 }
@@ -5626,6 +5696,11 @@ async function onBulkDrop(ids, status) {
 // selection survives so bulk actions chain on the same batch.
 let bulkSingleMode = null; // 'assignee' | 'priority'
 let bulkPopupIds = []; // the ids an open bulk popup captured when it opened; the next popup replaces them
+// What the card menu the last right-click opened is for (cardMenuFor, selection.js):
+// the right-clicked card alone outside the selection, the resolved selection inside
+// it. Fixed when the menu opens, so the menu's entries and the popups they open act
+// on those cards whatever the selection and the poll do meanwhile.
+let menuSubject = { ids: [], inSelection: false, peek: false, add: false, dependency: false };
 
 // The one reader of the cards a bulk action acts on, live or archived, in the
 // order they were selected; an id with no card (deleted mid-selection) is
@@ -5637,9 +5712,10 @@ function bulkTargets(ids = [...selectedIds]) {
 }
 
 // A popup's copy of its targets, taken when it opens, so it acts on the cards it
-// showed whatever happens to the selection while it is open.
+// showed whatever happens to the selection while it is open. They are the menu's
+// subject: the right-clicked card alone when it was outside the selection.
 function captureBulkTargets() {
-  bulkPopupIds = bulkTargets().map((c) => c.id);
+  bulkPopupIds = bulkTargets(menuSubject.ids).map((c) => c.id);
 }
 
 function openBulkSingle(mode) {
@@ -5825,10 +5901,10 @@ window.addEventListener('DOMContentLoaded', () => {
     applyCardClick(action, Number(el.dataset.id), cue);
     if (clickKeepsSelection(action)) selectionGestureClick = e;
   });
-  // Right-click on any card-el opens the bulk menu; anywhere else keeps the
-  // browser's own context menu (don't hijack the whole page).
-  // contextSelection semantics: an unselected card becomes THE
-  // selection in the same gesture; a selected one keeps the whole batch.
+  // Right-click on any card-el opens the card menu; anywhere else keeps the
+  // browser's own context menu (don't hijack the whole page). A card outside
+  // the selection gets a menu for that card alone and the selection stays; a
+  // selected one gets a menu for the whole batch.
   document.addEventListener('contextmenu', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
@@ -5874,9 +5950,11 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#ctx-tags').addEventListener('click', openBulkTags);
   // Schedule… popup
   $('#ctx-schedule').addEventListener('click', openBulkSchedule);
-  // Dependency tree / path search sugar
-  $('#ctx-tree').addEventListener('click', () => focusOn('tree'));
-  $('#ctx-path').addEventListener('click', () => focusOn('path'));
+  // Peek and Add to selection, then Dependency tree / path, which add to the selection
+  $('#ctx-peek').addEventListener('click', peekCard);
+  $('#ctx-add').addEventListener('click', addCardToSelection);
+  $('#ctx-tree').addEventListener('click', () => addDependencyToSelection('tree'));
+  $('#ctx-path').addEventListener('click', () => addDependencyToSelection('path'));
   $('#bulk-schedule-apply').addEventListener('click', applyBulkSchedule);
   $('#bulk-schedule-close').addEventListener('click', () => $('#bulk-schedule').classList.add('hidden'));
   $('#bulk-schedule-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('bulkSchedule'));

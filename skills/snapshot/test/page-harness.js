@@ -140,7 +140,8 @@ class El {
   get clientWidth() { return 0; }
 }
 
-// html: the built page text. opts.matchMedia(query) answers the media queries.
+// html: the built page text. opts.matchMedia(query) answers the media queries;
+// opts.console stands in for the page's console, so a test can see what it logs.
 function loadPage(html, opts = {}) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   const doc = {
@@ -170,7 +171,7 @@ function loadPage(html, opts = {}) {
     addEventListener() {},
     innerWidth: 1024,
     innerHeight: 768,
-    console,
+    console: opts.console || console,
   };
   ctx.window = ctx;
   vm.createContext(ctx);

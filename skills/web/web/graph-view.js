@@ -9,7 +9,9 @@
 // click: a plain click makes the card the anchor of a new selection, Shift or
 // Ctrl/Cmd adds one card or takes it out (the layout has no reading order to
 // range over), all painted in place, and a double click opens, because
-// dragging a card makes a bare click a selection gesture.
+// dragging a card makes a bare click a selection gesture. What is selected is
+// lit and the rest dims (graphLightCards); a search typed in the box hides
+// nothing, it is the anchor of the selection and its matches light.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
@@ -22,7 +24,7 @@ const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
 const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_LAYOUT_TITLES = {
-  tiers: 'Tiers: roots at the centre, each depth on its own ring',
+  tiers: 'Tiers: the tier fan, a band for each tier with its name and count, tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent or children and no tier sit in the Unnested block outside the rim, a column for each status',
   force: 'Force: related cards pull together, loose cards sit around the edge',
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
@@ -104,6 +106,23 @@ function graphEl(tag, attrs, cls) {
   const el = document.createElementNS(GRAPH_SVG_NS, tag);
   if (cls) el.setAttribute('class', cls);
   for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+  return el;
+}
+
+function graphTspan(text, cls, attrs) {
+  const el = graphEl('tspan', attrs, cls);
+  el.textContent = text;
+  return el;
+}
+
+// A caption of the fan: a name and its count, both from the plan, in a text that keeps
+// its size on screen (app.css). `anchor` says which end of the text sits at x.
+function graphCaptionEl(c, anchor) {
+  const el = graphEl('text', { x: c.x, y: c.y, 'text-anchor': anchor }, c.cls);
+  if (c.dy) el.setAttribute('dy', c.dy);
+  if (c.kind) el.setAttribute('data-kind', c.kind);
+  el.appendChild(graphTspan(c.name, 'graph-caption-name'));
+  el.appendChild(graphTspan(String(c.count), 'graph-caption-count', { dx: '0.4em' }));
   return el;
 }
 
@@ -198,20 +217,35 @@ function graphClearFocus() {
   for (const el of graphCur.svg.querySelectorAll('.graph-near')) el.classList.remove('graph-near');
 }
 
-function graphSetFocus(id) {
+// The one dimming: everything but the lighting (graphLit, graph-model.js) dims, and
+// its cards and the lines between them stay lit. The pointer, a lone card, a
+// selection and a typed search all light through here; null lights nothing.
+function graphLightCards(lit) {
   graphClearFocus();
-  if (!graphCur || id == null || !graphCur.model.byId.has(id)) return;
-  const near = graphNeighbours(graphCur.model, id);
+  if (!graphCur || !lit) return;
   graphCur.svg.classList.add('graph-dim');
-  for (const n of near) graphCur.nodeEls.get(n).classList.add('graph-near');
-  graphCur.model.links.forEach((l, i) => {
-    if (near.has(l.from) && near.has(l.to)) graphCur.linkEls[i].classList.add('graph-near');
-  });
+  for (const id of lit.nodes) graphCur.nodeEls.get(id).classList.add('graph-near');
+  for (const i of lit.links) graphCur.linkEls[i].classList.add('graph-near');
 }
 
+// The pointer or keyboard focus on a card: that card and its one-hop relations.
+function graphSetFocus(id) {
+  if (!graphCur || id == null || !graphCur.model.byId.has(id)) { graphClearFocus(); return; }
+  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id)));
+}
+
+// The lone card the selection holds, or null: only a card picked on its own,
+// shown in this view, lights with its relations.
+function graphLoneCardId() {
+  const id = loneCard(selectionState.selection);
+  return id !== null && selectedIds.has(id) ? id : null;
+}
+
+// What lights when the pointer is on no card: the selection, a typed search's
+// matches included (graphRestLit).
 function graphRestFocus() {
-  if (graphCur && selectedIds.size === 1) graphSetFocus([...selectedIds][0]);
-  else graphClearFocus();
+  if (!graphCur) return;
+  graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId() }));
 }
 
 function graphSettleFocus() {
@@ -233,7 +267,13 @@ function graphClickNode(id, mods) {
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
     plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'),
   });
+  const typedBefore = isTypedAnchor(selectionState.selection);
   selectByClick(action, id);
+  // A plain click sets a new anchor and clears the box. Shift or Ctrl keeps
+  // the query, unless it took out a card the query lit: the query is then its other
+  // cards, and the box no longer names the anchor.
+  const boxIsDone = action === 'select' || (typedBefore && !isTypedAnchor(selectionState.selection));
+  if (boxIsDone && $('#search-input').value) writeSearch('', 'selection', false);
   graphPaintSelection();
 }
 
@@ -258,8 +298,13 @@ function graphDrawPlan(plan) {
   for (const r of plan.rings) {
     world.appendChild(fixed(graphEl('circle', { cx: r.cx, cy: 0, r: r.r }, r.cls)));
   }
-  for (const s of plan.spokes) {
-    world.appendChild(fixed(graphEl('line', { x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }, 'graph-spoke')));
+  for (const g of plan.guides) world.appendChild(fixed(graphEl('path', { d: g.d }, g.cls)));
+  for (const d of plan.dividers) {
+    world.appendChild(fixed(graphEl('line', { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 }, 'graph-divider')));
+  }
+  if (plan.block) {
+    const b = plan.block;
+    world.appendChild(fixed(graphEl('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 4 }, b.cls)));
   }
   const linkEls = plan.links.map((l) => {
     const p = fixed(graphEl('path', { d: l.d }, l.cls));
@@ -297,6 +342,13 @@ function graphDrawPlan(plan) {
     el.textContent = t.text;
     world.appendChild(el);
   }
+  // The fan's captions stand on the flat edge, centred over their rings; the others start at their x.
+  for (const c of plan.captions) world.appendChild(graphCaptionEl(c, 'middle'));
+  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption, 'start'));
+  if (plan.block) {
+    world.appendChild(graphCaptionEl(plan.block.title, 'start'));
+    for (const col of plan.block.columns) world.appendChild(graphCaptionEl(col.caption, 'start'));
+  }
   stage.appendChild(svg);
   return { stage, svg, world, arrow, linkEls, nodeEls };
 }
@@ -309,9 +361,8 @@ function renderGraphView() {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
     const pool = state.active.concat(state.archived);
-    const searchIds = currentSearchMatch().ids;
-    const visibleIds = graphVisibleIds(pool, searchIds, filter, boardStatuses());
-    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types });
+    const visibleIds = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, filter, boardStatuses());
+    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy });
     layoutOpts = { statuses: boardStatuses() };
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);

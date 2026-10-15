@@ -9,10 +9,17 @@
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // selectedIds, isDragging, hoveredId, graphCur, graphNeighbours, autoRefreshTick, renderGraphView.
 
+// The query typed in the Graph, and the cards it lights on the fixture board: three
+// match by title and one by its title is done (card 12). Card 19 matches too and is
+// archived, so it is not drawn. skills/web/test/browser-graph-lights.test.js holds
+// the list to the search module over the board's own cards.
+const LIGHT = { query: 'renew | zephyr', lit: [1, 2, 7, 11, 12], done: 12 };
+
 module.exports = {
   name: 'graph',
   board: 'fixture',
   timeoutMs: 100000,
+  LIGHT,
   async run(page) {
     const { ev, send, open, waitFor, centre, mouse, click, shot, check } = page;
     const sleep = page.sleep;
@@ -162,12 +169,14 @@ module.exports = {
     check('clicking empty canvas clears the selection', await waitFor(`selectedIds.size===0`));
 
     const nBefore = await nodeCount();
-    await search('zephyr');
-    await waitFor(`document.querySelectorAll('.graph-node').length<${nBefore}`);
+    await search(LIGHT.query);
+    const litIds = `JSON.stringify([...document.querySelectorAll('.graph-node.graph-near')].map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b))`;
+    const litNow = await waitFor(`document.querySelector('.graph-canvas').classList.contains('graph-dim')&&${litIds}===${JSON.stringify(JSON.stringify(LIGHT.lit))}`);
+    const restDim = await ev(`(()=>{const off=[...document.querySelectorAll('.graph-node')].filter((n)=>!n.classList.contains('graph-near'));return off.length>0&&off.every((n)=>getComputedStyle(n).opacity==='0.15')})()`);
     const nSearch = await nodeCount();
-    check('search narrows the graph', nSearch < nBefore && nSearch > 0, { nBefore, nSearch });
+    check('a query typed in the Graph keeps every dot, lights its matches, a done one included, and dims the rest', litNow && restDim && nSearch === nBefore && LIGHT.lit.includes(LIGHT.done), { nBefore, nSearch, lit: await ev(litIds) });
     await search('');
-    check('clearing search restores the graph', await waitFor(`document.querySelectorAll('.graph-node').length===${nBefore}`));
+    check('clearing search restores the graph', await waitFor(`document.querySelectorAll('.graph-node').length===${nBefore}&&!document.querySelector('.graph-canvas').classList.contains('graph-dim')&&document.querySelectorAll('.graph-node.graph-near').length===0`));
 
     await pickLayout('force');
     await settled();

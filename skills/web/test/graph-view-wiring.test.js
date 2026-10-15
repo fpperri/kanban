@@ -79,6 +79,9 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     { id: 2, title: 'b', status: 'done', archived: true, parent: 1, waiting_for: [3], blocked: true, review: true },
     { id: 3, title: 'c', status: 'todo', archived: false, parent: 1, waiting_for: [], blocked: false, review: false },
     { id: 4, title: 'd', status: 'todo', archived: false, parent: 1, waiting_for: [3], blocked: false, review: false },
+    { id: 5, title: 'e', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
+    { id: 6, title: 'f', status: 'todo', archived: false, parent: 5, waiting_for: [], blocked: false, review: false },
+    { id: 7, title: 'g', status: 'done', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
   ];
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] } });
   const used = new Set();
@@ -86,7 +89,11 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     const plan = graphPlan(model, graphLayout(model, kind, { statuses: ['todo', 'doing', 'done'] }), {
       selectedIds: new Set([1]), hoveredId: 3, kind, statusClass: (s) => s, titleOf: (c) => c.title,
     });
-    for (const x of [...plan.nodes, ...plan.links, ...plan.rings]) {
+    // The fan's marks: guide arcs, captions, the loose caption, the block's frame, title and column captions.
+    const fan = [...plan.guides, ...plan.captions, ...(plan.looseCaption ? [plan.looseCaption] : []),
+      ...(plan.block ? [plan.block, plan.block.title, ...plan.block.columns.map((c) => c.caption)] : [])];
+    assert.strictEqual(fan.length > 0, kind === 'tiers', `${kind} draws the fan's marks, and the others do not`);
+    for (const x of [...plan.nodes, ...plan.links, ...plan.rings, ...fan]) {
       for (const c of x.cls.split(' ')) if (c.startsWith('graph-')) used.add(c);
     }
   }
@@ -166,9 +173,10 @@ test('a double click opens the card, Enter opens and Space selects', () => {
   assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(Number\(node\.dataset\.id\), \{\}\); \}/, 'Space acts as a plain click');
 });
 
-test('a single selected card keeps its relations lit; hover is temporary and render re-applies the rest focus', () => {
-  assert.match(fn('graphRestFocus'), /selectedIds\.size === 1/);
-  assert.match(fn('graphRestFocus'), /graphSetFocus\(/);
+test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {
+  assert.match(fn('graphRestFocus'), /graphRestLit\(graphCur\.model, \{ selectedIds, loneCardId: graphLoneCardId\(\) \}\)/);
+  assert.match(fn('graphRestFocus'), /graphLightCards\(/);
+  assert.match(fn('graphLoneCardId'), /loneCard\(selectionState\.selection\)/);
   assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);
   const render = fn('renderGraphView');
   assert.ok(render.trim().endsWith('graphSettleFocus();\n}'));
@@ -245,7 +253,7 @@ function fakeDocument() {
 function drawn(cards, types) {
   const sandbox = { document: fakeDocument() };
   vm.createContext(sandbox);
-  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphDrawPlan')}`, sandbox);
+  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphTspan')}\n${fn('graphCaptionEl')}\n${fn('graphDrawPlan')}`, sandbox);
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] }, types });
   const plan = graphPlan(model, graphLayout(model, 'tiers'), { statusClass: (s) => s, titleOf: (c) => c.title });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
@@ -314,6 +322,21 @@ test('drawing a typed board emits no style attribute and takes no colour from th
 
 test('the render passes the board\'s types list to the model', () => {
   assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\btypes: state\.types[^}]*\}\)/);
+});
+
+test('the render passes the board\'s hierarchy to the model, so a card is in the band of its tier', () => {
+  assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\bhierarchy: state\.hierarchy[^}]*\}\)/);
+});
+
+test('the Tiers button describes the fan: a band per tier, a ring per depth, a sector per tree and the Unnested block', () => {
+  const title = src.match(/tiers: '(Tiers: [^']*)'/);
+  assert.ok(title, 'the Tiers title is a plain string');
+  assert.match(title[1], /a band for each tier/);
+  assert.match(title[1], /tier 1 nearest the centre/);
+  assert.match(title[1], /a ring for each depth of the cards without a tier/);
+  assert.match(title[1], /a sector for each tree/);
+  assert.match(title[1], /Unnested block/);
+  assert.match(title[1], /its name and count/);
 });
 
 test('the dot rule paints a path as well as a circle: filled in the status colour, round-cornered when stroked', () => {

@@ -55,7 +55,8 @@ that column. Outline puts a parent before its children and siblings in `rank`
 order; it is the default sort on a board where any card has a `rank` or a
 `parent`, except in the Archive column, which keeps id order. In an Outline column, dragging a card between two siblings writes its `rank`:
 one card when there is room between the neighbours, that parent's children renumbered
-in tens when there is not. The search box up top filters every view at once.
+in tens when there is not. The search box up top filters every view at once, except the
+Graph, which lights its matches and hides nothing but a `slice:` cut.
 
 A card with children shows `▲n` (how many layers sit below it) and a status bar
 of the leaves under it. Every bar is either collapsed (a thin line) or open (with
@@ -121,9 +122,14 @@ a dot, joined by its relations: a solid line from a parent to its child, a
 dashed arrow from a card to the card that waits for it. Three layouts, remembered
 per board, with **Tiers** first:
 
-- **Tiers** puts the roots at the centre and each depth on its own ring; a
-  root's tree gets its own sector, and cards with no parent and no children sit
-  on the outer ring.
+- **Tiers** draws a fan from the centre: a band for each tier of the board's
+  `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card
+  without a tier; each tree gets its own sector, loose cards with a tier share
+  one, and the other loose cards sit in an Unnested block outside the fan, a
+  column for each status. Each band has a faint arc and a caption with its name
+  and count on the flat edge, there is a divider between sectors, and the
+  Unnested block is titled with its count and each column is captioned with its
+  status and count. Fit and the first draw frame all of it.
 - **Force** pulls related cards together and rings the unrelated ones round the
   edge.
 - **Status** makes one ring per status, with the last column innermost (done,
@@ -132,26 +138,35 @@ per board, with **Tiers** first:
 
 A dot takes its status colour, grows with its relations, goes hollow when done
 and dim when archived. A ring around it means children; red is blocked, amber
-waiting, gold review. Hover or focus a dot to dim everything but that card and
-its relations. Click selects a dot and keeps its relations lit; double-click (or
-Enter) opens the card. Ctrl-click, shift-click and right-click work as on the
-board. In Force, drag a dot and the cards related to it follow, like pulling on
+waiting, gold review. Hover or focus a dot to light that card and its relations
+and dim the rest. Click selects a dot and keeps its relations lit while it is the
+only card picked; shift-click or ctrl-click adds one card or takes it out, and a
+selection of several lights exactly its cards. Double-click (or Enter) opens the
+card; right-click works as on the board.
+
+A search typed in the Graph hides nothing: its matches light, done cards included,
+and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
+cuts every view; under `|` it lights. Empty the box, press Esc or click the empty Graph to drop it;
+click a card to start a new selection and clear the box. Switch to another view and
+the box goes on filtering there, while nothing is selected by it. In Force, drag a dot and the cards related to it follow, like pulling on
 a thread; the arrangement stays until the cards change or the page reloads.
 Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.
-The status pills and search work as on the Gantt, Archive off by default. A card
-whose parent is hidden (archived, or filtered out by a status pill or the search)
+The status pills work as on the Gantt, Archive off by default. A card
+whose parent is hidden (archived, or filtered out by a status pill)
 is drawn as a root, and Archive starts off here, unlike the Map.
 Open it directly with `?view=graph`.
 
 ## More on the board
 
-**Search** — the box in the header filters every view as you type. Terms separated by
-spaces AND together (`tags:ui status:doing`), and four forms go further, one example each:
+**Search** — the box in the header filters every view as you type, except the Graph, where
+it lights its matches. Terms separated by
+spaces AND together (`tags:ui status:doing`), and five forms go further, one example each:
 
 - `|` is or, and a space binds tighter: `tags:ui status:doing | #12` is ui and doing, or card 12.
 - Round brackets group and can nest: `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo.
 - Quotes match a whole value, ignoring case, or any one element of a list: `tags:"grill"` finds a card tagged grill and not one tagged grilling. Quoted text with no field is a phrase in a title, body or tag: `"two words"`.
 - `waiting:` finds the cards waiting for at least one card that is not done, as `blocked:` and `review:` find the stickers.
+- `slice:` cuts every view to a run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards with no tier: `slice:objective..2` runs from the objective tier down to depth 2, `slice:goal` is that one slice, and `slice:goal..` and `slice:..objective` leave an end open. A reversed pair is swapped, an end the board does not have is left open, and a board with no hierarchy cuts by depth. It combines like any term: `tags:ui (slice:goal | #12)`.
 
 A `|` counts only as a token of its own and a bracket only at a token's edge, so `a|b`
 and `fix(auth)` stay literal text, and so does `waiting:3`. Half-typed input never
@@ -173,9 +188,11 @@ blocked reason, type, the date triad, and a Markdown description.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
-archive, restore, delete, or focus a dependency tree/path. The same selection
-grammar works in every view, and right-clicking inside an open card opens the same
-menu for that card.
+archive, restore, delete, or add a dependency tree/path to the selection. A
+right-click on a card outside the selection opens the menu for that card alone,
+leading with Peek (open its details) and Add to selection, and leaves your
+selection as it was. The same selection grammar works in every view, and
+right-clicking inside an open card opens the same menu for that card, without Peek.
 
 ![Bulk context menu](images/web-bulk-actions.png)
 

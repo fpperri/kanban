@@ -44,12 +44,19 @@ function isHoverHighlighted(hoveredId, cardId) {
   return hoveredId != null && hoveredId === cardId;
 }
 
-// Right-click semantics: the gesture's target REPLACES the
-// selection when it wasn't selected; an already-selected target keeps the
-// whole batch as the menu's subject. Returns the input set unchanged (same
-// reference) in the no-change case so callers can skip a re-render.
-function contextSelection(set, id) {
-  return set.has(id) ? set : new Set([id]);
+// The card menu a right-click on card `id` opens, as one decision the page only
+// carries out. Outside the selection the menu is for that card alone and the
+// selection stays as it was (the menu leads with Peek and Add to selection);
+// inside it the menu is for the whole resolved selection, a path's, a tree's or
+// a pill's cards included, in the order they were picked. `resolved` is the id
+// set the selection stands for now and is never written to. The card details'
+// own menu (`fromDetail`) has no Peek, the card is already open. Path and Tree
+// are offered only when the subject is one card. Returns
+// { ids, inSelection, peek, add, dependency }.
+function cardMenuFor(resolved, id, { fromDetail = false } = {}) {
+  const inSelection = resolved.has(id);
+  const ids = inSelection ? [...resolved] : [id];
+  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1 };
 }
 
 // Bulk-move rule: the doing entry gate stays PER CARD, and only
@@ -318,10 +325,66 @@ function selectionAfterClick(action, id, { selection, resolved, rangeStart, orde
   return { selection, rangeStart };
 }
 
+// --- A search typed in the Graph is the anchor ----------------------------------
+// The Graph lights a selection and dims the rest, so a search typed there does not
+// hide cards: its text becomes the anchor, and its matches are the lit cards. An
+// anchor keeps where it came from, because the one typed in the Graph is the one
+// anchor that stops being one when the Graph is left: the box goes on
+// filtering the other views, and nothing is selected by it there. A pill's query
+// (queryPart) keeps being the anchor in every view.
+
+function typedQueryPart(text) { return { kind: 'query', text: String(text), source: 'typing' }; }
+
+function isTypedAnchor(selection) {
+  const anchor = selection.anchor;
+  return !!anchor && anchor.kind === 'query' && anchor.source === 'typing';
+}
+
+// What a write to the box leaves of the selection while the Graph is shown. Text
+// makes the box the anchor: a new one, with the selection it replaced gone, as a
+// click on a card does the other way round; when the box was the anchor
+// already, only its text changes and the additions stay. An empty box takes the
+// anchor and the additions with it, since the model has no anchor-less state; a
+// selection that is not the box's stays.
+function selectionAfterTyping(selection, text) {
+  if (!String(text).trim()) return isTypedAnchor(selection) ? NO_SELECTION : selection;
+  if (!isTypedAnchor(selection)) return setAnchor(selection, typedQueryPart(text));
+  if (selection.anchor.text === text) return selection;
+  return { anchor: typedQueryPart(text), additions: selection.additions };
+}
+
+// What a view switch leaves of the selection. Leaving the Graph drops a typed
+// anchor, and the first addition becomes the anchor, as when any anchor goes.
+// Entering it makes the box the anchor again, but only when nothing is selected:
+// a selection carried in from another view stays, and the box has no effect in
+// the Graph until it is edited.
+function selectionOnViewSwitch(selection, { from, to, boxText }) {
+  if (from === 'graph' && to !== 'graph') {
+    return isTypedAnchor(selection) ? selection.additions.reduce((next, part) => addPart(next, part), NO_SELECTION) : selection;
+  }
+  if (to === 'graph' && from !== 'graph' && !selection.anchor && String(boxText).trim()) {
+    return setAnchor(selection, typedQueryPart(boxText));
+  }
+  return selection;
+}
+
+// The card a click picked on its own, or null: a selection that is one card part,
+// the anchor with no additions. Only such a card lights with its relations; a
+// query or a path that matches one card lights that card alone.
+function loneCard(selection) {
+  const anchor = selection.anchor;
+  return anchor && anchor.kind === 'card' && !selection.additions.length ? anchor.id : null;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
+  window.typedQueryPart = typedQueryPart;
+  window.isTypedAnchor = isTypedAnchor;
+  window.selectionAfterTyping = selectionAfterTyping;
+  window.selectionOnViewSwitch = selectionOnViewSwitch;
+  window.loneCard = loneCard;
   window.cardPart = cardPart;
   window.pathPart = pathPart;
   window.treePart = treePart;
@@ -336,7 +399,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.pruneSelectionParts = pruneSelectionParts;
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
-  window.contextSelection = contextSelection;
+  window.cardMenuFor = cardMenuFor;
   window.partitionByMovable = partitionByMovable;
   window.dragPlan = dragPlan;
   window.archiveNeedsConfirm = archiveNeedsConfirm;

@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const cardStore = require('../../web/scripts/card-store');
+const { readConfig } = require('../../web/scripts/config-store');
 const { parseSearchQuery, filterCards } = require('../../web/web/search');
 const { materialize } = require('../../web/test/browser/boards');
 const { buildScript } = require('./nesting-fixture');
@@ -74,9 +75,17 @@ function planCards(dir) {
   return cardStore.listActive(dir).concat(cardStore.listArchived(dir)).map(cardStore.toJSON);
 }
 
-// The ids the web search module finds for a query typed on the plan board.
-function webIds(cards, q) {
-  return filterCards(cards, parseSearchQuery(q, BOARD_NAME), { board: BOARD_NAME })
+// What kanban-web hands its search module besides the cards: the board's name
+// and the hierarchy its own config reader gives, for the slice: term.
+function webContext(dir) {
+  const { name, hierarchy } = readConfig(dir);
+  return { board: name, hierarchy };
+}
+
+// The ids the web search module finds for a query typed on a board: the plan
+// board unless the board's own context (webContext) is given.
+function webIds(cards, q, ctx = { board: BOARD_NAME }) {
+  return filterCards(cards, parseSearchQuery(q, ctx.board), ctx)
     .map((c) => c.id).sort((a, b) => a - b);
 }
 
@@ -95,16 +104,17 @@ function showArchive(page) {
 
 const search = (page, q) => { page.type(page.byId('q'), q); return shownIds(page); };
 
-// Builds the snapshot of the plan board and hands fn the page (archive shown)
-// and the board folder. The plan board's name is `plan`.
-function withPlanPage(fn) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-snapshot-plan-'));
+// Builds the snapshot of one of the browser runner's boards (plan, fixture or
+// malformed) and hands fn the page (archive shown), the board folder and the
+// page text. `load` is passed to the page harness beside the wide screen.
+function withBoardPage(key, fn, load = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `kanban-snapshot-${key}-`));
   try {
-    const dir = materialize('plan', path.join(root, 'board'));
+    const dir = materialize(key, path.join(root, 'board'));
     const out = path.join(root, 'out.html');
     execFileSync('python', [buildScript, dir, '--out', out], { encoding: 'utf8' });
     const html = fs.readFileSync(out, 'utf8').replace(/\r\n/g, '\n');
-    const page = loadPage(html, { matchMedia: (q) => q.includes('min-width:900px') });
+    const page = loadPage(html, { matchMedia: (q) => q.includes('min-width:900px'), ...load });
     showArchive(page);
     return fn(page, dir, html);
   } finally {
@@ -112,4 +122,9 @@ function withPlanPage(fn) {
   }
 }
 
-module.exports = { BOARD_NAME, PLAN_QUERIES, planCards, search, shownIds, webIds, withPlanPage };
+// The plan board's page. The plan board's name is `plan`.
+const withPlanPage = (fn) => withBoardPage('plan', fn);
+
+module.exports = {
+  BOARD_NAME, PLAN_QUERIES, planCards, search, shownIds, showArchive, webContext, webIds, withBoardPage, withPlanPage,
+};

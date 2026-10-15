@@ -1,0 +1,600 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const { loadPage, control, harmless } = require('./helpers/page-vm');
+
+// The Graph lights the selection and a typed search, in the real page (helpers/
+// page-vm.js runs every script the page loads in one vm). A search typed in the
+// Graph is the anchor of the selection: its matches light, nothing hides, the
+// layout is not made again, and the box and the selection follow each other. The
+// dots themselves are not drawn in a vm, so what is lit is read from the call
+// that lights them; the browser runner looks at the dots (scenarios/graph-lights.js).
+
+const card = (id, over = {}) => ({
+  id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
+  review: null, tags: [], assignee: null, type: null, start_date: null, end_date: null, due_date: null,
+  parent: null, rank: null, file: `/board/${id}.card.md`, archived: false, ...over,
+});
+
+// Cards 1 to 6 are drawn in the Graph; 7 and 8 are archived and out until the Archive pill is on.
+// Card 1 is the parent of 3, and 2 waits for it, so its one-hop relations are 2 and 3.
+const makeBoard = () => ({
+  projectName: 'kanban',
+  statuses: ['backlog', 'todo', 'doing', 'done'],
+  priorities: ['High', 'Normal', 'Low'],
+  assignees: [], tags: [], types: [], notifications: [],
+  active: [
+    card(1, { title: 'Zephyr migration', status: 'doing', tags: ['infra'] }),
+    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: [1] }),
+    card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
+    card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
+    card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
+    card(6, { title: 'Renew the domain', status: 'done', tags: ['ops'] }),
+  ],
+  archived: [
+    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] }),
+    card(8, { title: 'Close out the audit', status: 'done', archived: true, tags: ['ui'] }),
+  ],
+});
+
+const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
+const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
+
+async function open({ view = 'graph', stored = {}, board = makeBoard(), search = '' } = {}) {
+  const graphHost = control();
+  const elements = { '#graph-view': graphHost };
+  for (const sel of HIDDEN_SURFACES) elements[sel] = hiddenSurface();
+  const page = await loadPage({ board, search, stored: { 'kanban.kanban.view.mode': view, ...stored }, elements }).start();
+  assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
+  const calls = [];
+  const sortedIds = (set) => [...set].sort((a, b) => a - b);
+  const realLightCards = page.ctx.graphLightCards;
+  page.ctx.graphLightCards = (lit) => { calls.push(lit ? { nodes: sortedIds(lit.nodes), links: lit.links.size } : null); };
+  const s = {
+    page, board, graphHost, calls, realLightCards,
+    ids: () => sortedIds(page.run('selectedIds')),
+    selection: () => JSON.parse(JSON.stringify(page.run('selectionState.selection'))),
+    box: () => page.input.value,
+    type: (text) => page.input.typed(text),
+    lit: () => calls[calls.length - 1],
+    drawn: () => [...page.run('graphCur.model.nodes.map((n) => n.id)')].sort((x, y) => x - y),
+    view: () => page.run('loadViewMode()'),
+    click(id, m) { const e = nodeEvent(id, m); graphHost.fire('click', e); return e; },
+    canvasClick(inside = true, m = {}) {
+      const target = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '#graph-view' && inside ? {} : null) : harmless(String(key))) });
+      s.page.fireDocument('click', { target, shiftKey: false, ctrlKey: false, metaKey: false, ...m });
+    },
+    esc: (inBox = false) => {
+      page.ctx.document.activeElement = inBox ? page.input : null;
+      if (inBox) page.input.fire('keydown', { key: 'Escape', stopPropagation() {} });
+      return page.fireDocument('keydown', { key: 'Escape' });
+    },
+    rest: () => { calls.length = 0; page.run('graphRestFocus()'); return s.lit(); },
+  };
+  return s;
+}
+
+function nodeEvent(id, m = {}) {
+  const node = { dataset: { id: String(id) } };
+  const target = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.graph-node' ? node : null) : harmless(String(key))) });
+  return { target, stopPropagation() {}, preventDefault() {}, key: m.key, repeat: false, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...m };
+}
+
+const typed = (text) => ({ kind: 'query', text, source: 'typing' });
+const a = (id) => ({ kind: 'card', id });
+
+// --- typing in the Graph --------------------------------------------------------------
+
+test('a query typed in the Graph is the anchor of the selection, and its matches are the selected cards', async () => {
+  const s = await open();
+  s.type('zephyr');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('zephyr'), additions: [] });
+  assert.deepStrictEqual(s.ids(), [1], 'card 7 matches too, but it is archived and the Graph does not draw it');
+});
+
+test('a query typed in the Graph hides no card: the Graph draws what it drew before the query', async () => {
+  const s = await open();
+  const before = s.drawn();
+  s.type('zephyr');
+  assert.deepStrictEqual(s.drawn(), before);
+  s.type('nothing-matches-this');
+  assert.deepStrictEqual(s.drawn(), before);
+});
+
+test('it lights its matches, a done card included, and nothing else', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.lit().nodes, [2, 5]);
+  s.type('renew');
+  assert.deepStrictEqual(s.lit().nodes, [6], 'card 6 is done');
+});
+
+test('a query that matches one card lights that card alone, without its relations', async () => {
+  const s = await open();
+  s.type('zephyr');
+  assert.deepStrictEqual(s.lit(), { nodes: [1], links: 0 }, 'card 1 has relations with 2 and 3, and they stay dim');
+});
+
+test('a query that matches nothing lights nothing and dims nothing', async () => {
+  const s = await open();
+  s.type('nothing-matches-this');
+  assert.strictEqual(s.lit(), null);
+  assert.deepStrictEqual(s.selection(), { anchor: typed('nothing-matches-this'), additions: [] }, 'it is still the anchor');
+});
+
+test('typing does not make the layout again: the Graph draws the same cards, so the layout is the one it has', async () => {
+  const s = await open();
+  let made = 0;
+  const real = s.page.ctx.graphLayoutTiers;
+  s.page.ctx.graphLayoutTiers = (...args) => { made++; return real(...args); };
+  for (const text of ['z', 'ze', 'zep', 'zephyr', 'tags:ui', 'renew', '']) s.type(text);
+  assert.strictEqual(made, 0);
+});
+
+test('a status pill still hides the cards it hides, so a done match is not lit with the Done pill off', async () => {
+  const s = await open();
+  s.type('renew');
+  assert.deepStrictEqual(s.ids(), [6]);
+  s.page.run("graphToggleFilter('done')");
+  assert.deepStrictEqual(s.ids(), []);
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5]);
+  assert.strictEqual(s.lit(), null);
+});
+
+test('typing the first character, a second and the last backspace all reach the selection', async () => {
+  const s = await open();
+  s.type('z');
+  assert.deepStrictEqual(s.selection().anchor, typed('z'));
+  s.type('zephyr');
+  assert.deepStrictEqual(s.selection().anchor, typed('zephyr'), 'the text follows the box');
+  s.type('');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.lit(), null);
+});
+
+test('typing while a card is selected makes the text a new anchor and drops the card', async () => {
+  const s = await open();
+  s.click(2);
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] });
+  s.type('zephyr');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('zephyr'), additions: [] });
+});
+
+test('a ?q= link opened in the Graph is a typed query, and lights', async () => {
+  const s = await open({ view: 'board', search: '?view=graph&q=tags%3Aui' });
+  assert.strictEqual(s.view(), 'graph');
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] });
+  assert.deepStrictEqual(s.rest().nodes, [2, 5]);
+});
+
+test('a poll keeps the query as the anchor and lights a card that comes to match', async () => {
+  const s = await open();
+  s.type('zephyr');
+  s.board.active.push(card(9, { title: 'More zephyr work' }));
+  await s.page.run('autoRefreshTick()');
+  assert.deepStrictEqual(s.ids(), [1, 9]);
+  assert.deepStrictEqual(s.rest().nodes, [1, 9]);
+  assert.deepStrictEqual(s.selection().anchor, typed('zephyr'));
+});
+
+// --- a slice: term typed in the Graph -------------------------------------------------
+// The one thing a query typed in the Graph hides: the cards outside the cut of a
+// slice: term that stands on its own. Card 1 is the goal and card 3, its child,
+// the strategy; every other card has no tier. So slice:goal..strategy is cards 1
+// and 3, the board's own hierarchy being what the page hands the search.
+
+const tiered = () => {
+  const board = makeBoard();
+  board.hierarchy = ['goal', 'strategy'];
+  board.active[0].type = 'goal';
+  board.active[2].type = 'strategy';
+  return board;
+};
+
+test('a slice: term typed in the Graph hides the cards outside its cut, and lights nothing when it is the whole query', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+  assert.strictEqual(s.lit(), null, 'nothing is left in the query to light');
+  assert.deepStrictEqual(s.ids(), [], 'the cut is not a selection');
+  s.type('');
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6], 'clearing the box brings every card back');
+});
+
+test('the rest of the query lights inside the cut, and the selection reaches only those cards', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy zephyr');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+  assert.deepStrictEqual(s.lit().nodes, [1]);
+  assert.deepStrictEqual(s.ids(), [1]);
+  s.type('slice:goal..strategy tags:ui');
+  assert.deepStrictEqual(s.drawn(), [1, 3], 'cards 2 and 5 match tags:ui and sit outside the cut');
+  assert.deepStrictEqual(s.ids(), []);
+  assert.strictEqual(s.lit(), null, 'nothing inside the cut matches, so nothing lights and nothing dims');
+});
+
+test('a slice: term under | hides nothing in the Graph: it lights its cards with the rest of the query', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy | tags:ui');
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(s.lit().nodes, [1, 2, 3, 5]);
+  assert.deepStrictEqual(s.ids(), [1, 2, 3, 5]);
+});
+
+test('the cut keeps cutting with the Archive pill on, and a card outside it is not selectable', async () => {
+  const s = await open({ board: tiered(), stored: { 'kanban.kanban.graph.statusFilter': JSON.stringify({ archive: true }) } });
+  s.type('slice:goal..strategy');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+  s.type('slice:0 tags:ui');
+  assert.deepStrictEqual(s.drawn(), [2, 4, 5, 6, 7, 8], 'the untiered cards, the archived ones too');
+  assert.deepStrictEqual(s.ids(), [2, 5, 8]);
+});
+
+// --- the decision is what lights ------------------------------------------------------
+
+test('the typed anchor lights what the Graph\'s query decision says the query lights', async () => {
+  const s = await open();
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: null, litIds: new Set([2, 4]) });
+  s.type('zephyr');
+  assert.deepStrictEqual(s.ids(), [2, 4]);
+  assert.deepStrictEqual(s.lit().nodes, [2, 4]);
+});
+
+test('the Graph draws the cards the decision leaves visible', async () => {
+  const s = await open();
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set([1, 2]), litIds: new Set([1]) });
+  s.type('zephyr');
+  assert.deepStrictEqual(s.drawn(), [1, 2]);
+  assert.deepStrictEqual(s.ids(), [1]);
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set([2]), litIds: new Set([1]) });
+  s.type('zephyr!');
+  assert.deepStrictEqual(s.ids(), [], 'a card the Graph does not draw is not selected');
+});
+
+test('outside the Graph the decision is not asked, and a query part resolves through the search module', async () => {
+  const s = await open({ view: 'board' });
+  s.page.ctx.graphQueryEffect = () => { throw new Error('the Graph\'s decision is for the Graph'); };
+  s.type('tags:ui');
+  s.page.run("setSelection(setAnchor(NO_SELECTION, queryPart('tags:ui')), null)");
+  assert.deepStrictEqual(s.ids(), [2, 5]);
+});
+
+// --- a click --------------------------------------------------------------------------
+
+test('a click on a lone card lights it with its one-hop relations, selects only it, and does not select the relations', async () => {
+  const s = await open();
+  s.click(1);
+  assert.deepStrictEqual(s.ids(), [1], 'only the card is selected');
+  assert.deepStrictEqual(s.lit().nodes, [1, 2, 3], 'its relations light');
+});
+
+test('a click on a card after a typed query clears the box and lights only that card and its relations', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.click(1);
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
+  assert.deepStrictEqual(s.ids(), [1]);
+  assert.deepStrictEqual(s.rest().nodes, [1, 2, 3]);
+});
+
+test('Shift+click on an unlit card adds it: the box keeps its text, and the matches and the card light', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.click(4, { shiftKey: true });
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [a(4)] });
+  assert.deepStrictEqual(s.ids(), [2, 4, 5]);
+  assert.deepStrictEqual(s.lit().nodes, [2, 4, 5]);
+});
+
+test('Ctrl+click works as Shift+click does', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.click(4, { ctrlKey: true });
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [a(4)] });
+  assert.strictEqual(s.box(), 'tags:ui');
+});
+
+test('Shift+click on a card the query lit takes it out and turns the query into its other cards; the box then clears', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.click(5, { shiftKey: true });
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(8)] }, 'the query matched 2, 5 and the archived 8');
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.ids(), [2]);
+  assert.deepStrictEqual(s.rest().nodes, [2]);
+});
+
+test('Shift+click on the one card a query matched leaves nothing selected and clears the box', async () => {
+  const s = await open();
+  s.type('renew');
+  s.click(6, { shiftKey: true });
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.rest(), null);
+});
+
+test('a click with the box empty paints in place, without a rebuild of the Graph', async () => {
+  const s = await open();
+  let rebuilt = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...args) => { rebuilt++; return real(...args); };
+  s.click(1);
+  s.click(2, { shiftKey: true });
+  assert.strictEqual(rebuilt, 0);
+});
+
+test('a click that clears the typed query paints in place too, so the card under the pointer is not replaced and a double click still reaches it', async () => {
+  const s = await open();
+  let rebuilt = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...args) => { rebuilt++; return real(...args); };
+  s.type('tags:ui');
+  rebuilt = 0;
+  s.click(1);
+  assert.strictEqual(s.box(), '');
+  assert.strictEqual(rebuilt, 0, 'a plain click on a card');
+  s.type('tags:ui');
+  rebuilt = 0;
+  s.click(5, { shiftKey: true });
+  assert.strictEqual(s.box(), '', 'the query was turned into its cards');
+  assert.strictEqual(rebuilt, 0, 'Shift+click on a card the query lit');
+});
+
+test('the click that clears the box is a write to it like any other: the address follows, and the writer is told why', async () => {
+  const s = await open();
+  const told = [];
+  s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  s.type('tags:ui');
+  told.length = 0;
+  s.click(1);
+  assert.deepStrictEqual(told, [['', 'selection']]);
+});
+
+test('Space on a focused card acts as a plain click, and so clears the box too', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.graphHost.fire('keydown', nodeEvent(1, { key: ' ' }));
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
+});
+
+// --- dropping the anchor --------------------------------------------------------------
+
+test('clearing the box with its button drops the anchor and the dimming', async () => {
+  const s = await open();
+  s.type('zephyr');
+  s.page.clear.fire('click', {});
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.lit(), null);
+});
+
+test('clearing the box drops the additions with the query', async () => {
+  const s = await open();
+  s.type('zephyr');
+  s.click(4, { shiftKey: true });
+  s.page.clear.fire('click', {});
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.deepStrictEqual(s.ids(), []);
+});
+
+test('Esc with a typed query as the only part clears the box and the dimming, with focus in the box or outside it', async () => {
+  for (const focus of [true, false]) {
+    const s = await open();
+    s.type('tags:ui');
+    s.esc(focus);
+    assert.strictEqual(s.box(), '', `focus in the box: ${focus}`);
+    assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+    assert.strictEqual(s.lit(), null);
+  }
+});
+
+test('Esc outside the box steps back one stage at a time: the additions first, then the typed anchor and the box with it', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.click(4, { shiftKey: true });
+  s.esc();
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] });
+  s.esc();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.lit(), null);
+});
+
+test('a click on the empty canvas with a query lit clears the box, the selection and the dimming', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.canvasClick();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.lit(), null);
+});
+
+test('a click on the empty canvas clears a query that matches nothing too', async () => {
+  const s = await open();
+  s.type('nothing-matches-this');
+  s.canvasClick();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+});
+
+test('a click outside the Graph leaves the typed query where it is, so clicking into the box or on a header button does not wipe it', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.canvasClick(false);
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] });
+});
+
+test('a click on a control that keeps the selection leaves the typed query where it is', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  const marked = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '[data-keeps-selection]' ? {} : null) : harmless(String(key))) });
+  s.page.fireDocument('click', { target: marked, shiftKey: false, ctrlKey: false, metaKey: false });
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection().anchor, typed('tags:ui'));
+});
+
+test('a click on the empty canvas with a selection carried in clears the selection and leaves the box, which was not its anchor, alone', async () => {
+  const s = await open({ view: 'board' });
+  s.type('tags:ui');
+  s.page.run("setSelection(addPart(NO_SELECTION, cardPart(5)), 5)");
+  s.page.run("toggleView('graph')");
+  s.canvasClick();
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), 'tags:ui');
+});
+
+// --- the hover ------------------------------------------------------------------------
+
+test('hovering a dot lights its relations for a moment, and moving off brings back the lit query', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.lit().nodes, [2, 5]);
+  s.graphHost.fire('mouseover', nodeEvent(1));
+  assert.deepStrictEqual(s.lit().nodes, [1, 2, 3], 'card 1 and its relations');
+  s.graphHost.fire('mouseout', Object.assign(nodeEvent(1), { relatedTarget: null }));
+  assert.deepStrictEqual(s.lit().nodes, [2, 5], 'the query lights again');
+});
+
+test('hovering a dot while a lone card is selected shows that dot\'s relations, and moving off shows the card\'s again', async () => {
+  const s = await open();
+  s.click(5);
+  assert.deepStrictEqual(s.lit().nodes, [5]);
+  s.graphHost.fire('mouseover', nodeEvent(1));
+  assert.deepStrictEqual(s.lit().nodes, [1, 2, 3]);
+  s.graphHost.fire('mouseout', Object.assign(nodeEvent(1), { relatedTarget: null }));
+  assert.deepStrictEqual(s.lit().nodes, [5]);
+});
+
+// --- leaving the Graph ----------------------------------------------------------
+
+test('a query typed in the Graph stops being the anchor on the Board: it still filters, nothing is selected and there are no bulk targets', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.ids(), [2, 5]);
+  s.page.run("toggleView('graph')");
+  assert.strictEqual(s.view(), 'board');
+  assert.strictEqual(s.box(), 'tags:ui', 'the box keeps filtering');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.deepStrictEqual(s.ids(), []);
+  assert.deepStrictEqual([...s.page.run('bulkTargets().map((c) => c.id)')], []);
+  assert.deepStrictEqual([...s.page.run('currentSearchMatch().ids')].sort((x, y) => x - y), [2, 5, 8], 'the Board hides the other cards');
+});
+
+test('the same on every view the Graph can be left for', async () => {
+  for (const to of ['map', 'calendar', 'gantt']) {
+    const s = await open();
+    s.type('tags:ui');
+    s.page.run(`toggleView('${to}')`);
+    assert.strictEqual(s.view(), to);
+    assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, to);
+    assert.deepStrictEqual(s.ids(), [], to);
+    assert.strictEqual(s.box(), 'tags:ui', to);
+  }
+});
+
+test('back in the Graph with the box unchanged and nothing selected, the matches light again', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.page.run("toggleView('graph')");
+  s.page.run("toggleView('graph')");
+  assert.strictEqual(s.view(), 'graph');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] });
+  assert.deepStrictEqual(s.ids(), [2, 5]);
+  assert.deepStrictEqual(s.rest().nodes, [2, 5]);
+});
+
+test('a selection carried into the Graph stays, and the box has no effect there until it is edited', async () => {
+  const s = await open({ view: 'board' });
+  s.type('tags:ui');
+  s.page.run("setSelection(addPart(NO_SELECTION, cardPart(5)), 5)");
+  s.page.run("toggleView('graph')");
+  assert.strictEqual(s.view(), 'graph');
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
+  assert.deepStrictEqual(s.ids(), [5]);
+  assert.deepStrictEqual(s.rest().nodes, [5], 'the box lights nothing');
+  s.type('tags:uix');
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] }, 'edited, the box is the anchor');
+  assert.deepStrictEqual(s.ids(), [2, 5]);
+});
+
+test('cards added to a typed query by hand stay selected when the Graph is left, and the first of them is the anchor', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.click(4, { shiftKey: true });
+  s.page.run("toggleView('graph')");
+  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [] });
+  assert.deepStrictEqual(s.ids(), [], 'the Board, filtered by the box, does not show card 4, so it is not in the id set yet');
+  s.type('');
+  assert.deepStrictEqual(s.ids(), [4], 'it is back when the view shows it');
+});
+
+test('typing outside the Graph never selects anything', async () => {
+  for (const view of ['board', 'map', 'calendar', 'gantt']) {
+    const s = await open({ view });
+    s.type('tags:ui');
+    assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, view);
+    assert.deepStrictEqual(s.ids(), [], view);
+    s.type('');
+    assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, view);
+  }
+});
+
+test('a selection built outside the Graph is not touched by typing there', async () => {
+  const s = await open({ view: 'board' });
+  s.page.run("setSelection(addPart(addPart(NO_SELECTION, cardPart(2)), cardPart(5)), 5)");
+  s.type('ui');
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(5)] });
+});
+
+// --- the lighting is one mechanism ----------------------------------------------------
+
+function fakeGraph(page) {
+  const el = () => {
+    const names = new Set();
+    return { names, classList: { add: (c) => names.add(c), remove: (c) => names.delete(c), contains: (c) => names.has(c), toggle: (c, force) => { if (force) names.add(c); else names.delete(c); } } };
+  };
+  const nodes = new Map([1, 2, 3, 4, 5, 6].map((id) => [id, el()]));
+  const model = page.run('graphBuild(state.active, { ctx: nestingCtx() })');
+  const links = model.links.map(() => el());
+  const svg = el();
+  svg.querySelectorAll = () => [...nodes.values(), ...links].filter((e) => e.names.has('graph-near'));
+  page.ctx.__fake = { svg, nodeEls: nodes, linkEls: links, model };
+  page.run('graphCur = __fake');
+  return { svg, nodes, links, model };
+}
+
+test('a lighting dims the canvas and marks exactly its cards and the lines between them, and the next lighting replaces it', async () => {
+  const s = await open();
+  s.page.ctx.graphLightCards = s.realLightCards;
+  const f = fakeGraph(s.page);
+  const lit = () => [...f.nodes].filter(([, e]) => e.names.has('graph-near')).map(([id]) => id);
+  s.page.ctx.__lit = s.page.run('graphLit(__fake.model, new Set([1, 2]))');
+  s.page.run('graphLightCards(__lit)');
+  assert.strictEqual(f.svg.names.has('graph-dim'), true);
+  assert.deepStrictEqual(lit(), [1, 2]);
+  assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 1, 'the one line between 1 and 2');
+  s.page.ctx.__lit = s.page.run('graphLit(__fake.model, new Set([5]))');
+  s.page.run('graphLightCards(__lit)');
+  assert.deepStrictEqual(lit(), [5], 'the first set is gone');
+  assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 0);
+  s.page.run('graphLightCards(null)');
+  assert.strictEqual(f.svg.names.has('graph-dim'), false, 'nothing to light dims nothing');
+  assert.deepStrictEqual(lit(), []);
+});
+
+test('there is one dimming mechanism: the hover, the lone card and the selection all go through the same lighting', async () => {
+  const s = await open();
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
+  const body = (name) => (src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`)) || [''])[0];
+  for (const name of ['graphSetFocus', 'graphRestFocus']) assert.match(body(name), /graphLightCards\(/, name);
+  assert.strictEqual((src.match(/classList\.add\('graph-dim'\)/g) || []).length, 1, 'graph-dim is set in one place');
+  assert.strictEqual((src.match(/classList\.add\('graph-near'\)/g) || []).length, 2, 'graph-near is set for a node and for a line, both in the one function');
+  assert.ok(!/graph-lit|graph-query|graph-match/.test(src), 'no second class for a second mechanism');
+  assert.ok(s.page.run('typeof graphLightCards') === 'function');
+});

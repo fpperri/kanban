@@ -137,9 +137,11 @@ function consoleErrorsFrom(events) {
 
 // `boards` maps a board key to { base }; resetBoard(key) puts that board's
 // cards back as they were. Every scenario starts from the same place: no page,
-// the board's own browser storage cleared, the board restored, a fixed window,
-// no leftover console events. That is what makes the order scenarios run in
-// not matter.
+// an empty tab history, the board's own browser storage cleared, the board
+// restored, a fixed window, no leftover console events. That is what makes the
+// order scenarios run in not matter. Chrome keeps at most 50 history entries,
+// so without the reset a scenario that counts history steps late in a run
+// would see none added.
 function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExited }) {
   const gone = Promise.race([
     chromeExited.then((why) => `Chrome ${why}`),
@@ -153,6 +155,7 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
         if (!boards[k]) throw new Error(`scenario '${sc.name}' names board '${k}', which the run did not start`);
       }
       await cdp.send('Page.navigate', { url: 'about:blank' });
+      await cdp.send('Page.resetNavigationHistory');
       for (const k of keys) {
         await cdp.send('Storage.clearDataForOrigin', { origin: new URL(boards[k].base).origin, storageTypes: 'all' });
         await resetBoard(k);

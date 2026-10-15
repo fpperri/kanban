@@ -294,8 +294,10 @@ to `127.0.0.1` only.
   only the literal status `done` counts as finished, and an archived leaf counts as
   finished. Altitude, roll-up and the warning are worked out from the cards on every render
   and never written to a card.
-- **Search** — the header search box filters every view as you type; the query survives
-  view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
+- **Search** — the header search box filters every view as you type, except the Graph,
+  where a typed search lights its matches and hides nothing but a `slice:` cut (see the Graph
+  view entry); the
+  query survives view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
   exact card id, and a pasted `webapp#42` is the same when `webapp` is this board's name (any
   case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
@@ -307,7 +309,7 @@ to `127.0.0.1` only.
   `tree:<id>`/`path:<id>` are dependency focus, `#` optional (`tree:74` = `tree:#74`) —
   grammar in the Dependency map section; bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
-  string) rather than silently matching nothing on a typo'd field name. Four more forms,
+  string) rather than silently matching nothing on a typo'd field name. Five more forms,
   one example each: `|` is or and a space binds tighter, so `tags:ui status:doing | #12`
   is ui and doing, or card 12; round brackets group and can nest, so
   `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo (a bracket is
@@ -315,13 +317,29 @@ to `127.0.0.1` only.
   value, ignoring case, or any one element of a list, so `tags:"grill"` finds a card
   tagged grill and not one tagged grilling, a quoted `title:` or `body:` matches the
   whole field, and quoted text with no scope is a phrase in a title, body or tag, so
-  `"two words"` does not find the words apart; and a bare `waiting:` finds the cards
+  `"two words"` does not find the words apart; a bare `waiting:` finds the cards
   waiting for at least one card that is not done (a dangling id never makes a card
-  waiting), the way `blocked:` and `review:` find their stickers. A `|` counts only as a
+  waiting), the way `blocked:` and `review:` find their stickers; and
+  `slice:<top>..<bottom>` cuts every view to a run of slices, so `slice:objective..2`
+  keeps the cards from the objective tier down to depth 2. A `|` counts only as a
   token of its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay
-  literal text, and so does `waiting:3`. Half-typed input never throws: an unclosed quote
-  or bracket reads to the end, a stray closing bracket is ignored, and an empty
-  alternative is dropped, so `tags:ui |` finds what `tags:ui` finds and never every card.
+  literal text, and so does `waiting:3`. The slices are the board's tiers (the
+  `hierarchy:` types, top first), then the depths of the cards with no tier (parents
+  above, a root is 0), and an end is a tier name in any letter case or a depth number.
+  `slice:goal` is that one slice, `slice:goal..` and `slice:..objective` leave an end
+  open, and a reversed pair is swapped (`slice:2..objective` is `slice:objective..2`).
+  An end the board does not have is left open, and a single unknown name, `slice:..` and
+  a bare `slice:` cut nothing, so half-typing a name never hides every card. A board
+  with no `hierarchy:` cuts by depth (`slice:1` is the depth-1 cards), and a card nested
+  against the hierarchy, a goal under an objective, stays in its own tier with no
+  warning. Depth is counted over the whole board, archived cards included, so a card is
+  in the same slice whatever a view shows. The term combines like any other,
+  `tags:ui (slice:goal | #12)`; a tier named with a space is quoted
+  (`slice:"big goal..2"`). A `slice:` term at the top level of the query hides the cards
+  outside the cut in every view, the Graph included. Half-typed input never throws: an
+  unclosed quote or bracket reads to the end, a stray closing bracket is ignored, and an
+  empty alternative is dropped, so `tags:ui |` finds what `tags:ui` finds and never
+  every card.
   A click on a card's assignee, tag, blocked or review cue adds its term to every
   alternative of what the box holds (a value with spaces is written quoted). An
   autocomplete dropdown completes the token under the caret, inside brackets, inside
@@ -622,25 +640,39 @@ to `127.0.0.1` only.
   **Graph** a click makes the card the anchor of a new selection, and shift+click or
   ctrl/cmd+click adds one card to the selection or takes it out — the layout has no reading
   order to range over, so Shift does not add a range there; a double click (or Enter) opens
-  the card, a pan keeps the selection, and a click on the empty Graph clears it. Applies on
+  the card, a pan keeps the selection, and a click on the empty Graph clears it. A search
+  typed in the Graph is the anchor of the selection: its matches are the selected cards, and
+  it stops being the anchor when the Graph is left (see the Graph view entry). Applies on
   board tiles (live and archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
   node's border and status dot are unaffected; graph: an accent outline on the dot plus
-  a glow). Right-click: an unselected
-  card becomes the anchor of a new selection in the same gesture; an already-selected one keeps the
-  whole batch as the target. Right-clicking inside an open card detail opens the same
-  menu for the card shown, and once an action has run the popup is read again so it shows
+  a glow). Right-click: a card outside the selection opens a menu for that card alone and leaves
+  the selection, and its range start, exactly as it was; the menu leads with **Peek** (opens the
+  card's details through the same path a plain open takes, so card history takes its step, and
+  does not touch the selection) and **Add to selection** (the card joins as an addition, or becomes
+  the anchor of an empty selection). A card inside the selection opens the menu for the whole
+  resolved selection, the cards a path, a tree or a pill added included, and the menu has neither
+  Peek nor Add to selection. Right-clicking inside an open card detail opens the same
+  menu for the card shown, without Peek, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
-  already handles the right-click itself, the browser's own menu shows instead. The menu — **Assign…**, **Set priority…**, **Edit tags…**,
+  already handles the right-click itself, the browser's own menu shows instead. The card details
+  keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add to selection**,
+  **Assign…**, **Set priority…**, **Edit tags…**,
   **Schedule…**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
-  acts on the selection regardless of which view opened it. **Dependency tree**/
-  **Dependency path** are sugar over the `tree:<id>`/`path:<id>` search terms: clicking
-  one replaces the search box's content with that term for the single selected card and
-  runs the normal search — no view switch. They're the only menu items conditionally
-  hidden: the other seven always render (mixed-selection handling lives inside each
-  click handler), these two hide whenever the effective selection is more than one card.
+  acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
+  selection inside it, regardless of which view opened it. The subject is fixed when the menu
+  opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
+  is when Apply is pressed. **Dependency tree**/
+  **Dependency path** add the card's tree or path to the selection as one part: the cards it
+  reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
+  with the rest. They no longer write the search box, which is left as it was; a typed
+  `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
+  names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
+  outside the selection (Peek is also left out of the card details' own menu), Tree and Path
+  show only when the subject is one card; the others always render (mixed-selection handling
+  lives inside each click handler).
   Any plain click outside the context menu / bulk popups clears the selection (empty
   calendar day cells and map/gantt whitespace included); the view-toggle buttons (Graph's too) are
   exempt, so the selection **survives switching views**, and it survives the poll. A control
@@ -819,8 +851,9 @@ to `127.0.0.1` only.
     actually carried a `card` key can produce that toast, so the status page's
     card-less links never fire one.
   - **The address follows the box.** Whatever the search box holds is in the address as
-    `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, Path and
-    Tree from a card's menu, a `?q=` link) replaces `q` with the box's text, and an empty
+    `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, a `?q=`
+    link, and a click in the Graph that drops a typed search) replaces `q` with the box's
+    text, and an empty
     or blank box drops `q`; `card` and `view` ride along untouched. The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
@@ -1028,7 +1061,8 @@ to `127.0.0.1` only.
   error), and a card with no edges resolves to a component/cone of one — itself.
   Focusing hides everything outside the result and re-lays-out, exactly like a typed
   search — a cone edge exiting the focused set renders as the existing ghost stub, no
-  new rendering path. The right-click menu offers these as sugar — see Multi-select.
+  new rendering path. The right-click menu adds a card's tree or path to the selection
+  instead of writing a term — see Multi-select.
   Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
   GLOSSARY.md's parity table.
   **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls
@@ -1287,9 +1321,28 @@ to `127.0.0.1` only.
   while the graph is up) swaps the board for the **Graph**: every card at once as a dot,
   joined by its relations, in one of three **layouts** picked from a button row in the
   graph's own header (`aria-pressed` marks the active one). **Tiers** opens first and is
-  the default for any unknown saved value. Tiers puts the roots at the centre with each
-  depth on its own ring, a root's tree in its own sector of the circle, and the
-  **unnested** cards (no parent and no children) on the outermost ring. **Force** pulls
+  the default for any unknown saved value. Tiers draws the **tier fan**: the
+  centre is the apex and the fan opens downward from it, a **band** for each tier of the
+  board's `hierarchy:`, tier 1 innermost, then a **ring** for each depth that holds a card
+  without a tier (a card whose type is not in the hierarchy, or that has none). A depth
+  with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
+  the band of its slice, worked out from the whole board, so a hidden or archived parent
+  never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
+  with no warning. Each band and each ring has a faint **guide arc** and a **caption** on
+  the fan's flat edge with its name and its card count (a tier by its name, a depth as
+  `roots` or `depth N`), in two alternating rows so neighbours never touch; a tier nobody
+  is in keeps a thin band and a muted caption that reads 0 when it has room for one, and a
+  depth with no card draws nothing; a tier whose cards nest in one another gets a lighter
+  arc through each further row. A root and the cards nested under it take a **sector**
+  of the fan, its width following the arc its leaves need. A divider separates each sector
+  from the next; loose cards with a tier share a sector of their own, and the sector of
+  loose cards with a tier has its own caption and count. The other **unnested** cards (no
+  parent and no children on the board) sit in the **Unnested** block outside the rim, a
+  column for each status in the board's order, archived cards last: the block is under the
+  title Unnested and its count, each column captioned with its status and count, with an
+  archived column while the Archive status pill is on. Fit and the first draw frame every
+  dot, every caption and the Unnested block. On a board with no hierarchy every
+  slice is a depth, so Tiers draws a ring for each depth. **Force** pulls
   related cards together and rings the unrelated ones round the edge; it is a fixed
   simulation with no randomness, so the same cards always land in the same place. **Status**
   draws one ring per status, the board's last column innermost: done, doing, todo,
@@ -1312,15 +1365,36 @@ to `127.0.0.1` only.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
-  (archived, or filtered out by a pill or the search) is drawn as a root. The search box composes with the pills by
-  **intersection**, and the search spans live and archived cards alike. A count of cards
+  (archived, or filtered out by a pill) is drawn as a root, the top of its own sector, in the band of its slice. The search box hides nothing
+  here but a `slice:` cut (see **Lighting**), and it spans live and archived cards alike. A count of cards
   and relations sits in the header; a board with nothing to draw says "No cards to show".
-  **Hover or keyboard focus** on a dot dims everything but that card and the cards it
-  has a relation with, with the lines between them. **Click** a dot to select it (painted
-  in place, so a double click is not interrupted by a rebuild); while exactly one dot is
-  selected its relations stay lit after the pointer leaves, and hovering another dot
-  shows that one's relations until the pointer leaves. **Double-click** (or **Enter** on a
-  focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
+  **Lighting.** The Graph dims everything but what is lit, and one dimming serves the
+  pointer, a lone card, a selection and a search typed in the box. **Hover or keyboard
+  focus** on a dot lights that card and the cards it has a relation with, with the lines
+  between them, until the pointer leaves. **Click** a dot to select it (painted in place,
+  so a double click is not interrupted by a rebuild): a **lone card** picked by a click
+  stays lit with its one-hop relations after the pointer leaves, and the relations light
+  without being selected; hovering another dot shows that one's relations until the
+  pointer leaves. A selection of several cards lights exactly those cards and the lines
+  between them, not their relations, and the rest dims. A **search typed in the Graph** is
+  the anchor of the selection instead of a filter: nothing hides, every dot stays where it
+  is (typing does not run the layout again), and the matches light, done cards included,
+  while the rest dims; a query that matches one card lights that card alone, without its
+  relations. The one thing it hides is the cards outside the cut of a `slice:` term that
+  stands on its own in the query, as in every other view: the rest of the query lights
+  inside the cut, and a `slice:` term under `|` or in a bracket of alternatives is only a
+  term to match, so it lights and hides nothing. Emptying the box, **Esc** and a click on the empty Graph drop the anchor and
+  the dimming; a plain click on a card sets a new card anchor and clears the box;
+  shift+click or ctrl/cmd+click on an unlit card adds it and keeps the query, and on a card
+  the query lit takes it out and turns the query into its other cards, which clears the
+  box, since it no longer names the anchor. The status pills still decide which cards are
+  drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
+  search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
+  Calendar keep hiding what does not match, nothing is selected by it there, and a bulk
+  action has no cards to act on. Back in the Graph with the box unchanged and nothing
+  selected, its matches light again; a selection carried in from another view stays, and
+  the box has no effect in the Graph until it is edited. **Double-click** (or **Enter** on
+  a focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
   "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and
   shift+click or ctrl/cmd+click adds one card or takes it out (the layout has no reading
   order, so there is no range). Every dot carries `.card-el` and `data-id`, so right-click

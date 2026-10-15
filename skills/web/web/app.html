@@ -17,7 +17,7 @@
   <div class="search-bar">
     <input type="search" id="search-input" class="search-input" autocomplete="off"
       placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
-      title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. Press / to focus, Esc to clear.">
+      title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. slice:objective..2 cuts every view to a run of slices (tiers, then depths). Press / to focus, Esc to clear.">
     <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search (Esc)" aria-label="Clear search">&#10005;</button>
   </div>
   <div class="actions">
@@ -174,7 +174,7 @@
   </form>
 </div>
 
-<div id="detail-modal" class="modal-backdrop hidden">
+<div id="detail-modal" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal detail-modal">
     <div class="detail-header popup-header">
       <div>
@@ -210,14 +210,19 @@
 </div>
 
 <div id="context-menu" class="context-menu hidden" role="menu" data-keeps-selection>
+  <!-- Peek and Add to selection lead the menu a right-click opens on a card
+       outside the selection; Peek is also left out of the card details' own
+       menu (both toggled in showContextMenu, main script below). -->
+  <button type="button" id="ctx-peek" role="menuitem">Peek</button>
+  <button type="button" id="ctx-add" role="menuitem">Add to selection</button>
   <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
   <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
   <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
   <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
-  <!-- Sugar over tree:<id>/path:<id> search terms — writes the term
-       into the search box and runs the normal search flow, no view switch.
-       Single-card only: hidden whenever the effective selection is >1 card
-       (toggled in showContextMenu, main script below). -->
+  <!-- Add the card's dependency tree or path to the selection as one part;
+       the search box is left alone. One card only: hidden whenever the
+       menu's subject is more than one card (toggled in showContextMenu,
+       main script below). -->
   <button type="button" id="ctx-tree" role="menuitem">Dependency tree</button>
   <button type="button" id="ctx-path" role="menuitem">Dependency path</button>
   <button type="button" id="ctx-archive" role="menuitem">Archive selected</button>

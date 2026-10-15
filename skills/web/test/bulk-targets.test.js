@@ -53,14 +53,14 @@ const CARDS = [
 // under the action the way a poll would.
 function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   const calls = { api: [], confirms: [], toasts: [], polls: 0 };
-  const { searchMatchIds, ...pageless } = selectionGlobals(); // the page's own matcher runs here, over the real search module
+  const { searchMatchIds, selectionMatchIds, ...pageless } = selectionGlobals(); // the page's own matchers run here, over the real search module
   const boxes = new Map();
   const $ = (sel) => { if (!boxes.has(sel)) boxes.set(sel, fakeBox()); return boxes.get(sel); };
   const live = cards.map((c) => ({ ...c, tags: [...c.tags] }));
   const sandbox = {
     $, boxes, calls,
     state: { projectName: 'board', active: live.filter((c) => !c.archived), archived: live.filter((c) => c.archived) },
-    nestingCtx: () => ({}),
+    nestingCtx: () => ({}), loadViewMode: () => 'board',
     parseSearchQuery, filterCards,
     confirm: (message) => { calls.confirms.push(message); return true; },
     toast: (message) => { calls.toasts.push(message); },
@@ -95,13 +95,15 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   run([
     declaration('selectionState'), declaration('selectedIds'), fn('setSelection'),
-    fn('matchedIds'), fn('searchMatchIds'),
+    fn('searchCtx'), fn('matchedIds'), fn('searchMatchIds'), fn('selectionMatchIds'),
     'let bulkSingleMode = null; let bulkPopupIds = []; let isDragging = false, dragCardId = null, bulkDragIds = null;',
+    declaration('menuSubject'),
     scheduleRows[0],
     ...['bulkTargets', 'captureBulkTargets', 'bulkPatch', 'openBulkSingle', 'applyBulkSingle', 'renderBulkTags', 'openBulkTags', 'bulkAddTag', 'bulkRemoveTags',
       'readScheduleFields', 'refreshScheduleControls', 'openBulkSchedule', 'applyBulkSchedule', 'bulkArchive', 'openBulkArchive', 'applyBulkArchive', 'bulkRestore', 'bulkDelete', 'wireDrag'].map(fn),
   ].join('\n'));
   run(`setSelection(${JSON.stringify(extraParts)}.reduce((next, part) => addPart(next, part), setAnchor(NO_SELECTION, queryPart(${JSON.stringify(query)}))))`);
+  run('menuSubject = cardMenuFor(selectedIds, [...selectedIds][0])'); // a right-click on a selected card: the menu is for the whole selection
   return {
     boxes, calls, run, find, poll, sandbox,
     picked: () => [...run('selectedIds')].sort((a, b) => a - b),
