@@ -207,6 +207,7 @@ function createRegistry({ tmpBase = os.tmpdir() } = {}) {
 
 const CHROME_PAGE_MS = 20000;
 const CHROME_STARTS = 2;
+const CHROME_END_MS = 5000;
 const CHROME_OUT_SHOWN = 1000;
 
 const listTargets = async (port) => (await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(2000) })).json();
@@ -236,10 +237,21 @@ async function waitForPageTarget({ rec, port, ms = CHROME_PAGE_MS, pollMs = 100,
   throw err;
 }
 
+// Waits, up to `ms`, until a child that killTree ended has been reaped. On POSIX a killed
+// process stays listed until its exit is collected on a later turn of the event loop, so
+// the signal having gone out does not yet mean the process is gone.
+function reaped(rec, ms) {
+  if (!rec.exited) return Promise.resolve();
+  let timer;
+  const late = new Promise((resolve) => { timer = setTimeout(resolve, ms); });
+  return Promise.race([rec.exited, late]).finally(() => clearTimeout(timer));
+}
+
 // Starts Chrome, up to `starts` times, until one lists a page. `launch(n)` starts the
 // n-th on a port and a profile of its own and answers { rec, port }. A Chrome that never
-// lists a page is ended before the next one starts, so two never share a machine.
-async function startChromeUntilPage({ launch, starts = CHROME_STARTS, ms, pollMs, targets, log = console.log }) {
+// lists a page is ended, and its exit awaited for up to `endMs`, before the next one
+// starts or the run gives up, so two never share a machine and none is left listed.
+async function startChromeUntilPage({ launch, starts = CHROME_STARTS, ms, pollMs, endMs = CHROME_END_MS, targets, log = console.log }) {
   for (let n = 1; ; n++) {
     const { rec, port } = await launch(n);
     try {
@@ -247,6 +259,7 @@ async function startChromeUntilPage({ launch, starts = CHROME_STARTS, ms, pollMs
     } catch (e) {
       if (!e.noPageTarget) throw e;
       killTree(rec.child);
+      await reaped(rec, endMs);
       if (n >= starts) throw e;
       log(`${e.message}; starting Chrome again (${n + 1} of ${starts})`);
     }
