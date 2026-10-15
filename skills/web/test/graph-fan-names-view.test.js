@@ -337,6 +337,28 @@ test('n keeps focus on an option that had it: the step is made through keepPillF
   assert.match(body, /keepPillFocus\(/);
 });
 
+test('n with focus on an option hands focus back to that same option in the rebuilt row, not to the option the step reached', async () => {
+  const s = await open({ stored: { ...UNFOLDED(), [key('kanban', 'graph.options')]: JSON.stringify({ names: 'all' }) } });
+  const doc = s.page.ctx.document;
+  const had = button(s, 'names', 'all').el;
+  const pillSelector = s.run('PILL_SELECTOR');
+  doc.activeElement = { tagName: 'BUTTON', isContentEditable: false, closest: (sel) => (sel === pillSelector ? had : null) };
+  const focused = [];
+  const lookup = doc.querySelector;
+  doc.querySelector = (sel) => {
+    const found = sel.startsWith('.graph-option-btn') ? byClass(s.row(), 'graph-option-btn').map(matcher).find((b) => b.matches(sel)) : null;
+    if (!found) return lookup(sel);
+    found.focus = () => focused.push(found);
+    return found;
+  };
+  s.press('n');
+  assert.strictEqual(current(s), 'none', 'the key stepped the setting from all');
+  assert.deepStrictEqual(pressedNames(s), ['none'], 'the rebuilt row shows the step');
+  assert.strictEqual(focused.length, 1, 'focus was handed back once');
+  assert.deepStrictEqual([focused[0].dataset.key, focused[0].dataset.val], ['names', 'all'], 'to the option that had it, which is no longer the pressed one');
+  assert.notStrictEqual(focused[0], had, 'to the element the render made, not the one it replaced');
+});
+
 // --- the stylesheet --------------------------------------------------------------------------------------------------
 
 test('the stylesheet shows a name for a named node only, in a size that holds at any zoom, with tokens and no hex colour', () => {

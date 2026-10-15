@@ -213,11 +213,15 @@ module.exports = {
     }
     check('plan: three presses of n walked all, none and back to relevant', same(walked, ['all', 'none', 'relevant']) && (await setting()) === 'relevant', walked);
 
-    // An option that has focus is rebuilt by the step and gets focus back, as after a press.
+    // An option that has focus is rebuilt by the step and gets focus back, as after a press: the
+    // same option, found again by its key and value, so focus stays on all while the setting moves
+    // on to none and the row shows none pressed.
     await pressOn(optionButton('names', 'all'));
     check('plan: after a press the option keeps focus', await waitFor(`${FOCUSED_OPTION}==='names=all'`, 4000), await ev(FOCUSED_OPTION));
     await key('n');
-    check('plan: n with focus on an option steps the setting, and the option keeps focus', await waitFor(settingIs('none'), 4000) && await waitFor(`${FOCUSED_OPTION}==='names=none'`, 4000), await ev(FOCUSED_OPTION));
+    check('plan: n with focus on an option steps the setting, and the option keeps focus',
+      await waitFor(settingIs('none'), 4000) && await waitFor(pressedIs('names', 'none'), 4000) && await waitFor(`${FOCUSED_OPTION}==='names=all'`, 4000),
+      { setting: await setting(), focused: await ev(FOCUSED_OPTION) });
     await key('n');
     await waitFor(settingIs('relevant'), 4000);
     check('plan: and n goes on from there: none is followed by relevant', (await setting()) === 'relevant' && await settles(plan.parents), await setting());
