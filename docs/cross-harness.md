@@ -14,8 +14,9 @@ that tag into the installer's selection menu.
 - **`kanban-snapshot`** — **partially portable.** The generator
   (`build_editor.py`) and the static HTML it produces are plain Python +
   browser code with no Claude dependency, though the generator reads the web
-  skill's nesting, map and search modules (`skills/web/web/nesting.js`,
-  `skills/web/web/map-relations.js`, `skills/web/web/search.js`), the type icons
+  skill's nesting, slices, map and search modules (`skills/web/web/nesting.js`,
+  `skills/web/web/slices.js`, `skills/web/web/map-relations.js`,
+  `skills/web/web/search.js`), the type icons
   module (`skills/web/web/type-icons.js`) and the waiting rules the search reads
   (`skills/web/web/waiting-blocked.js`) and exits without them, so install it
   beside `kanban-web`. But the SKILL.md's delivery/apply

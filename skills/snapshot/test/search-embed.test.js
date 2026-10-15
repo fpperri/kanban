@@ -9,11 +9,13 @@ const { loadPage } = require('./page-harness');
 const { topLevelDeclarations } = require('../../web/test/helpers/global-scope');
 const { search, withPlanPage } = require('./search-table');
 
-// The snapshot carries the web's search module and the waiting rules it reads as
-// the same source kanban-web runs, so what a query finds is one copy of the rules.
+// The snapshot carries the web's search module, the waiting rules it reads and the
+// slices module its slice: term cuts by as the same source kanban-web runs, so what
+// a query finds is one copy of the rules.
 
 const webDir = path.join(__dirname, '..', '..', 'web', 'web');
 const MODULES = [
+  { file: 'slices.js', placeholder: '__SLICES_JS__', label: 'the slices module' },
   { file: 'waiting-blocked.js', placeholder: '__WAITING_BLOCKED_JS__', label: 'the waiting rules' },
   { file: 'search.js', placeholder: '__SEARCH_JS__', label: 'the search module' },
 ];
@@ -48,9 +50,18 @@ test('the waiting rules load ahead of the search module, and both ahead of the p
     const searchAt = html.indexOf(source('search.js'));
     assert.ok(waiting !== -1 && waiting < searchAt && searchAt < html.indexOf('const BASE='));
     const page = loadPage(html);
-    assert.strictEqual(page.scripts.length, 6, 'the nesting module, the map module, the waiting rules, the search module, the type icons, then the page');
+    assert.strictEqual(page.scripts.length, 7, 'the nesting module, the map module, the slices module, the waiting rules, the search module, the type icons, then the page');
     assert.strictEqual(page.run('typeof parseSearchQuery + typeof resolveTerms + typeof cardMatchesQuery + typeof isReviewValue'),
       'functionfunctionfunctionfunction');
+  });
+});
+
+test('the slices module loads after the nesting module and ahead of the page script, and the page can call it', () => {
+  withSnapshot(BOARD, (html) => {
+    const nesting = html.indexOf(source('nesting.js'));
+    const slices = html.indexOf(source('slices.js'));
+    assert.ok(nesting !== -1 && nesting < slices && slices < html.indexOf('const BASE='), 'the slices module follows the nesting module and loads before the page script');
+    assert.strictEqual(loadPage(html).run('typeof sliceCards + typeof sliceTiers'), 'functionfunction');
   });
 });
 
@@ -108,8 +119,12 @@ test('the page declares no term parser, matcher or graph-term resolver of its ow
       const fn = page.run(`${name}.toString()`);
       assert.ok(searchSource.includes(fn), `${name} on the page is the module's, to the character`);
     }
+    for (const name of ['sliceTiers', 'sliceCards']) {
+      assert.ok(source('slices.js').includes(page.run(`${name}.toString()`)), `${name} on the page is the slices module's, to the character`);
+    }
     const own = topLevelDeclarations(page.scripts[page.scripts.length - 1]);
-    const moduleNames = topLevelDeclarations(searchSource).concat(topLevelDeclarations(source('waiting-blocked.js')));
+    const moduleNames = topLevelDeclarations(searchSource).concat(topLevelDeclarations(source('waiting-blocked.js')),
+      topLevelDeclarations(source('slices.js')));
     assert.deepStrictEqual(own.filter((n) => moduleNames.includes(n)), [], 'the page script re-declares nothing the modules declare');
     for (const gone of ['resolveGraphTerms', 'qMatch', 'SFIELDS', 'GFIELDS', 'STFIELDS']) {
       assert.ok(!own.includes(gone), `${gone}, the old copy, is gone from the page script`);

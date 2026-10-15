@@ -174,3 +174,58 @@ test('pill labels and queries that look like markup cannot close the script elem
     assert.deepStrictEqual(embeddedConst(html, 'PILLS'), [{ label: '</script><b>', query: 'title:</SCRIPT >x' }]);
   });
 });
+
+// The board's hierarchy: the types that are the tiers of the plan, top first. The
+// snapshot hands it, as written, to the web's slices module, which compares the
+// names without regard to case and keeps the first of two duplicates; so this table
+// pins the snapshot's reader to kanban-web's, entry form by entry form, the
+// malformed ones included.
+
+function hierarchyFor(config) {
+  return withSnapshot({ ...BOARD, config }, (html) => embeddedConst(html, 'HIERARCHY'));
+}
+
+const HIERARCHY_FORMS = {
+  'an inline list': 'name: b\nhierarchy: [goal, strategy, objective, epic]\n',
+  'an inline list with quotes, spaces and a trailing comment': 'name: b\nhierarchy: [goal, "Strategy", \'objective\' ,epic]   # top first\n',
+  'a block list': 'name: b\nhierarchy:\n  - goal\n  - strategy\n  - objective\n',
+  'a block list with quotes and trailing comments': 'name: b\nhierarchy:\n  - goal # the why\n  - "Strategy"\n  - \'objective\' # the middle\n  - epic\n',
+  'a comment after the key opens the block': 'name: b\nhierarchy:   # top first\n  - goal\n  - epic\n',
+  'a scalar value answers none': 'name: b\nhierarchy: goal\n',
+  'a quoted scalar with a comma answers none': 'name: b\nhierarchy: "goal, epic"\n',
+  'an empty inline list answers none': 'name: b\nhierarchy: []\n',
+  'an empty key answers none': 'name: b\nhierarchy:\n',
+  'no hierarchy key answers none': 'name: b\nstatuses: [todo, done]\n',
+  'a board that declares types but no hierarchy answers none': 'name: b\ntypes:\n  - name: goal\n  - name: epic\n',
+  'mixed-case duplicates are kept as written, for the slices module to fold': 'name: b\nhierarchy: [goal, Epic, goal, Goal, EPIC]\n',
+  'mixed-case duplicates in a block': 'name: b\nhierarchy:\n  - Goal\n  - goal\n  - Epic\n  - EPIC\n',
+  'blank entries in an inline list are skipped': 'name: b\nhierarchy: [goal, , epic, "", goal]\n',
+  'blank, empty, comment-only and comment-line entries in a block are skipped': 'name: b\nhierarchy:\n  - goal\n  -\n  - ""\n  - epic\n  # a comment line\n  - # only a comment\n  - goal\n',
+  'an unterminated quote': 'name: b\nhierarchy:\n  - "goal\n  - \'epic\n  - ok\n',
+  'CRLF text that stops at the next top-level key': 'name: b\r\nhierarchy:\r\n  - goal\r\n  - epic\r\nstatuses: [todo, done]\r\n  - stray\r\n',
+  'an unindented list is skipped, as for every other list': 'name: b\nhierarchy:\n- goal\n  - epic\n- story\n',
+  'keys after the list': 'name: b\nhierarchy: [goal, epic]\nstatuses: [todo, done]\ntypes: [goal, epic]\n',
+  'an inline key, then a block key, adds to it': 'name: b\nhierarchy: [goal]\nstatuses: [todo, done]\nhierarchy:\n  - epic\n',
+  'an inline key after a block key replaces it': 'name: b\nhierarchy:\n  - epic\nstatuses: [todo, done]\nhierarchy: [goal]\n',
+  'an inline key twice, then a block, then a scalar': 'name: b\nhierarchy: [goal]\nhierarchy: [epic]\nhierarchy:\n  - story\nhierarchy: task\n',
+  'a hierarchy between the other lists': 'name: b\ntypes:\n  - name: goal\n    icon: star\nhierarchy:\n  - goal\n  - epic\npills:\n  - next: "tags:next-up"\nstatuses: [todo, done]\n',
+  'a name that looks like markup': 'name: b\nhierarchy: ["</script><b>", epic]\n',
+};
+
+for (const [label, config] of Object.entries(HIERARCHY_FORMS)) {
+  test(`hierarchy: ${label} reads the way kanban-web reads it`, () => {
+    assert.deepStrictEqual(hierarchyFor(config), parseConfig(config).hierarchy);
+  });
+}
+
+test('the hierarchy keeps the order and the letter case it is written in, and a board without one holds an empty list', () => {
+  assert.deepStrictEqual(hierarchyFor('name: b\nhierarchy:\n  - Goal\n  - strategy\n  - OBJECTIVE\n'), ['Goal', 'strategy', 'OBJECTIVE']);
+  assert.deepStrictEqual(hierarchyFor('name: b\n'), []);
+  assert.deepStrictEqual(hierarchyFor(BOARD.config), []);
+});
+
+test('a hierarchy name that looks like markup cannot close the script element, and arrives as the text it is', () => {
+  withSnapshot({ ...BOARD, config: 'name: b\nhierarchy: ["</script><b>", epic]\n' }, (html) => {
+    assert.deepStrictEqual(embeddedConst(html, 'HIERARCHY'), ['</script><b>', 'epic']);
+  });
+});
