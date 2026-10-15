@@ -8,6 +8,7 @@ const WEB = path.join(__dirname, '..', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = read('app.js');
 const css = read('app.css');
+const html = read('app.html');
 
 function fn(name) {
   const m = appSrc.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`));
@@ -86,4 +87,29 @@ test('the header is a plain button with a chevron, in tokens', () => {
   assert.doesNotMatch(rule[1], /#[0-9a-fA-F]{3,8}\b/);
   assert.match(css, /\.relatives-toggle::before \{[^}]*content:/);
   assert.match(css, /\.relatives-toggle\[aria-expanded="true"\]::before \{[^}]*content:/);
+});
+
+test('the Children section sits right under the roll-up bar, ahead of the fields and the body', () => {
+  const at = (id) => html.indexOf(`id="${id}"`);
+  const order = ['detail-thread', 'detail-rollup', 'detail-children', 'detail-frontmatter', 'detail-body'];
+  const pos = order.map(at);
+  assert.ok(pos.every((n) => n !== -1), 'every block exists');
+  assert.deepStrictEqual([...pos].sort((a, b) => a - b), pos, `blocks run in the order ${order.join(' > ')}`);
+  assert.ok(html.indexOf('class="detail-header popup-header"') < pos[0], 'the header still leads');
+  assert.match(html, /<div id="detail-rollup"[^>]*><\/div>\s*<div id="detail-children" class="detail-children hidden"><\/div>/, 'nothing sits between the bar and the section');
+});
+
+test('the folded list is reached by the header that sits in the section, which stays hidden when a card has no children', () => {
+  const out = childrenHtmlOf(family(), 1);
+  assert.ok(out.startsWith('<button type="button" class="relatives-toggle"'), 'the section opens with its header');
+  assert.match(out, /aria-controls="detail-children-list"[\s\S]*<ul class="children-list hidden" id="detail-children-list">/);
+  assert.match(fn('renderDetailRelatives'), /el\.classList\.toggle\('hidden', !markup\)/);
+});
+
+test('the section is spaced for its place under the bar: no divider or gap left from the foot of the body', () => {
+  const rule = css.match(/\n\.detail-children \{([^}]*)\}/);
+  assert.ok(rule, '.detail-children rule exists');
+  assert.doesNotMatch(rule[1], /border-top|margin-top|padding-top/);
+  assert.match(rule[1], /margin:\s*0 0 12px/);
+  assert.doesNotMatch(rule[1], /#[0-9a-fA-F]{3,8}\b/);
 });

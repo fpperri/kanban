@@ -135,14 +135,14 @@ test('hostile titles and board names stay escaped in the thread and the child li
 
 // --- wiring -------------------------------------------------------------------
 
-test('app.html puts the thread between the header and the frontmatter, and the children after the body', () => {
+test('app.html puts the thread between the header and the frontmatter, and the children ahead of the frontmatter', () => {
   const header = html.indexOf('class="detail-header popup-header"');
   const thread = html.indexOf('id="detail-thread"');
   const front = html.indexOf('id="detail-frontmatter"');
   const body = html.indexOf('id="detail-body"');
   const children = html.indexOf('id="detail-children"');
   assert.ok(header !== -1 && thread !== -1 && front !== -1 && body !== -1 && children !== -1, 'all five anchors exist');
-  assert.ok(header < thread && thread < front && front < body && body < children);
+  assert.ok(header < thread && thread < children && children < front && front < body);
   assert.match(html, /id="detail-thread" class="detail-thread hidden"/);
   assert.match(html, /id="detail-children" class="detail-children hidden"/);
 });

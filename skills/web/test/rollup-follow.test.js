@@ -200,13 +200,13 @@ test('the bar looks clickable and its hit area is taller than the thin line', ()
 
 // --- layout -----------------------------------------------------------------------
 
-test('the detail puts the roll-up under the thread and above the fields', () => {
+test('the detail puts the roll-up under the thread and the children right under the roll-up, above the fields', () => {
   const at = (id) => html.indexOf(`id="${id}"`);
   const [header, thread, rollup, fields, body, children] = [
     html.indexOf('class="detail-header popup-header"'), at('detail-thread'), at('detail-rollup'), at('detail-frontmatter'), at('detail-body'), at('detail-children'),
   ];
   assert.ok([header, thread, rollup, fields, body, children].every((n) => n !== -1), 'every block exists');
-  assert.ok(header < thread && thread < rollup && rollup < fields && fields < body && body < children);
+  assert.ok(header < thread && thread < rollup && rollup < children && children < fields && fields < body);
 });
 
 test('the collapsed detail block drops the framed box so the bar costs a few pixels', () => {
