@@ -10,14 +10,21 @@
 // decides what URL (if any) a step should carry, and what a popstate landing
 // on a URL means for the popup.
 //
-// The model is deliberately push-only — there is no "replace" step. Opening
-// card A, then a mention of B inside it, then a mention back to A again are
-// three separate user gestures a person may want to walk back through one at
-// a time, exactly like three page visits; collapsing any of them into a
-// replace would make Back skip a step the user actually took. The one
-// exception isn't a replace, it's a no-op: opening (or closing) the exact
+// Opening and closing a card are deliberately push-only — never a "replace".
+// Opening card A, then a mention of B inside it, then a mention back to A
+// again are three separate user gestures a person may want to walk back
+// through one at a time, exactly like three page visits; collapsing any of
+// them into a replace would make Back skip a step the user actually took. The
+// one exception isn't a replace, it's a no-op: opening (or closing) the exact
 // card the URL already names pushes nothing, so clicking the same tile twice
 // — or a popstate landing back on it — never grows a run of duplicate steps.
+//
+// The search box's text is the other thing the address carries (`q`), and it
+// is never a step of its own: nextSearchAddress below says what `q` should
+// become, and the caller REPLACES the entry it is on, so typing grows no
+// history. Back and Forward never write the box; when one lands on an entry
+// whose `q` differs from the box, the caller replaces that entry with the
+// box's text.
 
 // The `card` param out of a querystring, applying the same hasCard/id rules
 // as deep-link.js's parseDeepLink (a missing, non-numeric, or
@@ -49,9 +56,34 @@ function nextCardHistorySearch(currentSearch, targetId) {
   return qs ? `?${qs}` : '';
 }
 
+// What the address (CURRENT_SEARCH, location.search as a plain string) should
+// be once the search box holds BOX_TEXT: `q` is the box's text, or gone when
+// the box is empty or blank, and every OTHER parameter (card, view, and
+// whatever a later one adds) stays as it was. Returns the new search string
+// (leading "?", or "" when nothing is left), or null when the address already
+// matches — the caller replaces the history entry only when this is not null,
+// so fast typing never hammers the browser's limit on history replacements.
+// The text goes in verbatim, trailing spaces included, and is encoded by
+// URLSearchParams, so "#", "|", quotes and spaces never become a fragment or
+// get mangled; parseDeepLink trims on the way back in.
+function nextSearchAddress(currentSearch, boxText) {
+  const params = new URLSearchParams(currentSearch || '');
+  const text = typeof boxText === 'string' ? boxText : '';
+  if (text.trim()) {
+    if (params.get('q') === text) return null;
+    params.set('q', text);
+  } else {
+    if (!params.has('q')) return null;
+    params.delete('q');
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { cardIdFromSearch, nextCardHistorySearch };
+  module.exports = { cardIdFromSearch, nextCardHistorySearch, nextSearchAddress };
 } else {
   window.cardIdFromSearch = cardIdFromSearch;
   window.nextCardHistorySearch = nextCardHistorySearch;
+  window.nextSearchAddress = nextSearchAddress;
 }
