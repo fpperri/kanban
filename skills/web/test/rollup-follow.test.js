@@ -43,12 +43,20 @@ const cards = () => [
 const rollupState = () => appSrc.match(/^let rollup\w* = null;$/gm) || [];
 const rollupPrefs = () => [...appSrc.matchAll(/^function ((?:load|save)Rollup\w*)\(/gm)].map((m) => fn(m[1]));
 
-function detailSandbox({ mode, detailId = null, archivedKey, archivedLeaves = [] } = {}) {
+// The preferences entry the archived-leaves choice lives in: its memo, loader and the one reader a roll-up asks.
+const prefsState = () => {
+  const memo = appSrc.match(/^let prefsMemo = null;$/m);
+  assert.ok(memo, 'the page keeps one memo for the preferences entry');
+  return [memo[0], fn('prefsStorage'), fn('loadPrefsState'), fn('countArchivedLeaves')];
+};
+
+function detailSandbox({ mode, detailId = null, archivedKey, archivedDone, archivedLeaves = [] } = {}) {
   const colState = require('../web/column-state');
   const stored = {};
   const writes = {};
   if (mode) stored['kanban.kanban.rollup.bar'] = mode;
   if (archivedKey !== undefined) stored['kanban.kanban.rollup.archived'] = archivedKey;
+  if (archivedDone !== undefined) stored['kanban.kanban.prefs'] = JSON.stringify({ archivedDone });
   const box = fakeBox();
   const calls = { renderBoard: 0, detail: [] };
   const sandbox = {
@@ -58,11 +66,12 @@ function detailSandbox({ mode, detailId = null, archivedKey, archivedLeaves = []
     $: (sel) => { assert.strictEqual(sel, '#detail-rollup'); return box; },
     renderBoard: () => { calls.renderBoard++; },
     box, calls, writes,
+    ...require('../web/prefs'),
     ...require('../web/nesting'),
     ...require('../web/rollup-bar'),
   };
   vm.createContext(sandbox);
-  vm.runInContext([...rollupState(), `let currentDetailId = ${detailId};`,
+  vm.runInContext([...rollupState(), ...prefsState(), `let currentDetailId = ${detailId};`,
     fn('boardStatuses'), ...rollupPrefs(), fn('nestingCtx'), fn('buildNestingIndex'),
     fn('paintRollupBars'), fn('renderDetailRollup'), fn('toggleRollupBar')].join('\n'), sandbox);
   vm.runInContext('renderDetailRollup = ((orig) => (id) => { calls.detail.push(id); return orig(id); })(renderDetailRollup);', sandbox);
@@ -104,6 +113,24 @@ test('archived leaves count as done in the detail, and its scope line says so, w
     assert.match(s.box.innerHTML, /Archived leaves count as done\./, `stored ${archivedKey}`);
     assert.doesNotMatch(s.box.innerHTML, /left out/, `stored ${archivedKey}`);
   }
+});
+
+test('with archived leaves counted as done switched off in the preferences, the detail leaves them out, and its scope line says so', () => {
+  const archivedLeaves = [{ id: 5, parent: 1, status: 'done', archived: true }];
+  const s = detailSandbox({ mode: 'open', archivedDone: false, archivedLeaves });
+  s.renderDetailRollup(1);
+  assert.match(s.box.innerHTML, /<b class="rollup-total">3<\/b>/);
+  assert.match(s.box.innerHTML, /<span class="rollup-count">1 done<\/span>/);
+  assert.match(s.box.innerHTML, /Archived leaves are left out\./);
+  assert.doesNotMatch(s.box.innerHTML, /Archived leaves count as done/);
+});
+
+test('switched back on, the detail counts archived leaves again and its scope line says so', () => {
+  const archivedLeaves = [{ id: 5, parent: 1, status: 'done', archived: true }];
+  const s = detailSandbox({ mode: 'open', archivedDone: true, archivedLeaves });
+  s.renderDetailRollup(1);
+  assert.match(s.box.innerHTML, /<b class="rollup-total">4<\/b>/);
+  assert.match(s.box.innerHTML, /Archived leaves count as done\./);
 });
 
 test('a leaf has no roll-up block, whatever the setting', () => {

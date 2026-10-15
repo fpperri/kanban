@@ -790,6 +790,30 @@ function toggleRollupBar() {
   if (currentDetailId != null) renderDetailRollup(currentDetailId);
 }
 
+// The preferences sheet's other settings (prefs.js): what a plain click on a
+// card does in each view, and whether archived leaves count as done. One entry
+// per board, memoized like the choices above and dropped by applyProjectName.
+let prefsMemo = null;
+
+function prefsStorage() {
+  try { return localStorage; } catch (e) { return null; } // blocked storage throws on access
+}
+
+function loadPrefsState() {
+  if (!prefsMemo) prefsMemo = loadPrefs(prefsStorage(), state.projectName);
+  return prefsMemo;
+}
+
+function savePrefsState() {
+  savePrefs(prefsStorage(), state.projectName, loadPrefsState());
+}
+
+// Every roll-up call passes this: the Board tile, the Map's rich row and the
+// card detail with its scope line.
+function countArchivedLeaves() {
+  return loadPrefsState().archivedDone;
+}
+
 // Cards are edited in place (optimistic drops), so the nesting index is rebuilt
 // at the top of every renderBoard() rather than cached across renders; tiles
 // and the map's No relations row both read it.
@@ -806,7 +830,7 @@ function buildNestingIndex() {
 function parentTile(card) {
   const altitude = nestingIndex.altitudeOf(card.id);
   if (!altitude) return { badge: '', bar: '' };
-  const rollup = nestingIndex.rollup(card.id);
+  const rollup = nestingIndex.rollup(card.id, { countArchived: countArchivedLeaves() });
   return { badge: altitudeBadge(altitude), bar: rollupBar(rollup, loadRollupBarMode(), boardStatuses()) };
 }
 
@@ -1415,7 +1439,7 @@ function mapRichLayout(n, draw) {
   const type = card && card.type != null ? String(card.type).trim() : '';
   const alt = nestingIndex.altitudeOf(n.id);
   const mode = loadRollupBarMode();
-  const rollup = alt ? nestingIndex.rollup(n.id) : null;
+  const rollup = alt ? nestingIndex.rollup(n.id, { countArchived: countArchivedLeaves() }) : null;
   const hasBar = !!(rollup && rollup.total);
   const hasMeta = !!type || alt >= 1 || !!n.blocked;
   const barH = mode === ROLLUP_BAR_OPEN ? MAP_RICH_BAR_OPEN_H : MAP_RICH_BAR_THIN_H;
@@ -1667,6 +1691,7 @@ function applyProjectName(name) {
     modalFullscreen = null;
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
+    prefsMemo = null; // the preferences entry too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     ganttSubview = null; // gantt.subview too
@@ -2868,8 +2893,8 @@ function renderDetailRollup(id) {
     return;
   }
   const mode = loadRollupBarMode();
-  // Archived leaves always count as done, so the scope line always says so.
-  box.innerHTML = rollupDetailHtml(index.rollup(id), altitude, boardStatuses(), true, mode);
+  const countArchived = countArchivedLeaves();
+  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived, mode);
   box.classList.toggle('detail-rollup--collapsed', mode === ROLLUP_BAR_COLLAPSED);
   paintRollupBars(box);
   box.classList.remove('hidden');
