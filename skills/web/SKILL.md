@@ -819,9 +819,9 @@ to `127.0.0.1` only.
     actually carried a `card` key can produce that toast, so the status page's
     card-less links never fire one.
   - **The address follows the box.** Whatever the search box holds is in the address as
-    `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, Path and
-    Tree from a card's menu, a `?q=` link, and a click in the Graph that drops a typed
-    search) replaces `q` with the box's text, and an empty
+    `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, a `?q=`
+    link, and a click in the Graph that drops a typed search) replaces `q` with the box's
+    text, and an empty
     or blank box drops `q`; `card` and `view` ride along untouched. The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
