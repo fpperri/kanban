@@ -223,3 +223,9 @@ test('the pills use their own class, never a status pill\'s, so those rules, the
   const keeper = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/)[0];
   assert.doesNotMatch(keeper, /query-pill/);
 });
+
+test('every element the panel script looks up by id is in the page', () => {
+  const ids = new Set([...panelSrc.matchAll(/\$\('#([\w-]+)'\)/g)].map((m) => m[1]));
+  assert.ok(ids.size >= 5, 'the lookups are found');
+  for (const id of ids) assert.ok(html.includes(`id="${id}"`), `#${id} is in app.html`);
+});

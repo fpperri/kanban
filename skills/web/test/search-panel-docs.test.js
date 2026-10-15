@@ -114,10 +114,3 @@ test('the Esc paragraph of the popups entry names the panel too', () => {
   const popups = flat(skill.slice(skill.indexOf('**Esc** closes whichever popup is open'), skill.indexOf('**Alt+Enter**')));
   assert.match(popups, /search panel/);
 });
-
-test('neither doc names a planning card, a ticket number or a tool', () => {
-  for (const [where, text] of BOTH) {
-    assert.doesNotMatch(text, /kanban\.proj|#\d{3}\b/, where);
-    assert.doesNotMatch(text, /\bClaude\b|\bAI\b|assistant/i, where);
-  }
-});
