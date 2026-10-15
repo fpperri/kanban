@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a graph, a key-guard, a card-click, a selection and a smoke scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a graph, a key-guard, a card-click, a selection, a config-keys and a smoke scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'graph', 'key-guard', 'card-click', 'selection', 'smoke']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'graph', 'key-guard', 'card-click', 'selection', 'config-keys', 'smoke']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -195,6 +195,44 @@ test('the search-box scenario opens the card menu with the right-click helper, f
 
 test('the search-box scenario waits on the page, never on a fixed sleep', () => {
   assert.ok(!/\bsleep\(/.test(code(source('search-box.js'))));
+});
+
+// What the address-follows-the-box drive checks: typing, the history, clearing,
+// a reload, a compound query, a link that carries a view, and card history with
+// a query in the box.
+const SEARCH_ADDRESS_CHECKS = [
+  'typing zephyr puts it in the address as q and keeps view', 'the browser history does not grow while typing',
+  'and the board shows the matches', 'after a reload the box holds zephyr and the board shows only its matches',
+  'clearing the box drops q from the address and keeps view',
+  'a box holding #12 | (tags:"next-up" status:doing) comes back unchanged after a reload',
+  'one more keystroke makes q equal the box and keeps view',
+  'opening a card with a query in the box adds one history step carrying card and q',
+  'going Back closes the card and the box keeps the query', 'going Forward reopens it and the box keeps the query',
+  'Back reopens the card, the box keeps the new query, and q in the address equals the box',
+];
+
+test('the search-address scenario runs on the fixture board and makes every check the address-follows-the-box drive owes', () => {
+  assert.strictEqual(byName('search-address').board, 'fixture');
+  assert.strictEqual(byName('search-address').alsoBoards, undefined);
+  const src = source('search-address.js');
+  assert.deepStrictEqual(SEARCH_ADDRESS_CHECKS.filter((n) => !src.includes(`check('${n}'`)), []);
+});
+
+test('the search-address scenario steps through history with history.back and history.forward and waits on the page, never on a fixed sleep', () => {
+  const src = code(source('search-address.js'));
+  assert.ok(src.includes('history.back()') && src.includes('history.forward()'));
+  assert.ok(!/\bsleep\(/.test(src));
+});
+
+// Page.reload answers as soon as the reload starts and the old document stays
+// alive until the new one commits, so a wait taken right after it can be
+// answered by the page being left. The scenario marks the old document first and
+// waits for the mark to be gone, and no reload goes around that.
+test('the search-address scenario reloads only through a helper that waits for the old document to be gone', () => {
+  const src = code(source('search-address.js'));
+  assert.strictEqual(src.split("send('Page.reload')").length - 1, 1, 'one raw reload, inside the helper');
+  assert.ok(/window\.__beforeReload = true[\s\S]*send\('Page\.reload'\)[\s\S]*window\.__beforeReload === undefined/.test(src), 'the helper marks the page, reloads, then waits for the mark to be gone');
+  assert.strictEqual(src.split('await reload();').length - 1, 2, 'both reload checks go through the helper');
 });
 
 // The click grammar's browser drive, on the fixture board: what a click on a

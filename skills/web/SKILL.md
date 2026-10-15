@@ -752,12 +752,28 @@ to `127.0.0.1` only.
     popup — but a `q` and a `view` that parsed fine are still applied. Only a link that
     actually carried a `card` key can produce that toast, so the status page's
     card-less links never fire one.
+  - **The address follows the box.** Whatever the search box holds is in the address as
+    `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, Path and
+    Tree from a card's menu, a `?q=` link) replaces `q` with the box's text, and an empty
+    or blank box drops `q`; `card` and `view` ride along untouched. The address replaces
+    the history entry the page is on and never pushes one, so typing adds no history
+    entries (Back and Forward still step only between opened cards), and it replaces only
+    when `q` would change. A browser may refuse a replacement when there are too many in
+    a short time (Safari throws past 100 in 30 seconds): the refusal is let go, the
+    address lags the box, and the next change to `q` catches it up. A reload, or a link copied from the address bar, opens with the same
+    search through the deep link above, whatever the query holds; the poll never writes
+    the address. Back and Forward never write the box: when one
+    lands on an entry whose `q` differs from the box, the box keeps its text and that
+    entry is replaced to carry it. Opening a card still takes one history step, which now
+    carries the query too. `card-history.js` decides the new address (a pure function: the
+    current address and the box's text in, the new address or nothing out); app.js applies
+    it as one more listener of the search box's single writer.
   - This is a one-time override, consumed exactly once right after the very first load
     — it composes with, but never fights, the 5s poll or the `localStorage`-persisted
     view mode (view.mode, above): the deep link's view isn't written back to storage, so
     a later plain reload with no querystring resumes wherever the view toggle last left
-    it, the query is gone on that reload too, and the poll's own re-renders never re-read
-    the URL. Pure querystring parsing lives in `deep-link.js` (dual-environment export,
+    it, with an empty box (the address carries a query only while the box holds one), and
+    the poll's own re-renders never re-read the URL. Pure querystring parsing lives in `deep-link.js` (dual-environment export,
     same pattern as `refresh-policy.js`/`search-hotkey.js`); the search box, the view
     switch, the popup, and the scroll are app.js's job.
 - **Card popup history (Alt+Left/Alt+Right)** — opening the detail popup, from any
@@ -1262,10 +1278,15 @@ assignees:                # who can own cards; feeds the form's assignee combobo
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config, design]    # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
-types:                    # suggested card types; color is OPTIONAL
+types:                    # suggested card types; color and icon are OPTIONAL
   - name: objective
     color: "#a371f7"
+    icon: diamond         # circle | square | diamond | triangle | hexagon | star
   - story                 # bare entry = name only, neutral chip
+hierarchy: [goal, strategy, objective, initiative]   # the types that are the levels of the plan, top first
+pills:                    # the board's own one-click search queries, in block form
+  - next: 'tags:"next-up"'   # label: query
+  - "assignee:@human"        # a query on its own is its own label
 ```
 
 This app is config-driven and doesn't enforce the grab semantics — it renders whatever
@@ -1292,7 +1313,27 @@ handle a card carries.
   listed) and the type chip's color only: a card's `type:` may be any text, and a type
   outside the list still reads as a neutral chip.
   `GET /api/board` carries it as `types: [{name, color}]` (`color` is `''` when absent;
-  `[]` when the key or file is). Human-curated like `tags`; the app only reads.
+  `[]` when the key or file is), and an entry that sets an `icon:` also carries `icon` (the
+  name lowercased with a trailing comment stripped, an unknown name passed through as
+  written; no `icon` key at all when none is set). Human-curated like `tags`; the app only reads.
+- **`icon`** (on a `types:` block entry) is one of `circle`, `square`, `diamond`,
+  `triangle`, `hexagon` or `star`. A later change draws it; today the page only holds it.
+  Labels, queries and icon names are human text: a reader escapes them and never uses one
+  as raw markup or a class name.
+- **`hierarchy`** (inline or block form) lists the type names that are the levels of the
+  plan, top first. `GET /api/board` carries it as `hierarchy: [name, ...]`, the names in
+  order as written: blank entries are dropped, duplicates and case differences pass
+  through for the page to normalise, and a scalar value or an empty list answers `[]`
+  (as does an absent key, even on a board that declares `types:`). It orders drawing and
+  slicing and **enforces nothing**: saving a card nested against it (a goal under an
+  initiative) succeeds and the answer carries no warning (ADR 0013).
+- **`pills`** (block form only) lists the board's own one-click search queries, each a
+  query or a one-key map from a label to a query. `GET /api/board` carries them as
+  `pills: [{label, query}]` in config order; a query on its own is its own label,
+  `- tags: grill` is the label `tags` with the query `grill` (a colon followed by a space
+  ends the key), and an entry that is blank, only a comment, or has an empty label or
+  query is skipped without an error. The page holds `hierarchy` and `pills` on `state`
+  after every load and poll; nothing draws them yet.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's

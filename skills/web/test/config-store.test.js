@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -76,7 +76,7 @@ test('serializeConfig round-trips through parseConfig', () => {
 
 test('readConfig returns defaults when config.yaml is absent', () => {
   const dir = tmpBoard();
-  assert.deepStrictEqual(cfg.readConfig(dir), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] });
+  assert.deepStrictEqual(cfg.readConfig(dir), cfg.parseConfig(''));
 });
 
 // --- `statuses` joins LIST_KEYS — the official column list ----------
@@ -187,6 +187,50 @@ test('allocateId preserves comments and unknown keys — surgical nextId replace
   assert.match(after, /nextId: 41/);
   assert.doesNotMatch(after, /nextId: 40/);
 });
+
+// The hierarchy, pills and icon lines are human text: the counter's write
+// replaces its own line and nothing else, whatever the file's line endings.
+const KEYED = [
+  'name: plan',
+  'nextId: 30',
+  'hierarchy: [goal, strategy, objective, epic]',
+  'types:',
+  '  - name: goal',
+  '    color: "#a371f7"',
+  '    icon: star   # five points',
+  '  - name: epic',
+  '    icon: Square',
+  'pills:',
+  "  - next: 'tags:\"next-up\"'   # the queue",
+  '  - "assignee:@human"',
+  '  - tags: grill',
+  '  -',
+  'unknown: kept  ',
+  '',
+];
+
+for (const [label, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
+  test(`creating a card advances the counter and keeps the hierarchy, pills and icon lines byte for byte (${label})`, () => {
+    const dir = tmpBoard();
+    const before = KEYED.join(eol);
+    fs.writeFileSync(path.join(dir, 'config.yaml'), before);
+    assert.strictEqual(cfg.allocateId(dir, 2), 30);
+    const after = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+    assert.strictEqual(after, before.replace('nextId: 30', 'nextId: 31'));
+    assert.deepStrictEqual(cfg.parseConfig(after).hierarchy, ['goal', 'strategy', 'objective', 'epic']);
+    assert.strictEqual(cfg.parseConfig(after).pills.length, 3);
+  });
+
+  test(`a counter inserted above the keys leaves every one of their lines as it was (${label})`, () => {
+    const dir = tmpBoard();
+    const keyed = KEYED.filter((l) => l !== 'nextId: 30');
+    fs.writeFileSync(path.join(dir, 'config.yaml'), keyed.join(eol));
+    assert.strictEqual(cfg.allocateId(dir, 6), 6);
+    const after = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+    assert.match(after, /^nextId: 7\r?\n/);
+    assert.strictEqual(after.slice(after.indexOf('name: plan')), keyed.join(eol));
+  });
+}
 
 test('allocateId inserts a nextId line without disturbing a config that lacks one', () => {
   const dir = tmpBoard();
@@ -334,4 +378,26 @@ test('a comment after the types or priorities key opens the block list, as the d
   assert.deepStrictEqual(c.types, [{ name: 'objective', color: '#a371f7' }, { name: 'story', color: '' }]);
   assert.deepStrictEqual(c.priorities, ['Urgent', 'Normal']);
   assert.deepStrictEqual(c.tags, ['ui']);
+});
+
+// --- the pill-entry splitter and the icon names, shared with the snapshot's reader ---
+
+test('splitPillEntry splits an entry into a label and a query, or null', () => {
+  const split = cfg.splitPillEntry;
+  assert.deepStrictEqual(split('tags:*'), { label: 'tags:*', query: 'tags:*' });
+  assert.deepStrictEqual(split('"assignee:@human"'), { label: 'assignee:@human', query: 'assignee:@human' });
+  assert.deepStrictEqual(split("next: 'tags:\"next-up\"'"), { label: 'next', query: 'tags:"next-up"' });
+  assert.deepStrictEqual(split('tags: grill'), { label: 'tags', query: 'grill' });
+  assert.deepStrictEqual(split('"two words": review:'), { label: 'two words', query: 'review:' });
+  assert.deepStrictEqual(split('assignee:@human # who: me'), { label: 'assignee:@human', query: 'assignee:@human' });
+  assert.deepStrictEqual(split('"say \\"hi\\"": x'), { label: 'say "hi"', query: 'x' });
+  assert.deepStrictEqual(split('"unterminated'), { label: '"unterminated', query: '"unterminated' });
+  for (const blank of ['', '   ', '# comment', '""', "''", 'next:', 'next: ""', 'next: # nothing', '"": x', ': x']) {
+    assert.strictEqual(split(blank), null, JSON.stringify(blank));
+  }
+});
+
+test('ICON_NAMES is the six outline glyphs, and cannot be changed by a consumer', () => {
+  assert.deepStrictEqual([...cfg.ICON_NAMES], ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star']);
+  assert.ok(Object.isFrozen(cfg.ICON_NAMES));
 });
