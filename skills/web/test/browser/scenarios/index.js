@@ -13,4 +13,5 @@ module.exports = [
   require('./config-keys'),
   require('./type-icons'),
   require('./smoke'),
+  require('./calendar-jump'),
 ];

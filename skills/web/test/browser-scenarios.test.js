@@ -59,9 +59,10 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a graph, a key-guard, a card-click, a config-keys, a type-icons and a smoke scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a graph, a key-guard, a card-click, a config-keys, a type-icons, a smoke and a calendar-jump scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'graph', 'key-guard', 'card-click', 'config-keys', 'type-icons', 'smoke']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'graph', 'key-guard', 'card-click', 'config-keys', 'type-icons', 'smoke', 'calendar-jump']);
+
   assert.strictEqual(new Set(names).size, names.length);
 });
 
