@@ -866,7 +866,9 @@ to `127.0.0.1` only.
   it after the built-ins, so the first pill on is the anchor and a later one is an addition
   (see Search panel). A pill whose own query is a `slice:` term writes a cut, which stands
   at the top level of the box and cuts every view, and the cut goes with the pill when it goes
-  off; a run of slices the box held before it is not the pill's and stays. A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
+  off; a run of slices the box held before it is not the pill's and stays, also when it is the very
+  cut the pill holds: the box then holds that cut twice while the pill is on, and the pill takes
+  out its copy only (Esc's step back does the same). A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
   `priority:*` and `type:*`), makes one pill per distinct value the board's active cards hold
   in that field, in the place the entry holds, sorted and labelled by the value. Each matches
   its value exactly, through the search module's term writer, so the `grill` pill never

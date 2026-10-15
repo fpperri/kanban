@@ -414,6 +414,18 @@ function searchCutOnly(raw) {
   return searchJoinSlice('', searchSplitSlice(raw).slices);
 }
 
+// `slices` with one copy of each cut in `cuts` taken out, and no more. A pill whose own query is a
+// cut writes it next to the one the box held when the two are the same cut, so the box holds two
+// copies, and the pill going off takes out its copy: the one the box held stays.
+function searchWithoutCuts(slices, cuts) {
+  const left = slices.slice();
+  for (const cut of cuts) {
+    const at = left.indexOf(cut);
+    if (at >= 0) left.splice(at, 1);
+  }
+  return left;
+}
+
 // The query with its top-level slice: terms replaced by one for `value` (the text after
 // `slice:`), or by none when the value is empty. The rest of the query keeps its meaning,
 // and a query with nothing to change comes back as it was.
@@ -527,7 +539,7 @@ function searchRemoveGrownAlt(raw, term) {
     return !base.some((own) => own.key === searchAltKey(alt) || (own.terms.length && own.terms.every((t) => terms.includes(t))));
   });
   const cut = base.flatMap((own) => own.cut);
-  const kept = slices.filter((s) => !cut.includes(s));
+  const kept = searchWithoutCuts(slices, cut);
   return left.length === have.length && kept.length === slices.length ? text : searchJoinSlice(searchAltsText(left), kept);
 }
 
@@ -830,7 +842,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
-    searchSplitSlice, searchJoinSlice, searchSetSlice, searchCutOnly,
+    searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
 } else {
@@ -848,6 +860,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchRemoveGrownAlt = searchRemoveGrownAlt;
   window.searchSplitSlice = searchSplitSlice;
   window.searchJoinSlice = searchJoinSlice;
+  window.searchWithoutCuts = searchWithoutCuts;
   window.searchSetSlice = searchSetSlice;
   window.searchCutOnly = searchCutOnly;
   window.searchIsolateText = searchIsolateText;
