@@ -88,8 +88,8 @@ test('the older plugin is main checked out beside this one, before the run that 
   assert.strictEqual(J.browser.split('actions/checkout@v4').length - 1, 2, 'this checkout and the one of main');
 });
 
-test('the browser job uploads its screenshots when a step fails', () => {
-  assert.match(J.browser, /- if: failure\(\)\s+uses: actions\/upload-artifact@v4/);
+test('the browser job uploads its screenshots when a step fails and when the job hits its time limit, which cancels it', () => {
+  assert.match(J.browser, /- if: failure\(\) \|\| cancelled\(\)\s+uses: actions\/upload-artifact@v4/);
   const folders = [...J.browser.matchAll(/--shots (\S+)/g)].map((m) => m[1]);
   for (const f of folders) assert.ok(new RegExp(`^\\s+${f}$`, 'm').test(J.browser), `${f} is not uploaded`);
 });
