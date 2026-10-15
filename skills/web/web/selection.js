@@ -10,17 +10,17 @@ function toggleSelection(set, id) {
 }
 
 // Shift+click adds a RANGE: union of the current selection with
-// every id between anchor and target in the active view's rendered order.
+// every id between the range start and target in the active view's rendered order.
 // Additive on purpose — the grammar is "shift to ADD a range", so a
 // previous range never gets un-selected by the next one, and a stale/missing
-// anchor degrades to adding just the target (never a toggle — shift must not
+// range start degrades to adding just the target (never a toggle — shift must not
 // deselect). A target that isn't rendered returns the input set unchanged
 // (same reference — no re-render needed, mirroring contextSelection's
 // no-change contract).
-function rangeSelection(set, orderedIds, anchorId, targetId) {
+function rangeSelection(set, orderedIds, startId, targetId) {
   const t = orderedIds.indexOf(targetId);
   if (t === -1) return set;
-  const a = orderedIds.indexOf(anchorId);
+  const a = orderedIds.indexOf(startId);
   if (a === -1) { const next = new Set(set); next.add(targetId); return next; }
   const next = new Set(set);
   const [lo, hi] = a < t ? [a, t] : [t, a];
@@ -112,8 +112,30 @@ function dragPlan(ids, byId, dest, refusesDoingFn) {
   return { toArchive, toRestore, toMove, refused, unchanged, confirmMessage };
 }
 
+// What a plain click on a card does, per view: it opens the card, except in
+// the Graph, where a bare click selects (dragging a card makes a click a
+// selection gesture there). Anything the table does not name opens.
+const PLAIN_CLICK_SELECTS = { graph: true };
+
+function plainClickBehaviour(view) {
+  return Object.prototype.hasOwnProperty.call(PLAIN_CLICK_SELECTS, view) ? 'selects' : 'opens';
+}
+
+// What a click on a card does, as one pure decision — the page's click
+// handler only carries it out. A cue (the assignee, a tag, a blocked or review
+// pill) is a search shortcut whatever the modifiers; Shift adds a range from
+// the range start; Ctrl or Cmd toggles one card; a plain click does what the
+// view's plainClick says ('opens' or 'selects', from plainClickBehaviour).
+// Returns 'cue' | 'range' | 'toggle' | 'select' | 'open'.
+function cardClickAction({ cue, shiftKey, ctrlKey, metaKey, plainClick }) {
+  if (cue) return 'cue';
+  if (shiftKey) return 'range';
+  if (ctrlKey || metaKey) return 'toggle';
+  return plainClick === 'selects' ? 'select' : 'open';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted };
+  module.exports = { toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction };
 } else {
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
@@ -123,4 +145,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.archiveNeedsConfirm = archiveNeedsConfirm;
   window.rangeSelection = rangeSelection;
   window.isHoverHighlighted = isHoverHighlighted;
+  window.plainClickBehaviour = plainClickBehaviour;
+  window.cardClickAction = cardClickAction;
 }

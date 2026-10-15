@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { clickAwayExemptions, assertHasSelectors } = require('./helpers/selector-list');
+const { assertKeepsSelection } = require('./helpers/markers');
 
 const WEB = path.join(__dirname, '..', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
@@ -151,13 +151,22 @@ function sharedClickHandler() {
   return m[0];
 }
 
+// The selection the handler decides over and the steps that carry its decision
+// out, exactly as the page defines them: the click handler is a thin caller.
+const pageLine = (name) => {
+  const m = appSrc.match(new RegExp(`^let ${name} = .*;$`, 'm'));
+  assert.ok(m, `the page declares ${name}`);
+  return m[0];
+};
+const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('applyCardClick'), fn('searchByCue')].join('\n');
+
 function clickHarness() {
   const listeners = [];
   const calls = { toggle: 0, open: [] };
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
-    selectedIds: new Set([5]),
-    selectionAnchor: 5,
+    ...require('../web/selection'),
+    loadViewMode: () => 'board',
     state: { active: [], archived: [] },
     toggleRollupBar: () => { calls.toggle++; },
     openCard: (id) => { calls.open.push(id); },
@@ -165,7 +174,7 @@ function clickHarness() {
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext(sharedClickHandler(), sandbox);
+  vm.runInContext(`${selectionSteps()}\nsetSelection(new Set([5]), 5);\n${sharedClickHandler()}`, sandbox);
   assert.strictEqual(listeners.length, 1);
   return { click: listeners[0][1], sandbox };
 }
@@ -197,10 +206,9 @@ test('clicking the rest of the card still opens it', () => {
 });
 
 test('a click on a roll-up bar keeps a building multi-selection', () => {
-  const line = appSrc.split('\n').find((l) => /e\.target\.closest\('[^']*#bulk-single/.test(l));
-  assert.ok(line, 'the Q0 exemption selector is there');
-  assert.match(line, /e\.target\.closest\('[^']*'\)\) return;/, 'the exemption returns early');
-  assertHasSelectors(clickAwayExemptions(appSrc), ['.rollup', '#graph-toggle-btn', '.graph-control'], 'the bar itself is exempt, not only the header controls');
+  assert.match(fn('onClickAway'), /if \(e\.target\.closest\('\[data-keeps-selection\]'\)\) return;/, 'a marked control returns early');
+  assert.match(appSrc, /document\.addEventListener\('click', onClickAway\);/, 'the click-away handler is registered');
+  assertKeepsSelection(['.rollup', '#graph-toggle-btn', '.graph-control'], 'the bar itself is exempt, not only the header controls');
 });
 
 test('the bar looks clickable and its hit area is taller than the thin line', () => {
@@ -249,14 +257,14 @@ function flipSandbox({ mode, detailId = null } = {}) {
   s.flip = { columns: 0, views: 0, opened: [] };
   Object.assign(s, {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
-    selectedIds: new Set(),
-    selectionAnchor: null,
+    ...require('../web/selection'),
+    loadViewMode: () => 'board',
     openCard: (id) => { s.flip.opened.push(id); },
     renderBoardColumns: () => { s.flip.columns++; },
     applyViewMode: () => { s.flip.views++; },
     computeSearchMatch: () => ({ terms: [], ids: null }),
   });
-  vm.runInContext([fn('renderBoard'), sharedClickHandler()].join('\n'), s);
+  vm.runInContext([selectionSteps(), fn('renderBoard'), sharedClickHandler()].join('\n'), s);
   assert.strictEqual(listeners.length, 1);
   s.click = listeners[0][1];
   return s;
