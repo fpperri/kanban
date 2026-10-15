@@ -3189,18 +3189,20 @@ function onSearchChordKey(e) {
   input.setSelectionRange(result.selectionStart, result.selectionEnd);
 }
 
-// Append a scoped term to whatever's already in the search
+// Add a scoped term to whatever's already in the search
 // box (assignee cue / tag click on a card tile) and re-render — same direct-
 // call convention as focusOn() (further down): set the box, call
-// renderBoard() straight, no synthetic 'input' event needed. Idempotent
-// rather than a toggle: clicking the same assignee/tag again while its term
-// is already present is a no-op — simpler than tracking "did I add this" to
-// support removing it again.
+// renderBoard() straight, no synthetic 'input' event needed. The term goes
+// through the search module's term interface, so it lands in every alternative
+// of a query holding `|` and a value with spaces stays one quoted term.
+// Idempotent rather than a toggle: clicking the same assignee/tag again while
+// its term is already present is a no-op — simpler than tracking "did I add
+// this" to support removing it again.
 function addSearchTerm(term) {
   const input = $('#search-input');
-  const terms = input.value.trim() ? input.value.trim().split(/\s+/) : [];
-  if (terms.includes(term)) return;
-  writeSearch(terms.concat(term).join(' '), 'cue');
+  const next = searchAddTerm(input.value, term);
+  if (next === input.value) return;
+  writeSearch(next, 'cue');
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -3224,10 +3226,11 @@ window.addEventListener('DOMContentLoaded', () => {
   // <datalist> misrenders in VSCode's Simple Browser — see attachCombobox's
   // own header comment) the create/edit form uses for priority/assignee/tags.
   // getOptions reads input.value itself (searchSuggestionItems computes
-  // fresh candidates from whatever's currently typed) rather than a static
-  // list — preFiltered/selectOnFocus:false are the two opt-outs that make
-  // that fit; see attachCombobox's comments at each for why.
-  attachCombobox(input, () => searchSuggestionItems(input.value), { preFiltered: true, selectOnFocus: false });
+  // fresh candidates from whatever's currently typed, at the caret, so a token
+  // inside a bracket or a quote or after a `|` completes in place) rather than
+  // a static list — preFiltered/selectOnFocus:false are the two opt-outs that
+  // make that fit; see attachCombobox's comments at each for why.
+  attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart), { preFiltered: true, selectOnFocus: false });
 });
 
 // --- Map view wiring: top-bar toggle + the bits
@@ -5276,8 +5279,8 @@ function onDetailContextMenu(e) {
 function searchByCue(cue, id) {
   const card = state.active.concat(state.archived).find((c) => c.id === id);
   if (!card) return;
-  if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(`assignee:${card.assignee}`);
-  else if (cue.classList.contains('tag')) addSearchTerm(`tags:${cue.textContent}`);
+  if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(searchTermText('assignee', card.assignee));
+  else if (cue.classList.contains('tag')) addSearchTerm(searchTermText('tags', cue.textContent));
   else if (cue.classList.contains('blocked-pill')) addSearchTerm('blocked:');
   else if (cue.classList.contains('review-pill')) addSearchTerm('review:');
 }
