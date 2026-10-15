@@ -49,18 +49,25 @@ test('the Graph section says a board without a hierarchy draws depth rings, and 
   assert.match(text, /A card whose parent is hidden \(archived, or filtered out by a pill\) is drawn as a root, the top of its own sector, in the band of its slice/);
 });
 
-test('the Graph section says each band and ring has a faint guide arc and a caption with its name and count, in two alternating rows', () => {
+test('the Graph section says the fan goes all the way round the centre but for a seam at the top', () => {
+  const text = graph();
+  assert.match(text, /the fan goes all the way round the centre but for a narrow \*\*seam\*\* straight up/);
+  assert.doesNotMatch(text, /opens downward/);
+});
+
+test('the Graph section says each band and ring has a faint guide arc and a caption with its name and count up the seam, neighbours on opposite sides', () => {
   const text = graph();
   assert.match(text, /a faint \*\*guide arc\*\*/);
-  assert.match(text, /a \*\*caption\*\* on the fan's flat edge with its name and its card count/);
-  assert.match(text, /in two alternating rows so neighbours never touch/);
+  assert.match(text, /a \*\*caption\*\* on the seam with its name and its card count/);
+  assert.match(text, /neighbours on opposite sides of the seam so they never touch/);
   assert.match(text, /a depth with no card draws nothing/);
+  assert.doesNotMatch(text, /flat edge/);
 });
 
 test('the Graph section says a divider separates each sector from the next, and the loose cards with a tier have a caption with a count', () => {
   const text = graph();
   assert.match(text, /A divider separates each sector from the next/);
-  assert.match(text, /the sector of loose cards with a tier has its own caption and count/);
+  assert.match(text, /the sector of loose cards with a tier has its own caption and count, outside the rim/);
 });
 
 test('the Graph section says the Unnested block has a title with its count and a captioned column for each status, archived while the Archive pill is on', () => {
@@ -72,7 +79,7 @@ test('the Graph section says the Unnested block has a title with its count and a
 
 test('the Graph section says Fit and the first draw frame every dot, caption and the block, and the type icon is the dot in the fan', () => {
   const text = graph();
-  assert.match(text, /Fit and the first draw frame every dot, every caption and the Unnested block/);
+  assert.match(text, /Fit and the first draw frame the whole circle, every dot, every caption and the Unnested block, and no two captions overlap/);
   assert.match(text, /A type with an icon draws its dot in that outline/);
 });
 
@@ -82,16 +89,24 @@ test('the Graph section no longer describes the old full-circle Tiers', () => {
   assert.doesNotMatch(text, /on the outermost ring/);
 });
 
+test('the Tiers button\'s title says the fan goes all the way round the centre', () => {
+  const view = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
+  const title = /tiers: '(Tiers: [^']*)'/.exec(view);
+  assert.ok(title, 'the Tiers title is in graph-view.js');
+  assert.match(title[1], /all the way round the centre/);
+  assert.match(title[1], /a band for each tier/);
+});
+
 test('the web doc\'s Graph section says the same in short', () => {
   const text = docGraph();
-  assert.match(text, /\*\*Tiers\*\* draws a fan from the centre: a band for each tier of the board's `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card without a tier/);
+  assert.match(text, /\*\*Tiers\*\* draws a fan all the way round the centre, but for a narrow seam at the top: a band for each tier of the board's `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card without a tier/);
   assert.match(text, /each tree gets its own sector, loose cards with a tier share one, and the other loose cards sit in an Unnested block outside the fan, a column for each status/);
   assert.doesNotMatch(text, /on the outer ring/);
 });
 
 test('the web doc says the fan has a guide arc and a caption for each band, dividers, and a titled Unnested block, and that Fit frames them', () => {
   const text = docGraph();
-  assert.match(text, /a faint arc and a caption with its name and count on the flat edge/);
+  assert.match(text, /a faint arc and a caption with its name and count up the seam at the top/);
   assert.match(text, /a divider between sectors/);
   assert.match(text, /the Unnested block is titled with its count and each column is captioned with its status and count/);
   assert.match(text, /Fit and the first draw frame all of it/);

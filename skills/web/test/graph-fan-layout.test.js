@@ -18,7 +18,11 @@ const planModel = (opts) => drawnModel(loadBoard('plan'), opts);
 const fanOf = (m) => graphLayoutTiers(m, { statuses: STATUSES });
 const places = (m) => graphFanPlace(m, { statuses: STATUSES }).places;
 const radius = (l, id) => Math.hypot(l.pos.get(id).x, l.pos.get(id).y);
-const angleOf = (l, id) => Math.atan2(l.pos.get(id).y, l.pos.get(id).x);
+const turnOf = (l, p) => {
+  const a = Math.atan2(p.y, p.x);
+  return a < l.fan.to - 1e-9 ? a + 2 * Math.PI : a;
+};
+const angleOf = (l, id) => turnOf(l, l.pos.get(id));
 const finiteLayout = (l) => [...l.pos.values()].every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
   && Object.values(l.bounds).every(Number.isFinite);
 const kidsOf = (root, n, first) => Array.from({ length: n }, (_, i) => card(first + i, { parent: root }));
@@ -107,12 +111,30 @@ test('fan: each tree sits in its own stretch of the fan, in order, and a card si
   assert.ok(angleOf(l, 2) > angleOf(l, 3), 'and so do the children of one parent and its sibling');
 });
 
-test('fan: the fan opens downward from the centre, over less than a half circle', () => {
+test('fan: the sectors share the whole circle but a narrow seam straight up, where the captions stand', () => {
   const m = planModel();
   const l = fanOf(m);
-  for (const n of m.nodes) if (places(m).get(n.id).sector !== null) assert.ok(l.pos.get(n.id).y > 0, `card ${n.id} is below the centre`);
-  assert.ok(l.fan.from < Math.PI && l.fan.to > 0 && l.fan.from > l.fan.to);
+  const sweep = l.fan.from - l.fan.to;
+  assert.ok(sweep > 1.9 * Math.PI && sweep < 2 * Math.PI, `the fan sweeps ${sweep} radians, all but the seam`);
+  assert.ok(Math.abs((l.fan.from + l.fan.to) / 2 - Math.PI / 2) < 1e-9, 'the sweep is centred on the bottom, so the seam is on the top');
   for (const s of l.sectors) assert.ok(s.from <= l.fan.from + 1e-9 && s.to >= l.fan.to - 1e-9);
+  const cards = [];
+  let id = 1;
+  for (let t = 0; t < 8; t++) {
+    const root = id++;
+    cards.push(card(root));
+    for (let k = 0; k < 5; k++) cards.push(card(id++, { parent: root }));
+  }
+  const crowd = fanOf(buildOf(cards, []));
+  const quadrant = (p) => `${p.x < 0 ? 'left' : 'right'} ${p.y < 0 ? 'top' : 'bottom'}`;
+  assert.deepStrictEqual([...new Set([...crowd.pos.values()].map(quadrant))].sort(), ['left bottom', 'left top', 'right bottom', 'right top']);
+});
+
+test('fan: a lone tree sits opposite the seam, its root at the bottom and its children either side, the outline running left to right along the bottom', () => {
+  const m = buildOf([card(1), card(2, { parent: 1 }), card(3, { parent: 1 })], []);
+  const l = fanOf(m);
+  assert.ok(Math.abs(l.pos.get(1).x) < 1e-6 && l.pos.get(1).y > 0, 'the root is straight down');
+  assert.ok(l.pos.get(2).x < 0 && l.pos.get(3).x > 0);
 });
 
 test('fan: a sector\'s share of the fan follows its leaf count', () => {
@@ -221,7 +243,7 @@ test('fan: 150 siblings under one root keep neighbours on their ring apart', () 
   const l = fanOf(m);
   assert.ok(finiteLayout(l));
   const kids = m.nodes.filter((n) => n.parentId === 1).map((n) => l.pos.get(n.id));
-  kids.sort((p, q) => Math.atan2(q.y, q.x) - Math.atan2(p.y, p.x));
+  kids.sort((p, q) => turnOf(l, q) - turnOf(l, p));
   for (let i = 0; i + 1 < kids.length; i++) assert.ok(Math.hypot(kids[i].x - kids[i + 1].x, kids[i].y - kids[i + 1].y) >= 14, `gap ${i}`);
 });
 
@@ -289,7 +311,7 @@ test('fan: the icon a type draws with moves no dot, so editing it does not redra
   assert.deepStrictEqual([...star.pos], [...round.pos]);
   const m = graphBuild(cards, { ctx: CTX, hierarchy: HIERARCHY });
   const kids = m.nodes.filter((n) => n.parentId === 1).map((n) => star.pos.get(n.id));
-  kids.sort((p, q) => Math.atan2(q.y, q.x) - Math.atan2(p.y, p.x));
+  kids.sort((p, q) => turnOf(star, q) - turnOf(star, p));
   const starReach = 1.4 * graphRadius(m.byId.get(2));
   for (let i = 0; i + 1 < kids.length; i++) assert.ok(Math.hypot(kids[i].x - kids[i + 1].x, kids[i].y - kids[i + 1].y) >= 2 * starReach, `stars ${i} and ${i + 1} do not touch`);
 });

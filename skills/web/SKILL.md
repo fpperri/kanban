@@ -1367,26 +1367,29 @@ to `127.0.0.1` only.
   joined by its relations, in one of three **layouts** picked from a button row in the
   graph's own header (`aria-pressed` marks the active one). **Tiers** opens first and is
   the default for any unknown saved value. Tiers draws the **tier fan**: the
-  centre is the apex and the fan opens downward from it, a **band** for each tier of the
+  centre is the apex and the fan goes all the way round the centre but for a narrow **seam**
+  straight up, a **band** for each tier of the
   board's `hierarchy:`, tier 1 innermost, then a **ring** for each depth that holds a card
   without a tier (a card whose type is not in the hierarchy, or that has none). A depth
   with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
   the band of its slice, worked out from the whole board, so a hidden or archived parent
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on
-  the fan's flat edge with its name and its card count (a tier by its name, a depth as
-  `roots` or `depth N`), in two alternating rows so neighbours never touch; a tier nobody
+  the seam with its name and its card count (a tier by its name, a depth as
+  `roots` or `depth N`), standing one above another up the seam with neighbours on opposite
+  sides of the seam so they never touch; a tier nobody
   is in keeps a thin band and a muted caption that reads 0 when it has room for one, and a
   depth with no card draws nothing; a tier whose cards nest in one another gets a lighter
   arc through each further row. A root and the cards nested under it take a **sector**
   of the fan, its width following the arc its leaves need. A divider separates each sector
   from the next; loose cards with a tier share a sector of their own, and the sector of
-  loose cards with a tier has its own caption and count. The other **unnested** cards (no
+  loose cards with a tier has its own caption and count, outside the rim. The other **unnested** cards (no
   parent and no children on the board) sit in the **Unnested** block outside the rim, a
   column for each status in the board's order, archived cards last: the block is under the
   title Unnested and its count, each column captioned with its status and count, with an
-  archived column while the Archive status pill is on. Fit and the first draw frame every
-  dot, every caption and the Unnested block. On a board with no hierarchy every
+  archived column while the Archive status pill is on. Fit and the first draw frame the
+  whole circle, every dot, every caption and the Unnested block, and no two captions
+  overlap. On a board with no hierarchy every
   slice is a depth, so Tiers draws a ring for each depth. **Force** pulls
   related cards together and rings the unrelated ones round the edge; it is a fixed
   simulation with no randomness, so the same cards always land in the same place. **Status**

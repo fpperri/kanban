@@ -146,7 +146,10 @@ test('tiers: over this fixture, unfiltered, the depths the slice module gives ar
 test('tiers: children sit inside the sector of their root, and a parent sits between its children', () => {
   const m = trees();
   const l = graphLayoutTiers(m);
-  const a = (id) => ang(l.pos.get(id));
+  const a = (id) => {
+    const turn = ang(l.pos.get(id));
+    return turn < l.fan.to - 1e-9 ? turn + 2 * Math.PI : turn;
+  };
   const [first, second] = l.sectors;
   assert.deepStrictEqual([first.rootId, first.leaves, second.rootId, second.leaves], [1, 3, 6, 1]);
   for (const id of [1, 2, 3, 4, 5]) assert.ok(a(id) <= first.from + 1e-9 && a(id) >= first.to - 1e-9, `card ${id} outside sector of 1`);

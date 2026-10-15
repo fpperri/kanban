@@ -5,7 +5,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const { graphLayout, graphPlan } = require('../web/graph-model');
-const { STATUSES, loadBoard, cleanUp, drawnModel } = require('./helpers/fan-boards');
+const {
+  STATUSES, loadBoard, cleanUp, drawnModel, buildOf, card,
+} = require('./helpers/fan-boards');
 
 // The view stamps the tier fan's marks from the plan as SVG, with DOM calls and
 // classes only: guide arcs, dividers, captions, the loose caption and the Unnested
@@ -77,27 +79,30 @@ test('the fan is stamped from the plan: an arc for each guide, a line for each d
   });
 });
 
-test('a caption is a text with the name and the count in two tspans, at its place on the flat edge, in its row', () => {
+test('a caption is a text with the name and the count in two tspans, at its place on the seam, its text running away from it', () => {
   const v = fanOf('tiers');
   const captions = v.by('graph-caption').filter((c) => !c.attrs.class.includes('graph-loose-caption'));
   assert.strictEqual(captions.length, v.plan.captions.length);
   captions.forEach((c, i) => {
     const want = v.plan.captions[i];
     assert.strictEqual(c.tag, 'text');
-    assert.deepStrictEqual([c.attrs.x, c.attrs.y, c.attrs.dy, c.attrs['text-anchor']], [String(want.x), String(want.y), want.dy, 'middle']);
+    assert.deepStrictEqual([c.attrs.x, c.attrs.y, c.attrs.dy, c.attrs['text-anchor']], [String(want.x), String(want.y), want.dy, want.anchor]);
     assert.deepStrictEqual(c.children.map((t) => [t.tag, t.textContent]), [['tspan', want.name], ['tspan', String(want.count)]]);
     assert.ok(c.children[0].attrs.class === 'graph-caption-name' && c.children[1].attrs.class === 'graph-caption-count');
     assert.strictEqual(c.attrs['data-kind'], want.kind, 'a caption says whether it names a tier or a depth');
   });
   assert.deepStrictEqual(captions.slice(0, 4).map((c) => v.text(c)), ['goal2', 'strategy2', 'objective1', 'epic1']);
+  assert.deepStrictEqual(captions.slice(0, 4).map((c) => c.attrs['text-anchor']), ['end', 'start', 'end', 'start'], 'neighbours take opposite sides of the seam');
 });
 
-test('the loose caption is stamped beside the loose cards\' outermost dot', () => {
+test('the loose caption is stamped where the plan puts it, outside the rim, anchored as the plan says', () => {
   const v = fanOf('tiers');
   const [c] = v.by('graph-loose-caption');
   assert.ok(c);
-  assert.strictEqual(c.attrs.x, String(v.plan.looseCaption.x));
-  assert.strictEqual(c.attrs['text-anchor'], 'start');
+  assert.deepStrictEqual([c.attrs.x, c.attrs.y, c.attrs.dy, c.attrs['text-anchor']], ['x', 'y', 'dy', 'anchor'].map((k) => String(v.plan.looseCaption[k])));
+  const lone = buildOf([card(1, { type: 'goal' }), card(2, { type: 'epic' })]);
+  const bottom = stamp(lone, graphLayout(lone, 'tiers', { statuses: STATUSES }), 'tiers').by('graph-loose-caption')[0];
+  assert.strictEqual(bottom.attrs['text-anchor'], 'middle', 'a caption under the fan is centred on its point');
   assert.deepStrictEqual(c.children.map((t) => t.textContent), ['Unnested, with a tier', '1']);
 });
 
@@ -110,6 +115,7 @@ test('the Unnested block is a frame, a title and a caption for each column, and 
   const [title] = v.by('graph-block-title');
   assert.deepStrictEqual(title.children.map((t) => t.textContent), ['Unnested', String(v.plan.block.title.count)]);
   assert.strictEqual(title.attrs.dy, '-1.5em');
+  assert.strictEqual(title.attrs['text-anchor'], 'start');
   const captions = v.by('graph-block-caption');
   assert.deepStrictEqual(captions.map((c) => c.children.map((t) => t.textContent)), v.plan.block.columns.map((c) => [c.label, String(c.count)]));
   assert.deepStrictEqual(captions.map((c) => c.attrs.x), v.plan.block.columns.map((c) => String(c.caption.x)));

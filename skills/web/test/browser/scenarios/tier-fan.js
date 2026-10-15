@@ -2,10 +2,13 @@
 // The tier fan, drawn. In Tiers the plan board draws a band for each tier of its
 // hierarchy (goal, strategy, objective, epic), tier 1 nearest the centre, then a
 // ring for each depth that holds a card without a tier, and the loose cards
-// without a tier sit in the Unnested block outside the fan. Around them the fan
-// draws a guide arc and a caption (name and count) for each band, a divider
-// between sectors, a caption for the loose cards that have a tier, and the block's
-// title and a caption for each of its columns. The fixture board has no hierarchy,
+// without a tier sit in the Unnested block outside the fan. The fan goes all the
+// way round the centre but for a narrow seam at the top, where the band captions
+// (name and count) stand one above another, neighbours on opposite sides of it.
+// Around the dots the fan also draws a guide arc for each band, a divider between
+// sectors, a caption for the loose cards that have a tier, outside the rim, and
+// the block's title and a caption for each of its columns. No two captions
+// overlap, at the first draw or after Fit. The fixture board has no hierarchy,
 // so its rings follow depth and no caption names a tier. The malformed board's
 // hierarchy lists a name twice in two cases, and Tiers still draws each tier once.
 // The harness closes the scenario with the console-error check, which covers all
@@ -79,14 +82,23 @@ const FAN_MARKS = `(()=>{const q=(s)=>[...document.querySelectorAll('#graph-view
   + `block:frame?{x:parseFloat(frame.getAttribute('x')),y:parseFloat(frame.getAttribute('y')),w:parseFloat(frame.getAttribute('width')),h:parseFloat(frame.getAttribute('height')),`
   + `title:title?cap(title):null,captions:q('.graph-block-caption').map(cap)}:null}})()`;
 
-// The sectors of the fan, as the layout has them: { kind, tops, from, to } in radians.
+// The sectors of the fan, as the layout has them: { kind, tops, from, to } in radians,
+// turning from the left of the seam round to its right (`from` the larger), and the
+// sweep they share, { from, to }.
 const SECTORS = `graphCur.layout.sectors.map((s)=>({kind:s.kind,tops:s.tops,from:s.from,to:s.to}))`;
+const SWEEP = `({from:graphCur.layout.fan.from,to:graphCur.layout.fan.to})`;
 
 // Where everything sits on screen: the stage, each dot, each caption and the block's frame.
 const RECTS = `(()=>{const r=(e)=>{const b=e.getBoundingClientRect();return {l:b.left,t:b.top,r:b.right,b:b.bottom}};const svg=document.querySelector('#graph-view .graph-canvas');if(!svg)return null;`
   + `const q=(s)=>[...document.querySelectorAll('#graph-view '+s)];const frame=q('.graph-block-frame')[0];`
   + `return {stage:r(svg),dots:q('.graph-node').map((e)=>Object.assign({id:e.dataset.id},r(e))),`
   + `captions:q('.graph-caption,.graph-block-title,.graph-block-caption').map((e)=>Object.assign({text:e.textContent},r(e))),block:frame?r(frame):null}})()`;
+
+// The ends of the outermost guide arc as the page has them on screen, with the stage:
+// the left, right, top and bottom of the circle the fan is drawn on.
+const CIRCLE = `(()=>{const v=graphCur.view;const s=document.querySelector('#graph-view .graph-canvas').getBoundingClientRect();`
+  + `const R=Math.max(...graphCur.layout.rings.map((r)=>r.r));const at=(x,y)=>({x:s.left+v.x+x*v.k,y:s.top+v.y+y*v.k});`
+  + `return {stage:{l:s.left,t:s.top,r:s.right,b:s.bottom},points:[at(-R,0),at(R,0),at(0,-R),at(0,R)]}})()`;
 
 const TIERS_PRESSED = `(document.querySelector('.graph-layout-btn[aria-pressed=true]')||{dataset:{}}).dataset.layout==='tiers'`;
 const DRAWN = `document.querySelectorAll('#graph-view .graph-node').length>0`;
@@ -112,6 +124,29 @@ const finiteMarks = (m) => !!m && m.guides.length > 0 && m.guides.every(finitePa
   && (!m.loose || finiteCap(m.loose)) && (!m.block || (finiteCap(m.block.title) && m.block.captions.every(finiteCap)
     && [m.block.x, m.block.y, m.block.w, m.block.h].every(Number.isFinite)));
 
+// The angle of a dot's place, turned as the sweep turns: from its `to` up to its `from`.
+const turned = (p, sweep) => {
+  const a = Math.atan2(p.y, p.x);
+  return a < sweep.to - 1e-9 ? a + 2 * Math.PI : a;
+};
+const QUARTERS = (all, ids) => [...new Set(ids.filter((id) => all[id]).map((id) => `${all[id].x < 0 ? 'left' : 'right'} ${all[id].y < 0 ? 'top' : 'bottom'}`))].sort();
+
+// Two captions on screen overlap when their boxes share more than a pixel.
+const overlapping = (captions) => {
+  const out = [];
+  for (let i = 0; i < captions.length; i++) {
+    for (let j = i + 1; j < captions.length; j++) {
+      const a = captions[i];
+      const b = captions[j];
+      if (a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1) out.push(`${a.text} and ${b.text}`);
+    }
+  }
+  return out;
+};
+
+// The circle's four ends and the stage they have to lie in.
+const circleOutside = (c) => (c ? c.points.filter((p) => p.x < c.stage.l || p.x > c.stage.r || p.y < c.stage.t || p.y > c.stage.b) : [{}]);
+
 // A guide arc's radius: the first number after the A of its path.
 const guideRadii = (guides) => guides.map((d) => Number(/A(-?[\d.]+)/.exec(d)[1]));
 
@@ -135,6 +170,8 @@ module.exports = {
   BAND_EDGES,
   FAN_MARKS,
   SECTORS,
+  SWEEP,
+  CIRCLE,
   RECTS,
   TIERS_PRESSED,
   DRAWN,
@@ -148,6 +185,9 @@ module.exports = {
   addLoose,
   hasDot,
   outsideStage,
+  overlapping,
+  circleOutside,
+  turned,
   finiteMarks,
   async run(page) {
     const { ev, open, waitFor, check, shot } = page;
@@ -215,10 +255,19 @@ module.exports = {
       const depthCaps = m.captions.filter((c) => c.kind === 'depth');
       check('plan: each tier that has a card shows one caption with its name and count, in hierarchy order from the centre',
         sameList(names(tierCaps), plan.tierNames) && sameList(tierCaps.map((c) => c.count), plan.tiers.map((ids) => ids.length))
-        && tierCaps.every((c, i) => i === 0 || c.x < tierCaps[i - 1].x), tierCaps);
+        && tierCaps.every((c, i) => i === 0 || c.y < tierCaps[i - 1].y), tierCaps);
       check('plan: one caption per non-empty depth follows, in depth order', sameList(names(depthCaps), plan.depthNames)
-        && sameList(depthCaps.map((c) => c.count), plan.depths.map((ids) => ids.length)) && depthCaps.every((c, i) => c.x < (i ? depthCaps[i - 1].x : (tierCaps[tierCaps.length - 1] || { x: 0 }).x))
+        && sameList(depthCaps.map((c) => c.count), plan.depths.map((ids) => ids.length)) && depthCaps.every((c, i) => c.y < (i ? depthCaps[i - 1].y : (tierCaps[tierCaps.length - 1] || { y: 0 }).y))
         && m.captions.length === tierCaps.length + depthCaps.length, depthCaps);
+      check('plan: the captions stand up the seam at the top, neighbours on opposite sides of it',
+        m.captions.every((c, i) => c.y < 0 && (i % 2 ? c.x > 0 : c.x < 0) && Math.abs(c.x) < 20), m.captions);
+
+      // The fan goes all the way round the centre but for the seam at the top.
+      const sweep = await ev(SWEEP);
+      const ringIds = plan.tiers.flat().concat(plan.depths.flat());
+      check('plan: the fan sweeps all but a narrow seam of the circle, and its dots are in every quarter of it',
+        sweep.from - sweep.to > 1.9 * Math.PI && sweep.from - sweep.to < 2 * Math.PI && QUARTERS(all, ringIds).length === 4, { sweep, quarters: QUARTERS(all, ringIds) });
+      check('plan: no dot stands on the seam', ringIds.every((id) => !!all[id] && turned(all[id], sweep) <= sweep.from + 1e-6), ringIds.map((id) => all[id]));
       check('plan: every guide arc, divider and caption has finite coordinates', finiteMarks(m) && m.dividers.length >= 1, m);
       const radiiOfGuides = guideRadii(m.guides);
       check('plan: there is a guide arc for each band, and none is drawn through the cards of the Unnested block',
@@ -254,6 +303,8 @@ module.exports = {
       // Fit, and the first draw, frame every dot, every caption and the block.
       const first = await ev(RECTS);
       check('plan: the first draw frames every dot, every caption and the Unnested block', !!first && outsideStage(first).length === 0, first && outsideStage(first));
+      check('plan: the first draw frames the whole circle', circleOutside(await ev(CIRCLE)).length === 0, await ev(CIRCLE));
+      check('plan: no two captions overlap at the first draw', !!first && overlapping(first.captions).length === 0, first && overlapping(first.captions));
       await ev(ZOOM_IN);
       await ev(ZOOM_IN);
       await waitFor(ZOOMED);
@@ -261,6 +312,8 @@ module.exports = {
       await waitFor(FITTED);
       const fitted = await ev(RECTS);
       check('plan: after Fit every dot, every caption and the Unnested block lie inside the canvas', !!fitted && outsideStage(fitted).length === 0, fitted && outsideStage(fitted));
+      check('plan: after Fit the whole circle lies inside the canvas', circleOutside(await ev(CIRCLE)).length === 0, await ev(CIRCLE));
+      check('plan: no two captions overlap after Fit', !!fitted && overlapping(fitted.captions).length === 0, fitted && overlapping(fitted.captions));
       await shot('tier-fan-plan');
 
       // Force and Status draw none of it, and Tiers brings it back.
@@ -301,8 +354,9 @@ module.exports = {
       const looseNow = grown.filter((s) => s.kind === 'loose');
       const grownDots = await dots();
       const newId = Object.keys(grownDots).map(Number).find((id) => !withArchive[id]);
+      const sweepNow = await ev(SWEEP);
       const inSector = (id, s) => {
-        const a = Math.atan2(grownDots[id].y, grownDots[id].x);
+        const a = turned(grownDots[id], sweepNow);
         return a <= s.from + 1e-6 && a >= s.to - 1e-6;
       };
       const grownMarks = await marks();
@@ -326,6 +380,8 @@ module.exports = {
       check('fixture: every guide arc, divider and caption has finite coordinates', finiteMarks(m), m);
       const rects = await ev(RECTS);
       check('fixture: the first draw frames every dot, every caption and the Unnested block', !!rects && outsideStage(rects).length === 0, rects && outsideStage(rects));
+      check('fixture: the first draw frames the whole circle, and no two captions overlap', circleOutside(await ev(CIRCLE)).length === 0 && !!rects && overlapping(rects.captions).length === 0,
+        rects && overlapping(rects.captions));
     }
 
     // --- the malformed board's hierarchy names two tiers, each twice ------------------------
