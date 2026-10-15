@@ -1,7 +1,7 @@
 // What the search panel's tests share: reading the panel's controls off the built
 // page, and the gestures a person makes on them. Not a test file (the suite runs
 // *.test.js only).
-const { byClass } = require('./page-harness');
+const { El, byClass } = require('./page-harness');
 
 // The box is a text input in the real page; the harness makes elements of any kind, so
 // say which this one is before focus moves into it (the keys read what has focus).
@@ -27,6 +27,22 @@ function blurBox(page) {
 }
 
 const text = (el) => el.textContent;
+
+// The harness does not parse the page's markup, so the elements the page asks for by id stand
+// alone. Puts the search bar's parts under one .search-bar, as the markup does, for a test of what
+// a press inside or outside the bar does.
+function buildBar(page) {
+  const bar = new El('div', page.byId('q').ownerDocument);
+  bar.className = 'search-bar';
+  const box = new El('div', bar.ownerDocument);
+  box.className = 'search-box';
+  ['q', 'search-chip', 'search-panel-toggle'].forEach((id) => box.appendChild(page.byId(id)));
+  bar.appendChild(box);
+  const panel = page.byId('search-panel');
+  ['search-slices-fold', 'search-slices', 'search-pills-fold', 'search-pills'].forEach((id) => panel.appendChild(page.byId(id)));
+  bar.appendChild(panel);
+  return bar;
+}
 
 // The pills the pill section draws now, in order: key, label, count (a number), whether on,
 // and the button.
@@ -68,4 +84,4 @@ const entry = (page, label) => {
   return found;
 };
 
-module.exports = { asInput, blurBox, boxEl, boxText, entry, moreButton, openPanel, pill, pills, sliceEntries, text };
+module.exports = { asInput, blurBox, buildBar, boxEl, boxText, entry, moreButton, openPanel, pill, pills, sliceEntries, text };

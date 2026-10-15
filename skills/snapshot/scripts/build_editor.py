@@ -1503,7 +1503,7 @@ const resolved=resolveTerms(all,terms,queryCtx());
 return view.filter(c=>cardMatchesQuery(searchCard(c),resolved)).map(c=>c.id)}}
 const pillOn=pill=>searchHasAlt($("q").value,pill.query);
 // Two pills with one query (a board's pill for tags:"next-up" and that tag's own value pill) are one filter.
-const sameQuery=(a,b)=>pillIsOn({anchor:{kind:"query",text:a.query},additions:[]},b);
+const sameQuery=(a,b)=>searchHasAlt(a.query,b.query)&&searchHasAlt(b.query,a.query);
 function buildPillButton(pill){
 const b=el("button","query-pill");b.type="button";
 b.appendChild(el("span","query-pill-label"));b.appendChild(el("span","query-pill-count"));

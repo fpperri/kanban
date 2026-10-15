@@ -155,6 +155,14 @@ class El {
 // opts.console stands in for the page's console, so a test can see what it logs.
 function loadPage(html, opts = {}) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  // The page's markup is not parsed, so an element is made when the page first asks for it by id;
+  // it is made as the kind of element the markup says it is (a button, an input), so what a control
+  // is for the page's own checks (closest('button'), an input having focus) is what it is in a browser.
+  const markup = html.slice(0, html.indexOf('<script>'));
+  const tagOfId = (id) => {
+    const m = new RegExp(`<([a-zA-Z][a-zA-Z0-9]*)[ ]([^>]*[ ])?id="${id.replace(/[^a-z0-9-]/gi, '')}"`).exec(markup);
+    return m ? m[1] : 'div';
+  };
   const doc = {
     body: null,
     activeElement: null,
@@ -165,7 +173,7 @@ function loadPage(html, opts = {}) {
     createTextNode: (text) => new Text(text),
     ids: new Map(),
     getElementById(id) {
-      if (!doc.ids.has(id)) { const e = new El('div', doc); e.id = id; }
+      if (!doc.ids.has(id)) { const e = new El(tagOfId(id), doc); e.id = id; }
       return doc.ids.get(id);
     },
     querySelectorAll: () => [],
