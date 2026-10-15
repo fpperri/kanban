@@ -89,7 +89,8 @@ backlog, then done and archived.
 A **Map options** row sets which parent lines are drawn, the dependency lines, one graph
 per tree or one graph, which side the parent sits, alignment, row order, whether a
 toggled line moves the cards, and how much detail a card shows (type, altitude and the
-roll-up bar). Each choice is remembered per board in your browser.
+roll-up bar). Each choice is remembered per board in your browser. The row starts folded
+behind an **Options** toggle; open or folded, it is remembered too.
 A status-filter pill row (left-click to toggle, right-click to solo) and the
 search box both prune the graph.
 
