@@ -227,7 +227,7 @@ to `127.0.0.1` only.
   survives both a page reload and the 5s auto-refresh poll.
 - **Equal-length columns, fixed headers** — every column (Archive included) stretches to
   match the row's tallest member, so a short column never stops short of a busy neighbor.
-  The page header (title, search, view-switch/refresh/notif buttons) and every column's
+  The page header (title, search, view-switch/refresh/notif buttons and the preferences gear) and every column's
   own header stay on screen while the page scrolls — both `position: sticky`, the column
   header parked just under the page header via a CSS var kept in sync with the page
   header's real rendered height by a `ResizeObserver` (a hardcoded px offset would drift
@@ -279,10 +279,13 @@ to `127.0.0.1` only.
   column order, each in its status's color, with a `status: n` tooltip. Every bar on the page
   shares one mode, open or collapsed: collapsed is a thin line (the default), open adds a
   count line (the total, the done count, then each other status). Clicking any bar, on a
-  board card or in the card detail, flips it for all of them without opening the card; the
+  board card or in the card detail, flips it for all of them without opening the card, and
+  the preferences sheet (below) sets the same choice, so the two always agree; the
   mode is remembered per board in `localStorage`, surviving reload and the poll, and a
-  browser that once saved the retired `off` reads as collapsed. Archived leaves always count
-  as done, so archiving a finished story leaves its parent's done count unchanged. The card
+  browser that once saved the retired `off` reads as collapsed. Archived leaves count as
+  done by default, so archiving a finished story leaves its parent's done count unchanged;
+  the preferences sheet can turn that off, and then every roll-up (the board tile, the Map's
+  rich row, and the card detail with its scope line) leaves archived leaves out. The card
   detail shows the roll-up right under the title and thread, above the fields, in the same
   mode: the thin bar when collapsed, the bar with its numbers and a scope line when open. The
   scope line says the roll-up counts this board only, because a parent cannot
@@ -602,7 +605,9 @@ to `127.0.0.1` only.
 
 - **Multi-select** — one interaction grammar, uniform across **all five views**
   (ADR 0006), with file-manager gestures: click a card's representation to open its
-  detail popup, ctrl+click (cmd on mac) to toggle it in/out of the selection,
+  detail popup (in a view the preferences sheet sets to selects, a plain click selects the
+  card alone instead, and a double click, or Enter on a focused card, opens it),
+  ctrl+click (cmd on mac) to toggle it in/out of the selection,
   shift+click to ADD the whole range between the range start (the last toggled/range-started
   card) and the target — in the active view's rendered order, additive, never
   deselecting — right-click for the bulk context menu. A selection grows from an
@@ -660,6 +665,26 @@ to `127.0.0.1` only.
   only** (cards the doing gate refuses — waiting or blocked — are skipped per card, with
   one summary toast naming which gate); calendar/gantt drags always move the single card
   under the pointer, selected or not.
+- **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
+  from the right that holds the settings which rarely change. Each is kept in the browser per
+  board (`localStorage`, in the board's own `prefs` entry beside its other remembered
+  choices), never written to the board, and applies the moment it is chosen. **A plain click
+  on a card** opens it or selects it, chosen separately for the Board, the Map, the Gantt and
+  the Calendar (the default is opens, as before); the Graph is shown fixed at selects. In a
+  view set to selects a plain click selects the card alone, and a double click, or Enter on a
+  focused card, opens it; ctrl/cmd+click and shift+click build the selection in every view as
+  they always did. Opening a card that way is a peek: the selection stays as it was. A double
+  click on a Calendar card opens it and never starts a new card.
+  **Roll-up bar** is open or collapsed, the one choice a click on any bar flips. **Count
+  archived leaves as done** is on by default and feeds every roll-up: the board tile, the
+  Map's rich row and the card detail, whose scope line says "Archived leaves count as done."
+  or "Archived leaves are left out." A value an earlier visit saved under the retired
+  `rollup.archived` key is not read, so a browser that kept `false` there counts archived
+  leaves again and the sheet shows the toggle on. The sheet closes on Esc, on a click outside
+  it or with its close button, and focus goes back to the gear; like the other popups it
+  traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
+  not rebuild the board under it, `/` and Ctrl+F do nothing (the shared key guard names the
+  sheet), and a click inside it never clears a selection.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the

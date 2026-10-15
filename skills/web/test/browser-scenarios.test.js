@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a config-keys, a type-icons, a smoke and a calendar-jump scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a preferences, a config-keys, a type-icons, a smoke and a calendar-jump scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'config-keys', 'type-icons', 'smoke', 'calendar-jump']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -309,4 +309,51 @@ test('the selection scenario finds a card\'s dot by its class and clicks it only
   const src = code(source('selection.js'));
   assert.ok(src.includes('.graph-dot') && !/circle/.test(src));
   assert.ok(/elementFromPoint/.test(src));
+});
+
+// The preferences scenario, on the fixture board: the gear and the sheet, and
+// each setting at work in the real page. It only runs in a browser (in CI);
+// these tests pin which checks it makes and how it drives the page.
+const PREFERENCES_CHECKS = [
+  'the gear opens the sheet', 'Esc closes the sheet and focus returns to the gear',
+  'a click outside closes the sheet and focus returns to the gear', 'the close button closes the sheet and focus returns to the gear',
+  'Tab from the last control of the sheet moves focus out of the sheet', 'while the sheet is open, a poll does not rebuild under it',
+  'while the sheet is open, / does nothing', 'while the sheet is open, Ctrl+F does nothing',
+  'a click inside the sheet leaves the card selection as it was',
+  'in a Board set to selects a plain click selects a card without opening it', 'and a double click opens it',
+  'and opening it leaves the card selected',
+  'a reload keeps the choice: the sheet shows the Board at selects', "no file in the board\\'s directory changes",
+  'in a Map set to selects, Enter on a focused card opens it', 'in a Calendar set to selects, a double click on a card opens it',
+  'by default the parent above the archived leaf counts that leaf as done',
+  'setting the bar to collapsed in the sheet collapses every roll-up bar', "and flips the sheet\\'s control back",
+  'turning the toggle off leaves the archived leaf out of the Board tile',
+  "and out of the Map\\'s rich row", 'and out of the card detail, whose scope line says archived leaves are left out',
+  'with rollup.archived saved as false, the Board tile counts the archived leaf as done', 'and the sheet shows the toggle on',
+];
+
+test('the preferences scenario runs on the fixture board and makes every check the sheet needs', () => {
+  assert.strictEqual(byName('preferences').board, 'fixture');
+  assert.strictEqual(byName('preferences').alsoBoards, undefined);
+  const src = source('preferences.js');
+  assert.deepStrictEqual(PREFERENCES_CHECKS.filter((n) => !src.includes(`check('${n}'`)), [], 'checks the sheet needs and the scenario does not make');
+});
+
+test('the preferences scenario closes the sheet three ways, presses Tab, double clicks with a click count and reads the board\'s own files', () => {
+  const src = code(source('preferences.js'));
+  assert.ok(src.includes(`key('Escape')`) && src.includes(`clickOn('#prefs-close')`) && src.includes(`elementFromPoint(60,500)`), 'Esc, the close button and a click outside');
+  assert.ok(src.includes(`key('Tab')`) && src.includes(`key('Enter')`));
+  assert.ok(src.includes('clickCount: 1') && src.includes('clickCount: 2'), 'a double click is two clicks with their counts');
+  assert.ok(src.includes('/api/board') && src.includes('readFileSync') && src.includes('boardDir'), 'the board\'s files are compared as the server reports its folder');
+});
+
+test('the preferences scenario waits on the page, never on a fixed sleep, and loads each page cold', () => {
+  const src = code(source('preferences.js'));
+  assert.ok(!/\bsleep\(/.test(src));
+  assert.ok(src.includes('window.__stale'), 'a page being left cannot answer for the next');
+});
+
+test('the preferences scenario sets each choice through the sheet and clears no storage by hand but the old key it plants', () => {
+  const src = code(source('preferences.js'));
+  assert.ok(!/localStorage\.clear|setItem\('kanban\.fixture\.prefs'|setItem\('kanban\.fixture\.rollup\.bar'/.test(src), 'the choices are made in the sheet');
+  assert.ok(src.includes(`setItem('kanban.fixture.rollup.archived','false')`), 'the old key a browser may still hold');
 });

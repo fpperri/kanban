@@ -67,7 +67,7 @@ test('a heading shortens a long title and escapes whatever a title holds', () =>
 
 // --- rich cards ---------------------------------------------------------------------
 
-function richSandbox({ index, mode = 'collapsed', types = [] } = {}) {
+function richSandbox({ index, mode = 'collapsed', types = [], archivedDone = true } = {}) {
   const { typeBadge } = require('../web/type-badge');
   const { altitudeBadge, rollupBar } = require('../web/rollup-bar');
   const { ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED } = require('../web/column-state');
@@ -76,6 +76,7 @@ function richSandbox({ index, mode = 'collapsed', types = [] } = {}) {
     state: { types },
     nestingIndex: index || { altitudeOf: () => 0, rollup: () => ({ total: 0, counts: {} }) },
     loadRollupBarMode: () => mode,
+    countArchivedLeaves: () => archivedDone,
   };
   vm.createContext(sandbox);
   vm.runInContext(['MAP_NODE_W', 'MAP_NODE_H', 'MAP_RICH_TOP', 'MAP_RICH_META_H', 'MAP_RICH_BAR_OPEN_H', 'MAP_RICH_BAR_THIN_H', 'MAP_RICH_BARE_H', 'MAP_RICH_DIMS'].map(constant)
@@ -125,15 +126,17 @@ test('a parent\'s roll-up bar adds a row, thin while the bar mode is collapsed a
   assert.ok(open > thin, 'the open bar is taller than the thin one');
 });
 
-test('a rich node asks the index for its roll-up with no way to leave archived leaves out', () => {
-  const asked = [];
-  const index = {
-    altitudeOf: () => 2,
-    rollup: (...args) => { asked.push(args); return { total: 2, counts: { done: 1, todo: 1 } }; },
-  };
-  const w = richSandbox({ index });
-  w.mapRichLayout({ id: 1 }, RICH([{ id: 1, type: 'epic' }]));
-  assert.deepStrictEqual(asked, [[1]], 'the node passes the id and nothing else');
+test('a rich node asks the index for its roll-up with the count-archived choice', () => {
+  for (const archivedDone of [true, false]) {
+    const asked = [];
+    const index = {
+      altitudeOf: () => 2,
+      rollup: (...args) => { asked.push(args); return { total: 2, counts: { done: 1, todo: 1 } }; },
+    };
+    const w = richSandbox({ index, archivedDone });
+    w.mapRichLayout({ id: 1 }, RICH([{ id: 1, type: 'epic' }]));
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(asked)), [[1, { countArchived: archivedDone }]], `archived leaves counted: ${archivedDone}`);
+  }
 });
 
 test('a parent with no leaf counted draws no bar', () => {
