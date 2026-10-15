@@ -174,10 +174,17 @@ function graphSetOption(key, value) {
   else renderGraphView();
 }
 
+// The Unnested option as it applies now: only the Tiers layout has it, so any other layout
+// answers null. What the Graph draws (renderGraphView) and what a selection can reach
+// (graphLeftOut) both read it here.
+function graphUnnestedNow() {
+  return graphLoadLayout() === 'tiers' ? graphLoadOptions().unnested : null;
+}
+
 // The cards the Tiers layout leaves out of the Graph under Unnested off, for the ones
 // that decide what the Graph shows (graphVisibleIds); null when nothing is left out.
 function graphLeftOut(pool) {
-  if (graphLoadLayout() !== 'tiers' || graphLoadOptions().unnested !== 'off') return null;
+  if (graphUnnestedNow() !== 'off') return null;
   return graphUnnestedIds(pool, { ctx: nestingCtx(), hierarchy: state.hierarchy });
 }
 
@@ -597,7 +604,7 @@ function renderGraphView() {
     const pool = state.active.concat(state.archived);
     const visibleIds = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, filter, boardStatuses());
     model = graphBuild(pool, {
-      ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy, unnested: fanOptions && fanOptions.unnested,
+      ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy, unnested: graphUnnestedNow(),
     });
     layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order, unnested: fanOptions && fanOptions.unnested };
     layout = graphLayout(model, kind, layoutOpts);

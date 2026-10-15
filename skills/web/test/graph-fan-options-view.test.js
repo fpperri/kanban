@@ -520,6 +520,17 @@ test('a card off leaves the selection too: a selection reaches only cards the Gr
   assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'it comes back with the card');
 });
 
+test('what a selection can reach is what the Graph draws, with a status pill hiding a status under off too', async () => {
+  const s = await open({ stored: UNFOLDED });
+  pressOption(s, 'unnested', 'off');
+  s.run("graphToggleFilter('done')");
+  assert.deepStrictEqual(drawnIds(s), [1, 3, 4, 5, 6], 'card 2 is done, card 7 is off');
+  assert.deepStrictEqual(shownIds(s), drawnIds(s));
+  s.run("graphToggleFilter('done')");
+  assert.deepStrictEqual(shownIds(s), drawnIds(s));
+  assert.deepStrictEqual(drawnIds(s), [1, 2, 3, 4, 5, 6]);
+});
+
 test('off leaves the selection of Force alone: the layouts without the option show every card', async () => {
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
   assert.deepStrictEqual(shownIds(await open({ stored })), [1, 2, 3, 4, 5, 6]);

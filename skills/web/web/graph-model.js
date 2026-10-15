@@ -110,16 +110,23 @@ function graphUnnestedOf(whole, nested, slices) {
   return new Set(whole.filter((c) => !nested.has(c.id) && slices.byId.get(c.id).kind === 'depth').map((c) => c.id));
 }
 
-// The ids of those cards on the board `cards` (live and archived), whatever any view
-// draws: the cards the tier fan's Unnested option takes out when it is off.
-function graphUnnestedIds(cards, opts) {
+// The board `cards` as every reading of it starts from it (live and archived, whatever
+// any view draws): the cards by id, their list, the slice of each and the nesting.
+function graphBoardOf(cards, opts) {
   const ctx = (opts && opts.ctx) || null;
   const hierarchy = (opts && opts.hierarchy) || (ctx && ctx.hierarchy) || [];
   const pool = new Map();
   for (const c of cards || []) if (!pool.has(c.id)) pool.set(c.id, c);
   const whole = [...pool.values()];
   const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
-  return graphUnnestedOf(whole, graphNesting(whole, pool, ctx).nested, slices);
+  return { ctx, pool, whole, slices, nesting: graphNesting(whole, pool, ctx) };
+}
+
+// The ids of those cards on the board `cards`: the cards the tier fan's Unnested option
+// takes out when it is off.
+function graphUnnestedIds(cards, opts) {
+  const board = graphBoardOf(cards, opts);
+  return graphUnnestedOf(board.whole, board.nesting.nested, board.slices);
 }
 
 // cards is the whole pool (active + archived). visibleIds narrows what is
@@ -143,16 +150,10 @@ function graphUnnestedIds(cards, opts) {
 // unnested (no parent, no children) and have no tier are not drawn, and neither is
 // any relation that joined one to a drawn card. Any other value draws them.
 function graphBuild(cards, opts) {
-  const ctx = (opts && opts.ctx) || null;
   const visibleIds = (opts && opts.visibleIds) || null;
   const types = (opts && opts.types) || null;
-  const hierarchy = (opts && opts.hierarchy) || (ctx && ctx.hierarchy) || [];
-  const pool = new Map();
-  for (const c of cards || []) if (!pool.has(c.id)) pool.set(c.id, c);
-
-  const whole = [...pool.values()];
-  const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
-  const { nested, siblings, parentIn } = graphNesting(whole, pool, ctx);
+  const { ctx, pool, whole, slices, nesting } = graphBoardOf(cards, opts);
+  const { nested, siblings, parentIn } = nesting;
   const left = opts && opts.unnested === 'off' ? graphUnnestedOf(whole, nested, slices) : null;
   const drawn = new Map();
   for (const c of pool.values()) if ((!visibleIds || visibleIds.has(c.id)) && !(left && left.has(c.id))) drawn.set(c.id, c);
@@ -430,19 +431,21 @@ function graphFinish(model, pos, rings, spokes, titles, extra) {
 //   sub     the ring inside a tier's band: how many cards above it on its thread
 //           are in the same slice, so a card never shares a ring with its parent.
 //   sector  the tree it belongs to, an index into `sectors`: a root and the cards
-//           nested under it, in outline order, then one sector for the loose cards
+//           nested under it, in outline order, then one sector for the unnested cards
 //           that have a tier, then (under the Unnested option's depth 0) one for the
-//           loose cards with no tier. null for a card in the block.
-//   block   the status column of the loose card with no tier, which the Unnested
+//           unnested cards with no tier. null for a card in the block.
+//   block   the status column of the unnested card with no tier, which the Unnested
 //           block draws as a column and the outermost ring as a stretch of the ring.
 //           null under depth 0, where the card is on the depth 0 ring.
-// A card is loose when it is unnested on the whole board: no parent and no
-// children, drawn or not, so hiding its relatives never moves it. `bands` lists
+// A card is unnested when it has no parent and no children on the whole board,
+// drawn or not, so hiding its relatives never moves it. The sector of kind 'loose'
+// holds the unnested cards that have a tier, the one of kind 'unnested' those with no
+// tier that depth 0 puts on the ring. `bands` lists
 // the bands that are drawn: every tier, empty ones too, then only the depths
 // that hold a card without a tier that is not in the block (a depth with none
 // has no ring). `columns` are the block's columns in the board's status order,
 // archived cards last. The Unnested option (opts.unnested, GRAPH_FAN_OPTION_VALUES)
-// decides one thing here: with depth 0 the loose cards with no tier are ordinary
+// decides one thing here: with depth 0 the unnested cards with no tier are ordinary
 // depth 0 cards, on the depth 0 ring, in a sector of their own, and there are no
 // columns; every other value gives them a block place.
 function graphFanPlace(model, opts) {
@@ -453,8 +456,8 @@ function graphFanPlace(model, opts) {
   const places = new Map();
   const sectors = [];
   const sectorOfRoot = new Map();
-  const loose = [];
-  const bare = [];
+  const unnestedTiered = [];
+  const unnestedOnRing = [];
   const rows = axis.map(() => ({ count: 0, maxSub: 0 }));
   const live = new Map(statuses.map((s) => [s, []]));
   const archived = [];
@@ -466,8 +469,8 @@ function graphFanPlace(model, opts) {
     places.set(n.id, place);
     stack.push(n);
     above[n.sliceIndex]++;
-    const untiered = !n.nested && n.sliceIndex >= tierCount;
-    if (untiered && !onRing) {
+    const unnestedNoTier = !n.nested && n.sliceIndex >= tierCount;
+    if (unnestedNoTier && !onRing) {
       place.sub = 0;
       if (n.archived) { place.block = 'archived'; archived.push(n.id); }
       else {
@@ -476,8 +479,8 @@ function graphFanPlace(model, opts) {
       }
       continue;
     }
-    if (untiered) bare.push(n.id);
-    else if (!n.nested) loose.push(n.id);
+    if (unnestedNoTier) unnestedOnRing.push(n.id);
+    else if (!n.nested) unnestedTiered.push(n.id);
     else {
       if (n.parentId === null) {
         sectorOfRoot.set(n.id, sectors.length);
@@ -489,13 +492,13 @@ function graphFanPlace(model, opts) {
     row.count++;
     row.maxSub = Math.max(row.maxSub, place.sub);
   }
-  if (loose.length) {
-    for (const id of loose) places.get(id).sector = sectors.length;
-    sectors.push({ kind: 'loose', rootId: null, tops: loose, leaves: loose.length });
+  if (unnestedTiered.length) {
+    for (const id of unnestedTiered) places.get(id).sector = sectors.length;
+    sectors.push({ kind: 'loose', rootId: null, tops: unnestedTiered, leaves: unnestedTiered.length });
   }
-  if (bare.length) {
-    for (const id of bare) places.get(id).sector = sectors.length;
-    sectors.push({ kind: 'unnested', rootId: null, tops: bare, leaves: bare.length });
+  if (unnestedOnRing.length) {
+    for (const id of unnestedOnRing) places.get(id).sector = sectors.length;
+    sectors.push({ kind: 'unnested', rootId: null, tops: unnestedOnRing, leaves: unnestedOnRing.length });
   }
   const leaves = new Map();
   for (let i = nodes.length - 1; i >= 0; i--) {
