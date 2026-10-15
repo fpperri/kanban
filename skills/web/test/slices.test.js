@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { depthOf, depthMap } = require('../web/nesting');
+const { sliceCards } = require('../web/slices');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra) => Object.assign({ id, parent: null, rank: null, priority: 'Normal', status: 'todo', archived: false }, extra);
@@ -102,4 +103,55 @@ test('depth map: built once per board, so it reads each card once however many c
   const map = depthMap(cards, CTX);
   assert.strictEqual(map.get(400), 399);
   assert.strictEqual(reads, 400);
+});
+
+// --- each card's slice ---------------------------------------------------------
+
+// Slices the cards given, with depths from the whole board: the cards a view
+// shows are `shown`, the board is `board`.
+const slicesOf = (shown, hierarchy, board = shown) => sliceCards(shown, hierarchy, depthMap(board, CTX));
+const withTiers = (shown, board) => slicesOf(shown, HIERARCHY, board);
+// A slice as a test reads it: a tier by its name, a depth by its number.
+const placeOf = (model, id) => {
+  const s = model.byId.get(id);
+  return s.kind === 'tier' ? s.name : s.depth;
+};
+const placesOf = (model) => Object.fromEntries([...model.byId.keys()].sort((a, b) => a - b).map((id) => [id, placeOf(model, id)]));
+
+test('a card whose type is in the hierarchy is in that tier, in any letter case, whatever its parent is', () => {
+  const m = withTiers(fixture());
+  for (const [id, tier] of [[1, 'goal'], [2, 'strategy'], [3, 'objective'], [4, 'epic'], [8, 'epic'], [18, 'goal']]) {
+    assert.strictEqual(placeOf(m, id), tier, `card ${id}`);
+  }
+  assert.strictEqual(placeOf(m, 7), 'goal', 'a goal under an epic is in the goal slice');
+  const cased = withTiers([card(1, { type: 'EPIC' }), card(2, { type: 'Epic', parent: 1 }), card(3, { type: ' epic ', parent: 2 })]);
+  assert.deepStrictEqual(placesOf(cased), { 1: 'epic', 2: 'epic', 3: 'epic' });
+});
+
+test('a card whose type is outside the hierarchy, or that has no type, is in the slice of its depth', () => {
+  const m = withTiers(fixture());
+  assert.deepStrictEqual(placesOf(m), {
+    1: 'goal', 2: 'strategy', 3: 'objective', 4: 'epic', 5: 4, 6: 5, 7: 'goal', 8: 'epic', 9: 0, 10: 0,
+    11: 1, 12: 1, 13: 2, 14: 0, 15: 1, 16: 2, 17: 0, 18: 'goal',
+  });
+});
+
+test('without a hierarchy every slice is a depth, whatever the types say', () => {
+  const depths = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 4, 8: 0, 9: 0, 10: 0, 11: 1, 12: 1, 13: 2, 14: 0, 15: 1, 16: 2, 17: 0, 18: 0 };
+  for (const none of [undefined, null, [], 'goal', {}, ['', '  ', 5, null]]) {
+    assert.deepStrictEqual(placesOf(slicesOf(fixture(), none)), depths, JSON.stringify(none));
+  }
+});
+
+test('a card keeps its slice when its parent is archived or missing from the cards being sliced', () => {
+  const board = fixture();
+  const shown = board.filter((c) => ![15, 4, 11].includes(c.id));
+  const m = withTiers(shown, board);
+  assert.strictEqual(placeOf(m, 16), 2, 'the parent 15 is archived and not in the list');
+  assert.strictEqual(placeOf(m, 5), 4, 'the parent 4 is not in the list');
+  assert.strictEqual(placeOf(m, 13), 2, 'the parent 11 is not in the list');
+  assert.strictEqual(placeOf(m, 7), 'goal');
+  assert.deepStrictEqual([...m.byId.keys()].sort((a, b) => a - b), shown.map((c) => c.id).sort((a, b) => a - b));
+  const alone = withTiers([card(5, { type: 'story', parent: 4 })], board);
+  assert.strictEqual(placeOf(alone, 5), 4, 'and the board-wide depth, not the list, decides');
 });
