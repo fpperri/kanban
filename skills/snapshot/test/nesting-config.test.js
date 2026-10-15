@@ -229,3 +229,24 @@ test('a hierarchy name that looks like markup cannot close the script element, a
     assert.deepStrictEqual(embeddedConst(html, 'HIERARCHY'), ['</script><b>', 'epic']);
   });
 });
+
+// The builder fills every placeholder in one pass, so text a board holds that is itself a
+// placeholder is data and is never filled in again.
+
+test('a pill and a hierarchy name that name a placeholder keep their text', () => {
+  const config = 'name: b\npills:\n  - x: "title:__DATA__"\nhierarchy:\n  - goal\n  - __PRIORITIES__\n';
+  withSnapshot({ ...BOARD, config }, (html) => {
+    assert.deepStrictEqual(embeddedConst(html, 'PILLS'), [{ label: 'x', query: 'title:__DATA__' }]);
+    assert.deepStrictEqual(embeddedConst(html, 'HIERARCHY'), ['goal', '__PRIORITIES__']);
+  });
+});
+
+test('a type, a status, an assignee and a priority that name a placeholder keep their text', () => {
+  const config = 'name: b\nstatuses: [todo, __NOTIFS__]\ntypes:\n  - __DATA__\nassignees:\n  - handle: "@__TYPES__"\npriorities: [High, __PILLS__]\n';
+  withSnapshot({ ...BOARD, config }, (html) => {
+    assert.deepStrictEqual(embeddedConst(html, 'TYPES'), [{ name: '__DATA__', color: '' }]);
+    assert.ok(embeddedConst(html, 'COLS').includes('__NOTIFS__'));
+    assert.ok(embeddedConst(html, 'ASG').includes('@__TYPES__'));
+    assert.deepStrictEqual(embeddedConst(html, 'PRIOS'), ['High', '__PILLS__']);
+  });
+});

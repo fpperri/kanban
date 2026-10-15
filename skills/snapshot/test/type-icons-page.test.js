@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { materialize } = require('../../web/test/browser/boards');
-const { buildScript, card, withSnapshot } = require('./nesting-fixture');
+const { PAGE_SCRIPTS, buildScript, card, withSnapshot } = require('./nesting-fixture');
 const { open, sheet, tile } = require('./nesting-view');
 const { byClass, loadPage } = require('./page-harness');
 const { withPlanPage } = require('./search-table');
@@ -185,7 +185,7 @@ describe('markup in the config', () => {
     const config = `types:\n${hostile.map((h, i) => `  - name: t${i}\n    color: red\n    icon: '${h}'\n`).join('')}`;
     withSnapshot(board(config, hostile.map((_, i) => [i + 1, `t${i}`])), (html) => {
       const page = loadPage(html, WIDE);
-      assert.strictEqual(page.scripts.length, 11, 'no icon name closed a script element');
+      assert.strictEqual(page.scripts.length, PAGE_SCRIPTS, 'no icon name closed a script element');
       assert.deepStrictEqual(embeddedConst(html, 'TYPES').map((t) => t.icon), hostile.map((h) => h.toLowerCase()), 'carried as the text it is');
       hostile.forEach((_, i) => {
         const chip = chipOf(tile(page, i + 1));
@@ -199,7 +199,7 @@ describe('markup in the config', () => {
     const config = 'pills:\n  - "<img src=x onerror=alert(1)>": "title:</script><b>"\n  - "</SCRIPT >"\n';
     withSnapshot(board(config, [[1, 'epic']]), (html) => {
       const page = loadPage(html, WIDE);
-      assert.strictEqual(page.scripts.length, 11);
+      assert.strictEqual(page.scripts.length, PAGE_SCRIPTS);
       assert.deepStrictEqual(page.plain(page.run('PILLS')), [
         { label: '<img src=x onerror=alert(1)>', query: 'title:</script><b>' },
         { label: '</SCRIPT >', query: '</SCRIPT >' },

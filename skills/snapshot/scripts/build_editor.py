@@ -352,22 +352,27 @@ def read_notifications(kanban_dir):
     return out
 
 WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web")
-NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
-SLICES_JS = os.path.join(WEB_MODULES, "slices.js")
-MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
-WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
-SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
-TYPE_ICONS_JS = os.path.join(WEB_MODULES, "type-icons.js")
-PILLS_JS = os.path.join(WEB_MODULES, "pills.js")
-SLICE_RUN_JS = os.path.join(WEB_MODULES, "slice-run.js")
-KEY_GUARD_JS = os.path.join(WEB_MODULES, "key-guard.js")
-COMBOBOX_JS = os.path.join(WEB_MODULES, "combobox.js")
+# The web's modules the page carries as the same source kanban-web runs, in the order their
+# script elements load: the placeholder of the slot in TEMPLATE, the file in skills/web/web
+# and the name the build refuses the file by.
+EMBEDDED = [
+    ("__NESTING_JS__", "nesting.js", "the nesting module"),
+    ("__MAP_RELATIONS_JS__", "map-relations.js", "the map relations module"),
+    ("__SLICES_JS__", "slices.js", "the slices module"),
+    ("__WAITING_BLOCKED_JS__", "waiting-blocked.js", "the waiting rules"),
+    ("__SEARCH_JS__", "search.js", "the search module"),
+    ("__TYPE_ICONS_JS__", "type-icons.js", "the type icons module"),
+    ("__PILLS_JS__", "pills.js", "the pill list"),
+    ("__SLICE_RUN_JS__", "slice-run.js", "the run of slices"),
+    ("__KEY_GUARD_JS__", "key-guard.js", "the key guard"),
+    ("__COMBOBOX_JS__", "combobox.js", "the combobox rules"),
+]
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
         sys.exit(f"{label} contains a closing script tag and cannot be embedded in the page")
     if re.search(r"__[A-Z_]+__", source):
-        sys.exit(f"{label} contains a template placeholder (__NAME__) the build would rewrite")
+        sys.exit(f"{label} contains a template placeholder (__NAME__) and cannot be embedded in the page")
     return source
 
 def read_embedded(path, label):
@@ -377,35 +382,17 @@ def read_embedded(path, label):
     except OSError:
         sys.exit(f"cannot read {label} at {os.path.normpath(path)}")
 
-def read_nesting():
-    return read_embedded(NESTING_JS, "the nesting module")
+def embedded_modules():
+    """Each EMBEDDED placeholder with the text of its module."""
+    return {placeholder: read_embedded(os.path.join(WEB_MODULES, name), label)
+            for placeholder, name, label in EMBEDDED}
 
-def read_slices():
-    return read_embedded(SLICES_JS, "the slices module")
-
-def read_map_relations():
-    return read_embedded(MAP_RELATIONS_JS, "the map relations module")
-
-def read_waiting_blocked():
-    return read_embedded(WAITING_BLOCKED_JS, "the waiting rules")
-
-def read_search():
-    return read_embedded(SEARCH_JS, "the search module")
-
-def read_type_icons():
-    return read_embedded(TYPE_ICONS_JS, "the type icons module")
-
-def read_pills_module():
-    return read_embedded(PILLS_JS, "the pill list")
-
-def read_slice_run():
-    return read_embedded(SLICE_RUN_JS, "the run of slices")
-
-def read_key_guard():
-    return read_embedded(KEY_GUARD_JS, "the key guard")
-
-def read_combobox():
-    return read_embedded(COMBOBOX_JS, "the combobox rules")
+def fill(template, values):
+    """Every placeholder in one pass, so text a value holds that looks like a
+    placeholder (a pill, a hierarchy name, a card) is data and is never filled in
+    again."""
+    names = sorted(values, key=len, reverse=True)
+    return re.sub("|".join(re.escape(n) for n in names), lambda m: values[m.group(0)], template)
 
 def main():
     p = argparse.ArgumentParser()
@@ -444,31 +431,23 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    # First, so a card that names a placeholder is never rewritten inside it.
-    html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
-                    .replace("__SLICES_JS__", read_slices())
-                    .replace("__MAP_RELATIONS_JS__", read_map_relations())
-                    .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
-                    .replace("__SEARCH_JS__", read_search())
-                    .replace("__TYPE_ICONS_JS__", read_type_icons())
-                    .replace("__PILLS_JS__", read_pills_module())
-                    .replace("__SLICE_RUN_JS__", read_slice_run())
-                    .replace("__KEY_GUARD_JS__", read_key_guard())
-                    .replace("__COMBOBOX_JS__", read_combobox())
-                    .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
-                    .replace("__BASE_LABEL__", label)
-                    .replace("__BASE_ISO__", iso)
-                    .replace("__STATUSES__", emb(read_statuses(a.kanban_dir)))
-                    .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
-                    .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
-                    .replace("__TYPES__", emb(read_types(a.kanban_dir)))
-                    .replace("__PILLS__", emb(read_pills(a.kanban_dir)))
-                    .replace("__HIERARCHY__", emb(read_hierarchy(a.kanban_dir)))
-                    .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
-                    .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
-                    .replace("__DATA__", emb(cards))
-                    .replace("__BOARD_NAME_JSON__", emb(read_board_name(a.kanban_dir)))
-                    .replace("__BOARD_NAME__", esc(read_board_name(a.kanban_dir))))
+    html = fill(TEMPLATE, {
+        **embedded_modules(),
+        "__ICON_URI__": quote(ICON_SVG, safe=""),
+        "__BASE_LABEL__": label,
+        "__BASE_ISO__": iso,
+        "__STATUSES__": emb(read_statuses(a.kanban_dir)),
+        "__ASSIGNEES__": emb([""] + read_assignees(a.kanban_dir)),
+        "__ASSIGNEE_COLORS__": emb(read_assignee_colors(a.kanban_dir)),
+        "__TYPES__": emb(read_types(a.kanban_dir)),
+        "__PILLS__": emb(read_pills(a.kanban_dir)),
+        "__HIERARCHY__": emb(read_hierarchy(a.kanban_dir)),
+        "__PRIORITIES__": emb(read_priorities(a.kanban_dir)),
+        "__NOTIFS__": emb(read_notifications(a.kanban_dir)),
+        "__DATA__": emb(cards),
+        "__BOARD_NAME_JSON__": emb(read_board_name(a.kanban_dir)),
+        "__BOARD_NAME__": esc(read_board_name(a.kanban_dir)),
+    })
     open(a.out, "w", encoding="utf-8").write(html)
     print(f"wrote {a.out} ({len(html)} bytes; {len(cards)} cards, base {iso})")
 
