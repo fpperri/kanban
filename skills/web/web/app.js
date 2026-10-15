@@ -3170,6 +3170,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
+    if (e.repeat) return; // a held Esc is one press: it runs one stage
     escapeStep();
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable

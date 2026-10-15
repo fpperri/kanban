@@ -685,15 +685,14 @@ to `127.0.0.1` only.
   the first Esc drops every addition at once and leaves the anchor, the next drops the
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
-  closes, as before); with
-  focus in the search box Esc clears the box and leaves the selection, and away from the
-  box Esc no longer clears it. Bulk targets are fixed when an action starts: every bulk
-  action (assign, priority, tags, schedule, archive, restore, delete and drag) takes its
-  list of target cards once, when it starts, from the selection as it resolves then, so
-  writes, repaints and polls during the action never change the list. An assign on a
-  selection holding an `assignee:@afk` query part reaches every card that matched at the
-  start, though each write takes a card off the query, and the archive and delete
-  confirmations name the count of that list.
+  closes, as before); with focus in the search box Esc clears the box and leaves the
+  selection, and away from the box Esc no longer clears it. Bulk targets are fixed when an
+  action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
+  delete and drag) takes its list of target cards once, when it starts, from the selection
+  as it resolves then, so writes, repaints and polls during the action never change the
+  list. An assign on a selection holding an `assignee:@afk` query part reaches every card
+  that matched at the start, though each write takes a card off the query, and the archive
+  and delete confirmations name the count of that list.
   Exceptions: the map's muted, dashed ghost stubs are click-through-to-detail only, never
   selectable — they stand for cards the active filters hid; a dangling-id stub (no such
   card) is fully inert, and a filtered-out card can't join a selection anywhere else
