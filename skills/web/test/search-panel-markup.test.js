@@ -117,7 +117,7 @@ test('a click on the toggle, the fold control or the panel\'s empty space leaves
   for (const id of ['search-panel-toggle', 'search-pills-fold', 'search-panel', 'search-chip']) {
     const marked = tagOf(id);
     assert.ok(marked.includes(KEEPS), id);
-    sandbox.onClickAway({ shiftKey: false, ctrlKey: false, metaKey: false, target: { closest: (sel) => (sel === `[${KEEPS}]` ? marked : null) } });
+    sandbox.onClickAway({ shiftKey: false, ctrlKey: false, metaKey: false, detail: 2, target: { closest: (sel) => (sel === `[${KEEPS}]` ? marked : null) } });
   }
 });
 
@@ -170,8 +170,10 @@ test('the panel is not a surface the key guard names: the slice keys and the res
 test('a pill\'s write to the box carries its reason, and nothing else writes with it', () => {
   assert.strictEqual(panelSrc.split("writeSearch(next.boxText, 'pill')").length - 1, 1);
   const writers = [...appSrc.matchAll(/writeSearch\([^)]*'pill'\)/g)];
-  assert.strictEqual(writers.length, 1, 'Esc\'s step is the one other: it takes a dropped pill out of the box');
-  assert.match(appSrc.match(/function stepSelectionBack\([\s\S]*?\n\}/)[0], /writeSearch\(shrunk, 'pill'\)/);
+  assert.strictEqual(writers.length, 1, 'the step down the selection is the one other: it takes a dropped pill out of the box');
+  assert.match(appSrc.match(/function moveSelectionTo\([\s\S]*?\n\}/)[0], /writeSearch\(shrunk, 'pill'\)/);
+  assert.match(appSrc.match(/function stepSelectionBack\([\s\S]*?\n\}/)[0], /moveSelectionTo\(next\)/, 'Esc takes it');
+  assert.match(appSrc.match(/function onClickAway\([\s\S]*?\n\}/)[0], /moveSelectionTo\(/, 'so does a double click on empty space');
 });
 
 // --- the stylesheet ------------------------------------------------------------------------

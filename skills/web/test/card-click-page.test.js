@@ -84,10 +84,13 @@ test('a single click opens nothing, and a third click of a triple click selects 
   assert.deepStrictEqual(s.opened, [2]);
 });
 
-test('a click on empty space still drops the selection, after a plain click selected a card', async () => {
+test('a click on empty space keeps the card a plain click selected, and a double click on empty space drops it', async () => {
   const s = await open();
   click(s, cardTarget(2));
-  click(s, empty());
+  click(s, empty(), { detail: 1 });
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] });
+  click(s, empty(), { detail: 1 });
+  click(s, empty(), { detail: 2 });
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
 });
 

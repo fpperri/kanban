@@ -463,7 +463,7 @@ test('a click on the gear or inside the sheet leaves a selection as it was', () 
   vm.createContext(sandbox);
   vm.runInContext(fn('onClickAway'), sandbox);
   for (const marked of [gear, root]) {
-    sandbox.onClickAway({ shiftKey: false, ctrlKey: false, metaKey: false, target: { closest: (sel) => (sel === `[${KEEPS}]` ? marked : null) } });
+    sandbox.onClickAway({ shiftKey: false, ctrlKey: false, metaKey: false, detail: 2, target: { closest: (sel) => (sel === `[${KEEPS}]` ? marked : null) } });
   }
 });
 

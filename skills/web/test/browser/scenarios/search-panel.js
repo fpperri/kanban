@@ -20,7 +20,8 @@
 // clears a search field, is stopped for them) and focus stays in the box, and with
 // focus on a pill the panel closes and focus goes back to the toggle. A focused pill keeps its focus across a poll and
 // its count changes under it. A click on the toggle, the fold control or the panel's
-// empty space never clears a card selection. In the Graph a click on a pill lights its
+// empty space never clears a card selection, and a double click on the Board's empty
+// space does. In the Graph a click on a pill lights its
 // cards, a done one included, and hides nothing, and with the Done status pill off the
 // done cards leave the counts. The preference "Pill section starts folded", set in the
 // preferences sheet, folds the section after a reload.
@@ -37,6 +38,8 @@
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // selectedIds, autoRefreshTick.
+
+const { NOT_EMPTY } = require('./empty-space');
 
 const CASES = {
   stickered: 12,
@@ -110,6 +113,8 @@ module.exports = {
     const focusBoxAtEnd = () => ev(`(()=>{const i=document.getElementById('search-input');i.blur();i.setSelectionRange(i.value.length,i.value.length);i.focus()})()`);
     // A card is only clicked at a point where it is the topmost thing and not one of its own cues, buttons or bars.
     const cardPoint = (id) => ev(`(()=>{const el=document.querySelector('#board .card-el[data-id="${id}"]');if(!el)return null;el.scrollIntoView({block:'center',inline:'center'});const r=el.getBoundingClientRect();const skip='.card-assignee, .tag, .blocked-pill, .review-pill, .rollup, button, a, input, select';for(const fy of [0.5,0.35,0.65,0.25,0.75])for(let fx=0.1;fx<0.95;fx+=0.1){const x=r.left+r.width*fx,y=r.top+r.height*fy;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest('.card-el')===el&&!hit.closest(skip))return {x,y}}return null})()`);
+    // The lowest and rightmost point of the Board that is on no card, control, text field or popup, by the page's own list.
+    const emptyPoint = () => ev(`(()=>{const root=document.getElementById('board');const r=root.getBoundingClientRect();for(let y=Math.min(r.bottom,innerHeight)-8;y>Math.max(r.top,0);y-=8)for(let x=Math.min(r.right,innerWidth)-8;x>Math.max(r.left,0);x-=8){const e=document.elementFromPoint(x,y);if(e&&root.contains(e)&&!e.closest(${JSON.stringify(NOT_EMPTY)}))return {x,y}}return null})()`);
     const clickCard = async (id, extra = {}) => {
       const p = await cardPoint(id);
       if (!p) throw new Error(`no clickable point on Board card ${id}`);
@@ -303,8 +308,13 @@ module.exports = {
 
     // --- a focused pill keeps focus across a poll, and its count changes in place ------------------------------------------------------------------
     await clearBox();
-    await ev(`document.body.click()`);
-    check('a click on the page drops the selection', await pickedIs([]));
+    const away = await emptyPoint();
+    check('the Board has empty space to double-click', !!away, away);
+    if (away) {
+      await click(away.x, away.y, { clickCount: 1 });
+      await click(away.x, away.y, { clickCount: 2 });
+    }
+    check('a double click on empty space on the Board drops the selection', await pickedIs([]));
     await openPanel();
     await ev(`(()=>{const b=document.querySelector(${JSON.stringify(pillSel('blocked'))});window.__pill=b;b.focus()})()`);
     check('the blocked pill has focus', (await focusId()) === 'blocked');

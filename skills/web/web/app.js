@@ -3338,12 +3338,21 @@ function escapeStep() {
 // One stage back, as selectionAfterEscape (selection.js) works it out: every
 // addition goes at once and the anchor stays; the next one drops the anchor.
 // Nothing picked, nothing to repaint. A box that was the anchor (a search typed in
-// the Graph) goes with it, as it does on a click on the empty Graph. A pill the step
-// drops goes out of the box too (the additions first, so the box is back to the
+// the Graph) goes with it, as it does on a double click on the empty Graph. A pill the
+// step drops goes out of the box too (the additions first, so the box is back to the
 // anchor's query, and then the anchor's), while any other text in the box stays.
 function stepSelectionBack() {
   const next = selectionAfterEscape(selectionState);
   if (next === selectionState) return;
+  moveSelectionTo(next);
+}
+
+// Moves the selection down to `next` ({ selection, rangeStart }) and takes what the
+// step dropped out of the box: a typed anchor takes the box with it, a pill the step
+// drops goes out of it as an alternative, and any other text stays. Esc's step and a
+// double click on empty space (onClickAway) both come through here, so the box and
+// the pills agree whichever way the selection was taken down.
+function moveSelectionTo(next) {
   const boxWasAnchor = isTypedAnchor(selectionState.selection) && !next.selection.anchor;
   const box = $('#search-input').value;
   const shrunk = pillQueriesDropped(selectionState.selection, next.selection).reduce((text, query) => searchRemoveAlt(text, query), box);
@@ -4465,6 +4474,13 @@ function wireCalendarTimeDrag() {
   container.addEventListener('pointercancel', (e) => { if (calTimeDrag && e.pointerId === calTimeDrag.pointerId) finish(false); });
 }
 
+// The empty space a double click creates a card on: a day of the month grid, a cell
+// of the all-day band, and a day column of the time grid. The click-away rule reads
+// the same two lists, so the double click that opens the create modal never also
+// clears the selection (DOUBLE_CLICK_OWNED).
+const CALENDAR_CREATE_DAY_CELLS = '.cal-day, .cal-tg-allday-cell';
+const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
+
 // --- Calendar view wiring: header toggle + the
 // prev/today/next nav. #calendar-view is rebuilt by every renderCalendarView()
 // call, so clicks delegate to the stable parent — same pattern (and reason)
@@ -4490,11 +4506,11 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
     if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); }
   });
-  // Click-to-create. ADR 0006 pins plain-click-on-empty-cell to
-  // clearing the selection, so create rides double-click instead — a gesture
-  // no existing calendar interaction uses, on the SAME empty-cell-space
-  // Q0 relies on (a click landing on a chip never reaches here — see the
-  // .card-el guard below — so it can never fight the shared grammar).
+  // Click-to-create rides double-click on the empty cells, the one empty space
+  // where a double click already means something, so the click-away rule leaves
+  // the selection there (DOUBLE_CLICK_OWNED). A click landing on a chip never
+  // reaches here — see the .card-el guard below — so it can never fight the
+  // shared grammar.
   // Month/all-day cells only carry a day; time-grid columns also carry the
   // pointer's y, converted to a snapped minute the same way the retime drag
   // math does (CAL_PX_PER_MIN). Status is left at the modal's own default —
@@ -4502,9 +4518,9 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-view').addEventListener('dblclick', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the contextmenu listener below: never fire out from under a live drag
     if (e.target.closest('.card-el')) return; // a chip's dblclick is its own affair, not a create gesture
-    const dayCell = e.target.closest('.cal-day, .cal-tg-allday-cell');
+    const dayCell = e.target.closest(CALENDAR_CREATE_DAY_CELLS);
     if (dayCell) { openModal(null, null, calendarCreateStart(dayCell.dataset.day)); return; }
-    const col = e.target.closest('.cal-tg-col');
+    const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
     if (col) {
       const r = col.getBoundingClientRect();
       openModal(null, null, calendarCreateStart(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN));
@@ -5543,25 +5559,39 @@ function onCardOpenKey(e) {
 // the same click and must not drop what that click built or kept.
 let selectionGestureClick = null;
 
-// Q0: any plain click that isn't on a control marked data-keeps-selection
-// drops the multi-selection. Ctrl-, cmd- and shift-clicks build it. The marked
-// controls are the ones that must not wipe a building selection: the context
-// menu and the bulk popups (so they don't kill their own target batch), the
-// view toggle buttons (the selection must survive a view switch), the
-// date-picker popover (it renders into document.body, outside #modal), and the
-// curate-the-view controls: month paging, the status pills, the section
-// collapse toggles, the map options and zoom toolbar, the roll-up bars and the
-// Graph's controls. A control built by a render path must wear the marker.
+// The click-away rule. A click on empty space can be an accident, so a single click
+// there leaves the selection, its anchor, the pills and the box as they were. A
+// double click clears it all: the additions, the anchor, and the anchor's text in the
+// box (a pill's query, a search typed in the Graph), which turns the chip off. Esc is
+// the step-by-step way back. A double click is the second click of a pair, told by
+// the count the browser puts on the click (detail 2), as the card handler above
+// tells a peek: the first click's repaint can replace the element under the pointer,
+// and a double click event aimed at the replaced element never reaches the document,
+// so the page listens for none there.
+//
+// Empty space is anywhere but on a card or a Graph dot, a control or a text field,
+// a popup or the card menu, or a control marked data-keeps-selection. Ctrl-, cmd- and
+// shift-clicks build a selection and never clear one. The marked controls are the
+// ones that must not wipe a building selection: the context menu and the bulk popups
+// (so they don't kill their own target batch), the view toggle buttons (the selection
+// must survive a view switch), the date-picker popover (it renders into document.body,
+// outside #modal), and the curate-the-view controls: month paging, the status pills,
+// the section collapse toggles, the map options and zoom toolbar, the roll-up bars and
+// the Graph's controls. A control built by a render path must wear the marker.
+// Where a double click on empty space already means something, that meaning stands
+// and the selection is left (DOUBLE_CLICK_OWNED).
+const NOT_EMPTY_SPACE = '.card-el, .graph-node, button, input, select, textarea, a, .modal-backdrop, .context-menu';
+const DOUBLE_CLICK_OWNED = `${CALENDAR_CREATE_DAY_CELLS}, ${CALENDAR_CREATE_COLUMNS}`;
+
 function onClickAway(e) {
+  if (e.detail !== 2) return;
   if (e.shiftKey || e.ctrlKey || e.metaKey) return;
   if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
-  const typed = isTypedAnchor(selectionState.selection);
-  if (!selectedIds.size && !typed) return;
-  if (typed && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a click on the header or the box
-  setSelection(NO_SELECTION, null); // a dead selection must not leave an invisible range start behind
-  if (typed) writeSearch('', 'selection'); // the anchor was the box, so the box goes with it
-  else renderBoard();
+  if (e.target.closest(NOT_EMPTY_SPACE) || e.target.closest(DOUBLE_CLICK_OWNED)) return;
+  if (!selectionState.selection.anchor) return;
+  if (isTypedAnchor(selectionState.selection) && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a double click on the header or the box
+  moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // a dead selection must not leave an invisible range start behind
 }
 
 function showContextMenu(x, y) {
