@@ -131,10 +131,12 @@ module.exports = {
     };
     // A point of a canvas that holds no card, dot, node, link or control, and the answer to a right-click dispatched there:
     // whether the page kept the browser's own menu from opening.
-    const emptyPoint = (canvas) => ev(`(()=>{const c=document.querySelector(${JSON.stringify(canvas)});if(!c)return null;const r=c.getBoundingClientRect();const x0=Math.max(r.left,0),x1=Math.min(r.right,innerWidth),y0=Math.max(r.top,0),y1=Math.min(r.bottom,innerHeight);for(let fy=0.95;fy>0.05;fy-=0.1)for(let fx=0.95;fx>0.05;fx-=0.1){const x=x0+(x1-x0)*fx,y=y0+(y1-y0)*fy;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest(${JSON.stringify(canvas)})&&!hit.closest('.card-el, .graph-node, .map-node, a, button, input, select, textarea'))return {x,y}}return null})()`);
+    const emptyPoint = (canvas) => ev(`(()=>{for(const c of document.querySelectorAll(${JSON.stringify(canvas)})){const r=c.getBoundingClientRect();const x0=Math.max(r.left,0),x1=Math.min(r.right,innerWidth),y0=Math.max(r.top,0),y1=Math.min(r.bottom,innerHeight);if(x1<=x0||y1<=y0)continue;for(let fy=0.95;fy>0.05;fy-=0.1)for(let fx=0.95;fx>0.05;fx-=0.1){const x=x0+(x1-x0)*fx,y=y0+(y1-y0)*fy;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest(${JSON.stringify(canvas)})&&!hit.closest('.card-el, .graph-node, .map-node, a, button, input, select, textarea'))return {x,y}}}return null})()`);
     const rightClickKept = (p) => ev(`(()=>{const el=document.elementFromPoint(${p.x},${p.y});return !el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:${p.x},clientY:${p.y},view:window}))})()`);
     const dotsDrawn = `new Set([...document.querySelectorAll('#graph-view .graph-node')].map((n)=>n.dataset.id)).size`;
-    const notDimmed = `!document.querySelector('#graph-view .graph-canvas').classList.contains('graph-dim')`;
+    // No card is dimmed when every dot drawn is at full strength: a canvas that lights the selection wears the dimming class even when
+    // everything drawn is lit, so the class says nothing, and what a dot looks like does.
+    const notDimmed = `(()=>{const d=[...document.querySelectorAll('#graph-view .graph-node')];return d.length>0&&d.every((n)=>getComputedStyle(n).opacity==='1')})()`;
     const [a, b] = CASES.picked;
     const wanted = sorted(a, b);
     const wantedText = `#${a} | #${b}`;

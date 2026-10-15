@@ -79,7 +79,7 @@ test('the ids and classes the scenario drives are in the page', () => {
   for (const name of ['ctx-isolate', 'canvas-menu', 'isolate-switch', 'search-chip', 'search-input', 'context-menu', 'graph-canvas', 'map-canvas', 'graph-node', 'graph-dim', 'map-node', 'graph-toggle-btn', 'map-toggle-btn']) {
     assert.ok(page.includes(name), `${name} is in the page`);
   }
-  for (const name of ['ctx-isolate', 'isolate-switch', 'search-chip', 'graph-canvas', 'map-canvas', 'graph-dim', 'graph-toggle-btn', 'map-toggle-btn']) {
+  for (const name of ['ctx-isolate', 'isolate-switch', 'search-chip', 'graph-canvas', 'map-canvas', 'graph-node', 'graph-toggle-btn', 'map-toggle-btn']) {
     assert.ok(code.includes(name), `${name} is driven by the scenario`);
   }
 });
