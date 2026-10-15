@@ -24,7 +24,7 @@ const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
 const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_LAYOUT_TITLES = {
-  tiers: 'Tiers: the tier fan, a band for each tier with its name and count, tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent or children and no tier sit in the Unnested block outside the rim, a column for each status',
+  tiers: 'Tiers: the tier fan, all the way round the centre, a band for each tier with its name and count, tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent or children and no tier sit in the Unnested block outside the rim, a column for each status',
   force: 'Force: related cards pull together, loose cards sit around the edge',
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
@@ -116,9 +116,9 @@ function graphTspan(text, cls, attrs) {
 }
 
 // A caption of the fan: a name and its count, both from the plan, in a text that keeps
-// its size on screen (app.css). `anchor` says which end of the text sits at x.
-function graphCaptionEl(c, anchor) {
-  const el = graphEl('text', { x: c.x, y: c.y, 'text-anchor': anchor }, c.cls);
+// its size on screen (app.css). The plan's `anchor` says which end of the text sits at x.
+function graphCaptionEl(c) {
+  const el = graphEl('text', { x: c.x, y: c.y, 'text-anchor': c.anchor }, c.cls);
   if (c.dy) el.setAttribute('dy', c.dy);
   if (c.kind) el.setAttribute('data-kind', c.kind);
   el.appendChild(graphTspan(c.name, 'graph-caption-name'));
@@ -342,12 +342,11 @@ function graphDrawPlan(plan) {
     el.textContent = t.text;
     world.appendChild(el);
   }
-  // The fan's captions stand on the flat edge, centred over their rings; the others start at their x.
-  for (const c of plan.captions) world.appendChild(graphCaptionEl(c, 'middle'));
-  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption, 'start'));
+  for (const c of plan.captions) world.appendChild(graphCaptionEl(c));
+  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption));
   if (plan.block) {
-    world.appendChild(graphCaptionEl(plan.block.title, 'start'));
-    for (const col of plan.block.columns) world.appendChild(graphCaptionEl(col.caption, 'start'));
+    world.appendChild(graphCaptionEl(plan.block.title));
+    for (const col of plan.block.columns) world.appendChild(graphCaptionEl(col.caption));
   }
   stage.appendChild(svg);
   return { stage, svg, world, arrow, linkEls, nodeEls };

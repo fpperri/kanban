@@ -48,4 +48,75 @@ const buildOf = (cards, hierarchy = HIERARCHY, visible = null) => graphBuild(car
   ctx: CTX, hierarchy, visibleIds: visible ? new Set(visible) : null,
 });
 
-module.exports = { STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf };
+// A board of the size and shape of a real shop board: two goals, three strategies,
+// twelve objectives and twenty-four epics, stories and sub-tasks under them (some
+// with no type, at every depth), forty loose cards and three loose epics.
+function rootShapedCards() {
+  const cards = [];
+  let id = 1;
+  const add = (extra) => {
+    const c = card(id, { status: STATUSES[id % STATUSES.length], ...extra });
+    id++;
+    cards.push(c);
+    return c.id;
+  };
+  for (let g = 0; g < 2; g++) {
+    const goal = add({ type: 'goal' });
+    for (let s = 0; s < 1 + g; s++) {
+      const strategy = add({ type: 'strategy', parent: goal });
+      for (let o = 0; o < 4; o++) {
+        const objective = add({ type: 'objective', parent: o % 3 ? strategy : goal });
+        for (let e = 0; e < 2; e++) {
+          const epic = add({ type: 'epic', parent: objective });
+          for (let t = 0; t < 3; t++) {
+            const story = add({ parent: epic });
+            for (let u = 0; u < (t + e + o) % 3; u++) add({ parent: story });
+          }
+        }
+      }
+    }
+  }
+  for (let i = 0; i < 40; i++) add({});
+  for (let i = 0; i < 3; i++) add({ type: 'epic' });
+  return cards;
+}
+
+// Where the page puts the fan's captions on screen once `fit` ({ x, y, k }) has framed
+// it, measured without the model's own text sizes: the page's font is about 6.2px a
+// character at 11px (13px for the block's title), a line is 1.25 times its size, and
+// `dy` and the anchor move a text the way SVG does.
+const CHAR_PX = 6.2;
+function captionRects(plan, fit) {
+  const rects = [];
+  const put = (c, size) => {
+    const w = (String(c.name).length + 1 + String(c.count).length) * CHAR_PX * (size / 11);
+    const base = c.y * fit.k + fit.y + parseFloat(c.dy || '0') * size;
+    const x = c.x * fit.k + fit.x;
+    const l = c.anchor === 'middle' ? x - w / 2 : c.anchor === 'end' ? x - w : x;
+    rects.push({ name: `${c.name} ${c.count}`, l, r: l + w, t: base - 0.95 * size, b: base + 0.3 * size });
+  };
+  for (const c of plan.captions) put(c, 11);
+  if (plan.looseCaption) put(plan.looseCaption, 11);
+  if (plan.block) {
+    put(plan.block.title, 13);
+    for (const col of plan.block.columns) put(col.caption, 11);
+  }
+  return rects;
+}
+
+// The pairs of rects that overlap, by name.
+function clashes(rects) {
+  const out = [];
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i];
+      const b = rects[j];
+      if (a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b) out.push(`${a.name} and ${b.name}`);
+    }
+  }
+  return out;
+}
+
+module.exports = {
+  STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
+};
