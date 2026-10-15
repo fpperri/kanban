@@ -20,6 +20,7 @@ test('the skill says the box suggests slices after slice: and after .., what the
   assert.match(flat, /the tiers in hierarchy order and then the depth numbers from 0 to the deepest card with no tier/);
   assert.match(flat, /a tap on a row writes the whole term \(`slice:goal\.\.objective`\)/);
   assert.match(flat, /quoted, the quote holding both ends \(`slice:"big goal\.\.2"`\)/);
+  assert.match(flat, /A bare word opens no list here/);
 });
 
 test('the documented suggestions are what the module offers', () => {
