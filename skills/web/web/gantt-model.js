@@ -244,6 +244,17 @@ function ganttSubviewWindow(subview, anchorDay) {
   return null; // 'all' — caller uses ganttWindow instead
 }
 
+// --- jump to the nearest match -------------------------------------------
+// The gantt's sized sub-views decide with calendar-model.js's nearestMatchDay,
+// the same function the calendar uses, on the window they draw: a month is the
+// month's own days, with no leading or trailing days, because the gantt draws
+// none. The all sub-view fits every dated card on screen already, so it never
+// jumps. Answers the day to move the anchor to, or null.
+function ganttNearestMatchDay(view, subview, anchorDay) {
+  const win = ganttSubviewWindow(subview, anchorDay);
+  return win ? CAL.nearestMatchDay(view, win) : null;
+}
+
 // --- adaptive day width: a sized sub-view FILLS the scroller ------------
 // 'all' keeps the FIXED GANTT_DAY_PX (today's exact behaviour: a wide,
 // horizontally-scrollable timeline). A sized sub-view (month/week/3day/day)
@@ -397,6 +408,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ganttBarClip,
     barShiftChanges, barResizeChanges, dueShiftChanges,
     GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx, // sub-views
+    ganttNearestMatchDay, // jump to the nearest match
   };
 } else {
   window.GANTT_STATUS_ORDER = GANTT_STATUS_ORDER;
@@ -419,4 +431,5 @@ if (typeof module !== 'undefined' && module.exports) {
   window.mergeGanttSubview = mergeGanttSubview;
   window.ganttSubviewWindow = ganttSubviewWindow;
   window.ganttDayPx = ganttDayPx;
+  window.ganttNearestMatchDay = ganttNearestMatchDay; // jump to the nearest match
 }

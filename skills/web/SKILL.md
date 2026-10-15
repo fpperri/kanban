@@ -1029,6 +1029,20 @@ to `127.0.0.1` only.
   the displayed month + query survive the poll. Board/map/calendar/gantt/graph is a five-way
   switch persisted per board in `localStorage` (unknown saved values fall back to
   board).
+  **Jump to the nearest match** — when a change to the search box leaves no shown match
+  inside the visible range, the Calendar jumps to the match nearest it, before or after
+  (`nearestMatchDay`, calendar-model.js; one pure function for the Calendar and the
+  Gantt). It works in the month, week, 3-day and day spans. The month counts every cell of
+  its grid, leading and trailing days included, and a card counts by any day of its
+  schedule span or by its due date. Shown means drawn: a match hidden by a status pill, or
+  an archived match while the Archive pill is off, is not on screen and not a target, and a
+  card with no schedule and no due date is never a target. A match before the range and
+  one after it at the same distance resolve to the earlier day. An empty box has no
+  matches, so clearing it moves nothing. Every write to the box makes the check (typing,
+  a cue click, Path or Tree from a card's menu, a `?q=` link, and any later writer, since
+  the jump is a listener of the one search-box writer); so does entering the Calendar,
+  once, so a query already in the box shows its month. A poll, a re-render, Today and
+  paging with previous and next never jump, so after a jump paging works as usual.
   **Status-filter row** — a pill row above the grid (month AND every sub-view alike),
   sharing the map's pill-row MECHANISM (one builder, comma-joined CSS) rather than a
   duplicate: one toggle per LIVE board status in column order, all ON by default, PLUS
@@ -1160,6 +1174,12 @@ to `127.0.0.1` only.
   drawn there would preview one date and write a different one; a press on that end of
   the bar falls through to an ordinary body drag (shift) instead. No dependency arrows —
   the map view owns the `waiting_for` graph.
+  **Jump to the nearest match** — the Calendar's jump (above), by the same function, in the
+  Month, Week, 3 days and Day sub-views: when a change to the search box leaves no shown
+  match inside the window the sub-view draws, the anchor moves to the nearest match. A
+  Month is the month's own days, with no leading or trailing days, because the Gantt draws
+  none. **All** never jumps, since it already fits every dated card. Entering the Gantt
+  makes the check once; a poll, a re-render and paging never do.
   **Status-filter row** — a pill row above the timeline, sharing the map's pill-row
   MECHANISM: one toggle per LIVE board status in column order, all ON by default, PLUS
   an Archive pseudo-pill (same id list as the map's row) that defaults **OFF** —

@@ -13,4 +13,5 @@ module.exports = [
   require('./selection'),
   require('./config-keys'),
   require('./smoke'),
+  require('./calendar-jump'),
 ];
