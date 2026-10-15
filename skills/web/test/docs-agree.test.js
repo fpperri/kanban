@@ -157,3 +157,48 @@ test('no doc mentions the header\'s Bar select or a header archived-leaves check
     assert.doesNotMatch(text, /header[^.]{0,80}(archived leaves|roll-up bar mode)[^.]{0,40}(checkbox|select)/i, file.join('/'));
   }
 });
+
+const TERMS = [
+  ['Hierarchy', /The types a board declares as the levels of its plan, top first[^\n]*enforces nothing/],
+  ['Tier', /A card's place in the hierarchy, read from its type: the first type listed is tier 1[^\n]*no tier/],
+  ['Slice', /One place on a board's single top-to-bottom axis: each tier of the hierarchy in order, then each depth for the cards without a tier/],
+  ['Selection', /The cards picked right now, the same set in every view[^\n]*grows from an anchor by additions/],
+  ['Anchor', /What a selection grows from: one card, or one query \(a pill or the search box\)[^\n]*drops the additions first, then the anchor/],
+  ['Pill', /A search query offered as one click: blocked, review and waiting are built in, and a board adds its own in `pills:`/],
+  ['Status pill', /One status's switch in a view's row: on shows that status's cards, off hides them[^\n]*never touches the selection/],
+  ['Isolate', /Showing only the selection, in every view, kept as a query in the search box that names each part by its criterion/],
+  ['Peek', /Opening a card's details without changing the selection/],
+  ['Unnested', /A card with no parent and no children\. It may still wait for a card or be waited for/],
+];
+
+test('the glossary defines hierarchy, tier, slice, selection, anchor, pill, status pill, isolate, peek and unnested, each as shipped', () => {
+  for (const [term, definition] of TERMS) {
+    const entry = new RegExp(String.raw`^\*\*${term}\*\*[^\n]*:\n([^\n]+)\n_Avoid_:`, 'm').exec(glossary);
+    assert.ok(entry, `${term} has an entry with a definition and an Avoid line`);
+    assert.match(entry[1], definition, term);
+  }
+});
+
+test('the glossary says the Graph view leaves the unnested cards where its option row puts them', () => {
+  const graph = between(glossary, '**Graph view** (web only)', '**Unnested**');
+  assert.match(graph, /unless the layout's option row puts them on the depth 0 ring or in a block, or leaves them out/);
+  assert.match(graph, /A card with no parent and no children is \*\*unnested\*\*/);
+});
+
+test('ADR 0013 is accepted, says a hierarchy orders drawing and enforces nothing, and says it narrows ADR 0012', () => {
+  const adr13 = flat(read('docs', 'adr', '0013-a-board-hierarchy-orders-drawing-and-enforces-nothing.md'));
+  assert.match(adr13, /^# 0013\. A board's hierarchy orders how types are drawn and enforces nothing/);
+  assert.match(adr13, /Status: accepted/);
+  assert.match(adr13, /A card's \*\*tier\*\* is its type's place in that list; a card whose type is not listed has none/);
+  assert.match(adr13, /no write path, check or warning compares a card's tier with its parent's/);
+  assert.match(adr13, /This narrows ADR 0012's "attaches no meaning" to "enforces nothing"/);
+});
+
+test('ADR 0006 lists its three amendments in the header and has a section for each, the anchor, peek and isolate one naming all three', () => {
+  assert.match(adr, /Amended: 2026-07-13 \(selection gestures\), 2026-10-14 \(anchor, peek, isolate\), 2026-10-15 \(empty space\)/);
+  for (const heading of ['## Amendment (2026-07-13)', '## Amendment (2026-10-14): anchor, peek and isolate', '## Amendment (2026-10-15): empty space']) {
+    assert.ok(adr.includes(heading), heading);
+  }
+  const amendment = adr.slice(adr.indexOf('## Amendment (2026-10-14)'), adr.indexOf('## Amendment (2026-10-15)'));
+  for (const term of ['**anchor**', '**Peek**', '**Isolate**']) assert.ok(amendment.includes(term), term);
+});
