@@ -141,10 +141,11 @@ module.exports = {
     await open('/?view=board');
     await waitFor(ready.board, 10000);
     const shownBefore = (await cardIds('#board')).length;
-    await clickOn('#search-panel-toggle');
+    await ev(`document.getElementById('search-input').focus()`);
     check('the panel opens', await waitFor(panelOpen));
     await clickOn(pillSel('review'));
     check('a click on the review pill puts review: in the box and makes it the anchor', await boxIs('review:') && (await anchorText()) === 'review:', await anchor());
+    // The arrow is the panel's switch: a click on it, with the switch on, closes the panel and switches it off.
     await clickOn('#search-panel-toggle');
     check('the panel closes and its chip counts the pill', await waitFor(panelShut) && !(await chip()).hidden && (await chip()).text === '1', await chip());
     const shownWithPill = (await cardIds('#board')).length;
