@@ -223,7 +223,11 @@ test('it covers every behaviour listed here, each by a check of its own', async 
     'the card appears on the Board after the next poll',
     'the i key turns isolate off',
   ]) assert.ok(names.some((n) => n.includes(part)), part);
-  for (const view of ['map', 'gantt', 'calendar', 'graph']) assert.ok(names.some((n) => n.startsWith(`${view}: only the isolated cards are drawn`)), view);
+  for (const view of ['map', 'gantt', 'calendar', 'graph']) {
+    assert.ok(names.some((n) => n.startsWith(`${view}: only the isolated cards are drawn`)), view);
+    assert.ok(names.some((n) => n.startsWith(`${view}: the selection's parts, the box and the switch are as they were`)), view);
+    assert.ok(names.some((n) => n.startsWith(`${view}: the selection reaches the picked cards the view draws`)), view);
+  }
 });
 
 test('it presses the real keys: i, Tab, Enter, Space and Esc, and i with Ctrl or Alt held', async () => {
