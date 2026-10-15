@@ -924,6 +924,16 @@ function setPillsFolded(on) {
   foldSearchPills(on);
 }
 
+// Whether the search panel opens when the search box is focused: the switch at the end
+// of the box, flipped by a click on the arrow and by the p key (which open the panel at
+// once when they turn it on), and shown and set in the preferences sheet (which does
+// not, with the sheet up over the board). The panel follows now (search-panel.js).
+function setPanelOnFocus(on, openNow = false) {
+  prefsMemo = prefsWith(loadPrefsState(), { panelOnFocus: on });
+  savePrefsState();
+  applySearchPanelSwitch(on, openNow);
+}
+
 // --- The preferences sheet, opened by the gear in the header. It lists the
 // settings above and the roll-up bar mode, and writes each to the browser the
 // moment it is chosen. It sits on the modal backdrop (so the poll pauses and
@@ -939,6 +949,7 @@ function syncPrefsSheet() {
   $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
   $('#prefs-archived-done').checked = countArchivedLeaves();
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
+  $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
 
 function openPrefsSheet() {
@@ -5959,6 +5970,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
+  $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
   // contextmenu grammar above) plus focusin/focusout so Tab reaches the
