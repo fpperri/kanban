@@ -30,7 +30,7 @@ const GRAPH_CHECKS = [
   'clicking a zoom button keeps a multi-selection', 'clicking the active layout keeps the zoomed view',
   'a zoom-button click does not leave focus on a poll-blocking control', 'plain click selects and does NOT open the card',
   'a selected card keeps its relations lit', 'the selection focus survives the pointer leaving', 'double click opens the card (URL gains card=)',
-  'clicking empty canvas clears the selection', 'a query typed in the Graph keeps every dot, lights its matches, a done one included, and dims the rest', 'clearing search restores the graph',
+  'clicking empty canvas leaves the selection', 'double-clicking empty canvas clears the selection', 'a query typed in the Graph keeps every dot, lights its matches, a done one included, and dims the rest', 'clearing search restores the graph',
   'isDragging is true during a node drag', 'the dragged card sits under the pointer', 'the svg is marked as dragging',
   'related cards are pulled along with the dragged card', 'unrelated cards move far less than related ones',
   'the drag ended cleanly (isDragging false, no dragging class)', 'a drag does not leave a selection behind (phantom click swallowed)',
@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a slice-term, a tier-fan, an esc-steps and a search-panel scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a slice-term, a tier-fan, an esc-steps, a search-panel and an empty-space scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'slice-term', 'tier-fan', 'esc-steps', 'search-panel']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'slice-term', 'tier-fan', 'esc-steps', 'search-panel', 'empty-space']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -243,7 +243,7 @@ const CARD_CLICK_CHECKS = [
   'Ctrl+click toggles one card in', 'Ctrl+click on a selected card toggles it out', 'Cmd+click toggles one card in',
   'Shift+click adds the range from the last toggled card', 'none of those clicks opened a card',
   'a right-click on a card outside the selection opens its menu and leaves the selection as it was', 'Escape closes that menu and keeps the selection',
-  'a click on empty space clears the selection', 'two cards are selected for the bulk confirmations',
+  'a click on empty space leaves the selection', 'a double click on empty space clears the selection', 'two cards are selected for the bulk confirmations',
   'the archive confirmation names the count', 'the delete confirmation names the count',
   'in the Graph, Enter on a focused card opens it',
 ];
@@ -285,7 +285,7 @@ const SELECTION_CHECKS = [
   'the first card picked is the anchor and the second is an addition', 'Shift+click on the added card takes it out and leaves the anchor',
   'Ctrl+click does the same as Shift+click: it adds one card and takes it out',
   'a click on another card starts a new selection holding that card alone', 'the empty corner of the Graph is not a card',
-  'a pan keeps the selection', 'a click on the empty Graph clears the selection', 'the Board shows after the view switch',
+  'a pan keeps the selection', 'a click on the empty Graph leaves the selection', 'a double click on the empty Graph clears the selection', 'the Board shows after the view switch',
   'two cards picked in the Graph with Shift show as selected on the Board after a view switch', 'the poll repainted the Board',
   'and the two cards are still selected after the poll', 'none of those clicks opened a card',
 ];

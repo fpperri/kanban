@@ -23,4 +23,5 @@ module.exports = [
   require('./tier-fan'),
   require('./esc-steps'),
   require('./search-panel'),
+  require('./empty-space'),
 ];

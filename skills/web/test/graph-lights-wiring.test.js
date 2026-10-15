@@ -61,7 +61,11 @@ async function open({ view = 'graph', stored = {}, board = makeBoard(), search =
     click(id, m) { const e = nodeEvent(id, m); graphHost.fire('click', e); return e; },
     canvasClick(inside = true, m = {}) {
       const target = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '#graph-view' && inside ? {} : null) : harmless(String(key))) });
-      s.page.fireDocument('click', { target, shiftKey: false, ctrlKey: false, metaKey: false, ...m });
+      s.page.fireDocument('click', { target, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false, ...m });
+    },
+    canvasDoubleClick(inside = true) {
+      s.canvasClick(inside, { detail: 1 });
+      s.canvasClick(inside, { detail: 2 });
     },
     esc: (inBox = false) => {
       page.ctx.document.activeElement = inBox ? page.input : null;
@@ -404,27 +408,36 @@ test('Esc outside the box steps back one stage at a time: the additions first, t
   assert.strictEqual(s.lit(), null);
 });
 
-test('a click on the empty canvas with a query lit clears the box, the selection and the dimming', async () => {
+test('a click on the empty canvas leaves a query lit, with its box and its selection', async () => {
   const s = await open();
   s.type('tags:ui');
   s.canvasClick();
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] });
+  assert.deepStrictEqual(s.lit().nodes, [2, 5]);
+});
+
+test('a double click on the empty canvas with a query lit clears the box, the selection and the dimming', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.canvasDoubleClick();
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.strictEqual(s.lit(), null);
 });
 
-test('a click on the empty canvas clears a query that matches nothing too', async () => {
+test('a double click on the empty canvas clears a query that matches nothing too', async () => {
   const s = await open();
   s.type('nothing-matches-this');
-  s.canvasClick();
+  s.canvasDoubleClick();
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
 });
 
-test('a click outside the Graph leaves the typed query where it is, so clicking into the box or on a header button does not wipe it', async () => {
+test('a double click outside the Graph leaves the typed query where it is, so a double click in the box or on the header does not wipe it', async () => {
   const s = await open();
   s.type('tags:ui');
-  s.canvasClick(false);
+  s.canvasDoubleClick(false);
   assert.strictEqual(s.box(), 'tags:ui');
   assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] });
 });
@@ -433,17 +446,17 @@ test('a click on a control that keeps the selection leaves the typed query where
   const s = await open();
   s.type('tags:ui');
   const marked = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '[data-keeps-selection]' ? {} : null) : harmless(String(key))) });
-  s.page.fireDocument('click', { target: marked, shiftKey: false, ctrlKey: false, metaKey: false });
+  s.page.fireDocument('click', { target: marked, detail: 2, shiftKey: false, ctrlKey: false, metaKey: false });
   assert.strictEqual(s.box(), 'tags:ui');
   assert.deepStrictEqual(s.selection().anchor, typed('tags:ui'));
 });
 
-test('a click on the empty canvas with a selection carried in clears the selection and leaves the box, which was not its anchor, alone', async () => {
+test('a double click on the empty canvas with a selection carried in clears the selection and leaves the box, which was not its anchor, alone', async () => {
   const s = await open({ view: 'board' });
   s.type('tags:ui');
   s.page.run("setSelection(addPart(NO_SELECTION, cardPart(5)), 5)");
   s.page.run("toggleView('graph')");
-  s.canvasClick();
+  s.canvasDoubleClick();
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.strictEqual(s.box(), 'tags:ui');
 });

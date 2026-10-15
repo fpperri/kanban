@@ -236,12 +236,17 @@ test('a right-click on a card, outside the selection or inside it, leaves the se
   assert.strictEqual(s.rangeStart(), 2);
 });
 
-test('a click on empty space clears the selection and its range start', async () => {
+test('a click on empty space leaves the selection and its range start, and a double click on empty space clears them', async () => {
   const s = await open();
   s.select('cardPart(1)', 'cardPart(2)');
+  s.page.run('setSelection(selectionState.selection, 2)');
   const empty = new Proxy({}, { get: (t, key) => (key === 'closest' ? () => null : harmless(String(key))) });
-  s.page.fireDocument('click', { target: empty, ...mods() });
+  s.page.fireDocument('click', { target: empty, detail: 1, ...mods() });
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
+  assert.strictEqual(s.rangeStart(), 2);
+  s.page.fireDocument('click', { target: empty, detail: 2, ...mods() });
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.rangeStart(), null);
 });
 
 test('bulk edits read the cards of the id set: cards added by a query are targets as the cards picked by hand are', async () => {
