@@ -140,6 +140,23 @@ for (const view of ['gantt', 'calendar']) {
   });
 }
 
+for (const view of ['gantt', 'calendar']) {
+  test(`${view}: a view switch from the Board keeps every part, and the id set shrinks to the picked cards with a date and grows back on the Board`, async () => {
+    const board = makeBoard();
+    board.active[1].start_date = null;
+    board.active[2].start_date = null;
+    const s = await open({ board });
+    s.select('cardPart(1)', 'cardPart(2)', 'cardPart(3)');
+    assert.deepStrictEqual(s.ids(), [1, 2, 3]);
+    s.page.run(`toggleView('${view}')`);
+    assert.strictEqual(s.page.run('loadViewMode()'), view);
+    assert.deepStrictEqual(s.ids(), [1], 'cards 2 and 3 have no date');
+    assert.deepStrictEqual(parts(s.selection()), [a(1), a(2), a(3)], 'the parts are what they were');
+    s.page.run(`toggleView('${view}')`);
+    assert.deepStrictEqual(s.ids(), [1, 2, 3]);
+  });
+}
+
 // The Graph is not among them: a search typed there hides nothing and is the anchor
 // of the selection, which graph-lights-wiring.test.js pins. The cards here are
 // picked by hand: a pill's query is the part that typing drops, since the box no

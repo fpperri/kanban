@@ -15,7 +15,9 @@
 // (28), and the i key writes `#17 | #14 | #28`. The Board, the Map and the Graph show those three
 // cards; the Gantt lists the dated one; the Calendar, entered with isolate on, jumps to the month of
 // the 2031 card and draws it. With only the 2031 card picked and the Calendar showing the page's own
-// current month, the i key jumps it to June 2031.
+// current month, the i key jumps it to June 2031. In every view the selection's parts, the box and
+// the switch are as they were; the cards the selection reaches are the picked ones the view draws,
+// so the Gantt and the Calendar, which draw only the dated cards, reach the 2031 card alone.
 // A keystroke typed after isolating one card keeps the text's leading # (`#28x`).
 //
 // The box's text and Esc. A search typed in the box (`zephyr`) narrows the Board, and two of its
@@ -203,6 +205,7 @@ module.exports = {
     check('the i key writes the selection into the box', await boxIs(datedText) && await switchIs(true), await boxText());
     check('the Board shows only those cards', await shows(SELECTORS.board, sorted(...CASES.dated.picked)), await nowShown(SELECTORS.board));
     check('the chip says isolated with the panel closed', await chipSaysIsolated(), await chip());
+    const isolatedParts = await parts();
     for (const [view, container, selector, wantedIds] of [
       ['map', '#map-view', SELECTORS.map, sorted(...CASES.dated.picked)],
       ['gantt', '#gantt-view', SELECTORS.gantt, sorted(...CASES.dated.gantt)],
@@ -213,7 +216,9 @@ module.exports = {
       check(`${view}: the view is up`, await waitFor(viewShown(container), 10000));
       if (view === 'calendar') check('the Calendar, entered with isolate on, jumps to the month of the card dated in 2031', await titleIs('calendar', CASES.dated.month), await titleOf('calendar'));
       check(`${view}: only the isolated cards are drawn`, await shows(selector, wantedIds, 10000), await nowShown(selector));
-      check(`${view}: the selection, the box and the switch are as they were`, await pickedIs(sorted(...CASES.dated.picked)) && (await boxText()) === datedText && await switchIs(true));
+      check(`${view}: the selection's parts, the box and the switch are as they were`, same(await parts(), isolatedParts) && (await boxText()) === datedText && await switchIs(true), { parts: await parts(), box: await boxText() });
+      const reached = sorted(...CASES.dated.picked.filter((id) => wantedIds.includes(id)));
+      check(`${view}: the selection reaches the picked cards the view draws`, await pickedIs(reached), await ev(`[...selectedIds]`));
     }
     await press('graph-toggle-btn');
     check('the Board shows the same cards after the round', await waitFor(viewShown('#board')) && await shows(SELECTORS.board, sorted(...CASES.dated.picked)), await nowShown(SELECTORS.board));

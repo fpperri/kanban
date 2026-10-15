@@ -64,6 +64,25 @@ test('a loop of parents terminates: altitude stops at the card it would repeat',
   assert.strictEqual(rollupIndex(self, CTX).altitudeOf(5), 0);
 });
 
+test('a loop of parents with a branch reads each card by the longest chain that repeats none', () => {
+  const cards = [card(1, { parent: 3 }), card(2, { parent: 1 }), card(3, { parent: 2 }), card(4, { parent: 3 }), card(5, { parent: 4 })];
+  const idx = rollupIndex(cards, CTX);
+  assert.deepStrictEqual([1, 2, 3, 4, 5].map((id) => idx.altitudeOf(id)), [4, 3, 2, 1, 0]);
+});
+
+test('altitude of a chain too deep to recurse over is read without overflowing the stack, in either order', () => {
+  const depth = 100000;
+  const cards = [card(1)];
+  for (let i = 2; i <= depth; i++) cards.push(card(i, { parent: i - 1 }));
+  const fromTop = rollupIndex(cards, CTX);
+  assert.strictEqual(fromTop.altitudeOf(1), depth - 1);
+  assert.strictEqual(fromTop.altitudeOf(depth / 2), depth / 2);
+  assert.strictEqual(fromTop.altitudeOf(depth), 0);
+  const fromBottom = rollupIndex(cards, CTX);
+  assert.strictEqual(fromBottom.altitudeOf(depth), 0);
+  assert.strictEqual(fromBottom.altitudeOf(1), depth - 1);
+});
+
 // --- leaves and roll-up -----------------------------------------------
 
 test('leavesBelow lists the cards with no children under a card, never the intermediate parents', () => {
