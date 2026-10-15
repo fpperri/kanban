@@ -107,8 +107,44 @@ function parseTerm(token, board) {
   return { field: null, value: token.toLowerCase() };
 }
 
+// The lexer: the query as tokens with their place in the text. A token is
+// `text` (one term as typed), `or` (a lone |).
+function lexSearch(raw) {
+  const s = String(raw == null ? '' : raw);
+  const tokens = [];
+  const word = /\S+/g;
+  let m;
+  while ((m = word.exec(s))) {
+    tokens.push({ kind: m[0] === '|' ? 'or' : 'text', start: m.index, end: m.index + m[0].length });
+  }
+  return { text: s, tokens };
+}
+
+// The parser: tokens to alternatives, each a list of items (a text token).
+function parseSearchAlts(tokens) {
+  const alts = [[]];
+  tokens.forEach((token) => {
+    if (token.kind === 'or') alts.push([]);
+    else alts[alts.length - 1].push(token);
+  });
+  return alts;
+}
+
+// Alternatives to terms: an empty alternative (no items, or only not-yet-terms)
+// is dropped, since an all-of-nothing check is true and it would match every
+// card while someone types. One alternative left is the flat term list; two or
+// more are one `or` term holding them.
+function searchAltsToTerms(alts, text, board) {
+  const lists = alts
+    .map((alt) => alt.map((item) => parseTerm(text.slice(item.start, item.end), board)).filter(Boolean))
+    .filter((list) => list.length);
+  if (lists.length <= 1) return lists[0] || [];
+  return [{ field: 'or', alts: lists }];
+}
+
 function parseSearchQuery(raw, board) {
-  return String(raw || '').trim().split(/\s+/).filter(Boolean).map((token) => parseTerm(token, board)).filter(Boolean);
+  const lexed = lexSearch(raw);
+  return searchAltsToTerms(parseSearchAlts(lexed.tokens), lexed.text, board);
 }
 
 function termMatchesCard(term, card) {
@@ -137,6 +173,7 @@ function termMatchesCard(term, card) {
     // than throwing. Always goes through filterCards in practice.
     case 'tree': case 'path': return false;
     case 'ids': return term.ids.has(Number(card.id));
+    case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: // bare term: title + body + tags
       return title.includes(term.value) || body.includes(term.value)
         || tags.some((t) => t.toLowerCase().includes(term.value));
