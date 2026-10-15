@@ -203,6 +203,56 @@ function createRegistry({ tmpBase = os.tmpdir() } = {}) {
   };
 }
 
+// --- starting Chrome -----------------------------------------------------------------
+
+const CHROME_PAGE_MS = 20000;
+const CHROME_STARTS = 2;
+const CHROME_OUT_SHOWN = 1000;
+
+const listTargets = async (port) => (await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(2000) })).json();
+
+// Asks the DevTools port of a Chrome that was just started for its first page, until
+// `ms` is up. A Chrome that stays up and never lists a page is the one failure of a
+// start that can come back: its error names the port, says what the port answered
+// and quotes what Chrome printed, and is marked noPageTarget so the start can be
+// tried again. A Chrome that has exited is reported and not marked, since asking
+// again would not bring it back.
+async function waitForPageTarget({ rec, port, ms = CHROME_PAGE_MS, pollMs = 100, targets = listTargets }) {
+  const t0 = Date.now();
+  let heard = 'never answered';
+  while (Date.now() - t0 < ms) {
+    if (rec.child.exitCode !== null || rec.child.signalCode !== null) throw new Error(`Chrome exited early: ${rec.out}`);
+    try {
+      const list = await targets(port);
+      const page = list.find((t) => t.type === 'page');
+      if (page) return page;
+      heard = `answered with ${list.length ? list.map((t) => t.type).join(', ') : 'no targets'}`;
+    } catch (e) { /* not listening yet */ }
+    await sleep(pollMs);
+  }
+  const printed = rec.out.trim() ? rec.out.trim().slice(-CHROME_OUT_SHOWN) : 'nothing';
+  const err = new Error(`timed out waiting for Chrome to expose a page target: its DevTools port ${port} ${heard} in ${ms / 1000}s, and Chrome printed ${printed}`);
+  err.noPageTarget = true;
+  throw err;
+}
+
+// Starts Chrome, up to `starts` times, until one lists a page. `launch(n)` starts the
+// n-th on a port and a profile of its own and answers { rec, port }. A Chrome that never
+// lists a page is ended before the next one starts, so two never share a machine.
+async function startChromeUntilPage({ launch, starts = CHROME_STARTS, ms, pollMs, targets, log = console.log }) {
+  for (let n = 1; ; n++) {
+    const { rec, port } = await launch(n);
+    try {
+      return { rec, port, page: await waitForPageTarget({ rec, port, ms, pollMs, targets }) };
+    } catch (e) {
+      if (!e.noPageTarget) throw e;
+      killTree(rec.child);
+      if (n >= starts) throw e;
+      log(`${e.message}; starting Chrome again (${n + 1} of ${starts})`);
+    }
+  }
+}
+
 // --- the scenario loop --------------------------------------------------------------
 
 // A scenario is { name, board, timeoutMs?, run(page) }. The loop gives each one
@@ -304,6 +354,6 @@ function summaryLines(results) {
 
 module.exports = {
   EXIT, DEFAULT_TIMEOUT_MS, parseArgs, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
-  isAlive, killTree, createRegistry, sleep, boardsOf,
+  isAlive, killTree, createRegistry, sleep, boardsOf, waitForPageTarget, startChromeUntilPage,
   runScenarios, withFault, exitCodeFor, summaryLines,
 };
