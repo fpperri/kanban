@@ -116,6 +116,13 @@ test('an entry and a pill on are drawn apart, a pill is no status pill, and the 
   assert.match(rule('.slice-entry-icon:empty')[0].body, /display:none/, 'an icon with no glyph takes no room');
 });
 
+test('the suggestion list hangs over the panel, the panel under the sticky header and the list under the card sheet', () => {
+  const z = (selector) => Number(/z-index:(\d+)/.exec(rule(selector)[0].body)[1]);
+  assert.ok(z('.search-panel') < z('.qmenu'), 'the list is on top where they meet');
+  assert.ok(z('.search-panel') < z('.hdr'), 'the panel goes under the sticky header when the page scrolls');
+  assert.ok(z('.qmenu') < z('#modal'), 'and the list under the card sheet');
+});
+
 test('the panel\'s rules use the page\'s colour tokens only, and every token they name exists on :root', () => {
   assert.ok(panelCss.length > 1500, 'the panel\'s block is found');
   assert.doesNotMatch(panelCss, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/, 'no colour literal');

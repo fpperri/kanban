@@ -107,11 +107,26 @@ describe('Esc and a press outside close the panel', () => {
   test('Esc pressed in the box closes the panel and leaves focus in the box, and the text stays', () => {
     withBuiltBoard('plan', (page) => {
       openPanel(page);
-      page.type(page.byId('q'), 'zephyr');
+      page.type(page.byId('q'), 'title:zephyr');
+      assert.strictEqual(page.byId('qmenu').style.display, 'none', 'sanity: a scoped term offers no suggestions');
       assert.strictEqual(page.key(boxEl(page), 'Escape'), true);
       assert.ok(panelHidden(page));
       assert.ok(focusIs(page, boxEl(page)), 'focus stays in the box');
-      assert.strictEqual(boxText(page), 'zephyr');
+      assert.strictEqual(boxText(page), 'title:zephyr');
+    });
+  });
+
+  test('Esc takes the suggestion list before the panel, and the panel before anything else', () => {
+    withBuiltBoard('plan', (page) => {
+      openPanel(page);
+      page.type(page.byId('q'), 'zephyr');
+      assert.strictEqual(page.byId('qmenu').style.display, '', 'sanity: the suggestions are up');
+      assert.strictEqual(page.key(boxEl(page), 'Escape'), true);
+      assert.strictEqual(page.byId('qmenu').style.display, 'none', 'the first Esc shuts the list');
+      assert.ok(!panelHidden(page), 'and leaves the panel open');
+      assert.strictEqual(page.key(boxEl(page), 'Escape'), true);
+      assert.ok(panelHidden(page), 'the second shuts the panel');
+      assert.strictEqual(boxText(page), 'zephyr', 'the box keeps its text through both');
     });
   });
 

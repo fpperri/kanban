@@ -213,12 +213,15 @@ function loadPage(html, opts = {}) {
       for (const fn of doc.body.listeners.contextmenu || []) fn(ev);
       return prevented;
     },
-    // A key pressed with focus on target (the page's document-level key listeners hear it, as the
-    // event bubbles there); reports whether the page kept the browser's own action away.
+    // A key pressed with focus on target: the listeners of target and of each element above it hear
+    // it, then the document's, as the event bubbles, unless one of them stops it; reports whether the
+    // page kept the browser's own action away.
     key(target, key, mods = {}) {
       let prevented = false;
-      const ev = { key, target, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, getModifierState: () => false, preventDefault() { prevented = true; }, stopPropagation() {}, ...mods };
-      for (const fn of doc.listeners.keydown || []) fn(ev);
+      let stopped = false;
+      const ev = { key, target, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, getModifierState: () => false, preventDefault() { prevented = true; }, stopPropagation() { stopped = true; }, ...mods };
+      for (let n = target; n && !stopped; n = n.parentNode) for (const fn of n.listeners.keydown || []) fn(ev);
+      if (!stopped) for (const fn of doc.listeners.keydown || []) fn(ev);
       return prevented;
     },
     // A press of the mouse button on target, which the page's document-level listeners hear.
