@@ -90,7 +90,7 @@ const NAMED_KEYS = {
 
 // printable character -> [windowsVirtualKeyCode, code of the physical key]
 const PUNCTUATION = {
-  '/': [191, 'Slash'], '[': [219, 'BracketLeft'], ']': [221, 'BracketRight'], '{': [219, 'BracketLeft'], '}': [221, 'BracketRight'],
+  '/': [191, 'Slash'], '?': [191, 'Slash'], '[': [219, 'BracketLeft'], ']': [221, 'BracketRight'], '{': [219, 'BracketLeft'], '}': [221, 'BracketRight'],
   '.': [190, 'Period'], ',': [188, 'Comma'], ';': [186, 'Semicolon'], ':': [186, 'Semicolon'], '-': [189, 'Minus'], '=': [187, 'Equal'],
   '#': [51, 'Digit3'], '@': [50, 'Digit2'], '|': [220, 'Backslash'], '"': [222, 'Quote'], "'": [222, 'Quote'], '*': [56, 'Digit8'],
 };

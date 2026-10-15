@@ -128,6 +128,12 @@ test('the slice keys carry the code of the physical key', () => {
   assert.strictEqual(keyEvents('/')[0].code, 'Slash');
 });
 
+test('? is Shift with the slash key, as a US keyboard types it, and carries its text', () => {
+  const [down, up] = keyEvents('?', { shift: true });
+  assert.deepStrictEqual(down, { type: 'keyDown', key: '?', code: 'Slash', windowsVirtualKeyCode: 191, modifiers: 8, text: '?' });
+  assert.deepStrictEqual(up, { type: 'keyUp', key: '?', code: 'Slash', windowsVirtualKeyCode: 191, modifiers: 8 });
+});
+
 test('a key the table does not know is refused rather than sent as nothing', () => {
   assert.throws(() => keyEvents('Hyper'), /unknown key 'Hyper'/);
 });
