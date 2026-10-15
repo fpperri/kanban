@@ -503,6 +503,14 @@ to `127.0.0.1` only.
   `paintTypeColors()` (app.js) paints it with CSSOM assignments after `innerHTML` lands
   (the CSP blocks style attributes). The app attaches no meaning to a type, `epic`
   included: it wears a color only when the list gives it one.
+  **Icons:** a listed type may also carry an `icon:` (see the `icon` bullet under the
+  config keys). A type with an icon starts its chip with that glyph, in the chip's own
+  colour (the glyph is plain text inside the chip, so it takes the colour the chip is
+  painted), wherever a chip is drawn: Board and Archive tiles, the Map's rich rows and the
+  card details. Calendar and Gantt draw no chip, so they show none. A type with no icon, or
+  an unknown icon name, is the chip it was before icons. The six glyphs live in their own
+  module, `type-icons.js`, which has no dependencies and loads before the type chip and the
+  Graph.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -1250,8 +1258,12 @@ to `127.0.0.1` only.
   "archive" beside the live one.
   **A dot** shows the card's status colour (the same fixed hues and palette as the rest
   of the app), is bigger the more relations the card has, is hollow when the card is
-  `done`, and is dimmed when archived. An outer ring marks a card with children; a red
-  ring is **blocked**, an amber ring **waiting**, a gold ring **review**. A card's id
+  `done`, and is dimmed when archived. A type with an icon draws its dot in that outline
+  (circle, square, diamond, triangle, hexagon or star), still in the card's status colour,
+  hollow when `done` and dimmed when archived; a card with no icon, or an unknown icon name,
+  keeps the round dot. An outer ring marks a card with children; a red
+  ring is **blocked**, an amber ring **waiting**, a gold ring **review**; the child ring and
+  the flag rings sit outside every shape, the star's points included. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
   the view is zoomed in, or when the graph is small. **Relations:** a solid line joins a
   parent to its child, and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
@@ -1355,7 +1367,10 @@ handle a card carries.
   name lowercased with a trailing comment stripped, an unknown name passed through as
   written; no `icon` key at all when none is set). Human-curated like `tags`; the app only reads.
 - **`icon`** (on a `types:` block entry) is one of `circle`, `square`, `diamond`,
-  `triangle`, `hexagon` or `star`. A later change draws it; today the page only holds it.
+  `triangle`, `hexagon` or `star`. The page draws it as the type chip glyph and the Graph
+  dot's outline (see the **Card type chip** and **Graph view** bullets). An icon name is
+  only looked up in the closed table of six in `type-icons.js`; it is never markup, a class
+  name or part of a path, and a name the table does not hold draws as no icon.
   Labels, queries and icon names are human text: a reader escapes them and never uses one
   as raw markup or a class name.
 - **`hierarchy`** (inline or block form) lists the type names that are the levels of the

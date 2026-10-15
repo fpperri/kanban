@@ -162,3 +162,18 @@ test('the page keeps its script order: app.js last, graph-view.js right before i
     assert.strictEqual(new Set(scripts).size, scripts.length, 'no script loads twice');
   });
 });
+
+test('the page loads the type icons module ahead of the type chip and the Graph, and the server serves it', async () => {
+  await serve(WEB, async (base) => {
+    const html = await (await fetch(`${base}/`)).text();
+    const scripts = [...html.matchAll(/<script src="\/([\w.-]+\.js)"><\/script>/g)].map((m) => m[1]);
+    assert.ok(scripts.includes('type-icons.js'), 'app.html loads type-icons.js');
+    for (const reader of ['type-badge.js', 'graph-model.js', 'graph-view.js', 'app.js']) {
+      assert.ok(scripts.indexOf('type-icons.js') < scripts.indexOf(reader), `type-icons.js loads before ${reader}`);
+    }
+    const res = await fetch(`${base}/type-icons.js`);
+    assert.strictEqual(res.status, 200);
+    assert.match(res.headers.get('content-type'), /text\/javascript/);
+    assert.strictEqual(lf(await res.text()), lf(fs.readFileSync(path.join(WEB, 'type-icons.js'), 'utf8')));
+  });
+});
