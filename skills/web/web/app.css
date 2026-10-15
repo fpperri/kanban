@@ -1489,6 +1489,13 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .prefs-opt[aria-pressed="true"] { position: relative; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .prefs-opt:disabled { cursor: default; }
 .prefs-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 0.9em; cursor: pointer; }
+.hotkeys-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hotkey-row { display: grid; grid-template-columns: minmax(84px, 34%) 1fr; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 0.85em; }
+.hotkey-row:first-child { border-top: 0; }
+.hotkey-keys { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px; }
+.hotkey-key { font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.9em; line-height: 1.6; color: var(--ink); background: var(--raised); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 0 5px; }
+.hotkey-what { color: var(--ink); line-height: 1.45; }
+.hotkey-state { grid-column: 2; color: var(--accent); font-size: 0.9em; }
 /* End preferences sheet */
 .notif-more li::marker { color: var(--mut); }
 .notif-message code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.08em 0.32em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
