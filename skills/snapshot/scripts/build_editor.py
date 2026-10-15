@@ -337,6 +337,7 @@ NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
 MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
 WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
 SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
+TYPE_ICONS_JS = os.path.join(WEB_MODULES, "type-icons.js")
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
@@ -363,6 +364,9 @@ def read_waiting_blocked():
 
 def read_search():
     return read_embedded(SEARCH_JS, "the search module")
+
+def read_type_icons():
+    return read_embedded(TYPE_ICONS_JS, "the type icons module")
 
 def main():
     p = argparse.ArgumentParser()
@@ -406,6 +410,7 @@ def main():
                     .replace("__MAP_RELATIONS_JS__", read_map_relations())
                     .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
                     .replace("__SEARCH_JS__", read_search())
+                    .replace("__TYPE_ICONS_JS__", read_type_icons())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -559,6 +564,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    family, distinct from --id-waiting (waiting) and --blocked-ink (blocked). */
 .rbadge{background:var(--review-bg);color:var(--review-ink)}
 .type-chip{display:inline-block;font-size:.7rem;margin-left:6px;padding:0 7px;border:1px solid var(--line-strong);border-radius:.15rem;background:var(--btn-bg);color:var(--mut);white-space:nowrap}
+.type-icon{margin-right:.35em;line-height:1}
 .alt-badge{display:inline-block;margin-left:6px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.65rem;font-weight:600;color:var(--mut);border:1px solid var(--line-strong);border-radius:.15rem;padding:0 5px;white-space:nowrap}
 .rollup{margin-top:6px}
 .rollup-bar{display:flex;height:8px;border-radius:.15rem;overflow:hidden;background:var(--raised)}
@@ -833,6 +839,8 @@ __MAP_RELATIONS_JS__</script>
 __WAITING_BLOCKED_JS__</script>
 <script>
 __SEARCH_JS__</script>
+<script>
+__TYPE_ICONS_JS__</script>
 <script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
@@ -1180,8 +1188,11 @@ const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
 return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
 // Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
+// A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, is the chip it was before icons.
 function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
-const s=el("span","type-chip",t);s.title=t;
+const g=typeIconGlyph(typeIconOf(t,TYPES));
+const s=el("span","type-chip",g?undefined:t);s.title=t;
+if(g){const i=el("span","type-icon",g);i.setAttribute("aria-hidden","true");s.appendChild(i);s.appendChild(document.createTextNode(t))}
 const col=typeColor(t);if(col){s.style.color=col;s.style.borderColor=col}
 return s}
 function altBadge(n){const b=el("span","alt-badge","\\u25b2"+n);b.title="altitude: layers below";return b}
