@@ -937,8 +937,8 @@ to `127.0.0.1` only.
   record, storage that is blocked, or a record kept for another isolate) the box ends up empty.
   The page works without browser storage. Opening a card while isolated keeps the parameter,
   and Back and Forward bring the entry they land on in line with the box, isolate included.
-  A link with `isolate=1` and no usable `q` opens with isolate off, and any value but `1` is no
-  request.
+  A link with `isolate=1` and no usable `q` opens with isolate off and loses the parameter from the
+  address on load, and any value but `1` is no request.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered

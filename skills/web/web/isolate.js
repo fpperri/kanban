@@ -19,9 +19,8 @@
 // selection.js; escapeStep and stepSelectionBack in app.js); with the search panel open the first
 // Esc closes the panel and the second turns isolate off. A hand edit of the box, a pill or a slice
 // is an edit of the query: isolate stays on while the box holds one, and ends when it holds none
-// (isolateAfterWrite, selection.js). The edges the grill left open are read the simplest way:
-// the switch with nothing to write says so and stays off, and Esc with focus in the box turns
-// isolate off like Esc anywhere else.
+// (isolateAfterWrite, selection.js). With nothing to write the switch says so and stays off, and
+// Esc with focus in the box turns isolate off like Esc anywhere else.
 //
 // The menus turn it on too: the card menu offers Isolate inside the selection, and the small menu
 // of the empty Graph or Map canvas offers it alone (cardMenuFor and canvasMenuFor, selection.js;
@@ -31,12 +30,13 @@
 // The link carries it. While isolate is on the address holds `isolate=1` beside `q` (the box's own
 // address listener, followSearchInAddress in app.js, asks isolateNow), and a link that opens with
 // the parameter and a query turns isolate on before the query reaches the box (isolateFromLink,
-// called by consumeDeepLink), so the first repaint, the address and every listener see it on. The
-// text the box held before isolating cannot ride in the link, so the browser keeps it per board
-// beside the isolate text it goes with (isolateRecord, selection.js), and gives it back when that
-// very isolate is turned off after a reload; where it is unknown (no record, blocked storage, a
-// record for another isolate) turning isolate off leaves the box empty. Every storage read and
-// write is guarded, and the page works without it.
+// called by consumeDeepLink), so the first repaint, the address and every listener see it on; a
+// link with the parameter and no query opens with isolate off, and its address loses the parameter
+// on load. The text the box held before isolating cannot ride in the link, so the browser keeps
+// it per board beside the isolate text it goes with (isolateRecord, selection.js), and gives it
+// back when that very isolate is turned off after a reload; where it is unknown (no record,
+// blocked storage, a record for another isolate) turning isolate off leaves the box empty. Every
+// storage read and write is guarded, and the page works without it.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads: $, state,
 // storageKey, prefsStorage, selectionState, selectedIds, viewCardIds, searchMatchIds, loadViewMode,

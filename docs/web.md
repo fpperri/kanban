@@ -307,7 +307,7 @@ The link carries it. While isolate is on, the address holds a second parameter b
 in another browser, opens isolated: the Graph and every other view show only the isolated set.
 The text the box held before isolating is kept in your browser, per board, so turning isolate
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
-the parameter and no query opens with isolate off.
+the parameter and no query opens with isolate off, and the address drops the parameter.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
