@@ -519,3 +519,16 @@ test('waiting: reads ids the way the waiting rule does, so a card from a page th
   ];
   assert.deepStrictEqual(ids('waiting:', textual), ['7']);
 });
+
+test('a trailing |, "a | status:", an unclosed quote, an unclosed bracket and a stray closing bracket never throw, in the parser, the matcher or the suggestions', () => {
+  for (const q of ['tags:ui |', 'a | status:', 'tags:"gri', '"two wo', 'tags:ui (status:doing', '(((', 'tags:ui) status:doing', ')', '(a | b))']) {
+    assert.doesNotThrow(() => {
+      filterCards(CARDS, parseSearchQuery(q));
+      searchSuggestionItems(q);
+      searchSuggestionItems(q, 0);
+      searchAddTerm(q, 'tags:x');
+      searchRemoveTerm(q, 'tags:x');
+      searchBracket(q);
+    }, JSON.stringify(q));
+  }
+});
