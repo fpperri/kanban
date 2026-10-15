@@ -120,3 +120,15 @@ describe('the depths are built over archived cards too', () => {
     });
   });
 });
+
+describe('a queued edit and a slice', () => {
+  test('a type a queued edit sets shows under type: at once, but the card stays in the slice the board gave it until the edit is applied', () => {
+    withBoardPage('plan', (page) => {
+      assert.ok(!search(page, 'type:goal').includes(3), 'sanity: card 3 has no type');
+      page.run("queue({ op: 'edit', id: 3, fm: { type: 'goal' } })");
+      assert.ok(search(page, 'type:goal').includes(3), 'the queued type shows under type:');
+      assert.deepStrictEqual(search(page, 'slice:goal'), [1, 25], 'but not under slice:goal');
+      assert.ok(search(page, 'slice:1').includes(3), 'card 3 is still a depth-1 card');
+    });
+  });
+});

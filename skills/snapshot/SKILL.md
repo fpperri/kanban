@@ -70,10 +70,25 @@ every single time and the ceremony is pure overhead forever.
 
 A search box under the header filters every view at once — the same query grammar
 as kanban-web, because the page runs kanban-web's own search module
-(`skills/web/web/search.js`, with the waiting rules in `skills/web/web/waiting-blocked.js`),
+(`skills/web/web/search.js`, with the waiting rules in `skills/web/web/waiting-blocked.js`
+and the slices in `skills/web/web/slices.js`),
 embedded as is, so a query finds on the phone what it finds at the desk. Terms AND together,
-`|` is or and round brackets group (`tags:ui (status:doing | status:todo)`), a quoted value matches
-whole (`tags:"grill"`), a bare `waiting:` finds the cards waiting for a card that is not done,
+and these forms go further, one example each: `|` is or and a space binds tighter, so
+`tags:ui status:doing | #12` is ui and doing, or card 12; round brackets group and nest
+(`tags:ui (status:doing | status:todo)`); a quoted value matches whole, ignoring case, or any
+one element of a list (`tags:"grill"` finds a card tagged grill and not one tagged grilling),
+a quoted `title:` or `body:` matches the whole field, and quoted text with no scope is a phrase
+(`"two words"`); a bare `waiting:` finds the cards waiting for a card that is not done; and
+`slice:<top>..<bottom>` cuts every view to a run of slices, which are the tiers of the
+`hierarchy:` in `config.yaml`, top first, and then the depths of the cards with no tier:
+`slice:objective..2` keeps the objective tier down to depth 2, `slice:goal` is that one slice,
+`slice:goal..` and `slice:..objective` leave an end open, a reversed pair is swapped, an end the
+board does not have is left open, and a single unknown name, `slice:..` and a half-typed name
+cut nothing. A board with no hierarchy cuts by depth (`slice:1` keeps the depth-1 cards), and
+`slice:` combines like any term (`tags:ui (slice:goal | #12)`). Slices are counted over every
+card of the board, archived ones included, as the page was built: a queued edit does not move a
+card to another slice until it is applied. A `|` counts only as a token of its own and a bracket
+only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does `waiting:3`.
 `#id`/`id:` exact (`<this board's name>#id` too),
 `title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
 `assignee:` (`a:` is its alias) is a case-insensitive substring match on the assignee handle,
