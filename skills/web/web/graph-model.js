@@ -228,12 +228,19 @@ function graphFinish(model, pos, rings, spokes, titles, extra) {
     const r = graphRadius(n);
     grow(p.x - r, p.y - r, p.x + r, p.y + r);
   }
-  for (const r of rings) grow(r.cx - r.r, -r.r, r.cx + r.r, r.r);
+  const fan = extra && extra.fan;
+  for (const r of rings) {
+    // A fan's rings are arcs, from the flat edge on the left round to the fan's right edge.
+    if (fan) grow(-r.r, 0, r.r * Math.cos(fan.to), r.r);
+    else grow(r.cx - r.r, -r.r, r.cx + r.r, r.r);
+  }
   for (const t of titles) grow(t.x, t.y - 16, t.x + 80, t.y + 4);
-  const block = extra && extra.block;
+  const { boxes, ...kept } = extra || {};
+  for (const b of boxes || []) grow(b.x0, b.y0, b.x1, b.y1);
+  const block = kept.block;
   if (block) grow(block.x, block.y, block.x + block.w, block.y + block.h);
   const bounds = Number.isFinite(x0) ? { x0, y0, x1, y1 } : { x0: -100, y0: -100, x1: 100, y1: 100 };
-  return { pos, rings, spokes, titles, bounds, ...extra };
+  return { pos, rings, spokes, titles, bounds, ...kept };
 }
 
 // --- layout: the tier fan ------------------------------------------------------
@@ -336,10 +343,15 @@ function graphFanPlace(model, opts) {
 // The layout answers more than positions, for whatever draws bands, captions and
 // the block's frame: `bands` ({ index, slice, count, subs, r0, r1, rings }),
 // `sectors` ({ kind, rootId, tops, leaves, from, to } in radians, `from` the left
-// edge), `block` ({ x, y, w, h, columns: [{ label, ids, x, w }] }, columns
-// relative to the block) and `fan` ({ from, to }). `rings` are the circles drawn
-// through the rows of dots, and `spokes` the dividers between sectors. Every pass
-// below walks the nodes in outline order, forwards or back, never recursing.
+// edge), `block` ({ x, y, w, h, count, columns: [{ label, ids, count, x, w }] },
+// columns relative to the block), `captions` (the caption of each band, with its
+// row), `looseCaption` (the caption of the loose cards with a tier) and `fan`
+// ({ from, to }). `rings` are the circles drawn through the rows of dots, and
+// `spokes` the dividers between sectors. The bounds Fit frames hold the dots, the
+// arcs the rings make (the fan only, not the full circle), the captions above the
+// flat edge, the loose caption and the block. graphPlan turns all of it into marks:
+// guide arcs, captions, dividers and the block's frame, title and column captions.
+// Every pass below walks the nodes in outline order, forwards or back, never recursing.
 
 const GRAPH_FAN_FROM = 172 * Math.PI / 180;
 const GRAPH_FAN_TO = 8 * Math.PI / 180;
@@ -351,9 +363,23 @@ const GRAPH_FAN_MARK_GAP = 8;
 const GRAPH_FAN_CLEAR = 30;
 const GRAPH_FAN_BLOCK_PITCH = 22;
 const GRAPH_FAN_BLOCK_ROWS = 10;
-const GRAPH_FAN_BLOCK_TOP = 24;
+const GRAPH_FAN_BLOCK_TOP = 36;
 const GRAPH_FAN_BLOCK_PAD = 12;
 const GRAPH_FAN_BLOCK_COLUMN = 56;
+const GRAPH_FAN_BLOCK_NAME = 'Unnested';
+const GRAPH_FAN_LOOSE_NAME = 'Unnested, with a tier';
+const GRAPH_FAN_LOOSE_ROOM = 20;
+
+// The captions are text at a fixed size on screen, so the layout cannot know how
+// wide one comes out in the world. It spaces them for a nominal scale: a character
+// takes GRAPH_FAN_CAPTION_CHAR world units, and the two rows above the flat edge
+// take GRAPH_FAN_CAPTION_ROOM. Fit then adds its own padding on top.
+const GRAPH_FAN_CAPTION_CHAR = 7;
+const GRAPH_FAN_CAPTION_PAD = 6;
+const GRAPH_FAN_CAPTION_ROOM = 34;
+const GRAPH_FAN_CAPTION_DY = ['-0.8em', '-2.3em'];
+const GRAPH_FAN_DIVIDER_IN = 20;
+const GRAPH_FAN_DIVIDER_CLEAR = 9;
 
 // How far the widest outline an icon can draw reaches from its centre, in dot
 // radii. Marks are spaced for it whatever icon a card has, so an icon moves no dot
@@ -365,20 +391,76 @@ function graphFanLabel(band) {
   return band.slice.depth === 0 ? 'roots' : `depth ${band.slice.depth}`;
 }
 
-// The Unnested block: a column for each status, its dots in rows of ten. Placed in
-// the corner the fan leaves free, clear of the rim; with no fan, centred.
+function graphFanCaptionWidth(name, count) {
+  return (String(name).length + 1 + String(count).length) * GRAPH_FAN_CAPTION_CHAR + GRAPH_FAN_CAPTION_PAD;
+}
+
+// The caption of each band, on the fan's flat edge above the band's first ring, in
+// axis order, with its name and the number of cards on its rings. Neighbours
+// alternate between two rows so they never touch. A band nobody is in has a muted
+// caption too, but only when it clears the captions on its row: thin empty bands are
+// closer together than a caption is wide, and a band with a card is never left out.
+function graphFanCaptions(bands) {
+  const items = bands.map((b, i) => {
+    const name = graphFanLabel(b);
+    return {
+      band: b.index, name, count: b.count, kind: b.slice.kind, muted: !b.count, row: i % 2,
+      x: -b.rings[0], w: graphFanCaptionWidth(name, b.count),
+    };
+  });
+  const taken = [[], []];
+  const clear = (it) => taken[it.row].every((t) => it.x + it.w / 2 <= t.x - t.w / 2 || t.x + t.w / 2 <= it.x - it.w / 2);
+  const kept = new Set();
+  for (const muted of [false, true]) {
+    for (const it of items) {
+      if (it.muted !== muted || (muted && !clear(it))) continue;
+      kept.add(it);
+      taken[it.row].push(it);
+    }
+  }
+  return items.filter((it) => kept.has(it));
+}
+
+// The caption of the sector of loose cards with a tier: its name and the number of
+// cards, standing above the outermost of them and running away from the fan, which
+// is empty there. null when no loose card has a tier.
+function graphFanLooseCaption(model, sectors, pos) {
+  const loose = sectors.find((s) => s.kind === 'loose');
+  if (!loose) return null;
+  let far = null;
+  for (const id of loose.tops) {
+    const p = pos.get(id);
+    const out = Math.hypot(p.x, p.y);
+    if (!far || out > far.out) far = { id, p, out };
+  }
+  const reach = graphRadius(model.byId.get(far.id)) * GRAPH_FAN_REACH;
+  return {
+    name: GRAPH_FAN_LOOSE_NAME, count: loose.tops.length, x: far.p.x, y: far.p.y - reach - 3, dy: '-0.3em',
+    w: graphFanCaptionWidth(GRAPH_FAN_LOOSE_NAME, loose.tops.length),
+  };
+}
+
+// The Unnested block: a column for each status that holds a card, its dots in rows
+// of ten, under a row of captions (the status and its count) and the block's title
+// (Unnested and its count). The header is GRAPH_FAN_BLOCK_TOP tall and its text hangs
+// up from the bottom of it, so it never meets the dots at any zoom. A column is as
+// wide as its dots or its caption, and the block as wide as its title. Placed in the
+// corner the fan leaves free, clear of the rim; with no fan, centred.
 function graphFanBlock(columns, outer, pos) {
   if (!columns.length) return null;
   let x = 0;
   let rows = 0;
+  let count = 0;
   const cols = columns.map((c) => {
-    const w = Math.max(Math.ceil(c.ids.length / GRAPH_FAN_BLOCK_ROWS) * GRAPH_FAN_BLOCK_PITCH + GRAPH_FAN_BLOCK_PAD, GRAPH_FAN_BLOCK_COLUMN);
-    const col = { label: c.label, ids: c.ids, x, w };
+    const dots = Math.ceil(c.ids.length / GRAPH_FAN_BLOCK_ROWS) * GRAPH_FAN_BLOCK_PITCH + GRAPH_FAN_BLOCK_PAD;
+    const w = Math.max(dots, GRAPH_FAN_BLOCK_COLUMN, graphFanCaptionWidth(c.label, c.ids.length));
+    const col = { label: c.label, ids: c.ids, count: c.ids.length, x, w };
     x += w;
+    count += c.ids.length;
     rows = Math.max(rows, Math.min(GRAPH_FAN_BLOCK_ROWS, c.ids.length));
     return col;
   });
-  const w = x;
+  const w = Math.max(x, graphFanCaptionWidth(GRAPH_FAN_BLOCK_NAME, count));
   const h = GRAPH_FAN_BLOCK_TOP + rows * GRAPH_FAN_BLOCK_PITCH + GRAPH_FAN_BLOCK_PAD;
   let bx = -w / 2;
   let by = 0;
@@ -395,7 +477,7 @@ function graphFanBlock(columns, outer, pos) {
       });
     });
   }
-  return { x: bx, y: by, w, h, columns: cols };
+  return { x: bx, y: by, w, h, count, columns: cols };
 }
 
 function graphLayoutTiers(model, opts) {
@@ -493,8 +575,12 @@ function graphLayoutTiers(model, opts) {
   const outer = grown.length ? grown[grown.length - 1].r1 : 0;
   const spokes = sectors.slice(0, -1).map((s) => ({ angle: s.to - gap / 2, r1: outer + GRAPH_FAN_CLEAR }));
   const block = graphFanBlock(fan.columns, outer, pos);
+  const captions = graphFanCaptions(grown);
+  const looseCaption = graphFanLooseCaption(model, sectors, pos);
+  const boxes = captions.map((c) => ({ x0: c.x - c.w / 2, y0: -GRAPH_FAN_CAPTION_ROOM, x1: c.x + c.w / 2, y1: 0 }));
+  if (looseCaption) boxes.push({ x0: looseCaption.x, y0: looseCaption.y - GRAPH_FAN_LOOSE_ROOM, x1: looseCaption.x + looseCaption.w, y1: looseCaption.y });
   return graphFinish(model, pos, rings, spokes, [], {
-    bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places,
+    bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places, captions, looseCaption, boxes,
   });
 }
 
@@ -791,6 +877,90 @@ function graphLinkPaths(model, layout, kind) {
   });
 }
 
+// A faint arc through each ring of each band, from the flat edge on the left round to
+// the fan's right edge: one for the band, at its first ring, and a lighter one for
+// each further ring of a tier whose cards nest in one another (`sub`). A band nobody
+// is in has one thin ring, drawn fainter.
+function graphFanGuides(layout) {
+  const end = layout.fan.to;
+  return layout.bands.flatMap((b) => b.rings.map((r, k) => ({
+    band: b.index,
+    sub: k > 0,
+    d: `M${graphRound(-r)} 0A${graphRound(r)} ${graphRound(r)} 0 0 0 ${graphRound(Math.cos(end) * r)} ${graphRound(Math.sin(end) * r)}`,
+    cls: `graph-guide${b.count ? '' : ' graph-guide-empty'}${k ? ' graph-guide-sub' : ''}`,
+  })));
+}
+
+// The divider between each pair of neighbouring sectors, along the middle of the gap
+// between them: from a little inside the first band out to the cards of the two
+// sectors it parts, no farther. It stops short of any mark that stands on it (a card
+// wider than its stretch, or one dragged onto it), so a divider never cuts a dot, and
+// carries on beyond.
+function graphFanDividers(model, layout) {
+  if (!layout.spokes.length) return [];
+  const bandAt = new Map(layout.bands.map((b) => [b.index, b]));
+  const marks = [];
+  for (const n of model.nodes) {
+    const p = layout.places.get(n.id);
+    if (p.sector === null) continue;
+    const at = layout.pos.get(n.id);
+    const band = bandAt.get(p.band);
+    marks.push({
+      x: at.x, y: at.y, sector: p.sector,
+      reach: Math.hypot(at.x, at.y) + (band.r1 - band.r0) / band.rings.length / 2,
+      clear: graphRadius(n) * GRAPH_FAN_REACH + 6 + GRAPH_FAN_DIVIDER_CLEAR,
+    });
+  }
+  const inner = Math.max(0, layout.bands[0].r0 - GRAPH_FAN_DIVIDER_IN);
+  const out = [];
+  layout.spokes.forEach((s, i) => {
+    const ux = Math.cos(s.angle);
+    const uy = Math.sin(s.angle);
+    const far = Math.max(...marks.filter((m) => m.sector === i || m.sector === i + 1).map((m) => m.reach));
+    const cuts = [];
+    for (const m of marks) {
+      const along = m.x * ux + m.y * uy;
+      const off = Math.abs(m.x * uy - m.y * ux);
+      if (off < m.clear) {
+        const half = Math.sqrt(m.clear * m.clear - off * off);
+        cuts.push([along - half, along + half]);
+      }
+    }
+    cuts.sort((p, q) => p[0] - q[0]);
+    let from = inner;
+    for (const cut of cuts.concat([[far, far]])) {
+      const to = Math.min(far, cut[0]);
+      if (to - from > 4) {
+        out.push({ x1: graphRound(ux * from), y1: graphRound(uy * from), x2: graphRound(ux * to), y2: graphRound(uy * to) });
+      }
+      from = Math.max(from, cut[1]);
+    }
+  });
+  return out;
+}
+
+// The block as marks: its frame, its title and the caption of each column, in the
+// world. Text hangs up from a baseline GRAPH_FAN_BLOCK_TOP minus 8 below the block's
+// top; the title stands one and a half of its own heights above the captions.
+function graphFanBlockPlan(block) {
+  if (!block) return null;
+  const base = graphRound(block.y + GRAPH_FAN_BLOCK_TOP - 8);
+  return {
+    x: graphRound(block.x), y: graphRound(block.y), w: graphRound(block.w), h: graphRound(block.h), cls: 'graph-block-frame',
+    title: {
+      name: GRAPH_FAN_BLOCK_NAME, count: block.count, x: graphRound(block.x + GRAPH_FAN_BLOCK_PAD / 2), y: base, dy: '-1.5em', cls: 'graph-block-title',
+    },
+    columns: block.columns.map((c) => ({
+      label: c.label,
+      count: c.count,
+      ids: c.ids.slice(),
+      x: graphRound(block.x + c.x),
+      w: graphRound(c.w),
+      caption: { name: c.label, count: c.count, x: graphRound(block.x + c.x + GRAPH_FAN_BLOCK_PAD / 2), y: base, cls: 'graph-block-caption' },
+    })),
+  };
+}
+
 function graphPlan(model, layout, opts) {
   const o = opts || {};
   const selected = o.selectedIds || new Set();
@@ -838,15 +1008,23 @@ function graphPlan(model, layout, opts) {
     return { from: l.from, to: l.to, kind: l.kind, d: paths[i], cls, arrow: l.kind === 'wait' };
   });
 
-  const rings = layout.rings.map((r) => ({ cx: graphRound(r.cx), r: graphRound(r.r), label: r.label, cls: 'graph-ring' }));
-  const spokes = layout.spokes.map((s) => ({
-    x1: 0,
-    y1: 0,
-    x2: graphRound(Math.cos(s.angle) * s.r1),
-    y2: graphRound(Math.sin(s.angle) * s.r1),
-  }));
+  // The tier fan draws its bands as guide arcs and captions instead of full rings.
+  const fan = kind === 'tiers' && layout.bands ? layout : null;
+  const rings = fan ? [] : layout.rings.map((r) => ({ cx: graphRound(r.cx), r: graphRound(r.r), label: r.label, cls: 'graph-ring' }));
+  const guides = fan ? graphFanGuides(fan) : [];
+  const dividers = fan ? graphFanDividers(model, fan) : [];
+  const block = fan ? graphFanBlockPlan(fan.block) : null;
+  const looseCaption = fan && fan.looseCaption ? {
+    name: fan.looseCaption.name, count: fan.looseCaption.count, x: graphRound(fan.looseCaption.x), y: graphRound(fan.looseCaption.y),
+    dy: fan.looseCaption.dy, cls: 'graph-caption graph-loose-caption',
+  } : null;
+  const captions = fan ? fan.captions.map((c) => ({
+    band: c.band, name: c.name, count: c.count, kind: c.kind, muted: c.muted, row: c.row,
+    x: graphRound(c.x), y: 0, dy: GRAPH_FAN_CAPTION_DY[c.row],
+    cls: c.muted ? 'graph-caption graph-caption-muted' : 'graph-caption',
+  })) : [];
   const titles = layout.titles.map((t) => ({ x: graphRound(t.x), y: graphRound(t.y), text: t.text }));
-  return { nodes, links, rings, spokes, titles };
+  return { nodes, links, rings, titles, guides, captions, dividers, block, looseCaption };
 }
 
 if (typeof module !== 'undefined' && module.exports) {

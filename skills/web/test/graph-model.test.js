@@ -443,7 +443,7 @@ test('plan: status layout marks cross-clump links', () => {
   assert.ok(tiers.links.every((l) => !l.cls.includes('cross')));
 });
 
-test('plan: rings, spokes and titles come from the layout; output is finite and deterministic', () => {
+test('plan: rings, dividers and titles come from the layout; output is finite and deterministic', () => {
   const m = build(sampleCards());
   for (const kind of GRAPH_LAYOUTS) {
     const lay = graphLayout(m, kind, { statuses: ['backlog', 'todo', 'doing', 'done'] });
@@ -452,14 +452,16 @@ test('plan: rings, spokes and titles come from the layout; output is finite and 
     assert.deepStrictEqual(a, b);
     const nums = JSON.stringify(a).match(/-?\d+(\.\d+)?(e-?\d+)?/g).map(Number);
     assert.ok(nums.every(Number.isFinite));
-    assert.strictEqual(a.rings.length, lay.rings.length);
-    assert.strictEqual(a.spokes.length, lay.spokes.length);
+    // The tier fan draws its bands as guide arcs and its sectors' spokes as dividers; the status layout draws rings.
+    assert.strictEqual(a.rings.length, kind === 'tiers' ? 0 : lay.rings.length);
+    assert.strictEqual(a.guides.length, kind === 'tiers' ? lay.rings.length : 0);
+    assert.strictEqual(a.dividers.length, lay.spokes.length);
     assert.ok(a.rings.every((r) => r.cls === 'graph-ring'));
     assert.ok(!JSON.stringify(a).includes('NaN'));
   }
-  assert.strictEqual(graphPlan(m, graphLayout(m, 'tiers'), planOpts()).spokes.length, 0, 'one tree needs no sector dividers');
+  assert.strictEqual(graphPlan(m, graphLayout(m, 'tiers'), planOpts()).dividers.length, 0, 'one tree needs no sector dividers');
   const two = build([card(1), card(2, { parent: 1 }), card(3), card(4, { parent: 3 })]);
-  assert.strictEqual(graphPlan(two, graphLayout(two, 'tiers'), planOpts()).spokes.length, 1, 'two trees get a divider between them');
+  assert.strictEqual(graphPlan(two, graphLayout(two, 'tiers'), planOpts()).dividers.length, 1, 'two trees get a divider between them');
   const empty = build([]);
   const e = graphPlan(empty, graphLayout(empty, 'tiers'), planOpts());
   assert.deepStrictEqual(e.nodes, []);
