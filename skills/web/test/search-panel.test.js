@@ -611,25 +611,254 @@ test('a poll updates the counts without writing the box, and keeps the pills on'
 
 // --- the panel's own state -----------------------------------------------------------------
 
-test('the panel starts closed, and focusing the search box does not open it', async () => {
+test('the panel starts closed, and the arrow starts pressed: the switch is on', async () => {
   const s = await open();
   assert.strictEqual(s.isOpen(), false);
-  s.page.input.fire('focus', {});
+  assert.strictEqual(s.elements['#search-panel-toggle'].attrs['aria-pressed'], 'true');
+  assert.strictEqual(s.page.run('searchPanelSwitchOn()'), true);
+});
+
+// --- the arrow's switch: the panel opens on focus -----------------------------------------
+
+const toggleOf = (s) => s.elements['#search-panel-toggle'];
+const arrow = (s) => toggleOf(s).fire('click', {});
+const focusBox = (s) => { s.focusOn(s.page.input); s.page.input.fire('focus', {}); };
+const pressed = (s) => toggleOf(s).attrs['aria-pressed'];
+const expanded = (s) => toggleOf(s).attrs['aria-expanded'];
+// A button, the way the key guard sees one: nobody typing in it.
+const button = () => ({ tagName: 'BUTTON', isContentEditable: false, focus() {} });
+// One press of a key on the document, as the page's listeners see it; answers how many times the page
+// stopped the browser's own response to it.
+const press = (s, key, init = {}) => {
+  let prevented = 0;
+  s.page.fireDocument('keydown', { key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, repeat: false, preventDefault() { prevented++; }, ...init });
+  return prevented;
+};
+const SURFACES = { menu: '#context-menu:not(.hidden)', dialog: '.modal-backdrop:not(.hidden)', notifications: '#notif-modal:not(.hidden)', preferences: '#prefs-sheet:not(.hidden)' };
+const withSurface = (s, name) => {
+  const orig = s.page.ctx.document.querySelector;
+  s.page.ctx.document.querySelector = (sel) => (sel === SURFACES[name] ? control() : orig(sel));
+};
+
+test('with the switch on, the default, focusing the search box opens the panel, and the arrow says it is expanded', async () => {
+  const s = await open();
+  assert.strictEqual(s.isOpen(), false);
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), true);
+  assert.strictEqual(expanded(s), 'true');
+  assert.strictEqual(s.elements['#search-panel'].classList.contains('hidden'), false);
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), true, 'a second focus leaves it open');
+});
+
+test('a click on the arrow switches it off: the panel closes now, the arrow says so, and focusing the box opens nothing', async () => {
+  const s = await open();
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), true);
+  arrow(s);
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(pressed(s), 'false');
+  assert.strictEqual(expanded(s), 'false');
+  assert.strictEqual(s.elements['#search-panel'].classList.contains('hidden'), true);
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), false, 'focus no longer opens it');
+  assert.strictEqual(s.page.run('searchPanelSwitchOn()'), false);
+});
+
+test('a second click switches it on and opens the panel now, and focusing the box opens it again', async () => {
+  const s = await open();
+  arrow(s);
+  assert.strictEqual(s.isOpen(), false, 'the first click switched it off, with nothing to close');
+  assert.strictEqual(pressed(s), 'false');
+  arrow(s);
+  assert.strictEqual(pressed(s), 'true');
+  assert.strictEqual(s.isOpen(), true, 'on opens the panel now, without a focus');
+  assert.strictEqual(expanded(s), 'true');
+  s.page.run('setSearchPanelOpen(false)');
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), true, 'and it opens on focus again');
+});
+
+test('the arrow names what it switches and says what a click does, in each state', async () => {
+  const s = await open();
+  const on = toggleOf(s).title;
+  assert.match(on, /opens when the (search )?box is focused/i);
+  assert.match(on, /switch it off/i);
+  assert.match(on, /\bp\b/);
+  arrow(s);
+  const off = toggleOf(s).title;
+  assert.match(off, /off/i);
+  assert.match(off, /switch it on/i);
+  assert.match(off, /\bp\b/);
+  assert.notStrictEqual(on, off);
+});
+
+test('the switch is kept per board in the preferences, and the next visit starts as it was left', async () => {
+  const s = await open();
+  arrow(s);
+  assert.strictEqual(JSON.parse(s.stored['kanban.kanban.prefs']).panelOnFocus, false);
+  const again = await open({ stored: s.stored });
+  assert.strictEqual(pressed(again), 'false', 'the arrow comes back off');
+  focusBox(again);
+  assert.strictEqual(again.isOpen(), false);
+  arrow(again);
+  assert.strictEqual(JSON.parse(again.stored['kanban.kanban.prefs']).panelOnFocus, true);
+  const third = await open({ stored: again.stored });
+  assert.strictEqual(pressed(third), 'true');
+  focusBox(third);
+  assert.strictEqual(third.isOpen(), true);
+});
+
+test('another board keeps its own switch', async () => {
+  const s = await open();
+  arrow(s);
+  const other = await open({ board: { ...makeBoard(), projectName: 'shop' }, stored: s.stored });
+  assert.strictEqual(pressed(other), 'true', 'the switch of the kanban board does not reach the shop board');
+  focusBox(other);
+  assert.strictEqual(other.isOpen(), true);
+});
+
+test('a repaint and a poll leave the arrow as it was, and a switch that is off keeps the panel shut through them', async () => {
+  const s = await open();
+  arrow(s);
+  s.page.run('renderBoard()');
+  await s.page.run('autoRefreshTick()');
+  assert.strictEqual(pressed(s), 'false');
   assert.strictEqual(s.isOpen(), false);
 });
 
-test('the toggle opens and closes it, and says which', async () => {
+// --- the p key ---------------------------------------------------------------------------
+
+test('p does what the arrow does: it switches the panel off and closes it, then on and opens it', async () => {
   const s = await open();
-  const toggle = s.elements['#search-panel-toggle'];
-  const panel = s.elements['#search-panel'];
-  s.page.run('toggleSearchPanel()');
-  assert.strictEqual(s.isOpen(), true);
-  assert.strictEqual(toggle.attrs['aria-expanded'], 'true');
-  assert.strictEqual(panel.classList.contains('hidden'), false);
-  s.page.run('toggleSearchPanel()');
+  focusBox(s);
+  s.focusOn(button());
+  assert.strictEqual(press(s, 'p'), 1, 'the page stops the browser\'s own response to the key');
+  assert.strictEqual(pressed(s), 'false');
   assert.strictEqual(s.isOpen(), false);
-  assert.strictEqual(toggle.attrs['aria-expanded'], 'false');
-  assert.strictEqual(panel.classList.contains('hidden'), true);
+  assert.strictEqual(JSON.parse(s.stored['kanban.kanban.prefs']).panelOnFocus, false, 'the choice is kept, as the arrow keeps it');
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), false, 'focus opens nothing while it is off');
+  s.focusOn(button());
+  press(s, 'p');
+  assert.strictEqual(pressed(s), 'true');
+  assert.strictEqual(s.isOpen(), true, 'on opens the panel now');
+});
+
+test('p works with nothing focused, and a capital P (Caps Lock) counts too', async () => {
+  const s = await open();
+  s.focusOn(null);
+  assert.strictEqual(press(s, 'p'), 1);
+  assert.strictEqual(pressed(s), 'false');
+  assert.strictEqual(press(s, 'P'), 1);
+  assert.strictEqual(pressed(s), 'true');
+});
+
+test('p does nothing while typing in a field', async () => {
+  const s = await open();
+  for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) {
+    s.focusOn({ tagName, isContentEditable: false });
+    assert.strictEqual(press(s, 'p'), 0, tagName);
+    assert.strictEqual(pressed(s), 'true', tagName);
+  }
+  s.focusOn({ tagName: 'DIV', isContentEditable: true });
+  assert.strictEqual(press(s, 'p'), 0, 'an editable element');
+  focusBox(s);
+  assert.strictEqual(press(s, 'p'), 0, 'the search box');
+  assert.strictEqual(pressed(s), 'true');
+  assert.strictEqual(s.isOpen(), true);
+});
+
+test('p does nothing while a card menu, a dialog, the notifications panel or the preferences sheet is up', async () => {
+  for (const name of Object.keys(SURFACES)) {
+    const s = await open();
+    withSurface(s, name);
+    s.focusOn(button());
+    assert.strictEqual(press(s, 'p'), 0, name);
+    assert.strictEqual(pressed(s), 'true', name);
+    assert.strictEqual(s.page.run('searchPanelSwitchOn()'), true, name);
+  }
+});
+
+test('p with Ctrl, Cmd or Alt held, with Shift on a lower-case key, or held down, leaves the switch alone', async () => {
+  const s = await open();
+  s.focusOn(button());
+  for (const init of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { repeat: true }]) {
+    assert.strictEqual(press(s, 'p', init), 0, JSON.stringify(init));
+    assert.strictEqual(pressed(s), 'true', JSON.stringify(init));
+  }
+  assert.strictEqual(press(s, 'o'), 0, 'another key');
+  assert.strictEqual(pressed(s), 'true');
+});
+
+test('p with the panel open is not stopped by it: the panel is no popup for the key guard', async () => {
+  const s = await open();
+  s.openPanel();
+  s.focusOn(button());
+  press(s, 'p');
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(pressed(s), 'false');
+});
+
+test('p on a pill closes the panel and hands focus to the arrow, since the pill went with it', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  s.openPanel();
+  s.focusOn(button());
+  press(s, 'p');
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 1);
+  assert.strictEqual(s.focused(), toggle);
+});
+
+// --- Esc and the switch ------------------------------------------------------------------------
+
+test('Esc closes the panel that focus opened and the box keeps its text; the switch stays on and focusing the box opens it again', async () => {
+  const s = await open();
+  focusBox(s);
+  s.type('zephyr');
+  s.focusOn(s.page.input);
+  assert.strictEqual(s.isOpen(), true);
+  const e = s.press();
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(s.box(), 'zephyr');
+  assert.strictEqual(e.defaultPrevented, true, 'the browser\'s own Esc, which clears a search field, is stopped');
+  assert.strictEqual(pressed(s), 'true', 'Esc leaves the switch on');
+  assert.strictEqual(s.focused(), s.page.input, 'focus stays in the box');
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), true);
+  s.press();
+  assert.strictEqual(s.isOpen(), false);
+  s.press();
+  assert.strictEqual(s.box(), '', 'the Esc after the panel clears the box');
+});
+
+// --- the preferences sheet's copy of the switch -----------------------------------------------------
+
+test('the sheet\'s setting is the same switch: off closes the panel now and focus opens nothing; on opens nothing by itself, and focus opens it', async () => {
+  const s = await open();
+  focusBox(s);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(pressed(s), 'false');
+  assert.strictEqual(JSON.parse(s.stored['kanban.kanban.prefs']).panelOnFocus, false);
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), false);
+  s.page.run('setPanelOnFocus(true)');
+  assert.strictEqual(pressed(s), 'true');
+  assert.strictEqual(s.isOpen(), false, 'the sheet is up over the board: the panel waits for the box');
+  assert.strictEqual(JSON.parse(s.stored['kanban.kanban.prefs']).panelOnFocus, true);
+  focusBox(s);
+  assert.strictEqual(s.isOpen(), true);
+});
+
+test('the arrow and the sheet read one choice: what the sheet sets, the arrow flips from', async () => {
+  const s = await open();
+  s.page.run('setPanelOnFocus(false)');
+  arrow(s);
+  assert.strictEqual(pressed(s), 'true');
+  assert.strictEqual(s.page.run('loadPrefsState().panelOnFocus'), true);
 });
 
 test('the panel stays open through a poll, and the poll is never paused for it', async () => {

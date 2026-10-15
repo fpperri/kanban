@@ -154,7 +154,7 @@ test('Esc with focus on a pill closes the panel and puts focus back on the toggl
 test('the ids and classes the scenario drives are in the page the panel is drawn on', () => {
   const web = path.join(__dirname, '..', 'web');
   const page = ['app.html', 'search-panel.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
-  for (const name of ['search-panel', 'search-panel-toggle', 'search-pills', 'search-pills-fold', 'search-chip', 'search-clear-btn', 'prefs-pills-folded', 'query-pill', 'query-pill-count']) {
+  for (const name of ['search-panel', 'search-panel-toggle', 'search-pills', 'search-pills-fold', 'search-chip', 'search-clear-btn', 'prefs-pills-folded', 'prefs-panel-on-focus', 'query-pill', 'query-pill-count']) {
     assert.ok(page.includes(name), `${name} is in the page`);
     assert.ok(code.includes(name), `${name} is driven by the scenario`);
   }
@@ -173,7 +173,7 @@ function standIn() {
     if (/^\[\.\.\.new Set\(\[\.\.\.document\.querySelectorAll\('#board \.card-el'\)\]/.test(expr)) return planIds;
     if (/^JSON\.stringify\(Object\.fromEntries/.test(expr)) return JSON.stringify(panel.CASES.counts);
     if (/getElementById\('search-chip'\);return/.test(expr)) return { hidden: false, text: '1', name: '1 on: review' };
-    if (/#search-pills \.query-pill'\)\]\.map\(\(b\)=>b\.dataset\.pillKey\)$/.test(expr)) return ['blocked', 'review', 'waiting'];
+    if (/#search-pills \.query-pill'\)\]\.filter\(.*\.map\(\(b\)=>b\.dataset\.pillKey\)$/.test(expr)) return ['blocked', 'review', 'waiting'];
     if (/^document\.activeElement&&\(document\.activeElement\.id/.test(expr)) return 'search-panel-toggle';
     if (/offsetHeight/.test(expr)) return 40;
     if (/fetch\('\/api\/cards\//.test(expr)) return 200;
@@ -233,10 +233,10 @@ test('the scan for that point leaves out what the page leaves out: the scenario 
   assert.ok(scan.includes(JSON.stringify(require('./browser/scenarios/empty-space').NOT_EMPTY)), 'with the list the empty-space scenario holds to the page');
 });
 
-test('the scenario loads the plan board cold, in the Board and in the Graph, and once more for the preference', async () => {
+test('the scenario loads the plan board cold, in the Board and in the Graph, once for the switch kept across a reload, and once more for the fold preference', async () => {
   const page = standIn();
   await panel.run(page);
-  assert.deepStrictEqual(page.log.opened, ['/', '/', '/?view=graph', '/', '/']);
+  assert.deepStrictEqual(page.log.opened, ['/', '/', '/', '/?view=graph', '/', '/']);
 });
 
 test('it presses Escape through the three links of the chain, and Tab, Enter and Space for the keyboard', async () => {
@@ -246,7 +246,48 @@ test('it presses Escape through the three links of the chain, and Tab, Enter and
   assert.ok(count('Escape') >= 6, 'the bulk popup, the two steps with the panel closed, the list, the panel and the sheet, and the box as many times as it takes');
   assert.ok(count('Tab') >= 8);
   assert.ok(count('Enter') >= 3);
-  assert.strictEqual(count(' '), 2);
+  assert.strictEqual(count(' '), 3, 'Space on the arrow, on a pill and on the fold control');
+  assert.strictEqual(count('p'), 7, 'p off, on, in the box, under a card menu, under the sheet, off again before the reload, on after it');
+});
+
+test('the scenario drives the switch in order: focus opens the panel, a click switches it off, focus and a click open nothing, a second click opens it, then the p key in the box, under a card menu and under the sheet, the reload, and the preferences sheet last', () => {
+  const at = (name) => code.indexOf(`check('${name}'`);
+  const names = [
+    'the arrow starts pressed, the switch on, and says the panel is collapsed',
+    'focusing the search box opens the panel and the arrow says it is expanded',
+    'a click on the arrow switches it off: the panel closes and the arrow says it is not pressed',
+    'the arrow is struck through while the switch is off',
+    'with the switch off, focusing the box opens nothing',
+    'with the switch off, a click into the box opens nothing either',
+    'a second click switches it on and opens the panel now, with no focus in the box',
+    'p switches it off: the panel closes and the arrow says it is not pressed',
+    'p again switches it on and opens the panel now',
+    'p typed in the search box is a letter, and leaves the switch and the panel alone',
+    'with a card menu up, p does nothing',
+    'with the preferences sheet open, p does nothing',
+    'the choice survives a reload: with the switch off the arrow comes back not pressed and the panel shut',
+    'after the reload, focusing the box still opens nothing',
+    'after the reload, p switches it on and opens the panel',
+    'the panel lists blocked, review and waiting, in that order',
+    'Shift+Tab from the toggle reaches the box and opens the panel that Esc had closed',
+    'Enter on the toggle switches it off and closes the panel',
+    'Space on the toggle switches it on and opens the panel',
+    'Esc left the switch on: focusing the box opens the panel again',
+    'a click into the box opens the panel',
+    'the sheet shows "Panel opens when the search box is focused" on',
+    'with the checkbox off, the arrow is not pressed and the panel is shut',
+    'with the checkbox off, focusing the box opens nothing',
+    'with the checkbox on again, the arrow is pressed and the panel stays shut until the box is focused',
+    'and then focusing the box opens the panel',
+    'the sheet shows what the arrow did: the checkbox is off',
+    'a click on the arrow switches it on again, and opens the panel now',
+  ];
+  for (const name of names) assert.ok(at(name) > 0, name);
+  assert.ok(names.every((n, i) => !i || at(n) > at(names[i - 1])), 'in the order they are driven');
+  assert.ok(at('focusing the search box does not open the panel') < 0, 'the rule that focusing the box opens nothing is gone');
+  assert.ok(!/check\('the toggle opens the panel and says it is expanded'/.test(code), 'a click on the arrow no longer opens a panel that is already switched on');
+  const sheet = code.slice(at('the sheet shows "Panel opens when the search box is focused" on'));
+  assert.strictEqual(sheet.split("clickOn('#prefs-panel-on-focus')").length - 1, 2, 'the checkbox is clicked off and on again');
 });
 
 test('every check the scenario makes has a name that says what it holds', async () => {

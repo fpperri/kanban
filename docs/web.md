@@ -181,8 +181,14 @@ throws, and an empty alternative is dropped rather than matching every card. Cli
 tag, assignee, blocked or review cue on a card adds that term to every alternative of
 what the box holds.
 
-**Search panel** — the search box has a toggle at its right end that opens a panel under
-it; focusing the box never opens it, and the panel adds nothing to the header's height. It
+**Search panel** — the search box has an arrow at its right end that is the switch of a
+panel under it. With the switch on, the default, focusing the box opens the panel. A click
+on the arrow switches it off, so the panel closes and focusing the box no longer opens it,
+and a second click switches it on and opens the panel now. The `p` key flips the same
+switch, except while you type in a field or a menu, a dialog, the notifications panel or
+the preferences sheet is up. The arrow is announced as pressed while the switch is on and
+is struck through while it is off, the choice is kept in your browser per board, and the
+preferences sheet shows and sets it. The panel adds nothing to the header's height. It
 lists the built-in pills, blocked, review and waiting, each with a count of the cards its
 query matches, done cards included. The counts are taken over the cards the view shows
 after its status pills and Archive, and before the search box, so turning one pill on
@@ -200,13 +206,26 @@ then the anchor. A pill is on while its query is the anchor or an addition, and 
 announced as pressed, and typing in the box turns it off. With the panel
 closed, a chip in the box counts what is on, and its name for a screen reader says which.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
-it starts. Tab reaches the toggle, the fold control and every pill, and Enter and Space act
+it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
-toggle, and stays in the box when Esc was pressed there), and then clears the box, when
+arrow, and stays in the box when Esc was pressed there), and then clears the box, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
-the box. The box keeps its text through the first two, because the browser's own Esc, which
+the box. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
+
+**Board pills** — the pill section also lists the board's own pills, after blocked, review
+and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
+query, or a label and a query, shown as its label; a malformed entry is skipped. A board
+pill shows a count like the built-ins and clicks as they do: a click makes its query the
+anchor and puts it in the box, and Shift+click grows the box to `anchor | pill`. A `field:*`
+entry, such as `tags:*` or `assignee:*` (also `status:*`, `priority:*` and `type:*`), makes
+one pill per distinct value the board's active cards hold in that field, sorted and labelled
+by the value. Each matches its value exactly, so the `grill` pill never catches `grilling`
+and a value with a space stays one term. The first eight values of a field show, and a
+**+N more** button reveals the rest and folds them back. A pill that has focus keeps it
+across the poll. Next up is not built in: it is a pill a board defines, such as
+`- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
@@ -253,10 +272,14 @@ never written to the board's files.
   count.
 - *Pill section starts folded* is off by default. It says how the search panel's pill
   section starts; its fold control still folds it for the visit.
+- *Panel opens when the search box is focused* is on by default. It is the switch at the
+  end of the search box, the same choice the arrow and the `p` key flip, so each shows
+  what the others did. Turning it off closes the panel; turning it on here leaves the
+  panel closed until the box is focused.
 
 The sheet closes with Esc, a click outside it or its close button, and focus goes back to
-the gear. While it is open the board does not refresh under it, and `/` and Ctrl+F stand
-still.
+the gear. While it is open the board does not refresh under it, and `/`, `p` and Ctrl+F
+stand still.
 
 ## Other surfaces
 
