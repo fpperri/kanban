@@ -2,7 +2,7 @@
 // The slice: search term cuts every view to the same cards. On the plan board,
 // whose hierarchy is goal, strategy, objective, epic, the cut goal..objective
 // keeps the five cards of those three tiers on the Board, the Map and the Graph,
-// and the Gantt and the Calendar draw none of the dated cards, which all sit
+// and the Gantt lists, and the Calendar draws, none of the dated cards, which all sit
 // outside it. On today's fixture board, which has no hierarchy, slice:1 keeps the
 // depth-1 cards. On the malformed board, whose hierarchy lists goal and epic
 // twice in mixed case, a cut by either name keeps that tier's card. The harness
@@ -45,11 +45,16 @@ const CASES = {
 };
 
 // What each view draws a card as. A cut is read off these, so each names only
-// real cards: the Map's stubs for cards a filter hid are not card-el.
+// real cards: the Map's stubs for cards a filter hid are not card-el. A card in
+// the Map with some relation is a map-node, and one with none is a tile in the
+// No relations row, so the Map is read off card-el alone. The Gantt lists a row in
+// its gutter for every dated card, but draws the card's bar only inside a window
+// that is cut to 180 days around today when the dated cards lie further apart, and
+// the plan board's two (2020 and 2031) hold neither, so the Gantt is read off the rows.
 const SELECTORS = {
   board: '#board .card-el',
-  map: '#map-view .map-node.card-el',
-  gantt: '#gantt-view .gantt-bar[data-id]',
+  map: '#map-view .card-el',
+  gantt: '#gantt-view .gantt-label[data-id]',
   calendar: '#calendar-view .cal-chip[data-id]',
   graph: '#graph-view .graph-node',
 };
@@ -96,9 +101,9 @@ module.exports = {
 
     await load('/?view=gantt', 'plan');
     await write(plan.depthZero.query);
-    check('plan: slice:0 draws both dated cards on the Gantt', await shows(GANTT, plan.depthZero.datedShows, 10000), await shownNow(GANTT));
+    check('plan: slice:0 lists both dated cards on the Gantt', await shows(GANTT, plan.depthZero.datedShows, 10000), await shownNow(GANTT));
     await write(plan.cut.query);
-    check('plan: the cut draws none of them on the Gantt', await shows(GANTT, []), await shownNow(GANTT));
+    check('plan: the cut lists none of them on the Gantt', await shows(GANTT, []), await shownNow(GANTT));
 
     await load(`/?view=calendar&q=${encodeURIComponent(plan.depthZero.query)}`, 'plan');
     check('plan: slice:0 draws a dated card on the Calendar', await drawn(CALENDAR));

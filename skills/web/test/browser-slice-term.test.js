@@ -7,6 +7,9 @@ const path = require('node:path');
 const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
+const { buildRelationsGraph } = require('../web/dependency-graph');
+const { mapShapeRelations } = require('../web/map-relations');
+const { ganttGroups, rowWindowSpans, ganttWindow, ganttBarClip, GANTT_MAX_DAYS } = require('../web/gantt-model');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
 const sliceTerm = require('./browser/scenarios/slice-term');
@@ -103,6 +106,80 @@ test('the selectors the scenario reads name classes and containers the page real
   }
 });
 
+// The Map draws a card in one of three ways: a node in a tree when some relation
+// touches it, a tile in the No relations row when none does, and, for a card the cut
+// hid that a shown card still relates to, a stub. Only the first two are cards the
+// cut keeps. The Gantt lists every dated card as a row in its gutter, and draws a bar
+// for it only when the bar falls in the window, which for the All sub-view is
+// clamped to 180 days. The classes each is drawn with come from the page code, which
+// the first test below holds them to, so each selector is held to the page's own
+// relation and window code over the plan board and not to a guess at what is drawn.
+const ELEMENTS = {
+  mapNode: { within: '#map-view', classes: ['map-node', 'card-el'], attrs: ['data-id'] },
+  mapTile: { within: '#map-view', classes: ['card', 'card-el'], attrs: ['data-id'] },
+  mapStub: { within: '#map-view', classes: ['map-node', 'ghost'], attrs: ['data-id'] },
+  ganttLabel: { within: '#gantt-view', classes: ['gantt-row', 'gantt-label', 'card-el'], attrs: ['data-id'] },
+  ganttBar: { within: '#gantt-view', classes: ['gantt-bar', 'card-el'], attrs: ['data-id'] },
+};
+
+const selectorMatches = (selector, element) => {
+  const [container, compound, ...rest] = selector.split(' ');
+  assert.strictEqual(rest.length, 0, 'one compound selector below the view');
+  const parts = compound.match(/\.[\w-]+|\[[\w-]+\]/g) || [];
+  assert.strictEqual(parts.join(''), compound, 'the compound names classes and attributes only');
+  return container === element.within
+    && parts.every((p) => (p[0] === '.' ? element.classes.includes(p.slice(1)) : element.attrs.includes(p.slice(1, -1))));
+};
+
+const readBy = (selector, drawn) => [...new Set(drawn.filter(({ element }) => selectorMatches(selector, element)).map(({ id }) => id))].sort((a, b) => a - b);
+
+test('the classes the Map and the Gantt draw their elements with come from the page code', () => {
+  const web = path.join(__dirname, '..', 'web');
+  const app = fs.readFileSync(path.join(web, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(app.includes('const selectable = !n.ghost && !missing;'), 'a stub is not selectable');
+  assert.ok(app.includes("map-node${n.ghost ? ' ghost' : ''}"), 'a node and a stub are both map-node, and a stub is also a ghost');
+  assert.ok(app.includes("${selectable ? ' card-el' : ''}"), 'only a node that is not a stub is a card-el');
+  assert.ok(app.includes('graph.ghosts.forEach((g) => allById.set(g.id, Object.assign({ ghost: true }, g)));'), 'the ghosts of a graph are the stubs');
+  assert.ok(app.includes("el.className = 'card card-el'"), 'a tile is a card and a card-el');
+  const row = app.slice(app.indexOf('function buildIsolatedRow('), app.indexOf('// Rich rows are HTML'));
+  assert.ok(row.includes('cardEl(card)'), 'the No relations row draws each card as a tile');
+  assert.ok(app.includes("label.className = 'gantt-row gantt-label card-el'"), 'a Gantt row has a label in the gutter');
+  assert.ok(app.includes('label.dataset.id = bar.card.id;'), 'and the label carries the card id');
+  assert.ok(app.includes('for (const bar of group.bars) {'), 'a label is drawn for every row of every group');
+  assert.ok(app.includes('if (!clip) return null;'), 'a bar outside the window is not drawn');
+  assert.ok(app.includes('el.className = `gantt-bar card-el status-'), 'a bar is a gantt-bar and a card-el');
+});
+
+test('the Map selector reaches each card the Map draws under the cut, the ones with a relation and the one with none, and no stub', () => {
+  const board = load('plan');
+  const { cut } = sliceTerm.CASES.plan;
+  const rel = buildRelationsGraph(board.all, found(board, 'plan', cut.query), { board: 'plan', priorities: board.config.priorities });
+  const view = mapShapeRelations(rel);
+  const drawn = [
+    ...view.graphs.flatMap((g) => g.nodes.map((n) => ({ id: n.id, element: ELEMENTS.mapNode }))),
+    ...view.graphs.flatMap((g) => g.ghosts.map((n) => ({ id: n.id, element: ELEMENTS.mapStub }))),
+    ...view.noRelations.map((id) => ({ id, element: ELEMENTS.mapTile })),
+  ];
+  assert.ok(view.noRelations.length > 0, 'a card in the cut has no relation, so the Map draws it as a tile and not as a node');
+  assert.ok(drawn.some(({ element }) => element === ELEMENTS.mapStub), 'a card the cut hid is still drawn as a stub beside the cards it relates to');
+  assert.deepStrictEqual(readBy(sliceTerm.SELECTORS.map, drawn), cut.shows, 'what the scenario reads off the Map is the cards the cut keeps');
+});
+
+test('the Gantt selector reaches the rows of both dated cards under slice:0, though the clamped All window draws neither bar', () => {
+  const board = load('plan');
+  const { depthZero } = sliceTerm.CASES.plan;
+  const hit = found(board, 'plan', depthZero.query);
+  const rows = ganttGroups(board.live.filter((c) => hit.has(c.id)), board.config.statuses).flatMap((g) => g.bars);
+  assert.deepStrictEqual(rows.map((r) => r.card.id).sort((a, b) => a - b), depthZero.datedShows, 'the Gantt lists both dated cards');
+  const win = ganttWindow(rowWindowSpans(rows), '2026-10-15');
+  assert.strictEqual(win.clamped, true, 'the two cards are years apart, so the window is cut to its cap');
+  assert.ok(win.days <= GANTT_MAX_DAYS);
+  const bars = rows.filter((r) => r.startDay && ganttBarClip(r, win));
+  assert.deepStrictEqual(bars, [], 'one card is dated in 2020 and the other in 2031, so the window holds neither bar');
+  const drawn = rows.flatMap((r) => [{ id: r.card.id, element: ELEMENTS.ganttLabel }].concat(bars.includes(r) ? [{ id: r.card.id, element: ELEMENTS.ganttBar }] : []));
+  assert.deepStrictEqual(readBy(sliceTerm.SELECTORS.gantt, drawn), depthZero.datedShows, 'what the scenario reads off the Gantt is the dated cards in the cut');
+});
+
 test('the scenario waits on the page and never on a fixed sleep', () => {
   const src = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'slice-term.js'), 'utf8');
   assert.ok(!/\bsleep\(/.test(src.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n')));
@@ -146,8 +223,8 @@ test('run against a stand-in page, the scenario writes each query to the box and
     'plan: slice:goal..objective on the Board shows only the goal, strategy and objective cards',
     'plan: the Map draws cards before any cut',
     'plan: the Map shows the same cards under the cut',
-    'plan: slice:0 draws both dated cards on the Gantt',
-    'plan: the cut draws none of them on the Gantt',
+    'plan: slice:0 lists both dated cards on the Gantt',
+    'plan: the cut lists none of them on the Gantt',
     'plan: slice:0 draws a dated card on the Calendar',
     'plan: the cut draws none of them on the Calendar',
     'plan: the Graph draws dots before any cut',

@@ -69,6 +69,18 @@ test('the documented examples cut as the docs say', () => {
   assert.deepStrictEqual(ids(EXAMPLES.combined), [1, 12]);
 });
 
+test('the skill and the docs count the same extra forms, one bullet each in the docs, and the skill lists slice: among them', () => {
+  const numbers = { three: 3, four: 4, five: 5, six: 6, seven: 7 };
+  const said = (text) => numbers[new RegExp(`\\b(${Object.keys(numbers).join('|')})\\b(?: more)? forms`, 'i').exec(text)[1].toLowerCase()];
+  const bullets = docs.slice(docs.indexOf('**Search**'), docs.indexOf('**Notifications inbox**')).split('\n').filter((l) => l.startsWith('- ')).length;
+  assert.strictEqual(said(searchDocs), bullets, 'the docs count the forms they list');
+  assert.strictEqual(said(searchBullet), said(searchDocs), 'the skill counts the same forms');
+  const stop = searchBullet.indexOf('A `|` counts only');
+  assert.ok(stop > 0, 'the skill has its sentence on literal text, which ends the list of forms');
+  const list = searchBullet.slice(0, stop);
+  assert.ok(list.includes(`\`${EXAMPLES.run}\``), 'the skill gives slice: its example in the list of forms, before the rules for the odd cases');
+});
+
 test('the search box tooltip names slice: with an example', () => {
   const html = read('skills', 'web', 'web', 'app.html');
   const tip = /<input[^>]*id="search-input"[^>]*>/.exec(html)[0].replace(/\s+/g, ' ');

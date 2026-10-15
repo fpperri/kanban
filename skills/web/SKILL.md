@@ -304,7 +304,7 @@ to `127.0.0.1` only.
   `tree:<id>`/`path:<id>` are dependency focus, `#` optional (`tree:74` = `tree:#74`) —
   grammar in the Dependency map section; bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
-  string) rather than silently matching nothing on a typo'd field name. Four more forms,
+  string) rather than silently matching nothing on a typo'd field name. Five more forms,
   one example each: `|` is or and a space binds tighter, so `tags:ui status:doing | #12`
   is ui and doing, or card 12; round brackets group and can nest, so
   `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo (a bracket is
@@ -312,27 +312,29 @@ to `127.0.0.1` only.
   value, ignoring case, or any one element of a list, so `tags:"grill"` finds a card
   tagged grill and not one tagged grilling, a quoted `title:` or `body:` matches the
   whole field, and quoted text with no scope is a phrase in a title, body or tag, so
-  `"two words"` does not find the words apart; and a bare `waiting:` finds the cards
+  `"two words"` does not find the words apart; a bare `waiting:` finds the cards
   waiting for at least one card that is not done (a dangling id never makes a card
-  waiting), the way `blocked:` and `review:` find their stickers. A `|` counts only as a
+  waiting), the way `blocked:` and `review:` find their stickers; and
+  `slice:<top>..<bottom>` cuts every view to a run of slices, so `slice:objective..2`
+  keeps the cards from the objective tier down to depth 2. A `|` counts only as a
   token of its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay
-  literal text, and so does `waiting:3`. `slice:<top>..<bottom>` cuts every view to a run
-  of slices: the board's tiers (the `hierarchy:` types, top first), then the depths of the
-  cards with no tier (parents above, a root is 0). An end is a tier name in any letter
-  case, or a depth number, so `slice:objective..2` runs from the objective tier down to
-  depth 2, `slice:goal` is that one slice, `slice:goal..` and `slice:..objective` leave an
-  end open, and a reversed pair is swapped (`slice:2..objective` is `slice:objective..2`).
-  An end the board does not have is left open, and a single unknown name, `slice:..` and a
-  bare `slice:` cut nothing, so half-typing a name never hides every card. A board with no
-  `hierarchy:` cuts by depth (`slice:1` is the depth-1 cards), and a card nested against the
-  hierarchy, a goal under an objective, stays in its own tier with no warning. Depth is counted
-  over the whole board, archived cards included, so a card is in the same slice whatever a
-  view shows. The term combines like any other, `tags:ui (slice:goal | #12)`; a tier named
-  with a space is quoted (`slice:"big goal..2"`). A `slice:` term at the top level of the
-  query hides the cards outside the cut in every view, the Graph included. Half-typed input
-  never throws: an unclosed quote
-  or bracket reads to the end, a stray closing bracket is ignored, and an empty
-  alternative is dropped, so `tags:ui |` finds what `tags:ui` finds and never every card.
+  literal text, and so does `waiting:3`. The slices are the board's tiers (the
+  `hierarchy:` types, top first), then the depths of the cards with no tier (parents
+  above, a root is 0), and an end is a tier name in any letter case or a depth number.
+  `slice:goal` is that one slice, `slice:goal..` and `slice:..objective` leave an end
+  open, and a reversed pair is swapped (`slice:2..objective` is `slice:objective..2`).
+  An end the board does not have is left open, and a single unknown name, `slice:..` and
+  a bare `slice:` cut nothing, so half-typing a name never hides every card. A board
+  with no `hierarchy:` cuts by depth (`slice:1` is the depth-1 cards), and a card nested
+  against the hierarchy, a goal under an objective, stays in its own tier with no
+  warning. Depth is counted over the whole board, archived cards included, so a card is
+  in the same slice whatever a view shows. The term combines like any other,
+  `tags:ui (slice:goal | #12)`; a tier named with a space is quoted
+  (`slice:"big goal..2"`). A `slice:` term at the top level of the query hides the cards
+  outside the cut in every view, the Graph included. Half-typed input never throws: an
+  unclosed quote or bracket reads to the end, a stray closing bracket is ignored, and an
+  empty alternative is dropped, so `tags:ui |` finds what `tags:ui` finds and never
+  every card.
   A click on a card's assignee, tag, blocked or review cue adds its term to every
   alternative of what the box holds (a value with spaces is written quoted). An
   autocomplete dropdown completes the token under the caret, inside brackets, inside
