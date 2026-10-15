@@ -52,10 +52,15 @@ test('the web skill says a right-click inside the card detail opens the card men
   assert.match(text, /with text selected, or on anything that already handles the right-click itself, the browser's own menu shows instead/);
 });
 
-test('the web skill says archived leaves always count as done, with nothing to turn off', () => {
+test('the web skill says archived leaves count as done by default, and the preferences sheet can leave them out of every roll-up', () => {
   const text = bullet();
-  assert.match(text, /Archived leaves always count as done, so archiving a finished story leaves its parent's done count unchanged/);
-  assert.doesNotMatch(text, /Archived\*\*|by default|left out/);
+  assert.match(text, /Archived leaves count as done by default, so archiving a finished story leaves its parent's done count unchanged/);
+  assert.match(text, /the preferences sheet can turn that off, and then every roll-up \(the board tile, the Map's rich row, and the card detail with its scope line\) leaves archived leaves out/);
+  assert.doesNotMatch(text, /Archived\*\*/, 'no header control by that name');
+});
+
+test('the web skill says the preferences sheet sets the same bar choice a click on a bar flips', () => {
+  assert.match(bullet(), /the preferences sheet \(below\) sets the same choice, so the two always agree/);
 });
 
 test('the web skill says the scope line counted this board only, and why', () => {
@@ -84,7 +89,7 @@ test('the human docs mention the badge, the bar and the warning', () => {
 test('the human docs say clicking a bar flips them all, the detail follows, archived leaves count, children open from a header, and the card menu works in the detail', () => {
   const text = webDoc.replace(/\s+/g, ' ');
   assert.match(text, /Every bar is either collapsed \(a thin line\) or open \(with counts\), and clicking any bar flips them all/);
-  assert.match(text, /Archived leaves count as done\. The bar choice is remembered per board in your browser/);
+  assert.match(text, /Archived leaves count as done, unless you turn that off in the \*\*preferences sheet\*\* \(below\)\. The bar choice is remembered per board in your browser, and the sheet sets the same one/);
   assert.doesNotMatch(text, /\*\*Bar\*\* select|\*\*Archived\*\* checkbox/, 'no word of the header controls that are gone');
   assert.match(text, /under its title and thread, above the fields/);
   assert.match(text, /a \*\*Children\*\* header with their count opens the list/);
