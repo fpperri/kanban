@@ -61,8 +61,9 @@ A card with children shows `▲n` (how many layers sit below it) and a status ba
 of the leaves under it. Every bar is either collapsed (a thin line) or open (with
 counts), and clicking any bar flips them all; the card detail shows the bar under its
 title and thread, above the fields, the same way, with a line saying it counted this
-board only when open. Archived leaves count as done. The bar choice is remembered per
-board in your browser.
+board only when open. Archived leaves count as done, unless you turn that off in the
+**preferences sheet** (below). The bar choice is remembered per board in your browser, and
+the sheet sets the same one.
 Marking a parent done while leaves below are open warns and saves anyway.
 
 Open a card and the parents it sits under show above it, root first, each one a
@@ -179,6 +180,25 @@ selection as it was. The same selection grammar works in every view, and
 right-clicking inside an open card opens the same menu for that card, without Peek.
 
 ![Bulk context menu](images/web-bulk-actions.png)
+
+**Preferences** — the gear at the right end of the header opens a sheet from the right
+with the settings that rarely change. They are kept in your browser, per board, and are
+never written to the board's files.
+
+- *A plain click on a card* opens the card or selects it, chosen separately for the
+  Board, Map, Gantt and Calendar (it opens, by default). The Graph is shown fixed at
+  selects. Where a click selects, a double click on a card, or Enter on a focused card,
+  opens it and leaves the selection as it was; Ctrl or Cmd click and Shift click build a
+  selection as before, and a double click on a Calendar card opens it rather than starting
+  a new one.
+- *Roll-up bar* is open or collapsed, the same choice a click on any bar flips.
+- *Count archived leaves as done* is on by default. Off, the board's tiles, the Map's
+  cards and the card detail (whose scope line says so) leave archived leaves out of the
+  count.
+
+The sheet closes with Esc, a click outside it or its close button, and focus goes back to
+the gear. While it is open the board does not refresh under it, and `/` and Ctrl+F stand
+still.
 
 ## Other surfaces
 

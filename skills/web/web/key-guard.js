@@ -8,8 +8,8 @@
 // still works from inside a text field.
 //
 // The surfaces are pinned by name. The search panel is deliberately not one:
-// the slice keys work while it is open. The preferences sheet does not exist
-// yet; its entry is here so the sheet takes the guard the day it lands.
+// the slice keys work while it is open. The preferences sheet is one: the
+// single-key shortcuts and Ctrl+F stay off while it is up.
 //
 // Pure: callers pass the document, so Node tests drive it with a fake. Same
 // dual-environment export pattern as save-hotkey.js and search-hotkey.js.

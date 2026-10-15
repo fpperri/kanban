@@ -34,6 +34,9 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
       <span id="notif-badge" class="notif-badge hidden"></span>
     </button>
+    <button id="prefs-btn" type="button" class="prefs-btn" data-keeps-selection aria-haspopup="dialog" aria-expanded="false" title="Preferences" aria-label="Preferences">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+    </button>
     <span id="stale-indicator" class="hidden" title="Auto-refresh can't reach the server — showing last loaded data">⚠ stale</span>
   </div>
 </header>
@@ -337,6 +340,71 @@
   </div>
 </div>
 
+<!-- Preferences sheet: the settings that rarely change, kept in this browser
+     per board and never written to the board. It sits on the modal backdrop, so
+     the poll pauses and the Esc catch-all see it (and Esc, a click outside and
+     the close button each close it and hand focus back to the gear); the key
+     guard names it, so / and Ctrl+F stand still while it is open. Nothing here
+     sets a tab order: it traps no Tab, like the other popups. -->
+<div id="prefs-sheet" class="modal-backdrop prefs-backdrop hidden" data-keeps-selection>
+  <aside class="prefs-sheet" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+    <div class="prefs-head">
+      <h2 id="prefs-title">Preferences</h2>
+      <button type="button" id="prefs-close" class="icon-btn" data-keeps-selection data-holds-poll title="Close" aria-label="Close preferences">&#10005;</button>
+    </div>
+    <section class="prefs-group" aria-labelledby="prefs-click-title">
+      <h3 id="prefs-click-title">A plain click on a card</h3>
+      <p class="prefs-hint">Opens the card, or selects it. Where a click selects, a double click or Enter on a focused card opens it. Ctrl or Cmd click toggles a card and Shift click adds a range in every view.</p>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-board">Board</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-board">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-map">Map</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-map">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-gantt">Gantt</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-gantt">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-calendar">Calendar</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-calendar">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-graph">Graph</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-graph">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
+        </span>
+      </div>
+    </section>
+    <section class="prefs-group" aria-labelledby="prefs-rollup-title">
+      <h3 id="prefs-rollup-title">Roll-ups</h3>
+      <p class="prefs-hint">Every parent card shows a bar of the leaves below it; a click on any bar flips it for all of them, the same choice as here.</p>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-bar">Bar</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-bar">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="open" aria-pressed="false">open</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="collapsed" aria-pressed="false">collapsed</button>
+        </span>
+      </div>
+      <label class="prefs-check"><input type="checkbox" id="prefs-archived-done" data-keeps-selection data-holds-poll> Count archived leaves as done</label>
+    </section>
+  </aside>
+</div>
+
 <script src="/refresh-policy.js"></script>
 <script src="/column-state.js"></script>
 <script src="/column-sort.js"></script>
@@ -363,6 +431,7 @@
 <script src="/prose.js"></script>
 <script src="/notifications.js"></script>
 <script src="/form-guard.js"></script>
+<script src="/prefs.js"></script>
 <script src="/selection.js"></script>
 <script src="/status-colors.js"></script>
 <script src="/assignee-colors.js"></script>
