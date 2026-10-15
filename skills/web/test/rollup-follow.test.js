@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { assertKeepsSelection } = require('./helpers/markers');
+const { selectionGlobals } = require('./helpers/selection-globals');
 
 const WEB = path.join(__dirname, '..', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
@@ -185,14 +186,15 @@ const pageLine = (name) => {
   assert.ok(m, `the page declares ${name}`);
   return m[0];
 };
-const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('applyCardClick'), fn('searchByCue')].join('\n');
+const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('applyCardClick'), fn('searchByCue')].join('\n');
 
 function clickHarness() {
   const listeners = [];
   const calls = { toggle: 0, open: [] };
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
-    ...require('../web/selection'),
+    ...selectionGlobals(),
+    visibleCardIds: () => [],
     loadViewMode: () => 'board',
     loadPrefsState: () => ({ click: {} }),
     state: { active: [], archived: [] },
@@ -202,7 +204,7 @@ function clickHarness() {
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext(`${selectionSteps()}\nsetSelection(new Set([5]), 5);\n${sharedClickHandler()}`, sandbox);
+  vm.runInContext(`${selectionSteps()}\nsetSelection(cardsSelection([5]), 5);\n${sharedClickHandler()}`, sandbox);
   assert.strictEqual(listeners.length, 1);
   return { click: listeners[0][1], sandbox };
 }
@@ -285,7 +287,8 @@ function flipSandbox({ mode, detailId = null } = {}) {
   s.flip = { columns: 0, views: 0, opened: [] };
   Object.assign(s, {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
-    ...require('../web/selection'),
+    ...selectionGlobals(),
+    visibleCardIds: () => [],
     loadViewMode: () => 'board',
     openCard: (id) => { s.flip.opened.push(id); },
     renderBoardColumns: () => { s.flip.columns++; },

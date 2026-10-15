@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { selectionGlobals } = require('./helpers/selection-globals');
 
 const WEB = path.join(__dirname, '..', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
@@ -23,7 +24,7 @@ function menuSandbox({ detailId = null, selected = [], textSelected = false } = 
   const calls = { renderBoard: 0, menu: [] };
   const sandbox = {
     currentDetailId: detailId,
-    contextSelection: require('../web/selection').contextSelection,
+    ...selectionGlobals(),
     window: { getSelection: () => ({ isCollapsed: !textSelected }) },
     renderBoard: () => { calls.renderBoard++; },
     showContextMenu: (x, y) => { calls.menu.push([x, y]); },
@@ -31,7 +32,7 @@ function menuSandbox({ detailId = null, selected = [], textSelected = false } = 
   };
   vm.createContext(sandbox);
   vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('openCardContextMenu'), fn('onDetailContextMenu')].join('\n'), sandbox);
-  vm.runInContext(`setSelection(new Set(${JSON.stringify(selected)}), null)`, sandbox);
+  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), null)`, sandbox);
   sandbox.selected = () => [...vm.runInContext('selectedIds', sandbox)];
   sandbox.rangeStart = () => vm.runInContext('selectionState.rangeStart', sandbox);
   return sandbox;

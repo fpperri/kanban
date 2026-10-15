@@ -602,14 +602,26 @@ to `127.0.0.1` only.
   ctrl+click (cmd on mac) to toggle it in/out of the selection,
   shift+click to ADD the whole range between the range start (the last toggled/range-started
   card) and the target — in the active view's rendered order, additive, never
-  deselecting — right-click for the bulk context menu. Applies on board tiles (live and
-  archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
+  deselecting — right-click for the bulk context menu. A selection grows from an
+  **anchor** (one card, or one query) by **additions** (cards; the same model holds paths,
+  trees and queries), kept in the order they were added: the first card picked is the anchor
+  and later ones are additions, ctrl/cmd+click on a picked card takes it out (the first
+  addition becomes the anchor when the anchor goes), and taking one card out of a query, path
+  or tree part turns that part into its other cards. The ids the views paint and the bulk
+  edits read are worked out again on every render and poll, for the view being shown, so the
+  selection survives a view switch and a poll, and a card a status pill, the Archive pill or
+  the search box hides is not in it (it is back when the view shows it again). In the
+  **Graph** a click makes the card the anchor of a new selection, and shift+click or
+  ctrl/cmd+click adds one card to the selection or takes it out — the layout has no reading
+  order to range over, so Shift does not add a range there; a double click (or Enter) opens
+  the card, a pan keeps the selection, and a click on the empty Graph clears it. Applies on
+  board tiles (live and archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
   node's border and status dot are unaffected; graph: an accent outline on the dot plus
   a glow). Right-click: an unselected
-  card becomes the selection in the same gesture; an already-selected one keeps the
+  card becomes the anchor of a new selection in the same gesture; an already-selected one keeps the
   whole batch as the target. Right-clicking inside an open card detail opens the same
   menu for the card shown, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
@@ -1281,10 +1293,10 @@ to `127.0.0.1` only.
   selected its relations stay lit after the pointer leaves, and hovering another dot
   shows that one's relations until the pointer leaves. **Double-click** (or **Enter** on a
   focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
-  "click opens" (ADR 0006). Every dot carries `.card-el` and `data-id`, so ctrl/cmd+click
-  (toggle), shift+click (range) and right-click (bulk menu) are the shared grammar of
-  ADR 0006; a shift-click range runs in **outline order** (parents before children,
-  siblings by rank), which is the dots' DOM order. In **Force**, **dragging a dot** pulls
+  "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and
+  shift+click or ctrl/cmd+click adds one card or takes it out (the layout has no reading
+  order, so there is no range). Every dot carries `.card-el` and `data-id`, so right-click
+  (bulk menu) is the shared grammar of ADR 0006. In **Force**, **dragging a dot** pulls
   the cards related to it along, like pulling on a thread; the arrangement stays until
   the cards change or the page reloads (Tiers and Status do not drag). **Pan** by dragging the background
   (a drag moves past 4px and the click that ends it is swallowed, so it never clears the

@@ -731,15 +731,53 @@ let searchMatchMemo = null;
 // match, which runs right after a repaint, reads it instead of matching again.
 let lastSearchMatch = null;
 
+function matchedIds(terms) {
+  return new Set(filterCards(state.active.concat(state.archived), terms, nestingCtx()).map((c) => c.id));
+}
+
 function computeSearchMatch() {
   const terms = currentSearchTerms();
-  const ids = terms.length
-    ? new Set(filterCards(state.active.concat(state.archived), terms, nestingCtx()).map((c) => c.id)) : null;
-  return { terms, ids };
+  return { terms, ids: terms.length ? matchedIds(terms) : null };
 }
 
 function currentSearchMatch() {
   return searchMatchMemo || computeSearchMatch();
+}
+
+// The cards one piece of search text matches, over the whole board like the box.
+// It is the matcher a selection resolves its query, path and tree parts through,
+// so a part and its search term cannot disagree. Text that is not a term yet
+// (an empty box, `status:` mid-keystroke) matches nothing here, where the box
+// shows everything for it: a part must never select the whole board.
+function searchMatchIds(text) {
+  const terms = parseSearchQuery(text, state.projectName);
+  return terms.length ? matchedIds(terms) : new Set();
+}
+
+// The cards the view being shown shows, which is all a selection can reach (the
+// Board shows the cards of its expanded columns, the other views the cards their
+// status pills, their Archive pill and the search box leave). It reads the same
+// filters each view draws with, so the id set follows what is on screen.
+function shownCardIds() {
+  const pool = state.active.concat(state.archived);
+  const searchIds = currentSearchMatch().ids;
+  const mode = loadViewMode();
+  let visible;
+  if (mode === 'graph') {
+    visible = graphVisibleIds(pool, searchIds, graphLoadFilter(), boardStatuses());
+  } else if (mode === 'map') {
+    visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
+  } else if (mode === 'gantt' || mode === 'calendar') {
+    const filter = mode === 'gantt' ? loadGanttStatusFilter() : loadCalendarStatusFilter();
+    const live = ganttFilterVisibleIds(state.active, filter, boardStatuses());
+    const drawn = state.active.filter((c) => !live || live.has(c.id)).concat(filter.archive === true ? state.archived : []);
+    visible = intersectVisibleIds(searchIds, new Set(drawn.map((c) => c.id)));
+  } else {
+    const collapsed = loadCollapsedColumns();
+    const open = pool.filter((c) => !collapsed[mapFilterColumn(c, boardStatuses())]);
+    visible = intersectVisibleIds(searchIds, new Set(open.map((c) => c.id)));
+  }
+  return visible || new Set(pool.map((c) => c.id));
 }
 
 // --- View mode: board (columns) / dependency map / calendar
@@ -956,6 +994,7 @@ function renderBoard() {
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
   try {
+    setSelection(selectionState.selection); // what the view shows may have changed: a pill, the box, a view switch, a poll
     renderBoardColumns();
     applyViewMode();
   } finally {
@@ -1808,7 +1847,7 @@ function applyBoardData(data) {
   state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
   state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
-  setSelection(pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id))); // drop ghosts before render (archived cards are in the domain too)
+  dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
   // them, so an unattended poll would drop a Tab-navigating user's focus to
   // <body>. The header controls solve that by blocking the refresh
@@ -5212,11 +5251,11 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#notif-list').addEventListener('keydown', (e) => { if (e.key === 'Enter') openMentionFromTray(e); });
 });
 
-// --- Multi-select + bulk actions, with view parity. Selection
-// lives as a Set of ids (toggleSelection/pruneSelection/contextSelection/
-// partitionByMovable/rangeSelection from selection.js — pure, unit-tested);
-// every view's renderer paints .selected from it on every render, so it
-// survives polls AND view switches by construction.
+// --- Multi-select + bulk actions, with view parity. The selection
+// is an anchor plus an ordered list of additions (cards, paths, trees, queries;
+// selection.js — pure, unit-tested), kept as parts and resolved to an id set for the
+// view being shown on every render; every view's renderer paints .selected from that
+// set, so it survives polls AND view switches by construction.
 // Board tiles, map nodes + No relations tiles, calendar
 // chips, and gantt bars + gutter labels all carry the card-el contract and
 // share one interaction grammar — click opens detail, ctrl/cmd+click toggles
@@ -5225,24 +5264,35 @@ window.addEventListener('DOMContentLoaded', () => {
 // selects + opens the context menu (whose actions were already view-agnostic:
 // they act on the selection, not on DOM). Only the map's ghost stubs opt out
 // (see buildMapSvg).
-// The selection: the ids picked, and the range start — the last card a
-// selection gesture landed on (ctrl+click, a range-starting shift+click, or a
-// right-click that replaced the selection). Written only by setSelection.
-// Never persisted, and the range start is never trusted blindly: shift+click
-// re-validates it against the rendered order and re-plants it when the card
-// vanished (poll/delete) or left the active view (filter/view switch).
-let selectionState = { ids: new Set(), rangeStart: null };
-// What every view paints from and every bulk edit reads, derived from the
-// selection state by setSelection.
-let selectedIds = selectionState.ids;
+// The selection: the anchor and the additions that make it up, and the range
+// start — the last card a selection gesture landed on (ctrl+click, a
+// range-starting shift+click, or a right-click that replaced the selection). The
+// range start is not the selection's anchor: it only says where a Board range
+// begins. Written only by setSelection. Never persisted, and the range start is
+// never trusted blindly: shift+click re-validates it against the rendered order
+// and re-plants it when the card vanished (poll/delete) or left the active view
+// (filter/view switch).
+let selectionState = { selection: NO_SELECTION, rangeStart: null };
+// What every view paints from and every bulk edit reads: the ids the selection
+// stands for in the view being shown, derived by setSelection.
+let selectedIds = new Set();
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
 let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
 
-// The one entry point for every write to the selection. A write that names no
-// range start keeps the one the selection had.
-function setSelection(ids, rangeStart = selectionState.rangeStart) {
-  selectionState = { ids, rangeStart };
-  selectedIds = selectionState.ids;
+// A poll that finds a picked card gone drops the parts built on it (archived cards
+// are in the domain too, so archiving a card is not leaving the board).
+function dropGoneCards() {
+  setSelection(pruneSelectionParts(selectionState.selection, [...state.active, ...state.archived].map((c) => c.id)));
+}
+
+// The one entry point for every write to the selection, and the one place the id
+// set is worked out. A write that names no range start keeps the one the
+// selection had. Writing the selection it already holds works the id set out
+// again, which is what every render does: the parts persist and the set is what
+// they reach among the cards the view shows.
+function setSelection(selection, rangeStart = selectionState.rangeStart) {
+  selectionState = { selection, rangeStart };
+  selectedIds = resolveSelection(selection, searchMatchIds, shownCardIds);
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -5287,12 +5337,11 @@ function hideContextMenu() {
   $('#context-menu').classList.add('hidden');
 }
 
-// The menu's subject is the card right-clicked: an unselected card becomes THE
-// selection in the same gesture, a selected one keeps the whole batch.
+// The menu's subject is the card right-clicked: an unselected card becomes the
+// anchor of a new selection in the same gesture, a selected one keeps the whole batch.
 function openCardContextMenu(e, id) {
-  const next = contextSelection(selectedIds, id);
-  if (next !== selectedIds) {
-    setSelection(next, id); // the gesture restarted the selection — ranges extend from here
+  if (!selectedIds.has(id)) {
+    setSelection(setAnchor(selectionState.selection, cardPart(id)), id); // the gesture restarted the selection — ranges extend from here
     renderBoard();
   }
   e.preventDefault();
@@ -5324,36 +5373,36 @@ function searchByCue(cue, id) {
   else if (cue.classList.contains('review-pill')) addSearchTerm('review:');
 }
 
+// Writes what a click on a card does to the selection, as selectionAfterClick
+// (selection.js) works it out from the gesture cardClickAction named. No repaint:
+// the caller paints, the Graph in place and the shared grammar through
+// renderBoard(). A range reads the active view's rendered order; with no usable
+// range start (never set, card gone, or filtered out of this view) this click
+// starts the range.
+function selectByClick(action, id) {
+  const next = selectionAfterClick(action, id, {
+    selection: selectionState.selection,
+    resolved: selectedIds,
+    rangeStart: selectionState.rangeStart,
+    order: action === 'range' ? visibleCardIds() : [],
+    matchQuery: searchMatchIds,
+  });
+  setSelection(next.selection, next.rangeStart);
+}
+
 // Carries out what cardClickAction (selection.js) decided about a click on a
 // card. File-manager selection grammar: Shift+click ADDS the whole range
 // between the range start and the target, in the active view's rendered order;
-// ctrl/cmd+click toggles one card and plants the range start; a plain click
-// breaks any selection, then opens the card (or, in a view whose plain click
-// selects, selects it alone). renderBoard() repaints whichever view is active
-// — board columns always, plus the active map/calendar/gantt.
+// ctrl/cmd+click toggles one card and plants the range start; the first card
+// picked is the anchor and later ones are additions; a plain click breaks any
+// selection, then opens the card (or, in a view whose plain click selects,
+// makes it the anchor of a new selection). renderBoard() repaints whichever view
+// is active — board columns always, plus the active map/calendar/gantt.
 function applyCardClick(action, id, cue) {
   if (action === 'cue') { searchByCue(cue, id); return; }
-  if (action === 'range') {
-    const order = visibleCardIds();
-    // no usable range start (never set, card gone, or filtered out of this
-    // view) — this click starts the range: select the target, start here
-    const start = order.includes(selectionState.rangeStart) ? selectionState.rangeStart : id;
-    setSelection(rangeSelection(selectedIds, order, start, id), start);
-    renderBoard();
-    return;
-  }
-  if (action === 'toggle') {
-    setSelection(toggleSelection(selectedIds, id), id);
-    renderBoard();
-    return;
-  }
-  if (action === 'select') {
-    setSelection(new Set([id]), id);
-    renderBoard();
-    return;
-  }
   const hadSelection = selectedIds.size > 0;
-  setSelection(new Set(), null);
+  selectByClick(action, id);
+  if (action !== 'open') { renderBoard(); return; }
   if (hadSelection) renderBoard();
   openCard(id);
 }
@@ -5393,7 +5442,7 @@ function onCardOpenGesture(e) {
 function onClickAway(e) {
   if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
   if (e.target.closest('[data-keeps-selection]')) return;
-  setSelection(new Set(), null); // a dead selection must not leave an invisible range start behind
+  setSelection(NO_SELECTION, null); // a dead selection must not leave an invisible range start behind
   renderBoard();
 }
 
@@ -5472,7 +5521,7 @@ async function applyBulkArchive() {
     try { await api('POST', `/api/cards/${id}/archive`, pkg ? { package: pkg } : undefined); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  setSelection(new Set());
+  setSelection(NO_SELECTION);
   await loadBoard();
   const where = pkg ? ` into ${pkg}` : '';
   const skipNote = skipped ? `; skipped ${skipped} already archived` : '';
@@ -5508,7 +5557,7 @@ async function bulkDelete() {
     try { await api('DELETE', `/api/cards/${id}`); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  setSelection(new Set());
+  setSelection(NO_SELECTION);
   await loadBoard();
   toast(failed.length ? `Deleted ${ids.length - failed.length}; failed: ${failed.join(', ')}` : `Deleted ${ids.length} card(s).`);
 }
@@ -5525,7 +5574,7 @@ async function onBulkDrop(ids, status) {
   if (!movable.length && !refused.length) return;
   const prev = new Map(movable.map((c) => [c.id, c.status]));
   movable.forEach((c) => { c.status = status; }); // optimistic
-  setSelection(new Set());
+  setSelection(NO_SELECTION);
   renderBoard();
   pendingDrops++; // same poll guard as single onDrop
   const failed = [];
@@ -5748,7 +5797,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     if (e.target.closest('button, select, input, a')) return;
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
-    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click) });
+    const view = loadViewMode();
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view) });
     applyCardClick(action, Number(el.dataset.id), cue);
   });
   // Right-click on any card-el opens the bulk menu; anywhere else keeps the
