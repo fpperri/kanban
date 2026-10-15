@@ -1299,8 +1299,8 @@ function renderMapView() {
 // The status-filter pill row MECHANISM — one toggle per column,
 // shared verbatim between the map and the gantt rather than each
 // view duplicating the markup/build-loop. Only the filter state, the id list,
-// the row/pill class (so each view's own delegated listener and its own
-// Q0-exemption selector keep targeting just their own pills), and
+// the row/pill class (so each view's own delegated listener keeps targeting
+// just its own pills), and
 // the tooltip wording differ per caller. The look itself is ALSO shared, not
 // duplicated — app.css comma-joins the two views' pill classes onto one
 // declaration each. The identity dot's color comes from statusColorVar() for EVERY pill —
@@ -3602,7 +3602,7 @@ let mapPan = null; // { pointerId, startX, startY, startScrollLeft, startScrollT
 // pointerup even after real movement (mousedown/up land on the same
 // captured element regardless of distance moved), which would hit the
 // shared card-el grammar and open the card the drag started on, or the
-// Q0 clear-selection handler. One-shot: armed only by a MOVED pan's
+// click-away rule (onClickAway). One-shot: armed only by a MOVED pan's
 // pointerup, consumed by the very next click, self-disarms on a 0-timeout
 // in case no click follows. Own flag (not ganttClickSuppressed) — the two
 // gestures never overlap (different views), but sharing one would let a
@@ -3981,9 +3981,9 @@ function renderCalendarView() {
     `<button type="button" id="cal-today-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Jump back to today">Today</button>` +
     `<button type="button" id="cal-next-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Next ${spanNoun}" aria-label="Next ${spanNoun}">&#8250;</button>` +
     `<span class="cal-title">${escapeHtml(subviewTitle(subview, currentCalendarAnchor()))}</span>` +
-    // The sub-view switcher. cal-nav class on purpose: it joins the
-    // focused-control poll guard AND the Q0 clear-selection exemption, same
-    // as prev/today/next (these buttons are rebuilt every render too).
+    // The sub-view switcher. Like prev/today/next (these buttons are rebuilt every
+    // render too) it wears data-holds-poll, the focused-control poll guard, and
+    // data-keeps-selection, so a click on it never reads as a click away.
     `<span class="cal-subview-switch" role="group" aria-label="Calendar span">` +
     CALENDAR_SUBVIEWS.map((sv) =>
       `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
@@ -4544,9 +4544,9 @@ const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
 // call, so clicks delegate to the stable parent — same pattern (and reason)
 // as #map-view's delegated listener above. Chip clicks (detail/selection/
 // context menu) are the shared card-el grammar's job now — nothing
-// chip-specific left here. Clicking an empty day cell matches no card-el, so
-// the document-level Q0 handler clears any selection, exactly like the
-// board's background.
+// chip-specific left here. A double click on an empty day cell makes a card
+// (CALENDAR_CREATE_DAY_CELLS), so the click-away rule (onClickAway) leaves the
+// selection there; a single click on one clears nothing.
 window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-toggle-btn').addEventListener('click', () => toggleView('calendar'));
   wireCalendarTimeDrag(); // delegated once on the stable #calendar-view
@@ -4619,9 +4619,10 @@ function shiftCalendarWindow(delta) {
 // mechanism. No dependency arrows on purpose — the map view owns the
 // waiting_for graph; here a waiting card just keeps the board's amber
 // left-accent cue. Header controls (prev/today/next + the sub-view switch)
-// reuse the calendar's own .cal-nav class verbatim, so they ride its
-// existing boardControlFocused/Q0-exemption guards (both match by class, not
-// by view) for free — no new entry needed there.
+// reuse the calendar's own .cal-nav class, and wear data-keeps-selection and
+// data-holds-poll as the calendar's do: the poll guard (boardControlFocused) and
+// the click-away rule (onClickAway) read those markers, not the class, so a
+// control built here must wear them.
 
 // The sub-view choice — own feature key ('gantt.subview'), same
 // memoize-once-mutate-in-place + defensive-merge discipline as
@@ -5115,7 +5116,7 @@ async function onGanttDragEnd(drag) {
 // after pointerup (mousedown/up land on the captured element, so their common
 // ancestor is the bar — distance moved doesn't suppress it). Without this
 // guard that phantom click would hit the shared card-el grammar (opening the
-// detail popup after every drag) and the Q0 clear-selection handler. One-shot:
+// detail popup after every drag) and the click-away rule (onClickAway). One-shot:
 // armed only by a MOVED drag's pointerup, consumed by the very next click,
 // and self-disarms on a 0-timeout in case no click follows (the click, when
 // it comes, dispatches before any timer fires). pointercancel never fires a
@@ -5221,7 +5222,7 @@ function wireGanttPointerDrag() {
   // A press without movement is a click — that click is
   // NOT handled here: the native click event that follows the unmoved
   // pointerup bubbles to the shared card-el grammar handlers, so bars get
-  // detail/selection/Q0 semantics identical to every other view. Only a
+  // detail/selection/click-away semantics identical to every other view. Only a
   // MOVED drag suppresses that following click (the >3px rule: a drag is not
   // a click).
   const finish = (commit) => {
@@ -6037,8 +6038,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // click landing on a button/select inside or around a card-el (archive
   // tile's Restore/Delete, column sort controls, calendar nav) belongs to
   // that control, never to the card grammar. Registration order matters:
-  // this runs before the Q0 clear-selection handler below, so a plain click
-  // on a card empties the selection here and Q0 then no-ops.
+  // this runs before the click-away rule (onClickAway), so the card's own gesture
+  // sets selectionGestureClick first and the rule leaves what the click built.
   document.addEventListener('click', (e) => {
     if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
@@ -6340,7 +6341,7 @@ function datePickerPop() {
   // the children on each nav click) — same discipline as #calendar-view's.
   pop.addEventListener('click', (e) => {
     // Everything inside the popover is popover business: stop here so the
-    // document outside-closer and Q0 never see these clicks. Critically, a
+    // document outside-closer and the click-away rule never see these clicks. Critically, a
     // nav click re-renders via replaceChildren, DETACHING the clicked button
     // mid-dispatch — a detached target makes closest('.date-picker-pop')
     // return null downstream, which closed the popover on every nav press.
