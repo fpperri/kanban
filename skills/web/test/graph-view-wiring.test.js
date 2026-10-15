@@ -79,6 +79,9 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     { id: 2, title: 'b', status: 'done', archived: true, parent: 1, waiting_for: [3], blocked: true, review: true },
     { id: 3, title: 'c', status: 'todo', archived: false, parent: 1, waiting_for: [], blocked: false, review: false },
     { id: 4, title: 'd', status: 'todo', archived: false, parent: 1, waiting_for: [3], blocked: false, review: false },
+    { id: 5, title: 'e', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
+    { id: 6, title: 'f', status: 'todo', archived: false, parent: 5, waiting_for: [], blocked: false, review: false },
+    { id: 7, title: 'g', status: 'done', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
   ];
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] } });
   const used = new Set();
@@ -86,7 +89,11 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     const plan = graphPlan(model, graphLayout(model, kind, { statuses: ['todo', 'doing', 'done'] }), {
       selectedIds: new Set([1]), hoveredId: 3, kind, statusClass: (s) => s, titleOf: (c) => c.title,
     });
-    for (const x of [...plan.nodes, ...plan.links, ...plan.rings]) {
+    // The fan's marks: guide arcs, captions, the loose caption, the block's frame, title and column captions.
+    const fan = [...plan.guides, ...plan.captions, ...(plan.looseCaption ? [plan.looseCaption] : []),
+      ...(plan.block ? [plan.block, plan.block.title, ...plan.block.columns.map((c) => c.caption)] : [])];
+    assert.strictEqual(fan.length > 0, kind === 'tiers', `${kind} draws the fan's marks, and the others do not`);
+    for (const x of [...plan.nodes, ...plan.links, ...plan.rings, ...fan]) {
       for (const c of x.cls.split(' ')) if (c.startsWith('graph-')) used.add(c);
     }
   }
