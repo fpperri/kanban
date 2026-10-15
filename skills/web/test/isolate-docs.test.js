@@ -122,8 +122,12 @@ test('the search panel entry says the foot holds the switch, not that it is empt
   assert.match(flat(skill.slice(skill.indexOf('- **Search panel**'), skill.indexOf('- **Slice section**'))), /a foot that holds the \*\*Isolate\*\* switch/);
 });
 
-test('the Isolate entry does not describe what is not built: no isolate flag in the link, no menu or canvas entries', () => {
+// The menus and the link were not built when this entry was first written, and a doc test held it
+// to saying nothing of them. They are built now, and isolate-link-docs.test.js holds what the entry
+// says of them, so this one holds that it does say it.
+test('the Isolate entry describes the menu entries and the isolate flag in the link, which are built', () => {
   for (const [where, text] of BOTH) {
-    assert.doesNotMatch(text, /reload|menu entry|right-click on the empty/i, where);
+    assert.match(text, /reload/i, where);
+    assert.match(text, /right-click on the empty/i, where);
   }
 });

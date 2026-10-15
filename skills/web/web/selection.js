@@ -51,12 +51,22 @@ function isHoverHighlighted(hoveredId, cardId) {
 // a pill's cards included, in the order they were picked. `resolved` is the id
 // set the selection stands for now and is never written to. The card details'
 // own menu (`fromDetail`) has no Peek, the card is already open. Path and Tree
-// are offered only when the subject is one card. Returns
-// { ids, inSelection, peek, add, dependency }.
+// are offered only when the subject is one card. Isolate is offered inside the
+// selection only, since it shows the selection and a card outside it is not part of
+// it, and never in the card details' own menu. Returns
+// { ids, inSelection, peek, add, dependency, isolate }.
 function cardMenuFor(resolved, id, { fromDetail = false } = {}) {
   const inSelection = resolved.has(id);
   const ids = inSelection ? [...resolved] : [id];
-  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1 };
+  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1, isolate: inSelection && !fromDetail };
+}
+
+// The menu a right-click on the empty Graph or Map canvas opens: Isolate alone. It has no
+// card, so no bulk entry, Peek, Add, Path or Tree; `canvas` tells the page to show nothing
+// else. Isolate acts on the selection as it is, whatever it holds (nothing selected says
+// so, as the switch does).
+function canvasMenuFor() {
+  return { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: true, canvas: true };
 }
 
 // Bulk-move rule: the doing entry gate stays PER CARD, and only
@@ -481,6 +491,25 @@ function isolateAfterWrite(isolate, text, reason) {
   return String(text == null ? '' : text).trim() ? isolate : null;
 }
 
+// What the browser keeps, per board, while isolate is on: the text the box held before isolating
+// (what turning isolate off gives back) and the isolate text the box held when it was last
+// written, as one JSON string. The text says which isolate the previous text belongs to.
+function isolateRecord(previous, text) {
+  return JSON.stringify({ previous: String(previous == null ? '' : previous), text: String(text == null ? '' : text).trim() });
+}
+
+// The text to give back when isolate comes from a link whose query is `q`: the record's previous
+// text when the record is for that very query, and the empty string when it is unknown (no
+// record, an unreadable one, storage that refused, or a record kept for another isolate), so
+// turning isolate off leaves the box empty rather than restoring an unrelated text.
+function isolatePreviousFrom(raw, q) {
+  if (typeof raw !== 'string') return '';
+  let record;
+  try { record = JSON.parse(raw); } catch (e) { return ''; }
+  if (!record || typeof record.previous !== 'string' || record.text !== String(q == null ? '' : q).trim()) return '';
+  return record.previous;
+}
+
 // The card a click picked on its own, or null: a selection that is one card part,
 // the anchor with no additions. Only such a card lights with its relations; a
 // query or a path that matches one card lights that card alone.
@@ -490,7 +519,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, toggleSelection, pruneSelection, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -515,9 +544,12 @@ if (typeof module !== 'undefined' && module.exports) {
   window.pruneSelectionParts = pruneSelectionParts;
   window.boxAfterGraphClick = boxAfterGraphClick;
   window.isolateAfterWrite = isolateAfterWrite;
+  window.isolateRecord = isolateRecord;
+  window.isolatePreviousFrom = isolatePreviousFrom;
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
   window.cardMenuFor = cardMenuFor;
+  window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;
   window.dragPlan = dragPlan;
   window.archiveNeedsConfirm = archiveNeedsConfirm;

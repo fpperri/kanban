@@ -2272,8 +2272,12 @@ function consumeDeepLink() {
   // every render, so putting the value there IS applying the filter, and
   // it lands somewhere visible that one gesture clears. The view is set
   // first, so that repaint and the listeners told after it see the link's view.
-  if (link.q) writeSearch(link.q, 'link');
-  else if (link.view) renderBoard();
+  if (link.q) {
+    // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
+    // and the listeners told of it (the address, the chip) see it on.
+    if (deepLinkIsolates(location.search)) isolateFromLink(link.q);
+    writeSearch(link.q, 'link');
+  } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
   const card = state.active.concat(state.archived).find((c) => c.id === link.id);
@@ -3309,10 +3313,11 @@ function clearSearch() {
 // past it, so a refused replacement is let go: the address lags the box, and the
 // next write that changes `q` catches it up, while the listeners after this one
 // still hear of the write. card-history.js decides what the address becomes;
-// `card` and `view` ride along untouched. The popstate listener calls this too,
+// `card` and `view` ride along untouched, and `isolate=1` stands beside `q` while
+// isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
-  const search = nextSearchAddress(location.search, text);
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null);
   if (search == null) return;
   try {
     history.replaceState(null, '', location.pathname + search);
@@ -5632,8 +5637,28 @@ function onClickAway(e) {
   moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // a dead selection must not leave an invisible range start behind
 }
 
+// The canvas of the view on show, where a right-click on empty space opens the menu of Isolate
+// alone: the Graph's and the Map's. Empty is what the click-away rule calls empty space, and no
+// Map node either (a ghost stub opens a card). Every other view, and a point of these views
+// outside their canvas (a toolbar, a section header), keeps the browser's own menu.
+const CANVAS_OF_VIEW = { graph: '#graph-view .graph-canvas', map: '#map-view .map-canvas' };
+const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node`;
+
+function openCanvasContextMenu(e) {
+  const canvas = CANVAS_OF_VIEW[loadViewMode()];
+  if (!canvas || !e.target.closest(canvas) || e.target.closest(NOT_CANVAS_SPACE)) return;
+  menuSubject = canvasMenuFor();
+  e.preventDefault();
+  showContextMenu(e.clientX, e.clientY);
+}
+
 function showContextMenu(x, y) {
   const menu = $('#context-menu');
+  // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
+  // stylesheet makes of one entry; a card's menu has them all again.
+  menu.classList.toggle('canvas-menu', !!menuSubject.canvas);
+  $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
+  $('#ctx-isolate').textContent = isolateMenuLabel();
   // Peek and Add to selection lead a menu for a card outside the selection; the
   // card details' menu leaves Peek out. "Dependency tree"/"Dependency path" only
   // make sense against a single card — hidden whenever the menu's subject is
@@ -6010,13 +6035,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (clickKeepsSelection(action)) selectionGestureClick = e;
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the
-  // browser's own context menu (don't hijack the whole page). A card outside
-  // the selection gets a menu for that card alone and the selection stays; a
-  // selected one gets a menu for the whole batch.
+  // browser's own context menu (don't hijack the whole page), except the empty
+  // canvas of the Graph and the Map, which opens a menu of Isolate alone
+  // (openCanvasContextMenu). A card outside the selection gets a menu for that
+  // card alone and the selection stays; a selected one gets a menu for the whole
+  // batch.
   document.addEventListener('contextmenu', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
-    if (!el) return;
+    if (!el) { openCanvasContextMenu(e); return; }
     openCardContextMenu(e, Number(el.dataset.id));
   });
   document.addEventListener('keydown', onCardOpenKey);

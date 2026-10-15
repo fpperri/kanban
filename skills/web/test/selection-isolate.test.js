@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, setAnchor, addPart, selectionAfterEscape,
-  selectionAfterClick, isTypedAnchor, boxAfterGraphClick, isolateAfterWrite,
+  selectionAfterClick, isTypedAnchor, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor,
 } = require('../web/selection');
 
 // Isolate in the selection module: Esc steps back in three stages (isolate off, then every
@@ -125,4 +125,50 @@ test('its own writes never end it: turning it on or off writes the box with the 
 test('with isolate off a write changes nothing', () => {
   assert.strictEqual(isolateAfterWrite(null, '', 'typing'), null);
   assert.strictEqual(isolateAfterWrite(undefined, 'x', 'typing'), undefined);
+});
+
+// --- what the browser keeps for a reload -----------------------------------------------------
+
+test('the kept record gives the text from before isolating back, for the very isolate text it was kept with', () => {
+  const raw = isolateRecord('zephyr tags:ui', '#2 | #5');
+  assert.strictEqual(isolatePreviousFrom(raw, '#2 | #5'), 'zephyr tags:ui');
+  assert.strictEqual(isolatePreviousFrom(raw, '  #2 | #5  '), 'zephyr tags:ui', 'the link\'s query is trimmed, as the deep-link reader trims it');
+  assert.strictEqual(isolatePreviousFrom(isolateRecord('', '#2'), '#2'), '', 'an empty text before is empty');
+});
+
+test('the kept text is unknown, and so empty, for another isolate text or for a record that is missing or unreadable', () => {
+  const raw = isolateRecord('zephyr', '#2 | #5');
+  assert.strictEqual(isolatePreviousFrom(raw, '#2'), '', 'another isolate text');
+  for (const bad of [null, undefined, '', 'not json', '42', 'null', '[]', '{}', '{"previous":3,"text":"#2"}', '{"previous":"x"}']) {
+    assert.strictEqual(isolatePreviousFrom(bad, '#2'), '', String(bad));
+  }
+  assert.strictEqual(isolatePreviousFrom(raw, undefined), '');
+});
+
+test('the record is JSON of the previous text and the trimmed isolate text, and tolerates missing values', () => {
+  assert.deepStrictEqual(JSON.parse(isolateRecord('a', ' #2 ')), { previous: 'a', text: '#2' });
+  assert.deepStrictEqual(JSON.parse(isolateRecord(undefined, null)), { previous: '', text: '' });
+});
+
+// --- the menu on a card -----------------------------------------------------------------------
+
+test('a right-click inside the selection offers Isolate, and one outside it does not', () => {
+  const resolved = new Set([2, 5]);
+  assert.strictEqual(cardMenuFor(resolved, 2).isolate, true);
+  assert.strictEqual(cardMenuFor(resolved, 5).isolate, true);
+  assert.strictEqual(cardMenuFor(resolved, 3).isolate, false);
+  assert.strictEqual(cardMenuFor(new Set(), 3).isolate, false, 'with nothing selected the card is outside it');
+});
+
+test('the card details\' own menu offers no Isolate, even for a card inside the selection', () => {
+  assert.strictEqual(cardMenuFor(new Set([2, 5]), 2, { fromDetail: true }).isolate, false);
+  assert.strictEqual(cardMenuFor(new Set([2, 5]), 3, { fromDetail: true }).isolate, false);
+});
+
+test('the menu for the empty canvas is Isolate alone: no card, no bulk entry, no Peek, no Add, no Path or Tree', () => {
+  assert.deepStrictEqual(canvasMenuFor(), { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: true, canvas: true });
+});
+
+test('the canvas menu is a fresh object each time', () => {
+  assert.notStrictEqual(canvasMenuFor(), canvasMenuFor());
 });

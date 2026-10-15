@@ -257,3 +257,37 @@ test('every user-gesture close goes through the closeCard wrapper, not closeDeta
   assert.strictEqual(rawCalls, 6,
     `expected exactly 6 raw closeDetailModal( call sites — found ${rawCalls}`);
 });
+
+// --- nextSearchAddress with isolate: the second parameter beside q ------------
+//
+// While isolate is on, `isolate=1` stands beside q; it is gone when isolate is off or the box
+// holds no query. A caller that says nothing about isolate leaves the parameter as it is.
+
+test('nextSearchAddress: isolate on puts isolate=1 after q, and off takes it out', () => {
+  assert.strictEqual(nextSearchAddress('', '#2 | #5', true), '?q=%232+%7C+%235&isolate=1');
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?view=graph&q=a&isolate=1', 'a', false)), [['view', 'graph'], ['q', 'a']]);
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a', false), '?q=a');
+});
+
+test('nextSearchAddress: a change of the flag alone is a new address, and the same flag with the same q is nothing', () => {
+  assert.strictEqual(nextSearchAddress('?q=a', 'a', true), '?q=a&isolate=1');
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a', true), null);
+  assert.strictEqual(nextSearchAddress('?q=a', 'a', false), null);
+});
+
+test('nextSearchAddress: isolate with no query is no isolate, so an empty or blank box drops both', () => {
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', '', true), '');
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', '   ', true), '');
+  assert.strictEqual(nextSearchAddress('?isolate=1&view=map', '', true), '?view=map');
+  assert.strictEqual(nextSearchAddress('', '', true), null);
+});
+
+test('nextSearchAddress: a caller that does not say leaves the isolate parameter as it is', () => {
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a'), null);
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=a&isolate=1', 'b')), [['q', 'b'], ['isolate', '1']]);
+});
+
+test('nextCardHistorySearch: opening and closing a card keep the isolate parameter, whatever order the address holds it in', () => {
+  assert.deepStrictEqual(paramsOf(nextCardHistorySearch('?q=%232&isolate=1', 2)), [['q', '#2'], ['isolate', '1'], ['card', '2']]);
+  assert.deepStrictEqual(paramsOf(nextCardHistorySearch('?q=%232&isolate=1&card=2', null)), [['q', '#2'], ['isolate', '1']]);
+});

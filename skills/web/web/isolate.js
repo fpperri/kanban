@@ -21,9 +21,24 @@
 // the switch with nothing to write says so and stays off, and Esc with focus in the box turns
 // isolate off like Esc anywhere else.
 //
-// This script reads app.js's globals at the moment it runs, never when it loads: $, selectionState,
-// writeSearch, onSearchWrite, renderSearchPanel, toast, keyGuardOff, partsOf (selection.js) and
-// the search module's isolate functions. The i key reads the shared key guard (key-guard.js): off
+// The menus turn it on too: the card menu offers Isolate inside the selection, and the small menu
+// of the empty Graph or Map canvas offers it alone (cardMenuFor and canvasMenuFor, selection.js;
+// openCanvasContextMenu and showContextMenu in app.js). The entry is the switch's twin, isolateFlip,
+// and reads Turn isolate off while isolate is on.
+//
+// The link carries it. While isolate is on the address holds `isolate=1` beside `q` (the box's own
+// address listener, followSearchInAddress in app.js, asks isolateNow), and a link that opens with
+// the parameter and a query turns isolate on before the query reaches the box (isolateFromLink,
+// called by consumeDeepLink), so the first repaint, the address and every listener see it on. The
+// text the box held before isolating cannot ride in the link, so the browser keeps it per board
+// beside the isolate text it goes with (isolateRecord, selection.js), and gives it back when that
+// very isolate is turned off after a reload; where it is unknown (no record, blocked storage, a
+// record for another isolate) turning isolate off leaves the box empty. Every storage read and
+// write is guarded, and the page works without it.
+//
+// This script reads app.js's globals at the moment it runs, never when it loads: $, state,
+// storageKey, prefsStorage, selectionState, writeSearch, onSearchWrite, renderSearchPanel, toast,
+// hideContextMenu, keyGuardOff, partsOf (selection.js) and the search module's isolate functions. The i key reads the shared key guard (key-guard.js): off
 // while a field has focus and while a menu, a dialog, the notifications panel or the preferences
 // sheet is up; the search panel is no surface, so i works with it open.
 
@@ -35,6 +50,43 @@ const ISOLATE_SWITCH_OFF = 'Isolate: show only the selection, in every view, by 
 
 function isolateNow() {
   return isolateFrom;
+}
+
+// The text the box held before isolating is kept in the browser, per board, beside the isolate
+// text it goes with (isolateRecord, selection.js), so a reload that opens isolated can still give
+// it back. Every read and write guards against storage that is blocked or full: the page works
+// without it, and the text is then unknown, which gives back an empty box.
+const ISOLATE_KEPT_FEATURE = 'isolate.kept';
+
+function isolateKeep(previous, text) {
+  const store = prefsStorage();
+  if (!store) return;
+  try { store.setItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE), isolateRecord(previous, text)); }
+  catch (e) { /* storage unavailable or full: the text will be unknown after a reload */ }
+}
+
+function isolateForget() {
+  const store = prefsStorage();
+  if (!store) return;
+  try { store.removeItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE)); }
+  catch (e) { /* nothing to forget */ }
+}
+
+function isolateKept(q) {
+  const store = prefsStorage();
+  let raw = null;
+  if (store) {
+    try { raw = store.getItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE)); }
+    catch (e) { raw = null; }
+  }
+  return isolatePreviousFrom(raw, q);
+}
+
+// A link that opens isolated (consumeDeepLink): isolate is on before the link's query reaches the
+// box, so the repaint, the address and every listener of the write see it on. What it gives back
+// is the text kept for this very query, or nothing.
+function isolateFromLink(q) {
+  isolateFrom = { previous: isolateKept(q) };
 }
 
 // The switch says whether isolate is on (aria-checked) and what a click does. Every repaint of
@@ -58,6 +110,7 @@ function isolateTurnOn() {
   const text = searchIsolateBox(box, partsOf(selectionState.selection));
   if (!text) { toast('Nothing is selected to isolate. Pick a card, a pill, or add a path or a tree first.'); return false; }
   isolateFrom = { previous: box };
+  isolateKeep(box, text);
   writeSearch(text, 'isolate');
   return true;
 }
@@ -68,12 +121,25 @@ function isolateTurnOff() {
   if (!isolateFrom) return false;
   const text = searchIsolateRestore($('#search-input').value, isolateFrom.previous);
   isolateFrom = null;
+  isolateForget();
   writeSearch(text, 'isolate');
   return true;
 }
 
 function isolateFlip() {
   return isolateFrom ? isolateTurnOff() : isolateTurnOn();
+}
+
+// The entry in the card menu and in the menu of the empty canvas mirrors the switch: Isolate turns
+// it on and, while it is on, the entry offers to turn it off. It acts on the selection as it is
+// when it is chosen, and with nothing selected it says so, as the switch does.
+function isolateMenuLabel() {
+  return isolateFrom ? 'Turn isolate off' : 'Isolate';
+}
+
+function isolateFromMenu() {
+  hideContextMenu();
+  isolateFlip();
 }
 
 // The i key: a key that types nothing but reads a letter, so it reads the whole key guard, as p
@@ -98,13 +164,16 @@ function isolateEscapeKeepsBox(e) {
 // the text it would give back.
 function isolateOnWrite(text, reason) {
   const next = isolateAfterWrite(isolateFrom, text, reason);
+  if (next && reason !== 'isolate') isolateKeep(next.previous, text); // the kept text goes with the isolate text the box holds now
   if (next === isolateFrom) return;
   isolateFrom = next;
+  if (!next) isolateForget();
   renderSearchPanel();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   $('#isolate-switch').addEventListener('click', isolateFlip);
+  $('#ctx-isolate').addEventListener('click', isolateFromMenu);
   document.addEventListener('keydown', onIsolateKey);
   onSearchWrite(isolateOnWrite);
 });
