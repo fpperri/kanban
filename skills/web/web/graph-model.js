@@ -513,13 +513,17 @@ function graphFanLines(model, places, fan) {
 // children. What a card needs is the angle that spaces its mark from its
 // neighbours' on its ring; when the sectors would need more angle than the fan
 // has, every radius grows to give it, so no two dots on a ring ever touch.
-// Loose cards with no tier sit in the Unnested block outside the rim.
+// Loose cards with no tier are drawn as the Unnested option says: on one ring outside every
+// band (outermost, the default: graphFanRing), on the depth 0 ring in a sector of their own
+// (depth 0: graphFanPlace), in the Unnested block outside the rim (table), or not at all (off,
+// where graphBuild leaves them out of the model).
 //
 // The layout answers more than positions, for whatever draws bands, captions and
 // the block's frame: `bands` ({ index, slice, count, subs, r0, r1, rings }),
 // `sectors` ({ kind, rootId, tops, leaves, from, to } in radians, `from` the larger),
 // `block` ({ x, y, w, h, top, base, count, columns: [{ label, ids, count, x, w }] },
-// columns relative to the block), `captions` (the caption of each band, with its
+// columns relative to the block; null under outermost, which has a ring instead, as a band with
+// no `slice`, last in `bands`), `captions` (the caption of each band, with its
 // side of the seam, and what its tip says: the `count`, the `split` by status and the
 // slice: `term`), `looseCaption` (the caption of the loose cards with a tier, its
 // `split` and the `box` it takes), `fan` ({ from, to }) and `textScale` (the scale the

@@ -14,7 +14,7 @@
 // nothing, it is the anchor of the selection and its matches light. A caption of
 // the tier fan shows its name alone; the pointer or focus on it shows its tip, one
 // tooltip the stage shares (graphShowTip), with the count of its cards. Tiers also has an
-// option row (lines, dependencies, order), folded behind a toggle and kept per board:
+// option row (lines, dependencies, order, unnested), folded behind a toggle and kept per board:
 // a press redraws the Graph and hands focus back to the control, and no control of the
 // row holds the poll, starts a pan or clears the selection.
 
@@ -154,10 +154,10 @@ function graphSaveOptionsFolded() {
 }
 
 // A press on an option redraws the Graph and nothing else: the lines and the arrows only
-// redraw, the order moves siblings within their stretch (graph-model.js).
-// Unnested off takes cards out of the Graph, and a selection only reaches the cards the
-// view draws (viewCardIds), so a press of Unnested works the selection out again, as a
-// status pill does.
+// redraw, the order moves siblings within their stretch, the Unnested mode moves the cards
+// with no relative and no tier (graph-model.js). Unnested off takes cards out of the Graph,
+// and a selection only reaches the cards the view draws (viewCardIds), so a press of
+// Unnested works the selection out again, as a status pill does.
 function graphSetOption(key, value) {
   const values = Object.prototype.hasOwnProperty.call(GRAPH_FAN_OPTION_VALUES, key) ? GRAPH_FAN_OPTION_VALUES[key] : null;
   if (!values || !values.includes(value)) return;
