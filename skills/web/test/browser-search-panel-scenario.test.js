@@ -1,0 +1,166 @@
+const { test, after } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const { listActive, listArchived } = require('../scripts/card-store');
+const { materialize } = require('./browser/boards');
+const { parseSearchQuery, filterCards } = require('../web/search');
+const { pillList } = require('../web/pills');
+const scenarios = require('./browser/scenarios');
+const panel = require('./browser/scenarios/search-panel');
+
+// The browser runner's search-panel scenario only runs in a browser (in CI). What
+// it expects of the plan board is held here to the search module and the pill list
+// over the board's own cards, the in-page expressions it sends are all parsed, and
+// the scenario is run once against a stand-in page so a typo in it fails here and
+// not only in a slow browser run.
+
+const roots = [];
+const planBoard = () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-search-panel-'));
+  roots.push(root);
+  const dir = path.join(root, 'board');
+  materialize('plan', dir);
+  const live = listActive(dir);
+  return { live, all: live.concat(listArchived(dir)), byId: new Map(live.map((c) => [c.id, c])) };
+};
+after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
+
+const sorted = (list) => [...list].sort((a, b) => a - b);
+const idsOf = (b, query) => sorted(filterCards(b.all, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => b.byId.has(id)));
+const countsOver = (cards, all) => Object.fromEntries(pillList(cards, (q) => new Set(filterCards(all, parseSearchQuery(q, 'plan'), { board: 'plan' }).map((c) => c.id))).map((p) => [p.key, p.count]));
+const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'search-panel.js'), 'utf8');
+const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
+
+test('the scenario is in the runner, on the plan board, with time for its drives', () => {
+  assert.strictEqual(scenarios.find((s) => s.name === 'search-panel'), panel);
+  assert.strictEqual(panel.board, 'plan');
+  assert.strictEqual(panel.alsoBoards, undefined);
+  assert.ok(panel.timeoutMs >= 60000);
+});
+
+test('before the scenario gives a done card a sticker, the pills match the cards it says', () => {
+  const b = planBoard();
+  for (const [name, ids] of Object.entries(panel.CASES.before)) assert.deepStrictEqual(idsOf(b, `${name}:`), ids, name);
+  const done = b.byId.get(panel.CASES.stickered);
+  assert.strictEqual(done.status, 'done', 'the card it stickers is done');
+  assert.ok(!done.review && !done.blocked && done.waiting_for.length === 0, 'and carries nothing yet');
+});
+
+test('with the sticker on the done card, each pill counts what the scenario says, and the cards of review and of both pills are the sets it says', () => {
+  const b = planBoard();
+  const after = b.all.map((c) => (c.id === panel.CASES.stickered ? { ...c, review: 'look once more' } : c));
+  const live = after.filter((c) => !c.archived);
+  assert.deepStrictEqual(countsOver(live, after), panel.CASES.counts);
+  const ids = (q) => sorted(filterCards(after, parseSearchQuery(q, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => live.some((c) => c.id === id)));
+  assert.deepStrictEqual(ids('review:'), panel.CASES.review);
+  assert.deepStrictEqual(ids('review: | blocked:'), panel.CASES.both);
+  assert.deepStrictEqual(ids('waiting:'), panel.CASES.waiting);
+});
+
+test('a second card, blocked through the API, and the Done status pill off, move the counts the way the scenario says', () => {
+  const b = planBoard();
+  const lone = b.byId.get(panel.CASES.lonePatched);
+  assert.ok(lone && lone.status !== 'done' && lone.status !== 'doing' && !lone.blocked, 'a card that can be blocked, and is not done');
+  const patched = b.all.map((c) => {
+    if (c.id === panel.CASES.stickered) return { ...c, review: 'look once more' };
+    if (c.id === panel.CASES.lonePatched) return { ...c, blocked: 'waiting on the vendor' };
+    return c;
+  });
+  const live = patched.filter((c) => !c.archived);
+  assert.deepStrictEqual(countsOver(live, patched), panel.CASES.patchedCounts);
+  assert.deepStrictEqual(countsOver(live.filter((c) => c.status !== 'done'), patched), panel.CASES.doneOffCounts);
+  assert.ok(panel.CASES.doneOffCounts.review < panel.CASES.patchedCounts.review, 'a done card was among the review cards');
+});
+
+test('the scenario does not wait on a fixed sleep, and presses its keys and its Shift and Ctrl clicks through the runner\'s own helpers', () => {
+  assert.ok(!/\bsleep\(/.test(code));
+  assert.ok(!/setTimeout/.test(code));
+  assert.ok(/key\('Escape'\)/.test(code) && /key\('Tab'\)/.test(code) && /key\('Enter'\)/.test(code) && /key\(' '\)/.test(code));
+  assert.ok(/modifiers: 8/.test(code), 'Shift');
+  assert.ok(/modifiers: 2/.test(code), 'Ctrl');
+  assert.ok(/rightClick\(pillSel\('review'\)\)/.test(code), 'a right-click on a pill');
+});
+
+test('the ids and classes the scenario drives are in the page the panel is drawn on', () => {
+  const web = path.join(__dirname, '..', 'web');
+  const page = ['app.html', 'search-panel.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
+  for (const name of ['search-panel', 'search-panel-toggle', 'search-pills', 'search-pills-fold', 'search-chip', 'search-clear-btn', 'prefs-pills-folded', 'query-pill', 'query-pill-count']) {
+    assert.ok(page.includes(name), `${name} is in the page`);
+    assert.ok(code.includes(name), `${name} is driven by the scenario`);
+  }
+});
+
+// A stand-in for the page: every expression the scenario sends is parsed, so a typo in
+// one fails here, and what it reads back is answered the way a browser would for the
+// scenario's own reads. Whether each check holds is for the browser to say.
+function standIn() {
+  const log = { exprs: [], bad: [], checks: [], opened: [], keys: [], clicks: 0 };
+  const parse = (expr) => {
+    try { new vm.Script(`(${expr})`); } catch (e) { log.bad.push(`${e.message}: ${String(expr).slice(0, 120)}`); }
+  };
+  const planIds = planBoard().live.map((c) => c.id);
+  const answer = (expr) => {
+    if (/^\[\.\.\.new Set\(\[\.\.\.document\.querySelectorAll\('#board \.card-el'\)\]/.test(expr)) return planIds;
+    if (/^JSON\.stringify\(Object\.fromEntries/.test(expr)) return JSON.stringify(panel.CASES.counts);
+    if (/getElementById\('search-chip'\);return/.test(expr)) return { hidden: false, text: '1', name: '1 on: review' };
+    if (/#search-pills \.query-pill'\)\]\.map\(\(b\)=>b\.dataset\.pillKey\)$/.test(expr)) return ['blocked', 'review', 'waiting'];
+    if (/^document\.activeElement&&\(document\.activeElement\.id/.test(expr)) return 'search-panel-toggle';
+    if (/offsetHeight/.test(expr)) return 40;
+    if (/fetch\('\/api\/cards\//.test(expr)) return 200;
+    if (/elementFromPoint/.test(expr)) return { x: 5, y: 5 };
+    if (/querySelectorAll\('\.graph-node'\)\.length$/.test(expr)) return 30;
+    if (/graph-node\.graph-near/.test(expr)) return panel.CASES.review;
+    if (/\[\.\.\.selectedIds\]/.test(expr) && !/JSON\.stringify/.test(expr)) return [];
+    if (/getElementById\('search-input'\)\.value$/.test(expr)) return '';
+    return true;
+  };
+  const page = {
+    log,
+    ev: async (expr) => { log.exprs.push(expr); parse(expr); return answer(expr); },
+    send: async () => {},
+    open: async (p) => { log.opened.push(p); },
+    waitFor: async (expr) => { log.exprs.push(expr); parse(expr); return true; },
+    centre: async () => ({ x: 10, y: 10 }),
+    click: async () => { log.clicks++; },
+    key: async (name) => { log.keys.push(name); },
+    rightClick: async () => {},
+    check: (name, ok) => log.checks.push([name, ok]),
+  };
+  return page;
+}
+
+test('run once against a stand-in page the scenario finishes, and every expression it sends to the page parses', async () => {
+  const page = standIn();
+  await panel.run(page);
+  assert.deepStrictEqual(page.log.bad, [], 'an expression the scenario sends does not parse');
+  assert.ok(page.log.exprs.length > 100, 'it sends the page a lot of expressions');
+  assert.ok(page.log.checks.length >= 60, `only ${page.log.checks.length} checks`);
+  const names = page.log.checks.map(([n]) => n);
+  assert.deepStrictEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'a check name used twice');
+});
+
+test('the scenario loads the plan board cold, in the Board and in the Graph, and once more for the preference', async () => {
+  const page = standIn();
+  await panel.run(page);
+  assert.deepStrictEqual(page.log.opened, ['/', '/', '/?view=graph', '/', '/']);
+});
+
+test('it presses Escape through the three links of the chain, and Tab, Enter and Space for the keyboard', async () => {
+  const page = standIn();
+  await panel.run(page);
+  const count = (k) => page.log.keys.filter((x) => x === k).length;
+  assert.ok(count('Escape') >= 6, 'the bulk popup, the two steps with the panel closed, the list, the panel and the sheet, and the box as many times as it takes');
+  assert.ok(count('Tab') >= 8);
+  assert.ok(count('Enter') >= 3);
+  assert.strictEqual(count(' '), 2);
+});
+
+test('every check the scenario makes has a name that says what it holds', async () => {
+  const page = standIn();
+  await panel.run(page);
+  for (const [name] of page.log.checks) assert.ok(name.length > 12 && /[a-z]/.test(name), name);
+});

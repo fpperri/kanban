@@ -14,11 +14,32 @@
     <!-- copy button INSIDE the h1 so it rides beside the title when the flex header wraps -->
     <h1><span id="project-name" class="project-name"></span> <button type="button" id="board-copy-btn" class="board-copy-btn" title="Copy the board folder's absolute path" aria-label="Copy the board folder's absolute path">&#x29C9;</button></h1>
   </div>
+  <!-- The search box is a bordered box holding the input, a chip, the clear button
+       and the toggle that opens the panel under it (focusing the input never does).
+       The panel hangs from the bar without adding to the header's height. It has a
+       region for the slices, the pill section, a divider and a foot; each is drawn on
+       its own, so what joins the panel later extends one without editing another.
+       Every control in the bar and the panel wears data-keeps-selection, so a click on
+       it never clears a selection, and none wears data-holds-poll: a focused pill is
+       kept in place across the poll, which never pauses while the panel is open. -->
   <div class="search-bar">
-    <input type="search" id="search-input" class="search-input" autocomplete="off"
-      placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
-      title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. slice:objective..2 cuts every view to a run of slices (tiers, then depths). Press / to focus, Esc to clear.">
-    <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search" aria-label="Clear search">&#10005;</button>
+    <div class="search-box">
+      <input type="search" id="search-input" class="search-input" autocomplete="off"
+        placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
+        title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. slice:objective..2 cuts every view to a run of slices (tiers, then depths). Press / to focus, Esc to clear.">
+      <span id="search-chip" class="search-chip hidden" role="img" data-keeps-selection></span>
+      <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search" aria-label="Clear search">&#10005;</button>
+      <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-expanded="false" aria-controls="search-panel" title="Search filters: the pills" aria-label="Search filters">&#9662;</button>
+    </div>
+    <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters" data-keeps-selection>
+      <div id="search-slices" class="search-slices"></div>
+      <section class="search-section" aria-labelledby="search-pills-fold">
+        <button type="button" id="search-pills-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-pills" aria-label="Pills" title="Fold or unfold the pills">Pills</button>
+        <div id="search-pills" class="search-pills" role="group" aria-labelledby="search-pills-fold"></div>
+      </section>
+      <hr class="search-divider">
+      <div id="search-foot" class="search-foot"></div>
+    </div>
   </div>
   <div class="actions">
     <button id="new-btn">+ New card</button>
@@ -402,6 +423,11 @@
       </div>
       <label class="prefs-check"><input type="checkbox" id="prefs-archived-done" data-keeps-selection data-holds-poll> Count archived leaves as done</label>
     </section>
+    <section class="prefs-group" aria-labelledby="prefs-panel-title">
+      <h3 id="prefs-panel-title">Search panel</h3>
+      <p class="prefs-hint">The panel under the search box lists the pills. Its fold control folds the section for this visit; this is how it starts.</p>
+      <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
+    </section>
   </aside>
 </div>
 
@@ -414,6 +440,7 @@
 <script src="/dependency-graph.js"></script>
 <script src="/nesting.js"></script>
 <script src="/slices.js"></script>
+<script src="/pills.js"></script>
 <script src="/map-zoom.js"></script>
 <script src="/calendar-model.js"></script>
 <script src="/gantt-model.js"></script>
@@ -440,6 +467,7 @@
 <script src="/key-guard.js"></script>
 <script src="/deep-link.js"></script>
 <script src="/card-history.js"></script>
+<script src="/search-panel.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>
 </body>

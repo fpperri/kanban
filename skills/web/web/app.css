@@ -259,12 +259,43 @@ button { background: var(--btn-bg); border: 1px solid var(--line); color: var(--
 button:hover { background: var(--btn-hover); }
 #new-btn { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
 #stale-indicator { align-self: center; color: var(--warn); font-size: 0.78em; }
-.search-bar { display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
+.search-bar { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
 .search-input { width: 100%; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 10px; border-radius: .15rem; font-size: 0.85em; font-family: inherit; }
 .search-input:focus { outline: none; border-color: var(--accent); }
 .search-input::placeholder { color: var(--mut); }
 .search-clear { background: transparent; border: none; color: var(--mut); padding: 4px 6px; cursor: pointer; font-size: 0.85em; flex-shrink: 0; }
 .search-clear:hover { color: var(--crit); background: transparent; }
+/* Search box and search panel. The box is the bordered frame round the input, the
+   chip, the clear button and the toggle; the input gives up its own border, so the
+   header is as tall as it was. The panel hangs from the bar (position: absolute,
+   so it adds nothing to the header's height) and sits below the suggestion list,
+   which hangs from the box at z-index 30: where both are open the list is on top.
+   The pills use their own classes (.query-pill), never the status pills' (.map-
+   filter-toggle and the rest), so the click-away marker, the poll's focus keeper
+   and the status pills' rules never reach them. Colours are tokens only. */
+.search-box { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; }
+.search-box:focus-within { border-color: var(--accent); }
+.search-box .search-input { flex: 1 1 60px; min-width: 60px; width: auto; border: 0; background: transparent; }
+.search-chip { flex-shrink: 0; margin-right: 2px; padding: 1px 8px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.75em; white-space: nowrap; }
+.search-panel-toggle { flex-shrink: 0; background: transparent; border: 0; color: var(--mut); padding: 4px 8px; font-size: 0.85em; }
+.search-panel-toggle:hover { background: transparent; color: var(--ink); }
+.search-panel-toggle[aria-expanded="true"] { color: var(--accent); }
+.search-panel-toggle:focus-visible, .search-fold:focus-visible, .query-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 300px; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); }
+.search-slices:empty, .search-foot:empty { display: none; }
+.search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.search-fold { background: transparent; border-color: transparent; color: var(--mut); padding: 2px 6px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.search-fold::after { content: " \25BE"; }
+.search-fold[aria-expanded="false"]::after { content: " \25B8"; }
+.search-fold:hover { background: var(--btn-hover); color: var(--ink); }
+.search-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.query-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
+.query-pill:hover { background: var(--btn-hover); }
+.query-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+.query-pill-count { color: var(--mut); font-variant-numeric: tabular-nums; }
+.query-pill.on .query-pill-count { color: var(--accent-strong); }
+.search-divider { width: 100%; margin: 0; border: 0; border-top: 1px solid var(--line); }
+/* End search box and search panel */
 /* Signals a collapsed column that still has hits — the count itself
    already reads matching/total, this just adds a visual nudge to notice it. */
 .column.search-match .column-count { color: var(--accent); font-weight: 700; }

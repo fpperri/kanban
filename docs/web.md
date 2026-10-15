@@ -174,6 +174,26 @@ throws, and an empty alternative is dropped rather than matching every card. Cli
 tag, assignee, blocked or review cue on a card adds that term to every alternative of
 what the box holds.
 
+**Search panel** — the search box has a toggle at its right end that opens a panel under
+it; focusing the box never opens it, and the panel adds nothing to the header's height. It
+lists the built-in pills, blocked, review and waiting, each with a count of the cards its
+query matches, done cards included. The counts are taken over the cards the view shows
+after its status pills and Archive, and before the search box, so turning one pill on
+leaves the others' counts as they were. A click on a pill, with either mouse button, makes
+its query the anchor of the selection and puts it in the box, such as `review:`: outside
+the Graph its matches are the selection, so the bulk edits act on them, and in the Graph
+they light. A click on the only pill that is on turns it off again and clears the box.
+Shift+click adds a pill's matches to the selection and grows the box so they stay shown,
+as `review: | blocked:`; Shift+click again takes that part back out. A pill is on while its
+query is the anchor or an addition, and typing in the box turns it off. With the panel
+closed, a chip in the box counts what is on, and its name for a screen reader says which.
+The pill section folds, and *Pill section starts folded* in the preferences sheet says how
+it starts. Tab reaches the toggle, the fold control and every pill, and Enter and Space act
+as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
+toggle), and then clears the box, when focus is in it, or steps the selection back, which
+also takes the added pills back out of the box. The board keeps refreshing on its poll while
+the panel is open, and a pill that has focus keeps it.
+
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
 error), and per-entry archiving.
@@ -210,6 +230,8 @@ never written to the board's files.
 - *Count archived leaves as done* is on by default. Off, the board's tiles, the Map's
   cards and the card detail (whose scope line says so) leave archived leaves out of the
   count.
+- *Pill section starts folded* is off by default. It says how the search panel's pill
+  section starts; its fold control still folds it for the visit.
 
 The sheet closes with Esc, a click outside it or its close button, and focus goes back to
 the gear. While it is open the board does not refresh under it, and `/` and Ctrl+F stand
