@@ -1295,6 +1295,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 
 .graph-node-id { display: none; font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); dominant-baseline: central; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
 .graph-node.graph-hub .graph-node-id, .graph-node.hover-highlight .graph-node-id, .graph-node.selected .graph-node-id, .graph-labels-all .graph-node-id { display: inline; }
+/* The tier fan's names: every card of the fan has a label, and graph-named on its node shows it
+   in place of the id, so the Names option and a selection only toggle a class. */
+.graph-node-name { display: none; font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); dominant-baseline: central; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-node.graph-named .graph-node-name { display: inline; }
+.graph-node.graph-named .graph-node-id { display: none; }
 
 .graph-dim .graph-node:not(.graph-near) { opacity: 0.15; }
 .graph-dim .graph-link:not(.graph-near) { opacity: 0.06; }

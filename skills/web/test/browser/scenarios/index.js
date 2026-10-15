@@ -22,6 +22,7 @@ module.exports = [
   require('./slice-term'),
   require('./tier-fan'),
   require('./tier-fan-options'),
+  require('./fan-names'),
   require('./esc-steps'),
   require('./search-panel'),
   require('./empty-space'),
