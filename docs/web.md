@@ -197,9 +197,13 @@ matches leave the selection. A right-click solos a pill, so it alone is on and t
 holds its query alone, and a right-click on the soloed pill turns every pill off (the
 status pills turn all back on, since they start all on). The first pill on is the anchor
 of the selection and later ones are additions, so Esc takes the later pills out first and
-then the anchor. A pill is on while its query is the anchor or an addition, and is
+then the anchor. The `m` key steps through the pills: each press turns on the next pill
+alone, so the box holds its query alone, in the panel's order, off, blocked, review,
+waiting, then the board's own pills, then off again, and Shift+m steps backwards. It works
+in every view, except while you type in a field or a menu, a dialog, the notifications
+panel or the preferences sheet is up. A pill is on while its query is the anchor or an addition, and is
 announced as pressed, and typing in the box turns it off. With the panel
-closed, a chip in the box counts what is on, and its name for a screen reader says which.
+closed, a chip in the box counts what is on, and its name for a screen reader, and its hover text, say which.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the

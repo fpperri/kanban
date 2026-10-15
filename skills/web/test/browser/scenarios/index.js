@@ -25,4 +25,5 @@ module.exports = [
   require('./search-panel'),
   require('./empty-space'),
   require('./board-pills'),
+  require('./pill-step'),
 ];
