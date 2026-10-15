@@ -330,11 +330,36 @@ test('n gets no key guard of its own: it reads keyGuardOff as p, m and i do', ()
   assert.match(src, /document\.addEventListener\('keydown', onGraphNamesKey\)/);
 });
 
-test('n keeps focus on an option that had it: the step is made through the pill focus hand-back', () => {
+test('n keeps focus on an option that had it: the step is made through keepPillFocus, the hand-back every press of the row uses', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const body = src.match(/function onGraphNamesKey\([\s\S]*?\n\}/)[0];
   assert.match(body, /focusedPill\(\)/);
   assert.match(body, /keepPillFocus\(/);
+});
+
+// --- the stylesheet --------------------------------------------------------------------------------------------------
+
+test('the stylesheet shows a name for a named node only, in a size that holds at any zoom, with tokens and no hex colour', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const rule = (sel) => {
+    const at = css.indexOf(`${sel} {`);
+    assert.ok(at !== -1, `a rule for ${sel}`);
+    return css.slice(at, css.indexOf('}', at) + 1);
+  };
+  assert.match(rule('.graph-node-name'), /display: none/, 'hidden unless the node is named');
+  assert.match(rule('.graph-node-name'), /font-size: calc\(11px \/ var\(--graph-k, 1\)\)/);
+  assert.match(rule('.graph-node-name'), /stroke-width: calc\(4px \/ var\(--graph-k, 1\)\)/);
+  assert.match(rule('.graph-node-name'), /pointer-events: none/, 'a name never takes the pointer from a dot');
+  assert.match(rule('.graph-node.graph-named .graph-node-name'), /display: inline/);
+  assert.match(rule('.graph-node.graph-named .graph-node-id'), /display: none/, 'a named card shows its title where its id would be');
+  for (const sel of ['.graph-node-name', '.graph-node.graph-named .graph-node-name', '.graph-node.graph-named .graph-node-id']) {
+    assert.doesNotMatch(rule(sel), /#[0-9a-fA-F]{3,8}\b|style=/, sel);
+  }
+});
+
+test('the plan and the view emit only classes the stylesheet has a rule for', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  for (const cls of ['graph-named', 'graph-node-name']) assert.ok(new RegExp(`\\.${cls}(?![\\w-])`).test(css), cls);
 });
 
 // --- the page goes on ------------------------------------------------------------------------------------------------

@@ -56,6 +56,11 @@ test('plan fixture, nothing selected, on a fan above the small size: relevant na
   assert.deepStrictEqual(ids(graphFanNames(model, 'relevant', { selectedIds: new Set() })), PLAN_PARENTS);
 });
 
+test('plan fixture: the parents are named from the highest altitude down, 1 (5 layers below), 2 (4), 7 (3), 22 (2), 23 (1)', () => {
+  const model = drawnModel(BOARDS.plan);
+  assert.deepStrictEqual([...graphFanNames(model, 'relevant')], [1, 2, 7, 22, 23], 'in the order they are named, which the cap cuts from the end');
+});
+
 test('relevant names the parents from the highest altitude down and stops at the cap', () => {
   const model = staircase();
   const named = graphFanNames(model, 'relevant');
