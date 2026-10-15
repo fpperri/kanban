@@ -1,6 +1,12 @@
 'use strict';
-// The search panel: the panel that hangs under the search box, opened by the
-// toggle at the box's right end. Focusing the box never opens it. It has four
+// The search panel: the panel that hangs under the search box. Focusing the box opens
+// it while the switch is on, which is the default. The switch is the arrow at the box's
+// right end (#search-panel-toggle, announced with aria-pressed): switched off, the panel
+// closes now and focusing the box no longer opens it; switched on again, the panel opens
+// now and opens on focus again. The p key flips the same switch, through the key guard
+// (key-guard.js); the panel is no surface there, so p works with the panel open. The
+// choice is kept per board in the preferences (prefs.js, panelOnFocus) and the
+// preferences sheet shows and sets it too (app.js, setPanelOnFocus). The panel has four
 // regions, each drawn on its own so that what joins the panel later extends one
 // without editing another: the slices (#search-slices, empty for now), the pill
 // section (#search-pills, with its fold control), a divider, and a foot
@@ -24,11 +30,12 @@
 // the step back. Closing the panel hands focus back to the toggle, except when the Esc
 // was pressed in the box, where focus stays so that the next Esc clears the box. Both
 // steps stop the browser's own Esc, which clears a search field, so the box keeps its
-// text until that last Esc.
+// text until that last Esc. Esc leaves the switch as it was: the box, still focused,
+// opens the panel again the next time it is focused.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
-// searchMatchIds, cardsBeforeSearch, loadPrefsState.
+// searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus, keyGuardOff.
 
 let searchPanelOpen = false;
 // Whether the pill section is folded for this visit; null until it is read from the
@@ -37,6 +44,8 @@ let searchPillsFolded = null;
 let searchPillsFoldedFor = '';
 
 const SEARCH_PILL_HINT = 'click: turn it on or off, right-click: only this pill (again: every pill off)';
+const SEARCH_SWITCH_ON = 'Search panel: opens when the box is focused. Click, or press p, to switch it off.';
+const SEARCH_SWITCH_OFF = 'Search panel: off. Click, or press p, to switch it on and open it.';
 
 function searchPanelIsOpen() {
   return searchPanelOpen;
@@ -105,6 +114,7 @@ function syncSearchChip(selection) {
 // only while the panel is open, since a closed panel shows no count.
 function renderSearchPanel() {
   applyPillsFold();
+  syncSearchSwitch();
   const selection = selectionState.selection;
   const host = $('#search-pills');
   if (searchPanelOpen && host) syncPillButtons(host, searchPanelPills(), selection);
@@ -120,8 +130,54 @@ function setSearchPanelOpen(open) {
   renderSearchPanel();
 }
 
-function toggleSearchPanel() {
-  setSearchPanelOpen(!searchPanelOpen);
+// --- the switch --------------------------------------------------------------------------------
+
+// Whether the panel opens when the box is focused: the choice kept in the preferences.
+function searchPanelSwitchOn() {
+  return loadPrefsState().panelOnFocus;
+}
+
+// The arrow says whether the switch is on (aria-pressed) and what a click does.
+function syncSearchSwitch() {
+  const toggle = $('#search-panel-toggle');
+  if (!toggle) return;
+  const on = searchPanelSwitchOn();
+  const pressed = String(on);
+  if (toggle.getAttribute('aria-pressed') !== pressed) toggle.setAttribute('aria-pressed', pressed);
+  const title = on ? SEARCH_SWITCH_ON : SEARCH_SWITCH_OFF;
+  if (toggle.title !== title) toggle.title = title;
+}
+
+// What a change of the switch does to the panel, after setPanelOnFocus (app.js) has kept
+// the choice. Off closes the panel now, by the Esc rule: focus goes to the arrow unless
+// the box has it, because a pill that had it is hidden with the panel. On opens the
+// panel now when `openNow` says so; the arrow and p do, the preferences sheet, which is
+// up over the board, does not.
+function applySearchPanelSwitch(on, openNow) {
+  if (!on) closeSearchPanel();
+  else if (openNow) setSearchPanelOpen(true);
+  syncSearchSwitch();
+}
+
+// The arrow's click and the p key.
+function flipSearchPanelSwitch() {
+  setPanelOnFocus(!searchPanelSwitchOn(), true);
+}
+
+// The box was focused: with the switch on, the panel opens.
+function onSearchBoxFocus() {
+  if (searchPanelSwitchOn() && !searchPanelOpen) setSearchPanelOpen(true);
+}
+
+// p: the same switch as the arrow. A key that types nothing but reads a letter, so it reads
+// the whole key guard: off while a field has focus and while a menu, a dialog, the
+// notifications panel or the preferences sheet is up. A chord (Ctrl, Cmd, Alt), Shift on
+// the key and a held key are not it; Caps Lock gives a capital P with no Shift, and counts.
+function onSearchPanelKey(e) {
+  if (!e.key || e.key.toLowerCase() !== 'p' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (keyGuardOff(document)) return;
+  e.preventDefault();
+  flipSearchPanelSwitch();
 }
 
 // Esc's link in the chain: an open panel closes and answers true so the Esc stops
@@ -211,7 +267,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const pills = $('#search-pills');
   pills.addEventListener('click', onPillClick);
   pills.addEventListener('contextmenu', onPillContextMenu);
-  $('#search-panel-toggle').addEventListener('click', toggleSearchPanel);
+  $('#search-panel-toggle').addEventListener('click', flipSearchPanelSwitch);
+  $('#search-input').addEventListener('focus', onSearchBoxFocus);
+  document.addEventListener('keydown', onSearchPanelKey);
   $('#search-pills-fold').addEventListener('click', toggleSearchPillsFold);
   document.addEventListener('mousedown', onSearchPanelOutside);
 });

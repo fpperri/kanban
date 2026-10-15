@@ -89,6 +89,9 @@ module.exports = {
     check('the second Esc on the Board clears the selection', await hasSelection(0) && sameIds(await parts(), { anchor: null, additions: [] }), await parts());
 
     // --- the search box: Esc in the box clears it, Esc outside it steps the selection ------------------
+    // The panel opens when the box is focused, hangs over the first cards and takes an Esc of its own, so the
+    // arrow switches it off here; the search-panel scenario holds the panel and its place in the Esc chain.
+    await ev(`(()=>{const t=document.getElementById('search-panel-toggle');if(t.getAttribute('aria-pressed')==='true')t.click()})()`);
     await ev(`document.getElementById('search-input').focus()`);
     await send('Input.insertText', { text: 'zephyr' });
     await waitFor(`document.getElementById('search-input').value==='zephyr'`);

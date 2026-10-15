@@ -57,7 +57,7 @@ test('the web skill describes how the sheet closes, that it traps no Tab, and wh
   const text = skillBullet();
   assert.match(text, /closes on Esc, on a click outside it or with its close button, and focus goes back to the gear/);
   assert.match(text, /traps no Tab/);
-  assert.match(text, /the 5s refresh does not rebuild the board under it, `\/` and Ctrl\+F do nothing/);
+  assert.match(text, /the 5s refresh does not rebuild the board under it, `\/`, `p` and Ctrl\+F do nothing/);
   assert.match(text, /a click inside it never clears a selection/);
 });
 

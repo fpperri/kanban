@@ -1,7 +1,13 @@
 'use strict';
-// The search panel, on the plan board: the toggle opens and closes the panel and
-// says which, the header is as tall either way, and focusing the box opens nothing.
-// The panel lists the built-in pills, blocked, review and waiting, each with a count
+// The search panel, on the plan board. The arrow at the end of the box is a switch, on
+// to start: focusing the box opens the panel, a click on the arrow switches it off, so the
+// panel closes and focusing or clicking into the box opens nothing, and a second click
+// switches it on and opens the panel now. The arrow says which (aria-pressed), is struck
+// through while it is off, and the header is as tall either way. The p key flips the same
+// switch, and is a letter in the box and nothing at all with a card menu or the preferences
+// sheet up. The choice survives a reload, and the preferences sheet shows it and sets it,
+// and shows what the arrow did. Esc closes the panel and leaves the switch on, so focusing
+// the box opens the panel again. The panel lists the built-in pills, blocked, review and waiting, each with a count
 // taken before the search box, so turning one pill on leaves the others' counts as
 // they were, and a status pill that is off takes its cards out of them. The pills
 // follow the status pills' rules. On the Board a click on a pill puts its query in the
@@ -75,6 +81,14 @@ module.exports = {
     const TOGGLE = `document.getElementById('search-panel-toggle')`;
     const panelOpen = `!${PANEL}.classList.contains('hidden')&&${PANEL}.getBoundingClientRect().height>0`;
     const panelShut = `${PANEL}.classList.contains('hidden')`;
+    const SWITCH_ON = `${TOGGLE}.getAttribute('aria-pressed')==='true'`;
+    const SWITCH_OFF = `${TOGGLE}.getAttribute('aria-pressed')==='false'`;
+    const STRUCK = `getComputedStyle(${TOGGLE}).textDecorationLine.includes('line-through')`;
+    const SHEET_OPEN = `!document.getElementById('prefs-sheet').classList.contains('hidden')`;
+    const SHEET_SHUT = `document.getElementById('prefs-sheet').classList.contains('hidden')`;
+    const CHECKBOX = `document.getElementById('prefs-panel-on-focus')`;
+    const boxFocused = `document.activeElement===document.getElementById('search-input')`;
+    const MENU_UP = `!document.getElementById('context-menu').classList.contains('hidden')`;
     const headerHeight = () => ev(`document.querySelector('header').offsetHeight`);
     const pillSel = (name) => `#search-pills .query-pill[data-pill-key="${name}"]`;
     const pillPressed = (name) => ev(`(()=>{const b=document.querySelector(${JSON.stringify(pillSel(name))});return !!b&&b.getAttribute('aria-pressed')==='true'&&b.classList.contains('on')})()`);
@@ -95,13 +109,31 @@ module.exports = {
       if (!p) throw new Error(`nothing matches ${sel}`);
       await click(p.x, p.y, extra);
     };
+    // A click on the arrow flips the switch, so opening the panel by hand takes one click when the switch is off
+    // and two when it is on and Esc has shut the panel (off, then on, which opens it now); focus is left on the arrow.
     const openPanel = async () => {
-      if (!(await ev(panelOpen))) await clickOn('#search-panel-toggle');
+      if (!(await ev(panelOpen))) {
+        if (await ev(SWITCH_ON)) await clickOn('#search-panel-toggle');
+        await clickOn('#search-panel-toggle');
+      }
       return waitFor(panelOpen);
     };
+    // Closing it by hand is Esc with focus on the arrow, which leaves the switch on and focus on the arrow.
     const closePanel = async () => {
-      if (await ev(panelOpen)) await clickOn('#search-panel-toggle');
+      if (await ev(panelOpen)) {
+        await ev(`${TOGGLE}.focus()`);
+        await key('Escape');
+      }
       return waitFor(panelShut);
+    };
+    const openSheet = async () => {
+      await clickOn('#prefs-btn');
+      await waitFor(SHEET_OPEN);
+      return waitFor(`document.querySelector('.prefs-sheet').getAnimations().length===0`, 2500);
+    };
+    const closeSheet = async () => {
+      await key('Escape');
+      return waitFor(SHEET_SHUT);
     };
     const clearBox = async () => {
       await ev(`document.getElementById('search-clear-btn').click()`);
@@ -134,23 +166,64 @@ module.exports = {
     check('the Board draws the plan board again', await goto('/', boardReady));
     const liveIds = await shown();
 
-    // --- closed to start, and focusing the box opens nothing ---------------------------------
-    check('the panel starts closed and no chip is shown', await ev(panelShut) && (await chip()).hidden);
-    await ev(`document.getElementById('search-input').focus()`);
-    await waitFor(`document.activeElement===document.getElementById('search-input')`);
-    await frames();
-    check('focusing the search box does not open the panel', await ev(panelShut) && (await ev(`document.activeElement===document.getElementById('search-input')`)));
-    await ev(`document.activeElement.blur()`);
-
-    // --- the toggle opens and closes the panel, and the header keeps its height ----------------
+    // --- the switch is on to start: the panel is shut, and focusing the box opens it -----------------
     const heightShut = await headerHeight();
-    check('the toggle says it is collapsed', await ev(`${TOGGLE}.getAttribute('aria-expanded')==='false'`));
-    await clickOn('#search-panel-toggle');
-    check('the toggle opens the panel and says it is expanded', await waitFor(panelOpen) && await ev(`${TOGGLE}.getAttribute('aria-expanded')==='true'`));
+    check('the panel starts closed and no chip is shown', await ev(panelShut) && (await chip()).hidden);
+    check('the arrow starts pressed, the switch on, and says the panel is collapsed', await ev(SWITCH_ON) && await ev(`${TOGGLE}.getAttribute('aria-expanded')==='false'`));
+    await ev(`document.getElementById('search-input').focus()`);
+    check('focusing the search box opens the panel and the arrow says it is expanded', await waitFor(panelOpen) && await ev(`${TOGGLE}.getAttribute('aria-expanded')==='true'`));
     check('the header is as tall with the panel open as shut', (await headerHeight()) === heightShut, { shut: heightShut, open: await headerHeight() });
+
+    // --- a click on the arrow switches it off, and a second click switches it on and opens the panel ----
     await clickOn('#search-panel-toggle');
-    check('the toggle closes it again and says it is collapsed', await waitFor(panelShut) && await ev(`${TOGGLE}.getAttribute('aria-expanded')==='false'`));
+    check('a click on the arrow switches it off: the panel closes and the arrow says it is not pressed', await waitFor(panelShut) && await waitFor(SWITCH_OFF) && await ev(`${TOGGLE}.getAttribute('aria-expanded')==='false'`));
+    check('the arrow is struck through while the switch is off', await ev(STRUCK));
     check('the header is as tall again', (await headerHeight()) === heightShut);
+    await ev(`(()=>{const i=document.getElementById('search-input');i.blur();i.focus()})()`);
+    await frames();
+    check('with the switch off, focusing the box opens nothing', await ev(panelShut) && await ev(boxFocused));
+    await ev(`document.activeElement.blur()`);
+    await clickOn('#search-input');
+    await frames();
+    check('with the switch off, a click into the box opens nothing either', await ev(panelShut) && await ev(boxFocused));
+    await clickOn('#search-panel-toggle');
+    check('a second click switches it on and opens the panel now, with no focus in the box', await waitFor(panelOpen) && await ev(SWITCH_ON) && await ev(`document.activeElement===${TOGGLE}`));
+    check('the arrow is not struck through while the switch is on', !(await ev(STRUCK)));
+
+    // --- the p key flips the same switch, and is not a key while typing or with a popup up -----------------
+    await ev(`document.activeElement.blur()`);
+    await key('p');
+    check('p switches it off: the panel closes and the arrow says it is not pressed', await waitFor(panelShut) && await waitFor(SWITCH_OFF));
+    await key('p');
+    check('p again switches it on and opens the panel now', await waitFor(panelOpen) && await waitFor(SWITCH_ON));
+    await ev(`document.getElementById('search-input').focus()`);
+    await key('p');
+    check('p typed in the search box is a letter, and leaves the switch and the panel alone', await boxIs('p') && await ev(SWITCH_ON) && await ev(panelOpen), await boxText());
+    await clearBox();
+    await ev(`document.activeElement.blur()`);
+    await rightClick('#board .card-el');
+    check('a right-click on a card opens its menu', await waitFor(MENU_UP));
+    await key('p');
+    await frames();
+    check('with a card menu up, p does nothing', await ev(SWITCH_ON) && await ev(panelOpen) && await ev(MENU_UP));
+    await key('Escape');
+    check('Esc closes the card menu first and leaves the panel open', await waitFor(`!(${MENU_UP})`) && await ev(panelOpen));
+    await clickOn('#prefs-btn');
+    await waitFor(SHEET_OPEN);
+    await key('p');
+    await frames();
+    check('with the preferences sheet open, p does nothing', await ev(SWITCH_ON) && await ev(SHEET_OPEN));
+    await closeSheet();
+    await ev(`document.activeElement.blur()`);
+    await key('p');
+    await waitFor(SWITCH_OFF);
+    check('the choice survives a reload: with the switch off the arrow comes back not pressed and the panel shut', await goto('/', boardReady) && await ev(SWITCH_OFF) && await ev(panelShut));
+    await ev(`document.getElementById('search-input').focus()`);
+    await frames();
+    check('after the reload, focusing the box still opens nothing', await ev(panelShut) && await ev(boxFocused));
+    await ev(`document.activeElement.blur()`);
+    await key('p');
+    check('after the reload, p switches it on and opens the panel', await waitFor(panelOpen) && await waitFor(SWITCH_ON));
 
     // --- the pills and their counts ----------------------------------------------------------
     await openPanel();
@@ -244,11 +317,14 @@ module.exports = {
 
     // --- the keyboard: Tab, Enter and Space ---------------------------------------------------------------------------------
     await closePanel();
-    await ev(`document.getElementById('search-input').focus()`);
+    await key('Tab', { shift: true });
+    check('Shift+Tab from the toggle reaches the box and opens the panel that Esc had closed', await ev(boxFocused) && await waitFor(panelOpen), await focusId());
     await key('Tab');
     check('Tab from the box reaches the toggle', (await focusId()) === 'search-panel-toggle', await focusId());
     await key('Enter');
-    check('Enter on the toggle opens the panel', await waitFor(panelOpen));
+    check('Enter on the toggle switches it off and closes the panel', await waitFor(panelShut) && await waitFor(SWITCH_OFF));
+    await key(' ');
+    check('Space on the toggle switches it on and opens the panel', await waitFor(panelOpen) && await waitFor(SWITCH_ON));
     const reached = [];
     for (let i = 0; i < 4; i++) { await key('Tab'); reached.push(await focusId()); }
     check('Tab goes on to the fold control and every pill, in order', sameIds(reached, ['search-pills-fold', 'blocked', 'review', 'waiting']), reached);
@@ -281,6 +357,12 @@ module.exports = {
     check('the second Esc closes the panel, keeps the text and leaves focus in the box', await waitFor(panelShut) && (await boxText()) === 'zephyr' && await ev(`document.activeElement===document.getElementById('search-input')`), { box: await boxText(), focus: await focusId() });
     await key('Escape');
     check('the third Esc, with focus in the box, clears it', await boxIs(''), await boxText());
+    await focusBoxAtEnd();
+    check('Esc left the switch on: focusing the box opens the panel again', await waitFor(panelOpen) && await ev(SWITCH_ON));
+    await closePanel();
+    await ev(`document.activeElement.blur()`);
+    await clickOn('#search-input');
+    check('a click into the box opens the panel', await waitFor(panelOpen) && await ev(boxFocused));
     await openPanel();
     await ev(`document.querySelector(${JSON.stringify(pillSel('review'))}).focus()`);
     await key('Escape');
@@ -292,8 +374,11 @@ module.exports = {
     await clickCard(second, { modifiers: 2 });
     check('two cards are selected with Ctrl+click', await pickedIs([first, second].sort((a, b) => a - b)), await picked());
     await clickOn('#search-panel-toggle');
-    await waitFor(panelOpen);
+    await waitFor(SWITCH_OFF);
     check('a click on the toggle leaves the selection', await pickedIs([first, second].sort((a, b) => a - b)), await picked());
+    await clickOn('#search-panel-toggle');
+    await waitFor(panelOpen);
+    check('a second click on the toggle, which switches it on and opens the panel, leaves the selection too', await pickedIs([first, second].sort((a, b) => a - b)), await picked());
     await clickOn('#search-pills-fold');
     check('a click on the fold control leaves the selection', await pickedIs([first, second].sort((a, b) => a - b)), await picked());
     await clickOn('#search-pills-fold');
@@ -354,5 +439,32 @@ module.exports = {
     check('the pill section starts folded after the reload', await waitFor(`document.getElementById('search-pills').classList.contains('hidden')&&document.getElementById('search-pills-fold').getAttribute('aria-expanded')==='false'`));
     await clickOn('#search-pills-fold');
     check('its fold control still unfolds it for the visit', await waitFor(`!document.getElementById('search-pills').classList.contains('hidden')`));
+
+    // --- the preference: the panel opens when the search box is focused, the same switch as the arrow ---------------------------------------
+    await closePanel();
+    await openSheet();
+    check('the sheet shows "Panel opens when the search box is focused" on', await ev(`${CHECKBOX}.checked===true`));
+    await clickOn('#prefs-panel-on-focus');
+    check('the checkbox turns off', await waitFor(`${CHECKBOX}.checked===false`));
+    await closeSheet();
+    check('with the checkbox off, the arrow is not pressed and the panel is shut', await ev(SWITCH_OFF) && await ev(panelShut));
+    await ev(`(()=>{const i=document.getElementById('search-input');i.blur();i.focus()})()`);
+    await frames();
+    check('with the checkbox off, focusing the box opens nothing', await ev(panelShut) && await ev(boxFocused));
+    await ev(`document.activeElement.blur()`);
+    await openSheet();
+    await clickOn('#prefs-panel-on-focus');
+    check('the checkbox turns on again', await waitFor(`${CHECKBOX}.checked===true`));
+    await closeSheet();
+    check('with the checkbox on again, the arrow is pressed and the panel stays shut until the box is focused', await ev(SWITCH_ON) && await ev(panelShut));
+    await ev(`(()=>{const i=document.getElementById('search-input');i.blur();i.focus()})()`);
+    check('and then focusing the box opens the panel', await waitFor(panelOpen));
+    await clickOn('#search-panel-toggle');
+    await waitFor(SWITCH_OFF);
+    await openSheet();
+    check('the sheet shows what the arrow did: the checkbox is off', await ev(`${CHECKBOX}.checked===false`));
+    await closeSheet();
+    await clickOn('#search-panel-toggle');
+    check('a click on the arrow switches it on again, and opens the panel now', await waitFor(SWITCH_ON) && await waitFor(panelOpen));
   },
 };

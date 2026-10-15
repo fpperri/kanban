@@ -3,8 +3,9 @@ const assert = require('node:assert');
 const { PREFS_FEATURE, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs } = require('../web/prefs');
 
 // The preferences kept in the browser per board: what a plain click on a card
-// does in each view, whether archived leaves count as done, and whether the
-// search panel's pill section starts folded. The roll-up
+// does in each view, whether archived leaves count as done, whether the
+// search panel's pill section starts folded, and whether the panel opens when
+// the search box is focused (the arrow's switch). The roll-up
 // bar's open or collapsed choice is the one a click on a bar already writes
 // (column-state.js); it is not stored a second time here.
 
@@ -21,9 +22,10 @@ const DEFAULTS = {
   click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
   archivedDone: true,
   pillsFolded: false,
+  panelOnFocus: true,
 };
 
-test('with nothing stored, the Board, Map, Gantt and Calendar open on a plain click, the Graph selects, archived leaves count as done and the pill section starts unfolded', () => {
+test('with nothing stored, the Board, Map, Gantt and Calendar open on a plain click, the Graph selects, archived leaves count as done, the pill section starts unfolded and the search panel opens on focus', () => {
   assert.deepStrictEqual(prefsDefaults(), DEFAULTS);
   assert.deepStrictEqual(loadPrefs(storageOf(), 'shop'), DEFAULTS);
   assert.deepStrictEqual(mergePrefs(null), DEFAULTS);
@@ -36,6 +38,7 @@ test('the defaults are handed out fresh: changing one copy never changes the nex
   a.click.board = 'selects';
   a.archivedDone = false;
   a.pillsFolded = true;
+  a.panelOnFocus = false;
   assert.deepStrictEqual(prefsDefaults(), DEFAULTS);
   assert.deepStrictEqual(mergePrefs(null), DEFAULTS);
 });
@@ -46,22 +49,42 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
     archivedDone: false,
     pillsFolded: false,
+    panelOnFocus: true,
   });
 });
 
 test('unknown keys are dropped, at the top and inside the click choices', () => {
   const merged = mergePrefs(JSON.stringify({ click: { board: 'selects', list: 'selects' }, archivedDone: false, theme: 'dark' }));
-  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'pillsFolded']);
+  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'panelOnFocus', 'pillsFolded']);
   assert.deepStrictEqual(Object.keys(merged.click).sort(), ['board', 'calendar', 'gantt', 'graph', 'map']);
 });
 
 test('a bad value falls back to that setting\'s default and leaves the good ones alone', () => {
-  const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true' }));
+  const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true', panelOnFocus: 'false' }));
   assert.deepStrictEqual(merged, {
     click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
     archivedDone: true,
     pillsFolded: false,
+    panelOnFocus: true,
   });
+});
+
+test('a saved panel-on-focus choice comes back as saved, true or false, and an entry saved before the setting existed has the panel opening on focus', () => {
+  assert.strictEqual(mergePrefs(JSON.stringify({ panelOnFocus: false })).panelOnFocus, false);
+  assert.strictEqual(mergePrefs(JSON.stringify({ panelOnFocus: true })).panelOnFocus, true);
+  assert.strictEqual(mergePrefs(JSON.stringify({ archivedDone: false, pillsFolded: true })).panelOnFocus, true);
+  assert.strictEqual(mergePrefs(JSON.stringify({ panelOnFocus: 0 })).panelOnFocus, true, 'a value that is not a boolean falls back to the default, which is on');
+});
+
+test('the panel-on-focus choice changes alone', () => {
+  const off = prefsWith(prefsDefaults(), { panelOnFocus: false });
+  assert.strictEqual(off.panelOnFocus, false);
+  assert.strictEqual(off.archivedDone, true);
+  assert.strictEqual(off.pillsFolded, false);
+  assert.deepStrictEqual(off.click, DEFAULTS.click);
+  assert.strictEqual(prefsWith(off, { panelOnFocus: 'yes' }).panelOnFocus, false, 'a change that is not a boolean is dropped');
+  assert.strictEqual(prefsWith(off, { panelOnFocus: true }).panelOnFocus, true);
+  assert.strictEqual(prefsWith(off, { pillsFolded: true }).panelOnFocus, false, 'a change to another setting leaves it alone');
 });
 
 test('a saved pill-section choice comes back as saved, true or false', () => {
@@ -152,11 +175,12 @@ test('storage that throws on read or write falls back to the defaults and never 
 
 test('what is saved is the merged, validated set, never what the caller passed in raw', () => {
   const storage = storageOf();
-  savePrefs(storage, 'shop', { click: { board: 'selects', graph: 'opens', bogus: 'x' }, archivedDone: 'no', pillsFolded: 1, extra: 1 });
+  savePrefs(storage, 'shop', { click: { board: 'selects', graph: 'opens', bogus: 'x' }, archivedDone: 'no', pillsFolded: 1, panelOnFocus: 'off', extra: 1 });
   assert.deepStrictEqual(JSON.parse(storage.items['kanban.shop.prefs']), {
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
     archivedDone: true,
     pillsFolded: false,
+    panelOnFocus: true,
   });
 });
 
