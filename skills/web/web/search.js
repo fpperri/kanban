@@ -201,7 +201,7 @@ function lexSearch(raw) {
       // A quote runs to the next quote, or to the end of the input when unclosed.
       const shut = s.indexOf('"', quote + 1);
       at = shut < 0 ? s.length : shut + 1;
-      tokens.push({ kind: 'text', start, end: at });
+      tokens.push({ kind: 'text', start, end: at, open: shut < 0 });
       while (s[at] === ')') close(at++);
       continue;
     }
@@ -274,9 +274,10 @@ function searchFieldHit(text, term) {
 // nothing changed, so a caller can tell a no-op by comparing.
 
 // One item of the parse as text: a term as it was typed, or a bracket rebuilt
-// around what is left in it (nothing, when it is empty).
+// around what is left in it (nothing, when it is empty). A quote still open is
+// shut, so a term written after it is not read as part of its text.
 function searchItemText(item, text) {
-  if (!item.group) return text.slice(item.start, item.end);
+  if (!item.group) return text.slice(item.start, item.end) + (item.open ? '"' : '');
   const inner = searchRenderAlts(item.group, text);
   return inner ? `(${inner})` : '';
 }

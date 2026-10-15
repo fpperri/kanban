@@ -499,3 +499,12 @@ test('without a caret the end of the text is where the typing is, as before', ()
   assert.deepStrictEqual(searchSuggestionItems('status:todo @afk').slice(0, 1), [{ value: 'status:todo @afk', label: '@afk' }]);
   assert.deepStrictEqual(searchSuggestionItems('one two', undefined), complete('one ', 'two'));
 });
+
+test('an unclosed quote is closed where a term is added after it, so the term is not swallowed by the quote', () => {
+  assert.strictEqual(searchAddTerm('a "b', 'tags:ui'), 'a "b" tags:ui');
+  assert.strictEqual(searchAddTerm('tags:"two wo | b', 'status:doing'), 'tags:"two wo | b" status:doing');
+  assert.deepStrictEqual(ids(searchAddTerm('zephyr "mig', 'tags:ui')), [1]);
+  assert.strictEqual(searchAddTerm('a (b', 'tags:ui'), 'a (b) tags:ui', 'an open bracket is closed the same way');
+  assert.strictEqual(searchRemoveTerm('a "b tags:ui', 'tags:ui'), 'a "b tags:ui', 'inside the quote it is text, not a term');
+  assert.strictEqual(searchRemoveTerm('a "b" tags:ui', 'tags:ui'), 'a "b"');
+});
