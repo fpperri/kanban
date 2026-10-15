@@ -126,7 +126,10 @@ per board, with **Tiers** first:
   `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card
   without a tier; each tree gets its own sector, loose cards with a tier share
   one, and the other loose cards sit in an Unnested block outside the fan, a
-  column for each status.
+  column for each status. Each band has a faint arc and a caption with its name
+  and count on the flat edge, there is a divider between sectors, and the
+  Unnested block is titled with its count and each column is captioned with its
+  status and count. Fit and the first draw frame all of it.
 - **Force** pulls related cards together and rings the unrelated ones round the
   edge.
 - **Status** makes one ring per status, with the last column innermost (done,
