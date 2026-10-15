@@ -17,6 +17,7 @@ const PAGE_GLOBALS = [
   'isDragging',
   'renderGraphView',
   'selectedIds',
+  'state',
   'writeSearch',
 ];
 
