@@ -89,12 +89,13 @@ cut nothing. A board with no hierarchy cuts by depth (`slice:1` keeps the depth-
 card of the board, archived ones included, as the page was built: a queued edit does not move a
 card to another slice until it is applied, and a card queued with + New card sits where a new card
 does, a root at depth 0 or the tier its type names, so a cut that holds depth 0 shows it and one that
-cuts nothing cuts it nothing. The box suggests as the web's does, from the same
-module: a list under the box completes the token under the caret, and after `slice:` and after
-`..` it shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
+cuts nothing cuts it nothing. The box suggests slices as the web's does, from the same
+module: when the token under the caret is a `slice:` one, and after `slice:` and after
+`..`, a list under the box shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
 to the deepest card with no tier, narrowed to the names that start with what is typed; a tap on a row writes the
 whole term (`slice:goal..objective`), and a tier named with a space is written quoted, the quote
-holding both ends (`slice:"big goal..2"`). A `|` and a bracket count
+holding both ends (`slice:"big goal..2"`). A bare word opens no list here, since the web's
+scope list for it would cover the panel on a phone. A `|` and a bracket count
 only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does `waiting:3`, while
 `blocked: |review:` means `blocked: | review:`.
 `#id`/`id:` exact (`<this board's name>#id` too),

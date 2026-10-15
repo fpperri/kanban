@@ -2608,7 +2608,9 @@ focusRoot=null;
 setQuery($("q").value);
 render();renderMap();renderGantt();renderCalendar()}
 // The suggestions under the box: what the search module offers for the token under
-// the caret, one row each. A row is pressed (the press is kept from taking the focus
+// the caret when that token is a slice: one, one row each. A bare word is offered scopes
+// by the module, and the page leaves them out: on a phone nine rows would open over the panel
+// on every word typed. A row is pressed (the press is kept from taking the focus
 // off the box) and writes its value whole, as the web's combobox does, so a pick is
 // the same as typing the term. Up and Down move a highlight and wrap, Enter picks
 // the row it is on, Escape shuts the menu and goes no further.
@@ -2618,7 +2620,7 @@ function qMark(){Array.from($("qmenu").children).forEach((r,i)=>r.classList.togg
 function qPick(it){qClose();writeBox(it.value)}
 function qOpen(){
 const q=$("q");
-qItems=searchSuggestionItems(q.value,q.selectionStart,DATA.map(searchCard),searchCtx);
+qItems=searchSuggestionItems(q.value,q.selectionStart,DATA.map(searchCard),searchCtx).filter(it=>it.label.startsWith("slice:"));
 qOn=-1;
 if(!qItems.length){qClose();return}
 const m=$("qmenu");
