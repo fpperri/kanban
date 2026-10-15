@@ -127,15 +127,14 @@ module.exports = {
     await closeWithEscape();
 
     // --- the poll and the single-key shortcuts stand still under the sheet ------------------------
+    check('the page counts as visible, so a poll is never skipped for being hidden', await ev(`document.visibilityState==='visible'`), await ev(`document.visibilityState`));
     await ev(`document.querySelector(${JSON.stringify(tile(3))}).__probe=1`);
     await openSheet();
     await ev(`(async()=>{await autoRefreshTick();await autoRefreshTick();})()`);
     check('while the sheet is open, a poll does not rebuild under it', await ev(`document.querySelector(${JSON.stringify(tile(3))}).__probe===1`));
     await closeWithEscape();
-    if (await ev(`document.visibilityState==='visible'`)) {
-      await ev(`(async()=>{await autoRefreshTick();})()`);
-      check('with the sheet closed the same poll rebuilds the board', await waitFor(`document.querySelector(${JSON.stringify(tile(3))}).__probe!==1`, 2500));
-    }
+    await ev(`(async()=>{await autoRefreshTick();})()`);
+    check('with the sheet closed the same poll rebuilds the board', await waitFor(`document.querySelector(${JSON.stringify(tile(3))}).__probe!==1`, 2500));
 
     const pressKey = async (name, code, vk, modifiers = 0) => {
       const k = { key: name, code, windowsVirtualKeyCode: vk, modifiers };

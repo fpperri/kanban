@@ -120,11 +120,9 @@ module.exports = {
   CLEAR_BOX,
   FOCUS_BOX,
   CANVAS_DRAGGED,
-  namedAre,
   settingIs,
   predicted,
   NAMED_ARE_PREDICTED,
-  nameOf,
   keyLineSays,
   boxIs,
   async run(page) {

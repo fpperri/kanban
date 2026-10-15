@@ -45,7 +45,6 @@ module.exports = {
   board: 'plan',
   alsoBoards: ['malformed'],
   EXPECTED,
-  HELD,
   async run(page) {
     const { ev, open, waitFor, check } = page;
     for (const key of ['plan', 'malformed']) {

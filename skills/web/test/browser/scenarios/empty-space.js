@@ -32,7 +32,6 @@ module.exports = {
   board: 'fixture',
   timeoutMs: 120000,
   VIEWS,
-  CONTAINERS,
   DATED,
   TYPED,
   NOT_EMPTY,

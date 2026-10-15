@@ -119,7 +119,6 @@ module.exports = {
   CASES,
   FOLD_TOGGLE,
   OPTION_LABEL,
-  ROW,
   optionButton,
   ROW_STATE,
   LINE_COUNTS,
