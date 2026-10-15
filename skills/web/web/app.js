@@ -2663,7 +2663,7 @@ function renderFrontmatterTable(pairs) {
   return `<table>${rows}</table>`;
 }
 
-// The thread above a card and the children below its body are lists of
+// The thread above a card and the children under its roll-up bar are lists of
 // mention chips, so the detail's one mention listener opens them.
 function relativeMentionHtml(card, board) {
   const title = cardTitleDisplay(card).text;
