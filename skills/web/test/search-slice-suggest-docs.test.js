@@ -22,7 +22,7 @@ test('the web skill says the dropdown lists slices after slice: and after .., wh
   assert.ok(dropdown.length > 100, 'the autocomplete sentences are found');
   assert.match(dropdown, /after `slice:` and\s+after `\.\.`/);
   assert.match(dropdown, /tiers of the `hierarchy:` in hierarchy order/);
-  assert.match(dropdown, /then the depth numbers that hold a card/);
+  assert.match(dropdown, /then the depth numbers from 0 to the deepest card with no tier/);
   assert.match(dropdown, /Picking a row writes the whole\s+term \(`slice:goal\.\.objective`/);
   assert.match(dropdown, /quoted, the quote holding both ends \(`slice:"big goal\.\.2"`\)/);
   assert.match(dropdown, /Graph caption's tooltip/, 'and that a caption shows the same kind of term');
@@ -31,7 +31,7 @@ test('the web skill says the dropdown lists slices after slice: and after .., wh
 test('the web docs say the same in the Search paragraph', () => {
   assert.ok(searchDocs.length > 100, 'the Search paragraph is found');
   assert.match(searchDocs, /after `slice:` and after `\.\.`/);
-  assert.match(searchDocs, /tiers in hierarchy order and then the depth numbers that\s*hold a card/);
+  assert.match(searchDocs, /tiers in hierarchy order and then the depth numbers from 0 to the deepest card with no tier/);
   assert.match(searchDocs, /picking one writes the whole term \(`slice:goal\.\.objective`\)/);
   assert.match(searchDocs, /quoted, the quote holding both ends \(`slice:"big goal\.\.2"`\)/);
 });
@@ -46,7 +46,7 @@ test('the documented suggestions are what the search module offers', () => {
   const ctx = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
   const values = (text) => searchSuggestionItems(text, text.length, plain, ctx).map((i) => i.value);
   assert.ok(values('slice:goal..').includes('slice:goal..objective'), 'the whole cut the skill and the docs write');
-  assert.deepStrictEqual(values('slice:').filter((v) => /^slice:\d/.test(v)), ['slice:3'], 'a depth is listed only where a card sits: the one untiered card is at depth 3');
+  assert.deepStrictEqual(values('slice:').filter((v) => /^slice:\d/.test(v)), ['slice:0', 'slice:1', 'slice:2', 'slice:3'], 'the depths run from 0 to the deepest card with no tier, which is at depth 3');
   assert.strictEqual(values('slice:').indexOf('slice:goal'), 0, 'the tiers come first');
 
   const spaced = [card(1, { type: 'big goal' }), card(2, { parent: 1 }), card(3, { parent: 2 })];

@@ -644,14 +644,14 @@ function filterCards(cards, terms, ctx) {
   return cards.filter((card) => cardMatchesQuery(card, resolved));
 }
 
-// The names a slice: term can be written with on this board: the tiers of its
-// hierarchy in order, then the depths that hold a card. A tier nobody is in is still
-// a name a cut can start or end at, and the fan captions it, but a depth with no
-// card is no slice anyone could want, so it is left out, like the fan's empty rings.
+// The names a slice: term can be written with on this board: the slices of its axis,
+// the tiers of its hierarchy in order, every one it names, then the depths from 0 to
+// the deepest card with no tier. Each is an end the cut reads as it stands, so the box
+// never offers an end that would be left open, and a caption's tip names one of them.
 function searchSliceNames(cards, ctx) {
   const slices = Array.isArray(cards) ? searchSlices(cards, ctx, null) : null;
   if (!slices) return [];
-  return slices.axis.filter((s) => s.kind === 'tier' || s.count > 0).map((s) => (s.kind === 'tier' ? s.name : String(s.depth)));
+  return slices.axis.map((s) => (s.kind === 'tier' ? s.name : String(s.depth)));
 }
 
 // The suggestions for a slice: token: after `slice:` and after `..`, the board's slice

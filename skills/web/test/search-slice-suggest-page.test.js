@@ -15,7 +15,8 @@ const card = (id, over = {}) => ({
 });
 
 // Goal 1, epic 2 under it, a story 3 under that (depth 2), and an archived card 4
-// under the story (depth 3, a depth only the archived card is at).
+// under the story (depth 3, a depth only the archived card is at). The axis is goal,
+// epic, then depths 0 to 3.
 const BOARD = {
   projectName: 'kanban',
   statuses: ['backlog', 'todo', 'doing', 'done'],
@@ -48,7 +49,7 @@ test('the box asks for the suggestions with the whole board and its hierarchy, s
   assert.deepStrictEqual(args.slice(0, 2), ['slice:', 6]);
   assert.deepStrictEqual(Array.from(args[2], (c) => c.id).sort(), [1, 2, 3, 4], 'the live cards and the archived card');
   assert.deepStrictEqual(Array.from(args[3].hierarchy), ['goal', 'epic']);
-  assert.deepStrictEqual(Array.from(items, (i) => i.label), ['slice:goal', 'slice:epic', 'slice:2', 'slice:3']);
+  assert.deepStrictEqual(Array.from(items, (i) => i.label), ['slice:goal', 'slice:epic', 'slice:0', 'slice:1', 'slice:2', 'slice:3']);
 });
 
 test('typing after the dots offers the slices as the second end, at the caret', async () => {

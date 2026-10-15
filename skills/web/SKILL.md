@@ -348,7 +348,7 @@ to `127.0.0.1` only.
   `tree:`/`path:` are excluded (they take a card id, not free text). After `slice:` and
   after `..` the dropdown lists the board's slices, narrowed to the names that start with
   what is typed (any letter case): the tiers of the `hierarchy:` in hierarchy order, every
-  one it names, then the depth numbers that hold a card. Picking a row writes the whole
+  one it names, then the depth numbers from 0 to the deepest card with no tier. Picking a row writes the whole
   term (`slice:goal..objective`, the end under the caret replaced and the other end kept),
   and a tier named with a space is written quoted, the quote holding both ends
   (`slice:"big goal..2"`). The dropdown is asked with the whole board, archived cards

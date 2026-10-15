@@ -11,9 +11,9 @@ const { planCards, shownIds, webContext, withBoardPage } = require('./search-tab
 // slices; picking one completes the term and the page cuts by it as it does a term
 // typed by hand. Each test types into the page's box and reads the menu and the cards.
 
-// The plan board's slices with a card in them, tiers first: goal, strategy, objective,
-// epic, then the depths 0, 1, 2, 4 and 5 (depth 3 holds no card).
-const PLAN_SLICES = ['goal', 'strategy', 'objective', 'epic', '0', '1', '2', '4', '5'];
+// The plan board's slices, tiers first: goal, strategy, objective, epic, then the depths
+// 0 to 5, the deepest card with no tier (depth 3 holds no card, and is on the axis).
+const PLAN_SLICES = ['goal', 'strategy', 'objective', 'epic', '0', '1', '2', '3', '4', '5'];
 
 const menu = (page) => page.byId('qmenu');
 const rows = (page) => byClass(menu(page), 'qitem');
@@ -39,7 +39,7 @@ const keyIn = (box, key) => {
 const highlighted = (page) => rows(page).filter((r) => r.classList.contains('on')).map((r) => r.textContent);
 
 describe('after slice: and after .., the menu lists the board\'s slices', () => {
-  test('slice: lists the tiers in hierarchy order, then the depths that hold a card, the list the web\'s module gives', () => {
+  test('slice: lists the tiers in hierarchy order, then the depths down to the deepest card with no tier, the list the web\'s module gives', () => {
     withBoardPage('plan', (page, dir) => {
       typeAt(page, 'slice:');
       assert.deepStrictEqual(labels(page), PLAN_SLICES.map((s) => `slice:${s}`));
@@ -179,7 +179,7 @@ describe('a board that declares no hierarchy, and a malformed one', () => {
     const spy = { log: () => {}, info: () => {}, debug: () => {}, warn: record('warn'), error: record('error') };
     withBoardPage('malformed', (page) => {
       typeAt(page, 'slice:');
-      assert.deepStrictEqual(labels(page), ['slice:Goal', 'slice:Epic', 'slice:0', 'slice:2']);
+      assert.deepStrictEqual(labels(page), ['slice:Goal', 'slice:Epic', 'slice:0', 'slice:1', 'slice:2']);
       for (const text of ['slice:"', 'slice:..', 'slice:"Goal..', '(slice:', 'slice:|']) assert.doesNotThrow(() => typeAt(page, text), text);
     }, { console: spy });
     assert.deepStrictEqual(logged, []);

@@ -173,8 +173,8 @@ spaces AND together (`tags:ui status:doing`), and five forms go further, one exa
 - `slice:` cuts every view to a run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards with no tier: `slice:objective..2` runs from the objective tier down to depth 2, `slice:goal` is that one slice, and `slice:goal..` and `slice:..objective` leave an end open. A reversed pair is swapped, an end the board does not have is left open, and a board with no hierarchy cuts by depth. It combines like any term: `tags:ui (slice:goal | #12)`.
 
 The box suggests slices as you type: after `slice:` and after `..` a list under the box
-shows the board's slices, the tiers in hierarchy order and then the depth numbers that
-hold a card, narrowed to the names that start with what you have typed, and picking one
+shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
+to the deepest card with no tier, narrowed to the names that start with what you have typed, and picking one
 writes the whole term (`slice:goal..objective`). A tier named with a space is written
 quoted, the quote holding both ends (`slice:"big goal..2"`). The tooltip of a Graph
 caption shows the same kind of term.

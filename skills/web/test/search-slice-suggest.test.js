@@ -7,7 +7,7 @@ const { STATUSES, loadBoard, cleanUp, drawnModel } = require('./helpers/fan-boar
 
 // The search box suggests what a slice: term can say. After `slice:` and after `..`
 // it lists the board's slices: the tiers of its hierarchy in hierarchy order, then
-// the depth numbers that hold a card. Picking one completes the term. The seam is
+// the depth numbers, 0 to the deepest card with no tier. Picking one completes the term. The seam is
 // searchSuggestionItems(text, caret, cards, ctx): the text and caret as the box has
 // them and the whole board and its context, the arguments filterCards takes, so the
 // suggestions and the cut read one axis. Without the board there is nothing to
@@ -48,19 +48,20 @@ const fixture = () => [
   card(18, { type: 'Goal' }),
 ];
 
-const SLICES = ['goal', 'strategy', 'objective', 'epic', '0', '1', '2', '4', '5'];
+const SLICES = ['goal', 'strategy', 'objective', 'epic', '0', '1', '2', '3', '4', '5'];
 const suggest = (text, caret, cards = fixture(), ctx = CTX) => searchSuggestionItems(text, caret, cards, ctx);
 const labels = (items) => items.map((i) => i.label);
 const idsOf = (query, cards = fixture(), ctx = CTX) => filterCards(cards, parseSearchQuery(query, ctx.board), ctx).map((c) => c.id).sort((a, b) => a - b);
 
-test('after slice: the box lists the tiers in hierarchy order, then the depth numbers the board has', () => {
+test('after slice: the box lists the tiers in hierarchy order, then the depth numbers from 0 to the deepest card with no tier', () => {
   assert.deepStrictEqual(suggest('slice:').map((i) => [i.label, i.value]), SLICES.map((s) => [`slice:${s}`, `slice:${s}`]));
 });
 
-test('a depth no card is in is not suggested, a tier nobody is in still is', () => {
+test('every tier the hierarchy names is suggested whether a card is in it or not, and so is every depth down to the deepest card with no tier', () => {
   const none = [card(1, { type: 'epic' }), card(2, { parent: 1 })];
-  assert.deepStrictEqual(labels(suggest('slice:', undefined, none, { board: 'kanban', hierarchy: ['goal', 'epic'] })), ['slice:goal', 'slice:epic', 'slice:1'], 'card 2 is at depth 1, and the only card at depth 0 is in a tier');
-  assert.ok(!labels(suggest('slice:')).includes('slice:3'), 'depth 3 of the board holds no card');
+  assert.deepStrictEqual(labels(suggest('slice:', undefined, none, { board: 'kanban', hierarchy: ['goal', 'epic'] })), ['slice:goal', 'slice:epic', 'slice:0', 'slice:1'], 'nobody is in goal, and nobody untiered is at depth 0');
+  assert.ok(labels(suggest('slice:')).includes('slice:3'), 'depth 3 of the board holds no card, and is on the axis between depths 2 and 4');
+  assert.ok(!labels(suggest('slice:')).includes('slice:6'), 'no card is deeper than depth 5');
 });
 
 test('after .. the box lists the same slices, each completing the second end and keeping the first', () => {
@@ -119,9 +120,9 @@ test('called without the board, as before, a slice: token suggests nothing and e
 test('every suggestion is a term that cuts to the slice or run it names, and the cut is the one the term would make typed by hand', () => {
   const byTerm = {
     'slice:goal': [1, 7, 18], 'slice:strategy': [2], 'slice:objective': [3], 'slice:epic': [4, 8],
-    'slice:0': [9, 10, 14, 17], 'slice:1': [11, 12, 15], 'slice:2': [13, 16], 'slice:4': [5], 'slice:5': [6],
+    'slice:0': [9, 10, 14, 17], 'slice:1': [11, 12, 15], 'slice:2': [13, 16], 'slice:3': [], 'slice:4': [5], 'slice:5': [6],
   };
-  assert.strictEqual(suggest('slice:').length, Object.keys(byTerm).length, 'a suggestion for every slice that holds a card');
+  assert.strictEqual(suggest('slice:').length, Object.keys(byTerm).length, 'a suggestion for every slice of the axis');
   for (const item of suggest('slice:')) assert.deepStrictEqual(idsOf(item.value), byTerm[item.value], item.value);
   assert.ok(suggest('slice:strategy..').length > 0);
   for (const item of suggest('slice:strategy..')) {
@@ -134,8 +135,8 @@ test('every suggestion is a term that cuts to the slice or run it names, and the
 test('a tier written with a space is offered as one quoted term, and in a cut the quote holds both ends, which is how the parser reads it', () => {
   const ctx = { board: 'kanban', hierarchy: ['big goal', 'epic'] };
   const cards = [card(1, { type: 'big goal' }), card(2, { type: 'epic', parent: 1 }), card(3, { parent: 2 })];
-  assert.deepStrictEqual(labels(suggest('slice:', undefined, cards, ctx)), ['slice:"big goal"', 'slice:epic', 'slice:2']);
-  assert.deepStrictEqual(labels(suggest('slice:epic..', undefined, cards, ctx)), ['slice:"epic..big goal"', 'slice:epic..epic', 'slice:epic..2']);
+  assert.deepStrictEqual(labels(suggest('slice:', undefined, cards, ctx)), ['slice:"big goal"', 'slice:epic', 'slice:0', 'slice:1', 'slice:2']);
+  assert.deepStrictEqual(labels(suggest('slice:epic..', undefined, cards, ctx)), ['slice:"epic..big goal"', 'slice:epic..epic', 'slice:epic..0', 'slice:epic..1', 'slice:epic..2']);
   assert.deepStrictEqual(labels(suggest('slice:"big go', undefined, cards, ctx)), ['slice:"big goal"'], 'a quote still open is completed and shut');
   assert.deepStrictEqual(labels(suggest('slice:"big goal..e', undefined, cards, ctx)), ['slice:"big goal..epic"']);
   assert.deepStrictEqual(idsOf('slice:"big goal"', cards, ctx), [1]);

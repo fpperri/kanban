@@ -250,7 +250,7 @@ test('run against a stand-in page, the scenario writes each query to the box and
     'plan: the Graph draws dots before any cut',
     'plan: the Graph draws no dot outside the cut',
     'plan: the Board shows every live card before the box is typed in',
-    'plan: typing slice: lists the slices of the board, the tiers in hierarchy order and then the depths that hold a card',
+    'plan: typing slice: lists the slices of the board, the tiers in hierarchy order and then the depths',
     'plan: pressing slice:strategy writes it in the box and shuts the list',
     'plan: the Board then keeps only the strategy cards',
     'plan: typing the dots after it lists the slices as the second end of the cut',

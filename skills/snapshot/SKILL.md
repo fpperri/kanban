@@ -89,8 +89,8 @@ cut nothing. A board with no hierarchy cuts by depth (`slice:1` keeps the depth-
 card of the board, archived ones included, as the page was built: a queued edit does not move a
 card to another slice until it is applied. The box suggests as the web's does, from the same
 module: a list under the box completes the token under the caret, and after `slice:` and after
-`..` it shows the board's slices, the tiers in hierarchy order and then the depth numbers that
-hold a card, narrowed to the names that start with what is typed; a tap on a row writes the
+`..` it shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
+to the deepest card with no tier, narrowed to the names that start with what is typed; a tap on a row writes the
 whole term (`slice:goal..objective`), and a tier named with a space is written quoted, the quote
 holding both ends (`slice:"big goal..2"`). A `|` counts only as a token of its own and a bracket
 only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does `waiting:3`.
