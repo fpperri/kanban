@@ -100,7 +100,7 @@ test('the fixture board has no hierarchy, so its lists are depths and loose card
   }
   assert.deepStrictEqual([0, 1, 2].map((d) => sorted(byDepth.get(d))), want.depths.map(sorted));
   assert.deepStrictEqual(sorted(block), want.block);
-  assert.deepStrictEqual(want.depthNames, ['roots', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(want.depthNames, ['depth 0', 'depth 1', 'depth 2']);
 });
 
 test('the malformed board names two tiers, each twice, a depth ring and a loose card', () => {

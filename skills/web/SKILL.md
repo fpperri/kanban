@@ -1594,7 +1594,7 @@ to `127.0.0.1` only.
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on
   the seam with its name (a tier by its name, a depth as
-  `roots` or `depth N`), standing one above another up the seam with neighbours on opposite
+  `depth N`), standing one above another up the seam with neighbours on opposite
   sides of the seam so they never touch; a tier nobody
   is in keeps a thin band and a muted caption when it has room for one, and a
   depth with no card draws nothing; a tier whose cards nest in one another gets a lighter
@@ -1664,7 +1664,7 @@ to `127.0.0.1` only.
   reaches only the cards the Graph draws, so they leave it with the dots and come back with them (so a
   switch into or out of Tiers while Unnested is off works the selection and the pill counts out again);
   **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
-  the ring's caption is the depth 0 band's, `roots`, and its tooltip counts them; **table** draws the Unnested
+  the ring's caption is the depth 0 band's, `depth 0`, and its tooltip counts them; **table** draws the Unnested
   block outside the rim. The Unnested option is Tiers' own: Force and Status draw every card. A counted line
   lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the

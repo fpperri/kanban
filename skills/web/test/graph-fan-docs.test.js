@@ -58,7 +58,7 @@ test('the Graph section says the fan goes all the way round the centre but for a
 test('the Graph section says each band and ring has a faint guide arc and a caption with its name up the seam, neighbours on opposite sides', () => {
   const text = graph();
   assert.match(text, /a faint \*\*guide arc\*\*/);
-  assert.match(text, /a \*\*caption\*\* on the seam with its name \(a tier by its name, a depth as `roots` or `depth N`\)/);
+  assert.match(text, /a \*\*caption\*\* on the seam with its name \(a tier by its name, a depth as `depth N`\)/);
   assert.doesNotMatch(text, /its name and its card count/);
   assert.match(text, /neighbours on opposite sides of the seam so they never touch/);
   assert.match(text, /a depth with no card draws nothing/);

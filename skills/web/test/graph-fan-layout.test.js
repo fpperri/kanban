@@ -83,7 +83,7 @@ test('fan: without a hierarchy the bands are the depth rings in depth order, and
   ], []);
   const l = fanOf(m);
   assert.deepStrictEqual(l.bands.map((b) => b.slice.depth), [0, 1, 2]);
-  assert.deepStrictEqual(l.rings.map((r) => r.label), ['roots', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(l.rings.map((r) => r.label), ['depth 0', 'depth 1', 'depth 2']);
   const radii = [1, 2, 4].map((id) => radius(l, id));
   assert.deepStrictEqual(radii, [...radii].sort((a, b) => a - b));
   assert.ok(Math.abs(radius(l, 2) - radius(l, 3)) < 1e-9, 'siblings share a ring');

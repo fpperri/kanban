@@ -7,7 +7,7 @@
 //              ring, after the captions of the bands; its tip counts the cards and names no slice.
 //   off        the cards are not drawn, and neither is any relation to a card that is.
 //   depth 0    on the depth 0 ring, between the tier bands and depth 1, in a sector of their
-//              own; the ring's caption is the depth 0 band's, roots, and counts them.
+//              own; the ring's caption is the depth 0 band's, depth 0, and counts them.
 //   table      the Unnested block outside the rim, a column for each status (tier-fan's checks).
 // In every mode the view frames what is drawn, at the first draw after a press and after Fit,
 // the whole circle with it, and no two captions overlap, the unnested caption's text clear of
@@ -200,8 +200,8 @@ module.exports = {
       { ring: radii(all, plan.ring), edges, depthOne: radii(all, plan.depthOne) });
     const own = sectors.filter((s) => s.kind === 'unnested');
     check('plan depth 0: they share a sector of their own', own.length === 1 && sameSet(own[0].tops, plan.ring), sectors);
-    const roots = named(marks, 'roots');
-    check('plan depth 0: the ring is the depth 0 band, its caption roots counts them, and nothing is captioned unnested',
+    const roots = named(marks, 'depth 0');
+    check('plan depth 0: the ring is the depth 0 band, its caption depth 0 counts them, and nothing is captioned unnested',
       roots.length === 1 && roots[0].count === plan.ring.length && roots[0].kind === 'depth' && named(marks, 'unnested').length === 0 && marks.block === null, marks.captions);
     check('plan depth 0: the relation of card 27 to card 5 is drawn', await ev(linesTouching(plan.ring)) === 1, await ev(linesTouching(plan.ring)));
     await framed('plan depth 0');

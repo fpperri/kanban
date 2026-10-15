@@ -78,7 +78,7 @@ const CASES = {
   },
   fixture: {
     depths: [[1], [2, 3, 4, 5, 6], [7, 8]],
-    depthNames: ['roots', 'depth 1', 'depth 2'],
+    depthNames: ['depth 0', 'depth 1', 'depth 2'],
     block: range(9, 18),
   },
   malformed: {

@@ -5,6 +5,7 @@ const {
   graphBuild, graphLayoutTiers, graphPlan, graphFanPlace, graphVisibleIds, graphTipAt,
 } = require('../web/graph-model');
 const { parseSearchQuery, filterCards } = require('../web/search');
+const { sliceListOf } = require('../web/slice-run');
 const {
   STATUSES, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');
@@ -85,7 +86,17 @@ test('tips: a tier named with a space is typed in quotes, and a hierarchy name k
 test('tips: a board without a hierarchy tips its depths by number, root as 0', () => {
   const board = loadBoard('fixture');
   const plan = planOf(drawnModel(board));
-  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.tip.term]), [['roots', 'slice:0'], ['depth 1', 'slice:1'], ['depth 2', 'slice:2']]);
+  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.tip.term]), [['depth 0', 'slice:0'], ['depth 1', 'slice:1'], ['depth 2', 'slice:2']]);
+});
+
+test('tips: a caption names its slice as the slice section does, the depth that holds the roots included', () => {
+  for (const board of [loadBoard('plan'), loadBoard('fixture')]) {
+    const m = drawnModel(board);
+    const section = sliceListOf({ axis: m.axis, byId: new Map(m.nodes.map((n) => [n.id, { index: n.sliceIndex }])) }, m.nodes.map((n) => n.id));
+    const captioned = planOf(m).captions.filter((c) => c.tip.term);
+    assert.ok(captioned.length >= 3, board.name);
+    for (const c of captioned) assert.strictEqual(c.name, section.find((e) => e.index === c.band).label, `${board.name}: ${c.tip.term}`);
+  }
 });
 
 // What a reader types is what the caption stands for: the term in a tip cuts to the
@@ -103,11 +114,11 @@ test('tips: the term in a tip cuts to exactly the cards of its band', () => {
   const fixture = loadBoard('fixture');
   const fm = drawnModel(fixture);
   const fplace = graphFanPlace(fm, { statuses: STATUSES });
-  const roots = planOf(fm).captions.find((c) => c.name === 'roots');
+  const roots = planOf(fm).captions.find((c) => c.name === 'depth 0');
   const ring = fm.nodes.filter((n) => fplace.places.get(n.id).band === roots.band && fplace.places.get(n.id).block === null).map((n) => n.id);
   const whole = sorted(filterCards(fixture.live, parseSearchQuery(roots.tip.term, fixture.name), { ...fixture.ctx, hierarchy: [] }).map((c) => c.id));
   const block = fm.nodes.filter((n) => fplace.places.get(n.id).block !== null).map((n) => n.id);
-  assert.deepStrictEqual(whole, sorted(ring.concat(block)), 'slice:0 is the roots ring and the Unnested cards, which are depth 0 too');
+  assert.deepStrictEqual(whole, sorted(ring.concat(block)), 'slice:0 is the depth 0 ring and the Unnested cards, which are depth 0 too');
 });
 
 // --- the loose caption and the Unnested block -------------------------------------------------

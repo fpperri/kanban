@@ -44,7 +44,7 @@ test('drawing: a depth ring nobody is on draws no guide arc and no caption', () 
   const l = layoutOf(m);
   const plan = graphPlan(m, l, OPTS);
   const names = plan.captions.map((c) => c.name);
-  assert.ok(!names.includes('roots'), 'depth 0 holds only cards in tiers or the Unnested block');
+  assert.ok(!names.includes('depth 0'), 'depth 0 holds only cards in tiers or the Unnested block');
   assert.ok(!names.includes('depth 3'), 'depth 3 holds only the epic, which is in its tier');
   const bandArcs = plan.guides.filter((g) => !g.sub);
   assert.strictEqual(bandArcs.length, 8, 'one arc for each of the eight bands');
@@ -117,7 +117,7 @@ test('drawing: a muted caption that would run into a caption on its side of the 
 test('drawing: a board without a hierarchy captions the depth rings by depth, and no tier', () => {
   const board = loadBoard('fixture');
   const plan = planOf(drawnModel(board));
-  assert.deepStrictEqual(plan.captions.map((c) => c.name), ['roots', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(plan.captions.map((c) => c.name), ['depth 0', 'depth 1', 'depth 2']);
   assert.deepStrictEqual(plan.captions.map((c) => c.count), scenario.CASES.fixture.depths.map((ids) => ids.length));
 });
 

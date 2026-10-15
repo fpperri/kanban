@@ -121,7 +121,7 @@ test('tiers: each depth sits on its own ring, a band of 56 further out than the 
     assert.ok(Math.abs(Math.hypot(p.x, p.y) - (88 + 56 * n.depth)) < 1e-6, `card ${n.id}`);
   }
   assert.deepStrictEqual(l.rings.map((r) => [r.r, r.label]), [
-    [88, 'roots'], [144, 'depth 1'], [200, 'depth 2'], [256, 'unnested'],
+    [88, 'depth 0'], [144, 'depth 1'], [200, 'depth 2'], [256, 'unnested'],
   ], 'and the cards with no relative, by default, on one ring a band further out');
 });
 
@@ -130,7 +130,7 @@ test('tiers: over this fixture, unfiltered, the depths the slice module gives ar
   const slices = sliceCards(cards, [], depthMap(cards, CTX));
   const m = build(cards);
   const l = graphLayoutTiers(m);
-  const ringFor = (depth) => l.rings.find((r) => r.label === (depth === 0 ? 'roots' : `depth ${depth}`));
+  const ringFor = (depth) => l.rings.find((r) => r.label === `depth ${depth}`);
   for (const n of m.nodes) {
     const slice = slices.byId.get(n.id);
     assert.strictEqual(slice.kind, 'depth', `card ${n.id}`);
@@ -140,7 +140,7 @@ test('tiers: over this fixture, unfiltered, the depths the slice module gives ar
     assert.ok(Math.abs(Math.hypot(p.x, p.y) - ringFor(slice.depth).r) < 1e-6, `card ${n.id} sits on the ring of its slice`);
   }
   assert.deepStrictEqual(slices.axis.map((s) => [s.depth, s.count]), [[0, 4], [1, 3], [2, 2]]);
-  assert.deepStrictEqual(l.rings.slice(0, slices.axis.length).map((r) => r.label), ['roots', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(l.rings.slice(0, slices.axis.length).map((r) => r.label), ['depth 0', 'depth 1', 'depth 2']);
 });
 
 test('tiers: children sit inside the sector of their root, and a parent sits between its children', () => {

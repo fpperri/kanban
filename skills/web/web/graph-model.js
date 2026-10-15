@@ -657,7 +657,7 @@ const GRAPH_FAN_REACH = Math.max(1, ...GRAPH_ICONS.TYPE_ICON_NAMES.map((name) =>
 function graphFanLabel(band) {
   if (!band.slice) return GRAPH_FAN_RING_NAME;
   if (band.slice.kind === 'tier') return band.slice.name;
-  return band.slice.depth === 0 ? 'roots' : `depth ${band.slice.depth}`;
+  return `depth ${band.slice.depth}`;
 }
 
 // The scale the layout spaces its captions for: what Fit gives a fan this big on a
