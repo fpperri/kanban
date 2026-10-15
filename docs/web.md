@@ -347,6 +347,15 @@ never written to the board's files.
   end of the search box, the same choice the arrow and the `p` key flip, so each shows
   what the others did. Turning it off closes the panel; turning it on here leaves the
   panel closed until the box is focused.
+- *Hotkeys* lists every key the page answers, each with what it does, and shows the state
+  it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
+  `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `[` `]` `{` `}`,
+  `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
+  state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
+  at once. `?` opens the sheet at this section: it is typed, not read, while a field has
+  focus, and it does nothing while a card menu, a dialog, the notifications panel or the
+  sheet itself is up. The list is to read, not to change.
 
 The sheet closes with Esc, a click outside it or its close button, and focus goes back to
 the gear. While it is open the board does not refresh under it, and `/`, `p` and Ctrl+F

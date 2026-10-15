@@ -939,8 +939,23 @@ to `127.0.0.1` only.
   control still folds it for the visit. **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
   so each shows what the others did; turning it off closes the panel, and turning it on
-  from the sheet leaves the panel closed until the box is focused. The sheet closes on Esc, on a click outside
-  it or with its close button, and focus goes back to the gear; like the other popups it
+  from the sheet leaves the panel closed until the box is focused. **Hotkeys** lists every key
+  the page answers, each with what it does, and shows the state it is in for the keys that have
+  one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
+  `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `[` `]` `{` `}`,
+  `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
+  list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
+  fails when a handler reads a key the list lacks, or the list names a key no handler reads.
+  The state is read each time the sheet opens, so a key pressed since shows its new state, and
+  the `panel on focus` row follows the checkbox at once. `?` opens the sheet at this section
+  (it is Shift with the slash key on a US keyboard), with the section brought to the top of
+  the sheet. It reads the shared key guard unchanged: it is typed, not read, while a field has
+  focus, and does nothing while a card menu, a dialog, the notifications panel or the
+  preferences sheet itself is up; the search panel is no popup, so `?` works with it open, and
+  a chord (Ctrl, Cmd, Alt) or a held key is not it. The list is to read, not to change.
+  The sheet closes on Esc, on a click outside it or with its close button, and focus goes
+  back to the gear; like the other popups it
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
   the sheet), and a click inside it never clears a selection.
@@ -1020,7 +1035,7 @@ to `127.0.0.1` only.
   Both read one **key guard** (`key-guard.js`): a typing check (a text field, a text area,
   a select or an editable element has focus) and a surface check (an open card menu, an
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
-  does `p`, which flips the search panel's switch (see Search panel), and `m`, which
+  does `p`, which flips the search panel's switch (see Search panel), and `?`, which opens the Hotkeys list (see Preferences sheet), and `m`, which
   steps through the pills, and `i`, which flips Isolate (see Isolate), and so do `[`, `]`, `{` and `}`, which move the run of slices
   (see Slice section); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
