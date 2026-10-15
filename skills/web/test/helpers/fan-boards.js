@@ -84,16 +84,17 @@ function rootShapedCards() {
 // Where the page puts the fan's captions on screen once `fit` ({ x, y, k }) has framed
 // it, measured without the model's own text sizes: the page's font is about 6.2px a
 // character at 11px (13px for the block's title), a line is 1.25 times its size, and
-// `dy` and the anchor move a text the way SVG does.
+// `dy` and the anchor move a text the way SVG does. A caption is its name; its count
+// is in its tip.
 const CHAR_PX = 6.2;
 function captionRects(plan, fit) {
   const rects = [];
   const put = (c, size) => {
-    const w = (String(c.name).length + 1 + String(c.count).length) * CHAR_PX * (size / 11);
+    const w = String(c.name).length * CHAR_PX * (size / 11);
     const base = c.y * fit.k + fit.y + parseFloat(c.dy || '0') * size;
     const x = c.x * fit.k + fit.x;
     const l = c.anchor === 'middle' ? x - w / 2 : c.anchor === 'end' ? x - w : x;
-    rects.push({ name: `${c.name} ${c.count}`, l, r: l + w, t: base - 0.95 * size, b: base + 0.3 * size });
+    rects.push({ name: c.name, l, r: l + w, t: base - 0.95 * size, b: base + 0.3 * size });
   };
   for (const c of plan.captions) put(c, 11);
   if (plan.looseCaption) put(plan.looseCaption, 11);
