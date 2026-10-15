@@ -811,8 +811,11 @@ to `127.0.0.1` only.
   and none wears `data-holds-poll`, which a button left focused by a click would hold for
   good); and the single-key shortcuts keep working. The pills are `.query-pill` buttons,
   never the status pills' classes. The list and its counts are worked out in `pills.js`,
-  which needs no other module so that the snapshot can embed it, and the box grows and
-  shrinks through the search module's `searchAddAlt` and `searchRemoveAlt`.
+  which needs no other module so that the snapshot can embed it, and the box grows through
+  the search module's `searchAddAlt` and shrinks through `searchRemoveGrownAlt`, which takes
+  out the pill's alternative and any alternative a click on a cue has grown it into (`review:`
+  with a cue term added is `review: assignee:@human`, still the pill's), and leaves the text
+  typed beside it.
 - **Slice section** — the first region of the search panel lists the board's slices, top to
   bottom: first the tiers some card of the board is in (live or archived; a tier no card is in
   is left out), each with the icon its type has in the config's `types:` list, then every

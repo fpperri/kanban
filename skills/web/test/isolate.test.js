@@ -675,3 +675,60 @@ test('a plain click repaints when the selection held parts that matched nothing,
   s.click(3);
   assert.strictEqual(renders, 0, 'nothing was selected and nothing changes');
 });
+
+// --- a pill whose alternative a cue click has grown ----------------------------------------
+// A click on a cue chip (an assignee, a tag, blocked, review) adds its term to every alternative of the
+// box, so a pill's `review:` becomes `review: assignee:@human`. The pill is on still, since the selection
+// holds its query, and turning it off, or stepping the selection back, takes its alternative out of the
+// box as it has grown, not just the bare query, or the view would stay filtered by a pill that shows off.
+
+const withAssignee = () => {
+  const board = makeBoard();
+  board.active[4].assignee = '@human';
+  return board;
+};
+
+const cueClick = (s, id, cls, text) => s.page.fireDocument('click', {
+  target: { closest: (sel) => (sel === '.card-el' ? { dataset: { id: String(id) } } : sel.includes('.card-assignee') ? { classList: { contains: (c) => c === cls }, textContent: text } : null) },
+  detail: 1, shiftKey: false, ctrlKey: false, metaKey: false,
+});
+
+test('a cue click grows the pill\'s alternative, the pill stays on, and a click on it takes the whole grown alternative out', async () => {
+  const s = await open({ board: withAssignee() });
+  s.pillClick('review');
+  cueClick(s, 5, 'card-assignee', '@human');
+  assert.strictEqual(s.box(), 'review: assignee:@human');
+  assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] }, 'the pill is on still');
+  s.pillClick('review');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), '', 'the cue term went with the alternative it grew in');
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('text typed beside the pill stays when its grown alternative goes, grown by the cue as every alternative is', async () => {
+  const s = await open({ board: withAssignee() });
+  s.type('zephyr');
+  s.pillClick('review');
+  cueClick(s, 5, 'card-assignee', '@human');
+  assert.strictEqual(s.box(), 'zephyr assignee:@human | review: assignee:@human');
+  s.pillClick('review');
+  assert.strictEqual(s.box(), 'zephyr assignee:@human');
+});
+
+test('Esc steps the selection back and takes the grown alternative of a pill out of the box', async () => {
+  const s = await open({ board: withAssignee() });
+  s.pillClick('review');
+  cueClick(s, 5, 'card-assignee', '@human');
+  s.press();
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), '');
+});
+
+test('an alternative that only has the pill\'s term in it is not the pill\'s: it stays when another pill goes off', async () => {
+  const s = await open({ board: withAssignee() });
+  s.pillClick('review');
+  s.pillClick('blocked');
+  assert.strictEqual(s.box(), 'review: | blocked:');
+  s.pillClick('blocked');
+  assert.strictEqual(s.box(), 'review:');
+});

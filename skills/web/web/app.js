@@ -3418,7 +3418,7 @@ function stepSelectionBack() {
 function moveSelectionTo(next, from = selectionState.selection) {
   const boxWasAnchor = isTypedAnchor(from) && !next.selection.anchor;
   const box = $('#search-input').value;
-  const shrunk = pillQueriesDropped(from, next.selection).reduce((text, query) => searchRemoveAlt(text, query), box);
+  const shrunk = pillQueriesDropped(from, next.selection).reduce((text, query) => searchRemoveGrownAlt(text, query), box);
   setSelection(next.selection, next.rangeStart);
   if (boxWasAnchor) {
     const cut = searchCutOnly(box);

@@ -517,6 +517,32 @@ function searchRemoveAlt(raw, term) {
   return left.length === have.length ? text : searchJoinSlice(searchAltsText(left), slices);
 }
 
+// The terms of one alternative, in order, a bracket as one.
+function searchAltTerms(altText) {
+  const text = searchAltUnwrapped(altText);
+  const alts = parseSearchAlts(lexSearch(text).tokens);
+  return alts.length === 1 ? alts[0].map((item) => searchItemText(item, text)).filter(Boolean) : [];
+}
+
+// Takes `term` out of the box as searchRemoveAlt does, and with it every alternative it has
+// grown into. A click on a cue adds its term to every alternative, so a pill's `review:` becomes
+// `review: assignee:@human`: still the pill's alternative, which goes when the pill does, while
+// text typed beside it (another alternative) stays. An alternative is the pill's grown one when it
+// holds every term of the pill's, in whatever order; the pill's own terms are in the box only
+// through the pill, since typing in the box turns it off. A run of slices stays.
+function searchRemoveGrownAlt(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const base = searchAltTexts(searchTermString(term)).map(searchAltTerms).filter((terms) => terms.length);
+  if (!base.length) return text;
+  const { rest, slices } = searchSplitSlice(text);
+  const have = searchAltTexts(rest);
+  const left = have.filter((alt) => {
+    const terms = searchAltTerms(alt);
+    return !base.some((own) => own.every((t) => terms.includes(t)));
+  });
+  return left.length === have.length ? text : searchJoinSlice(searchAltsText(left), slices);
+}
+
 // --- Isolate. Switching it on writes the selection into the box as `part | part | ...`
 // (the isolate text), each part by its criterion rather than a frozen list of cards, so a
 // card that comes to match a query part joins on the next poll, and the address carries it.
@@ -815,7 +841,7 @@ function searchSuggestionItems(raw, caret, cards, ctx) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
-    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
+    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
@@ -832,6 +858,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchHasAlt = searchHasAlt;
   window.searchAddAlt = searchAddAlt;
   window.searchRemoveAlt = searchRemoveAlt;
+  window.searchRemoveGrownAlt = searchRemoveGrownAlt;
   window.searchSplitSlice = searchSplitSlice;
   window.searchJoinSlice = searchJoinSlice;
   window.searchSetSlice = searchSetSlice;

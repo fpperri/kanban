@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchSuggestionItems,
+  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchSuggestionItems, searchRemoveGrownAlt,
 } = require('../web/search');
 
 // The search grammar beyond space-separated terms: `|` for or, round brackets,
@@ -559,4 +559,17 @@ test('a trailing |, "a | status:", an unclosed quote, an unclosed bracket and a 
       searchBracket(q);
     }, JSON.stringify(q));
   }
+});
+
+test('searchRemoveGrownAlt takes out the alternatives that are the term with more terms, and leaves any other', () => {
+  assert.strictEqual(searchRemoveGrownAlt('review:', 'review:'), '');
+  assert.strictEqual(searchRemoveGrownAlt('review: assignee:@human', 'review:'), '');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr assignee:@human | review: assignee:@human', 'review:'), 'zephyr assignee:@human');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr | review: | blocked:', 'review:'), 'zephyr | blocked:');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr review:', 'blocked:'), 'zephyr review:', 'nothing grown from blocked:');
+  assert.strictEqual(searchRemoveGrownAlt('tags:ui status:doing x | y', 'tags:ui status:doing'), 'y', 'a pill of two terms');
+  assert.strictEqual(searchRemoveGrownAlt('tags:ui', 'tags:ui status:doing'), 'tags:ui', 'a shorter alternative holds less than the pill');
+  assert.strictEqual(searchRemoveGrownAlt('review: slice:goal', 'review:'), 'slice:goal', 'a cut is not an alternative');
+  assert.strictEqual(searchRemoveGrownAlt('', 'review:'), '');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr', ''), 'zephyr');
 });

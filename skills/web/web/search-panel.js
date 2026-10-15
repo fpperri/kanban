@@ -321,7 +321,7 @@ function applyPillGesture(gesture, key) {
   const next = selectionAfterPill(gesture, pill.query, {
     selection: selectionState.selection,
     boxText: rest,
-    alts: { add: searchAddAlt, remove: searchRemoveAlt },
+    alts: { add: searchAddAlt, remove: searchRemoveGrownAlt },
   });
   setSelection(next.selection, next.rangeStart);
   writeSearch(searchJoinSlice(next.boxText, slices), 'pill');
