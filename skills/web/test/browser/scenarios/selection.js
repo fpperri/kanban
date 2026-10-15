@@ -1,7 +1,8 @@
 'use strict';
 // How a selection grows in the Graph, on the plan board: a click makes a card the
 // anchor of a new selection, Shift or Ctrl adds one card or takes it out, a pan
-// keeps the selection, a click on the empty Graph clears it, and the cards picked
+// keeps the selection, a click on the empty Graph leaves it and a double click there
+// clears it, and the cards picked
 // are the cards the Board shows as selected after a view switch and a poll. Each
 // step waits on the page, never on a fixed sleep. A card's dot is found by its
 // class, and a card is only clicked where its dot is the topmost thing, so two
@@ -15,6 +16,7 @@ module.exports = {
   board: 'plan',
   async run(page) {
     const { ev, open, waitFor, mouse, click, check } = page;
+    const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
     const picked = () => ev(`[...selectedIds].sort((a,b)=>a-b)`);
     const lit = () => ev(`[...document.querySelectorAll('.graph-node.selected')].map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b)`);
     const parts = () => ev(`(()=>{const s=selectionState.selection;return {anchor:s.anchor&&s.anchor.id,additions:s.additions.map((p)=>p.id)}})()`);
@@ -70,7 +72,11 @@ module.exports = {
     check('a pan keeps the selection', sameIds(await picked(), [c]) && sameIds(await parts(), { anchor: c, additions: [] }), await picked());
 
     await click(bg.x, bg.y);
-    check('a click on the empty Graph clears the selection', await hasSelection(0) && sameIds(await lit(), []) && sameIds(await parts(), { anchor: null, additions: [] }), await parts());
+    await frames();
+    check('a click on the empty Graph leaves the selection', sameIds(await picked(), [c]) && sameIds(await lit(), [c]) && sameIds(await parts(), { anchor: c, additions: [] }), await parts());
+    await click(bg.x, bg.y, { clickCount: 1 });
+    await click(bg.x, bg.y, { clickCount: 2 });
+    check('a double click on the empty Graph clears the selection', await hasSelection(0) && sameIds(await lit(), []) && sameIds(await parts(), { anchor: null, additions: [] }), await parts());
 
     await clickCard(a);
     await hasSelection(1);

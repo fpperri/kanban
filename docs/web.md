@@ -112,7 +112,8 @@ default) folds dated archived cards in as a trailing group.
 
 The **Calendar** view is a Monday-start month grid (with Week / 3-day / Day
 sub-views). Working ranges render as linked chips; a `due_date` is its own
-amber deadline chip. Drag a chip to move the range or the deadline. Same
+amber deadline chip. Drag a chip to move the range or the deadline. Double-click an empty
+day, or a slot in the time grid, to start a new card there; the selection stays. Same
 status-filter pills and search as the other views.
 
 ## Graph
@@ -146,7 +147,7 @@ card; right-click works as on the board.
 
 A search typed in the Graph hides nothing: its matches light, done cards included,
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
-cuts every view; under `|` it lights. Empty the box, press Esc or click the empty Graph to drop it;
+cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
 click a card to start a new selection and clear the box. Switch to another view and
 the box goes on filtering there, while nothing is selected by it. In Force, drag a dot and the cards related to it follow, like pulling on
 a thread; the arrangement stays until the cards change or the page reloads.
@@ -226,6 +227,13 @@ right-click on a card outside the selection opens the menu for that card alone,
 leading with Peek (open its details) and Add to selection, and leaves your
 selection as it was. The same selection grammar works in every view, and
 right-clicking inside an open card opens the same menu for that card, without Peek.
+
+A click on empty space never touches the selection, since it can be an accident. A
+double click on empty space clears it: the additions, the anchor, and the anchor's text in
+the box (a pill's query or a search typed in the Graph), so the pill goes off. Esc still steps back
+one stage at a time: a popup, then the additions, then the anchor. Where a double click
+already does something, as it does on the Calendar's empty days and time slots, it does that
+and the selection stays.
 
 ![Bulk context menu](images/web-bulk-actions.png)
 

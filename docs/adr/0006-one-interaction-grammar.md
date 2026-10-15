@@ -1,7 +1,7 @@
 # 0006. One interaction grammar across all views
 
 Date: 2026-07-09 · Status: accepted
-Amended: 2026-07-13 (selection gestures), 2026-10-14 (anchor, peek, isolate) — see Amendments below
+Amended: 2026-07-13 (selection gestures), 2026-10-14 (anchor, peek, isolate), 2026-10-15 (empty space) — see Amendments below
 
 ## Context
 
@@ -67,3 +67,23 @@ isolated set without rewriting it.
 What a plain click on a card does (open it, or select it) becomes a per-view
 preference, kept in the browser per board. The defaults stay as above: the
 Graph selects, the other views open.
+
+## Amendment (2026-10-15): empty space
+
+A click on empty space can be an accident, so the rule above, "plain click
+elsewhere = clear", is reversed: a plain click on empty space no longer clears
+the selection. On the Board, Map, Gantt and Calendar backgrounds and the Graph
+canvas, a single click leaves the selection, its anchor, the pills and the
+search box as they were. A double click on empty space clears it: the
+additions, the anchor, and the anchor's text in the box (a pill's query, a
+search typed in the Graph), and the chip goes off. Empty space is anywhere but a
+card, a control, a text field, a popup or a control that keeps the selection.
+Esc keeps its order: a popup, then the additions, then the anchor.
+
+Where a double click on empty space already means something, that meaning
+stands and the selection stays. The one such place is the Calendar's day cells
+and time-grid columns, which create a card; the other views give a double click
+on their empty space no meaning. The page reads a double click as the second
+click of a pair (the click's count), as it reads a peek: the first click's
+repaint can replace the element under the pointer, and a double click event aimed
+at the replaced element never reaches the document.

@@ -4,7 +4,8 @@
 // the Graph, which the graph scenario checks); Ctrl or Cmd toggles one card;
 // Shift adds a range; a right-click on a card outside the selection opens its
 // menu and leaves the selection as it was (card-menu.js drives the menu); a click
-// on empty space clears it; the bulk confirmations name
+// on empty space leaves it and a double click there clears it (empty-space.js drives
+// that in every view); the bulk confirmations name
 // how many cards they act on; in the Graph, Enter opens the focused card.
 // Card 3 sits in the Board and the Map, and is dated today here so the Calendar
 // and the Gantt draw it as well (the runner puts the board's cards back before
@@ -68,7 +69,11 @@ module.exports = {
     check('Escape closes that menu and keeps the selection', await closeWithEscape(`document.getElementById('context-menu').classList.contains('hidden')`) && (await ev('selectedIds.size')) === 3);
     const away = await emptyPoint();
     await click(away.x, away.y);
-    check('a click on empty space clears the selection', await selectionSize(0), away);
+    await ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
+    check('a click on empty space leaves the selection', (await ev('selectedIds.size')) === 3, away);
+    await click(away.x, away.y, { clickCount: 1 });
+    await click(away.x, away.y, { clickCount: 2 });
+    check('a double click on empty space clears the selection', await selectionSize(0), away);
 
     // The confirmations answer no, so nothing is archived or deleted; what they asked is what is under test.
     await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);

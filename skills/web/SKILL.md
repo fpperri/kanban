@@ -640,7 +640,8 @@ to `127.0.0.1` only.
   **Graph** a click makes the card the anchor of a new selection, and shift+click or
   ctrl/cmd+click adds one card to the selection or takes it out — the layout has no reading
   order to range over, so Shift does not add a range there; a double click (or Enter) opens
-  the card, a pan keeps the selection, and a click on the empty Graph clears it. A search
+  the card, a pan keeps the selection, and a click on the empty Graph leaves it; a double
+  click on the empty Graph clears it. A search
   typed in the Graph is the anchor of the selection: its matches are the selected cards, and
   it stops being the anchor when the Graph is left (see the Graph view entry). Applies on
   board tiles (live and archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
@@ -673,13 +674,22 @@ to `127.0.0.1` only.
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
   show only when the subject is one card; the others always render (mixed-selection handling
   lives inside each click handler).
-  Any plain click outside the context menu / bulk popups clears the selection (empty
-  calendar day cells and map/gantt whitespace included); the view-toggle buttons (Graph's too) are
-  exempt, so the selection **survives switching views**, and it survives the poll. A control
-  stays out of that clear by wearing the `data-keeps-selection` marker (the menu, the popups,
-  the view toggles, the status pills and fold toggles, the roll-up bars and the Graph's
-  controls do); the 5s refresh likewise skips while a control wearing `data-holds-poll` has
-  focus. Every write to the selection goes through one function (`setSelection`), every bulk
+  A click on empty space leaves the selection, its anchor, the pills and the search box as
+  they were, since it can be an accident. A **double click** on empty space clears them: the
+  additions, the anchor, and the anchor's text in the box (a pill's query, a search typed in
+  the Graph), so its chip goes off. The page reads a double click as the second click of a
+  pair (the click's count, 2), never as a `dblclick` event, because the first click's
+  repaint can replace the element under the pointer. Empty space is anywhere but a card or a
+  Graph dot, a button, link, text field or select, a popup or the card menu, or a control
+  wearing the `data-keeps-selection` marker (the menu, the popups, the view toggles, the
+  status pills and fold toggles, the roll-up bars and the Graph's controls do), so the
+  selection **survives switching views**, and it survives the poll. A double click held with
+  Shift, Ctrl or Cmd builds a selection and never clears one. Where a double click on empty
+  space already means something, that meaning stands and the selection stays: the Calendar's
+  day cells and time-grid columns start a new card (see **Click-to-create**). Esc stays the
+  step-by-step way back, as below. The 5s refresh skips while a control wearing
+  `data-holds-poll` has focus. Every write to the selection goes through one function
+  (`setSelection`), every bulk
   action reads its target cards through one reader (`bulkTargets`), and a bulk popup acts on
   the cards it held when it opened. **Esc** steps the selection back one stage at a time:
   the first Esc drops every addition at once and leaves the anchor, the next drops the
@@ -1185,7 +1195,8 @@ to `127.0.0.1` only.
   for that week (each week row has its own budget). Chips carry the
   shared grammar: click opens the detail popup, ctrl-click toggles / shift-click
   range-selects (all chips of that card highlight together), right-click opens the bulk
-  menu; clicking an empty day cell clears the selection. Dragging a **range chip** moves
+  menu; a click on an empty day cell leaves the selection, and a double click starts a new
+  card there (**Click-to-create** below). Dragging a **range chip** moves
   the range: the drop day becomes the range end and the start shifts by the same delta
   (duration + times-of-day preserved), writing the fields the range actually used — a
   compat range shifts start + due and never invents an end date. One-date ranges move
@@ -1272,8 +1283,10 @@ to `127.0.0.1` only.
   would *create* a missing field, a distinct feature), dragging a timed block into the
   all-day band or vice-versa, cross-midnight/multi-day resize, and auto-scroll near the
   grid edge.
-  **Click-to-create** — ADR 0006 pins a plain click on empty calendar space to clearing
-  the selection, so create rides a DIFFERENT gesture: double-click. Double-clicking
+  **Click-to-create** — a double click on empty calendar space creates a card, and a single
+  click there leaves the selection. ADR 0006's 2026-10-15 amendment clears the selection on
+  a double click on empty space everywhere else, and the day cells and time-grid columns keep
+  theirs for create, so a create never clears a selection. Double-clicking
   empty space in the month grid, the all-day band, or a time-grid day column opens the
   create modal pre-aimed at the click, same hidden-field-submits-while-minimal trick as
   the column "+" but for the start date alone — month/all-day gives a date-only
@@ -1449,7 +1462,7 @@ to `127.0.0.1` only.
   relations. The one thing it hides is the cards outside the cut of a `slice:` term that
   stands on its own in the query, as in every other view: the rest of the query lights
   inside the cut, and a `slice:` term under `|` or in a bracket of alternatives is only a
-  term to match, so it lights and hides nothing. Emptying the box, **Esc** and a click on the empty Graph drop the anchor and
+  term to match, so it lights and hides nothing. Emptying the box, **Esc** and a double click on the empty Graph drop the anchor and
   the dimming; a plain click on a card sets a new card anchor and clears the box;
   shift+click or ctrl/cmd+click on an unlit card adds it and keeps the query, and on a card
   the query lit takes it out and turns the query into its other cards, which clears the

@@ -166,8 +166,9 @@ module.exports = {
 
     await typeQuery(CASES.docs.query);
     await litIs(sorted(...CASES.docs.lit));
-    await click(bg.x, bg.y);
-    check('with a typed query lit, a click on the empty canvas clears the box and the dimming', await boxIs('') && await undimmed() && await pickedIs([]), { box: await boxText() });
+    await click(bg.x, bg.y, { clickCount: 1 });
+    await click(bg.x, bg.y, { clickCount: 2 });
+    check('with a typed query lit, a double click on the empty canvas clears the box and the dimming', await boxIs('') && await undimmed() && await pickedIs([]), { box: await boxText() });
 
     await typeQuery(CASES.docs.query);
     await litIs(sorted(...CASES.docs.lit));
