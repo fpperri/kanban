@@ -748,7 +748,7 @@ test('every scenario expression parses, so a typo does not wait for CI', () => {
     scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.layoutIs('force'), scenario.pickLayout('status'),
     scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES,
     scenario.NO_COUNT, scenario.BLUR, scenario.TIP, scenario.TIP_HIDDEN, scenario.EMPTY_POINT, scenario.captionCentre('goal'), scenario.focusCaption('Unnested, with a tier'),
-    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.typeInBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),
+    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.writeBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),
     scenario.USE_TABLE, scenario.TABLE_DRAWN, scenario.POLL, scenario.focusedCaption('epic')];
   for (const e of exprs) assert.doesNotThrow(() => new vm.Script(e), e.slice(0, 60));
 });

@@ -133,8 +133,8 @@ const TIP_HIDDEN = `(()=>{const t=document.querySelector('#graph-view .graph-tip
 const EMPTY_POINT = `(()=>{const c=document.querySelector('#graph-view .graph-canvas');if(!c)return null;const s=c.getBoundingClientRect();`
   + `for(const [x,y] of [[s.left+8,s.top+8],[s.right-8,s.top+8],[s.left+8,s.bottom-8],[s.right-8,s.bottom-8]]){if(document.elementFromPoint(x,y)===c)return {x,y}}return null})()`;
 
-// Typing in the search box, and the dots the Graph draws.
-const typeInBox = (text) => `(()=>{const i=document.getElementById('search-input');i.value=${JSON.stringify(text)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`;
+// Writing the search box (its value and an input event, nothing typed), and the dots the Graph draws.
+const writeBox = (text) => `(()=>{const i=document.getElementById('search-input');i.value=${JSON.stringify(text)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`;
 const dotsAre = (ids) => `JSON.stringify([...new Set([...document.querySelectorAll('#graph-view .graph-node')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids.slice().sort((a, b) => a - b)))}`;
 const dotCountIs = (n) => `document.querySelectorAll('#graph-view .graph-node').length===${n}`;
 
@@ -239,7 +239,7 @@ module.exports = {
   captionCentre,
   focusCaption,
   tipHas,
-  typeInBox,
+  writeBox,
   dotsAre,
   dotCountIs,
   SECTORS,
@@ -454,9 +454,9 @@ module.exports = {
         const named = (await waitFor(tipHas(plan.tips[name]))) ? await ev(TIP) : null;
         const term = named ? named.lines[named.lines.length - 1] : '';
         await ev(BLUR);
-        await ev(typeInBox(term));
+        await ev(writeBox(term));
         const cut = await waitFor(dotsAre(ids));
-        await ev(typeInBox(''));
+        await ev(writeBox(''));
         const back = await waitFor(dotCountIs(dotsBefore));
         if (!cut || !back) cutFailures.push({ name, term, cut, back, now: await dots() });
       }
