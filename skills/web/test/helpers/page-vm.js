@@ -78,9 +78,9 @@ function searchBox() {
   return box;
 }
 
-const PROBES = {
-  quiet: ['.modal-backdrop:not(.hidden)'],
-};
+// A selector ending :not(.hidden) asks whether a surface is open; the fake page
+// answers that none is, so the key guard sees a quiet page.
+const OPEN_SURFACE_PROBE = /:not\(\.hidden\)$/;
 
 function loadPage({ board, search = '', stored = {}, scripts } = {}) {
   const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8');
@@ -98,7 +98,7 @@ function loadPage({ board, search = '', stored = {}, scripts } = {}) {
     addEventListener: (type, fn) => { (documentListeners[type] = documentListeners[type] || []).push(fn); },
     querySelector: (sel) => {
       if (sel in elements) return elements[sel];
-      if (PROBES.quiet.includes(sel)) return null;
+      if (OPEN_SURFACE_PROBE.test(sel)) return null;
       return control();
     },
     getElementById: (id) => elements[`#${id}`] || control(),

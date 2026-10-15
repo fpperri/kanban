@@ -113,7 +113,25 @@ test('the pill and fold toggles are focusable controls the stylesheet rings', ()
 
 const PILL_CLASSES = ['map-filter-toggle', 'map-section-toggle', 'gantt-filter-toggle', 'calendar-filter-toggle', 'graph-filter-toggle graph-control'];
 
-function pollSandbox(mutateGuard) {
+const NOT_A_CALL = new Set(['if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'new', 'await', 'async', 'do', 'else', 'throw', 'delete', 'void', 'with', 'in', 'of', 'instanceof', 'super', 'import', 'yield', 'class']);
+
+// A board-load step the sandbox has never seen, a new apply* call in
+// applyBoardData, must not turn this file red. A called name that the code
+// under test does not define, that no explicit stub covers and that is not a
+// builtin becomes a no-op. Explicit stubs stay as they are, and nothing here
+// catches: known code that throws still throws.
+function stubUnseenSteps(sandbox, code) {
+  const bare = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  const declared = new Set([...bare.matchAll(/\b(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+  for (const m of bare.matchAll(/(?<![\w$.:])([A-Za-z_$][\w$]*)\s*\(/g)) {
+    const name = m[1];
+    if (NOT_A_CALL.has(name) || declared.has(name)) continue;
+    if (vm.runInContext(`typeof ${name}`, sandbox) !== 'undefined') continue;
+    sandbox[name] = () => {};
+  }
+}
+
+function pollSandbox(mutateGuard, unseenStep) {
   const policy = require('../web/refresh-policy.js');
   const doc = { activeElement: null, current: null, visibilityState: 'visible' };
   const camel = (a) => a.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
@@ -144,6 +162,12 @@ function pollSandbox(mutateGuard) {
   const pillConst = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/);
   let code = (pillConst ? pillConst[0] : '') + names.map((n) => (appSrc.includes('function ' + n + '(') ? (appSrc.includes('async function ' + n + '(') ? 'async ' : '') + fn(n) : '')).join('\n');
   if (mutateGuard) code = code.replace("closest('.column-sort-field,", "closest('" + mutateGuard + ", .column-sort-field,");
+  if (unseenStep) {
+    const hooked = code.replace('applyNotifications(data.notifications', unseenStep + '(data); applyNotifications(data.notifications');
+    assert.notStrictEqual(hooked, code, 'applyBoardData still ends by applying the notifications');
+    code = hooked;
+  }
+  stubUnseenSteps(sandbox, code);
   vm.runInContext(code, sandbox);
   doc.querySelector = ((orig) => (sel) => (sel === '.modal-backdrop:not(.hidden)' ? null : orig(sel)))(doc.querySelector);
   return { sandbox, doc, makeEl, shouldSkip: policy.shouldSkipAutoRefresh };
@@ -156,6 +180,18 @@ test('a focused pill does not freeze the 5s poll, for every view', () => {
     assert.strictEqual(sandbox.boardControlFocused(), false, cls);
     assert.strictEqual(shouldSkip({ modalOpen: false, dragging: false, hidden: false, boardControlFocused: sandbox.boardControlFocused() }), false, cls);
   }
+});
+
+test('a board load that runs a step the sandbox has never seen does not throw', () => {
+  const { sandbox } = pollSandbox(null, 'applyBrandNewStep');
+  assert.doesNotThrow(() => sandbox.applyBoardData({ active: [], archived: [] }));
+});
+
+test('the sandbox only stubs what it has never seen: an explicit stub is kept and known code still throws', () => {
+  const { sandbox } = pollSandbox(null, 'applyBrandNewStep');
+  assert.strictEqual(sandbox.pruneSelection('kept'), 'kept', 'the identity stub the tests rely on is not replaced by a no-op');
+  sandbox.renderBoard = () => { throw new Error('render broke'); };
+  assert.throws(() => sandbox.applyBoardData({ active: [], archived: [] }), /render broke/);
 });
 
 test('real form controls and graph buttons still hold the poll', () => {

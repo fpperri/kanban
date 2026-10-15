@@ -39,6 +39,6 @@ test('app.html loads it before app.js, and the server serves it', async () => {
   const tag = '<script src="/map-relations.js"></script>';
   assert.ok(html.includes(tag), 'app.html carries the script tag');
   assert.ok(html.indexOf(tag) < html.indexOf('<script src="/app.js"></script>'), 'ahead of app.js');
-  const server = lf(fs.readFileSync(path.join(__dirname, '..', 'scripts', 'server.js'), 'utf8'));
-  assert.ok(server.includes("p === '/map-relations.js'"), 'the static whitelist names it');
+  const { pageFiles } = require('../scripts/server');
+  assert.ok(pageFiles(html).includes('map-relations.js'), 'the page names it, and the server serves what the page names');
 });
