@@ -130,11 +130,11 @@ test('Path and Tree from a card\'s menu are writes with the reason menu, replaci
   const { page, told } = await pageWithListener();
   page.input.typed('zephyr');
   told.length = 0;
-  page.run('selectedIds = new Set([2])');
+  page.run('setSelection(addPart(NO_SELECTION, cardPart(1)), 1)');
   page.menu.path.fire('click');
   page.menu.tree.fire('click');
-  assert.deepStrictEqual(told.map((t) => [t.text, t.reason]), [['path:2', 'menu'], ['tree:2', 'menu']]);
-  assert.strictEqual(page.input.value, 'tree:2');
+  assert.deepStrictEqual(told.map((t) => [t.text, t.reason]), [['path:1', 'menu'], ['tree:1', 'menu']]);
+  assert.strictEqual(page.input.value, 'tree:1');
 });
 
 test('a ?q= link is a write with the reason link, told once the link\'s view is showing', async () => {
