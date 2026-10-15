@@ -154,9 +154,9 @@ function graphBuild(cards, opts) {
   const types = (opts && opts.types) || null;
   const { ctx, pool, whole, slices, nesting } = graphBoardOf(cards, opts);
   const { nested, siblings, parentIn } = nesting;
-  const left = opts && opts.unnested === 'off' ? graphUnnestedOf(whole, nested, slices) : null;
+  const leftOut = opts && opts.unnested === 'off' ? graphUnnestedOf(whole, nested, slices) : null;
   const drawn = new Map();
-  for (const c of pool.values()) if ((!visibleIds || visibleIds.has(c.id)) && !(left && left.has(c.id))) drawn.set(c.id, c);
+  for (const c of pool.values()) if ((!visibleIds || visibleIds.has(c.id)) && !(leftOut && leftOut.has(c.id))) drawn.set(c.id, c);
   // The sibling chains, read on the whole board like the slices: hiding a card with a
   // status pill or a search never moves a parent line. `chainEnd` is the Map's own reading of
   // where a child's chain meets its parent (mapParentLineEnds, the children no sibling
@@ -994,16 +994,16 @@ function graphLayoutTiers(model, opts) {
   })));
   const outer = grown.length ? grown[grown.length - 1].r1 : 0;
   const spokes = sectors.slice(0, -1).map((s) => ({ angle: s.to - gap / 2, r1: outer + GRAPH_FAN_CLEAR }));
-  const text = graphFanScale(outer);
-  const block = ring ? null : graphFanBlock(fan.columns, outer, text, pos);
-  const captions = graphFanCaptions(grown, text);
-  const looseCaption = graphFanLooseCaption(sectors, outer, text, block, splitOf);
+  const captionScale = graphFanScale(outer);
+  const block = ring ? null : graphFanBlock(fan.columns, outer, captionScale, pos);
+  const captions = graphFanCaptions(grown, captionScale);
+  const looseCaption = graphFanLooseCaption(sectors, outer, captionScale, block, splitOf);
   const boxes = captions.map((c) => ({
     x0: c.side === 'right' ? c.x : c.x - c.w, y0: c.y - c.h / 2, x1: c.side === 'right' ? c.x + c.w : c.x, y1: c.y + c.h / 2,
   }));
   if (looseCaption) boxes.push(looseCaption.box);
   return graphFinish(model, pos, rings, spokes, [], {
-    bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places, polar, captions, looseCaption, boxes, textScale: text,
+    bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places, polar, captions, looseCaption, boxes, textScale: captionScale,
   });
 }
 

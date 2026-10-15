@@ -28,7 +28,7 @@ function typeIconShape(name) {
   return typeof name === 'string' ? TYPE_ICON_SHAPES.get(name) : undefined;
 }
 
-function typeIconRadius(r) {
+function typeIconRadiusUsable(r) {
   return typeof r === 'number' && Number.isFinite(r) && r > 0;
 }
 
@@ -45,7 +45,7 @@ function typeIconGlyph(name) {
 // A closed path around 0,0 for a dot of radius r, or '' for no icon or no radius.
 function typeIconOutline(name, r) {
   const shape = typeIconShape(name);
-  if (!shape || !typeIconRadius(r)) return '';
+  if (!shape || !typeIconRadiusUsable(r)) return '';
   if (shape.round) {
     const d = typeIconRound(r);
     return `M${d} 0A${d} ${d} 0 1 1 ${-d} 0A${d} ${d} 0 1 1 ${d} 0Z`;
@@ -64,7 +64,7 @@ function typeIconOutline(name, r) {
 // clears every corner; 0 for no icon or no radius.
 function typeIconReach(name, r) {
   const shape = typeIconShape(name);
-  if (!shape || !typeIconRadius(r)) return 0;
+  if (!shape || !typeIconRadiusUsable(r)) return 0;
   return typeIconRound(shape.round ? r : r * shape.outer);
 }
 
