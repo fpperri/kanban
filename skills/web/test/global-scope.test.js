@@ -16,135 +16,7 @@ const path = require('node:path');
 // ban `var` outright (a var inside a top-level block — every file's export
 // tail is one — hoists to page scope where the depth-gated scan can't see it).
 
-// Blank out comments and string/template/regex literal CONTENTS (newlines
-// kept, so nothing shifts lines) so the declaration walk below can track
-// bracket depth and spot keywords without being fooled by quoted text. Not a
-// parser — a scanner with the classic last-significant-char heuristic for
-// regex-vs-division, which covers everything these classic scripts do.
-function blankNonCode(src) {
-  let out = '';
-  let i = 0;
-  let last = ';'; // last significant char kept — drives the regex heuristic
-  const tpl = []; // curly depths where an open `${` began (templates nest)
-  let curly = 0;
-  let mode = 'code'; // 'code' | 'tpl'
-  while (i < src.length) {
-    const c = src[i];
-    const n = src[i + 1];
-    if (mode === 'tpl') {
-      if (c === '\\') { i += 2; continue; }
-      if (c === '`') { mode = 'code'; out += '"'; last = '"'; i++; continue; }
-      if (c === '$' && n === '{') { tpl.push(curly); mode = 'code'; i += 2; continue; }
-      out += c === '\n' ? '\n' : ' ';
-      i++;
-      continue;
-    }
-    if (c === '/' && n === '/') { // line comment
-      while (i < src.length && src[i] !== '\n') i++;
-      continue;
-    }
-    if (c === '/' && n === '*') { // block comment
-      i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) {
-        if (src[i] === '\n') out += '\n';
-        i++;
-      }
-      i += 2;
-      continue;
-    }
-    if (c === "'" || c === '"') { // string literal
-      i++;
-      while (i < src.length && src[i] !== c) i += src[i] === '\\' ? 2 : 1;
-      i++;
-      out += '"'; // placeholder: an expression ended here (so a next / divides)
-      last = '"';
-      continue;
-    }
-    if (c === '`') { mode = 'tpl'; i++; continue; }
-    if (c === '/' && !/[A-Za-z0-9_$)\]"]/.test(last)) {
-      // a slash in expression position = regex literal; skip it whole,
-      // character classes and all (a / inside [...] does not close it)
-      i++;
-      let inClass = false;
-      while (i < src.length) {
-        if (src[i] === '\\') { i += 2; continue; }
-        if (src[i] === '[') inClass = true;
-        else if (src[i] === ']') inClass = false;
-        else if (src[i] === '/' && !inClass) break;
-        i++;
-      }
-      i++; // closing slash
-      while (i < src.length && /[a-z]/i.test(src[i])) i++; // flags
-      out += '"';
-      last = '"';
-      continue;
-    }
-    if (c === '{') curly++;
-    if (c === '}') {
-      if (tpl.length && curly === tpl[tpl.length - 1]) { tpl.pop(); mode = 'tpl'; i++; continue; }
-      curly--;
-    }
-    out += c;
-    if (!/\s/.test(c)) last = c;
-    i++;
-  }
-  return out;
-}
-
-// The names a classic <script> adds to the shared page scope: top-level
-// const/let/var/function/class declarations. Depth tracking keeps function
-// bodies, blocks, and for-heads out; the statement-position check keeps
-// function/class EXPRESSIONS (const f = function g() {...}) out — g is not a
-// global. Top-level destructuring throws loudly rather than being silently
-// missed: gantt-model.js documents why shared-scope scripts avoid it, and a
-// scanner blind spot is the exact failure this guard exists to prevent.
-function topLevelDeclarations(src) {
-  const code = blankNonCode(src);
-  const tokens = code.match(/[A-Za-z_$][A-Za-z0-9_$]*|[(){}[\]]|[;,=]|[^\sA-Za-z_$(){}[\];,=]+/g) || [];
-  const names = [];
-  let depth = 0;
-  let prev = ''; // previous token — statement-position + async-function checks
-  let state = null; // null | 'expectName' (after decl keyword or declarator comma) | 'inDecl'
-  let fnName = false; // the next identifier names a function/class declaration
-  for (const tok of tokens) {
-    if (tok === '(' || tok === '[' || tok === '{') {
-      if (state === 'expectName') throw new Error('top-level destructuring declaration — scanner cannot name it; declare plain identifiers in shared-scope scripts');
-      depth++;
-      prev = tok;
-      continue;
-    }
-    if (tok === ')' || tok === ']' || tok === '}') { depth--; prev = tok; continue; }
-    if (depth === 0) {
-      if (tok === 'const' || tok === 'let' || tok === 'var') {
-        state = 'expectName';
-        prev = tok;
-        continue;
-      }
-      if ((tok === 'function' || tok === 'class') &&
-          (prev === '' || prev === ';' || prev === '}' || (tok === 'function' && prev === 'async'))) {
-        fnName = true;
-        prev = tok;
-        continue;
-      }
-      if (fnName && /^[A-Za-z_$]/.test(tok)) {
-        names.push(tok);
-        fnName = false;
-        prev = tok;
-        continue;
-      }
-      if (state === 'expectName' && /^[A-Za-z_$]/.test(tok)) {
-        names.push(tok);
-        state = 'inDecl';
-        prev = tok;
-        continue;
-      }
-      if (state === 'inDecl' && tok === ',') state = 'expectName';
-      if (state === 'inDecl' && tok === ';') state = null;
-    }
-    prev = tok;
-  }
-  return names;
-}
+const { blankNonCode, topLevelDeclarations, collisions } = require('./helpers/global-scope');
 
 const webDir = path.join(__dirname, '..', 'web');
 const webFiles = fs.readdirSync(webDir).filter((f) => f.endsWith('.js')).sort();
@@ -229,17 +101,7 @@ test('scanner finds the known declarations in real files — every web/*.js yiel
 // --- the real guard: cross-file uniqueness -------------------------------------
 
 test('top-level declaration names are unique across ALL web/*.js — shared page scope, one namespace', () => {
-  const owners = new Map(); // name -> [file, ...]
-  for (const file of webFiles) {
-    for (const name of topLevelDeclarations(readWeb(file))) {
-      if (!owners.has(name)) owners.set(name, []);
-      owners.get(name).push(file);
-    }
-  }
-  const collisions = [...owners]
-    .map(([name, list]) => [name, [...new Set(list)]])
-    .filter(([, files]) => files.length > 1)
-    .map(([name, files]) => `${name}: ${files.join(', ')}`);
-  assert.deepStrictEqual(collisions, [],
+  const clashes = collisions(webFiles.map((file) => ({ label: file, source: readWeb(file) })));
+  assert.deepStrictEqual(clashes, [],
     'colliding top-level names — the later <script> dies at parse (const/let/class) or silently overwrites (var/function)');
 });

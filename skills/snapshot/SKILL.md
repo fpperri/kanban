@@ -68,10 +68,16 @@ thing this skill exists to produce. The cost is worst on a private board, where
 publishing puts real content on a hosted page, so the answer is *ask first*
 every single time and the ceremony is pure overhead forever.
 
-A search box under the header filters every view at once — same query grammar
-as kanban-web: terms AND together, `#id`/`id:` exact (`<this board's name>#id` too),
+A search box under the header filters every view at once — the same query grammar
+as kanban-web, because the page runs kanban-web's own search module
+(`skills/web/web/search.js`, with the waiting rules in `skills/web/web/waiting-blocked.js`),
+embedded as is, so a query finds on the phone what it finds at the desk. Terms AND together,
+`#id`/`id:` exact (`<this board's name>#id` too),
 `title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
-bare terms hit title+body+tags. `review:`/`blocked:` (ADR 0009)
+`assignee:` (`a:` is its alias) is a case-insensitive substring match on the assignee handle,
+bare terms hit title+body+tags. Edits still queued in the tray count: a card a
+queued edit makes match shows under the query.
+`review:`/`blocked:` (ADR 0009)
 are their own family: UNLIKE every scope above, a bare `review:`/`blocked:`
 (no value) is itself a complete term — "the sticker is present" (the shared
 predicate) — never dropped as mid-typing; `review:PR`/`blocked:vendor` is a
