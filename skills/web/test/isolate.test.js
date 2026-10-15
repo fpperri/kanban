@@ -770,6 +770,18 @@ test('turning such a pill off leaves a cut of the slice section, and the text ty
   assert.strictEqual(s.box(), 'zephyr slice:0..', 'the cut the box held before the pill is not the pill\'s');
 });
 
+test('a cut the box held before such a pill goes on stays when the pill goes off, when it is the very cut the pill holds too', async () => {
+  const s = await open({ board: withSlicePill() });
+  s.page.run('setSearchPanelOpen(true)');
+  s.type('slice:epic');
+  s.pillClick('pill:slice:epic');
+  assert.strictEqual(s.box(), 'slice:epic slice:epic', 'the box holds the cut twice while the pill is on: the one it held and the one the pill wrote');
+  assert.deepStrictEqual(s.shown(), [1, 2], 'the pill is on over the cut the box held');
+  s.pillClick('pill:slice:epic');
+  assert.strictEqual(s.box(), 'slice:epic', 'only the copy of the cut that came with the pill went with it');
+  assert.deepStrictEqual(s.shown(), [1, 2], 'the cut the box held still cuts the views');
+});
+
 test('Esc takes the cut of such a pill out of the box with the pill', async () => {
   const s = await open({ board: withSlicePill() });
   s.page.run('setSearchPanelOpen(true)');
@@ -778,4 +790,15 @@ test('Esc takes the cut of such a pill out of the box with the pill', async () =
   s.press();
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.strictEqual(s.box(), '');
+});
+
+test('Esc leaves a cut the box held before such a pill went on, when it is the very cut the pill holds too', async () => {
+  const s = await open({ board: withSlicePill() });
+  s.page.run('setSearchPanelOpen(true)');
+  s.type('slice:epic');
+  s.pillClick('pill:slice:epic');
+  s.page.run('setSearchPanelOpen(false)');
+  s.press();
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), 'slice:epic');
 });

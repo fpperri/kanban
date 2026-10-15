@@ -46,7 +46,8 @@
 // page globals of selection.js (selectionAfterPill, pillQueriesDropped), pills.js, isolate.js
 // (isolateNow, syncIsolateSwitch), search-slices.js (renderSearchSlices,
 // searchSlicesChipNames), the search module (searchTermText and the alternatives and slice
-// functions: searchSplitSlice, searchJoinSlice, searchAddAlt, searchRemoveGrownAlt),
+// functions: searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchAddAlt,
+// searchRemoveGrownAlt),
 // prefs.js (loadPrefs) and key-guard.js (keyGuardOff).
 
 let searchPanelOpen = false;
@@ -319,7 +320,7 @@ function foldSearchPills(folded) {
 // take it for a typed search. A run of slices in the box is not the pills' to change: it
 // is set apart for the gesture and put back after it, but for the cut a pill held in its
 // own query (a board pill `slice:goal`), which goes with the pill when the gesture
-// turns it off.
+// turns it off: its copy of it, so a cut the box held before, if it is the same cut, stays.
 function applyPillGesture(gesture, key) {
   const pill = searchPanelEntries().find((p) => p.key === key);
   if (!pill) return;
@@ -331,7 +332,7 @@ function applyPillGesture(gesture, key) {
     alts: { add: searchAddAlt, remove: searchRemoveGrownAlt },
   });
   const cut = pillQueriesDropped(before, next.selection).flatMap((query) => searchSplitSlice(query).slices);
-  const slices = held.filter((s) => !cut.includes(s));
+  const slices = searchWithoutCuts(held, cut);
   setSelection(next.selection, next.rangeStart);
   writeSearch(searchJoinSlice(next.boxText, slices), 'pill');
 }

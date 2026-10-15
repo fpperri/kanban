@@ -155,12 +155,13 @@ that reaches an end of the list leaves that end open (`slice:strategy..`). `[` a
 bottom of the run up and down and `{` and `}` move its top, with the panel open or closed, except
 while a field has focus or a card sheet or a card menu is up (queued edits do not stop them); a chord is not them,
 and AltGr, which types the brackets on a layout with none of its own, is not a chord. A slice
-entry's accessible name says its label, its count and whether it is in the run. The keep-only
-gestures, the right-click on a pill or a slice entry and the context-menu key and Shift+F10 on an
-entry, run only where the pointer is fine and hovers, the gate the card menu keeps: on a phone a
-long-press neither keeps a pill alone nor keeps only a slice, and the browser's own menu shows.
-There a tap on a pill turns it on or off, and a tap on a slice entry grows the run, drops an end
-or removes the cut, so one slice is reached by dropping the ends.
+entry's accessible name says its label, its count and whether it is in the run. The right-click
+on a pill or a slice entry, and the context-menu key and Shift+F10 on a pill, run only where the
+pointer is fine and hovers, the gate the card menu keeps: on a phone a long-press neither keeps a
+pill alone nor keeps only a slice, and the browser's own menu shows. There a tap on a pill turns it
+on or off, and a tap on a slice entry grows the run, drops an end or removes the cut, so one slice
+is reached by dropping the ends. The context-menu key and Shift+F10 on a slice entry are keys the
+page handles itself, and keep only that slice with any pointer.
 
 Every count is taken over the cards left after the status pills and the Archive pill, before the box
 and the cut, and a queued edit counts as it does under the box; so turning a pill on or setting a

@@ -318,12 +318,15 @@ function searchRenderAlts(alts, text) {
 // A term as it is written in the box. A value holding spaces is quoted so it
 // stays one term (which makes a scoped value an exact one); a quote inside a
 // value cannot be written, so it is left out. Bare text that would read as a
-// bracket or a bar is quoted too. With `exact` a scoped value is always quoted,
+// bracket or a bar is quoted too, and so is a scoped value with a bar at its back, which
+// the lexer would read as the bar between two alternatives (a scope shields the front
+// of its value). With `exact` a scoped value is always quoted,
 // so it matches the whole value, or any one element of a list (`tags:"grill"`,
 // which never catches `grilling`); bare text has no scope to be exact in.
 function searchTermText(field, value, exact = false) {
   const v = String(value == null ? '' : value).replace(/"/g, '').replace(/\s+/g, ' ').trim();
-  const quote = /\s/.test(v) || (!field && /^\(|\)$|^\|$/.test(v)) || (!!field && exact === true && v !== '');
+  const bar = field ? /\|$/ : /^\||\|$/;
+  const quote = /\s/.test(v) || (!field && /^\(|\)$/.test(v)) || bar.test(v) || (!!field && exact === true && v !== '');
   const written = quote ? `"${v}"` : v;
   return field ? `${field}:${written}` : written;
 }
@@ -412,6 +415,18 @@ function searchJoinSlice(rest, slices) {
 // the cut stays, as it does when a pill or Isolate rewrites the box.
 function searchCutOnly(raw) {
   return searchJoinSlice('', searchSplitSlice(raw).slices);
+}
+
+// `slices` with one copy of each cut in `cuts` taken out, and no more. A pill whose own query is a
+// cut writes it next to the one the box held when the two are the same cut, so the box holds two
+// copies, and the pill going off takes out its copy: the one the box held stays.
+function searchWithoutCuts(slices, cuts) {
+  const left = slices.slice();
+  for (const cut of cuts) {
+    const at = left.indexOf(cut);
+    if (at >= 0) left.splice(at, 1);
+  }
+  return left;
 }
 
 // The query with its top-level slice: terms replaced by one for `value` (the text after
@@ -527,7 +542,7 @@ function searchRemoveGrownAlt(raw, term) {
     return !base.some((own) => own.key === searchAltKey(alt) || (own.terms.length && own.terms.every((t) => terms.includes(t))));
   });
   const cut = base.flatMap((own) => own.cut);
-  const kept = slices.filter((s) => !cut.includes(s));
+  const kept = searchWithoutCuts(slices, cut);
   return left.length === have.length && kept.length === slices.length ? text : searchJoinSlice(searchAltsText(left), kept);
 }
 
@@ -830,7 +845,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
-    searchSplitSlice, searchJoinSlice, searchSetSlice, searchCutOnly,
+    searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
 } else {
@@ -848,6 +863,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchRemoveGrownAlt = searchRemoveGrownAlt;
   window.searchSplitSlice = searchSplitSlice;
   window.searchJoinSlice = searchJoinSlice;
+  window.searchWithoutCuts = searchWithoutCuts;
   window.searchSetSlice = searchSetSlice;
   window.searchCutOnly = searchCutOnly;
   window.searchIsolateText = searchIsolateText;

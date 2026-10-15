@@ -66,7 +66,8 @@ folded to start, lists the tiers the board uses with their icons, then the depth
 a click grows or shrinks the run, a right-click keeps only that slice, and `[` `]` `{` `}` move the
 run's ends. The right-clicks need a mouse, a fine pointer that hovers: on a phone a long-press shows
 the browser's own menu, and a tap turns a pill on or off or grows, narrows or clears the run of
-slices. Counts are taken over the cards the status pills and Archive leave, before the box and
+slices. The context-menu key and Shift+F10 on a focused slice entry keep only that slice with any
+pointer. Counts are taken over the cards the status pills and Archive leave, before the box and
 the cut, so turning a pill on never changes the others. With the panel closed, a chip in the box
 counts what is on. There is no Isolate switch here, since the page has no selection to isolate.
 
