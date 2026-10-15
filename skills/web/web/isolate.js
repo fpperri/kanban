@@ -115,6 +115,18 @@ function isolateFlip() {
   return isolateFrom ? isolateTurnOff() : isolateTurnOn();
 }
 
+// The entry in the card menu and in the menu of the empty canvas mirrors the switch: Isolate turns
+// it on and, while it is on, the entry offers to turn it off. It acts on the selection as it is
+// when it is chosen, and with nothing selected it says so, as the switch does.
+function isolateMenuLabel() {
+  return isolateFrom ? 'Turn isolate off' : 'Isolate';
+}
+
+function isolateFromMenu() {
+  hideContextMenu();
+  isolateFlip();
+}
+
 // The i key: a key that types nothing but reads a letter, so it reads the whole key guard, as p
 // and m do. A chord (Ctrl, Cmd, Alt), Shift on the key and a held key are not it; Caps Lock gives
 // a capital I with no Shift, and counts.
@@ -146,6 +158,7 @@ function isolateOnWrite(text, reason) {
 
 window.addEventListener('DOMContentLoaded', () => {
   $('#isolate-switch').addEventListener('click', isolateFlip);
+  $('#ctx-isolate').addEventListener('click', isolateFromMenu);
   document.addEventListener('keydown', onIsolateKey);
   onSearchWrite(isolateOnWrite);
 });

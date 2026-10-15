@@ -1537,6 +1537,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
 .context-menu button:hover { background: var(--btn-hover); }
 .context-menu button.danger:hover { background: var(--crit-soft); color: var(--crit); }
+.context-menu.canvas-menu button:not(#ctx-isolate) { display: none; }
 body.shift-held .card-el { user-select: none; } /* shift+click selects cards, not their text — only while shift is down, so text stays copyable otherwise (covers every view's card-el) */
 
 /* Theme every visible scrollbar to match the dark palette

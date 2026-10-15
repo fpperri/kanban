@@ -248,6 +248,10 @@
   <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
   <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
   <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
+  <!-- Isolate leads nothing and trails the edits: it is offered inside the selection
+       only, and alone in the small menu of the empty Graph or Map canvas (toggled in
+       showContextMenu, main script below). It reads Turn isolate off while isolate is on. -->
+  <button type="button" id="ctx-isolate" role="menuitem" class="hidden">Isolate</button>
   <!-- Add the card's dependency tree or path to the selection as one part;
        the search box is left alone. One card only: hidden whenever the
        menu's subject is more than one card (toggled in showContextMenu,

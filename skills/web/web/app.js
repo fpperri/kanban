@@ -5634,8 +5634,28 @@ function onClickAway(e) {
   moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // a dead selection must not leave an invisible range start behind
 }
 
+// The canvas of the view on show, where a right-click on empty space opens the menu of Isolate
+// alone: the Graph's and the Map's. Empty is what the click-away rule calls empty space, and no
+// Map node either (a ghost stub opens a card). Every other view, and a point of these views
+// outside their canvas (a toolbar, a section header), keeps the browser's own menu.
+const CANVAS_OF_VIEW = { graph: '#graph-view .graph-canvas', map: '#map-view .map-canvas' };
+const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node`;
+
+function openCanvasContextMenu(e) {
+  const canvas = CANVAS_OF_VIEW[loadViewMode()];
+  if (!canvas || !e.target.closest(canvas) || e.target.closest(NOT_CANVAS_SPACE)) return;
+  menuSubject = canvasMenuFor();
+  e.preventDefault();
+  showContextMenu(e.clientX, e.clientY);
+}
+
 function showContextMenu(x, y) {
   const menu = $('#context-menu');
+  // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
+  // stylesheet makes of one entry; a card's menu has them all again.
+  menu.classList.toggle('canvas-menu', !!menuSubject.canvas);
+  $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
+  $('#ctx-isolate').textContent = isolateMenuLabel();
   // Peek and Add to selection lead a menu for a card outside the selection; the
   // card details' menu leaves Peek out. "Dependency tree"/"Dependency path" only
   // make sense against a single card — hidden whenever the menu's subject is
@@ -6018,7 +6038,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('contextmenu', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
-    if (!el) return;
+    if (!el) { openCanvasContextMenu(e); return; }
     openCardContextMenu(e, Number(el.dataset.id));
   });
   document.addEventListener('keydown', onCardOpenKey);
