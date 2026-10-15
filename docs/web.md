@@ -122,9 +122,11 @@ a dot, joined by its relations: a solid line from a parent to its child, a
 dashed arrow from a card to the card that waits for it. Three layouts, remembered
 per board, with **Tiers** first:
 
-- **Tiers** puts the roots at the centre and each depth on its own ring; a
-  root's tree gets its own sector, and cards with no parent and no children sit
-  on the outer ring.
+- **Tiers** draws a fan from the centre: a band for each tier of the board's
+  `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card
+  without a tier; each tree gets its own sector, loose cards with a tier share
+  one, and the other loose cards sit in an Unnested block outside the fan, a
+  column for each status.
 - **Force** pulls related cards together and rings the unrelated ones round the
   edge.
 - **Status** makes one ring per status, with the last column innermost (done,

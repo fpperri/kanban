@@ -317,6 +317,14 @@ test('the render passes the board\'s types list to the model', () => {
   assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\btypes: state\.types[^}]*\}\)/);
 });
 
+test('the render passes the board\'s hierarchy to the model, so a card is in the band of its tier', () => {
+  assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\bhierarchy: state\.hierarchy[^}]*\}\)/);
+});
+
+test('the Tiers button says what the layout draws: a band per tier, then a ring per depth', () => {
+  assert.match(src, /tiers: 'Tiers: a band per tier, then a ring per depth for the cards without a tier'/);
+});
+
 test('the dot rule paints a path as well as a circle: filled in the status colour, round-cornered when stroked', () => {
   const rule = css.match(/\.graph-dot \{[^}]*\}/);
   assert.ok(rule, '.graph-dot rule');
