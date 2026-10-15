@@ -828,12 +828,98 @@ function saveRollupBarMode() {
   catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
 }
 
-// One setting for every bar: a click on any bar flips it for the board and the open detail alike.
-function toggleRollupBar() {
-  rollupBarMode = nextRollupBar(loadRollupBarMode());
-  saveRollupBarMode();
+// Every roll-up repaints from its setting: the board's bars and tiles, and the
+// open card detail.
+function repaintRollups() {
   renderBoard();
   if (currentDetailId != null) renderDetailRollup(currentDetailId);
+}
+
+// One setting for every bar, with one setter: a click on any bar flips it
+// (toggleRollupBar) and the preferences sheet sets it to a named mode. Both
+// write the same stored choice, so they always agree.
+function setRollupBarMode(mode) {
+  rollupBarMode = mergeRollupBar(mode);
+  saveRollupBarMode();
+  repaintRollups();
+}
+
+function toggleRollupBar() {
+  setRollupBarMode(nextRollupBar(loadRollupBarMode()));
+}
+
+// The preferences sheet's other settings (prefs.js): what a plain click on a
+// card does in each view, and whether archived leaves count as done. One entry
+// per board, memoized like the choices above and dropped by applyProjectName.
+let prefsMemo = null;
+
+function prefsStorage() {
+  try { return localStorage; } catch (e) { return null; } // blocked storage throws on access
+}
+
+function loadPrefsState() {
+  if (!prefsMemo) prefsMemo = loadPrefs(prefsStorage(), state.projectName);
+  return prefsMemo;
+}
+
+function savePrefsState() {
+  savePrefs(prefsStorage(), state.projectName, loadPrefsState());
+}
+
+// Every roll-up call passes this: the Board tile, the Map's rich row and the
+// card detail with its scope line.
+function countArchivedLeaves() {
+  return loadPrefsState().archivedDone;
+}
+
+function setClickPref(view, value) {
+  prefsMemo = prefsWith(loadPrefsState(), { click: { [view]: value } });
+  savePrefsState();
+}
+
+function setArchivedDone(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { archivedDone: on });
+  savePrefsState();
+  repaintRollups();
+}
+
+// --- The preferences sheet, opened by the gear in the header. It lists the
+// settings above and the roll-up bar mode, and writes each to the browser the
+// moment it is chosen. It sits on the modal backdrop (so the poll pauses and
+// the Esc catch-all see it), Esc has its own line in the Esc handler, and the
+// key guard names it. Focus goes to its close button on open and back to the
+// gear on close; there is no Tab trap, like the other popups.
+function prefOptionOn(opt) {
+  if (opt.dataset.pref === 'bar') return loadRollupBarMode() === opt.dataset.value;
+  return loadPrefsState().click[opt.dataset.view] === opt.dataset.value;
+}
+
+function syncPrefsSheet() {
+  $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
+  $('#prefs-archived-done').checked = countArchivedLeaves();
+}
+
+function openPrefsSheet() {
+  syncPrefsSheet();
+  $('#prefs-sheet').classList.remove('hidden');
+  $('#prefs-btn').setAttribute('aria-expanded', 'true');
+  $('#prefs-close').focus();
+}
+
+function closePrefsSheet() {
+  $('#prefs-sheet').classList.add('hidden');
+  $('#prefs-btn').setAttribute('aria-expanded', 'false');
+  $('#prefs-btn').focus();
+}
+
+// A click on the backdrop outside the sheet closes it; one on a choice makes it.
+function onPrefsSheetClick(e) {
+  if (e.target.id === 'prefs-sheet') { closePrefsSheet(); return; }
+  const opt = e.target.closest('.prefs-opt');
+  if (!opt || opt.disabled) return;
+  if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
+  else setClickPref(opt.dataset.view, opt.dataset.value);
+  syncPrefsSheet();
 }
 
 // Cards are edited in place (optimistic drops), so the nesting index is rebuilt
@@ -852,7 +938,7 @@ function buildNestingIndex() {
 function parentTile(card) {
   const altitude = nestingIndex.altitudeOf(card.id);
   if (!altitude) return { badge: '', bar: '' };
-  const rollup = nestingIndex.rollup(card.id);
+  const rollup = nestingIndex.rollup(card.id, { countArchived: countArchivedLeaves() });
   return { badge: altitudeBadge(altitude), bar: rollupBar(rollup, loadRollupBarMode(), boardStatuses()) };
 }
 
@@ -1464,7 +1550,7 @@ function mapRichLayout(n, draw) {
   const type = card && card.type != null ? String(card.type).trim() : '';
   const alt = nestingIndex.altitudeOf(n.id);
   const mode = loadRollupBarMode();
-  const rollup = alt ? nestingIndex.rollup(n.id) : null;
+  const rollup = alt ? nestingIndex.rollup(n.id, { countArchived: countArchivedLeaves() }) : null;
   const hasBar = !!(rollup && rollup.total);
   const hasMeta = !!type || alt >= 1 || !!n.blocked;
   const barH = mode === ROLLUP_BAR_OPEN ? MAP_RICH_BAR_OPEN_H : MAP_RICH_BAR_THIN_H;
@@ -1716,6 +1802,7 @@ function applyProjectName(name) {
     modalFullscreen = null;
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
+    prefsMemo = null; // the preferences entry too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     ganttSubview = null; // gantt.subview too
@@ -2919,8 +3006,8 @@ function renderDetailRollup(id) {
     return;
   }
   const mode = loadRollupBarMode();
-  // Archived leaves always count as done, so the scope line always says so.
-  box.innerHTML = rollupDetailHtml(index.rollup(id), altitude, boardStatuses(), true, mode);
+  const countArchived = countArchivedLeaves();
+  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived, mode);
   box.classList.toggle('detail-rollup--collapsed', mode === ROLLUP_BAR_COLLAPSED);
   paintRollupBars(box);
   box.classList.remove('hidden');
@@ -3055,6 +3142,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
+    if (!$('#prefs-sheet').classList.contains('hidden')) { closePrefsSheet(); return; }
     if (!$('#detail-modal').classList.contains('hidden')) { closeCard(); return; }
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
@@ -5313,16 +5401,46 @@ function selectByClick(action, id) {
 // ctrl/cmd+click toggles one card and plants the range start; the first card
 // picked is the anchor and later ones are additions; a plain click breaks any
 // selection, then opens the card (or, in a view whose plain click selects,
-// makes it the anchor of a new selection). renderBoard() repaints whichever view
-// is active — board columns always, plus the active map/calendar/gantt.
+// makes it the anchor of a new selection); the second click of a double click in
+// such a view is a peek, which opens the card and leaves the selection alone.
+// renderBoard() repaints whichever view is active — board columns always, plus
+// the active map/calendar/gantt.
 function applyCardClick(action, id, cue) {
   if (action === 'cue') { searchByCue(cue, id); return; }
+  if (action === 'peek') { openCard(id); return; }
   const hadSelection = selectedIds.size > 0;
   selectByClick(action, id);
   if (action !== 'open') { renderBoard(); return; }
   if (hadSelection) renderBoard();
   openCard(id);
 }
+
+// Enter on a focused card opens it in a view whose plain click selects: the
+// Graph always, any other view when the preferences sheet says so.
+// cardOpenAction (selection.js) decides; the Graph keeps its own handler for the
+// key. It counts only on the card itself, since on a control inside it the key
+// belongs to the control. A double click is not here: it is the second click of
+// the card handler below, which carries the click count. A double click on a
+// card never reaches the Calendar's create gesture, which skips cards.
+function onCardOpenKey(e) {
+  if (e.key !== 'Enter' || e.repeat) return;
+  if (isDragging || ganttDrag || calTimeDrag) return;
+  const el = e.target.closest('.card-el');
+  if (!el || e.target.closest('.graph-node, button, select, input, a, .rollup')) return;
+  if (el !== e.target) return;
+  const action = cardOpenAction({
+    shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
+    plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click),
+  });
+  if (action !== 'open') return;
+  e.preventDefault();
+  openCard(Number(el.dataset.id));
+}
+
+// The click the card handler last carried out as a selection (a plain click that
+// selected a card, or the peek of a double click). The click-away rule below sees
+// the same click and must not drop what that click built or kept.
+let selectionGestureClick = null;
 
 // Q0: any plain click that isn't on a control marked data-keeps-selection
 // drops the multi-selection. Ctrl-, cmd- and shift-clicks build it. The marked
@@ -5335,6 +5453,7 @@ function applyCardClick(action, id, cue) {
 // Graph's controls. A control built by a render path must wear the marker.
 function onClickAway(e) {
   if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
+  if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
   setSelection(NO_SELECTION, null); // a dead selection must not leave an invisible range start behind
   renderBoard();
@@ -5692,8 +5811,9 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('button, select, input, a')) return;
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
     const view = loadViewMode();
-    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view), ranges: shiftAddsRange(view) });
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
     applyCardClick(action, Number(el.dataset.id), cue);
+    if (clickKeepsSelection(action)) selectionGestureClick = e;
   });
   // Right-click on any card-el opens the bulk menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page).
@@ -5705,6 +5825,13 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     openCardContextMenu(e, Number(el.dataset.id));
   });
+  document.addEventListener('keydown', onCardOpenKey);
+  // The preferences sheet: the gear opens it; its close button and a click on
+  // the backdrop close it, and so does Esc (its own line in the Esc handler).
+  $('#prefs-btn').addEventListener('click', openPrefsSheet);
+  $('#prefs-close').addEventListener('click', closePrefsSheet);
+  $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
+  $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
   // contextmenu grammar above) plus focusin/focusout so Tab reaches the

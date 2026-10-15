@@ -114,11 +114,16 @@ function dragPlan(ids, byId, dest, refusesDoingFn) {
 
 // What a plain click on a card does, per view: it opens the card, except in
 // the Graph, where a bare click selects (dragging a card makes a click a
-// selection gesture there). Anything the table does not name opens.
+// selection gesture there). The preferences sheet sets the other views one by
+// one; `choices` is its click map ({ board: 'opens' | 'selects', ... }). A view
+// the map leaves out, or fills with anything but 'selects', opens. The Graph
+// selects whatever the map says.
 const PLAIN_CLICK_SELECTS = { graph: true };
 
-function plainClickBehaviour(view) {
-  return Object.prototype.hasOwnProperty.call(PLAIN_CLICK_SELECTS, view) ? 'selects' : 'opens';
+function plainClickBehaviour(view, choices) {
+  if (Object.prototype.hasOwnProperty.call(PLAIN_CLICK_SELECTS, view)) return 'selects';
+  const own = choices && Object.prototype.hasOwnProperty.call(choices, view);
+  return own && choices[view] === 'selects' ? 'selects' : 'opens';
 }
 
 // Whether Shift+click adds a range of cards between the range start and the
@@ -136,13 +141,38 @@ function shiftAddsRange(view) {
 // the range start; Ctrl or Cmd toggles one card; a plain click does what the
 // view's plainClick says ('opens' or 'selects', from plainClickBehaviour).
 // `ranges` says whether Shift adds a range (shiftAddsRange(view)); where it does
-// not, Shift toggles one card as Ctrl does. Returns
-// 'cue' | 'range' | 'toggle' | 'select' | 'open'.
-function cardClickAction({ cue, shiftKey, ctrlKey, metaKey, plainClick, ranges = true }) {
+// not, Shift toggles one card as Ctrl does.
+//
+// A double click is its second click, so a view whose plain click selects opens
+// the card there: `detail` is the click count the browser puts on the click (2
+// for the second of a double click), and that click is a peek — the first click
+// already made the card the anchor, and the selection stays as it made it. The
+// page cannot wait for a double click event: the first click's repaint replaces
+// the card, and that event is aimed at the card that was replaced, so it never
+// reaches the document. Returns
+// 'cue' | 'range' | 'toggle' | 'select' | 'peek' | 'open'.
+function cardClickAction({ cue, shiftKey, ctrlKey, metaKey, plainClick, ranges = true, detail = 1 }) {
   if (cue) return 'cue';
   if (shiftKey) return ranges ? 'range' : 'toggle';
   if (ctrlKey || metaKey) return 'toggle';
-  return plainClick === 'selects' ? 'select' : 'open';
+  if (plainClick !== 'selects') return 'open';
+  return detail === 2 ? 'peek' : 'select';
+}
+
+// Enter on a focused card opens it where a plain click only selects it. Where a
+// plain click already opens the card, there is nothing to add, and a held Shift,
+// Ctrl or Cmd belongs to building a selection. Returns 'open' | 'none'.
+function cardOpenAction({ shiftKey, ctrlKey, metaKey, plainClick }) {
+  if (shiftKey || ctrlKey || metaKey) return 'none';
+  return plainClick === 'selects' ? 'open' : 'none';
+}
+
+// Whether a click the card grammar carried out left a selection standing that the
+// click-away rule must not drop: the card a plain click selected, and the
+// selection a peek left alone. Opening a card empties the selection itself, and a
+// click on a cue is left to the click-away rule as it always was.
+function clickKeepsSelection(action) {
+  return action === 'select' || action === 'peek';
 }
 
 // --- The selection: an anchor plus an ordered list of additions ---------------
@@ -276,7 +306,7 @@ function selectionAfterClick(action, id, { selection, resolved, rangeStart, orde
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, pruneSelectionParts, toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, pruneSelectionParts, toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.cardPart = cardPart;
@@ -300,6 +330,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.isHoverHighlighted = isHoverHighlighted;
   window.plainClickBehaviour = plainClickBehaviour;
   window.cardClickAction = cardClickAction;
+  window.cardOpenAction = cardOpenAction;
+  window.clickKeepsSelection = clickKeepsSelection;
   window.shiftAddsRange = shiftAddsRange;
   window.selectionAfterClick = selectionAfterClick;
 }
