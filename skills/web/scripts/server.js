@@ -275,7 +275,9 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           priorities: config.priorities,
           tags: config.tags,
           statuses: config.statuses, // ordered column list; [] = built-in four
-          types: config.types, // [{name, color}] card-type vocabulary; [] = none declared
+          types: config.types, // [{name, color}] card-type vocabulary, plus icon on an entry that sets one; [] = none declared
+          hierarchy: config.hierarchy, // type names, top tier first, as written; [] = none declared
+          pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
         });
       }
