@@ -194,6 +194,7 @@ function clickHarness() {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     ...require('../web/selection'),
     loadViewMode: () => 'board',
+    loadPrefsState: () => ({ click: {} }),
     state: { active: [], archived: [] },
     toggleRollupBar: () => { calls.toggle++; },
     openCard: (id) => { calls.open.push(id); },

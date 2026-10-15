@@ -5186,6 +5186,28 @@ function applyCardClick(action, id, cue) {
   openCard(id);
 }
 
+// A double click, or Enter on a focused card, opens it in a view whose plain
+// click selects: the Graph always, any other view when the preferences sheet
+// says so. cardOpenAction (selection.js) decides; the Graph keeps its own
+// handlers for both. Enter counts only on the card itself, since on a control
+// inside it the key belongs to the control. A double click on a card never
+// reaches the Calendar's create gesture, which skips cards.
+function onCardOpenGesture(e) {
+  if (isDragging || ganttDrag || calTimeDrag) return;
+  if (e.type === 'keydown' && (e.key !== 'Enter' || e.repeat)) return;
+  const el = e.target.closest('.card-el');
+  if (!el || e.target.closest('.graph-node, button, select, input, a, .rollup')) return;
+  if (e.type === 'keydown' && el !== e.target) return;
+  const action = cardOpenAction({
+    cue: !!e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill'),
+    shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
+    plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click),
+  });
+  if (action !== 'open') return;
+  if (e.type === 'keydown') e.preventDefault();
+  openCard(Number(el.dataset.id));
+}
+
 // Q0: any plain click that isn't on a control marked data-keeps-selection
 // drops the multi-selection. Ctrl-, cmd- and shift-clicks build it. The marked
 // controls are the ones that must not wipe a building selection: the context
@@ -5553,7 +5575,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     if (e.target.closest('button, select, input, a')) return;
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
-    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(loadViewMode()) });
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click) });
     applyCardClick(action, Number(el.dataset.id), cue);
   });
   // Right-click on any card-el opens the bulk menu; anywhere else keeps the
@@ -5566,6 +5588,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     openCardContextMenu(e, Number(el.dataset.id));
   });
+  document.addEventListener('dblclick', onCardOpenGesture);
+  document.addEventListener('keydown', onCardOpenGesture);
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
   // contextmenu grammar above) plus focusin/focusout so Tab reaches the

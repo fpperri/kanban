@@ -285,7 +285,7 @@ test('a choice made for one view changes only that view\'s plain click', () => {
 // --- a double click, or Enter on a focused card, opens it where a plain click only selects.
 
 const { cardOpenAction } = require('../web/selection');
-const open = (extra, plainClick) => cardOpenAction({ shiftKey: false, ctrlKey: false, metaKey: false, plainClick, ...extra });
+const open = (extra, plainClick) => cardOpenAction({ cue: false, shiftKey: false, ctrlKey: false, metaKey: false, plainClick, ...extra });
 
 test('a double click or Enter opens the card in a view whose plain click selects', () => {
   assert.strictEqual(open({}, 'selects'), 'open');
@@ -293,6 +293,11 @@ test('a double click or Enter opens the card in a view whose plain click selects
 
 test('in a view whose plain click already opens the card, a double click or Enter adds nothing', () => {
   assert.strictEqual(open({}, 'opens'), 'none');
+});
+
+test('a double click on a cue stays a search shortcut and opens nothing', () => {
+  assert.strictEqual(open({ cue: true }, 'selects'), 'none');
+  assert.strictEqual(open({ cue: true }, 'opens'), 'none');
 });
 
 test('a double click or Enter with Shift, Ctrl or Cmd held is part of building a selection and opens nothing', () => {

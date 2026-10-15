@@ -126,7 +126,7 @@ const CARDS = [
   { id: 3, assignee: '@human', status: 'doing' },
 ];
 
-function clickSandbox({ view = 'board', selected = [], rangeStart = null, order = [1, 2, 3] } = {}) {
+function clickSandbox({ view = 'board', selected = [], rangeStart = null, order = [1, 2, 3], click = {} } = {}) {
   const calls = { open: [], render: 0, terms: [] };
   const listeners = [];
   const sandbox = {
@@ -134,6 +134,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     ...require('../web/selection'),
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
+    loadPrefsState: () => ({ click }),
     visibleCardIds: () => order,
     openCard: (id) => { calls.open.push(id); },
     renderBoard: () => { calls.render++; },
@@ -184,6 +185,31 @@ test('a plain click in a view whose plain click selects selects that card alone,
   s.click(cardEvent(3));
   assert.deepStrictEqual(s.calls.open, []);
   assert.deepStrictEqual(s.state(), { ids: [3], rangeStart: 3 });
+});
+
+test('a view the preferences set to selects selects the card alone on a plain click, and opens nothing', () => {
+  for (const view of ['board', 'map', 'gantt', 'calendar']) {
+    const s = clickSandbox({ view, selected: [1], rangeStart: 1, click: { [view]: 'selects' } });
+    s.click(cardEvent(3));
+    assert.deepStrictEqual(s.calls.open, [], view);
+    assert.deepStrictEqual(s.state(), { ids: [3], rangeStart: 3 }, view);
+    assert.strictEqual(s.calls.render, 1, `${view}: the view repaints with the card selected`);
+  }
+});
+
+test('a choice made for one view leaves a plain click in the others opening the card', () => {
+  const s = clickSandbox({ view: 'map', click: { board: 'selects', gantt: 'selects', calendar: 'selects' } });
+  s.click(cardEvent(2));
+  assert.deepStrictEqual(s.calls.open, [2]);
+});
+
+test('in a view set to selects, Ctrl, Cmd and Shift click still build the selection as they do everywhere', () => {
+  const s = clickSandbox({ view: 'board', selected: [1], rangeStart: 1, order: [1, 2, 3], click: { board: 'selects' } });
+  s.click(cardEvent(2, { ctrlKey: true }));
+  assert.deepStrictEqual(s.state(), { ids: [1, 2], rangeStart: 2 });
+  s.click(cardEvent(3, { shiftKey: true }));
+  assert.deepStrictEqual(s.state(), { ids: [1, 2, 3], rangeStart: 2 });
+  assert.deepStrictEqual(s.calls.open, []);
 });
 
 test('Ctrl and Cmd click toggle one card and plant the range start on it', () => {
@@ -238,7 +264,7 @@ test('the assignee cue of a card with no assignee adds nothing', () => {
 
 test('the handler reads the view\'s plain-click behaviour from the lookup and the decision from the pure function, deciding nothing itself', () => {
   const body = clickHandler();
-  assert.match(body, /plainClick: plainClickBehaviour\(loadViewMode\(\)\)/);
+  assert.match(body, /plainClick: plainClickBehaviour\(loadViewMode\(\), loadPrefsState\(\)\.click\)/);
   assert.match(body, /cardClickAction\(/);
   assert.match(body, /applyCardClick\(/);
   assert.doesNotMatch(body, /selectedIds|rangeSelection|toggleSelection|setSelection|openCard\(/, 'the handler carries the decision out through applyCardClick and touches no selection state');

@@ -141,10 +141,11 @@ function cardClickAction({ cue, shiftKey, ctrlKey, metaKey, plainClick }) {
 
 // A double click, or Enter on a focused card, opens it where a plain click only
 // selects it. Where a plain click already opens the card, there is nothing to
-// add; a held Shift, Ctrl or Cmd belongs to building a selection. Returns
-// 'open' | 'none'.
-function cardOpenAction({ shiftKey, ctrlKey, metaKey, plainClick }) {
-  if (shiftKey || ctrlKey || metaKey) return 'none';
+// add; a held Shift, Ctrl or Cmd belongs to building a selection, and a cue
+// (the assignee, a tag, a blocked or review pill) stays a search shortcut.
+// Returns 'open' | 'none'.
+function cardOpenAction({ cue, shiftKey, ctrlKey, metaKey, plainClick }) {
+  if (cue || shiftKey || ctrlKey || metaKey) return 'none';
   return plainClick === 'selects' ? 'open' : 'none';
 }
 
