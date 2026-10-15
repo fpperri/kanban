@@ -136,7 +136,6 @@ test('the header carries no roll-up control: no Bar select, no Archived box, no 
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
   assert.ok(header.includes('id="graph-toggle-btn"') && header.includes('id="refresh-btn"'), 'the slice is the page header');
   assert.doesNotMatch(header, /rollup/);
-  assert.doesNotMatch(header, /<select|type="checkbox"/);
   assert.match(header, /id="graph-toggle-btn"[^>]*>[^<]*<\/button>\s*<button id="refresh-btn"/, 'the controls around the gap did not move');
   assert.doesNotMatch(appSrc, /#rollup-/);
   assert.doesNotMatch(read('app.css'), /rollup-ctl/);

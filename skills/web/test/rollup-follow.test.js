@@ -71,7 +71,7 @@ function detailSandbox({ mode, detailId = null, archivedKey, archivedLeaves = []
 
 // --- the detail follows the shared bar mode -------------------------------------------
 
-test('with Bar collapsed the detail shows the thin bar without numbers', () => {
+test('with the bar mode collapsed the detail shows the thin bar without numbers', () => {
   const s = detailSandbox({ mode: 'collapsed' });
   s.renderDetailRollup(1);
   assert.match(s.box.innerHTML, /rollup-bar thin/);
@@ -80,7 +80,7 @@ test('with Bar collapsed the detail shows the thin bar without numbers', () => {
   assert.strictEqual(s.box.classList.contains('detail-rollup--collapsed'), true);
 });
 
-test('with Bar open the detail shows the bar and its numbers', () => {
+test('with the bar mode open the detail shows the bar and its numbers', () => {
   const s = detailSandbox({ mode: 'open' });
   s.renderDetailRollup(1);
   assert.match(s.box.innerHTML, /<div class="rollup-bar">/);

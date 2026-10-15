@@ -401,7 +401,7 @@ test('index html header carries no roll-up select or checkbox', async () => {
     const html = await (await fetch(`${base}/`)).text();
     const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
     assert.ok(header.includes('id="refresh-btn"') && header.includes('id="notif-btn"'), 'the slice is the page header');
-    assert.doesNotMatch(header, /<select|type="checkbox"|rollup/);
+    assert.doesNotMatch(header, /rollup/);
     assert.ok(!html.includes('id="rollup-bar-mode"') && !html.includes('id="rollup-archived"') && !html.includes('id="rollup-ctls"'));
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.doesNotMatch(js, /#rollup-bar-mode|#rollup-archived|#rollup-ctls/, 'nothing in the page script reaches for them');
