@@ -101,6 +101,10 @@ _Avoid_: ladder, cascade, type order (the `types:` list has none).
 A card's place in the hierarchy, read from its type: the first type listed is tier 1. A card whose type is not in the hierarchy, or that has no type, has no tier. Never stored, never checked against nesting.
 _Avoid_: level, rung, band (how the Graph draws a tier), altitude (that counts layers below).
 
+**Slice** (derived):
+One place on a board's single top-to-bottom axis: each tier of the hierarchy in order, then each depth for the cards without a tier. Every card is in exactly one slice, so an epic and a plain card at depth 0 are in different slices once epic is in the hierarchy. On a board with no hierarchy the slices are the depths. A view can be cut to a run of slices.
+_Avoid_: rung, layer, band, cut.
+
 **Rank** (via **rank**):
 Where a card sits among its siblings, as a number stepped by 10 so a card can be slotted between two others without renumbering. Separate from priority: priority is how much a card matters, rank is where it sits in the list.
 _Avoid_: order (as a field), position, sort key, priority.
