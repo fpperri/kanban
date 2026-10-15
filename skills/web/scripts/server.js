@@ -218,7 +218,28 @@ function boardName(dir, config) {
   return config.name || cs.projectName(dir);
 }
 
-function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null) {
+// The page names every file it loads (the scripts, the stylesheet, the tab
+// icon) and the server serves those files and no others: one list, so adding a
+// module takes its tag in app.html and nothing here. Only plain top-level
+// names count (no subfolder, no other origin), and a tag inside a comment is
+// not a tag.
+function pageFiles(html) {
+  const live = String(html).replace(/<!--[\s\S]*?-->/g, '');
+  const names = [];
+  for (const m of live.matchAll(/<(?:script|link)\b[^>]*?\s(?:src|href)="\/([\w.-]+)"/g)) {
+    if (/^\.+$/.test(m[1]) || names.includes(m[1])) continue;
+    names.push(m[1]);
+  }
+  return names;
+}
+
+// Read per request, like the files themselves (no-store): a page edited under
+// a running server is served as it now reads.
+function pageServes(webDir, name) {
+  try { return pageFiles(fs.readFileSync(path.join(webDir, 'app.html'), 'utf8')).includes(name); } catch (_) { return false; }
+}
+
+function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webDir = WEB) {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const p = url.pathname;
@@ -258,9 +279,9 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null) {
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
         });
       }
-      if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(WEB, 'app.html'));
-      if (req.method === 'GET' && (p === '/app.css' || p === '/app.js' || p === '/refresh-policy.js' || p === '/column-state.js' || p === '/column-sort.js' || p === '/search.js' || p === '/waiting-blocked.js' || p === '/dependency-graph.js' || p === '/map-relations.js' || p === '/nesting.js' || p === '/map-zoom.js' || p === '/modal-fullscreen.js' || p === '/assignee-badge.js' || p === '/priority-badge.js' || p === '/type-badge.js' || p === '/rollup-bar.js' || p === '/card-title.js' || p === '/combobox.js' || p === '/bulk-edit.js' || p === '/prose.js' || p === '/notifications.js' || p === '/form-guard.js' || p === '/selection.js' || p === '/calendar-model.js' || p === '/gantt-model.js' || p === '/graph-model.js' || p === '/graph-view.js' || p === '/date-picker.js' || p === '/status-colors.js' || p === '/save-hotkey.js' || p === '/search-hotkey.js' || p === '/assignee-colors.js' || p === '/deep-link.js' || p === '/card-history.js' || p === '/favicon.svg')) {
-        return serveStatic(res, path.join(WEB, path.basename(p)));
+      if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
+      if (req.method === 'GET' && /^\/[\w.-]+$/.test(p) && pageServes(webDir, p.slice(1))) {
+        return serveStatic(res, path.join(webDir, p.slice(1)));
       }
 
       // notifications: the file protocol's app-side mutations
@@ -456,6 +477,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  createServer, start, originAllowed, resolveDefaultBoardDir,
+  createServer, start, originAllowed, resolveDefaultBoardDir, pageFiles,
   parseAllowedOrigins, extractAllowOriginArgs, resolvePort, parseHomeUrl, extractHomeUrlArg,
 };
