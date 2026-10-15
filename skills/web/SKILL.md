@@ -304,10 +304,28 @@ to `127.0.0.1` only.
   `tree:<id>`/`path:<id>` are dependency focus, `#` optional (`tree:74` = `tree:#74`) —
   grammar in the Dependency map section; bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
-  string) rather than silently matching nothing on a typo'd field name. An autocomplete
-  dropdown completes the last segment being typed — the bare term plus every
-  field-scoped form of it; nothing is offered once the segment carries a colon, and
-  `tree:`/`path:` are excluded (they take a card id, not free text).
+  string) rather than silently matching nothing on a typo'd field name. Four more forms,
+  one example each: `|` is or and a space binds tighter, so `tags:ui status:doing | #12`
+  is ui and doing, or card 12; round brackets group and can nest, so
+  `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo (a bracket is
+  optional, and `(draft)` finds what `draft` finds); a quoted value matches the whole
+  value, ignoring case, or any one element of a list, so `tags:"grill"` finds a card
+  tagged grill and not one tagged grilling, a quoted `title:` or `body:` matches the
+  whole field, and quoted text with no scope is a phrase in a title, body or tag, so
+  `"two words"` does not find the words apart; and a bare `waiting:` finds the cards
+  waiting for at least one card that is not done (a dangling id never makes a card
+  waiting), the way `blocked:` and `review:` find their stickers. A `|` counts only as a
+  token of its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay
+  literal text, and so does `waiting:3`. Half-typed input never throws: an unclosed quote
+  or bracket reads to the end, a stray closing bracket is ignored, and an empty
+  alternative is dropped, so `tags:ui |` finds what `tags:ui` finds and never every card.
+  A click on a card's assignee, tag, blocked or review cue adds its term to every
+  alternative of what the box holds (a value with spaces is written quoted). An
+  autocomplete dropdown completes the token under the caret, inside brackets, inside
+  quotes and after a `|` — the bare term plus every field-scoped form of it; nothing is
+  offered once the token carries a colon, and `tree:`/`path:` are excluded (they take a
+  card id, not free text). The leading `#` that Ctrl+F prefills stays while the box holds
+  one id being typed, and through a query such as `#12 | #14`.
 - **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
   date, due date, type, description). Dependencies and impediments are separate inputs:

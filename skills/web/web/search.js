@@ -4,7 +4,29 @@
 // plain <script> in the browser (app.js calls these as bare globals) AND required
 // directly by node --test.
 //
-// Syntax (space-separated terms AND together; each prefix binds to its own term):
+// Syntax (space-separated terms AND together; each prefix binds to its own term).
+// Grammar around the terms, lexed by lexSearch and parsed by parseSearchAlts:
+//   a | b         or: `|` binds looser than a space, so `tags:ui status:doing | #12`
+//                 is (ui and doing) or card 12. The parse of an or is one term,
+//                 { field: 'or', alts: [[term, ...], ...] }; a query with no or
+//                 is the same flat list of terms as before. An empty alternative
+//                 (a trailing `|`, `a | status:`) is dropped, never every card.
+//   ( a | b )     round brackets group and nest. A bracket holding no or is spliced
+//                 into the terms around it, so `(draft)` parses as `draft`.
+//   "two words"   quotes: with no scope a phrase, matched like bare text; after a
+//                 scope (`tags:"grill"`) the whole value, ignoring case, or any one
+//                 element of a list, and for title:/body: the whole field. A scoped
+//                 quoted term carries `exact: true`.
+//   waiting:      bare only: the card waits for at least one card that is not done.
+//                 A value (`waiting:3`) is literal text.
+// `|` counts only as a token of its own and brackets only at a token's edge, so
+// `a|b` and `fix(auth)` stay literal; a quote opens only at the start of a token
+// or after a scope's colon. Nothing here throws on half-typed input: an unclosed
+// quote or bracket reads to the end, a stray closing bracket is ignored.
+// searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
+// interface for code that writes the box.
+//
+// The terms:
 //   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
 //   title:foo     substring on title
 //   body:foo      substring on markdown body
