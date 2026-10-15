@@ -16,6 +16,9 @@
 // Chrome: found automatically; set CHROME_PATH to override or to point at a
 //         browser in a non-standard place. Chrome keeps its sandbox; set
 //         KANBAN_BROWSER_NO_SANDBOX=1 where the system refuses it (CI).
+//         A Chrome that stays up without listing a page in 20s is ended and started
+//         once more on a new port and profile; the error says what its port answered
+//         and what it printed.
 // --only  runs those scenarios alone; --reverse runs them last to first, which
 //         gives the same results; --list prints the names.
 // --shots saves a screenshot per step, and one for each scenario that fails.
@@ -34,7 +37,7 @@ const net = require('net');
 const path = require('path');
 const {
   EXIT, DEFAULT_TIMEOUT_MS, parseArgs, selectScenarios, chromeArgs, createRegistry, runScenarios, withFault,
-  exitCodeFor, summaryLines, boardsOf, sleep,
+  exitCodeFor, summaryLines, boardsOf, sleep, startChromeUntilPage,
 } = require('./harness');
 const { connectCdp, createBrowserEnv } = require('./cdp');
 const { BOARDS, materialize } = require('./boards');
@@ -113,17 +116,16 @@ async function startServer(key, boardDir, port) {
   return base;
 }
 
-async function startChrome(chrome, cdpPort, profileDir) {
-  const rec = registry.spawn('chrome', chrome, chromeArgs({ cdpPort, profileDir }));
-  let page = null;
-  await waitUntil(async () => {
-    if (exited(rec)) throw new Error(`Chrome exited early: ${rec.out}`);
-    try {
-      const targets = await (await fetch(`http://127.0.0.1:${cdpPort}/json`, { signal: AbortSignal.timeout(2000) })).json();
-      page = targets.find((t) => t.type === 'page');
-    } catch (e) { return false; }
-    return !!page;
-  }, 20000, 'Chrome to expose a page target');
+// Each start gets a debug port and a profile of its own, chosen when it starts, so a
+// second start after a Chrome that never listed a page cannot meet what held the first.
+async function startChrome(chrome, root) {
+  const { rec, page } = await startChromeUntilPage({
+    launch: async (n) => {
+      const [port] = await freePorts(1);
+      const rec = registry.spawn(n === 1 ? 'chrome' : `chrome-${n}`, chrome, chromeArgs({ cdpPort: port, profileDir: path.join(root, `profile-${n}`) }));
+      return { rec, port };
+    },
+  });
   const cdp = await connectCdp(page.webSocketDebuggerUrl);
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
@@ -147,7 +149,7 @@ async function main(argv) {
   if (args.shots) fs.mkdirSync(args.shots, { recursive: true });
 
   const keys = [...new Set(picked.flatMap(boardsOf))];
-  const [cdpPort, ...boardPorts] = await freePorts(1 + keys.length);
+  const boardPorts = await freePorts(keys.length);
   registry = createRegistry();
   const root = registry.tmpDir('kanban-browser-');
   const dirs = {};
@@ -159,7 +161,7 @@ async function main(argv) {
     materialize(key, dirs[key], { port: ports[key] });
     boards[key] = { base: await startServer(key, dirs[key], ports[key]) };
   }
-  const { rec: chromeRec, cdp } = await startChrome(chrome, cdpPort, path.join(root, 'profile'));
+  const { rec: chromeRec, cdp } = await startChrome(chrome, root);
 
   const env = createBrowserEnv({
     cdp, boards, shotsDir: args.shots, chromeExited: chromeRec.exited,
