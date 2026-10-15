@@ -156,8 +156,7 @@ module.exports = {
     const opened = await waitFor(`/card=\\d+/.test(location.search)`, 2500);
     check('double click opens the card (URL gains card=)', opened, await ev(`location.search`));
     await shot('detail-open');
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await page.key('Escape');
     await waitFor(`!/card=\\d+/.test(location.search)`, 2000);
     await click(bg.x, bg.y);
     check('clicking empty canvas clears the selection', await waitFor(`selectedIds.size===0`));

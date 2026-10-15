@@ -172,7 +172,7 @@ async function main(argv) {
       const page = await begin(sc, ctx);
       if (!armed) {
         armed = true;
-        setTimeout(() => process.kill(chromeRec.child.pid, 'SIGKILL'), KILL_CHROME_AFTER_MS);
+        setTimeout(() => { try { process.kill(chromeRec.child.pid, 'SIGKILL'); } catch (e) { /* already gone */ } }, KILL_CHROME_AFTER_MS);
       }
       return page;
     };

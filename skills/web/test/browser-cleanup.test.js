@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -15,8 +15,13 @@ const SLEEPER = ['-e', 'setInterval(() => {}, 1000)'];
 const started = (rec) => new Promise((resolve, reject) => { rec.child.once('spawn', resolve); rec.child.once('error', reject); });
 const quiet = { timeoutMs: 10000, log: () => {} };
 
+// A test that fails halfway must not leave its stand-ins running, or the test run never ends.
+const registries = [];
+after(() => { for (const r of registries) r.cleanupSync(); });
+
 function fixtureRegistry() {
   const reg = createRegistry();
+  registries.push(reg);
   const root = reg.tmpDir('kanban-browser-test-');
   fs.mkdirSync(path.join(root, 'board'));
   fs.writeFileSync(path.join(root, 'board', '0001.card.md'), 'a temporary board copy');

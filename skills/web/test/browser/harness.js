@@ -3,9 +3,12 @@
 // from the scenarios so it can be unit tested without a browser (see
 // skills/web/test/browser-harness.test.js and its two siblings).
 //
-//   command line   parseArgs, selectScenarios
-//   Chrome         findChrome, chromeArgs
+//   command line   parseArgs, selectScenarios, withFault
+//   Chrome         chromeArgs (the sandbox switch)
 //   input          keyEvents, contextMenuExpr
+//   processes      createRegistry: what a run starts, and ending all of it
+//   the loop       runScenarios: a timeout and a console-error check for each
+//                  scenario, and whatever happens to one recorded under its name
 //
 // No dependencies; needs Node >= 22 (global fetch and WebSocket).
 
