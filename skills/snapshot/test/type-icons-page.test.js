@@ -123,7 +123,7 @@ describe('a chip with no icon', () => {
   ].join('\n');
   const ROWS = [[1, 'plain'], [2, 'blobbed'], [3, 'bare'], [4, 'saga'], [5, 'starred'], [6, 'Plain'], [7, '"two words"']];
 
-  test('with no icon, an unknown icon name, no entry or no list at all, it is the chip it was before icons, to the last attribute', () => {
+  test('with no icon, an unknown icon name, no entry or no list at all, it draws the plain chip, to the last attribute', () => {
     open(board(CONFIG, ROWS), (page) => {
       assert.deepStrictEqual(shapeOf(chipOf(tile(page, 1))), plainChip('plain', 'red'));
       assert.deepStrictEqual(shapeOf(chipOf(tile(page, 2))), plainChip('blobbed', 'red'));

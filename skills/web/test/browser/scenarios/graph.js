@@ -1,10 +1,8 @@
 'use strict';
 // The Graph view on the fixture board, which has no hierarchy: layouts,
-// pan/zoom, selection, force drag, search, reload. These are the checks the
-// runner made before it had scenarios, moved as they were; the console-error
-// check that used to close them now closes every scenario. A card's dot is
-// found by its class, so a later dot that is not a circle cannot fail a check
-// for the wrong reason.
+// pan/zoom, selection, force drag, search, reload. A card's dot is found by
+// its class, so a later dot that is not a circle cannot fail a check for the
+// wrong reason.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // selectedIds, isDragging, hoveredId, graphCur, graphNeighbours, autoRefreshTick, renderGraphView.

@@ -537,7 +537,7 @@ to `127.0.0.1` only.
   colour (the glyph is plain text inside the chip, so it takes the colour the chip is
   painted), wherever a chip is drawn: Board and Archive tiles, the Map's rich rows and the
   card details. Calendar and Gantt draw no chip, so they show none. A type with no icon, or
-  an unknown icon name, is the chip it was before icons. The six glyphs live in their own
+  an unknown icon name, draws the plain chip: its name alone. The six glyphs live in their own
   module, `type-icons.js`, which has no dependencies and loads before the type chip and the
   Graph.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text

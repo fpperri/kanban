@@ -2,10 +2,9 @@
 // The search box on the Board, on the fixture board: each way of writing the box
 // (typing, the clear button, a cue click, a ?q= link) changes the box and the
 // cards the columns show; Path from a card's menu adds to the selection and
-// leaves the box and the columns alone. These are the checks the runner made
-// before the Graph's, moved as they were except Path, which no longer writes the
-// box; the card menu is opened by the runner's right-click helper. The sets are the fixture's own: 18 live cards,
-// all assigned to @human, card 9 blocked, card 10 awaiting review, and card 4's
+// leaves the box and the columns alone. The card menu is opened by the runner's
+// right-click helper. The sets are the fixture's own: 18 live cards, all
+// assigned to @human, card 9 blocked, card 10 awaiting review, and card 4's
 // dependency path is 1, 3, 4.
 
 module.exports = {

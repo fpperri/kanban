@@ -1287,7 +1287,7 @@ const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
 return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
 // Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
-// A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, is the chip it was before icons.
+// A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, draws the plain chip: its name alone.
 function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
 const g=typeIconGlyph(typeIconOf(t,TYPES));
 const s=el("span","type-chip",g?undefined:t);s.title=t;

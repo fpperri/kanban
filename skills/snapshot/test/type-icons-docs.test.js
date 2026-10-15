@@ -29,8 +29,8 @@ test('the skill\'s type chip bullet says a type with an icon starts its chip wit
   for (const name of ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star']) assert.ok(chips.includes(name), `${name} is named`);
 });
 
-test('the skill\'s type chip bullet says a type with no icon, or an unknown icon name, wears the chip it always wore', () => {
-  assert.match(bullet('**Type chips.**'), /no icon, or an unknown icon name, wears the chip it always wore/);
+test('the skill\'s type chip bullet says a type with no icon, or an unknown icon name, draws the plain chip', () => {
+  assert.match(bullet('**Type chips.**'), /no icon, or an unknown icon name, draws the plain chip: its name alone/);
 });
 
 test('the skill says the glyphs are the web skill\'s own module, embedded as is and pinned by an embed test', () => {

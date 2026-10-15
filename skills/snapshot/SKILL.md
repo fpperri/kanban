@@ -283,8 +283,8 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
   the entry has no color or the list does not name the type at all. A type whose
   entry sets an `icon:` (circle, square, diamond, triangle, hexagon or star, in any
   case) starts its chip with that glyph, in the chip's own color, wherever the page
-  draws the chip; a type with no icon, or an unknown icon name, wears the chip it
-  always wore. The glyphs are kanban-web's own `skills/web/web/type-icons.js`,
+  draws the chip; a type with no icon, or an unknown icon name, draws the plain chip:
+  its name alone. The glyphs are kanban-web's own `skills/web/web/type-icons.js`,
   embedded as is (`test/type-icons-embed.test.js` pins it to that file), and never
   the web's type chip module, whose two-argument color function would replace the
   page's own. The page also holds the board's `pills:` entries, a label and a query
