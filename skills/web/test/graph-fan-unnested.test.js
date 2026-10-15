@@ -200,10 +200,10 @@ test('depth 0 draws them on one ring just outside the tier bands and inside dept
   }
 });
 
-test('depth 0 captions the ring as depth 0 does: roots, with the cards of the ring counted in its tip, and no Unnested block', () => {
+test('depth 0 captions the ring as depth 0 does: depth 0, with the cards of the ring counted in its tip, and no Unnested block', () => {
   const m = drawnModel(loadBoard('plan'));
   const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: 'depth 0' });
-  const cap = l.captions.find((c) => c.name === 'roots');
+  const cap = l.captions.find((c) => c.name === 'depth 0');
   assert.strictEqual(cap.count, PLAN_UNNESTED.length);
   assert.deepStrictEqual(cap.split, [['backlog', 4], ['todo', 4], ['doing', 2], ['done', 3]]);
   assert.strictEqual(cap.term, 'slice:0');
@@ -389,10 +389,10 @@ test('outermost draws the relations of the cards on the ring as it draws every r
   for (const l of plan.links) assert.ok(!/NaN|undefined|Infinity/.test(l.d), `${l.from} to ${l.to}`);
 });
 
-test('depth 0 and table draw the loose caption beside what they always did, and the caption of the ring is the depth 0 band\'s, roots', () => {
+test('depth 0 and table draw the loose caption beside what they always did, and the caption of the ring is the depth 0 band\'s, depth 0', () => {
   const m = drawnModel(loadBoard('plan'));
   const depth = planFor('depth 0', m);
-  assert.deepStrictEqual(depth.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'roots', 'depth 1', 'depth 2', 'depth 4', 'depth 5']);
+  assert.deepStrictEqual(depth.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1', 'depth 2', 'depth 4', 'depth 5']);
   assert.strictEqual(depth.block, null);
   assert.ok(depth.dividers.length > planFor('table', m).dividers.length, 'the unnested sector is parted from its neighbour, one divider more');
   assert.ok(depth.looseCaption && depth.looseCaption.name === 'Unnested, with a tier');

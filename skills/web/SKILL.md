@@ -321,9 +321,9 @@ to `127.0.0.1` only.
   waiting for at least one card that is not done (a dangling id never makes a card
   waiting), the way `blocked:` and `review:` find their stickers; and
   `slice:<top>..<bottom>` cuts every view to a run of slices, so `slice:objective..2`
-  keeps the cards from the objective tier down to depth 2. A `|` counts only as a
-  token of its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay
-  literal text, and so does `waiting:3`. The slices are the board's tiers (the
+  keeps the cards from the objective tier down to depth 2. A `|` and a
+  bracket count only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so
+  does `waiting:3`, while `blocked: |review:` means `blocked: | review:`. The slices are the board's tiers (the
   `hierarchy:` types, top first), then the depths of the cards with no tier (parents
   above, a root is 0), and an end is a tier name in any letter case or a depth number.
   `slice:goal` is that one slice, `slice:goal..` and `slice:..objective` leave an end
@@ -537,7 +537,7 @@ to `127.0.0.1` only.
   colour (the glyph is plain text inside the chip, so it takes the colour the chip is
   painted), wherever a chip is drawn: Board and Archive tiles, the Map's rich rows and the
   card details. Calendar and Gantt draw no chip, so they show none. A type with no icon, or
-  an unknown icon name, is the chip it was before icons. The six glyphs live in their own
+  an unknown icon name, draws the plain chip: its name alone. The six glyphs live in their own
   module, `type-icons.js`, which has no dependencies and loads before the type chip and the
   Graph.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
@@ -676,7 +676,8 @@ to `127.0.0.1` only.
   is when Apply is pressed. **Dependency tree**/
   **Dependency path** add the card's tree or path to the selection as one part: the cards it
   reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
-  with the rest. They no longer write the search box, which is left as it was; a typed
+  with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
+  card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
   names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
@@ -695,10 +696,10 @@ to `127.0.0.1` only.
   the Graph), so its chip goes off. The page reads a double click as the second click of a
   pair (the click's count, 2), never as a `dblclick` event, because the first click's
   repaint can replace the element under the pointer. Empty space is anywhere but a card or a
-  Graph dot, a button, link, text field or select, a popup or the card menu, or a control
+  Graph dot, a caption of the tier fan, a button, link, text field or select, a popup or the card menu, or a control
   wearing the `data-keeps-selection` marker (the menu, the popups, the view toggles, the
-  status pills and fold toggles, the roll-up bars and the Graph's controls do), so the
-  selection **survives switching views**, and it survives the poll. A double click held with
+  status pills and fold toggles, the roll-up bars and the Graph's controls do). The
+  selection survives switching views and it survives the poll. A double click held with
   Shift, Ctrl or Cmd builds a selection and never clears one. Where a double click on empty
   space already means something, that meaning stands and the selection stays: the Calendar's
   day cells and time-grid columns start a new card (see **Click-to-create**). Esc stays the
@@ -713,13 +714,19 @@ to `127.0.0.1` only.
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
   closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection, and away from the box Esc no longer clears it (while isolated, Esc in the box turns
+  selection (in the Graph, where a typed search is the anchor, clearing the box takes the anchor
+  and the additions with it), and away from the box Esc no longer clears it (while isolated, Esc in the box turns
   isolate off instead of clearing it). An open search panel takes
   Esc before the step and closes (a suggestion list closes before the panel), and a pill
   the step drops, the added ones first and then the anchor's, goes out of the box with it,
   so a box grown to `review: | blocked:` is back at `review:` after the first Esc and
   empty after the next; any other text in the box stays, and clearing the box with Esc
-  in it turns off the pills it held. Bulk targets are fixed when an
+  in it turns off the pills it held. A plain click on a card outside the Graph does the
+  same to the pills the selection held: one that opens the card empties the selection, and one that
+  selects the card replaces it, and either way the pills go off and their queries out of the
+  box (not while isolated, when the box holds the isolate text). A Ctrl-click that takes out
+  a card a pill lit turns the pill into its other cards and leaves the box, so the view does not
+  widen under the click. Bulk targets are fixed when an
   action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
   delete and drag) takes its list of target cards once, when it starts, from the selection
   as it resolves then, so writes, repaints and polls during the action never change the
@@ -774,7 +781,10 @@ to `127.0.0.1` only.
   in the box; a right-click on the soloed pill turns every pill off, the pills' default
   (the status pills' default is all on, so theirs turns all back on). The first pill on
   is the **anchor** of the selection and later ones are additions, so Esc takes the later
-  pills out first and then the anchor. The `m` key steps through the pills: each press
+  pills out first and then the anchor. When the anchor is a card, path or tree you picked and
+  the box is empty, a click on a pill leaves the box empty, since an empty box hides nothing:
+  the pill is on and its matches are selected, but its query is not in the box or the address,
+  and typing in the box drops it. The `m` key steps through the pills: each press
   turns on the next pill alone, as a right-click does, so the box holds its query alone, in
   the panel's order: off, blocked, review, waiting, then the board's own pills, then off
   again (that last step is the right-click on the soloed pill, every pill off). Shift+m
@@ -787,10 +797,13 @@ to `127.0.0.1` only.
   on while its query is the anchor or an
   addition, and is announced as pressed (`aria-pressed`); typing in the box, or clearing
   it, turns off every pill whose query the box no longer holds (in the Graph the typed
-  text becomes the anchor). A pill's anchor is not a typed search, so it
+  text becomes the anchor). A query typed by hand is never a pill, even one that reads as a
+  pill's query: type `review:` and the review pill stays off. A pill's anchor is not a typed search, so it
   stays the anchor when the Graph is left. With the panel closed, a chip inside the box
   counts what is on and its accessible name says what (`1 on: review`), and the chip's
-  hover text says it too; with nothing on there is no chip. The pill section folds with its fold control for the visit, and the
+  hover text says it too; with nothing on there is no chip. A reload, or a link, carries the
+  box's text and not the selection, so a cut and isolate come back but a pill shows off, with
+  its query in the box as typed text. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
@@ -804,8 +817,11 @@ to `127.0.0.1` only.
   and none wears `data-holds-poll`, which a button left focused by a click would hold for
   good); and the single-key shortcuts keep working. The pills are `.query-pill` buttons,
   never the status pills' classes. The list and its counts are worked out in `pills.js`,
-  which needs no other module so that the snapshot can embed it, and the box grows and
-  shrinks through the search module's `searchAddAlt` and `searchRemoveAlt`.
+  which needs no other module so that the snapshot can embed it, and the box grows through
+  the search module's `searchAddAlt` and shrinks through `searchRemoveGrownAlt`, which takes
+  out the pill's alternative and any alternative a click on a cue has grown it into (`review:`
+  with a cue term added is `review: assignee:@human`, still the pill's), and leaves the text
+  typed beside it.
 - **Slice section** — the first region of the search panel lists the board's slices, top to
   bottom: first the tiers some card of the board is in (live or archived; a tier no card is in
   is left out), each with the icon its type has in the config's `types:` list, then every
@@ -846,8 +862,11 @@ to `127.0.0.1` only.
   query, or a label and a query, shown as its label (the board answer carries them as
   `pills: [{label, query}]`; an entry that is malformed is skipped, never an error). A board
   pill shows a count like the built-ins, over the same cards, and clicks as they do: a click
-  makes its query the anchor and puts it in the box, and Shift+click grows the box to
-  `anchor | pill`. A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
+  turns it on or off, Shift+click is a plain click, a right-click solos it and `m` steps to
+  it after the built-ins, so the first pill on is the anchor and a later one is an addition
+  (see Search panel). A pill whose own query is a `slice:` term writes a cut, which stands
+  at the top level of the box and cuts every view, and the cut goes with the pill when it goes
+  off; a run of slices the box held before it is not the pill's and stays. A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
   `priority:*` and `type:*`), makes one pill per distinct value the board's active cards hold
   in that field, in the place the entry holds, sorted and labelled by the value. Each matches
   its value exactly, through the search module's term writer, so the `grill` pill never
@@ -872,7 +891,10 @@ to `127.0.0.1` only.
   the path through card 40 and the `grill` tag make `#12 | path:40 | tags:grill`; a query part
   with a card taken out of it is already its other cards (see Multi-select), so it is written as
   them. The text the box held is kept, and so is a run of slices in it, applied to the whole of
-  the isolated text, because the selection only covers the cards the view shows. With nothing to
+  the isolated text, because the selection only covers the cards the view shows. Outside the
+  Graph, where the box hides what it does not match, a path, a tree or a card the box was
+  hiding is not in the selection, so when the parts alone would bring such cards back the
+  box's own text stays beside them, ANDed on (`(#4 | path:40) tags:ui`). With nothing to
   write (nothing selected, or only a half-typed term) the switch stays off and a toast says
   nothing is selected. While isolate is on, **every view shows only the matches**: the Board,
   the Map, the Gantt and the Calendar filter by the box as they always do, and the Graph, where
@@ -881,8 +903,8 @@ to `127.0.0.1` only.
   and the Gantt jump to the nearest match when none is on screen, through the box writer's own
   listener, never on a poll. **Clicks move the anchor only**: a click on a card sets the anchor
   and leaves the box text and the shown set as they are (in the Graph a plain click clears the
-  box when nothing is isolated, and not now), a click on the empty Graph clears nothing, and so
-  does a double click on empty space. A pill or a slice written while isolated edits the query
+  box, but for its cut, when nothing is isolated, and not now), a click on the empty Graph clears nothing, and so
+  does a double click on empty space, in every view, not the Graph alone. A pill or a slice written while isolated edits the query
   like a hand edit does: isolate stays on while the box holds a query, and ends when the box is
   left holding none (the clear button, an emptied box), when the text it kept is not given back.
   A keystroke typed after isolating keeps the text's leading `#`. With the panel closed the chip
@@ -915,8 +937,8 @@ to `127.0.0.1` only.
   record, storage that is blocked, or a record kept for another isolate) the box ends up empty.
   The page works without browser storage. Opening a card while isolated keeps the parameter,
   and Back and Forward bring the entry they land on in line with the box, isolate included.
-  A link with `isolate=1` and no usable `q` opens with isolate off, and any value but `1` is no
-  request.
+  A link with `isolate=1` and no usable `q` opens with isolate off and loses the parameter from the
+  address on load, and any value but `1` is no request.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
@@ -939,7 +961,9 @@ to `127.0.0.1` only.
   control still folds it for the visit. **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
   so each shows what the others did; turning it off closes the panel, and turning it on
-  from the sheet leaves the panel closed until the box is focused. **Hotkeys** lists every key
+  from the sheet leaves the panel closed until the box is focused. Switching it off moves focus to
+  the arrow only when a control of the panel had it, and leaves it where it was otherwise (the box,
+  the sheet, the board). **Hotkeys** lists every key
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
@@ -980,6 +1004,8 @@ to `127.0.0.1` only.
   The status pills and fold toggles of every view are treated the same way (a click or a
   keypress leaves one focused, so guarding them would stop the 5s refresh): the guard keeps
   only real form controls, and `applyBoardData` refocuses the focused pill without scrolling.
+  A caption of the Graph's tier fan is a tab stop that every render rebuilds, so it is found
+  again after the render by its `data-caption` key and takes focus back, which shows its tooltip again.
   Two delegated pairs on `document`, mirroring the click/contextmenu pair
   above: `mouseover`/`mouseout` and `focusin`/`focusout`, each just keeping `hoveredId`
   current and repainting the *current* DOM directly — a full `renderBoard()` per mouse
@@ -1037,7 +1063,7 @@ to `127.0.0.1` only.
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
   does `p`, which flips the search panel's switch (see Search panel), and `?`, which opens the Hotkeys list (see Preferences sheet), and `m`, which
   steps through the pills, and `i`, which flips Isolate (see Isolate), and so do `[`, `]`, `{` and `}`, which move the run of slices
-  (see Slice section); Ctrl+F
+  (see Slice section), and `n`, which steps the names of the tier fan (see Options); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the
@@ -1098,8 +1124,10 @@ to `127.0.0.1` only.
     when `q` would change. A browser may refuse a replacement when there are too many in
     a short time (Safari throws past 100 in 30 seconds): the refusal is let go, the
     address lags the box, and the next change to `q` catches it up. A reload, or a link copied from the address bar, opens with the same
-    search through the deep link above, whatever the query holds; the poll never writes
-    the address. Back and Forward never write the box: when one
+    search through the deep link above, whatever the query holds. The link carries the
+    box's text and not the selection, so a cut and isolate come back, but a pill shows off (its
+    query is there as typed text and, outside the Graph, its matches are not selected). The
+    poll never writes the address. Back and Forward never write the box: when one
     lands on an entry whose `q` differs from the box, the box keeps its text and that
     entry is replaced to carry it. Opening a card still takes one history step, which now
     carries the query too. `card-history.js` decides the new address (a pure function: the
@@ -1257,7 +1285,9 @@ to `127.0.0.1` only.
   **Status-filter row** — one toggle pill per board column (the configured statuses in
   column order + Archive, the location pseudo-column), each led by a dot in its column's
   color (hollow, with the label struck through, when the pill is off) — all ON by default, and the row renders even when everything is filtered out
-  (so a toggle can always be turned back on). **Pill interaction grammar, shared by
+  (so a toggle can always be turned back on). These are the glossary's **status pills**: they
+  hide cards, and they are not the search panel's pills, which are queries (see Search panel).
+  **Pill interaction grammar, shared by
   every status-filter row in the app** (this one, the gantt's, the calendar's and the graph's):
   left-click toggles that one pill on/off; right-click SOLOs it — that pill on, every
   other pill in the row off — and right-clicking the already-soloed pill again restores
@@ -1572,7 +1602,7 @@ to `127.0.0.1` only.
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on
   the seam with its name (a tier by its name, a depth as
-  `roots` or `depth N`), standing one above another up the seam with neighbours on opposite
+  `depth N`), standing one above another up the seam with neighbours on opposite
   sides of the seam so they never touch; a tier nobody
   is in keeps a thin band and a muted caption when it has room for one, and a
   depth with no card draws nothing; a tier whose cards nest in one another gets a lighter
@@ -1586,7 +1616,7 @@ to `127.0.0.1` only.
   from the next; loose cards with a tier share a sector of their own, and the sector of
   loose cards with a tier has its own caption, outside the rim, whose tooltip counts them. The other **unnested** cards (no
   parent, no children and no tier) are drawn as the Unnested option of the option row says
-  (see **Options**): on one ring outside the fan by default, or in the **Unnested** block outside the rim, a
+  (see **Options**): on one ring outside the fan by default, or, with the table choice, in the **Unnested** block outside the rim, a
   column for each status in the board's order, archived cards last: the block is under the
   title Unnested, each column captioned with its status, with an
   archived column while the Archive status pill is on; the tooltips of the title and of a
@@ -1626,8 +1656,8 @@ to `127.0.0.1` only.
   **Names** says which cards carry their title beside the dot: **relevant** (the default) names the selection
   and the cards it lights (a lone card's one-hop relations and a pill's matches among them), then the parents from
   the highest altitude down while fewer than 24 cards are named, and on a fan of 24 cards or fewer every card;
-  **all** names every card; **none** names no card. Altitude is the glossary's: the layers of cards drawn below a
-  card, blind to type. A name is the card's title as plain text, cut to 38 characters, set in place of its id
+  **all** names every card; **none** names no card. Altitude is the glossary's: the layers of cards below a
+  card on the board, drawn or not, blind to type, as the badge on its tile counts them. A name is the card's title as plain text, cut to 38 characters, set in place of its id
   label; a click on a card names it and what it lights in place, with no redraw. Names never run the layout
   again: the setting is in neither the layout's cache key nor what re-fits an untouched view, so only the named
   set changes. **n** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
@@ -1639,9 +1669,10 @@ to `127.0.0.1` only.
   them on one ring outside every depth ring, grouped by status in the board's order, archived cards last,
   under an `unnested` caption on the seam, level with the ring, whose tooltip counts them and names no slice;
   **off** does not draw them, and neither is a line or an arrow that joins one to a card that is drawn, and a selection
-  reaches only the cards the Graph draws, so they leave it with the dots and come back with them;
+  reaches only the cards the Graph draws, so they leave it with the dots and come back with them (so a
+  switch into or out of Tiers while Unnested is off works the selection and the pill counts out again);
   **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
-  the ring's caption is the depth 0 band's, `roots`, and its tooltip counts them; **table** draws the Unnested
+  the ring's caption is the depth 0 band's, `depth 0`, and its tooltip counts them; **table** draws the Unnested
   block outside the rim. The Unnested option is Tiers' own: Force and Status draw every card. A counted line
   lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
@@ -1674,10 +1705,12 @@ to `127.0.0.1` only.
   stands on its own in the query, as in every other view: the rest of the query lights
   inside the cut, and a `slice:` term under `|` or in a bracket of alternatives is only a
   term to match, so it lights and hides nothing. Emptying the box, **Esc** and a double click on the empty Graph drop the anchor and
-  the dimming; a plain click on a card sets a new card anchor and clears the box;
+  the dimming (Esc and the double click leave the box its cut, the `slice:` terms that stand on their own: a cut is no search);
+  a plain click on a card sets a new card anchor and clears the box but for its cut, so the Graph
+  keeps drawing what the box says;
   shift+click or ctrl/cmd+click on an unlit card adds it and keeps the query, and on a card
   the query lit takes it out and turns the query into its other cards, which clears the
-  box, since it no longer names the anchor. The status pills still decide which cards are
+  box but for its cut, since it no longer names the anchor. The status pills still decide which cards are
   drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
   search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
   Calendar keep hiding what does not match, nothing is selected by it there, and a bulk
@@ -1691,8 +1724,8 @@ to `127.0.0.1` only.
   (bulk menu) is the shared grammar of ADR 0006. In **Force**, **dragging a dot** pulls
   the cards related to it along, like pulling on a thread; the arrangement stays until
   the cards change or the page reloads (Tiers and Status do not drag). **Pan** by dragging the background
-  (a drag moves past 4px and the click that ends it is swallowed, so it never clears the
-  selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
+  (a drag moves past 4px and the click that ends it is swallowed, so a pan is never read as
+  a click on empty space and keeps the selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
   about the centre or fit every card in the panel. Picking a layout re-fits the view; after
   that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
   Per board in `localStorage`: the layout under `graph.layout` and the pill row under
@@ -1791,7 +1824,8 @@ handle a card carries.
   `- tags: grill` is the label `tags` with the query `grill` (a colon followed by a space
   ends the key), and an entry that is blank, only a comment, or has an empty label or
   query is skipped without an error. The page holds `hierarchy` and `pills` on `state`
-  after every load and poll; nothing draws them yet.
+  after every load and poll: the slice section and the Graph's tier fan read the hierarchy,
+  and the search panel draws the pills.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's

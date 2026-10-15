@@ -38,6 +38,12 @@ test('the switch has a name a reader hears, and a tooltip that says what a click
   assert.match(attr(tag, 'title'), /press i\b/i);
 });
 
+test('the tooltip the script gives an off switch is the one the markup ships with, so the first paint and the first sync agree', () => {
+  const off = (isolateSrc.match(/const ISOLATE_SWITCH_OFF = '([^']*)';/) || [])[1];
+  assert.ok(off, 'the script names the off tooltip');
+  assert.strictEqual(attr(tag, 'title'), off);
+});
+
 test('a click on the switch never clears a selection, and the switch holds neither the poll nor a style nor a handler', () => {
   assert.notStrictEqual(attr(tag, 'data-keeps-selection'), null);
   assert.strictEqual(attr(tag, 'data-holds-poll'), null, 'a button left focused by a click would stop the poll for good');
@@ -99,13 +105,14 @@ test('a write with the reason isolate leaves the selection as it is, and so does
   assert.match(body, /!isolated/, 'the isolate text never becomes the typed anchor');
 });
 
-test('Esc stops the browser\'s own Esc with isolate on, between the held-key check and the end of the chain, and the step reads the flag', () => {
+test('Esc stops the browser\'s own Esc with isolate on, in the step that ends the chain after the held-key check, and the step reads the flag', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['closeSearchPanel()', 'e.repeat', 'isolateEscapeKeepsBox(e)', 'escapeStep()'].map((s) => handler.indexOf(s));
+  const order = ['closeSearchPanel()', 'e.repeat', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
   assert.match(appSrc.match(/function stepSelectionBack\([\s\S]*?\n\}/)[0], /isolate: isolateNow\(\)/);
-  assert.match(appSrc.match(/function escapeStep\([\s\S]*?\n\}/)[0], /isolateTurnOff\(\)/);
+  assert.match(appSrc.match(/function escapeStep\([\s\S]*?\n\}/)[0], /if \(isolateTurnOff\(\)\) e\.preventDefault\(\);/);
+  assert.doesNotMatch(isolateSrc, /isolateEscapeKeepsBox/, 'the second reading of the key guard is gone');
 });
 
 test('a click on empty space and a click on a Graph card leave what isolate wrote', () => {

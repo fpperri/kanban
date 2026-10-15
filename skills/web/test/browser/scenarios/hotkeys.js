@@ -25,7 +25,7 @@
 
 const { HOTKEYS } = require('../../../web/hotkeys');
 
-// The keys the card names, as the list labels them.
+// The keys the page answers, as the list labels them.
 const KEYS = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
 // The keys that have a state, by the id of their row, and what each reads before anything is changed.
 const DEFAULTS = {
@@ -116,7 +116,7 @@ module.exports = {
 
     // --- what the list holds -------------------------------------------------------------------------------
     const labels = await ev(KEY_LABELS);
-    check('the list has a key element for every key the card names', CASES.keys.every((k) => labels.includes(k)), labels);
+    check('the list has a key element for every key the page answers', CASES.keys.every((k) => labels.includes(k)), labels);
     check('the sheet draws one row for each entry of the list, in its order', same(await ev(ROW_IDS), HOTKEYS.map((h) => h.id)), await ev(ROW_IDS));
     check('every row is a list item of the Hotkeys list, with a key element drawn for each key label', await ev(KEYS_DRAWN) && await ev(`document.querySelectorAll('#hotkeys-list > li').length===${ROWS}.length`));
     const whats = await ev(WHATS);

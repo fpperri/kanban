@@ -3,8 +3,9 @@ const assert = require('node:assert');
 const { loadPage } = require('./helpers/page-vm');
 
 // The page holds the board's hierarchy, pills and type icons after every load
-// and every poll. Nothing draws them yet; later readers take them from `state`.
-// The real page runs in a vm (helpers/page-vm.js) and is handed a board answer.
+// and every poll, in `state`, where every view that draws them reads them. This
+// file checks the delivery, whichever view draws them. The real page runs in a vm
+// (helpers/page-vm.js) and is handed a board answer.
 
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,

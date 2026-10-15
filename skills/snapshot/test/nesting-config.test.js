@@ -4,8 +4,11 @@ const { parseConfig } = require('../../web/scripts/config-store');
 const { BOARD, withSnapshot } = require('./nesting-fixture');
 
 // The snapshot reads the same config.yaml lists as kanban-web: the card types
-// (a name and an optional color each) and the priority order that sorts
-// siblings with no rank.
+// (a name, an optional color and an optional icon each), the priority order that
+// sorts siblings with no rank, the statuses, the board pills (a label and a query
+// each) and the hierarchy (the type names that are the tiers). The tables below
+// pin each reader to kanban-web's entry form by entry form, and the last tests
+// pin the placeholders a config value may name.
 
 function embeddedConst(html, name) {
   const m = new RegExp(`const ${name}=(.*);\\n`).exec(html);
@@ -227,5 +230,26 @@ test('the hierarchy keeps the order and the letter case it is written in, and a 
 test('a hierarchy name that looks like markup cannot close the script element, and arrives as the text it is', () => {
   withSnapshot({ ...BOARD, config: 'name: b\nhierarchy: ["</script><b>", epic]\n' }, (html) => {
     assert.deepStrictEqual(embeddedConst(html, 'HIERARCHY'), ['</script><b>', 'epic']);
+  });
+});
+
+// The builder fills every placeholder in one pass, so text a board holds that is itself a
+// placeholder is data and is never filled in again.
+
+test('a pill and a hierarchy name that name a placeholder keep their text', () => {
+  const config = 'name: b\npills:\n  - x: "title:__DATA__"\nhierarchy:\n  - goal\n  - __PRIORITIES__\n';
+  withSnapshot({ ...BOARD, config }, (html) => {
+    assert.deepStrictEqual(embeddedConst(html, 'PILLS'), [{ label: 'x', query: 'title:__DATA__' }]);
+    assert.deepStrictEqual(embeddedConst(html, 'HIERARCHY'), ['goal', '__PRIORITIES__']);
+  });
+});
+
+test('a type, a status, an assignee and a priority that name a placeholder keep their text', () => {
+  const config = 'name: b\nstatuses: [todo, __NOTIFS__]\ntypes:\n  - __DATA__\nassignees:\n  - handle: "@__TYPES__"\npriorities: [High, __PILLS__]\n';
+  withSnapshot({ ...BOARD, config }, (html) => {
+    assert.deepStrictEqual(embeddedConst(html, 'TYPES'), [{ name: '__DATA__', color: '' }]);
+    assert.ok(embeddedConst(html, 'COLS').includes('__NOTIFS__'));
+    assert.ok(embeddedConst(html, 'ASG').includes('@__TYPES__'));
+    assert.deepStrictEqual(embeddedConst(html, 'PRIOS'), ['High', '__PILLS__']);
   });
 });

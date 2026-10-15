@@ -121,6 +121,18 @@ def read_assignees(kanban_dir):
     handles = [h for h in handles if h]
     return handles or DEFAULT_ASSIGNEES
 
+def _closing_quote(s):
+    """Index of the quote that closes the quoted text opening `s`, or -1."""
+    i = 1
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+            continue
+        if s[i] == s[0]:
+            return i
+        i += 1
+    return -1
+
 def _scalar(raw):
     """Same trailing-comment/quote contract as kanban-web's yaml-list.js
     scalar(): a quoted value keeps everything between the quotes verbatim
@@ -130,17 +142,15 @@ def _scalar(raw):
     uses would truncate it at that leading hash)."""
     s = raw.strip()
     if s[:1] in ('"', "'"):
-        i = 1
-        while i < len(s):
-            if s[i] == "\\":
-                i += 2
-                continue
-            if s[i] == s[0]:
-                return _unquote(s[:i + 1])
-            i += 1
-        return _unquote(s)
+        close = _closing_quote(s)
+        return _unquote(s[:close + 1] if close != -1 else s)
     m = re.search(r"\s#", s)
     return s[:m.start()].strip() if m else s
+
+def _value_or_comment(text):
+    """The scalar `text` holds, or '' when it holds only a comment."""
+    t = text.strip()
+    return "" if t[:1] == "#" else _scalar(t)
 
 def _unquote(s):
     if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
@@ -212,8 +222,7 @@ def _icon_name(raw):
     lowercased, a trailing comment stripped, '' (no icon) for a blank value or
     one that is only a comment. Any name is kept; the page draws an unknown
     one as no icon."""
-    t = (raw or "").strip()
-    return "" if t[:1] == "#" else _scalar(t).lower()
+    return _value_or_comment(raw or "").lower()
 
 def read_types(kanban_dir):
     """config.yaml's `types:` list as [{name, color}], plus `icon` on a type
@@ -250,18 +259,6 @@ def read_types(kanban_dir):
     flush()
     return types
 
-def _closing_quote(s):
-    """Index of the quote that closes the quoted text opening `s`, or -1."""
-    i = 1
-    while i < len(s):
-        if s[i] == "\\":
-            i += 2
-            continue
-        if s[i] == s[0]:
-            return i
-        i += 1
-    return -1
-
 def _split_pill_entry(text):
     """One `pills:` entry (the text after its dash) as {label, query}, or None
     when it is blank, only a comment, or has an empty label or query. The same
@@ -286,7 +283,7 @@ def _split_pill_entry(text):
         comment = re.search(r"\s#", t)
         if colon and (not comment or colon.start() < comment.start()):
             label, value = t[:colon.start()].strip(), t[colon.start() + 1:]
-    query = "" if value.strip()[:1] == "#" else _scalar(value)
+    query = _value_or_comment(value)
     if query == "":
         return None
     if label is None:
@@ -314,8 +311,7 @@ def read_hierarchy(kanban_dir):
     names = list(flow)
     for line in block:
         item = re.match(r"^\s+-\s*(.*)$", line)
-        text = item.group(1).strip() if item else ""
-        name = "" if text[:1] == "#" else _scalar(text)
+        name = _value_or_comment(item.group(1)) if item else ""
         if name:
             names.append(name)
     return names
@@ -352,20 +348,27 @@ def read_notifications(kanban_dir):
     return out
 
 WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web")
-NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
-SLICES_JS = os.path.join(WEB_MODULES, "slices.js")
-MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
-WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
-SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
-TYPE_ICONS_JS = os.path.join(WEB_MODULES, "type-icons.js")
-PILLS_JS = os.path.join(WEB_MODULES, "pills.js")
-SLICE_RUN_JS = os.path.join(WEB_MODULES, "slice-run.js")
+# The web's modules the page carries as the same source kanban-web runs, in the order their
+# script elements load: the placeholder of the slot in TEMPLATE, the file in skills/web/web
+# and the name the build refuses the file by.
+EMBEDDED = [
+    ("__NESTING_JS__", "nesting.js", "the nesting module"),
+    ("__MAP_RELATIONS_JS__", "map-relations.js", "the map relations module"),
+    ("__SLICES_JS__", "slices.js", "the slices module"),
+    ("__WAITING_BLOCKED_JS__", "waiting-blocked.js", "the waiting rules"),
+    ("__SEARCH_JS__", "search.js", "the search module"),
+    ("__TYPE_ICONS_JS__", "type-icons.js", "the type icons module"),
+    ("__PILLS_JS__", "pills.js", "the pill list"),
+    ("__SLICE_RUN_JS__", "slice-run.js", "the run of slices"),
+    ("__KEY_GUARD_JS__", "key-guard.js", "the key guard"),
+    ("__COMBOBOX_JS__", "combobox.js", "the combobox rules"),
+]
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
         sys.exit(f"{label} contains a closing script tag and cannot be embedded in the page")
     if re.search(r"__[A-Z_]+__", source):
-        sys.exit(f"{label} contains a template placeholder (__NAME__) the build would rewrite")
+        sys.exit(f"{label} contains a template placeholder (__NAME__) and cannot be embedded in the page")
     return source
 
 def read_embedded(path, label):
@@ -375,29 +378,17 @@ def read_embedded(path, label):
     except OSError:
         sys.exit(f"cannot read {label} at {os.path.normpath(path)}")
 
-def read_nesting():
-    return read_embedded(NESTING_JS, "the nesting module")
+def embedded_modules():
+    """Each EMBEDDED placeholder with the text of its module."""
+    return {placeholder: read_embedded(os.path.join(WEB_MODULES, name), label)
+            for placeholder, name, label in EMBEDDED}
 
-def read_slices():
-    return read_embedded(SLICES_JS, "the slices module")
-
-def read_map_relations():
-    return read_embedded(MAP_RELATIONS_JS, "the map relations module")
-
-def read_waiting_blocked():
-    return read_embedded(WAITING_BLOCKED_JS, "the waiting rules")
-
-def read_search():
-    return read_embedded(SEARCH_JS, "the search module")
-
-def read_type_icons():
-    return read_embedded(TYPE_ICONS_JS, "the type icons module")
-
-def read_pills_module():
-    return read_embedded(PILLS_JS, "the pill list")
-
-def read_slice_run():
-    return read_embedded(SLICE_RUN_JS, "the run of slices")
+def fill(template, values):
+    """Every placeholder in one pass, so text a value holds that looks like a
+    placeholder (a pill, a hierarchy name, a card) is data and is never filled in
+    again."""
+    names = sorted(values, key=len, reverse=True)
+    return re.sub("|".join(re.escape(n) for n in names), lambda m: values[m.group(0)], template)
 
 def main():
     p = argparse.ArgumentParser()
@@ -436,29 +427,23 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    # First, so a card that names a placeholder is never rewritten inside it.
-    html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
-                    .replace("__SLICES_JS__", read_slices())
-                    .replace("__MAP_RELATIONS_JS__", read_map_relations())
-                    .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
-                    .replace("__SEARCH_JS__", read_search())
-                    .replace("__TYPE_ICONS_JS__", read_type_icons())
-                    .replace("__PILLS_JS__", read_pills_module())
-                    .replace("__SLICE_RUN_JS__", read_slice_run())
-                    .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
-                    .replace("__BASE_LABEL__", label)
-                    .replace("__BASE_ISO__", iso)
-                    .replace("__STATUSES__", emb(read_statuses(a.kanban_dir)))
-                    .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
-                    .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
-                    .replace("__TYPES__", emb(read_types(a.kanban_dir)))
-                    .replace("__PILLS__", emb(read_pills(a.kanban_dir)))
-                    .replace("__HIERARCHY__", emb(read_hierarchy(a.kanban_dir)))
-                    .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
-                    .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
-                    .replace("__DATA__", emb(cards))
-                    .replace("__BOARD_NAME_JSON__", emb(read_board_name(a.kanban_dir)))
-                    .replace("__BOARD_NAME__", esc(read_board_name(a.kanban_dir))))
+    html = fill(TEMPLATE, {
+        **embedded_modules(),
+        "__ICON_URI__": quote(ICON_SVG, safe=""),
+        "__BASE_LABEL__": label,
+        "__BASE_ISO__": iso,
+        "__STATUSES__": emb(read_statuses(a.kanban_dir)),
+        "__ASSIGNEES__": emb([""] + read_assignees(a.kanban_dir)),
+        "__ASSIGNEE_COLORS__": emb(read_assignee_colors(a.kanban_dir)),
+        "__TYPES__": emb(read_types(a.kanban_dir)),
+        "__PILLS__": emb(read_pills(a.kanban_dir)),
+        "__HIERARCHY__": emb(read_hierarchy(a.kanban_dir)),
+        "__PRIORITIES__": emb(read_priorities(a.kanban_dir)),
+        "__NOTIFS__": emb(read_notifications(a.kanban_dir)),
+        "__DATA__": emb(cards),
+        "__BOARD_NAME_JSON__": emb(read_board_name(a.kanban_dir)),
+        "__BOARD_NAME__": esc(read_board_name(a.kanban_dir)),
+    })
     open(a.out, "w", encoding="utf-8").write(html)
     print(f"wrote {a.out} ({len(html)} bytes; {len(cards)} cards, base {iso})")
 
@@ -934,6 +919,10 @@ __PILLS_JS__</script>
 <script>
 __SLICE_RUN_JS__</script>
 <script>
+__KEY_GUARD_JS__</script>
+<script>
+__COMBOBOX_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -1216,8 +1205,19 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 let qTerms=[];
 const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
 const searchCtx={board:BOARD,hierarchy:HIERARCHY,graph:searchGraph};
-function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
-function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),searchCtx)}
+// A card queued with + New card has no number yet (n1, n2, ...), so the search reads it under a
+// number of its own, below zero, which no card of the board has.
+const searchId=c=>isProv(c.id)?-Number(String(c.id).slice(1)):c.id;
+function searchCard(c){return{id:searchId(c),title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
+// What a query resolves over. The slices, tree: and path: read the board as it was built plus the
+// cards queued to be created, which sit where a new card does (a root, or the tier its type
+// names), so a cut that holds depth 0 holds them and one that cuts nothing cuts them nothing; a
+// queued edit moves no card between slices until it is applied. waiting: reads the cards as the page
+// holds them, a queued edit counted, as a bare term does (unresolved, the page's own rule).
+const searchUniverse=()=>DATA.map(searchCard).concat(view.filter(c=>isProv(c.id)).map(searchCard));
+const waitingIds=()=>new Set(view.concat(gone).filter(c=>!isProv(c.id)&&unresolved(c).length).map(c=>Number(c.id)));
+const resolveQuery=(terms,universe,waiting)=>resolveTerms(universe,terms,searchCtx,{waiting});
+function setQuery(text){qTerms=resolveQuery(parseSearchQuery(text,BOARD),searchUniverse(),waitingIds())}
 const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
 // Waiting vs blocked/review (review is ADR 0009):
 // waiting is DERIVED — a waiting_for id whose card isn't done
@@ -1236,7 +1236,8 @@ const rvReason=c=>blkTxt(c.rv);
 // listed column) and stay visible in the date/graph views.
 let statusVis={archive:false};
 const isVis=k=>k==="archive"?statusVis.archive===true:statusVis[k]!==false;
-const visList=()=>DATA.filter(c=>inQuery(c)&&(c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true)));
+const statusVisible=c=>c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true);
+const visList=()=>DATA.filter(c=>inQuery(c)&&statusVisible(c));
 function opLabel(o){
 if(o.op==="move")return "Move #"+o.id+" \\u2192 "+o.to;
 if(o.op==="create")return "Create \\""+(o.title.length>34?o.title.slice(0,34)+"\\u2026":o.title)+"\\""+(o.status&&o.status!=="backlog"?" in "+o.status:"");
@@ -1287,7 +1288,7 @@ const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
 return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
 // Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
-// A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, is the chip it was before icons.
+// A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, draws the plain chip: its name alone.
 function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
 const g=typeIconGlyph(typeIconOf(t,TYPES));
 const s=el("span","type-chip",g?undefined:t);s.title=t;
@@ -1479,7 +1480,6 @@ const PILL_HINT="click: turn it on or off, right-click: only this pill (again: e
 const SLICE_HINT="click: grow the run to this slice, or drop it from an end (a run of one: every slice again), right-click: only this slice";
 const SWITCH_ON="Search panel: opens when the box is focused. Click, or press p, to switch it off.";
 const SWITCH_OFF="Search panel: off. Click, or press p, to switch it on and open it.";
-const statusVisible=c=>c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true);
 const panelCards=()=>view.filter(statusVisible);
 function setText(n,t){if(n.textContent!==t)n.textContent=t}
 function setAttr(n,k,v){if(n.getAttribute(k)!==v)n.setAttribute(k,v)}
@@ -1500,14 +1500,15 @@ if(host.children[i]!==b)host.insertBefore(b,host.children[i]||null)})}
 function panelBoard(){return{pills:PILLS,cards:view.filter(c=>!c.arch).map(searchCard),term:searchTermText}}
 const pillEntriesNow=()=>pillEntries(panelBoard());
 // The ids a pill's query matches among the cards the page holds. The query resolves as the box's
-// does, over every card of the board as built, so waiting: and tree: see the cards the status pills
-// hide; an edit still queued counts, as it does under the box. Text that is no term yet matches nothing.
+// does (resolveQuery), over every card of the board, so waiting: and tree: see the cards the status
+// pills hide; an edit still queued counts, as it does under the box. Text that is no term yet
+// matches nothing.
 function pillMatcher(){
-const all=DATA.map(searchCard);
+const all=searchUniverse(),waiting=waitingIds();
 return text=>{
 const terms=parseSearchQuery(text,BOARD);
 if(!terms.length)return[];
-const resolved=resolveTerms(all,terms,searchCtx);
+const resolved=resolveQuery(terms,all,waiting);
 return view.filter(c=>cardMatchesQuery(searchCard(c),resolved)).map(c=>c.id)}}
 const pillOn=pill=>searchHasAlt($("q").value,pill.query);
 // Two pills with one query (a board's pill for tags:"next-up" and that tag's own value pill) are one filter.
@@ -1551,7 +1552,7 @@ renderSearchPanel()}
 // --- the slices
 function sliceNow(){
 const cards=DATA.map(searchCard);
-const sliced=sliceCards(cards,HIERARCHY,depthMap(cards,searchCtx));
+const sliced=searchSlices(cards,searchCtx,null);
 const list=sliceListOf(sliced,panelCards().map(c=>c.id));
 const values=parseSearchQuery($("q").value,BOARD).filter(t=>t.field==="slice").map(t=>t.value);
 return{list,values,run:sliceRunOf(sliced,list,values)}}
@@ -1643,16 +1644,11 @@ if(t.classList.contains("query-pill")){pillGesture("toggle",t.dataset.pillKey);r
 if(t.classList.contains("slice-entry")){sliceGesture("click",t.dataset.sliceKey);return true}
 return false}
 // The keys that type nothing but read a character ([ ] { } and p) stay off while a field has focus
-// and while a sheet, a card menu or the change tray is up, the page's counterparts of the web's key guard.
+// (the web's own key guard, embedded above) and while a sheet or a card menu is up, the page's
+// counterparts of the web's dialogs. The change tray is no dialog: it sits in the page, and a field
+// of it is a field. What a chord is comes from the run of slices module.
 function keysOff(){
-const a=document.activeElement;
-if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable))return true;
-return !!ctxMenuEl||modalOpen()||$("pend").style.display==="block"}
-// A chord (Ctrl, Cmd, Alt held with a key). AltGr is not one: on a layout with no brackets of its own
-// it is how they are typed, and the browser reports it as Ctrl and Alt together, with AltGraph on.
-function sliceKeyIsChord(e){
-const altGraph=typeof e.getModifierState==="function"&&e.getModifierState("AltGraph");
-return !!e.metaKey||((!!e.ctrlKey||!!e.altKey)&&!altGraph)}
+return keyGuardTyping(document)||!!ctxMenuEl||modalOpen()}
 function panelKey(e){
 const k=e.key;
 if((k==="ContextMenu"||(k==="F10"&&e.shiftKey))&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
@@ -2612,17 +2608,19 @@ focusRoot=null;
 setQuery($("q").value);
 render();renderMap();renderGantt();renderCalendar()}
 // The suggestions under the box: what the search module offers for the token under
-// the caret, one row each. A row is pressed (the press is kept from taking the focus
+// the caret when that token is a slice: one, one row each. A bare word is offered scopes
+// by the module, and the page leaves them out: on a phone nine rows would open over the panel
+// on every word typed. A row is pressed (the press is kept from taking the focus
 // off the box) and writes its value whole, as the web's combobox does, so a pick is
 // the same as typing the term. Up and Down move a highlight and wrap, Enter picks
 // the row it is on, Escape shuts the menu and goes no further.
 let qItems=[],qOn=-1;
 function qClose(){qItems=[];qOn=-1;const m=$("qmenu");m.style.display="none";m.replaceChildren()}
 function qMark(){Array.from($("qmenu").children).forEach((r,i)=>r.classList.toggle("on",i===qOn))}
-function qPick(it){$("q").value=it.value;qClose();queryChanged()}
+function qPick(it){qClose();writeBox(it.value)}
 function qOpen(){
 const q=$("q");
-qItems=searchSuggestionItems(q.value,q.selectionStart,DATA.map(searchCard),searchCtx);
+qItems=searchSuggestionItems(q.value,q.selectionStart,DATA.map(searchCard),searchCtx).filter(it=>it.label.startsWith("slice:"));
 qOn=-1;
 if(!qItems.length){qClose();return}
 const m=$("qmenu");
@@ -2638,7 +2636,7 @@ e.preventDefault();
 if(e.key==="Escape"){qClose();e.stopPropagation();return}
 if(e.key==="Enter"){if(qOn>=0)qPick(qItems[qOn]);else qClose();return}
 const d=e.key==="ArrowDown"?1:-1;
-qOn=qOn<0?(d>0?0:qItems.length-1):(qOn+d+qItems.length)%qItems.length;qMark()});
+qOn=nextHighlightIndex(qItems.length,qOn,d);qMark()});
 $("q").addEventListener("focus",()=>{if(panelSwitchOn&&!panelOpen)setPanelOpen(true)});
 // A press anywhere outside the search bar closes the panel, as it closes any popup.
 document.addEventListener("mousedown",e=>{if(panelOpen&&!e.target.closest(".search-bar"))setPanelOpen(false)});

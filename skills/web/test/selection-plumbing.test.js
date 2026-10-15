@@ -141,6 +141,8 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     ...selectionGlobals(),
+    $: () => ({ value: '' }),
+    writeSearch() {},
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
@@ -153,12 +155,11 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), fn('setSelection'), fn('selectByClick'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
-  const marked = () => vm.runInContext('selectionGestureClick', sandbox);
-  return { click: listeners[0][1], state, calls, marked };
+  return { click: listeners[0][1], state, calls };
 }
 
 const cardEvent = (id, { cue = null, ...mods } = {}) => ({
@@ -235,25 +236,6 @@ test('a view whose plain click opens the card opens it on every click of a doubl
   s.click(cardEvent(2, { detail: 2 }));
   assert.deepStrictEqual(s.calls.open, [2, 2]);
   assert.deepStrictEqual(s.state(), { ids: [], rangeStart: null });
-});
-
-test('the handler marks the click that selected a card or peeked at one, and no other, for the click-away rule', () => {
-  const s = clickSandbox({ view: 'board', click: { board: 'selects' } });
-  const first = cardEvent(2, { detail: 1 });
-  s.click(first);
-  assert.strictEqual(s.marked(), first, 'a plain click that selected the card');
-  const second = cardEvent(2, { detail: 2 });
-  s.click(second);
-  assert.strictEqual(s.marked(), second, 'the peek of a double click');
-  const ctrl = cardEvent(3, { ctrlKey: true });
-  s.click(ctrl);
-  assert.strictEqual(s.marked(), second, 'a modified click is not marked: the click-away rule already lets it by');
-  const opening = clickSandbox({ view: 'board' });
-  opening.click(cardEvent(2));
-  assert.strictEqual(opening.marked(), null, 'a click that opened the card');
-  const cue = clickSandbox({ view: 'board', click: { board: 'selects' } });
-  cue.click(cardEvent(2, { cue: cueEl('tag', 'ui') }));
-  assert.strictEqual(cue.marked(), null, 'a click on a cue');
 });
 
 test('a choice made for one view leaves a plain click in the others opening the card', () => {
@@ -349,20 +331,19 @@ test('the page builds the controls the marker tests look at in the numbers the r
   for (const [selector, n] of Object.entries(counts)) assert.strictEqual(tagsOf(selector).length, n, selector);
 });
 
-function clickAwaySandbox({ selected = [1, 2], rangeStart = 1 } = {}) {
+function clickAwaySandbox({ selected = [1, 2], rangeStart = 1, isolated = false } = {}) {
   const calls = { render: 0 };
   const input = { value: '' };
-  const sandbox = { ...selectionGlobals(), $: () => input, searchRemoveAlt: (text) => text, renderBoard: () => { calls.render++; }, calls };
+  const sandbox = { ...selectionGlobals(), $: () => input, searchRemoveAlt: (text) => text, renderBoard: () => { calls.render++; }, isolateNow: () => (isolated ? { previous: '' } : null), calls };
   vm.createContext(sandbox);
   vm.runInContext([
-    declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), declaration('searchWriteListeners', 'const'),
+    declaration('selectionState'), declaration('selectedIds'), declaration('searchWriteListeners', 'const'),
     declaration('CALENDAR_CREATE_DAY_CELLS', 'const'), declaration('CALENDAR_CREATE_COLUMNS', 'const'), declaration('NOT_EMPTY_SPACE', 'const'), declaration('DOUBLE_CLICK_OWNED', 'const'),
     fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('onClickAway'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
-  const markClick = (e) => vm.runInContext('(e) => { selectionGestureClick = e; }', sandbox)(e);
-  return { onClickAway: sandbox.onClickAway, state, calls, markClick };
+  return { onClickAway: sandbox.onClickAway, state, calls };
 }
 
 // An element and its ancestors, the way closest() reads them.
@@ -376,6 +357,20 @@ test('a double click on empty space clears the selection and its range start', (
   s.onClickAway({ target: within(plain), ...noMods });
   assert.deepStrictEqual(s.state(), { ids: [], rangeStart: null });
   assert.strictEqual(s.calls.render, 1);
+});
+
+test('while isolated a double click on empty space leaves the selection in every view, not the Graph alone', () => {
+  const graph = { closest: (sel) => (sel === '#graph-view' ? {} : null) };
+  const board = { closest: () => null };
+  for (const [view, target] of [['graph', graph], ['board', board]]) {
+    const s = clickAwaySandbox({ isolated: true });
+    s.onClickAway({ target, ...noMods });
+    assert.deepStrictEqual(s.state(), { ids: [1, 2], rangeStart: 1 }, view);
+    assert.strictEqual(s.calls.render, 0, view);
+  }
+  const off = clickAwaySandbox({ isolated: false });
+  off.onClickAway({ target: board, ...noMods });
+  assert.deepStrictEqual(off.state(), { ids: [], rangeStart: null }, 'with isolate off the same click clears');
 });
 
 test('a single click on empty space, and the clicks of a triple click past the second, leave the selection and its range start', () => {
@@ -394,18 +389,6 @@ test('a double click on an element carrying the marker, or inside one, never cle
     assert.deepStrictEqual(s.state(), { ids: [1, 2], rangeStart: 1 });
     assert.strictEqual(s.calls.render, 0);
   }
-});
-
-test('the click the card handler marked as a selection gesture never clears the selection, and the next double click does', () => {
-  const s = clickAwaySandbox({ selected: [3], rangeStart: 3 });
-  const gesture = { target: within(plain), ...noMods };
-  s.markClick(gesture);
-  s.onClickAway(gesture);
-  assert.deepStrictEqual(s.state(), { ids: [3], rangeStart: 3 });
-  assert.strictEqual(s.calls.render, 0);
-  s.onClickAway({ target: within(plain), ...noMods });
-  assert.deepStrictEqual(s.state(), { ids: [], rangeStart: null });
-  assert.strictEqual(s.calls.render, 1);
 });
 
 test('a double click while Shift, Ctrl or Cmd is held builds the selection, so it never clears it', () => {
@@ -449,7 +432,7 @@ test('Esc with no popup open runs the one step function', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/);
   assert.ok(handler, 'the document Esc handler is found');
   const lines = handler[0].trimEnd().split('\n');
-  assert.strictEqual(lines[lines.length - 2].trim(), 'escapeStep();', 'the end of the chain is the one step');
+  assert.strictEqual(lines[lines.length - 2].trim(), 'escapeStep(e);', 'the end of the chain is the one step');
   assert.doesNotMatch(handler[0], /clearSearch\(\)/, 'the handler itself no longer clears the box');
 });
 
@@ -459,11 +442,11 @@ test('Esc with no popup open runs the one step function', () => {
 // while its menu is open, before this document listener ever sees the key.
 test('the Esc chain keeps its order and ends in the one step, behind a single document listener', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['hideContextMenu()', 'closeNotifModal()', 'closePrefsSheet()', 'closeCard()', 'requestCloseModal()', 'closeAnyBulkPopup()', 'anyModalOpen()', 'escapeStep()'].map((s) => handler.indexOf(s));
+  const order = ['hideContextMenu()', 'closeNotifModal()', 'closePrefsSheet()', 'closeCard()', 'requestCloseModal()', 'closeAnyBulkPopup()', 'anyModalOpen()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link of the chain is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');
   assert.strictEqual(appSrc.split("if (e.key !== 'Escape') return;").length - 1, 1, 'one document listener reads Esc: the step adds no second keydown listener');
-  assert.strictEqual(appSrc.split('escapeStep()').length - 1, 2, 'the step is called from the handler alone (and defined once)');
+  assert.strictEqual(appSrc.split('escapeStep(e)').length - 1, 2, 'the step is called from the handler alone (and defined once)');
   assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 2, 'the selection step is called from the Esc step alone (and defined once)');
 });
 
@@ -729,4 +712,13 @@ test('a popup applies to the targets it captured: the apply steps read the captu
   for (const name of ['openBulkSingle', 'openBulkTags', 'openBulkSchedule', 'bulkArchive']) {
     assert.match(fn(name), /captureBulkTargets\(\)/, `${name} captures when it starts`);
   }
+});
+
+test('the menu subject before any menu has opened carries every key a menu subject has, the card menu\'s and the canvas menu\'s', () => {
+  const { cardMenuFor, canvasMenuFor } = require('../web/selection');
+  const sandbox = vm.createContext({});
+  const initial = vm.runInContext(`${declaration('menuSubject')}; menuSubject`, sandbox);
+  const keys = new Set([...Object.keys(cardMenuFor(new Set(), 1)), ...Object.keys(canvasMenuFor())]);
+  assert.deepStrictEqual(Object.keys(initial).sort(), [...keys].sort());
+  for (const key of keys) if (key !== 'ids') assert.strictEqual(initial[key], false, key);
 });

@@ -24,7 +24,7 @@ test('the card type chip bullet says a type with an icon starts its chip with th
   assert.match(chip, /chip's own colou?r/);
   for (const place of ['Board', 'Archive', 'Map', 'card details']) assert.ok(chip.includes(place), `${place} is named`);
   assert.match(chip, /type-icons\.js/);
-  assert.match(chip, /no icon, or an unknown icon name, is the chip it was before icons/);
+  assert.match(chip, /no icon, or an unknown icon name, draws the plain chip: its name alone/);
 });
 
 test('the Graph bullet says a dot of a type with an icon is drawn in that outline, still in its status colour', () => {

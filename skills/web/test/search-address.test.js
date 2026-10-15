@@ -161,6 +161,30 @@ test('a link whose q the deep-link reader trims is brought in line with the box 
   assert.strictEqual(session.pushes, 0);
 });
 
+test('a link with isolate=1 and no usable query loses the parameter on load: the box is empty and nothing is isolated', async () => {
+  const cases = [
+    ['?isolate=1', ''],
+    ['?isolate=1&view=graph', '?view=graph'],
+    ['?q=&isolate=1&view=map', '?view=map'],
+    ['?q=%20%20&isolate=1&view=map', '?view=map'],
+    ['?card=1&isolate=1', '?card=1'],
+  ];
+  for (const [link, address] of cases) {
+    const { page, session } = await openAt(link);
+    assert.strictEqual(page.input.value, '', link);
+    assert.strictEqual(session.search, address, link);
+    assert.strictEqual(session.pushes, 0, link);
+  }
+});
+
+test('a plain load, or a link whose parameters are all in line with the box, replaces nothing', async () => {
+  for (const link of ['', '?view=board', '?card=1', '?q=zephyr&isolate=1']) {
+    const { session } = await openAt(link);
+    assert.strictEqual(session.pushes, 0, link);
+    assert.strictEqual(session.replaces, 0, link);
+  }
+});
+
 // The text goes in through the writer: typing a leading # and then anything but
 // digits strips the # (searchHashStrip), so a person cannot type this query in
 // one go, but a write that is not typing (the isolate switch, a menu item) can

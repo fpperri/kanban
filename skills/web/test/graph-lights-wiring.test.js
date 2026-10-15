@@ -611,3 +611,88 @@ test('there is one dimming mechanism: the hover, the lone card and the selection
   assert.ok(!/graph-lit|graph-query|graph-match/.test(src), 'no second class for a second mechanism');
   assert.ok(s.page.run('typeof graphLightCards') === 'function');
 });
+
+// --- a cut is no search: a gesture that clears the box leaves it ----------------------
+// A run of slices in the box (typed, or written by the slice section and the [ ] { } keys)
+// is a cut of the view, not the anchor of a selection. A click that empties the box takes the
+// typed query out of it and leaves the cut, so the Graph keeps drawing what the box says.
+
+test('a plain click on a card clears the typed query and leaves the cut: the box, the chip and the drawing agree', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy zephyr');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+  s.click(3);
+  assert.strictEqual(s.box(), 'slice:goal..strategy');
+  assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [] });
+  assert.deepStrictEqual(s.drawn(), [1, 3], 'the cut still hides the cards outside it');
+  s.page.run('renderBoard()');
+  assert.deepStrictEqual(s.drawn(), [1, 3], 'and a repaint draws the same cards the click left');
+  await s.page.run('autoRefreshTick()');
+  assert.deepStrictEqual(s.drawn(), [1, 3], 'and so does the poll');
+});
+
+test('a plain click with a cut alone in the box leaves it as it was', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy');
+  const told = [];
+  s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  s.click(1);
+  assert.strictEqual(s.box(), 'slice:goal..strategy');
+  assert.deepStrictEqual(told, [], 'nothing was written: the box held only the cut');
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+});
+
+test('a click paints in place with a cut in the box too, so a double click still reaches the card', async () => {
+  const s = await open({ board: tiered() });
+  let rebuilt = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...args) => { rebuilt++; return real(...args); };
+  s.type('slice:goal..strategy zephyr');
+  rebuilt = 0;
+  s.click(3);
+  assert.strictEqual(rebuilt, 0);
+});
+
+test('Shift+click that takes out the card the typed query lit clears the query and leaves the cut', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy zephyr');
+  assert.deepStrictEqual(s.ids(), [1]);
+  s.click(1, { shiftKey: true });
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), 'slice:goal..strategy');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+});
+
+test('Shift+click that only adds a card leaves the box, cut and query, as it was', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy zephyr');
+  s.click(3, { shiftKey: true });
+  assert.strictEqual(s.box(), 'slice:goal..strategy zephyr');
+});
+
+test('a cut inside a bracket with | is part of the query and goes with it', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy | tags:ui');
+  s.click(1);
+  assert.strictEqual(s.box(), '', 'no top-level cut: the term is one alternative of the query');
+});
+
+test('Esc, a double click on the empty canvas and the typed anchor going away leave the cut in the box', async () => {
+  for (const drop of ['esc', 'canvas']) {
+    const s = await open({ board: tiered() });
+    s.type('slice:goal..strategy zephyr');
+    if (drop === 'esc') s.esc(); else s.canvasDoubleClick();
+    assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, drop);
+    assert.strictEqual(s.box(), 'slice:goal..strategy', drop);
+    assert.deepStrictEqual(s.drawn(), [1, 3], drop);
+  }
+});
+
+test('the box\'s own clear button and Esc inside the box still take everything, the cut too', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy zephyr');
+  s.page.clear.fire('click', {});
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6]);
+});

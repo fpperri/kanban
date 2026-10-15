@@ -161,6 +161,18 @@ test('a write made while another view shows moves neither the Calendar nor the G
   }
 });
 
+test('a write that repaints nothing jumps by the text it wrote, not by the match the last repaint made', async () => {
+  const calendar = await pageIn('calendar');
+  calendar.run(`writeSearch('centennial', 'selection', false)`);
+  assert.strictEqual(calendar.input.value, 'centennial');
+  assert.strictEqual(calendarAnchor(calendar), '2031-06-02');
+
+  const gantt = await pageIn('gantt');
+  gantt.run(`setGanttSubview('month')`);
+  gantt.run(`writeSearch('centennial', 'selection', false)`);
+  assert.strictEqual(ganttAnchor(gantt), '2031-06-02');
+});
+
 // --- entering a view ---------------------------------------------------------------------
 
 test('entering the Calendar with the query already in the box makes the check once and shows the match\'s month, from any other view', async () => {
@@ -347,6 +359,34 @@ test('the cards the jump counts as shown are the cards the Calendar and the Gant
           assert.deepStrictEqual(handedArchived, archived.slice().sort((a, b) => a - b), `${label}: archived rows`);
         } else {
           assert.deepStrictEqual(handed, live.concat(archived).sort((a, b) => a - b), label);
+        }
+      }
+    }
+  }
+});
+
+// A selection reaches the cards the view shows, and those are the dated ones among the cards
+// the jump counts as shown. viewCardIds composes them on its own; this pins it to the same
+// answer as the views' input, with the search box in (what a selection reaches) and out (what
+// the pills' counts are taken over).
+test('the cards a selection can reach in the Calendar and the Gantt are the dated cards the jump counts as shown', async () => {
+  for (const view of DRAWN_VIEWS) {
+    for (const [pillName, filter] of PILL_SETTINGS) {
+      for (const query of QUERIES) {
+        const label = `${view.name}, ${pillName}, ${query === null ? 'no query' : query}`;
+        const stored = {
+          'kanban.kanban.view.mode': view.mode,
+          [`kanban.kanban.${view.mode}.statusFilter`]: JSON.stringify(filter),
+        };
+        if (view.subview) stored['kanban.kanban.calendar.subview'] = view.subview;
+        const page = loadPage({ board: BOARD, stored });
+        await page.start();
+        if (query !== null) page.input.typed(query);
+        for (const withSearch of [true, false]) {
+          const counted = JSON.parse(page.run(
+            `(() => { const s = viewShownCards(Object.assign(${view.input}(), ${withSearch ? '{}' : '{ searchIds: null }'})); return JSON.stringify(s.live.concat(s.archived).filter(cardIsScheduled).map((c) => c.id)); })()`));
+          const reached = JSON.parse(page.run(`JSON.stringify([...viewCardIds(${withSearch})])`));
+          assert.deepStrictEqual(reached.sort((a, b) => a - b), counted.sort((a, b) => a - b), `${label}, ${withSearch ? 'with' : 'without'} the search`);
         }
       }
     }

@@ -144,7 +144,7 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
 
 test('after a reload, turning isolate off gives the box the text it held before isolating, and takes the isolate parameter out of the address', async () => {
   const first = await openAt();
-  first.type('zephyr');
+  first.type('tags:ui');
   first.ctrlClick(2);
   first.ctrlClick(5);
   first.flip();
@@ -152,10 +152,10 @@ test('after a reload, turning isolate off gives the box the text it held before 
   const second = await openAt(first.session.search, { stored: first.stored });
   assert.strictEqual(second.box(), '#2 | #5');
   second.flip();
-  assert.strictEqual(second.box(), 'zephyr', 'the text from before isolating, kept in the browser, is back');
+  assert.strictEqual(second.box(), 'tags:ui', 'the text from before isolating, kept in the browser, is back');
   assert.strictEqual(second.isolate(), null);
-  assert.deepStrictEqual(second.params(), { q: 'zephyr' });
-  assert.deepStrictEqual(second.shown(), [1], 'and the Board filters by it again');
+  assert.deepStrictEqual(second.params(), { q: 'tags:ui' });
+  assert.deepStrictEqual(second.shown(), [2, 5], 'and the Board filters by it again');
 });
 
 test('the text kept for a reload follows the box while isolated: a hand edit of the isolate text is still isolated after a reload, and still gives the earlier text back', async () => {
@@ -247,7 +247,7 @@ test('without browser storage the page isolates, reloads isolated and turns off 
   };
   const first = await openAt('', { board });
   blocked(first.page);
-  first.type('zephyr');
+  first.type('tags:ui');
   first.ctrlClick(2);
   first.flip();
   assert.strictEqual(first.box(), '#2');

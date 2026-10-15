@@ -164,10 +164,56 @@ test('a status pill that hides the done cards takes them out of the counts', asy
 });
 
 test('the Archive pill, where a view has one, adds the archived cards to the counts', async () => {
-  const s = await open({ view: 'gantt' });
+  const board = makeBoard();
+  board.active[3].start_date = '2031-06-02';
+  board.archived[0].start_date = '2031-06-03';
+  const s = await open({ view: 'gantt', board });
   assert.strictEqual(s.counts().blocked, 1, 'the Gantt starts without its archived cards');
   s.page.run("toggleGanttStatusFilter('archive')");
   assert.strictEqual(s.counts().blocked, 2);
+});
+
+// The Gantt draws a card by its range or its due date and the Calendar the same; a card with
+// neither has no bar, no chip and no marker, and no tray either. A selection only covers
+// the cards a view shows, so a card that is not drawn is out of the counts and the selection.
+// Cards 1, 4 and 5 are dated (5 by its due date alone); 2, 3, 6, 8 and the archived 7 are not.
+const datedBoard = () => {
+  const board = makeBoard();
+  board.active[0].start_date = '2031-06-02';
+  board.active[3].end_date = '2031-06-09';
+  board.active[4].due_date = '2031-06-12';
+  board.archived[0].blocked = 'old vendor';
+  return board;
+};
+
+test('the Gantt and the Calendar do not count a card they cannot draw: an undated match is out of the pill and the selection', async () => {
+  for (const view of ['gantt', 'calendar']) {
+    const s = await open({ view, board: datedBoard() });
+    assert.deepStrictEqual(s.shown(), [1, 4, 5], `${view}: the cards it draws`);
+    assert.deepStrictEqual(s.counts(), { blocked: 1, review: 1, waiting: 0 }, `${view}: card 6 awaits review and card 2 waits, but neither is drawn`);
+    s.click('review');
+    assert.deepStrictEqual(s.ids(), [5], `${view}: the selection reaches only the drawn match`);
+    assert.deepStrictEqual(s.shown(), [5], `${view}: and so does the box`);
+  }
+});
+
+test('the Archive pill of the Gantt adds the archived cards that are drawn, and an undated one stays out', async () => {
+  const board = datedBoard();
+  const s = await open({ view: 'gantt', board });
+  s.page.run("toggleGanttStatusFilter('archive')");
+  assert.deepStrictEqual(s.shown(), [1, 4, 5], 'archived card 7 has no date');
+  board.archived[0].start_date = '2031-06-05';
+  await s.page.run('autoRefreshTick()');
+  assert.deepStrictEqual(s.shown(), [1, 4, 5, 7]);
+  assert.strictEqual(s.counts().blocked, 2);
+});
+
+test('the Board and the Map still count undated cards: they draw them', async () => {
+  for (const view of ['board', 'map']) {
+    const s = await open({ view, board: datedBoard() });
+    assert.strictEqual(s.counts().review, 2, view);
+    assert.strictEqual(s.counts().waiting, 1, view);
+  }
 });
 
 test('a card that waits for a card the view hides still counts as waiting', async () => {
@@ -571,6 +617,28 @@ test('in the Graph the typed text becomes the anchor, and the pill is off', asyn
   assert.deepStrictEqual(s.on(), []);
 });
 
+test("a query typed by hand that is exactly a pill's query leaves the pill off, in the Board and in the Graph", async () => {
+  for (const view of ['board', 'graph']) {
+    const s = await open({ view });
+    s.type('review:');
+    assert.strictEqual(s.box(), 'review:', view);
+    assert.deepStrictEqual(s.on(), [], view);
+    assert.deepStrictEqual(s.pills().map((p) => p.key), ['blocked', 'review', 'waiting'], view);
+  }
+});
+
+test("a link whose q is a pill's query opens with the query in the box as typed text: the pill is off and, outside the Graph, nothing is selected", async () => {
+  const board = await open({ search: '?q=review%3A' });
+  assert.strictEqual(board.box(), 'review:');
+  assert.deepStrictEqual(board.shown(), [5, 6], 'the filter travels');
+  assert.deepStrictEqual(board.on(), []);
+  assert.deepStrictEqual(board.ids(), []);
+  const graph = await open({ view: 'graph', search: '?q=review%3A' });
+  assert.strictEqual(graph.box(), 'review:');
+  assert.deepStrictEqual(graph.on(), []);
+  assert.deepStrictEqual(graph.selection(), { anchor: typed('review:'), additions: [] });
+});
+
 test('the clear button turns the pill off too', async () => {
   const s = await open();
   s.click('review');
@@ -936,4 +1004,75 @@ test('the fold control folds and unfolds for the visit, without changing the pre
   assert.strictEqual(s.page.run('loadPrefsState().pillsFolded'), false);
   s.page.run('toggleSearchPillsFold()');
   assert.strictEqual(s.page.run('currentPillsFolded()'), false);
+});
+
+// --- turning the switch off moves focus only when the panel took it with it ----------------
+
+// A stand-in for the panel that knows which elements are inside it, which the harmless element
+// the page is given for it does not.
+const withPanelHolding = (s, ...inside) => {
+  s.elements['#search-panel'].contains = (el) => inside.includes(el);
+};
+
+test('switching off with focus on the panel\'s own pill hands focus to the arrow, since the pill went with the panel', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  const pillEl = button();
+  withPanelHolding(s, pillEl);
+  s.openPanel();
+  s.focusOn(pillEl);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 1);
+  assert.strictEqual(s.focused(), toggle);
+});
+
+test('switching off from the preferences sheet leaves focus in the sheet, and p and the arrow leave it where it is', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  withPanelHolding(s);
+  const checkbox = { tagName: 'INPUT', isContentEditable: false, focus() {} };
+  s.openPanel();
+  s.focusOn(checkbox);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(s.isOpen(), false, 'the panel closed');
+  assert.strictEqual(toggle.focused, 0, 'and the arrow behind the sheet did not take focus');
+  assert.strictEqual(s.focused(), checkbox);
+  s.page.run('setPanelOnFocus(true, true)');
+  const card = button();
+  s.focusOn(card);
+  press(s, 'p');
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 0, 'p with focus on a card leaves it there');
+  assert.strictEqual(s.focused(), card);
+});
+
+test('switching off with focus in the box or on the arrow keeps it there', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  withPanelHolding(s);
+  s.openPanel();
+  s.focusOn(s.page.input);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(s.focused(), s.page.input);
+  s.page.run('setPanelOnFocus(true, true)');
+  s.focusOn(toggle);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(toggle.focused, 0, 'the arrow had it already');
+  assert.strictEqual(s.focused(), toggle);
+});
+
+test('Esc still hands focus to the arrow when it closes the panel from anywhere but the box', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  withPanelHolding(s);
+  s.openPanel();
+  s.focusOn(button());
+  s.press();
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 1, 'the Esc rule: the arrow, unless the box has it');
 });

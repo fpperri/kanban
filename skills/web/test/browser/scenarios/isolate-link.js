@@ -269,5 +269,6 @@ module.exports = {
     // --- a link with the parameter and no query ---------------------------------------------------------------------------------------------
     check('a link with the isolate parameter and no query opens the Board', await goto('/?isolate=1&view=board', boardReady));
     check('isolate is off, the box is empty and the chip is quiet', await switchIs(false) && (await boxText()) === '' && !(await chipSaysIsolated()), { box: await boxText(), chip: await chip() });
+    check('and the address has lost the isolate parameter, with nothing typed', await addressHas({ view: 'board' }), await addressParams());
   },
 };

@@ -54,8 +54,19 @@ test('the panel text describes the slice section: the tiers the board uses and t
   assert.match(text, /run of one removes the cut/);
   assert.match(text, /context-menu key and Shift\+F10/);
   assert.match(text, /`\[`[^.]*`\]`[^.]*`\{`[^.]*`\}`/);
-  assert.match(text, /a field has focus or a card sheet, a card menu or the change tray is up/);
+  assert.match(text, /a field has focus or a card sheet or a card menu is up/);
+  assert.doesNotMatch(text, /card menu or the change tray is up/, 'the tray is in the page, not a dialog');
   assert.ok(text.includes('`slice:strategy..`'));
+});
+
+test('the panel text says the keep-only gestures need a fine pointer, and what a tap does on a phone', () => {
+  const text = flat(panel[0]);
+  assert.match(text, /right-click[^.]*context-menu key[^.]*Shift\+F10[^.]*only where the pointer is fine and hovers/);
+  assert.match(text, /on a phone a long-press neither keeps a pill alone nor keeps only a slice/);
+  assert.match(text, /a tap on a slice entry grows the run, drops an end or removes the cut/);
+  const docs = flat(read('docs', 'snapshot.md'));
+  const at = docs.indexOf('## Search panel');
+  assert.match(docs.slice(at, docs.indexOf('##', at + 5)), /right-clicks need a mouse[^.]*a tap/);
 });
 
 test('the panel text says what the counts are taken over, and describes the chip and the keyboard', () => {
@@ -97,6 +108,15 @@ test('the cross-harness note says the generator needs the pill list and the run 
   const note = flat(read('docs', 'cross-harness.md'));
   assert.match(note, /skills\/web\/web\/pills\.js/);
   assert.match(note, /skills\/web\/web\/slice-run\.js/);
+  assert.match(note, /skills\/web\/web\/key-guard\.js/);
+  assert.match(note, /skills\/web\/web\/combobox\.js/);
+});
+
+test('the skill says which pieces of the panel are the web\'s source and which texts are held to it by a test', () => {
+  const text = flat(skill);
+  assert.match(text, /key guard's check for a field with focus \(`skills\/web\/web\/key-guard\.js`\)/);
+  assert.match(text, /`skills\/web\/web\/combobox\.js`/);
+  assert.match(text, /`test\/panel-copies\.test\.js` holds the page's copy of each to the web's source/);
 });
 
 test('the one term the skill writes out for a pill is the term the page writes for it', () => {

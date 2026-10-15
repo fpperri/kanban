@@ -61,7 +61,6 @@ module.exports = {
   alsoBoards: ['malformed'],
   timeoutMs: 60000,
   EXPECTED,
-  GLYPH,
   SHAPE_OF,
   DOT_SHAPES,
   RINGS_CLEAR,

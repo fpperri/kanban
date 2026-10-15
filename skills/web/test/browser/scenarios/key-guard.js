@@ -1,10 +1,9 @@
 'use strict';
 // The single-key shortcuts and the key guard they share (key-guard.js), on the
 // fixture board: `/` and Ctrl+F with nothing open, in a text field, under a
-// dialog and under a card menu. These are the checks the runner made after the
-// Graph's, moved as they were; the card menu is opened by the runner's
-// right-click helper. The key events keep the exact shape they were verified
-// with: no text, so a `/` is read by the page and not typed.
+// dialog and under a card menu. The card menu is opened by the runner's
+// right-click helper. The key events carry no text, so a `/` is read by the
+// page and not typed.
 
 module.exports = {
   name: 'key-guard',

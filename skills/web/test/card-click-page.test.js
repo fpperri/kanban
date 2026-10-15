@@ -40,7 +40,8 @@ async function open({ view = 'board', prefs = SELECTS } = {}) {
 // A fresh element for every click, as the real page has after each repaint.
 function cardTarget(id) {
   const el = { dataset: { id: String(id) } };
-  return new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.card-el' ? el : null) : harmless(String(key))) });
+  const inCard = (sel) => sel.split(',').some((part) => part.trim() === '.card-el');
+  return new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (inCard(sel) ? el : null) : harmless(String(key))) });
 }
 const empty = () => new Proxy({}, { get: (t, key) => (key === 'closest' ? () => null : harmless(String(key))) });
 const click = (s, target, extra = {}) => s.page.fireDocument('click', { target, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false, ...extra });

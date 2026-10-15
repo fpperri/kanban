@@ -42,8 +42,12 @@
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
-// searchMatchIds, searchTermText, cardsBeforeSearch, loadPrefsState, setPanelOnFocus,
-// keyGuardOff.
+// searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus. It also calls the
+// page globals of selection.js (selectionAfterPill, pillQueriesDropped), pills.js, isolate.js
+// (isolateNow, syncIsolateSwitch), search-slices.js (renderSearchSlices,
+// searchSlicesChipNames), the search module (searchTermText and the alternatives and slice
+// functions: searchSplitSlice, searchJoinSlice, searchAddAlt, searchRemoveGrownAlt),
+// prefs.js (loadPrefs) and key-guard.js (keyGuardOff).
 
 let searchPanelOpen = false;
 // Whether the pill section is folded for this visit; null until it is read from the
@@ -135,23 +139,30 @@ function updatePillButton(button, pill, on) {
   if (button.title !== title) button.title = title;
 }
 
+// Makes the children of `host` the list, one per item in order, each found again by its key
+// (`keyOf(item)`, kept in the dataset field `dataKey`): the panel's pills and the slice
+// section's entries are both kept this way. A child that is there is updated where it stands
+// (`update`), so focus on it is never lost; one is added (`build`) or taken out only when the
+// list changes, and the ones to go are taken out first, so that a child that stays is never
+// moved by the others leaving: moving an element that is in the page blurs it.
+function syncKeyedChildren(host, dataKey, list, keyOf, build, update) {
+  const keys = new Set(list.map(keyOf));
+  for (const el of [...host.children]) if (!keys.has(el.dataset[dataKey])) el.remove();
+  const byKey = new Map([...host.children].map((el) => [el.dataset[dataKey], el]));
+  list.forEach((item, at) => {
+    const child = byKey.get(keyOf(item)) || build(item);
+    update(child, item, at);
+    if (host.children[at] !== child) host.insertBefore(child, host.children[at] || null);
+  });
+}
+
 // Makes the buttons in `host` the rows: one per pill, in order, each showing its
-// count and whether it is on, and a "+N more" button where a row says so. A button
-// that is there is updated where it stands, so focus on it is never lost; one is
-// added or taken out only when the rows change, and the ones to go are taken out
-// first, so that a button that stays is never moved by the others leaving.
+// count and whether it is on, and a "+N more" button where a row says so.
 function syncPillButtons(host, rows, selection) {
   const doc = host.ownerDocument || document;
-  const keys = new Set(rows.map((row) => row.key));
-  for (const el of [...host.children]) if (!keys.has(el.dataset.pillKey)) el.remove();
-  const byKey = new Map([...host.children].map((el) => [el.dataset.pillKey, el]));
-  rows.forEach((row, at) => {
-    const more = row.kind === 'more';
-    const button = byKey.get(row.key) || (more ? buildMoreButton(doc, row) : buildPillButton(doc, row));
-    if (more) updateMoreButton(button, row);
-    else updatePillButton(button, row, pillIsOn(selection, row));
-    if (host.children[at] !== button) host.insertBefore(button, host.children[at] || null);
-  });
+  syncKeyedChildren(host, 'pillKey', rows, (row) => row.key,
+    (row) => (row.kind === 'more' ? buildMoreButton(doc, row) : buildPillButton(doc, row)),
+    (button, row) => (row.kind === 'more' ? updateMoreButton(button, row) : updatePillButton(button, row, pillIsOn(selection, row))));
 }
 
 // The chip a closed panel shows: how many things are on (the pills, a run of slices that cuts,
@@ -211,12 +222,13 @@ function syncSearchSwitch() {
 }
 
 // What a change of the switch does to the panel, after setPanelOnFocus (app.js) has kept
-// the choice. Off closes the panel now, by the Esc rule: focus goes to the arrow unless
-// the box has it, because a pill that had it is hidden with the panel. On opens the
+// the choice. Off closes the panel now: focus goes to the arrow when a pill or a fold control
+// in the panel had it, since that goes with the panel, and stays wherever else it was (the box,
+// the arrow, the preferences sheet that set the switch, the board). On opens the
 // panel now when `openNow` says so; the arrow and p do, the preferences sheet, which is
 // up over the board, does not.
 function applySearchPanelSwitch(on, openNow) {
-  if (!on) closeSearchPanel();
+  if (!on) closeSearchPanel(true);
   else if (openNow) setSearchPanelOpen(true);
   syncSearchSwitch();
 }
@@ -245,12 +257,18 @@ function onSearchPanelKey(e) {
 // Esc's link in the chain: an open panel closes and answers true so the Esc stops
 // there, a closed one answers false. Focus goes back to the toggle, unless it is in
 // the box: the box keeps it, and the next Esc clears the box.
-function closeSearchPanel() {
+// Switching the panel off (`strandedOnly`) moves focus only when it was inside the panel, which
+// goes with it: a focus anywhere else, in the preferences sheet that set the switch or on the
+// board behind it, stays where it is.
+function closeSearchPanel(strandedOnly = false) {
   if (!searchPanelOpen) return false;
   const box = $('#search-input');
-  const fromBox = !!box && document.activeElement === box;
+  const active = document.activeElement;
+  const fromBox = !!box && active === box;
+  const panel = $('#search-panel');
+  const stranded = !!panel && !!active && panel.contains(active);
   setSearchPanelOpen(false);
-  if (!fromBox) $('#search-panel-toggle').focus();
+  if (strandedOnly ? stranded : !fromBox) $('#search-panel-toggle').focus();
   return true;
 }
 
@@ -299,16 +317,21 @@ function foldSearchPills(folded) {
 // ('solo') on the pill with this key: the selection and the text of the box change
 // together, and the box is written with the reason 'pill', so the repaint does not
 // take it for a typed search. A run of slices in the box is not the pills' to change: it
-// is set apart for the gesture and put back after it.
+// is set apart for the gesture and put back after it, but for the cut a pill held in its
+// own query (a board pill `slice:goal`), which goes with the pill when the gesture
+// turns it off.
 function applyPillGesture(gesture, key) {
   const pill = searchPanelEntries().find((p) => p.key === key);
   if (!pill) return;
-  const { rest, slices } = searchSplitSlice($('#search-input').value);
+  const { rest, slices: held } = searchSplitSlice($('#search-input').value);
+  const before = selectionState.selection;
   const next = selectionAfterPill(gesture, pill.query, {
-    selection: selectionState.selection,
+    selection: before,
     boxText: rest,
-    alts: { add: searchAddAlt, remove: searchRemoveAlt },
+    alts: { add: searchAddAlt, remove: searchRemoveGrownAlt },
   });
+  const cut = pillQueriesDropped(before, next.selection).flatMap((query) => searchSplitSlice(query).slices);
+  const slices = held.filter((s) => !cut.includes(s));
   setSelection(next.selection, next.rangeStart);
   writeSearch(searchJoinSlice(next.boxText, slices), 'pill');
 }

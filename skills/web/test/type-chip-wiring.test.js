@@ -107,7 +107,7 @@ test('the card detail shows a type: line with its icon glyph first, in the type\
     '<span class="type-chip" title="objective" data-type-color="#a371f7"><span class="type-icon" aria-hidden="true">\u25c6</span>objective</span>');
 });
 
-test('in the detail a type with an unknown icon is the chip it was before icons', () => {
+test('in the detail a type with an unknown icon draws the plain chip', () => {
   const fm = loadFrontmatterValueHtml([{ name: 'bug', color: '', icon: 'blob' }]);
   assert.strictEqual(fm('type', 'bug'), '<span class="type-chip" title="bug">bug</span>');
 });

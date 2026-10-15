@@ -45,12 +45,16 @@ state.
 ## Amendment (2026-10-14): anchor, peek and isolate
 
 A selection now grows from an **anchor**: one card, or one query (a pill, or
-the search box in the Graph). A plain click on a card or a pill, with either
-button, sets the anchor and drops the rest; with Shift it adds to the
+the search box in the Graph). A plain click on a card, where a plain click
+selects, sets the anchor and drops the rest; with Shift it adds to the
 selection instead. A Path or Tree from the menu adds that card's path or tree.
-In the Graph, Shift+click adds one card, because its layout has no reading
-order for a range; the other views keep the range. Esc steps back one stage at
-a time: isolate off, then the additions, then the anchor.
+In the Graph, Shift+click adds one card (or takes it out), because its layout
+has no reading order for a range, and Ctrl/Cmd+click does the same; the other
+views keep the range. A pill is not a card: it follows the status pills' rules,
+so a click turns it on or off, a right-click keeps only that pill and
+Shift+click is a plain click. The first pill on is the anchor and later ones
+are additions. Esc steps back in three stages: isolate off, then every addition
+at once, then the anchor.
 
 A right-click outside the selection no longer replaces it. The menu opens for
 that card alone and leads with **Peek** (open the card, selection untouched)
@@ -66,7 +70,7 @@ isolated set without rewriting it.
 
 What a plain click on a card does (open it, or select it) becomes a per-view
 preference, kept in the browser per board. The defaults stay as above: the
-Graph selects, the other views open.
+other views open, and the Graph always selects.
 
 ## Amendment (2026-10-15): empty space
 

@@ -9,7 +9,7 @@
 //   a | b         or: `|` binds looser than a space, so `tags:ui status:doing | #12`
 //                 is (ui and doing) or card 12. The parse of an or is one term,
 //                 { field: 'or', alts: [[term, ...], ...] }; a query with no or
-//                 is the same flat list of terms as before. An empty alternative
+//                 is a flat list of terms. An empty alternative
 //                 (a trailing `|`, `a | status:`) is dropped, never every card.
 //   ( a | b )     round brackets group and nest. A bracket holding no or is spliced
 //                 into the terms around it, so `(draft)` parses as `draft`.
@@ -19,11 +19,11 @@
 //                 quoted term carries `exact: true`.
 //   waiting:      bare only: the card waits for at least one card that is not done.
 //                 A value (`waiting:3`) is literal text.
-// `|` counts only as a token of its own and brackets only at a token's edge, so
-// `a|b` and `fix(auth)` stay literal; a quote opens only at the start of a token
+// `|` and brackets count only at a token's edge, so `a|b` and `fix(auth)` stay
+// literal while `a |b` means `a | b`; a quote opens only at the start of a token
 // or after a scope's colon. Nothing here throws on half-typed input: an unclosed
 // quote or bracket reads to the end, a stray closing bracket is ignored.
-// searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
+// searchAddTerm/searchBracket/searchTermText are the term
 // interface for code that writes the box; searchHasAlt/searchAddAlt/searchRemoveAlt
 // are its other half, for a query that joins the box as one more alternative, and
 // searchSetSlice is its third, for the run of slices the slice section writes (it reads the
@@ -202,9 +202,10 @@ function searchQuoteAt(s, start) {
 }
 
 // The lexer: the query as tokens with their place in the text. A token is
-// `text` (one term as typed), `or` (a lone |), `open` (a ( at the front of a
-// chunk) or `close` (a ) at the back). Brackets and | count only at a token's
-// edge, so a|b stays one text token.
+// `text` (one term as typed), `or` (a | at the front or the back of a chunk, or
+// a chunk of nothing else), `open` (a ( at the front of a chunk) or `close` (a )
+// at the back). Brackets and | count only at a token's edge, so a|b and
+// fix(auth) stay one text token, while `a |b` and `(a| b)` mean what `a | b` does.
 function lexSearch(raw) {
   const s = String(raw == null ? '' : raw);
   const tokens = [];
@@ -227,7 +228,13 @@ function lexSearch(raw) {
     let end = start;
     while (end < s.length && !/\s/.test(s[end])) end++;
     const bodyEnd = end - searchClosers(s.slice(start, end));
-    if (bodyEnd > start) tokens.push({ kind: s.slice(start, bodyEnd) === '|' ? 'or' : 'text', start, end: bodyEnd });
+    const or = (i) => tokens.push({ kind: 'or', start: i, end: i + 1 });
+    let from = start;
+    while (from < bodyEnd && s[from] === '|') or(from++);
+    let to = bodyEnd;
+    while (to > from && s[to - 1] === '|') to--;
+    if (to > from) tokens.push({ kind: 'text', start: from, end: to });
+    for (let i = to; i < bodyEnd; i++) or(i);
     for (at = bodyEnd; at < end; at++) close(at);
   }
   return { text: s, tokens };
@@ -286,8 +293,8 @@ function searchFieldHit(text, term) {
   return term.exact ? searchFlat(low) === term.value : low.includes(term.value);
 }
 
-// --- The term interface. Code that writes to the box (a cue click, and later a
-// pill, a slice or isolate) edits the text through these, never by joining
+// --- The term interface. Code that writes to the box (a cue click, a pill, a slice
+// or isolate) edits the text through these, never by joining
 // strings: `|` binds looser than a space, so a term appended to `a | b` would
 // bind to b only. Each returns the new text, and the text it was handed when
 // nothing changed, so a caller can tell a no-op by comparing.
@@ -341,23 +348,6 @@ function searchAddTerm(raw, term) {
     return parts.join(' ');
   });
   return changed ? written.join(' | ') : text;
-}
-
-// Removes `term` wherever it stands, inside brackets too, and drops a bracket
-// or an alternative that is left empty.
-function searchRemoveTerm(raw, term) {
-  const text = String(raw == null ? '' : raw);
-  const drop = searchTermString(term);
-  if (!drop) return text;
-  let removed = false;
-  const strip = (alts) => alts.map((alt) => alt.flatMap((item) => {
-    if (item.group) return [{ group: strip(item.group) }];
-    if (text.slice(item.start, item.end) !== drop) return [item];
-    removed = true;
-    return [];
-  }));
-  const left = strip(parseSearchAlts(lexSearch(text).tokens));
-  return removed ? searchRenderAlts(left, text) : text;
 }
 
 // Wraps a query that holds more than one term, or a |, in round brackets, so it
@@ -415,6 +405,13 @@ function searchJoinSlice(rest, slices) {
   const alts = searchAltTexts(rest);
   if (!alts.length) return tail;
   return `${alts.length > 1 ? `(${alts.join(' | ')})` : alts[0]} ${tail}`;
+}
+
+// What a gesture that clears the box leaves in it: the top-level slice: terms alone. A cut
+// is a cut of the view and no search, so the typed query and the pills' alternatives go and
+// the cut stays, as it does when a pill or Isolate rewrites the box.
+function searchCutOnly(raw) {
+  return searchJoinSlice('', searchSplitSlice(raw).slices);
 }
 
 // The query with its top-level slice: terms replaced by one for `value` (the text after
@@ -503,6 +500,37 @@ function searchRemoveAlt(raw, term) {
   return left.length === have.length ? text : searchJoinSlice(searchAltsText(left), slices);
 }
 
+// The terms of one alternative, in order, a bracket as one.
+function searchAltTerms(altText) {
+  const text = searchAltUnwrapped(altText);
+  const alts = parseSearchAlts(lexSearch(text).tokens);
+  return alts.length === 1 ? alts[0].map((item) => searchItemText(item, text)).filter(Boolean) : [];
+}
+
+// Takes `term` out of the box as searchRemoveAlt does, and with it every alternative it has
+// grown into. A click on a cue adds its term to every alternative, so a pill's `review:` becomes
+// `review: assignee:@human`: still the pill's alternative, which goes when the pill does, while
+// text typed beside it (another alternative) stays. An alternative is the pill's grown one when it
+// holds every term of the pill's, in whatever order; the pill's own terms are in the box only
+// through the pill, since typing in the box turns it off. A run of slices stays, but for the cut a
+// pill holds in its own query (a board pill `slice:goal`), which is the pill's and goes with it.
+function searchRemoveGrownAlt(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const base = searchAltTexts(searchTermString(term)).map((alt) => {
+    const own = searchSplitSlice(alt);
+    return { key: searchAltKey(alt), terms: searchAltTerms(own.rest), cut: own.slices };
+  });
+  const { rest, slices } = searchSplitSlice(text);
+  const have = searchAltTexts(rest);
+  const left = have.filter((alt) => {
+    const terms = searchAltTerms(alt);
+    return !base.some((own) => own.key === searchAltKey(alt) || (own.terms.length && own.terms.every((t) => terms.includes(t))));
+  });
+  const cut = base.flatMap((own) => own.cut);
+  const kept = slices.filter((s) => !cut.includes(s));
+  return left.length === have.length && kept.length === slices.length ? text : searchJoinSlice(searchAltsText(left), kept);
+}
+
 // --- Isolate. Switching it on writes the selection into the box as `part | part | ...`
 // (the isolate text), each part by its criterion rather than a frozen list of cards, so a
 // card that comes to match a query part joins on the next poll, and the address carries it.
@@ -510,7 +538,7 @@ function searchRemoveAlt(raw, term) {
 // when it holds a | or spaces (searchBracket, so the grammar's token-edge rules apply). A
 // query part that is not a term yet (`status:`) selects nothing, so it writes nothing: a
 // lone half-typed term would otherwise isolate every card. A query part with a card taken
-// out is already its other cards by then (selection.js removeCard), so it is written as
+// out is already its other cards by then (selection.js selectionWithoutCard), so it is written as
 // them. `parts` are the selection's parts, { kind: 'card' | 'path' | 'tree', id } or
 // { kind: 'query', text }. What the text matches is what the selection resolves to over
 // the whole board.
@@ -532,10 +560,18 @@ function searchIsolateText(parts) {
 // put back after it (searchSplitSlice, searchJoinSlice). The cut stays in effect, because
 // the selection only covers the cards the view shows and a card the cut hides is not in
 // it. The rest of the previous text goes; the page remembers it. No part to write, no text.
-function searchIsolateBox(previous, parts) {
+// Where the box hides what it does not match (`limits`, every view but the Graph, where it
+// only lights) the rest stays too, ANDed on, when a card, a path or a tree is among the
+// parts: they are named whole, but the selection holds only those of their cards the box
+// shows, and the cards it hid would otherwise come back. A query part needs no such help:
+// a pill's query is an alternative of the box, and so inside it.
+function searchIsolateBox(previous, parts, { limits = false } = {}) {
   const text = searchIsolateText(parts);
   if (!text) return '';
-  return searchJoinSlice(text, searchSplitSlice(previous).slices);
+  const { rest, slices } = searchSplitSlice(previous);
+  const named = (Array.isArray(parts) ? parts : []).some((part) => part && (part.kind === 'card' || part.kind === 'path' || part.kind === 'tree'));
+  const held = limits && named && parseSearchQuery(rest).length > 0;
+  return searchJoinSlice(held ? `${searchBracket(text)} ${searchBracket(rest)}` : text, slices);
 }
 
 // What the box holds when isolate goes off: the text it held before, exactly as it was,
@@ -666,8 +702,8 @@ function sliceEndIndex(axis, text) {
 }
 
 // The ids in the run of slices a slice: value names. An end with no slice is open,
-// so a value with neither end known is no cut. A page that has not loaded the
-// slices module (the snapshot, until it embeds it) cuts nothing.
+// so a value with neither end known is no cut. A page that has not loaded slices.js
+// and nesting.js cuts nothing.
 function sliceIds(cards, value, ctx, memo) {
   const slices = searchSlices(cards, ctx, memo);
   if (!slices) return new Set(cards.map((c) => Number(c.id)));
@@ -793,8 +829,8 @@ function searchSuggestionItems(raw, caret, cards, ctx) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
-    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
-    searchSplitSlice, searchJoinSlice, searchSetSlice,
+    searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
+    searchSplitSlice, searchJoinSlice, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
 } else {
@@ -805,14 +841,15 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchSuggestionItems = searchSuggestionItems;
   window.searchTermText = searchTermText;
   window.searchAddTerm = searchAddTerm;
-  window.searchRemoveTerm = searchRemoveTerm;
   window.searchBracket = searchBracket;
   window.searchHasAlt = searchHasAlt;
   window.searchAddAlt = searchAddAlt;
   window.searchRemoveAlt = searchRemoveAlt;
+  window.searchRemoveGrownAlt = searchRemoveGrownAlt;
   window.searchSplitSlice = searchSplitSlice;
   window.searchJoinSlice = searchJoinSlice;
   window.searchSetSlice = searchSetSlice;
+  window.searchCutOnly = searchCutOnly;
   window.searchIsolateText = searchIsolateText;
   window.searchIsolateBox = searchIsolateBox;
   window.searchIsolateRestore = searchIsolateRestore;

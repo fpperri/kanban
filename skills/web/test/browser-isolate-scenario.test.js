@@ -198,7 +198,7 @@ test('it loads the Graph and then the Board cold by its address, each part from 
   assert.deepStrictEqual(page.log.opened, ['/?view=graph', ...Array(5).fill('/?view=board')]);
 });
 
-test('it covers every acceptance check the ticket names, each by a check of its own', async () => {
+test('it covers every behaviour listed here, each by a check of its own', async () => {
   const page = standIn();
   await scenario.run(page);
   const names = page.log.checks.map(([n]) => n);

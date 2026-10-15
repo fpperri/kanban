@@ -8,12 +8,13 @@
 // card parts resolves to those cards, and isolate is off (isolateNow, isolateTurnOff). Not a
 // test file (the suite runs *.test.js only).
 const selection = require('../../web/selection');
+const { searchRemoveAlt, searchRemoveGrownAlt } = require('../../web/search');
 
 // A selection of exactly these cards: the first is the anchor, the rest are additions.
 const cardsSelection = (ids) => ids.reduce((next, id) => selection.addPart(next, selection.cardPart(id)), selection.NO_SELECTION);
 
 function selectionGlobals(extra = {}) {
-  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, isolateNow: () => null, isolateTurnOff: () => false, ...extra };
+  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, isolateNow: () => null, isolateTurnOff: () => false, searchRemoveAlt, searchRemoveGrownAlt, ...extra };
 }
 
 module.exports = { cardsSelection, selectionGlobals };

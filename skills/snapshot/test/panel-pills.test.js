@@ -151,6 +151,35 @@ describe('a click on a pill', () => {
     }, MOUSE);
   });
 
+  test('two pills with one query are one filter: a click turns both on, and a right-click on either is the pill that is alone', () => {
+    withBuiltBoard('plan', (page) => {
+      openAll(page);
+      const next = () => pill(page, 'next');
+      const tag = () => pill(page, 'next-up');
+      page.click(next().el);
+      assert.strictEqual(boxText(page), 'tags:"next-up"');
+      assert.deepStrictEqual([next().on, tag().on], [true, true], 'the board pill and the tag pill share tags:"next-up"');
+      page.contextmenu(tag().el);
+      assert.strictEqual(boxText(page), '', 'the other pill is no other filter, so the one right-clicked was alone and goes off');
+      assert.deepStrictEqual([next().on, tag().on], [false, false]);
+      page.click(tag().el);
+      page.contextmenu(next().el);
+      assert.strictEqual(boxText(page), '', 'and the other way round');
+    }, MOUSE);
+  });
+
+  test('a right-click on one of two pills with one query keeps only their query when another pill is on', () => {
+    withBuiltBoard('plan', (page) => {
+      openAll(page);
+      page.click(pill(page, 'review').el);
+      page.click(pill(page, 'next').el);
+      assert.strictEqual(boxText(page), 'review: | tags:"next-up"');
+      page.contextmenu(pill(page, 'next-up').el);
+      assert.strictEqual(boxText(page), 'tags:"next-up"', 'review is another filter, so the right-click makes the query the only one');
+      assert.deepStrictEqual(pills(page).filter((q) => q.on).map((q) => q.label).sort(), ['next', 'next-up']);
+    }, MOUSE);
+  });
+
   test('a coarse pointer keeps its own long-press menu on a pill', () => {
     withBuiltBoard('plan', (page) => {
       openPanel(page);

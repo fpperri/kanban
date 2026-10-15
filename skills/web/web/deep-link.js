@@ -36,6 +36,12 @@ const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar', 'graph']);
 //
 // An unrecognized/missing `view` resolves to null: no view switch, normal
 // load's persisted view stands.
+//
+// `isolate` says how the query is shown, not what the link opens: true for `isolate=1`
+// beside a usable query. The link carries isolate the way the address does
+// (nextSearchAddress, card-history.js), as a second parameter after `q`. Isolate is the box's
+// query shown on its own, so a blank or missing `q` opens with isolate off, and any value but 1
+// is no request. A link with the parameter alone is no deep link: the parameter opens nothing.
 function parseDeepLink(search) {
   if (typeof search !== 'string' || !search) return null;
   let params;
@@ -52,27 +58,13 @@ function parseDeepLink(search) {
     id: hasCard && Number.isInteger(id) && id > 0 ? id : null,
     q,
     view,
+    isolate: q !== null && params.get('isolate') === '1',
   };
 }
 
-// Whether the link asks for isolate: `isolate=1` beside a query. The link carries isolate the
-// way the address does (nextSearchAddress, card-history.js), as a second parameter after `q`.
-// Isolate is the box's query shown on its own, so a link with the parameter and no usable
-// query (parseDeepLink's rule: blank reads as absent) opens with isolate off. Any value but 1
-// is no request. Kept apart from parseDeepLink, whose result is the three keys that open
-// something; this one only says how the query is shown.
-function deepLinkIsolates(search) {
-  if (typeof search !== 'string' || !search) return false;
-  let params;
-  try { params = new URLSearchParams(search); } catch (e) { return false; }
-  const q = params.get('q');
-  return params.get('isolate') === '1' && typeof q === 'string' && q.trim() !== '';
-}
-
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDeepLink, deepLinkIsolates, DEEP_LINK_VIEWS };
+  module.exports = { parseDeepLink, DEEP_LINK_VIEWS };
 } else {
   window.parseDeepLink = parseDeepLink;
-  window.deepLinkIsolates = deepLinkIsolates;
   window.DEEP_LINK_VIEWS = DEEP_LINK_VIEWS;
 }

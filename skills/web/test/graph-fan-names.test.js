@@ -41,7 +41,7 @@ const staircase = () => {
 };
 const ODD_UNDER_THE_CAP = Array.from({ length: GRAPH_FAN_NAMES_CAP - 2 }, (_, k) => 2 * k + 1);
 
-test('the cap and the small size are the prototype\'s: 24 cards', () => {
+test('the cap on names and the size of a fan that names every card are both 24 cards', () => {
   assert.strictEqual(GRAPH_FAN_NAMES_CAP, 24);
   assert.strictEqual(GRAPH_FAN_NAMES_SMALL, 24);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(GRAPH_FAN_OPTION_VALUES.names)), ['relevant', 'all', 'none']);
@@ -81,11 +81,24 @@ test('altitude is blind to type: a story with sub-steps and an epic with stories
   assert.deepStrictEqual(ids(graphFanNames(model, 'relevant')), [1, 2, 4], 'parents: 1 at 2, 2 at 1, 4 at 1');
 });
 
-test('a parent whose children are not drawn is not a parent on this fan, and names nothing', () => {
-  const cards = [card(1), card(2, { parent: 1 }), ...Array.from({ length: 30 }, (_, k) => card(10 + k))];
-  const hidden = buildOf(cards, undefined, cards.map((c) => c.id).filter((id) => id !== 2));
+test('a parent whose children are not drawn still stands as high as the board makes it: altitude is the layers of cards below, drawn or not', () => {
+  const cards = [card(1), card(2, { parent: 1 }), card(3, { parent: 2 }), ...Array.from({ length: 30 }, (_, k) => card(10 + k))];
+  const hidden = buildOf(cards, undefined, cards.map((c) => c.id).filter((id) => id !== 2 && id !== 3));
   assert.ok(hidden.nodes.length > GRAPH_FAN_NAMES_SMALL);
-  assert.deepStrictEqual(ids(graphFanNames(hidden, 'relevant')), []);
+  assert.ok(!hidden.byId.has(2) && !hidden.byId.has(3), 'the children are not drawn');
+  assert.deepStrictEqual(ids(graphFanNames(hidden, 'relevant')), [1], 'card 1 has two layers below it on the board, as its badge says');
+  assert.strictEqual(hidden.altitude.get(1), 2);
+  assert.strictEqual(hidden.altitude.get(10), 0);
+});
+
+test('the altitude the Names option reads is the nesting module\'s, the one the tiles\' badge shows, whatever is drawn', () => {
+  const { rollupIndex } = require('../web/nesting');
+  const cards = [card(1), card(2, { parent: 1 }), card(3, { parent: 2 }), card(4, { parent: 1 }), card(5), card(6, { parent: 5 })];
+  const index = rollupIndex(cards, undefined);
+  for (const drawn of [cards.map((c) => c.id), [1, 3, 5], [1, 4, 6]]) {
+    const model = buildOf(cards, undefined, drawn);
+    for (const n of model.nodes) assert.strictEqual(model.altitude.get(n.id), index.altitudeOf(n.id), `card ${n.id} with ${drawn.join(',')} drawn`);
+  }
 });
 
 // --- relevant, with a selection ------------------------------------------------------------------

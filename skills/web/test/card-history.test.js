@@ -261,7 +261,7 @@ test('every user-gesture close goes through the closeCard wrapper, not closeDeta
 // --- nextSearchAddress with isolate: the second parameter beside q ------------
 //
 // While isolate is on, `isolate=1` stands beside q; it is gone when isolate is off or the box
-// holds no query. A caller that says nothing about isolate leaves the parameter as it is.
+// holds no query.
 
 test('nextSearchAddress: isolate on puts isolate=1 after q, and off takes it out', () => {
   assert.strictEqual(nextSearchAddress('', '#2 | #5', true), '?q=%232+%7C+%235&isolate=1');
@@ -282,9 +282,9 @@ test('nextSearchAddress: isolate with no query is no isolate, so an empty or bla
   assert.strictEqual(nextSearchAddress('', '', true), null);
 });
 
-test('nextSearchAddress: a caller that does not say leaves the isolate parameter as it is', () => {
-  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a'), null);
-  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=a&isolate=1', 'b')), [['q', 'b'], ['isolate', '1']]);
+test('nextSearchAddress: a caller that does not say reads as isolate off, and drops the parameter', () => {
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a'), '?q=a');
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=a&isolate=1', 'b')), [['q', 'b']]);
 });
 
 test('nextCardHistorySearch: opening and closing a card keep the isolate parameter, whatever order the address holds it in', () => {

@@ -1,24 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { toggleSelection, pruneSelection, cardMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
-
-test('toggleSelection adds an unselected id and removes a selected one, without mutating input', () => {
-  const s0 = new Set([1]);
-  const s1 = toggleSelection(s0, 2);
-  assert.deepStrictEqual([...s1].sort(), [1, 2]);
-  const s2 = toggleSelection(s1, 1);
-  assert.deepStrictEqual([...s2], [2]);
-  assert.deepStrictEqual([...s0], [1]); // input untouched
-});
-
-test('pruneSelection drops ids no longer on the live board', () => {
-  const pruned = pruneSelection(new Set([1, 2, 3]), [2, 3, 4]);
-  assert.deepStrictEqual([...pruned].sort(), [2, 3]);
-});
-
-test('pruneSelection of an empty set stays empty', () => {
-  assert.deepStrictEqual([...pruneSelection(new Set(), [1, 2])], []);
-});
+const { cardMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
 
 // --- shift+click adds a RANGE between the range start and the target,
 // in the active view's rendered order. Additive (union), never replacing —
@@ -355,19 +337,6 @@ test('a cue, Shift, Ctrl or Cmd wins over the second click of a double click', (
     assert.strictEqual(click({ detail: 2, ctrlKey: true }, plainClick), 'toggle');
     assert.strictEqual(click({ detail: 2, metaKey: true }, plainClick), 'toggle');
   }
-});
-
-// --- the click-away rule leaves alone what a card click built or kept.
-
-const { clickKeepsSelection } = require('../web/selection');
-
-test('a selection the card click built or kept survives the click-away rule: a select and a peek', () => {
-  assert.strictEqual(clickKeepsSelection('select'), true);
-  assert.strictEqual(clickKeepsSelection('peek'), true);
-});
-
-test('every other card click leaves the click-away rule as it was', () => {
-  for (const action of ['open', 'cue', 'toggle', 'range', 'none', undefined]) assert.strictEqual(clickKeepsSelection(action), false, String(action));
 });
 
 // --- Enter on a focused card opens it where a plain click only selects.

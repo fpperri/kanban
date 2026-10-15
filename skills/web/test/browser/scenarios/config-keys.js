@@ -3,7 +3,9 @@
 // hierarchy, the pills and each type's icon after the load and again after a
 // poll; on the malformed board it holds what the reader made of the broken
 // entries (the blank dropped, the duplicates and the unknown icon passed
-// through). Nothing draws these yet, so the page's own state is what is read.
+// through). The views that draw them (the tier fan, the slice section, the pills, the type icons)
+// have scenarios of their own; this one reads the page's own state, so it checks that the load and
+// the poll deliver the config whichever view draws it.
 //
 // The poll check blanks the three values first, so a page that only kept what
 // the load gave it fails: the poll has to put them back.
@@ -43,7 +45,6 @@ module.exports = {
   board: 'plan',
   alsoBoards: ['malformed'],
   EXPECTED,
-  HELD,
   async run(page) {
     const { ev, open, waitFor, check } = page;
     for (const key of ['plan', 'malformed']) {

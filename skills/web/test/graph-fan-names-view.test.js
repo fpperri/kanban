@@ -124,7 +124,7 @@ test('a stored choice is the one pressed, and a value the row does not offer rea
 test('the Names press is one of the controls that get focus back after a render, found again by its option and value', async () => {
   const s = await open({ stored: UNFOLDED() });
   s.page.ctx.__button = button(s, 'names', 'all').el;
-  assert.strictEqual(s.run('pillSelector(__button)'), '.graph-option-btn[data-key="names"][data-val="all"]');
+  assert.strictEqual(s.run('refocusSelector(__button)'), '.graph-option-btn[data-key="names"][data-val="all"]');
 });
 
 // --- what is drawn ------------------------------------------------------------------------------------
@@ -330,19 +330,19 @@ test('n gets no key guard of its own: it reads keyGuardOff as p, m and i do', ()
   assert.match(src, /document\.addEventListener\('keydown', onGraphNamesKey\)/);
 });
 
-test('n keeps focus on an option that had it: the step is made through keepPillFocus, the hand-back every press of the row uses', () => {
+test('n keeps focus on an option that had it: the step is made through keepControlFocus, the hand-back every press of the row uses', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const body = src.match(/function onGraphNamesKey\([\s\S]*?\n\}/)[0];
-  assert.match(body, /focusedPill\(\)/);
-  assert.match(body, /keepPillFocus\(/);
+  assert.match(body, /focusedRebuiltControl\(\)/);
+  assert.match(body, /keepControlFocus\(/);
 });
 
 test('n with focus on an option hands focus back to that same option in the rebuilt row, not to the option the step reached', async () => {
   const s = await open({ stored: { ...UNFOLDED(), [key('kanban', 'graph.options')]: JSON.stringify({ names: 'all' }) } });
   const doc = s.page.ctx.document;
   const had = button(s, 'names', 'all').el;
-  const pillSelector = s.run('PILL_SELECTOR');
-  doc.activeElement = { tagName: 'BUTTON', isContentEditable: false, closest: (sel) => (sel === pillSelector ? had : null) };
+  const refocusSelector = s.run('REFOCUS_SELECTOR');
+  doc.activeElement = { tagName: 'BUTTON', isContentEditable: false, closest: (sel) => (sel === refocusSelector ? had : null) };
   const focused = [];
   const lookup = doc.querySelector;
   doc.querySelector = (sel) => {

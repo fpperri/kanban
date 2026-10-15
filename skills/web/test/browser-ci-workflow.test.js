@@ -70,17 +70,26 @@ test('the browser job sets the sandbox switch the runner reads', () => {
   assert.match(J.browser, /KANBAN_BROWSER_NO_SANDBOX: ['"]1['"]/);
 });
 
-test('the browser job runs the scenarios, then in reverse order, then the fault check', () => {
+test('the browser job runs the scenarios, then in reverse order, then the smoke scenario on the plugin of main, then the fault check', () => {
   const runs = [...J.browser.matchAll(/^\s+- run: (.+)$/gm)].map((m) => m[1]);
-  assert.strictEqual(runs.length, 3, runs.join(' | '));
+  assert.strictEqual(runs.length, 4, runs.join(' | '));
   assert.match(runs[0], /^npm run test:browser -- --shots \S+$/);
   assert.match(runs[1], /^npm run test:browser -- --reverse --shots \S+$/);
-  assert.strictEqual(runs[2], 'node skills/web/test/browser/fault-check.js');
-  assert.notStrictEqual(runs[0].split('--shots ')[1], runs[1].split('--shots ')[1], 'the two runs share a screenshots folder');
+  assert.match(runs[2], /^npm run test:browser -- --only smoke --plugin older --shots \S+$/);
+  assert.strictEqual(runs[3], 'node skills/web/test/browser/fault-check.js');
+  const folders = [runs[0], runs[1], runs[2]].map((r) => r.split('--shots ')[1]);
+  assert.strictEqual(new Set(folders).size, 3, 'two runs share a screenshots folder');
 });
 
-test('the browser job uploads its screenshots when a step fails', () => {
-  assert.match(J.browser, /- if: failure\(\)\s+uses: actions\/upload-artifact@v4/);
+test('the older plugin is main checked out beside this one, before the run that serves it', () => {
+  const older = /- uses: actions\/checkout@v4\s+with:\s+ref: main\s+path: older\s/.exec(J.browser);
+  assert.ok(older, 'no checkout of main into older');
+  assert.ok(older.index < J.browser.indexOf('--plugin older'), 'the run comes before the checkout');
+  assert.strictEqual(J.browser.split('actions/checkout@v4').length - 1, 2, 'this checkout and the one of main');
+});
+
+test('the browser job uploads its screenshots when a step fails and when the job hits its time limit, which cancels it', () => {
+  assert.match(J.browser, /- if: failure\(\) \|\| cancelled\(\)\s+uses: actions\/upload-artifact@v4/);
   const folders = [...J.browser.matchAll(/--shots (\S+)/g)].map((m) => m[1]);
   for (const f of folders) assert.ok(new RegExp(`^\\s+${f}$`, 'm').test(J.browser), `${f} is not uploaded`);
 });

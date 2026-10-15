@@ -40,7 +40,7 @@
 // icon and card 14's type an icon name that is not one.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// graphCur, graphLoadOptions, graphSetOption.
+// graphCur, graphLoadOptions, graphSetOption, autoRefreshTick.
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
@@ -78,7 +78,7 @@ const CASES = {
   },
   fixture: {
     depths: [[1], [2, 3, 4, 5, 6], [7, 8]],
-    depthNames: ['roots', 'depth 1', 'depth 2'],
+    depthNames: ['depth 0', 'depth 1', 'depth 2'],
     block: range(9, 18),
   },
   malformed: {
@@ -115,6 +115,9 @@ const captionNamed = (name) => `[...document.querySelectorAll(${CAPTIONS})].find
 const captionCentre = (name) => `(()=>{const e=${captionNamed(name)};if(!e)return null;const b=e.getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()`;
 const focusCaption = (name) => `(()=>{const e=${captionNamed(name)};if(!e)return false;e.focus();return document.activeElement===e})()`;
 const BLUR = `document.activeElement&&document.activeElement.blur()`;
+// The 5s poll, run by hand: it rebuilds every caption, and puts focus back on the one that had it.
+const POLL = `autoRefreshTick()`;
+const focusedCaption = (name) => `(()=>{const e=document.activeElement;return !!e&&!!e.closest&&!!e.closest(${CAPTIONS})&&e.textContent===${JSON.stringify(name)}})()`;
 const NO_COUNT = `document.querySelectorAll('#graph-view .graph-caption-count').length`;
 
 // The tooltip as the page shows it, null while it is hidden: its lines, where it, the
@@ -130,8 +133,8 @@ const TIP_HIDDEN = `(()=>{const t=document.querySelector('#graph-view .graph-tip
 const EMPTY_POINT = `(()=>{const c=document.querySelector('#graph-view .graph-canvas');if(!c)return null;const s=c.getBoundingClientRect();`
   + `for(const [x,y] of [[s.left+8,s.top+8],[s.right-8,s.top+8],[s.left+8,s.bottom-8],[s.right-8,s.bottom-8]]){if(document.elementFromPoint(x,y)===c)return {x,y}}return null})()`;
 
-// Typing in the search box, and the dots the Graph draws.
-const typeInBox = (text) => `(()=>{const i=document.getElementById('search-input');i.value=${JSON.stringify(text)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`;
+// Writing the search box (its value and an input event, nothing typed), and the dots the Graph draws.
+const writeBox = (text) => `(()=>{const i=document.getElementById('search-input');i.value=${JSON.stringify(text)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`;
 const dotsAre = (ids) => `JSON.stringify([...new Set([...document.querySelectorAll('#graph-view .graph-node')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids.slice().sort((a, b) => a - b)))}`;
 const dotCountIs = (n) => `document.querySelectorAll('#graph-view .graph-node').length===${n}`;
 
@@ -228,13 +231,15 @@ module.exports = {
   FAN_MARKS,
   NO_COUNT,
   BLUR,
+  POLL,
+  focusedCaption,
   TIP,
   TIP_HIDDEN,
   EMPTY_POINT,
   captionCentre,
   focusCaption,
   tipHas,
-  typeInBox,
+  writeBox,
   dotsAre,
   dotCountIs,
   SECTORS,
@@ -427,6 +432,20 @@ module.exports = {
       }
       check('plan: keyboard focus on a caption shows the same tooltip, and moving focus off it hides the tooltip', focusFailures.length === 0, focusFailures);
 
+      // A poll rebuilds every caption: the one that had focus has it still, and its tooltip shows.
+      const pollFailures = [];
+      for (const name of ['epic', 'Unnested']) {
+        const on = await ev(focusCaption(name));
+        const before = on && await waitFor(tipHas(plan.tips[name]));
+        await ev(POLL);
+        const kept = await ev(focusedCaption(name));
+        const tipBack = kept && await waitFor(tipHas(plan.tips[name]));
+        if (!before || !kept || !tipBack) pollFailures.push({ name, on, before, kept, tipBack });
+        await ev(BLUR);
+        if (!(await waitFor(TIP_HIDDEN))) pollFailures.push({ name, stuck: true });
+      }
+      check('plan: a poll leaves keyboard focus on the caption that had it, with its tooltip showing', pollFailures.length === 0, pollFailures);
+
       // The term a tooltip names is the term the search box takes: it cuts the Graph to the band's cards.
       const dotsBefore = Object.keys(all).length;
       const cutFailures = [];
@@ -435,9 +454,9 @@ module.exports = {
         const named = (await waitFor(tipHas(plan.tips[name]))) ? await ev(TIP) : null;
         const term = named ? named.lines[named.lines.length - 1] : '';
         await ev(BLUR);
-        await ev(typeInBox(term));
+        await ev(writeBox(term));
         const cut = await waitFor(dotsAre(ids));
-        await ev(typeInBox(''));
+        await ev(writeBox(''));
         const back = await waitFor(dotCountIs(dotsBefore));
         if (!cut || !back) cutFailures.push({ name, term, cut, back, now: await dots() });
       }

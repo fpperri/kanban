@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const vm = require('node:vm');
 const path = require('node:path');
 
-const { parseArgs, selectScenarios, chromeArgs, keyEvents, contextMenuExpr } = require('./browser/harness');
+const { parseArgs, selectScenarios, chromeArgs, keyEvents, contextMenuExpr, serverScriptOf } = require('./browser/harness');
 
 // The browser runner's harness is the part that does not need a browser: how
 // the command line picks scenarios, how Chrome is started, and how a key press
@@ -15,7 +15,7 @@ const names = (list) => list.map((s) => s.name);
 const ALL = [{ name: 'graph' }, { name: 'smoke' }, { name: 'third' }];
 
 test('no arguments run everything, with no screenshots and no fault', () => {
-  assert.deepStrictEqual(parseArgs([]), { shots: null, only: [], reverse: false, list: false, fault: null });
+  assert.deepStrictEqual(parseArgs([]), { shots: null, only: [], reverse: false, list: false, fault: null, plugin: null });
 });
 
 test('--shots takes a directory and resolves it', () => {
@@ -31,6 +31,27 @@ test('--only names scenarios, comma separated or repeated', () => {
 test('--reverse and --list are switches', () => {
   assert.strictEqual(parseArgs(['--reverse']).reverse, true);
   assert.strictEqual(parseArgs(['--list']).list, true);
+});
+
+test('--plugin names another checkout of the plugin, whose server serves the boards, and resolves it', () => {
+  assert.strictEqual(parseArgs(['--plugin', 'older']).plugin, path.resolve('older'));
+  assert.throws(() => parseArgs(['--plugin']), /--plugin needs a plugin checkout/);
+});
+
+test('the server script is the one of this checkout unless --plugin names another, and one with no server is refused', () => {
+  const here = path.join(__dirname, '..', 'scripts', 'server.js');
+  assert.strictEqual(serverScriptOf(null), here);
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-plugin-'));
+  try {
+    assert.throws(() => serverScriptOf(dir), /no server at .*server\.js/);
+    fs.mkdirSync(path.join(dir, 'skills', 'web', 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'skills', 'web', 'scripts', 'server.js'), '');
+    assert.strictEqual(serverScriptOf(dir), path.join(dir, 'skills', 'web', 'scripts', 'server.js'));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('--fault forces a scenario to throw or kills Chrome mid-run', () => {

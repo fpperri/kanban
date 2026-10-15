@@ -1,9 +1,12 @@
 'use strict';
 // Every view, on the plan board and on the malformed board, with the page code
-// as it stands. A board that carries keys this page does not know (a hierarchy,
-// pills, type icons, some of them broken) must still load and draw, so that a
-// board written for a newer plugin opens on an older one. The harness closes
-// the scenario with the console-error check, which covers both boards.
+// as it stands. Run on this checkout it shows that the page draws every view of a
+// board that carries a hierarchy, pills and type icons, some of them broken. That
+// a board written for a newer plugin opens on an older one is shown only by a page
+// that does not read those keys: CI runs this scenario again with --plugin on a
+// checkout of main, whose server and page do not know them, and that run is the
+// proof, for as long as main does not read them. The harness closes the scenario
+// with the console-error check, which covers both boards.
 //
 // Each view is loaded cold from its deep link, then waited for on what the page
 // shows: its container visible and something drawn in it.

@@ -285,7 +285,7 @@ test('against the real model every check passes', async () => {
   assert.ok(page.checks.length >= 60, `only ${page.checks.length} checks ran`);
 });
 
-test('the checks the card asks for are each in the scenario', async () => {
+test('each check listed here is in the scenario', async () => {
   const names = (await run()).checks.map(([n]) => n);
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `no check matches ${re}`);
   has(/the option row offers Unnested with off, outermost, depth 0 and table, outermost marked at first/);
@@ -305,7 +305,7 @@ test('the checks the card asks for are each in the scenario', async () => {
   has(/plan off: the view frames every dot, every caption and the Unnested block/);
   has(/plan depth 0: the unnested cards sit on one ring, outside the tier bands and inside depth 1/);
   has(/plan depth 0: they share a sector of their own/);
-  has(/plan depth 0: the ring is the depth 0 band, its caption roots counts them/);
+  has(/plan depth 0: the ring is the depth 0 band, its caption depth 0 counts them/);
   has(/plan depth 0: no two captions overlap/);
   has(/plan table: the Unnested block is back, titled Unnested and counting the cards/);
   has(/plan table: after Fit every dot, every caption and the Unnested block lie inside the canvas/);

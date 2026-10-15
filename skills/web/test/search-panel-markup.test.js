@@ -42,6 +42,12 @@ test('the input and the clear button are as they were, so everything that reads 
   assert.match(html, /<button type="button" id="search-clear-btn"/);
 });
 
+test('the input\'s hint says the first Esc closes the open panel and a later one clears the box', () => {
+  const hint = attr(tagOf('search-input'), 'title');
+  assert.doesNotMatch(hint, /Esc to clear/);
+  assert.ok(hint.indexOf('closes the search panel') > -1 && hint.indexOf('closes the search panel') < hint.indexOf('clears the box'), hint);
+});
+
 test('the arrow is a button that names the panel it controls, says whether it is open, starts closed and keeps a selection', () => {
   const toggle = tagOf('search-panel-toggle');
   assert.strictEqual(attr(toggle, 'type'), 'button');
@@ -120,7 +126,7 @@ test('every control in the bar and the panel is marked to keep a selection, the 
 
 test('a click on the toggle, the fold control or the panel\'s empty space leaves a selection as it was', () => {
   const { KEEPS } = require('./helpers/markers');
-  const sandbox = { setSelection() { throw new Error('the selection was cleared'); }, renderBoard() { throw new Error('the board repainted'); }, selectedIds: new Set([1, 2]), selectionGestureClick: null };
+  const sandbox = { setSelection() { throw new Error('the selection was cleared'); }, renderBoard() { throw new Error('the board repainted'); }, selectedIds: new Set([1, 2]) };
   vm.createContext(sandbox);
   const m = appSrc.match(/function onClickAway\([\s\S]*?\n\}/);
   vm.runInContext(m[0], sandbox);
@@ -200,12 +206,12 @@ test('renderBoard repaints the panel after the view, inside its try, and the pol
 
 test('the Esc handler gains one line for the panel, after the popups and before the held-key check and the end of the chain', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['anyModalOpen()', 'closeSearchPanel()', 'e.repeat', 'escapeStep()'].map((s) => handler.indexOf(s));
+  const order = ['anyModalOpen()', 'closeSearchPanel()', 'e.repeat', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((i) => i > -1), 'every link is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
   assert.strictEqual(appSrc.split('closeSearchPanel()').length - 1, 1, 'called from the handler alone');
   const lines = handler.trimEnd().split('\n');
-  assert.strictEqual(lines[lines.length - 2].trim(), 'escapeStep();');
+  assert.strictEqual(lines[lines.length - 2].trim(), 'escapeStep(e);');
 });
 
 test('the panel is not a surface the key guard names: the slice keys and the rest work while it is open', () => {
@@ -220,6 +226,7 @@ test('a pill\'s write to the box carries its reason, and nothing else writes wit
   assert.match(appSrc.match(/function moveSelectionTo\([\s\S]*?\n\}/)[0], /writeSearch\(shrunk, 'pill'\)/);
   assert.match(appSrc.match(/function stepSelectionBack\([\s\S]*?\n\}/)[0], /moveSelectionTo\(next\)/, 'Esc takes it');
   assert.match(appSrc.match(/function onClickAway\([\s\S]*?\n\}/)[0], /moveSelectionTo\(/, 'so does a double click on empty space');
+  assert.match(appSrc.match(/function applyCardClick\([\s\S]*?\n\}/)[0], /moveSelectionTo\(selectionState, before\)/, 'and a click on a card that opens or selects it');
 });
 
 // --- the stylesheet ------------------------------------------------------------------------
@@ -231,7 +238,7 @@ test('the search box and panel rules sit in one marked block', () => {
 });
 
 test('every class the markup and the panel script use has a rule', () => {
-  for (const cls of ['search-box', 'search-chip', 'search-panel-toggle', 'search-panel', 'search-slices', 'search-foot', 'search-section', 'search-fold', 'search-pills', 'query-pill', 'query-pill-count', 'search-divider']) {
+  for (const cls of ['search-box', 'search-chip', 'search-panel-toggle', 'search-panel', 'search-slices', 'search-section', 'search-fold', 'search-pills', 'query-pill', 'query-pill-count', 'search-divider']) {
     assert.match(block, new RegExp(`\\.${cls}\\b`), `${cls} has a rule`);
   }
   assert.match(css, /\.search-bar \{[^}]*position: relative/, 'the panel hangs from the bar');
@@ -275,7 +282,7 @@ test('the toggle, the fold control and the pills show a focus ring, and a pill t
 test('the pills use their own class, never a status pill\'s, so those rules, the poll\'s focus keeper and the click-away list never reach them', () => {
   assert.doesNotMatch(panelSrc, /map-filter-toggle|gantt-filter-toggle|calendar-filter-toggle|graph-filter-toggle|map-section-toggle/);
   assert.match(panelSrc, /className = 'query-pill'/);
-  const keeper = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/)[0];
+  const keeper = appSrc.match(/const REFOCUS_SELECTOR = [^\n]*\n/)[0];
   assert.doesNotMatch(keeper, /query-pill/);
 });
 

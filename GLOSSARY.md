@@ -48,7 +48,7 @@ Permanent removal of a card's file. Distinct from Archive, which is recoverable.
 _Avoid_: remove, archive (for the destructive sense).
 
 **Waiting** (derived, via **waiting_for**):
-A card is waiting while any card listed in its `waiting_for` is not `done`. Derived at read time, never stored; a listed id with no matching card (dangling) does not count. A waiting card cannot enter the literal status `doing` — enforced, not advisory ("waiting on #34") — and stops reading as waiting the moment its last dep lands. A dependency is sequencing, not an impediment.
+A card is waiting while any card listed in its `waiting_for` is not `done`. Derived at read time, never stored; a listed id with no matching card (dangling) does not count. A waiting card cannot enter the literal status `doing` — enforced, not advisory ("waiting on #34") — and stops reading as waiting the moment its last dep lands. A dependency is sequencing, not an impediment. Surfaced by the bare `waiting:` search term and the built-in pill of the same name.
 _Avoid_: blocked (that's the sticker below), blocked_by (retired field name), gated.
 
 **Blocked** (manual, via **blocked**):
@@ -90,7 +90,7 @@ A card with no parent. A loose card and the top of a tall tree are both roots.
 _Avoid_: top-level card, orphan.
 
 **Card type** (via **type**):
-What a card is (goal, strategy, objective, epic, story, ...), usually a word from the board's own suggested list, though any word reads. The kanban renders the word and, if the board's config gives one, its color; beyond the board's **hierarchy**, which only orders how types are drawn, it attaches no meaning to it. Rules about types belong to whoever uses the board.
+What a card is (goal, strategy, objective, epic, story, ...), usually a word from the board's own suggested list, though any word reads. The kanban renders the word and, if the board's config gives them, its color and icon; beyond the board's **hierarchy**, which only orders how types are drawn, it attaches no meaning to it. Rules about types belong to whoever uses the board.
 _Avoid_: category, class, kind; tier (a type's place in the hierarchy); epic flag (retired).
 
 **Hierarchy** (via **hierarchy:**):
@@ -162,7 +162,7 @@ Of one parent's children, a child where a chain of its siblings meets the parent
 _Avoid_: terminal, leaf (that is a card with no children).
 
 **Graph view** (web only):
-The view that draws every card at once as a dot, joined by its relations, in one of three layouts: tiers (the default), force or status. The tiers layout gives each tier its own band, tier 1 innermost, then rings the cards without a tier by depth. Not the Map's "graph": the Map draws one graph per tree, under a heading, while the Graph view puts every card on one canvas. A card with no parent and no children is **unnested**.
+The view that draws every card at once as a dot, joined by its relations, in one of three layouts: tiers (the default), force or status. The tiers layout, the tier fan, goes all the way round its centre and gives each tier its own band, tier 1 innermost, then rings the cards without a tier by depth; the unnested cards with no tier sit on a ring of their own outside the rest, unless the layout's option row puts them on the depth 0 ring or in a block, or leaves them out. Not the Map's "graph": the Map draws one graph per tree, under a heading, while the Graph view puts every card on one canvas. A card with no parent and no children is **unnested**.
 _Avoid_: network, node-link diagram, the Map (that is a different view).
 
 **Unnested**:
@@ -180,7 +180,7 @@ What a selection grows from: one card, or one query (a pill or the search box). 
 _Avoid_: primary, focus card.
 
 **Pill** (via **pills:**):
-A search query offered as one click: blocked, review and waiting are built in, and a board adds its own in `pills:`. Picking one makes its matches the anchor, or adds them to the selection.
+A search query offered as one click: blocked, review and waiting are built in, and a board adds its own in `pills:`. A pill follows the status pills' rules: a click turns one on or off, a right-click keeps only that one, and the first one on is the anchor of the selection while later ones are additions.
 _Avoid_: light pill, filter button, chip.
 
 **Status pill**:
@@ -230,6 +230,9 @@ editor deliberately does not do". A feature added to one editor lands in the
 other (or gets a line in that surface's own skill doc saying why not).
 Retired skills are deleted outright.
 The Graph view is web-only: the snapshot does not draw it.
+The selection, Isolate and Peek are web-only too, since the snapshot has no selection to
+isolate; the search grammar, the slices and the pills are shared, the snapshot running the
+web's own search module and drawing the same panel, where a pill filters.
 Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
 the snapshot as `tree:`/`path:` search terms plus card-sheet "Dependency
 tree"/"Dependency path" tap actions.

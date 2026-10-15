@@ -172,3 +172,15 @@ test('the menu for the empty canvas is Isolate alone: no card, no bulk entry, no
 test('the canvas menu is a fresh object each time', () => {
   assert.notStrictEqual(canvasMenuFor(), canvasMenuFor());
 });
+
+test('a click that clears the box leaves the run of slices the page hands it, and clears everything when it hands none', () => {
+  const cut = 'slice:goal..strategy';
+  assert.strictEqual(boxAfterGraphClick('select', { boxText: `zephyr ${cut}`, cut, typedBefore: true, typedAfter: false, isolated: false }), cut);
+  assert.strictEqual(boxAfterGraphClick('select', { boxText: 'zephyr', cut: '', typedBefore: true, typedAfter: false, isolated: false }), '');
+  assert.strictEqual(boxAfterGraphClick('select', { boxText: 'zephyr', typedBefore: true, typedAfter: false, isolated: false }), '', 'no cut named');
+  for (const action of ['toggle', 'range']) {
+    assert.strictEqual(boxAfterGraphClick(action, { boxText: `zephyr ${cut}`, cut, typedBefore: true, typedAfter: false, isolated: false }), cut, `${action}: it took out a lit card`);
+    assert.strictEqual(boxAfterGraphClick(action, { boxText: `zephyr ${cut}`, cut, typedBefore: true, typedAfter: true, isolated: false }), `zephyr ${cut}`, `${action}: the query stays`);
+  }
+  assert.strictEqual(boxAfterGraphClick('select', { boxText: ISOLATE_TEXT, cut, typedBefore: false, typedAfter: false, isolated: true }), ISOLATE_TEXT, 'while isolated the box is not touched');
+});

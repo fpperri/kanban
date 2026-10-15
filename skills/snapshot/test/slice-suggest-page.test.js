@@ -74,11 +74,18 @@ describe('after slice: and after .., the menu lists the board\'s slices', () => 
     });
   });
 
-  test('a token that is not a slice: gets the suggestions the web gives it', () => {
+  test('a token that is not a slice: opens no menu here, though the module offers scopes for a bare word, so a word typed on a phone never covers the panel', () => {
     withBoardPage('plan', (page, dir) => {
+      assert.ok(searchSuggestionItems('sta', 3, planCards(dir), webContext(dir)).length > 1, 'sanity: the module has scopes to offer for a bare word');
       typeAt(page, 'sta');
-      assert.ok(labels(page).includes('status:sta'));
-      assert.deepStrictEqual(labels(page), searchSuggestionItems('sta', 3, planCards(dir), webContext(dir)).map((i) => i.label));
+      assert.ok(!open(page));
+      assert.strictEqual(menu(page).style.display, 'none');
+      typeAt(page, 'tags:next-up sta');
+      assert.ok(!open(page));
+      typeAt(page, 'slice:goal sta');
+      assert.ok(!open(page), 'a slice: term elsewhere in the box does not open it for the word');
+      typeAt(page, 'sta slice:');
+      assert.deepStrictEqual(labels(page), PLAN_SLICES.map((s) => `slice:${s}`), 'the slice: token under the caret still does');
     });
   });
 });

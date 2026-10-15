@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { BOARD, buildScript, card, lf, withSnapshot, writeBoard } = require('./nesting-fixture');
+const { BOARD, PAGE_SCRIPTS, buildScript, card, lf, withSnapshot, writeBoard } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
 const { topLevelDeclarations } = require('../../web/test/helpers/global-scope');
 const { search, withPlanPage } = require('./search-table');
@@ -21,6 +21,8 @@ const MODULES = [
   { file: 'search.js', placeholder: '__SEARCH_JS__', label: 'the search module' },
   { file: 'pills.js', placeholder: '__PILLS_JS__', label: 'the pill list' },
   { file: 'slice-run.js', placeholder: '__SLICE_RUN_JS__', label: 'the run of slices' },
+  { file: 'key-guard.js', placeholder: '__KEY_GUARD_JS__', label: 'the key guard' },
+  { file: 'combobox.js', placeholder: '__COMBOBOX_JS__', label: 'the combobox rules' },
 ];
 const source = (file) => lf(fs.readFileSync(path.join(webDir, file), 'utf8'));
 
@@ -53,7 +55,7 @@ test('the waiting rules load ahead of the search module, and both ahead of the p
     const searchAt = html.indexOf(source('search.js'));
     assert.ok(waiting !== -1 && waiting < searchAt && searchAt < html.indexOf('const BASE='));
     const page = loadPage(html);
-    assert.strictEqual(page.scripts.length, 9, 'the nesting module, the map module, the slices module, the waiting rules, the search module, the type icons, the pill list, the run of slices, then the page');
+    assert.strictEqual(page.scripts.length, PAGE_SCRIPTS, 'one script element for each embedded module, then the page');
     assert.strictEqual(page.run('typeof parseSearchQuery + typeof resolveTerms + typeof cardMatchesQuery + typeof isReviewValue'),
       'functionfunctionfunctionfunction');
   });

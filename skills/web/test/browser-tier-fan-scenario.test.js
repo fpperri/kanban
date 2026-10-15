@@ -100,7 +100,7 @@ test('the fixture board has no hierarchy, so its lists are depths and loose card
   }
   assert.deepStrictEqual([0, 1, 2].map((d) => sorted(byDepth.get(d))), want.depths.map(sorted));
   assert.deepStrictEqual(sorted(block), want.block);
-  assert.deepStrictEqual(want.depthNames, ['roots', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(want.depthNames, ['depth 0', 'depth 1', 'depth 2']);
 });
 
 test('the malformed board names two tiers, each twice, a depth ring and a loose card', () => {
@@ -268,7 +268,9 @@ function standIn(over = {}) {
       if (expr === scenario.EMPTY_POINT) return over.noEmptyPoint ? null : { x: 5, y: 5 };
       if (expr === scenario.TIP) return tipNow();
       if (expr === scenario.BLUR) { if (!over.tipStuck) shownFor = null; return true; }
+      if (expr === scenario.POLL) { if (over.pollDropsFocus) shownFor = null; return true; }
       for (const name of Object.keys(scenario.CASES.plan.tips)) {
+        if (expr === scenario.focusedCaption(name)) return shownFor === name;
         if (expr === scenario.captionCentre(name)) {
           if (!captionsOf().some((c) => c.name === name)) return null;
           const p = { x: 100 + points.size, y: 300 };
@@ -337,7 +339,7 @@ test('against the real layout every check passes, on each board in turn', async 
   assert.deepStrictEqual(page.opened, ['plan/?view=graph', 'plan/?view=graph', 'fixture/?view=graph', 'malformed/?view=graph']);
 });
 
-test('the checks the card asks for are each in the scenario', async () => {
+test('each check listed here is in the scenario', async () => {
   const page = await run();
   const names = page.checks.map(([n]) => n);
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `no check matches ${re}`);
@@ -597,6 +599,7 @@ const NAME_ALONE = 'plan: every caption of the fan shows its name alone, with no
 const HOVER = 'plan: hovering a caption shows its count, its split by status and the slice: term to type in a tooltip, whole on the stage and clear of the caption';
 const MOVE_OFF = 'plan: moving the pointer off a caption hides the tooltip';
 const FOCUS = 'plan: keyboard focus on a caption shows the same tooltip, and moving focus off it hides the tooltip';
+const POLLED = 'plan: a poll leaves keyboard focus on the caption that had it, with its tooltip showing';
 const TERM = 'plan: typing the term a tooltip names cuts the Graph to the cards of that band';
 
 test('the tooltip lines the scenario expects are the real plan\'s tips, caption by caption, the term last', () => {
@@ -655,6 +658,14 @@ test('a tooltip that stays when the pointer moves off, or when focus moves off, 
   const fine = await run();
   assert.ok(fine.checks.some(([n, ok]) => ok && n === MOVE_OFF));
   assert.ok(fine.checks.some(([n, ok]) => ok && n === FOCUS));
+});
+
+test('a poll that drops the focus on a caption, and the tooltip with it, fails', async () => {
+  const dropped = await run({ pollDropsFocus: true });
+  assert.ok(failed(dropped).includes(POLLED), failed(dropped).join('; '));
+  assert.ok(!failed(dropped).includes(FOCUS), 'focus alone is fine without a poll');
+  const fine = await run();
+  assert.ok(fine.checks.some(([n, ok]) => ok && n === POLLED));
 });
 
 test('keyboard focus that shows no tooltip, or the wrong one, fails', async () => {
@@ -737,7 +748,7 @@ test('every scenario expression parses, so a typo does not wait for CI', () => {
     scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.layoutIs('force'), scenario.pickLayout('status'),
     scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES,
     scenario.NO_COUNT, scenario.BLUR, scenario.TIP, scenario.TIP_HIDDEN, scenario.EMPTY_POINT, scenario.captionCentre('goal'), scenario.focusCaption('Unnested, with a tier'),
-    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.typeInBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),
-    scenario.USE_TABLE, scenario.TABLE_DRAWN];
+    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.writeBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),
+    scenario.USE_TABLE, scenario.TABLE_DRAWN, scenario.POLL, scenario.focusedCaption('epic')];
   for (const e of exprs) assert.doesNotThrow(() => new vm.Script(e), e.slice(0, 60));
 });

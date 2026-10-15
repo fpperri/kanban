@@ -58,34 +58,34 @@ function focusSandbox() {
     document: { querySelector: (sel) => (wanted.has(sel) ? { focus: () => focused.push(sel) } : null) },
     log, focused, wanted,
   };
-  vm.runInNewContext(fn('pillSelector') + '\n' + fn('keepPillFocus'), sandbox);
+  vm.runInNewContext(fn('refocusSelector') + '\n' + fn('keepControlFocus'), sandbox);
   return sandbox;
 }
 
-test('keepPillFocus puts focus back on the same pill after the row re-renders', () => {
+test('keepControlFocus puts focus back on the same pill after the row re-renders', () => {
   const s = focusSandbox();
   const pill = { classList: ['gantt-filter-toggle'], dataset: { col: 'in-progress' } };
   s.wanted.set('.gantt-filter-toggle[data-col="in-progress"]', true);
-  s.keepPillFocus(pill, () => s.log.push('rendered'));
+  s.keepControlFocus(pill, () => s.log.push('rendered'));
   assert.deepStrictEqual(s.log, ['rendered']);
   assert.deepStrictEqual(s.focused, ['.gantt-filter-toggle[data-col="in-progress"]']);
 });
 
-test('keepPillFocus refocuses a section fold toggle by its section', () => {
+test('keepControlFocus refocuses a section fold toggle by its section', () => {
   const s = focusSandbox();
   const btn = { classList: ['map-section-toggle'], dataset: { section: 'layered' } };
   s.wanted.set('.map-section-toggle[data-section="layered"]', true);
-  s.keepPillFocus(btn, () => {});
+  s.keepControlFocus(btn, () => {});
   assert.deepStrictEqual(s.focused, ['.map-section-toggle[data-section="layered"]']);
 });
 
-test('keepPillFocus does nothing when the pill is gone after the render', () => {
+test('keepControlFocus does nothing when the pill is gone after the render', () => {
   const s = focusSandbox();
-  s.keepPillFocus({ classList: ['map-filter-toggle'], dataset: { col: 'gone' } }, () => {});
+  s.keepControlFocus({ classList: ['map-filter-toggle'], dataset: { col: 'gone' } }, () => {});
   assert.deepStrictEqual(s.focused, []);
 });
 
-test('every pill and fold handler runs through keepPillFocus', () => {
+test('every pill and fold handler runs through keepControlFocus', () => {
   const calls = [
     [appSrc, /toggleMapSection\(sectionBtn\.dataset\.section\)/],
     [appSrc, /toggleMapStatusFilter\(filterBtn\.dataset\.col\)/],
@@ -100,7 +100,7 @@ test('every pill and fold handler runs through keepPillFocus', () => {
   for (const [src, re] of calls) {
     const line = src.split('\n').find((l) => re.test(l));
     assert.ok(line, `${re} is called`);
-    assert.match(line, /keepPillFocus\(/, `${re} is not wrapped: ${line.trim()}`);
+    assert.match(line, /keepControlFocus\(/, `${re} is not wrapped: ${line.trim()}`);
   }
 });
 
@@ -154,13 +154,13 @@ function pollSandbox(unseenStep) {
   const sandbox = {
     document: doc, state: {}, selectedIds: new Set(), hoveredId: null,
     applyProjectName() {}, applyHomeUrl() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
-    pruneSelection: (s) => s, setHoveredId() {}, renderBoard() {},
+    setHoveredId: (id) => id, renderBoard() {},
     shouldSkipAutoRefresh: policy.shouldSkipAutoRefresh, isDragging: false, pendingDrops: 0,
     fetchBoard: async () => ({ active: [], archived: [] }), setStale() {},
   };
   vm.createContext(sandbox);
-  const names = ['boardControlFocused', 'pillSelector', 'keepPillFocus', 'focusedPill', 'applyBoardData', 'anyModalOpen', 'autoRefreshSkipState', 'autoRefreshTick'];
-  const pillConst = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/);
+  const names = ['boardControlFocused', 'refocusSelector', 'keepControlFocus', 'focusedRebuiltControl', 'applyBoardData', 'anyModalOpen', 'autoRefreshSkipState', 'autoRefreshTick'];
+  const pillConst = appSrc.match(/const REFOCUS_SELECTOR = [^\n]*\n/);
   let code = (pillConst ? pillConst[0] : '') + names.map((n) => (appSrc.includes('function ' + n + '(') ? (appSrc.includes('async function ' + n + '(') ? 'async ' : '') + fn(n) : '')).join('\n');
   if (unseenStep) {
     const hooked = code.replace('applyNotifications(data.notifications', unseenStep + '(data); applyNotifications(data.notifications');
@@ -189,7 +189,7 @@ test('a board load that runs a step the sandbox has never seen does not throw', 
 
 test('the sandbox only stubs what it has never seen: an explicit stub is kept and known code still throws', () => {
   const { sandbox } = pollSandbox('applyBrandNewStep');
-  assert.strictEqual(sandbox.pruneSelection('kept'), 'kept', 'the identity stub the tests rely on is not replaced by a no-op');
+  assert.strictEqual(sandbox.setHoveredId('kept'), 'kept', 'the identity stub the tests rely on is not replaced by a no-op');
   sandbox.renderBoard = () => { throw new Error('render broke'); };
   assert.throws(() => sandbox.applyBoardData({ active: [], archived: [] }), /render broke/);
 });
@@ -237,16 +237,16 @@ test('a poll render hands focus back to the rebuilt pill, without scrolling', ()
   }
 });
 
-test('pillSelector escapes a backslash before a quote', () => {
+test('refocusSelector escapes a backslash before a quote', () => {
   const s = focusSandbox();
-  assert.strictEqual(s.pillSelector({ classList: ['map-filter-toggle'], dataset: { col: 'a\\"b' } }), '.map-filter-toggle[data-col="a\\\\\\"b"]');
+  assert.strictEqual(s.refocusSelector({ classList: ['map-filter-toggle'], dataset: { col: 'a\\"b' } }), '.map-filter-toggle[data-col="a\\\\\\"b"]');
 });
 
-test('keepPillFocus refocuses without scrolling', () => {
+test('keepControlFocus refocuses without scrolling', () => {
   const opts = [];
   const sandbox = { document: { querySelector: () => ({ focus: (o) => opts.push(o) }) } };
-  vm.runInNewContext(fn('pillSelector') + '\n' + fn('keepPillFocus'), sandbox);
-  sandbox.keepPillFocus({ classList: ['map-filter-toggle'], dataset: { col: 'x' } }, () => {});
+  vm.runInNewContext(fn('refocusSelector') + '\n' + fn('keepControlFocus'), sandbox);
+  sandbox.keepControlFocus({ classList: ['map-filter-toggle'], dataset: { col: 'x' } }, () => {});
   assert.strictEqual(opts.length, 1);
   assert.strictEqual(opts[0] && opts[0].preventScroll, true);
 });
@@ -327,6 +327,44 @@ test('the Options toggle maps to a refocus selector that names it', () => {
   const toggle = optionsToggleOf(optionsRowSandbox().buildMapOptionsRow().outerHTML);
   assert.ok(toggle, 'the Options toggle is in the row');
   s.wanted.set(`.${toggle.classList[0]}[data-section="options"]`, true);
-  s.keepPillFocus({ classList: toggle.classList, dataset: toggle.dataset }, () => {});
+  s.keepControlFocus({ classList: toggle.classList, dataset: toggle.dataset }, () => {});
   assert.deepStrictEqual(s.focused, ['.map-section-toggle[data-section="options"]']);
+});
+
+// A caption of the tier fan is a tab stop the Graph's render rebuilds, and it sits in no poll
+// guard: the poll finds a focused one again by its key and focuses it, which shows its tip.
+test('a focused caption of the tier fan does not hold the poll, and a poll render hands focus back to the rebuilt caption', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  const caption = () => {
+    const el = makeEl('graph-caption', { caption: 'band-2' });
+    el.getAttribute = (k) => (k === 'data-caption' ? 'band-2' : null);
+    return el;
+  };
+  const old = caption();
+  doc.activeElement = old;
+  assert.strictEqual(sandbox.boardControlFocused(), false, 'the poll is not held');
+  let next = null;
+  let opts;
+  const orig = doc.querySelector;
+  doc.querySelector = (sel) => (sel === '[data-caption="band-2"]' ? next : orig(sel));
+  sandbox.renderBoard = () => {
+    old.attached = false;
+    next = caption();
+    next.focus = function (o) { opts = o; doc.activeElement = this; };
+    doc.activeElement = { closest: () => null };
+  };
+  sandbox.applyBoardData({ active: [], archived: [] });
+  assert.ok(next, 'the render rebuilt the caption');
+  assert.strictEqual(doc.activeElement, next, 'focus is on the rebuilt caption');
+  assert.strictEqual(opts && opts.preventScroll, true);
+});
+
+test('a poll render with no caption focused looks for none', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  doc.activeElement = makeEl('card-el', { id: '3' });
+  const asked = [];
+  const orig = doc.querySelector;
+  doc.querySelector = (sel) => { asked.push(sel); return orig(sel); };
+  sandbox.applyBoardData({ active: [], archived: [] });
+  assert.ok(!asked.some((s) => s.includes('data-caption')), asked.join(' | '));
 });

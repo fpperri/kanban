@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  NO_SELECTION, cardPart, pathPart, queryPart, setAnchor, addPart, removeCard, pruneSelectionParts,
+  NO_SELECTION, cardPart, pathPart, queryPart, setAnchor, addPart, selectionWithoutCard, pruneSelectionParts,
   typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, selectionAfterClick,
 } = require('../web/selection');
 const { parseSearchQuery, filterCards } = require('../web/search');
@@ -124,8 +124,8 @@ test('the parts keep their source through a poll that prunes gone cards and thro
   const typed = selectionOf(typedQueryPart('zephyr'), cardPart(3));
   assert.strictEqual(isTypedAnchor(pruneSelectionParts(typed, [1, 2, 3])), true);
   assert.strictEqual(isTypedAnchor(pruneSelectionParts(typed, [1, 2])), true, 'the card addition went, the query stays');
-  assert.strictEqual(isTypedAnchor(removeCard(typed, 3, match)), true, 'a card taken out of the additions leaves the anchor');
-  const turned = removeCard(typed, 1, match);
+  assert.strictEqual(isTypedAnchor(selectionWithoutCard(typed, 3, match)), true, 'a card taken out of the additions leaves the anchor');
+  const turned = selectionWithoutCard(typed, 1, match);
   assert.strictEqual(isTypedAnchor(turned), false, 'a card taken out of the query turns the query into its other cards, which were not typed');
   assert.deepStrictEqual(parts(turned), [cardPart(2), cardPart(3)]);
 });

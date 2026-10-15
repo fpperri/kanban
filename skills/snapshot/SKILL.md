@@ -87,18 +87,23 @@ board does not have is left open, and a single unknown name, `slice:..` and a ha
 cut nothing. A board with no hierarchy cuts by depth (`slice:1` keeps the depth-1 cards), and
 `slice:` combines like any term (`tags:ui (slice:goal | #12)`). Slices are counted over every
 card of the board, archived ones included, as the page was built: a queued edit does not move a
-card to another slice until it is applied. The box suggests as the web's does, from the same
-module: a list under the box completes the token under the caret, and after `slice:` and after
-`..` it shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
+card to another slice until it is applied, and a card queued with + New card sits where a new card
+does, a root at depth 0 or the tier its type names, so a cut that holds depth 0 shows it and one that
+cuts nothing cuts it nothing. The box suggests as the web's does, from the same
+module, for a `slice:` token under the caret: after `slice:` and after
+`..` a list under the box shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
 to the deepest card with no tier, narrowed to the names that start with what is typed; a tap on a row writes the
 whole term (`slice:goal..objective`), and a tier named with a space is written quoted, the quote
-holding both ends (`slice:"big goal..2"`). A `|` counts only as a token of its own and a bracket
-only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does `waiting:3`.
+holding both ends (`slice:"big goal..2"`). A bare word opens no list here, since the web's
+scope list for it would cover the panel on a phone. A `|` and a bracket count
+only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does `waiting:3`, while
+`blocked: |review:` means `blocked: | review:`.
 `#id`/`id:` exact (`<this board's name>#id` too),
 `title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
 `assignee:` (`a:` is its alias) is a case-insensitive substring match on the assignee handle,
 bare terms hit title+body+tags. Edits still queued in the tray count: a card a
-queued edit makes match shows under the query.
+queued edit makes match shows under the query, `waiting:` included (a queued `waiting_for`
+makes a card wait, and a queued move to done frees the cards that waited for it).
 `review:`/`blocked:` (ADR 0009)
 are their own family: UNLIKE every scope above, a bare `review:`/`blocked:`
 (no value) is itself a complete term — "the sticker is present" (the shared
@@ -119,8 +124,8 @@ The search box has a panel of slices and pills under it, kanban-web's panel with
 switch. The arrow at the box's right end is a switch (`aria-pressed`): with it on, the default,
 focusing the box opens the panel. A click on the arrow switches it off, which closes the panel
 now and stops the box opening it, and a second click switches it on and opens the panel; the
-`p` key flips the same switch, except while a field has focus or a card sheet, a card menu or
-the change tray is up. Esc closes an open panel (a card sheet or a card menu takes Esc first),
+`p` key flips the same switch, except while a field has focus or a card sheet or a card menu is
+up. Esc closes an open panel (a card sheet or a card menu takes Esc first),
 with focus going back to the arrow, or staying in the box when Esc was pressed there, and the
 box keeps its text. A press anywhere outside the search bar closes it too, leaving the switch as
 it was. The panel hangs from the box and adds nothing to the header's height. The switch and the
@@ -148,9 +153,14 @@ end changes nothing; a right-click, the context-menu key and Shift+F10 on a focu
 that slice. The run is the `slice:` term the box holds, written as the web writes it, so a run
 that reaches an end of the list leaves that end open (`slice:strategy..`). `[` and `]` move the
 bottom of the run up and down and `{` and `}` move its top, with the panel open or closed, except
-while a field has focus or a card sheet, a card menu or the change tray is up; a chord is not them,
+while a field has focus or a card sheet or a card menu is up (queued edits do not stop them); a chord is not them,
 and AltGr, which types the brackets on a layout with none of its own, is not a chord. A slice
-entry's accessible name says its label, its count and whether it is in the run.
+entry's accessible name says its label, its count and whether it is in the run. The keep-only
+gestures, the right-click on a pill or a slice entry and the context-menu key and Shift+F10 on an
+entry, run only where the pointer is fine and hovers, the gate the card menu keeps: on a phone a
+long-press neither keeps a pill alone nor keeps only a slice, and the browser's own menu shows.
+There a tap on a pill turns it on or off, and a tap on a slice entry grows the run, drops an end
+or removes the cut, so one slice is reached by dropping the ends.
 
 Every count is taken over the cards left after the status pills and the Archive pill, before the box
 and the cut, and a queued edit counts as it does under the box; so turning a pill on or setting a
@@ -161,9 +171,13 @@ on and a run that cuts, and its accessible name says which (`2 on: review, slice
 with nothing on there is no chip. Tab reaches the arrow, both fold controls, every slice entry and
 every pill, and Enter and Space act as a click. The pill list and the run of slices are kanban-web's
 own `skills/web/web/pills.js` and `skills/web/web/slice-run.js`, embedded as they are
-(`test/pills-embed.test.js` and `test/slice-run-embed.test.js` pin them to those files); the drawing
+(`test/pills-embed.test.js` and `test/slice-run-embed.test.js` pin them to those files), and so are the
+key guard's check for a field with focus (`skills/web/web/key-guard.js`), the rule for a chord (in
+`slice-run.js`) and the suggestion list's step (`skills/web/web/combobox.js`); the drawing
 and the gestures are the page's own, and `test/panel-pills.test.js` and `test/panel-slices.test.js`
-hold its counts and its terms to the web's.
+hold its counts and its terms to the web's. The hint texts on the pills, the slice entries and the
+panel's arrow are strings of kanban-web's page scripts, which need a DOM and are not embedded, so
+`test/panel-copies.test.js` holds the page's copy of each to the web's source.
 
 Every view carries a status-pill row (each pill a button with `aria-pressed`; a tap toggles
 one, a right-click solos it and a right-click on the soloed pill turns all back on; an off
@@ -208,8 +222,9 @@ entry. Both stickers are set/cleared the same way, through the "All fields"
 grid (live gold/red border feedback while the value passes the predicate) —
 there's no dedicated form field for either. **Deliberate gap:** no badge is
 tap-to-filter here — unlike kanban-web's tap-an-assignee-or-tag-to-filter,
-this editor has no additive query-append affordance (its tree:/path: buttons
-overwrite the whole query box).
+a tap on a badge never adds its term to the box, and its tree:/path: buttons
+overwrite the whole query box; the panel's pills and slice entries are the
+controls that edit the box in place.
 
 **Deliberate gap, narrowed:** kanban-web's AI-prompt sparkle button (a
 dedicated control for writing the `prompt` field) still has no twin on an
@@ -274,8 +289,8 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
   the entry has no color or the list does not name the type at all. A type whose
   entry sets an `icon:` (circle, square, diamond, triangle, hexagon or star, in any
   case) starts its chip with that glyph, in the chip's own color, wherever the page
-  draws the chip; a type with no icon, or an unknown icon name, wears the chip it
-  always wore. The glyphs are kanban-web's own `skills/web/web/type-icons.js`,
+  draws the chip; a type with no icon, or an unknown icon name, draws the plain chip:
+  its name alone. The glyphs are kanban-web's own `skills/web/web/type-icons.js`,
   embedded as is (`test/type-icons-embed.test.js` pins it to that file), and never
   the web's type chip module, whose two-argument color function would replace the
   page's own. The page also holds the board's `pills:` entries, a label and a query
@@ -609,6 +624,18 @@ shows only the selection in every view, and a selection that a click on a card, 
 pill builds. This page has neither: a tap opens a card, the panel has no foot, and a pill click only
 writes the box, with no anchor and no Shift addition. It has no `m` key that steps through the
 pills either, and no preferences sheet for the panel's switch and folds.
+
+**No jump to the nearest match.** kanban-web's Calendar and Gantt, when a change to the search box
+leaves no match inside the range on screen, move to the match nearest that range (`nearestMatchDay`
+in `calendar-model.js`, and its Gantt counterpart). This page's Calendar and Gantt filter by the box
+the same way but stay on the month or the range they show, so a search can leave an empty stretch:
+page the Calendar or scroll the Gantt to the match yourself. The jump is not ported, since the page
+ports those models and does not embed them.
+
+**No Graph view.** kanban-web's Graph, which draws every card at once as a dot in the tier fan, Force
+or Status layout, with its option row, its lighting and its names, has no counterpart: the Map is this
+page's one picture of the relations, and the slices and pills of the panel cut every view without it.
+The `n` key that steps the fan's names goes with it.
 
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map

@@ -1,13 +1,9 @@
 'use strict';
-// Pure multi-select logic. Selection is a Set of card ids — never
-// DOM state — so it survives renderBoard() rebuilds including auto-refresh
-// polls. Dual-environment module, same pattern as refresh-policy.js.
-
-function toggleSelection(set, id) {
-  const next = new Set(set);
-  if (next.has(id)) next.delete(id); else next.add(id);
-  return next;
-}
+// Pure multi-select logic. The selection is an anchor plus an ordered list of
+// additions (see "The selection" below), never DOM state, so it survives
+// renderBoard() rebuilds including auto-refresh polls; the set of card ids the
+// views paint is worked out from those parts. Dual-environment module, same
+// pattern as refresh-policy.js.
 
 // Shift+click adds a RANGE: union of the current selection with
 // every id between the range start and target in the active view's rendered order.
@@ -15,8 +11,7 @@ function toggleSelection(set, id) {
 // previous range never gets un-selected by the next one, and a stale/missing
 // range start degrades to adding just the target (never a toggle — shift must not
 // deselect). A target that isn't rendered returns the input set unchanged
-// (same reference — no re-render needed, mirroring contextSelection's
-// no-change contract).
+// (same reference).
 function rangeSelection(set, orderedIds, startId, targetId) {
   const t = orderedIds.indexOf(targetId);
   if (t === -1) return set;
@@ -26,13 +21,6 @@ function rangeSelection(set, orderedIds, startId, targetId) {
   const [lo, hi] = a < t ? [a, t] : [t, a];
   for (let i = lo; i <= hi; i++) next.add(orderedIds[i]);
   return next;
-}
-
-// Cards can vanish between polls (deleted/archived by another actor); the
-// selection must not keep ghost ids.
-function pruneSelection(set, liveIds) {
-  const live = new Set(liveIds);
-  return new Set([...set].filter((id) => live.has(id)));
 }
 
 // Hover/focus highlight (kanban.proj#261): unlike selection, only ever ONE
@@ -135,21 +123,17 @@ function dragPlan(ids, byId, dest, refusesDoingFn) {
 // one; `choices` is its click map ({ board: 'opens' | 'selects', ... }). A view
 // the map leaves out, or fills with anything but 'selects', opens. The Graph
 // selects whatever the map says.
-const PLAIN_CLICK_SELECTS = { graph: true };
-
 function plainClickBehaviour(view, choices) {
-  if (Object.prototype.hasOwnProperty.call(PLAIN_CLICK_SELECTS, view)) return 'selects';
+  if (view === 'graph') return 'selects';
   const own = choices && Object.prototype.hasOwnProperty.call(choices, view);
   return own && choices[view] === 'selects' ? 'selects' : 'opens';
 }
 
 // Whether Shift+click adds a range of cards between the range start and the
 // target. The Graph's layout has no reading order to range over, so there Shift
-// adds one card, like Ctrl. A view the table does not name ranges.
-const SHIFT_ADDS_ONE = { graph: true };
-
+// adds one card, like Ctrl. Every other view ranges.
 function shiftAddsRange(view) {
-  return !Object.prototype.hasOwnProperty.call(SHIFT_ADDS_ONE, view);
+  return view !== 'graph';
 }
 
 // What a click on a card does, as one pure decision — the page's click
@@ -184,14 +168,6 @@ function cardOpenAction({ shiftKey, ctrlKey, metaKey, plainClick }) {
   return plainClick === 'selects' ? 'open' : 'none';
 }
 
-// Whether a click the card grammar carried out left a selection standing that the
-// click-away rule must not drop: the card a plain click selected, and the
-// selection a peek left alone. Opening a card empties the selection itself, and a
-// click on a cue is left to the click-away rule as it always was.
-function clickKeepsSelection(action) {
-  return action === 'select' || action === 'peek';
-}
-
 // --- The selection: an anchor plus an ordered list of additions ---------------
 // A selection grows from an anchor (one card, or one query) by additions (cards,
 // paths, trees, queries), in the order they were added. It is a value: every
@@ -222,6 +198,18 @@ function addPart(selection, part) {
   if (!selection.anchor) return { anchor: part, additions: [] };
   if (samePart(selection.anchor, part) || selection.additions.some((p) => samePart(p, part))) return selection;
   return { anchor: selection.anchor, additions: selection.additions.concat([part]) };
+}
+
+// A selection built from parts in order: the first is the anchor, the rest are additions
+// (a part the list holds twice counts once).
+function selectionFromParts(parts) {
+  return parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
+}
+
+// The range start a selection implies when its anchor changed: the anchor card, or none, so
+// a Shift range cannot begin at a card that is no longer picked.
+function rangeStartOf(selection) {
+  return selection.anchor && selection.anchor.kind === 'card' ? selection.anchor.id : null;
 }
 
 // Every card a part reaches on the whole board, in the order the matcher gives
@@ -276,12 +264,11 @@ function stepBack(selection) {
 // card that is no longer picked; with no anchor card it is dropped, so a dead
 // selection leaves no invisible range start behind. Nothing picked and no isolate:
 // the same state comes back, and the caller skips the repaint.
-function selectionAfterEscape(state) {
-  if (state.isolate) return { selection: state.selection, rangeStart: state.rangeStart, isolate: null };
-  const next = stepBack(state.selection);
-  if (next === state.selection) return state;
-  const anchor = next.anchor;
-  return { selection: next, rangeStart: anchor && anchor.kind === 'card' ? anchor.id : null };
+function selectionAfterEscape(current) {
+  if (current.isolate) return { selection: current.selection, rangeStart: current.rangeStart, isolate: null };
+  const next = stepBack(current.selection);
+  if (next === current.selection) return current;
+  return { selection: next, rangeStart: rangeStartOf(next) };
 }
 
 // The parts a poll leaves standing: a card, path or tree part whose card is no
@@ -291,7 +278,7 @@ function pruneSelectionParts(selection, liveIds) {
   const live = new Set(liveIds);
   const parts = partsOf(selection);
   const kept = parts.filter((part) => part.kind === 'query' || live.has(part.id));
-  return kept.length === parts.length ? selection : kept.reduce((next, part) => addPart(next, part), NO_SELECTION);
+  return kept.length === parts.length ? selection : selectionFromParts(kept);
 }
 
 // Takes one card out of the selection, wherever it comes from. A card part that
@@ -299,7 +286,7 @@ function pruneSelectionParts(selection, liveIds) {
 // its other cards on the whole board, so the cards the view hides stay picked.
 // A part that does not reach it is left as it is. When the anchor goes, the part
 // that follows it becomes the anchor, and the selection keeps its order.
-function removeCard(selection, id, matchQuery) {
+function selectionWithoutCard(selection, id, matchQuery) {
   let touched = false;
   const kept = [];
   for (const part of partsOf(selection)) {
@@ -312,7 +299,7 @@ function removeCard(selection, id, matchQuery) {
     touched = true;
     for (const card of cards) if (card !== Number(id)) kept.push(cardPart(card));
   }
-  return touched ? kept.reduce((next, part) => addPart(next, part), NO_SELECTION) : selection;
+  return touched ? selectionFromParts(kept) : selection;
 }
 
 // What a click on a card does to the selection, given the gesture cardClickAction
@@ -327,7 +314,7 @@ function removeCard(selection, id, matchQuery) {
 function selectionAfterClick(action, id, { selection, resolved, rangeStart, order, matchQuery }) {
   if (action === 'select') return { selection: setAnchor(selection, cardPart(id)), rangeStart: id };
   if (action === 'toggle') {
-    const next = resolved.has(id) ? removeCard(selection, id, matchQuery) : addPart(selection, cardPart(id));
+    const next = resolved.has(id) ? selectionWithoutCard(selection, id, matchQuery) : addPart(selection, cardPart(id));
     return { selection: next, rangeStart: id };
   }
   if (action === 'range') {
@@ -374,7 +361,7 @@ function selectionAfterTyping(selection, text) {
 // the Graph until it is edited.
 function selectionOnViewSwitch(selection, { from, to, boxText }) {
   if (from === 'graph' && to !== 'graph') {
-    return isTypedAnchor(selection) ? selection.additions.reduce((next, part) => addPart(next, part), NO_SELECTION) : selection;
+    return isTypedAnchor(selection) ? selectionFromParts(selection.additions) : selection;
   }
   if (to === 'graph' && from !== 'graph' && !selection.anchor && String(boxText).trim()) {
     return setAnchor(selection, typedQueryPart(boxText));
@@ -404,9 +391,9 @@ function isAnyPillPart(part) { return part.kind === 'query' && !part.source; }
 // the anchor the next part is, as when any anchor goes) and its query leaves the
 // box as the one alternative it is, whatever else the box holds.
 function selectionWithoutPill(selection, boxText, text, alts) {
-  const kept = partsOf(selection).filter((part) => !isPillPart(part, text)).reduce((next, part) => addPart(next, part), NO_SELECTION);
+  const kept = selectionFromParts(partsOf(selection).filter((part) => !isPillPart(part, text)));
   const anchorWent = kept.anchor !== selection.anchor;
-  return { selection: kept, boxText: alts.remove(boxText, text), rangeStart: anchorWent ? (kept.anchor && kept.anchor.kind === 'card' ? kept.anchor.id : null) : undefined };
+  return { selection: kept, boxText: alts.remove(boxText, text), rangeStart: anchorWent ? rangeStartOf(kept) : undefined };
 }
 
 // What a click on a pill does. A click ('toggle', with or without Shift) turns that
@@ -444,13 +431,13 @@ function selectionAfterPill(gesture, query, { selection, boxText, alts }) {
 // module's. Nothing to drop: the same state comes back, and the caller skips the
 // repaint. When the anchor goes the next part is the anchor, and the range start
 // follows it, as when any anchor goes.
-function selectionAfterBoxEdit(state, boxText, holds) {
-  const parts = partsOf(state.selection);
-  const kept = parts.filter((part) => part.kind !== 'query' || part.source || holds(boxText, part.text));
-  if (kept.length === parts.length) return state;
-  const selection = kept.reduce((next, part) => addPart(next, part), NO_SELECTION);
-  if (selection.anchor === state.selection.anchor) return { selection, rangeStart: state.rangeStart };
-  return { selection, rangeStart: selection.anchor && selection.anchor.kind === 'card' ? selection.anchor.id : null };
+function selectionAfterBoxEdit(current, boxText, holds) {
+  const parts = partsOf(current.selection);
+  const kept = parts.filter((part) => !isAnyPillPart(part) || holds(boxText, part.text));
+  if (kept.length === parts.length) return current;
+  const selection = selectionFromParts(kept);
+  if (selection.anchor === current.selection.anchor) return { selection, rangeStart: current.rangeStart };
+  return { selection, rangeStart: rangeStartOf(selection) };
 }
 
 // The pill queries a step from `before` to `after` took out of the selection, in
@@ -460,7 +447,7 @@ function selectionAfterBoxEdit(state, boxText, holds) {
 function pillQueriesDropped(before, after) {
   const kept = partsOf(after);
   return partsOf(before)
-    .filter((part) => part.kind === 'query' && !part.source && !kept.some((k) => samePart(k, part)))
+    .filter((part) => isAnyPillPart(part) && !kept.some((k) => samePart(k, part)))
     .map((part) => part.text);
 }
 
@@ -475,11 +462,14 @@ function pillQueriesDropped(before, after) {
 // (`action`, from cardClickAction) and whether the selection's anchor was the typed
 // query before and after it. A plain click sets a new anchor and clears the box. Shift
 // or Ctrl keeps the query, unless it took out a card the typed query lit: the query is
-// then its other cards, and the box no longer names the anchor. While isolated the box
-// holds the isolate text, which a click never touches: it moves the anchor only.
-function boxAfterGraphClick(action, { boxText, typedBefore, typedAfter, isolated }) {
+// then its other cards, and the box no longer names the anchor. What a clear leaves is
+// `cut`, the run of slices the box holds (searchCutOnly, search.js; none when the page
+// names none): the cut is no search, and the Graph keeps drawing what it hides. While
+// isolated the box holds the isolate text, which a click never touches: it moves the
+// anchor only.
+function boxAfterGraphClick(action, { boxText, cut = '', typedBefore, typedAfter, isolated }) {
   if (isolated) return boxText;
-  return action === 'select' || (typedBefore && !typedAfter) ? '' : boxText;
+  return action === 'select' || (typedBefore && !typedAfter) ? cut : boxText;
 }
 
 // The isolate state after the box was written with `reason`. Isolate is a query in the
@@ -519,12 +509,13 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, toggleSelection, pruneSelection, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
   window.selectionAfterBoxEdit = selectionAfterBoxEdit;
   window.pillQueriesDropped = pillQueriesDropped;
+  window.partsOf = partsOf;
   window.typedQueryPart = typedQueryPart;
   window.isTypedAnchor = isTypedAnchor;
   window.selectionAfterTyping = selectionAfterTyping;
@@ -536,9 +527,11 @@ if (typeof module !== 'undefined' && module.exports) {
   window.queryPart = queryPart;
   window.setAnchor = setAnchor;
   window.addPart = addPart;
+  window.selectionFromParts = selectionFromParts;
+  window.rangeStartOf = rangeStartOf;
   window.partCards = partCards;
   window.resolveSelection = resolveSelection;
-  window.removeCard = removeCard;
+  window.selectionWithoutCard = selectionWithoutCard;
   window.stepBack = stepBack;
   window.selectionAfterEscape = selectionAfterEscape;
   window.pruneSelectionParts = pruneSelectionParts;
@@ -546,8 +539,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.isolateAfterWrite = isolateAfterWrite;
   window.isolateRecord = isolateRecord;
   window.isolatePreviousFrom = isolatePreviousFrom;
-  window.toggleSelection = toggleSelection;
-  window.pruneSelection = pruneSelection;
   window.cardMenuFor = cardMenuFor;
   window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;
@@ -558,7 +549,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.plainClickBehaviour = plainClickBehaviour;
   window.cardClickAction = cardClickAction;
   window.cardOpenAction = cardOpenAction;
-  window.clickKeepsSelection = clickKeepsSelection;
   window.shiftAddsRange = shiftAddsRange;
   window.selectionAfterClick = selectionAfterClick;
 }

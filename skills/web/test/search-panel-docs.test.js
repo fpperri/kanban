@@ -205,3 +205,19 @@ test('the Esc paragraph of the popups entry names the panel too', () => {
   const popups = flat(skill.slice(skill.indexOf('**Esc** closes whichever popup is open'), skill.indexOf('**Alt+Enter**')));
   assert.match(popups, /search panel/);
 });
+
+test('both say what a pill does beside a hand-picked anchor and an empty box: the box stays empty, the pill is on, and typing drops it', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /anchor is a card, path or tree you picked and the box is empty, a click on a pill leaves the box empty/, where);
+    assert.match(text, /an empty box hides nothing/, where);
+    assert.match(text, /its query is not in the box or the address, and typing in the box drops it/, where);
+  }
+});
+
+test("both say a query typed by hand is never a pill, and a reload or a link carries the box's text and not the pill", () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /A query typed by hand is never a pill, even one that reads as a pill's query/, where);
+    assert.match(text, /A reload, or a link, carries the box's text and not the selection/, where);
+    assert.match(text, /a pill shows off/, where);
+  }
+});

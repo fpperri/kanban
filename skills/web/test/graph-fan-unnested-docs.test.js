@@ -45,7 +45,7 @@ test('the Graph section says off does not draw them or any line that joins one t
 test('the Graph section says depth 0 puts them on the depth 0 ring between the tier bands and depth 1, in a sector of their own', () => {
   const text = graph();
   assert.match(text, /\*\*depth 0\*\* draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own/);
-  assert.match(text, /the ring's caption is the depth 0 band's, `roots`, and its tooltip counts them/);
+  assert.match(text, /the ring's caption is the depth 0 band's, `depth 0`, and its tooltip counts them/);
 });
 
 test('the Graph section says table draws the Unnested block, and that the option is Tiers\' own, kept per board, and frames an untouched view again', () => {

@@ -8,7 +8,7 @@ const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig, ICON_NAMES } = require('../scripts/config-store');
 const { BOARDS, materialize } = require('./browser/boards');
 
-// The browser runner drives three boards. Later tickets assert against what is
+// The browser runner drives three boards. The scenarios assert against what is
 // on them, so this file is the contract: every case a scenario relies on must
 // be on the board, and removing one fails here, not in a slow browser run.
 // Cards and config come through the board's own readers, the hierarchy, pills

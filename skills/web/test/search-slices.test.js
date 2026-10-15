@@ -773,3 +773,30 @@ test('an entry whose slice has gone since it was drawn does nothing when it is c
   assert.doesNotThrow(() => s.slices.fire('contextmenu', { target: gone, preventDefault() {} }));
   assert.strictEqual(s.box(), '');
 });
+
+// Moving an element that is already in the page blurs it, so an entry that stays must never
+// be moved by the others leaving: the stand-in below models that, which the other fakes do not.
+test('an entry that stays keeps focus when an earlier entry leaves the list, and no entry that stays is moved', async () => {
+  const s = await open();
+  s.openPanel();
+  s.board.active.push(card(8, { type: 'strategy' }));
+  await s.page.run('autoRefreshTick()');
+  assert.deepStrictEqual(s.labels(), ['goal', 'strategy', 'epic', 'depth 0', 'depth 1', 'depth 2']);
+  const doc = s.page.ctx.document;
+  const moved = [];
+  const real = s.slices.insertBefore;
+  s.slices.insertBefore = (node, ref) => {
+    if (node.parent === s.slices) {
+      moved.push(node);
+      if (doc.activeElement === node) doc.activeElement = null;
+    }
+    real(node, ref);
+  };
+  const epic = s.entry('epic');
+  s.focusOn(epic);
+  s.board.active = s.board.active.filter((c) => c.id !== 8);
+  await s.page.run('autoRefreshTick()');
+  assert.deepStrictEqual(s.labels(), ['goal', 'epic', 'depth 0', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(moved, [], 'an entry that stays was moved');
+  assert.strictEqual(doc.activeElement, epic, 'and focus is still on it');
+});

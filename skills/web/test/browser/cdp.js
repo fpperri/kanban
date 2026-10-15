@@ -175,8 +175,8 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
       }
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Emulation.setEmulatedMedia', { features: [] });
-      // A tab nobody has clicked in is not focused, and a focus() on one of its elements fires no focus event, so the
-      // search panel, which opens on the box's focus event, stayed shut for the scenario that ran first.
+      // A tab nobody has clicked in is not focused, and a focus() on one of its elements fires no focus event. Focus
+      // emulation makes it fire them, which the search panel opens on.
       await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
       cdp.takeEvents();
       const bases = Object.fromEntries(keys.map((k) => [k, boards[k].base]));

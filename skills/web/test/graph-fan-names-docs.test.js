@@ -37,7 +37,7 @@ test('the Graph section says what each Names value names, relevant the default',
   assert.match(text, /then the parents from the highest altitude down while fewer than 24 cards are named/);
   assert.match(text, /on a fan of 24 cards or fewer every card/);
   assert.match(text, /\*\*all\*\* names every card; \*\*none\*\* names no card/);
-  assert.match(text, /Altitude is the glossary's: the layers of cards drawn below a card, blind to type/);
+  assert.match(text, /Altitude is the glossary's: the layers of cards below a card on the board, drawn or not, blind to type, as the badge on its tile counts them/);
 });
 
 test('the Graph section says a name is the title as plain text in place of the id, painted in place, and the layout never reads it', () => {

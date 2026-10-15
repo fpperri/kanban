@@ -1,14 +1,18 @@
 'use strict';
 // The browser runner's harness: everything a scenario stands on, kept apart
-// from the scenarios so it can be unit tested without a browser (see
-// skills/web/test/browser-harness.test.js and its two siblings).
+// from the scenarios so it can be unit tested without a browser (see the
+// skills/web/test/browser-*.test.js files that require it, browser-harness.test.js
+// first).
 //
-//   command line   parseArgs, selectScenarios, withFault
-//   Chrome         chromeArgs (the sandbox switch)
-//   input          keyEvents, contextMenuExpr
-//   processes      createRegistry: what a run starts, and ending all of it
-//   the loop       runScenarios: a timeout and a console-error check for each
-//                  scenario, and whatever happens to one recorded under its name
+//   command line     parseArgs, selectScenarios, withFault
+//   Chrome           chromeArgs (the sandbox switch)
+//   input            keyEvents, contextMenuExpr
+//   processes        createRegistry: what a run starts, and ending all of it
+//   starting Chrome  startChromeUntilPage, waitForPageTarget: a Chrome that lists a
+//                    page, started again once if it never does
+//   the loop         runScenarios: a timeout and a console-error check for each
+//                    scenario, and whatever happens to one recorded under its name;
+//                    summaryLines: its report
 //
 // No dependencies; needs Node >= 22 (global fetch and WebSocket).
 
@@ -32,7 +36,7 @@ function parseFault(text) {
 }
 
 function parseArgs(argv) {
-  const out = { shots: null, only: [], reverse: false, list: false, fault: null };
+  const out = { shots: null, only: [], reverse: false, list: false, fault: null, plugin: null };
   const value = (i, what) => {
     if (i >= argv.length || argv[i].startsWith('--')) throw new Error(`${argv[i - 1]} needs ${what}`);
     return argv[i];
@@ -44,9 +48,18 @@ function parseArgs(argv) {
     else if (a === '--reverse') out.reverse = true;
     else if (a === '--list') out.list = true;
     else if (a === '--fault') out.fault = parseFault(value(++i, 'a fault'));
+    else if (a === '--plugin') out.plugin = path.resolve(value(++i, 'a plugin checkout'));
     else throw new Error(`unknown argument: ${a}`);
   }
   return out;
+}
+
+// The server that serves the boards: this checkout's, or with --plugin the one of another
+// checkout of the plugin (an older one, to prove a board written for this plugin opens on it).
+function serverScriptOf(pluginDir) {
+  const script = path.join(pluginDir || path.join(__dirname, '..', '..', '..', '..'), 'skills', 'web', 'scripts', 'server.js');
+  if (!fs.existsSync(script)) throw new Error(`no server at ${script}`);
+  return script;
 }
 
 // The scenarios to run, in the registry's order (last to first with --reverse).
@@ -355,9 +368,10 @@ function exitCodeFor(results) {
 
 function summaryLines(results) {
   const lines = ['', 'Scenarios'];
+  const width = Math.max(10, ...results.map((r) => r.name.length));
   for (const r of results) {
     const note = r.error ? `  ${r.error}` : `  ${r.checks.length} checks`;
-    lines.push(`${r.status}  ${r.name.padEnd(10)} ${seconds(r.ms).padStart(7)}${note}`);
+    lines.push(`${r.status}  ${r.name.padEnd(width)} ${seconds(r.ms).padStart(7)}${note}`);
   }
   const failed = results.filter((r) => r.status === 'FAIL').length;
   const checks = results.reduce((n, r) => n + r.checks.length, 0);
@@ -366,7 +380,7 @@ function summaryLines(results) {
 }
 
 module.exports = {
-  EXIT, DEFAULT_TIMEOUT_MS, parseArgs, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
+  EXIT, DEFAULT_TIMEOUT_MS, parseArgs, serverScriptOf, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
   isAlive, killTree, createRegistry, sleep, boardsOf, waitForPageTarget, startChromeUntilPage,
   runScenarios, withFault, exitCodeFor, summaryLines,
 };

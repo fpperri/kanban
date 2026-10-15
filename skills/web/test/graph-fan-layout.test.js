@@ -83,7 +83,7 @@ test('fan: without a hierarchy the bands are the depth rings in depth order, and
   ], []);
   const l = fanOf(m);
   assert.deepStrictEqual(l.bands.map((b) => b.slice.depth), [0, 1, 2]);
-  assert.deepStrictEqual(l.rings.map((r) => r.label), ['roots', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(l.rings.map((r) => r.label), ['depth 0', 'depth 1', 'depth 2']);
   const radii = [1, 2, 4].map((id) => radius(l, id));
   assert.deepStrictEqual(radii, [...radii].sort((a, b) => a - b));
   assert.ok(Math.abs(radius(l, 2) - radius(l, 3)) < 1e-9, 'siblings share a ring');
@@ -151,12 +151,23 @@ test('fan: a lone tree sits opposite the seam, its root at the bottom and its ch
   assert.ok(l.pos.get(2).x < 0 && l.pos.get(3).x > 0);
 });
 
-test('fan: a sector\'s share of the fan follows its leaf count', () => {
+test('fan: a sector\'s share of the fan follows the arc its leaves need, which is their count while they sit on one ring', () => {
   const m = buildOf([card(1), ...kidsOf(1, 12, 10), card(2), ...kidsOf(2, 4, 30)], []);
   const l = fanOf(m);
   assert.deepStrictEqual(l.sectors.map((s) => s.leaves), [12, 4]);
   const width = (s) => s.from - s.to;
   assert.ok(Math.abs(width(l.sectors[0]) / width(l.sectors[1]) - 3) < 1e-9, `${width(l.sectors[0])} over ${width(l.sectors[1])}`);
+});
+
+test('fan: two trees with as many leaves are not given the same share when their leaves sit on different rings: a leaf on an outer ring needs less of the arc', () => {
+  const m = buildOf([card(1), ...kidsOf(1, 6, 10), card(2), card(3, { parent: 2 }), ...kidsOf(3, 6, 30)], []);
+  const l = fanOf(m);
+  assert.deepStrictEqual(l.sectors.map((s) => s.leaves), [6, 6]);
+  const width = (s) => s.from - s.to;
+  const [near, far] = l.sectors;
+  assert.ok(radius(l, 30) > radius(l, 10), 'the leaves of the second tree are on an outer ring');
+  assert.ok(width(near) > width(far), `${width(near)} is wider than ${width(far)}`);
+  assert.ok(Math.abs(width(near) / width(far) - radius(l, 30) / radius(l, 10)) < 1e-9, 'the shares are as the rings of the leaves are far from the centre');
 });
 
 test('fan: loose cards with a tier share a sector of their own, apart from every tree, each in its own tier band', () => {

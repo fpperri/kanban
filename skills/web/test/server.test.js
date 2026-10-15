@@ -1830,7 +1830,7 @@ test('the map graph and No relations sections are each collapsible, state persis
   });
 });
 
-test('map section toggles join the Q0 clear-selection exemption and stay out of the poll guard, same as the map status-filter pills', async () => {
+test('map section toggles keep the selection and stay out of the poll guard, same as the map status-filter pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
@@ -1865,13 +1865,13 @@ test('app.js applyBoardData applies the assignee registry and official lists BEF
 // guards, the search∩status composition rides a pinned pure helper, and the
 // sub-month all-day chips stop shadowing their drop cells.
 
-test('map status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard', async () => {
+test('map status-filter pills keep the selection and stay out of the poll guard', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    // Q0: the pill click bubbles past the #map-view delegated handler to the
-    // document-level clear-selection handler — without the exemption, toggling
-    // a status to declutter the map wipes the shift-click batch being built
+    // The pill click bubbles past the #map-view delegated handler to the
+    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
+    // click while toggling a status to declutter the map wipes the shift-click batch being built
     // (the same curate-before-acting class .cal-nav was exempted for).
     assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle'],
       'pill clicks must not wipe a building selection');
@@ -2160,13 +2160,13 @@ test('a click on a gantt pill calls toggleGanttStatusFilter, checked before the 
   });
 });
 
-test('gantt status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard, same as the map pills', async () => {
+test('gantt status-filter pills keep the selection and stay out of the poll guard, same as the map pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    // Q0: a pill click bubbles past the #gantt-view delegated handler to the
-    // document-level clear-selection handler — without the exemption, toggling
-    // a status to declutter the timeline wipes the shift-click batch being built.
+    // A pill click bubbles past the #gantt-view delegated handler to the
+    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
+    // click while toggling a status to declutter the timeline wipes the shift-click batch being built.
     assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a gantt pill click must not wipe a building selection — this pin also names .calendar-filter-toggle (verify-fix: it previously stopped at .gantt-filter-toggle, an unanchored prefix match that no longer proved the #99 calendar pill\'s presence in this exemption list)');
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
@@ -2282,13 +2282,13 @@ test('a click on a calendar pill calls toggleCalendarStatusFilter, checked in th
   });
 });
 
-test('calendar status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard, same as the map/gantt pills', async () => {
+test('calendar status-filter pills keep the selection and stay out of the poll guard, same as the map/gantt pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    // Q0: a pill click bubbles past the #calendar-view delegated handler to the
-    // document-level clear-selection handler — without the exemption, toggling
-    // a status to declutter the calendar wipes the shift-click batch being built.
+    // A pill click bubbles past the #calendar-view delegated handler to the
+    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
+    // click while toggling a status to declutter the calendar wipes the shift-click batch being built.
     assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a calendar pill click must not wipe a building selection');
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes

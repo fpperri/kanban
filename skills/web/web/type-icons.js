@@ -8,12 +8,12 @@
 // An icon name is human text. It is only ever looked up in the table below;
 // it never becomes markup, a class name or a path. A name the table does not
 // hold (unknown, blank, mis-cased, not even a string) answers nothing, and the
-// caller draws the type as it was drawn before icons: a chip with no glyph, a
-// round dot.
+// caller draws a chip with no glyph and a round dot.
 
 // Each shape is a polygon: `sides` corners (twice that for a star, which
 // alternates `outer` and `inner`), the first one at `turn` degrees, at `outer`
-// times the dot radius from the centre. The circle is the plain dot.
+// times the dot radius from the centre. The circle is the plain dot. The glyphs are the
+// filled forms, because the Graph fills the dot in the same shape: a chip's mark and its dot read as one.
 const TYPE_ICON_SHAPES = new Map([
   ['circle', { glyph: '\u25cf', round: true }],
   ['square', { glyph: '\u25a0', sides: 4, turn: 45, outer: 1.2 }],
@@ -29,7 +29,7 @@ function typeIconShape(name) {
   return typeof name === 'string' ? TYPE_ICON_SHAPES.get(name) : undefined;
 }
 
-function typeIconRadius(r) {
+function typeIconRadiusUsable(r) {
   return typeof r === 'number' && Number.isFinite(r) && r > 0;
 }
 
@@ -46,7 +46,7 @@ function typeIconGlyph(name) {
 // A closed path around 0,0 for a dot of radius r, or '' for no icon or no radius.
 function typeIconOutline(name, r) {
   const shape = typeIconShape(name);
-  if (!shape || !typeIconRadius(r)) return '';
+  if (!shape || !typeIconRadiusUsable(r)) return '';
   if (shape.round) {
     const d = typeIconRound(r);
     return `M${d} 0A${d} ${d} 0 1 1 ${-d} 0A${d} ${d} 0 1 1 ${d} 0Z`;
@@ -65,7 +65,7 @@ function typeIconOutline(name, r) {
 // clears every corner; 0 for no icon or no radius.
 function typeIconReach(name, r) {
   const shape = typeIconShape(name);
-  if (!shape || !typeIconRadius(r)) return 0;
+  if (!shape || !typeIconRadiusUsable(r)) return 0;
   return typeIconRound(shape.round ? r : r * shape.outer);
 }
 

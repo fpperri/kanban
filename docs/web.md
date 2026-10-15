@@ -46,7 +46,7 @@ isn't `done` yet) or **blocked** (a manual sticker). The tile cues you see:
 - a **red left accent** on a High-priority card (`#1`, `#8`),
 - an amber **"Waiting on: #6"** badge (`#7` can't start until `#6` lands),
 - a red **blocked** pill (`#8`),
-- a **type chip** on a typed card (`#1` is typed `epic`, and orange because the board's `types:` list says so),
+- a **type chip** on a typed card (`#1` is typed `epic`, and orange because the board's `types:` list says so), which starts with the type's icon when the list gives one,
 - the assignee (`@human` / `@hitl` / `@afk`), tags, and due date.
 
 Each column header carries a sort dropdown (id / priority / due / last-modified
@@ -152,9 +152,12 @@ children and no tier are drawn: on one ring outside the fan by default, not at a
 the depth 0 ring, or in the block outside the rim. The row's choices are kept per board.
 
 A dot takes its status colour, grows with its relations, goes hollow when done
-and dim when archived. A ring around it means children; red is blocked, amber
-waiting, gold review. Hover or focus a dot to light that card and its relations
-and dim the rest. Click selects a dot and keeps its relations lit while it is the
+and dim when archived. A type that has an `icon:` in the board's `types:` list draws its dot
+in that outline (circle, square, diamond, triangle, hexagon or star), still in the status
+colour, and starts its chip with it wherever a chip is drawn; an icon is a shape, never a
+colour, and a type with no icon, or an unknown name, keeps the round dot. A ring around it
+means children; red is blocked, amber waiting, gold review. Hover or focus a dot to light
+that card and its relations and dim the rest. Click selects a dot and keeps its relations lit while it is the
 only card picked; shift-click or ctrl-click adds one card or takes it out, and a
 selection of several lights exactly its cards. Double-click (or Enter) opens the
 card; right-click works as on the board.
@@ -162,7 +165,7 @@ card; right-click works as on the board.
 A search typed in the Graph hides nothing: its matches light, done cards included,
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
-click a card to start a new selection and clear the box. Switch to another view and
+click a card to start a new selection and clear the box but for its cut. Switch to another view and
 the box goes on filtering there, while nothing is selected by it. In Force, drag a dot and the cards related to it follow, like pulling on
 a thread; the arrangement stays until the cards change or the page reloads.
 Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.
@@ -190,8 +193,8 @@ writes the whole term (`slice:goal..objective`). A tier named with a space is wr
 quoted, the quote holding both ends (`slice:"big goal..2"`). The tooltip of a Graph
 caption shows the same kind of term.
 
-A `|` counts only as a token of its own and a bracket only at a token's edge, so `a|b`
-and `fix(auth)` stay literal text, and so does `waiting:3`. Half-typed input never
+A `|` and a bracket count only at a token's edge, so `a|b` and `fix(auth)` stay literal
+text, and so does `waiting:3`, while `blocked: |review:` means `blocked: | review:`. Half-typed input never
 throws, and an empty alternative is dropped rather than matching every card. Clicking a
 tag, assignee, blocked or review cue on a card adds that term to every alternative of
 what the box holds.
@@ -217,19 +220,25 @@ matches leave the selection. A right-click solos a pill, so it alone is on and t
 holds its query alone, and a right-click on the soloed pill turns every pill off (the
 status pills turn all back on, since they start all on). The first pill on is the anchor
 of the selection and later ones are additions, so Esc takes the later pills out first and
-then the anchor. The `m` key steps through the pills: each press turns on the next pill
+then the anchor. When the anchor is a card, path or tree you picked and the box is empty, a
+click on a pill leaves the box empty, since an empty box hides nothing: the pill is on and its
+matches are selected, but its query is not in the box or the address, and typing in the box
+drops it. The `m` key steps through the pills: each press turns on the next pill
 alone, so the box holds its query alone, in the panel's order, off, blocked, review,
 waiting, then the board's own pills, then off again, and Shift+m steps backwards. It works
 in every view, except while you type in a field or a menu, a dialog, the notifications
 panel or the preferences sheet is up. A pill is on while its query is the anchor or an addition, and is
-announced as pressed, and typing in the box turns it off. With the panel
+announced as pressed, and typing in the box turns it off. A query typed by hand is never a
+pill, even one that reads as a pill's query: type `review:` and the review pill stays off. With the panel
 closed, a chip in the box counts what is on, and its name for a screen reader, and its hover text, say which.
+A reload, or a link, carries the box's text and not the selection, so a cut and isolate come back
+but a pill shows off, with its query in the box as typed text.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
 arrow, and stays in the box when Esc was pressed there), and then clears the box, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
-the box. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
+the box; a plain click on a card, which opens it or selects it, drops the pills the same way. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
 
@@ -258,8 +267,9 @@ entry, and Enter and Space act as a click.
 **Board pills** — the pill section also lists the board's own pills, after blocked, review
 and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
 query, or a label and a query, shown as its label; a malformed entry is skipped. A board
-pill shows a count like the built-ins and clicks as they do: a click makes its query the
-anchor and puts it in the box, and Shift+click grows the box to `anchor | pill`. A `field:*`
+pill shows a count like the built-ins and clicks as they do: a click turns it on or off,
+Shift+click is a plain click, a right-click solos it and `m` steps to it after the built-ins, so
+the first pill on is the anchor and a later one is an addition. A `field:*`
 entry, such as `tags:*` or `assignee:*` (also `status:*`, `priority:*` and `type:*`), makes
 one pill per distinct value the board's active cards hold in that field, sorted and labelled
 by the value. Each matches its value exactly, so the `grill` pill never catches `grilling`
@@ -273,7 +283,9 @@ it, except while you type in a field or a menu, a dialog, the notifications pane
 preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
 selection into the search box as `part | part | ...`, each part by what it names, such as
 `#12 | path:40 | tags:grill` for a card, the path through card 40 and the `grill` tag, so a card
-that comes to match joins on the next refresh. The text the box held is kept. The Board, Map,
+that comes to match joins on the next refresh. The text the box held is kept, and where it was
+hiding cards a picked path or card would bring back, it stays beside them in the box
+(`path:40 tags:ui`), so those cards stay hidden. The Board, Map,
 Gantt and Calendar show only the matches, and so does the Graph, where a typed search only
 lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
 on, a click on a card moves the anchor and leaves the box and the shown cards as they are, and a
@@ -295,7 +307,7 @@ The link carries it. While isolate is on, the address holds a second parameter b
 in another browser, opens isolated: the Graph and every other view show only the isolated set.
 The text the box held before isolating is kept in your browser, per board, so turning isolate
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
-the parameter and no query opens with isolate off.
+the parameter and no query opens with isolate off, and the address drops the parameter.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /

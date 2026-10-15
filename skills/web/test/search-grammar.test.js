@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchSuggestionItems,
+  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchBracket, searchSuggestionItems, searchRemoveGrownAlt,
 } = require('../web/search');
 
 // The search grammar beyond space-separated terms: `|` for or, round brackets,
@@ -66,12 +66,40 @@ test('a lone | or only bars parse to no terms, so nothing narrows', () => {
   assert.deepStrictEqual(ids('|'), CARDS.map((c) => c.id));
 });
 
-test('| counts only as a token of its own, so a|b and a |b stay literal text', () => {
+test('| counts at the edge of a token, as a bracket does, and stays literal inside one', () => {
   assert.deepStrictEqual(parseSearchQuery('a|b'), [{ field: null, value: 'a|b' }]);
-  assert.deepStrictEqual(parseSearchQuery('a |b'), [{ field: null, value: 'a' }, { field: null, value: '|b' }]);
-  assert.deepStrictEqual(parseSearchQuery('a| b'), [{ field: null, value: 'a|' }, { field: null, value: 'b' }]);
+  assert.deepStrictEqual(parseSearchQuery('a||b'), [{ field: null, value: 'a||b' }]);
   const piped = [card(7, { title: 'left|right' }), card(8, { title: 'left' })];
   assert.deepStrictEqual(ids('left|right', piped), [7]);
+  const either = parseSearchQuery('a | b');
+  assert.strictEqual(either[0].field, 'or');
+  for (const form of ['a |b', 'a| b', 'a|', 'a ||b', '(a |b)', '( a | b )']) {
+    assert.deepStrictEqual(parseSearchQuery(form).length, 1, form);
+  }
+  assert.deepStrictEqual(parseSearchQuery('a |b'), either);
+  assert.deepStrictEqual(parseSearchQuery('a| b'), either);
+  assert.deepStrictEqual(parseSearchQuery('(a |b)'), either);
+  assert.deepStrictEqual(parseSearchQuery('a|'), parseSearchQuery('a'), 'a bar with nothing after it is an empty alternative');
+  assert.deepStrictEqual(parseSearchQuery('|a'), parseSearchQuery('a'));
+  assert.deepStrictEqual(parseSearchQuery('||'), []);
+});
+
+test('a | stuck to the front or the back of a token is an or too, so the query is never silently empty', () => {
+  assert.deepStrictEqual(ids('tags:ui |#12'), ids('tags:ui | #12'));
+  assert.deepStrictEqual(ids('(tags:ui) |#12'), [1, 2, 3, 12]);
+  assert.deepStrictEqual(ids('tags:ui| #12'), [1, 2, 3, 12]);
+  assert.deepStrictEqual(ids('tags:ui|'), ids('tags:ui'));
+  assert.deepStrictEqual(ids('status:doing |status:done'), [1, 4, 5]);
+  const marked = [card(1, { blocked: 'x' }), card(2, { review: 'y' }), card(3)];
+  assert.deepStrictEqual(ids('blocked: |review:', marked), [1, 2]);
+  assert.deepStrictEqual(ids('blocked:| review:', marked), [1, 2]);
+  assert.deepStrictEqual(ids('(blocked:|review:)', marked), [], 'inside a token it is literal text, as it always was');
+});
+
+test('a quoted value keeps its | whatever its edges', () => {
+  const piped = [card(7, { title: 'x |y z' }), card(8, { title: 'x y z' })];
+  assert.deepStrictEqual(ids('"x |y"', piped), [7]);
+  assert.deepStrictEqual(ids('title:"x |y z"', piped), [7]);
 });
 
 test('cardMatchesQuery reads an or term, and an alternative with no terms matches nothing', () => {
@@ -398,32 +426,6 @@ test('a quote inside a value cannot be written and is left out, so the term stil
   assert.strictEqual(searchTermText(null, '(x'), '"(x"');
 });
 
-test('removing a term takes it out of every alternative', () => {
-  assert.strictEqual(searchRemoveTerm('blocked: tags:ui | review: tags:ui', 'tags:ui'), 'blocked: | review:');
-  assert.strictEqual(searchRemoveTerm('a tags:ui b', 'tags:ui'), 'a b');
-  assert.strictEqual(searchRemoveTerm('tags:ui', 'tags:ui'), '');
-  assert.strictEqual(searchRemoveTerm('a | tags:ui', 'tags:ui'), 'a', 'an alternative left empty is dropped');
-  assert.strictEqual(searchRemoveTerm('a tags:"two words"', { field: 'tags', value: 'two words' }), 'a');
-});
-
-test('removing a term reaches into brackets and drops a bracket it empties', () => {
-  assert.strictEqual(searchRemoveTerm('a (tags:ui | b)', 'tags:ui'), 'a (b)');
-  assert.strictEqual(searchRemoveTerm('a (tags:ui)', 'tags:ui'), 'a');
-  assert.strictEqual(searchRemoveTerm('a ((tags:ui) | tags:ui)', 'tags:ui'), 'a');
-});
-
-test('removing a term that is not there returns the text as it was', () => {
-  assert.strictEqual(searchRemoveTerm('a   |  b', 'tags:ui'), 'a   |  b');
-  assert.strictEqual(searchRemoveTerm('', 'tags:ui'), '');
-  assert.strictEqual(searchRemoveTerm('tags:uikit', 'tags:ui'), 'tags:uikit', 'a term is removed whole, never in part');
-});
-
-test('add then remove gets the query back, and the box matches what it matched before', () => {
-  const start = 'blocked: | review:';
-  const there = searchAddTerm(start, 'tags:ui');
-  assert.strictEqual(searchRemoveTerm(there, 'tags:ui'), start);
-});
-
 test('bracketing a query that holds a | or spaces wraps it, so it can be one term of another query', () => {
   assert.strictEqual(searchBracket('a | b'), '(a | b)');
   assert.strictEqual(searchBracket('a b'), '(a b)');
@@ -505,8 +507,6 @@ test('an unclosed quote is closed where a term is added after it, so the term is
   assert.strictEqual(searchAddTerm('tags:"two wo | b', 'status:doing'), 'tags:"two wo | b" status:doing');
   assert.deepStrictEqual(ids(searchAddTerm('zephyr "mig', 'tags:ui')), [1]);
   assert.strictEqual(searchAddTerm('a (b', 'tags:ui'), 'a (b) tags:ui', 'an open bracket is closed the same way');
-  assert.strictEqual(searchRemoveTerm('a "b tags:ui', 'tags:ui'), 'a "b tags:ui', 'inside the quote it is text, not a term');
-  assert.strictEqual(searchRemoveTerm('a "b" tags:ui', 'tags:ui'), 'a "b"');
 });
 
 test('waiting: reads ids the way the waiting rule does, so a card from a page that keeps ids as text still waits', () => {
@@ -527,8 +527,25 @@ test('a trailing |, "a | status:", an unclosed quote, an unclosed bracket and a 
       searchSuggestionItems(q);
       searchSuggestionItems(q, 0);
       searchAddTerm(q, 'tags:x');
-      searchRemoveTerm(q, 'tags:x');
       searchBracket(q);
     }, JSON.stringify(q));
   }
+});
+
+test('searchRemoveGrownAlt takes out the alternatives that are the term with more terms, and leaves any other', () => {
+  assert.strictEqual(searchRemoveGrownAlt('review:', 'review:'), '');
+  assert.strictEqual(searchRemoveGrownAlt('review: assignee:@human', 'review:'), '');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr assignee:@human | review: assignee:@human', 'review:'), 'zephyr assignee:@human');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr | review: | blocked:', 'review:'), 'zephyr | blocked:');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr review:', 'blocked:'), 'zephyr review:', 'nothing grown from blocked:');
+  assert.strictEqual(searchRemoveGrownAlt('tags:ui status:doing x | y', 'tags:ui status:doing'), 'y', 'a pill of two terms');
+  assert.strictEqual(searchRemoveGrownAlt('tags:ui', 'tags:ui status:doing'), 'tags:ui', 'a shorter alternative holds less than the pill');
+  assert.strictEqual(searchRemoveGrownAlt('review: slice:goal', 'review:'), 'slice:goal', 'a cut is not an alternative');
+  assert.strictEqual(searchRemoveGrownAlt('slice:epic', 'slice:epic'), '', 'a pill that is a cut takes its cut out');
+  assert.strictEqual(searchRemoveGrownAlt('slice:0.. slice:epic', 'slice:epic'), 'slice:0..', 'and only that cut');
+  assert.strictEqual(searchRemoveGrownAlt('review: slice:epic', 'review: slice:epic'), '', 'a pill of a term and a cut takes out both');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr | review: slice:epic', 'review: slice:epic'), 'zephyr');
+  assert.strictEqual(searchRemoveGrownAlt('review:', 'review: slice:epic'), '', 'the pill held a cut the box does not');
+  assert.strictEqual(searchRemoveGrownAlt('', 'review:'), '');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr', ''), 'zephyr');
 });

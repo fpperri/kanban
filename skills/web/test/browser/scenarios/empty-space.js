@@ -25,14 +25,13 @@ const DATED = [3, 6];
 const TYPED = 'zephyr';
 
 // What a double click does not clear on: the same list the page keeps (onClickAway).
-const NOT_EMPTY = '.card-el, .graph-node, button, input, select, a, textarea, [data-keeps-selection], .modal-backdrop, .context-menu';
+const NOT_EMPTY = '.card-el, .graph-node, [data-tip], button, input, select, a, textarea, [data-keeps-selection], .modal-backdrop, .context-menu';
 
 module.exports = {
   name: 'empty-space',
   board: 'fixture',
   timeoutMs: 120000,
   VIEWS,
-  CONTAINERS,
   DATED,
   TYPED,
   NOT_EMPTY,

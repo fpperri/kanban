@@ -12,7 +12,7 @@
 //
 // Run:    npm run test:browser
 //         node skills/web/test/browser/run.js [--only <name>[,<name>]] [--reverse]
-//                                             [--shots <dir>] [--list]
+//                                             [--shots <dir>] [--list] [--plugin <dir>]
 // Chrome: found automatically; set CHROME_PATH to override or to point at a
 //         browser in a non-standard place. Chrome keeps its sandbox; set
 //         KANBAN_BROWSER_NO_SANDBOX=1 where the system refuses it (CI).
@@ -22,6 +22,9 @@
 // --only  runs those scenarios alone; --reverse runs them last to first, which
 //         gives the same results; --list prints the names.
 // --shots saves a screenshot per step, and one for each scenario that fails.
+// --plugin serves the boards with the server of another checkout of the plugin, and the
+//         page that server serves, so a scenario can show that a board written for this
+//         plugin opens on an older one (CI runs the smoke scenario on main's checkout).
 // --fault throw:<name> makes that scenario throw; --fault kill-chrome kills
 //         Chrome mid-run. They exist for fault-check.js, which proves both are
 //         reported and cleaned up.
@@ -36,7 +39,7 @@ const fs = require('fs');
 const net = require('net');
 const path = require('path');
 const {
-  EXIT, DEFAULT_TIMEOUT_MS, parseArgs, selectScenarios, chromeArgs, createRegistry, runScenarios, withFault,
+  EXIT, DEFAULT_TIMEOUT_MS, parseArgs, serverScriptOf, selectScenarios, chromeArgs, createRegistry, runScenarios, withFault,
   exitCodeFor, summaryLines, boardsOf, sleep, startChromeUntilPage,
 } = require('./harness');
 const { connectCdp, createBrowserEnv } = require('./cdp');
@@ -44,7 +47,6 @@ const { BOARDS, materialize } = require('./boards');
 const scenarios = require('./scenarios');
 
 const IS_WIN = process.platform === 'win32';
-const SERVER_JS = path.join(__dirname, '..', '..', 'scripts', 'server.js');
 const WATCHDOG_MS = 300000;
 const KILL_CHROME_AFTER_MS = 1500;
 
@@ -102,8 +104,8 @@ async function waitUntil(fn, ms, what) {
 let registry = null;
 const exited = (rec) => rec.child.exitCode !== null || rec.child.signalCode !== null;
 
-async function startServer(key, boardDir, port) {
-  const rec = registry.spawn(`server-${key}`, process.execPath, [SERVER_JS, boardDir, String(port)]);
+async function startServer(serverJs, key, boardDir, port) {
+  const rec = registry.spawn(`server-${key}`, process.execPath, [serverJs, boardDir, String(port)]);
   const base = `http://127.0.0.1:${port}`;
   await waitUntil(async () => {
     if (exited(rec)) throw new Error(`the ${key} server exited early: ${rec.out}`);
@@ -140,6 +142,7 @@ async function main(argv) {
     console.log(scenarios.map((s) => s.name).join('\n'));
     return EXIT.OK;
   }
+  const serverJs = serverScriptOf(args.plugin);
   const chrome = findChrome();
   if (!chrome) {
     console.error('No Chrome/Chromium/Edge found: set CHROME_PATH to a browser executable.');
@@ -159,7 +162,7 @@ async function main(argv) {
     dirs[key] = path.join(root, `board-${key}`);
     ports[key] = boardPorts[i];
     materialize(key, dirs[key], { port: ports[key] });
-    boards[key] = { base: await startServer(key, dirs[key], ports[key]) };
+    boards[key] = { base: await startServer(serverJs, key, dirs[key], ports[key]) };
   }
   const { rec: chromeRec, cdp } = await startChrome(chrome, root);
 

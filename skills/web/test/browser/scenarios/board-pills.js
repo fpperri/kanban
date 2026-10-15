@@ -6,8 +6,8 @@
 // reveals the other two (and reads "fewer") and a click on it again folds them back.
 // A click on the grill pill puts tags:"grill" in the box and shows the grill card on
 // the Board and not the grilling card, because a value pill matches its value exactly;
-// a click on it again clears the box, and a Shift+click on a second pill grows the box
-// to "anchor | pill". Turning a pill on leaves every pill's count as it was. With the box
+// a click on it again clears the box, and a click on a second pill (Shift held or not: Shift+click
+// is a plain click) grows the box to "anchor | pill". Turning a pill on leaves every pill's count as it was. With the box
 // empty every board pill's count is the number of cards its query leaves on the Board.
 // A focused value pill keeps its focus across a poll, and its count changes under it.
 // The malformed board's panel lists the built-ins and only the two pills its config

@@ -387,10 +387,10 @@ test('a poll hands focus back to the option that had it, found again by its opti
   const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
   const button = groups(s.row()).flatMap((x) => x.buttons).find((b) => b.key === 'lines' && b.val === 'all').el;
   s.page.ctx.__button = button;
-  assert.ok(s.run('PILL_SELECTOR').split(', ').includes('.graph-option-btn'), 'it is one of the controls that get focus back after a render');
-  assert.strictEqual(s.run('pillSelector(__button)'), '.graph-option-btn[data-key="lines"][data-val="all"]');
+  assert.ok(s.run('REFOCUS_SELECTOR').split(', ').includes('.graph-option-btn'), 'it is one of the controls that get focus back after a render');
+  assert.strictEqual(s.run('refocusSelector(__button)'), '.graph-option-btn[data-key="lines"][data-val="all"]');
   s.page.ctx.__toggle = toggleButton();
-  assert.strictEqual(s.run('pillSelector(__toggle)'), '.map-section-toggle[data-section="graph-options"]', 'the toggle has a selector of its own, not the Map\'s');
+  assert.strictEqual(s.run('refocusSelector(__toggle)'), '.map-section-toggle[data-section="graph-options"]', 'the toggle has a selector of its own, not the Map\'s');
 });
 
 test('the Graph lights the lines it draws: a counted line lights with its parent', async () => {
@@ -446,12 +446,14 @@ test('the view stamps a counted line as a path with its count beside it, and eve
 test('every option the model offers has a label and a hint in the row, so the row cannot lose one', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const labels = src.match(/const GRAPH_FAN_OPTION_LABELS = \{[\s\S]*?\n\};/)[0];
-  const sandbox = {};
+  const { GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL } = require('../web/graph-model');
+  const sandbox = { GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL };
   vm.createContext(sandbox);
   vm.runInContext(`${labels}\nthis.labels = GRAPH_FAN_OPTION_LABELS;`, sandbox);
-  const { GRAPH_FAN_OPTION_VALUES } = require('../web/graph-model');
   assert.deepStrictEqual(Object.keys(sandbox.labels), Object.keys(GRAPH_FAN_OPTION_VALUES));
   for (const meta of Object.values(sandbox.labels)) assert.ok(meta.label && meta.hint.length > 20);
+  assert.ok(sandbox.labels.names.hint.includes(`up to ${GRAPH_FAN_NAMES_CAP} names`), 'the hint says the cap the model holds');
+  assert.ok(sandbox.labels.names.hint.includes(`a fan of ${GRAPH_FAN_NAMES_SMALL} cards or fewer`), 'and the size of a fan that names every card');
 });
 
 // --- the Unnested option --------------------------------------------------------------------------------
@@ -520,6 +522,17 @@ test('a card off leaves the selection too: a selection reaches only cards the Gr
   assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'it comes back with the card');
 });
 
+test('what a selection can reach is what the Graph draws, with a status pill hiding a status under off too', async () => {
+  const s = await open({ stored: UNFOLDED });
+  pressOption(s, 'unnested', 'off');
+  s.run("graphToggleFilter('done')");
+  assert.deepStrictEqual(drawnIds(s), [1, 3, 4, 5, 6], 'card 2 is done, card 7 is off');
+  assert.deepStrictEqual(shownIds(s), drawnIds(s));
+  s.run("graphToggleFilter('done')");
+  assert.deepStrictEqual(shownIds(s), drawnIds(s));
+  assert.deepStrictEqual(drawnIds(s), [1, 2, 3, 4, 5, 6]);
+});
+
 test('off leaves the selection of Force alone: the layouts without the option show every card', async () => {
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
   assert.deepStrictEqual(shownIds(await open({ stored })), [1, 2, 3, 4, 5, 6]);
@@ -554,4 +567,44 @@ test('a mode frames the view again when the person has not moved it, and leaves 
   assert.strictEqual(zoomed.touched, true);
   pressOption(s, 'unnested', 'depth 0');
   assert.deepStrictEqual(viewOf(s), zoomed, 'a view the person zoomed stays as it is');
+});
+
+// Switching the layout changes the cards the Graph draws when Unnested is off (it is the Tiers layout's
+// alone), and a selection and the pill and slice counts only reach the cards the view draws.
+const layoutButton = (s, layout) => {
+  const button = byClass(s.host, 'graph-layout-btn').map(matcher).find((b) => b.dataset.layout === layout);
+  assert.ok(button, `the ${layout} button is there`);
+  return button;
+};
+
+test('switching from Force to Tiers with Unnested off takes the unnested card out of the selection, and switching back brings it again', async () => {
+  const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
+  const s = await open({ stored, layout: 'force' });
+  s.run('setSelection(addPart(addPart(NO_SELECTION, cardPart(3)), cardPart(7)), 3)');
+  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'Force draws every card');
+  assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6, 7]);
+  s.click(layoutButton(s, 'tiers'));
+  assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6], 'Tiers with Unnested off leaves card 7 out');
+  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3], 'so the selection does not hold it: no bulk edit can reach a card the view does not draw');
+  s.click(layoutButton(s, 'force'));
+  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'Force draws it again');
+});
+
+test('the pill counts follow the layout switch the same way', async () => {
+  const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
+  const s = await open({ stored, layout: 'force' });
+  const counted = () => JSON.parse(s.run('JSON.stringify(cardsBeforeSearch().map((c) => c.id).sort((a, b) => a - b))'));
+  assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6, 7]);
+  s.click(layoutButton(s, 'tiers'));
+  assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('a layout switch with Unnested on is a redraw alone: it works the selection out no more than it did', async () => {
+  const s = await open({ stored: UNFOLDED, layout: 'force' });
+  let repaints = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...args) => { repaints++; return real(...args); };
+  s.click(layoutButton(s, 'tiers'));
+  assert.strictEqual(repaints, 0);
+  assert.strictEqual(s.run('graphLoadLayout()'), 'tiers');
 });
