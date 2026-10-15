@@ -3084,7 +3084,7 @@ function clearSearch() {
 // adds nothing to Back and Forward, and only when `q` would change, so fast
 // typing stays under the browser's limit on replacements. card-history.js
 // decides what the address becomes; `card` and `view` ride along untouched.
-// The popstate listener (below) calls this too, after Back or Forward lands.
+// The popstate listener calls this too, after Back or Forward lands.
 function followSearchInAddress(text) {
   const search = nextSearchAddress(location.search, text);
   if (search == null) return;
