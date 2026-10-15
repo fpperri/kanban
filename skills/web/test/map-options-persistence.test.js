@@ -119,3 +119,94 @@ test('a renamed board drops the remembered options so the next read uses the rig
 test('the poll\'s redraw leaves the remembered options alone', () => {
   assert.doesNotMatch(fn('renderMapView'), /mapOptions = null/);
 });
+
+// --- the fold: kept in the sections store, one boolean beside the graphs' and No relations' ---
+
+function sectionsSandbox({ stored = {}, throws = false, board = 'shop' } = {}) {
+  const { storageKey, mergeMapSectionsCollapsed } = require('../web/column-state');
+  const writes = {};
+  const sandbox = {
+    state: { projectName: board },
+    storageKey,
+    mergeMapSectionsCollapsed,
+    renders: 0,
+    renderBoard() { sandbox.renders++; },
+    writes,
+    localStorage: {
+      getItem(k) { if (throws) throw new Error('blocked'); return Object.prototype.hasOwnProperty.call(stored, k) ? stored[k] : null; },
+      setItem(k, v) { if (throws) throw new Error('blocked'); writes[k] = v; },
+    },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(['let mapSectionsCollapsed = null;', fn('loadMapSectionsCollapsed'), fn('saveMapSectionsCollapsed'), fn('toggleMapSection')].join('\n'), sandbox);
+  return sandbox;
+}
+
+const SECTIONS_KEY = 'kanban.shop.map.sections.collapsed';
+const FOLDED = { graph: false, isolated: false, options: true };
+
+test('a board that has never chosen has the options folded and the two sections open', () => {
+  assert.deepStrictEqual(plain(sectionsSandbox().loadMapSectionsCollapsed()), FOLDED);
+});
+
+test('unfolding is saved under the sections key, shows at once, and is what the next page load reads', () => {
+  const first = sectionsSandbox();
+  first.toggleMapSection('options');
+  assert.deepStrictEqual(JSON.parse(first.writes[SECTIONS_KEY]), { ...FOLDED, options: false });
+  assert.strictEqual(first.renders, 1);
+  assert.strictEqual(first.loadMapSectionsCollapsed().options, false);
+  const reloaded = sectionsSandbox({ stored: first.writes });
+  assert.strictEqual(reloaded.loadMapSectionsCollapsed().options, false);
+  assert.strictEqual(reloaded.renders, 0);
+});
+
+test('folding it again is saved too', () => {
+  const first = sectionsSandbox({ stored: { [SECTIONS_KEY]: JSON.stringify({ ...FOLDED, options: false }) } });
+  first.toggleMapSection('options');
+  assert.strictEqual(JSON.parse(first.writes[SECTIONS_KEY]).options, true);
+  assert.strictEqual(sectionsSandbox({ stored: first.writes }).loadMapSectionsCollapsed().options, true);
+});
+
+test('the fold is kept per board', () => {
+  const stored = { 'kanban.other.map.sections.collapsed': JSON.stringify({ options: false }) };
+  assert.strictEqual(sectionsSandbox({ stored, board: 'shop' }).loadMapSectionsCollapsed().options, true);
+  assert.strictEqual(sectionsSandbox({ stored, board: 'other' }).loadMapSectionsCollapsed().options, false);
+});
+
+test('folding or unfolding the options leaves the graphs, No relations and the option choices alone', () => {
+  const w = sectionsSandbox({ stored: { [SECTIONS_KEY]: JSON.stringify({ graph: true, isolated: true }) } });
+  w.toggleMapSection('options');
+  assert.deepStrictEqual(JSON.parse(w.writes[SECTIONS_KEY]), { graph: true, isolated: true, options: false });
+  assert.deepStrictEqual(Object.keys(w.writes), [SECTIONS_KEY], 'nothing else is written');
+  w.toggleMapSection('graph');
+  assert.deepStrictEqual(JSON.parse(w.writes[SECTIONS_KEY]), { graph: false, isolated: true, options: false });
+});
+
+test('a board whose graphs were folded before the Options toggle existed reads the options as folded', () => {
+  const w = sectionsSandbox({ stored: { [SECTIONS_KEY]: JSON.stringify({ graph: true, isolated: false }) } });
+  assert.deepStrictEqual(plain(w.loadMapSectionsCollapsed()), { graph: true, isolated: false, options: true });
+});
+
+test('corrupt, wrong-shaped or blocked storage reads as folded', () => {
+  for (const raw of ['{not json', 'null', '"open"', '42', '[]', '{"options":"no"}', '{"options":0}', '{"options":null}']) {
+    assert.strictEqual(sectionsSandbox({ stored: { [SECTIONS_KEY]: raw } }).loadMapSectionsCollapsed().options, true, raw);
+  }
+  const blocked = sectionsSandbox({ throws: true });
+  assert.strictEqual(blocked.loadMapSectionsCollapsed().options, true);
+});
+
+test('blocked storage still unfolds for this session, without throwing', () => {
+  const w = sectionsSandbox({ throws: true });
+  assert.doesNotThrow(() => w.toggleMapSection('options'));
+  assert.strictEqual(w.loadMapSectionsCollapsed().options, false);
+  assert.strictEqual(w.renders, 1);
+});
+
+test('the poll re-renders from the remembered fold: reading again saves nothing and draws nothing', () => {
+  const w = sectionsSandbox();
+  w.toggleMapSection('options');
+  const written = { ...w.writes };
+  assert.strictEqual(w.loadMapSectionsCollapsed().options, false);
+  assert.deepStrictEqual(w.writes, written);
+  assert.strictEqual(w.renders, 1);
+});

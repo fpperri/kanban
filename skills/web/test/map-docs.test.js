@@ -72,3 +72,9 @@ test('the human guide says what the map draws now, and drops what it no longer d
   assert.doesNotMatch(map, /Nesting itself draws no line/);
   assert.doesNotMatch(map, /no dependencies drop into/);
 });
+
+test('the web skill and the guide say the options row folds, starts folded and is remembered per board', () => {
+  assert.match(section, /The options row folds behind an \*\*Options\*\* toggle and starts folded; open or folded, it is remembered per board/);
+  const map = guide.slice(guide.indexOf('## Dependency map'), guide.indexOf('## Gantt'));
+  assert.match(map, /The row starts folded behind an \*\*Options\*\* toggle/);
+});

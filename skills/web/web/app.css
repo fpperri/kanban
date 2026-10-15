@@ -308,7 +308,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    .column-header keeps its own font-weight and per-status colour untouched. */
 .column-name { flex: 1; text-transform: uppercase; letter-spacing: 0.09em; }
 .column-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-/* .map-section-toggle (the map's graphs/No relations collapse
+/* .map-section-toggle (the map's graphs, No relations and Options fold
    chevrons) shares this exact look — one rule, not a per-view duplicate. */
 .column-toggle, .map-section-toggle { background: transparent; border: none; color: inherit; padding: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 .column-toggle:hover, .map-section-toggle:hover { color: var(--ink); }
@@ -958,6 +958,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-isolated-row .card { min-width: 160px; max-width: 220px; cursor: pointer; }
 /* Map options (buildMapOptionsRow, app.js): one row of segmented controls. */
 .map-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; font-size: 0.78em; }
+.map-options > .map-section-header { font-size: 0.92em; margin-bottom: 0; }
 .map-option { display: inline-flex; align-items: center; gap: 6px; }
 .map-option-label { color: var(--mut); white-space: nowrap; }
 .map-option-seg { display: inline-flex; border: 1px solid var(--line); border-radius: .15rem; overflow: hidden; }

@@ -274,8 +274,8 @@ function soloCalendarStatusFilter(col) {
 }
 
 // Map section collapse — one boolean per section (the layered graph,
-// the "No relations" list). column-state.js's MAP_SECTIONS/mergeMapSectionsCollapsed
-// own the fixed two-key shape (not a dynamic column set, unlike collapse/sort/
+// the "No relations" list, the options row). column-state.js's MAP_SECTIONS/mergeMapSectionsCollapsed
+// own the fixed key set (not a dynamic column set, unlike collapse/sort/
 // status-filter above); same memoize-once-mutate-in-place discipline and own
 // feature key, so a collapsed/expanded section survives every renderMapView()
 // call (manual, poll, drag, toggle, search) and page reloads, per board.
@@ -287,7 +287,7 @@ function loadMapSectionsCollapsed() {
   try {
     const raw = localStorage.getItem(storageKey(state.projectName, 'map.sections.collapsed'));
     if (raw) saved = JSON.parse(raw);
-  } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to both expanded
+  } catch (e) { saved = null; } // corrupt/inaccessible storage — fall back to the defaults (options folded, the rest expanded)
   mapSectionsCollapsed = mergeMapSectionsCollapsed(saved);
   return mapSectionsCollapsed;
 }
@@ -1236,10 +1236,14 @@ function mapOptionsRowHtml(options) {
   }).join('');
 }
 
+// The row folds behind an Options toggle at its start, the same section toggle
+// the graphs and No relations use; the controls are only built while it is open.
 function buildMapOptionsRow() {
+  const collapsed = loadMapSectionsCollapsed().options;
   const row = document.createElement('div');
   row.className = 'map-options';
-  row.innerHTML = mapOptionsRowHtml(loadMapOptions());
+  row.appendChild(buildMapSectionHeader('options', 'Options', collapsed));
+  if (!collapsed) row.insertAdjacentHTML('beforeend', mapOptionsRowHtml(loadMapOptions()));
   return row;
 }
 
@@ -1273,10 +1277,10 @@ function buildCalendarFilterRow() {
       : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the calendar`);
 }
 
-// The two collapsible map sections share this header shape — a
-// chevron toggle (same CHEVRON_LEFT/RIGHT_ICON + .column-toggle look as the
-// board's per-column collapse) plus a count label. data-section
-// names which half of loadMapSectionsCollapsed() the click flips; the
+// The map's fold toggles (the graphs, No relations, the options row) share
+// this header shape — a chevron toggle (same CHEVRON_LEFT/RIGHT_ICON +
+// .column-toggle look as the board's per-column collapse) plus a label.
+// data-section names which entry of loadMapSectionsCollapsed() the click flips; the
 // delegated #map-view listener (see the map wiring section) reads it.
 function buildMapSectionHeader(section, label, collapsed) {
   const header = document.createElement('div');

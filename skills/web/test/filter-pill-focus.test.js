@@ -233,3 +233,48 @@ test('a real poll tick with the pointer resting on a card and a pill focused kee
   assert.strictEqual(rendered, 1, 'the tick was not skipped');
   assert.strictEqual(sandbox.hoveredId, 7);
 });
+
+// The Map's Options toggle, read back from the row the app builds, run through the same poll
+// and refocus rules the other fold toggles live under.
+function optionsToggleEl(makeEl) {
+  const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
+  const html = optionsRowSandbox().buildMapOptionsRow().outerHTML;
+  const toggle = optionsToggleOf(html);
+  assert.ok(toggle, 'the Options toggle is in the row');
+  return makeEl(toggle.classList.join(' '), { section: 'options' });
+}
+
+test('a focused Options toggle does not freeze the 5s poll', () => {
+  const { sandbox, doc, makeEl, shouldSkip } = pollSandbox();
+  doc.activeElement = optionsToggleEl(makeEl);
+  assert.strictEqual(sandbox.boardControlFocused(), false);
+  assert.strictEqual(shouldSkip({ modalOpen: false, dragging: false, hidden: false, boardControlFocused: sandbox.boardControlFocused() }), false);
+});
+
+test('a poll render hands focus back to the rebuilt Options toggle, without scrolling', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  const toggle = optionsToggleEl(makeEl);
+  doc.current = toggle;
+  doc.activeElement = toggle;
+  let opts;
+  sandbox.renderBoard = () => {
+    toggle.attached = false;
+    const next = optionsToggleEl(makeEl);
+    next.focus = function (o) { opts = o; doc.activeElement = this; };
+    doc.current = next;
+    doc.activeElement = { closest: () => null };
+  };
+  sandbox.applyBoardData({ active: [], archived: [] });
+  assert.strictEqual(doc.activeElement, doc.current, 'focus is on the rebuilt toggle');
+  assert.strictEqual(opts && opts.preventScroll, true);
+});
+
+test('the Options toggle maps to a refocus selector that names it', () => {
+  const s = focusSandbox();
+  const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
+  const toggle = optionsToggleOf(optionsRowSandbox().buildMapOptionsRow().outerHTML);
+  assert.ok(toggle, 'the Options toggle is in the row');
+  s.wanted.set(`.${toggle.classList[0]}[data-section="options"]`, true);
+  s.keepPillFocus({ classList: toggle.classList, dataset: toggle.dataset }, () => {});
+  assert.deepStrictEqual(s.focused, ['.map-section-toggle[data-section="options"]']);
+});

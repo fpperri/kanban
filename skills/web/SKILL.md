@@ -849,7 +849,9 @@ to `127.0.0.1` only.
   poll and a reload, and are not URL parameters. The rules behind them (which parent
   lines, which trees, the row order, the No relations set, where cards and lines fall) are map-relations.js, pure and
   unit-tested, with no other module behind it so a page without the web app's scripts can
-  embed it as is, like nesting.js.
+  embed it as is, like nesting.js. The options row folds behind an **Options** toggle and
+  starts folded; open or folded, it is remembered per board (the `options` entry of
+  `map.sections.collapsed`).
   **Node treatments:** the border is one neutral weight for every node — status never
   strokes it. A small dot in the node's corner carries the status color (same palette as
   the column headers), its own tooltip naming the **raw on-disk status**; status dots
@@ -898,8 +900,8 @@ to `127.0.0.1` only.
   graphs. Real nodes + No relations tiles carry the full shared grammar (click for
   detail, ctrl/shift-select, right-click menu); ghost stubs stay click-through only.
   View mode, query, and status filter all persist across the poll's re-render.
-  **Collapsible sections** — the graphs (one section for all of them) and the No
-  relations row each get their own collapse/expand toggle (same chevron + look as the board's per-column
+  **Collapsible sections** — the graphs (one section for all of them), the No
+  relations row and the options row (folded by default, see Map options) each get their own collapse/expand toggle (same chevron + look as the board's per-column
   collapse), sharing one header builder. State persists per board in `localStorage`
   (`map.sections.collapsed`, merged defensively) and survives the poll; collapsing
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
