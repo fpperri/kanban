@@ -316,7 +316,21 @@ to `127.0.0.1` only.
   waiting for at least one card that is not done (a dangling id never makes a card
   waiting), the way `blocked:` and `review:` find their stickers. A `|` counts only as a
   token of its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay
-  literal text, and so does `waiting:3`. Half-typed input never throws: an unclosed quote
+  literal text, and so does `waiting:3`. `slice:<top>..<bottom>` cuts every view to a run
+  of slices: the board's tiers (the `hierarchy:` types, top first), then the depths of the
+  cards with no tier (parents above, a root is 0). An end is a tier name in any letter
+  case, or a depth number, so `slice:objective..2` runs from the objective tier down to
+  depth 2, `slice:goal` is that one slice, `slice:goal..` and `slice:..objective` leave an
+  end open, and a reversed pair is swapped (`slice:2..objective` is `slice:objective..2`).
+  An end the board does not have is left open, and a single unknown name, `slice:..` and a
+  bare `slice:` cut nothing, so half-typing a name never hides every card. A board with no
+  `hierarchy:` cuts by depth (`slice:1` is the depth-1 cards), and a card nested against the
+  hierarchy, a goal under an objective, stays in its own tier with no warning. Depth is counted
+  over the whole board, archived cards included, so a card is in the same slice whatever a
+  view shows. The term combines like any other, `tags:ui (slice:goal | #12)`; a tier named
+  with a space is quoted (`slice:"big goal..2"`). A `slice:` term at the top level of the
+  query hides the cards outside the cut in every view, the Graph included. Half-typed input
+  never throws: an unclosed quote
   or bracket reads to the end, a stray closing bracket is ignored, and an empty
   alternative is dropped, so `tags:ui |` finds what `tags:ui` finds and never every card.
   A click on a card's assignee, tag, blocked or review cue adds its term to every
