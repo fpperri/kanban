@@ -9,4 +9,5 @@ module.exports = [
   require('./graph'),
   require('./key-guard'),
   require('./smoke'),
+  require('./calendar-jump'),
 ];
