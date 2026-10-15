@@ -430,8 +430,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .status-chip { background: var(--btn-bg); border: 1px dashed var(--mut); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mut); margin-left: 6px; }
 /* Card-type chip. Neutral by default; a type the board's `types:` list gives a
    color paints color + borderColor through the CSSOM (app.js paintTypeColors),
-   since the value is free-form and a style attribute is blocked by the CSP. */
+   since the value is free-form and a style attribute is blocked by the CSP.
+   A type with an icon starts its chip with that glyph (type-icons.js): plain
+   text with no colour rule, so it wears the chip's colour. A tile's chip stays
+   inside the tile's text column however wide the glyph makes it, so it cannot
+   run under the date stack. */
 .type-chip { background: var(--btn-bg); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; color: var(--mut); white-space: nowrap; }
+.type-icon { margin-right: 0.35em; line-height: 1; }
+.card-head .type-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 /* Parent cards: the altitude badge sits in the tile's head row, the roll-up bar is
    its last line. Segment weights arrive through the CSSOM (paintRollupBars sets
    flex-grow from data-n) because a style attribute is blocked by the CSP; colours
@@ -1201,7 +1207,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-node.status-palette-5 { color: var(--hash-f); }
 .graph-node.status-palette-6 { color: var(--hash-g); }
 .graph-node.status-palette-7 { color: var(--hash-h); }
-.graph-dot { fill: currentColor; stroke: none; }
+.graph-dot { fill: currentColor; stroke: none; stroke-linejoin: round; }
 .graph-node.is-done .graph-dot { fill: var(--surface); stroke: currentColor; stroke-width: 1.8px; }
 .graph-node.archived { opacity: 0.65; }
 .graph-kids-ring, .graph-flag-ring { fill: none; stroke-width: 1.4px; pointer-events: none; }
