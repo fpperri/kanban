@@ -22,7 +22,7 @@ after(cleanUp);
 const planBoard = loadBoard('plan');
 const PLAN = scenario.CASES.plan;
 const OPTS = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title };
-const layoutOf = (m) => graphLayoutTiers(m, { statuses: STATUSES });
+const layoutOf = (m) => graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
 const planOf = (m) => graphPlan(m, layoutOf(m), OPTS);
 const planModel = (opts) => drawnModel(planBoard, opts);
 const rim = (l) => (l.bands.length ? l.bands[l.bands.length - 1].r1 : 0);
@@ -302,7 +302,7 @@ test('drawing: the loose caption stands to the side of its sector with its text 
 test('drawing: the force and status layouts draw no arcs, captions, dividers, block or loose caption', () => {
   const m = planModel();
   for (const kind of ['force', 'status']) {
-    const plan = graphPlan(m, graphLayout(m, kind, { statuses: STATUSES }), { ...OPTS, kind });
+    const plan = graphPlan(m, graphLayout(m, kind, { statuses: STATUSES, unnested: 'table' }), { ...OPTS, kind });
     assert.deepStrictEqual([plan.guides, plan.captions, plan.dividers], [[], [], []], kind);
     assert.strictEqual(plan.block, null, kind);
     assert.strictEqual(plan.looseCaption, null, kind);

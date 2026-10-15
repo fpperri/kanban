@@ -51,11 +51,17 @@ function mergeGraphLayout(saved) {
 //   names         which cards carry their title beside the dot: relevant (the selection
 //                 and what it lights, then parents from the highest altitude down, up to
 //                 a cap; every card on a small fan), all or none (graphFanNames).
+//   unnested      where the cards with no parent, no children and no tier are drawn:
+//                 outermost (one ring outside every depth ring, grouped by status, under
+//                 an `unnested` caption), off (not drawn, and no relation to a drawn card
+//                 is), depth 0 (on the depth 0 ring, in a sector of their own) or table
+//                 (the Unnested block outside the rim, a column for each status).
 const GRAPH_FAN_OPTION_VALUES = Object.freeze({
   lines: Object.freeze(['folded', 'chain', 'all', 'off']),
   dependencies: Object.freeze(['on', 'off']),
   order: Object.freeze(['status', 'rank']),
   names: Object.freeze(['relevant', 'all', 'none']),
+  unnested: Object.freeze(['outermost', 'off', 'depth 0', 'table']),
 });
 
 const GRAPH_FAN_OPTION_DEFAULTS = Object.freeze(Object.fromEntries(
@@ -80,6 +86,42 @@ function mergeGraphOptionsFolded(saved) {
 }
 
 // --- model ---------------------------------------------------------------------
+// Which cards have a parent or children on the board, and the rows of siblings, read
+// on the whole pool.
+function graphNesting(whole, pool, ctx) {
+  const nested = new Set();
+  const siblings = [];
+  const parentIn = new Map();
+  for (const c of whole) {
+    const pid = GRAPH_NEST.localParentId(c, ctx);
+    if (pid !== null && pid !== c.id && pool.has(pid)) {
+      nested.add(c.id);
+      nested.add(pid);
+      parentIn.set(c.id, pid);
+      siblings.push({ id: c.id, parent: pid, waitsOn: (c.waiting_for || []).map(Number) });
+    }
+  }
+  return { nested, siblings, parentIn };
+}
+
+// The cards with no parent, no children and no tier: their slice is a depth, and a card
+// with no relative is at depth 0.
+function graphUnnestedOf(whole, nested, slices) {
+  return new Set(whole.filter((c) => !nested.has(c.id) && slices.byId.get(c.id).kind === 'depth').map((c) => c.id));
+}
+
+// The ids of those cards on the board `cards` (live and archived), whatever any view
+// draws: the cards the tier fan's Unnested option takes out when it is off.
+function graphUnnestedIds(cards, opts) {
+  const ctx = (opts && opts.ctx) || null;
+  const hierarchy = (opts && opts.hierarchy) || (ctx && ctx.hierarchy) || [];
+  const pool = new Map();
+  for (const c of cards || []) if (!pool.has(c.id)) pool.set(c.id, c);
+  const whole = [...pool.values()];
+  const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
+  return graphUnnestedOf(whole, graphNesting(whole, pool, ctx).nested, slices);
+}
+
 // cards is the whole pool (active + archived). visibleIds narrows what is
 // DRAWN; waits still resolve against the full pool so a card waiting on a
 // hidden card still reads waiting. A parent link exists only when the parent is
@@ -97,7 +139,9 @@ function mergeGraphOptionsFolded(saved) {
 // carries `chainEnd` (the Map's reading of whether it is the end of its chain of
 // siblings) and `chained` (a dependency joins it to a sibling), both read from the
 // whole pool, for the tier fan's lines (graphFanLines).
-
+// opts.unnested is the tier fan's Unnested option: with 'off' the cards that are
+// unnested (no parent, no children) and have no tier are not drawn, and neither is
+// any relation that joined one to a drawn card. Any other value draws them.
 function graphBuild(cards, opts) {
   const ctx = (opts && opts.ctx) || null;
   const visibleIds = (opts && opts.visibleIds) || null;
@@ -105,23 +149,13 @@ function graphBuild(cards, opts) {
   const hierarchy = (opts && opts.hierarchy) || (ctx && ctx.hierarchy) || [];
   const pool = new Map();
   for (const c of cards || []) if (!pool.has(c.id)) pool.set(c.id, c);
-  const drawn = new Map();
-  for (const c of pool.values()) if (!visibleIds || visibleIds.has(c.id)) drawn.set(c.id, c);
 
   const whole = [...pool.values()];
   const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
-  const nested = new Set();
-  const siblings = [];
-  const parentIn = new Map();
-  for (const c of whole) {
-    const pid = GRAPH_NEST.localParentId(c, ctx);
-    if (pid !== null && pid !== c.id && pool.has(pid)) {
-      nested.add(c.id);
-      nested.add(pid);
-      parentIn.set(c.id, pid);
-      siblings.push({ id: c.id, parent: pid, waitsOn: (c.waiting_for || []).map(Number) });
-    }
-  }
+  const { nested, siblings, parentIn } = graphNesting(whole, pool, ctx);
+  const left = opts && opts.unnested === 'off' ? graphUnnestedOf(whole, nested, slices) : null;
+  const drawn = new Map();
+  for (const c of pool.values()) if ((!visibleIds || visibleIds.has(c.id)) && !(left && left.has(c.id))) drawn.set(c.id, c);
   // The sibling chains, read on the whole board like the slices: hiding a card with a
   // status pill or a search never moves a parent line. `chainEnd` is the Map's own reading of
   // where a child's chain meets its parent (mapParentLineEnds, the children no sibling
@@ -391,22 +425,30 @@ function graphFinish(model, pos, rings, spokes, titles, extra) {
 //           are in the same slice, so a card never shares a ring with its parent.
 //   sector  the tree it belongs to, an index into `sectors`: a root and the cards
 //           nested under it, in outline order, then one sector for the loose cards
-//           that have a tier. null for a card in the block.
-//   block   the status column of the Unnested block, for a loose card with no tier.
+//           that have a tier, then (under the Unnested option's depth 0) one for the
+//           loose cards with no tier. null for a card in the block.
+//   block   the status column of the loose card with no tier, which the Unnested
+//           block draws as a column and the outermost ring as a stretch of the ring.
+//           null under depth 0, where the card is on the depth 0 ring.
 // A card is loose when it is unnested on the whole board: no parent and no
 // children, drawn or not, so hiding its relatives never moves it. `bands` lists
 // the bands that are drawn: every tier, empty ones too, then only the depths
 // that hold a card without a tier that is not in the block (a depth with none
 // has no ring). `columns` are the block's columns in the board's status order,
-// archived cards last.
+// archived cards last. The Unnested option (opts.unnested, GRAPH_FAN_OPTION_VALUES)
+// decides one thing here: with depth 0 the loose cards with no tier are ordinary
+// depth 0 cards, on the depth 0 ring, in a sector of their own, and there are no
+// columns; every other value gives them a block place.
 function graphFanPlace(model, opts) {
   const { nodes, axis } = model;
   const tierCount = axis.filter((s) => s.kind === 'tier').length;
   const statuses = GRAPH_COLS.liveStatuses(opts && opts.statuses);
+  const onRing = mergeGraphFanOptions(opts).unnested === 'depth 0';
   const places = new Map();
   const sectors = [];
   const sectorOfRoot = new Map();
   const loose = [];
+  const bare = [];
   const rows = axis.map(() => ({ count: 0, maxSub: 0 }));
   const live = new Map(statuses.map((s) => [s, []]));
   const archived = [];
@@ -418,7 +460,8 @@ function graphFanPlace(model, opts) {
     places.set(n.id, place);
     stack.push(n);
     above[n.sliceIndex]++;
-    if (!n.nested && n.sliceIndex >= tierCount) {
+    const untiered = !n.nested && n.sliceIndex >= tierCount;
+    if (untiered && !onRing) {
       place.sub = 0;
       if (n.archived) { place.block = 'archived'; archived.push(n.id); }
       else {
@@ -427,7 +470,8 @@ function graphFanPlace(model, opts) {
       }
       continue;
     }
-    if (!n.nested) loose.push(n.id);
+    if (untiered) bare.push(n.id);
+    else if (!n.nested) loose.push(n.id);
     else {
       if (n.parentId === null) {
         sectorOfRoot.set(n.id, sectors.length);
@@ -442,6 +486,10 @@ function graphFanPlace(model, opts) {
   if (loose.length) {
     for (const id of loose) places.get(id).sector = sectors.length;
     sectors.push({ kind: 'loose', rootId: null, tops: loose, leaves: loose.length });
+  }
+  if (bare.length) {
+    for (const id of bare) places.get(id).sector = sectors.length;
+    sectors.push({ kind: 'unnested', rootId: null, tops: bare, leaves: bare.length });
   }
   const leaves = new Map();
   for (let i = nodes.length - 1; i >= 0; i--) {
@@ -528,13 +576,17 @@ function graphFanLines(model, places, fan) {
 // children. What a card needs is the angle that spaces its mark from its
 // neighbours' on its ring; when the sectors would need more angle than the fan
 // has, every radius grows to give it, so no two dots on a ring ever touch.
-// Loose cards with no tier sit in the Unnested block outside the rim.
+// Loose cards with no tier are drawn as the Unnested option says: on one ring outside every
+// band (outermost, the default: graphFanRing), on the depth 0 ring in a sector of their own
+// (depth 0: graphFanPlace), in the Unnested block outside the rim (table), or not at all (off,
+// where graphBuild leaves them out of the model).
 //
 // The layout answers more than positions, for whatever draws bands, captions and
 // the block's frame: `bands` ({ index, slice, count, subs, r0, r1, rings }),
 // `sectors` ({ kind, rootId, tops, leaves, from, to } in radians, `from` the larger),
 // `block` ({ x, y, w, h, top, base, count, columns: [{ label, ids, count, x, w }] },
-// columns relative to the block), `captions` (the caption of each band, with its
+// columns relative to the block; null under outermost, which has a ring instead, as a band with
+// no `slice`, last in `bands`), `captions` (the caption of each band, with its
 // side of the seam, and what its tip says: the `count`, the `split` by status and the
 // slice: `term`), `looseCaption` (the caption of the loose cards with a tier, its
 // `split` and the `box` it takes), `fan` ({ from, to }) and `textScale` (the scale the
@@ -566,6 +618,8 @@ const GRAPH_FAN_BLOCK_PAD = 12;
 const GRAPH_FAN_BLOCK_COLUMN = 56;
 const GRAPH_FAN_BLOCK_NAME = 'Unnested';
 const GRAPH_FAN_LOOSE_NAME = 'Unnested, with a tier';
+const GRAPH_FAN_RING_NAME = 'unnested';
+const GRAPH_FAN_RING_GAP = 14;
 const GRAPH_FAN_LOOSE_GAP = 10;
 const GRAPH_FAN_LOOSE_STEP = 2 * Math.PI / 180;
 
@@ -592,6 +646,7 @@ const GRAPH_FAN_BUS_LABEL = 14;
 const GRAPH_FAN_REACH = Math.max(1, ...GRAPH_ICONS.TYPE_ICON_NAMES.map((name) => GRAPH_ICONS.typeIconReach(name, 10) / 10));
 
 function graphFanLabel(band) {
+  if (!band.slice) return GRAPH_FAN_RING_NAME;
   if (band.slice.kind === 'tier') return band.slice.name;
   return band.slice.depth === 0 ? 'roots' : `depth ${band.slice.depth}`;
 }
@@ -662,7 +717,7 @@ function graphFanCaptions(bands, scale) {
     const name = graphFanLabel(b);
     const right = i % 2 === 1;
     return {
-      band: b.index, name, count: b.count, split: b.split, term: graphFanTerm(b.slice), kind: b.slice.kind, muted: !b.count,
+      band: b.index, name, count: b.count, split: b.split, term: b.slice ? graphFanTerm(b.slice) : null, kind: b.slice ? b.slice.kind : GRAPH_FAN_RING_NAME, muted: !b.count,
       side: right ? 'right' : 'left', anchor: right ? 'start' : 'end',
       x: right ? pad : -pad, y: -b.rings[0], w: graphFanCaptionWidth(name, scale), h: line,
     };
@@ -762,6 +817,55 @@ function graphFanBlock(columns, outer, scale, pos) {
   return { x: bx, y: by, w, h, top, base: top - GRAPH_FAN_BLOCK_BASE / scale, count, columns: cols };
 }
 
+// The outermost ring of the Unnested option: the loose cards with no tier (`columns`, the
+// block's columns in the board's status order, archived last) on one ring outside the
+// radius `inner`, grouped by status, a little room between one group and the next. Each
+// card takes the stretch of the ring its mark needs, and the stretches are spread over
+// the whole of the fan's sweep, so a ring with few cards is not bunched at one end. The
+// ring is as far out as its cards need to keep a dot apart, and its caption stands on the
+// seam like the bands' do, so the sweep leaves it room: the caption's width and a dot's
+// reach on each side of the seam. That width depends on the scale Fit gives the fan, which
+// depends on how far out the ring is (graphFanScale), so the radius is settled in a few
+// passes; each only pushes it out. Positions go to `pos` and `polar`; the answer is the
+// ring as a band (`slice` null), to stand last among the bands.
+function graphFanRing(model, columns, inner, split, pos, polar) {
+  const ids = columns.flatMap((c) => c.ids);
+  const seats = [];
+  let need = 0;
+  let reach = 0;
+  columns.forEach((c, k) => {
+    if (k) need += GRAPH_FAN_RING_GAP;
+    for (const id of c.ids) {
+      const dot = graphRadius(model.byId.get(id)) * GRAPH_FAN_REACH;
+      const w = 2 * dot + GRAPH_FAN_MARK_GAP;
+      seats.push({ id, at: need + w / 2 });
+      need += w;
+      reach = Math.max(reach, dot);
+    }
+  });
+  const base = inner + GRAPH_FAN_PITCH / 2;
+  const clearance = (r) => {
+    const scale = graphFanScale(r + GRAPH_FAN_PITCH / 2);
+    return graphFanCaptionWidth(GRAPH_FAN_RING_NAME, scale) + (GRAPH_FAN_SEAM_PAD + GRAPH_FAN_MARK_GAP) / scale + reach;
+  };
+  let r = base;
+  for (let pass = 0; pass < 4; pass++) {
+    const gap = clearance(r);
+    r = Math.max(base, need / (2 * Math.PI - 2 * GRAPH_FAN_SEAM), (need + 2 * gap) / (2 * Math.PI));
+  }
+  const half = Math.max(GRAPH_FAN_SEAM, clearance(r) / r);
+  const from = Math.PI * 1.5 - half;
+  const span = 2 * Math.PI - 2 * half;
+  for (const s of seats) {
+    const a = from - (s.at / need) * span;
+    pos.set(s.id, { x: Math.cos(a) * r, y: Math.sin(a) * r });
+    polar.set(s.id, { a, r });
+  }
+  return {
+    index: null, slice: null, count: ids.length, split: split(ids), subs: 1, r0: inner, r1: r + GRAPH_FAN_PITCH / 2, rings: [r],
+  };
+}
+
 function graphLayoutTiers(model, opts) {
   const { nodes } = model;
   const fan = graphFanPlace(model, opts);
@@ -830,7 +934,7 @@ function graphLayoutTiers(model, opts) {
   let at = 0;
   const sectors = fan.sectors.map((s) => {
     const left = GRAPH_FAN_FROM - at;
-    const tops = s.kind === 'loose' ? sort(s.tops) : s.tops;
+    const tops = s.kind === 'tree' ? s.tops : sort(s.tops);
     for (const id of tops) {
       const w = span.get(id) * scale;
       seat(id, at, w);
@@ -872,13 +976,17 @@ function graphLayoutTiers(model, opts) {
       ? Array.from({ length: b.subs }, (_, k) => (b.r0 + (k + 0.5) * GRAPH_FAN_PITCH) * grow)
       : [(b.r0 + GRAPH_FAN_EMPTY / 2) * grow],
   }));
-  const rings = grown.flatMap((b) => b.rings.map((ring, k) => ({
-    cx: 0, r: ring, label: k ? `${graphFanLabel(b)} ${k + 1}` : graphFanLabel(b),
+  const ring = mergeGraphFanOptions(opts).unnested === 'outermost' && fan.columns.length
+    ? graphFanRing(model, fan.columns, grown.length ? grown[grown.length - 1].r1 : GRAPH_FAN_R0, splitOf, pos, polar)
+    : null;
+  if (ring) grown.push(ring);
+  const rings = grown.flatMap((b) => b.rings.map((r, k) => ({
+    cx: 0, r, label: k ? `${graphFanLabel(b)} ${k + 1}` : graphFanLabel(b),
   })));
   const outer = grown.length ? grown[grown.length - 1].r1 : 0;
   const spokes = sectors.slice(0, -1).map((s) => ({ angle: s.to - gap / 2, r1: outer + GRAPH_FAN_CLEAR }));
   const text = graphFanScale(outer);
-  const block = graphFanBlock(fan.columns, outer, text, pos);
+  const block = ring ? null : graphFanBlock(fan.columns, outer, text, pos);
   const captions = graphFanCaptions(grown, text);
   const looseCaption = graphFanLooseCaption(sectors, outer, text, block, splitOf);
   const boxes = captions.map((c) => ({
@@ -1069,8 +1177,9 @@ function graphWithPositions(layout, model, overrides) {
 // regard to case, as a tier does), its slice and whether it is nested, and the
 // hierarchy's tiers. Force and Status do not read them. The signature is also what the
 // view compares to re-fit an untouched view, so it holds what the cards and the hierarchy
-// decide; the order of the siblings, which moves dots along their sector and no card to
-// another ring, is added to the layout's cache key only (graphLayoutKey).
+// decide, and the Unnested option, which changes what Fit frames; the order of the
+// siblings, which moves dots along their sector and no card to another ring, is added to
+// the layout's cache key only (graphLayoutKey).
 const GRAPH_CACHE_MAX = 8;
 const graphCache = new Map();
 
@@ -1089,6 +1198,7 @@ function graphSignature(model, kind, opts) {
   const key = [kind, statuses, nodes, links];
   if (fan) {
     key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
+    key.push(mergeGraphFanOptions(opts).unnested);
   }
   return key.join('|');
 }
@@ -1129,11 +1239,15 @@ function graphFit(bounds, width, height, pad = 60, maxK = 2.5) {
 
 // --- visible ids + zoom --------------------------------------------------------
 // The status pills and the search compose by intersection, like every other
-// view. null means "draw everything".
+// view. null means "draw everything". `leftOut` is a set of cards the layout does not
+// draw whatever they match (the Tiers layout's Unnested off, graphUnnestedIds): they
+// are taken out of what is left, so null becomes every other card.
 
-function graphVisibleIds(pool, searchIds, filter, statuses) {
+function graphVisibleIds(pool, searchIds, filter, statuses, leftOut) {
   const statusIds = GRAPH_COLS.mapFilterVisibleIds(pool, filter, statuses);
-  return GRAPH_COLS.intersectVisibleIds(searchIds || null, statusIds);
+  const ids = GRAPH_COLS.intersectVisibleIds(searchIds || null, statusIds);
+  if (!leftOut || !leftOut.size) return ids;
+  return new Set(pool.filter((c) => (!ids || ids.has(c.id)) && !leftOut.has(c.id)).map((c) => c.id));
 }
 
 function graphZoomAt(view, px, py, factor, min = 0.1, max = 8) {
@@ -1411,7 +1525,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GRAPH_LAYOUTS, mergeGraphLayout,
     GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions, mergeGraphOptionsFolded,
     GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL,
-    graphBuild, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
+    graphBuild, graphUnnestedIds, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphFanNames, graphFanNextNames, graphFanNameText,
     graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
@@ -1426,6 +1540,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.mergeGraphFanOptions = mergeGraphFanOptions;
   window.mergeGraphOptionsFolded = mergeGraphOptionsFolded;
   window.graphBuild = graphBuild;
+  window.graphUnnestedIds = graphUnnestedIds;
   window.graphRadius = graphRadius;
   window.graphNeighbours = graphNeighbours;
   window.graphLit = graphLit;

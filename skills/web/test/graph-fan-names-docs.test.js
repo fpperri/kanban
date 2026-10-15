@@ -24,9 +24,9 @@ const docGraph = () => {
   return webDoc.slice(start, webDoc.indexOf('\n## ', start + 4)).replace(/\s+/g, ' ');
 };
 
-test('the Graph section says the row holds four options, and Names is the fourth', () => {
+test('the Graph section says the row holds five options, and Names is the fourth', () => {
   const text = graph();
-  assert.match(text, /It holds four options, the first value of each the default/);
+  assert.match(text, /It holds five options, the first value of each the default/);
   assert.match(text, /\*\*Names\*\* says which cards carry their title beside the dot/);
 });
 

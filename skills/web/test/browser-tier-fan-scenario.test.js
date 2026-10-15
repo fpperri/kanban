@@ -23,15 +23,17 @@ const BOARDS = { plan: loadBoard('plan'), fixture: loadBoard('fixture'), malform
 const sorted = (ids) => ids.slice().sort((a, b) => a - b);
 
 // What the page draws on `key`: the model of the cards it shows, the layout and the plan.
-function drawn(key, archiveOn, extra = [], kind = 'tiers', query = '') {
+// `unnested` is the board's Unnested option (the page opens with the outermost ring; the
+// scenario sets table, which draws the block it checks).
+function drawn(key, archiveOn, extra = [], kind = 'tiers', query = '', unnested = undefined) {
   const board = BOARDS[key];
   const cards = board.all.concat(extra);
   const cut = query ? new Set(filterCards(cards, parseSearchQuery(query, board.name), { ...board.ctx, hierarchy: board.config.hierarchy }).map((c) => c.id)) : null;
   const visible = cards.filter((c) => (archiveOn || !c.archived) && (!cut || cut.has(c.id))).map((c) => c.id);
   const model = graphBuild(cards, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible) });
-  const layout = graphLayout(model, kind, { statuses: board.config.statuses });
+  const layout = graphLayout(model, kind, { statuses: board.config.statuses, unnested });
   const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title });
-  return { model, layout, plan, place: kind === 'tiers' ? graphFanPlace(model, { statuses: board.config.statuses }) : null };
+  return { model, layout, plan, place: kind === 'tiers' ? graphFanPlace(model, { statuses: board.config.statuses, unnested }) : null };
 }
 
 test('the scenario is in the runner, on the plan board, with the fixture and malformed boards beside it', () => {
@@ -102,7 +104,7 @@ test('the fixture board has no hierarchy, so its lists are depths and loose card
 });
 
 test('the malformed board names two tiers, each twice, a depth ring and a loose card', () => {
-  const { model, place, layout } = drawn('malformed', false);
+  const { model, place, layout } = drawn('malformed', false, [], 'tiers', '', 'table');
   const want = scenario.CASES.malformed;
   assert.deepStrictEqual(BOARDS.malformed.config.hierarchy, ['Goal', 'goal', 'Epic', 'EPIC']);
   assert.deepStrictEqual(layout.bands.filter((b) => b.slice.kind === 'tier').map((b) => b.count), [1, 1]);
@@ -163,7 +165,8 @@ function standIn(over = {}) {
   let shownFor = null;
   const points = new Map();
   const opened = [];
-  const view = () => drawn(key, archiveOn, extra, kind, query);
+  const tables = new Set();
+  const view = () => drawn(key, archiveOn, extra, kind, query, tables.has(key) ? 'table' : undefined);
   const captionsOf = () => {
     const { plan } = view();
     return plan.captions.concat(plan.looseCaption ? [plan.looseCaption] : [], plan.block ? [plan.block.title].concat(plan.block.columns.map((c) => c.caption)) : []);
@@ -187,7 +190,7 @@ function standIn(over = {}) {
     return over.tip ? over.tip(c.name, t) : t;
   };
   const marksOf = () => {
-    const { plan } = over.fanStays ? drawn(key, archiveOn, extra, 'tiers', query) : view();
+    const { plan } = over.fanStays ? drawn(key, archiveOn, extra, 'tiers', query, tables.has(key) ? 'table' : undefined) : view();
     const cap = (c) => ({
       name: c.name, text: over.countInText ? `${c.name}${c.count}` : c.name, count: parseInt(c.tip.lines[0], 10), kind: c.kind || '',
       tabindex: over.noTabStop ? null : '0', x: c.x, y: c.y,
@@ -233,6 +236,7 @@ function standIn(over = {}) {
       if (expr === `${scenario.DRAWN}&&${scenario.TIERS_PRESSED}`) return true;
       const more = /^.*&&document\.querySelectorAll\('#graph-view \.graph-node'\)\.length>(\d+)$/.exec(expr);
       if (more) return view().plan.nodes.length > Number(more[1]);
+      if (expr === scenario.TABLE_DRAWN) return tables.has(key);
       if (expr === scenario.ZOOMED) return zoomed;
       if (expr === scenario.FITTED) return !zoomed;
       for (const name of ['tiers', 'force', 'status']) if (expr === scenario.layoutIs(name)) return kind === name;
@@ -255,9 +259,10 @@ function standIn(over = {}) {
       if (expr === scenario.DOTS) return dotsOf();
       if (expr === scenario.BAND_EDGES) {
         const bands = view().layout.bands;
-        const edges = { tiers: bands.filter((b) => b.slice.kind === 'tier').map((b) => b.r1), outer: bands.length ? bands[bands.length - 1].r1 : 0 };
+        const edges = { tiers: bands.filter((b) => !!b.slice && b.slice.kind === 'tier').map((b) => b.r1), outer: bands.length ? bands[bands.length - 1].r1 : 0 };
         return over.edges ? over.edges(key, edges) : edges;
       }
+      if (expr === scenario.USE_TABLE) { if (!over.ignoreTable) tables.add(key); return true; }
       if (expr === scenario.FAN_MARKS) return marksOf();
       if (expr === scenario.NO_COUNT) return over.countElements ? 1 : 0;
       if (expr === scenario.EMPTY_POINT) return over.noEmptyPoint ? null : { x: 5, y: 5 };
@@ -595,7 +600,7 @@ const FOCUS = 'plan: keyboard focus on a caption shows the same tooltip, and mov
 const TERM = 'plan: typing the term a tooltip names cuts the Graph to the cards of that band';
 
 test('the tooltip lines the scenario expects are the real plan\'s tips, caption by caption, the term last', () => {
-  const { plan } = drawn('plan', false);
+  const { plan } = drawn('plan', false, [], 'tiers', '', 'table');
   const real = {};
   for (const c of plan.captions.concat([plan.looseCaption, plan.block.title], plan.block.columns.map((col) => col.caption))) {
     real[c.name] = c.tip.lines.concat(c.tip.term ? [c.tip.term] : []);
@@ -713,6 +718,14 @@ test('finiteMarks wants arcs, captions and finite numbers everywhere', () => {
   assert.strictEqual(scenario.finiteMarks(null), false);
 });
 
+test('the scenario sets the Unnested option to table on every board before it reads the block, and fails on a page that draws the ring instead', async () => {
+  const page = await run();
+  assert.deepStrictEqual(page.opened, ['plan/?view=graph', 'plan/?view=graph', 'fixture/?view=graph', 'malformed/?view=graph']);
+  const ring = await run({ ignoreTable: true });
+  assert.ok(failed(ring).includes('plan: the Unnested block is titled Unnested and has a column caption for each status, in the board\'s order, their tips counting the cards'), failed(ring).join('; '));
+  assert.ok(failed(ring).includes('plan: every loose card without a tier is in the block under the caption for its status'), failed(ring).join('; '));
+});
+
 test('the scenario waits on the page, never on a fixed sleep', () => {
   const src = require('node:fs').readFileSync(require.resolve('./browser/scenarios/tier-fan'), 'utf8');
   assert.ok(!/\bsleep\(/.test(src.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n')));
@@ -724,6 +737,7 @@ test('every scenario expression parses, so a typo does not wait for CI', () => {
     scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.layoutIs('force'), scenario.pickLayout('status'),
     scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES,
     scenario.NO_COUNT, scenario.BLUR, scenario.TIP, scenario.TIP_HIDDEN, scenario.EMPTY_POINT, scenario.captionCentre('goal'), scenario.focusCaption('Unnested, with a tier'),
-    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.typeInBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26)];
+    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.typeInBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),
+    scenario.USE_TABLE, scenario.TABLE_DRAWN];
   for (const e of exprs) assert.doesNotThrow(() => new vm.Script(e), e.slice(0, 60));
 });

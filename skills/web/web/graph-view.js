@@ -14,7 +14,7 @@
 // nothing, it is the anchor of the selection and its matches light. A caption of
 // the tier fan shows its name alone; the pointer or focus on it shows its tip, one
 // tooltip the stage shares (graphShowTip), with the count of its cards. Tiers also has an
-// option row (lines, dependencies, order, names), folded behind a toggle and kept per board:
+// option row (lines, dependencies, order, names, unnested), folded behind a toggle and kept per board:
 // a press redraws the Graph and hands focus back to the control, and no control of the
 // row holds the poll, starts a pan or clears the selection. Names says which cards carry their
 // title beside the dot (graphFanNames, graph-model.js): every card of the fan has one label
@@ -33,7 +33,7 @@ const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
 const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_LAYOUT_TITLES = {
-  tiers: 'Tiers: the tier fan, all the way round the centre, a band for each tier with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent or children and no tier sit in the Unnested block outside the rim, a column for each status',
+  tiers: 'Tiers: the tier fan, all the way round the centre, a band for each tier with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
   force: 'Force: related cards pull together, loose cards sit around the edge',
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
@@ -57,6 +57,10 @@ const GRAPH_FAN_OPTION_LABELS = {
   names: {
     label: 'Names',
     hint: 'Which cards carry their title beside the dot. Relevant: the selection and the cards it lights, then parents from the highest altitude down, up to 24 names; every card on a fan of 24 cards or fewer. All: every card. None: no card. Press n to step through them.',
+  },
+  unnested: {
+    label: 'Unnested',
+    hint: 'Where the cards with no parent, no children and no tier are drawn. Outermost: one ring outside every depth ring, grouped by status, under an unnested caption. Off: not drawn, and no relation to a drawn card is. Depth 0: on the depth 0 ring, in a sector of their own. Table: a block outside the fan, a column for each status.',
   },
 };
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
@@ -157,13 +161,24 @@ function graphSaveOptionsFolded() {
 }
 
 // A press on an option redraws the Graph and nothing else: the lines and the arrows only
-// redraw, the order moves siblings within their stretch (graph-model.js).
+// redraw, the order moves siblings within their stretch, the Unnested mode moves the cards
+// with no relative and no tier (graph-model.js). Unnested off takes cards out of the Graph,
+// and a selection only reaches the cards the view draws (viewCardIds), so a press of
+// Unnested works the selection out again, as a status pill does.
 function graphSetOption(key, value) {
   const values = Object.prototype.hasOwnProperty.call(GRAPH_FAN_OPTION_VALUES, key) ? GRAPH_FAN_OPTION_VALUES[key] : null;
   if (!values || !values.includes(value)) return;
   graphLoadOptions()[key] = value;
   graphSaveOptions();
-  renderGraphView();
+  if (key === 'unnested') renderBoard();
+  else renderGraphView();
+}
+
+// The cards the Tiers layout leaves out of the Graph under Unnested off, for the ones
+// that decide what the Graph shows (graphVisibleIds); null when nothing is left out.
+function graphLeftOut(pool) {
+  if (graphLoadLayout() !== 'tiers' || graphLoadOptions().unnested !== 'off') return null;
+  return graphUnnestedIds(pool, { ctx: nestingCtx(), hierarchy: state.hierarchy });
 }
 
 function graphToggleOptions() {
@@ -576,8 +591,10 @@ function renderGraphView() {
     fanOptions = kind === 'tiers' ? graphLoadOptions() : null;
     const pool = state.active.concat(state.archived);
     const visibleIds = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, filter, boardStatuses());
-    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy });
-    layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order };
+    model = graphBuild(pool, {
+      ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy, unnested: fanOptions && fanOptions.unnested,
+    });
+    layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order, unnested: fanOptions && fanOptions.unnested };
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
     if (kind === 'force' && graphArrangements.has(sig)) layout = graphWithPositions(layout, model, graphArrangements.get(sig));

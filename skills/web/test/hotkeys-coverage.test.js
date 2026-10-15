@@ -40,10 +40,12 @@ test('the scan sees a literal array tested against the key and a constant list o
   assert.deepStrictEqual([...keysRead("const SLICE_RUN_KEYS = ['[', ']', '{', '}'];")].sort(), ['[', ']', '{', '}']);
 });
 
-test('the scan reads a bare key only in a file that reads an event\'s key, and reads letters whatever their case', () => {
+test('the scan reads a bare key only in a file that takes it from an event\'s key, and reads letters whatever their case', () => {
   const hotkey = "const key = typeof chord.key === 'string' ? chord.key.toLowerCase() : '';\nif (key !== 'S') return null;";
   assert.deepStrictEqual([...keysRead(hotkey)], ['s']);
   assert.deepStrictEqual([...keysRead("if (key === 'slice') return 1;")], [], 'a field name in a file with no event is not a key');
+  const option = ["if (e.key === 'Enter') open();", 'function setOption(key, value) {', "  if (key === 'unnested') renderBoard();", '}'].join(String.fromCharCode(10));
+  assert.deepStrictEqual([...keysRead(option)], ['Enter'], 'the name of an option in a file that also reads an event is not a key');
 });
 
 test('a source that reads no key gives none', () => {

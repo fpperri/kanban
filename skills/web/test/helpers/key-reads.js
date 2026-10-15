@@ -5,9 +5,10 @@
 // A key is read where the source compares an event's `key` with a literal (`e.key !== '/'`,
 // `e.key.toLowerCase() === 'n'`, `'x' === e.key`), tests it against a literal array
 // (`['[', ']'].includes(e.key)`), or names it in a constant list of keys (`const SLICE_RUN_KEYS
-// = ['[', ']']`). A bare `key` compared with a literal counts only in a file that reads an
-// event's key somewhere, which is how save-hotkey.js and search-hotkey.js read theirs (the
-// search module's `key === 'slice'` names a field, and the file reads no event). A handler that
+// = ['[', ']']`). A bare `key` compared with a literal counts only in a file that takes it from
+// an event's key (`const key = ... chord.key ...`), which is how save-hotkey.js and
+// search-hotkey.js read theirs; elsewhere `key` names a field of the search module or an option
+// of the Graph's fan, and `key === 'unnested'` is no key press. A handler that
 // reads its key some other way (a `switch` on it, a lookup table) is not seen, and a key
 // added that way is a gap in this scan, not in the list.
 
@@ -20,6 +21,7 @@ const FORMS = [
   new RegExp(`(?<!typeof\\s+)${EVENT}(?:\\.toLowerCase\\(\\))?${COMPARE}${LITERAL}`, 'g'),
   new RegExp(`${LITERAL}${COMPARE}${EVENT}\\b`, 'g'),
 ];
+const BARE_SOURCE = new RegExp(String.raw`\bconst\s+key\s*=[^;]*${EVENT}\b`);
 const BARE = new RegExp(`(?<![.\\w$])key${COMPARE}${LITERAL}`, 'g');
 const ARRAY = String.raw`\[((?:\s*'(?:[^'\\]|\\.)*'\s*,?)*)\s*\]`;
 const ARRAY_TEST = new RegExp(`${ARRAY}\\.includes\\(\\s*(?:e|ev|event|evt)\\.key`, 'g');
@@ -37,7 +39,7 @@ function keysRead(source) {
   const keys = new Set();
   const add = (text) => keys.add(readKey(unescape(text)));
   for (const form of FORMS) for (const m of source.matchAll(form)) add(m[1]);
-  if (new RegExp(EVENT).test(source)) for (const m of source.matchAll(BARE)) add(m[1]);
+  if (BARE_SOURCE.test(source)) for (const m of source.matchAll(BARE)) add(m[1]);
   for (const list of [ARRAY_TEST, KEY_LIST]) {
     for (const m of source.matchAll(list)) for (const el of m[1].matchAll(ELEMENTS)) add(el[1]);
   }

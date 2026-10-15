@@ -15,7 +15,7 @@ const {
 after(cleanUp);
 
 const planModel = (opts) => drawnModel(loadBoard('plan'), opts);
-const fanOf = (m) => graphLayoutTiers(m, { statuses: STATUSES });
+const fanOf = (m) => graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
 const places = (m) => graphFanPlace(m, { statuses: STATUSES }).places;
 const radius = (l, id) => Math.hypot(l.pos.get(id).x, l.pos.get(id).y);
 const turnOf = (l, p) => {

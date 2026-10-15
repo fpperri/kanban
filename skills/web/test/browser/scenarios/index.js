@@ -23,6 +23,7 @@ module.exports = [
   require('./tier-fan'),
   require('./tier-fan-options'),
   require('./fan-names'),
+  require('./tier-fan-unnested'),
   require('./esc-steps'),
   require('./search-panel'),
   require('./empty-space'),

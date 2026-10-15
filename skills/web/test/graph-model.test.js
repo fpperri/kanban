@@ -121,8 +121,8 @@ test('tiers: each depth sits on its own ring, a band of 56 further out than the 
     assert.ok(Math.abs(Math.hypot(p.x, p.y) - (88 + 56 * n.depth)) < 1e-6, `card ${n.id}`);
   }
   assert.deepStrictEqual(l.rings.map((r) => [r.r, r.label]), [
-    [88, 'roots'], [144, 'depth 1'], [200, 'depth 2'],
-  ]);
+    [88, 'roots'], [144, 'depth 1'], [200, 'depth 2'], [256, 'unnested'],
+  ], 'and the cards with no relative, by default, on one ring a band further out');
 });
 
 test('tiers: over this fixture, unfiltered, the depths the slice module gives are the rings the layout draws', () => {
@@ -158,9 +158,9 @@ test('tiers: children sit inside the sector of their root, and a parent sits bet
   assert.ok(a(2) > a(1) && a(1) > a(3), 'and 1 is between its children 2 and 3');
 });
 
-test('tiers: unnested cards go to the Unnested block outside the rings, in a column for their status', () => {
+test('tiers: unnested cards go to the Unnested block outside the rings, in a column for their status, when the option is the table', () => {
   const m = trees();
-  const l = graphLayoutTiers(m);
+  const l = graphLayoutTiers(m, { unnested: 'table' });
   const outer = 88 + 56 * 2 + 28;
   assert.strictEqual(l.bands[l.bands.length - 1].r1, outer);
   for (const id of [8, 9]) assert.ok(Math.hypot(l.pos.get(id).x, l.pos.get(id).y) > outer + 20, `card ${id}`);

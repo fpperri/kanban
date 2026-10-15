@@ -164,7 +164,8 @@ test('the slice: term in the tip of each caption of the fan is one the box offer
   const opts = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title };
   const model = drawnModel(board);
   const plan = graphPlan(model, graphLayoutTiers(model, { statuses: STATUSES }), opts);
-  const terms = plan.captions.map((c) => c.tip.term);
+  const terms = plan.captions.map((c) => c.tip.term).filter((t) => t !== null);
+  assert.deepStrictEqual(plan.captions.filter((c) => c.tip.term === null).map((c) => c.name), ['unnested'], 'the ring of unnested cards is no slice, so it names none');
   assert.ok(terms.length >= 6, 'the plan board draws its four tiers and some depth rings');
   assert.ok(terms.includes('slice:goal') && terms.includes('slice:1'));
   const offered = suggest('slice:', undefined, board.all, { ...board.ctx, hierarchy: board.config.hierarchy }).map((i) => i.value);

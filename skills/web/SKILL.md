@@ -1585,13 +1585,14 @@ to `127.0.0.1` only.
   of the fan, its width following the arc its leaves need. A divider separates each sector
   from the next; loose cards with a tier share a sector of their own, and the sector of
   loose cards with a tier has its own caption, outside the rim, whose tooltip counts them. The other **unnested** cards (no
-  parent and no children on the board) sit in the **Unnested** block outside the rim, a
+  parent, no children and no tier) are drawn as the Unnested option of the option row says
+  (see **Options**): on one ring outside the fan by default, or in the **Unnested** block outside the rim, a
   column for each status in the board's order, archived cards last: the block is under the
   title Unnested, each column captioned with its status, with an
   archived column while the Archive status pill is on; the tooltips of the title and of a
   column count their cards. Fit and the first draw frame the
   whole circle, every dot, every caption and the Unnested block, and no two captions
-  overlap. On a board with no hierarchy every
+  overlap, in every mode of the Unnested option. On a board with no hierarchy every
   slice is a depth, so Tiers draws a ring for each depth. **Force** pulls
   related cards together and rings the unrelated ones round the edge; it is a fixed
   simulation with no randomness, so the same cards always land in the same place. **Status**
@@ -1614,7 +1615,7 @@ to `127.0.0.1` only.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
   root there; a card waiting on a hidden card still reads waiting.
   **Options.** Tiers has an **option row** above the fan, folded behind an Options toggle, like the Map's, and starts
-  folded; Force and Status have no option row. It holds four options, the first value of each the
+  folded; Force and Status have no option row. It holds five options, the first value of each the
   default. **Lines** draws the parent lines: **folded** (the default) gives a line to the end of each
   dependency chain, as the Map draws its chain ends, and a parent's other children on one ring share one
   **counted line** that prints their count; **chain** gives a line to every chain end and none to the
@@ -1633,14 +1634,24 @@ to `127.0.0.1` only.
   whether the row is folded or not; it reads the shared key guard, so it does nothing while a field has focus (the
   search box types an n) or while a card menu, a dialog, the notifications panel or the preferences sheet is
   open, and it works with the search panel open. The footer line under the Graph shows the setting (`n steps the
-  names: relevant`). Force and Status have no names. A counted line
+  names: relevant`). Force and Status have no names.
+  **Unnested** says where the cards with no parent, no children and no tier are drawn: **outermost** (the default) draws
+  them on one ring outside every depth ring, grouped by status in the board's order, archived cards last,
+  under an `unnested` caption on the seam, level with the ring, whose tooltip counts them and names no slice;
+  **off** does not draw them, and neither is a line or an arrow that joins one to a card that is drawn, and a selection
+  reaches only the cards the Graph draws, so they leave it with the dots and come back with them;
+  **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
+  the ring's caption is the depth 0 band's, `roots`, and its tooltip counts them; **table** draws the Unnested
+  block outside the rim. The Unnested option is Tiers' own: Force and Status draw every card. A counted line
   lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
-  sector, and no card changes its band, its ring or its sector. The choices are kept per board in `localStorage` under
+  sector, and no card changes its band, its ring or its sector; the Unnested option moves the cards with no relative and no tier to
+  another ring, a sector or out of the Graph. The choices are kept per board in `localStorage` under
   `graph.options`, and whether the row is folded under `graph.optionsFolded`; a press on the row never starts a pan,
   never clears the selection and never pauses the 5-second poll. The row takes its room from the
   stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or
-  re-fits the view, and nor does pressing any of its options, Order included, so a fan framed with the row folded keeps its place and **Fit** frames every card again.
+  re-fits the view, and nor does pressing Lines, Dependencies or Order, so a fan framed with the row folded keeps its place and **Fit** frames every card again.
+  Pressing Unnested, which changes what the fan draws and what Fit frames, frames an untouched view again; a view the person has panned or zoomed stays where it is.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
