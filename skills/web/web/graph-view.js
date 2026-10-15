@@ -294,8 +294,7 @@ function renderGraphView() {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
     const pool = state.active.concat(state.archived);
-    const terms = currentSearchTerms();
-    const searchIds = terms.length ? new Set(filterCards(pool, terms, nestingCtx()).map((c) => c.id)) : null;
+    const searchIds = currentSearchMatch().ids;
     const visibleIds = graphVisibleIds(pool, searchIds, filter, boardStatuses());
     model = graphBuild(pool, { ctx: nestingCtx(), visibleIds });
     layoutOpts = { statuses: boardStatuses() };

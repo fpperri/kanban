@@ -5,6 +5,7 @@
 // not matter and any one can be run alone with --only.
 
 module.exports = [
+  require('./search-box'),
   require('./graph'),
   require('./key-guard'),
   require('./smoke'),

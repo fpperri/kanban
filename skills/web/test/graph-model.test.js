@@ -8,6 +8,8 @@ const {
   graphVisibleIds, graphZoomAt, graphPlan,
   graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
 } = require('../web/graph-model');
+const { depthMap } = require('../web/nesting');
+const { sliceCards } = require('../web/slices');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra = {}) => ({
@@ -105,10 +107,11 @@ test('radius grows with degree and with having kids', () => {
 
 // --- tiers -----------------------------------------------------------------------
 
-const trees = () => build([
+const treeCards = () => [
   card(1), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { parent: 2 }), card(5, { parent: 2 }),
   card(6), card(7, { parent: 6 }), card(8), card(9),
-]);
+];
+const trees = () => build(treeCards());
 
 test('tiers: each depth sits on ring 90 + 85 * depth', () => {
   const m = trees();
@@ -120,6 +123,24 @@ test('tiers: each depth sits on ring 90 + 85 * depth', () => {
   assert.deepStrictEqual(l.rings.map((r) => [r.r, r.label]), [
     [90, 'roots'], [175, 'depth 1'], [260, 'depth 2'], [345, 'unnested'],
   ]);
+});
+
+test('tiers: over this fixture, unfiltered, the depths the slice module gives are the rings the layout draws', () => {
+  const cards = treeCards();
+  const slices = sliceCards(cards, [], depthMap(cards, CTX));
+  const m = build(cards);
+  const l = graphLayoutTiers(m);
+  const ringFor = (depth) => l.rings.find((r) => r.label === (depth === 0 ? 'roots' : `depth ${depth}`));
+  for (const n of m.nodes) {
+    const slice = slices.byId.get(n.id);
+    assert.strictEqual(slice.kind, 'depth', `card ${n.id}`);
+    assert.strictEqual(slice.depth, n.depth, `card ${n.id}`);
+    if (n.parentId === null && !n.kids) continue;
+    const p = l.pos.get(n.id);
+    assert.ok(Math.abs(Math.hypot(p.x, p.y) - ringFor(slice.depth).r) < 1e-6, `card ${n.id} sits on the ring of its slice`);
+  }
+  assert.deepStrictEqual(slices.axis.map((s) => [s.depth, s.count]), [[0, 4], [1, 3], [2, 2]]);
+  assert.deepStrictEqual(l.rings.slice(0, slices.axis.length).map((r) => r.label), ['roots', 'depth 1', 'depth 2']);
 });
 
 test('tiers: children sit inside the parent sector and share it by leaf count', () => {

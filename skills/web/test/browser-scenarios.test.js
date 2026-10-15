@@ -47,9 +47,21 @@ const KEY_GUARD_CHECKS = [
   'with a card menu open, / does nothing', 'with a card menu open, Ctrl+F leaves the browser find bar alone', 'Escape closes the card menu',
 ];
 
-test('the runner knows a graph, a key-guard and a smoke scenario, with unique names', () => {
+// The checks of the search box's browser drive, which ran before the Graph's and
+// now run on their own, on the fixture board: each way of writing the box
+// changes the box and the cards the Board shows.
+const SEARCH_BOX_CHECKS = [
+  'the board shows every live card before any search', 'typing writes the box and narrows the columns',
+  'the clear button empties the box and brings every card back', 'an assignee cue click writes assignee:@human',
+  'the same cue clicked again leaves the box as it was', 'a blocked pill click writes blocked: and keeps the blocked cards',
+  'a second cue adds to the box', 'a review pill click writes review: and keeps the cards awaiting review',
+  'a right-click on a card opens its menu', 'Path from the menu writes path:4 and keeps that card\\\'s dependency path',
+  'and the menu closes', 'a ?q= link writes the box and narrows the columns',
+];
+
+test('the runner knows a search-box, a graph, a key-guard and a smoke scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['graph', 'key-guard', 'smoke']);
+  assert.deepStrictEqual(names, ['search-box', 'graph', 'key-guard', 'smoke']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -163,4 +175,24 @@ test('the key-guard scenario runs on the fixture board and keeps every check the
 
 test('the key-guard scenario opens the card menu with the right-click helper', () => {
   assert.ok(/page\.rightClick\('#board \.card-el'\)/.test(source('key-guard.js')));
+});
+
+test('the search-box scenario runs on the fixture board and keeps every check the search drive made', () => {
+  assert.strictEqual(byName('search-box').board, 'fixture');
+  assert.strictEqual(byName('search-box').alsoBoards, undefined);
+  const src = source('search-box.js');
+  assert.deepStrictEqual(SEARCH_BOX_CHECKS.filter((n) => !src.includes(`check('${n}'`)), []);
+  const made = [...src.matchAll(/\bcheck\('((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]);
+  assert.deepStrictEqual(made.filter((n) => !SEARCH_BOX_CHECKS.includes(n)), [], 'a check the old runner did not make');
+});
+
+test('the search-box scenario opens the card menu with the right-click helper, from the Board and from a ?q= link', () => {
+  const src = code(source('search-box.js'));
+  assert.ok(/page\.rightClick\('#board \.card-el\[data-id="4"\]'\)/.test(src));
+  assert.ok(!/contextmenu/.test(src), 'a hand-made contextmenu event');
+  assert.ok(src.includes(`open('/')`) && src.includes(`open('/?q=status%3Adoing')`));
+});
+
+test('the search-box scenario waits on the page, never on a fixed sleep', () => {
+  assert.ok(!/\bsleep\(/.test(code(source('search-box.js'))));
 });
