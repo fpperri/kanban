@@ -240,6 +240,16 @@ test('a scenario begins with the old page gone, its board\'s browser storage cle
   assert.ok(order.indexOf('send:Storage.clearDataForOrigin') < order.indexOf('takeEvents'));
 });
 
+test('a scenario begins with the page emulated as focused, so a focus() fires its focus event in a tab nobody has clicked in, whatever ran before', async () => {
+  const { env, cdp, order } = envFixture();
+  const ctx = { check() {}, scope: { aborted: false } };
+  await env.begin({ name: 'smoke', board: 'plan' }, ctx);
+  assert.deepStrictEqual(cdp.calls.filter((c) => c[0] === 'Emulation.setFocusEmulationEnabled'), [['Emulation.setFocusEmulationEnabled', { enabled: true }]]);
+  assert.ok(order.indexOf('send:Emulation.setFocusEmulationEnabled') < order.indexOf('takeEvents'), order.join(' '));
+  await env.begin({ name: 'graph', board: 'fixture' }, ctx);
+  assert.strictEqual(cdp.calls.filter((c) => c[0] === 'Emulation.setFocusEmulationEnabled').length, 2, 'every scenario starts with it, not only the first');
+});
+
 test('a history reset Chrome refuses while it swaps the page in is tried again until it takes', async () => {
   const { env, order } = envFixture({ refuseReset: 2 });
   await env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } });
