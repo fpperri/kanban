@@ -353,6 +353,7 @@ def read_notifications(kanban_dir):
 
 WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web")
 NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
+SLICES_JS = os.path.join(WEB_MODULES, "slices.js")
 MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
 WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
 SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
@@ -374,6 +375,9 @@ def read_embedded(path, label):
 
 def read_nesting():
     return read_embedded(NESTING_JS, "the nesting module")
+
+def read_slices():
+    return read_embedded(SLICES_JS, "the slices module")
 
 def read_map_relations():
     return read_embedded(MAP_RELATIONS_JS, "the map relations module")
@@ -426,6 +430,7 @@ def main():
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
     # First, so a card that names a placeholder is never rewritten inside it.
     html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
+                    .replace("__SLICES_JS__", read_slices())
                     .replace("__MAP_RELATIONS_JS__", read_map_relations())
                     .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
                     .replace("__SEARCH_JS__", read_search())
@@ -856,6 +861,8 @@ __NESTING_JS__</script>
 <script>
 __MAP_RELATIONS_JS__</script>
 <script>
+__SLICES_JS__</script>
+<script>
 __WAITING_BLOCKED_JS__</script>
 <script>
 __SEARCH_JS__</script>
@@ -1135,12 +1142,14 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // Search: kanban-web's own search.js, embedded above with the waiting rules it
 // reads (waiting-blocked.js), so a query finds here what it finds at the desk.
 // This page only adapts its short-keyed cards to the module's card shape, hands in
-// its own dependency functions for tree: and path: (the resolver's graph), and
-// resolves the terms once per query change.
+// its own dependency functions for tree: and path: (the resolver's graph) and the
+// board's hierarchy for slice: (the slices and nesting modules, embedded above,
+// cut over every card of the board, archived ones included), and resolves the
+// terms once per query change.
 let qTerms=[];
 const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
-function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,review:c.rv,blocked:c.bl,waiting_for:c.w}}
-function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),{board:BOARD,graph:searchGraph})}
+function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
+function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),{board:BOARD,hierarchy:HIERARCHY,graph:searchGraph})}
 const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
 // Waiting vs blocked/review (review is ADR 0009):
 // waiting is DERIVED — a waiting_for id whose card isn't done
