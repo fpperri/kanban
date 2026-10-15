@@ -8,8 +8,7 @@
 // An icon name is human text. It is only ever looked up in the table below;
 // it never becomes markup, a class name or a path. A name the table does not
 // hold (unknown, blank, mis-cased, not even a string) answers nothing, and the
-// caller draws the type as it was drawn before icons: a chip with no glyph, a
-// round dot.
+// caller draws a chip with no glyph and a round dot.
 
 // Each shape is a polygon: `sides` corners (twice that for a star, which
 // alternates `outer` and `inner`), the first one at `turn` degrees, at `outer`

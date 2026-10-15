@@ -41,7 +41,7 @@ const staircase = () => {
 };
 const ODD_UNDER_THE_CAP = Array.from({ length: GRAPH_FAN_NAMES_CAP - 2 }, (_, k) => 2 * k + 1);
 
-test('the cap and the small size are the prototype\'s: 24 cards', () => {
+test('the cap on names and the size of a fan that names every card are both 24 cards', () => {
   assert.strictEqual(GRAPH_FAN_NAMES_CAP, 24);
   assert.strictEqual(GRAPH_FAN_NAMES_SMALL, 24);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(GRAPH_FAN_OPTION_VALUES.names)), ['relevant', 'all', 'none']);

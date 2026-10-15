@@ -335,8 +335,8 @@ function graphRestLit(model, { selectedIds, loneCardId }, lines) {
 // layers of cards below a card on the board, blind to type), ties by id. A fan of the small size
 // or fewer cards names every card. All names every card and none names none. Names are
 // plain labels; where one sits is the stylesheet's business, and the layout never reads
-// the setting (it is in neither the signature nor the cache key). The cap and the small
-// size are the prototype's (GPROTO_NAMES_CAP, geo.few: 24).
+// the setting (it is in neither the signature nor the cache key). At most 24 names, except
+// for the selection's and its lit cards; a fan of 24 cards or fewer names every card.
 const GRAPH_FAN_NAMES_CAP = 24;
 const GRAPH_FAN_NAMES_SMALL = 24;
 const GRAPH_FAN_NAME_CHARS = 38;

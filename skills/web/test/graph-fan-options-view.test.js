@@ -446,12 +446,14 @@ test('the view stamps a counted line as a path with its count beside it, and eve
 test('every option the model offers has a label and a hint in the row, so the row cannot lose one', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const labels = src.match(/const GRAPH_FAN_OPTION_LABELS = \{[\s\S]*?\n\};/)[0];
-  const sandbox = {};
+  const { GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL } = require('../web/graph-model');
+  const sandbox = { GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL };
   vm.createContext(sandbox);
   vm.runInContext(`${labels}\nthis.labels = GRAPH_FAN_OPTION_LABELS;`, sandbox);
-  const { GRAPH_FAN_OPTION_VALUES } = require('../web/graph-model');
   assert.deepStrictEqual(Object.keys(sandbox.labels), Object.keys(GRAPH_FAN_OPTION_VALUES));
   for (const meta of Object.values(sandbox.labels)) assert.ok(meta.label && meta.hint.length > 20);
+  assert.ok(sandbox.labels.names.hint.includes(`up to ${GRAPH_FAN_NAMES_CAP} names`), 'the hint says the cap the model holds');
+  assert.ok(sandbox.labels.names.hint.includes(`a fan of ${GRAPH_FAN_NAMES_SMALL} cards or fewer`), 'and the size of a fan that names every card');
 });
 
 // --- the Unnested option --------------------------------------------------------------------------------
