@@ -31,10 +31,11 @@ function menuSandbox({ detailId = null, selected = [], textSelected = false } = 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('openCardContextMenu'), fn('onDetailContextMenu')].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('menuSubject'), fn('setSelection'), fn('openCardContextMenu'), fn('onDetailContextMenu')].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), null)`, sandbox);
   sandbox.selected = () => [...vm.runInContext('selectedIds', sandbox)];
   sandbox.rangeStart = () => vm.runInContext('selectionState.rangeStart', sandbox);
+  sandbox.subject = () => JSON.parse(JSON.stringify(vm.runInContext('menuSubject', sandbox)));
   return sandbox;
 }
 
@@ -43,21 +44,31 @@ const rightClick = (extra) => {
   return e;
 };
 
-test('right-clicking the card detail opens the card menu for that card, as a tile does', () => {
+test('right-clicking the card detail opens the card menu for the card shown, without Peek, and picks nothing', () => {
   const s = menuSandbox({ detailId: 7 });
   const e = rightClick();
   s.onDetailContextMenu(e);
   assert.strictEqual(e.prevented, true, 'the browser menu is replaced');
   assert.deepStrictEqual(s.calls.menu, [[40, 90]]);
-  assert.deepStrictEqual(s.selected(), [7], 'the card shown becomes the selection');
-  assert.strictEqual(s.rangeStart(), 7);
-  assert.strictEqual(s.calls.renderBoard, 1);
+  assert.deepStrictEqual(s.subject(), { ids: [7], inSelection: false, peek: false, add: true, dependency: true });
+  assert.deepStrictEqual(s.selected(), [], 'the right-click picked no card');
+  assert.strictEqual(s.rangeStart(), null);
+  assert.strictEqual(s.calls.renderBoard, 0);
+});
+
+test('the card shown outside a hand-built selection leaves it as it was, and the menu is for the card shown alone', () => {
+  const s = menuSandbox({ detailId: 7, selected: [1, 2] });
+  s.onDetailContextMenu(rightClick());
+  assert.deepStrictEqual(s.selected(), [1, 2]);
+  assert.deepStrictEqual(s.subject().ids, [7]);
+  assert.strictEqual(s.subject().peek, false);
 });
 
 test('a card already in a batch keeps the whole batch as the menu\'s subject', () => {
   const s = menuSandbox({ detailId: 7, selected: [7, 8] });
   s.onDetailContextMenu(rightClick());
   assert.deepStrictEqual(s.selected(), [7, 8]);
+  assert.deepStrictEqual(s.subject().ids, [7, 8]);
   assert.strictEqual(s.calls.renderBoard, 0);
   assert.strictEqual(s.calls.menu.length, 1);
 });

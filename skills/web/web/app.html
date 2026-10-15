@@ -174,7 +174,7 @@
   </form>
 </div>
 
-<div id="detail-modal" class="modal-backdrop hidden">
+<div id="detail-modal" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal detail-modal">
     <div class="detail-header popup-header">
       <div>
@@ -210,14 +210,19 @@
 </div>
 
 <div id="context-menu" class="context-menu hidden" role="menu" data-keeps-selection>
+  <!-- Peek and Add to selection lead the menu a right-click opens on a card
+       outside the selection; Peek is also left out of the card details' own
+       menu (both toggled in showContextMenu, main script below). -->
+  <button type="button" id="ctx-peek" role="menuitem">Peek</button>
+  <button type="button" id="ctx-add" role="menuitem">Add to selection</button>
   <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
   <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
   <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
   <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
-  <!-- Sugar over tree:<id>/path:<id> search terms — writes the term
-       into the search box and runs the normal search flow, no view switch.
-       Single-card only: hidden whenever the effective selection is >1 card
-       (toggled in showContextMenu, main script below). -->
+  <!-- Add the card's dependency tree or path to the selection as one part;
+       the search box is left alone. One card only: hidden whenever the
+       menu's subject is more than one card (toggled in showContextMenu,
+       main script below). -->
   <button type="button" id="ctx-tree" role="menuitem">Dependency tree</button>
   <button type="button" id="ctx-path" role="menuitem">Dependency path</button>
   <button type="button" id="ctx-archive" role="menuitem">Archive selected</button>

@@ -181,9 +181,11 @@ blocked reason, type, the date triad, and a Markdown description.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
-archive, restore, delete, or focus a dependency tree/path. The same selection
-grammar works in every view, and right-clicking inside an open card opens the same
-menu for that card.
+archive, restore, delete, or add a dependency tree/path to the selection. A
+right-click on a card outside the selection opens the menu for that card alone,
+leading with Peek (open its details) and Add to selection, and leaves your
+selection as it was. The same selection grammar works in every view, and
+right-clicking inside an open card opens the same menu for that card, without Peek.
 
 ![Bulk context menu](images/web-bulk-actions.png)
 

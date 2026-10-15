@@ -171,6 +171,11 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
       (documentListeners[type] || []).slice().forEach((fn) => fn(e));
       return e;
     },
+    // A right-click on a card's tile, as the page's document listeners see it.
+    rightClickCard(id) {
+      const tile = { dataset: { id: String(id) } };
+      return page.fireDocument('contextmenu', { target: { closest: (sel) => (sel === '.card-el' ? tile : null) }, clientX: 0, clientY: 0 });
+    },
   };
   return page;
 }

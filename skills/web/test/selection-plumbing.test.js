@@ -108,7 +108,8 @@ test('the pieces that wrote the selection before now call the entry point', () =
     applyBoardData: /dropGoneCards\(\)/,
     dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
     renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
-    openCardContextMenu: /setSelection\(setAnchor\(selectionState\.selection, cardPart\(id\)\), id\)/,
+    addCardToSelection: /setSelection\(addPart\(selectionState\.selection, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
+    addDependencyToSelection: /setSelection\(addPart\(selectionState\.selection, part\(menuSubject\.ids\[0\]\)\)\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
     onClickAway: /setSelection\(NO_SELECTION, null\)/,
     applyBulkArchive: /setSelection\(NO_SELECTION\)/,
@@ -498,12 +499,14 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
   vm.runInContext([
     declaration('selectionState'), declaration('selectedIds'), fn('setSelection'),
     'let bulkSingleMode = null; let bulkPopupIds = [];',
+    declaration('menuSubject'),
     scheduleRows[0],
     ...['bulkTargets', 'captureBulkTargets', 'bulkPatch', 'openBulkSingle', 'applyBulkSingle', 'renderBulkTags', 'openBulkTags', 'bulkAddTag', 'bulkRemoveTags',
       'readScheduleFields', 'refreshScheduleControls', 'openBulkSchedule', 'applyBulkSchedule', 'bulkArchive', 'openBulkArchive', 'applyBulkArchive', 'bulkRestore', 'bulkDelete'].map((n) => fn(n)),
   ].join('\n'), sandbox);
   const run = (code) => vm.runInContext(code, sandbox);
   run(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`);
+  run(`menuSubject = cardMenuFor(selectedIds, ${JSON.stringify(selected[0] === undefined ? 0 : selected[0])})`); // a right-click on a selected card: the menu is for the whole selection
   return {
     boxes, calls, run,
     set: (name, value) => { sandbox[name] = value; },

@@ -2,8 +2,9 @@
 // What a click on a card does, in each view, on the fixture board: a plain
 // click opens the card in the Board, Map, Gantt and Calendar (and selects it in
 // the Graph, which the graph scenario checks); Ctrl or Cmd toggles one card;
-// Shift adds a range; a right-click on a card outside the selection replaces
-// the selection; a click on empty space clears it; the bulk confirmations name
+// Shift adds a range; a right-click on a card outside the selection opens its
+// menu and leaves the selection as it was (card-menu.js drives the menu); a click
+// on empty space clears it; the bulk confirmations name
 // how many cards they act on; in the Graph, Enter opens the focused card.
 // Card 3 sits in the Board and the Map, and is dated today here so the Calendar
 // and the Gantt draw it as well (the runner puts the board's cards back before
@@ -63,8 +64,8 @@ module.exports = {
     check('none of those clicks opened a card', await ev(noCard));
 
     await rightClick(cardIn('#board', fourth));
-    check('a right-click on a card outside the selection replaces the selection', await selectionSize(1) && await ev(`selectedIds.has(${fourth})&&!document.getElementById('context-menu').classList.contains('hidden')`), await ev('[...selectedIds]'));
-    check('Escape closes that menu and keeps the selection', await closeWithEscape(`document.getElementById('context-menu').classList.contains('hidden')`) && (await ev('selectedIds.size')) === 1);
+    check('a right-click on a card outside the selection opens its menu and leaves the selection as it was', await selectionSize(3) && await ev(`!selectedIds.has(${fourth})&&[${first},${second},${third}].every((i)=>selectedIds.has(i))&&!document.getElementById('context-menu').classList.contains('hidden')`), await ev('[...selectedIds]'));
+    check('Escape closes that menu and keeps the selection', await closeWithEscape(`document.getElementById('context-menu').classList.contains('hidden')`) && (await ev('selectedIds.size')) === 3);
     const away = await emptyPoint();
     await click(away.x, away.y);
     check('a click on empty space clears the selection', await selectionSize(0), away);
