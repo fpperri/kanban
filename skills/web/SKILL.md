@@ -681,7 +681,18 @@ to `127.0.0.1` only.
   controls do); the 5s refresh likewise skips while a control wearing `data-holds-poll` has
   focus. Every write to the selection goes through one function (`setSelection`), every bulk
   action reads its target cards through one reader (`bulkTargets`), and a bulk popup acts on
-  the cards it held when it opened.
+  the cards it held when it opened. **Esc** steps the selection back one stage at a time:
+  the first Esc drops every addition at once and leaves the anchor, the next drops the
+  anchor. The step runs only while nothing is open and nobody is typing (an open menu,
+  popup, dialog, the notifications panel or the preferences sheet takes Esc first and
+  closes, as before); with focus in the search box Esc clears the box and leaves the
+  selection, and away from the box Esc no longer clears it. Bulk targets are fixed when an
+  action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
+  delete and drag) takes its list of target cards once, when it starts, from the selection
+  as it resolves then, so writes, repaints and polls during the action never change the
+  list. An assign on a selection holding an `assignee:@afk` query part reaches every card
+  that matched at the start, though each write takes a card off the query, and the archive
+  and delete confirmations name the count of that list.
   Exceptions: the map's muted, dashed ghost stubs are click-through-to-detail only, never
   selectable — they stand for cards the active filters hid; a dangling-id stub (no such
   card) is fully inert, and a filtered-out card can't join a selection anywhere else
@@ -762,7 +773,8 @@ to `127.0.0.1` only.
   Edit tags, Schedule…) and the Archive popup — speedbump-exempt, same as their
   backdrop-click. An open
   combobox menu gets first crack at Esc: it closes the MENU only, one level at a time,
-  before the popup-level handling ever sees the key.
+  before the popup-level handling ever sees the key. With nothing open, Esc steps the
+  selection back (see Multi-select).
   **Alt+Enter** toggles fullscreen on whichever fullscreen-capable popup is open
   (detail, create/edit, and the three bulk-edit popups) — the keyboard twin of that
   popup's fullscreen toggle button, updating the same persisted per-modal-type
@@ -790,7 +802,9 @@ to `127.0.0.1` only.
   Both read one **key guard** (`key-guard.js`): a typing check (a text field, a text area,
   a select or an editable element has focus) and a surface check (an open card menu, an
   open dialog, the notifications panel or the preferences sheet). `/` reads both; Ctrl+F
-  reads only the surface check. The search panel is deliberately not a surface, so the
+  reads only the surface check. Esc's selection step reads the same guard, with the search
+  box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
+  box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the
   keys that come with it work while it is open. The single-key shortcuts added later
   reuse this guard unchanged.
 - **Comboboxes** — the form's Assignee (and Priority/Tags/Type, incl. the bulk-edit popups'

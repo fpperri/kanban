@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { KEY_GUARD_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff } = require('../web/key-guard');
+const { KEY_GUARD_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff, keyGuardEscape } = require('../web/key-guard');
 
 // The single-key shortcuts (`/` today; the slice keys and `n` later) share one
 // guard. It has two parts: a typing check for keys that would insert a
@@ -65,4 +65,41 @@ test('the search panel is not a surface: the slice keys work while it is open', 
   const doc = fakeDoc({ open: ['.search-panel:not(.hidden)', '#search-panel:not(.hidden)'] });
   assert.strictEqual(keyGuardSurface(doc), null);
   assert.strictEqual(keyGuardOff(doc), false);
+});
+
+// Esc's step in the selection reads this guard too, but with one exception: the
+// search box is the text field Esc is for. There Esc clears the box and leaves
+// the selection. Everywhere else the step runs only when nothing is open and
+// nobody is typing. The answer is 'clear-box', 'step' or null (Esc is not this
+// guard's to act on).
+const searchBox = field('INPUT', { id: 'search-input' });
+
+test('Esc with focus in the search box clears the box, and never steps the selection', () => {
+  assert.strictEqual(keyGuardEscape(fakeDoc({ active: searchBox }), searchBox), 'clear-box');
+});
+
+test('Esc with focus on a button, a link, a card, the page or nothing steps the selection', () => {
+  for (const active of [field('BUTTON'), field('A'), field('DIV'), field('BODY'), null, undefined]) {
+    assert.strictEqual(keyGuardEscape(fakeDoc({ active }), searchBox), 'step', String(active && active.tagName));
+  }
+});
+
+test('while focus is in a text field other than the search box, Esc never steps the selection', () => {
+  const other = [field('INPUT', { id: 'bulk-tag-input' }), field('INPUT'), field('TEXTAREA'), field('SELECT'), field('DIV', { isContentEditable: true })];
+  for (const active of other) {
+    assert.strictEqual(keyGuardEscape(fakeDoc({ active }), searchBox), null, active.tagName + (active.id || ''));
+  }
+});
+
+test('an open card menu, dialog, notifications panel or preferences sheet takes Esc: neither the step nor the box clear runs, whatever has focus', () => {
+  for (const { name, selector } of KEY_GUARD_SURFACES) {
+    for (const active of [field('BODY'), field('BUTTON'), searchBox, field('INPUT')]) {
+      assert.strictEqual(keyGuardEscape(fakeDoc({ active, open: [selector] }), searchBox), null, `${name} with focus on ${active.tagName}${active.id || ''}`);
+    }
+  }
+});
+
+test('with no search box to compare against, every text field stays guarded and the rest steps', () => {
+  assert.strictEqual(keyGuardEscape(fakeDoc({ active: field('INPUT') }), null), null);
+  assert.strictEqual(keyGuardEscape(fakeDoc({ active: field('BODY') }), null), 'step');
 });

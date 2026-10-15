@@ -362,7 +362,7 @@ function escPage({ open = [] } = {}) {
   vm.createContext(sandbox);
   vm.runInContext(escHandler(), sandbox);
   assert.strictEqual(listeners.length, 1);
-  return { esc: () => listeners[0][1]({ key: 'Escape' }), calls };
+  return { esc: (extra = {}) => listeners[0][1]({ key: 'Escape', ...extra }), calls };
 }
 
 test('Esc closes the open preferences sheet, and nothing else', () => {
@@ -381,6 +381,16 @@ test('with the sheet closed, Esc does what it did: the menu, then the dialogs, t
   const card = escPage({ open: ['#detail-modal'] });
   card.esc();
   assert.deepStrictEqual(card.calls, ['card']);
+});
+
+test('a held Esc runs the end of the chain once: a repeated keydown with nothing open does nothing', () => {
+  const p = escPage();
+  p.esc();
+  p.esc({ repeat: true });
+  p.esc({ repeat: true });
+  assert.deepStrictEqual(p.calls, ['step']);
+  p.esc();
+  assert.deepStrictEqual(p.calls, ['step', 'step'], 'a fresh press steps again');
 });
 
 test('the sheet\'s line is added to the Esc handler without moving the lines around it', () => {

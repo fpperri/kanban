@@ -64,6 +64,7 @@ async function open({ view = 'graph', stored = {}, board = makeBoard(), search =
       s.page.fireDocument('click', { target, shiftKey: false, ctrlKey: false, metaKey: false, ...m });
     },
     esc: (inBox = false) => {
+      page.ctx.document.activeElement = inBox ? page.input : null;
       if (inBox) page.input.fire('keydown', { key: 'Escape', stopPropagation() {} });
       return page.fireDocument('keydown', { key: 'Escape' });
     },
@@ -388,6 +389,19 @@ test('Esc with a typed query as the only part clears the box and the dimming, wi
     assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
     assert.strictEqual(s.lit(), null);
   }
+});
+
+test('Esc outside the box steps back one stage at a time: the additions first, then the typed anchor and the box with it', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.click(4, { shiftKey: true });
+  s.esc();
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [] });
+  s.esc();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.lit(), null);
 });
 
 test('a click on the empty canvas with a query lit clears the box, the selection and the dimming', async () => {

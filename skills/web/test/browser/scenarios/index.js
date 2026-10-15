@@ -21,4 +21,5 @@ module.exports = [
   require('./card-menu'),
   require('./slice-term'),
   require('./tier-fan'),
+  require('./esc-steps'),
 ];

@@ -438,26 +438,104 @@ test('Esc with no popup open runs the one step function', () => {
   assert.doesNotMatch(handler[0], /clearSearch\(\)/, 'the handler itself no longer clears the box');
 });
 
-function escapeSandbox(value) {
+// Esc's order is the page's: a menu, the notifications panel, the preferences
+// sheet, the detail popup, the edit form, the bulk popups and any other popup take
+// it first, and the step is the tail of the chain. The combobox stops Esc itself
+// while its menu is open, before this document listener ever sees the key.
+test('the Esc chain keeps its order and ends in the one step, behind a single document listener', () => {
+  const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
+  const order = ['hideContextMenu()', 'closeNotifModal()', 'closePrefsSheet()', 'closeCard()', 'requestCloseModal()', 'closeAnyBulkPopup()', 'anyModalOpen()', 'escapeStep()'].map((s) => handler.indexOf(s));
+  assert.ok(order.every((at) => at !== -1), 'every link of the chain is there');
+  assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');
+  assert.strictEqual(appSrc.split("if (e.key !== 'Escape') return;").length - 1, 1, 'one document listener reads Esc: the step adds no second keydown listener');
+  assert.strictEqual(appSrc.split('escapeStep()').length - 1, 2, 'the step is called from the handler alone (and defined once)');
+  assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 2, 'the selection step is called from the Esc step alone (and defined once)');
+});
+
+// The step reads the shared key guard (key-guard.js) through its Esc question, and
+// a fake document stands for the page: what has focus, which surfaces are open.
+function escapeSandbox({ value = '', selected = [], active = 'body', open = [], rangeStart = null } = {}) {
   const calls = { render: 0 };
-  const input = { value };
-  const sandbox = { $: (sel) => { assert.strictEqual(sel, '#search-input'); return input; }, renderBoard: () => { calls.render++; }, calls, input };
+  const input = { value, tagName: 'INPUT', id: 'search-input' };
+  const focus = { body: { tagName: 'BODY' }, box: input, button: { tagName: 'BUTTON' }, field: { tagName: 'INPUT', id: 'some-other-field' }, select: { tagName: 'SELECT' } };
+  const sandbox = {
+    $: (sel) => { assert.strictEqual(sel, '#search-input'); return input; },
+    renderBoard: () => { calls.render++; },
+    document: { activeElement: focus[active], querySelector: (sel) => (open.includes(sel) ? { id: 'open' } : null) },
+    calls, input, focus,
+    ...selectionGlobals(), ...require('../web/key-guard'),
+  };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('searchWriteListeners', 'const'), fn('writeSearch'), fn('clearSearch'), fn('escapeStep')].join('\n'), sandbox);
+  vm.runInContext([
+    declaration('searchWriteListeners', 'const'), declaration('selectionState'), declaration('selectedIds'),
+    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('stepSelectionBack'), fn('escapeStep'),
+  ].join('\n'), sandbox);
+  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
+  sandbox.state = () => asData({ ids: ids(vm.runInContext('selectedIds', sandbox)), anchor: vm.runInContext('selectionState.selection.anchor', sandbox), additions: vm.runInContext('selectionState.selection.additions.length', sandbox), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
   return sandbox;
 }
 
-test('the Esc step still clears the search box and repaints', () => {
-  const s = escapeSandbox('tags:next-up');
+test('with focus in the search box, the Esc step clears the box and repaints, and leaves the selection', () => {
+  const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'box', rangeStart: 3 });
   s.escapeStep();
   assert.strictEqual(s.input.value, '');
   assert.strictEqual(s.calls.render, 1);
+  assert.deepStrictEqual(s.state(), { ids: [1, 2, 3], anchor: { kind: 'card', id: 1 }, additions: 2, rangeStart: 3 });
 });
 
-test('the Esc step on an empty search box does nothing', () => {
-  const s = escapeSandbox('');
+test('with focus in an empty search box, the Esc step does nothing', () => {
+  const s = escapeSandbox({ value: '', selected: [1, 2], active: 'box' });
   s.escapeStep();
   assert.strictEqual(s.calls.render, 0);
+  assert.deepStrictEqual(s.state().ids, [1, 2]);
+});
+
+test('with focus outside the search box, the Esc step leaves the box text as it was and steps the selection back', () => {
+  const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'button', rangeStart: 3 });
+  s.escapeStep();
+  assert.strictEqual(s.input.value, 'tags:next-up', 'Esc away from the box no longer clears it');
+  assert.deepStrictEqual(s.state(), { ids: [1], anchor: { kind: 'card', id: 1 }, additions: 0, rangeStart: 1 }, 'the additions drop all at once and the anchor stays; the range start is the anchor card');
+  assert.strictEqual(s.calls.render, 1);
+});
+
+test('the next Esc drops the anchor, and the one after has nothing to step back from and repaints nothing', () => {
+  const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'body', rangeStart: 3 });
+  s.escapeStep();
+  s.escapeStep();
+  assert.deepStrictEqual(s.state(), { ids: [], anchor: null, additions: 0, rangeStart: null });
+  assert.strictEqual(s.calls.render, 2);
+  s.escapeStep();
+  assert.strictEqual(s.calls.render, 2, 'nothing picked: no repaint');
+  assert.strictEqual(s.input.value, 'tags:next-up');
+});
+
+test('while focus is in a text field other than the search box, or a select, the Esc step touches neither the selection nor the box', () => {
+  for (const active of ['field', 'select']) {
+    const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2], active });
+    s.escapeStep();
+    assert.strictEqual(s.input.value, 'tags:next-up', active);
+    assert.deepStrictEqual(s.state().ids, [1, 2], active);
+    assert.strictEqual(s.calls.render, 0, active);
+  }
+});
+
+test('with a surface open (the preferences sheet, say), the Esc step does nothing, even with focus in the box', () => {
+  for (const active of ['body', 'box']) {
+    const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2], active, open: ['#prefs-sheet:not(.hidden)'] });
+    s.escapeStep();
+    assert.strictEqual(s.input.value, 'tags:next-up', active);
+    assert.deepStrictEqual(s.state().ids, [1, 2], active);
+    assert.strictEqual(s.calls.render, 0, active);
+  }
+});
+
+test('a selection built from a query part steps back like any other: the additions go, the query stays the anchor', () => {
+  const s = escapeSandbox({ selected: [], active: 'body' });
+  vm.runInContext(`setSelection(addPart(setAnchor(NO_SELECTION, queryPart('assignee:@afk')), cardPart(4)))`, s);
+  s.escapeStep();
+  assert.deepStrictEqual(s.state().anchor, { kind: 'query', text: 'assignee:@afk' });
+  assert.strictEqual(s.state().additions, 0);
+  assert.strictEqual(s.state().rangeStart, null, 'a query anchor leaves no range start');
 });
 
 // --- every bulk action reads its target cards through one reader --------------------

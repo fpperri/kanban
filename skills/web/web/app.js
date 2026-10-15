@@ -3170,6 +3170,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
+    if (e.repeat) return; // a held Esc is one press: it runs one stage
     escapeStep();
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable
@@ -3289,10 +3290,28 @@ function selectionFollowingBox(selection) {
   return written && loadViewMode() === 'graph' ? selectionAfterTyping(selection, $('#search-input').value) : selection;
 }
 
-// What Esc does when nothing is open for it to close: today it clears the
-// search box. The one place the end of the Esc chain lives.
+// What Esc does when nothing is open for it to close, and the one place the end
+// of the Esc chain lives. The key guard (key-guard.js) says which: with focus in
+// the search box Esc clears the box and leaves the selection; with nothing open
+// and nobody typing it steps the selection back and leaves the box as it was;
+// anywhere else (another text field, a select, an open surface) it does nothing.
 function escapeStep() {
-  clearSearch();
+  const action = keyGuardEscape(document, $('#search-input'));
+  if (action === 'clear-box') clearSearch();
+  else if (action === 'step') stepSelectionBack();
+}
+
+// One stage back, as selectionAfterEscape (selection.js) works it out: every
+// addition goes at once and the anchor stays; the next one drops the anchor.
+// Nothing picked, nothing to repaint. A box that was the anchor (a search typed in
+// the Graph) goes with it, as it does on a click on the empty Graph.
+function stepSelectionBack() {
+  const next = selectionAfterEscape(selectionState);
+  if (next === selectionState) return;
+  const boxWasAnchor = isTypedAnchor(selectionState.selection) && !next.selection.anchor;
+  setSelection(next.selection, next.rangeStart);
+  if (boxWasAnchor) writeSearch('', 'selection');
+  else renderBoard();
 }
 
 function onSearchSlashKey(e) {
