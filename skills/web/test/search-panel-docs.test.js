@@ -7,8 +7,8 @@ const { searchAddAlt, searchRemoveAlt } = require('../web/search');
 const { pillList } = require('../web/pills');
 
 // The web skill and the web docs describe the search panel: how it opens (the
-// toggle, never focus), the built-in pills and their counts, what a click and a
-// Shift+click do to the selection and the box, the chip, the fold and its
+// toggle, never focus), the built-in pills and their counts, what a click (Shift or
+// not) and a right-click do to the selection and the box, the chip, the fold and its
 // preference, and where Esc takes the panel. The one example of the box growing is
 // held to the search module so a doc cannot promise what the box does not do.
 
@@ -40,27 +40,43 @@ test('both list the built-in pills in order, each with a count taken before the 
   assert.deepStrictEqual(pillList([], () => []).map((p) => p.label), ['blocked', 'review', 'waiting']);
 });
 
-test('both say what a click does: either button, the pill\'s query is the anchor and goes in the box, and a second click turns it off', () => {
+test('both say what a click does: Shift or not, it turns one pill on or off, its query one more alternative of the box, and the other pills stay as they were', () => {
   for (const [where, text] of BOTH) {
-    assert.match(text, /either (mouse )?button/i, where);
-    assert.match(text, /anchor/, where);
-    assert.match(text, /`review:`/, where);
-    assert.match(text, /again/, where);
-  }
-});
-
-test('both say what Shift+click does, with the example of the box that grows, and the example is what the search module writes', () => {
-  for (const [where, text] of BOTH) {
-    assert.match(text, /Shift/, where);
+    assert.match(text, /on or off/, where);
+    assert.match(text, /Shift\+click is a plain click/, where);
+    assert.match(text, /one more alternative/, where);
+    assert.match(text, /others as they were/, where);
+    assert.ok(text.includes('`review:`'), `${where}: the box with one pill is written out`);
     assert.ok(text.includes('`review: | blocked:`'), `${where}: the grown box is written out`);
+    assert.doesNotMatch(text, /either (mouse )?button/i, `${where}: a right-click no longer does what a click does`);
+    assert.doesNotMatch(text, /Shift\+click (adds|again)/, `${where}: Shift+click no longer adds`);
   }
   assert.strictEqual(searchAddAlt('review:', 'blocked:'), 'review: | blocked:');
   assert.strictEqual(searchRemoveAlt('review: | blocked:', 'blocked:'), 'review:');
 });
 
-test('both say that a pill is on while its query is the anchor or an addition, and that typing in the box turns it off', () => {
+test('both say what a right-click does: it solos the pill, the box holding its query alone, and on the soloed pill it turns every pill off', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /right-click/, where);
+    assert.match(text, /solos/, where);
+    assert.match(text, /query alone/, where);
+    assert.match(text, /every pill off/, where);
+    assert.match(text, /status pills/, where);
+  }
+});
+
+test('both say the first pill on is the anchor and the later ones are additions, so Esc takes the later pills out first', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /first pill on is the \**anchor/, where);
+    assert.match(text, /later ones are additions/, where);
+    assert.match(text, /later pills out first/, where);
+  }
+});
+
+test('both say that a pill is on while its query is the anchor or an addition, that it is announced as pressed, and that typing in the box turns it off', () => {
   for (const [where, text] of BOTH) {
     assert.match(text, /on while its query is the anchor or an addition/, where);
+    assert.match(text, /announced as pressed/, where);
     assert.match(text, /typing/i, where);
   }
 });
