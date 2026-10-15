@@ -24,7 +24,8 @@
 // or after a scope's colon. Nothing here throws on half-typed input: an unclosed
 // quote or bracket reads to the end, a stray closing bracket is ignored.
 // searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
-// interface for code that writes the box.
+// interface for code that writes the box; searchHasAlt/searchAddAlt/searchRemoveAlt
+// are its other half, for a query that joins the box as one more alternative.
 //
 // The terms:
 //   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
@@ -365,6 +366,78 @@ function searchBracket(raw) {
   return alts.length === 1 && alts[0].length <= 1 ? text : `(${text})`;
 }
 
+// --- The alternatives of the box. A query joins the box as one more alternative
+// (`review: | blocked:`) and leaves it the same way, whole, whatever else the
+// box holds, since `|` binds loosest. An alternative that holds spaces is
+// bracketed once the box holds more than one, so it reads as one unit; a
+// bracket and what is inside it are one alternative; a query with a | of its
+// own counts as its parts.
+
+// The box as a list of its alternatives, each as text; the empty ones are left out.
+function searchAltTexts(raw) {
+  const text = String(raw == null ? '' : raw);
+  return parseSearchAlts(lexSearch(text).tokens)
+    .map((alt) => alt.map((item) => searchItemText(item, text)).filter(Boolean).join(' '))
+    .filter(Boolean);
+}
+
+// An alternative with its one outer bracket opened, however deep: (a b) is a b.
+function searchAltUnwrapped(altText) {
+  const text = altText.trim();
+  const alts = parseSearchAlts(lexSearch(text).tokens);
+  if (alts.length === 1 && alts[0].length === 1 && alts[0][0].group) return searchAltUnwrapped(searchRenderAlts(alts[0][0].group, text));
+  return text;
+}
+
+// What two alternatives are compared by: the text with its bracket opened and its spacing even.
+function searchAltKey(altText) {
+  return searchAltUnwrapped(altText).replace(/\s+/g, ' ');
+}
+
+// The text for a list of alternatives: one alone as it is, several each in its
+// own bracket when it holds more than one term.
+function searchAltsText(list) {
+  return list.length === 1 ? searchAltUnwrapped(list[0]) : list.map(searchBracket).join(' | ');
+}
+
+// Whether the box holds every alternative of `term` (text, or { field, value }).
+function searchHasAlt(raw, term) {
+  const wanted = searchAltTexts(searchTermString(term)).map(searchAltKey);
+  if (!wanted.length) return false;
+  const have = new Set(searchAltTexts(raw).map(searchAltKey));
+  return wanted.every((key) => have.has(key));
+}
+
+// Adds `term` to the box as one more alternative, after the ones it holds. An
+// alternative the box already holds is not added twice; when none is new, or
+// the term is empty, the text comes back as it was.
+function searchAddAlt(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const have = searchAltTexts(text);
+  const keys = new Set(have.map(searchAltKey));
+  const fresh = [];
+  for (const alt of searchAltTexts(searchTermString(term))) {
+    const key = searchAltKey(alt);
+    if (keys.has(key)) continue;
+    keys.add(key);
+    fresh.push(alt);
+  }
+  return fresh.length ? searchAltsText(have.concat(fresh)) : text;
+}
+
+// Takes `term` out of the box as the alternative it is, whatever else the box
+// holds. Only a whole alternative goes: a term inside a longer one stays. What is
+// left is written as it would have been before the term was added, and a text
+// with nothing to take out comes back as it was.
+function searchRemoveAlt(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const gone = new Set(searchAltTexts(searchTermString(term)).map(searchAltKey));
+  if (!gone.size) return text;
+  const have = searchAltTexts(text);
+  const left = have.filter((alt) => !gone.has(searchAltKey(alt)));
+  return left.length === have.length ? text : searchAltsText(left);
+}
+
 function termMatchesCard(term, card) {
   const title = (card.title || '').toLowerCase();
   const body = (card.body || '').toLowerCase();
@@ -548,7 +621,7 @@ function searchSuggestionItems(raw, caret) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
-    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket,
+    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -560,4 +633,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchAddTerm = searchAddTerm;
   window.searchRemoveTerm = searchRemoveTerm;
   window.searchBracket = searchBracket;
+  window.searchHasAlt = searchHasAlt;
+  window.searchAddAlt = searchAddAlt;
+  window.searchRemoveAlt = searchRemoveAlt;
 }
