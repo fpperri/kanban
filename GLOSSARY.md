@@ -167,7 +167,33 @@ _Avoid_: network, node-link diagram, the Map (that is a different view).
 
 **Unnested**:
 A card with no parent and no children. It may still wait for a card or be waited for.
-_Avoid_: orphan, isolated.
+_Avoid_: orphan, isolated (that is what an isolate does to a view).
+
+## Selecting and isolating
+
+**Selection**:
+The cards picked right now, the same set in every view: lit in the Graph, marked elsewhere. It grows from an anchor by additions, survives view switches, and is what bulk edits act on.
+_Avoid_: highlight, lit set, focus.
+
+**Anchor**:
+What a selection grows from: one card, or one query (a pill or the search box). Stepping back drops the additions first, then the anchor.
+_Avoid_: primary, focus card.
+
+**Pill** (via **pills:**):
+A search query offered as one click: blocked, review and waiting are built in, and a board adds its own in `pills:`. Picking one makes its matches the anchor, or adds them to the selection.
+_Avoid_: light pill, filter button, chip.
+
+**Status pill**:
+One status's switch in a view's row: on shows that status's cards, off hides them, and soloing keeps that status alone. It belongs to its view and never touches the selection.
+_Avoid_: pill (alone), filter chip.
+
+**Isolate**:
+Showing only the selection, in every view, kept as a query in the search box that names each part by its criterion, so the address carries it.
+_Avoid_: solo (a view's status pills), focus, filter.
+
+**Peek**:
+Opening a card's details without changing the selection.
+_Avoid_: preview, open (a plain open may replace the selection).
 
 ## Role trio
 
