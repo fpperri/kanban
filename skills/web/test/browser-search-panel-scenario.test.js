@@ -59,6 +59,8 @@ test('with the sticker on the done card, each pill counts what the scenario says
   assert.deepStrictEqual(ids('review:'), panel.CASES.review);
   assert.deepStrictEqual(ids('review: | blocked:'), panel.CASES.both);
   assert.deepStrictEqual(ids('waiting:'), panel.CASES.waiting);
+  assert.deepStrictEqual(ids('blocked:'), panel.CASES.blocked);
+  assert.deepStrictEqual(ids('waiting: | review:'), panel.CASES.waitingReview);
 });
 
 test('a second card, blocked through the API, and the Done status pill off, move the counts the way the scenario says', () => {
@@ -74,6 +76,22 @@ test('a second card, blocked through the API, and the Done status pill off, move
   assert.deepStrictEqual(countsOver(live, patched), panel.CASES.patchedCounts);
   assert.deepStrictEqual(countsOver(live.filter((c) => c.status !== 'done'), patched), panel.CASES.doneOffCounts);
   assert.ok(panel.CASES.doneOffCounts.review < panel.CASES.patchedCounts.review, 'a done card was among the review cards');
+});
+
+test('the pills follow the status pills: a click and a Shift+click both toggle, a right-click solos, and each is driven on its own', () => {
+  const at = (name) => code.indexOf(`check('${name}'`);
+  const names = [
+    'a click on blocked turns it on beside review: the box holds both and both pills are on',
+    'Shift+click on blocked does what a click does: it turns blocked off and leaves review on',
+    'a right-click on blocked solos it: the box holds blocked: alone and the other pills are off',
+    'a right-click on the soloed pill turns every pill off and empties the box',
+  ];
+  for (const name of names) assert.ok(at(name) > 0, name);
+  assert.ok(names.every((n, i) => !i || at(n) > at(names[i - 1])), 'in the order they are driven');
+  const solo = code.slice(at(names[2]) - 400, at(names[3]));
+  assert.strictEqual(solo.split("rightClick(pillSel('blocked'))").length - 1, 2, 'one right-click to solo, one on the soloed pill');
+  assert.ok(/clickOn\(pillSel\('blocked'\)\);/.test(code), 'a plain click on a pill');
+  assert.ok(/clickOn\(pillSel\('blocked'\), \{ modifiers: 8 \}\)/.test(code), 'a Shift+click on a pill');
 });
 
 test('the scenario does not wait on a fixed sleep, and presses its keys and its Shift and Ctrl clicks through the runner\'s own helpers', () => {

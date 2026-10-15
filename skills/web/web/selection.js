@@ -369,12 +369,13 @@ function selectionOnViewSwitch(selection, { from, to, boxText }) {
 }
 
 // --- A click on a pill ----------------------------------------------------------
-// A pill is a search query offered as one click, and its part in the selection is
-// a query part with no source (a typed query has one). The page carries out what
-// these two functions decide: the selection and the text of the box change
-// together, worked out here from the search module's alternatives (`alts`: has,
-// add and remove one alternative of a box's text), so what the box shows and what
-// is selected cannot disagree.
+// A pill is a search query offered as one click, and it follows the status pills'
+// rules, with every pill off as the default. Its part in the selection is a query
+// part with no source (a typed query has one). The page carries out what this
+// function decides: the selection and the text of the box change together, worked
+// out here from the search module's alternatives (`alts`: has, add and remove one
+// alternative of a box's text), so what the box shows and what is selected cannot
+// disagree.
 
 function pillQueryText(query) { return String(query).trim().replace(/\s+/g, ' '); }
 
@@ -382,27 +383,44 @@ function isPillPart(part, query) {
   return part.kind === 'query' && !part.source && pillQueryText(part.text) === pillQueryText(query);
 }
 
-// What a click on a pill does. A click, with either button ('click'), makes the
-// pill's query the anchor and puts it in the box, whatever was selected and
-// whatever the box held; on the only pill that is on it turns that pill off,
-// empties the selection and clears the box. Shift ('add') adds the pill's query to
-// the selection and grows the box to `box | pill` so the pill's cards are not hidden
-// by it, and takes the part out of both when the pill is on already. With no
-// anchor to grow from, or on the only pill that is on, Shift does what a click does.
-// A box that is empty hides nothing, so an addition leaves it empty. Returns
+// A part that is some pill's query: a query with no source.
+function isAnyPillPart(part) { return part.kind === 'query' && !part.source; }
+
+// The pill with this text turned off: its part leaves the selection (when it was
+// the anchor the next part is, as when any anchor goes) and its query leaves the
+// box as the one alternative it is, whatever else the box holds.
+function selectionWithoutPill(selection, boxText, text, alts) {
+  const kept = partsOf(selection).filter((part) => !isPillPart(part, text)).reduce((next, part) => addPart(next, part), NO_SELECTION);
+  const anchorWent = kept.anchor !== selection.anchor;
+  return { selection: kept, boxText: alts.remove(boxText, text), rangeStart: anchorWent ? (kept.anchor && kept.anchor.kind === 'card' ? kept.anchor.id : null) : undefined };
+}
+
+// What a click on a pill does. A click ('toggle', with or without Shift) turns that
+// one pill on or off and leaves the others as they were. On, its query joins the
+// selection (the first pill on is the anchor, later ones are additions) and the box
+// as one more alternative, `box | pill`, so the pill's cards are not hidden by what
+// the box held; with a hand-picked anchor and an empty box the box stays empty, as
+// an empty box hides nothing. Off, its part leaves the selection and its query
+// leaves the box. A right-click ('solo') makes the pill the only one on: it becomes
+// the anchor of a selection of its own and the box holds its query alone, whatever
+// was selected and whatever the box held. On the pill that is already the only one
+// on it turns every pill off instead, which is turning that pill off: cards the
+// selection holds and text the pills did not put in the box stay. Returns
 // { selection, boxText, rangeStart }; a rangeStart of undefined leaves the range
 // start as it was, and a query anchor leaves none (null).
 function selectionAfterPill(gesture, query, { selection, boxText, alts }) {
   const text = pillQueryText(query);
   const parts = partsOf(selection);
   const on = parts.some((part) => isPillPart(part, text));
-  const only = on && parts.length === 1;
-  if (only) return { selection: NO_SELECTION, boxText: '', rangeStart: null };
-  if (gesture !== 'add' || !selection.anchor) return { selection: setAnchor(selection, queryPart(text)), boxText: text, rangeStart: null };
-  if (!on) return { selection: addPart(selection, queryPart(text)), boxText: String(boxText).trim() ? alts.add(boxText, text) : boxText, rangeStart: undefined };
-  const kept = parts.filter((part) => !isPillPart(part, text)).reduce((next, part) => addPart(next, part), NO_SELECTION);
-  const anchorWent = kept.anchor !== selection.anchor;
-  return { selection: kept, boxText: alts.remove(boxText, text), rangeStart: anchorWent ? (kept.anchor && kept.anchor.kind === 'card' ? kept.anchor.id : null) : undefined };
+  if (gesture === 'solo') {
+    const alone = on && parts.every((part) => !isAnyPillPart(part) || isPillPart(part, text));
+    return alone ? selectionWithoutPill(selection, boxText, text, alts) : { selection: setAnchor(selection, queryPart(text)), boxText: text, rangeStart: null };
+  }
+  if (on) return selectionWithoutPill(selection, boxText, text, alts);
+  const hasText = !!String(boxText).trim();
+  const joined = addPart(selection, queryPart(text));
+  if (!selection.anchor) return { selection: joined, boxText: hasText ? alts.add(boxText, text) : text, rangeStart: null };
+  return { selection: joined, boxText: hasText ? alts.add(boxText, text) : boxText, rangeStart: undefined };
 }
 
 // What an edit of the box by hand (typing, the clear button) leaves of the

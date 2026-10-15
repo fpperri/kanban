@@ -179,13 +179,18 @@ it; focusing the box never opens it, and the panel adds nothing to the header's 
 lists the built-in pills, blocked, review and waiting, each with a count of the cards its
 query matches, done cards included. The counts are taken over the cards the view shows
 after its status pills and Archive, and before the search box, so turning one pill on
-leaves the others' counts as they were. A click on a pill, with either mouse button, makes
-its query the anchor of the selection and puts it in the box, such as `review:`: outside
-the Graph its matches are the selection, so the bulk edits act on them, and in the Graph
-they light. A click on the only pill that is on turns it off again and clears the box.
-Shift+click adds a pill's matches to the selection and grows the box so they stay shown,
-as `review: | blocked:`; Shift+click again takes that part back out. A pill is on while its
-query is the anchor or an addition, and typing in the box turns it off. With the panel
+leaves the others' counts as they were. The pills follow the
+status pills' rules, with every pill off to start. A click on a pill (Shift+click is a
+plain click) turns that one pill on or off and leaves the others as they were: on, its
+query joins the box as one more alternative, such as `review:` and then
+`review: | blocked:`, and its matches join the selection, so outside the Graph the bulk
+edits act on them and in the Graph they light; off, its query leaves the box and its
+matches leave the selection. A right-click solos a pill, so it alone is on and the box
+holds its query alone, and a right-click on the soloed pill turns every pill off (the
+status pills turn all back on, since they start all on). The first pill on is the anchor
+of the selection and later ones are additions, so Esc takes the later pills out first and
+then the anchor. A pill is on while its query is the anchor or an addition, and is
+announced as pressed, and typing in the box turns it off. With the panel
 closed, a chip in the box counts what is on, and its name for a screen reader says which.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the toggle, the fold control and every pill, and Enter and Space act
