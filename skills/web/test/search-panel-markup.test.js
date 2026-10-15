@@ -232,7 +232,7 @@ test('the search box and panel rules sit in one marked block', () => {
 });
 
 test('every class the markup and the panel script use has a rule', () => {
-  for (const cls of ['search-box', 'search-chip', 'search-panel-toggle', 'search-panel', 'search-slices', 'search-foot', 'search-section', 'search-fold', 'search-pills', 'query-pill', 'query-pill-count', 'search-divider']) {
+  for (const cls of ['search-box', 'search-chip', 'search-panel-toggle', 'search-panel', 'search-slices', 'search-section', 'search-fold', 'search-pills', 'query-pill', 'query-pill-count', 'search-divider']) {
     assert.match(block, new RegExp(`\\.${cls}\\b`), `${cls} has a rule`);
   }
   assert.match(css, /\.search-bar \{[^}]*position: relative/, 'the panel hangs from the bar');

@@ -284,7 +284,7 @@ button:hover { background: var(--btn-hover); }
 .search-panel-toggle:focus-visible, .search-fold:focus-visible, .query-pill:focus-visible, .slice-entry:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .isolate-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 300px; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); }
-.search-slices:empty, .search-foot:empty { display: none; }
+.search-slices:empty { display: none; }
 .search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .search-fold { background: transparent; border-color: transparent; color: var(--mut); padding: 2px 6px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .search-fold::after { content: " \25BE"; }
@@ -1462,6 +1462,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .notif-more p { margin: 0; }
 .notif-more ul { margin: 0 0 0 1.15em; }
 .notif-more li { margin: 0.28em 0; }
+.notif-more li::marker { color: var(--mut); }
+.notif-message code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.08em 0.32em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.notif-level { margin-left: 8px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.notif-level--warning { color: var(--warn); }
+.notif-level--error { color: var(--crit); }
 
 /* Preferences sheet: the gear in the header and the full-height sheet it opens
    from the right, on the modal backdrop. Colours come from the tokens. The
@@ -1497,11 +1502,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .hotkey-what { color: var(--ink); line-height: 1.45; }
 .hotkey-state { grid-column: 2; color: var(--accent); font-size: 0.9em; }
 /* End preferences sheet */
-.notif-more li::marker { color: var(--mut); }
-.notif-message code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.08em 0.32em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-.notif-level { margin-left: 8px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-.notif-level--warning { color: var(--warn); }
-.notif-level--error { color: var(--crit); }
 
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
    on any piece of a card lights every piece sharing its id (app.js's
