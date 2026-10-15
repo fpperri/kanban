@@ -96,7 +96,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   run([
     declaration('selectionState'), declaration('selectedIds'), fn('setSelection'),
     fn('searchCtx'), fn('matchedIds'), fn('searchMatchIds'), fn('selectionMatchIds'),
-    'let bulkSingleMode = null; let bulkPopupIds = []; let isDragging = false, dragCardId = null, bulkDragIds = null;',
+    'let bulkSingleMode = null; let bulkPopupIds = []; let bulkPopupInSelection = false; let isDragging = false, dragCardId = null, bulkDragIds = null;',
     declaration('menuSubject'),
     scheduleRows[0],
     ...['bulkTargets', 'captureBulkTargets', 'bulkPatch', 'openBulkSingle', 'applyBulkSingle', 'renderBulkTags', 'openBulkTags', 'bulkAddTag', 'bulkRemoveTags',
@@ -190,6 +190,25 @@ test('archive on a selection holding a query part confirms the count taken at th
   assert.match(s.calls.toasts[0], /Archived 3 card\(s\); skipped 1 already archived/);
 });
 
+test('archive clears the selection when the menu that opened the popup was inside it, whatever menu the page holds by the time the popup is applied', async () => {
+  const s = bulkSandbox({ query: 'tags:a' });
+  await s.run('bulkArchive()');
+  s.run('menuSubject = cardMenuFor(selectedIds, 4)'); // another right-click, outside the selection, while the popup is open
+  await s.run('applyBulkArchive()');
+  assert.deepStrictEqual(s.posted('/archive'), [1, 2, 3], 'the popup archived the cards it opened on');
+  assert.deepStrictEqual(s.picked(), [], 'the menu it opened from was for the selection, so the selection is cleared');
+});
+
+test('archive leaves a hand-built selection as it was when the menu that opened the popup was outside it, whatever menu the page holds by the time the popup is applied', async () => {
+  const s = bulkSandbox({ query: 'tags:a' });
+  s.run('menuSubject = cardMenuFor(selectedIds, 4)'); // a right-click on a card outside the selection
+  await s.run('bulkArchive()');
+  s.run('menuSubject = cardMenuFor(selectedIds, [...selectedIds][0])'); // another right-click, inside it, while the popup is open
+  await s.run('applyBulkArchive()');
+  assert.deepStrictEqual(s.posted('/archive'), [4]);
+  assert.deepStrictEqual(s.picked(), [1, 2, 3, 5], 'the selection was not what the popup opened on, so it stays');
+});
+
 test('delete on a selection holding a query part confirms the count taken at the start and deletes exactly those cards, though each delete takes a card off the query', async () => {
   const s = bulkSandbox({ query: 'tags:a' });
   await s.run('bulkDelete()');
@@ -229,6 +248,7 @@ test('every apply step reads the cards its popup captured, and the actions with 
     assert.match(fn(name), /bulkTargets\(bulkPopupIds\)/, name);
     assert.doesNotMatch(fn(name), /bulkTargets\(\)|selectedIds/, `${name} does not read the live selection`);
   }
+  assert.doesNotMatch(fn('applyBulkArchive'), /menuSubject/, 'the archive popup reads the copy of the menu subject it took when it opened');
   for (const name of ['bulkRestore', 'bulkDelete']) {
     assert.strictEqual((fn(name).match(/bulkTargets\(/g) || []).length, 1, `${name} reads its targets once, at the start`);
   }

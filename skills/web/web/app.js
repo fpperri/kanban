@@ -5786,7 +5786,7 @@ async function applyBulkArchive() {
     try { await api('POST', `/api/cards/${id}/archive`, pkg ? { package: pkg } : undefined); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  if (menuSubject.inSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
+  if (bulkPopupInSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
   await loadBoard();
   const where = pkg ? ` into ${pkg}` : '';
   const skipNote = skipped ? `; skipped ${skipped} already archived` : '';
@@ -5869,6 +5869,7 @@ async function onBulkDrop(ids, status) {
 // selection survives so bulk actions chain on the same batch.
 let bulkSingleMode = null; // 'assignee' | 'priority'
 let bulkPopupIds = []; // the ids an open bulk popup captured when it opened; the next popup replaces them
+let bulkPopupInSelection = false; // whether the menu that opened that popup was for the selection; replaced with the ids
 // What the card menu the last right-click opened is for (cardMenuFor, selection.js):
 // the right-clicked card alone outside the selection, the resolved selection inside
 // it. Fixed when the menu opens, so the menu's entries and the popups they open act
@@ -5889,6 +5890,7 @@ function bulkTargets(ids = [...selectedIds]) {
 // subject: the right-clicked card alone when it was outside the selection.
 function captureBulkTargets() {
   bulkPopupIds = bulkTargets(menuSubject.ids).map((c) => c.id);
+  bulkPopupInSelection = menuSubject.inSelection;
 }
 
 function openBulkSingle(mode) {
