@@ -105,9 +105,9 @@ function showArchive(page) {
 const search = (page, q) => { page.type(page.byId('q'), q); return shownIds(page); };
 
 // Builds the snapshot of one of the browser runner's boards (plan, fixture or
-// malformed) and hands fn the page (archive shown), the board folder and the
+// malformed) and hands fn the page as built (Archive off), the board folder and the
 // page text. `load` is passed to the page harness beside the wide screen.
-function withBoardPage(key, fn, load = {}) {
+function withBuiltBoard(key, fn, load = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `kanban-snapshot-${key}-`));
   try {
     const dir = materialize(key, path.join(root, 'board'));
@@ -115,16 +115,23 @@ function withBoardPage(key, fn, load = {}) {
     execFileSync('python', [buildScript, dir, '--out', out], { encoding: 'utf8' });
     const html = fs.readFileSync(out, 'utf8').replace(/\r\n/g, '\n');
     const page = loadPage(html, { matchMedia: (q) => q.includes('min-width:900px'), ...load });
-    showArchive(page);
     return fn(page, dir, html);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
 
+// The same page with the Archive pill on and its section open.
+function withBoardPage(key, fn, load = {}) {
+  return withBuiltBoard(key, (page, dir, html) => {
+    showArchive(page);
+    return fn(page, dir, html);
+  }, load);
+}
+
 // The plan board's page. The plan board's name is `plan`.
 const withPlanPage = (fn) => withBoardPage('plan', fn);
 
 module.exports = {
-  BOARD_NAME, PLAN_QUERIES, planCards, search, shownIds, showArchive, webContext, webIds, withBoardPage, withPlanPage,
+  BOARD_NAME, PLAN_QUERIES, planCards, search, shownIds, showArchive, webContext, webIds, withBoardPage, withBuiltBoard, withPlanPage,
 };

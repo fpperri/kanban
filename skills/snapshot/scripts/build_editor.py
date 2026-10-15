@@ -358,6 +358,8 @@ MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
 WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
 SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
 TYPE_ICONS_JS = os.path.join(WEB_MODULES, "type-icons.js")
+PILLS_JS = os.path.join(WEB_MODULES, "pills.js")
+SLICE_RUN_JS = os.path.join(WEB_MODULES, "slice-run.js")
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
@@ -390,6 +392,12 @@ def read_search():
 
 def read_type_icons():
     return read_embedded(TYPE_ICONS_JS, "the type icons module")
+
+def read_pills_module():
+    return read_embedded(PILLS_JS, "the pill list")
+
+def read_slice_run():
+    return read_embedded(SLICE_RUN_JS, "the run of slices")
 
 def main():
     p = argparse.ArgumentParser()
@@ -435,6 +443,8 @@ def main():
                     .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
                     .replace("__SEARCH_JS__", read_search())
                     .replace("__TYPE_ICONS_JS__", read_type_icons())
+                    .replace("__PILLS_JS__", read_pills_module())
+                    .replace("__SLICE_RUN_JS__", read_slice_run())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -505,6 +515,34 @@ button:active{transform:scale(.98)}
 input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:8px 10px;color:var(--ink);font-size:15px;width:100%}
 #searchrow{margin:0 0 8px;position:relative}
 #q{font-size:13px;padding:7px 10px}
+/* The search panel: a box round the input, the chip and the arrow, and under it a panel of the
+   slices and the pills. The panel hangs from the bar and adds nothing to the header's height; its
+   entries and pills wear their own classes, never the status pills'. Every colour is a token. */
+.hidden{display:none!important}
+.search-bar{position:relative}
+.search-box{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:.15rem}
+.search-box:focus-within{border-color:var(--accent)}
+.search-box #q{flex:1 1 60px;min-width:60px;width:auto;border:0;background:transparent}
+.search-box #q:focus-visible{outline:none}
+.search-chip{flex:none;margin-right:2px;padding:1px 8px;border:1px solid var(--accent);border-radius:.15rem;background:var(--accent-soft);color:var(--accent);font-size:11px;white-space:nowrap}
+.search-panel-toggle{flex:none;background:transparent;border:0;color:var(--mut);padding:6px 10px;font-size:13px}
+.search-panel-toggle[aria-expanded="true"]{color:var(--accent)}
+.search-panel-toggle[aria-pressed="false"]{text-decoration:line-through}
+.search-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:15;display:flex;flex-direction:column;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line-strong);border-radius:.2rem;box-shadow:var(--shadow-pop)}
+.search-section{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.search-fold{background:transparent;border-color:transparent;color:var(--mut);padding:2px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.search-fold::after{content:" ▾"}
+.search-fold[aria-expanded="false"]::after{content:" ▸"}
+.search-pills,.search-slices{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.query-pill,.slice-entry{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 10px;background:var(--paper);border:1px solid var(--line);border-radius:.15rem;color:var(--ink);font-size:12px;cursor:pointer;-webkit-user-select:none;user-select:none}
+.query-pill:hover,.slice-entry:hover{background:var(--btn-hover)}
+.query-pill.on,.slice-entry.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.query-pill-label,.slice-entry-label{min-width:0;overflow-wrap:anywhere;text-align:left}
+.query-pill-count,.slice-entry-count{color:var(--mut);font-variant-numeric:tabular-nums}
+.query-pill.on .query-pill-count,.slice-entry.on .slice-entry-count{color:var(--accent)}
+.slice-entry-icon:empty{display:none}
+.query-pill-more{padding:3px 10px;background:transparent;border:1px dashed var(--line);border-radius:.15rem;color:var(--mut);font-size:12px}
+.query-pill-more:hover{background:var(--btn-hover);color:var(--ink)}
 /* The search box's suggestions: a plain list under the box, over the page and under
    the card sheet (40) and the right-click menu (45). Its rows are pressed, not
    focused, so the box keeps the focus. */
@@ -831,7 +869,24 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 </style></head><body>
 <div id="scroll">
 <div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
-<div id="searchrow"><input type="search" id="q" data-stop="1" aria-autocomplete="list" aria-controls="qmenu" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)"><div class="qmenu" id="qmenu" role="listbox" style="display:none"></div></div>
+<div id="searchrow"><div class="search-bar">
+<div class="search-box">
+<input type="search" id="q" data-stop="1" aria-autocomplete="list" aria-controls="qmenu" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)">
+<span id="search-chip" class="search-chip hidden" role="img"></span>
+<button type="button" id="search-panel-toggle" class="search-panel-toggle" aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
+</div>
+<div class="qmenu" id="qmenu" role="listbox" style="display:none"></div>
+<div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters">
+<section id="search-slices-section" class="search-section hidden" aria-labelledby="search-slices-fold">
+<button type="button" id="search-slices-fold" class="search-fold" aria-expanded="false" aria-controls="search-slices" aria-label="Slices" title="Fold or unfold the slices">Slices</button>
+<div id="search-slices" class="search-slices hidden" role="group" aria-labelledby="search-slices-fold"></div>
+</section>
+<section id="search-pills-section" class="search-section" aria-labelledby="search-pills-fold">
+<button type="button" id="search-pills-fold" class="search-fold" aria-expanded="true" aria-controls="search-pills" aria-label="Pills" title="Fold or unfold the pills">Pills</button>
+<div id="search-pills" class="search-pills" role="group" aria-labelledby="search-pills-fold"></div>
+</section>
+</div>
+</div></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>
 <button type="button" data-view="map">Map</button>
@@ -874,6 +929,10 @@ __WAITING_BLOCKED_JS__</script>
 __SEARCH_JS__</script>
 <script>
 __TYPE_ICONS_JS__</script>
+<script>
+__PILLS_JS__</script>
+<script>
+__SLICE_RUN_JS__</script>
 <script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
@@ -1404,6 +1463,213 @@ if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit descr
 if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn));
 const kb=nid===null?null:childrenBlock(nid);if(kb)d.appendChild(kb)}
 return d}
+// The search panel: kanban-web's panel under the search box, of slices and pills, without its
+// Isolate switch, since this page has no selection to isolate. The pill list, the run of slices
+// and their arithmetic are kanban-web's own modules (pills.js, slice-run.js, embedded above);
+// the drawing and the gestures are this page's, and test/panel-pills.test.js and
+// test/panel-slices.test.js hold them to the web's counts and terms. Everything the panel does
+// goes through the one writer of the box (writeBox), so a pill, a slice and a typed search are
+// all the box's text and nothing else is kept: a pill is on while the box holds its query as one
+// of its alternatives, and the run is the slice: term the box holds. Counts are taken over the
+// cards the status pills and the Archive pill leave, before the box and the cut, so a pill turned
+// on never zeroes the others.
+let panelOpen=false,panelSwitchOn=true,pillsFolded=false,slicesFolded=true;
+const pillGroupsOpen=new Set();
+const PILL_HINT="click: turn it on or off, right-click: only this pill (again: every pill off)";
+const SLICE_HINT="click: grow the run to this slice, or drop it from an end (a run of one: every slice again), right-click: only this slice";
+const SWITCH_ON="Search panel: opens when the box is focused. Click, or press p, to switch it off.";
+const SWITCH_OFF="Search panel: off. Click, or press p, to switch it on and open it.";
+const statusVisible=c=>c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true);
+const panelCards=()=>view.filter(statusVisible);
+function setText(n,t){if(n.textContent!==t)n.textContent=t}
+function setAttr(n,k,v){if(n.getAttribute(k)!==v)n.setAttribute(k,v)}
+function writeBox(text){const q=$("q");if(q.value===text)return;q.value=text;queryChanged()}
+// Makes the buttons of `host` the items, in order. A button that is there is updated where it
+// stands, so focus on it survives a repaint; one is added or taken out only when the list
+// changes, the ones to go first so that a button that stays is never moved by them leaving.
+function syncList(host,items,prop,keyOf,make,update){
+const keys=new Set(items.map(keyOf));
+Array.from(host.children).forEach(n=>{if(!keys.has(n.dataset[prop]))n.remove()});
+const have=new Map(Array.from(host.children).map(n=>[n.dataset[prop],n]));
+items.forEach((item,i)=>{
+let b=have.get(keyOf(item));
+if(!b){b=make(item);b.dataset[prop]=keyOf(item)}
+update(b,item,i);
+if(host.children[i]!==b)host.insertBefore(b,host.children[i]||null)})}
+// --- the pills
+function panelBoard(){return{pills:PILLS,cards:view.filter(c=>!c.arch).map(searchCard),term:searchTermText}}
+const pillEntriesNow=()=>pillEntries(panelBoard());
+// The ids a pill's query matches among the cards the page holds. The query resolves as the box's
+// does, over every card of the board as built, so waiting: and tree: see the cards the status pills
+// hide; an edit still queued counts, as it does under the box. Text that is no term yet matches nothing.
+function pillMatcher(){
+const all=DATA.map(searchCard);
+return text=>{
+const terms=parseSearchQuery(text,BOARD);
+if(!terms.length)return[];
+const resolved=resolveTerms(all,terms,searchCtx);
+return view.filter(c=>cardMatchesQuery(searchCard(c),resolved)).map(c=>c.id)}}
+const pillOn=pill=>searchHasAlt($("q").value,pill.query);
+// Two pills with one query (a board's pill for tags:"next-up" and that tag's own value pill) are one filter.
+const sameQuery=(a,b)=>searchHasAlt(a.query,b.query)&&searchHasAlt(b.query,a.query);
+function buildPillButton(pill){
+const b=el("button","query-pill");b.type="button";
+b.appendChild(el("span","query-pill-label"));b.appendChild(el("span","query-pill-count"));
+return b}
+function buildMoreButton(){const b=el("button","query-pill-more");b.type="button";return b}
+function updatePillButton(b,pill){
+setText(b.children[0],pill.label);
+setText(b.children[1],String(pill.count));
+const on=pillOn(pill);
+setAttr(b,"aria-pressed",String(on));
+setAttr(b,"aria-label",pill.label+", "+pill.count+(pill.count===1?" card":" cards"));
+b.classList.toggle("on",on);
+const title=pill.query+"  ("+PILL_HINT+")";
+if(b.title!==title)b.title=title}
+function updateMoreButton(b,row){
+setText(b,row.label);
+setAttr(b,"aria-expanded",String(row.expanded));
+const name=row.expanded?"Show only the first "+PILLS_SHOWN+" "+row.group+" pills":"Show the other "+row.hidden+" "+row.group+" pills";
+if(b.title!==name)b.title=name;
+setAttr(b,"aria-label",name)}
+// What a click ('toggle') or a right-click ('solo') on the pill with this key does to the box. A
+// click turns that pill on, as one more alternative of the box, or off, taking only its query out.
+// A right-click makes it the only pill on, the box holding its query alone, or, on the pill that is
+// already alone, turns it off. A run of slices in the box is not the pills' to change: it stays.
+function pillGesture(gesture,key){
+const entries=pillEntriesNow(),pill=entries.find(p=>p.key===key);
+if(!pill)return;
+const box=$("q").value,on=pillOn(pill);
+if(gesture==="solo"){
+const alone=on&&!entries.some(p=>!sameQuery(pill,p)&&pillOn(p));
+writeBox(alone?searchRemoveAlt(box,pill.query):searchJoinSlice(pill.query,searchSplitSlice(box).slices));
+return}
+writeBox(on?searchRemoveAlt(box,pill.query):searchAddAlt(box,pill.query))}
+function toggleGroup(group){
+if(pillGroupsOpen.has(group))pillGroupsOpen.delete(group);else pillGroupsOpen.add(group);
+renderSearchPanel()}
+// --- the slices
+function sliceNow(){
+const cards=DATA.map(searchCard);
+const sliced=sliceCards(cards,HIERARCHY,depthMap(cards,searchCtx));
+const list=sliceListOf(sliced,panelCards().map(c=>c.id));
+const values=parseSearchQuery($("q").value,BOARD).filter(t=>t.field==="slice").map(t=>t.value);
+return{list,values,run:sliceRunOf(sliced,list,values)}}
+// What the closed panel's chip counts for the run: one thing when the box holds a slice: term that
+// cuts, none when it holds none or one that cuts nothing.
+function sliceChipNames(){
+if(!parseSearchQuery($("q").value,BOARD).some(t=>t.field==="slice"))return[];
+const now=sliceNow();
+return sliceRunCuts(now.list,now.run)?["slice "+now.values.join(" ")]:[]}
+function buildSliceButton(){
+const b=el("button","slice-entry");b.type="button";
+const icon=el("span","slice-entry-icon");icon.setAttribute("aria-hidden","true");
+b.appendChild(icon);b.appendChild(el("span","slice-entry-label"));b.appendChild(el("span","slice-entry-count"));
+return b}
+// The glyph a tier's type wears, none for a depth, a type with no icon or an icon the table does not know.
+const sliceGlyph=entry=>entry.kind==="tier"?typeIconGlyph(typeIconOf(entry.name,TYPES)):"";
+function updateSliceButton(b,entry,at,run){
+const inRun=!!run&&at>=run.from&&at<=run.to;
+setText(b.children[0],sliceGlyph(entry));
+setText(b.children[1],entry.label);
+setText(b.children[2],String(entry.count));
+setAttr(b,"aria-pressed",String(inRun));
+setAttr(b,"aria-label",sliceEntryName(entry,inRun));
+b.classList.toggle("on",inRun);
+const title=entry.label+"  ("+SLICE_HINT+")";
+if(b.title!==title)b.title=title}
+const sameRun=(a,b)=>a===b||(!!a&&!!b&&a.from===b.from&&a.to===b.to);
+// Writes `run` to the box as the slice: term it is. A run the box already shows is left as typed.
+function setRun(now,run){
+if(sameRun(run,now.run))return;
+writeBox(searchSetSlice($("q").value,sliceRunValue(now.list,run)))}
+// What a click ('click') or a right-click ('keep') on the entry with this key does. The entry is
+// found again by its key, so a list that changed since the button was drawn never moves the click
+// to another slice.
+function sliceGesture(gesture,key){
+const now=sliceNow(),at=now.list.findIndex(e=>sliceEntryKey(e)===key);
+if(at<0)return;
+setRun(now,gesture==="keep"?sliceRunKeep(at):sliceRunClick(now.list,now.run,at))}
+// --- the panel
+function syncSwitch(){
+const t=$("search-panel-toggle");
+setAttr(t,"aria-pressed",String(panelSwitchOn));
+const title=panelSwitchOn?SWITCH_ON:SWITCH_OFF;
+if(t.title!==title)t.title=title}
+// Every repaint of the page comes here (render): the folds, the switch and the chip always, the
+// pills and the slices only while the panel is open, since a closed panel shows no count.
+function renderSearchPanel(){
+$("search-panel").classList.toggle("hidden",!panelOpen);
+setAttr($("search-panel-toggle"),"aria-expanded",String(panelOpen));
+syncSwitch();
+$("search-pills").classList.toggle("hidden",pillsFolded);
+setAttr($("search-pills-fold"),"aria-expanded",String(!pillsFolded));
+$("search-slices").classList.toggle("hidden",slicesFolded);
+setAttr($("search-slices-fold"),"aria-expanded",String(!slicesFolded));
+if(panelOpen){
+const rows=pillRows(pillList(panelCards(),pillMatcher(),panelBoard()),Array.from(pillGroupsOpen));
+syncList($("search-pills"),rows,"pillKey",r=>r.key,r=>r.kind==="more"?buildMoreButton():buildPillButton(r),(b,r)=>{if(r.kind==="more")updateMoreButton(b,r);else updatePillButton(b,r)});
+const now=sliceNow();
+syncList($("search-slices"),now.list,"sliceKey",sliceEntryKey,buildSliceButton,(b,e,at)=>updateSliceButton(b,e,at,now.run));
+$("search-slices-section").classList.toggle("hidden",!now.list.length)}
+const chip=$("search-chip");
+const made=panelChip(pillEntriesNow().filter(pillOn).map(p=>p.label).concat(sliceChipNames()));
+chip.classList.toggle("hidden",!made.count||panelOpen);
+setText(chip,made.count?String(made.count):"");
+setAttr(chip,"aria-label",made.name);
+if(chip.title!==made.name)chip.title=made.name}
+function setPanelOpen(open){panelOpen=!!open;renderSearchPanel()}
+// Esc's link in the chain: an open panel closes and answers true so the Esc stops there. Focus goes
+// back to the arrow, unless it is in the box: the box keeps it, and the text it holds.
+function closePanel(){
+if(!panelOpen)return false;
+const fromBox=document.activeElement===$("q");
+setPanelOpen(false);
+if(!fromBox)$("search-panel-toggle").focus();
+return true}
+// The arrow and the p key: switched off, the panel closes now and focusing the box no longer
+// opens it; switched on again, the panel opens now and opens on focus again.
+function flipSwitch(){
+panelSwitchOn=!panelSwitchOn;
+if(panelSwitchOn)setPanelOpen(true);else closePanel();
+renderSearchPanel()}
+// A click on one of the panel's controls: true when it was one.
+function panelClick(t){
+if(t.id==="search-panel-toggle"){flipSwitch();return true}
+if(t.id==="search-pills-fold"){pillsFolded=!pillsFolded;renderSearchPanel();return true}
+if(t.id==="search-slices-fold"){slicesFolded=!slicesFolded;renderSearchPanel();return true}
+if(t.classList.contains("query-pill-more")){toggleGroup(t.dataset.pillKey.replace("more:",""));return true}
+if(t.classList.contains("query-pill")){pillGesture("toggle",t.dataset.pillKey);return true}
+if(t.classList.contains("slice-entry")){sliceGesture("click",t.dataset.sliceKey);return true}
+return false}
+// The keys that type nothing but read a character ([ ] { } and p) stay off while a field has focus
+// and while a sheet, a card menu or the change tray is up, the page's counterparts of the web's key guard.
+function keysOff(){
+const a=document.activeElement;
+if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable))return true;
+return !!ctxMenuEl||modalOpen()||$("pend").style.display==="block"}
+// A chord (Ctrl, Cmd, Alt held with a key). AltGr is not one: on a layout with no brackets of its own
+// it is how they are typed, and the browser reports it as Ctrl and Alt together, with AltGraph on.
+function sliceKeyIsChord(e){
+const altGraph=typeof e.getModifierState==="function"&&e.getModifierState("AltGraph");
+return !!e.metaKey||((!!e.ctrlKey||!!e.altKey)&&!altGraph)}
+function panelKey(e){
+const k=e.key;
+if((k==="ContextMenu"||(k==="F10"&&e.shiftKey))&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+const b=e.target&&e.target.closest?e.target.closest(".slice-entry"):null;
+if(b){e.preventDefault();sliceGesture("keep",b.dataset.sliceKey)}
+return}
+if(SLICE_RUN_KEYS.includes(k)&&!sliceKeyIsChord(e)){
+if(keysOff())return;
+const now=sliceNow();
+if(!now.list.length)return;
+e.preventDefault();
+setRun(now,sliceRunStep(now.list,now.run,k));
+return}
+if(k&&k.toLowerCase()==="p"&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.repeat){
+if(keysOff())return;
+e.preventDefault();
+flipSwitch()}}
 function statusPills(){
 const row=el("div","pillrow");
 COLS.concat(["archive"]).forEach(k=>{
@@ -1417,6 +1683,7 @@ row.appendChild(b)});
 return row}
 function render(){
 buildNesting();
+renderSearchPanel();
 const board=$("board");board.replaceChildren();
 $("boardpills").replaceChildren(statusPills());
 // Each section (header + its cards) wraps in a .boardcol container at
@@ -2274,6 +2541,8 @@ ids.forEach(i=>{statusVis[i]=soloed?true:i===k})}
 // v1 — the native menu still shows for them.
 document.body.addEventListener("contextmenu",e=>{
 if(!fineMQ.matches)return;
+const qp=e.target.closest(".query-pill,.slice-entry");
+if(qp){e.preventDefault();closeCtxMenu();if(qp.classList.contains("slice-entry"))sliceGesture("keep",qp.dataset.sliceKey);else pillGesture("solo",qp.dataset.pillKey);return}
 const sp=e.target.closest("[data-st]");
 const pillEl=sp&&sp.dataset.act==="spill"?sp:null;
 const card=e.target.closest("#board [data-card]");
@@ -2370,6 +2639,10 @@ if(e.key==="Escape"){qClose();e.stopPropagation();return}
 if(e.key==="Enter"){if(qOn>=0)qPick(qItems[qOn]);else qClose();return}
 const d=e.key==="ArrowDown"?1:-1;
 qOn=qOn<0?(d>0?0:qItems.length-1):(qOn+d+qItems.length)%qItems.length;qMark()});
+$("q").addEventListener("focus",()=>{if(panelSwitchOn&&!panelOpen)setPanelOpen(true)});
+// A press anywhere outside the search bar closes the panel, as it closes any popup.
+document.addEventListener("mousedown",e=>{if(panelOpen&&!e.target.closest(".search-bar"))setPanelOpen(false)});
+document.addEventListener("keydown",panelKey);
 sc.addEventListener("touchmove",e=>e.stopPropagation(),{passive:true});
 sc.addEventListener("scroll",()=>{if(ctxMenuEl)closeCtxMenu()},{passive:true});
 // Thin sticky header: toggle .hdr.thin only when crossing the threshold,
@@ -2397,6 +2670,7 @@ if(ctxMenuEl&&!e.target.closest("#ctxmenu"))closeCtxMenu();
 const t=e.target.closest("button,select,input,textarea,[data-card],[data-mapnode],[data-coltoggle],[data-tap],[data-caldaytoggle],[data-calhrtoggle]");
 if(!t)return;
 if(t.dataset&&t.dataset.view!==undefined){switchView(t.dataset.view);return}
+if(panelClick(t))return;
 if(t.dataset&&t.dataset.coltoggle!==undefined){colOpen[t.dataset.coltoggle]=!colOpen[t.dataset.coltoggle];render();return}
 if(t.dataset&&t.dataset.caldaytoggle!==undefined){calDayOpen[t.dataset.caldaytoggle]=!calDayOpen[t.dataset.caldaytoggle];renderCalendar();return}
 if(t.dataset&&t.dataset.calhrtoggle!==undefined){calHrOpen[t.dataset.calhrtoggle]=!calHrOpen[t.dataset.calhrtoggle];renderCalendar();return}
@@ -2454,7 +2728,8 @@ if(act==="desccancel"){descEd=false;render();return}
 if(!act){if(t.closest("#modal"))return;sel=String(sel)===String(id)?null:id;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;render()}});
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeCard()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(ctxMenuEl){closeCtxMenu();return}
-if(sel!==null||creating||notifView)closeCard()}});
+if(sel!==null||creating||notifView){closeCard();return}
+if(closePanel())e.preventDefault()}});
 // Close guard (kanban.proj #251): with ops queued, warn before the page
 // goes away so a human doesn't lose an uncopied payload by accident. An
 // empty tray never registers any of this -- each handler early-returns on

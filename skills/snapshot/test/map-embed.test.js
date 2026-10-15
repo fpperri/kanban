@@ -33,7 +33,7 @@ test('a card that happens to contain the map module placeholder keeps its own te
 test('the modules and the page script load together without a name clash, and the page can call the map rules', () => {
   withSnapshot(BOARD, (html) => {
     const page = loadPage(html);
-    assert.strictEqual(page.scripts.length, 7, 'the nesting module, the map module, the slices module, the waiting rules, the search module, the type icons, then the page');
+    assert.strictEqual(page.scripts.length, 9, 'the nesting module, the map module, the slices module, the waiting rules, the search module, the type icons, the pill list, the run of slices, then the page');
     assert.ok(page.scripts[0].includes(nestingSource) && page.scripts[1].includes(mapSource));
     assert.strictEqual(page.run('typeof mapShapeRelations + typeof mapOrderRow + typeof mapParentLineEnds'), 'functionfunctionfunction');
     assert.strictEqual(page.run('MAP_OPTION_DEFAULTS.parentLines'), 'chain');

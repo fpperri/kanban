@@ -37,6 +37,20 @@ Gantt / Calendar, and the header carries search and a notifications bell. Cards
 show the same cues as the desktop board — here `#7` wears the amber **waiting**
 tag.
 
+## Search panel
+
+The search box has a panel of slices and pills under it, the web board's panel without its Isolate
+switch. Focusing the box opens it, and the arrow at the end of the box switches that off and on (so
+does the `p` key). The pill section lists blocked, review and waiting, then the board's own pills
+from `config.yaml`, a `field:*` entry giving one pill per value, eight shown and the rest behind
+**+N more**. Pills filter: a click turns one on, its query joining the box as one more alternative,
+a right-click keeps only that pill, and each shows how many cards it leaves. The slice section,
+folded to start, lists the tiers the board uses with their icons, then the depths, each with a count;
+a click grows or shrinks the run, a right-click keeps only that slice, and `[` `]` `{` `}` move the
+run's ends. Counts are taken over the cards the status pills and Archive leave, before the box and
+the cut, so turning a pill on never changes the others. With the panel closed, a chip in the box
+counts what is on. There is no Isolate switch here, since the page has no selection to isolate.
+
 ## Nested cards
 
 A card with a `type` wears a chip in the color `config.yaml` gives that type.
