@@ -177,11 +177,13 @@ def _flow_list(raw):
     inner = s[1:] if close == -1 else s[1:close]
     return [v for v in (_scalar(i) for i in inner.split(",")) if v]
 
-def _config_list(kanban_dir, key):
+def _config_list(kanban_dir, key, inline_replaces=False):
     """The top-level `key:` list as (flow items, block lines): `key: [a, b]`
     gives the items, `key:` alone gives the indented lines under it. A comment
     after the key still opens the block, as the skill's sample config writes
-    it. One reader for every list, matching kanban-web's config-store."""
+    it. One reader for every list, matching kanban-web's config-store. With
+    `inline_replaces`, a later inline form of the key drops what an earlier
+    block gave, as the config-store does for the hierarchy."""
     flow, block, in_block = [], [], False
     for line in _config_text(kanban_dir).splitlines():
         top = re.match(r"^(\w+):\s*(.*)$", line)
@@ -193,6 +195,8 @@ def _config_list(kanban_dir, key):
                     in_block = True
                 else:
                     flow = _flow_list(rest)
+                    if inline_replaces:
+                        block = []
             continue
         if in_block:
             block.append(line)
@@ -300,6 +304,21 @@ def read_pills(kanban_dir):
         if pill:
             pills.append(pill)
     return pills
+
+def read_hierarchy(kanban_dir):
+    """config.yaml's `hierarchy:` as the type names written, top tier first,
+    read as kanban-web's config-store reads it: blank and comment-only entries
+    skipped, a scalar value answering none. Names stay as written, duplicates
+    and letter case included: the embedded slices module folds them."""
+    flow, block = _config_list(kanban_dir, "hierarchy", inline_replaces=True)
+    names = list(flow)
+    for line in block:
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        text = item.group(1).strip() if item else ""
+        name = "" if text[:1] == "#" else _scalar(text)
+        if name:
+            names.append(name)
+    return names
 
 def read_priorities(kanban_dir):
     return _config_scalars(kanban_dir, "priorities")
@@ -419,6 +438,7 @@ def main():
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
                     .replace("__TYPES__", emb(read_types(a.kanban_dir)))
                     .replace("__PILLS__", emb(read_pills(a.kanban_dir)))
+                    .replace("__HIERARCHY__", emb(read_hierarchy(a.kanban_dir)))
                     .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
                     .replace("__DATA__", emb(cards))
@@ -875,6 +895,8 @@ const ASGCOL=__ASSIGNEE_COLORS__;
 const TYPES=__TYPES__;
 // The board's own one-click queries from config.yaml, in the order written: [{label, query}].
 const PILLS=__PILLS__;
+// The board's hierarchy from config.yaml: type names as written, top tier first. The embedded slices module folds case and duplicates.
+const HIERARCHY=__HIERARCHY__;
 const PRIOS=__PRIORITIES__;
 // Assignee color: a reserved config.yaml `color:` wins (painted exactly as
 // given); else the handle hashes into the SAME --hash-a.."h" token family
