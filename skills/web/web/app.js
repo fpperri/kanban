@@ -1333,11 +1333,16 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
   return row;
 }
 
-const PILL_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle';
+const PILL_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn';
 
+// What finds a status pill or a toggle again after a render: its class and what names it,
+// a column or a section, or for a button of the Graph's option row its option and its value.
 function pillSelector(el) {
-  const key = el.dataset.col !== undefined ? 'col' : 'section';
-  return `.${el.classList[0]}[data-${key}="${String(el.dataset[key]).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+  const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
+  if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
+  if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
+  return `.${el.classList[0]}${named('section')}`;
 }
 
 function focusedPill() {

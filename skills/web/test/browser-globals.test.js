@@ -11,7 +11,10 @@ const path = require('node:path');
 // by some runner file.
 const PAGE_GLOBALS = [
   'autoRefreshTick',
+  'boardControlFocused',
   'graphCur',
+  'graphFanLines',
+  'graphLoadOptions',
   'graphNeighbours',
   'hoveredId',
   'isDragging',
