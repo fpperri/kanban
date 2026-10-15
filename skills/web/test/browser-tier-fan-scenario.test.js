@@ -8,7 +8,7 @@ const { DOT_SHAPES } = require('./browser/scenarios/type-icons');
 const {
   graphBuild, graphFanPlace, graphLayout, graphPlan, graphFit, graphZoomAt,
 } = require('./../web/graph-model');
-const { loadBoard, cleanUp } = require('./helpers/fan-boards');
+const { loadBoard, cleanUp, captionRects } = require('./helpers/fan-boards');
 
 // The tier-fan scenario only runs in a browser (in CI). Here its lists are held
 // to the real board readers and the Graph model over each fixture board's own
@@ -114,29 +114,25 @@ test('the malformed board names two tiers, each twice, a depth ring and a loose 
 // answers: dots, edges, marks, sectors, shapes, rects, zoomFactor and the flags
 // below.
 const STAGE = { l: 0, t: 120, r: 1500, b: 900 };
-const textW = (text) => text.length * 6.2;
 
-function screenRects(v, zoomed, factor) {
+// Where the stage frames the fan: Fit on STAGE, zoomed in once if the page was, and
+// the zoom factor the test asks for on top.
+function frameOf(v, zoomed, factor) {
   const w = STAGE.r - STAGE.l;
   const h = STAGE.b - STAGE.t;
   let fit = graphFit(v.layout.bounds, w, h);
   if (zoomed) fit = graphZoomAt(fit, w / 2, h / 2, 1.5);
   if (factor !== 1) fit = { ...fit, k: fit.k * factor };
+  return fit;
+}
+
+// What the page measures on screen at `fit`: the stage, each dot, each caption (the
+// text boxes the helpers measure) and the block's frame.
+function screenRects(v, fit) {
   const sx = (x) => STAGE.l + fit.x + x * fit.k;
   const sy = (y) => STAGE.t + fit.y + y * fit.k;
-  const text = (t, x, y, em, size, anchor) => {
-    const width = textW(`${t.name} ${t.count}`);
-    const base = sy(y) + parseFloat(em || '0') * size;
-    const left = anchor === 'middle' ? sx(x) - width / 2 : sx(x);
-    return { text: `${t.name}${t.count}`, l: left, t: base - size, r: left + width, b: base + 3 };
-  };
   const plan = v.plan;
-  const captions = plan.captions.map((c) => text(c, c.x, c.y, c.dy, 11, 'middle'));
-  if (plan.looseCaption) captions.push(text(plan.looseCaption, plan.looseCaption.x, plan.looseCaption.y, plan.looseCaption.dy, 11, 'start'));
-  if (plan.block) {
-    captions.push(text(plan.block.title, plan.block.title.x, plan.block.title.y, plan.block.title.dy, 13, 'start'));
-    for (const c of plan.block.columns) captions.push(text(c.caption, c.caption.x, c.caption.y, '0', 11, 'start'));
-  }
+  const captions = captionRects(plan, fit).map((r) => ({ text: r.name, l: STAGE.l + r.l, t: STAGE.t + r.t, r: STAGE.l + r.r, b: STAGE.t + r.b }));
   const b = plan.block;
   return {
     stage: STAGE,
@@ -144,6 +140,13 @@ function screenRects(v, zoomed, factor) {
     captions,
     block: b ? { l: sx(b.x), t: sy(b.y), r: sx(b.x + b.w), b: sy(b.y + b.h) } : null,
   };
+}
+
+// The four ends of the outermost ring on screen, with the stage.
+function screenCircle(v, fit) {
+  const R = Math.max(0, ...v.layout.rings.map((r) => r.r));
+  const at = (x, y) => ({ x: STAGE.l + fit.x + x * fit.k, y: STAGE.t + fit.y + y * fit.k });
+  return { stage: STAGE, points: [at(-R, 0), at(R, 0), at(0, -R), at(0, R)] };
 }
 
 function standIn(over = {}) {
@@ -212,8 +215,19 @@ function standIn(over = {}) {
       }
       if (expr === scenario.RECTS) {
         const phase = zoomed ? 'zoomed' : 'fitted';
-        const r = screenRects(view(), zoomed, over.zoomFactor ? over.zoomFactor(phase, key) : 1);
+        const v = view();
+        const r = screenRects(v, frameOf(v, zoomed, over.zoomFactor ? over.zoomFactor(phase, key) : 1));
         return over.rects ? over.rects(key, r, phase) : r;
+      }
+      if (expr === scenario.CIRCLE) {
+        const phase = zoomed ? 'zoomed' : 'fitted';
+        const v = view();
+        const c = screenCircle(v, frameOf(v, zoomed, over.zoomFactor ? over.zoomFactor(phase, key) : 1));
+        return over.circle ? over.circle(key, c, phase) : c;
+      }
+      if (expr === scenario.SWEEP) {
+        const { fan } = view().layout;
+        return over.sweep ? over.sweep(key, { from: fan.from, to: fan.to }) : { from: fan.from, to: fan.to };
       }
       if (expr === DOT_SHAPES) {
         const shapes = {};
@@ -263,6 +277,14 @@ test('the checks the card asks for are each in the scenario', async () => {
   has(/plan: with the Archive pill on, an archived loose card without a tier shows in the block's archived column/);
   has(/plan: after Fit every dot, every caption and the Unnested block lie inside the canvas/);
   has(/plan: the first draw frames every dot, every caption and the Unnested block/);
+  has(/plan: the first draw frames the whole circle/);
+  has(/plan: after Fit the whole circle lies inside the canvas/);
+  has(/plan: no two captions overlap at the first draw/);
+  has(/plan: no two captions overlap after Fit/);
+  has(/fixture: the first draw frames the whole circle, and no two captions overlap/);
+  has(/plan: the fan sweeps all but a narrow seam of the circle, and its dots are in every quarter of it/);
+  has(/plan: no dot stands on the seam/);
+  has(/plan: the captions stand up the seam at the top, neighbours on opposite sides of it/);
   has(/plan: in the fan a star-typed card's dot is a star/);
   has(/plan: and a card of the unknown-icon type has a round dot/);
   has(/plan: force draws no arc, caption, divider or block/);
@@ -420,6 +442,51 @@ test('a first draw or a Fit that leaves a dot, a caption or the block outside th
   assert.ok(failed(block).includes('fixture: the first draw frames every dot, every caption and the Unnested block'));
 });
 
+test('a fan over half the circle, or a dot on the seam, fails', async () => {
+  const half = await run({ dots: (key, all) => {
+    if (key === 'plan') for (const id of Object.keys(all)) if (all[id] && all[id].y < 0) all[id] = { x: all[id].x, y: -all[id].y };
+    return all;
+  } });
+  assert.ok(failed(half).includes('plan: the fan sweeps all but a narrow seam of the circle, and its dots are in every quarter of it'), failed(half).join('; '));
+  const short = await run({ sweep: (key, s) => (key === 'plan' ? { from: s.from, to: 0.3 } : s) });
+  assert.ok(failed(short).includes('plan: the fan sweeps all but a narrow seam of the circle, and its dots are in every quarter of it'));
+  const seam = await run({ dots: (key, all) => { if (key === 'plan') all[3] = { x: 0, y: -300 }; return all; } });
+  assert.ok(failed(seam).includes('plan: no dot stands on the seam'), failed(seam).join('; '));
+});
+
+test('captions that do not stand up the seam, on opposite sides, fail', async () => {
+  const oneSide = await run({ marks: (key, m) => { if (key === 'plan') for (const c of m.captions) c.x = -Math.abs(c.x); return m; } });
+  assert.ok(failed(oneSide).includes('plan: the captions stand up the seam at the top, neighbours on opposite sides of it'), failed(oneSide).join('; '));
+  const flat = await run({ marks: (key, m) => { if (key === 'plan') for (const c of m.captions) c.y = 0; return m; } });
+  assert.ok(failed(flat).includes('plan: the captions stand up the seam at the top, neighbours on opposite sides of it'));
+});
+
+test('two captions on top of one another fail, at the first draw and after Fit, on the plan board and the fixture board', async () => {
+  let reads = 0;
+  const first = await run({ rects: (key, r) => {
+    if (key === 'plan' && reads++ === 0) r.captions[1] = { ...r.captions[0], text: 'on top' };
+    return r;
+  } });
+  assert.ok(failed(first).includes('plan: no two captions overlap at the first draw'), failed(first).join('; '));
+  assert.ok(!failed(first).includes('plan: no two captions overlap after Fit'));
+  const fit = await run({ rects: (key, r, phase) => {
+    if (key === 'plan' && phase === 'fitted' && reads++ > 0) r.captions[1] = { ...r.captions[0], text: 'on top' };
+    return r;
+  } });
+  assert.ok(failed(fit).includes('plan: no two captions overlap after Fit'), failed(fit).join('; '));
+  const fixture = await run({ rects: (key, r) => { if (key === 'fixture') r.captions[1] = { ...r.captions[0], text: 'on top' }; return r; } });
+  assert.ok(failed(fixture).includes('fixture: the first draw frames the whole circle, and no two captions overlap'), failed(fixture).join('; '));
+});
+
+test('a first draw or a Fit that leaves the circle outside the canvas fails', async () => {
+  const first = await run({ zoomFactor: (phase, key) => (key === 'plan' && phase === 'fitted' ? 2 : 1) });
+  assert.ok(failed(first).includes('plan: the first draw frames the whole circle'), failed(first).join('; '));
+  const fit = await run({ fitDoesNothing: true });
+  assert.ok(failed(fit).includes('plan: after Fit the whole circle lies inside the canvas'), failed(fit).join('; '));
+  const top = await run({ circle: (key, c) => { if (key === 'plan') c.points[2].y = c.stage.t - 10; return c; } });
+  assert.ok(failed(top).includes('plan: the first draw frames the whole circle'), failed(top).join('; '));
+});
+
 test('a star-typed card drawn round, or an unknown icon drawn as a shape, fails', async () => {
   const round = await run({ shapes: (key, s) => { if (key === 'plan') s[1] = 'circle'; return s; } });
   assert.ok(failed(round).includes('plan: in the fan a star-typed card\'s dot is a star'), failed(round).join('; '));
@@ -459,6 +526,23 @@ test('outsideStage names what lies outside the stage, with a pixel of slack', ()
   assert.deepStrictEqual(scenario.outsideStage({ stage, dots: [], captions: [], block: null }), []);
 });
 
+test('overlapping names the captions whose boxes share more than a pixel, and circleOutside the ends of the circle off the stage', () => {
+  const box = (text, l, t, r, b) => ({ text, l, t, r, b });
+  assert.deepStrictEqual(scenario.overlapping([box('a', 0, 0, 50, 10), box('b', 40, 5, 90, 15), box('c', 49.5, 0, 80, 10), box('d', 0, 20, 50, 30)]), ['a and b', 'b and c'], 'a and c share half a pixel, which is slack');
+  assert.deepStrictEqual(scenario.overlapping([box('a', 0, 0, 50, 10), box('b', 0, 10, 50, 20)]), [], 'boxes that touch do not overlap');
+  const stage = { l: 0, t: 0, r: 100, b: 100 };
+  assert.deepStrictEqual(scenario.circleOutside({ stage, points: [{ x: 10, y: 50 }, { x: 90, y: 50 }, { x: 50, y: 10 }, { x: 50, y: 90 }] }), []);
+  assert.strictEqual(scenario.circleOutside({ stage, points: [{ x: -1, y: 50 }, { x: 90, y: 50 }, { x: 50, y: 10 }, { x: 50, y: 101 }] }).length, 2);
+  assert.strictEqual(scenario.circleOutside(null).length, 1, 'no circle is a failure');
+});
+
+test('turned reads an angle round the sweep, so a dot left of the seam is turned past the start of the sweep', () => {
+  const sweep = { from: 1.5 * Math.PI - 0.1, to: -Math.PI / 2 + 0.1 };
+  assert.ok(Math.abs(scenario.turned({ x: -1, y: 0 }, sweep) - Math.PI) < 1e-9);
+  assert.ok(scenario.turned({ x: -0.5, y: -1 }, sweep) <= sweep.from, 'a dot beside the seam but outside it');
+  assert.ok(scenario.turned({ x: 0, y: -1 }, sweep) > sweep.from, 'a dot straight up is in the seam');
+});
+
 test('finiteMarks wants arcs, captions and finite numbers everywhere', () => {
   const cap = { name: 'goal', count: 2, kind: 'tier', x: -10, y: 0 };
   const ok = { guides: ['M-88 0A88 88 0 0 0 87.14 12.25'], dividers: [[0, 0, 5, 5]], captions: [cap], loose: null, block: null };
@@ -479,7 +563,7 @@ test('the scenario waits on the page, never on a fixed sleep', () => {
 });
 
 test('every scenario expression parses, so a typo does not wait for CI', () => {
-  const exprs = [scenario.DOTS, scenario.BAND_EDGES, scenario.FAN_MARKS, scenario.SECTORS, scenario.RECTS, scenario.TIERS_PRESSED, scenario.DRAWN,
+  const exprs = [scenario.DOTS, scenario.BAND_EDGES, scenario.FAN_MARKS, scenario.SECTORS, scenario.SWEEP, scenario.CIRCLE, scenario.RECTS, scenario.TIERS_PRESSED, scenario.DRAWN,
     scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.layoutIs('force'), scenario.pickLayout('status'),
     scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES];
   for (const e of exprs) assert.doesNotThrow(() => new vm.Script(e), e.slice(0, 60));
