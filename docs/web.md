@@ -129,9 +129,11 @@ per board, with **Tiers** first:
   without a tier; each tree gets its own sector, loose cards with a tier share
   one, and the other loose cards sit in an Unnested block outside the fan, a
   column for each status. Each band has a faint arc and a caption with its name
-  and count up the seam at the top, there is a divider between sectors, and the
-  Unnested block is titled with its count and each column is captioned with its
-  status and count. Fit and the first draw frame all of it.
+  up the seam at the top, there is a divider between sectors, and the Unnested
+  block is titled and each column is captioned with its status. A caption shows
+  its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
+  with its count, its split by status and the `slice:` term that cuts to it. Fit
+  and the first draw frame all of it.
 - **Force** pulls related cards together and rings the unrelated ones round the
   edge.
 - **Status** makes one ring per status, with the last column innermost (done,
