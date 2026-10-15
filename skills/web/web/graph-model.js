@@ -128,6 +128,48 @@ function graphNeighbours(model, id) {
   return out;
 }
 
+// --- lighting ------------------------------------------------------------------
+// The Graph dims everything but a lit set. One lit set drives the dimming whoever
+// asks: the pointer on a card, a lone card picked by a click, a selection, a typed
+// query's matches. A lit set is { nodes: Set of card ids, links: Set of indexes
+// into model.links } or null when there is nothing to light, which dims nothing.
+
+// The cards among `ids` that the Graph draws, and the relations that run between
+// two of them.
+function graphLit(model, ids) {
+  const nodes = new Set();
+  for (const id of ids || []) if (model.byId.has(id)) nodes.add(id);
+  if (!nodes.size) return null;
+  const links = new Set();
+  model.links.forEach((l, i) => {
+    if (nodes.has(l.from) && nodes.has(l.to)) links.add(i);
+  });
+  return { nodes, links };
+}
+
+// What a query typed in the Graph does, as one decision: which cards it hides
+// and which it lights. `match` is the page's shared match result for the box
+// ({ terms, ids }, ids null when there is no query). A typed query is the anchor
+// of the selection, so it hides nothing: visibleIds is null, the way
+// graphVisibleIds reads "draw everything", and it lights exactly its matches,
+// done cards included. A top-level slice: term is the one thing that hides, the
+// cards outside its cut (R1), and the rest of the query lights; isolate, which
+// shows only the lit cards, changes this decision and nothing else.
+function graphQueryEffect(match) {
+  const ids = match && match.ids ? match.ids : null;
+  return { visibleIds: null, litIds: ids };
+}
+
+// What the Graph lights when the pointer is not on a card. A lone card picked by
+// a click lights with its one-hop relations, as hovering it does (R2); any other
+// selection, a typed query's matches included, lights its own cards and the lines
+// between them, so a query that matches one card lights that card alone.
+// `loneCardId` is the selection's one card part, or null.
+function graphRestLit(model, { selectedIds, loneCardId }) {
+  if (loneCardId !== null && loneCardId !== undefined && model.byId.has(loneCardId)) return graphLit(model, graphNeighbours(model, loneCardId));
+  return graphLit(model, selectedIds);
+}
+
 // --- layout plumbing -----------------------------------------------------------
 
 function graphFinish(model, pos, rings, spokes, titles) {
@@ -568,7 +610,7 @@ function graphPlan(model, layout, opts) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_LAYOUTS, mergeGraphLayout,
-    graphBuild, graphRadius, graphNeighbours,
+    graphBuild, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
@@ -580,6 +622,9 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphBuild = graphBuild;
   window.graphRadius = graphRadius;
   window.graphNeighbours = graphNeighbours;
+  window.graphLit = graphLit;
+  window.graphQueryEffect = graphQueryEffect;
+  window.graphRestLit = graphRestLit;
   window.graphLayoutTiers = graphLayoutTiers;
   window.graphLayoutStatus = graphLayoutStatus;
   window.graphLayoutForce = graphLayoutForce;
