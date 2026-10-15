@@ -1378,6 +1378,34 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .notif-more p { margin: 0; }
 .notif-more ul { margin: 0 0 0 1.15em; }
 .notif-more li { margin: 0.28em 0; }
+
+/* Preferences sheet: the gear in the header and the full-height sheet it opens
+   from the right, on the modal backdrop. Colours come from the tokens. The
+   slide-in is an animation that plays each time the sheet stops being .hidden,
+   so no script sets a class or a style for it. */
+.prefs-btn { display: inline-flex; align-items: center; padding: 6px 8px; }
+.prefs-btn svg { width: 15px; height: 15px; }
+.prefs-btn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.prefs-backdrop { justify-content: flex-end; align-items: stretch; }
+.prefs-sheet { width: min(380px, 100vw); height: 100vh; overflow-y: auto; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop); padding: 20px; display: flex; flex-direction: column; gap: 22px; animation: prefs-slide 160ms ease-out; }
+@keyframes prefs-slide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .prefs-sheet { animation: none; } }
+.prefs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.prefs-head h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.prefs-group { display: flex; flex-direction: column; gap: 10px; }
+.prefs-group h3 { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.prefs-hint { color: var(--mut); font-size: 0.8em; line-height: 1.5; }
+.prefs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.prefs-label { color: var(--ink); font-size: 0.9em; }
+.prefs-seg { display: inline-flex; }
+.prefs-opt { border-radius: 0; font-size: 0.8em; }
+.prefs-opt + .prefs-opt { margin-left: -1px; }
+.prefs-opt:first-child { border-top-left-radius: .15rem; border-bottom-left-radius: .15rem; }
+.prefs-opt:last-child { border-top-right-radius: .15rem; border-bottom-right-radius: .15rem; }
+.prefs-opt[aria-pressed="true"] { position: relative; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.prefs-opt:disabled { cursor: default; }
+.prefs-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 0.9em; cursor: pointer; }
+/* End preferences sheet */
 .notif-more li::marker { color: var(--mut); }
 .notif-message code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.08em 0.32em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .notif-level { margin-left: 8px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }

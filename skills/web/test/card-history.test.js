@@ -144,8 +144,8 @@ test('every user-gesture call site opens through the openCard wrapper, not openD
     `expected exactly 5 raw openDetailModal( call sites (definition, openCard's own call, consumeDeepLink, popstate handler, refreshOpenDetail) — found ${rawCalls}; ` +
     'a new one should probably go through openCard() instead so Alt+Left/Alt+Right can see it');
   const wrapperCalls = [...APP.matchAll(/[^.\w]openCard\(/g)].length;
-  assert.strictEqual(wrapperCalls, 5,
-    `expected the openCard definition plus 4 call sites (mention, tray, map ghost, tile) — found ${wrapperCalls}`);
+  assert.strictEqual(wrapperCalls, 6,
+    `expected the openCard definition plus 5 call sites (mention, tray, map ghost, tile, the double-click and Enter delegate) — found ${wrapperCalls}`);
 });
 
 test('popstate bails out while any popup other than the detail popup itself is open', () => {

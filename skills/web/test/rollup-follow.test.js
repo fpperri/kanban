@@ -73,7 +73,7 @@ function detailSandbox({ mode, detailId = null, archivedKey, archivedDone, archi
   vm.createContext(sandbox);
   vm.runInContext([...rollupState(), ...prefsState(), `let currentDetailId = ${detailId};`,
     fn('boardStatuses'), ...rollupPrefs(), fn('nestingCtx'), fn('buildNestingIndex'),
-    fn('paintRollupBars'), fn('renderDetailRollup'), fn('toggleRollupBar')].join('\n'), sandbox);
+    fn('paintRollupBars'), fn('renderDetailRollup'), fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar')].join('\n'), sandbox);
   vm.runInContext('renderDetailRollup = ((orig) => (id) => { calls.detail.push(id); return orig(id); })(renderDetailRollup);', sandbox);
   return sandbox;
 }
@@ -324,7 +324,10 @@ test('a click on a bar with no detail open repaints only the board, and the flip
   assert.match(reloaded.box.innerHTML, /rollup-bar thin/);
 });
 
-test('the bar mode is only ever set by the click toggle, never by a control', () => {
+test('the bar mode has one setter, called only by the click toggle and by the preferences sheet', () => {
   const sets = [...appSrc.matchAll(/\brollupBarMode = ([^;]*);/g)].map((m) => m[1]);
-  assert.deepStrictEqual(sets.sort(), ['mergeRollupBar(saved)', 'nextRollupBar(loadRollupBarMode())', 'null', 'null']);
+  assert.deepStrictEqual(sets.sort(), ['mergeRollupBar(mode)', 'mergeRollupBar(saved)', 'null', 'null']);
+  const callers = [...appSrc.matchAll(/function (\w+)\([^)]*\) \{[^]*?\n\}/g)]
+    .filter((m) => m[1] !== 'setRollupBarMode' && /\bsetRollupBarMode\(/.test(m[0])).map((m) => m[1]);
+  assert.deepStrictEqual(callers.sort(), ['onPrefsSheetClick', 'toggleRollupBar']);
 });

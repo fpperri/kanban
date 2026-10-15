@@ -55,6 +55,20 @@ function mergePrefs(saved) {
   return prefs;
 }
 
+// The set with one change from the sheet applied: { click: { board: 'selects' } }
+// or { archivedDone: false }. The change goes through the same validation as a
+// stored value, so one the sheet cannot make (a bad choice, the Graph set to
+// opens) leaves the set as it was. The set passed in is not touched.
+function prefsWith(prefs, change) {
+  const next = mergePrefs(prefs);
+  const click = prefsIsObject(change && change.click) ? change.click : {};
+  for (const view of PREFS_CLICK_VIEWS) {
+    if (Object.prototype.hasOwnProperty.call(click, view) && PREFS_CLICK_CHOICES.includes(click[view])) next.click[view] = click[view];
+  }
+  if (change && typeof change.archivedDone === 'boolean') next.archivedDone = change.archivedDone;
+  return next;
+}
+
 function loadPrefs(storage, projectName) {
   let saved = null;
   try { saved = storage.getItem(PREFS_COLUMN_STATE.storageKey(projectName, PREFS_FEATURE)); }
@@ -68,7 +82,7 @@ function savePrefs(storage, projectName, prefs) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { PREFS_FEATURE, PREFS_CLICK_VIEWS, PREFS_CLICK_CHOICES, PREFS_GRAPH_CLICK, prefsDefaults, mergePrefs, loadPrefs, savePrefs };
+  module.exports = { PREFS_FEATURE, PREFS_CLICK_VIEWS, PREFS_CLICK_CHOICES, PREFS_GRAPH_CLICK, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs };
 } else {
   window.PREFS_FEATURE = PREFS_FEATURE;
   window.PREFS_CLICK_VIEWS = PREFS_CLICK_VIEWS;
@@ -76,6 +90,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.PREFS_GRAPH_CLICK = PREFS_GRAPH_CLICK;
   window.prefsDefaults = prefsDefaults;
   window.mergePrefs = mergePrefs;
+  window.prefsWith = prefsWith;
   window.loadPrefs = loadPrefs;
   window.savePrefs = savePrefs;
 }

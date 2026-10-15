@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { PREFS_FEATURE, prefsDefaults, mergePrefs, loadPrefs, savePrefs } = require('../web/prefs');
+const { PREFS_FEATURE, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs } = require('../web/prefs');
 
 // The preferences kept in the browser per board: what a plain click on a card
 // does in each view, and whether archived leaves count as done. The roll-up
@@ -138,4 +138,26 @@ test('what is saved is the merged, validated set, never what the caller passed i
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
     archivedDone: true,
   });
+});
+
+test('one view\'s choice changes alone, and the set passed in is not touched', () => {
+  const prefs = prefsDefaults();
+  const next = prefsWith(prefs, { click: { board: 'selects' } });
+  assert.deepStrictEqual(next.click, { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' });
+  assert.strictEqual(next.archivedDone, true);
+  assert.deepStrictEqual(prefs, DEFAULTS, 'the set passed in is left as it was');
+});
+
+test('the archived-leaves choice changes alone', () => {
+  const next = prefsWith(prefsDefaults(), { archivedDone: false });
+  assert.strictEqual(next.archivedDone, false);
+  assert.deepStrictEqual(next.click, DEFAULTS.click);
+});
+
+test('a change the sheet cannot make is dropped: a bad choice, the Graph set to opens, a view that is not listed', () => {
+  const prefs = prefsWith(prefsWith(prefsDefaults(), { click: { board: 'selects', map: 'selects' } }), { archivedDone: false });
+  const next = prefsWith(prefs, { click: { graph: 'opens', map: 'both', board: 7, list: 'selects' }, archivedDone: 'no' });
+  assert.deepStrictEqual(next, prefs, 'what was chosen stays chosen');
+  assert.deepStrictEqual(prefsWith(prefs, null), prefs);
+  assert.deepStrictEqual(prefsWith(prefs, {}), prefs);
 });
