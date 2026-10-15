@@ -38,9 +38,18 @@ const GRAPH_CHECKS = [
   'the 5s poll keeps the user pan', 'layout choice survives a reload (view.mode + graph.layout)', 'toggle returns to the board',
 ];
 
-test('the runner knows a graph scenario and a smoke scenario, with unique names', () => {
+// The checks of the single-key shortcuts' browser drive, which ran after the
+// Graph's and now run on their own.
+const KEY_GUARD_CHECKS = [
+  'with nothing open, / focuses the search box', 'in a text field outside any dialog, / is left to the field',
+  'Ctrl+F in a text field outside any dialog still focuses the search box', 'with a dialog open, / leaves focus in the dialog',
+  'with a dialog open, Ctrl+F leaves the browser find bar alone', 'Escape closes the dialog', 'a right-click on a card opens its menu',
+  'with a card menu open, / does nothing', 'with a card menu open, Ctrl+F leaves the browser find bar alone', 'Escape closes the card menu',
+];
+
+test('the runner knows a graph, a key-guard and a smoke scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['graph', 'smoke']);
+  assert.deepStrictEqual(names, ['graph', 'key-guard', 'smoke']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -142,4 +151,16 @@ test('a smoke scenario that throws is FAIL under its name while the other scenar
   const results = await runScenarios([broken, fine], env, { timeoutMs: 1000, log: () => {} });
   assert.deepStrictEqual(results.map((r) => [r.name, r.status]), [['smoke', 'FAIL'], ['graph', 'PASS']]);
   release('done');
+});
+
+test('the key-guard scenario runs on the fixture board and keeps every check the single-key drive made', () => {
+  assert.strictEqual(byName('key-guard').board, 'fixture');
+  const src = source('key-guard.js');
+  assert.deepStrictEqual(KEY_GUARD_CHECKS.filter((n) => !src.includes(`check('${n}'`)), []);
+  const made = [...src.matchAll(/\bcheck\('((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]);
+  assert.deepStrictEqual(made.filter((n) => !KEY_GUARD_CHECKS.includes(n)), []);
+});
+
+test('the key-guard scenario opens the card menu with the right-click helper', () => {
+  assert.ok(/page\.rightClick\('#board \.card-el'\)/.test(source('key-guard.js')));
 });

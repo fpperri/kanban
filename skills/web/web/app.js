@@ -3022,16 +3022,49 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- Search box wiring: live filter-as-you-type, clear button,
-// `/` focuses the box (skipped while any input/textarea/select/contentEditable
-// already has focus, so it doesn't hijack typing elsewhere — including inside
-// either modal, whose fields are all one of those tag names). Ctrl+F/Cmd+F
-// also focuses it, with its own `#`-prefill/select-all
-// logic — see the keydown listener below.
+// `/` focuses the box. Both it and Ctrl+F/Cmd+F read the shared key guard
+// (key-guard.js): `/` types a character, so it stays off while a field has
+// focus and while a menu, a dialog, the notifications panel or the preferences
+// sheet is open; Ctrl+F types nothing, so it reads only the surface check and
+// still works from inside a text field. Ctrl+F has its own `#`-prefill/
+// select-all logic — see onSearchChordKey.
 function clearSearch() {
   const input = $('#search-input');
   if (!input || !input.value) return;
   input.value = '';
   renderBoard();
+}
+
+function onSearchSlashKey(e) {
+  if (e.key !== '/' || keyGuardOff(document)) return;
+  e.preventDefault();
+  $('#search-input').focus();
+}
+
+// Ctrl+F / Cmd+F: focus the search box, preventDefault
+// on the browser's own find bar. search-hotkey.js owns the chord + value
+// decision — an empty box gets "#" prefilled with the caret right after it
+// (typing digits immediately forms the #<id> exact-match term), a box that
+// already holds a query gets select-all instead, so the chord never
+// silently clobbers a query someone already typed (typing overwrites the
+// selection, same as any focused input). Suppressed while a surface is open
+// (keyGuardSurface — the poll's modal test plus the card menu, the
+// notifications panel and the preferences sheet): a popup's .modal-backdrop
+// covers the whole viewport, so the search bar sits hidden behind it; the
+// browser's native find stands in that case instead — mirror of Ctrl+S, which
+// only fires INSIDE a popup, this one only fires OUTSIDE one. Unlike the "/"
+// hotkey, no typing check is needed: Ctrl+F never inserts a literal
+// character into whatever's focused, so there's nothing for it to hijack.
+function onSearchChordKey(e) {
+  const input = $('#search-input');
+  const result = searchHotkeyPrefill(e, { modalOpen: keyGuardSurface(document) !== null, currentValue: input.value });
+  if (!result) return;
+  e.preventDefault();
+  const changed = result.value !== input.value;
+  input.value = result.value;
+  if (changed) renderBoard();
+  input.focus();
+  input.setSelectionRange(result.selectionStart, result.selectionEnd);
 }
 
 // Append a scoped term to whatever's already in the search
@@ -3067,38 +3100,8 @@ window.addEventListener('DOMContentLoaded', () => {
     renderBoard();
   });
   $('#search-clear-btn').addEventListener('click', clearSearch);
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== '/') return;
-    const active = document.activeElement;
-    const tag = active && active.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (active && active.isContentEditable)) return;
-    e.preventDefault();
-    input.focus();
-  });
-  // Ctrl+F / Cmd+F: focus the search box, preventDefault
-  // on the browser's own find bar. search-hotkey.js owns the chord + value
-  // decision — an empty box gets "#" prefilled with the caret right after it
-  // (typing digits immediately forms the #<id> exact-match term), a box that
-  // already holds a query gets select-all instead, so the chord never
-  // silently clobbers a query someone already typed (typing overwrites the
-  // selection, same as any focused input). Suppressed while any modal/popup
-  // is open (anyModalOpen(), the same guard the 5s poll uses) — every
-  // popup's .modal-backdrop covers the whole viewport, so the search bar
-  // sits hidden behind it; browser's native find stands in that case
-  // instead — mirror of Ctrl+S, which only fires INSIDE a popup,
-  // this one only fires OUTSIDE one. Unlike the "/" hotkey above, no
-  // active-element check is needed: Ctrl+F never inserts a literal
-  // character into whatever's focused, so there's nothing for it to hijack.
-  document.addEventListener('keydown', (e) => {
-    const result = searchHotkeyPrefill(e, { modalOpen: anyModalOpen(), currentValue: input.value });
-    if (!result) return;
-    e.preventDefault();
-    const changed = result.value !== input.value;
-    input.value = result.value;
-    if (changed) renderBoard();
-    input.focus();
-    input.setSelectionRange(result.selectionStart, result.selectionEnd);
-  });
+  document.addEventListener('keydown', onSearchSlashKey);
+  document.addEventListener('keydown', onSearchChordKey);
   // Autocomplete dropdown, same hand-rolled combobox (native
   // <datalist> misrenders in VSCode's Simple Browser — see attachCombobox's
   // own header comment) the create/edit form uses for priority/assignee/tags.

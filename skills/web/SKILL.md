@@ -680,10 +680,18 @@ to `127.0.0.1` only.
   query — cheap). A box already holding a query gets select-all instead of the `#`
   prefill — typing overwrites it, same as any focused input — so the chord can never
   silently clobber a typed query (search-hotkey.js owns this decision). Suppressed while
-  any modal/popup is open — the mirror of Ctrl+S, which only fires *inside* an open
-  popup: every popup's backdrop covers the whole viewport, hiding the search bar behind
-  it, so this hotkey only fires *outside* one and the browser's native find stands in
-  while a popup is up.
+  a popup is up — the mirror of Ctrl+S, which only fires *inside* an open popup: every
+  popup's backdrop covers the whole viewport, hiding the search bar behind it, so this
+  hotkey only fires *outside* one and the browser's native find stands in while a popup
+  is up. It still works from inside a text field, because it types nothing.
+  **`/`** also focuses the search box. It does insert a character, so it is off while a
+  field has focus as well as while a popup is up.
+  Both read one **key guard** (`key-guard.js`): a typing check (a text field, a text area,
+  a select or an editable element has focus) and a surface check (an open card menu, an
+  open dialog, the notifications panel or the preferences sheet). `/` reads both; Ctrl+F
+  reads only the surface check. The search panel is deliberately not a surface, so the
+  keys that come with it work while it is open. The single-key shortcuts added later
+  reuse this guard unchanged.
 - **Comboboxes** — the form's Assignee (and Priority/Tags/Type, incl. the bulk-edit popups'
   copies of the first two) fields suggest values from `config.yaml`'s lists (see below) while still
   accepting free text. Tab/click focuses and opens the full list; typing filters it.
@@ -1309,6 +1317,12 @@ it does not define a second contract. Not a card — only `*.card.md` files are 
   for phone/tablet; queued-change payload, Claude applies). Retired skills are deleted
   outright; GLOSSARY.md's Surfaces and parity section carries the cross-surface parity
   rule, while each surface names its own deliberate gaps in its own skill doc.
+- **The page names the files the server serves.** The server serves `/` (`web/app.html`)
+  and the files that page loads by a plain top-level name: its `<script src>` tags, the
+  stylesheet and the tab icon. Anything else in `web/` is a 404. A new module takes one
+  entry, its `<script>` tag in `app.html` in load order; nothing in `server.js` changes.
+  A test fails when the page names a file `web/` lacks, or `web/` holds a script the page
+  never loads.
 - `archive` here is a *location* (the `archived/` folder), not a status — ADR 0002's
   data model — but the column has full UI parity (ADR 0005): drag a batch onto Archive
   to archive it (one confirm, skipped when the whole batch is already `done`), drag
