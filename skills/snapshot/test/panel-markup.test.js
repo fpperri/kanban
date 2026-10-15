@@ -160,8 +160,9 @@ test('the box is written only through writeBox, from the search module\'s term i
 });
 
 test('the keys read one guard: a field with focus, a sheet, a card menu or the change tray', () => {
-  const guard = panelJs.slice(panelJs.indexOf('function keysOff()'), panelJs.indexOf('function sliceKeyIsChord'));
-  for (const part of ['INPUT', 'TEXTAREA', 'SELECT', 'isContentEditable', 'ctxMenuEl', 'modalOpen()', '$("pend")']) assert.ok(guard.includes(part), part);
+  const guard = panelJs.slice(panelJs.indexOf('function keysOff()'), panelJs.indexOf('function panelKey(e)'));
+  for (const part of ['keyGuardTyping(document)', 'ctxMenuEl', 'modalOpen()', '$("pend")']) assert.ok(guard.includes(part), part);
+  assert.doesNotMatch(guard, /INPUT|TEXTAREA|isContentEditable/, 'what counts as a field is the web key guard, not a copy of it');
   const keys = panelJs.slice(panelJs.indexOf('function panelKey(e)'));
   assert.strictEqual(keys.split('keysOff()').length - 1, 2, 'the slice keys and p read it');
   assert.ok(keys.indexOf('keysOff()') > keys.indexOf('ContextMenu'), 'the context-menu key is the entry\'s own and reads no guard');

@@ -360,6 +360,8 @@ SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
 TYPE_ICONS_JS = os.path.join(WEB_MODULES, "type-icons.js")
 PILLS_JS = os.path.join(WEB_MODULES, "pills.js")
 SLICE_RUN_JS = os.path.join(WEB_MODULES, "slice-run.js")
+KEY_GUARD_JS = os.path.join(WEB_MODULES, "key-guard.js")
+COMBOBOX_JS = os.path.join(WEB_MODULES, "combobox.js")
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
@@ -398,6 +400,12 @@ def read_pills_module():
 
 def read_slice_run():
     return read_embedded(SLICE_RUN_JS, "the run of slices")
+
+def read_key_guard():
+    return read_embedded(KEY_GUARD_JS, "the key guard")
+
+def read_combobox():
+    return read_embedded(COMBOBOX_JS, "the combobox rules")
 
 def main():
     p = argparse.ArgumentParser()
@@ -445,6 +453,8 @@ def main():
                     .replace("__TYPE_ICONS_JS__", read_type_icons())
                     .replace("__PILLS_JS__", read_pills_module())
                     .replace("__SLICE_RUN_JS__", read_slice_run())
+                    .replace("__KEY_GUARD_JS__", read_key_guard())
+                    .replace("__COMBOBOX_JS__", read_combobox())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -933,6 +943,10 @@ __TYPE_ICONS_JS__</script>
 __PILLS_JS__</script>
 <script>
 __SLICE_RUN_JS__</script>
+<script>
+__KEY_GUARD_JS__</script>
+<script>
+__COMBOBOX_JS__</script>
 <script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
@@ -1655,16 +1669,10 @@ if(t.classList.contains("query-pill")){pillGesture("toggle",t.dataset.pillKey);r
 if(t.classList.contains("slice-entry")){sliceGesture("click",t.dataset.sliceKey);return true}
 return false}
 // The keys that type nothing but read a character ([ ] { } and p) stay off while a field has focus
-// and while a sheet, a card menu or the change tray is up, the page's counterparts of the web's key guard.
+// (the web's own key guard, embedded above) and while a sheet, a card menu or the change tray is up,
+// the page's counterparts of the web's dialogs. What a chord is comes from the run of slices module.
 function keysOff(){
-const a=document.activeElement;
-if(a&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable))return true;
-return !!ctxMenuEl||modalOpen()||$("pend").style.display==="block"}
-// A chord (Ctrl, Cmd, Alt held with a key). AltGr is not one: on a layout with no brackets of its own
-// it is how they are typed, and the browser reports it as Ctrl and Alt together, with AltGraph on.
-function sliceKeyIsChord(e){
-const altGraph=typeof e.getModifierState==="function"&&e.getModifierState("AltGraph");
-return !!e.metaKey||((!!e.ctrlKey||!!e.altKey)&&!altGraph)}
+return keyGuardTyping(document)||!!ctxMenuEl||modalOpen()||$("pend").style.display==="block"}
 function panelKey(e){
 const k=e.key;
 if((k==="ContextMenu"||(k==="F10"&&e.shiftKey))&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
@@ -2650,7 +2658,7 @@ e.preventDefault();
 if(e.key==="Escape"){qClose();e.stopPropagation();return}
 if(e.key==="Enter"){if(qOn>=0)qPick(qItems[qOn]);else qClose();return}
 const d=e.key==="ArrowDown"?1:-1;
-qOn=qOn<0?(d>0?0:qItems.length-1):(qOn+d+qItems.length)%qItems.length;qMark()});
+qOn=nextHighlightIndex(qItems.length,qOn,d);qMark()});
 $("q").addEventListener("focus",()=>{if(panelSwitchOn&&!panelOpen)setPanelOpen(true)});
 // A press anywhere outside the search bar closes the panel, as it closes any popup.
 document.addEventListener("mousedown",e=>{if(panelOpen&&!e.target.closest(".search-bar"))setPanelOpen(false)});

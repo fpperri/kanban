@@ -364,7 +364,7 @@ test('the embedded module and the page script load together without a name clash
   const { loadPage } = require('./page-harness');
   withSnapshot(BOARD, (html) => {
     const page = loadPage(html);
-    assert.strictEqual(page.scripts.length, 9, 'the nesting module, the map module, the slices module, the waiting rules, the search module, the type icons, the pill list, the run of slices, then the page');
+    assert.strictEqual(page.scripts.length, 11, 'the nesting module, the map module, the slices module, the waiting rules, the search module, the type icons, the pill list, the run of slices, the key guard, the combobox rules, then the page');
     assert.strictEqual(page.run('typeof outlineOrder + typeof rollupIndex + typeof threadOf'), 'functionfunctionfunction');
   });
 });

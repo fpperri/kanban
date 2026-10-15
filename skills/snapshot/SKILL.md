@@ -165,9 +165,13 @@ on and a run that cuts, and its accessible name says which (`2 on: review, slice
 with nothing on there is no chip. Tab reaches the arrow, both fold controls, every slice entry and
 every pill, and Enter and Space act as a click. The pill list and the run of slices are kanban-web's
 own `skills/web/web/pills.js` and `skills/web/web/slice-run.js`, embedded as they are
-(`test/pills-embed.test.js` and `test/slice-run-embed.test.js` pin them to those files); the drawing
+(`test/pills-embed.test.js` and `test/slice-run-embed.test.js` pin them to those files), and so are the
+key guard's check for a field with focus (`skills/web/web/key-guard.js`), the rule for a chord (in
+`slice-run.js`) and the suggestion list's step (`skills/web/web/combobox.js`); the drawing
 and the gestures are the page's own, and `test/panel-pills.test.js` and `test/panel-slices.test.js`
-hold its counts and its terms to the web's.
+hold its counts and its terms to the web's. The hint texts on the pills, the slice entries and the
+panel's arrow are strings of kanban-web's page scripts, which need a DOM and are not embedded, so
+`test/panel-copies.test.js` holds the page's copy of each to the web's source.
 
 Every view carries a status-pill row (each pill a button with `aria-pressed`; a tap toggles
 one, a right-click solos it and a right-click on the soloed pill turns all back on; an off

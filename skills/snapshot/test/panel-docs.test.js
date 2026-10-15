@@ -97,6 +97,15 @@ test('the cross-harness note says the generator needs the pill list and the run 
   const note = flat(read('docs', 'cross-harness.md'));
   assert.match(note, /skills\/web\/web\/pills\.js/);
   assert.match(note, /skills\/web\/web\/slice-run\.js/);
+  assert.match(note, /skills\/web\/web\/key-guard\.js/);
+  assert.match(note, /skills\/web\/web\/combobox\.js/);
+});
+
+test('the skill says which pieces of the panel are the web\'s source and which texts are held to it by a test', () => {
+  const text = flat(skill);
+  assert.match(text, /key guard's check for a field with focus \(`skills\/web\/web\/key-guard\.js`\)/);
+  assert.match(text, /`skills\/web\/web\/combobox\.js`/);
+  assert.match(text, /`test\/panel-copies\.test\.js` holds the page's copy of each to the web's source/);
 });
 
 test('the one term the skill writes out for a pill is the term the page writes for it', () => {

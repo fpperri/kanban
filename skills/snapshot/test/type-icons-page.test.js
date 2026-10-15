@@ -185,7 +185,7 @@ describe('markup in the config', () => {
     const config = `types:\n${hostile.map((h, i) => `  - name: t${i}\n    color: red\n    icon: '${h}'\n`).join('')}`;
     withSnapshot(board(config, hostile.map((_, i) => [i + 1, `t${i}`])), (html) => {
       const page = loadPage(html, WIDE);
-      assert.strictEqual(page.scripts.length, 9, 'no icon name closed a script element');
+      assert.strictEqual(page.scripts.length, 11, 'no icon name closed a script element');
       assert.deepStrictEqual(embeddedConst(html, 'TYPES').map((t) => t.icon), hostile.map((h) => h.toLowerCase()), 'carried as the text it is');
       hostile.forEach((_, i) => {
         const chip = chipOf(tile(page, i + 1));
@@ -199,7 +199,7 @@ describe('markup in the config', () => {
     const config = 'pills:\n  - "<img src=x onerror=alert(1)>": "title:</script><b>"\n  - "</SCRIPT >"\n';
     withSnapshot(board(config, [[1, 'epic']]), (html) => {
       const page = loadPage(html, WIDE);
-      assert.strictEqual(page.scripts.length, 9);
+      assert.strictEqual(page.scripts.length, 11);
       assert.deepStrictEqual(page.plain(page.run('PILLS')), [
         { label: '<img src=x onerror=alert(1)>', query: 'title:</script><b>' },
         { label: '</SCRIPT >', query: '</SCRIPT >' },

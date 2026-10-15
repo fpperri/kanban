@@ -137,10 +137,19 @@ function sliceEntryName(entry, inRun) {
   return `${entry.label}, ${entry.count} ${entry.count === 1 ? 'card' : 'cards'}, ${inRun ? 'in the run' : 'not in the run'}`;
 }
 
+// A chord (Ctrl, Cmd, Alt held with a key). AltGr is not one: on a layout with no brackets of its
+// own it is how they are typed, and the browser reports it as Ctrl and Alt together, with the
+// AltGraph modifier on.
+function sliceKeyIsChord(e) {
+  const altGraph = typeof e.getModifierState === 'function' && e.getModifierState('AltGraph');
+  return !!e.metaKey || ((!!e.ctrlKey || !!e.altKey) && !altGraph);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SLICE_RUN_KEYS, sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName, sliceEntryKey };
+  module.exports = { SLICE_RUN_KEYS, sliceKeyIsChord, sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName, sliceEntryKey };
 } else {
   window.SLICE_RUN_KEYS = SLICE_RUN_KEYS;
+  window.sliceKeyIsChord = sliceKeyIsChord;
   window.sliceRunBounds = sliceRunBounds;
   window.sliceListOf = sliceListOf;
   window.sliceRunOf = sliceRunOf;

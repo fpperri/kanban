@@ -8,6 +8,7 @@ const { parseSearchQuery, filterCards } = require('../web/search');
 const { depthMap } = require('../web/nesting');
 const {
   sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName, sliceEntryKey,
+  sliceKeyIsChord,
 } = require('../web/slice-run');
 
 // The slice section's run of slices, as pure arithmetic over the list the section
@@ -277,7 +278,26 @@ test('the module stands alone: it requires nothing, so the snapshot can embed it
   page.window = page;
   vm.createContext(page);
   vm.runInContext(source, page);
-  for (const name of ['sliceRunBounds', 'sliceListOf', 'sliceRunOf', 'sliceRunClick', 'sliceRunKeep', 'sliceRunStep', 'sliceRunValue', 'sliceRunCuts', 'sliceEntryName', 'sliceEntryKey']) {
+  for (const name of ['sliceRunBounds', 'sliceListOf', 'sliceRunOf', 'sliceRunClick', 'sliceRunKeep', 'sliceRunStep', 'sliceRunValue', 'sliceRunCuts', 'sliceEntryName', 'sliceEntryKey', 'sliceKeyIsChord']) {
     assert.strictEqual(typeof page[name], 'function', name);
   }
+});
+
+// --- the keys are no chord with AltGr ---------------------------------------------------------
+
+test('Ctrl, Cmd and Alt held with a key make a chord, and AltGr, which the browser reports as Ctrl and Alt together, does not', () => {
+  const key = (mods, altGraph = false) => ({ metaKey: false, ctrlKey: false, altKey: false, ...mods, getModifierState: (m) => m === 'AltGraph' && altGraph });
+  assert.strictEqual(sliceKeyIsChord(key({})), false, 'a bare key');
+  assert.strictEqual(sliceKeyIsChord(key({ ctrlKey: true })), true);
+  assert.strictEqual(sliceKeyIsChord(key({ altKey: true })), true);
+  assert.strictEqual(sliceKeyIsChord(key({ metaKey: true })), true);
+  assert.strictEqual(sliceKeyIsChord(key({ ctrlKey: true, altKey: true }, true)), false, 'AltGr');
+  assert.strictEqual(sliceKeyIsChord(key({ metaKey: true }, true)), true, 'Cmd stays a chord whatever AltGr says');
+  assert.strictEqual(sliceKeyIsChord({ ctrlKey: true, altKey: true, metaKey: false }), true, 'an event that cannot say AltGr is read as a chord');
+});
+
+test('the chord rule lives in the module the snapshot embeds, and the page script does not carry its own copy', () => {
+  const own = fs.readFileSync(path.join(__dirname, '..', 'web', 'search-slices.js'), 'utf8');
+  assert.doesNotMatch(own, /function sliceKeyIsChord\(/);
+  assert.match(own, /sliceKeyIsChord\(e\)/, 'and still reads it');
 });
