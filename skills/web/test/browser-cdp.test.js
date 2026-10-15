@@ -224,6 +224,7 @@ test('a scenario begins with the old page gone, its board\'s browser storage cle
   const { env, cdp, order } = envFixture();
   await env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } });
   assert.deepStrictEqual(cdp.calls[0], ['Page.navigate', { url: 'about:blank' }]);
+  assert.strictEqual(cdp.calls[1][0], 'Page.resetNavigationHistory', 'the tab history is emptied, so history counts do not depend on run order');
   const clear = cdp.calls.find((c) => c[0] === 'Storage.clearDataForOrigin');
   assert.deepStrictEqual(clear[1], { origin: 'http://127.0.0.1:7002', storageTypes: 'all' });
   assert.ok(order.indexOf('send:Page.navigate') < order.indexOf('reset:plan'), order.join(' '));
