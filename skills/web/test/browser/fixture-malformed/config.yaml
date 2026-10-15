@@ -1,0 +1,19 @@
+name: malformed
+nextId: 6
+statuses: [backlog, todo, doing, done]
+priorities: [High, Normal, Low]
+hierarchy:
+  - Goal
+  - goal
+  -
+  - Epic
+  - EPIC
+types:
+  - name: goal
+    icon: blob
+  - name: epic
+    icon: star
+pills:
+  -
+  - tags: grill
+  - "assignee:@human"
