@@ -508,3 +508,14 @@ test('an unclosed quote is closed where a term is added after it, so the term is
   assert.strictEqual(searchRemoveTerm('a "b tags:ui', 'tags:ui'), 'a "b tags:ui', 'inside the quote it is text, not a term');
   assert.strictEqual(searchRemoveTerm('a "b" tags:ui', 'tags:ui'), 'a "b"');
 });
+
+test('waiting: reads ids the way the waiting rule does, so a card from a page that keeps ids as text still waits', () => {
+  const textual = [
+    card('7', { title: 'waits', waiting_for: ['8'] }),
+    card('8', { title: 'waited for', status: 'doing' }),
+    card('9', { title: 'waits for a done card', waiting_for: ['10'] }),
+    card('10', { title: 'done', status: 'done' }),
+    card('n1', { title: 'a card made in the editor and not applied yet', waiting_for: ['n1'] }),
+  ];
+  assert.deepStrictEqual(ids('waiting:', textual), ['7']);
+});

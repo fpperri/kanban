@@ -428,7 +428,7 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     else if (term.field === 'path') next = { field: 'ids', value: term.value, ids: graph.pathIds(cards, term.value, ctx) };
     else if (term.field === 'waiting') {
       if (!memo.waiting) {
-        const byId = new Map(cards.map((c) => [c.id, c]));
+        const byId = new Map(cards.filter((c) => Number.isFinite(Number(c.id))).map((c) => [Number(c.id), c]));
         memo.waiting = new Set(cards.filter((c) => WBS.unresolvedWaits(c.waiting_for, byId).length > 0).map((c) => Number(c.id)));
       }
       next = { field: 'ids', value: term.value, ids: memo.waiting };
