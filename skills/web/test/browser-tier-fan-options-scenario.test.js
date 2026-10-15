@@ -173,7 +173,10 @@ function standIn(over = {}) {
   };
   const select = (ids) => { selected = ids.slice(); };
   const press = (target) => {
-    if (target.kind === 'toggle') { st().folded = !st().folded; focus = over.focusLost ? null : 'toggle'; if (over.pressClears) select([]); }
+    if (target.kind === 'toggle') {
+      st().folded = !st().folded; focus = over.focusLost ? null : 'toggle'; if (over.pressClears) select([]);
+      if (over.toggleRefits && !view.touched) view = { ...view, y: view.y - 14, k: view.k * 0.95 };
+    }
     if (target.kind === 'option') {
       st().options[target.k] = target.v;
       focus = over.focusLost ? null : `${target.k}=${target.v}`;
@@ -302,6 +305,7 @@ test('the checks the card asks for are each in the scenario', async () => {
   has(/a reload keeps the options and the fold/);
   has(/fixture: another board starts folded with the defaults/);
   has(/pressing options and the toggle leaves the selection as it was/);
+  has(/one press of the toggle, which changes the height of the stage, leaves an untouched view where it was/);
   has(/and does not pan or zoom the canvas/);
   has(/a drag that starts on the row does not pan the canvas/);
   has(/a double click on the space of the row leaves the selection/);
@@ -343,6 +347,11 @@ test('a press that clears the selection, a row that does not keep it, or a doubl
   await failsWith({ rowClears: true }, /a double click on the space of the row leaves the selection/, 'a double click clears');
   await failsWith({ rowLosesSelection: true }, /the row and its toggle keep the selection/, 'the row does not keep the selection');
   await failsWith({ optionLosesSelection: true }, /every button of the row keeps the selection/, 'a button does not keep the selection');
+});
+
+test('a toggle that re-fits or rescales an untouched view when the stage changes height fails, folding or unfolding', async () => {
+  await failsWith({ toggleRefits: true }, /one press of the toggle, which changes the height of the stage, leaves an untouched view where it was/, 'the first press re-fits');
+  await failsWith({ toggleRefits: true }, /and does not pan or zoom the canvas/, 'the round trip still ends elsewhere');
 });
 
 test('a drag that starts on the row and pans the canvas fails, and so does a canvas that never pans', async () => {

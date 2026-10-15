@@ -58,6 +58,13 @@ test('the Graph section says where the choices are kept and that a press leaves 
   assert.match(text, /a press on the row never starts a pan, never clears the selection and never pauses the 5-second poll/);
 });
 
+test('the Graph section says the row takes room from the stage and the view does not move for it, so Fit frames every card again', () => {
+  const text = graph();
+  assert.match(text, /The row takes its room from the stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or re-fits the view/);
+  assert.match(text, /\*\*Fit\*\* frames every card again/);
+  assert.match(text, /Picking a layout re-fits the view; after that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes/);
+});
+
 test('the Graph section no longer says every relation is drawn in Tiers', () => {
   const text = graph();
   assert.match(text, /Relations:\*\* in Force and Status a solid line joins a parent to its child/);

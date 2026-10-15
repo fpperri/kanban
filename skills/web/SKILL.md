@@ -1476,7 +1476,9 @@ to `127.0.0.1` only.
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
   sector, and no card changes its band, its ring or its sector. The choices are kept per board in `localStorage` under
   `graph.options`, and whether the row is folded under `graph.optionsFolded`; a press on the row never starts a pan,
-  never clears the selection and never pauses the 5-second poll.
+  never clears the selection and never pauses the 5-second poll. The row takes its room from the
+  stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or
+  re-fits the view, so a fan framed with the row folded keeps its place and **Fit** frames every card again.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden

@@ -517,14 +517,12 @@ function renderGraphView() {
   const h = drawn.stage.clientHeight || 600;
   drawn.svg.classList.add(`graph-kind-${kind}`);
   let view = graphViews.get(kind);
-  const refit = !view || (!view.touched && (view.sig !== sig || view.w !== w || view.h !== h));
+  const refit = !view || (view.sig !== sig && !view.touched);
   if (!view) {
     view = { x: 0, y: 0, k: 1, sig, touched: false };
     graphViews.set(kind, view);
   }
   view.sig = sig;
-  view.w = w;
-  view.h = h;
   graphCur = {
     kind, sig, model, layout, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
     svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls,

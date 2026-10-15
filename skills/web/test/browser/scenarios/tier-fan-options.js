@@ -8,7 +8,9 @@
 // siblings of a sector another way and moves no card to another ring. A reload keeps the
 // options and the fold, and another board keeps its own. A press on the row, or a drag
 // that starts on it, does not pan the canvas, does not clear a selection (nor does a
-// double click on the row's own space), and the next poll still refreshes the board,
+// double click on the row's own space). The toggle is a press that changes the height of
+// the stage, and a view the person has not moved stays where it was after each press of it,
+// folding and unfolding, the fan neither re-fitted nor rescaled. The next poll still refreshes the board,
 // with the pressed option still focused after it. A poll is one call of the page's own
 // tick, the way the Graph scenario makes it, after a check that the focused option does
 // not hold it.
@@ -295,6 +297,9 @@ module.exports = {
       for (const [key, val] of [['lines', 'all'], ['dependencies', 'off'], ['lines', 'folded'], ['dependencies', 'on']]) await setOption(key, val);
       await pressOn(FOLD_TOGGLE);
       await waitFor(ROW_FOLDED, 6000);
+      await ev(frames);
+      const folded = await ev(VIEW);
+      check('plan: one press of the toggle, which changes the height of the stage, leaves an untouched view where it was', view.touched === false && folded.x === view.x && folded.y === view.y && folded.k === view.k && folded.touched === false, { view, folded });
       await pressOn(FOLD_TOGGLE);
       await waitFor(ROW_EXPANDED, 6000);
       await ev(frames);

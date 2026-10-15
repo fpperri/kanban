@@ -40,14 +40,30 @@ const makeBoard = (name = 'kanban') => ({
 const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
 const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
 
-async function open({ stored = {}, name = 'kanban', layout = null } = {}) {
+// A document whose Graph stage answers the size a test gives it, as a laid-out page does:
+// `size` is read each time the stage is asked, so a test can change it between two draws.
+function sizedDocument(size) {
+  const base = recordingDocument();
+  return {
+    ...base,
+    createElement(tag) {
+      const el = base.createElement(tag);
+      const onStage = () => el.className === 'graph-stage';
+      Object.defineProperty(el, 'clientWidth', { get: () => (onStage() ? size.w : 0) });
+      Object.defineProperty(el, 'clientHeight', { get: () => (onStage() ? size.h : 0) });
+      return el;
+    },
+  };
+}
+
+async function open({ stored = {}, name = 'kanban', layout = null, size = null } = {}) {
   const host = recordingElement('div');
   const elements = { '#graph-view': host };
   for (const sel of HIDDEN_SURFACES) elements[sel] = hiddenSurface();
   const all = { [`kanban.${name}.view.mode`]: 'graph', ...stored };
   if (layout) all[`kanban.${name}.graph.layout`] = layout;
   const page = await loadPage({
-    board: makeBoard(name), stored: all, elements, documentExtras: recordingDocument(),
+    board: makeBoard(name), stored: all, elements, documentExtras: size ? sizedDocument(size) : recordingDocument(),
   }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   return {
@@ -257,6 +273,45 @@ test('a press does not start a pan: the row is not on the canvas, and a press on
   const canvas = new Proxy({}, { get: (t, k) => (k === 'closest' ? (sel) => (sel === '.graph-canvas' ? {} : null) : harmless(String(k))) });
   s.host.fire('pointerdown', { button: 0, pointerId: 2, clientX: 5, clientY: 5, target: canvas });
   assert.notStrictEqual(s.run('graphPan'), null, 'the same press on the canvas does start a pan, so the check above can fail');
+});
+
+// The row takes room from the stage (the Graph's panel has a fixed height and the stage
+// fills what the controls leave), so a press on the toggle is a draw on a stage of another
+// height. The Graph does not move for it: the view is the person's, and Fit frames the
+// cards again.
+const viewOf = (s) => s.run('({ x: graphCur.view.x, y: graphCur.view.y, k: graphCur.view.k, touched: graphCur.view.touched })');
+
+test('an untouched view stays where it is when the toggle gives the stage another height: the fan is not re-fitted or rescaled', async () => {
+  const size = { w: 900, h: 600 };
+  const s = await open({ size });
+  const first = viewOf(s);
+  assert.ok([first.x, first.y, first.k].every(Number.isFinite) && first.k > 0, 'the first draw fitted the fan to the stage');
+  assert.strictEqual(first.touched, false);
+  assert.strictEqual(s.run('graphCur.h'), 600);
+
+  size.h = 570;
+  s.click(toggleButton());
+  assert.strictEqual(s.run('graphCur.h'), 570, 'the stage was drawn at its new height, so the check below can fail');
+  assert.match(toggleOf(s.row()).innerHTML, /aria-expanded="true"/);
+  assert.deepStrictEqual(viewOf(s), first, 'one press, the row unfolded and the stage shorter: x, y and k as they were');
+
+  size.h = 600;
+  s.click(toggleButton());
+  assert.strictEqual(s.run('graphCur.h'), 600);
+  assert.deepStrictEqual(viewOf(s), first, 'and folded again');
+});
+
+test('a view the person zoomed keeps its pan and zoom when the toggle gives the stage another height', async () => {
+  const size = { w: 900, h: 600 };
+  const s = await open({ size, stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  s.run('graphZoomBy(1.5, 100, 100)');
+  const zoomed = viewOf(s);
+  assert.strictEqual(zoomed.touched, true);
+  size.h = 640;
+  s.click(toggleButton());
+  assert.strictEqual(s.run('graphCur.h'), 640, 'the stage was drawn at its new height');
+  assert.deepStrictEqual(groups(s.row()), [], 'the row folded');
+  assert.deepStrictEqual(viewOf(s), zoomed);
 });
 
 test('a press leaves the selection as it is', async () => {
