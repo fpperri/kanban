@@ -24,4 +24,5 @@ module.exports = [
   require('./esc-steps'),
   require('./search-panel'),
   require('./empty-space'),
+  require('./board-pills'),
 ];

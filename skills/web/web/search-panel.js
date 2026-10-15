@@ -13,9 +13,13 @@
 // (#search-foot, empty for now).
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
-// here. A pill is on while its query is the anchor of the selection or one of its
-// additions, so nothing about "on" is kept here: it is read off the selection every
-// time. The pills follow the status pills' rules: a click (Shift or not) turns one pill
+// here: the three built-ins, then the board's own pills (state.pills, the config's
+// `pills:`), a `field:*` entry made into one pill per value of the board's active
+// cards. The first eight values of a field show, and a "+N more" button, which is not
+// a pill, opens the rest and folds them again for this visit. A pill is on while its
+// query is the anchor of the selection or one of its additions, so nothing about "on"
+// is kept here: it is read off the selection every time. The pills follow the status
+// pills' rules: a click (Shift or not) turns one pill
 // on or off, its query joining the selection and the box as one more alternative or
 // leaving both, and a right-click solos it, or turns every pill off when it is the one
 // soloed (selection.js decides both, and the search module's alternatives do the box).
@@ -35,13 +39,16 @@
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
-// searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus, keyGuardOff.
+// searchMatchIds, searchTermText, cardsBeforeSearch, loadPrefsState, setPanelOnFocus,
+// keyGuardOff.
 
 let searchPanelOpen = false;
 // Whether the pill section is folded for this visit; null until it is read from the
 // preferences, which have to wait for the board's name (they are kept per board).
 let searchPillsFolded = null;
 let searchPillsFoldedFor = '';
+// The fields whose value pills are all shown rather than the first eight, for this visit.
+const searchPillGroupsOpen = new Set();
 
 const SEARCH_PILL_HINT = 'click: turn it on or off, right-click: only this pill (again: every pill off)';
 const SEARCH_SWITCH_ON = 'Search panel: opens when the box is focused. Click, or press p, to switch it off.';
@@ -51,10 +58,28 @@ function searchPanelIsOpen() {
   return searchPanelOpen;
 }
 
+// What pills.js lists the board's own pills from: the config's entries, the active
+// cards their values come from, and the search module's writer of an exact term.
+function searchPanelBoard() {
+  return { pills: state.pills, cards: state.active, term: searchTermText };
+}
+
+// The pills the panel lists now, with no counts: the chip and a click read these.
+function searchPanelEntries() {
+  return pillEntries(searchPanelBoard());
+}
+
 // The pills the panel lists now, each with how many of the cards the view shows
-// (before the search box and any cut) its query matches.
+// (before the search box and any cut) its query matches. Every pill is here, the
+// ones behind a "+N more" button too.
 function searchPanelPills() {
-  return pillList(cardsBeforeSearch(), searchMatchIds);
+  return pillList(cardsBeforeSearch(), searchMatchIds, searchPanelBoard());
+}
+
+// What the pill section draws: the pills and, where a field has more than eight
+// values, its "+N more" button.
+function searchPanelRows() {
+  return pillRows(searchPanelPills(), [...searchPillGroupsOpen]);
 }
 
 // --- the pill buttons --------------------------------------------------------------------
@@ -74,7 +99,29 @@ function buildPillButton(doc, pill) {
   return button;
 }
 
+// The button that opens the rest of a field's value pills, or folds them again. It is
+// not a pill: no count, and a click on it changes neither the box nor the selection.
+function buildMoreButton(doc, row) {
+  const button = doc.createElement('button');
+  button.type = 'button';
+  button.className = 'query-pill-more';
+  button.dataset.pillKey = row.key;
+  button.dataset.keepsSelection = '';
+  return button;
+}
+
+function updateMoreButton(button, row) {
+  if (button.textContent !== row.label) button.textContent = row.label;
+  const expanded = String(row.expanded);
+  if (button.getAttribute('aria-expanded') !== expanded) button.setAttribute('aria-expanded', expanded);
+  const name = row.expanded ? `Show only the first ${PILLS_SHOWN} ${row.group} pills` : `Show the other ${row.hidden} ${row.group} pills`;
+  if (button.title !== name) button.title = name;
+  if (button.getAttribute('aria-label') !== name) button.setAttribute('aria-label', name);
+}
+
 function updatePillButton(button, pill, on) {
+  const label = button.children[0];
+  if (label.textContent !== pill.label) label.textContent = pill.label;
   const count = button.children[1];
   const text = String(pill.count);
   if (count.textContent !== text) count.textContent = text;
@@ -85,26 +132,30 @@ function updatePillButton(button, pill, on) {
   if (button.title !== title) button.title = title;
 }
 
-// Makes the buttons in `host` the list: one per pill, in order, each showing its
-// count and whether it is on. A button that is there is updated where it stands, so
-// focus on it is never lost; one is added or taken out only when the list changes.
-function syncPillButtons(host, list, selection) {
+// Makes the buttons in `host` the rows: one per pill, in order, each showing its
+// count and whether it is on, and a "+N more" button where a row says so. A button
+// that is there is updated where it stands, so focus on it is never lost; one is
+// added or taken out only when the rows change, and the ones to go are taken out
+// first, so that a button that stays is never moved by the others leaving.
+function syncPillButtons(host, rows, selection) {
   const doc = host.ownerDocument || document;
+  const keys = new Set(rows.map((row) => row.key));
+  for (const el of [...host.children]) if (!keys.has(el.dataset.pillKey)) el.remove();
   const byKey = new Map([...host.children].map((el) => [el.dataset.pillKey, el]));
-  list.forEach((pill, at) => {
-    const button = byKey.get(pill.key) || buildPillButton(doc, pill);
-    updatePillButton(button, pill, pillIsOn(selection, pill));
+  rows.forEach((row, at) => {
+    const more = row.kind === 'more';
+    const button = byKey.get(row.key) || (more ? buildMoreButton(doc, row) : buildPillButton(doc, row));
+    if (more) updateMoreButton(button, row);
+    else updatePillButton(button, row, pillIsOn(selection, row));
     if (host.children[at] !== button) host.insertBefore(button, host.children[at] || null);
   });
-  const keys = new Set(list.map((pill) => pill.key));
-  for (const el of [...host.children]) if (!keys.has(el.dataset.pillKey)) el.remove();
 }
 
 // The chip a closed panel shows: how many pills are on, and a name that says which.
 function syncSearchChip(selection) {
   const chip = $('#search-chip');
   if (!chip) return;
-  const { count, name } = panelChip(pillsOn(selection, BUILT_IN_PILLS).map((pill) => pill.label));
+  const { count, name } = panelChip(pillsOn(selection, searchPanelEntries()).map((pill) => pill.label));
   chip.classList.toggle('hidden', !count || searchPanelOpen);
   chip.textContent = count ? String(count) : '';
   chip.setAttribute('aria-label', name);
@@ -117,7 +168,7 @@ function renderSearchPanel() {
   syncSearchSwitch();
   const selection = selectionState.selection;
   const host = $('#search-pills');
-  if (searchPanelOpen && host) syncPillButtons(host, searchPanelPills(), selection);
+  if (searchPanelOpen && host) syncPillButtons(host, searchPanelRows(), selection);
   syncSearchChip(selection);
 }
 
@@ -238,7 +289,7 @@ function foldSearchPills(folded) {
 // together, and the box is written with the reason 'pill', so the repaint does not
 // take it for a typed search.
 function applyPillGesture(gesture, key) {
-  const pill = BUILT_IN_PILLS.find((p) => p.key === key);
+  const pill = searchPanelEntries().find((p) => p.key === key);
   if (!pill) return;
   const next = selectionAfterPill(gesture, pill.query, {
     selection: selectionState.selection,
@@ -249,8 +300,17 @@ function applyPillGesture(gesture, key) {
   writeSearch(next.boxText, 'pill');
 }
 
+// A click on a "+N more" button opens that field's other pills, or folds them again.
+function toggleSearchPillGroup(group) {
+  if (searchPillGroupsOpen.has(group)) searchPillGroupsOpen.delete(group);
+  else searchPillGroupsOpen.add(group);
+  renderSearchPanel();
+}
+
 // A click toggles the pill, whatever modifier is held: Shift+click is a plain click.
 function onPillClick(e) {
+  const more = e.target.closest('.query-pill-more');
+  if (more) { toggleSearchPillGroup(more.dataset.pillKey.replace(/^more:/, '')); return; }
   const button = e.target.closest('.query-pill');
   if (button) applyPillGesture('toggle', button.dataset.pillKey);
 }

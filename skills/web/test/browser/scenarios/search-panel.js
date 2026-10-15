@@ -93,10 +93,13 @@ module.exports = {
     const pillSel = (name) => `#search-pills .query-pill[data-pill-key="${name}"]`;
     const pillPressed = (name) => ev(`(()=>{const b=document.querySelector(${JSON.stringify(pillSel(name))});return !!b&&b.getAttribute('aria-pressed')==='true'&&b.classList.contains('on')})()`);
     const pillShut = (name) => ev(`(()=>{const b=document.querySelector(${JSON.stringify(pillSel(name))});return !!b&&b.getAttribute('aria-pressed')==='false'&&!b.classList.contains('on')})()`);
-    const countsExpr = `JSON.stringify(Object.fromEntries([...document.querySelectorAll('#search-pills .query-pill')].map((b)=>[b.dataset.pillKey,Number(b.querySelector('.query-pill-count').textContent)])))`;
+    // The plan board's config gives it pills of its own after these three (the board-pills scenario drives them), so what is read here is the three built-ins.
+    const BUILT_IN_KEYS = JSON.stringify(['blocked', 'review', 'waiting']);
+    const BUILT_IN_ONLY = `.filter((b)=>${BUILT_IN_KEYS}.includes(b.dataset.pillKey))`;
+    const countsExpr = `JSON.stringify(Object.fromEntries([...document.querySelectorAll('#search-pills .query-pill')]${BUILT_IN_ONLY}.map((b)=>[b.dataset.pillKey,Number(b.querySelector('.query-pill-count').textContent)])))`;
     const counts = async () => JSON.parse(await ev(countsExpr));
     const countsAre = (want) => waitFor(`${countsExpr}===${JSON.stringify(JSON.stringify(want))}`);
-    const order = () => ev(`[...document.querySelectorAll('#search-pills .query-pill')].map((b)=>b.dataset.pillKey)`);
+    const order = () => ev(`[...document.querySelectorAll('#search-pills .query-pill')]${BUILT_IN_ONLY}.map((b)=>b.dataset.pillKey)`);
     const chip = () => ev(`(()=>{const c=document.getElementById('search-chip');return {hidden:c.classList.contains('hidden')||c.getBoundingClientRect().width===0,text:c.textContent,name:c.getAttribute('aria-label')||''}})()`);
     const focusId = () => ev(`document.activeElement&&(document.activeElement.id||document.activeElement.dataset.pillKey||document.activeElement.tagName)`);
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
@@ -227,7 +230,7 @@ module.exports = {
 
     // --- the pills and their counts ----------------------------------------------------------
     await openPanel();
-    check('the panel lists blocked, review and waiting, in that order', sameIds(await order(), ['blocked', 'review', 'waiting']), await order());
+    check('the panel lists blocked, review and waiting, in that order', sameIds(await order(), ['blocked', 'review', 'waiting']) && await ev(`[...document.querySelectorAll('#search-pills .query-pill')].slice(0, 3).map((b)=>b.dataset.pillKey).join()==='blocked,review,waiting'`), await order());
     check('each pill counts its cards, a done one included', await countsAre(CASES.counts), await counts());
 
     // --- a click on a pill, on the Board ---------------------------------------------------------
@@ -327,7 +330,7 @@ module.exports = {
     check('Space on the toggle switches it on and opens the panel', await waitFor(panelOpen) && await waitFor(SWITCH_ON));
     const reached = [];
     for (let i = 0; i < 4; i++) { await key('Tab'); reached.push(await focusId()); }
-    check('Tab goes on to the fold control and every pill, in order', sameIds(reached, ['search-pills-fold', 'blocked', 'review', 'waiting']), reached);
+    check('Tab goes on to the fold control and the three built-in pills, in order', sameIds(reached, ['search-pills-fold', 'blocked', 'review', 'waiting']), reached);
     await key('Enter');
     check('Enter on a pill acts as a click', await boxIs('waiting:') && await pickedIs(CASES.waiting), await boxText());
     check('the pill keeps focus after Enter', (await focusId()) === 'waiting', await focusId());

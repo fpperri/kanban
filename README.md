@@ -162,6 +162,7 @@ hierarchy: [goal, strategy, objective, initiative] # the types that are the leve
 pills: # the board's own one-click search queries, in block form
   - next: 'tags:"next-up"' # label: query
   - "assignee:@human" # a query on its own is its own label
+  - "tags:*" # one pill per tag on the board, sorted
 ```
 
 Every list here **suggests, never validates** — free text still saves and
