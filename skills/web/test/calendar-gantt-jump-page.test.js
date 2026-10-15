@@ -161,6 +161,18 @@ test('a write made while another view shows moves neither the Calendar nor the G
   }
 });
 
+test('a write that repaints nothing jumps by the text it wrote, not by the match the last repaint made', async () => {
+  const calendar = await pageIn('calendar');
+  calendar.run(`writeSearch('centennial', 'selection', false)`);
+  assert.strictEqual(calendar.input.value, 'centennial');
+  assert.strictEqual(calendarAnchor(calendar), '2031-06-02');
+
+  const gantt = await pageIn('gantt');
+  gantt.run(`setGanttSubview('month')`);
+  gantt.run(`writeSearch('centennial', 'selection', false)`);
+  assert.strictEqual(ganttAnchor(gantt), '2031-06-02');
+});
+
 // --- entering a view ---------------------------------------------------------------------
 
 test('entering the Calendar with the query already in the box makes the check once and shows the match\'s month, from any other view', async () => {

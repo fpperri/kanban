@@ -3320,6 +3320,8 @@ function writeSearch(text, reason, repaint = true) {
   if (repaint) {
     boxWritten = reason;
     renderBoard();
+  } else {
+    lastSearchMatch = null; // no repaint matched this text, and the listeners must not read the last one's match
   }
   searchWriteListeners.forEach((listener) => listener(text, reason));
 }
@@ -4701,7 +4703,8 @@ function shiftGanttWindow(delta) {
 // after a jump works as usual. An empty box has no matches, so clearing it
 // moves nothing. Both triggers run right after a renderBoard, so the check
 // reads the match that repaint made (lastSearchMatch) and the box is matched
-// once per write; a view that moved repaints on its own.
+// once per write; a write that repaints nothing (writeSearch's repaint false)
+// clears it, and the check matches the box itself. A view that moved repaints on its own.
 function jumpCalendarToMatch() {
   const input = calendarViewInput(lastSearchMatch || currentSearchMatch());
   const day = nearestMatchDay(input, calendarVisibleRange(loadCalendarSubview(), currentCalendarAnchor()));
