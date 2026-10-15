@@ -570,6 +570,11 @@ test('searchRemoveGrownAlt takes out the alternatives that are the term with mor
   assert.strictEqual(searchRemoveGrownAlt('tags:ui status:doing x | y', 'tags:ui status:doing'), 'y', 'a pill of two terms');
   assert.strictEqual(searchRemoveGrownAlt('tags:ui', 'tags:ui status:doing'), 'tags:ui', 'a shorter alternative holds less than the pill');
   assert.strictEqual(searchRemoveGrownAlt('review: slice:goal', 'review:'), 'slice:goal', 'a cut is not an alternative');
+  assert.strictEqual(searchRemoveGrownAlt('slice:epic', 'slice:epic'), '', 'a pill that is a cut takes its cut out');
+  assert.strictEqual(searchRemoveGrownAlt('slice:0.. slice:epic', 'slice:epic'), 'slice:0..', 'and only that cut');
+  assert.strictEqual(searchRemoveGrownAlt('review: slice:epic', 'review: slice:epic'), '', 'a pill of a term and a cut takes out both');
+  assert.strictEqual(searchRemoveGrownAlt('zephyr | review: slice:epic', 'review: slice:epic'), 'zephyr');
+  assert.strictEqual(searchRemoveGrownAlt('review:', 'review: slice:epic'), '', 'the pill held a cut the box does not');
   assert.strictEqual(searchRemoveGrownAlt('', 'review:'), '');
   assert.strictEqual(searchRemoveGrownAlt('zephyr', ''), 'zephyr');
 });

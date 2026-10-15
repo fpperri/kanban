@@ -313,16 +313,21 @@ function foldSearchPills(folded) {
 // ('solo') on the pill with this key: the selection and the text of the box change
 // together, and the box is written with the reason 'pill', so the repaint does not
 // take it for a typed search. A run of slices in the box is not the pills' to change: it
-// is set apart for the gesture and put back after it.
+// is set apart for the gesture and put back after it, but for the cut a pill held in its
+// own query (a board pill `slice:goal`), which goes with the pill when the gesture
+// turns it off.
 function applyPillGesture(gesture, key) {
   const pill = searchPanelEntries().find((p) => p.key === key);
   if (!pill) return;
-  const { rest, slices } = searchSplitSlice($('#search-input').value);
+  const { rest, slices: held } = searchSplitSlice($('#search-input').value);
+  const before = selectionState.selection;
   const next = selectionAfterPill(gesture, pill.query, {
-    selection: selectionState.selection,
+    selection: before,
     boxText: rest,
     alts: { add: searchAddAlt, remove: searchRemoveGrownAlt },
   });
+  const cut = pillQueriesDropped(before, next.selection).flatMap((query) => searchSplitSlice(query).slices);
+  const slices = held.filter((s) => !cut.includes(s));
   setSelection(next.selection, next.rangeStart);
   writeSearch(searchJoinSlice(next.boxText, slices), 'pill');
 }

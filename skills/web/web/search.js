@@ -529,18 +529,23 @@ function searchAltTerms(altText) {
 // `review: assignee:@human`: still the pill's alternative, which goes when the pill does, while
 // text typed beside it (another alternative) stays. An alternative is the pill's grown one when it
 // holds every term of the pill's, in whatever order; the pill's own terms are in the box only
-// through the pill, since typing in the box turns it off. A run of slices stays.
+// through the pill, since typing in the box turns it off. A run of slices stays, but for the cut a
+// pill holds in its own query (a board pill `slice:goal`), which is the pill's and goes with it.
 function searchRemoveGrownAlt(raw, term) {
   const text = String(raw == null ? '' : raw);
-  const base = searchAltTexts(searchTermString(term)).map(searchAltTerms).filter((terms) => terms.length);
-  if (!base.length) return text;
+  const base = searchAltTexts(searchTermString(term)).map((alt) => {
+    const own = searchSplitSlice(alt);
+    return { key: searchAltKey(alt), terms: searchAltTerms(own.rest), cut: own.slices };
+  });
   const { rest, slices } = searchSplitSlice(text);
   const have = searchAltTexts(rest);
   const left = have.filter((alt) => {
     const terms = searchAltTerms(alt);
-    return !base.some((own) => own.every((t) => terms.includes(t)));
+    return !base.some((own) => own.key === searchAltKey(alt) || (own.terms.length && own.terms.every((t) => terms.includes(t))));
   });
-  return left.length === have.length ? text : searchJoinSlice(searchAltsText(left), slices);
+  const cut = base.flatMap((own) => own.cut);
+  const kept = slices.filter((s) => !cut.includes(s));
+  return left.length === have.length && kept.length === slices.length ? text : searchJoinSlice(searchAltsText(left), kept);
 }
 
 // --- Isolate. Switching it on writes the selection into the box as `part | part | ...`

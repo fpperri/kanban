@@ -732,3 +732,50 @@ test('an alternative that only has the pill\'s term in it is not the pill\'s: it
   s.pillClick('blocked');
   assert.strictEqual(s.box(), 'review:');
 });
+
+// --- a board pill whose query is a slice: term ---------------------------------------------
+// A cut stands at the top level of the box and ANDs over all of it, so a pill whose own query is a
+// slice: term writes a cut, and turning the pill off takes that cut out again, with the pill, the
+// way it takes out any other query of its own.
+
+const withSlicePill = () => {
+  const board = makeBoard();
+  board.hierarchy = ['goal', 'strategy', 'epic'];
+  board.types = [{ name: 'epic' }];
+  board.active[0].type = 'epic';
+  board.active[1].type = 'epic';
+  board.pills = [{ label: 'epics', query: 'slice:epic' }];
+  return board;
+};
+
+test('a pill whose query is a slice: term cuts the views to it, and turning the pill off takes the cut out of the box', async () => {
+  const s = await open({ board: withSlicePill() });
+  s.page.run('setSearchPanelOpen(true)');
+  s.pillClick('pill:slice:epic');
+  assert.strictEqual(s.box(), 'slice:epic');
+  assert.deepStrictEqual(s.shown(), [1, 2], 'the epics');
+  assert.deepStrictEqual(s.selection(), { anchor: q('slice:epic'), additions: [] });
+  s.pillClick('pill:slice:epic');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), '', 'the pill is off and so is its cut');
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('turning such a pill off leaves a cut of the slice section, and the text typed beside it, where they were', async () => {
+  const s = await open({ board: withSlicePill() });
+  s.page.run('setSearchPanelOpen(true)');
+  s.type('zephyr slice:0..');
+  s.pillClick('pill:slice:epic');
+  s.pillClick('pill:slice:epic');
+  assert.strictEqual(s.box(), 'zephyr slice:0..', 'the cut the box held before the pill is not the pill\'s');
+});
+
+test('Esc takes the cut of such a pill out of the box with the pill', async () => {
+  const s = await open({ board: withSlicePill() });
+  s.page.run('setSearchPanelOpen(true)');
+  s.pillClick('pill:slice:epic');
+  s.page.run('setSearchPanelOpen(false)');
+  s.press();
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), '');
+});

@@ -858,7 +858,9 @@ to `127.0.0.1` only.
   pill shows a count like the built-ins, over the same cards, and clicks as they do: a click
   turns it on or off, Shift+click is a plain click, a right-click solos it and `m` steps to
   it after the built-ins, so the first pill on is the anchor and a later one is an addition
-  (see Search panel). A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
+  (see Search panel). A pill whose own query is a `slice:` term writes a cut, which stands
+  at the top level of the box and cuts every view, and the cut goes with the pill when it goes
+  off; a run of slices the box held before it is not the pill's and stays. A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
   `priority:*` and `type:*`), makes one pill per distinct value the board's active cards hold
   in that field, in the place the entry holds, sorted and labelled by the value. Each matches
   its value exactly, through the search module's term writer, so the `grill` pill never
