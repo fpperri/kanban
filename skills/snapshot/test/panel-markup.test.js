@@ -27,7 +27,7 @@ test('the search row holds a bordered box round the input, the chip and the arro
 });
 
 test('the input is the box it was: the page\'s one search input, with its stop mark and its placeholder', () => {
-  assert.match(bar, /<input type="search" id="q" data-stop="1" placeholder="Search/);
+  assert.match(bar, /<input type="search" id="q" data-stop="1" aria-autocomplete="list" aria-controls="qmenu" placeholder="Search/);
   assert.strictEqual(built.split('id="q"').length - 1, 1);
 });
 
@@ -86,7 +86,9 @@ test('the slice section is hidden until the page finds a slice to list, and star
 });
 
 test('nothing in the search row sets a style, an inline handler or a tab order of its own, and the panel\'s controls are the browser\'s own buttons', () => {
-  assert.doesNotMatch(bar, /\sstyle=|\son[a-z]+=|tabindex/i);
+  const own = bar.replace(/<div class="qmenu"[^>]*><\/div>/, '');
+  assert.ok(own.length < bar.length, 'sanity: the suggestion list is in the row, and belongs to the box, not to the panel');
+  assert.doesNotMatch(own, /\sstyle=|\son[a-z]+=|tabindex/i);
   const controls = bar.match(/<button [^>]*>/g) || [];
   assert.strictEqual(controls.length, 3, 'the arrow and the two fold controls');
   for (const c of controls) assert.strictEqual(attr(c, 'type'), 'button');

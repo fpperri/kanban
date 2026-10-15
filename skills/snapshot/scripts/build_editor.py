@@ -513,7 +513,7 @@ body{font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI"
 button{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:7px 13px;color:var(--ink);font-size:13px;cursor:pointer}
 button:active{transform:scale(.98)}
 input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:8px 10px;color:var(--ink);font-size:15px;width:100%}
-#searchrow{margin:0 0 8px}
+#searchrow{margin:0 0 8px;position:relative}
 #q{font-size:13px;padding:7px 10px}
 /* The search panel: a box round the input, the chip and the arrow, and under it a panel of the
    slices and the pills. The panel hangs from the bar and adds nothing to the header's height; its
@@ -543,6 +543,12 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .slice-entry-icon:empty{display:none}
 .query-pill-more{padding:3px 10px;background:transparent;border:1px dashed var(--line);border-radius:.15rem;color:var(--mut);font-size:12px}
 .query-pill-more:hover{background:var(--btn-hover);color:var(--ink)}
+/* The search box's suggestions: a plain list under the box, over the page and under
+   the card sheet (40) and the right-click menu (45). Its rows are pressed, not
+   focused, so the box keeps the focus. */
+.qmenu{position:absolute;left:0;right:0;top:100%;z-index:35;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);padding:3px}
+.qitem{padding:7px 10px;font-size:13px;color:var(--ink);border-radius:.15rem;cursor:pointer}
+.qitem.on,.qitem:hover{background:var(--paper)}
 /* Sticky at EVERY width (not gated behind a media query — the rework
    that replaced the floating tray applies here regardless of screen
    size): #scroll is the scroll container (overflow-y:auto) and .hdr is
@@ -865,10 +871,11 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 <div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
 <div id="searchrow"><div class="search-bar">
 <div class="search-box">
-<input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)">
+<input type="search" id="q" data-stop="1" aria-autocomplete="list" aria-controls="qmenu" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)">
 <span id="search-chip" class="search-chip hidden" role="img"></span>
 <button type="button" id="search-panel-toggle" class="search-panel-toggle" aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
 </div>
+<div class="qmenu" id="qmenu" role="listbox" style="display:none"></div>
 <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters">
 <section id="search-slices-section" class="search-section hidden" aria-labelledby="search-slices-fold">
 <button type="button" id="search-slices-fold" class="search-fold" aria-expanded="false" aria-controls="search-slices" aria-label="Slices" title="Fold or unfold the slices">Slices</button>
@@ -1203,14 +1210,14 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // its own dependency functions for tree: and path: (the resolver's graph) and the
 // board's hierarchy for slice: (the slices and nesting modules, embedded above,
 // cut over every card of the board, archived ones included), and resolves the
-// terms once per query change.
+// terms once per query change. The box's suggestions are the module's too
+// (searchSuggestionItems), asked with the same board and context, so after slice:
+// and after .. the box offers the slices the cut would read.
 let qTerms=[];
 const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
+const searchCtx={board:BOARD,hierarchy:HIERARCHY,graph:searchGraph};
 function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
-const queryCtx=()=>({board:BOARD,hierarchy:HIERARCHY,graph:searchGraph});
-function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),queryCtx())}
-// The box changed, typed in or written by the panel: the query resolves again and every view repaints.
-function boxChanged(){focusRoot=null;setQuery($("q").value);render();renderMap();renderGantt();renderCalendar()}
+function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),searchCtx)}
 const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
 // Waiting vs blocked/review (review is ADR 0009):
 // waiting is DERIVED — a waiting_for id whose card isn't done
@@ -1475,7 +1482,7 @@ const statusVisible=c=>c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):tr
 const panelCards=()=>view.filter(statusVisible);
 function setText(n,t){if(n.textContent!==t)n.textContent=t}
 function setAttr(n,k,v){if(n.getAttribute(k)!==v)n.setAttribute(k,v)}
-function writeBox(text){const q=$("q");if(q.value===text)return;q.value=text;boxChanged()}
+function writeBox(text){const q=$("q");if(q.value===text)return;q.value=text;queryChanged()}
 // Makes the buttons of `host` the items, in order. A button that is there is updated where it
 // stands, so focus on it survives a repaint; one is added or taken out only when the list
 // changes, the ones to go first so that a button that stays is never moved by them leaving.
@@ -1499,7 +1506,7 @@ const all=DATA.map(searchCard);
 return text=>{
 const terms=parseSearchQuery(text,BOARD);
 if(!terms.length)return[];
-const resolved=resolveTerms(all,terms,queryCtx());
+const resolved=resolveTerms(all,terms,searchCtx);
 return view.filter(c=>cardMatchesQuery(searchCard(c),resolved)).map(c=>c.id)}}
 const pillOn=pill=>searchHasAlt($("q").value,pill.query);
 // Two pills with one query (a board's pill for tags:"next-up" and that tag's own value pill) are one filter.
@@ -1543,7 +1550,7 @@ renderSearchPanel()}
 // --- the slices
 function sliceNow(){
 const cards=DATA.map(searchCard);
-const sliced=sliceCards(cards,HIERARCHY,depthMap(cards,queryCtx()));
+const sliced=sliceCards(cards,HIERARCHY,depthMap(cards,searchCtx));
 const list=sliceListOf(sliced,panelCards().map(c=>c.id));
 const values=parseSearchQuery($("q").value,BOARD).filter(t=>t.field==="slice").map(t=>t.value);
 return{list,values,run:sliceRunOf(sliced,list,values)}}
@@ -2599,7 +2606,38 @@ sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"});
 copyPayload(ok=>{const m="Copy blocked \\u2014 use the text box below to copy the payload";
 if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
-$("q").addEventListener("input",boxChanged);
+function queryChanged(){
+focusRoot=null;
+setQuery($("q").value);
+render();renderMap();renderGantt();renderCalendar()}
+// The suggestions under the box: what the search module offers for the token under
+// the caret, one row each. A row is pressed (the press is kept from taking the focus
+// off the box) and writes its value whole, as the web's combobox does, so a pick is
+// the same as typing the term. Up and Down move a highlight and wrap, Enter picks
+// the row it is on, Escape shuts the menu and goes no further.
+let qItems=[],qOn=-1;
+function qClose(){qItems=[];qOn=-1;const m=$("qmenu");m.style.display="none";m.replaceChildren()}
+function qMark(){Array.from($("qmenu").children).forEach((r,i)=>r.classList.toggle("on",i===qOn))}
+function qPick(it){$("q").value=it.value;qClose();queryChanged()}
+function qOpen(){
+const q=$("q");
+qItems=searchSuggestionItems(q.value,q.selectionStart,DATA.map(searchCard),searchCtx);
+qOn=-1;
+if(!qItems.length){qClose();return}
+const m=$("qmenu");
+m.replaceChildren(...qItems.map(it=>{const r=el("div","qitem",it.label);r.setAttribute("role","option");
+r.addEventListener("mousedown",e=>{e.preventDefault();qPick(it)});return r}));
+m.style.display=""}
+$("q").addEventListener("input",()=>{queryChanged();qOpen()});
+$("q").addEventListener("focus",qOpen);
+$("q").addEventListener("blur",qClose);
+$("q").addEventListener("keydown",e=>{
+if(!qItems.length||!["Escape","ArrowDown","ArrowUp","Enter"].includes(e.key))return;
+e.preventDefault();
+if(e.key==="Escape"){qClose();e.stopPropagation();return}
+if(e.key==="Enter"){if(qOn>=0)qPick(qItems[qOn]);else qClose();return}
+const d=e.key==="ArrowDown"?1:-1;
+qOn=qOn<0?(d>0?0:qItems.length-1):(qOn+d+qItems.length)%qItems.length;qMark()});
 $("q").addEventListener("focus",()=>{if(panelSwitchOn&&!panelOpen)setPanelOpen(true)});
 // A press anywhere outside the search bar closes the panel, as it closes any popup.
 document.addEventListener("mousedown",e=>{if(panelOpen&&!e.target.closest(".search-bar"))setPanelOpen(false)});
