@@ -200,6 +200,15 @@ test('Board: Shift click adds the range from the range start as additions, in th
   assert.strictEqual(s.rangeStart(), 4);
 });
 
+test('a click on a card while the Graph is showing never ranges, even through the shared grammar: Shift adds one card', async () => {
+  const s = await open({ view: 'graph' });
+  s.page.ctx.visibleCardIds = () => { throw new Error('the Graph has no reading order to range over'); };
+  s.page.fireDocument('click', { target: cardTarget(1), ...mods({ ctrlKey: true }) });
+  s.page.fireDocument('click', { target: cardTarget(5), ...mods({ shiftKey: true }) });
+  assert.deepStrictEqual(s.ids(), [1, 5]);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(5)] });
+});
+
 test('Board: a plain click opens the card and empties the selection', async () => {
   const s = await open();
   s.select('cardPart(1)', 'cardPart(2)');
