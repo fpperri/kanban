@@ -4730,8 +4730,8 @@ function jumpGanttToMatch() {
   return true;
 }
 
-// Moves the anchor of the view showing, if it is the Calendar or the Gantt,
-// and repaints that view when it moved.
+// Moves the day the view in sight is paged to, if it is the Calendar or the Gantt, to the
+// nearest match, and repaints that view when it moved.
 function moveViewToNearestMatch() {
   const mode = loadViewMode();
   if (mode === 'calendar' && jumpCalendarToMatch()) renderCalendarView();

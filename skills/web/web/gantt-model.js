@@ -249,7 +249,7 @@ function ganttSubviewWindow(subview, anchorDay) {
 // the same function the calendar uses, on the window they draw: a month is the
 // month's own days, with no leading or trailing days, because the gantt draws
 // none. The all sub-view fits every dated card on screen already, so it never
-// jumps. Answers the day to move the anchor to, or null.
+// jumps. Answers the day to move the view to, or null.
 function ganttNearestMatchDay(view, subview, anchorDay) {
   const win = ganttSubviewWindow(subview, anchorDay);
   return win ? CAL.nearestMatchDay(view, win) : null;
