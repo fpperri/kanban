@@ -32,7 +32,7 @@ function parseFault(text) {
 }
 
 function parseArgs(argv) {
-  const out = { shots: null, only: [], reverse: false, list: false, fault: null };
+  const out = { shots: null, only: [], reverse: false, list: false, fault: null, plugin: null };
   const value = (i, what) => {
     if (i >= argv.length || argv[i].startsWith('--')) throw new Error(`${argv[i - 1]} needs ${what}`);
     return argv[i];
@@ -44,9 +44,18 @@ function parseArgs(argv) {
     else if (a === '--reverse') out.reverse = true;
     else if (a === '--list') out.list = true;
     else if (a === '--fault') out.fault = parseFault(value(++i, 'a fault'));
+    else if (a === '--plugin') out.plugin = path.resolve(value(++i, 'a plugin checkout'));
     else throw new Error(`unknown argument: ${a}`);
   }
   return out;
+}
+
+// The server that serves the boards: this checkout's, or with --plugin the one of another
+// checkout of the plugin (an older one, to prove a board written for this plugin opens on it).
+function serverScriptOf(pluginDir) {
+  const script = path.join(pluginDir || path.join(__dirname, '..', '..', '..', '..'), 'skills', 'web', 'scripts', 'server.js');
+  if (!fs.existsSync(script)) throw new Error(`no server at ${script}`);
+  return script;
 }
 
 // The scenarios to run, in the registry's order (last to first with --reverse).
@@ -366,7 +375,7 @@ function summaryLines(results) {
 }
 
 module.exports = {
-  EXIT, DEFAULT_TIMEOUT_MS, parseArgs, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
+  EXIT, DEFAULT_TIMEOUT_MS, parseArgs, serverScriptOf, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
   isAlive, killTree, createRegistry, sleep, boardsOf, waitForPageTarget, startChromeUntilPage,
   runScenarios, withFault, exitCodeFor, summaryLines,
 };

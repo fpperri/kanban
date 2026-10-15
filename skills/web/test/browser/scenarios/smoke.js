@@ -2,8 +2,10 @@
 // Every view, on the plan board and on the malformed board, with the page code
 // as it stands. A board that carries keys this page does not know (a hierarchy,
 // pills, type icons, some of them broken) must still load and draw, so that a
-// board written for a newer plugin opens on an older one. The harness closes
-// the scenario with the console-error check, which covers both boards.
+// board written for a newer plugin opens on an older one. CI also runs this
+// scenario with --plugin on a checkout of main, whose server and page do not
+// know the keys: the proof that the boards open on the older plugin. The harness
+// closes the scenario with the console-error check, which covers both boards.
 //
 // Each view is loaded cold from its deep link, then waited for on what the page
 // shows: its container visible and something drawn in it.

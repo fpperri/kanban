@@ -33,6 +33,11 @@ jobs:
           node-version: 22
       - run: npm run test:browser -- --shots browser-shots
       - run: npm run test:browser -- --reverse --shots browser-shots-reverse
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: older
+      - run: npm run test:browser -- --only smoke --plugin older --shots browser-shots-older
       - run: node skills/web/test/browser/fault-check.js
       - if: failure()
         uses: actions/upload-artifact@v4
@@ -41,4 +46,5 @@ jobs:
           path: |
             browser-shots
             browser-shots-reverse
+            browser-shots-older
           if-no-files-found: ignore
