@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a graph, a key-guard and a smoke scenario, with unique names', () => {
+test('the runner knows a search-box, a graph, a key-guard, a config-keys and a smoke scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'graph', 'key-guard', 'smoke']);
+  assert.deepStrictEqual(names, ['search-box', 'graph', 'key-guard', 'config-keys', 'smoke']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 

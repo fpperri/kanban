@@ -8,5 +8,6 @@ module.exports = [
   require('./search-box'),
   require('./graph'),
   require('./key-guard'),
+  require('./config-keys'),
   require('./smoke'),
 ];
