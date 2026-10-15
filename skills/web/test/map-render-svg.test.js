@@ -59,7 +59,6 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
     ROLLUP_BAR_OPEN: colState.ROLLUP_BAR_OPEN,
     nestingIndex: rollupIndex(cards, CTX),
     loadRollupBarMode: () => mode,
-    loadRollupCountArchived: () => true,
     boardStatuses: () => STATUSES,
     paintRollupBars: () => {},
     paintTypeColors: () => {},

@@ -76,7 +76,6 @@ function richSandbox({ index, mode = 'collapsed', types = [] } = {}) {
     state: { types },
     nestingIndex: index || { altitudeOf: () => 0, rollup: () => ({ total: 0, counts: {} }) },
     loadRollupBarMode: () => mode,
-    loadRollupCountArchived: () => true,
   };
   vm.createContext(sandbox);
   vm.runInContext(['MAP_NODE_W', 'MAP_NODE_H', 'MAP_RICH_TOP', 'MAP_RICH_META_H', 'MAP_RICH_BAR_OPEN_H', 'MAP_RICH_BAR_THIN_H', 'MAP_RICH_BARE_H', 'MAP_RICH_DIMS'].map(constant)
@@ -117,13 +116,24 @@ test('a type, an altitude or a blocked sticker earns the card a row of its own',
   assert.ok(heightOf(richSandbox(), { id: 5, blocked: true }, RICH([{ id: 5 }])) > bare, 'a sticker');
 });
 
-test('a parent\'s roll-up bar adds a row, thin while the Bar setting is collapsed and taller when it is open', () => {
+test('a parent\'s roll-up bar adds a row, thin while the bar mode is collapsed and taller when it is open', () => {
   const card = { id: 1, type: 'epic' };
   const thin = heightOf(richSandbox({ index: parentIndex(3), mode: 'collapsed' }), { id: 1 }, RICH([card]));
   const open = heightOf(richSandbox({ index: parentIndex(3), mode: 'open' }), { id: 1 }, RICH([card]));
   const noBar = heightOf(richSandbox(), { id: 1 }, RICH([card]));
   assert.ok(thin > noBar, 'a bar adds height');
   assert.ok(open > thin, 'the open bar is taller than the thin one');
+});
+
+test('a rich node asks the index for its roll-up with no way to leave archived leaves out', () => {
+  const asked = [];
+  const index = {
+    altitudeOf: () => 2,
+    rollup: (...args) => { asked.push(args); return { total: 2, counts: { done: 1, todo: 1 } }; },
+  };
+  const w = richSandbox({ index });
+  w.mapRichLayout({ id: 1 }, RICH([{ id: 1, type: 'epic' }]));
+  assert.deepStrictEqual(asked, [[1]], 'the node passes the id and nothing else');
 });
 
 test('a parent with no leaf counted draws no bar', () => {
@@ -210,7 +220,7 @@ test('a card from another board is named by its mention, with the label of a stu
   assert.match(body, /\(other board\)/);
 });
 
-test('a click on a roll-up bar flips the Bar setting ahead of any card handling, so the card never opens', () => {
+test('a click on a roll-up bar flips every bar ahead of any card handling, so the card never opens', () => {
   const handler = appSrc.match(/document\.addEventListener\('click', \(e\) => \{\n    if \(e\.target\.closest\('\.rollup'\)[\s\S]*?\n    const el = e\.target\.closest\('\.card-el'\);/);
   assert.ok(handler, 'the shared click grammar checks .rollup before it looks for a card');
   assert.match(handler[0], /toggleRollupBar\(\); return;/);

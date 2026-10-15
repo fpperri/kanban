@@ -391,7 +391,20 @@ test('index html has a top-bar graph toggle button and a graph view container', 
     const html = await (await fetch(`${base}/`)).text();
     assert.ok(html.includes('<button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>'));
     assert.ok(html.includes('<div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>'));
-    assert.ok(html.indexOf('id="gantt-toggle-btn"') < html.indexOf('id="graph-toggle-btn"') && html.indexOf('id="graph-toggle-btn"') < html.indexOf('id="rollup-ctls"'));
+    assert.ok(html.indexOf('id="gantt-toggle-btn"') < html.indexOf('id="graph-toggle-btn"') && html.indexOf('id="graph-toggle-btn"') < html.indexOf('id="refresh-btn"'));
+  });
+});
+
+test('index html header carries no roll-up select or checkbox', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const html = await (await fetch(`${base}/`)).text();
+    const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+    assert.ok(header.includes('id="refresh-btn"') && header.includes('id="notif-btn"'), 'the slice is the page header');
+    assert.doesNotMatch(header, /<select|type="checkbox"|rollup/);
+    assert.ok(!html.includes('id="rollup-bar-mode"') && !html.includes('id="rollup-archived"') && !html.includes('id="rollup-ctls"'));
+    const js = await (await fetch(`${base}/app.js`)).text();
+    assert.doesNotMatch(js, /#rollup-bar-mode|#rollup-archived|#rollup-ctls/, 'nothing in the page script reaches for them');
   });
 });
 
@@ -401,7 +414,7 @@ test('graph wiring: the sixth view is registered, its toggle/control join the cl
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /graph: '#graph-view'/);
     assert.match(js, /if \(mode === 'graph'\) renderGraphView\(\);/);
-    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.rollup-ctl', '.rollup', '#graph-toggle-btn', '.graph-control'],
+    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.rollup', '#graph-toggle-btn', '.graph-control'],
       '#graph-toggle-btn, .graph-control are in the click-away exemption list');
     assert.ok(pollGuardSelectors(js).includes('.graph-control:not(.graph-filter-toggle)'), 'graph buttons other than the pills are in the poll-guard list');
   });

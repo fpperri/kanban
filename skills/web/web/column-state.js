@@ -235,10 +235,10 @@ function mergeMapSectionsCollapsed(saved) {
 }
 
 // --- roll-up bar on a parent card -----------------------------------------
-// Two per-browser choices, each its own storageKey feature: how every roll-up bar
-// shows (a closed set) and whether archived leaves count toward it. Same
-// tolerant stance as mergeViewMode: anything unrecognised is the default, which
-// is how a browser that once saved the retired 'off' reads as collapsed.
+// One per-browser choice, its own storageKey feature: how every roll-up bar
+// shows (a closed set). Same tolerant stance as mergeViewMode: anything
+// unrecognised is the default, which is how a browser that once saved the
+// retired 'off' reads as collapsed.
 const ROLLUP_BAR_OPEN = 'open';
 const ROLLUP_BAR_COLLAPSED = 'collapsed';
 const ROLLUP_BAR_MODES = [ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED];
@@ -251,11 +251,6 @@ function nextRollupBar(mode) {
   return mode === ROLLUP_BAR_OPEN ? ROLLUP_BAR_COLLAPSED : ROLLUP_BAR_OPEN;
 }
 
-// Stored as the strings 'true' / 'false' (localStorage keeps nothing else).
-function mergeRollupCountArchived(saved) {
-  return saved !== 'false';
-}
-
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     COLUMN_IDS, COLUMN_LABELS, DEFAULT_COLLAPSED, DEFAULT_STATUSES,
@@ -265,7 +260,7 @@ if (typeof module !== 'undefined' && module.exports) {
     defaultGanttStatusFilter, mergeGanttStatusFilter,
     soloStatusFilter,
     MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed,
-    ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED, ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar, mergeRollupCountArchived,
+    ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED, ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar,
   };
 } else {
   window.COLUMN_IDS = COLUMN_IDS;
@@ -297,5 +292,4 @@ if (typeof module !== 'undefined' && module.exports) {
   window.ROLLUP_BAR_MODES = ROLLUP_BAR_MODES;
   window.mergeRollupBar = mergeRollupBar;
   window.nextRollupBar = nextRollupBar;
-  window.mergeRollupCountArchived = mergeRollupCountArchived;
 }
