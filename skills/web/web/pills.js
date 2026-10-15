@@ -170,6 +170,26 @@ function pillsOn(selection, pills) {
   return pills.filter((pill) => pillIsOn(selection, pill));
 }
 
+// The pill the m key's next step solos, or null for a list with no pill. The cycle runs
+// off, every pill in list order, then off again (Shift+m runs it backwards), and each step
+// is a solo, like a right-click: the pill alone is on and the box holds its query alone. The
+// place in the cycle is the pill that is on alone; with none on, several on, or only a card,
+// a path or a typed search selected, the cycle is at off, so m answers the first pill and
+// Shift+m the last. The step off is the solo of the pill that is on alone, which turns
+// every pill off, so the step after the last pill answers that pill again, and so does the
+// step before the first. Pills that hold one query are one step, the first of them (a board
+// pill for tags:"next-up" and the tag's own value pill are on together, and one filter is
+// not two stops). `direction` is 1 for m, -1 for Shift+m.
+function pillStep(pills, selection, direction) {
+  const seen = new Set();
+  const cycle = pills.filter((pill) => !seen.has(pillQueryKey(pill.query)) && seen.add(pillQueryKey(pill.query)));
+  if (!cycle.length) return null;
+  const on = pillsOn(selection, cycle);
+  const here = on.length === 1 ? cycle.indexOf(on[0]) : -1;
+  if (here === -1) return direction < 0 ? cycle[cycle.length - 1] : cycle[0];
+  return cycle[here + direction] || cycle[here];
+}
+
 // The chip a closed panel shows: how many things are on, and a name that says
 // which, for a screen reader. `names` is what each one is called. Nothing on, no
 // chip (count 0, no name).
@@ -178,7 +198,7 @@ function panelChip(names = []) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { BUILT_IN_PILLS, PILLS_SHOWN, pillEntries, pillCounts, pillList, pillRows, pillIsOn, pillsOn, panelChip };
+  module.exports = { BUILT_IN_PILLS, PILLS_SHOWN, pillEntries, pillCounts, pillList, pillRows, pillIsOn, pillsOn, pillStep, panelChip };
 } else {
   window.BUILT_IN_PILLS = BUILT_IN_PILLS;
   window.PILLS_SHOWN = PILLS_SHOWN;
@@ -188,5 +208,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.pillRows = pillRows;
   window.pillIsOn = pillIsOn;
   window.pillsOn = pillsOn;
+  window.pillStep = pillStep;
   window.panelChip = panelChip;
 }
