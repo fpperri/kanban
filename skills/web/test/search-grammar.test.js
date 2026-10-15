@@ -1,6 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, cardMatchesQuery, filterCards } = require('../web/search');
+const {
+  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm, searchBracket,
+} = require('../web/search');
 
 // The search grammar beyond space-separated terms: `|` for or, round brackets,
 // quoted values and `waiting:`. Driven through the search module's own seam, a
@@ -337,4 +339,108 @@ test('the resolver turns waiting: into an id term over the whole board, once, an
 
 test('a waiting: term that was never resolved matches nothing, as tree: and path: do', () => {
   assert.strictEqual(cardMatchesQuery(WAITS[1], parseSearchQuery('waiting:')), false);
+});
+
+// --- the term interface: add a term, remove a term, bracket a query -----------
+
+test('adding a term to an empty query gives that term, and to a single alternative appends it', () => {
+  assert.strictEqual(searchAddTerm('', 'tags:ui'), 'tags:ui');
+  assert.strictEqual(searchAddTerm('   ', 'tags:ui'), 'tags:ui');
+  assert.strictEqual(searchAddTerm('assignee:@afk', 'tags:ui'), 'assignee:@afk tags:ui');
+  assert.strictEqual(searchAddTerm('title:"two words" status:doing', 'tags:ui'), 'title:"two words" status:doing tags:ui');
+});
+
+test('adding a term adds it to every alternative, so it binds to all of them and not only the last', () => {
+  assert.strictEqual(searchAddTerm('blocked: | review:', 'tags:ui'), 'blocked: tags:ui | review: tags:ui');
+  assert.strictEqual(searchAddTerm('a b | c | d', 'tags:ui'), 'a b tags:ui | c tags:ui | d tags:ui');
+  const added = searchAddTerm('status:doing | #12', 'tags:ui');
+  assert.deepStrictEqual(ids(added), ids('tags:ui status:doing | tags:ui #12'));
+  assert.deepStrictEqual(ids(added), [1], 'card 12 has no ui tag, so only the doing ui card is left');
+});
+
+test('adding a term to a query with a bracket keeps the bracket whole and adds beside it', () => {
+  assert.strictEqual(searchAddTerm('tags:ui (status:doing | status:todo)', 'tags:grill'), 'tags:ui (status:doing | status:todo) tags:grill');
+  assert.deepStrictEqual(ids(searchAddTerm('(status:doing | status:todo) | #12', 'tags:ui')), [1, 2]);
+});
+
+test('adding a term the alternative already holds changes nothing, and the text comes back as it was', () => {
+  assert.strictEqual(searchAddTerm('tags:ui', 'tags:ui'), 'tags:ui');
+  assert.strictEqual(searchAddTerm('a   tags:ui', 'tags:ui'), 'a   tags:ui', 'not even the spacing is touched');
+  assert.strictEqual(searchAddTerm('a tags:ui | b tags:ui', 'tags:ui'), 'a tags:ui | b tags:ui');
+  assert.strictEqual(searchAddTerm('a tags:ui | b', 'tags:ui'), 'a tags:ui | b tags:ui', 'only the alternative without it gains it');
+});
+
+test('a trailing bar or an empty alternative does not become a lone term in the result', () => {
+  assert.strictEqual(searchAddTerm('a |', 'tags:ui'), 'a tags:ui');
+  assert.strictEqual(searchAddTerm('| a', 'tags:ui'), 'a tags:ui');
+});
+
+test('a term with a value that holds spaces is added as one quoted term', () => {
+  assert.strictEqual(searchTermText('tags', 'two words'), 'tags:"two words"');
+  assert.strictEqual(searchTermText('tags', 'ui'), 'tags:ui');
+  assert.strictEqual(searchTermText('assignee', '@afk'), 'assignee:@afk');
+  assert.strictEqual(searchTermText(null, 'two words'), '"two words"');
+  assert.strictEqual(searchTermText('blocked', ''), 'blocked:');
+  const added = searchAddTerm('a | b', { field: 'tags', value: 'two words' });
+  assert.strictEqual(added, 'a tags:"two words" | b tags:"two words"');
+  assert.deepStrictEqual(parseSearchQuery(added)[0].alts.map((alt) => alt[1]), [
+    { field: 'tags', value: 'two words', exact: true },
+    { field: 'tags', value: 'two words', exact: true },
+  ]);
+  const tagged = [card(7, { title: 'a', tags: ['two words'] }), card(8, { title: 'a', tags: ['two'] })];
+  assert.deepStrictEqual(ids(searchAddTerm('a', { field: 'tags', value: 'two words' }), tagged), [7]);
+  assert.strictEqual(searchAddTerm(added, { field: 'tags', value: 'two words' }), added, 'adding it again is a no-op');
+});
+
+test('a quote inside a value cannot be written and is left out, so the term still parses as one', () => {
+  assert.strictEqual(searchTermText('tags', 'say "hi"'), 'tags:"say hi"');
+  assert.strictEqual(searchTermText('tags', '"x'), 'tags:x');
+  assert.strictEqual(searchTermText(null, '(x'), '"(x"');
+});
+
+test('removing a term takes it out of every alternative', () => {
+  assert.strictEqual(searchRemoveTerm('blocked: tags:ui | review: tags:ui', 'tags:ui'), 'blocked: | review:');
+  assert.strictEqual(searchRemoveTerm('a tags:ui b', 'tags:ui'), 'a b');
+  assert.strictEqual(searchRemoveTerm('tags:ui', 'tags:ui'), '');
+  assert.strictEqual(searchRemoveTerm('a | tags:ui', 'tags:ui'), 'a', 'an alternative left empty is dropped');
+  assert.strictEqual(searchRemoveTerm('a tags:"two words"', { field: 'tags', value: 'two words' }), 'a');
+});
+
+test('removing a term reaches into brackets and drops a bracket it empties', () => {
+  assert.strictEqual(searchRemoveTerm('a (tags:ui | b)', 'tags:ui'), 'a (b)');
+  assert.strictEqual(searchRemoveTerm('a (tags:ui)', 'tags:ui'), 'a');
+  assert.strictEqual(searchRemoveTerm('a ((tags:ui) | tags:ui)', 'tags:ui'), 'a');
+});
+
+test('removing a term that is not there returns the text as it was', () => {
+  assert.strictEqual(searchRemoveTerm('a   |  b', 'tags:ui'), 'a   |  b');
+  assert.strictEqual(searchRemoveTerm('', 'tags:ui'), '');
+  assert.strictEqual(searchRemoveTerm('tags:uikit', 'tags:ui'), 'tags:uikit', 'a term is removed whole, never in part');
+});
+
+test('add then remove gets the query back, and the box matches what it matched before', () => {
+  const start = 'blocked: | review:';
+  const there = searchAddTerm(start, 'tags:ui');
+  assert.strictEqual(searchRemoveTerm(there, 'tags:ui'), start);
+});
+
+test('bracketing a query that holds a | or spaces wraps it, so it can be one term of another query', () => {
+  assert.strictEqual(searchBracket('a | b'), '(a | b)');
+  assert.strictEqual(searchBracket('a b'), '(a b)');
+  assert.strictEqual(searchBracket('tags:ui status:doing'), '(tags:ui status:doing)');
+  assert.strictEqual(searchBracket('  a   b  '), '(a   b)');
+  const wrapped = searchBracket('tags:ui | status:done');
+  assert.deepStrictEqual(ids(`${wrapped} #1`), [1], 'ANDed with another term, the whole or is one side');
+  assert.deepStrictEqual(ids('tags:ui | status:done #1'), [1, 2, 3], 'where unbracketed the and would bind only to the last alternative');
+});
+
+test('bracketing a single term, an empty query or a query already in one bracket changes nothing but the edges', () => {
+  assert.strictEqual(searchBracket('a'), 'a');
+  assert.strictEqual(searchBracket('path:40'), 'path:40');
+  assert.strictEqual(searchBracket('title:"two words"'), 'title:"two words"', 'a quoted value with spaces is still one term');
+  assert.strictEqual(searchBracket('  a  '), 'a');
+  assert.strictEqual(searchBracket(''), '');
+  assert.strictEqual(searchBracket('   '), '');
+  assert.strictEqual(searchBracket('(a | b)'), '(a | b)');
+  assert.strictEqual(searchBracket('((a b))'), '((a b))');
 });

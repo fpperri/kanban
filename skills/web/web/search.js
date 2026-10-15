@@ -245,6 +245,87 @@ function searchFieldHit(text, term) {
   return term.exact ? searchFlat(low) === term.value : low.includes(term.value);
 }
 
+// --- The term interface. Code that writes to the box (a cue click, and later a
+// pill, a slice or isolate) edits the text through these, never by joining
+// strings: `|` binds looser than a space, so a term appended to `a | b` would
+// bind to b only. Each returns the new text, and the text it was handed when
+// nothing changed, so a caller can tell a no-op by comparing.
+
+// One item of the parse as text: a term as it was typed, or a bracket rebuilt
+// around what is left in it (nothing, when it is empty).
+function searchItemText(item, text) {
+  if (!item.group) return text.slice(item.start, item.end);
+  const inner = searchRenderAlts(item.group, text);
+  return inner ? `(${inner})` : '';
+}
+
+function searchRenderAlts(alts, text) {
+  return alts
+    .map((alt) => alt.map((item) => searchItemText(item, text)).filter(Boolean).join(' '))
+    .filter(Boolean)
+    .join(' | ');
+}
+
+// A term as it is written in the box. A value holding spaces is quoted so it
+// stays one term (which makes a scoped value an exact one); a quote inside a
+// value cannot be written, so it is left out. Bare text that would read as a
+// bracket or a bar is quoted too.
+function searchTermText(field, value) {
+  const v = String(value == null ? '' : value).replace(/"/g, '').replace(/\s+/g, ' ').trim();
+  const quote = /\s/.test(v) || (!field && /^\(|\)$|^\|$/.test(v));
+  const written = quote ? `"${v}"` : v;
+  return field ? `${field}:${written}` : written;
+}
+
+function searchTermString(term) {
+  return typeof term === 'string' ? term.trim() : searchTermText(term.field, term.value);
+}
+
+// Adds `term` (text, or { field, value }) to every alternative of the query. An
+// alternative that already holds it keeps it once; an empty alternative is
+// dropped, not given a lone term.
+function searchAddTerm(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const add = searchTermString(term);
+  if (!add) return text;
+  const alts = parseSearchAlts(lexSearch(text).tokens).filter((alt) => alt.length);
+  if (!alts.length) return add;
+  let changed = false;
+  const written = alts.map((alt) => {
+    const parts = alt.map((item) => searchItemText(item, text)).filter(Boolean);
+    if (!parts.includes(add)) { parts.push(add); changed = true; }
+    return parts.join(' ');
+  });
+  return changed ? written.join(' | ') : text;
+}
+
+// Removes `term` wherever it stands, inside brackets too, and drops a bracket
+// or an alternative that is left empty.
+function searchRemoveTerm(raw, term) {
+  const text = String(raw == null ? '' : raw);
+  const drop = searchTermString(term);
+  if (!drop) return text;
+  let removed = false;
+  const strip = (alts) => alts.map((alt) => alt.flatMap((item) => {
+    if (item.group) return [{ group: strip(item.group) }];
+    if (text.slice(item.start, item.end) !== drop) return [item];
+    removed = true;
+    return [];
+  }));
+  const left = strip(parseSearchAlts(lexSearch(text).tokens));
+  return removed ? searchRenderAlts(left, text) : text;
+}
+
+// Wraps a query that holds more than one term, or a |, in round brackets, so it
+// can stand as one term of a longer query. One term (a quoted value with spaces
+// is one), an empty query and a query that is already one bracket come back as
+// they are, trimmed.
+function searchBracket(raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  const alts = parseSearchAlts(lexSearch(text).tokens);
+  return alts.length === 1 && alts[0].length <= 1 ? text : `(${text})`;
+}
+
 function termMatchesCard(term, card) {
   const title = (card.title || '').toLowerCase();
   const body = (card.body || '').toLowerCase();
@@ -392,11 +473,18 @@ function searchSuggestionItems(raw) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems };
+  module.exports = {
+    parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
+    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket,
+  };
 } else {
   window.parseSearchQuery = parseSearchQuery;
   window.cardMatchesQuery = cardMatchesQuery;
   window.filterCards = filterCards;
   window.resolveTerms = resolveTerms;
   window.searchSuggestionItems = searchSuggestionItems;
+  window.searchTermText = searchTermText;
+  window.searchAddTerm = searchAddTerm;
+  window.searchRemoveTerm = searchRemoveTerm;
+  window.searchBracket = searchBracket;
 }
