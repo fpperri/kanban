@@ -134,7 +134,7 @@ function pollSandbox(mutateGuard) {
   };
   const sandbox = {
     document: doc, state: {}, selectedIds: new Set(), hoveredId: null,
-    applyProjectName() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
+    applyProjectName() {}, applyHomeUrl() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
     pruneSelection: (s) => s, setHoveredId() {}, renderBoard() {},
     shouldSkipAutoRefresh: policy.shouldSkipAutoRefresh, isDragging: false, pendingDrops: 0,
     fetchBoard: async () => ({ active: [], archived: [] }), setStale() {},
