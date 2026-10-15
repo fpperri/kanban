@@ -176,6 +176,7 @@ test('it covers every acceptance check the ticket names, each by a check of its 
     'the Board shows only the isolated set',
     'in that fresh browser turning isolate off leaves the box empty',
     'isolate is off, the box is empty and the chip is quiet',
+    'and the address has lost the isolate parameter, with nothing typed',
     'opening a card while isolated adds one history step carrying card, q and isolate',
     'Back closes the card and keeps q and isolate',
   ]) assert.ok(names.some((n) => n.includes(part)), part);
