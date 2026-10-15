@@ -69,7 +69,7 @@ function detailSandbox({ mode, detailId = null, archivedKey, archivedLeaves = []
   return sandbox;
 }
 
-// --- the detail follows the Bar setting -------------------------------------------
+// --- the detail follows the shared bar mode -------------------------------------------
 
 test('with Bar collapsed the detail shows the thin bar without numbers', () => {
   const s = detailSandbox({ mode: 'collapsed' });

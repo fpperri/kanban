@@ -45,7 +45,7 @@ test('the web skill describes the trees, the No relations row, the row order and
   assert.match(section, /stacked biggest first/);
   assert.match(section, /\*\*No relations\*\*, holds only cards with no dependency, no parent and no children/);
   assert.match(section, /doing, todo, backlog, any other live status in column order, done, archived, then stubs/);
-  assert.match(section, /a click on a bar flips the Bar setting and never opens the card/);
+  assert.match(section, /a click on a bar flips every bar and never opens the card/);
   assert.match(section, /map-relations\.js/);
 });
 

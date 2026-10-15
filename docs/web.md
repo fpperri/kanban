@@ -58,11 +58,11 @@ one card when there is room between the neighbours, that parent's children renum
 in tens when there is not. The search box up top filters every view at once.
 
 A card with children shows `▲n` (how many layers sit below it) and a status bar
-of the leaves under it. The header's **Bar** select sets every bar to collapsed (a thin
-line) or open (with counts), and clicking any bar flips them all; the card detail shows
-the bar under its title and thread, above the fields, the same way, with a line saying
-it counted this board only when open. The **Archived** checkbox decides whether
-archived leaves count (as done, by default); both are remembered in your browser.
+of the leaves under it. Every bar is either collapsed (a thin line) or open (with
+counts), and clicking any bar flips them all; the card detail shows the bar under its
+title and thread, above the fields, the same way, with a line saying it counted this
+board only when open. Archived leaves count as done. The bar choice is remembered per
+board in your browser.
 Marking a parent done while leaves below are open warns and saves anyway.
 
 Open a card and the parents it sits under show above it, root first, each one a

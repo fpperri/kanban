@@ -57,7 +57,7 @@ function rollupScopeLine(rollup, countArchived) {
   return `${rollupWhere(rollup)} ${countArchived ? 'Archived leaves count as done.' : 'Archived leaves are left out.'}`;
 }
 
-// The detail follows the shared Bar setting like a tile does: collapsed is the
+// The detail follows the shared bar mode like a tile does: collapsed is the
 // thin bar alone, open adds the title, the numbers and the scope line.
 function rollupDetailHtml(rollup, altitude, order, countArchived, mode = ROLLUP_COLUMN_STATE.ROLLUP_BAR_OPEN) {
   const empty = '<div class="rollup-empty">No leaves counted.</div>';

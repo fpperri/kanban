@@ -22,17 +22,19 @@ test('the web skill describes the badge, the leaves-only bar, and the open and c
   assert.match(text, /remembered per board in `localStorage`/);
 });
 
-test('the web skill says one Bar setting drives every bar, a click flips it, and the old off reads collapsed', () => {
+test('the web skill says every bar shares one mode, a click flips it, there is no header control, and the old off reads collapsed', () => {
   const text = bullet();
-  assert.match(text, /One \*\*Bar\*\* setting, open or collapsed, drives every bar on the page/);
-  assert.match(text, /clicking any bar, on a board card or in the card detail, flips it for all of them without opening the card/);
+  assert.match(text, /Every bar on the page shares one mode, open or collapsed/);
+  assert.match(text, /Clicking any bar, on a board card or in the card detail, flips it for all of them without opening the card/);
+  assert.match(text, /the mode is remembered per board in `localStorage`/);
   assert.match(text, /retired `off` reads as collapsed/);
   assert.doesNotMatch(text, /and off/, 'off is not offered as a choice');
+  assert.doesNotMatch(text, /\bselect\b|checkbox|header's|Bar setting|the controls/, 'no word of the header controls that are gone');
 });
 
 test('the web skill puts the roll-up in the card detail under the thread and above the fields, following the setting', () => {
   const text = bullet();
-  assert.match(text, /right under the title and thread, above the fields, following the Bar setting/);
+  assert.match(text, /right under the title and thread, above the fields, in the same mode/);
   assert.match(text, /thin bar when collapsed, the bar with its numbers and a scope line when open/);
 });
 
@@ -50,10 +52,10 @@ test('the web skill says a right-click inside the card detail opens the card men
   assert.match(text, /with text selected, or on anything that already handles the right-click itself, the browser's own menu shows instead/);
 });
 
-test('the web skill says archived leaves count as done by default and can be left out', () => {
+test('the web skill says archived leaves always count as done, with nothing to turn off', () => {
   const text = bullet();
-  assert.match(text, /Archived\*\* checkbox/);
-  assert.match(text, /as done, on by default/);
+  assert.match(text, /Archived leaves always count as done, so archiving a finished story leaves its parent's done count unchanged/);
+  assert.doesNotMatch(text, /Archived\*\*|by default|left out/);
 });
 
 test('the web skill says the scope line counted this board only, and why', () => {
@@ -79,9 +81,11 @@ test('the human docs mention the badge, the bar and the warning', () => {
   assert.match(text, /warns and saves anyway/);
 });
 
-test('the human docs say clicking a bar flips them all, the detail follows, children open from a header, and the card menu works in the detail', () => {
+test('the human docs say clicking a bar flips them all, the detail follows, archived leaves count, children open from a header, and the card menu works in the detail', () => {
   const text = webDoc.replace(/\s+/g, ' ');
-  assert.match(text, /sets every bar to collapsed \(a thin line\) or open \(with counts\), and clicking any bar flips them all/);
+  assert.match(text, /Every bar is either collapsed \(a thin line\) or open \(with counts\), and clicking any bar flips them all/);
+  assert.match(text, /Archived leaves count as done\. The bar choice is remembered per board in your browser/);
+  assert.doesNotMatch(text, /\*\*Bar\*\* select|\*\*Archived\*\* checkbox/, 'no word of the header controls that are gone');
   assert.match(text, /under its title and thread, above the fields/);
   assert.match(text, /a \*\*Children\*\* header with their count opens the list/);
   assert.match(text, /right-clicking inside an open card opens the same menu for that card/);
