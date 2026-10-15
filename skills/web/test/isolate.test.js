@@ -386,6 +386,19 @@ test('on the Board a double click on empty space leaves the selection while isol
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
 });
 
+test('a click on the switch never clears the selection, even the second click of a double click that turns isolate off', async () => {
+  const s = await open();
+  s.pick('cardPart(2)', 'cardPart(5)');
+  const marked = { dataset: {} };
+  const onSwitch = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '[data-keeps-selection]' ? marked : null) : harmless(String(key))) });
+  s.flip();
+  s.page.fireDocument('click', { target: onSwitch, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false });
+  s.flip();
+  s.page.fireDocument('click', { target: onSwitch, detail: 2, shiftKey: false, ctrlKey: false, metaKey: false });
+  assert.strictEqual(s.isolate(), null, 'the second click turned isolate off, so the selection was the only thing the marker had to keep');
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(5)] });
+});
+
 test('isolating a search typed in the Graph makes it a bracketed query part, and turning isolate off gives the box and the typed anchor back', async () => {
   const s = await open({ view: 'graph' });
   s.type('move the');
