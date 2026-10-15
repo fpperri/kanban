@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../web/search');
 const { buildRelationsGraph } = require('../web/dependency-graph');
 const { mapShapeRelations } = require('../web/map-relations');
 const { ganttGroups, rowWindowSpans, ganttWindow, ganttBarClip, GANTT_MAX_DAYS } = require('../web/gantt-model');
@@ -59,6 +59,21 @@ test('on the plan board, slice:goal..objective keeps the goal, strategy and obje
   const types = new Map(board.live.map((c) => [c.id, c.type]));
   assert.deepStrictEqual(cut.shows.map((id) => types.get(id)), ['goal', 'strategy', 'objective', 'goal', 'strategy']);
   assert.deepStrictEqual(depthZero.datedShows.map((id) => types.get(id)), ['task', 'task']);
+});
+
+test('the lists the scenario waits for are the ones the search module offers on the plan board, and what pressing a row keeps is what the term cuts to', () => {
+  const board = load('plan');
+  const ctx = { board: 'plan', hierarchy: board.config.hierarchy };
+  const { typed, labels, first, second } = sliceTerm.CASES.plan.suggest;
+  const offered = (text) => searchSuggestionItems(text, text.length, board.all, ctx);
+  assert.deepStrictEqual(offered(typed).map((i) => i.label), labels, 'after slice:');
+  assert.strictEqual(offered(typed).find((i) => i.label === first.pick).value, first.pick, 'the row pressed first writes its label whole');
+  assert.deepStrictEqual(shownBy(board, 'plan', first.pick), first.shows);
+  const afterDots = `${first.pick}${second.typed}`;
+  assert.deepStrictEqual(offered(afterDots).map((i) => i.label), second.labels, 'after the dots');
+  assert.ok(offered(afterDots).some((i) => i.value === second.pick), 'the row pressed second writes the whole cut');
+  assert.deepStrictEqual(shownBy(board, 'plan', second.pick), second.shows);
+  assert.ok(first.shows.length < sliceTerm.CASES.plan.live.length && second.shows.length > first.shows.length, 'each cut shows some cards and the second more than the first');
 });
 
 test('the live cards each case starts from are the boards\' live cards, and the cuts hide some of them', () => {
@@ -195,13 +210,16 @@ test('run against a stand-in page, the scenario writes each query to the box and
   const written = [];
   const opened = [];
   const checks = [];
+  const inserted = [];
+  const clicks = [];
   const page = {
     ev: async (expr) => {
       const m = /i\.value=("(?:[^"\\]|\\.)*")/.exec(expr);
       if (m) written.push(JSON.parse(m[1]));
       return '';
     },
-    send: async () => {},
+    send: async (method, params) => { if (method === 'Input.insertText') inserted.push(params.text); },
+    click: async (x, y) => { clicks.push([x, y]); },
     open: async (url, key) => { opened.push([url, key]); },
     waitFor: async () => true,
     shot: async () => {},
@@ -217,6 +235,8 @@ test('run against a stand-in page, the scenario writes each query to the box and
   for (const query of [plan.cut.query, plan.depthZero.query, fixture.query, malformed.tier.query, malformed.other.query, malformed.run.query]) {
     assert.ok(written.includes(query), `the scenario writes ${query}`);
   }
+  assert.deepStrictEqual(inserted, [plan.suggest.typed, plan.suggest.second.typed], 'the box is typed in with the browser\'s own text input, which is what opens the list');
+  assert.strictEqual(clicks.length, 2, 'a row is pressed twice, with the browser\'s own mouse');
   assert.deepStrictEqual(checks.filter(([, ok]) => !ok), [], 'every check passes against a page that answers yes');
   assert.deepStrictEqual(checks.map(([name]) => name), [
     'plan: the Board shows every live card before any cut',
@@ -229,6 +249,13 @@ test('run against a stand-in page, the scenario writes each query to the box and
     'plan: the cut draws none of them on the Calendar',
     'plan: the Graph draws dots before any cut',
     'plan: the Graph draws no dot outside the cut',
+    'plan: the Board shows every live card before the box is typed in',
+    'plan: typing slice: lists the slices of the board, the tiers in hierarchy order and then the depths',
+    'plan: pressing slice:strategy writes it in the box and shuts the list',
+    'plan: the Board then keeps only the strategy cards',
+    'plan: typing the dots after it lists the slices as the second end of the cut',
+    'plan: pressing slice:strategy..objective writes the whole cut in the box',
+    'plan: the Board then keeps the strategy and objective cards',
     'fixture: the Board shows every live card before any cut',
     'fixture: slice:1 keeps only the depth-1 cards',
     'malformed: the Board shows every live card before any cut',

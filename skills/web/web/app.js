@@ -3458,8 +3458,10 @@ window.addEventListener('DOMContentLoaded', () => {
   // fresh candidates from whatever's currently typed, at the caret, so a token
   // inside a bracket or a quote or after a `|` completes in place) rather than
   // a static list — preFiltered/selectOnFocus:false are the two opt-outs that
-  // make that fit; see attachCombobox's comments at each for why.
-  attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart), { preFiltered: true, selectOnFocus: false });
+  // make that fit; see attachCombobox's comments at each for why. The whole
+  // board and its context go with it, the arguments a query is resolved with,
+  // so after `slice:` and after `..` the box suggests the slices a cut can name.
+  attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart, state.active.concat(state.archived), searchCtx()), { preFiltered: true, selectOnFocus: false });
 });
 
 // --- Map view wiring: top-bar toggle + the bits
