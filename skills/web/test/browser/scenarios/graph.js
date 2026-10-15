@@ -166,7 +166,11 @@ module.exports = {
     await page.key('Escape');
     await waitFor(`!/card=\\d+/.test(location.search)`, 2000);
     await click(bg.x, bg.y);
-    check('clicking empty canvas clears the selection', await waitFor(`selectedIds.size===0`));
+    await ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
+    check('clicking empty canvas leaves the selection', (await ev(`selectedIds.size`)) >= 1);
+    await click(bg.x, bg.y, { clickCount: 1 });
+    await click(bg.x, bg.y, { clickCount: 2 });
+    check('double-clicking empty canvas clears the selection', await waitFor(`selectedIds.size===0`));
 
     const nBefore = await nodeCount();
     await search(LIGHT.query);
