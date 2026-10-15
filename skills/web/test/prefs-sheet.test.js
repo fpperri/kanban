@@ -379,6 +379,7 @@ function escHandler() {
 
 function escPage({ open = [] } = {}) {
   const calls = [];
+  const prevented = [];
   const listeners = [];
   const els = {};
   for (const id of ['#context-menu', '#notif-modal', '#detail-modal', '#modal', '#prefs-sheet']) {
@@ -395,7 +396,7 @@ function escPage({ open = [] } = {}) {
   vm.createContext(sandbox);
   vm.runInContext(escHandler(), sandbox);
   assert.strictEqual(listeners.length, 1);
-  return { esc: (extra = {}) => listeners[0][1]({ key: 'Escape', ...extra }), calls };
+  return { esc: (extra = {}) => listeners[0][1]({ key: 'Escape', preventDefault: () => prevented.push(true), ...extra }), calls, prevented };
 }
 
 test('Esc closes the open preferences sheet, and nothing else', () => {
@@ -408,6 +409,7 @@ test('an open search panel takes Esc after the popups and before the end of the 
   const p = escPage({ open: ['#search-panel'] });
   p.esc();
   assert.deepStrictEqual(p.calls, ['panel']);
+  assert.strictEqual(p.prevented.length, 1, 'the panel\'s Esc stops the browser\'s own, which would clear a search field');
   const withMenu = escPage({ open: ['#context-menu', '#search-panel'] });
   withMenu.esc();
   assert.deepStrictEqual(withMenu.calls, ['menu'], 'a popup that is open takes it first');

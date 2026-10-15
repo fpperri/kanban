@@ -55,7 +55,9 @@ const chipEl = () => {
   return el;
 };
 
-async function open({ view = 'board', stored = {}, board = makeBoard(), search = '' } = {}) {
+// With `list`, the page's comboboxes get elements they can watch, so the search box's
+// own suggestion list (its menu) can be seen open and shut.
+async function open({ view = 'board', stored = {}, board = makeBoard(), search = '', list = false } = {}) {
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -64,7 +66,10 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), search =
   elements['#search-pills-fold'] = spied();
   elements['#search-chip'] = chipEl();
   const storage = { 'kanban.kanban.view.mode': view, ...stored };
-  const page = await loadPage({ board, search, stored: storage, elements }).start();
+  const menus = [];
+  const loaded = loadPage({ board, search, stored: storage, elements, ...(list ? { documentExtras: { createElement: () => control() } } : {}) });
+  if (list) loaded.input.parentElement = { style: {}, appendChild: (menu) => menus.push(menu) };
+  const page = await loaded.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const sortedIds = (set) => [...set].sort((a, b) => a - b);
   const s = {
@@ -83,6 +88,21 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), search =
       page.ctx.document.activeElement = inBox ? page.input : null;
       if (inBox) page.input.fire('keydown', { key: 'Escape', stopPropagation() {} });
       return page.fireDocument('keydown', { key: 'Escape' });
+    },
+    menuOpen: () => menus[0].hidden === false,
+    focused: () => page.ctx.document.activeElement,
+    focusOn: (el) => { page.ctx.document.activeElement = el; },
+    // One Esc as a browser sends it: the box's own listeners first, the document's unless one stops
+    // the key, and then the browser's own default, which clears a search field (and says so with an
+    // input event) unless a listener prevented it.
+    press: () => {
+      const target = page.ctx.document.activeElement;
+      let stopped = false;
+      const e = { key: 'Escape', target, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() { stopped = true; } };
+      if (target === page.input) page.input.fire('keydown', e);
+      if (!stopped) (page.documentListeners.keydown || []).slice().forEach((fn) => fn(e));
+      if (target === page.input && !e.defaultPrevented) page.input.typed('');
+      return e;
     },
     openPanel: () => { page.run('setSearchPanelOpen(true)'); },
     isOpen: () => page.run('searchPanelIsOpen()'),
@@ -313,6 +333,68 @@ test('an open panel takes the first Esc and closes, leaving the box and the sele
   assert.deepStrictEqual(s.selection().additions, [q('blocked:')]);
   s.esc();
   assert.strictEqual(s.box(), 'review:');
+});
+
+// Chrome clears a search field on Esc by its own default, on top of what the page does with
+// the key. The suggestion list and the panel each take an Esc, so each must stop that default,
+// or one Esc empties the box and the next two have nothing to close or clear.
+test('with the panel open and the suggestion list showing, Esc closes the list, then the panel, then clears the box, the text staying until the last', async () => {
+  const s = await open({ list: true });
+  const toggle = s.elements['#search-panel-toggle'];
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  s.openPanel();
+  s.type('zephyr');
+  s.focusOn(s.page.input);
+  assert.strictEqual(s.menuOpen(), true, 'typing in the box opens the suggestion list');
+  const first = s.press();
+  assert.strictEqual(s.menuOpen(), false, '1st Esc: the list closes');
+  assert.strictEqual(s.box(), 'zephyr', '1st Esc: the box keeps its text');
+  assert.strictEqual(s.isOpen(), true, '1st Esc: the panel is still open');
+  assert.strictEqual(first.defaultPrevented, true, '1st Esc: the browser\'s own clear is stopped');
+  const second = s.press();
+  assert.strictEqual(s.isOpen(), false, '2nd Esc: the panel closes');
+  assert.strictEqual(s.box(), 'zephyr', '2nd Esc: the box keeps its text');
+  assert.strictEqual(s.focused(), s.page.input, '2nd Esc: focus stays in the box');
+  assert.strictEqual(toggle.focused, 0, '2nd Esc: focus does not go to the toggle');
+  assert.strictEqual(second.defaultPrevented, true, '2nd Esc: the browser\'s own clear is stopped');
+  s.press();
+  assert.strictEqual(s.box(), '', '3rd Esc: the box clears');
+});
+
+test('with the panel closed, the first Esc in the box closes the suggestion list and the box keeps its text; the next clears it', async () => {
+  const s = await open({ list: true });
+  s.type('zephyr');
+  s.focusOn(s.page.input);
+  assert.strictEqual(s.menuOpen(), true);
+  const first = s.press();
+  assert.strictEqual(s.menuOpen(), false);
+  assert.strictEqual(s.box(), 'zephyr');
+  assert.strictEqual(first.defaultPrevented, true, 'the browser\'s own clear is stopped');
+  s.press();
+  assert.strictEqual(s.box(), '');
+});
+
+test('an Esc that finds no suggestion list in the box leaves the browser\'s default to the box: the key goes on down the chain', async () => {
+  const s = await open({ list: true });
+  s.type('zephyr');
+  s.focusOn(s.page.input);
+  s.press();
+  assert.strictEqual(s.menuOpen(), false);
+  s.page.input.fire('keydown', { key: 'Escape', preventDefault() { throw new Error('the box stopped a default with no list to close'); }, stopPropagation() { throw new Error('the box held back the key with no list to close'); } });
+});
+
+test('Esc with focus on a pill closes the panel, stops the default, and puts focus back on the toggle', async () => {
+  const s = await open();
+  const toggle = s.elements['#search-panel-toggle'];
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  s.openPanel();
+  const pill = control();
+  s.focusOn(pill);
+  const e = s.press();
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 1, 'focus went back to the toggle');
+  assert.strictEqual(s.focused(), toggle);
+  assert.strictEqual(e.defaultPrevented, true);
 });
 
 test('the panel closes with focus back on its toggle', async () => {

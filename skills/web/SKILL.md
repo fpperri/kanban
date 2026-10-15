@@ -739,8 +739,10 @@ to `127.0.0.1` only.
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
   The toggle, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
-  goes back to the toggle), and only then clears the box, with focus in it, or steps the
-  selection back. The panel is no popup: the 5s poll runs while it is open and updates the
+  goes back to the toggle, and stays in the box when Esc was pressed there), and only then
+  clears the box, with focus in it, or steps the selection back. The box keeps its text
+  through the first two, because the browser's own Esc, which clears a search field, is
+  stopped for them. The panel is no popup: the 5s poll runs while it is open and updates the
   pills and their counts where they stand, so a pill that has focus keeps its focus; a
   click on any control in it never clears a selection (each wears `data-keeps-selection`,
   and none wears `data-holds-poll`, which a button left focused by a click would hold for
@@ -816,7 +818,8 @@ to `127.0.0.1` only.
   backdrop-click. An open
   combobox menu gets first crack at Esc: it closes the MENU only, one level at a time,
   before the popup-level handling ever sees the key. An open search panel is next: it
-  closes on Esc, with focus back on its toggle, ahead of the selection step. With nothing
+  closes on Esc, with focus back on its toggle (it stays in the box when Esc was pressed
+  there), ahead of the selection step. With nothing
   open, Esc steps the selection back (see Multi-select).
   **Alt+Enter** toggles fullscreen on whichever fullscreen-capable popup is open
   (detail, create/edit, and the three bulk-edit popups) — the keyboard twin of that

@@ -19,7 +19,10 @@
 // Esc: the panel is one link of the Esc chain (closeSearchPanel, called from the
 // document's Esc handler in app.js after the popups and before the selection step).
 // The combobox's suggestion list takes Esc before the panel, and the panel before
-// the step back; closing the panel hands focus back to the toggle.
+// the step back. Closing the panel hands focus back to the toggle, except when the Esc
+// was pressed in the box, where focus stays so that the next Esc clears the box. Both
+// steps stop the browser's own Esc, which clears a search field, so the box keeps its
+// text until that last Esc.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
@@ -119,12 +122,15 @@ function toggleSearchPanel() {
   setSearchPanelOpen(!searchPanelOpen);
 }
 
-// Esc's link in the chain: an open panel closes and focus goes back to the toggle,
-// and answers true so the Esc stops there; a closed one answers false.
+// Esc's link in the chain: an open panel closes and answers true so the Esc stops
+// there, a closed one answers false. Focus goes back to the toggle, unless it is in
+// the box: the box keeps it, and the next Esc clears the box.
 function closeSearchPanel() {
   if (!searchPanelOpen) return false;
+  const box = $('#search-input');
+  const fromBox = !!box && document.activeElement === box;
   setSearchPanelOpen(false);
-  $('#search-panel-toggle').focus();
+  if (!fromBox) $('#search-panel-toggle').focus();
   return true;
 }
 

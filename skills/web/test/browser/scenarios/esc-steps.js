@@ -5,7 +5,7 @@
 // cards, the first Esc leaves the first card and the second clears the selection.
 // With text in the search box and a selection, focus in the box opens its
 // suggestion menu, and that menu takes the first Esc: it closes and the selection
-// is untouched. The next Esc clears the box and keeps the selection. Esc with
+// and the box text are untouched. The next Esc clears the box and keeps the selection. Esc with
 // focus outside the box steps the selection back and leaves the box text as it
 // was. Each step waits on the page, never on a fixed sleep. Escape goes through
 // the runner's key helper, a real key press; a card's dot is found by its class
@@ -104,8 +104,8 @@ module.exports = {
     await focusBoxAtEnd();
     check('focus in the box holding text opens its suggestion menu', await waitFor(MENU_OPEN), { open: await ev(MENU_OPEN), box: await boxText() });
     await escape();
-    // An open menu takes the first Esc. The box text is not asserted after this press: a search field also clears itself on Esc by the browser's own default, so the text left differs by browser. What is pinned is that the menu closed and the selection stood.
-    check('the first Esc in the search box closes the suggestion menu and keeps the selection', await waitFor(`!(${MENU_OPEN})`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { open: await ev(MENU_OPEN), picked: await picked(), parts: await parts() });
+    // An open menu takes the first Esc. A search field also clears itself on Esc by the browser's own default, which the menu's Esc stops, so the box still holds its text.
+    check('the first Esc in the search box closes the suggestion menu, keeps the selection and keeps the box text', await waitFor(`!(${MENU_OPEN})`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }) && (await boxText()) === 'zephyr', { open: await ev(MENU_OPEN), picked: await picked(), parts: await parts(), box: await boxText() });
     await escape();
     check('the next Esc in the search box clears the box and keeps the selection', await waitFor(`document.getElementById('search-input').value===''`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { box: await boxText(), picked: await picked(), parts: await parts() });
 
