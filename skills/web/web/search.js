@@ -49,7 +49,7 @@
 // every card, flashing a false "everything matched" state for one keystroke.
 //
 // tree:/path: resolution needs the full card graph, which a single (term,
-// card) pair doesn't have — see filterCards below for where that happens.
+// card) pair doesn't have — see resolveTerms below for where that happens.
 const DG = (typeof module !== 'undefined' && module.exports) ? require('./dependency-graph') : window;
 // Named WBS (not WB) — dependency-graph.js already claims WB in this shared
 // page scope (every web/*.js top-level name must be unique).
@@ -150,13 +150,23 @@ function cardMatchesQuery(card, terms) {
 // tree:/path: terms need the FULL card graph to resolve (connected
 // component / directed cone), not just the one card being tested — so they're
 // resolved ONCE here, up front, against `cards` (the same array filterCards
-// was called with), via dependency-graph.js's treeIds/pathIds — which in turn
-// build their adjacency from buildDependencyGraph(cards, null).edges, the
-// exact edge set (waiting_for + parent edges) the map's graph is built from
-// (parent edges shape layout but draw no line). Each 'tree'/
-// 'path' term becomes an 'ids' term (an already-resolved Set) before the
-// per-card cardMatchesQuery pass runs, so termMatchesCard's 'ids' case stays a
-// pure, cheap Set.has() with no graph access of its own.
+// was called with). Each 'tree'/'path' term becomes an 'ids' term (an
+// already-resolved Set) before the per-card cardMatchesQuery pass runs, so
+// termMatchesCard's 'ids' case stays a pure, cheap Set.has() with no graph
+// access of its own.
+//
+// resolveTerms is that one pass, and it is recursive: a group term carries
+// `alts`, arrays of terms, and each array resolves by the same call. Nothing
+// produces a group yet; or-groups, `waiting:` and `slice:` resolve here too
+// once the grammar has them.
+//
+// The context says where the graph comes from. By default it is
+// dependency-graph.js's treeIds/pathIds — which in turn build their adjacency
+// from buildDependencyGraph(cards, null).edges, the exact edge set
+// (waiting_for + parent edges) the map's graph is built from (parent edges
+// shape layout but draw no line). A context with `graph: { treeIds, pathIds }`
+// hands in its own functions instead, each called as (cards, id, ctx), so the
+// snapshot can resolve over the graph it already holds.
 //
 // Contract note: `cards` here doubles as "the cards to filter down" AND (only
 // when a tree:/path: term is present) "the universe to build the graph from".
@@ -164,13 +174,21 @@ function cardMatchesQuery(card, terms) {
 // never a pre-filtered subset — traversal is always over live + archived
 // cards, by design. A subset would silently produce a
 // wrong/smaller graph with no error.
-function resolveGraphTerms(cards, terms, ctx) {
-  if (!terms.some((t) => t.field === 'tree' || t.field === 'path')) return terms;
-  return terms.map((term) => {
-    if (term.field === 'tree') return { field: 'ids', value: term.value, ids: DG.treeIds(cards, term.value, ctx) };
-    if (term.field === 'path') return { field: 'ids', value: term.value, ids: DG.pathIds(cards, term.value, ctx) };
-    return term;
+function resolveTerms(cards, terms, ctx) {
+  const graph = (ctx && ctx.graph) || DG;
+  let changed = false;
+  const resolved = terms.map((term) => {
+    let next = term;
+    if (term.field === 'tree') next = { field: 'ids', value: term.value, ids: graph.treeIds(cards, term.value, ctx) };
+    else if (term.field === 'path') next = { field: 'ids', value: term.value, ids: graph.pathIds(cards, term.value, ctx) };
+    else if (Array.isArray(term.alts)) {
+      const alts = term.alts.map((alt) => resolveTerms(cards, alt, ctx));
+      if (alts.some((alt, i) => alt !== term.alts[i])) next = Object.assign({}, term, { alts });
+    }
+    if (next !== term) changed = true;
+    return next;
   });
+  return changed ? resolved : terms;
 }
 
 // Convenience: empty terms means "no active query" — everything matches. `ctx`
@@ -178,7 +196,7 @@ function resolveGraphTerms(cards, terms, ctx) {
 // written as this board's own name.
 function filterCards(cards, terms, ctx) {
   if (!terms.length) return cards;
-  const resolved = resolveGraphTerms(cards, terms, ctx);
+  const resolved = resolveTerms(cards, terms, ctx);
   return cards.filter((card) => cardMatchesQuery(card, resolved));
 }
 
@@ -227,10 +245,11 @@ function searchSuggestionItems(raw) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseSearchQuery, cardMatchesQuery, filterCards, searchSuggestionItems };
+  module.exports = { parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems };
 } else {
   window.parseSearchQuery = parseSearchQuery;
   window.cardMatchesQuery = cardMatchesQuery;
   window.filterCards = filterCards;
+  window.resolveTerms = resolveTerms;
   window.searchSuggestionItems = searchSuggestionItems;
 }
