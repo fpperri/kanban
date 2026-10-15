@@ -330,3 +330,41 @@ test('the Options toggle maps to a refocus selector that names it', () => {
   s.keepPillFocus({ classList: toggle.classList, dataset: toggle.dataset }, () => {});
   assert.deepStrictEqual(s.focused, ['.map-section-toggle[data-section="options"]']);
 });
+
+// A caption of the tier fan is a tab stop the Graph's render rebuilds, and it sits in no poll
+// guard: the poll finds a focused one again by its key and focuses it, which shows its tip.
+test('a focused caption of the tier fan does not hold the poll, and a poll render hands focus back to the rebuilt caption', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  const caption = () => {
+    const el = makeEl('graph-caption', { caption: 'band-2' });
+    el.getAttribute = (k) => (k === 'data-caption' ? 'band-2' : null);
+    return el;
+  };
+  const old = caption();
+  doc.activeElement = old;
+  assert.strictEqual(sandbox.boardControlFocused(), false, 'the poll is not held');
+  let next = null;
+  let opts;
+  const orig = doc.querySelector;
+  doc.querySelector = (sel) => (sel === '[data-caption="band-2"]' ? next : orig(sel));
+  sandbox.renderBoard = () => {
+    old.attached = false;
+    next = caption();
+    next.focus = function (o) { opts = o; doc.activeElement = this; };
+    doc.activeElement = { closest: () => null };
+  };
+  sandbox.applyBoardData({ active: [], archived: [] });
+  assert.ok(next, 'the render rebuilt the caption');
+  assert.strictEqual(doc.activeElement, next, 'focus is on the rebuilt caption');
+  assert.strictEqual(opts && opts.preventScroll, true);
+});
+
+test('a poll render with no caption focused looks for none', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  doc.activeElement = makeEl('card-el', { id: '3' });
+  const asked = [];
+  const orig = doc.querySelector;
+  doc.querySelector = (sel) => { asked.push(sel); return orig(sel); };
+  sandbox.applyBoardData({ active: [], archived: [] });
+  assert.ok(!asked.some((s) => s.includes('data-caption')), asked.join(' | '));
+});

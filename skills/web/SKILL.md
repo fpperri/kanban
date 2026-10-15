@@ -982,6 +982,8 @@ to `127.0.0.1` only.
   The status pills and fold toggles of every view are treated the same way (a click or a
   keypress leaves one focused, so guarding them would stop the 5s refresh): the guard keeps
   only real form controls, and `applyBoardData` refocuses the focused pill without scrolling.
+  A caption of the Graph's tier fan is a tab stop that every render rebuilds, so it is found
+  again after the render by its `data-caption` key and takes focus back, which shows its tooltip again.
   Two delegated pairs on `document`, mirroring the click/contextmenu pair
   above: `mouseover`/`mouseout` and `focusin`/`focusout`, each just keeping `hoveredId`
   current and repainting the *current* DOM directly — a full `renderBoard()` per mouse

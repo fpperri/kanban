@@ -1938,11 +1938,19 @@ function applyBoardData(data) {
   const pointerId = hoveredId;
   const pill = focusedPill();
   const pillSel = pill ? pillSelector(pill) : null;
+  // A caption of the Graph's tier fan is a tab stop the render rebuilds, so it is found
+  // again by its key (graphCaptionEl); focusing it shows its tip again.
+  const caption = document.activeElement && document.activeElement.closest ? document.activeElement.closest('[data-caption]') : null;
+  const captionKey = caption ? caption.getAttribute('data-caption') : null;
   renderBoard();
   if (pillSel) {
     const again = document.querySelector(pillSel);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
+  }
+  if (captionKey !== null) {
+    const again = document.querySelector(`[data-caption="${captionKey}"]`);
+    if (again) again.focus({ preventScroll: true });
   }
   if (focusedCard) {
     const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);

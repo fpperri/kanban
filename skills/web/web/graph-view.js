@@ -219,12 +219,16 @@ function graphTspan(text, cls, attrs) {
 // (app.css). The plan's `anchor` says which end of the text sits at x. A caption with a
 // tip is a tab stop and carries what the tip shows, the lines one to a line and the
 // slice: term when it names a slice, for the pointer or focus to fill the tooltip with.
-function graphCaptionEl(c) {
+// The `key` names the caption among the stage's (a band by its index, the loose caption, the
+// block's title, a column by its place): every render rebuilds the captions, and the poll
+// finds a focused one again by it (applyBoardData).
+function graphCaptionEl(c, key) {
   const el = graphEl('text', { x: c.x, y: c.y, 'text-anchor': c.anchor }, c.cls);
   if (c.dy) el.setAttribute('dy', c.dy);
   if (c.kind) el.setAttribute('data-kind', c.kind);
   if (c.tip) {
     el.setAttribute('tabindex', '0');
+    el.setAttribute('data-caption', key);
     el.setAttribute('data-tip', c.tip.lines.join('\n'));
     if (c.tip.term) el.setAttribute('data-term', c.tip.term);
   }
@@ -523,11 +527,11 @@ function graphDrawPlan(plan) {
   }
   // Captions take the pointer, so they are drawn under the links and the dots: a dot a
   // caption lies over is still the one the pointer finds.
-  for (const c of plan.captions) world.appendChild(graphCaptionEl(c));
-  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption));
+  plan.captions.forEach((c, i) => world.appendChild(graphCaptionEl(c, `band-${i}`)));
+  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption, 'loose'));
   if (plan.block) {
-    world.appendChild(graphCaptionEl(plan.block.title));
-    for (const col of plan.block.columns) world.appendChild(graphCaptionEl(col.caption));
+    world.appendChild(graphCaptionEl(plan.block.title, 'block'));
+    plan.block.columns.forEach((col, i) => world.appendChild(graphCaptionEl(col.caption, `column-${i}`)));
   }
   const linkEls = plan.links.map((l) => {
     const p = fixed(graphEl('path', { d: l.d }, l.cls));
