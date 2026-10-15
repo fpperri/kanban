@@ -7,9 +7,11 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 // from them in the view being shown, and each gesture writes them through the
 // shared click handler or the Graph's own.
 
+// Every card has a date, so the Gantt and the Calendar draw it: a card with no range and no due
+// date is shown by neither, and so is out of what a selection can reach there.
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
-  review: null, tags: [], assignee: null, type: null, start_date: null, end_date: null, due_date: null,
+  review: null, tags: [], assignee: null, type: null, start_date: '2031-06-02', end_date: null, due_date: null,
   parent: null, rank: null, file: `/board/${id}.card.md`, archived: false, ...over,
 });
 
@@ -118,6 +120,23 @@ for (const [view, f] of Object.entries(FILTERS)) {
     assert.deepStrictEqual(s.ids(), f.archiveOnByDefault ? [1, 8] : [1]);
     s.page.run(f.toggle('archive'));
     assert.deepStrictEqual(s.ids(), f.archiveOnByDefault ? [1] : [1, 8]);
+  });
+}
+
+for (const view of ['gantt', 'calendar']) {
+  test(`${view}: a card with no date is not drawn, so no part reaches it, a query's match included`, async () => {
+    const board = makeBoard();
+    board.active[1].start_date = null;
+    board.active[4].start_date = null;
+    board.active[4].due_date = '2031-06-12';
+    const s = await open({ view, board });
+    assert.deepStrictEqual([...s.page.run('shownCardIds()')].sort((x, y) => x - y), [1, 3, 4, 5, 6], 'card 2 has no date, and card 5 has a due date alone');
+    s.select('cardPart(1)', 'cardPart(2)');
+    assert.deepStrictEqual(s.ids(), [1]);
+    s.select(`queryPart('tags:ui')`);
+    assert.deepStrictEqual(s.ids(), [5], 'card 2 is tagged ui as well, and is not drawn');
+    s.select('pathPart(1)');
+    assert.deepStrictEqual(s.ids(), [1, 3], 'the path of card 1 holds its child 3 and card 2, which waits for it, and card 2 is not drawn');
   });
 }
 

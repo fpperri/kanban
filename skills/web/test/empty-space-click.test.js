@@ -15,9 +15,11 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 // double click event after its first click's repaint, so a double click is two
 // click events, the second carrying a count (detail) of 2, as in the browser.
 
+// Every card has a date, so the Gantt and the Calendar draw it: a card with no range and no due
+// date is shown by neither, and so is out of what a selection can reach there.
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
-  review: null, tags: [], assignee: null, type: null, start_date: null, end_date: null, due_date: null,
+  review: null, tags: [], assignee: null, type: null, start_date: '2031-06-02', end_date: null, due_date: null,
   parent: null, rank: null, file: `/board/${id}.card.md`, archived: false, ...over,
 });
 

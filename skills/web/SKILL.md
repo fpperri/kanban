@@ -676,7 +676,8 @@ to `127.0.0.1` only.
   is when Apply is pressed. **Dependency tree**/
   **Dependency path** add the card's tree or path to the selection as one part: the cards it
   reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
-  with the rest. They no longer write the search box, which is left as it was; a typed
+  with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
+  card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
   names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path

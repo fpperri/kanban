@@ -780,9 +780,17 @@ function selectionMatchIds(text) {
   return searchMatchIds(text);
 }
 
+// Whether the Gantt and the Calendar can draw the card: it has a working range or a due
+// date. A card with neither has no bar, no chip and no marker in either view, and neither
+// has a tray for it, so it is not shown there.
+function cardIsScheduled(card) {
+  return cardSchedule(card).kind !== 'none' || dueMarker(card) !== null;
+}
+
 // The cards the view being shown shows, which is all a selection can reach (the
 // Board shows the cards of its expanded columns, the other views the cards their
-// status pills, their Archive pill and the search box leave). It reads the same
+// status pills, their Archive pill and the search box leave, and the Gantt and the Calendar
+// only those with a date). It reads the same
 // filters each view draws with, so the id set follows what is on screen.
 // `withSearch` false leaves the search box and its cut out: the cards the status
 // pills and Archive leave, which is what the pill counts are taken over.
@@ -799,7 +807,7 @@ function viewCardIds(withSearch) {
     const filter = mode === 'gantt' ? loadGanttStatusFilter() : loadCalendarStatusFilter();
     const live = ganttFilterVisibleIds(state.active, filter, boardStatuses());
     const drawn = state.active.filter((c) => !live || live.has(c.id)).concat(filter.archive === true ? state.archived : []);
-    visible = intersectVisibleIds(searchIds, new Set(drawn.map((c) => c.id)));
+    visible = intersectVisibleIds(searchIds, new Set(drawn.filter(cardIsScheduled).map((c) => c.id)));
   } else {
     const collapsed = loadCollapsedColumns();
     const open = pool.filter((c) => !collapsed[mapFilterColumn(c, boardStatuses())]);
