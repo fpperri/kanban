@@ -697,8 +697,8 @@ to `127.0.0.1` only.
   repaint can replace the element under the pointer. Empty space is anywhere but a card or a
   Graph dot, a button, link, text field or select, a popup or the card menu, or a control
   wearing the `data-keeps-selection` marker (the menu, the popups, the view toggles, the
-  status pills and fold toggles, the roll-up bars and the Graph's controls do), so the
-  selection **survives switching views**, and it survives the poll. A double click held with
+  status pills and fold toggles, the roll-up bars and the Graph's controls do). The
+  selection survives switching views and it survives the poll. A double click held with
   Shift, Ctrl or Cmd builds a selection and never clears one. Where a double click on empty
   space already means something, that meaning stands and the selection stays: the Calendar's
   day cells and time-grid columns start a new card (see **Click-to-create**). Esc stays the
@@ -713,7 +713,8 @@ to `127.0.0.1` only.
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
   closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection, and away from the box Esc no longer clears it (while isolated, Esc in the box turns
+  selection (in the Graph, where a typed search is the anchor, clearing the box takes the anchor
+  and the additions with it), and away from the box Esc no longer clears it (while isolated, Esc in the box turns
   isolate off instead of clearing it). An open search panel takes
   Esc before the step and closes (a suggestion list closes before the panel), and a pill
   the step drops, the added ones first and then the anchor's, goes out of the box with it,
@@ -846,8 +847,9 @@ to `127.0.0.1` only.
   query, or a label and a query, shown as its label (the board answer carries them as
   `pills: [{label, query}]`; an entry that is malformed is skipped, never an error). A board
   pill shows a count like the built-ins, over the same cards, and clicks as they do: a click
-  makes its query the anchor and puts it in the box, and Shift+click grows the box to
-  `anchor | pill`. A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
+  turns it on or off, Shift+click is a plain click, a right-click solos it and `m` steps to
+  it after the built-ins, so the first pill on is the anchor and a later one is an addition
+  (see Search panel). A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
   `priority:*` and `type:*`), makes one pill per distinct value the board's active cards hold
   in that field, in the place the entry holds, sorted and labelled by the value. Each matches
   its value exactly, through the search module's term writer, so the `grill` pill never
@@ -1037,7 +1039,7 @@ to `127.0.0.1` only.
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
   does `p`, which flips the search panel's switch (see Search panel), and `?`, which opens the Hotkeys list (see Preferences sheet), and `m`, which
   steps through the pills, and `i`, which flips Isolate (see Isolate), and so do `[`, `]`, `{` and `}`, which move the run of slices
-  (see Slice section); Ctrl+F
+  (see Slice section), and `n`, which steps the names of the tier fan (see Options); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the
@@ -1257,7 +1259,9 @@ to `127.0.0.1` only.
   **Status-filter row** — one toggle pill per board column (the configured statuses in
   column order + Archive, the location pseudo-column), each led by a dot in its column's
   color (hollow, with the label struck through, when the pill is off) — all ON by default, and the row renders even when everything is filtered out
-  (so a toggle can always be turned back on). **Pill interaction grammar, shared by
+  (so a toggle can always be turned back on). These are the glossary's **status pills**: they
+  hide cards, and they are not the search panel's pills, which are queries (see Search panel).
+  **Pill interaction grammar, shared by
   every status-filter row in the app** (this one, the gantt's, the calendar's and the graph's):
   left-click toggles that one pill on/off; right-click SOLOs it — that pill on, every
   other pill in the row off — and right-clicking the already-soloed pill again restores
@@ -1586,7 +1590,7 @@ to `127.0.0.1` only.
   from the next; loose cards with a tier share a sector of their own, and the sector of
   loose cards with a tier has its own caption, outside the rim, whose tooltip counts them. The other **unnested** cards (no
   parent, no children and no tier) are drawn as the Unnested option of the option row says
-  (see **Options**): on one ring outside the fan by default, or in the **Unnested** block outside the rim, a
+  (see **Options**): on one ring outside the fan by default, or, with the table choice, in the **Unnested** block outside the rim, a
   column for each status in the board's order, archived cards last: the block is under the
   title Unnested, each column captioned with its status, with an
   archived column while the Archive status pill is on; the tooltips of the title and of a
@@ -1691,8 +1695,8 @@ to `127.0.0.1` only.
   (bulk menu) is the shared grammar of ADR 0006. In **Force**, **dragging a dot** pulls
   the cards related to it along, like pulling on a thread; the arrangement stays until
   the cards change or the page reloads (Tiers and Status do not drag). **Pan** by dragging the background
-  (a drag moves past 4px and the click that ends it is swallowed, so it never clears the
-  selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
+  (a drag moves past 4px and the click that ends it is swallowed, so a pan is never read as
+  a click on empty space and keeps the selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
   about the centre or fit every card in the panel. Picking a layout re-fits the view; after
   that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
   Per board in `localStorage`: the layout under `graph.layout` and the pill row under
@@ -1791,7 +1795,8 @@ handle a card carries.
   `- tags: grill` is the label `tags` with the query `grill` (a colon followed by a space
   ends the key), and an entry that is blank, only a comment, or has an empty label or
   query is skipped without an error. The page holds `hierarchy` and `pills` on `state`
-  after every load and poll; nothing draws them yet.
+  after every load and poll: the slice section and the Graph's tier fan read the hierarchy,
+  and the search panel draws the pills.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's

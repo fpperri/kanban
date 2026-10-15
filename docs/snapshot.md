@@ -37,6 +37,23 @@ Gantt / Calendar, and the header carries search and a notifications bell. Cards
 show the same cues as the desktop board — here `#7` wears the amber **waiting**
 tag.
 
+## Search
+
+The search box under the header filters every view, in the same query grammar as kanban-web, because
+the page runs kanban-web's own search module: a query finds on the phone what it finds at the desk,
+and edits still queued in the tray count. Terms separated by spaces AND together
+(`tags:ui status:doing`), and five forms go further. `|` is or and a space binds tighter, so
+`tags:ui status:doing | #12` is ui and doing, or card 12; round brackets group
+(`tags:ui (status:doing | status:todo)`); a quoted value matches whole, ignoring case, or any one
+element of a list (`tags:"grill"` finds a card tagged grill and not one tagged grilling), and quoted
+text with no field is a phrase (`"two words"`); a bare `waiting:` finds the cards waiting for a card
+that is not done, as `blocked:` and `review:` find their stickers; and `slice:` cuts every view to a
+run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards
+with no tier: `slice:objective..2`, `slice:goal`, `slice:goal..`. A board with no hierarchy cuts by
+depth. After `slice:` and after `..` the box suggests the board's slices, the tiers in hierarchy
+order and then the depth numbers, and a tap writes the whole term. A `|` counts only as a token of
+its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay literal text.
+
 ## Search panel
 
 The search box has a panel of slices and pills under it, the web board's panel without its Isolate

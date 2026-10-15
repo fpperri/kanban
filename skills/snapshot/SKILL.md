@@ -208,8 +208,9 @@ entry. Both stickers are set/cleared the same way, through the "All fields"
 grid (live gold/red border feedback while the value passes the predicate) —
 there's no dedicated form field for either. **Deliberate gap:** no badge is
 tap-to-filter here — unlike kanban-web's tap-an-assignee-or-tag-to-filter,
-this editor has no additive query-append affordance (its tree:/path: buttons
-overwrite the whole query box).
+a tap on a badge never adds its term to the box, and its tree:/path: buttons
+overwrite the whole query box; the panel's pills and slice entries are the
+controls that edit the box in place.
 
 **Deliberate gap, narrowed:** kanban-web's AI-prompt sparkle button (a
 dedicated control for writing the `prompt` field) still has no twin on an
@@ -609,6 +610,11 @@ shows only the selection in every view, and a selection that a click on a card, 
 pill builds. This page has neither: a tap opens a card, the panel has no foot, and a pill click only
 writes the box, with no anchor and no Shift addition. It has no `m` key that steps through the
 pills either, and no preferences sheet for the panel's switch and folds.
+
+**No Graph view.** kanban-web's Graph, which draws every card at once as a dot in the tier fan, Force
+or Status layout, with its option row, its lighting and its names, has no counterpart: the Map is this
+page's one picture of the relations, and the slices and pills of the panel cut every view without it.
+The `n` key that steps the fan's names goes with it.
 
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map

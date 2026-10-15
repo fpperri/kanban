@@ -39,5 +39,7 @@ This narrows ADR 0012's "attaches no meaning" to "enforces nothing".
 ## Consequences
 
 - The Graph's tiers layout draws a band per tier, then the cards without a tier
-  by depth; on a board with no hierarchy it draws depth rings as before.
+  by depth (the loose ones, with no parent and no children, sit on a ring of
+  their own outside the rest unless the fan's Unnested option says otherwise);
+  on a board with no hierarchy it draws depth rings as before.
 - Rules about types (which may parent which) stay with whoever uses the board.

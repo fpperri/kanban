@@ -88,8 +88,8 @@ is a self-contained sample board; point the same command at any directory of
 | Surface | For | What it is |
 | --- | --- | --- |
 | `kanban` | the AI | AI-driven card management — every file contract (card frontmatter, `config.yaml`, `notifications.md`) and when the AI must notify the human lives here. |
-| `kanban-web` | the human, desktop | A live browser editor: a localhost Node server (stdlib-only) + vanilla-JS SPA with drag-drop board, full CRUD, bulk actions, search, a notifications inbox, and five views (board, dependency map, gantt, calendar, graph). Bound to `127.0.0.1` only. |
-| `kanban-snapshot` | the human, phone/tablet/Cowork | Generates a self-contained single-file HTML board — a tap UI (move, edit, archive, delete, create) whose edits queue in a tray, nothing touching disk until you paste its "Apply kanban changes" payload back into chat — Claude is the write path. |
+| `kanban-web` | the human, desktop | A live browser editor: a localhost Node server (stdlib-only) + vanilla-JS SPA with drag-drop board, full CRUD, bulk actions, a search panel of slices and pills, a selection you can isolate, a preferences sheet, a notifications inbox, and five views (board, dependency map, gantt, calendar, graph). Bound to `127.0.0.1` only. |
+| `kanban-snapshot` | the human, phone/tablet/Cowork | Generates a self-contained single-file HTML board — a tap UI (move, edit, archive, delete, create, and the web editor's search grammar and panel of slices and pills) whose edits queue in a tray, nothing touching disk until you paste its "Apply kanban changes" payload back into chat — Claude is the write path. |
 
 The web editor and the snapshot write under the same board contracts (the
 `doing` entry gate, archive-as-location, id allocation) — the snapshot
@@ -178,13 +178,15 @@ same types as before.
 
 ## More docs
 
-- [`docs/adr/`](docs/adr/) — architecture decision records (ADR 0001–0010),
+- [`docs/adr/`](docs/adr/) — architecture decision records (ADR 0001–0013),
   covering why the retired CLI surface was Claude-driven, why `kanban-web` gets a scoped
   local-server exception, hand-rolled widgets, tolerant vocabulary registries,
   archive-column UI parity, the shared interaction grammar, the date triad,
   the machine-managed `updated` field, review and human-attention as
-  overlay stickers, not columns, and the recursive `archived/` with optional
-  package folders.
+  overlay stickers, not columns, the recursive `archived/` with optional
+  package folders, the Board artifact keyed by board, cards that nest with a free
+  `type` and a `rank`, and a board's hierarchy, which orders drawing and enforces
+  nothing.
 - [`docs/cross-harness.md`](docs/cross-harness.md) — cross-harness caveats:
   which skills port cleanly outside Claude Code and which carry the
   (Claude Only) tag, and why.

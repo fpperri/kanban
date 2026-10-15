@@ -46,7 +46,7 @@ isn't `done` yet) or **blocked** (a manual sticker). The tile cues you see:
 - a **red left accent** on a High-priority card (`#1`, `#8`),
 - an amber **"Waiting on: #6"** badge (`#7` can't start until `#6` lands),
 - a red **blocked** pill (`#8`),
-- a **type chip** on a typed card (`#1` is typed `epic`, and orange because the board's `types:` list says so),
+- a **type chip** on a typed card (`#1` is typed `epic`, and orange because the board's `types:` list says so), which starts with the type's icon when the list gives one,
 - the assignee (`@human` / `@hitl` / `@afk`), tags, and due date.
 
 Each column header carries a sort dropdown (id / priority / due / last-modified
@@ -152,9 +152,12 @@ children and no tier are drawn: on one ring outside the fan by default, not at a
 the depth 0 ring, or in the block outside the rim. The row's choices are kept per board.
 
 A dot takes its status colour, grows with its relations, goes hollow when done
-and dim when archived. A ring around it means children; red is blocked, amber
-waiting, gold review. Hover or focus a dot to light that card and its relations
-and dim the rest. Click selects a dot and keeps its relations lit while it is the
+and dim when archived. A type that has an `icon:` in the board's `types:` list draws its dot
+in that outline (circle, square, diamond, triangle, hexagon or star), still in the status
+colour, and starts its chip with it wherever a chip is drawn; an icon is a shape, never a
+colour, and a type with no icon, or an unknown name, keeps the round dot. A ring around it
+means children; red is blocked, amber waiting, gold review. Hover or focus a dot to light
+that card and its relations and dim the rest. Click selects a dot and keeps its relations lit while it is the
 only card picked; shift-click or ctrl-click adds one card or takes it out, and a
 selection of several lights exactly its cards. Double-click (or Enter) opens the
 card; right-click works as on the board.
@@ -258,8 +261,9 @@ entry, and Enter and Space act as a click.
 **Board pills** — the pill section also lists the board's own pills, after blocked, review
 and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
 query, or a label and a query, shown as its label; a malformed entry is skipped. A board
-pill shows a count like the built-ins and clicks as they do: a click makes its query the
-anchor and puts it in the box, and Shift+click grows the box to `anchor | pill`. A `field:*`
+pill shows a count like the built-ins and clicks as they do: a click turns it on or off,
+Shift+click is a plain click, a right-click solos it and `m` steps to it after the built-ins, so
+the first pill on is the anchor and a later one is an addition. A `field:*`
 entry, such as `tags:*` or `assignee:*` (also `status:*`, `priority:*` and `type:*`), makes
 one pill per distinct value the board's active cards hold in that field, sorted and labelled
 by the value. Each matches its value exactly, so the `grill` pill never catches `grilling`
