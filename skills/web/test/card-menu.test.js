@@ -1,0 +1,314 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const { loadPage, control, harmless } = require('./helpers/page-vm');
+
+// The card menu in the real page (helpers/page-vm.js runs every script the page
+// loads in one vm). A right-click on a card outside the selection opens the menu
+// for that card alone, leading with Peek and Add to selection, and leaves the
+// selection and its range start as they were; inside the selection the menu acts
+// on the whole resolved selection. Path and Tree add to the selection and leave
+// the search box alone. Bulk entries read their cards from the menu's subject.
+
+const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
+
+const card = (id, over = {}) => ({
+  id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
+  review: null, tags: [], assignee: null, type: null, start_date: null, end_date: null, due_date: null,
+  parent: null, rank: null, file: `/board/${id}.card.md`, archived: false, ...over,
+});
+
+// Card 2 waits for 1, 3 is a child of 1, 6 and archived 7 wait for 1: path:2 is 1, 2
+// and 3; tree:2 adds 6 and 7 (7 is archived and the Archive column is collapsed).
+const makeBoard = () => ({
+  projectName: 'kanban',
+  statuses: ['backlog', 'todo', 'doing', 'done'],
+  priorities: ['High', 'Normal', 'Low'],
+  assignees: [], tags: [], types: [], notifications: [],
+  active: [
+    card(1, { title: 'Zephyr migration', status: 'doing' }),
+    card(2, { title: 'Move the data layer', status: 'todo', waiting_for: [1] }),
+    card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
+    card(4, { title: 'Port the schema', status: 'todo' }),
+    card(5, { title: 'Draft the release notes', status: 'doing' }),
+    card(6, { title: 'Renew the domain', status: 'done', waiting_for: [1] }),
+  ],
+  archived: [card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] })],
+});
+
+const MENU_ELEMENTS = ['#context-menu', '#ctx-peek', '#ctx-add', '#ctx-assign', '#ctx-priority', '#ctx-tags', '#ctx-schedule', '#ctx-archive', '#ctx-restore', '#ctx-delete',
+  '#bulk-single', '#bulk-single-input', '#bulk-single-apply', '#bulk-single-title', '#bulk-archive', '#bulk-archive-title'];
+
+async function open({ view = 'board' } = {}) {
+  const elements = Object.fromEntries(MENU_ELEMENTS.map((sel) => [sel, control()]));
+  const graphHost = control();
+  elements['#graph-view'] = graphHost;
+  const page = await loadPage({ board: makeBoard(), stored: { 'kanban.kanban.view.mode': view }, elements }).start();
+  assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
+  const asked = { confirms: [], opened: [], requests: [] };
+  page.run('confirm = (m) => { __asked.confirms.push(m); return __asked.answer; }');
+  Object.assign(page.ctx, { __asked: asked });
+  asked.answer = false;
+  page.ctx.openCard = (id) => { asked.opened.push(id); };
+  const realFetch = page.ctx.fetch;
+  page.ctx.fetch = (url, opts = {}) => { asked.requests.push([opts.method || 'GET', String(url)]); return realFetch(url, opts); };
+  const ids = () => [...page.run('selectedIds')].sort((a, b) => a - b);
+  const selection = () => JSON.parse(JSON.stringify(page.run('selectionState.selection')));
+  const rangeStart = () => page.run('selectionState.rangeStart');
+  const select = (rangeStartId, ...parts) => page.run(`setSelection(${parts.reduce((s, p) => `addPart(${s}, ${p})`, 'NO_SELECTION')}, ${rangeStartId})`);
+  const menuOpen = () => !elements['#context-menu'].classList.contains('hidden');
+  const shown = (sel) => !(sel === '#ctx-path' ? page.menu.path : sel === '#ctx-tree' ? page.menu.tree : elements[sel]).classList.contains('hidden');
+  const rightClick = (id) => page.fireDocument('contextmenu', { target: cardTarget(id), clientX: 30, clientY: 40 });
+  const click = (sel) => (sel === '#ctx-path' ? page.menu.path : sel === '#ctx-tree' ? page.menu.tree : elements[sel]).fire('click');
+  const cardRequests = () => asked.requests.filter(([method, url]) => method !== 'GET' && /\/api\/cards\/\d+$/.test(url)).map(([method, url]) => `${method} ${url}`);
+  return { page, elements, asked, ids, selection, rangeStart, select, menuOpen, shown, rightClick, click, cardRequests, graphHost };
+}
+
+function cardTarget(id) {
+  const el = { dataset: { id: String(id) } };
+  return new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.card-el' ? el : null) : harmless(String(key))) });
+}
+
+const a = (id) => ({ kind: 'card', id });
+const settle = (s) => s.page.settle();
+
+// --- the menu's subject ---------------------------------------------------------------
+
+test('a right-click on a card outside a two-card selection opens the menu and leaves the selection and its range start as they were', async () => {
+  const s = await open();
+  s.select(2, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(3);
+  assert.strictEqual(s.menuOpen(), true);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
+  assert.deepStrictEqual(s.ids(), [1, 2]);
+  assert.strictEqual(s.rangeStart(), 2, 'the range start is not re-planted on the right-clicked card');
+});
+
+test('outside the selection the menu offers Peek and Add to selection; inside it offers neither', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(3);
+  assert.strictEqual(s.shown('#ctx-peek'), true);
+  assert.strictEqual(s.shown('#ctx-add'), true);
+  s.rightClick(2);
+  assert.strictEqual(s.menuOpen(), true);
+  assert.strictEqual(s.shown('#ctx-peek'), false);
+  assert.strictEqual(s.shown('#ctx-add'), false);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] }, 'a right-click inside the selection leaves it as it is');
+});
+
+test('the menu leads with Peek and Add to selection in the markup, ahead of Assign', () => {
+  const menu = html.match(/<div id="context-menu"[\s\S]*?\n<\/div>/)[0];
+  const ids = [...menu.matchAll(/<button[^>]*\sid="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepStrictEqual(ids.slice(0, 3), ['ctx-peek', 'ctx-add', 'ctx-assign']);
+});
+
+test('the card details\' own menu has no Peek, and a right-click there leaves the selection alone', async () => {
+  const s = await open();
+  s.select(2, 'cardPart(1)', 'cardPart(2)');
+  s.page.run('currentDetailId = 3');
+  s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
+  assert.strictEqual(s.menuOpen(), true);
+  assert.strictEqual(s.shown('#ctx-peek'), false);
+  assert.strictEqual(s.shown('#ctx-add'), true);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
+  assert.strictEqual(s.rangeStart(), 2);
+});
+
+// --- Peek and Add to selection -------------------------------------------------------
+
+test('Peek opens the card\'s details through the plain open path and leaves the selection and its range start as they were', async () => {
+  const s = await open();
+  s.select(2, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(3);
+  s.click('#ctx-peek');
+  assert.deepStrictEqual(s.asked.opened, [3]);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
+  assert.strictEqual(s.rangeStart(), 2);
+  assert.strictEqual(s.menuOpen(), false, 'the menu closes');
+});
+
+test('Add to selection adds the card as an addition, keeps the range start, and closes the menu', async () => {
+  const s = await open();
+  s.select(2, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(3);
+  s.click('#ctx-add');
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), a(3)] });
+  assert.deepStrictEqual(s.ids(), [1, 2, 3]);
+  assert.strictEqual(s.rangeStart(), 2);
+  assert.strictEqual(s.menuOpen(), false);
+});
+
+test('with nothing selected Add to selection makes the card the anchor', async () => {
+  const s = await open();
+  s.rightClick(3);
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, 'the right-click itself picked nothing');
+  s.click('#ctx-add');
+  assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [] });
+  assert.deepStrictEqual(s.ids(), [3]);
+});
+
+test('Add to selection from the card details\' menu adds the card shown', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(1)');
+  s.page.run('currentDetailId = 4');
+  s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
+  s.click('#ctx-add');
+  assert.deepStrictEqual(s.ids(), [1, 4]);
+});
+
+// --- the bulk entries act on the menu's subject ---------------------------------------
+
+async function setPriority(s) {
+  s.click('#ctx-priority');
+  s.elements['#bulk-single-input'].value = 'High';
+  s.click('#bulk-single-apply');
+  await settle(s);
+}
+
+test('after a right-click outside a two-card selection, Set priority changes only the right-clicked card', async () => {
+  const s = await open();
+  s.select(2, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(3);
+  await setPriority(s);
+  assert.deepStrictEqual(s.cardRequests(), ['PATCH /api/cards/3']);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] }, 'and the selection is still the two cards');
+});
+
+test('after a right-click inside a two-card selection, Set priority changes both cards', async () => {
+  const s = await open();
+  s.select(2, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(2);
+  await setPriority(s);
+  assert.deepStrictEqual(s.cardRequests(), ['PATCH /api/cards/1', 'PATCH /api/cards/2']);
+});
+
+test('a popup opened from a menu outside the selection keeps the right-clicked card even when the selection changes while it is open', async () => {
+  const s = await open();
+  s.select(1, 'cardPart(1)');
+  s.rightClick(3);
+  s.click('#ctx-priority');
+  s.select(5, 'cardPart(5)', 'cardPart(6)');
+  s.elements['#bulk-single-input'].value = 'High';
+  s.click('#bulk-single-apply');
+  await settle(s);
+  assert.deepStrictEqual(s.cardRequests(), ['PATCH /api/cards/3']);
+});
+
+test('the bulk entries include cards added by a path: a selection holding a path part has the path\'s cards as targets', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(5)', 'pathPart(2)');
+  s.rightClick(5);
+  await setPriority(s);
+  assert.deepStrictEqual(s.cardRequests(), ['PATCH /api/cards/5', 'PATCH /api/cards/1', 'PATCH /api/cards/2', 'PATCH /api/cards/3']);
+});
+
+test('Archive and Delete name the count they act on: the right-clicked card alone outside the selection, the resolved selection inside it', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(1)', 'pathPart(2)', 'cardPart(5)');
+  assert.deepStrictEqual(s.ids(), [1, 2, 3, 5]);
+  s.rightClick(4);
+  s.click('#ctx-archive');
+  s.click('#ctx-delete');
+  assert.deepStrictEqual(s.asked.confirms, [
+    'Archive 1 card(s)? (moves their files to archived/)',
+    'Permanently delete 1 card(s)? This cannot be undone.',
+  ]);
+  s.asked.confirms.length = 0;
+  s.rightClick(5);
+  s.click('#ctx-archive');
+  s.click('#ctx-delete');
+  assert.deepStrictEqual(s.asked.confirms, [
+    'Archive 4 card(s)? (moves their files to archived/)',
+    'Permanently delete 4 card(s)? This cannot be undone.',
+  ]);
+});
+
+test('deleting the card a menu outside the selection was opened on leaves the hand-built selection as it was; deleting a selection clears it', async () => {
+  const s = await open();
+  s.asked.answer = true;
+  s.select(2, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(4);
+  s.click('#ctx-delete');
+  await settle(s);
+  assert.deepStrictEqual(s.cardRequests(), ['DELETE /api/cards/4']);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
+  s.rightClick(2);
+  s.click('#ctx-delete');
+  await settle(s);
+  assert.deepStrictEqual(s.cardRequests().slice(1), ['DELETE /api/cards/1', 'DELETE /api/cards/2']);
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+});
+
+// --- Path and Tree --------------------------------------------------------------------
+
+test('Path adds the card\'s dependency path to the selection as one part and leaves the search box as it was', async () => {
+  const s = await open();
+  s.page.input.typed('a');
+  const writes = s.page.input.writes.length;
+  s.select(null, 'cardPart(5)');
+  s.rightClick(2);
+  assert.strictEqual(s.shown('#ctx-path'), true);
+  s.click('#ctx-path');
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [{ kind: 'path', id: 2 }] });
+  assert.deepStrictEqual(s.ids(), [1, 2, 3, 5], 'the path is 1, 2 and 3; card 6 waits for 1 but is not on this path');
+  assert.strictEqual(s.page.input.value, 'a');
+  assert.strictEqual(s.page.input.writes.length, writes, 'nothing was written to the box');
+  assert.strictEqual(s.menuOpen(), false);
+});
+
+test('Tree adds the card\'s dependency tree to the selection as one part and leaves the search box as it was', async () => {
+  const s = await open();
+  const writes = s.page.input.writes.length;
+  s.rightClick(2);
+  s.click('#ctx-tree');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'tree', id: 2 }, additions: [] }, 'with nothing selected the tree is the anchor');
+  assert.deepStrictEqual(s.ids(), [1, 2, 3, 6], 'the tree reaches card 6 too; the Board with its Archive column closed does not show archived card 7');
+  assert.strictEqual(s.page.input.value, '');
+  assert.strictEqual(s.page.input.writes.length, writes);
+});
+
+test('a part added by Path stays a path part: the selection holds one path part, not its cards', async () => {
+  const s = await open();
+  s.rightClick(2);
+  s.click('#ctx-path');
+  s.rightClick(2);
+  s.click('#ctx-path');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: 2 }, additions: [] }, 'the same path twice is one part');
+});
+
+test('Path and Tree are in the menu when its subject is one card and absent when it is several', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(3);
+  assert.strictEqual(s.shown('#ctx-path'), true, 'a card outside the selection is a subject of one');
+  assert.strictEqual(s.shown('#ctx-tree'), true);
+  s.rightClick(2);
+  assert.strictEqual(s.shown('#ctx-path'), false, 'the two selected cards are the subject');
+  assert.strictEqual(s.shown('#ctx-tree'), false);
+  s.select(null, 'cardPart(4)');
+  s.rightClick(4);
+  assert.strictEqual(s.shown('#ctx-path'), true, 'a selection of one is a subject of one');
+});
+
+test('Path from a menu inside a selection of one adds to that selection, and the cards it reaches show as selected', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(2)');
+  s.rightClick(2);
+  s.click('#ctx-path');
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [{ kind: 'path', id: 2 }] });
+  assert.deepStrictEqual(s.ids(), [1, 2, 3]);
+});
+
+test('a card the view hides does not join through a path (the selection covers only cards the view shows)', async () => {
+  const s = await open();
+  s.page.run("toggleView('map')");
+  s.page.run("toggleMapStatusFilter('doing')");
+  s.rightClick(2);
+  s.click('#ctx-path');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: 2 }, additions: [] });
+  assert.deepStrictEqual(s.ids(), [2, 3], 'card 1 is Doing and its pill is off in the Map');
+  s.page.run("toggleMapStatusFilter('doing')");
+  assert.deepStrictEqual(s.ids(), [1, 2, 3], 'with the pill on again the other card of the path is back');
+});

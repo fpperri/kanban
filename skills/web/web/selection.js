@@ -44,12 +44,19 @@ function isHoverHighlighted(hoveredId, cardId) {
   return hoveredId != null && hoveredId === cardId;
 }
 
-// Right-click semantics: the gesture's target REPLACES the
-// selection when it wasn't selected; an already-selected target keeps the
-// whole batch as the menu's subject. Returns the input set unchanged (same
-// reference) in the no-change case so callers can skip a re-render.
-function contextSelection(set, id) {
-  return set.has(id) ? set : new Set([id]);
+// The card menu a right-click on card `id` opens, as one decision the page only
+// carries out. Outside the selection the menu is for that card alone and the
+// selection stays as it was (the menu leads with Peek and Add to selection);
+// inside it the menu is for the whole resolved selection, a path's, a tree's or
+// a pill's cards included, in the order they were picked. `resolved` is the id
+// set the selection stands for now and is never written to. The card details'
+// own menu (`fromDetail`) has no Peek, the card is already open. Path and Tree
+// are offered only when the subject is one card. Returns
+// { ids, inSelection, peek, add, dependency }.
+function cardMenuFor(resolved, id, { fromDetail = false } = {}) {
+  const inSelection = resolved.has(id);
+  const ids = inSelection ? [...resolved] : [id];
+  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1 };
 }
 
 // Bulk-move rule: the doing entry gate stays PER CARD, and only
@@ -276,7 +283,7 @@ function selectionAfterClick(action, id, { selection, resolved, rangeStart, orde
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, pruneSelectionParts, toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.cardPart = cardPart;
@@ -292,7 +299,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.pruneSelectionParts = pruneSelectionParts;
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
-  window.contextSelection = contextSelection;
+  window.cardMenuFor = cardMenuFor;
   window.partitionByMovable = partitionByMovable;
   window.dragPlan = dragPlan;
   window.archiveNeedsConfirm = archiveNeedsConfirm;
