@@ -323,7 +323,7 @@ describe('the keys [ ] { }', () => {
     });
   });
 
-  test('do nothing while a sheet is open, a card menu is open, or the change tray is up', () => {
+  test('do nothing while a sheet is open or a card menu is open', () => {
     withBuiltBoard('plan', (page) => {
       openPanel(page);
       keepOnly(page, 'epic');
@@ -337,14 +337,34 @@ describe('the keys [ ] { }', () => {
       assert.strictEqual(press(page, ']'), false);
       assert.strictEqual(boxText(page), 'slice:epic', 'a card menu');
       page.run('closeCtxMenu()');
-      page.run("queue({ op: 'move', id: 22, to: 'done' }); render();");
-      assert.strictEqual(page.byId('pend').style.display, 'block', 'sanity: the change tray is up');
-      assert.strictEqual(press(page, ']'), false);
-      assert.strictEqual(boxText(page), 'slice:epic', 'the change tray');
-      page.run('ops = []; rebuild(); render();');
-      assert.strictEqual(page.byId('pend').style.display, 'none', 'sanity: the change tray is gone');
       press(page, ']');
       assert.strictEqual(boxText(page), 'slice:epic..0', 'with all of them closed the key works again');
+    });
+  });
+
+  test('a queued edit leaves the keys working: the change tray sits in the page, it is not a dialog', () => {
+    withBuiltBoard('plan', (page) => {
+      openPanel(page);
+      keepOnly(page, 'epic');
+      page.byId('board').focus();
+      page.run("queue({ op: 'move', id: 22, to: 'done' }); render();");
+      assert.strictEqual(page.byId('pend').style.display, 'block', 'sanity: the change tray is up');
+      assert.strictEqual(press(page, ']'), true);
+      assert.strictEqual(boxText(page), 'slice:epic..0', 'a slice key with the tray up');
+      assert.strictEqual(press(page, 'p'), true);
+      assert.ok(page.byId('search-panel').classList.contains('hidden'), 'p flips the panel switch with the tray up');
+    });
+  });
+
+  test('a field in the change tray keeps the keys off, as any field does', () => {
+    withBuiltBoard('plan', (page) => {
+      openPanel(page);
+      keepOnly(page, 'epic');
+      page.run("queue({ op: 'move', id: 22, to: 'done' }); render();");
+      const payload = page.byId('payload');
+      payload.focus();
+      assert.strictEqual(page.key(payload, ']'), false);
+      assert.strictEqual(boxText(page), 'slice:epic', 'the tray textarea is a field');
     });
   });
 

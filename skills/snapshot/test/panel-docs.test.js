@@ -54,7 +54,8 @@ test('the panel text describes the slice section: the tiers the board uses and t
   assert.match(text, /run of one removes the cut/);
   assert.match(text, /context-menu key and Shift\+F10/);
   assert.match(text, /`\[`[^.]*`\]`[^.]*`\{`[^.]*`\}`/);
-  assert.match(text, /a field has focus or a card sheet, a card menu or the change tray is up/);
+  assert.match(text, /a field has focus or a card sheet or a card menu is up/);
+  assert.doesNotMatch(text, /card menu or the change tray is up/, 'the tray is in the page, not a dialog');
   assert.ok(text.includes('`slice:strategy..`'));
 });
 

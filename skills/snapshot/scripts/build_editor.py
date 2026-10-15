@@ -1669,10 +1669,11 @@ if(t.classList.contains("query-pill")){pillGesture("toggle",t.dataset.pillKey);r
 if(t.classList.contains("slice-entry")){sliceGesture("click",t.dataset.sliceKey);return true}
 return false}
 // The keys that type nothing but read a character ([ ] { } and p) stay off while a field has focus
-// (the web's own key guard, embedded above) and while a sheet, a card menu or the change tray is up,
-// the page's counterparts of the web's dialogs. What a chord is comes from the run of slices module.
+// (the web's own key guard, embedded above) and while a sheet or a card menu is up, the page's
+// counterparts of the web's dialogs. The change tray is no dialog: it sits in the page, and a field
+// of it is a field. What a chord is comes from the run of slices module.
 function keysOff(){
-return keyGuardTyping(document)||!!ctxMenuEl||modalOpen()||$("pend").style.display==="block"}
+return keyGuardTyping(document)||!!ctxMenuEl||modalOpen()}
 function panelKey(e){
 const k=e.key;
 if((k==="ContextMenu"||(k==="F10"&&e.shiftKey))&&!e.ctrlKey&&!e.metaKey&&!e.altKey){

@@ -123,8 +123,8 @@ The search box has a panel of slices and pills under it, kanban-web's panel with
 switch. The arrow at the box's right end is a switch (`aria-pressed`): with it on, the default,
 focusing the box opens the panel. A click on the arrow switches it off, which closes the panel
 now and stops the box opening it, and a second click switches it on and opens the panel; the
-`p` key flips the same switch, except while a field has focus or a card sheet, a card menu or
-the change tray is up. Esc closes an open panel (a card sheet or a card menu takes Esc first),
+`p` key flips the same switch, except while a field has focus or a card sheet or a card menu is
+up. Esc closes an open panel (a card sheet or a card menu takes Esc first),
 with focus going back to the arrow, or staying in the box when Esc was pressed there, and the
 box keeps its text. A press anywhere outside the search bar closes it too, leaving the switch as
 it was. The panel hangs from the box and adds nothing to the header's height. The switch and the
@@ -152,7 +152,7 @@ end changes nothing; a right-click, the context-menu key and Shift+F10 on a focu
 that slice. The run is the `slice:` term the box holds, written as the web writes it, so a run
 that reaches an end of the list leaves that end open (`slice:strategy..`). `[` and `]` move the
 bottom of the run up and down and `{` and `}` move its top, with the panel open or closed, except
-while a field has focus or a card sheet, a card menu or the change tray is up; a chord is not them,
+while a field has focus or a card sheet or a card menu is up (queued edits do not stop them); a chord is not them,
 and AltGr, which types the brackets on a layout with none of its own, is not a chord. A slice
 entry's accessible name says its label, its count and whether it is in the run.
 

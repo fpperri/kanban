@@ -159,9 +159,10 @@ test('the box is written only through writeBox, from the search module\'s term i
   assert.match(code, /searchRemoveAlt\(box,pill\.query\)/);
 });
 
-test('the keys read one guard: a field with focus, a sheet, a card menu or the change tray', () => {
+test('the keys read one guard: a field with focus, a sheet or a card menu, and not the change tray', () => {
   const guard = panelJs.slice(panelJs.indexOf('function keysOff()'), panelJs.indexOf('function panelKey(e)'));
-  for (const part of ['keyGuardTyping(document)', 'ctxMenuEl', 'modalOpen()', '$("pend")']) assert.ok(guard.includes(part), part);
+  for (const part of ['keyGuardTyping(document)', 'ctxMenuEl', 'modalOpen()']) assert.ok(guard.includes(part), part);
+  assert.ok(!guard.includes('pend'), 'the change tray is in the page, not a dialog');
   assert.doesNotMatch(guard, /INPUT|TEXTAREA|isContentEditable/, 'what counts as a field is the web key guard, not a copy of it');
   const keys = panelJs.slice(panelJs.indexOf('function panelKey(e)'));
   assert.strictEqual(keys.split('keysOff()').length - 1, 2, 'the slice keys and p read it');
