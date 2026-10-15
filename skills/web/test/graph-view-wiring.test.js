@@ -253,7 +253,7 @@ function fakeDocument() {
 function drawn(cards, types) {
   const sandbox = { document: fakeDocument() };
   vm.createContext(sandbox);
-  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphTspan')}\n${fn('graphCaptionEl')}\n${fn('graphDrawPlan')}`, sandbox);
+  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphTspan')}\n${fn('graphBuildTip')}\n${fn('graphCaptionEl')}\n${fn('graphDrawPlan')}`, sandbox);
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] }, types });
   const plan = graphPlan(model, graphLayout(model, 'tiers'), { statusClass: (s) => s, titleOf: (c) => c.title });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
@@ -336,7 +336,7 @@ test('the Tiers button describes the fan: a band per tier, a ring per depth, a s
   assert.match(title[1], /a ring for each depth of the cards without a tier/);
   assert.match(title[1], /a sector for each tree/);
   assert.match(title[1], /Unnested block/);
-  assert.match(title[1], /its name and count/);
+  assert.match(title[1], /its name \(hover or focus it for its count\)/);
 });
 
 test('the dot rule paints a path as well as a circle: filled in the status colour, round-cornered when stroked', () => {

@@ -811,6 +811,24 @@ to `127.0.0.1` only.
   poll's included), so an entry that has focus keeps it; Tab reaches the fold control and
   every entry, and Enter and Space act as a click. The list and the arithmetic of the run are
   worked out in `slice-run.js`, which needs no other module so that the snapshot can embed it.
+- **Board pills** — the pill section also lists the board's own pills, after blocked, review
+  and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
+  query, or a label and a query, shown as its label (the board answer carries them as
+  `pills: [{label, query}]`; an entry that is malformed is skipped, never an error). A board
+  pill shows a count like the built-ins, over the same cards, and clicks as they do: a click
+  makes its query the anchor and puts it in the box, and Shift+click grows the box to
+  `anchor | pill`. A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
+  `priority:*` and `type:*`), makes one pill per distinct value the board's active cards hold
+  in that field, in the place the entry holds, sorted and labelled by the value. Each matches
+  its value exactly, through the search module's term writer, so the `grill` pill never
+  catches `grilling` and a value with a space stays one term. The first eight values of a
+  field show, and a **+N more** button, which is no pill, reveals the rest and folds them
+  back (it reads *fewer* while they show, and keeps its place); an open field stays open for
+  the visit. Each value pill is keyed by its field and value and each other pill by its
+  query, and the buttons are updated where they stand, so a pill that has focus keeps its
+  focus across the poll and its count changes under it. The chip counts a pill that is on
+  even while the button hides it. Next up is not built in: it is a pill a board defines, such
+  as `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
@@ -1446,19 +1464,25 @@ to `127.0.0.1` only.
   the band of its slice, worked out from the whole board, so a hidden or archived parent
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on
-  the seam with its name and its card count (a tier by its name, a depth as
+  the seam with its name (a tier by its name, a depth as
   `roots` or `depth N`), standing one above another up the seam with neighbours on opposite
   sides of the seam so they never touch; a tier nobody
-  is in keeps a thin band and a muted caption that reads 0 when it has room for one, and a
+  is in keeps a thin band and a muted caption when it has room for one, and a
   depth with no card draws nothing; a tier whose cards nest in one another gets a lighter
-  arc through each further row. A root and the cards nested under it take a **sector**
+  arc through each further row. A caption shows its name alone: hovering it, or moving
+  keyboard focus onto it (a caption is a tab stop), shows a **tooltip** with the number of
+  its cards, how they split by status (`backlog 1 · doing 1`) and, for a tier or a depth, the
+  `slice:` term that cuts to it (`slice:epic`, `slice:1`). The tooltip stands under the
+  caption, kept on the stage, and goes when the pointer or focus leaves or the view pans or
+  zooms. A root and the cards nested under it take a **sector**
   of the fan, its width following the arc its leaves need. A divider separates each sector
   from the next; loose cards with a tier share a sector of their own, and the sector of
-  loose cards with a tier has its own caption and count, outside the rim. The other **unnested** cards (no
+  loose cards with a tier has its own caption, outside the rim, whose tooltip counts them. The other **unnested** cards (no
   parent and no children on the board) sit in the **Unnested** block outside the rim, a
   column for each status in the board's order, archived cards last: the block is under the
-  title Unnested and its count, each column captioned with its status and count, with an
-  archived column while the Archive status pill is on. Fit and the first draw frame the
+  title Unnested, each column captioned with its status, with an
+  archived column while the Archive status pill is on; the tooltips of the title and of a
+  column count their cards. Fit and the first draw frame the
   whole circle, every dot, every caption and the Unnested block, and no two captions
   overlap. On a board with no hierarchy every
   slice is a depth, so Tiers draws a ring for each depth. **Force** pulls

@@ -129,9 +129,11 @@ per board, with **Tiers** first:
   without a tier; each tree gets its own sector, loose cards with a tier share
   one, and the other loose cards sit in an Unnested block outside the fan, a
   column for each status. Each band has a faint arc and a caption with its name
-  and count up the seam at the top, there is a divider between sectors, and the
-  Unnested block is titled with its count and each column is captioned with its
-  status and count. Fit and the first draw frame all of it.
+  up the seam at the top, there is a divider between sectors, and the Unnested
+  block is titled and each column is captioned with its status. A caption shows
+  its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
+  with its count, its split by status and the `slice:` term that cuts to it. Fit
+  and the first draw frame all of it.
 - **Force** pulls related cards together and rings the unrelated ones round the
   edge.
 - **Status** makes one ring per status, with the last column innermost (done,
@@ -230,6 +232,19 @@ dialog, the notifications panel or the preferences sheet is up. With the panel c
 chip counts a run that cuts. The section folds, and *Slice section starts folded* in the
 preferences sheet (on by default) says how it starts. Tab reaches the fold control and every
 entry, and Enter and Space act as a click.
+
+**Board pills** — the pill section also lists the board's own pills, after blocked, review
+and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
+query, or a label and a query, shown as its label; a malformed entry is skipped. A board
+pill shows a count like the built-ins and clicks as they do: a click makes its query the
+anchor and puts it in the box, and Shift+click grows the box to `anchor | pill`. A `field:*`
+entry, such as `tags:*` or `assignee:*` (also `status:*`, `priority:*` and `type:*`), makes
+one pill per distinct value the board's active cards hold in that field, sorted and labelled
+by the value. Each matches its value exactly, so the `grill` pill never catches `grilling`
+and a value with a space stays one term. The first eight values of a field show, and a
+**+N more** button reveals the rest and folds them back. A pill that has focus keeps it
+across the poll. Next up is not built in: it is a pill a board defines, such as
+`- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /

@@ -311,10 +311,12 @@ function searchRenderAlts(alts, text) {
 // A term as it is written in the box. A value holding spaces is quoted so it
 // stays one term (which makes a scoped value an exact one); a quote inside a
 // value cannot be written, so it is left out. Bare text that would read as a
-// bracket or a bar is quoted too.
-function searchTermText(field, value) {
+// bracket or a bar is quoted too. With `exact` a scoped value is always quoted,
+// so it matches the whole value, or any one element of a list (`tags:"grill"`,
+// which never catches `grilling`); bare text has no scope to be exact in.
+function searchTermText(field, value, exact = false) {
   const v = String(value == null ? '' : value).replace(/"/g, '').replace(/\s+/g, ' ').trim();
-  const quote = /\s/.test(v) || (!field && /^\(|\)$|^\|$/.test(v));
+  const quote = /\s/.test(v) || (!field && /^\(|\)$|^\|$/.test(v)) || (!!field && exact === true && v !== '');
   const written = quote ? `"${v}"` : v;
   return field ? `${field}:${written}` : written;
 }

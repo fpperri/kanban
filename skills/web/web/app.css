@@ -290,17 +290,22 @@ button:hover { background: var(--btn-hover); }
 .search-fold[aria-expanded="false"]::after { content: " \25B8"; }
 .search-fold:hover { background: var(--btn-hover); color: var(--ink); }
 .search-pills, .search-slices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.query-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
+.query-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
 .query-pill:hover { background: var(--btn-hover); }
+.query-pill-label { min-width: 0; overflow-wrap: anywhere; text-align: left; }
 .query-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
 .query-pill-count { color: var(--mut); font-variant-numeric: tabular-nums; }
 .query-pill.on .query-pill-count { color: var(--accent-strong); }
-.slice-entry { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
+.slice-entry { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
 .slice-entry:hover { background: var(--btn-hover); }
 .slice-entry.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
 .slice-entry-icon:empty { display: none; }
+.slice-entry-label { min-width: 0; overflow-wrap: anywhere; text-align: left; }
 .slice-entry-count { color: var(--mut); font-variant-numeric: tabular-nums; }
 .slice-entry.on .slice-entry-count { color: var(--accent-strong); }
+.query-pill-more { padding: 2px 10px; background: transparent; border: 1px dashed var(--line); border-radius: .15rem; color: var(--mut); font-size: 0.8em; cursor: pointer; user-select: none; }
+.query-pill-more:hover { background: var(--btn-hover); color: var(--ink); }
+.query-pill-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-divider { width: 100%; margin: 0; border: 0; border-top: 1px solid var(--line); }
 /* End search box and search panel */
 /* Signals a collapsed column that still has hits — the count itself
@@ -1229,13 +1234,19 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-ring-label { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-title { fill: var(--ink); font-weight: 600; font-size: calc(15px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 
-.graph-caption, .graph-block-caption, .graph-block-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-caption, .graph-block-caption, .graph-block-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: all; }
 .graph-caption, .graph-block-caption { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-block-title { fill: var(--ink); font-weight: 600; font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-caption-name { fill: var(--ink); }
-.graph-caption-count { fill: var(--mut); }
 .graph-caption-muted .graph-caption-name { fill: var(--mut); }
 .graph-loose-caption { font-style: italic; }
+.graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { outline: none; stroke: var(--accent-soft); }
+.graph-caption:focus-visible .graph-caption-name, .graph-block-caption:focus-visible .graph-caption-name, .graph-block-title:focus-visible .graph-caption-name { fill: var(--accent); }
+.graph-tip { position: absolute; z-index: 3; max-width: min(24em, 100%); padding: 6px 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 0.78em; line-height: 1.4; pointer-events: none; }
+.graph-tip[hidden] { display: none; }
+.graph-tip-line { margin: 0; }
+.graph-tip-line:first-child { font-weight: 600; }
+.graph-tip-term { margin: 3px 0 0; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
 
 .graph-link { fill: none; stroke-width: 1.4px; }
 .graph-link-parent { stroke: var(--mut); opacity: 0.4; }
