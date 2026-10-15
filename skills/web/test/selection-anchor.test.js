@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, resolveSelection, removeCard, stepBack, pruneSelectionParts,
+  NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, resolveSelection, removeCard, stepBack, pruneSelectionParts,
   cardClickAction, shiftAddsRange, selectionAfterClick,
 } = require('../web/selection');
 const { parseSearchQuery, filterCards } = require('../web/search');
@@ -49,6 +49,18 @@ test('adding a part the selection already holds changes nothing', () => {
   assert.strictEqual(addPart(s, cardPart(1)), s, 'the anchor again');
   assert.strictEqual(addPart(s, pathPart(2)), s, 'an addition again');
   assert.notStrictEqual(addPart(s, treePart(2)), s, 'a tree is not the path of the same card');
+});
+
+test('a selection built from parts takes the first as the anchor and counts a repeated part once', () => {
+  assert.strictEqual(selectionFromParts([]), NO_SELECTION);
+  assert.deepStrictEqual(selectionFromParts([cardPart(3), pathPart(4), cardPart(3), queryPart('tags:ui')]), { anchor: cardPart(3), additions: [pathPart(4), queryPart('tags:ui')] });
+});
+
+test('the range start a selection implies is its anchor card, and none for any other anchor', () => {
+  assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, cardPart(7))), 7);
+  assert.strictEqual(rangeStartOf(addPart(setAnchor(NO_SELECTION, cardPart(7)), cardPart(8))), 7, 'the additions do not move it');
+  for (const part of [pathPart(7), treePart(7), queryPart('tags:ui')]) assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, part)), null, part.kind);
+  assert.strictEqual(rangeStartOf(NO_SELECTION), null);
 });
 
 test('the part builders keep ids as numbers, so a card read from a data attribute and one read from a card are the same part', () => {

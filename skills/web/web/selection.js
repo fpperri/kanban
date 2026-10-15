@@ -204,6 +204,18 @@ function addPart(selection, part) {
   return { anchor: selection.anchor, additions: selection.additions.concat([part]) };
 }
 
+// A selection built from parts in order: the first is the anchor, the rest are additions
+// (a part the list holds twice counts once).
+function selectionFromParts(parts) {
+  return parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
+}
+
+// The range start a selection implies when its anchor changed: the anchor card, or none, so
+// a Shift range cannot begin at a card that is no longer picked.
+function rangeStartOf(selection) {
+  return selection.anchor && selection.anchor.kind === 'card' ? selection.anchor.id : null;
+}
+
 // Every card a part reaches on the whole board, in the order the matcher gives
 // them. A card part is its card. A path part, a tree part and a query part ask
 // the caller's matcher (matchQuery(text) -> the ids the search module matches for
@@ -260,8 +272,7 @@ function selectionAfterEscape(state) {
   if (state.isolate) return { selection: state.selection, rangeStart: state.rangeStart, isolate: null };
   const next = stepBack(state.selection);
   if (next === state.selection) return state;
-  const anchor = next.anchor;
-  return { selection: next, rangeStart: anchor && anchor.kind === 'card' ? anchor.id : null };
+  return { selection: next, rangeStart: rangeStartOf(next) };
 }
 
 // The parts a poll leaves standing: a card, path or tree part whose card is no
@@ -271,7 +282,7 @@ function pruneSelectionParts(selection, liveIds) {
   const live = new Set(liveIds);
   const parts = partsOf(selection);
   const kept = parts.filter((part) => part.kind === 'query' || live.has(part.id));
-  return kept.length === parts.length ? selection : kept.reduce((next, part) => addPart(next, part), NO_SELECTION);
+  return kept.length === parts.length ? selection : selectionFromParts(kept);
 }
 
 // Takes one card out of the selection, wherever it comes from. A card part that
@@ -292,7 +303,7 @@ function removeCard(selection, id, matchQuery) {
     touched = true;
     for (const card of cards) if (card !== Number(id)) kept.push(cardPart(card));
   }
-  return touched ? kept.reduce((next, part) => addPart(next, part), NO_SELECTION) : selection;
+  return touched ? selectionFromParts(kept) : selection;
 }
 
 // What a click on a card does to the selection, given the gesture cardClickAction
@@ -354,7 +365,7 @@ function selectionAfterTyping(selection, text) {
 // the Graph until it is edited.
 function selectionOnViewSwitch(selection, { from, to, boxText }) {
   if (from === 'graph' && to !== 'graph') {
-    return isTypedAnchor(selection) ? selection.additions.reduce((next, part) => addPart(next, part), NO_SELECTION) : selection;
+    return isTypedAnchor(selection) ? selectionFromParts(selection.additions) : selection;
   }
   if (to === 'graph' && from !== 'graph' && !selection.anchor && String(boxText).trim()) {
     return setAnchor(selection, typedQueryPart(boxText));
@@ -384,9 +395,9 @@ function isAnyPillPart(part) { return part.kind === 'query' && !part.source; }
 // the anchor the next part is, as when any anchor goes) and its query leaves the
 // box as the one alternative it is, whatever else the box holds.
 function selectionWithoutPill(selection, boxText, text, alts) {
-  const kept = partsOf(selection).filter((part) => !isPillPart(part, text)).reduce((next, part) => addPart(next, part), NO_SELECTION);
+  const kept = selectionFromParts(partsOf(selection).filter((part) => !isPillPart(part, text)));
   const anchorWent = kept.anchor !== selection.anchor;
-  return { selection: kept, boxText: alts.remove(boxText, text), rangeStart: anchorWent ? (kept.anchor && kept.anchor.kind === 'card' ? kept.anchor.id : null) : undefined };
+  return { selection: kept, boxText: alts.remove(boxText, text), rangeStart: anchorWent ? rangeStartOf(kept) : undefined };
 }
 
 // What a click on a pill does. A click ('toggle', with or without Shift) turns that
@@ -426,11 +437,11 @@ function selectionAfterPill(gesture, query, { selection, boxText, alts }) {
 // follows it, as when any anchor goes.
 function selectionAfterBoxEdit(state, boxText, holds) {
   const parts = partsOf(state.selection);
-  const kept = parts.filter((part) => part.kind !== 'query' || part.source || holds(boxText, part.text));
+  const kept = parts.filter((part) => !isAnyPillPart(part) || holds(boxText, part.text));
   if (kept.length === parts.length) return state;
-  const selection = kept.reduce((next, part) => addPart(next, part), NO_SELECTION);
+  const selection = selectionFromParts(kept);
   if (selection.anchor === state.selection.anchor) return { selection, rangeStart: state.rangeStart };
-  return { selection, rangeStart: selection.anchor && selection.anchor.kind === 'card' ? selection.anchor.id : null };
+  return { selection, rangeStart: rangeStartOf(selection) };
 }
 
 // The pill queries a step from `before` to `after` took out of the selection, in
@@ -440,7 +451,7 @@ function selectionAfterBoxEdit(state, boxText, holds) {
 function pillQueriesDropped(before, after) {
   const kept = partsOf(after);
   return partsOf(before)
-    .filter((part) => part.kind === 'query' && !part.source && !kept.some((k) => samePart(k, part)))
+    .filter((part) => isAnyPillPart(part) && !kept.some((k) => samePart(k, part)))
     .map((part) => part.text);
 }
 
@@ -502,7 +513,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -520,6 +531,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.queryPart = queryPart;
   window.setAnchor = setAnchor;
   window.addPart = addPart;
+  window.selectionFromParts = selectionFromParts;
+  window.rangeStartOf = rangeStartOf;
   window.partCards = partCards;
   window.resolveSelection = resolveSelection;
   window.removeCard = removeCard;
