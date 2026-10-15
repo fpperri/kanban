@@ -113,3 +113,117 @@ test('the control row is styled with tokens, no hex outside the token blocks', (
   assert.ok(rules.length >= 4);
   for (const line of rules) assert.doesNotMatch(line, /#[0-9a-fA-F]{3,8}\b/, line);
 });
+
+// --- the fold: the row starts folded behind an Options toggle ---------------------
+
+const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
+const { clickAwayExemptions, pollGuardSelectors } = require('./helpers/selector-list');
+
+const SECTIONS_KEY = 'kanban.shop.map.sections.collapsed';
+const unfolded = (extra = {}) => ({ [SECTIONS_KEY]: JSON.stringify({ options: false, ...extra }) });
+const rowHtml = (opts) => { const w = optionsRowSandbox(opts); return { w, html: w.buildMapOptionsRow().outerHTML }; };
+const controlsIn = (html) => groupsOf(html);
+const toggleIn = (html) => { const t = optionsToggleOf(html); assert.ok(t, 'the Options toggle is in the row'); return t; };
+
+test('a board with no stored choice shows the Options toggle and hides the row', () => {
+  const { w, html } = rowHtml();
+  const toggle = toggleIn(html);
+  assert.strictEqual(toggle.expanded, false);
+  assert.strictEqual(toggle.label, 'Expand Options');
+  assert.strictEqual(toggle.icon, w.CHEVRON_RIGHT_ICON, 'folded wears the same chevron the folded sections wear');
+  assert.match(html, /<span>Options<\/span>/);
+  assert.deepStrictEqual(controlsIn(html), [], 'no control is drawn while folded');
+  assert.doesNotMatch(html, /map-option-btn/);
+});
+
+test('unfolded, the row holds the same eight controls the always-shown row held', () => {
+  const { w, html } = rowHtml({ stored: unfolded() });
+  const toggle = toggleIn(html);
+  assert.strictEqual(toggle.expanded, true);
+  assert.strictEqual(toggle.label, 'Collapse Options');
+  assert.strictEqual(toggle.icon, w.CHEVRON_LEFT_ICON, 'unfolded wears the chevron the open sections wear');
+  assert.deepStrictEqual(controlsIn(html).map((g) => g.label), [
+    'Parent lines', 'Dependency lines', 'Graphs', 'Parent sits', 'Align', 'Row order', 'Layout', 'Cards',
+  ]);
+  assert.ok(html.endsWith(w.mapOptionsRowHtml(w.loadMapOptions()) + '</div>'), 'the controls are exactly what mapOptionsRowHtml draws');
+});
+
+test('unfolded, the controls show the options the board holds', () => {
+  const stored = { ...unfolded(), 'kanban.shop.map.options': JSON.stringify({ parent: 'above', cards: 'plain' }) };
+  const { html } = rowHtml({ stored });
+  assert.strictEqual(toggleIn(html).expanded, true);
+  const pressed = Object.fromEntries(controlsIn(html).map((g) => [g.buttons[0].key, g.buttons.find((b) => b.pressed).val]));
+  assert.strictEqual(pressed.parent, 'above');
+  assert.strictEqual(pressed.cards, 'plain');
+  assert.strictEqual(pressed.group, 'tree');
+});
+
+test('the toggle sits where the row starts, ahead of every control, in the one .map-options row', () => {
+  for (const stored of [{}, unfolded()]) {
+    const { html } = rowHtml({ stored });
+    assert.match(html, /^<div class="map-options"><div class="map-section-header">/);
+    const toggleAt = html.indexOf('data-section="options"');
+    assert.ok(toggleAt !== -1);
+    if (html.includes('class="map-option"')) assert.ok(toggleAt < html.indexOf('class="map-option"'));
+  }
+});
+
+test('the toggle is a section toggle: its own button, labelled Options, named for its section, with no inline style', () => {
+  for (const stored of [{}, unfolded()]) {
+    const { html } = rowHtml({ stored });
+    const toggle = toggleIn(html);
+    assert.deepStrictEqual(toggle.classList, ['map-section-toggle'], 'the same class the Map\'s other fold toggles carry');
+    assert.match(html, /<button type="button" class="map-section-toggle" data-section="options"/, 'a real button: Tab reaches it, Enter and Space press it');
+    assert.doesNotMatch(html, /\sstyle=/);
+    assert.doesNotMatch(html, /tabindex/);
+  }
+});
+
+test('storage that is corrupt, wrong-shaped or blocked leaves the row folded', () => {
+  for (const raw of ['{not json', 'null', '"open"', '42', '{"options":"no"}', '{"options":null}', '[]']) {
+    const { html } = rowHtml({ stored: { [SECTIONS_KEY]: raw } });
+    assert.strictEqual(toggleIn(html).expanded, false, raw);
+    assert.deepStrictEqual(controlsIn(html), [], raw);
+  }
+  const blocked = rowHtml({ throws: true }).html;
+  assert.strictEqual(toggleIn(blocked).expanded, false);
+  assert.deepStrictEqual(controlsIn(blocked), []);
+});
+
+test('a board that only ever folded its graphs or No relations row still opens with the options folded', () => {
+  const { html } = rowHtml({ stored: { [SECTIONS_KEY]: JSON.stringify({ graph: true, isolated: false }) } });
+  assert.strictEqual(toggleIn(html).expanded, false);
+  assert.deepStrictEqual(controlsIn(html), []);
+});
+
+test('a click on the Options toggle goes through the section branch, ahead of the option buttons and the card handlers', () => {
+  const toggle = toggleIn(rowHtml().html);
+  assert.ok(toggle.classList.includes('map-section-toggle') && toggle.dataset.section === 'options', 'the toggle matches .map-section-toggle[data-section]');
+  const click = appSrc.match(/\$\('#map-view'\)\.addEventListener\('click', \(e\) => \{[\s\S]*?\n  \}\);/);
+  assert.ok(click, 'the #map-view click listener is found');
+  const handler = click[0];
+  const section = handler.indexOf("closest('.map-section-toggle[data-section]')");
+  assert.ok(section !== -1);
+  assert.match(handler, /keepPillFocus\(sectionBtn, \(\) => toggleMapSection\(sectionBtn\.dataset\.section\)\)/, 'focus follows the rebuilt toggle');
+  assert.ok(section < handler.indexOf("closest('.map-option-btn[data-key][data-val]')"));
+  assert.ok(section < handler.indexOf("closest('button[data-act]')"));
+});
+
+test('a click on the Options toggle does not wipe a building selection', () => {
+  const toggle = toggleIn(rowHtml().html);
+  const exempt = clickAwayExemptions(appSrc);
+  assert.ok(toggle.classList.some((cls) => exempt.includes('.' + cls)), `the toggle's classes (${toggle.classList.join(' ')}) are on the click-away exemption list`);
+});
+
+test('the Options toggle is not in the poll guard, so a focused one does not hold the 5s refresh', () => {
+  const toggle = toggleIn(rowHtml().html);
+  const guard = pollGuardSelectors(appSrc);
+  assert.deepStrictEqual(toggle.classList.filter((cls) => guard.includes('.' + cls)), []);
+});
+
+test('the Options toggle sits inline with the row and drops the section header\'s own bottom margin', () => {
+  const rule = cssSrc.split('\n').find((l) => l.startsWith('.map-options > .map-section-header'));
+  assert.ok(rule, 'a rule for the header inside the options row');
+  assert.match(rule, /margin-bottom: 0/);
+  assert.doesNotMatch(rule, /#[0-9a-fA-F]{3,8}\b/);
+});
