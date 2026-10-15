@@ -256,8 +256,8 @@ function graphClickNode(id, mods) {
   // the query, unless it took out a card the query lit: the query is then its other
   // cards, and the box no longer names the anchor.
   const boxIsDone = action === 'select' || (typedBefore && !isTypedAnchor(selectionState.selection));
-  if (boxIsDone && $('#search-input').value) writeSearch('', 'selection');
-  else graphPaintSelection();
+  if (boxIsDone && $('#search-input').value) writeSearch('', 'selection', false);
+  graphPaintSelection();
 }
 
 // --- render --------------------------------------------------------------------
@@ -297,12 +297,14 @@ function graphDrawPlan(plan) {
     const title = graphEl('title');
     title.textContent = n.title;
     g.appendChild(title);
-    g.appendChild(fixed(graphEl('circle', { r: n.r }, 'graph-dot')));
+    // A type with an icon draws its dot as that outline (the plan holds it as `d`, from
+    // a closed table), still the one graph-dot in the status colour; every other card is round.
+    g.appendChild(fixed(n.d ? graphEl('path', { d: n.d }, 'graph-dot') : graphEl('circle', { r: n.r }, 'graph-dot')));
     const kids = n.cls.includes(' has-kids');
     const flagged = / is-(blocked|waiting|review)/.test(n.cls);
-    if (kids) g.appendChild(fixed(graphEl('circle', { r: n.r + 3 }, 'graph-kids-ring')));
-    if (flagged) g.appendChild(fixed(graphEl('circle', { r: n.r + (kids ? 6 : 3) }, 'graph-flag-ring')));
-    const label = graphEl('text', { x: n.r + 3 }, 'graph-node-id');
+    if (kids) g.appendChild(fixed(graphEl('circle', { r: n.kidsRing }, 'graph-kids-ring')));
+    if (flagged) g.appendChild(fixed(graphEl('circle', { r: n.flagRing }, 'graph-flag-ring')));
+    const label = graphEl('text', { x: n.reach + 3 }, 'graph-node-id');
     label.textContent = String(n.id);
     g.appendChild(label);
     world.appendChild(g);
@@ -331,7 +333,7 @@ function renderGraphView() {
     filter = graphLoadFilter();
     const pool = state.active.concat(state.archived);
     const visibleIds = graphVisibleIds(pool, graphQueryEffect(currentSearchMatch()).visibleIds, filter, boardStatuses());
-    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds });
+    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types });
     layoutOpts = { statuses: boardStatuses() };
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);

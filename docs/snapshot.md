@@ -40,6 +40,7 @@ tag.
 ## Nested cards
 
 A card with a `type` wears a chip in the color `config.yaml` gives that type.
+A type with an `icon:` there starts its chip with that glyph, in the chip's color.
 On a board where cards have a `rank` or a `parent`, each section lists its cards
 in outline order — parents before their children, siblings by rank — and a parent
 card shows how many layers sit below it (`▲2`) with a thin bar of how far along

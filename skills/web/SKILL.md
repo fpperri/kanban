@@ -227,7 +227,7 @@ to `127.0.0.1` only.
   survives both a page reload and the 5s auto-refresh poll.
 - **Equal-length columns, fixed headers** — every column (Archive included) stretches to
   match the row's tallest member, so a short column never stops short of a busy neighbor.
-  The page header (title, search, view-switch/refresh/notif buttons) and every column's
+  The page header (title, search, view-switch/refresh/notif buttons and the preferences gear) and every column's
   own header stay on screen while the page scrolls — both `position: sticky`, the column
   header parked just under the page header via a CSS var kept in sync with the page
   header's real rendered height by a `ResizeObserver` (a hardcoded px offset would drift
@@ -279,10 +279,13 @@ to `127.0.0.1` only.
   column order, each in its status's color, with a `status: n` tooltip. Every bar on the page
   shares one mode, open or collapsed: collapsed is a thin line (the default), open adds a
   count line (the total, the done count, then each other status). Clicking any bar, on a
-  board card or in the card detail, flips it for all of them without opening the card; the
+  board card or in the card detail, flips it for all of them without opening the card, and
+  the preferences sheet (below) sets the same choice, so the two always agree; the
   mode is remembered per board in `localStorage`, surviving reload and the poll, and a
-  browser that once saved the retired `off` reads as collapsed. Archived leaves always count
-  as done, so archiving a finished story leaves its parent's done count unchanged. The card
+  browser that once saved the retired `off` reads as collapsed. Archived leaves count as
+  done by default, so archiving a finished story leaves its parent's done count unchanged;
+  the preferences sheet can turn that off, and then every roll-up (the board tile, the Map's
+  rich row, and the card detail with its scope line) leaves archived leaves out. The card
   detail shows the roll-up right under the title and thread, above the fields, in the same
   mode: the thin bar when collapsed, the bar with its numbers and a scope line when open. The
   scope line says the roll-up counts this board only, because a parent cannot
@@ -292,7 +295,7 @@ to `127.0.0.1` only.
   finished. Altitude, roll-up and the warning are worked out from the cards on every render
   and never written to a card.
 - **Search** — the header search box filters every view as you type, except the Graph,
-  where a typed search lights its matches and hides nothing (see **Graph view**); the
+  where a typed search lights its matches and hides nothing (see the Graph view entry); the
   query survives view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
   exact card id, and a pasted `webapp#42` is the same when `webapp` is this board's name (any
   case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
@@ -504,6 +507,14 @@ to `127.0.0.1` only.
   `paintTypeColors()` (app.js) paints it with CSSOM assignments after `innerHTML` lands
   (the CSP blocks style attributes). The app attaches no meaning to a type, `epic`
   included: it wears a color only when the list gives it one.
+  **Icons:** a listed type may also carry an `icon:` (see the `icon` bullet under the
+  config keys). A type with an icon starts its chip with that glyph, in the chip's own
+  colour (the glyph is plain text inside the chip, so it takes the colour the chip is
+  painted), wherever a chip is drawn: Board and Archive tiles, the Map's rich rows and the
+  card details. Calendar and Gantt draw no chip, so they show none. A type with no icon, or
+  an unknown icon name, is the chip it was before icons. The six glyphs live in their own
+  module, `type-icons.js`, which has no dependencies and loads before the type chip and the
+  Graph.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -595,7 +606,9 @@ to `127.0.0.1` only.
 
 - **Multi-select** — one interaction grammar, uniform across **all five views**
   (ADR 0006), with file-manager gestures: click a card's representation to open its
-  detail popup, ctrl+click (cmd on mac) to toggle it in/out of the selection,
+  detail popup (in a view the preferences sheet sets to selects, a plain click selects the
+  card alone instead, and a double click, or Enter on a focused card, opens it),
+  ctrl+click (cmd on mac) to toggle it in/out of the selection,
   shift+click to ADD the whole range between the range start (the last toggled/range-started
   card) and the target — in the active view's rendered order, additive, never
   deselecting — right-click for the bulk context menu. A selection grows from an
@@ -612,7 +625,7 @@ to `127.0.0.1` only.
   order to range over, so Shift does not add a range there; a double click (or Enter) opens
   the card, a pan keeps the selection, and a click on the empty Graph clears it. A search
   typed in the Graph is the anchor of the selection: its matches are the selected cards, and
-  it stops being the anchor when the Graph is left (see **Graph view**). Applies on
+  it stops being the anchor when the Graph is left (see the Graph view entry). Applies on
   board tiles (live and archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
@@ -655,6 +668,26 @@ to `127.0.0.1` only.
   only** (cards the doing gate refuses — waiting or blocked — are skipped per card, with
   one summary toast naming which gate); calendar/gantt drags always move the single card
   under the pointer, selected or not.
+- **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
+  from the right that holds the settings which rarely change. Each is kept in the browser per
+  board (`localStorage`, in the board's own `prefs` entry beside its other remembered
+  choices), never written to the board, and applies the moment it is chosen. **A plain click
+  on a card** opens it or selects it, chosen separately for the Board, the Map, the Gantt and
+  the Calendar (the default is opens, as before); the Graph is shown fixed at selects. In a
+  view set to selects a plain click selects the card alone, and a double click, or Enter on a
+  focused card, opens it; ctrl/cmd+click and shift+click build the selection in every view as
+  they always did. Opening a card that way is a peek: the selection stays as it was. A double
+  click on a Calendar card opens it and never starts a new card.
+  **Roll-up bar** is open or collapsed, the one choice a click on any bar flips. **Count
+  archived leaves as done** is on by default and feeds every roll-up: the board tile, the
+  Map's rich row and the card detail, whose scope line says "Archived leaves count as done."
+  or "Archived leaves are left out." A value an earlier visit saved under the retired
+  `rollup.archived` key is not read, so a browser that kept `false` there counts archived
+  leaves again and the sheet shows the toggle on. The sheet closes on Esc, on a click outside
+  it or with its close button, and focus goes back to the gear; like the other popups it
+  traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
+  not rebuild the board under it, `/` and Ctrl+F do nothing (the shared key guard names the
+  sheet), and a click inside it never clears a selection.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the
@@ -1254,8 +1287,12 @@ to `127.0.0.1` only.
   "archive" beside the live one.
   **A dot** shows the card's status colour (the same fixed hues and palette as the rest
   of the app), is bigger the more relations the card has, is hollow when the card is
-  `done`, and is dimmed when archived. An outer ring marks a card with children; a red
-  ring is **blocked**, an amber ring **waiting**, a gold ring **review**. A card's id
+  `done`, and is dimmed when archived. A type with an icon draws its dot in that outline
+  (circle, square, diamond, triangle, hexagon or star), still in the card's status colour,
+  hollow when `done` and dimmed when archived; a card with no icon, or an unknown icon name,
+  keeps the round dot. An outer ring marks a card with children; a red
+  ring is **blocked**, an amber ring **waiting**, a gold ring **review**; the child ring and
+  the flag rings sit outside every shape, the star's points included. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
   the view is zoomed in, or when the graph is small. **Relations:** a solid line joins a
   parent to its child, and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
@@ -1377,7 +1414,10 @@ handle a card carries.
   name lowercased with a trailing comment stripped, an unknown name passed through as
   written; no `icon` key at all when none is set). Human-curated like `tags`; the app only reads.
 - **`icon`** (on a `types:` block entry) is one of `circle`, `square`, `diamond`,
-  `triangle`, `hexagon` or `star`. A later change draws it; today the page only holds it.
+  `triangle`, `hexagon` or `star`. The page draws it as the type chip glyph and the Graph
+  dot's outline (see the **Card type chip** and **Graph view** bullets). An icon name is
+  only looked up in the closed table of six in `type-icons.js`; it is never markup, a class
+  name or part of a path, and a name the table does not hold draws as no icon.
   Labels, queries and icon names are human text: a reader escapes them and never uses one
   as raw markup or a class name.
 - **`hierarchy`** (inline or block form) lists the type names that are the levels of the

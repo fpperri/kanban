@@ -36,7 +36,7 @@ const makeBoard = () => ({
   ],
 });
 
-const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
+const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
 const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
 
 async function open({ view = 'graph', stored = {}, board = makeBoard(), search = '' } = {}) {
@@ -269,6 +269,33 @@ test('a click with the box empty paints in place, without a rebuild of the Graph
   s.click(1);
   s.click(2, { shiftKey: true });
   assert.strictEqual(rebuilt, 0);
+});
+
+test('a click that clears the typed query paints in place too, so the card under the pointer is not replaced and a double click still reaches it', async () => {
+  const s = await open();
+  let rebuilt = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...args) => { rebuilt++; return real(...args); };
+  s.type('tags:ui');
+  rebuilt = 0;
+  s.click(1);
+  assert.strictEqual(s.box(), '');
+  assert.strictEqual(rebuilt, 0, 'a plain click on a card');
+  s.type('tags:ui');
+  rebuilt = 0;
+  s.click(5, { shiftKey: true });
+  assert.strictEqual(s.box(), '', 'the query was turned into its cards');
+  assert.strictEqual(rebuilt, 0, 'Shift+click on a card the query lit');
+});
+
+test('the click that clears the box is a write to it like any other: the address follows, and the writer is told why', async () => {
+  const s = await open();
+  const told = [];
+  s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  s.type('tags:ui');
+  told.length = 0;
+  s.click(1);
+  assert.deepStrictEqual(told, [['', 'selection']]);
 });
 
 test('Space on a focused card acts as a plain click, and so clears the box too', async () => {
