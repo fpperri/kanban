@@ -42,12 +42,15 @@ function searchHotkeyPrefill(chord, ctx) {
 // the box's current value — as long as everything after the "#" is digits
 // (or nothing yet), the "#" stays; the moment a non-numeric char shows up
 // in there, the id search is off the table, so drop the leading "#" and
-// let the rest read as a plain search term. Returns null (no change) rather
-// than echoing the input back unchanged, so callers can skip touching
-// value/selection when nothing needs to move.
+// let the rest read as a plain search term. Only while the box holds that one
+// token: a second token or a | after the id (`#12 | #14`, or the `#12 | path:40`
+// that isolate writes) means the "#" is part of a query, and stays. Returns
+// null (no change) rather than echoing the input back unchanged, so callers
+// can skip touching value/selection when nothing needs to move.
 function searchHashStrip(value) {
   if (typeof value !== 'string' || value[0] !== '#') return null;
-  if (/^\d*$/.test(value.slice(1))) return null;
+  const rest = value.slice(1).trimEnd();
+  if (/\s/.test(rest) || /^\d*$/.test(rest)) return null;
   return value.slice(1);
 }
 

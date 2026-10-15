@@ -125,3 +125,29 @@ test('non-string input resolves to null, never throws', () => {
   assert.strictEqual(searchHashStrip(null), null);
   assert.strictEqual(searchHashStrip(undefined), null);
 });
+
+// The strip is only for a box that holds one id-in-progress token. Isolate
+// writes queries like "#12 | path:40", and a person types "#12 | #14", so a
+// second token, a bar or a space after the id must not cost the leading "#".
+
+test('typing "#12 | #14" keeps the leading "#" at every keystroke', () => {
+  const typed = '#12 | #14';
+  for (let n = 1; n <= typed.length; n++) {
+    assert.strictEqual(searchHashStrip(typed.slice(0, n)), null, JSON.stringify(typed.slice(0, n)));
+  }
+});
+
+test('a box holding more than one token keeps its leading "#", whatever follows the id', () => {
+  assert.strictEqual(searchHashStrip('#12 | path:40'), null);
+  assert.strictEqual(searchHashStrip('#12 status:doing'), null);
+  assert.strictEqual(searchHashStrip('#12 x'), null);
+  assert.strictEqual(searchHashStrip('#12 '), null, 'a space after the digits is not the id gone wrong');
+  assert.strictEqual(searchHashStrip('#12 | tags:ui (status:doing | #14)'), null);
+});
+
+test('a box that is one token still loses the "#" when the token stops being an id', () => {
+  assert.strictEqual(searchHashStrip('#a'), 'a');
+  assert.strictEqual(searchHashStrip('#12a'), '12a');
+  assert.strictEqual(searchHashStrip('#fix '), 'fix ', 'trailing space does not hide a second token that is not there');
+  assert.strictEqual(searchHashStrip('#tags:ui'), 'tags:ui');
+});
