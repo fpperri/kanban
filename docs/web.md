@@ -250,6 +250,21 @@ and a value with a space stays one term. The first eight values of a field show,
 across the poll. Next up is not built in: it is a pill a board defines, such as
 `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
 
+**Isolate** — the foot of the search panel holds the **Isolate** switch, and the `i` key flips
+it, except while you type in a field or a menu, a dialog, the notifications panel or the
+preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
+selection into the search box as `part | part | ...`, each part by what it names, such as
+`#12 | path:40 | tags:grill` for a card, the path through card 40 and the `grill` tag, so a card
+that comes to match joins on the next refresh. The text the box held is kept. The Board, Map,
+Gantt and Calendar show only the matches, and so does the Graph, where a typed search only
+lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
+on, a click on a card moves the anchor and leaves the box and the shown cards as they are, and a
+click or a double click on empty space clears nothing. With the panel closed, the chip says
+*isolated*. Turn it off with the switch, `i` or Esc and the box gets its text back. Esc steps
+back in three stages: isolate off, then the additions, then the anchor; with the panel open the
+first Esc closes the panel, and the second turns isolate off. The switch is announced as on or
+off, and Tab reaches it, and Enter and Space flip it.
+
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
 error), and per-entry archiving.
@@ -273,7 +288,8 @@ right-clicking inside an open card opens the same menu for that card, without Pe
 A click on empty space never touches the selection, since it can be an accident. A
 double click on empty space clears it: the additions, the anchor, and the anchor's text in
 the box (a pill's query or a search typed in the Graph), so the pill goes off. Esc still steps back
-one stage at a time: a popup, then the additions, then the anchor. Where a double click
+one stage at a time: a popup, then the additions, then the anchor, and isolate goes off before
+the additions. Where a double click
 already does something, as it does on the Calendar's empty days and time slots, it does that
 and the selection stays.
 

@@ -10,7 +10,7 @@
 // regions, each drawn on its own so that what joins the panel later extends one
 // without editing another: the slice section (#search-slices, with its fold control,
 // drawn by search-slices.js), the pill section (#search-pills, with its fold control), a
-// divider, and a foot (#search-foot, empty for now).
+// divider, and a foot (#search-foot, which holds the Isolate switch: isolate.js).
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
 // here: the three built-ins, then the board's own pills (state.pills, the config's
