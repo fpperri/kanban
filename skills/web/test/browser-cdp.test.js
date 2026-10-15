@@ -205,17 +205,26 @@ test('shot saves a numbered screenshot named for its scenario, and does nothing 
 });
 
 // The browser side of the scenario loop.
-function envFixture({ resetBoard = () => {}, shotsDir = null, chromeExited = new Promise(() => {}) } = {}) {
+function envFixture({ resetBoard = () => {}, shotsDir = null, chromeExited = new Promise(() => {}), refuseReset = 0, historyResetMs } = {}) {
   const order = [];
   const cdp = fakeCdp();
   const send = cdp.send;
-  cdp.send = async (m, p) => { order.push(`send:${m}`); return send(m, p); };
+  let refused = 0;
+  cdp.send = async (m, p) => {
+    order.push(`send:${m}`);
+    if (m === 'Page.resetNavigationHistory' && refused < refuseReset) {
+      refused++;
+      throw new Error('Page.resetNavigationHistory: {"code":-32000,"message":"Not attached to an active page"}');
+    }
+    return send(m, p);
+  };
   cdp.takeEvents = () => { order.push('takeEvents'); return []; };
   cdp.closed = new Promise(() => {});
   const env = createBrowserEnv({
     cdp, shotsDir, chromeExited,
     boards: { fixture: { base: 'http://127.0.0.1:7001' }, plan: { base: 'http://127.0.0.1:7002' } },
     resetBoard: (key) => { order.push(`reset:${key}`); return resetBoard(key); },
+    historyResetMs,
   });
   return { env, cdp, order };
 }
@@ -229,6 +238,21 @@ test('a scenario begins with the old page gone, its board\'s browser storage cle
   assert.deepStrictEqual(clear[1], { origin: 'http://127.0.0.1:7002', storageTypes: 'all' });
   assert.ok(order.indexOf('send:Page.navigate') < order.indexOf('reset:plan'), order.join(' '));
   assert.ok(order.indexOf('send:Storage.clearDataForOrigin') < order.indexOf('takeEvents'));
+});
+
+test('a history reset Chrome refuses while it swaps the page in is tried again until it takes', async () => {
+  const { env, order } = envFixture({ refuseReset: 2 });
+  await env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } });
+  assert.strictEqual(order.filter((o) => o === 'send:Page.resetNavigationHistory').length, 3);
+  assert.ok(order.lastIndexOf('send:Page.resetNavigationHistory') < order.indexOf('reset:plan'), order.join(' '));
+});
+
+test('a history reset still refused when the time is up fails the scenario', async () => {
+  const { env } = envFixture({ refuseReset: Infinity, historyResetMs: 200 });
+  await assert.rejects(
+    env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } }),
+    /Not attached to an active page/,
+  );
 });
 
 test('each scenario drives the base of its own board', async () => {

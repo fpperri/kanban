@@ -135,6 +135,19 @@ function consoleErrorsFrom(events) {
     .map((e) => JSON.stringify(e.params).slice(0, 300));
 }
 
+// Just after a navigation Chrome may still be swapping the new page in, and
+// it refuses the history reset until it has, so the reset is tried again
+// until it takes or the time is up.
+async function resetHistory(cdp, ms) {
+  const until = Date.now() + ms;
+  for (;;) {
+    try { return await cdp.send('Page.resetNavigationHistory'); } catch (e) {
+      if (!/Not attached to an active page/.test(e.message) || Date.now() >= until) throw e;
+      await sleep(50);
+    }
+  }
+}
+
 // `boards` maps a board key to { base }; resetBoard(key) puts that board's
 // cards back as they were. Every scenario starts from the same place: no page,
 // an empty tab history, the board's own browser storage cleared, the board
@@ -142,7 +155,7 @@ function consoleErrorsFrom(events) {
 // order scenarios run in not matter. Chrome keeps at most 50 history entries,
 // so without the reset a scenario that counts history steps late in a run
 // would see none added.
-function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExited }) {
+function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExited, historyResetMs = 3000 }) {
   const gone = Promise.race([
     chromeExited.then((why) => `Chrome ${why}`),
     cdp.closed,
@@ -155,7 +168,7 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
         if (!boards[k]) throw new Error(`scenario '${sc.name}' names board '${k}', which the run did not start`);
       }
       await cdp.send('Page.navigate', { url: 'about:blank' });
-      await cdp.send('Page.resetNavigationHistory');
+      await resetHistory(cdp, historyResetMs);
       for (const k of keys) {
         await cdp.send('Storage.clearDataForOrigin', { origin: new URL(boards[k].base).origin, storageTypes: 'all' });
         await resetBoard(k);
