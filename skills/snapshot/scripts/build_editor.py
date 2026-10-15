@@ -358,6 +358,8 @@ MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
 WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
 SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
 TYPE_ICONS_JS = os.path.join(WEB_MODULES, "type-icons.js")
+PILLS_JS = os.path.join(WEB_MODULES, "pills.js")
+SLICE_RUN_JS = os.path.join(WEB_MODULES, "slice-run.js")
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
@@ -390,6 +392,12 @@ def read_search():
 
 def read_type_icons():
     return read_embedded(TYPE_ICONS_JS, "the type icons module")
+
+def read_pills_module():
+    return read_embedded(PILLS_JS, "the pill list")
+
+def read_slice_run():
+    return read_embedded(SLICE_RUN_JS, "the run of slices")
 
 def main():
     p = argparse.ArgumentParser()
@@ -435,6 +443,8 @@ def main():
                     .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
                     .replace("__SEARCH_JS__", read_search())
                     .replace("__TYPE_ICONS_JS__", read_type_icons())
+                    .replace("__PILLS_JS__", read_pills_module())
+                    .replace("__SLICE_RUN_JS__", read_slice_run())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -868,6 +878,10 @@ __WAITING_BLOCKED_JS__</script>
 __SEARCH_JS__</script>
 <script>
 __TYPE_ICONS_JS__</script>
+<script>
+__PILLS_JS__</script>
+<script>
+__SLICE_RUN_JS__</script>
 <script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
