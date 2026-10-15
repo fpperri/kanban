@@ -111,7 +111,8 @@ test('the pieces that wrote the selection before now call the entry point', () =
     addCardToSelection: /setSelection\(addPart\(selectionState\.selection, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
     addDependencyToSelection: /setSelection\(addPart\(selectionState\.selection, part\(menuSubject\.ids\[0\]\)\)\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
-    onClickAway: /setSelection\(NO_SELECTION, null\)/,
+    onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
+    moveSelectionTo: /setSelection\(next\.selection, next\.rangeStart\)/,
     applyBulkArchive: /setSelection\(NO_SELECTION\)/,
     bulkDelete: /setSelection\(NO_SELECTION\)/,
     onBulkDrop: /setSelection\(NO_SELECTION\)/,
@@ -350,9 +351,14 @@ test('the page builds the controls the marker tests look at in the numbers the r
 
 function clickAwaySandbox({ selected = [1, 2], rangeStart = 1 } = {}) {
   const calls = { render: 0 };
-  const sandbox = { ...selectionGlobals(), renderBoard: () => { calls.render++; }, calls };
+  const input = { value: '' };
+  const sandbox = { ...selectionGlobals(), $: () => input, searchRemoveAlt: (text) => text, renderBoard: () => { calls.render++; }, calls };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), fn('setSelection'), fn('onClickAway')].join('\n'), sandbox);
+  vm.runInContext([
+    declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), declaration('searchWriteListeners', 'const'),
+    declaration('CALENDAR_CREATE_DAY_CELLS', 'const'), declaration('CALENDAR_CREATE_COLUMNS', 'const'), declaration('NOT_EMPTY_SPACE', 'const'), declaration('DOUBLE_CLICK_OWNED', 'const'),
+    fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('onClickAway'),
+  ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
   const markClick = (e) => vm.runInContext('(e) => { selectionGestureClick = e; }', sandbox)(e);
@@ -363,16 +369,25 @@ function clickAwaySandbox({ selected = [1, 2], rangeStart = 1 } = {}) {
 const within = (...chain) => ({ closest: (sel) => (sel === `[${KEEPS}]` ? chain.find((n) => KEEPS.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase()) in n.dataset) || null : null) });
 const plain = { dataset: {} };
 const marked = { dataset: { keepsSelection: '' } };
-const noMods = { shiftKey: false, ctrlKey: false, metaKey: false };
+const noMods = { shiftKey: false, ctrlKey: false, metaKey: false, detail: 2 };
 
-test('a plain click on empty space clears the selection and its range start', () => {
+test('a double click on empty space clears the selection and its range start', () => {
   const s = clickAwaySandbox();
   s.onClickAway({ target: within(plain), ...noMods });
   assert.deepStrictEqual(s.state(), { ids: [], rangeStart: null });
   assert.strictEqual(s.calls.render, 1);
 });
 
-test('a click on an element carrying the marker, or inside one, never clears the selection', () => {
+test('a single click on empty space, and the clicks of a triple click past the second, leave the selection and its range start', () => {
+  for (const detail of [0, 1, 3]) {
+    const s = clickAwaySandbox();
+    s.onClickAway({ target: within(plain), ...noMods, detail });
+    assert.deepStrictEqual(s.state(), { ids: [1, 2], rangeStart: 1 }, `detail ${detail}`);
+    assert.strictEqual(s.calls.render, 0, `detail ${detail}`);
+  }
+});
+
+test('a double click on an element carrying the marker, or inside one, never clears the selection', () => {
   for (const chain of [[marked], [plain, marked]]) {
     const s = clickAwaySandbox();
     s.onClickAway({ target: within(...chain), ...noMods });
@@ -381,7 +396,7 @@ test('a click on an element carrying the marker, or inside one, never clears the
   }
 });
 
-test('the click the card handler marked as a selection gesture never clears the selection, and the next click does', () => {
+test('the click the card handler marked as a selection gesture never clears the selection, and the next double click does', () => {
   const s = clickAwaySandbox({ selected: [3], rangeStart: 3 });
   const gesture = { target: within(plain), ...noMods };
   s.markClick(gesture);
@@ -393,7 +408,7 @@ test('the click the card handler marked as a selection gesture never clears the 
   assert.strictEqual(s.calls.render, 1);
 });
 
-test('a click while Shift, Ctrl or Cmd is held builds the selection, so it never clears it', () => {
+test('a double click while Shift, Ctrl or Cmd is held builds the selection, so it never clears it', () => {
   for (const mod of ['shiftKey', 'ctrlKey', 'metaKey']) {
     const s = clickAwaySandbox();
     s.onClickAway({ target: within(plain), ...noMods, [mod]: true });
@@ -401,7 +416,7 @@ test('a click while Shift, Ctrl or Cmd is held builds the selection, so it never
   }
 });
 
-test('a click with nothing selected repaints nothing', () => {
+test('a double click with nothing selected repaints nothing', () => {
   const s = clickAwaySandbox({ selected: [], rangeStart: 'null' });
   s.onClickAway({ target: within(plain), ...noMods });
   assert.strictEqual(s.calls.render, 0);
@@ -468,7 +483,7 @@ function escapeSandbox({ value = '', selected = [], active = 'body', open = [], 
   vm.createContext(sandbox);
   vm.runInContext([
     declaration('searchWriteListeners', 'const'), declaration('selectionState'), declaration('selectedIds'),
-    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('stepSelectionBack'), fn('escapeStep'),
+    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('stepSelectionBack'), fn('escapeStep'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   sandbox.state = () => asData({ ids: ids(vm.runInContext('selectedIds', sandbox)), anchor: vm.runInContext('selectionState.selection.anchor', sandbox), additions: vm.runInContext('selectionState.selection.additions.length', sandbox), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
