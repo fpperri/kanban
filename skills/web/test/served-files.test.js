@@ -132,6 +132,21 @@ test('every file the page names answers 200 over HTTP', async () => {
   });
 });
 
+test('the page loads the slice module ahead of the scripts that read it, and the server serves it', async () => {
+  await serve(WEB, async (base) => {
+    const html = await (await fetch(`${base}/`)).text();
+    const scripts = [...html.matchAll(/<script src="\/([\w.-]+\.js)"><\/script>/g)].map((m) => m[1]);
+    assert.ok(scripts.includes('slices.js'), 'app.html loads slices.js');
+    for (const reader of ['graph-model.js', 'graph-view.js', 'app.js']) {
+      assert.ok(scripts.indexOf('slices.js') < scripts.indexOf(reader), `slices.js loads before ${reader}`);
+    }
+    const res = await fetch(`${base}/slices.js`);
+    assert.strictEqual(res.status, 200);
+    assert.match(res.headers.get('content-type'), /text\/javascript/);
+    assert.strictEqual(lf(await res.text()), lf(fs.readFileSync(path.join(WEB, 'slices.js'), 'utf8')));
+  });
+});
+
 test('the page keeps its script order: app.js last, graph-view.js right before it, model files ahead of their views', async () => {
   await serve(WEB, async (base) => {
     const html = await (await fetch(`${base}/`)).text();
