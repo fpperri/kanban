@@ -30,7 +30,7 @@ const GRAPH_CHECKS = [
   'clicking a zoom button keeps a multi-selection', 'clicking the active layout keeps the zoomed view',
   'a zoom-button click does not leave focus on a poll-blocking control', 'plain click selects and does NOT open the card',
   'a selected card keeps its relations lit', 'the selection focus survives the pointer leaving', 'double click opens the card (URL gains card=)',
-  'clicking empty canvas leaves the selection', 'double-clicking empty canvas clears the selection', 'a query typed in the Graph keeps every dot, lights its matches, a done one included, and dims the rest', 'clearing search restores the graph',
+  'a double click on the empty canvas after a pan clears the selection', 'clicking empty canvas leaves the selection', 'double-clicking empty canvas clears the selection', 'a query typed in the Graph keeps every dot, lights its matches, a done one included, and dims the rest', 'clearing search restores the graph',
   'isDragging is true during a node drag', 'the dragged card sits under the pointer', 'the svg is marked as dragging',
   'related cards are pulled along with the dragged card', 'unrelated cards move far less than related ones',
   'the drag ended cleanly (isDragging false, no dragging class)', 'a drag does not leave a selection behind (phantom click swallowed)',

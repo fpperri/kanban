@@ -35,6 +35,7 @@ module.exports = {
   CONTAINERS,
   DATED,
   TYPED,
+  NOT_EMPTY,
   async run(page) {
     const { ev, send, open, waitFor, centre, click, key, check } = page;
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
