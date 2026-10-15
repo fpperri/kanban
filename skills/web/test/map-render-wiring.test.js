@@ -148,7 +148,7 @@ test('rich markup holds the type chip, the altitude badge and the roll-up bar, a
   const html = w.mapRichHtml(n, w.mapRichLayout(n, RICH([{ id: 1, type: 'epic' }])), STATUSES);
   assert.match(html, /<span class="type-chip"[^>]*data-type-color="tomato"[^>]*>epic<\/span>/);
   assert.match(html, /<span class="alt-badge"[^>]*>▲2<\/span>/);
-  assert.match(html, /<div class="rollup">/);
+  assert.match(html, /<div class="rollup" data-keeps-selection>/);
   assert.match(html, /<foreignObject class="map-rich"/);
   assert.doesNotMatch(html, /\sstyle=/, 'the strict CSP blocks style attributes');
 });

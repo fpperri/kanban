@@ -151,8 +151,7 @@ test('a plain click on a node is caught in the capture phase, selects in place a
   assert.match(m[0], /e\.stopPropagation\(\)/);
   assert.match(m[0], /graphSelectOnly\(/);
   const sel = fn('graphSelectOnly');
-  assert.match(sel, /selectedIds = new Set\(\[id\]\)/);
-  assert.match(sel, /selectionAnchor = id/);
+  assert.match(sel, /setSelection\(new Set\(\[id\]\), id\)/, 'the node becomes the whole selection and the range start, through the one entry point');
   assert.match(sel, /classList\.toggle\('selected'/);
   assert.ok(!/renderBoard|renderGraphView/.test(sel), 'painted in place, no rebuild');
 });

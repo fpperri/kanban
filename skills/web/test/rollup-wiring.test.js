@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { clickAwayExemptions, assertHasSelectors } = require('./helpers/selector-list');
+const { assertKeepsSelection } = require('./helpers/markers');
 
 const WEB = path.join(__dirname, '..', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
@@ -141,10 +141,9 @@ test('the header carries no roll-up control: no Bar select, no Archived box, no 
   assert.doesNotMatch(read('app.css'), /rollup-ctl/);
 });
 
-test('a click on a roll-up bar keeps a building multi-selection, and the exemption names no control that is gone', () => {
-  const list = clickAwayExemptions(appSrc);
-  assertHasSelectors(list, ['.rollup'], 'the click-away exemption');
-  assert.ok(!list.includes('.rollup-ctl'), 'no exemption for the retired controls');
+test('a click on a roll-up bar keeps a building multi-selection, and no control that is gone is marked to', () => {
+  assertKeepsSelection(['.rollup'], 'the roll-up bar');
+  assert.doesNotMatch(appSrc + html, /rollup-ctl/, 'nothing is left of the retired controls, marker included');
 });
 
 test('the card detail has a roll-up block under the thread and above the fields, filled from state', () => {

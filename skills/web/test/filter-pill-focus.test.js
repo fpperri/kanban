@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
+const { tagsOf, elementOf } = require('./helpers/markers');
 const path = require('node:path');
 const vm = require('node:vm');
 
@@ -131,7 +132,7 @@ function stubUnseenSteps(sandbox, code) {
   }
 }
 
-function pollSandbox(mutateGuard, unseenStep) {
+function pollSandbox(unseenStep) {
   const policy = require('../web/refresh-policy.js');
   const doc = { activeElement: null, current: null, visibilityState: 'visible' };
   const camel = (a) => a.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
@@ -161,7 +162,6 @@ function pollSandbox(mutateGuard, unseenStep) {
   const names = ['boardControlFocused', 'pillSelector', 'keepPillFocus', 'focusedPill', 'applyBoardData', 'anyModalOpen', 'autoRefreshSkipState', 'autoRefreshTick'];
   const pillConst = appSrc.match(/const PILL_SELECTOR = [^\n]*\n/);
   let code = (pillConst ? pillConst[0] : '') + names.map((n) => (appSrc.includes('function ' + n + '(') ? (appSrc.includes('async function ' + n + '(') ? 'async ' : '') + fn(n) : '')).join('\n');
-  if (mutateGuard) code = code.replace("closest('.column-sort-field,", "closest('" + mutateGuard + ", .column-sort-field,");
   if (unseenStep) {
     const hooked = code.replace('applyNotifications(data.notifications', unseenStep + '(data); applyNotifications(data.notifications');
     assert.notStrictEqual(hooked, code, 'applyBoardData still ends by applying the notifications');
@@ -183,12 +183,12 @@ test('a focused pill does not freeze the 5s poll, for every view', () => {
 });
 
 test('a board load that runs a step the sandbox has never seen does not throw', () => {
-  const { sandbox } = pollSandbox(null, 'applyBrandNewStep');
+  const { sandbox } = pollSandbox('applyBrandNewStep');
   assert.doesNotThrow(() => sandbox.applyBoardData({ active: [], archived: [] }));
 });
 
 test('the sandbox only stubs what it has never seen: an explicit stub is kept and known code still throws', () => {
-  const { sandbox } = pollSandbox(null, 'applyBrandNewStep');
+  const { sandbox } = pollSandbox('applyBrandNewStep');
   assert.strictEqual(sandbox.pruneSelection('kept'), 'kept', 'the identity stub the tests rely on is not replaced by a no-op');
   sandbox.renderBoard = () => { throw new Error('render broke'); };
   assert.throws(() => sandbox.applyBoardData({ active: [], archived: [] }), /render broke/);
@@ -196,9 +196,23 @@ test('the sandbox only stubs what it has never seen: an explicit stub is kept an
 
 test('real form controls and graph buttons still hold the poll', () => {
   const { sandbox, doc, makeEl } = pollSandbox();
-  for (const cls of ['column-sort-field', 'cal-nav', 'column-add', 'map-zoom-btn', 'map-option-btn', 'graph-layout-btn graph-control']) {
-    doc.activeElement = makeEl(cls, {});
-    assert.strictEqual(sandbox.boardControlFocused(), true, cls);
+  for (const selector of ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn', '.graph-button']) {
+    for (const tag of tagsOf(selector)) {
+      const built = elementOf(tag);
+      doc.activeElement = makeEl(built.classList.join(' '), built.dataset);
+      assert.strictEqual(sandbox.boardControlFocused(), true, `${selector}: ${tag.trim()}`);
+    }
+  }
+});
+
+test('the pills and fold toggles the page builds do not hold the poll, for every view', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  for (const selector of ['.map-filter-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle', '.map-section-toggle']) {
+    for (const tag of tagsOf(selector)) {
+      const built = elementOf(tag);
+      doc.activeElement = makeEl(built.classList.join(' '), built.dataset);
+      assert.strictEqual(sandbox.boardControlFocused(), false, `${selector}: ${tag.trim()}`);
+    }
   }
 });
 
@@ -243,10 +257,12 @@ test('an off pill shows a hollow dot: ring kept, fill gone', () => {
   assert.match(css, /\.pill-dot \{[^}]*background: currentColor; border: 1px solid currentColor;/);
 });
 
-test('the matcher catches a pill re-added to the poll guard with an attribute selector', () => {
-  const { sandbox, doc, makeEl } = pollSandbox('.gantt-filter-toggle[data-col]');
-  doc.activeElement = makeEl('gantt-filter-toggle', { col: 'done' });
+test('the guard reads the marker: a pill that wears the poll marker holds the poll', () => {
+  const { sandbox, doc, makeEl } = pollSandbox();
+  doc.activeElement = makeEl('gantt-filter-toggle', { col: 'done', holdsPoll: '' });
   assert.strictEqual(sandbox.boardControlFocused(), true);
+  doc.activeElement = makeEl('gantt-filter-toggle', { col: 'done' });
+  assert.strictEqual(sandbox.boardControlFocused(), false, 'the same pill without the marker does not');
 });
 
 test('a real poll tick with the pointer resting on a card and a pill focused keeps the hover wash', async () => {

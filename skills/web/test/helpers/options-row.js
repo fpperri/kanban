@@ -64,14 +64,14 @@ function optionsRowSandbox({ stored = {}, throws = false, board = 'shop' } = {})
   return sandbox;
 }
 
-const TOGGLE_RE = /<button type="button" class="([^"]*)" data-section="options" aria-label="([^"]*)" aria-expanded="(true|false)">([\s\S]*?)<\/button>/;
+const TOGGLE_RE = /<button type="button" class="([^"]*)" data-section="options" aria-label="([^"]*)" aria-expanded="(true|false)"( data-keeps-selection)?>([\s\S]*?)<\/button>/;
 
 // The Options toggle of a built row, read back as the element a browser would
 // hold: its classes, its data-section and its aria state.
 function optionsToggleOf(rowHtml) {
   const m = rowHtml.match(TOGGLE_RE);
   if (!m) return null;
-  return { classList: m[1].split(/\s+/).filter(Boolean), dataset: { section: 'options' }, label: m[2], expanded: m[3] === 'true', icon: m[4] };
+  return { classList: m[1].split(/\s+/).filter(Boolean), dataset: { section: 'options' }, label: m[2], expanded: m[3] === 'true', icon: m[5], keepsSelection: !!m[4] };
 }
 
 module.exports = { appSrc, fn, optionsRowSandbox, optionsToggleOf };
