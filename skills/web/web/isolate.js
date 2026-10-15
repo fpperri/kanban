@@ -16,10 +16,11 @@
 // While it is on, a click on a card moves the anchor only: nothing the selection does writes the
 // box (boxAfterGraphClick, selection.js), and a click or a double click on empty space leaves the
 // selection. Esc steps back in three stages, and isolate off is the first (selectionAfterEscape,
-// selection.js; escapeStep and stepSelectionBack in app.js, where escapeStep also stops the
-// browser's own Esc, which clears a search field, so the box gets its text back and keeps it); with
-// the search panel open the first Esc closes the panel and the second turns isolate off. A hand edit of the box, a pill or a slice
-// is an edit of the query: isolate stays on while the box holds one, and ends when it holds none
+// selection.js; escapeStep and stepSelectionBack in app.js, where escapeStep asks keyGuardEscape
+// (key-guard.js) which Esc it is, and also stops the browser's own Esc, which clears a search
+// field, so the box gets its text back and keeps it); with the search panel open the first Esc
+// closes the panel and the second turns isolate off. A hand edit of the box, a pill or a slice is
+// an edit of the query: isolate stays on while the box holds one, and ends when it holds none
 // (isolateAfterWrite, selection.js). With nothing to write the switch says so and stays off, and
 // Esc with focus in the box turns isolate off like Esc anywhere else.
 //
@@ -41,10 +42,12 @@
 //
 // This script reads app.js's globals at the moment it runs, never when it loads: $, state,
 // storageKey, prefsStorage, selectionState, selectedIds, viewCardIds, searchMatchIds, loadViewMode,
-// writeSearch, onSearchWrite, renderSearchPanel, toast,
-// hideContextMenu, keyGuardOff, partsOf (selection.js) and the search module's isolate functions. The i key reads the shared key guard (key-guard.js): off
-// while a field has focus and while a menu, a dialog, the notifications panel or the preferences
-// sheet is up; the search panel is no surface, so i works with it open.
+// writeSearch, onSearchWrite, renderSearchPanel, toast and hideContextMenu; selection.js's
+// partsOf, isolateRecord, isolatePreviousFrom and isolateAfterWrite; key-guard.js's keyGuardOff;
+// and the search module's isolate functions (searchIsolateBox, searchIsolateRestore). The i key
+// reads the shared key guard: off while a field has focus and while a menu, a dialog, the
+// notifications panel or the preferences sheet is up; the search panel is no surface, so i works
+// with it open.
 
 // The text the box held when isolate went on, as { previous }; null while it is off.
 let isolateFlag = null;

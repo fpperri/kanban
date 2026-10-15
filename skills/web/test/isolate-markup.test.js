@@ -38,6 +38,12 @@ test('the switch has a name a reader hears, and a tooltip that says what a click
   assert.match(attr(tag, 'title'), /press i\b/i);
 });
 
+test('the tooltip the script gives an off switch is the one the markup ships with, so the first paint and the first sync agree', () => {
+  const off = (isolateSrc.match(/const ISOLATE_SWITCH_OFF = '([^']*)';/) || [])[1];
+  assert.ok(off, 'the script names the off tooltip');
+  assert.strictEqual(attr(tag, 'title'), off);
+});
+
 test('a click on the switch never clears a selection, and the switch holds neither the poll nor a style nor a handler', () => {
   assert.notStrictEqual(attr(tag, 'data-keeps-selection'), null);
   assert.strictEqual(attr(tag, 'data-holds-poll'), null, 'a button left focused by a click would stop the poll for good');
