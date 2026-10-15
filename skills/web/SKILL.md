@@ -701,10 +701,13 @@ to `127.0.0.1` only.
   action reads its target cards through one reader (`bulkTargets`), and a bulk popup acts on
   the cards it held when it opened. **Esc** steps the selection back one stage at a time:
   the first Esc drops every addition at once and leaves the anchor, the next drops the
+  anchor. With isolate on, a stage comes before those: Esc turns isolate off and gives the box
+  its text back (see **Isolate**), so the steps are isolate off, then every addition, then the
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
   closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection, and away from the box Esc no longer clears it. An open search panel takes
+  selection, and away from the box Esc no longer clears it (while isolated, Esc in the box turns
+  isolate off instead of clearing it). An open search panel takes
   Esc before the step and closes (a suggestion list closes before the panel), and a pill
   the step drops, the added ones first and then the anchor's, goes out of the box with it,
   so a box grown to `review: | blocked:` is back at `review:` after the first Esc and
@@ -745,7 +748,8 @@ to `127.0.0.1` only.
   shows and sets it. An open panel adds nothing to the header's height, and a press
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
   four regions, drawn on their own: the **slice section** (next entry) with its fold control,
-  the **pill section** with its fold control, a divider, and a foot (empty so far).
+  the **pill section** with its fold control, a divider, and a foot that holds the **Isolate**
+  switch (see Isolate).
   The pill section lists the built-in pills, blocked, review and waiting, in that order,
   each with a count of the cards its query matches, done cards included. The counts are
   taken over the cards the view shows after its status pills and the Archive pill and
@@ -848,6 +852,43 @@ to `127.0.0.1` only.
   focus across the poll and its count changes under it. The chip counts a pill that is on
   even while the button hides it. Next up is not built in: it is a pill a board defines, such
   as `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
+- **Isolate** — the foot of the search panel holds the **Isolate** switch (`#isolate-switch`, a
+  button with `role="switch"` whose `aria-checked` says on or off; Tab reaches it, and Enter and
+  Space act as a click), and the `i` key flips it. The key reads the shared key guard, so it does
+  nothing while a text field has focus or a card menu, a dialog, the notifications panel or the
+  preferences sheet is up; the panel is no popup, so `i` works with it open, and a chord (Ctrl,
+  Cmd, Alt), Shift or a held key is not it. A click on the switch never clears a selection.
+  Turning isolate on writes the selection into the search box as `part | part | ...`, each part
+  by its criterion rather than as a frozen list of cards, so a card that comes to match a query
+  part joins on the next poll: a card is `#12`, a path `path:40`, a tree `tree:40`, and a query
+  is its own text, in brackets when it holds `|` or spaces (`(tags:ui status:doing)`). A card,
+  the path through card 40 and the `grill` tag make `#12 | path:40 | tags:grill`; a query part
+  with a card taken out of it is already its other cards (see Multi-select), so it is written as
+  them. The text the box held is kept, and so is a run of slices in it, applied to the whole of
+  the isolated text, because the selection only covers the cards the view shows. With nothing to
+  write (nothing selected, or only a half-typed term) the switch stays off and a toast says
+  nothing is selected. While isolate is on, **every view shows only the matches**: the Board,
+  the Map, the Gantt and the Calendar filter by the box as they always do, and the Graph, where
+  a typed search only lights, hides what the box does not match (the Graph's one pure decision
+  about a query, `graphQueryEffect`, takes `isolated`; the renderer is untouched). The Calendar
+  and the Gantt jump to the nearest match when none is on screen, through the box writer's own
+  listener, never on a poll. **Clicks move the anchor only**: a click on a card sets the anchor
+  and leaves the box text and the shown set as they are (in the Graph a plain click clears the
+  box when nothing is isolated, and not now), a click on the empty Graph clears nothing, and so
+  does a double click on empty space. A pill or a slice written while isolated edits the query
+  like a hand edit does: isolate stays on while the box holds a query, and ends when the box is
+  left holding none (the clear button, an emptied box), when the text it kept is not given back.
+  A keystroke typed after isolating keeps the text's leading `#`. With the panel closed the chip
+  says **isolated**, and its name lists what else is on (`2 on: review, isolated`). Turning it
+  off, with the switch, `i` or Esc, gives the box back the text it held, with the run of slices
+  as the box holds it now. **Esc** steps back in three stages: isolate off, then every addition,
+  then the anchor. With the search panel open the first Esc closes the panel and the second turns
+  isolate off; with focus in the box Esc turns isolate off rather than clearing the box, and the
+  browser's own Esc, which clears a search field, is stopped for it. The text is built in the
+  search module (`searchIsolateText`, `searchIsolateBox` and `searchIsolateRestore`), the stages
+  in the selection module (`selectionAfterEscape`, `boxAfterGraphClick`, `isolateAfterWrite`),
+  and the page carries it out in `isolate.js`, which writes the box only through `writeSearch`
+  with the reason `isolate` and never writes the selection.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
@@ -952,7 +993,7 @@ to `127.0.0.1` only.
   a select or an editable element has focus) and a surface check (an open card menu, an
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
   does `p`, which flips the search panel's switch (see Search panel), and `m`, which
-  steps through the pills, and so do `[`, `]`, `{` and `}`, which move the run of slices
+  steps through the pills, and `i`, which flips Isolate (see Isolate), and so do `[`, `]`, `{` and `}`, which move the run of slices
   (see Slice section); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the

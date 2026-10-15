@@ -10,7 +10,7 @@
 // regions, each drawn on its own so that what joins the panel later extends one
 // without editing another: the slice section (#search-slices, with its fold control,
 // drawn by search-slices.js), the pill section (#search-pills, with its fold control), a
-// divider, and a foot (#search-foot, empty for now).
+// divider, and a foot (#search-foot, which holds the Isolate switch: isolate.js).
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
 // here: the three built-ins, then the board's own pills (state.pills, the config's
@@ -154,14 +154,18 @@ function syncPillButtons(host, rows, selection) {
   });
 }
 
-// The chip a closed panel shows: how many pills are on, and a run of slices that cuts, and
-// a name that says which, for a screen reader (its accessible name) and as its hover text.
+// The chip a closed panel shows: how many things are on (the pills, a run of slices that cuts,
+// and isolate), and a name that says which, for a screen reader (its accessible name) and as its
+// hover text. While isolate is on the chip reads "isolated", not a number, so a box that hides
+// cards says why; the pills and the cut that are on are still in its name.
 function syncSearchChip(selection) {
   const chip = $('#search-chip');
   if (!chip) return;
-  const { count, name } = panelChip(pillsOn(selection, searchPanelEntries()).map((pill) => pill.label).concat(searchSlicesChipNames()));
+  const isolated = isolateNow() !== null;
+  const names = pillsOn(selection, searchPanelEntries()).map((pill) => pill.label).concat(searchSlicesChipNames(), isolated ? ['isolated'] : []);
+  const { count, name } = panelChip(names);
   chip.classList.toggle('hidden', !count || searchPanelOpen);
-  chip.textContent = count ? String(count) : '';
+  chip.textContent = isolated ? 'isolated' : count ? String(count) : '';
   chip.setAttribute('aria-label', name);
   if (chip.title !== name) chip.title = name;
 }
@@ -172,6 +176,7 @@ function renderSearchPanel() {
   applyPillsFold();
   renderSearchSlices();
   syncSearchSwitch();
+  syncIsolateSwitch();
   const selection = selectionState.selection;
   const host = $('#search-pills');
   if (searchPanelOpen && host) syncPillButtons(host, searchPanelRows(), selection);

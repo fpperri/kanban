@@ -81,7 +81,9 @@ test('the panel has a slice region, then the pill section, then a divider, then 
   const order = [at('search-slices'), at('search-pills-fold'), at('search-pills'), bar.indexOf('class="search-divider"'), at('search-foot')];
   assert.ok(order.every((i) => i > -1), 'every region is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
-  for (const id of ['search-slices', 'search-foot']) assert.match(bar, new RegExp(`<div id="${id}"[^>]*></div>`), `${id} starts empty`);
+  assert.match(bar, /<div id="search-slices"[^>]*><\/div>/, 'the slice region starts empty');
+  const foot = bar.slice(bar.indexOf('<div id="search-foot"'));
+  assert.match(foot, /^<div id="search-foot"[^>]*>\s*<button[^>]*id="isolate-switch"/, 'the foot holds the Isolate switch, and nothing before it');
 });
 
 test('the pill section has a fold control that says whether it is open and names what it folds, and a pill host it labels', () => {

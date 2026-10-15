@@ -5,14 +5,15 @@
 // Graph's box text), the ids the view shows, and the step a repaint takes the text
 // of a write to the box through (selectionFollowingBox). Here nothing matches a
 // query, the view shows everything and the box was not written, so a selection of
-// card parts resolves to those cards. Not a test file (the suite runs *.test.js only).
+// card parts resolves to those cards, and isolate is off (isolateNow, isolateTurnOff). Not a
+// test file (the suite runs *.test.js only).
 const selection = require('../../web/selection');
 
 // A selection of exactly these cards: the first is the anchor, the rest are additions.
 const cardsSelection = (ids) => ids.reduce((next, id) => selection.addPart(next, selection.cardPart(id)), selection.NO_SELECTION);
 
 function selectionGlobals(extra = {}) {
-  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, ...extra };
+  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, isolateNow: () => null, isolateTurnOff: () => false, ...extra };
 }
 
 module.exports = { cardsSelection, selectionGlobals };

@@ -27,4 +27,5 @@ module.exports = [
   require('./board-pills'),
   require('./slice-section'),
   require('./pill-step'),
+  require('./isolate'),
 ];
