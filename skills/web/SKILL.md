@@ -793,7 +793,7 @@ to `127.0.0.1` only.
   not an end changes nothing. A right-click keeps only that slice, and so do the context-menu
   key and Shift+F10 on a focused entry. The term is written through the search module's
   `searchSetSlice`: a run set on a query that holds `|` brackets the query, so
-  `tags:ui | #12` becomes `(tags:ui | #12) slice:goal..epic` and the run cuts all of it, not
+  `tags:ui | #12` becomes `(tags:ui | #12) slice:goal..objective` and the run cuts all of it, not
   only the last group; a run set again replaces the one there, and a run that reaches an end
   of the list leaves that end open (`slice:epic..`). A run is not an alternative of the box, so
   turning a pill on or off, or soloing it, leaves the run where it stands. In the Graph the
@@ -804,7 +804,7 @@ to `127.0.0.1` only.
   the top never passes the bottom. They read the shared key guard, so they do nothing while a
   text field (the search box too) has focus or while a card menu, a dialog, the notifications
   panel or the preferences sheet is up, and a chord (Ctrl, Cmd, Alt) is not them. With the panel
-  closed, the chip counts a run that cuts and its name says so (`1 on: slice goal..epic`). The
+  closed, the chip counts a run that cuts and its name says so (`1 on: slice goal..objective`). The
   section folds with its fold control for the visit, and the preferences sheet's **Slice
   section starts folded** (on by default) says how it starts. The entries are `.slice-entry`
   buttons, never the pills' classes, built once and updated in place by every render (the

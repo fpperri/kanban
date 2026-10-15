@@ -70,8 +70,8 @@ test('both say a right-click, the context-menu key and Shift+F10 keep only that 
 });
 
 test('the example of a run on a query that holds | is what the search module writes', () => {
-  const written = searchSetSlice('tags:ui | #12', 'goal..epic');
-  assert.strictEqual(written, '(tags:ui | #12) slice:goal..epic');
+  const written = searchSetSlice('tags:ui | #12', 'goal..objective');
+  assert.strictEqual(written, '(tags:ui | #12) slice:goal..objective');
   for (const [where, text] of BOTH) {
     assert.ok(text.includes('`tags:ui | #12`'), where);
     assert.ok(text.includes(`\`${written}\``), where);
@@ -110,7 +110,7 @@ test('both say the closed panel\'s chip counts a run that cuts, and that the sec
     assert.match(text, /Tab reaches the fold control and every entry/, where);
     assert.match(text, /Enter and Space act as a click/, where);
   }
-  assert.match(skillSection, /`1 on: slice goal\.\.epic`/);
+  assert.match(skillSection, /`1 on: slice goal\.\.objective`/);
 });
 
 test('the skill says what the Graph does with the run, and that a pill leaves the run alone', () => {

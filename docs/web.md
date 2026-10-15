@@ -221,7 +221,7 @@ on an entry outside the run grows the run to it, a click on an end of the run dr
 end, a click on a run of one brings every slice back, and a click inside the run that is not
 an end changes nothing. A right-click keeps only that slice, and so do the context-menu key
 and Shift+F10 on a focused entry. A run set on a query that holds `|` brackets the query, so
-`tags:ui | #12` becomes `(tags:ui | #12) slice:goal..epic` and the run cuts all of it. In the
+`tags:ui | #12` becomes `(tags:ui | #12) slice:goal..objective` and the run cuts all of it. In the
 Graph the run hides the cards outside it while the rest of the query lights. The keys `[`
 and `]` move the bottom of the run up and down, and `{` and `}` move its top, in every view
 and with the panel open or closed; each stops at the ends, and the top never passes the
