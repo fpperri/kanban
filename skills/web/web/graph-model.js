@@ -244,7 +244,9 @@ function graphBuild(cards, opts) {
     byId.get(l.to).deg++;
     if (l.kind === 'parent') byId.get(l.from).kids++;
   }
-  return { nodes, links, byId, axis: slices.axis };
+  const index = GRAPH_NEST.rollupIndex(whole, ctx);
+  const altitude = new Map(nodes.map((n) => [n.id, index.altitudeOf(n.id)]));
+  return { nodes, links, byId, axis: slices.axis, altitude };
 }
 
 function graphRadius(node) {
@@ -329,7 +331,7 @@ function graphRestLit(model, { selectedIds, loneCardId }, lines) {
 // is on no card (graphRestLit): the selection, a typed query's or a pill's matches among
 // it, and a lone card's one-hop relations, always, however many. It then names parents
 // while the named set is under the cap, the highest altitude first (the glossary's: the
-// layers of cards drawn below a card, blind to type), ties by id. A fan of the small size
+// layers of cards below a card on the board, blind to type), ties by id. A fan of the small size
 // or fewer cards names every card. All names every card and none names none. Names are
 // plain labels; where one sits is the stylesheet's business, and the layout never reads
 // the setting (it is in neither the signature nor the cache key). The cap and the small
@@ -338,9 +340,13 @@ const GRAPH_FAN_NAMES_CAP = 24;
 const GRAPH_FAN_NAMES_SMALL = 24;
 const GRAPH_FAN_NAME_CHARS = 38;
 
-// A card's altitude among the cards drawn: nodes come parents before children, so one pass
-// from the last node to the first has every child's altitude before its parent's.
+// A card's altitude is the layers of cards below it on the board, whatever the Graph draws
+// (the glossary's, and the badge on a tile): the model carries it from graphBuild, which reads
+// every card of the board. A model built by hand with no such map falls back to the cards
+// drawn: nodes come parents before children, so one pass from the last node to the first has
+// every child's altitude before its parent's.
 function graphFanAltitudes(model) {
+  if (model.altitude) return model.altitude;
   const altitude = new Map(model.nodes.map((n) => [n.id, 0]));
   for (let i = model.nodes.length - 1; i >= 0; i--) {
     const n = model.nodes[i];

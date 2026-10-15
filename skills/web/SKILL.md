@@ -1646,8 +1646,8 @@ to `127.0.0.1` only.
   **Names** says which cards carry their title beside the dot: **relevant** (the default) names the selection
   and the cards it lights (a lone card's one-hop relations and a pill's matches among them), then the parents from
   the highest altitude down while fewer than 24 cards are named, and on a fan of 24 cards or fewer every card;
-  **all** names every card; **none** names no card. Altitude is the glossary's: the layers of cards drawn below a
-  card, blind to type. A name is the card's title as plain text, cut to 38 characters, set in place of its id
+  **all** names every card; **none** names no card. Altitude is the glossary's: the layers of cards below a
+  card on the board, drawn or not, blind to type, as the badge on its tile counts them. A name is the card's title as plain text, cut to 38 characters, set in place of its id
   label; a click on a card names it and what it lights in place, with no redraw. Names never run the layout
   again: the setting is in neither the layout's cache key nor what re-fits an untouched view, so only the named
   set changes. **n** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
