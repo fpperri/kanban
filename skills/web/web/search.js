@@ -56,6 +56,14 @@
 //                 everything transitively upstream + downstream through card
 //                 74, over the same edges. Narrower than tree: (excludes
 //                 sibling branches with no directed relation to 74).
+//   slice:objective..2   the cards in a run of slices: the slices module's axis, the
+//                 tiers of the board's hierarchy top first, then the depths of the cards
+//                 with no tier. An end is a tier name (any letter case) or a depth
+//                 number; `slice:goal` is that one slice, `slice:goal..` and
+//                 `slice:..goal` leave an end open, an end the axis does not have is
+//                 open too, and a reversed pair is swapped. A single unknown name,
+//                 `slice:..` and a name half typed cut nothing, so typing never hides
+//                 every card; a bare `slice:` is dropped like `status:`.
 //   bare text     substring on title OR body OR any tag — the "don't remember
 //                 which field" fallback. An unrecognized `foo:bar` prefix also
 //                 lands here (searched as the literal string "foo:bar") rather
@@ -76,6 +84,10 @@ const DG = (typeof module !== 'undefined' && module.exports) ? require('./depend
 // Named WBS (not WB) — dependency-graph.js already claims WB in this shared
 // page scope (every web/*.js top-level name must be unique).
 const WBS = (typeof module !== 'undefined' && module.exports) ? require('./waiting-blocked') : window;
+// slice: reads the slices module and the nesting module's depth map; named SLM and NSM so no
+// two page scripts claim one name.
+const SLM = (typeof module !== 'undefined' && module.exports) ? require('./slices') : window;
+const NSM = (typeof module !== 'undefined' && module.exports) ? require('./nesting') : window;
 
 const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
 // tree:/path: are deliberately NOT in KNOWN_FIELDS — that array drives the
@@ -95,20 +107,20 @@ const FIELD_ALIASES = { a: 'assignee' };
 function searchScope(prefix) {
   const low = prefix.toLowerCase();
   const key = FIELD_ALIASES[low] || low;
-  return key === 'id' || KNOWN_FIELDS.includes(key) || GRAPH_FIELDS.includes(key) || STICKER_FIELDS.includes(key) ? key : null;
+  return key === 'id' || key === 'slice' || KNOWN_FIELDS.includes(key) || GRAPH_FIELDS.includes(key) || STICKER_FIELDS.includes(key) ? key : null;
 }
 
 // A quoted token: `"two words"` or `title:"two words"`, closed or still open
 // at the end of the input. Whitespace inside collapses to one space. A quoted
 // scoped value is an exact one (`exact`: the whole value, or any one element of
-// a list); id:, tree: and path: take the value as they would unquoted; quoted
+// a list); id:, tree:, path: and slice: take the value as they would unquoted; quoted
 // text with no scope is a phrase, matched like bare text. Nothing inside the
 // quotes is a term yet: `tags:""` is dropped, like `tags:`.
 function parseQuotedTerm(scope, rest) {
   const inner = (rest.endsWith('"') ? rest.slice(0, -1) : rest).replace(/\s+/g, ' ').trim();
   if (!inner) return null;
   if (!scope) return { field: null, value: inner.toLowerCase() };
-  if (scope === 'id') return { field: 'id', value: inner };
+  if (scope === 'id' || scope === 'slice') return { field: scope, value: inner };
   if (GRAPH_FIELDS.includes(scope)) return { field: scope, value: inner.replace(/^#/, '') };
   return { field: scope, value: inner.toLowerCase(), exact: true };
 }
@@ -143,6 +155,10 @@ function parseTerm(token, board) {
       // are the same term) — kept case-verbatim like id:, no lowercasing.
       const value = prefixed[2].trim().replace(/^#/, '');
       return value ? { field: key, value } : null;
+    }
+    if (key === 'slice') {
+      const value = prefixed[2].trim();
+      return value ? { field: 'slice', value } : null;
     }
     if (KNOWN_FIELDS.includes(key)) {
       const value = prefixed[2].trim().toLowerCase();
@@ -398,7 +414,9 @@ function cardMatchesQuery(card, terms) {
 //
 // resolveTerms is that one pass, and it is recursive: an or term carries
 // `alts`, arrays of terms, and each array resolves by the same call. `waiting:`
-// resolves here, and `slice:` will too.
+// and `slice:` resolve here too. `slice:` reads the context's `hierarchy` (type
+// names, top tier first) and the depths of the whole board, so a card is in the
+// same slice whatever the rest of the query filters out.
 //
 // The context says where the graph comes from. By default it is
 // dependency-graph.js's treeIds/pathIds — which in turn build their adjacency
@@ -426,6 +444,7 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     let next = term;
     if (term.field === 'tree') next = { field: 'ids', value: term.value, ids: graph.treeIds(cards, term.value, ctx) };
     else if (term.field === 'path') next = { field: 'ids', value: term.value, ids: graph.pathIds(cards, term.value, ctx) };
+    else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'waiting') {
       if (!memo.waiting) {
         const byId = new Map(cards.filter((c) => Number.isFinite(Number(c.id))).map((c) => [Number(c.id), c]));
@@ -440,6 +459,30 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     return next;
   });
   return changed ? resolved : terms;
+}
+
+// Where an end of a cut sits on the axis (a tier by name, a depth by number),
+// -1 when the axis has no such slice or the end is empty.
+function sliceEndIndex(axis, text) {
+  const key = text.trim().toLowerCase();
+  const at = axis.find((s) => (s.kind === 'tier' ? s.key === key : String(s.depth) === key));
+  return at ? at.index : -1;
+}
+
+// The ids in the run of slices a slice: value names. An end with no slice is open,
+// so a value with neither end known is no cut. A page that has not loaded the
+// slices module (the snapshot, until it embeds it) cuts nothing.
+function sliceIds(cards, value, ctx, memo) {
+  if (typeof SLM.sliceCards !== 'function' || typeof NSM.depthMap !== 'function') return new Set(cards.map((c) => Number(c.id)));
+  if (!memo.slices) memo.slices = SLM.sliceCards(cards, ctx && ctx.hierarchy, NSM.depthMap(cards, ctx));
+  const { axis, byId } = memo.slices;
+  const dots = value.indexOf('..');
+  let from = sliceEndIndex(axis, dots < 0 ? value : value.slice(0, dots));
+  let to = sliceEndIndex(axis, dots < 0 ? value : value.slice(dots + 2));
+  if (from >= 0 && to >= 0 && from > to) [from, to] = [to, from];
+  const first = from < 0 ? 0 : from;
+  const last = to < 0 ? axis.length - 1 : to;
+  return new Set(cards.filter((c) => { const at = byId.get(c.id).index; return at >= first && at <= last; }).map((c) => Number(c.id)));
 }
 
 // Convenience: empty terms means "no active query" — everything matches. `ctx`
