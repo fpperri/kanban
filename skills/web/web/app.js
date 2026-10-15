@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — the board's config, held for the readers that come after (slices, the tier fan, the pill row). assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -1944,15 +1944,15 @@ function applyBoardData(data) {
   const focusedCard = document.activeElement && document.activeElement.closest && document.activeElement.closest('.card-el');
   const focusedCardId = focusedCard ? focusedCard.dataset.id : null;
   const pointerId = hoveredId;
-  const pill = focusedPill();
-  const pillSel = pill ? pillSelector(pill) : null;
+  const control = focusedPill();
+  const controlSel = control ? pillSelector(control) : null;
   // A caption of the Graph's tier fan is a tab stop the render rebuilds, so it is found
   // again by its key (graphCaptionEl); focusing it shows its tip again.
   const caption = document.activeElement && document.activeElement.closest ? document.activeElement.closest('[data-caption]') : null;
   const captionKey = caption ? caption.getAttribute('data-caption') : null;
   renderBoard();
-  if (pillSel) {
-    const again = document.querySelector(pillSel);
+  if (controlSel) {
+    const again = document.querySelector(controlSel);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   }
@@ -3401,10 +3401,10 @@ function escapeStep() {
 // the box is back to the anchor's query, and then the anchor's), while any other text in
 // the box stays.
 function stepSelectionBack() {
-  const state = { ...selectionState, isolate: isolateNow() };
-  const next = selectionAfterEscape(state);
-  if (next === state) return;
-  if (state.isolate && !next.isolate) { isolateTurnOff(); return; }
+  const now = { ...selectionState, isolate: isolateNow() };
+  const next = selectionAfterEscape(now);
+  if (next === now) return;
+  if (now.isolate && !next.isolate) { isolateTurnOff(); return; }
   moveSelectionTo(next);
 }
 
@@ -3459,11 +3459,10 @@ function onSearchChordKey(e) {
 }
 
 // Add a scoped term to whatever's already in the search
-// box (assignee cue / tag click on a card tile) and re-render — same direct-
-// call convention as focusOn() (further down): set the box, call
-// renderBoard() straight, no synthetic 'input' event needed. The term goes
-// through the search module's term interface, so it lands in every alternative
-// of a query holding `|` and a value with spaces stays one quoted term.
+// box (assignee cue / tag click on a card tile) and re-render: it writes through
+// writeSearch(next, 'cue'), the box's one writer, with no synthetic 'input' event.
+// The term goes through the search module's term interface, so it lands in every
+// alternative of a query holding `|` and a value with spaces stays one quoted term.
 // Idempotent rather than a toggle: clicking the same assignee/tag again while
 // its term is already present is a no-op — simpler than tracking "did I add
 // this" to support removing it again.

@@ -940,8 +940,8 @@ function onGraphNamesKey(e) {
   if (loadViewMode() !== 'graph' || graphLoadLayout() !== 'tiers') return;
   e.preventDefault();
   const step = () => graphSetOption('names', graphFanNextNames(graphLoadOptions().names));
-  const pill = focusedPill();
-  if (pill) keepPillFocus(pill, step);
+  const control = focusedPill();
+  if (control) keepPillFocus(control, step);
   else step();
 }
 
