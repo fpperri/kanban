@@ -154,7 +154,7 @@ function pollSandbox(unseenStep) {
   const sandbox = {
     document: doc, state: {}, selectedIds: new Set(), hoveredId: null,
     applyProjectName() {}, applyHomeUrl() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
-    pruneSelection: (s) => s, setHoveredId() {}, renderBoard() {},
+    setHoveredId: (id) => id, renderBoard() {},
     shouldSkipAutoRefresh: policy.shouldSkipAutoRefresh, isDragging: false, pendingDrops: 0,
     fetchBoard: async () => ({ active: [], archived: [] }), setStale() {},
   };
@@ -189,7 +189,7 @@ test('a board load that runs a step the sandbox has never seen does not throw', 
 
 test('the sandbox only stubs what it has never seen: an explicit stub is kept and known code still throws', () => {
   const { sandbox } = pollSandbox('applyBrandNewStep');
-  assert.strictEqual(sandbox.pruneSelection('kept'), 'kept', 'the identity stub the tests rely on is not replaced by a no-op');
+  assert.strictEqual(sandbox.setHoveredId('kept'), 'kept', 'the identity stub the tests rely on is not replaced by a no-op');
   sandbox.renderBoard = () => { throw new Error('render broke'); };
   assert.throws(() => sandbox.applyBoardData({ active: [], archived: [] }), /render broke/);
 });

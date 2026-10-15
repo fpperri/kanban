@@ -1,13 +1,9 @@
 'use strict';
-// Pure multi-select logic. Selection is a Set of card ids — never
-// DOM state — so it survives renderBoard() rebuilds including auto-refresh
-// polls. Dual-environment module, same pattern as refresh-policy.js.
-
-function toggleSelection(set, id) {
-  const next = new Set(set);
-  if (next.has(id)) next.delete(id); else next.add(id);
-  return next;
-}
+// Pure multi-select logic. The selection is an anchor plus an ordered list of
+// additions (see "The selection" below), never DOM state, so it survives
+// renderBoard() rebuilds including auto-refresh polls; the set of card ids the
+// views paint is worked out from those parts. Dual-environment module, same
+// pattern as refresh-policy.js.
 
 // Shift+click adds a RANGE: union of the current selection with
 // every id between the range start and target in the active view's rendered order.
@@ -15,8 +11,7 @@ function toggleSelection(set, id) {
 // previous range never gets un-selected by the next one, and a stale/missing
 // range start degrades to adding just the target (never a toggle — shift must not
 // deselect). A target that isn't rendered returns the input set unchanged
-// (same reference — no re-render needed, mirroring contextSelection's
-// no-change contract).
+// (same reference).
 function rangeSelection(set, orderedIds, startId, targetId) {
   const t = orderedIds.indexOf(targetId);
   if (t === -1) return set;
@@ -26,13 +21,6 @@ function rangeSelection(set, orderedIds, startId, targetId) {
   const [lo, hi] = a < t ? [a, t] : [t, a];
   for (let i = lo; i <= hi; i++) next.add(orderedIds[i]);
   return next;
-}
-
-// Cards can vanish between polls (deleted/archived by another actor); the
-// selection must not keep ghost ids.
-function pruneSelection(set, liveIds) {
-  const live = new Set(liveIds);
-  return new Set([...set].filter((id) => live.has(id)));
 }
 
 // Hover/focus highlight (kanban.proj#261): unlike selection, only ever ONE
@@ -522,7 +510,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, toggleSelection, pruneSelection, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -550,8 +538,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.isolateAfterWrite = isolateAfterWrite;
   window.isolateRecord = isolateRecord;
   window.isolatePreviousFrom = isolatePreviousFrom;
-  window.toggleSelection = toggleSelection;
-  window.pruneSelection = pruneSelection;
   window.cardMenuFor = cardMenuFor;
   window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;

@@ -5913,7 +5913,7 @@ async function bulkPatch(ids, changesFor, summary) {
     try { await api('PATCH', `/api/cards/${id}`, changesFor(id)); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  await loadBoard(); // selection survives — pruneSelection only drops departed ids
+  await loadBoard(); // selection survives — dropGoneCards only drops departed ids
   toast(failed.length ? `${summary(ids.length - failed.length)}; failed: ${failed.join(', ')}` : `${summary(ids.length)}.`);
 }
 
