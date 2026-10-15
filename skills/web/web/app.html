@@ -442,6 +442,11 @@
       <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
       <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
     </section>
+    <section class="prefs-group" id="prefs-hotkeys" aria-labelledby="prefs-hotkeys-title">
+      <h3 id="prefs-hotkeys-title">Hotkeys</h3>
+      <p class="prefs-hint">Every key the page answers and, where a key has one, the state it is in now. The single keys do nothing while you type in a field, or while a menu, a dialog or this sheet is up. Press ? to open this list.</p>
+      <ul id="hotkeys-list" class="hotkeys-list"></ul>
+    </section>
   </aside>
 </div>
 
@@ -485,6 +490,8 @@
 <script src="/search-panel.js"></script>
 <script src="/search-slices.js"></script>
 <script src="/isolate.js"></script>
+<script src="/hotkeys.js"></script>
+<script src="/hotkeys-sheet.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>
 </body>
