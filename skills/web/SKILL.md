@@ -686,7 +686,12 @@ to `127.0.0.1` only.
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
   closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection, and away from the box Esc no longer clears it. Bulk targets are fixed when an
+  selection, and away from the box Esc no longer clears it. An open search panel takes
+  Esc before the step and closes (a suggestion list closes before the panel), and a pill
+  the step drops, the added ones first and then the anchor's, goes out of the box with it,
+  so a box grown to `review: | blocked:` is back at `review:` after the first Esc and
+  empty after the next; any other text in the box stays, and clearing the box with Esc
+  in it turns off the pills it held. Bulk targets are fixed when an
   action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
   delete and drag) takes its list of target cards once, when it starts, from the selection
   as it resolves then, so writes, repaints and polls during the action never change the
@@ -708,6 +713,41 @@ to `127.0.0.1` only.
   only** (cards the doing gate refuses — waiting or blocked — are skipped per card, with
   one summary toast naming which gate); calendar/gantt drags always move the single card
   under the pointer, selected or not.
+- **Search panel** — the search box has a border and a toggle at its right end (a caret,
+  with `aria-expanded`) that opens a panel under it. Focusing the box never opens it, an
+  open panel adds nothing to the header's height, and a press anywhere outside the search
+  bar closes it. The panel has four regions, drawn on their own: one for slices (empty so
+  far), the **pill section** with its fold control, a divider, and a foot (empty so far).
+  The pill section lists the built-in pills, blocked, review and waiting, in that order,
+  each with a count of the cards its query matches, done cards included. The counts are
+  taken over the cards the view shows after its status pills and the Archive pill and
+  before the search box and any cut, so turning one pill on leaves the others' counts as
+  they were, and a status pill that is off takes its cards out of them. A click on a pill,
+  with either mouse button, makes its query the **anchor** of the selection and writes it
+  into the box (`review:`): outside the Graph its matches are the selection and so the bulk
+  targets, and the box shows only them; in the Graph they light and nothing is hidden. A
+  click on the only pill that is on turns it off and clears the box. Shift+click adds the
+  pill's matches to the selection instead and grows the box so they are not hidden, to
+  `review: | blocked:`; Shift+click again takes that part back out of both (in the Graph
+  too, so a switch to another view keeps the added cards shown and selected). A pill is on
+  while its query is the anchor or an addition, and is announced as pressed; typing in the
+  box, or clearing it, turns off every pill whose query the box no longer holds (in the
+  Graph the typed text becomes the anchor). A pill's anchor is not a typed search, so it
+  stays the anchor when the Graph is left. With the panel closed, a chip inside the box
+  counts what is on and its accessible name says what (`1 on: review`); with nothing on
+  there is no chip. The pill section folds with its fold control for the visit, and the
+  preferences sheet's **Pill section starts folded** (off by default) says how it starts.
+  The toggle, the fold control and every pill are buttons, so Tab reaches them and Enter
+  and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
+  goes back to the toggle), and only then clears the box, with focus in it, or steps the
+  selection back. The panel is no popup: the 5s poll runs while it is open and updates the
+  pills and their counts where they stand, so a pill that has focus keeps its focus; a
+  click on any control in it never clears a selection (each wears `data-keeps-selection`,
+  and none wears `data-holds-poll`, which a button left focused by a click would hold for
+  good); and the single-key shortcuts keep working. The pills are `.query-pill` buttons,
+  never the status pills' classes. The list and its counts are worked out in `pills.js`,
+  which needs no other module so that the snapshot can embed it, and the box grows and
+  shrinks through the search module's `searchAddAlt` and `searchRemoveAlt`.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
@@ -723,7 +763,9 @@ to `127.0.0.1` only.
   Map's rich row and the card detail, whose scope line says "Archived leaves count as done."
   or "Archived leaves are left out." A value an earlier visit saved under the retired
   `rollup.archived` key is not read, so a browser that kept `false` there counts archived
-  leaves again and the sheet shows the toggle on. The sheet closes on Esc, on a click outside
+  leaves again and the sheet shows the toggle on. **Pill section starts folded** is off by
+  default: it says how the search panel's pill section starts, and the section's own fold
+  control still folds it for the visit. The sheet closes on Esc, on a click outside
   it or with its close button, and focus goes back to the gear; like the other popups it
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/` and Ctrl+F do nothing (the shared key guard names the
@@ -773,8 +815,9 @@ to `127.0.0.1` only.
   Edit tags, Schedule…) and the Archive popup — speedbump-exempt, same as their
   backdrop-click. An open
   combobox menu gets first crack at Esc: it closes the MENU only, one level at a time,
-  before the popup-level handling ever sees the key. With nothing open, Esc steps the
-  selection back (see Multi-select).
+  before the popup-level handling ever sees the key. An open search panel is next: it
+  closes on Esc, with focus back on its toggle, ahead of the selection step. With nothing
+  open, Esc steps the selection back (see Multi-select).
   **Alt+Enter** toggles fullscreen on whichever fullscreen-capable popup is open
   (detail, create/edit, and the three bulk-edit popups) — the keyboard twin of that
   popup's fullscreen toggle button, updating the same persisted per-modal-type
