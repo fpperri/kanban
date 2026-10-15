@@ -904,7 +904,7 @@ to `127.0.0.1` only.
   listener, never on a poll. **Clicks move the anchor only**: a click on a card sets the anchor
   and leaves the box text and the shown set as they are (in the Graph a plain click clears the
   box, but for its cut, when nothing is isolated, and not now), a click on the empty Graph clears nothing, and so
-  does a double click on empty space. A pill or a slice written while isolated edits the query
+  does a double click on empty space, in every view, not the Graph alone. A pill or a slice written while isolated edits the query
   like a hand edit does: isolate stays on while the box holds a query, and ends when the box is
   left holding none (the clear button, an emptied box), when the text it kept is not given back.
   A keystroke typed after isolating keeps the text's leading `#`. With the panel closed the chip

@@ -331,10 +331,10 @@ test('the page builds the controls the marker tests look at in the numbers the r
   for (const [selector, n] of Object.entries(counts)) assert.strictEqual(tagsOf(selector).length, n, selector);
 });
 
-function clickAwaySandbox({ selected = [1, 2], rangeStart = 1 } = {}) {
+function clickAwaySandbox({ selected = [1, 2], rangeStart = 1, isolated = false } = {}) {
   const calls = { render: 0 };
   const input = { value: '' };
-  const sandbox = { ...selectionGlobals(), $: () => input, searchRemoveAlt: (text) => text, renderBoard: () => { calls.render++; }, calls };
+  const sandbox = { ...selectionGlobals(), $: () => input, searchRemoveAlt: (text) => text, renderBoard: () => { calls.render++; }, isolateNow: () => (isolated ? { previous: '' } : null), calls };
   vm.createContext(sandbox);
   vm.runInContext([
     declaration('selectionState'), declaration('selectedIds'), declaration('searchWriteListeners', 'const'),
@@ -357,6 +357,20 @@ test('a double click on empty space clears the selection and its range start', (
   s.onClickAway({ target: within(plain), ...noMods });
   assert.deepStrictEqual(s.state(), { ids: [], rangeStart: null });
   assert.strictEqual(s.calls.render, 1);
+});
+
+test('while isolated a double click on empty space leaves the selection in every view, not the Graph alone', () => {
+  const graph = { closest: (sel) => (sel === '#graph-view' ? {} : null) };
+  const board = { closest: () => null };
+  for (const [view, target] of [['graph', graph], ['board', board]]) {
+    const s = clickAwaySandbox({ isolated: true });
+    s.onClickAway({ target, ...noMods });
+    assert.deepStrictEqual(s.state(), { ids: [1, 2], rangeStart: 1 }, view);
+    assert.strictEqual(s.calls.render, 0, view);
+  }
+  const off = clickAwaySandbox({ isolated: false });
+  off.onClickAway({ target: board, ...noMods });
+  assert.deepStrictEqual(off.state(), { ids: [], rangeStart: null }, 'with isolate off the same click clears');
 });
 
 test('a single click on empty space, and the clicks of a triple click past the second, leave the selection and its range start', () => {
