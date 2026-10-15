@@ -8,6 +8,10 @@
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // selectedIds, isDragging, hoveredId, graphCur, graphNeighbours, autoRefreshTick, renderGraphView.
+//
+// A click on the empty canvas leaves the selection and a double click on it clears it,
+// so a step that wants the selection gone makes the double click: two real clicks, the
+// second with a click count of 2. A Ctrl+click on a picked dot takes it out again.
 
 // The query typed in the Graph, and the cards it lights on the fixture board: three
 // match by title and one by its title is done (card 12). Card 19 matches too and is
@@ -116,8 +120,9 @@ module.exports = {
     check('isDragging cleared after the pan', await waitFor(`isDragging===false`));
     const selAfterPan = await ev(`selectedIds.size`);
     check('a pan does not clear the selection (phantom click swallowed)', selAfterPan === sel1 && sel1 >= 1, { sel1, after: selAfterPan });
-    await click(bg.x, bg.y);
-    await waitFor(`selectedIds.size===0`);
+    await click(bg.x, bg.y, { clickCount: 1 });
+    await click(bg.x, bg.y, { clickCount: 2 });
+    check('a double click on the empty canvas after a pan clears the selection', await waitFor(`selectedIds.size===0`));
 
     await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: pt.x, y: pt.y, deltaX: 0, deltaY: -240 });
     const w2 = await waitWorld((w) => w.k > w1.k);

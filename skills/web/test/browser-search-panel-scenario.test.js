@@ -164,7 +164,7 @@ test('the ids and classes the scenario drives are in the page the panel is drawn
 // one fails here, and what it reads back is answered the way a browser would for the
 // scenario's own reads. Whether each check holds is for the browser to say.
 function standIn() {
-  const log = { exprs: [], bad: [], checks: [], opened: [], keys: [], clicks: 0 };
+  const log = { exprs: [], bad: [], checks: [], opened: [], keys: [], clicks: 0, clickLog: [] };
   const parse = (expr) => {
     try { new vm.Script(`(${expr})`); } catch (e) { log.bad.push(`${e.message}: ${String(expr).slice(0, 120)}`); }
   };
@@ -191,10 +191,10 @@ function standIn() {
     open: async (p) => { log.opened.push(p); },
     waitFor: async (expr) => { log.exprs.push(expr); parse(expr); return true; },
     centre: async () => ({ x: 10, y: 10 }),
-    click: async () => { log.clicks++; },
+    click: async (x, y, extra = {}) => { log.clicks++; log.clickLog.push({ x, y, ...extra }); },
     key: async (name) => { log.keys.push(name); },
     rightClick: async () => {},
-    check: (name, ok) => log.checks.push([name, ok]),
+    check: (name, ok) => log.checks.push([name, ok, log.clickLog.length]),
   };
   return page;
 }
@@ -207,6 +207,30 @@ test('run once against a stand-in page the scenario finishes, and every expressi
   assert.ok(page.log.checks.length >= 60, `only ${page.log.checks.length} checks`);
   const names = page.log.checks.map(([n]) => n);
   assert.deepStrictEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'a check name used twice');
+});
+
+test('the click that drops the selection is a double click on a point of empty space: two real clicks at one point, the second with a click count of 2, never a synthetic click on the body', async () => {
+  const page = standIn();
+  await panel.run(page);
+  const at = (name) => page.log.checks.findIndex(([n]) => n === name);
+  const kept = at("a click on the panel's empty space leaves the selection");
+  const space = at('the Board has empty space to double-click');
+  const dropped = at('a double click on empty space on the Board drops the selection');
+  assert.ok(kept >= 0 && space > kept && dropped > space, 'the checks come in the order the page is driven');
+  assert.strictEqual(page.log.checks[space][1], true, 'a point of empty space was found');
+  const pair = page.log.clickLog.slice(page.log.checks[dropped][2] - 2, page.log.checks[dropped][2]);
+  assert.deepStrictEqual(pair.map((c) => c.clickCount), [1, 2], 'a first click, then a second with a click count of 2');
+  assert.deepStrictEqual([pair[0].x, pair[0].y], [pair[1].x, pair[1].y], 'at one point');
+  assert.deepStrictEqual([pair[0].x, pair[0].y], [5, 5], 'the point the page scan found');
+  assert.ok(!page.log.exprs.some((e) => /document\.body\.click\(\)/.test(e)), 'no synthetic click on the body');
+});
+
+test('the scan for that point leaves out what the page leaves out: the scenario sends the list of what is not empty space that the page keeps, over the Board', async () => {
+  const page = standIn();
+  await panel.run(page);
+  const scan = page.log.exprs.find((e) => /getElementById\('board'\)/.test(e) && /elementFromPoint/.test(e) && /closest\(/.test(e) && !/card-el\[data-id/.test(e));
+  assert.ok(scan, 'the scan is sent');
+  assert.ok(scan.includes(JSON.stringify(require('./browser/scenarios/empty-space').NOT_EMPTY)), 'with the list the empty-space scenario holds to the page');
 });
 
 test('the scenario loads the plan board cold, in the Board and in the Graph, and once more for the preference', async () => {
