@@ -119,9 +119,10 @@ function graphBuild(cards, opts) {
     }
   }
   // The sibling chains, read on the whole board like the slices: hiding a card with a
-  // pill or a search never moves a parent line. `chainEnd` is the Map's own reading of
+  // status pill or a search never moves a parent line. `chainEnd` is the Map's own reading of
   // where a child's chain meets its parent (mapParentLineEnds, the children no sibling
-  // waits for); `chained` is a child that has a dependency to or from a sibling.
+  // waits for); `chained` is a child that has a dependency to or from a sibling, a second
+  // read because `ends` marks a child alone and every member of a looping chain the same way.
   const ends = GRAPH_MAPREL.mapParentLineEnds(siblings);
   const chained = new Set();
   for (const s of siblings) {
@@ -998,7 +999,10 @@ function graphWithPositions(layout, model, overrides) {
 // The tier fan places a card by its slice, which its type, the hierarchy and the
 // whole board's nesting decide, so the Tiers key holds each card's type (without
 // regard to case, as a tier does), its slice and whether it is nested, and the
-// hierarchy's tiers. Force and Status do not read them.
+// hierarchy's tiers. Force and Status do not read them. The signature is also what the
+// view compares to re-fit an untouched view, so it holds what the cards and the hierarchy
+// decide; the order of the siblings, which moves dots along their sector and no card to
+// another ring, is added to the layout's cache key only (graphLayoutKey).
 const GRAPH_CACHE_MAX = 8;
 const graphCache = new Map();
 
@@ -1017,9 +1021,13 @@ function graphSignature(model, kind, opts) {
   const key = [kind, statuses, nodes, links];
   if (fan) {
     key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
-    key.push(mergeGraphFanOptions(opts).order);
   }
   return key.join('|');
+}
+
+function graphLayoutKey(model, kind, opts) {
+  const key = graphSignature(model, kind, opts);
+  return kind === 'tiers' ? `${key}|${mergeGraphFanOptions(opts).order}` : key;
 }
 
 function graphLayoutCacheClear() {
@@ -1028,7 +1036,7 @@ function graphLayoutCacheClear() {
 
 function graphLayout(model, kind, opts) {
   const which = mergeGraphLayout(kind);
-  const key = graphSignature(model, which, opts);
+  const key = graphLayoutKey(model, which, opts);
   if (graphCache.has(key)) return graphCache.get(key);
   const layout = which === 'status' ? graphLayoutStatus(model, opts)
     : which === 'force' ? graphLayoutForce(model)

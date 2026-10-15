@@ -1478,13 +1478,13 @@ to `127.0.0.1` only.
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
   orders its rows, or by **rank**, the outline's own order; cards of one status keep the outline's order. A counted line
-  lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a pill or a search
+  lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
   sector, and no card changes its band, its ring or its sector. The choices are kept per board in `localStorage` under
   `graph.options`, and whether the row is folded under `graph.optionsFolded`; a press on the row never starts a pan,
   never clears the selection and never pauses the 5-second poll. The row takes its room from the
   stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or
-  re-fits the view, so a fan framed with the row folded keeps its place and **Fit** frames every card again.
+  re-fits the view, and nor does pressing any of its options, Order included, so a fan framed with the row folded keeps its place and **Fit** frames every card again.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
@@ -1530,7 +1530,8 @@ to `127.0.0.1` only.
   that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
   Per board in `localStorage`: the layout under `graph.layout` and the pill row under
   `graph.statusFilter` (same defensive merge as the Gantt's: a saved value with no
-  `archive` key merges in OFF). The 5-second poll rebuilds the view and keeps the
+  `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options` and its
+  fold under `graph.optionsFolded`. The 5-second poll rebuilds the view and keeps the
   layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
   Graph view.
 

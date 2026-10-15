@@ -10,7 +10,9 @@
 // that starts on it, does not pan the canvas, does not clear a selection (nor does a
 // double click on the row's own space). The toggle is a press that changes the height of
 // the stage, and a view the person has not moved stays where it was after each press of it,
-// folding and unfolding, the fan neither re-fitted nor rescaled. The next poll still refreshes the board,
+// folding and unfolding, the fan neither re-fitted nor rescaled; nor does a press of an option
+// move it, Order included, on a view framed while the row was folded and met by a shorter
+// stage once the row is unfolded. The next poll still refreshes the board,
 // with the pressed option still focused after it. A poll is one call of the page's own
 // tick, the way the Graph scenario makes it, after a check that the focused option does
 // not hold it.
@@ -294,7 +296,7 @@ module.exports = {
       await click(dot.x, dot.y);
       check('plan: a click on a dot selects it', await waitFor(`${SELECTED}.length===1&&${SELECTED}[0]===${target}`, 4000), await ev(SELECTED));
       const view = await ev(VIEW);
-      for (const [key, val] of [['lines', 'all'], ['dependencies', 'off'], ['lines', 'folded'], ['dependencies', 'on']]) await setOption(key, val);
+      for (const [key, val] of [['lines', 'all'], ['dependencies', 'off'], ['lines', 'folded'], ['dependencies', 'on'], ['order', 'status'], ['order', 'rank']]) await setOption(key, val);
       await pressOn(FOLD_TOGGLE);
       await waitFor(ROW_FOLDED, 6000);
       await ev(frames);
@@ -339,6 +341,29 @@ module.exports = {
         const panned = await ev(VIEW);
         check('plan: the same drag from the empty canvas does pan it', panned.touched === true && (panned.x !== view.x || panned.y !== view.y), { view, panned });
       }
+    }
+
+    // --- Order on a view framed with the row folded ---------------------------------------------------
+    // The toggle changes the height of the stage, so a view framed while the row was folded meets a
+    // shorter stage once the row is unfolded. Order seats the siblings of a sector another way, the
+    // same cards on the same rings, and does not frame the fan again.
+    await pressOn(FOLD_TOGGLE);
+    await waitFor(ROW_FOLDED, 6000);
+    await load('plan');
+    await waitFor(ROW_FOLDED, 6000);
+    await ev(frames);
+    const framed = await ev(VIEW);
+    check('plan: the page reloaded with the row folded frames the fan untouched', framed.touched === false, framed);
+    await pressOn(FOLD_TOGGLE);
+    await waitFor(ROW_EXPANDED, 6000);
+    await ev(frames);
+    const unfolded = await ev(VIEW);
+    check('plan: unfolding the row leaves that view where the fit put it', unfolded.x === framed.x && unfolded.y === framed.y && unfolded.k === framed.k && unfolded.touched === false, { framed, unfolded });
+    for (const val of ['status', 'rank']) {
+      await setOption('order', val);
+      await ev(frames);
+      const ordered = await ev(VIEW);
+      check(`plan: pressing Order ${val} leaves the view where the fit put it`, ordered.x === framed.x && ordered.y === framed.y && ordered.k === framed.k && ordered.touched === false && ordered.panning === false, { framed, ordered });
     }
 
     // --- the next poll still refreshes the board ------------------------------------------------------

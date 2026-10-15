@@ -44,7 +44,7 @@ test('a value the row does not offer falls back to its own default, whatever its
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'ALL' })), DEFAULTS, 'a value is compared as written');
 });
 
-test('a key the row does not have is dropped, and a name from the prototype\'s own table is no value', () => {
+test('a key the row does not have is dropped, and an inherited name such as toString is no value', () => {
   const merged = mergeGraphFanOptions({ lines: 'chain', names: 'all', toString: 'on', __proto__: { order: 'rank' } });
   assert.deepStrictEqual(plain(merged), { ...DEFAULTS, lines: 'chain' });
   assert.deepStrictEqual(Object.keys(merged), ['lines', 'dependencies', 'order']);
@@ -274,9 +274,16 @@ test('the order is in the layout\'s cache key: another order is another layout, 
   assert.notStrictEqual(a, b);
   assert.strictEqual(graphLayout(model, 'tiers', { statuses: STATUSES, order: 'status' }), a);
   assert.strictEqual(graphLayout(model, 'tiers', { statuses: STATUSES, order: 'rank' }), b);
-  assert.notStrictEqual(graphSignature(model, 'tiers', { statuses: STATUSES, order: 'status' }), graphSignature(model, 'tiers', { statuses: STATUSES, order: 'rank' }));
-  assert.strictEqual(graphSignature(model, 'force', { statuses: STATUSES, order: 'status' }), graphSignature(model, 'force', { statuses: STATUSES, order: 'rank' }), 'the other layouts do not read it');
+});
+
+test('the order is not in the signature the view compares to re-fit an untouched view: it seats siblings and frames the same cards', () => {
+  const model = siblings();
+  assert.strictEqual(graphSignature(model, 'tiers', { statuses: STATUSES, order: 'status' }), graphSignature(model, 'tiers', { statuses: STATUSES, order: 'rank' }));
   assert.strictEqual(graphSignature(model, 'tiers', { statuses: STATUSES }), graphSignature(model, 'tiers', { statuses: STATUSES, order: 'status' }));
+  graphLayoutCacheClear();
+  const status = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'status' });
+  const rank = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'rank' });
+  assert.notStrictEqual(status, rank, 'while the layout is still not shared between the two orders');
 });
 
 test('the lines and dependencies are not in the cache key: they only redraw', () => {

@@ -1324,8 +1324,8 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
 
 const PILL_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn';
 
-// What finds a pill again after a render: its class and what names it, a column, a
-// section, or for a button of the Graph's option row its option and its value.
+// What finds a status pill or a toggle again after a render: its class and what names it,
+// a column or a section, or for a button of the Graph's option row its option and its value.
 function pillSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;

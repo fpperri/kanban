@@ -179,6 +179,7 @@ function standIn(over = {}) {
     }
     if (target.kind === 'option') {
       st().options[target.k] = target.v;
+      if (over.orderRefits && target.k === 'order' && !view.touched) view = { ...view, y: view.y - 9, k: view.k * 0.97 };
       focus = over.focusLost ? null : `${target.k}=${target.v}`;
       if (over.pressClears) select([]);
     }
@@ -352,6 +353,12 @@ test('a press that clears the selection, a row that does not keep it, or a doubl
 test('a toggle that re-fits or rescales an untouched view when the stage changes height fails, folding or unfolding', async () => {
   await failsWith({ toggleRefits: true }, /one press of the toggle, which changes the height of the stage, leaves an untouched view where it was/, 'the first press re-fits');
   await failsWith({ toggleRefits: true }, /and does not pan or zoom the canvas/, 'the round trip still ends elsewhere');
+});
+
+test('an Order press that re-fits or rescales an untouched view fails, in the press loop and on a view framed with the row folded', async () => {
+  await failsWith({ orderRefits: true }, /and does not pan or zoom the canvas/, 'the loop presses Order');
+  await failsWith({ orderRefits: true }, /pressing Order status leaves the view where the fit put it/, 'the view framed folded moves');
+  await failsWith({ orderRefits: true }, /pressing Order rank leaves the view where the fit put it/, 'and again');
 });
 
 test('a drag that starts on the row and pans the canvas fails, and so does a canvas that never pans', async () => {

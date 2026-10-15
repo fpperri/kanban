@@ -301,6 +301,49 @@ test('an untouched view stays where it is when the toggle gives the stage anothe
   assert.deepStrictEqual(viewOf(s), first, 'and folded again');
 });
 
+// The order is in the layout's cache key, not in what the view compares to decide a
+// re-fit: pressing it moves siblings along their own stretch of a sector, so it is the
+// same cards on the same rings, and an untouched view that the toggle left framed for
+// another stage height must not be framed again by it.
+const pressOption = (s, optionKey, val) => {
+  const button = groups(s.row()).flatMap((g) => g.buttons).find((b) => b.key === optionKey && b.val === val);
+  assert.ok(button, `${optionKey}=${val} is in the row`);
+  s.click(button.el);
+  assert.strictEqual(s.run('graphLoadOptions()')[optionKey], val, `${optionKey}=${val} is pressed`);
+};
+
+test('an untouched view stays where it is when Order is pressed after the toggle gave the stage another height', async () => {
+  const size = { w: 900, h: 600 };
+  const s = await open({ size });
+  const first = viewOf(s);
+  assert.strictEqual(first.touched, false);
+
+  size.h = 570;
+  s.click(toggleButton());
+  assert.strictEqual(s.run('graphCur.h'), 570, 'the row unfolded and the stage is shorter');
+  assert.deepStrictEqual(viewOf(s), first, 'the toggle left the view where it was');
+
+  pressOption(s, 'order', 'rank');
+  assert.strictEqual(s.run('graphCur.h'), 570, 'the press drew on the shorter stage, so the check below can fail');
+  assert.deepStrictEqual(viewOf(s), first, 'Order rank: x, y and k as the first fit left them');
+
+  pressOption(s, 'order', 'status');
+  assert.deepStrictEqual(viewOf(s), first, 'Order status: and as they were');
+  pressOption(s, 'lines', 'all');
+  pressOption(s, 'dependencies', 'off');
+  assert.deepStrictEqual(viewOf(s), first, 'nor do Lines and Dependencies move it');
+});
+
+test('a view the person zoomed keeps its pan and zoom when Order is pressed', async () => {
+  const size = { w: 900, h: 600 };
+  const s = await open({ size, stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  s.run('graphZoomBy(1.5, 100, 100)');
+  const zoomed = viewOf(s);
+  assert.strictEqual(zoomed.touched, true);
+  pressOption(s, 'order', 'rank');
+  assert.deepStrictEqual(viewOf(s), zoomed);
+});
+
 test('a view the person zoomed keeps its pan and zoom when the toggle gives the stage another height', async () => {
   const size = { w: 900, h: 600 };
   const s = await open({ size, stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
@@ -342,7 +385,7 @@ test('a poll hands focus back to the option that had it, found again by its opti
   const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
   const button = groups(s.row()).flatMap((x) => x.buttons).find((b) => b.key === 'lines' && b.val === 'all').el;
   s.page.ctx.__button = button;
-  assert.ok(s.run('PILL_SELECTOR').split(', ').includes('.graph-option-btn'), 'it counts as a pill: focus is handed back after a render');
+  assert.ok(s.run('PILL_SELECTOR').split(', ').includes('.graph-option-btn'), 'it is one of the controls that get focus back after a render');
   assert.strictEqual(s.run('pillSelector(__button)'), '.graph-option-btn[data-key="lines"][data-val="all"]');
   s.page.ctx.__toggle = toggleButton();
   assert.strictEqual(s.run('pillSelector(__toggle)'), '.map-section-toggle[data-section="graph-options"]', 'the toggle has a selector of its own, not the Map\'s');
@@ -399,8 +442,6 @@ test('the view stamps a counted line as a path with its count beside it, and eve
 });
 
 test('every option the model offers has a label and a hint in the row, so the row cannot lose one', () => {
-  const s = require('./helpers/page-vm');
-  assert.ok(s.loadPage);
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const labels = src.match(/const GRAPH_FAN_OPTION_LABELS = \{[\s\S]*?\n\};/)[0];
   const sandbox = {};

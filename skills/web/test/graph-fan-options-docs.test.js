@@ -5,7 +5,7 @@ const path = require('node:path');
 
 // The web skill's Graph section and the web doc describe the tier fan's option row: what
 // it holds, what each value draws, that it starts folded, and where its choices are kept.
-// The words are the glossary's: tier, slice, selection, pill.
+// The words are the glossary's: tier, slice, selection, status pill.
 
 const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
 const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
@@ -48,7 +48,7 @@ test('the Graph section says Dependencies and Order, and what each value does', 
 test('the Graph section says the counted line lights with its parent, the chain ends are read on the whole board, and the options only redraw', () => {
   const text = graph();
   assert.match(text, /A counted line lights whenever its parent does/);
-  assert.match(text, /chain ends are read on the whole board, so hiding a card with a pill or a search never moves a line/);
+  assert.match(text, /chain ends are read on the whole board, so hiding a card with a status pill or a search never moves a line/);
   assert.match(text, /The lines and dependencies only redraw; the order moves siblings along their own stretch of the sector, and no card changes its band, its ring or its sector/);
 });
 
@@ -60,7 +60,7 @@ test('the Graph section says where the choices are kept and that a press leaves 
 
 test('the Graph section says the row takes room from the stage and the view does not move for it, so Fit frames every card again', () => {
   const text = graph();
-  assert.match(text, /The row takes its room from the stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or re-fits the view/);
+  assert.match(text, /The row takes its room from the stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or re-fits the view, and nor does pressing any of its options, Order included/);
   assert.match(text, /\*\*Fit\*\* frames every card again/);
   assert.match(text, /Picking a layout re-fits the view; after that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes/);
 });
