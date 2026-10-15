@@ -135,23 +135,30 @@ function updatePillButton(button, pill, on) {
   if (button.title !== title) button.title = title;
 }
 
+// Makes the children of `host` the list, one per item in order, each found again by its key
+// (`keyOf(item)`, kept in the dataset field `dataKey`): the panel's pills and the slice
+// section's entries are both kept this way. A child that is there is updated where it stands
+// (`update`), so focus on it is never lost; one is added (`build`) or taken out only when the
+// list changes, and the ones to go are taken out first, so that a child that stays is never
+// moved by the others leaving: moving an element that is in the page blurs it.
+function syncKeyedChildren(host, dataKey, list, keyOf, build, update) {
+  const keys = new Set(list.map(keyOf));
+  for (const el of [...host.children]) if (!keys.has(el.dataset[dataKey])) el.remove();
+  const byKey = new Map([...host.children].map((el) => [el.dataset[dataKey], el]));
+  list.forEach((item, at) => {
+    const child = byKey.get(keyOf(item)) || build(item);
+    update(child, item, at);
+    if (host.children[at] !== child) host.insertBefore(child, host.children[at] || null);
+  });
+}
+
 // Makes the buttons in `host` the rows: one per pill, in order, each showing its
-// count and whether it is on, and a "+N more" button where a row says so. A button
-// that is there is updated where it stands, so focus on it is never lost; one is
-// added or taken out only when the rows change, and the ones to go are taken out
-// first, so that a button that stays is never moved by the others leaving.
+// count and whether it is on, and a "+N more" button where a row says so.
 function syncPillButtons(host, rows, selection) {
   const doc = host.ownerDocument || document;
-  const keys = new Set(rows.map((row) => row.key));
-  for (const el of [...host.children]) if (!keys.has(el.dataset.pillKey)) el.remove();
-  const byKey = new Map([...host.children].map((el) => [el.dataset.pillKey, el]));
-  rows.forEach((row, at) => {
-    const more = row.kind === 'more';
-    const button = byKey.get(row.key) || (more ? buildMoreButton(doc, row) : buildPillButton(doc, row));
-    if (more) updateMoreButton(button, row);
-    else updatePillButton(button, row, pillIsOn(selection, row));
-    if (host.children[at] !== button) host.insertBefore(button, host.children[at] || null);
-  });
+  syncKeyedChildren(host, 'pillKey', rows, (row) => row.key,
+    (row) => (row.kind === 'more' ? buildMoreButton(doc, row) : buildPillButton(doc, row)),
+    (button, row) => (row.kind === 'more' ? updateMoreButton(button, row) : updatePillButton(button, row, pillIsOn(selection, row))));
 }
 
 // The chip a closed panel shows: how many things are on (the pills, a run of slices that cuts,

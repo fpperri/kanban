@@ -32,7 +32,7 @@
 //
 // This script reads app.js's and search-panel.js's globals at the moment it runs, never
 // when it loads: $, state, searchCtx, currentSearchMatch, viewCardIds, writeSearch,
-// loadPrefsState, searchPanelIsOpen, keyGuardOff.
+// loadPrefsState, searchPanelIsOpen, keyGuardOff, syncKeyedChildren.
 
 // Whether the section is folded for this visit; null until it is read from the preferences,
 // which have to wait for the board's name (they are kept per board).
@@ -110,18 +110,11 @@ function updateSliceButton(button, entry, inRun) {
 }
 
 // Makes the buttons in `host` the list: one per entry, in order, each showing its count and
-// whether it is in the run. A button that is there is updated where it stands, so focus on
-// it is never lost; one is added or taken out only when the list changes.
+// whether it is in the run (syncKeyedChildren, search-panel.js, keeps them where they stand).
 function syncSliceButtons(host, list, run) {
   const doc = host.ownerDocument || document;
-  const byKey = new Map([...host.children].map((el) => [el.dataset.sliceKey, el]));
-  list.forEach((entry, at) => {
-    const button = byKey.get(sliceEntryKey(entry)) || buildSliceButton(doc, entry);
-    updateSliceButton(button, entry, !!run && at >= run.from && at <= run.to);
-    if (host.children[at] !== button) host.insertBefore(button, host.children[at] || null);
-  });
-  const keys = new Set(list.map(sliceEntryKey));
-  for (const el of [...host.children]) if (!keys.has(el.dataset.sliceKey)) el.remove();
+  syncKeyedChildren(host, 'sliceKey', list, sliceEntryKey, (entry) => buildSliceButton(doc, entry),
+    (button, entry, at) => updateSliceButton(button, entry, !!run && at >= run.from && at <= run.to));
 }
 
 // Every repaint of the board comes here (renderSearchPanel, from renderBoard): the fold, and
