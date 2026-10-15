@@ -538,7 +538,7 @@ function searchRemoveGrownAlt(raw, term) {
 // when it holds a | or spaces (searchBracket, so the grammar's token-edge rules apply). A
 // query part that is not a term yet (`status:`) selects nothing, so it writes nothing: a
 // lone half-typed term would otherwise isolate every card. A query part with a card taken
-// out is already its other cards by then (selection.js removeCard), so it is written as
+// out is already its other cards by then (selection.js selectionWithoutCard), so it is written as
 // them. `parts` are the selection's parts, { kind: 'card' | 'path' | 'tree', id } or
 // { kind: 'query', text }. What the text matches is what the selection resolves to over
 // the whole board.

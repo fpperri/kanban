@@ -264,10 +264,10 @@ function stepBack(selection) {
 // card that is no longer picked; with no anchor card it is dropped, so a dead
 // selection leaves no invisible range start behind. Nothing picked and no isolate:
 // the same state comes back, and the caller skips the repaint.
-function selectionAfterEscape(state) {
-  if (state.isolate) return { selection: state.selection, rangeStart: state.rangeStart, isolate: null };
-  const next = stepBack(state.selection);
-  if (next === state.selection) return state;
+function selectionAfterEscape(current) {
+  if (current.isolate) return { selection: current.selection, rangeStart: current.rangeStart, isolate: null };
+  const next = stepBack(current.selection);
+  if (next === current.selection) return current;
   return { selection: next, rangeStart: rangeStartOf(next) };
 }
 
@@ -286,7 +286,7 @@ function pruneSelectionParts(selection, liveIds) {
 // its other cards on the whole board, so the cards the view hides stay picked.
 // A part that does not reach it is left as it is. When the anchor goes, the part
 // that follows it becomes the anchor, and the selection keeps its order.
-function removeCard(selection, id, matchQuery) {
+function selectionWithoutCard(selection, id, matchQuery) {
   let touched = false;
   const kept = [];
   for (const part of partsOf(selection)) {
@@ -314,7 +314,7 @@ function removeCard(selection, id, matchQuery) {
 function selectionAfterClick(action, id, { selection, resolved, rangeStart, order, matchQuery }) {
   if (action === 'select') return { selection: setAnchor(selection, cardPart(id)), rangeStart: id };
   if (action === 'toggle') {
-    const next = resolved.has(id) ? removeCard(selection, id, matchQuery) : addPart(selection, cardPart(id));
+    const next = resolved.has(id) ? selectionWithoutCard(selection, id, matchQuery) : addPart(selection, cardPart(id));
     return { selection: next, rangeStart: id };
   }
   if (action === 'range') {
@@ -431,12 +431,12 @@ function selectionAfterPill(gesture, query, { selection, boxText, alts }) {
 // module's. Nothing to drop: the same state comes back, and the caller skips the
 // repaint. When the anchor goes the next part is the anchor, and the range start
 // follows it, as when any anchor goes.
-function selectionAfterBoxEdit(state, boxText, holds) {
-  const parts = partsOf(state.selection);
+function selectionAfterBoxEdit(current, boxText, holds) {
+  const parts = partsOf(current.selection);
   const kept = parts.filter((part) => !isAnyPillPart(part) || holds(boxText, part.text));
-  if (kept.length === parts.length) return state;
+  if (kept.length === parts.length) return current;
   const selection = selectionFromParts(kept);
-  if (selection.anchor === state.selection.anchor) return { selection, rangeStart: state.rangeStart };
+  if (selection.anchor === current.selection.anchor) return { selection, rangeStart: current.rangeStart };
   return { selection, rangeStart: rangeStartOf(selection) };
 }
 
@@ -509,7 +509,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -531,7 +531,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.rangeStartOf = rangeStartOf;
   window.partCards = partCards;
   window.resolveSelection = resolveSelection;
-  window.removeCard = removeCard;
+  window.selectionWithoutCard = selectionWithoutCard;
   window.stepBack = stepBack;
   window.selectionAfterEscape = selectionAfterEscape;
   window.pruneSelectionParts = pruneSelectionParts;

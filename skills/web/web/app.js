@@ -3296,8 +3296,10 @@ window.addEventListener('DOMContentLoaded', () => {
 // select-all logic — see onSearchChordKey.
 //
 // The one writer of the box: typing, the clear button, a cue click, a pill, a click or a key
-// of the slice section, the Ctrl+F prefill and a ?q= link all come through writeSearch(text,
-// reason). It sets the
+// of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
+// and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
+// on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
+// 'cue', 'pill', 'slice', 'isolate', 'link', 'prefill' and 'selection'. It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write
@@ -3315,7 +3317,7 @@ function writeSearch(text, reason, repaint = true) {
   if (!input) return;
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
   if (repaint) {
-    boxWritten = reason;
+    pendingWriteReason = reason;
     renderBoard();
   } else {
     lastSearchMatch = null; // no repaint matched this text, and the listeners must not read the last one's match
@@ -3373,11 +3375,11 @@ onSearchWrite(followSearchInAddress);
 // anchor, and stays the anchor when the Graph is left. Isolate's own write (the reason
 // 'isolate') leaves the selection as it is, and while isolate is on the box holds the
 // isolate text, which is never a typed search: it does not become the anchor.
-let boxWritten = null;
+let pendingWriteReason = null;
 
 function selectionFollowingBox(selection) {
-  const reason = boxWritten;
-  boxWritten = null;
+  const reason = pendingWriteReason;
+  pendingWriteReason = null;
   if (!reason || reason === 'pill' || reason === 'isolate') return selection;
   const text = $('#search-input').value;
   const isolated = isolateNow() !== null;

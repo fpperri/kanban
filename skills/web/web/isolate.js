@@ -47,13 +47,13 @@
 // sheet is up; the search panel is no surface, so i works with it open.
 
 // The text the box held when isolate went on, as { previous }; null while it is off.
-let isolateFrom = null;
+let isolateFlag = null;
 
 const ISOLATE_SWITCH_ON = 'Isolate: only the selection is shown, in every view. Click, press i, or press Esc, to turn it off and get the box\'s text back.';
 const ISOLATE_SWITCH_OFF = 'Isolate: show only the selection, in every view, by writing it into the search box. Click, or press i, to turn it on.';
 
 function isolateNow() {
-  return isolateFrom;
+  return isolateFlag;
 }
 
 // The text the box held before isolating is kept in the browser, per board, beside the isolate
@@ -62,21 +62,21 @@ function isolateNow() {
 // without it, and the text is then unknown, which gives back an empty box.
 const ISOLATE_KEPT_FEATURE = 'isolate.kept';
 
-function isolateKeep(previous, text) {
+function saveIsolateRecord(previous, text) {
   const store = prefsStorage();
   if (!store) return;
   try { store.setItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE), isolateRecord(previous, text)); }
   catch (e) { /* storage unavailable or full: the text will be unknown after a reload */ }
 }
 
-function isolateForget() {
+function forgetIsolateRecord() {
   const store = prefsStorage();
   if (!store) return;
   try { store.removeItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE)); }
   catch (e) { /* nothing to forget */ }
 }
 
-function isolateKept(q) {
+function readKeptPrevious(q) {
   const store = prefsStorage();
   let raw = null;
   if (store) {
@@ -90,7 +90,7 @@ function isolateKept(q) {
 // box, so the repaint, the address and every listener of the write see it on. What it gives back
 // is the text kept for this very query, or nothing.
 function isolateFromLink(q) {
-  isolateFrom = { previous: isolateKept(q) };
+  isolateFlag = { previous: readKeptPrevious(q) };
 }
 
 // The switch says whether isolate is on (aria-checked) and what a click does. Every repaint of
@@ -98,7 +98,7 @@ function isolateFromLink(q) {
 function syncIsolateSwitch() {
   const el = $('#isolate-switch');
   if (!el) return;
-  const on = isolateFrom !== null;
+  const on = isolateFlag !== null;
   const checked = String(on);
   if (el.getAttribute('aria-checked') !== checked) el.setAttribute('aria-checked', checked);
   const title = on ? ISOLATE_SWITCH_ON : ISOLATE_SWITCH_OFF;
@@ -120,13 +120,13 @@ function isolateNeedsBox(box, parts) {
 // the selection names that the box can say, leaves the box and the switch as they were and
 // says why.
 function isolateTurnOn() {
-  if (isolateFrom) return false;
+  if (isolateFlag) return false;
   const box = $('#search-input').value;
   const parts = partsOf(selectionState.selection);
   const text = searchIsolateBox(box, parts, { limits: isolateNeedsBox(box, parts) });
   if (!text) { toast('Nothing is selected to isolate. Pick a card, a pill, or add a path or a tree first.'); return false; }
-  isolateFrom = { previous: box };
-  isolateKeep(box, text);
+  isolateFlag = { previous: box };
+  saveIsolateRecord(box, text);
   writeSearch(text, 'isolate');
   return true;
 }
@@ -134,23 +134,23 @@ function isolateTurnOn() {
 // Gives the box its text back. The flag goes first, so the repaint the write makes shows the
 // views and the chip as they are without isolate.
 function isolateTurnOff() {
-  if (!isolateFrom) return false;
-  const text = searchIsolateRestore($('#search-input').value, isolateFrom.previous);
-  isolateFrom = null;
-  isolateForget();
+  if (!isolateFlag) return false;
+  const text = searchIsolateRestore($('#search-input').value, isolateFlag.previous);
+  isolateFlag = null;
+  forgetIsolateRecord();
   writeSearch(text, 'isolate');
   return true;
 }
 
 function isolateFlip() {
-  return isolateFrom ? isolateTurnOff() : isolateTurnOn();
+  return isolateFlag ? isolateTurnOff() : isolateTurnOn();
 }
 
 // The entry in the card menu and in the menu of the empty canvas mirrors the switch: Isolate turns
 // it on and, while it is on, the entry offers to turn it off. It acts on the selection as it is
 // when it is chosen, and with nothing selected it says so, as the switch does.
 function isolateMenuLabel() {
-  return isolateFrom ? 'Turn isolate off' : 'Isolate';
+  return isolateFlag ? 'Turn isolate off' : 'Isolate';
 }
 
 function isolateFromMenu() {
@@ -171,11 +171,11 @@ function onIsolateKey(e) {
 // A write to the box that leaves it holding no query ends isolate: its text is gone, and so is
 // the text it would give back.
 function isolateOnWrite(text, reason) {
-  const next = isolateAfterWrite(isolateFrom, text, reason);
-  if (next && reason !== 'isolate') isolateKeep(next.previous, text); // the kept text goes with the isolate text the box holds now
-  if (next === isolateFrom) return;
-  isolateFrom = next;
-  if (!next) isolateForget();
+  const next = isolateAfterWrite(isolateFlag, text, reason);
+  if (next && reason !== 'isolate') saveIsolateRecord(next.previous, text); // the kept text goes with the isolate text the box holds now
+  if (next === isolateFlag) return;
+  isolateFlag = next;
+  if (!next) forgetIsolateRecord();
   renderSearchPanel();
 }
 

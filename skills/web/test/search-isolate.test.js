@@ -4,7 +4,7 @@ const {
   parseSearchQuery, filterCards, searchIsolateText, searchIsolateBox, searchIsolateRestore,
 } = require('../web/search');
 const {
-  NO_SELECTION, cardPart, pathPart, treePart, queryPart, typedQueryPart, addPart, removeCard, resolveSelection,
+  NO_SELECTION, cardPart, pathPart, treePart, queryPart, typedQueryPart, addPart, selectionWithoutCard, resolveSelection,
 } = require('../web/selection');
 
 // Isolate writes the selection into the search box as `part | part | ...`: each part by
@@ -93,7 +93,7 @@ test('the text a card, a path, a tree and each kind of query make matches exactl
 
 test('a query part with one card taken out is its other cards, and its text matches exactly them', () => {
   const selection = grown(queryPart('tags:grill'), pathPart(40));
-  const without = removeCard(selection, 11, matchQuery);
+  const without = selectionWithoutCard(selection, 11, matchQuery);
   assert.deepStrictEqual(partsOf(without), [cardPart(10), cardPart(12), pathPart(40)], 'the grill query became its other cards; the path never reached card 11');
   assert.strictEqual(searchIsolateText(partsOf(without)), '#10 | #12 | path:40');
   assert.deepStrictEqual(matched(without), resolved(without));
@@ -102,7 +102,7 @@ test('a query part with one card taken out is its other cards, and its text matc
 
 test('a card taken out of a path leaves the path as its other cards, not as the path', () => {
   const selection = grown(pathPart(40));
-  const without = removeCard(selection, 42, matchQuery);
+  const without = selectionWithoutCard(selection, 42, matchQuery);
   assert.strictEqual(searchIsolateText(partsOf(without)), '#40 | #41');
   assert.deepStrictEqual(matched(without), [40, 41]);
 });

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, resolveSelection, removeCard, stepBack, pruneSelectionParts,
+  NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, resolveSelection, selectionWithoutCard, stepBack, pruneSelectionParts,
   cardClickAction, shiftAddsRange, selectionAfterClick,
 } = require('../web/selection');
 const { parseSearchQuery, filterCards } = require('../web/search');
@@ -173,7 +173,7 @@ test('the selection handed in is not changed by resolving it', () => {
 
 // --- taking a card out --------------------------------------------------------------
 
-const without = (selection, id) => removeCard(selection, id, match);
+const without = (selection, id) => selectionWithoutCard(selection, id, match);
 
 test('taking out a card part removes only that part', () => {
   const s = selectionOf(cardPart(1), cardPart(2), queryPart('blocked:'));
