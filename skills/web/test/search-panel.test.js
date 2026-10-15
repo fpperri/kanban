@@ -983,3 +983,74 @@ test('the fold control folds and unfolds for the visit, without changing the pre
   s.page.run('toggleSearchPillsFold()');
   assert.strictEqual(s.page.run('currentPillsFolded()'), false);
 });
+
+// --- turning the switch off moves focus only when the panel took it with it ----------------
+
+// A stand-in for the panel that knows which elements are inside it, which the harmless element
+// the page is given for it does not.
+const withPanelHolding = (s, ...inside) => {
+  s.elements['#search-panel'].contains = (el) => inside.includes(el);
+};
+
+test('switching off with focus on the panel\'s own pill hands focus to the arrow, since the pill went with the panel', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  const pillEl = button();
+  withPanelHolding(s, pillEl);
+  s.openPanel();
+  s.focusOn(pillEl);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 1);
+  assert.strictEqual(s.focused(), toggle);
+});
+
+test('switching off from the preferences sheet leaves focus in the sheet, and p and the arrow leave it where it is', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  withPanelHolding(s);
+  const checkbox = { tagName: 'INPUT', isContentEditable: false, focus() {} };
+  s.openPanel();
+  s.focusOn(checkbox);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(s.isOpen(), false, 'the panel closed');
+  assert.strictEqual(toggle.focused, 0, 'and the arrow behind the sheet did not take focus');
+  assert.strictEqual(s.focused(), checkbox);
+  s.page.run('setPanelOnFocus(true, true)');
+  const card = button();
+  s.focusOn(card);
+  press(s, 'p');
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 0, 'p with focus on a card leaves it there');
+  assert.strictEqual(s.focused(), card);
+});
+
+test('switching off with focus in the box or on the arrow keeps it there', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  withPanelHolding(s);
+  s.openPanel();
+  s.focusOn(s.page.input);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(s.focused(), s.page.input);
+  s.page.run('setPanelOnFocus(true, true)');
+  s.focusOn(toggle);
+  s.page.run('setPanelOnFocus(false)');
+  assert.strictEqual(toggle.focused, 0, 'the arrow had it already');
+  assert.strictEqual(s.focused(), toggle);
+});
+
+test('Esc still hands focus to the arrow when it closes the panel from anywhere but the box', async () => {
+  const s = await open();
+  const toggle = toggleOf(s);
+  toggle.focus = () => { toggle.focused++; s.focusOn(toggle); };
+  withPanelHolding(s);
+  s.openPanel();
+  s.focusOn(button());
+  s.press();
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(toggle.focused, 1, 'the Esc rule: the arrow, unless the box has it');
+});

@@ -218,12 +218,13 @@ function syncSearchSwitch() {
 }
 
 // What a change of the switch does to the panel, after setPanelOnFocus (app.js) has kept
-// the choice. Off closes the panel now, by the Esc rule: focus goes to the arrow unless
-// the box has it, because a pill that had it is hidden with the panel. On opens the
+// the choice. Off closes the panel now: focus goes to the arrow when a pill or a fold control
+// in the panel had it, since that goes with the panel, and stays wherever else it was (the box,
+// the arrow, the preferences sheet that set the switch, the board). On opens the
 // panel now when `openNow` says so; the arrow and p do, the preferences sheet, which is
 // up over the board, does not.
 function applySearchPanelSwitch(on, openNow) {
-  if (!on) closeSearchPanel();
+  if (!on) closeSearchPanel(true);
   else if (openNow) setSearchPanelOpen(true);
   syncSearchSwitch();
 }
@@ -252,12 +253,18 @@ function onSearchPanelKey(e) {
 // Esc's link in the chain: an open panel closes and answers true so the Esc stops
 // there, a closed one answers false. Focus goes back to the toggle, unless it is in
 // the box: the box keeps it, and the next Esc clears the box.
-function closeSearchPanel() {
+// Switching the panel off (`strandedOnly`) moves focus only when it was inside the panel, which
+// goes with it: a focus anywhere else, in the preferences sheet that set the switch or on the
+// board behind it, stays where it is.
+function closeSearchPanel(strandedOnly = false) {
   if (!searchPanelOpen) return false;
   const box = $('#search-input');
-  const fromBox = !!box && document.activeElement === box;
+  const active = document.activeElement;
+  const fromBox = !!box && active === box;
+  const panel = $('#search-panel');
+  const stranded = !!panel && !!active && panel.contains(active);
   setSearchPanelOpen(false);
-  if (!fromBox) $('#search-panel-toggle').focus();
+  if (strandedOnly ? stranded : !fromBox) $('#search-panel-toggle').focus();
   return true;
 }
 

@@ -950,7 +950,9 @@ to `127.0.0.1` only.
   control still folds it for the visit. **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
   so each shows what the others did; turning it off closes the panel, and turning it on
-  from the sheet leaves the panel closed until the box is focused. **Hotkeys** lists every key
+  from the sheet leaves the panel closed until the box is focused. Switching it off moves focus to
+  the arrow only when a control of the panel had it, and leaves it where it was otherwise (the box,
+  the sheet, the board). **Hotkeys** lists every key
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
