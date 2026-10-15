@@ -752,8 +752,9 @@ function currentSearchMatch() {
 // What the box does in the Graph: the cards it hides (a slice: term's cut, from the
 // whole board and its hierarchy) and the cards it lights. The Graph's one decision
 // about a query, read by what is drawn, what is lit and what a selection can reach.
+// While isolate is on the whole query is a cut, as it is in every other view.
 function currentGraphQueryEffect() {
-  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx());
+  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx(), { isolated: isolateNow() !== null });
 }
 
 // The cards one piece of search text matches, over the whole board like the box.
@@ -924,6 +925,14 @@ function setPillsFolded(on) {
   foldSearchPills(on);
 }
 
+// Whether the search panel's slice section starts folded; the section takes the choice now
+// (search-slices.js).
+function setSlicesFolded(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { slicesFolded: on });
+  savePrefsState();
+  foldSearchSlices(on);
+}
+
 // Whether the search panel opens when the search box is focused: the switch at the end
 // of the box, flipped by a click on the arrow and by the p key (which open the panel at
 // once when they turn it on), and shown and set in the preferences sheet (which does
@@ -948,6 +957,7 @@ function prefOptionOn(opt) {
 function syncPrefsSheet() {
   $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
   $('#prefs-archived-done').checked = countArchivedLeaves();
+  $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
@@ -1018,7 +1028,8 @@ function toggleView(mode) {
   const from = loadViewMode();
   viewMode = from === mode ? 'board' : mode;
   saveViewMode();
-  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText: $('#search-input').value }); // a search typed in the Graph is not the anchor anywhere else
+  const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
   if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
@@ -2266,8 +2277,12 @@ function consumeDeepLink() {
   // every render, so putting the value there IS applying the filter, and
   // it lands somewhere visible that one gesture clears. The view is set
   // first, so that repaint and the listeners told after it see the link's view.
-  if (link.q) writeSearch(link.q, 'link');
-  else if (link.view) renderBoard();
+  if (link.q) {
+    // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
+    // and the listeners told of it (the address, the chip) see it on.
+    if (deepLinkIsolates(location.search)) isolateFromLink(link.q);
+    writeSearch(link.q, 'link');
+  } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
   const card = state.active.concat(state.archived).find((c) => c.id === link.id);
@@ -3211,6 +3226,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
     if (closeSearchPanel()) { e.preventDefault(); return; } // the search panel closes on its own Esc, ahead of the selection step, and a search field's own Esc must not clear the box as well
     if (e.repeat) return; // a held Esc is one press: it runs one stage
+    isolateEscapeKeepsBox(e);
     escapeStep();
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable
@@ -3260,8 +3276,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // still works from inside a text field. Ctrl+F has its own `#`-prefill/
 // select-all logic — see onSearchChordKey.
 //
-// The one writer of the box: typing, the clear button, a cue click, the Ctrl+F
-// prefill and a ?q= link all come through writeSearch(text, reason). It sets the
+// The one writer of the box: typing, the clear button, a cue click, a pill, a click or a key
+// of the slice section, the Ctrl+F prefill and a ?q= link all come through writeSearch(text,
+// reason). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write
@@ -3301,10 +3318,11 @@ function clearSearch() {
 // past it, so a refused replacement is let go: the address lags the box, and the
 // next write that changes `q` catches it up, while the listeners after this one
 // still hear of the write. card-history.js decides what the address becomes;
-// `card` and `view` ride along untouched. The popstate listener calls this too,
+// `card` and `view` ride along untouched, and `isolate=1` stands beside `q` while
+// isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
-  const search = nextSearchAddress(location.search, text);
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null);
   if (search == null) return;
   try {
     history.replaceState(null, '', location.pathname + search);
@@ -3323,19 +3341,27 @@ onSearchWrite(followSearchInAddress);
 // one repaint paints the new anchor, and parses and matches the box once. The other
 // views keep filtering and select nothing.
 //
+// A run of slices written by the slice section (the reason 'slice') is a cut, not a search:
+// it never makes the box the anchor, and a typed anchor keeps following the box, so the
+// Graph still lights what the whole query, the cut included, matches.
+//
 // A write by hand, typing or the clear button, also takes a pill off when the box no
 // longer holds its query (selectionAfterBoxEdit, selection.js), in every view. A
 // pill's own write (the reason 'pill') changes the selection and the box together
 // first, so the box is not taken for a typed search: a pill's query is not the typed
-// anchor, and stays the anchor when the Graph is left.
+// anchor, and stays the anchor when the Graph is left. Isolate's own write (the reason
+// 'isolate') leaves the selection as it is, and while isolate is on the box holds the
+// isolate text, which is never a typed search: it does not become the anchor.
 let boxWritten = null;
 
 function selectionFollowingBox(selection) {
   const reason = boxWritten;
   boxWritten = null;
-  if (!reason || reason === 'pill') return selection;
+  if (!reason || reason === 'pill' || reason === 'isolate') return selection;
   const text = $('#search-input').value;
-  const followed = loadViewMode() === 'graph' ? selectionAfterTyping(selection, text) : selection;
+  const isolated = isolateNow() !== null;
+  if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
+  const followed = loadViewMode() === 'graph' && !isolated ? selectionAfterTyping(selection, text) : selection;
   if (reason !== 'typing' && reason !== 'clear') return followed;
   return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
 }
@@ -3347,19 +3373,22 @@ function selectionFollowingBox(selection) {
 // anywhere else (another text field, a select, an open surface) it does nothing.
 function escapeStep() {
   const action = keyGuardEscape(document, $('#search-input'));
-  if (action === 'clear-box') clearSearch();
+  if (action === 'clear-box') { if (!isolateTurnOff()) clearSearch(); } // while isolated the box holds the isolate text, and Esc gives back the one it held
   else if (action === 'step') stepSelectionBack();
 }
 
-// One stage back, as selectionAfterEscape (selection.js) works it out: every
-// addition goes at once and the anchor stays; the next one drops the anchor.
-// Nothing picked, nothing to repaint. A box that was the anchor (a search typed in
-// the Graph) goes with it, as it does on a double click on the empty Graph. A pill the
-// step drops goes out of the box too (the additions first, so the box is back to the
-// anchor's query, and then the anchor's), while any other text in the box stays.
+// One stage back, as selectionAfterEscape (selection.js) works it out: isolate goes off
+// first and gives the box its text back; then every addition goes at once and the anchor
+// stays; the next one drops the anchor. Nothing picked, nothing to repaint. A box that was
+// the anchor (a search typed in the Graph) goes with it, as it does on a double click on
+// the empty Graph. A pill the step drops goes out of the box too (the additions first, so
+// the box is back to the anchor's query, and then the anchor's), while any other text in
+// the box stays.
 function stepSelectionBack() {
-  const next = selectionAfterEscape(selectionState);
-  if (next === selectionState) return;
+  const state = { ...selectionState, isolate: isolateNow() };
+  const next = selectionAfterEscape(state);
+  if (next === state) return;
+  if (state.isolate && !next.isolate) { isolateTurnOff(); return; }
   moveSelectionTo(next);
 }
 
@@ -3433,7 +3462,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // broken #<id> one. Caret shifts left by the same 1 char the strip
   // removed from the front, so typing feels uninterrupted.
   input.addEventListener('input', () => {
-    const stripped = searchHashStrip(input.value);
+    const stripped = isolateNow() ? null : searchHashStrip(input.value); // the isolate text's leading # is a card, not an id still being typed
     const caret = stripped === null ? null : Math.max(0, input.selectionStart - 1);
     writeSearch(stripped === null ? input.value : stripped, 'typing');
     if (caret !== null) input.setSelectionRange(caret, caret);
@@ -3448,8 +3477,10 @@ window.addEventListener('DOMContentLoaded', () => {
   // fresh candidates from whatever's currently typed, at the caret, so a token
   // inside a bracket or a quote or after a `|` completes in place) rather than
   // a static list — preFiltered/selectOnFocus:false are the two opt-outs that
-  // make that fit; see attachCombobox's comments at each for why.
-  attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart), { preFiltered: true, selectOnFocus: false });
+  // make that fit; see attachCombobox's comments at each for why. The whole
+  // board and its context go with it, the arguments a query is resolved with,
+  // so after `slice:` and after `..` the box suggests the slices a cut can name.
+  attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart, state.active.concat(state.archived), searchCtx()), { preFiltered: true, selectOnFocus: false });
 });
 
 // --- Map view wiring: top-bar toggle + the bits
@@ -5605,13 +5636,34 @@ function onClickAway(e) {
   if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
   if (e.target.closest(NOT_EMPTY_SPACE) || e.target.closest(DOUBLE_CLICK_OWNED)) return;
+  if (isolateNow()) return; // isolated, the empty canvas clears nothing: clicks move the anchor only
   if (!selectionState.selection.anchor) return;
   if (isTypedAnchor(selectionState.selection) && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a double click on the header or the box
   moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // a dead selection must not leave an invisible range start behind
 }
 
+// The canvas of the view on show, where a right-click on empty space opens the menu of Isolate
+// alone: the Graph's and the Map's. Empty is what the click-away rule calls empty space, and no
+// Map node either (a ghost stub opens a card). Every other view, and a point of these views
+// outside their canvas (a toolbar, a section header), keeps the browser's own menu.
+const CANVAS_OF_VIEW = { graph: '#graph-view .graph-canvas', map: '#map-view .map-canvas' };
+const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node`;
+
+function openCanvasContextMenu(e) {
+  const canvas = CANVAS_OF_VIEW[loadViewMode()];
+  if (!canvas || !e.target.closest(canvas) || e.target.closest(NOT_CANVAS_SPACE)) return;
+  menuSubject = canvasMenuFor();
+  e.preventDefault();
+  showContextMenu(e.clientX, e.clientY);
+}
+
 function showContextMenu(x, y) {
   const menu = $('#context-menu');
+  // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
+  // stylesheet makes of one entry; a card's menu has them all again.
+  menu.classList.toggle('canvas-menu', !!menuSubject.canvas);
+  $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
+  $('#ctx-isolate').textContent = isolateMenuLabel();
   // Peek and Add to selection lead a menu for a card outside the selection; the
   // card details' menu leaves Peek out. "Dependency tree"/"Dependency path" only
   // make sense against a single card — hidden whenever the menu's subject is
@@ -5988,13 +6040,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (clickKeepsSelection(action)) selectionGestureClick = e;
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the
-  // browser's own context menu (don't hijack the whole page). A card outside
-  // the selection gets a menu for that card alone and the selection stays; a
-  // selected one gets a menu for the whole batch.
+  // browser's own context menu (don't hijack the whole page), except the empty
+  // canvas of the Graph and the Map, which opens a menu of Isolate alone
+  // (openCanvasContextMenu). A card outside the selection gets a menu for that
+  // card alone and the selection stays; a selected one gets a menu for the whole
+  // batch.
   document.addEventListener('contextmenu', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
-    if (!el) return;
+    if (!el) { openCanvasContextMenu(e); return; }
     openCardContextMenu(e, Number(el.dataset.id));
   });
   document.addEventListener('keydown', onCardOpenKey);
@@ -6004,6 +6058,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-close').addEventListener('click', closePrefsSheet);
   $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
+  $('#prefs-slices-folded').addEventListener('change', (e) => setSlicesFolded(e.target.checked));
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
   $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —

@@ -81,7 +81,9 @@ test('the panel has a slice region, then the pill section, then a divider, then 
   const order = [at('search-slices'), at('search-pills-fold'), at('search-pills'), bar.indexOf('class="search-divider"'), at('search-foot')];
   assert.ok(order.every((i) => i > -1), 'every region is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
-  for (const id of ['search-slices', 'search-foot']) assert.match(bar, new RegExp(`<div id="${id}"[^>]*></div>`), `${id} starts empty`);
+  assert.match(bar, /<div id="search-slices"[^>]*><\/div>/, 'the slice region starts empty');
+  const foot = bar.slice(bar.indexOf('<div id="search-foot"'));
+  assert.match(foot, /^<div id="search-foot"[^>]*>\s*<button[^>]*id="isolate-switch"/, 'the foot holds the Isolate switch, and nothing before it');
 });
 
 test('the pill section has a fold control that says whether it is open and names what it folds, and a pill host it labels', () => {
@@ -161,6 +163,21 @@ test('the p key is read by one document keydown listener of the panel script, th
   assert.doesNotMatch(handler, /KEY_GUARD_SURFACES|querySelector/, 'the guard decides, not a list of the handler\'s own');
 });
 
+test('the m key is read by one document keydown listener of the panel script, through the whole key guard, and steps by the pill list\'s own step', () => {
+  const code = panelSrc.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  assert.strictEqual(code.split("addEventListener('keydown', onPillStepKey)").length - 1, 1);
+  const handler = code.match(/function onPillStepKey\([\s\S]*?\n\}/)[0];
+  assert.match(handler, /keyGuardOff\(document\)/, 'off while typing and while a popup is up');
+  assert.match(handler, /e\.ctrlKey \|\| e\.metaKey \|\| e\.altKey/, 'a chord is not the key');
+  assert.match(handler, /e\.repeat/, 'a held key steps once');
+  assert.match(handler, /e\.shiftKey \? -1 : 1/, 'Shift steps backwards');
+  assert.ok(handler.indexOf('keyGuardOff') < handler.indexOf('preventDefault'), 'the browser\'s own response is stopped only when the key acts');
+  assert.doesNotMatch(handler, /KEY_GUARD_SURFACES|querySelector/, 'the guard decides, not a list of the handler\'s own');
+  const step = code.match(/function stepSearchPill\([\s\S]*?\n\}/)[0];
+  assert.match(step, /pillStep\(searchPanelEntries\(\), selectionState\.selection, direction\)/, 'the step is the pill list\'s, over the pills the panel lists');
+  assert.match(step, /applyPillGesture\('solo', pill\.key\)/, 'the step is a solo, as a right-click is');
+});
+
 test('the arrow and the p key flip one switch, and the preferences sheet sets the same one', () => {
   assert.match(panelSrc, /\$\('#search-panel-toggle'\)\.addEventListener\('click', flipSearchPanelSwitch\);/);
   assert.match(panelSrc.match(/function flipSearchPanelSwitch\([\s\S]*?\n\}/)[0], /setPanelOnFocus\(!searchPanelSwitchOn\(\), true\)/);
@@ -197,7 +214,7 @@ test('the panel is not a surface the key guard names: the slice keys and the res
 });
 
 test('a pill\'s write to the box carries its reason, and nothing else writes with it', () => {
-  assert.strictEqual(panelSrc.split("writeSearch(next.boxText, 'pill')").length - 1, 1);
+  assert.strictEqual(panelSrc.split("writeSearch(searchJoinSlice(next.boxText, slices), 'pill')").length - 1, 1, 'the one write of a pill gesture puts the run of slices back');
   const writers = [...appSrc.matchAll(/writeSearch\([^)]*'pill'\)/g)];
   assert.strictEqual(writers.length, 1, 'the step down the selection is the one other: it takes a dropped pill out of the box');
   assert.match(appSrc.match(/function moveSelectionTo\([\s\S]*?\n\}/)[0], /writeSearch\(shrunk, 'pill'\)/);
@@ -251,7 +268,7 @@ test('the arrow switched off is struck through, by a rule that dims nothing with
 });
 
 test('the toggle, the fold control and the pills show a focus ring, and a pill that is on is drawn apart', () => {
-  assert.match(block, /\.search-panel-toggle:focus-visible[^{]*\.search-fold:focus-visible[^{]*\.query-pill:focus-visible \{[^}]*outline: 2px solid var\(--accent\)/);
+  assert.match(block, /\.search-panel-toggle:focus-visible[^{]*\.search-fold:focus-visible[^{]*\.query-pill:focus-visible[^{]*\.slice-entry:focus-visible \{[^}]*outline: 2px solid var\(--accent\)/);
   assert.match(block, /\.query-pill\.on \{[^}]*background: var\(--accent-soft\)/);
 });
 

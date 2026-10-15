@@ -344,8 +344,16 @@ to `127.0.0.1` only.
   alternative of what the box holds (a value with spaces is written quoted). An
   autocomplete dropdown completes the token under the caret, inside brackets, inside
   quotes and after a `|` — the bare term plus every field-scoped form of it; nothing is
-  offered once the token carries a colon, and `tree:`/`path:` are excluded (they take a
-  card id, not free text). The leading `#` that Ctrl+F prefills stays while the box holds
+  offered once the token carries a colon, except after `slice:` and after `..`, and
+  `tree:`/`path:` are excluded (they take a card id, not free text). After `slice:` and
+  after `..` the dropdown lists the board's slices, narrowed to the names that start with
+  what is typed (any letter case): the tiers of the `hierarchy:` in hierarchy order, every
+  one it names, then the depth numbers from 0 to the deepest card with no tier. Picking a row writes the whole
+  term (`slice:goal..objective`, the end under the caret replaced and the other end kept),
+  and a tier named with a space is written quoted, the quote holding both ends
+  (`slice:"big goal..2"`). The dropdown is asked with the whole board, archived cards
+  included, the arguments the cut is made with, so what it lists is what the cut reads,
+  and a Graph caption's tooltip shows one of these same terms. The leading `#` that Ctrl+F prefills stays while the box holds
   one id being typed, and through a query such as `#12 | #14`.
 - **Create** — "+ New card" opens a modal (title, status, priority, parent, rank, tags,
   waiting-for ids, blocked reason, review text, AI prompt, assignee, start date, end
@@ -655,13 +663,13 @@ to `127.0.0.1` only.
   does not touch the selection) and **Add to selection** (the card joins as an addition, or becomes
   the anchor of an empty selection). A card inside the selection opens the menu for the whole
   resolved selection, the cards a path, a tree or a pill added included, and the menu has neither
-  Peek nor Add to selection. Right-clicking inside an open card detail opens the same
+  Peek nor Add to selection but offers **Isolate** (see Isolate). Right-clicking inside an open card detail opens the same
   menu for the card shown, without Peek, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
   already handles the right-click itself, the browser's own menu shows instead. The card details
   keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add to selection**,
   **Assign…**, **Set priority…**, **Edit tags…**,
-  **Schedule…**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
+  **Schedule…**, **Isolate**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
   acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
   selection inside it, regardless of which view opened it. The subject is fixed when the menu
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
@@ -672,8 +680,15 @@ to `127.0.0.1` only.
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
   names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
-  show only when the subject is one card; the others always render (mixed-selection handling
-  lives inside each click handler).
+  show only when the subject is one card, and Isolate shows only inside the selection and never
+  in the card details' own menu; the others always render (mixed-selection handling
+  lives inside each click handler). A right-click on the **empty Graph or Map canvas** (the
+  Graph's or the Map's canvas, where no card, Graph dot, Map node, link or control is) opens the
+  same menu with every entry but Isolate out of it (`canvas-menu` in the stylesheet), in place of
+  the browser's own menu, and leaves the selection as it is; on any other view, or outside the
+  canvas (a toolbar, a section header), the browser's menu shows. The entry reads **Isolate**, and
+  **Turn isolate off** while isolate is on; with nothing selected, choosing it says so and leaves
+  isolate off, as the switch does.
   A click on empty space leaves the selection, its anchor, the pills and the search box as
   they were, since it can be an accident. A **double click** on empty space clears them: the
   additions, the anchor, and the anchor's text in the box (a pill's query, a search typed in
@@ -693,10 +708,13 @@ to `127.0.0.1` only.
   action reads its target cards through one reader (`bulkTargets`), and a bulk popup acts on
   the cards it held when it opened. **Esc** steps the selection back one stage at a time:
   the first Esc drops every addition at once and leaves the anchor, the next drops the
+  anchor. With isolate on, a stage comes before those: Esc turns isolate off and gives the box
+  its text back (see **Isolate**), so the steps are isolate off, then every addition, then the
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
   closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection, and away from the box Esc no longer clears it. An open search panel takes
+  selection, and away from the box Esc no longer clears it (while isolated, Esc in the box turns
+  isolate off instead of clearing it). An open search panel takes
   Esc before the step and closes (a suggestion list closes before the panel), and a pill
   the step drops, the added ones first and then the anchor's, goes out of the box with it,
   so a box grown to `review: | blocked:` is back at `review:` after the first Esc and
@@ -736,8 +754,9 @@ to `127.0.0.1` only.
   in the browser per board, in the board's own `prefs` entry, and the preferences sheet
   shows and sets it. An open panel adds nothing to the header's height, and a press
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
-  four regions, drawn on their own: one for slices (empty so
-  far), the **pill section** with its fold control, a divider, and a foot (empty so far).
+  four regions, drawn on their own: the **slice section** (next entry) with its fold control,
+  the **pill section** with its fold control, a divider, and a foot that holds the **Isolate**
+  switch (see Isolate).
   The pill section lists the built-in pills, blocked, review and waiting, in that order,
   each with a count of the cards its query matches, done cards included. The counts are
   taken over the cards the view shows after its status pills and the Archive pill and
@@ -755,13 +774,23 @@ to `127.0.0.1` only.
   in the box; a right-click on the soloed pill turns every pill off, the pills' default
   (the status pills' default is all on, so theirs turns all back on). The first pill on
   is the **anchor** of the selection and later ones are additions, so Esc takes the later
-  pills out first and then the anchor. A pill is on while its query is the anchor or an
+  pills out first and then the anchor. The `m` key steps through the pills: each press
+  turns on the next pill alone, as a right-click does, so the box holds its query alone, in
+  the panel's order: off, blocked, review, waiting, then the board's own pills, then off
+  again (that last step is the right-click on the soloed pill, every pill off). Shift+m
+  steps backwards; with none on or several on it starts from the first pill (Shift+m, from
+  the last), and a pill that holds a query an earlier pill holds is the same step. It
+  works in every view, the panel open or closed, and a value pill behind a **+N more**
+  button is shown when the step reaches it. It reads the shared key guard, so it does
+  nothing while a text field has focus or a card menu, a dialog, the notifications panel or
+  the preferences sheet is up; a chord (Ctrl, Cmd, Alt) or a held key is not it. A pill is
+  on while its query is the anchor or an
   addition, and is announced as pressed (`aria-pressed`); typing in the box, or clearing
   it, turns off every pill whose query the box no longer holds (in the Graph the typed
   text becomes the anchor). A pill's anchor is not a typed search, so it
   stays the anchor when the Graph is left. With the panel closed, a chip inside the box
-  counts what is on and its accessible name says what (`1 on: review`); with nothing on
-  there is no chip. The pill section folds with its fold control for the visit, and the
+  counts what is on and its accessible name says what (`1 on: review`), and the chip's
+  hover text says it too; with nothing on there is no chip. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
@@ -777,6 +806,41 @@ to `127.0.0.1` only.
   never the status pills' classes. The list and its counts are worked out in `pills.js`,
   which needs no other module so that the snapshot can embed it, and the box grows and
   shrinks through the search module's `searchAddAlt` and `searchRemoveAlt`.
+- **Slice section** — the first region of the search panel lists the board's slices, top to
+  bottom: first the tiers some card of the board is in (live or archived; a tier no card is in
+  is left out), each with the icon its type has in the config's `types:` list, then every
+  depth (`depth 0`, `depth 1`, ...). Each entry shows its count, taken over the cards the view
+  shows after its status pills and the Archive pill and before the search box and the run, so
+  setting a run or turning a pill on leaves every count as it was and a run never zeroes the
+  entries needed to grow it again. The entries in the **run** are pressed (`aria-pressed`), and
+  each entry's accessible name states its label, its count and whether it is in the run, such
+  as `epic, 3 cards, in the run`. The run is the `slice:` term at the top level of the query in
+  the box, so a term edited by hand updates the entries at once; a run that covers every slice
+  writes no term, and a single unknown name, which cuts nothing, shows every entry as pressed.
+  A click on an entry outside the run grows the run to it; a click on an end of the run drops
+  that end; a click on a run of one brings every slice back; a click inside the run that is
+  not an end changes nothing. A right-click keeps only that slice, and so do the context-menu
+  key and Shift+F10 on a focused entry. The term is written through the search module's
+  `searchSetSlice`: a run set on a query that holds `|` brackets the query, so
+  `tags:ui | #12` becomes `(tags:ui | #12) slice:goal..objective` and the run cuts all of it, not
+  only the last group; a run set again replaces the one there, and a run that reaches an end
+  of the list leaves that end open (`slice:epic..`). A run is not an alternative of the box, so
+  turning a pill on or off, or soloing it, leaves the run where it stands. In the Graph the
+  run's term hides the cards outside it while the rest of the query lights (see the Graph view
+  entry), and a typed search stays the anchor, following the box. **Keys:** `[` moves the
+  bottom of the run up and `]` moves it down, `{` moves its top up and `}` moves it down, in
+  every view and with the search panel open or closed. Each stops at the ends of the axis, and
+  the top never passes the bottom. They read the shared key guard, so they do nothing while a
+  text field (the search box too) has focus or while a card menu, a dialog, the notifications
+  panel or the preferences sheet is up, and a chord (Ctrl, Cmd, Alt) is not them (AltGr, which
+  types the brackets on a layout with none of its own, is not a chord). With the panel
+  closed, the chip counts a run that cuts and its name says so (`1 on: slice goal..objective`). The
+  section folds with its fold control for the visit, and the preferences sheet's **Slice
+  section starts folded** (on by default) says how it starts. The entries are `.slice-entry`
+  buttons, never the pills' classes, built once and updated in place by every render (the
+  poll's included), so an entry that has focus keeps it; Tab reaches the fold control and
+  every entry, and Enter and Space act as a click. The list and the arithmetic of the run are
+  worked out in `slice-run.js`, which needs no other module so that the snapshot can embed it.
 - **Board pills** — the pill section also lists the board's own pills, after blocked, review
   and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
   query, or a label and a query, shown as its label (the board answer carries them as
@@ -795,6 +859,64 @@ to `127.0.0.1` only.
   focus across the poll and its count changes under it. The chip counts a pill that is on
   even while the button hides it. Next up is not built in: it is a pill a board defines, such
   as `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
+- **Isolate** — the foot of the search panel holds the **Isolate** switch (`#isolate-switch`, a
+  button with `role="switch"` whose `aria-checked` says on or off; Tab reaches it, and Enter and
+  Space act as a click), and the `i` key flips it. The key reads the shared key guard, so it does
+  nothing while a text field has focus or a card menu, a dialog, the notifications panel or the
+  preferences sheet is up; the panel is no popup, so `i` works with it open, and a chord (Ctrl,
+  Cmd, Alt), Shift or a held key is not it. A click on the switch never clears a selection.
+  Turning isolate on writes the selection into the search box as `part | part | ...`, each part
+  by its criterion rather than as a frozen list of cards, so a card that comes to match a query
+  part joins on the next poll: a card is `#12`, a path `path:40`, a tree `tree:40`, and a query
+  is its own text, in brackets when it holds `|` or spaces (`(tags:ui status:doing)`). A card,
+  the path through card 40 and the `grill` tag make `#12 | path:40 | tags:grill`; a query part
+  with a card taken out of it is already its other cards (see Multi-select), so it is written as
+  them. The text the box held is kept, and so is a run of slices in it, applied to the whole of
+  the isolated text, because the selection only covers the cards the view shows. With nothing to
+  write (nothing selected, or only a half-typed term) the switch stays off and a toast says
+  nothing is selected. While isolate is on, **every view shows only the matches**: the Board,
+  the Map, the Gantt and the Calendar filter by the box as they always do, and the Graph, where
+  a typed search only lights, hides what the box does not match (the Graph's one pure decision
+  about a query, `graphQueryEffect`, takes `isolated`; the renderer is untouched). The Calendar
+  and the Gantt jump to the nearest match when none is on screen, through the box writer's own
+  listener, never on a poll. **Clicks move the anchor only**: a click on a card sets the anchor
+  and leaves the box text and the shown set as they are (in the Graph a plain click clears the
+  box when nothing is isolated, and not now), a click on the empty Graph clears nothing, and so
+  does a double click on empty space. A pill or a slice written while isolated edits the query
+  like a hand edit does: isolate stays on while the box holds a query, and ends when the box is
+  left holding none (the clear button, an emptied box), when the text it kept is not given back.
+  A keystroke typed after isolating keeps the text's leading `#`. With the panel closed the chip
+  says **isolated**, and its name lists what else is on (`2 on: review, isolated`). Turning it
+  off, with the switch, `i` or Esc, gives the box back the text it held, with the run of slices
+  as the box holds it now. **Esc** steps back in three stages: isolate off, then every addition,
+  then the anchor. With the search panel open the first Esc closes the panel and the second turns
+  isolate off; with focus in the box Esc turns isolate off rather than clearing the box, and the
+  browser's own Esc, which clears a search field, is stopped for it. The text is built in the
+  search module (`searchIsolateText`, `searchIsolateBox` and `searchIsolateRestore`), the stages
+  in the selection module (`selectionAfterEscape`, `boxAfterGraphClick`, `isolateAfterWrite`),
+  and the page carries it out in `isolate.js`, which writes the box only through `writeSearch`
+  with the reason `isolate` and never writes the selection.
+  **The menus offer it.** A right-click on a card inside the selection offers **Isolate** in
+  the menu that acts on the selection (`cardMenuFor`, `isolate`), which does what the switch
+  does, and the menu of a card outside the selection and the card details' own menu do not offer
+  it. A right-click on the empty Graph or Map canvas opens a menu of that one entry (see
+  Multi-select). The entry mirrors the switch: it reads **Isolate**, and **Turn isolate off**
+  while isolate is on, and with nothing selected it says so and changes nothing.
+  **The link carries it.** While isolate is on the address holds a second parameter beside `q`,
+  `isolate=1`, so the address is `?q=%2312+%7C+%235&isolate=1` for the box `#12 | #5`. It is written
+  by the box's own address listener (see Deep links), as the box changes and never as a history
+  entry; it is dropped when isolate is off and when the box holds no query, since an isolate with
+  no query is nothing. A reload keeps isolate on: the link opens with the switch on, the box
+  text, the address and the chip that says isolated, and so does a link opened in another
+  browser, where the Graph, with no dot dimmed, and every other view show only the isolated set.
+  The text the box held before isolating is kept in the browser per board (`localStorage`, the
+  board's `isolate.kept` entry, beside its other remembered choices), with the isolate text it
+  goes with, and given back when isolate is turned off after the reload; where it is unknown (no
+  record, storage that is blocked, or a record kept for another isolate) the box ends up empty.
+  The page works without browser storage. Opening a card while isolated keeps the parameter,
+  and Back and Forward bring the entry they land on in line with the box, isolate included.
+  A link with `isolate=1` and no usable `q` opens with isolate off, and any value but `1` is no
+  request.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
@@ -810,7 +932,9 @@ to `127.0.0.1` only.
   Map's rich row and the card detail, whose scope line says "Archived leaves count as done."
   or "Archived leaves are left out." A value an earlier visit saved under the retired
   `rollup.archived` key is not read, so a browser that kept `false` there counts archived
-  leaves again and the sheet shows the toggle on. **Pill section starts folded** is off by
+  leaves again and the sheet shows the toggle on. **Slice section starts folded** is on by
+  default: it says how the search panel's slice section starts, and the section's own fold
+  control still folds it for the visit. **Pill section starts folded** is off by
   default: it says how the search panel's pill section starts, and the section's own fold
   control still folds it for the visit. **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
@@ -896,7 +1020,9 @@ to `127.0.0.1` only.
   Both read one **key guard** (`key-guard.js`): a typing check (a text field, a text area,
   a select or an editable element has focus) and a surface check (an open card menu, an
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
-  does `p`, which flips the search panel's switch (see Search panel); Ctrl+F
+  does `p`, which flips the search panel's switch (see Search panel), and `m`, which
+  steps through the pills, and `i`, which flips Isolate (see Isolate), and so do `[`, `]`, `{` and `}`, which move the run of slices
+  (see Slice section); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the
@@ -921,7 +1047,8 @@ to `127.0.0.1` only.
   the poll.
 - **Deep links** — loading the app with `?card=<id>`, `?q=<search>` and/or
   `?view=<board|map|gantt|calendar|graph>` in the URL switches to the named view, filters the
-  board by the query, opens that card's detail popup, and scrolls its representation
+  board by the query (and, with `isolate=1` beside a query, shows it as an isolate, see
+  Isolate), opens that card's detail popup, and scrolls its representation
   into view (found by `data-id` in whichever view container is now active, same lookup
   the shared card-el grammar's click handler uses) — a bookmarkable or shared link
   straight to one card, or to a set of them. **The three keys are independent**: `card`
@@ -948,7 +1075,9 @@ to `127.0.0.1` only.
     `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, a `?q=`
     link, and a click in the Graph that drops a typed search) replaces `q` with the box's
     text, and an empty
-    or blank box drops `q`; `card` and `view` ride along untouched. The address replaces
+    or blank box drops `q`; `card` and `view` ride along untouched. While isolate is on,
+    `isolate=1` stands beside `q` (and goes with it when the box is emptied), written by the
+    same listener. The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
     when `q` would change. A browser may refuse a replacement when there are too many in

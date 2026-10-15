@@ -55,9 +55,24 @@ function parseDeepLink(search) {
   };
 }
 
+// Whether the link asks for isolate: `isolate=1` beside a query. The link carries isolate the
+// way the address does (nextSearchAddress, card-history.js), as a second parameter after `q`.
+// Isolate is the box's query shown on its own, so a link with the parameter and no usable
+// query (parseDeepLink's rule: blank reads as absent) opens with isolate off. Any value but 1
+// is no request. Kept apart from parseDeepLink, whose result is the three keys that open
+// something; this one only says how the query is shown.
+function deepLinkIsolates(search) {
+  if (typeof search !== 'string' || !search) return false;
+  let params;
+  try { params = new URLSearchParams(search); } catch (e) { return false; }
+  const q = params.get('q');
+  return params.get('isolate') === '1' && typeof q === 'string' && q.trim() !== '';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDeepLink, DEEP_LINK_VIEWS };
+  module.exports = { parseDeepLink, deepLinkIsolates, DEEP_LINK_VIEWS };
 } else {
   window.parseDeepLink = parseDeepLink;
+  window.deepLinkIsolates = deepLinkIsolates;
   window.DEEP_LINK_VIEWS = DEEP_LINK_VIEWS;
 }

@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { parseDeepLink, DEEP_LINK_VIEWS } = require('../web/deep-link');
+const { parseDeepLink, deepLinkIsolates, DEEP_LINK_VIEWS } = require('../web/deep-link');
 
 // ?card=<id>&q=<search>&view=<board|map|gantt|calendar|graph> deep links. Pure
 // querystring parse only — app.js's DOMContentLoaded handler does the DOM part
@@ -152,4 +152,33 @@ test('consumeDeepLink resolves the card only when the link asked for one', () =>
     CONSUME.indexOf('link.q') < CONSUME.indexOf('link.hasCard'),
     'q must be applied before the card is resolved, so a bad card id still delivers the query',
   );
+});
+
+// --- isolate in the link ----------------------------------------------------------------
+//
+// While isolate is on the address carries `isolate=1` beside q (nextSearchAddress, card-history.js).
+// Whether a link asks for it is told apart from what parseDeepLink returns, which stays the three
+// keys that open something.
+
+test('deepLinkIsolates: isolate=1 beside a query asks for isolate, in either order', () => {
+  assert.strictEqual(deepLinkIsolates('?q=%232+%7C+%235&isolate=1'), true);
+  assert.strictEqual(deepLinkIsolates('?isolate=1&q=status%3Adoing&view=graph'), true);
+  assert.strictEqual(deepLinkIsolates('?card=4&q=%234&isolate=1'), true);
+});
+
+test('deepLinkIsolates: no query, a blank one, or a value other than 1 asks for nothing', () => {
+  for (const search of ['', '?isolate=1', '?isolate=1&view=board', '?q=&isolate=1', '?q=%20%20&isolate=1', '?q=%232', '?q=%232&isolate=0', '?q=%232&isolate=true', '?q=%232&isolate=', '?q=%232&isolate']) {
+    assert.strictEqual(deepLinkIsolates(search), false, search);
+  }
+});
+
+test('deepLinkIsolates: a string that is no querystring, or no string, asks for nothing', () => {
+  assert.strictEqual(deepLinkIsolates(null), false);
+  assert.strictEqual(deepLinkIsolates(undefined), false);
+  assert.strictEqual(deepLinkIsolates(42), false);
+});
+
+test('the isolate parameter does not change what parseDeepLink returns', () => {
+  assert.deepStrictEqual(parseDeepLink('?q=%232&isolate=1'), { hasCard: false, id: null, q: '#2', view: null });
+  assert.strictEqual(parseDeepLink('?isolate=1'), null, 'a link with only the parameter is not a deep link');
 });

@@ -258,11 +258,16 @@ function graphLit(model, ids, lines) {
 // alternative is spliced into the query by the parser, so it counts as on its own.
 // The cut is the search module's, over the whole board (`pool`, live and
 // archived) and the board's hierarchy (in `ctx`), so a card sits in the same slice
-// whatever the view draws. Isolate, which shows only the lit cards, changes this
-// decision and nothing else.
-function graphQueryEffect(match, pool, ctx) {
+// whatever the view draws. Isolate, which shows only the selection, changes this
+// decision and nothing else: `opts.isolated` makes the whole query a cut, as it is in
+// every other view. The box then holds the isolate text, so the cards it matches (the
+// slice: term's cut among them) are the ones drawn and the ones lit, and a query that
+// matches nothing draws nothing. With no query there is nothing to isolate, so nothing
+// is hidden.
+function graphQueryEffect(match, pool, ctx, { isolated = false } = {}) {
   const ids = match && match.ids ? match.ids : null;
   const terms = (match && match.terms) || [];
+  if (isolated && ids) return { visibleIds: ids, litIds: ids };
   const slices = terms.filter((t) => t && t.field === 'slice');
   if (!ids || !slices.length) return { visibleIds: null, litIds: ids };
   if (!pool) throw new Error('graphQueryEffect: a slice: term needs the board to cut');

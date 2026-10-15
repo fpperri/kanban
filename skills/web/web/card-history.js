@@ -44,7 +44,7 @@ function cardIdFromSearch(search) {
 // should do to CURRENT_SEARCH (location.search, as a plain string so this
 // stays testable without a DOM). Returns the new search string to push
 // (leading "?", or "" for none of the params survive), preserving every
-// OTHER param the URL already carries (q, view, ...) — only `card` changes.
+// OTHER param the URL already carries (q, isolate, view, ...) — only `card` changes.
 // Returns null instead when CURRENT_SEARCH already names this exact target,
 // open or closed alike: the caller must not push a duplicate step.
 function nextCardHistorySearch(currentSearch, targetId) {
@@ -59,23 +59,35 @@ function nextCardHistorySearch(currentSearch, targetId) {
 // What the address (CURRENT_SEARCH, location.search as a plain string) should
 // be once the search box holds BOX_TEXT: `q` is the box's text, or gone when
 // the box is empty or blank, and every OTHER parameter (card, view, and
-// whatever a later one adds) stays as it was. Returns the new search string
+// whatever a later one adds) stays as it was. ISOLATED says whether isolate is on:
+// then `isolate=1` stands beside `q`, and it is gone when isolate is off or the box
+// holds no query (an isolate with no query is nothing). An ISOLATED left undefined
+// leaves the parameter as it is. Returns the new search string
 // (leading "?", or "" when nothing is left), or null when the address already
 // matches — the caller replaces the history entry only when this is not null,
 // so fast typing never hammers the browser's limit on history replacements.
 // The text goes in verbatim, trailing spaces included, and is encoded by
 // URLSearchParams, so "#", "|", quotes and spaces never become a fragment or
 // get mangled; parseDeepLink trims on the way back in.
-function nextSearchAddress(currentSearch, boxText) {
+function nextSearchAddress(currentSearch, boxText, isolated) {
   const params = new URLSearchParams(currentSearch || '');
   const text = typeof boxText === 'string' ? boxText : '';
+  let changed = false;
   if (text.trim()) {
-    if (params.get('q') === text) return null;
-    params.set('q', text);
-  } else {
-    if (!params.has('q')) return null;
+    if (params.get('q') !== text) { params.set('q', text); changed = true; }
+  } else if (params.has('q')) {
     params.delete('q');
+    changed = true;
   }
+  if (isolated !== undefined) {
+    if (isolated && text.trim()) {
+      if (params.get('isolate') !== '1') { params.set('isolate', '1'); changed = true; }
+    } else if (params.has('isolate')) {
+      params.delete('isolate');
+      changed = true;
+    }
+  }
+  if (!changed) return null;
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

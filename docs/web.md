@@ -177,6 +177,13 @@ spaces AND together (`tags:ui status:doing`), and five forms go further, one exa
 - `waiting:` finds the cards waiting for at least one card that is not done, as `blocked:` and `review:` find the stickers.
 - `slice:` cuts every view to a run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards with no tier: `slice:objective..2` runs from the objective tier down to depth 2, `slice:goal` is that one slice, and `slice:goal..` and `slice:..objective` leave an end open. A reversed pair is swapped, an end the board does not have is left open, and a board with no hierarchy cuts by depth. It combines like any term: `tags:ui (slice:goal | #12)`.
 
+The box suggests slices as you type: after `slice:` and after `..` a list under the box
+shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
+to the deepest card with no tier, narrowed to the names that start with what you have typed, and picking one
+writes the whole term (`slice:goal..objective`). A tier named with a space is written
+quoted, the quote holding both ends (`slice:"big goal..2"`). The tooltip of a Graph
+caption shows the same kind of term.
+
 A `|` counts only as a token of its own and a bracket only at a token's edge, so `a|b`
 and `fix(auth)` stay literal text, and so does `waiting:3`. Half-typed input never
 throws, and an empty alternative is dropped rather than matching every card. Clicking a
@@ -204,9 +211,13 @@ matches leave the selection. A right-click solos a pill, so it alone is on and t
 holds its query alone, and a right-click on the soloed pill turns every pill off (the
 status pills turn all back on, since they start all on). The first pill on is the anchor
 of the selection and later ones are additions, so Esc takes the later pills out first and
-then the anchor. A pill is on while its query is the anchor or an addition, and is
+then the anchor. The `m` key steps through the pills: each press turns on the next pill
+alone, so the box holds its query alone, in the panel's order, off, blocked, review,
+waiting, then the board's own pills, then off again, and Shift+m steps backwards. It works
+in every view, except while you type in a field or a menu, a dialog, the notifications
+panel or the preferences sheet is up. A pill is on while its query is the anchor or an addition, and is
 announced as pressed, and typing in the box turns it off. With the panel
-closed, a chip in the box counts what is on, and its name for a screen reader says which.
+closed, a chip in the box counts what is on, and its name for a screen reader, and its hover text, say which.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
@@ -215,6 +226,28 @@ focus is in it, or steps the selection back, which also takes the added pills ba
 the box. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
+
+**Slice section** — the first region of the search panel lists the board's slices, top to
+bottom: the tiers some card of the board is in, each with the icon its type has in the
+config, then every depth (`depth 0`, `depth 1`, ...). Each entry shows how many of the
+cards the view shows it holds, counted after the status pills and Archive and before the
+search box and the run, so setting a run never zeroes the entries you need to grow it again.
+The entries in the run are pressed, and each one's name for a screen reader says its label,
+its count and whether it is in the run. The run is the `slice:` term in the search box, so
+typing one updates the entries, and a run that covers every slice writes no term. A click
+on an entry outside the run grows the run to it, a click on an end of the run drops that
+end, a click on a run of one brings every slice back, and a click inside the run that is not
+an end changes nothing. A right-click keeps only that slice, and so do the context-menu key
+and Shift+F10 on a focused entry. A run set on a query that holds `|` brackets the query, so
+`tags:ui | #12` becomes `(tags:ui | #12) slice:goal..objective` and the run cuts all of it. In the
+Graph the run hides the cards outside it while the rest of the query lights. The keys `[`
+and `]` move the bottom of the run up and down, and `{` and `}` move its top, in every view
+and with the panel open or closed; each stops at the ends, and the top never passes the
+bottom. They stand still while you type in a field (the search box included) or a menu, a
+dialog, the notifications panel or the preferences sheet is up. With the panel closed, the
+chip counts a run that cuts. The section folds, and *Slice section starts folded* in the
+preferences sheet (on by default) says how it starts. Tab reaches the fold control and every
+entry, and Enter and Space act as a click.
 
 **Board pills** — the pill section also lists the board's own pills, after blocked, review
 and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
@@ -228,6 +261,35 @@ and a value with a space stays one term. The first eight values of a field show,
 **+N more** button reveals the rest and folds them back. A pill that has focus keeps it
 across the poll. Next up is not built in: it is a pill a board defines, such as
 `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
+
+**Isolate** — the foot of the search panel holds the **Isolate** switch, and the `i` key flips
+it, except while you type in a field or a menu, a dialog, the notifications panel or the
+preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
+selection into the search box as `part | part | ...`, each part by what it names, such as
+`#12 | path:40 | tags:grill` for a card, the path through card 40 and the `grill` tag, so a card
+that comes to match joins on the next refresh. The text the box held is kept. The Board, Map,
+Gantt and Calendar show only the matches, and so does the Graph, where a typed search only
+lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
+on, a click on a card moves the anchor and leaves the box and the shown cards as they are, and a
+click or a double click on empty space clears nothing. With the panel closed, the chip says
+*isolated*. Turn it off with the switch, `i` or Esc and the box gets its text back. Esc steps
+back in three stages: isolate off, then the additions, then the anchor; with the panel open the
+first Esc closes the panel, and the second turns isolate off. The switch is announced as on or
+off, and Tab reaches it, and Enter and Space flip it.
+
+Isolate is in the menus too. A right-click on a card inside the selection offers **Isolate** in
+the menu that acts on the selection, and it does what the switch does; the menu of a card outside
+the selection, and the card details' own menu, do not offer it. A right-click on the empty Graph
+or Map canvas, never on a card, a link or a control, opens a small menu with that one entry in
+place of the browser's own. Both read **Turn isolate off** while isolate is on. With nothing
+selected the entry says so, as the switch does.
+
+The link carries it. While isolate is on, the address holds a second parameter beside `q`,
+`isolate=1`, written as the box changes and never as a history entry. A reload, or a link opened
+in another browser, opens isolated: the Graph and every other view show only the isolated set.
+The text the box held before isolating is kept in your browser, per board, so turning isolate
+off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
+the parameter and no query opens with isolate off.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
@@ -243,7 +305,8 @@ blocked reason, type, the date triad, and a Markdown description.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
-archive, restore, delete, or add a dependency tree/path to the selection. A
+archive, restore, delete, isolate (inside the selection only), or add a dependency tree/path to
+the selection. A
 right-click on a card outside the selection opens the menu for that card alone,
 leading with Peek (open its details) and Add to selection, and leaves your
 selection as it was. The same selection grammar works in every view, and
@@ -252,7 +315,8 @@ right-clicking inside an open card opens the same menu for that card, without Pe
 A click on empty space never touches the selection, since it can be an accident. A
 double click on empty space clears it: the additions, the anchor, and the anchor's text in
 the box (a pill's query or a search typed in the Graph), so the pill goes off. Esc still steps back
-one stage at a time: a popup, then the additions, then the anchor. Where a double click
+one stage at a time: a popup, then the additions, then the anchor, and isolate goes off before
+the additions. Where a double click
 already does something, as it does on the Calendar's empty days and time slots, it does that
 and the selection stays.
 
@@ -272,6 +336,8 @@ never written to the board's files.
 - *Count archived leaves as done* is on by default. Off, the board's tiles, the Map's
   cards and the card detail (whose scope line says so) leave archived leaves out of the
   count.
+- *Slice section starts folded* is on by default. It says how the search panel's slice
+  section starts; its fold control still unfolds it for the visit.
 - *Pill section starts folded* is off by default. It says how the search panel's pill
   section starts; its fold control still folds it for the visit.
 - *Panel opens when the search box is focused* is on by default. It is the switch at the

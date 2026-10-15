@@ -25,7 +25,9 @@
 // quote or bracket reads to the end, a stray closing bracket is ignored.
 // searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
 // interface for code that writes the box; searchHasAlt/searchAddAlt/searchRemoveAlt
-// are its other half, for a query that joins the box as one more alternative.
+// are its other half, for a query that joins the box as one more alternative, and
+// searchSetSlice is its third, for the run of slices the slice section writes (it reads the
+// run off the parse: the top-level terms with the field slice).
 //
 // The terms:
 //   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
@@ -368,12 +370,71 @@ function searchBracket(raw) {
   return alts.length === 1 && alts[0].length <= 1 ? text : `(${text})`;
 }
 
+// --- The run of slices. The slice section writes its run as a slice: term at the top
+// level of the query: one of the terms ANDed over the whole of it, as the parse reads
+// them, which is the same term the Graph hides by (graphQueryEffect). A slice: term
+// inside a bracket that holds a |, or in one alternative of a query that holds one, is
+// the query's own and stays where it is. A run added to a query that holds | brackets
+// that query, or it would cut only the last group. The run is not an alternative of the
+// box: the alternatives below (the pills' side) set it apart and put it back.
+
+// The alternatives of `alts` that hold at least one term: the parser drops the others.
+function searchLiveAlts(alts, text) {
+  return alts.filter((alt) => alt.some((item) => (item.group
+    ? searchLiveAlts(item.group, text).length > 0
+    : !!parseTerm(text.slice(item.start, item.end)))));
+}
+
+// The query split into its top-level slice: terms, as typed (a value still open in a
+// quote is shut), and the rest of it. Where a query has two or more live alternatives
+// nothing in it is at the top level. The rest is written as its alternatives, with an
+// outer bracket opened ((a | b) slice:x leaves a | b); a query with no such term is its
+// own rest, as it was typed.
+function searchSplitSlice(raw) {
+  const text = String(raw == null ? '' : raw);
+  const slices = [];
+  const strip = (alts) => {
+    if (searchLiveAlts(alts, text).length > 1) return alts;
+    return alts.map((alt) => alt.flatMap((item) => {
+      if (item.group) return [{ group: strip(item.group) }];
+      if (!/^slice:/i.test(text.slice(item.start, item.end))) return [item];
+      slices.push(searchItemText(item, text));
+      return [];
+    }));
+  };
+  const left = strip(parseSearchAlts(lexSearch(text).tokens));
+  if (!slices.length) return { rest: text, slices };
+  return { rest: searchAltUnwrapped(searchRenderAlts(left, text)), slices };
+}
+
+// What searchSplitSlice set apart, put back: after the rest, bracketed when the rest
+// has more than one alternative.
+function searchJoinSlice(rest, slices) {
+  const tail = slices.join(' ');
+  if (!tail) return rest;
+  const alts = searchAltTexts(rest);
+  if (!alts.length) return tail;
+  return `${alts.length > 1 ? `(${alts.join(' | ')})` : alts[0]} ${tail}`;
+}
+
+// The query with its top-level slice: terms replaced by one for `value` (the text after
+// `slice:`), or by none when the value is empty. The rest of the query keeps its meaning,
+// and a query with nothing to change comes back as it was.
+function searchSetSlice(raw, value) {
+  const text = String(raw == null ? '' : raw);
+  const { rest, slices } = searchSplitSlice(text);
+  const run = String(value == null ? '' : value).trim() ? [searchTermText('slice', value)] : [];
+  if (!slices.length && !run.length) return text;
+  return searchJoinSlice(rest, run);
+}
+
 // --- The alternatives of the box. A query joins the box as one more alternative
 // (`review: | blocked:`) and leaves it the same way, whole, whatever else the
 // box holds, since `|` binds loosest. An alternative that holds spaces is
 // bracketed once the box holds more than one, so it reads as one unit; a
 // bracket and what is inside it are one alternative; a query with a | of its
-// own counts as its parts.
+// own counts as its parts. A run of slices (above) is not one: it stays out of them and
+// is put back where it was.
 
 // The box as a list of its alternatives, each as text; the empty ones are left out.
 function searchAltTexts(raw) {
@@ -406,7 +467,7 @@ function searchAltsText(list) {
 function searchHasAlt(raw, term) {
   const wanted = searchAltTexts(searchTermString(term)).map(searchAltKey);
   if (!wanted.length) return false;
-  const have = new Set(searchAltTexts(raw).map(searchAltKey));
+  const have = new Set(searchAltTexts(searchSplitSlice(raw).rest).map(searchAltKey));
   return wanted.every((key) => have.has(key));
 }
 
@@ -415,7 +476,8 @@ function searchHasAlt(raw, term) {
 // the term is empty, the text comes back as it was.
 function searchAddAlt(raw, term) {
   const text = String(raw == null ? '' : raw);
-  const have = searchAltTexts(text);
+  const { rest, slices } = searchSplitSlice(text);
+  const have = searchAltTexts(rest);
   const keys = new Set(have.map(searchAltKey));
   const fresh = [];
   for (const alt of searchAltTexts(searchTermString(term))) {
@@ -424,7 +486,7 @@ function searchAddAlt(raw, term) {
     keys.add(key);
     fresh.push(alt);
   }
-  return fresh.length ? searchAltsText(have.concat(fresh)) : text;
+  return fresh.length ? searchJoinSlice(searchAltsText(have.concat(fresh)), slices) : text;
 }
 
 // Takes `term` out of the box as the alternative it is, whatever else the box
@@ -435,9 +497,56 @@ function searchRemoveAlt(raw, term) {
   const text = String(raw == null ? '' : raw);
   const gone = new Set(searchAltTexts(searchTermString(term)).map(searchAltKey));
   if (!gone.size) return text;
-  const have = searchAltTexts(text);
+  const { rest, slices } = searchSplitSlice(text);
+  const have = searchAltTexts(rest);
   const left = have.filter((alt) => !gone.has(searchAltKey(alt)));
-  return left.length === have.length ? text : searchAltsText(left);
+  return left.length === have.length ? text : searchJoinSlice(searchAltsText(left), slices);
+}
+
+// --- Isolate. Switching it on writes the selection into the box as `part | part | ...`
+// (the isolate text), each part by its criterion rather than a frozen list of cards, so a
+// card that comes to match a query part joins on the next poll, and the address carries it.
+// A card is `#id`, a path `path:id`, a tree `tree:id`; a query is its own text, in brackets
+// when it holds a | or spaces (searchBracket, so the grammar's token-edge rules apply). A
+// query part that is not a term yet (`status:`) selects nothing, so it writes nothing: a
+// lone half-typed term would otherwise isolate every card. A query part with a card taken
+// out is already its other cards by then (selection.js removeCard), so it is written as
+// them. `parts` are the selection's parts, { kind: 'card' | 'path' | 'tree', id } or
+// { kind: 'query', text }. What the text matches is what the selection resolves to over
+// the whole board.
+
+function searchIsolatePartText(part) {
+  if (!part) return '';
+  if (part.kind === 'card') return `#${Number(part.id)}`;
+  if (part.kind === 'path' || part.kind === 'tree') return `${part.kind}:${Number(part.id)}`;
+  if (part.kind !== 'query') return '';
+  const text = String(part.text == null ? '' : part.text).trim();
+  return parseSearchQuery(text).length ? searchBracket(text) : '';
+}
+
+function searchIsolateText(parts) {
+  return (Array.isArray(parts) ? parts : []).map(searchIsolatePartText).filter(Boolean).join(' | ');
+}
+
+// What the box holds while isolated: the isolate text, with the run of slices the box held
+// put back after it (searchSplitSlice, searchJoinSlice). The cut stays in effect, because
+// the selection only covers the cards the view shows and a card the cut hides is not in
+// it. The rest of the previous text goes; the page remembers it. No part to write, no text.
+function searchIsolateBox(previous, parts) {
+  const text = searchIsolateText(parts);
+  if (!text) return '';
+  return searchJoinSlice(text, searchSplitSlice(previous).slices);
+}
+
+// What the box holds when isolate goes off: the text it held before, exactly as it was,
+// except that the run of slices is the one the box holds now, since the slice section may
+// have moved it while isolated and the cut is not part of what isolate takes away. A cut
+// that did not move leaves the previous text untouched, as it was typed.
+function searchIsolateRestore(current, previous) {
+  const was = searchSplitSlice(previous);
+  const now = searchSplitSlice(current).slices;
+  if (now.join(' ') === was.slices.join(' ')) return String(previous == null ? '' : previous);
+  return searchJoinSlice(was.rest, now);
 }
 
 function termMatchesCard(term, card) {
@@ -536,6 +645,18 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
   return changed ? resolved : terms;
 }
 
+// The slices of the whole board, { axis, byId } (the slices module's), built once
+// for a pass through `memo` when it is given. A cut and the suggestions the box
+// offers for one read it alike, so they cannot disagree about what a slice is. null
+// when the page has not loaded the slices and nesting modules.
+function searchSlices(cards, ctx, memo) {
+  if (typeof SLM.sliceCards !== 'function' || typeof NSM.depthMap !== 'function') return null;
+  const build = () => SLM.sliceCards(cards, ctx && ctx.hierarchy, NSM.depthMap(cards, ctx));
+  if (!memo) return build();
+  if (!memo.slices) memo.slices = build();
+  return memo.slices;
+}
+
 // Where an end of a cut sits on the axis (a tier by name, a depth by number),
 // -1 when the axis has no such slice or the end is empty.
 function sliceEndIndex(axis, text) {
@@ -548,9 +669,9 @@ function sliceEndIndex(axis, text) {
 // so a value with neither end known is no cut. A page that has not loaded the
 // slices module (the snapshot, until it embeds it) cuts nothing.
 function sliceIds(cards, value, ctx, memo) {
-  if (typeof SLM.sliceCards !== 'function' || typeof NSM.depthMap !== 'function') return new Set(cards.map((c) => Number(c.id)));
-  if (!memo.slices) memo.slices = SLM.sliceCards(cards, ctx && ctx.hierarchy, NSM.depthMap(cards, ctx));
-  const { axis, byId } = memo.slices;
+  const slices = searchSlices(cards, ctx, memo);
+  if (!slices) return new Set(cards.map((c) => Number(c.id)));
+  const { axis, byId } = slices;
   const dots = value.indexOf('..');
   let from = sliceEndIndex(axis, dots < 0 ? value : value.slice(0, dots));
   let to = sliceEndIndex(axis, dots < 0 ? value : value.slice(dots + 2));
@@ -567,6 +688,49 @@ function filterCards(cards, terms, ctx) {
   if (!terms.length) return cards;
   const resolved = resolveTerms(cards, terms, ctx);
   return cards.filter((card) => cardMatchesQuery(card, resolved));
+}
+
+// The names a slice: term can be written with on this board: the slices of its axis,
+// the tiers of its hierarchy in order, every one it names, then the depths from 0 to
+// the deepest card with no tier. Each is an end the cut reads as it stands, so the box
+// never offers an end that would be left open, and a caption's tip names one of them.
+function searchSliceNames(cards, ctx) {
+  const slices = Array.isArray(cards) ? searchSlices(cards, ctx, null) : null;
+  if (!slices) return [];
+  return slices.axis.map((s) => (s.kind === 'tier' ? s.name : String(s.depth)));
+}
+
+// The suggestions for a slice: token: after `slice:` and after `..`, the board's slice
+// names that start with what is typed there, each written as the whole term it
+// would complete. The caret says which end is being typed: before the dots (or with
+// none) the first, after them the second, and the end under the caret is the one
+// replaced, the other kept as it stands. A name with a space is written quoted, and
+// the quote then holds both ends (`slice:"big goal..objective"`), the one form the
+// parser reads a spaced name in. Nothing for a term already typed in full. `null`
+// when the token is not a slice: one.
+function searchSliceItems(text, token, at, namesOf) {
+  const raw = text.slice(token.start, token.end);
+  const scope = /^slice:/i.exec(raw);
+  if (!scope) return null;
+  const names = namesOf();
+  const quoted = raw[scope[0].length] === '"';
+  const from = token.start + scope[0].length + (quoted ? 1 : 0);
+  const to = token.end - (quoted && !token.open ? 1 : 0);
+  const body = text.slice(from, Math.max(from, to));
+  const pos = Math.max(0, Math.min(at - from, body.length));
+  const dots = body.indexOf('..');
+  const second = dots >= 0 && pos >= dots + 2;
+  const head = second ? body.slice(0, dots + 2) : '';
+  const tail = !second && dots >= 0 ? body.slice(dots) : '';
+  const typed = (second ? body.slice(dots + 2, pos) : body.slice(0, dots >= 0 ? Math.min(pos, dots) : pos)).trim().toLowerCase();
+  const items = [];
+  for (const name of names) {
+    if (!name.toLowerCase().startsWith(typed)) continue;
+    const label = searchTermText('slice', head + name + tail);
+    if (label.toLowerCase() === raw.toLowerCase()) continue;
+    items.push({ value: text.slice(0, token.start) + label + text.slice(token.end), label });
+  }
+  return items;
 }
 
 // The search box's autocomplete dropdown. Pure candidate
@@ -586,6 +750,10 @@ function filterCards(cards, terms, ctx) {
 // card id, not free text, so completing e.g. "tree:@afk" would never match
 // anything.
 //
+// A `slice:` token is the one scoped token that is completed: given the board's
+// cards and context (the arguments filterCards takes) it offers the slice names
+// after the colon and after `..` (searchSliceItems). Without them it offers none.
+//
 // No suggestions (empty array, dropdown stays closed) when:
 // - no token is being typed (nothing typed yet, trailing whitespace, or the
 //   caret is on a bracket or a `|` — same "not-yet-a-term" contract parseTerm
@@ -601,13 +769,15 @@ function filterCards(cards, terms, ctx) {
 // logic needed. `label` is just the new term, undecorated by the text around
 // it, so the menu reads as "here's what this word could become" rather than
 // repeating the whole query back on every row.
-function searchSuggestionItems(raw, caret) {
+function searchSuggestionItems(raw, caret, cards, ctx) {
   const text = String(raw || '');
   const at = Number.isInteger(caret) ? Math.max(0, Math.min(caret, text.length)) : text.length;
   // The token being typed is the text token the caret sits in or at the end of.
   // A bracket, a | or a space is not one, so none of them is completed.
   const token = lexSearch(text).tokens.find((t) => t.kind === 'text' && t.start < at && at <= t.end);
   if (!token) return [];
+  const slices = searchSliceItems(text, token, at, () => searchSliceNames(cards, ctx));
+  if (slices) return slices;
   const segment = text.slice(token.start, token.end);
   if (segment.includes(':') || segment === '"') return [];
   const before = text.slice(0, token.start);
@@ -624,6 +794,8 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
+    searchSplitSlice, searchJoinSlice, searchSetSlice,
+    searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -638,4 +810,10 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchHasAlt = searchHasAlt;
   window.searchAddAlt = searchAddAlt;
   window.searchRemoveAlt = searchRemoveAlt;
+  window.searchSplitSlice = searchSplitSlice;
+  window.searchJoinSlice = searchJoinSlice;
+  window.searchSetSlice = searchSetSlice;
+  window.searchIsolateText = searchIsolateText;
+  window.searchIsolateBox = searchIsolateBox;
+  window.searchIsolateRestore = searchIsolateRestore;
 }

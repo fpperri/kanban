@@ -51,12 +51,22 @@ function isHoverHighlighted(hoveredId, cardId) {
 // a pill's cards included, in the order they were picked. `resolved` is the id
 // set the selection stands for now and is never written to. The card details'
 // own menu (`fromDetail`) has no Peek, the card is already open. Path and Tree
-// are offered only when the subject is one card. Returns
-// { ids, inSelection, peek, add, dependency }.
+// are offered only when the subject is one card. Isolate is offered inside the
+// selection only, since it shows the selection and a card outside it is not part of
+// it, and never in the card details' own menu. Returns
+// { ids, inSelection, peek, add, dependency, isolate }.
 function cardMenuFor(resolved, id, { fromDetail = false } = {}) {
   const inSelection = resolved.has(id);
   const ids = inSelection ? [...resolved] : [id];
-  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1 };
+  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1, isolate: inSelection && !fromDetail };
+}
+
+// The menu a right-click on the empty Graph or Map canvas opens: Isolate alone. It has no
+// card, so no bulk entry, Peek, Add, Path or Tree; `canvas` tells the page to show nothing
+// else. Isolate acts on the selection as it is, whatever it holds (nothing selected says
+// so, as the switch does).
+function canvasMenuFor() {
+  return { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: true, canvas: true };
 }
 
 // Bulk-move rule: the doing entry gate stays PER CARD, and only
@@ -257,13 +267,17 @@ function stepBack(selection) {
   return selection.anchor ? NO_SELECTION : selection;
 }
 
-// What Esc does to the selection state ({ selection, rangeStart }): one stepBack,
-// with the range start kept honest. After the additions go the range start is the
+// What Esc does to the selection state ({ selection, rangeStart, isolate }): three
+// stages. With isolate on, the first Esc turns it off and leaves the selection and
+// the range start exactly as they were (isolate is { previous }, the text the box
+// held before; the caller gives the box that text back). Then one stepBack, with the
+// range start kept honest. After the additions go the range start is the
 // anchor card, as if it had just been clicked, so a Shift range cannot begin at a
 // card that is no longer picked; with no anchor card it is dropped, so a dead
-// selection leaves no invisible range start behind. Nothing picked: the same
-// state comes back, and the caller skips the repaint.
+// selection leaves no invisible range start behind. Nothing picked and no isolate:
+// the same state comes back, and the caller skips the repaint.
 function selectionAfterEscape(state) {
+  if (state.isolate) return { selection: state.selection, rangeStart: state.rangeStart, isolate: null };
   const next = stepBack(state.selection);
   if (next === state.selection) return state;
   const anchor = next.anchor;
@@ -450,6 +464,52 @@ function pillQueriesDropped(before, after) {
     .map((part) => part.text);
 }
 
+// --- Isolate -------------------------------------------------------------------
+// Isolate shows only the selection by writing it into the search box as a query
+// (searchIsolateBox, search.js), so it is no selection state: it is a flag, { previous },
+// the text the box held before, kept while it is on (null while off). A click on a
+// card while it is on moves the anchor and writes nothing to the box, and it ends
+// when the box is left holding no query.
+
+// The text the box holds after a click on a card in the Graph, given the gesture
+// (`action`, from cardClickAction) and whether the selection's anchor was the typed
+// query before and after it. A plain click sets a new anchor and clears the box. Shift
+// or Ctrl keeps the query, unless it took out a card the typed query lit: the query is
+// then its other cards, and the box no longer names the anchor. While isolated the box
+// holds the isolate text, which a click never touches: it moves the anchor only.
+function boxAfterGraphClick(action, { boxText, typedBefore, typedAfter, isolated }) {
+  if (isolated) return boxText;
+  return action === 'select' || (typedBefore && !typedAfter) ? '' : boxText;
+}
+
+// The isolate state after the box was written with `reason`. Isolate is a query in the
+// box, so a write that leaves the box holding none (a hand edit, the clear button, a
+// pill turned off) ends it. Its own writes, turning it on and off, never do: the page
+// ends it itself when it gives the box its text back.
+function isolateAfterWrite(isolate, text, reason) {
+  if (!isolate || reason === 'isolate') return isolate;
+  return String(text == null ? '' : text).trim() ? isolate : null;
+}
+
+// What the browser keeps, per board, while isolate is on: the text the box held before isolating
+// (what turning isolate off gives back) and the isolate text the box held when it was last
+// written, as one JSON string. The text says which isolate the previous text belongs to.
+function isolateRecord(previous, text) {
+  return JSON.stringify({ previous: String(previous == null ? '' : previous), text: String(text == null ? '' : text).trim() });
+}
+
+// The text to give back when isolate comes from a link whose query is `q`: the record's previous
+// text when the record is for that very query, and the empty string when it is unknown (no
+// record, an unreadable one, storage that refused, or a record kept for another isolate), so
+// turning isolate off leaves the box empty rather than restoring an unrelated text.
+function isolatePreviousFrom(raw, q) {
+  if (typeof raw !== 'string') return '';
+  let record;
+  try { record = JSON.parse(raw); } catch (e) { return ''; }
+  if (!record || typeof record.previous !== 'string' || record.text !== String(q == null ? '' : q).trim()) return '';
+  return record.previous;
+}
+
 // The card a click picked on its own, or null: a selection that is one card part,
 // the anchor with no additions. Only such a card lights with its relations; a
 // query or a path that matches one card lights that card alone.
@@ -459,7 +519,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, toggleSelection, pruneSelection, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -482,9 +542,14 @@ if (typeof module !== 'undefined' && module.exports) {
   window.stepBack = stepBack;
   window.selectionAfterEscape = selectionAfterEscape;
   window.pruneSelectionParts = pruneSelectionParts;
+  window.boxAfterGraphClick = boxAfterGraphClick;
+  window.isolateAfterWrite = isolateAfterWrite;
+  window.isolateRecord = isolateRecord;
+  window.isolatePreviousFrom = isolatePreviousFrom;
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
   window.cardMenuFor = cardMenuFor;
+  window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;
   window.dragPlan = dragPlan;
   window.archiveNeedsConfirm = archiveNeedsConfirm;

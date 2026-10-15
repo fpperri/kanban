@@ -18,8 +18,10 @@
        and the arrow, a switch (aria-pressed): on, the default, focusing the input
        opens the panel under it; off, nothing does. The p key flips it too.
        The panel hangs from the bar without adding to the header's height. It has a
-       region for the slices, the pill section, a divider and a foot; each is drawn on
-       its own, so what joins the panel later extends one without editing another.
+       region for the slices, the pill section, a divider and a foot, which holds the
+       Isolate switch (a button with role switch: aria-checked says whether isolate is
+       on; the i key flips it too); each is drawn on its own, so what joins the panel
+       later extends one without editing another.
        Every control in the bar and the panel wears data-keeps-selection, so a click on
        it never clears a selection, and none wears data-holds-poll: a focused pill is
        kept in place across the poll, which never pauses while the panel is open. -->
@@ -33,13 +35,18 @@
       <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
     </div>
     <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters" data-keeps-selection>
-      <div id="search-slices" class="search-slices"></div>
+      <section id="search-slices-section" class="search-section hidden" aria-labelledby="search-slices-fold">
+        <button type="button" id="search-slices-fold" class="search-fold" data-keeps-selection aria-expanded="false" aria-controls="search-slices" aria-label="Slices" title="Fold or unfold the slices">Slices</button>
+        <div id="search-slices" class="search-slices hidden" role="group" aria-labelledby="search-slices-fold"></div>
+      </section>
       <section class="search-section" aria-labelledby="search-pills-fold">
         <button type="button" id="search-pills-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-pills" aria-label="Pills" title="Fold or unfold the pills">Pills</button>
         <div id="search-pills" class="search-pills" role="group" aria-labelledby="search-pills-fold"></div>
       </section>
       <hr class="search-divider">
-      <div id="search-foot" class="search-foot"></div>
+      <div id="search-foot" class="search-foot">
+        <button type="button" id="isolate-switch" class="isolate-switch" role="switch" aria-checked="false" data-keeps-selection title="Isolate: show only the selection, in every view, by writing it into the search box. Click, or press i, to turn it on."><span class="isolate-switch-track" aria-hidden="true"></span><span class="isolate-switch-label">Isolate</span></button>
+      </div>
     </div>
   </div>
   <div class="actions">
@@ -241,6 +248,10 @@
   <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
   <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
   <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
+  <!-- Isolate leads nothing and trails the edits: it is offered inside the selection
+       only, and alone in the small menu of the empty Graph or Map canvas (toggled in
+       showContextMenu, main script below). It reads Turn isolate off while isolate is on. -->
+  <button type="button" id="ctx-isolate" role="menuitem" class="hidden">Isolate</button>
   <!-- Add the card's dependency tree or path to the selection as one part;
        the search box is left alone. One card only: hidden whenever the
        menu's subject is more than one card (toggled in showContextMenu,
@@ -426,7 +437,8 @@
     </section>
     <section class="prefs-group" aria-labelledby="prefs-panel-title">
       <h3 id="prefs-panel-title">Search panel</h3>
-      <p class="prefs-hint">The panel under the search box lists the pills. Its fold control folds the section for this visit; this is how it starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
+      <p class="prefs-hint">The panel under the search box lists the slices and the pills. A section's fold control folds it for this visit; these are how each starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
+      <label class="prefs-check"><input type="checkbox" id="prefs-slices-folded" data-keeps-selection data-holds-poll> Slice section starts folded</label>
       <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
       <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
     </section>
@@ -442,6 +454,7 @@
 <script src="/dependency-graph.js"></script>
 <script src="/nesting.js"></script>
 <script src="/slices.js"></script>
+<script src="/slice-run.js"></script>
 <script src="/pills.js"></script>
 <script src="/map-zoom.js"></script>
 <script src="/calendar-model.js"></script>
@@ -470,6 +483,8 @@
 <script src="/deep-link.js"></script>
 <script src="/card-history.js"></script>
 <script src="/search-panel.js"></script>
+<script src="/search-slices.js"></script>
+<script src="/isolate.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>
 </body>

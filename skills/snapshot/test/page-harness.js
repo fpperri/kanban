@@ -80,6 +80,11 @@ class El {
     return n;
   }
 
+  remove() {
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((c) => c !== this);
+    this.parentNode = null;
+  }
+
   replaceChildren(...nodes) {
     this.children = [];
     this._text = '';
@@ -122,7 +127,13 @@ class El {
 
   scrollTo() {}
 
-  focus(opts) { this.ownerDocument.activeElement = this; this.focusOpts = opts; }
+  // Focus moves to this element, and its own focus listeners hear of it, as in a browser.
+  focus(opts) {
+    const moved = this.ownerDocument.activeElement !== this;
+    this.ownerDocument.activeElement = this;
+    this.focusOpts = opts;
+    if (moved) for (const fn of this.listeners.focus || []) fn({ target: this });
+  }
 
   querySelectorAll(selector) {
     const attrs = [...selector.matchAll(/\[([\w-]+)="([^"]*)"\]/g)].map((m) => [camel(m[1]), m[2]]);
@@ -144,6 +155,14 @@ class El {
 // opts.console stands in for the page's console, so a test can see what it logs.
 function loadPage(html, opts = {}) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  // The page's markup is not parsed, so an element is made when the page first asks for it by id;
+  // it is made as the kind of element the markup says it is (a button, an input), so what a control
+  // is for the page's own checks (closest('button'), an input having focus) is what it is in a browser.
+  const markup = html.slice(0, html.indexOf('<script>'));
+  const tagOfId = (id) => {
+    const m = new RegExp(`<([a-zA-Z][a-zA-Z0-9]*)[ ]([^>]*[ ])?id="${id.replace(/[^a-z0-9-]/gi, '')}"`).exec(markup);
+    return m ? m[1] : 'div';
+  };
   const doc = {
     body: null,
     activeElement: null,
@@ -154,7 +173,7 @@ function loadPage(html, opts = {}) {
     createTextNode: (text) => new Text(text),
     ids: new Map(),
     getElementById(id) {
-      if (!doc.ids.has(id)) { const e = new El('div', doc); e.id = id; }
+      if (!doc.ids.has(id)) { const e = new El(tagOfId(id), doc); e.id = id; }
       return doc.ids.get(id);
     },
     querySelectorAll: () => [],
@@ -193,6 +212,22 @@ function loadPage(html, opts = {}) {
       const ev = { target, clientX: 0, clientY: 0, stopPropagation() {}, preventDefault() { prevented = true; } };
       for (const fn of doc.body.listeners.contextmenu || []) fn(ev);
       return prevented;
+    },
+    // A key pressed with focus on target: the listeners of target and of each element above it hear
+    // it, then the document's, as the event bubbles, unless one of them stops it; reports whether the
+    // page kept the browser's own action away.
+    key(target, key, mods = {}) {
+      let prevented = false;
+      let stopped = false;
+      const ev = { key, target, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, getModifierState: () => false, preventDefault() { prevented = true; }, stopPropagation() { stopped = true; }, ...mods };
+      for (let n = target; n && !stopped; n = n.parentNode) for (const fn of n.listeners.keydown || []) fn(ev);
+      if (!stopped) for (const fn of doc.listeners.keydown || []) fn(ev);
+      return prevented;
+    },
+    // A press of the mouse button on target, which the page's document-level listeners hear.
+    mousedown(target) {
+      const ev = { target, preventDefault() {}, stopPropagation() {} };
+      for (const fn of doc.listeners.mousedown || []) fn(ev);
     },
     change(target) {
       const ev = { target, stopPropagation() {}, preventDefault() {} };

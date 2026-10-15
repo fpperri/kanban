@@ -1,7 +1,7 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert');
 
-const { createRegistry, isAlive, waitForPageTarget, startChromeUntilPage } = require('./browser/harness');
+const { createRegistry, isAlive, sleep, waitForPageTarget, startChromeUntilPage } = require('./browser/harness');
 
 // The CI browser job once died before its first scenario: "timed out waiting for
 // Chrome to expose a page target", twenty seconds in, with nothing printed and no
@@ -118,6 +118,51 @@ test('after the last start the run gives up with the error of that start, and no
   assert.strictEqual(started.length, 2);
   for (const s of started) assert.ok(!isAlive(s.rec.child.pid), `Chrome start ${s.n} is still running`);
   await reg.cleanup();
+});
+
+// A process that was killed stays listed on Linux until its exit is collected on a later turn
+// of the event loop, so "ended before the next one starts" holds only once the exit has come.
+// Windows ends it inside taskkill, which is why the checks on isAlive above passed there and failed
+// on the CI machine. These stand a Chrome in with a record whose exit the test releases itself.
+function slowToLeave() {
+  let release;
+  const exited = new Promise((r) => { release = r; });
+  return { rec: { child: { exitCode: null, signalCode: null }, out: '', exited }, release: () => release('killed by SIGKILL') };
+}
+
+test('the next Chrome starts only after the one that listed no page has been reaped', async () => {
+  const first = slowToLeave();
+  const launched = [];
+  const launch = async (n) => {
+    launched.push(n);
+    return n === 1 ? { rec: first.rec, port: 40001 } : { rec: { child: { exitCode: null, signalCode: null }, out: '' }, port: 40002 };
+  };
+  const targets = async (port) => (port === 40002 ? [PAGE] : []);
+  const run = startChromeUntilPage({ launch, targets, log: quiet, ...FAST });
+  await sleep(FAST.ms * 3);
+  assert.deepStrictEqual(launched, [1], 'the second Chrome started while the first was still listed');
+  first.release();
+  assert.strictEqual((await run).port, 40002);
+  assert.deepStrictEqual(launched, [1, 2]);
+});
+
+test('the run gives up after the last start only once that Chrome has been reaped', async () => {
+  const last = slowToLeave();
+  let settled = false;
+  const run = startChromeUntilPage({ launch: async () => ({ rec: last.rec, port: 40001 }), targets: async () => [], starts: 1, log: quiet, ...FAST })
+    .then(() => 'resolved', (e) => { settled = true; return e; });
+  await sleep(FAST.ms * 3);
+  assert.strictEqual(settled, false, 'the run ended while the last Chrome was still listed');
+  last.release();
+  const e = await run;
+  assert.strictEqual(e.noPageTarget, true);
+});
+
+test('a Chrome that is never reaped holds the next start no longer than endMs', async () => {
+  const stuck = { child: { exitCode: null, signalCode: null }, out: '', exited: new Promise(() => {}) };
+  const launch = async (n) => (n === 1 ? { rec: stuck, port: 40001 } : { rec: { child: { exitCode: null, signalCode: null }, out: '' }, port: 40002 });
+  const got = await startChromeUntilPage({ launch, targets: async (port) => (port === 40002 ? [PAGE] : []), log: quiet, endMs: 50, ...FAST });
+  assert.strictEqual(got.port, 40002);
 });
 
 test('a Chrome that exits is not started again', async () => {

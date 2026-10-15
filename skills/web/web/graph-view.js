@@ -453,9 +453,11 @@ function graphClickNode(id, mods) {
   selectByClick(action, id);
   // A plain click sets a new anchor and clears the box. Shift or Ctrl keeps
   // the query, unless it took out a card the query lit: the query is then its other
-  // cards, and the box no longer names the anchor.
-  const boxIsDone = action === 'select' || (typedBefore && !isTypedAnchor(selectionState.selection));
-  if (boxIsDone && $('#search-input').value) writeSearch('', 'selection', false);
+  // cards, and the box no longer names the anchor. While isolated the box holds the
+  // isolate text and a click moves the anchor only (boxAfterGraphClick).
+  const box = $('#search-input').value;
+  const text = boxAfterGraphClick(action, { boxText: box, typedBefore, typedAfter: isTypedAnchor(selectionState.selection), isolated: isolateNow() !== null });
+  if (text !== box) writeSearch(text, 'selection', false);
   graphPaintSelection();
 }
 
