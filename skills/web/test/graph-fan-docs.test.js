@@ -55,26 +55,36 @@ test('the Graph section says the fan goes all the way round the centre but for a
   assert.doesNotMatch(text, /opens downward/);
 });
 
-test('the Graph section says each band and ring has a faint guide arc and a caption with its name and count up the seam, neighbours on opposite sides', () => {
+test('the Graph section says each band and ring has a faint guide arc and a caption with its name up the seam, neighbours on opposite sides', () => {
   const text = graph();
   assert.match(text, /a faint \*\*guide arc\*\*/);
-  assert.match(text, /a \*\*caption\*\* on the seam with its name and its card count/);
+  assert.match(text, /a \*\*caption\*\* on the seam with its name \(a tier by its name, a depth as `roots` or `depth N`\)/);
+  assert.doesNotMatch(text, /its name and its card count/);
   assert.match(text, /neighbours on opposite sides of the seam so they never touch/);
   assert.match(text, /a depth with no card draws nothing/);
   assert.doesNotMatch(text, /flat edge/);
 });
 
-test('the Graph section says a divider separates each sector from the next, and the loose cards with a tier have a caption with a count', () => {
+test('the Graph section says a caption shows its name alone, and hovering it or focusing it shows a tooltip with its count, its split by status and its slice: term', () => {
   const text = graph();
-  assert.match(text, /A divider separates each sector from the next/);
-  assert.match(text, /the sector of loose cards with a tier has its own caption and count, outside the rim/);
+  assert.match(text, /A caption shows its name alone: hovering it, or moving keyboard focus onto it \(a caption is a tab stop\), shows a \*\*tooltip\*\* with the number of its cards, how they split by status/);
+  assert.match(text, /the `slice:` term that cuts to it \(`slice:epic`, `slice:1`\)/);
+  assert.match(text, /The tooltip stands under the caption, kept on the stage, and goes when the pointer or focus leaves or the view pans or zooms/);
+  assert.doesNotMatch(text, /reads 0/);
 });
 
-test('the Graph section says the Unnested block has a title with its count and a captioned column for each status, archived while the Archive pill is on', () => {
+test('the Graph section says a divider separates each sector from the next, and the loose cards with a tier have a caption whose tooltip counts them', () => {
   const text = graph();
-  assert.match(text, /under the title Unnested and its count/);
-  assert.match(text, /each column captioned with its status and count/);
+  assert.match(text, /A divider separates each sector from the next/);
+  assert.match(text, /the sector of loose cards with a tier has its own caption, outside the rim, whose tooltip counts them/);
+});
+
+test('the Graph section says the Unnested block has a title and a captioned column for each status, whose tooltips count their cards, archived while the Archive pill is on', () => {
+  const text = graph();
+  assert.match(text, /under the title Unnested, each column captioned with its status/);
+  assert.match(text, /the tooltips of the title and of a column count their cards/);
   assert.match(text, /an archived column while the Archive status pill is on/);
+  assert.doesNotMatch(text, /Unnested and its count/);
 });
 
 test('the Graph section says Fit and the first draw frame every dot, caption and the block, and the type icon is the dot in the fan', () => {
@@ -104,10 +114,11 @@ test('the web doc\'s Graph section says the same in short', () => {
   assert.doesNotMatch(text, /on the outer ring/);
 });
 
-test('the web doc says the fan has a guide arc and a caption for each band, dividers, and a titled Unnested block, and that Fit frames them', () => {
+test('the web doc says the fan has a guide arc and a caption for each band, dividers, and a titled Unnested block, a tooltip for the counts, and that Fit frames them', () => {
   const text = docGraph();
-  assert.match(text, /a faint arc and a caption with its name and count up the seam at the top/);
+  assert.match(text, /a faint arc and a caption with its name up the seam at the top/);
   assert.match(text, /a divider between sectors/);
-  assert.match(text, /the Unnested block is titled with its count and each column is captioned with its status and count/);
+  assert.match(text, /the Unnested block is titled and each column is captioned with its status/);
+  assert.match(text, /A caption shows its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip with its count, its split by status and the `slice:` term that cuts to it/);
   assert.match(text, /Fit and the first draw frame all of it/);
 });

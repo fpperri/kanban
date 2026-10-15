@@ -373,7 +373,7 @@ function stamp(plan) {
   vm.createContext(sandbox);
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const fn = (name) => src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
-  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${['graphEl', 'graphTspan', 'graphCaptionEl', 'graphDrawPlan'].map(fn).join('\n')}`, sandbox);
+  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan'].map(fn).join('\n')}`, sandbox);
   return vm.runInContext('graphDrawPlan', sandbox)(plan);
 }
 

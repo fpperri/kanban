@@ -6,8 +6,9 @@ const scenario = require('./browser/scenarios/tier-fan');
 const scenarios = require('./browser/scenarios');
 const { DOT_SHAPES } = require('./browser/scenarios/type-icons');
 const {
-  graphBuild, graphFanPlace, graphLayout, graphPlan, graphFit, graphZoomAt,
+  graphBuild, graphFanPlace, graphLayout, graphPlan, graphFit, graphZoomAt, graphTipAt,
 } = require('./../web/graph-model');
+const { parseSearchQuery, filterCards } = require('./../web/search');
 const { loadBoard, cleanUp, captionRects } = require('./helpers/fan-boards');
 
 // The tier-fan scenario only runs in a browser (in CI). Here its lists are held
@@ -22,10 +23,11 @@ const BOARDS = { plan: loadBoard('plan'), fixture: loadBoard('fixture'), malform
 const sorted = (ids) => ids.slice().sort((a, b) => a - b);
 
 // What the page draws on `key`: the model of the cards it shows, the layout and the plan.
-function drawn(key, archiveOn, extra = [], kind = 'tiers') {
+function drawn(key, archiveOn, extra = [], kind = 'tiers', query = '') {
   const board = BOARDS[key];
   const cards = board.all.concat(extra);
-  const visible = cards.filter((c) => archiveOn || !c.archived).map((c) => c.id);
+  const cut = query ? new Set(filterCards(cards, parseSearchQuery(query, board.name), { ...board.ctx, hierarchy: board.config.hierarchy }).map((c) => c.id)) : null;
+  const visible = cards.filter((c) => (archiveOn || !c.archived) && (!cut || cut.has(c.id))).map((c) => c.id);
   const model = graphBuild(cards, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible) });
   const layout = graphLayout(model, kind, { statuses: board.config.statuses });
   const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title });
@@ -111,8 +113,8 @@ test('the malformed board names two tiers, each twice, a depth ring and a loose 
 
 // A stand-in for the page: each expression the scenario evaluates is answered
 // from what the page would draw, on a stage of STAGE. `over` changes what it
-// answers: dots, edges, marks, sectors, shapes, rects, zoomFactor and the flags
-// below.
+// answers: dots, edges, marks, sectors, shapes, rects, zoomFactor, tipLines, tip and
+// the flags below.
 const STAGE = { l: 0, t: 120, r: 1500, b: 900 };
 
 // Where the stage frames the fan: Fit on STAGE, zoomed in once if the page was, and
@@ -157,11 +159,39 @@ function standIn(over = {}) {
   let extra = [];
   let zoomed = false;
   let switched = 0;
+  let query = '';
+  let shownFor = null;
+  const points = new Map();
   const opened = [];
-  const view = () => drawn(key, archiveOn, extra, kind);
+  const view = () => drawn(key, archiveOn, extra, kind, query);
+  const captionsOf = () => {
+    const { plan } = view();
+    return plan.captions.concat(plan.looseCaption ? [plan.looseCaption] : [], plan.block ? [plan.block.title].concat(plan.block.columns.map((c) => c.caption)) : []);
+  };
+  // The tooltip the page shows for the caption the pointer or focus is on: its lines, and
+  // where it stands on the stage beside the caption, 160 by 60 pixels.
+  const tipNow = () => {
+    const c = shownFor === null ? null : captionsOf().find((x) => x.name === shownFor);
+    if (!c) return null;
+    const v = view();
+    const rect = screenRects(v, frameOf(v, zoomed, 1)).captions.find((r) => r.text === c.name);
+    const at = graphTipAt({ x0: rect.l - STAGE.l, y0: rect.t - STAGE.t, x1: rect.r - STAGE.l, y1: rect.b - STAGE.t }, { w: STAGE.r - STAGE.l, h: STAGE.b - STAGE.t }, { w: 160, h: 60 }, 6);
+    const lines = c.tip.lines.concat(c.tip.term ? [c.tip.term] : []);
+    const t = {
+      lines: over.tipLines ? over.tipLines(c.name, lines) : lines,
+      tip: { l: STAGE.l + at.x, t: STAGE.t + at.y, r: STAGE.l + at.x + 160, b: STAGE.t + at.y + 60 },
+      stage: STAGE,
+      described: c.name,
+      caption: { l: rect.l, t: rect.t, r: rect.r, b: rect.b },
+    };
+    return over.tip ? over.tip(c.name, t) : t;
+  };
   const marksOf = () => {
-    const { plan } = over.fanStays ? drawn(key, archiveOn, extra, 'tiers') : view();
-    const cap = (c) => ({ name: c.name, count: c.count, kind: c.kind || '', x: c.x, y: c.y });
+    const { plan } = over.fanStays ? drawn(key, archiveOn, extra, 'tiers', query) : view();
+    const cap = (c) => ({
+      name: c.name, text: over.countInText ? `${c.name}${c.count}` : c.name, count: parseInt(c.tip.lines[0], 10), kind: c.kind || '',
+      tabindex: over.noTabStop ? null : '0', x: c.x, y: c.y,
+    });
     const b = plan.block;
     const m = {
       captions: plan.captions.map(cap),
@@ -186,7 +216,17 @@ function standIn(over = {}) {
       if (k !== key) { archiveOn = false; extra = []; kind = 'tiers'; }
       key = k;
       zoomed = false;
+      query = '';
+      shownFor = null;
+      points.clear();
       opened.push(`${k}${p}`);
+    },
+    mouse: async (type, x, y) => {
+      if (type !== 'mouseMoved') return true;
+      const name = points.get(`${x},${y}`) || null;
+      if (name === null && over.tipStuck) return true;
+      shownFor = over.tipNever ? null : name;
+      return true;
     },
     waitFor: async (expr) => {
       if (expr === '!window.__stale') return true;
@@ -196,6 +236,16 @@ function standIn(over = {}) {
       if (expr === scenario.ZOOMED) return zoomed;
       if (expr === scenario.FITTED) return !zoomed;
       for (const name of ['tiers', 'force', 'status']) if (expr === scenario.layoutIs(name)) return kind === name;
+      if (expr === scenario.TIP_HIDDEN) return tipNow() === null;
+      const lined = /JSON\.stringify\(\[\.\.\.t\.children\]\.map\(\(p\)=>p\.textContent\)\)===("(?:[^"\\]|\\.)*")\}\)\(\)$/.exec(expr);
+      if (lined) {
+        const t = tipNow();
+        return !!t && JSON.stringify(t.lines) === JSON.parse(lined[1]);
+      }
+      const dotted = /\.sort\(\(a,b\)=>a-b\)\)===("\[[\d,]*\]")$/.exec(expr);
+      if (dotted) return JSON.stringify([...new Set(view().plan.nodes.map((n) => n.id))].sort((a, b) => a - b)) === JSON.parse(dotted[1]);
+      const counted = /^document\.querySelectorAll\('#graph-view \.graph-node'\)\.length===(\d+)$/.exec(expr);
+      if (counted) return view().plan.nodes.length === Number(counted[1]);
       const ids = [...expr.matchAll(/data-id="(\d+)"/g)].map((m) => Number(m[1]));
       if (ids.length) return over.archiveDraws === false ? false : archiveOn && ids.every((id) => view().model.byId.has(id));
       throw new Error(`the stand-in page was asked to wait on something it does not know: ${expr.slice(0, 80)}`);
@@ -209,6 +259,25 @@ function standIn(over = {}) {
         return over.edges ? over.edges(key, edges) : edges;
       }
       if (expr === scenario.FAN_MARKS) return marksOf();
+      if (expr === scenario.NO_COUNT) return over.countElements ? 1 : 0;
+      if (expr === scenario.EMPTY_POINT) return over.noEmptyPoint ? null : { x: 5, y: 5 };
+      if (expr === scenario.TIP) return tipNow();
+      if (expr === scenario.BLUR) { if (!over.tipStuck) shownFor = null; return true; }
+      for (const name of Object.keys(scenario.CASES.plan.tips)) {
+        if (expr === scenario.captionCentre(name)) {
+          if (!captionsOf().some((c) => c.name === name)) return null;
+          const p = { x: 100 + points.size, y: 300 };
+          points.set(`${p.x},${p.y}`, name);
+          return p;
+        }
+        if (expr === scenario.focusCaption(name)) {
+          const present = captionsOf().some((c) => c.name === name);
+          if (present && !over.focusNoTip) shownFor = name;
+          return present;
+        }
+      }
+      const typed = /^\(\(\)=>\{const i=document\.getElementById\('search-input'\);i\.value=("(?:[^"\\]|\\.)*");/.exec(expr);
+      if (typed) { query = over.ignoreQuery ? '' : JSON.parse(typed[1]); return true; }
       if (expr === scenario.SECTORS) {
         const sectors = view().layout.sectors.map((s) => ({ kind: s.kind, tops: s.tops.slice(), from: s.from, to: s.to }));
         return over.sectors ? over.sectors(key, sectors, { extra }) : sectors;
@@ -267,10 +336,15 @@ test('the checks the card asks for are each in the scenario', async () => {
   const page = await run();
   const names = page.checks.map(([n]) => n);
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `no check matches ${re}`);
-  has(/plan: each tier that has a card shows one caption with its name and count, in hierarchy order from the centre/);
+  has(/plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards/);
   has(/plan: one caption per non-empty depth follows/);
   has(/plan: every guide arc, divider and caption has finite coordinates/);
-  has(/plan: the loose cards with a tier share one sector, under a caption that counts them/);
+  has(/plan: the loose cards with a tier share one sector, under a caption whose tip counts them/);
+  has(/plan: every caption of the fan shows its name alone, with no count in its text, and is a tab stop/);
+  has(/plan: hovering a caption shows its count, its split by status and the slice: term to type in a tooltip, whole on the stage and clear of the caption/);
+  has(/plan: moving the pointer off a caption hides the tooltip/);
+  has(/plan: keyboard focus on a caption shows the same tooltip, and moving focus off it hides the tooltip/);
+  has(/plan: typing the term a tooltip names cuts the Graph to the cards of that band/);
   has(/plan: every loose card without a tier is in the block under the caption for its status/);
   has(/plan: and none of them is on a ring/);
   has(/plan: every live card is drawn, and no archived one/);
@@ -346,11 +420,11 @@ test('a malformed board whose tiers are not bands fails', async () => {
 
 test('captions out of hierarchy order, a missing tier caption or a wrong count fail', async () => {
   const swapped = await run({ marks: (key, m) => { if (key === 'plan') [m.captions[0], m.captions[1]] = [m.captions[1], m.captions[0]]; return m; } });
-  assert.ok(failed(swapped).includes('plan: each tier that has a card shows one caption with its name and count, in hierarchy order from the centre'), failed(swapped).join('; '));
+  assert.ok(failed(swapped).includes('plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards'), failed(swapped).join('; '));
   const missing = await run({ marks: (key, m) => { if (key === 'plan') m.captions = m.captions.filter((c) => c.name !== 'objective'); return m; } });
-  assert.ok(failed(missing).includes('plan: each tier that has a card shows one caption with its name and count, in hierarchy order from the centre'));
+  assert.ok(failed(missing).includes('plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards'));
   const wrong = await run({ marks: (key, m) => { if (key === 'plan') m.captions[3].count = 9; return m; } });
-  assert.ok(failed(wrong).includes('plan: each tier that has a card shows one caption with its name and count, in hierarchy order from the centre'));
+  assert.ok(failed(wrong).includes('plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards'));
 });
 
 test('a depth caption for an empty depth, or one missing, fails', async () => {
@@ -378,21 +452,21 @@ test('a NaN in an arc, a divider or a caption fails the finite check, on each bo
 
 test('loose cards with a tier in two sectors, or a caption that counts them wrong, fail', async () => {
   const split = await run({ sectors: (key, sectors) => { if (key === 'plan') sectors.push({ kind: 'loose', tops: [99], from: 0.2, to: 0.1 }); return sectors; } });
-  assert.ok(failed(split).includes('plan: the loose cards with a tier share one sector, under a caption that counts them'), failed(split).join('; '));
+  assert.ok(failed(split).includes('plan: the loose cards with a tier share one sector, under a caption whose tip counts them'), failed(split).join('; '));
   const count = await run({ marks: (key, m) => { if (key === 'plan' && m.loose) m.loose.count = 3; return m; } });
-  assert.ok(failed(count).includes('plan: the loose cards with a tier share one sector, under a caption that counts them'));
+  assert.ok(failed(count).includes('plan: the loose cards with a tier share one sector, under a caption whose tip counts them'));
   const twoApart = await run({ sectors: (key, sectors, { extra }) => {
     if (key === 'plan' && extra.length) sectors.find((s) => s.kind === 'loose').to = sectors.find((s) => s.kind === 'loose').from - 1e-9;
     return sectors;
   } });
-  assert.ok(failed(twoApart).includes('plan: the loose cards with a tier, two now, still share one sector, and its caption counts both'), failed(twoApart).join('; '));
+  assert.ok(failed(twoApart).includes('plan: the loose cards with a tier, two now, still share one sector, and its tip counts both'), failed(twoApart).join('; '));
 });
 
 test('the second loose card with a tier is created, and the caption must count both', async () => {
   const page = await run();
   assert.ok(page.checks.some(([n, ok]) => ok && n === 'plan: a second loose card with a tier is created'));
   const one = await run({ marks: (key, m, { extra }) => { if (key === 'plan' && extra.length && m.loose) m.loose.count = 1; return m; } });
-  assert.ok(failed(one).includes('plan: the loose cards with a tier, two now, still share one sector, and its caption counts both'), failed(one).join('; '));
+  assert.ok(failed(one).includes('plan: the loose cards with a tier, two now, still share one sector, and its tip counts both'), failed(one).join('; '));
 });
 
 test('a block column captioned for the wrong status, or a loose card under the wrong caption, fails', async () => {
@@ -401,9 +475,9 @@ test('a block column captioned for the wrong status, or a loose card under the w
     return m;
   } });
   assert.ok(failed(swapped).includes('plan: every loose card without a tier is in the block under the caption for its status'), failed(swapped).join('; '));
-  assert.ok(failed(swapped).includes('plan: the Unnested block is titled with its count and has a column caption for each status, in the board\'s order'));
+  assert.ok(failed(swapped).includes('plan: the Unnested block is titled Unnested and has a column caption for each status, in the board\'s order, their tips counting the cards'));
   const title = await run({ marks: (key, m) => { if (key === 'plan' && m.block) m.block.title.count = 5; return m; } });
-  assert.ok(failed(title).includes('plan: the Unnested block is titled with its count and has a column caption for each status, in the board\'s order'));
+  assert.ok(failed(title).includes('plan: the Unnested block is titled Unnested and has a column caption for each status, in the board\'s order, their tips counting the cards'));
   const noBlock = await run({ marks: (key, m) => { if (key === 'plan') m.block = null; return m; } });
   assert.ok(failed(noBlock).includes('plan: every loose card without a tier is in the block under the caption for its status'));
 });
@@ -512,6 +586,89 @@ test('the fixture board with a tier caption, and the malformed board with a tier
   assert.ok(failed(twice).includes('malformed: the fan captions each tier once'), failed(twice).join('; '));
 });
 
+// --- the tooltips ------------------------------------------------------------------------------------------
+
+const NAME_ALONE = 'plan: every caption of the fan shows its name alone, with no count in its text, and is a tab stop';
+const HOVER = 'plan: hovering a caption shows its count, its split by status and the slice: term to type in a tooltip, whole on the stage and clear of the caption';
+const MOVE_OFF = 'plan: moving the pointer off a caption hides the tooltip';
+const FOCUS = 'plan: keyboard focus on a caption shows the same tooltip, and moving focus off it hides the tooltip';
+const TERM = 'plan: typing the term a tooltip names cuts the Graph to the cards of that band';
+
+test('the tooltip lines the scenario expects are the real plan\'s tips, caption by caption, the term last', () => {
+  const { plan } = drawn('plan', false);
+  const real = {};
+  for (const c of plan.captions.concat([plan.looseCaption, plan.block.title], plan.block.columns.map((col) => col.caption))) {
+    real[c.name] = c.tip.lines.concat(c.tip.term ? [c.tip.term] : []);
+  }
+  assert.deepStrictEqual(scenario.CASES.plan.tips, real);
+});
+
+test('a caption that draws its count in its text, with a count element, or that is not a tab stop, fails', async () => {
+  const text = await run({ countInText: true });
+  assert.ok(failed(text).includes(NAME_ALONE), failed(text).join('; '));
+  const element = await run({ countElements: true });
+  assert.ok(failed(element).includes(NAME_ALONE), failed(element).join('; '));
+  const stop = await run({ noTabStop: true });
+  assert.ok(failed(stop).includes(NAME_ALONE), failed(stop).join('; '));
+  const alone = await run();
+  assert.ok(alone.checks.some(([n, ok]) => ok && n === NAME_ALONE));
+});
+
+test('a tooltip with the wrong count, the wrong split or the wrong term fails the hover check, and so does one that never shows', async () => {
+  for (const [what, edit, byKeyboard] of [
+    ['count', (name, lines) => (name === 'goal' ? ['3 cards', ...lines.slice(1)] : lines), false],
+    ['split', (name, lines) => (name === 'depth 1' ? [lines[0], 'backlog 4', lines[2]] : lines), true],
+    ['term', (name, lines) => (name === 'epic' ? [lines[0], lines[1], 'slice:goal'] : lines), true],
+    ['block title', (name, lines) => (name === 'Unnested' ? lines.slice(0, 1) : lines), true],
+  ]) {
+    const page = await run({ tipLines: edit });
+    assert.ok(failed(page).includes(HOVER), `${what}: ${failed(page).join('; ')}`);
+    assert.strictEqual(failed(page).includes(FOCUS), byKeyboard, `${what}: the keyboard check reads epic, depth 1, Unnested and done`);
+  }
+  const never = await run({ tipNever: true });
+  assert.ok(failed(never).includes(HOVER), failed(never).join('; '));
+  assert.ok(!failed(never).includes(FOCUS), 'the keyboard still shows it');
+  const good = await run();
+  assert.ok(good.checks.some(([n, ok]) => ok && n === HOVER));
+});
+
+test('a tooltip off the stage, or on top of the caption it describes, fails', async () => {
+  const off = await run({ tip: (name, t) => (name === 'goal' ? { ...t, tip: { ...t.tip, r: t.stage.r + 40 } } : t) });
+  assert.ok(failed(off).includes(HOVER), failed(off).join('; '));
+  const over = await run({ tip: (name, t) => (name === 'depth 2' ? { ...t, tip: { l: t.caption.l, t: t.caption.t, r: t.caption.r + 100, b: t.caption.b + 4 } } : t) });
+  assert.ok(failed(over).includes(HOVER), failed(over).join('; '));
+  const other = await run({ tip: (name, t) => (name === 'done' ? { ...t, described: 'todo' } : t) });
+  assert.ok(failed(other).includes(HOVER), 'the tooltip has to describe the caption the pointer is on');
+});
+
+test('a tooltip that stays when the pointer moves off, or when focus moves off, fails', async () => {
+  const stuck = await run({ tipStuck: true });
+  assert.ok(failed(stuck).includes(MOVE_OFF), failed(stuck).join('; '));
+  assert.ok(failed(stuck).includes(FOCUS), failed(stuck).join('; '));
+  const none = await run({ noEmptyPoint: true });
+  assert.ok(failed(none).includes(MOVE_OFF), 'no empty corner to move to is a failure, not a pass');
+  const fine = await run();
+  assert.ok(fine.checks.some(([n, ok]) => ok && n === MOVE_OFF));
+  assert.ok(fine.checks.some(([n, ok]) => ok && n === FOCUS));
+});
+
+test('keyboard focus that shows no tooltip, or the wrong one, fails', async () => {
+  const none = await run({ focusNoTip: true });
+  assert.ok(failed(none).includes(FOCUS), failed(none).join('; '));
+  assert.ok(!failed(none).includes(HOVER), 'the pointer still shows it');
+  const wrong = await run({ tipLines: (name, lines) => (name === 'Unnested' ? ['9 cards'] : lines) });
+  assert.ok(failed(wrong).includes(FOCUS), failed(wrong).join('; '));
+});
+
+test('a term that does not cut the Graph to its band fails, and the box is emptied again after each cut', async () => {
+  const ignored = await run({ ignoreQuery: true });
+  assert.ok(failed(ignored).includes(TERM), failed(ignored).join('; '));
+  const wrong = await run({ tipLines: (name, lines) => (name === 'epic' ? [...lines.slice(0, -1), 'slice:objective'] : lines) });
+  assert.ok(failed(wrong).includes(TERM), failed(wrong).join('; '));
+  const fine = await run();
+  assert.ok(fine.checks.some(([n, ok]) => ok && n === TERM));
+});
+
 // --- the scenario's own helpers --------------------------------------------------------------------------
 
 test('outsideStage names what lies outside the stage, with a pixel of slack', () => {
@@ -565,6 +722,8 @@ test('the scenario waits on the page, never on a fixed sleep', () => {
 test('every scenario expression parses, so a typo does not wait for CI', () => {
   const exprs = [scenario.DOTS, scenario.BAND_EDGES, scenario.FAN_MARKS, scenario.SECTORS, scenario.SWEEP, scenario.CIRCLE, scenario.RECTS, scenario.TIERS_PRESSED, scenario.DRAWN,
     scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.layoutIs('force'), scenario.pickLayout('status'),
-    scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES];
+    scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES,
+    scenario.NO_COUNT, scenario.BLUR, scenario.TIP, scenario.TIP_HIDDEN, scenario.EMPTY_POINT, scenario.captionCentre('goal'), scenario.focusCaption('Unnested, with a tier'),
+    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.typeInBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26)];
   for (const e of exprs) assert.doesNotThrow(() => new vm.Script(e), e.slice(0, 60));
 });

@@ -466,13 +466,17 @@ function graphFanLines(model, places, fan) {
 // `sectors` ({ kind, rootId, tops, leaves, from, to } in radians, `from` the larger),
 // `block` ({ x, y, w, h, top, base, count, columns: [{ label, ids, count, x, w }] },
 // columns relative to the block), `captions` (the caption of each band, with its
-// side of the seam), `looseCaption` (the caption of the loose cards with a tier, and
-// the `box` it takes), `fan` ({ from, to }) and `textScale` (the scale the captions
-// are spaced for, see graphFanScale). `rings` are the circles drawn through the rows
+// side of the seam, and what its tip says: the `count`, the `split` by status and the
+// slice: `term`), `looseCaption` (the caption of the loose cards with a tier, its
+// `split` and the `box` it takes), `fan` ({ from, to }) and `textScale` (the scale the
+// captions are spaced for, see graphFanScale). `rings` are the circles drawn through the rows
 // of dots, and `spokes` the dividers between sectors. The bounds Fit frames hold the
 // dots, the whole circle the rings make, the captions on the seam, the loose caption
 // and the block. graphPlan turns all of it into marks:
-// guide arcs, captions, dividers and the block's frame, title and column captions.
+// guide arcs, captions, dividers and the block's frame, title and column captions. A
+// caption shows a name and nothing else; its count, the split of the cards by status and
+// the slice: term to type for the band stand in its tip (graphFanTip), which the view
+// shows on hover or focus.
 // Every pass below walks the nodes in outline order, forwards or back, never recursing.
 
 const GRAPH_FAN_SEAM = 8 * Math.PI / 180;
@@ -530,12 +534,54 @@ function graphFanScale(outer) {
   return outer > 0 ? Math.min(1, GRAPH_FAN_REF_PX / (2 * (outer + GRAPH_FAN_CLEAR))) : 1;
 }
 
-function graphFanCaptionWidth(name, count, scale, size = 11) {
-  return (((String(name).length + 1 + String(count).length) * GRAPH_FAN_CAPTION_CHAR + GRAPH_FAN_CAPTION_PAD) * size) / (11 * scale);
+function graphFanCaptionWidth(name, scale, size = 11) {
+  return ((String(name).length * GRAPH_FAN_CAPTION_CHAR + GRAPH_FAN_CAPTION_PAD) * size) / (11 * scale);
+}
+
+// The cards of a band, a ring or the block by status, in the board's order with the
+// archived ones last: [[status, number], ...], only the statuses that hold a card. A
+// status the board does not list is filed under its first column, as the board does.
+function graphFanSplit(model, ids, statuses) {
+  const counts = new Map();
+  for (const id of ids) {
+    const n = model.byId.get(id);
+    const label = n.archived ? 'archived' : GRAPH_COLS.columnForStatus(n.status, statuses);
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return statuses.concat('archived').filter((s) => counts.has(s)).map((s) => [s, counts.get(s)]);
+}
+
+// What a caption's tip says: the number of cards, the split by status when there is a
+// card to split, and the term a reader types to cut to it (null when the caption is
+// not a slice). The words are the tip's, so the view only shows them.
+function graphFanTip(count, split, term) {
+  const lines = [`${count} card${count === 1 ? '' : 's'}`];
+  if (count > 0 && split.length) lines.push(split.map(([status, n]) => `${status} ${n}`).join(' · '));
+  return { lines, term: term || null };
+}
+
+// The slice: term that cuts to a slice, as the search box writes it, so a caption and
+// the box never disagree about what a slice is called.
+function graphFanTerm(slice) {
+  return GRAPH_SEARCH.searchTermText('slice', slice.kind === 'tier' ? slice.name : slice.depth);
+}
+
+// Where a tooltip of `size` ({ w, h }) stands on a stage of `stage` ({ w, h }) for the
+// mark it is about, `anchor` ({ x0, y0, x1, y1 }), all in the stage's own pixels: under
+// the mark, its left edge on the mark's, `gap` away; above the mark when there is no
+// room under it; and always whole on the stage, or at its corner when it is bigger.
+function graphTipAt(anchor, stage, size, gap) {
+  let y = anchor.y1 + gap;
+  if (y + size.h > stage.h) y = anchor.y0 - gap - size.h;
+  return {
+    x: Math.max(0, Math.min(anchor.x0, stage.w - size.w)),
+    y: Math.max(0, Math.min(y, stage.h - size.h)),
+  };
 }
 
 // The caption of each band, up the seam at the top of the fan, level with the band's
-// first ring, in axis order, with its name and the number of cards on its rings. The
+// first ring, in axis order, with its name; the number of cards on its rings, their
+// split by status and the slice: term go with it for the tip. The
 // text runs away from the seam, and neighbours take opposite sides of it, so they
 // never touch whatever the zoom. A band nobody is in has a muted caption too, but
 // only when it clears the captions on its side by a line: thin empty bands are closer
@@ -547,9 +593,9 @@ function graphFanCaptions(bands, scale) {
     const name = graphFanLabel(b);
     const right = i % 2 === 1;
     return {
-      band: b.index, name, count: b.count, kind: b.slice.kind, muted: !b.count,
+      band: b.index, name, count: b.count, split: b.split, term: graphFanTerm(b.slice), kind: b.slice.kind, muted: !b.count,
       side: right ? 'right' : 'left', anchor: right ? 'start' : 'end',
-      x: right ? pad : -pad, y: -b.rings[0], w: graphFanCaptionWidth(name, b.count, scale), h: line,
+      x: right ? pad : -pad, y: -b.rings[0], w: graphFanCaptionWidth(name, scale), h: line,
     };
   });
   const taken = { left: [], right: [] };
@@ -569,17 +615,19 @@ function graphFanMeets(a, b) {
   return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 }
 
-// The caption of the sector of loose cards with a tier: its name and the number of
-// cards, standing outside the rim in the direction of the middle of the sector. On
+// The caption of the sector of loose cards with a tier: its name, standing outside the
+// rim in the direction of the middle of the sector, with the number of its cards and
+// their `split` by status for the tip. On
 // the sides its text runs away from the fan, and above or below the fan it is
 // centred over or under its point. When that would land on the Unnested block it
 // takes the nearest direction inside the sector that does not. null when no loose
 // card has a tier. `box` is the room it takes, in the world.
-function graphFanLooseCaption(sectors, outer, scale, block) {
+function graphFanLooseCaption(sectors, outer, scale, block, splitOf) {
   const loose = sectors.find((s) => s.kind === 'loose');
   if (!loose) return null;
   const count = loose.tops.length;
-  const w = graphFanCaptionWidth(GRAPH_FAN_LOOSE_NAME, count, scale);
+  const split = splitOf(loose.tops);
+  const w = graphFanCaptionWidth(GRAPH_FAN_LOOSE_NAME, scale);
   const h = GRAPH_FAN_CAPTION_LINE / scale;
   const reach = outer + GRAPH_FAN_LOOSE_GAP / scale;
   const at = (angle) => {
@@ -594,7 +642,7 @@ function graphFanLooseCaption(sectors, outer, scale, block) {
       y0 = y < 0 ? y - h : y;
     }
     const x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2;
-    return { name: GRAPH_FAN_LOOSE_NAME, count, x, y, dy, anchor, w, box: { x0, y0, x1: x0 + w, y1: y0 + h } };
+    return { name: GRAPH_FAN_LOOSE_NAME, count, split, x, y, dy, anchor, w, box: { x0, y0, x1: x0 + w, y1: y0 + h } };
   };
   const mid = (loose.from + loose.to) / 2;
   const tries = [mid];
@@ -604,8 +652,8 @@ function graphFanLooseCaption(sectors, outer, scale, block) {
 }
 
 // The Unnested block: a column for each status that holds a card, its dots in rows
-// of ten, under a row of captions (the status and its count) and the block's title
-// (Unnested and its count). The header is tall enough for its text at any zoom
+// of ten, under a row of captions (the status) and the block's title (Unnested); the
+// counts are in their tips. The header is tall enough for its text at any zoom
 // (graphFanScale), and the text hangs up from the bottom of it, so it never meets
 // the dots. A column is as wide as its dots or its caption, and the block as wide as
 // its title. Placed in the corner the fan leaves free, clear of the rim; with no fan,
@@ -617,14 +665,14 @@ function graphFanBlock(columns, outer, scale, pos) {
   let count = 0;
   const cols = columns.map((c) => {
     const dots = Math.ceil(c.ids.length / GRAPH_FAN_BLOCK_ROWS) * GRAPH_FAN_BLOCK_PITCH + GRAPH_FAN_BLOCK_PAD;
-    const w = Math.max(dots, GRAPH_FAN_BLOCK_COLUMN, graphFanCaptionWidth(c.label, c.ids.length, scale));
+    const w = Math.max(dots, GRAPH_FAN_BLOCK_COLUMN, graphFanCaptionWidth(c.label, scale));
     const col = { label: c.label, ids: c.ids, count: c.ids.length, x, w };
     x += w;
     count += c.ids.length;
     rows = Math.max(rows, Math.min(GRAPH_FAN_BLOCK_ROWS, c.ids.length));
     return col;
   });
-  const w = Math.max(x, graphFanCaptionWidth(GRAPH_FAN_BLOCK_NAME, count, scale, 13));
+  const w = Math.max(x, graphFanCaptionWidth(GRAPH_FAN_BLOCK_NAME, scale, 13));
   const top = Math.max(GRAPH_FAN_BLOCK_TOP, GRAPH_FAN_BLOCK_HEAD / scale);
   const h = top + rows * GRAPH_FAN_BLOCK_PITCH + GRAPH_FAN_BLOCK_PAD;
   let bx = -w / 2;
@@ -649,6 +697,10 @@ function graphLayoutTiers(model, opts) {
   const { nodes } = model;
   const fan = graphFanPlace(model, opts);
   const { places } = fan;
+  const statuses = GRAPH_COLS.liveStatuses(opts && opts.statuses);
+  const splitOf = (ids) => graphFanSplit(model, ids, statuses);
+  const inBand = new Map(fan.bands.map((b) => [b.index, []]));
+  for (const n of nodes) if (places.get(n.id).block === null) inBand.get(places.get(n.id).band).push(n.id);
 
   // Bands at the size they start with, from the apex out; `grow` below scales them.
   const bands = [];
@@ -699,7 +751,6 @@ function graphLayoutTiers(model, opts) {
   // rows: by status, or by rank, which is the outline's own order. The order moves a
   // card along its own stretch only, so no card changes its band, ring or sector.
   const how = mergeGraphFanOptions(opts).order === 'status' ? 'status' : 'layout';
-  const statuses = GRAPH_COLS.liveStatuses(opts && opts.statuses);
   const sort = (ids) => GRAPH_MAPREL.mapOrderRow(ids, { nodes: ids.map((id) => model.byId.get(id)) }, how, statuses);
   const kidsOf = new Map();
   for (const n of nodes) {
@@ -744,6 +795,7 @@ function graphLayoutTiers(model, opts) {
     index: b.index,
     slice: b.slice,
     count: b.count,
+    split: splitOf(inBand.get(b.index)),
     subs: b.subs,
     r0: b.r0 * grow,
     r1: b.r1 * grow,
@@ -759,7 +811,7 @@ function graphLayoutTiers(model, opts) {
   const text = graphFanScale(outer);
   const block = graphFanBlock(fan.columns, outer, text, pos);
   const captions = graphFanCaptions(grown, text);
-  const looseCaption = graphFanLooseCaption(sectors, outer, text, block);
+  const looseCaption = graphFanLooseCaption(sectors, outer, text, block, splitOf);
   const boxes = captions.map((c) => ({
     x0: c.side === 'right' ? c.x : c.x - c.w, y0: c.y - c.h / 2, x1: c.side === 'right' ? c.x + c.w : c.x, y1: c.y + c.h / 2,
   }));
@@ -1142,6 +1194,7 @@ function graphFanBlockPlan(block) {
     x: graphRound(block.x), y: graphRound(block.y), w: graphRound(block.w), h: graphRound(block.h), cls: 'graph-block-frame',
     title: {
       name: GRAPH_FAN_BLOCK_NAME, count: block.count, x: graphRound(block.x + GRAPH_FAN_BLOCK_PAD / 2), y: base, dy: '-1.5em', anchor: 'start', cls: 'graph-block-title',
+      tip: graphFanTip(block.count, block.columns.map((c) => [c.label, c.count]), null),
     },
     columns: block.columns.map((c) => ({
       label: c.label,
@@ -1149,7 +1202,10 @@ function graphFanBlockPlan(block) {
       ids: c.ids.slice(),
       x: graphRound(block.x + c.x),
       w: graphRound(c.w),
-      caption: { name: c.label, count: c.count, x: graphRound(block.x + c.x + GRAPH_FAN_BLOCK_PAD / 2), y: base, anchor: 'start', cls: 'graph-block-caption' },
+      caption: {
+        name: c.label, count: c.count, x: graphRound(block.x + c.x + GRAPH_FAN_BLOCK_PAD / 2), y: base, anchor: 'start', cls: 'graph-block-caption',
+        tip: graphFanTip(c.count, [], null),
+      },
     })),
   };
 }
@@ -1255,11 +1311,13 @@ function graphPlan(model, layout, opts) {
   const looseCaption = fan && fan.looseCaption ? {
     name: fan.looseCaption.name, count: fan.looseCaption.count, x: graphRound(fan.looseCaption.x), y: graphRound(fan.looseCaption.y),
     dy: fan.looseCaption.dy, anchor: fan.looseCaption.anchor, cls: 'graph-caption graph-loose-caption',
+    tip: graphFanTip(fan.looseCaption.count, fan.looseCaption.split, null),
   } : null;
   const captions = fan ? fan.captions.map((c) => ({
     band: c.band, name: c.name, count: c.count, kind: c.kind, muted: c.muted, side: c.side,
     x: graphRound(c.x), y: graphRound(c.y), dy: GRAPH_FAN_CAPTION_DY, anchor: c.anchor,
     cls: c.muted ? 'graph-caption graph-caption-muted' : 'graph-caption',
+    tip: graphFanTip(c.count, c.split, c.term),
   })) : [];
   const titles = layout.titles.map((t) => ({ x: graphRound(t.x), y: graphRound(t.y), text: t.text }));
   return { nodes, links, rings, titles, guides, captions, dividers, block, looseCaption };
@@ -1273,7 +1331,7 @@ if (typeof module !== 'undefined' && module.exports) {
     graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
-    graphVisibleIds, graphZoomAt, graphPlan,
+    graphVisibleIds, graphZoomAt, graphPlan, graphTipAt,
   };
 } else {
   window.GRAPH_LAYOUTS = GRAPH_LAYOUTS;
@@ -1305,4 +1363,5 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphVisibleIds = graphVisibleIds;
   window.graphZoomAt = graphZoomAt;
   window.graphPlan = graphPlan;
+  window.graphTipAt = graphTipAt;
 }

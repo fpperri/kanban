@@ -11,7 +11,9 @@
 // range over), all painted in place, and a double click opens, because
 // dragging a card makes a bare click a selection gesture. What is selected is
 // lit and the rest dims (graphLightCards); a search typed in the box hides
-// nothing, it is the anchor of the selection and its matches light. Tiers also has an
+// nothing, it is the anchor of the selection and its matches light. A caption of
+// the tier fan shows its name alone; the pointer or focus on it shows its tip, one
+// tooltip the stage shares (graphShowTip), with the count of its cards. Tiers also has an
 // option row (lines, dependencies, order), folded behind a toggle and kept per board:
 // a press redraws the Graph and hands focus back to the control, and no control of the
 // row holds the poll, starts a pan or clears the selection.
@@ -23,11 +25,12 @@ const GRAPH_DRAG_STEPS = 2;
 const GRAPH_COOL_FRAMES = 40;
 const GRAPH_SETTLED_ALPHA = 0.004;
 const GRAPH_ZOOM_STEP = 1.12;
+const GRAPH_TIP_GAP = 6;
 const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
 const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_LAYOUT_TITLES = {
-  tiers: 'Tiers: the tier fan, all the way round the centre, a band for each tier with its name and count, tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent or children and no tier sit in the Unnested block outside the rim, a column for each status',
+  tiers: 'Tiers: the tier fan, all the way round the centre, a band for each tier with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent or children and no tier sit in the Unnested block outside the rim, a column for each status',
   force: 'Force: related cards pull together, loose cards sit around the edge',
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
@@ -190,15 +193,31 @@ function graphTspan(text, cls, attrs) {
   return el;
 }
 
-// A caption of the fan: a name and its count, both from the plan, in a text that keeps
-// its size on screen (app.css). The plan's `anchor` says which end of the text sits at x.
+// A caption of the fan: its name from the plan, in a text that keeps its size on screen
+// (app.css). The plan's `anchor` says which end of the text sits at x. A caption with a
+// tip is a tab stop and carries what the tip shows, the lines one to a line and the
+// slice: term when it names a slice, for the pointer or focus to fill the tooltip with.
 function graphCaptionEl(c) {
   const el = graphEl('text', { x: c.x, y: c.y, 'text-anchor': c.anchor }, c.cls);
   if (c.dy) el.setAttribute('dy', c.dy);
   if (c.kind) el.setAttribute('data-kind', c.kind);
+  if (c.tip) {
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('data-tip', c.tip.lines.join('\n'));
+    if (c.tip.term) el.setAttribute('data-term', c.tip.term);
+  }
   el.appendChild(graphTspan(c.name, 'graph-caption-name'));
-  el.appendChild(graphTspan(String(c.count), 'graph-caption-count', { dx: '0.4em' }));
   return el;
+}
+
+// The one tooltip of the stage, shared by every caption: hidden until a caption shows it.
+function graphBuildTip() {
+  const tip = document.createElement('div');
+  tip.className = 'graph-tip';
+  tip.id = 'graph-tip';
+  tip.setAttribute('role', 'tooltip');
+  tip.hidden = true;
+  return tip;
 }
 
 function graphButton(cls, text, title, data) {
@@ -297,6 +316,7 @@ function graphBuildControls(kind, filter, cardCount, relationCount, fan) {
 
 function graphApplyTransform() {
   if (!graphCur) return;
+  graphHideTip();
   const { svg, world, view, arrow } = graphCur;
   const k = view.k;
   world.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${k})`);
@@ -324,6 +344,51 @@ function graphZoomBy(factor, px, py) {
   if (!graphCur) return;
   Object.assign(graphCur.view, graphZoomAt(graphCur.view, px, py, factor), { touched: true });
   graphScheduleTransform();
+}
+
+// --- a caption's tip -----------------------------------------------------------
+
+function graphTipLine(text, cls) {
+  const p = document.createElement('p');
+  p.className = cls;
+  p.textContent = text;
+  return p;
+}
+
+// Fills the tooltip from the caption's lines and term and stands it under the caption
+// on the stage (graphTipAt keeps it whole). It is measured from the stage's corner, where
+// it cannot be squeezed against an edge, then placed. The caption names it as its
+// description for as long as it shows.
+function graphShowTip(caption) {
+  if (!graphCur || !graphCur.tip) return;
+  const tip = graphCur.tip;
+  const lines = String(caption.getAttribute('data-tip')).split('\n').map((t) => graphTipLine(t, 'graph-tip-line'));
+  const term = caption.getAttribute('data-term');
+  if (term) lines.push(graphTipLine(term, 'graph-tip-term'));
+  tip.replaceChildren(...lines);
+  tip.hidden = false;
+  tip.style.left = '0px';
+  tip.style.top = '0px';
+  const stage = tip.parentNode.getBoundingClientRect();
+  const at = caption.getBoundingClientRect();
+  const spot = graphTipAt(
+    { x0: at.left - stage.left, y0: at.top - stage.top, x1: at.right - stage.left, y1: at.bottom - stage.top },
+    { w: stage.width, h: stage.height },
+    { w: tip.offsetWidth, h: tip.offsetHeight },
+    GRAPH_TIP_GAP,
+  );
+  tip.style.left = `${graphRound(spot.x)}px`;
+  tip.style.top = `${graphRound(spot.y)}px`;
+  if (graphCur.tipFor && graphCur.tipFor !== caption) graphCur.tipFor.removeAttribute('aria-describedby');
+  caption.setAttribute('aria-describedby', tip.id);
+  graphCur.tipFor = caption;
+}
+
+function graphHideTip() {
+  if (!graphCur || !graphCur.tip || graphCur.tip.hidden) return;
+  graphCur.tip.hidden = true;
+  if (graphCur.tipFor) graphCur.tipFor.removeAttribute('aria-describedby');
+  graphCur.tipFor = null;
 }
 
 // --- hover focus ---------------------------------------------------------------
@@ -423,6 +488,14 @@ function graphDrawPlan(plan) {
     const b = plan.block;
     world.appendChild(fixed(graphEl('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 4 }, b.cls)));
   }
+  // Captions take the pointer, so they are drawn under the links and the dots: a dot a
+  // caption lies over is still the one the pointer finds.
+  for (const c of plan.captions) world.appendChild(graphCaptionEl(c));
+  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption));
+  if (plan.block) {
+    world.appendChild(graphCaptionEl(plan.block.title));
+    for (const col of plan.block.columns) world.appendChild(graphCaptionEl(col.caption));
+  }
   const linkEls = plan.links.map((l) => {
     const p = fixed(graphEl('path', { d: l.d }, l.cls));
     if (l.arrow) p.setAttribute('marker-end', 'url(#graph-arrow-head)');
@@ -464,14 +537,10 @@ function graphDrawPlan(plan) {
     el.textContent = t.text;
     world.appendChild(el);
   }
-  for (const c of plan.captions) world.appendChild(graphCaptionEl(c));
-  if (plan.looseCaption) world.appendChild(graphCaptionEl(plan.looseCaption));
-  if (plan.block) {
-    world.appendChild(graphCaptionEl(plan.block.title));
-    for (const col of plan.block.columns) world.appendChild(graphCaptionEl(col.caption));
-  }
   stage.appendChild(svg);
-  return { stage, svg, world, arrow, linkEls, nodeEls };
+  const tip = graphBuildTip();
+  stage.appendChild(tip);
+  return { stage, svg, world, arrow, linkEls, nodeEls, tip };
 }
 
 function renderGraphView() {
@@ -525,7 +594,7 @@ function renderGraphView() {
   view.sig = sig;
   graphCur = {
     kind, sig, model, layout, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
-    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls,
+    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, tip: drawn.tip, tipFor: null,
   };
   if (refit) Object.assign(view, graphFit(layout.bounds, w, h), { touched: false });
   graphApplyTransform();
@@ -783,6 +852,22 @@ function wireGraphView(host) {
   host.addEventListener('mouseout', leave);
   host.addEventListener('focusin', enter);
   host.addEventListener('focusout', leave);
+
+  // A caption of the fan shows its tip while the pointer or focus is on it, and not
+  // while the pointer only passes from one part of the caption to another.
+  const tipOf = (el) => (el && el.closest ? el.closest('[data-tip]') : null);
+  const tipOn = (e) => {
+    const caption = tipOf(e.target);
+    if (caption) graphShowTip(caption);
+  };
+  const tipOff = (e) => {
+    const from = tipOf(e.target);
+    if (from && tipOf(e.relatedTarget) !== from) graphHideTip();
+  };
+  host.addEventListener('mouseover', tipOn);
+  host.addEventListener('mouseout', tipOff);
+  host.addEventListener('focusin', tipOn);
+  host.addEventListener('focusout', tipOff);
 }
 
 window.addEventListener('DOMContentLoaded', () => {

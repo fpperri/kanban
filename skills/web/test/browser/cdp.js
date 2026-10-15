@@ -151,7 +151,7 @@ async function resetHistory(cdp, ms) {
 // `boards` maps a board key to { base }; resetBoard(key) puts that board's
 // cards back as they were. Every scenario starts from the same place: no page,
 // an empty tab history, the board's own browser storage cleared, the board
-// restored, a fixed window, no leftover console events. That is what makes the
+// restored, a fixed window, a page that counts as focused, no leftover console events. That is what makes the
 // order scenarios run in not matter. Chrome keeps at most 50 history entries,
 // so without the reset a scenario that counts history steps late in a run
 // would see none added.
@@ -175,6 +175,9 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
       }
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+      // A tab nobody has clicked in is not focused, and a focus() on one of its elements fires no focus event, so the
+      // search panel, which opens on the box's focus event, stayed shut for the scenario that ran first.
+      await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
       cdp.takeEvents();
       const bases = Object.fromEntries(keys.map((k) => [k, boards[k].base]));
       return makePage({ cdp, base: boards[sc.board].base, bases, scope: ctx.scope, check: ctx.check, shotsDir, scenario: sc.name });
