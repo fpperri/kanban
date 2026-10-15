@@ -343,10 +343,15 @@ function graphFanPlace(model, opts) {
 // The layout answers more than positions, for whatever draws bands, captions and
 // the block's frame: `bands` ({ index, slice, count, subs, r0, r1, rings }),
 // `sectors` ({ kind, rootId, tops, leaves, from, to } in radians, `from` the left
-// edge), `block` ({ x, y, w, h, columns: [{ label, ids, x, w }] }, columns
-// relative to the block) and `fan` ({ from, to }). `rings` are the circles drawn
-// through the rows of dots, and `spokes` the dividers between sectors. Every pass
-// below walks the nodes in outline order, forwards or back, never recursing.
+// edge), `block` ({ x, y, w, h, count, columns: [{ label, ids, count, x, w }] },
+// columns relative to the block), `captions` (the caption of each band, with its
+// row), `looseCaption` (the caption of the loose cards with a tier) and `fan`
+// ({ from, to }). `rings` are the circles drawn through the rows of dots, and
+// `spokes` the dividers between sectors. The bounds Fit frames hold the dots, the
+// arcs the rings make (the fan only, not the full circle), the captions above the
+// flat edge, the loose caption and the block. graphPlan turns all of it into marks:
+// guide arcs, captions, dividers and the block's frame, title and column captions.
+// Every pass below walks the nodes in outline order, forwards or back, never recursing.
 
 const GRAPH_FAN_FROM = 172 * Math.PI / 180;
 const GRAPH_FAN_TO = 8 * Math.PI / 180;
