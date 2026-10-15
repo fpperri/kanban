@@ -721,7 +721,12 @@ to `127.0.0.1` only.
   the step drops, the added ones first and then the anchor's, goes out of the box with it,
   so a box grown to `review: | blocked:` is back at `review:` after the first Esc and
   empty after the next; any other text in the box stays, and clearing the box with Esc
-  in it turns off the pills it held. Bulk targets are fixed when an
+  in it turns off the pills it held. A plain click on a card outside the Graph does the
+  same to the pills the selection held: one that opens the card empties the selection, and one that
+  selects the card replaces it, and either way the pills go off and their queries out of the
+  box (not while isolated, when the box holds the isolate text). A Ctrl-click that takes out
+  a card a pill lit turns the pill into its other cards and leaves the box, so the view does not
+  widen under the click. Bulk targets are fixed when an
   action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
   delete and drag) takes its list of target cards once, when it starts, from the selection
   as it resolves then, so writes, repaints and polls during the action never change the

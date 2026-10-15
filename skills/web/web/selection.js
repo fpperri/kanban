@@ -522,12 +522,13 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, toggleSelection, pruneSelection, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partsOf, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, toggleSelection, pruneSelection, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
   window.selectionAfterBoxEdit = selectionAfterBoxEdit;
   window.pillQueriesDropped = pillQueriesDropped;
+  window.partsOf = partsOf;
   window.typedQueryPart = typedQueryPart;
   window.isTypedAnchor = isTypedAnchor;
   window.selectionAfterTyping = selectionAfterTyping;

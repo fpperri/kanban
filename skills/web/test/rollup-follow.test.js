@@ -186,7 +186,7 @@ const pageLine = (name) => {
   assert.ok(m, `the page declares ${name}`);
   return m[0];
 };
-const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('applyCardClick'), fn('searchByCue')].join('\n');
+const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue')].join('\n');
 
 function clickHarness() {
   const listeners = [];
@@ -194,6 +194,8 @@ function clickHarness() {
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     ...selectionGlobals(),
+    $: () => ({ value: '' }),
+    writeSearch() {},
     visibleCardIds: () => [],
     loadViewMode: () => 'board',
     loadPrefsState: () => ({ click: {} }),

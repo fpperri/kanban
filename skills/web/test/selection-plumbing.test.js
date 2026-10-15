@@ -141,6 +141,8 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     ...selectionGlobals(),
+    $: () => ({ value: '' }),
+    writeSearch() {},
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
@@ -153,7 +155,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), fn('setSelection'), fn('selectByClick'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('selectionGestureClick'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });

@@ -568,3 +568,110 @@ test('in the Graph the typed text only lights, so it does not join the isolate t
   s.flip();
   assert.strictEqual(s.box(), 'tags:ui | #4');
 });
+
+// --- a click on a card and the pills' queries in the box ---------------------------------
+// A pill is on while its query is the anchor or an addition, so a click that drops it from the
+// selection (a plain click that opens a card, or one that selects another card) takes its query
+// out of the box too, as Esc and a double click on empty space do. While isolated a click moves the
+// anchor only, and the box holds the isolate text, which it never touches.
+
+const opens = () => {
+  const s = [];
+  return { calls: s, wrap: (page) => { page.ctx.openCard = (id) => { s.push(id); }; } };
+};
+
+test('a plain click that opens a card takes the pill it dropped out of the box, and keeps the text typed beside it', async () => {
+  const s = await open();
+  const spy = opens();
+  spy.wrap(s.page);
+  s.type('zephyr');
+  s.pillClick('review');
+  assert.strictEqual(s.box(), 'zephyr | review:');
+  s.click(1);
+  assert.deepStrictEqual(spy.calls, [1], 'the card opens');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), 'zephyr', 'the pill is off and its query is gone from the box');
+});
+
+test('a pill that is the only text in the box goes with the selection, so the view is not left filtered by a pill that shows off', async () => {
+  const s = await open();
+  const spy = opens();
+  spy.wrap(s.page);
+  s.pillClick('review');
+  assert.strictEqual(s.box(), 'review:');
+  assert.deepStrictEqual(s.shown(), [5]);
+  s.click(5);
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(spy.calls, [5]);
+});
+
+test('a plain click in a view that selects drops a pill from the box too', async () => {
+  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }) } });
+  s.pillClick('review');
+  s.click(3);
+  assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [] });
+  assert.strictEqual(s.box(), '');
+});
+
+test('a Ctrl-click that takes out a card the pill lit leaves the box as it was: the view does not widen under the click', async () => {
+  const board = makeBoard();
+  board.active[5].review = 'second';
+  const s = await open({ board });
+  s.pillClick('review');
+  assert.deepStrictEqual(s.ids(), [5, 6]);
+  s.ctrlClick(5);
+  assert.deepStrictEqual(s.selection(), { anchor: a(6), additions: [] }, 'the pill is its other card now');
+  assert.strictEqual(s.box(), 'review:');
+});
+
+test('a click that keeps the pill, or adds to the selection, writes nothing to the box', async () => {
+  const s = await open();
+  s.pillClick('review');
+  s.ctrlClick(3);
+  assert.strictEqual(s.box(), 'review:', 'Ctrl on a card the box hides adds it, and the pill stays');
+  s.click(5, { shiftKey: true });
+  assert.strictEqual(s.box(), 'review:');
+});
+
+test('while isolated a click that opens a card empties the selection and leaves the isolate text, pills included', async () => {
+  const s = await open();
+  const spy = opens();
+  spy.wrap(s.page);
+  s.pillClick('review');
+  s.flip();
+  assert.strictEqual(s.box(), 'review:');
+  s.click(2);
+  assert.deepStrictEqual(spy.calls, [2], 'the card opens');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(s.box(), 'review:', 'the pill query is the isolate text now, and the shown set does not shrink');
+  assert.notStrictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.shown(), [5]);
+});
+
+test('while isolated a click that selects another card moves the anchor and leaves the isolate text', async () => {
+  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }) } });
+  s.pillClick('review');
+  s.flip();
+  assert.strictEqual(s.box(), 'review:');
+  s.click(5);
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
+  assert.strictEqual(s.box(), 'review:', 'the box is the isolate text and a click never writes it');
+});
+
+test('a plain click repaints when the selection held parts that matched nothing, so a pill drawn as on is redrawn', async () => {
+  const s = await open();
+  const spy = opens();
+  spy.wrap(s.page);
+  s.pick("queryPart('nothing-matches-this')");
+  assert.deepStrictEqual(s.ids(), []);
+  let renders = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...args) => { renders++; return real(...args); };
+  s.click(3);
+  assert.strictEqual(renders, 1);
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  renders = 0;
+  s.click(3);
+  assert.strictEqual(renders, 0, 'nothing was selected and nothing changes');
+});

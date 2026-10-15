@@ -3411,12 +3411,14 @@ function stepSelectionBack() {
 // Moves the selection down to `next` ({ selection, rangeStart }) and takes what the
 // step dropped out of the box: a typed anchor takes the box with it, but for the cut, a
 // pill the step drops goes out of it as an alternative, and any other text stays. Esc's
-// step and a double click on empty space (onClickAway) both come through here, so the box
-// and the pills agree whichever way the selection was taken down.
-function moveSelectionTo(next) {
-  const boxWasAnchor = isTypedAnchor(selectionState.selection) && !next.selection.anchor;
+// step, a double click on empty space (onClickAway) and a click on a card that opens or
+// selects it (applyCardClick) all come through here, so the box and the pills agree
+// whichever way the selection was taken down. `from` is the selection the step started from,
+// which is the current one unless the caller has written `next` already, as a click has.
+function moveSelectionTo(next, from = selectionState.selection) {
+  const boxWasAnchor = isTypedAnchor(from) && !next.selection.anchor;
   const box = $('#search-input').value;
-  const shrunk = pillQueriesDropped(selectionState.selection, next.selection).reduce((text, query) => searchRemoveAlt(text, query), box);
+  const shrunk = pillQueriesDropped(from, next.selection).reduce((text, query) => searchRemoveAlt(text, query), box);
   setSelection(next.selection, next.rangeStart);
   if (boxWasAnchor) {
     const cut = searchCutOnly(box);
@@ -5588,15 +5590,21 @@ function selectByClick(action, id) {
 // makes it the anchor of a new selection); the second click of a double click in
 // such a view is a peek, which opens the card and leaves the selection alone.
 // renderBoard() repaints whichever view is active — board columns always, plus
-// the active map/calendar/gantt.
+// the active map/calendar/gantt. A click that opens or selects drops the pills the
+// selection held, and their queries leave the box with them, as they do on Esc and on a
+// double click on empty space, so the panel and the box agree; any other text stays. A
+// Ctrl-click that takes out a card a pill lit turns the pill into its other cards and
+// leaves the box, so the view does not widen under the click. While isolated a click moves
+// the anchor only: the box holds the isolate text, which it never writes.
 function applyCardClick(action, id, cue) {
   if (action === 'cue') { searchByCue(cue, id); return; }
   if (action === 'peek') { openCard(id); return; }
-  const hadSelection = selectedIds.size > 0;
+  const before = selectionState.selection;
+  const held = partsOf(before).length > 0;
   selectByClick(action, id);
-  if (action !== 'open') { renderBoard(); return; }
-  if (hadSelection) renderBoard();
-  openCard(id);
+  if ((action === 'open' || action === 'select') && held && !isolateNow()) moveSelectionTo(selectionState, before);
+  else if (action !== 'open' || held) renderBoard();
+  if (action === 'open') openCard(id);
 }
 
 // Enter on a focused card opens it in a view whose plain click selects: the
