@@ -130,6 +130,20 @@ test('fan: the sectors share the whole circle but a narrow seam straight up, whe
   assert.deepStrictEqual([...new Set([...crowd.pos.values()].map(quadrant))].sort(), ['left bottom', 'left top', 'right bottom', 'right top']);
 });
 
+test('fan: a tier band, a depth ring, the sector of a tree and the sector of loose cards with a tier each spread their dots over the whole circle', () => {
+  const quarters = (l, ids) => [...new Set(ids.map((id) => `${l.pos.get(id).x < 0 ? 'left' : 'right'} ${l.pos.get(id).y < 0 ? 'top' : 'bottom'}`))].sort();
+  const all = ['left bottom', 'left top', 'right bottom', 'right top'];
+  const goals = Array.from({ length: 12 }, (_, i) => [card(100 + 2 * i, { type: 'goal' }), card(101 + 2 * i, { parent: 100 + 2 * i })]).flat();
+  const loose = Array.from({ length: 12 }, (_, i) => card(300 + i, { type: 'epic' }));
+  const one = [card(1, { type: 'goal' }), ...kidsOf(1, 40, 2)];
+  const crowd = fanOf(buildOf(goals));
+  assert.deepStrictEqual(quarters(crowd, goals.filter((c) => c.type === 'goal').map((c) => c.id)), all, 'the goal band');
+  assert.deepStrictEqual(quarters(crowd, goals.filter((c) => c.type !== 'goal').map((c) => c.id)), all, 'the ring of depth 1');
+  assert.deepStrictEqual(quarters(fanOf(buildOf(loose)), loose.map((c) => c.id)), all, 'the loose sector');
+  assert.deepStrictEqual(quarters(fanOf(buildOf(one)), one.slice(1).map((c) => c.id)), all, 'the sector of one tree');
+  for (const l of [crowd, fanOf(buildOf(loose)), fanOf(buildOf(one))]) assert.ok(finiteLayout(l));
+});
+
 test('fan: a lone tree sits opposite the seam, its root at the bottom and its children either side, the outline running left to right along the bottom', () => {
   const m = buildOf([card(1), card(2, { parent: 1 }), card(3, { parent: 1 })], []);
   const l = fanOf(m);
