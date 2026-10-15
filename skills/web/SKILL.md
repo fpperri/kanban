@@ -517,6 +517,14 @@ to `127.0.0.1` only.
   `paintTypeColors()` (app.js) paints it with CSSOM assignments after `innerHTML` lands
   (the CSP blocks style attributes). The app attaches no meaning to a type, `epic`
   included: it wears a color only when the list gives it one.
+  **Icons:** a listed type may also carry an `icon:` (see the `icon` bullet under the
+  config keys). A type with an icon starts its chip with that glyph, in the chip's own
+  colour (the glyph is plain text inside the chip, so it takes the colour the chip is
+  painted), wherever a chip is drawn: Board and Archive tiles, the Map's rich rows and the
+  card details. Calendar and Gantt draw no chip, so they show none. A type with no icon, or
+  an unknown icon name, is the chip it was before icons. The six glyphs live in their own
+  module, `type-icons.js`, which has no dependencies and loads before the type chip and the
+  Graph.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -611,14 +619,26 @@ to `127.0.0.1` only.
   detail popup, ctrl+click (cmd on mac) to toggle it in/out of the selection,
   shift+click to ADD the whole range between the range start (the last toggled/range-started
   card) and the target — in the active view's rendered order, additive, never
-  deselecting — right-click for the bulk context menu. Applies on board tiles (live and
-  archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
+  deselecting — right-click for the bulk context menu. A selection grows from an
+  **anchor** (one card, or one query) by **additions** (cards; the same model holds paths,
+  trees and queries), kept in the order they were added: the first card picked is the anchor
+  and later ones are additions, ctrl/cmd+click on a picked card takes it out (the first
+  addition becomes the anchor when the anchor goes), and taking one card out of a query, path
+  or tree part turns that part into its other cards. The ids the views paint and the bulk
+  edits read are worked out again on every render and poll, for the view being shown, so the
+  selection survives a view switch and a poll, and a card a status pill, the Archive pill or
+  the search box hides is not in it (it is back when the view shows it again). In the
+  **Graph** a click makes the card the anchor of a new selection, and shift+click or
+  ctrl/cmd+click adds one card to the selection or takes it out — the layout has no reading
+  order to range over, so Shift does not add a range there; a double click (or Enter) opens
+  the card, a pan keeps the selection, and a click on the empty Graph clears it. Applies on
+  board tiles (live and archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
   multi-day run highlights together — selection is by card id), and gantt bars **and
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
   node's border and status dot are unaffected; graph: an accent outline on the dot plus
   a glow). Right-click: an unselected
-  card becomes the selection in the same gesture; an already-selected one keeps the
+  card becomes the anchor of a new selection in the same gesture; an already-selected one keeps the
   whole batch as the target. Right-clicking inside an open card detail opens the same
   menu for the card shown, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
@@ -1252,8 +1272,12 @@ to `127.0.0.1` only.
   "archive" beside the live one.
   **A dot** shows the card's status colour (the same fixed hues and palette as the rest
   of the app), is bigger the more relations the card has, is hollow when the card is
-  `done`, and is dimmed when archived. An outer ring marks a card with children; a red
-  ring is **blocked**, an amber ring **waiting**, a gold ring **review**. A card's id
+  `done`, and is dimmed when archived. A type with an icon draws its dot in that outline
+  (circle, square, diamond, triangle, hexagon or star), still in the card's status colour,
+  hollow when `done` and dimmed when archived; a card with no icon, or an unknown icon name,
+  keeps the round dot. An outer ring marks a card with children; a red
+  ring is **blocked**, an amber ring **waiting**, a gold ring **review**; the child ring and
+  the flag rings sit outside every shape, the star's points included. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
   the view is zoomed in, or when the graph is small. **Relations:** a solid line joins a
   parent to its child, and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
@@ -1271,10 +1295,10 @@ to `127.0.0.1` only.
   selected its relations stay lit after the pointer leaves, and hovering another dot
   shows that one's relations until the pointer leaves. **Double-click** (or **Enter** on a
   focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
-  "click opens" (ADR 0006). Every dot carries `.card-el` and `data-id`, so ctrl/cmd+click
-  (toggle), shift+click (range) and right-click (bulk menu) are the shared grammar of
-  ADR 0006; a shift-click range runs in **outline order** (parents before children,
-  siblings by rank), which is the dots' DOM order. In **Force**, **dragging a dot** pulls
+  "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and
+  shift+click or ctrl/cmd+click adds one card or takes it out (the layout has no reading
+  order, so there is no range). Every dot carries `.card-el` and `data-id`, so right-click
+  (bulk menu) is the shared grammar of ADR 0006. In **Force**, **dragging a dot** pulls
   the cards related to it along, like pulling on a thread; the arrangement stays until
   the cards change or the page reloads (Tiers and Status do not drag). **Pan** by dragging the background
   (a drag moves past 4px and the click that ends it is swallowed, so it never clears the
@@ -1357,7 +1381,10 @@ handle a card carries.
   name lowercased with a trailing comment stripped, an unknown name passed through as
   written; no `icon` key at all when none is set). Human-curated like `tags`; the app only reads.
 - **`icon`** (on a `types:` block entry) is one of `circle`, `square`, `diamond`,
-  `triangle`, `hexagon` or `star`. A later change draws it; today the page only holds it.
+  `triangle`, `hexagon` or `star`. The page draws it as the type chip glyph and the Graph
+  dot's outline (see the **Card type chip** and **Graph view** bullets). An icon name is
+  only looked up in the closed table of six in `type-icons.js`; it is never markup, a class
+  name or part of a path, and a name the table does not hold draws as no icon.
   Labels, queries and icon names are human text: a reader escapes them and never uses one
   as raw markup or a class name.
 - **`hierarchy`** (inline or block form) lists the type names that are the levels of the

@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { selectionGlobals } = require('./helpers/selection-globals');
 
 // The selection's plumbing in the page: one entry point every write goes
 // through, one reader every bulk action takes its target cards from, a
@@ -27,11 +28,13 @@ const declaration = (name, kind = 'let') => {
 };
 
 const ids = (set) => [...set].sort((a, b) => a - b);
+const asData = (value) => JSON.parse(JSON.stringify(value));
+const card = (id) => ({ kind: 'card', id });
 
 // --- every write to the selection goes through one entry point ---------------------
 
 function entrySandbox() {
-  const sandbox = {};
+  const sandbox = selectionGlobals();
   vm.createContext(sandbox);
   vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection')].join('\n'), sandbox);
   return sandbox;
@@ -39,21 +42,21 @@ function entrySandbox() {
 
 test('the entry point sets the selection and the range start together', () => {
   const s = entrySandbox();
-  vm.runInContext('setSelection(new Set([1, 2]), 2)', s);
-  assert.deepStrictEqual(ids(vm.runInContext('selectionState.ids', s)), [1, 2]);
+  vm.runInContext('setSelection(cardsSelection([1, 2]), 2)', s);
+  assert.deepStrictEqual(asData(vm.runInContext('selectionState.selection', s)), { anchor: card(1), additions: [card(2)] });
   assert.strictEqual(vm.runInContext('selectionState.rangeStart', s), 2);
 });
 
 test('a write with no range start leaves the range start where it was', () => {
   const s = entrySandbox();
-  vm.runInContext('setSelection(new Set([1]), 1); setSelection(new Set([5, 6]))', s);
-  assert.deepStrictEqual(ids(vm.runInContext('selectionState.ids', s)), [5, 6]);
+  vm.runInContext('setSelection(cardsSelection([1]), 1); setSelection(cardsSelection([5, 6]))', s);
+  assert.deepStrictEqual(asData(vm.runInContext('selectionState.selection', s)), { anchor: card(5), additions: [card(6)] });
   assert.strictEqual(vm.runInContext('selectionState.rangeStart', s), 1);
 });
 
 test('a write can drop the range start by naming null', () => {
   const s = entrySandbox();
-  vm.runInContext('setSelection(new Set([1]), 1); setSelection(new Set(), null)', s);
+  vm.runInContext('setSelection(cardsSelection([1]), 1); setSelection(NO_SELECTION, null)', s);
   assert.strictEqual(vm.runInContext('selectionState.rangeStart', s), null);
   assert.strictEqual(vm.runInContext('selectedIds.size', s), 0);
 });
@@ -61,16 +64,16 @@ test('a write can drop the range start by naming null', () => {
 test('the id set the views paint and the bulk edits read is derived from the selection at every write', () => {
   const s = entrySandbox();
   assert.strictEqual(vm.runInContext('selectedIds.size', s), 0, 'nothing is selected before the first write');
-  vm.runInContext('setSelection(new Set([3, 4]), 4)', s);
+  vm.runInContext('setSelection(cardsSelection([3, 4]), 4)', s);
   assert.deepStrictEqual(ids(vm.runInContext('selectedIds', s)), [3, 4]);
-  vm.runInContext('setSelection(new Set([9]))', s);
+  vm.runInContext('setSelection(cardsSelection([9]))', s);
   assert.deepStrictEqual(ids(vm.runInContext('selectedIds', s)), [9], 'the old ids are gone, not merged');
   assert.strictEqual(vm.runInContext('selectedIds.has(3)', s), false);
 });
 
 test('the derived set keeps the interface the renderers and the bulk edits use: has, size and spread', () => {
   const s = entrySandbox();
-  vm.runInContext('setSelection(new Set([7, 8]), 8)', s);
+  vm.runInContext('setSelection(cardsSelection([7, 8]), 8)', s);
   assert.strictEqual(vm.runInContext('selectedIds.has(7)', s), true);
   assert.strictEqual(vm.runInContext('selectedIds.size', s), 2);
   assert.deepStrictEqual(ids(vm.runInContext('selectedIds', s)), [7, 8]);
@@ -96,20 +99,24 @@ test('no script writes the selection or its derived id set anywhere but the entr
 
 test('the entry point is the one place that assigns the derived id set', () => {
   const body = fn('setSelection');
-  assert.match(body, /selectionState = \{ ids, rangeStart \}/);
-  assert.match(body, /selectedIds = selectionState\.ids/);
+  assert.match(body, /selectionState = \{ selection, rangeStart \}/);
+  assert.match(body, /selectedIds = resolveSelection\(selection, searchMatchIds, shownCardIds\)/);
 });
 
 test('the pieces that wrote the selection before now call the entry point', () => {
   const calls = {
-    applyBoardData: /setSelection\(pruneSelection\(selectedIds,/,
-    openCardContextMenu: /setSelection\(next, id\)/,
-    applyBulkArchive: /setSelection\(new Set\(\)\)/,
-    bulkDelete: /setSelection\(new Set\(\)\)/,
-    onBulkDrop: /setSelection\(new Set\(\)\)/,
+    applyBoardData: /dropGoneCards\(\)/,
+    dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
+    renderBoard: /setSelection\(selectionState\.selection\)/,
+    openCardContextMenu: /setSelection\(setAnchor\(selectionState\.selection, cardPart\(id\)\), id\)/,
+    selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
+    onClickAway: /setSelection\(NO_SELECTION, null\)/,
+    applyBulkArchive: /setSelection\(NO_SELECTION\)/,
+    bulkDelete: /setSelection\(NO_SELECTION\)/,
+    onBulkDrop: /setSelection\(NO_SELECTION\)/,
   };
   for (const [name, re] of Object.entries(calls)) assert.match(fn(name), re, name);
-  assert.match(fn('graphSelectOnly', read('graph-view.js')), /setSelection\(new Set\(\[id\]\), id\)/);
+  assert.match(fn('graphClickNode', read('graph-view.js')), /selectByClick\(action, id\)/, 'the Graph writes through the same step the shared grammar does');
 });
 
 // --- the click handler is a thin caller of the pure decision -----------------------
@@ -131,7 +138,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
   const listeners = [];
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
-    ...require('../web/selection'),
+    ...selectionGlobals(),
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     visibleCardIds: () => order,
@@ -143,8 +150,8 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
-  vm.runInContext(`setSelection(new Set(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
   return { click: listeners[0][1], state, calls };
@@ -239,7 +246,8 @@ test('the assignee cue of a card with no assignee adds nothing', () => {
 
 test('the handler reads the view\'s plain-click behaviour from the lookup and the decision from the pure function, deciding nothing itself', () => {
   const body = clickHandler();
-  assert.match(body, /plainClick: plainClickBehaviour\(loadViewMode\(\)\)/);
+  assert.match(body, /const view = loadViewMode\(\);/);
+  assert.match(body, /plainClick: plainClickBehaviour\(view\), ranges: shiftAddsRange\(view\)/);
   assert.match(body, /cardClickAction\(/);
   assert.match(body, /applyCardClick\(/);
   assert.doesNotMatch(body, /selectedIds|rangeSelection|toggleSelection|setSelection|openCard\(/, 'the handler carries the decision out through applyCardClick and touches no selection state');
@@ -266,10 +274,10 @@ test('the page builds the controls the marker tests look at in the numbers the r
 
 function clickAwaySandbox({ selected = [1, 2], rangeStart = 1 } = {}) {
   const calls = { render: 0 };
-  const sandbox = { renderBoard: () => { calls.render++; }, calls };
+  const sandbox = { ...selectionGlobals(), renderBoard: () => { calls.render++; }, calls };
   vm.createContext(sandbox);
   vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('onClickAway')].join('\n'), sandbox);
-  vm.runInContext(`setSelection(new Set(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
+  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
   return { onClickAway: sandbox.onClickAway, state, calls };
 }
@@ -394,7 +402,7 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
     loadBoard: async () => { calls.loads++; },
     hideContextMenu() {}, applyModalFullscreen() {}, renderBoard() {},
     document: { querySelector: () => ({}), querySelectorAll: () => [], createElement: fakeBox },
-    ...require('../web/selection'), ...require('../web/bulk-edit'),
+    ...selectionGlobals(), ...require('../web/bulk-edit'),
   };
   vm.createContext(sandbox);
   const scheduleRows = appSrc.match(/const SCHEDULE_ROWS = \[[\s\S]*?\n\];/);
@@ -407,11 +415,11 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
       'readScheduleFields', 'refreshScheduleControls', 'openBulkSchedule', 'applyBulkSchedule', 'bulkArchive', 'openBulkArchive', 'applyBulkArchive', 'bulkRestore', 'bulkDelete'].map((n) => fn(n)),
   ].join('\n'), sandbox);
   const run = (code) => vm.runInContext(code, sandbox);
-  run(`setSelection(new Set(${JSON.stringify(selected)}), ${rangeStart})`);
+  run(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`);
   return {
     boxes, calls, run,
     set: (name, value) => { sandbox[name] = value; },
-    select: (...next) => run(`setSelection(new Set(${JSON.stringify(next)}))`),
+    select: (...next) => run(`setSelection(cardsSelection(${JSON.stringify(next)}))`),
     patched: () => calls.api.filter(([m]) => m === 'PATCH').map(([, url, body]) => [url, body]),
   };
 }

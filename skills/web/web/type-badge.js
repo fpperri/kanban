@@ -5,9 +5,17 @@
 // is an open value space (hex, name, ...), so it rides a `data-type-color`
 // attribute and app.js paints it after insertion; a string style="" would be
 // blocked by the strict style-src 'self' CSP.
+//
+// A type the list gives an icon (type-icons.js holds the closed table of six)
+// starts its chip with that glyph. The glyph is plain text inside the chip, so
+// it wears the chip's colour, painted from the same data attribute; the icon
+// name itself never reaches the markup, only the table's own character does.
 
 const ASSIGNEE_BADGE = (typeof module !== 'undefined' && module.exports)
   ? require('./assignee-badge')
+  : window;
+const TYPE_BADGE_ICONS = (typeof module !== 'undefined' && module.exports)
+  ? require('./type-icons')
   : window;
 
 function typeKey(name) {
@@ -26,7 +34,9 @@ function typeBadge(card, types) {
   const color = typeColor(text, types);
   const esc = ASSIGNEE_BADGE.escapeHtml;
   const colorAttr = color ? ` data-type-color="${esc(color)}"` : '';
-  return `<span class="type-chip" title="${esc(text)}"${colorAttr}>${esc(text)}</span>`;
+  const glyph = TYPE_BADGE_ICONS.typeIconGlyph(TYPE_BADGE_ICONS.typeIconOf(text, types));
+  const icon = glyph ? `<span class="type-icon" aria-hidden="true">${glyph}</span>` : '';
+  return `<span class="type-chip" title="${esc(text)}"${colorAttr}>${icon}${esc(text)}</span>`;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
