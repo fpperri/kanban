@@ -386,10 +386,10 @@ function termMatchesCard(term, card) {
     case 'review': return term.value ? searchFieldHit(WBS.reviewReason(card.review), term) : WBS.isReviewValue(card.review);
     case 'blocked': return term.value ? searchFieldHit(WBS.blockedReason(card.blocked), term) : WBS.isBlockedValue(card.blocked);
     // pre-resolved by filterCards (below) into an id Set — a raw,
-    // unresolved 'tree'/'path'/'waiting' term has no graph to resolve against
+    // unresolved 'tree'/'path'/'waiting'/'slice' term has no graph to resolve against
     // here (a single (term, card) pair isn't enough), so it matches nothing
     // rather than throwing. Always goes through filterCards in practice.
-    case 'tree': case 'path': case 'waiting': return false;
+    case 'tree': case 'path': case 'waiting': case 'slice': return false;
     case 'ids': return term.ids.has(Number(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: { // bare term: title + body + tags; a phrase reads across a line break

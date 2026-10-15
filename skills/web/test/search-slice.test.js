@@ -109,7 +109,9 @@ test('an unknown end leaves that end open', () => {
 
 test('a depth the axis does not reach is an unknown end', () => {
   assert.deepStrictEqual(idsOf('slice:objective..9'), idsOf('slice:objective..'));
+  assert.deepStrictEqual(idsOf('slice:objective..9'), [3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
   assert.deepStrictEqual(idsOf('slice:9..objective'), idsOf('slice:..objective'));
+  assert.deepStrictEqual(idsOf('slice:9..objective'), [1, 2, 3, 7, 18]);
 });
 
 test('a single unknown name cuts nothing, and so do a bare slice: and slice:..', () => {
@@ -212,6 +214,9 @@ test('a quoted slice: value is read whole, so a tier named with a space can be c
 test('the term interface writes a slice: term the parser reads back', () => {
   assert.strictEqual(searchTermText('slice', 'objective..2'), 'slice:objective..2');
   assert.strictEqual(searchTermText('slice', 'big goal..2'), 'slice:"big goal..2"');
+  for (const value of ['objective..2', 'big goal..2']) {
+    assert.deepStrictEqual(parseSearchQuery(searchTermText('slice', value)), [{ field: 'slice', value }], value);
+  }
   assert.strictEqual(searchAddTerm('tags:ui | #12', { field: 'slice', value: 'goal..objective' }), 'tags:ui slice:goal..objective | #12 slice:goal..objective');
   assert.strictEqual(searchRemoveTerm('tags:ui slice:goal..objective', { field: 'slice', value: 'goal..objective' }), 'tags:ui');
 });
@@ -223,8 +228,12 @@ test('the parse keeps the cut as one term, and a bare slice: is not yet a term',
   assert.deepStrictEqual(parseSearchQuery('slice: tags:ui'), parseSearchQuery('tags:ui'));
 });
 
-test('an unresolved slice: term matches nothing, like tree: and path:, and never throws', () => {
-  assert.strictEqual(cardMatchesQuery(fixture()[0], parseSearchQuery('slice:goal')), false);
+test('an unresolved slice: term matches nothing, like tree: and path:, and is never read as text', () => {
+  const first = fixture()[0];
+  assert.strictEqual(first.title, 'Card 1');
+  assert.strictEqual(cardMatchesQuery(first, parseSearchQuery('slice:goal')), false);
+  assert.strictEqual(cardMatchesQuery(first, parseSearchQuery('slice:card')), false, 'the value card is in the title, and still the term is not text');
+  assert.strictEqual(cardMatchesQuery(first, parseSearchQuery('slice:ui')), false, 'and the value ui is a tag');
 });
 
 test('a page that has not loaded the slices module cuts nothing and does not throw', () => {
