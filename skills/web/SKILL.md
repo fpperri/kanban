@@ -276,17 +276,15 @@ to `127.0.0.1` only.
   head row (its altitude: the layers of cards below it, whatever their types) and a status
   bar of the leaves below it, meaning the cards with no children, so an objective over two
   epics over stories counts the stories and not the epics beside them. Segments run in
-  column order, each in its status's color, with a `status: n` tooltip. One **Bar** setting,
-  open or collapsed, drives every bar on the page: collapsed is a thin line (the default),
-  open adds a count line (the total, the done count, then each other status). The header's
-  **Bar** select sets it, and clicking any bar, on a board card or in the card detail,
-  flips it for all of them without opening the card; a browser that once saved the retired
-  `off` reads as collapsed. The **Archived** checkbox chooses whether archived leaves count
-  (as done, on by default, so archiving a finished story leaves its parent's done count
-  unchanged). Both choices are remembered per board in `localStorage`, surviving reload and
-  the poll, and the controls appear only on a board that has a parent. The card detail shows
-  the roll-up right under the title and thread, above the fields, following the Bar setting:
-  the thin bar when collapsed, the bar with its numbers and a scope line when open. The
+  column order, each in its status's color, with a `status: n` tooltip. Every bar on the page
+  shares one mode, open or collapsed: collapsed is a thin line (the default), open adds a
+  count line (the total, the done count, then each other status). Clicking any bar, on a
+  board card or in the card detail, flips it for all of them without opening the card; the
+  mode is remembered per board in `localStorage`, surviving reload and the poll, and a
+  browser that once saved the retired `off` reads as collapsed. Archived leaves always count
+  as done, so archiving a finished story leaves its parent's done count unchanged. The card
+  detail shows the roll-up right under the title and thread, above the fields, in the same
+  mode: the thin bar when collapsed, the bar with its numbers and a scope line when open. The
   scope line says the roll-up counts this board only, because a parent cannot
   know about children on a board it never reads. Marking a parent done while leaves below
   are still open (a drag, a multi-card drag or the form) shows a warning and saves anyway;
@@ -838,8 +836,8 @@ to `127.0.0.1` only.
   drawn. **Align** centers each row in its graph and each graph on the page, or sets them
   left. **Rich nodes** (the **Cards** option, the default) carry, under the title, the
   type chip and the ▲ altitude badge and, on a parent whose leaves are counted, the
-  roll-up bar following the shared Bar setting (thin while collapsed, with counts when
-  open); a click on a bar flips the Bar setting and never opens the card. A node's
+  roll-up bar in the board's bar mode (thin while collapsed, with counts when
+  open); a click on a bar flips every bar and never opens the card. A node's
   height follows what it holds (a plain node is 58px tall), and stubs stay plain; "plain"
   draws id and title only.
   **Map options:** one compact row under the status pills holds the eight choices as

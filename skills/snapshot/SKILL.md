@@ -202,7 +202,7 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
 - **Roll-ups.** A parent card shows its altitude badge (the layers below it, `▲n`)
   and a thin bar of the status of the leaves under it. Its sheet opens the bar with
   the counts, says the roll-up counts this board only, and counts archived leaves
-  as done, as kanban-web does by default; there is no switch for that here.
+  as done, as kanban-web does.
 - **The thread.** A card's sheet shows its parents above it, root first, and lists
   its children below the description in rank order. Each entry is a mention chip
   that opens that card. A parent on another board is named and marked not followed,
@@ -513,8 +513,9 @@ save, when a parent is marked done while leaves below it are open. Here a move t
 `done` queues like any other and says nothing, since the page only queues changes for
 Claude to apply; read the parent's roll-up before marking it done.
 
-**No bar mode.** kanban-web's Bar select (open, collapsed or off) has no counterpart:
-a parent's tile always carries the thin bar and its sheet the open one.
+**No bar mode.** kanban-web's click on a bar, which flips every bar between open and
+collapsed, has no counterpart: a parent's tile always carries the thin bar and its
+sheet the open one.
 
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map

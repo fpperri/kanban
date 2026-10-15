@@ -38,21 +38,22 @@ const cards = () => [
   { id: 9, parent: null, status: 'todo', archived: false },
 ];
 
-function detailSandbox({ mode, detailId = null } = {}) {
+// Every roll-up memo and pref loader/saver app.js defines, whatever it is
+// called, so a sandbox runs what the page runs and nothing is stubbed by name.
+const rollupState = () => appSrc.match(/^let rollup\w* = null;$/gm) || [];
+const rollupPrefs = () => [...appSrc.matchAll(/^function ((?:load|save)Rollup\w*)\(/gm)].map((m) => fn(m[1]));
+
+function detailSandbox({ mode, detailId = null, archivedKey, archivedLeaves = [] } = {}) {
   const colState = require('../web/column-state');
   const stored = {};
   const writes = {};
   if (mode) stored['kanban.kanban.rollup.bar'] = mode;
+  if (archivedKey !== undefined) stored['kanban.kanban.rollup.archived'] = archivedKey;
   const box = fakeBox();
   const calls = { renderBoard: 0, detail: [] };
   const sandbox = {
-    state: { active: cards(), archived: [], projectName: 'kanban', priorities: [], statuses: [] },
-    storageKey: colState.storageKey,
-    mergeRollupBar: colState.mergeRollupBar,
-    nextRollupBar: colState.nextRollupBar,
-    ROLLUP_BAR_COLLAPSED: colState.ROLLUP_BAR_COLLAPSED,
-    mergeRollupCountArchived: colState.mergeRollupCountArchived,
-    liveStatuses: colState.liveStatuses,
+    state: { active: cards(), archived: archivedLeaves, projectName: 'kanban', priorities: [], statuses: [] },
+    ...colState,
     localStorage: { getItem: (k) => (k in stored ? stored[k] : null), setItem: (k, v) => { writes[k] = v; } },
     $: (sel) => { assert.strictEqual(sel, '#detail-rollup'); return box; },
     renderBoard: () => { calls.renderBoard++; },
@@ -61,16 +62,16 @@ function detailSandbox({ mode, detailId = null } = {}) {
     ...require('../web/rollup-bar'),
   };
   vm.createContext(sandbox);
-  vm.runInContext(['let rollupBarMode = null;', 'let rollupCountArchived = null;', `let currentDetailId = ${detailId};`,
-    fn('boardStatuses'), fn('loadRollupBarMode'), fn('saveRollupBarMode'), fn('loadRollupCountArchived'), fn('nestingCtx'), fn('buildNestingIndex'),
+  vm.runInContext([...rollupState(), `let currentDetailId = ${detailId};`,
+    fn('boardStatuses'), ...rollupPrefs(), fn('nestingCtx'), fn('buildNestingIndex'),
     fn('paintRollupBars'), fn('renderDetailRollup'), fn('toggleRollupBar')].join('\n'), sandbox);
   vm.runInContext('renderDetailRollup = ((orig) => (id) => { calls.detail.push(id); return orig(id); })(renderDetailRollup);', sandbox);
   return sandbox;
 }
 
-// --- the detail follows the Bar setting -------------------------------------------
+// --- the detail follows the shared bar mode -------------------------------------------
 
-test('with Bar collapsed the detail shows the thin bar without numbers', () => {
+test('with the bar mode collapsed the detail shows the thin bar without numbers', () => {
   const s = detailSandbox({ mode: 'collapsed' });
   s.renderDetailRollup(1);
   assert.match(s.box.innerHTML, /rollup-bar thin/);
@@ -79,7 +80,7 @@ test('with Bar collapsed the detail shows the thin bar without numbers', () => {
   assert.strictEqual(s.box.classList.contains('detail-rollup--collapsed'), true);
 });
 
-test('with Bar open the detail shows the bar and its numbers', () => {
+test('with the bar mode open the detail shows the bar and its numbers', () => {
   const s = detailSandbox({ mode: 'open' });
   s.renderDetailRollup(1);
   assert.match(s.box.innerHTML, /<div class="rollup-bar">/);
@@ -91,6 +92,18 @@ test('with nothing saved the detail is collapsed, the same default as a tile', (
   const s = detailSandbox();
   s.renderDetailRollup(1);
   assert.match(s.box.innerHTML, /rollup-bar thin/);
+});
+
+test('archived leaves count as done in the detail, and its scope line says so, whatever an older visit stored', () => {
+  const archivedLeaves = [{ id: 5, parent: 1, status: 'done', archived: true }];
+  for (const archivedKey of [undefined, 'false', 'true']) {
+    const s = detailSandbox({ mode: 'open', archivedKey, archivedLeaves });
+    s.renderDetailRollup(1);
+    assert.match(s.box.innerHTML, /<b class="rollup-total">4<\/b>/, `stored ${archivedKey}`);
+    assert.match(s.box.innerHTML, /<span class="rollup-count">2 done<\/span>/, `stored ${archivedKey}`);
+    assert.match(s.box.innerHTML, /Archived leaves count as done\./, `stored ${archivedKey}`);
+    assert.doesNotMatch(s.box.innerHTML, /left out/, `stored ${archivedKey}`);
+  }
 });
 
 test('a leaf has no roll-up block, whatever the setting', () => {
@@ -228,12 +241,53 @@ test('a ctrl, cmd or shift click on a bar is left to multi-select, not the bar t
   }
 });
 
-test('changing the Bar select or the Archived box repaints an open detail too', () => {
-  const src = read('app.js');
-  for (const id of ['#rollup-bar-mode', '#rollup-archived']) {
-    const at = src.indexOf(`$('${id}').addEventListener('change'`);
-    assert.ok(at > 0, id);
-    const body = src.slice(at, src.indexOf('});', at));
-    assert.match(body, /if \(currentDetailId != null\) renderDetailRollup\(currentDetailId\);/, id);
-  }
+// The shared click handler wired to the real toggle, repaint and storage, with
+// only the drawing stubbed: the whole path from a click on a bar to the saved mode.
+function flipSandbox({ mode, detailId = null } = {}) {
+  const s = detailSandbox({ mode, detailId });
+  const listeners = [];
+  s.flip = { columns: 0, views: 0, opened: [] };
+  Object.assign(s, {
+    document: { addEventListener: (type, f) => listeners.push([type, f]) },
+    selectedIds: new Set(),
+    selectionAnchor: null,
+    openCard: (id) => { s.flip.opened.push(id); },
+    renderBoardColumns: () => { s.flip.columns++; },
+    applyViewMode: () => { s.flip.views++; },
+  });
+  vm.runInContext([fn('renderBoard'), sharedClickHandler()].join('\n'), s);
+  assert.strictEqual(listeners.length, 1);
+  s.click = listeners[0][1];
+  return s;
+}
+
+const onBar = () => clickOn({ '.rollup': {}, '.card-el': { dataset: { id: '1' } } });
+
+test('a click on a bar flips every bar, saves the mode per board and repaints the board and the open detail', () => {
+  const s = flipSandbox({ mode: 'collapsed', detailId: 1 });
+  s.click(onBar());
+  assert.deepStrictEqual(s.writes, { 'kanban.kanban.rollup.bar': 'open' });
+  assert.deepStrictEqual(s.flip, { columns: 1, views: 1, opened: [] });
+  assert.deepStrictEqual(s.calls.detail, [1]);
+  assert.match(s.box.innerHTML, /<b class="rollup-total">3<\/b>/, 'the detail now shows the open bar');
+  s.click(onBar());
+  assert.deepStrictEqual(s.writes, { 'kanban.kanban.rollup.bar': 'collapsed' });
+  assert.deepStrictEqual(s.flip, { columns: 2, views: 2, opened: [] });
+  assert.match(s.box.innerHTML, /rollup-bar thin/, 'and back to the thin bar');
+});
+
+test('a click on a bar with no detail open repaints only the board, and the flip survives a reload', () => {
+  const s = flipSandbox({ mode: 'open' });
+  s.click(onBar());
+  assert.deepStrictEqual(s.writes, { 'kanban.kanban.rollup.bar': 'collapsed' });
+  assert.deepStrictEqual(s.flip, { columns: 1, views: 1, opened: [] });
+  assert.deepStrictEqual(s.calls.detail, []);
+  const reloaded = detailSandbox({ mode: s.writes['kanban.kanban.rollup.bar'] });
+  reloaded.renderDetailRollup(1);
+  assert.match(reloaded.box.innerHTML, /rollup-bar thin/);
+});
+
+test('the bar mode is only ever set by the click toggle, never by a control', () => {
+  const sets = [...appSrc.matchAll(/\brollupBarMode = ([^;]*);/g)].map((m) => m[1]);
+  assert.deepStrictEqual(sets.sort(), ['mergeRollupBar(saved)', 'nextRollupBar(loadRollupBarMode())', 'null', 'null']);
 });

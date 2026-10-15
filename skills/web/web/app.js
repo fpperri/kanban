@@ -745,10 +745,9 @@ function saveViewMode() {
   catch (e) { /* storage unavailable/full — view choice just won't persist this session */ }
 }
 
-// applyProjectName resets both roll-up memos, as it does for every cache keyed
+// applyProjectName resets the roll-up memo, as it does for every cache keyed
 // by the board name.
 let rollupBarMode = null;
-let rollupCountArchived = null;
 
 function loadRollupBarMode() {
   if (rollupBarMode) return rollupBarMode;
@@ -772,23 +771,9 @@ function toggleRollupBar() {
   if (currentDetailId != null) renderDetailRollup(currentDetailId);
 }
 
-function loadRollupCountArchived() {
-  if (rollupCountArchived !== null) return rollupCountArchived;
-  let saved = null;
-  try { saved = localStorage.getItem(storageKey(state.projectName, 'rollup.archived')); }
-  catch (e) { saved = null; } // corrupt/inaccessible storage — archived leaves count
-  rollupCountArchived = mergeRollupCountArchived(saved);
-  return rollupCountArchived;
-}
-
-function saveRollupCountArchived() {
-  try { localStorage.setItem(storageKey(state.projectName, 'rollup.archived'), String(rollupCountArchived)); }
-  catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
-}
-
 // Cards are edited in place (optimistic drops), so the nesting index is rebuilt
-// at the top of every renderBoard() rather than cached across renders; tiles,
-// the map's No relations row and the controls all read it.
+// at the top of every renderBoard() rather than cached across renders; tiles
+// and the map's No relations row both read it.
 let nestingIndex = null;
 
 function nestingCtx() {
@@ -802,7 +787,7 @@ function buildNestingIndex() {
 function parentTile(card) {
   const altitude = nestingIndex.altitudeOf(card.id);
   if (!altitude) return { badge: '', bar: '' };
-  const rollup = nestingIndex.rollup(card.id, { countArchived: loadRollupCountArchived() });
+  const rollup = nestingIndex.rollup(card.id);
   return { badge: altitudeBadge(altitude), bar: rollupBar(rollup, loadRollupBarMode(), boardStatuses()) };
 }
 
@@ -813,29 +798,6 @@ function paintRollupBars(root) {
     seg.style.flexGrow = seg.dataset.n;
   });
 }
-
-function syncRollupControls() {
-  const ctls = $('#rollup-ctls');
-  if (!ctls) return;
-  ctls.classList.toggle('hidden', !nestingIndex.parents().length);
-  $('#rollup-bar-mode').value = loadRollupBarMode();
-  $('#rollup-archived').checked = loadRollupCountArchived();
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  $('#rollup-bar-mode').addEventListener('change', (e) => {
-    rollupBarMode = mergeRollupBar(e.target.value);
-    saveRollupBarMode();
-    renderBoard();
-    if (currentDetailId != null) renderDetailRollup(currentDetailId);
-  });
-  $('#rollup-archived').addEventListener('change', (e) => {
-    rollupCountArchived = e.target.checked;
-    saveRollupCountArchived();
-    renderBoard();
-    if (currentDetailId != null) renderDetailRollup(currentDetailId);
-  });
-});
 
 // A soft warning, never a gate: parents newly done while leaves below are open.
 // Only the literal status done counts. Called after the move has been saved.
@@ -882,7 +844,6 @@ function applyViewMode() {
 
 function renderBoard() {
   nestingIndex = buildNestingIndex();
-  syncRollupControls();
   renderBoardColumns();
   applyViewMode();
 }
@@ -1259,7 +1220,7 @@ const MAP_OPTION_LABELS = {
   },
   cards: {
     label: 'Cards',
-    hint: 'Rich: the type chip, the altitude badge and, on a parent, its roll-up bar (a click on the bar flips the Bar setting). Plain: id and title only.',
+    hint: 'Rich: the type chip, the altitude badge and, on a parent, its roll-up bar (a click on the bar flips every bar). Plain: id and title only.',
     values: { rich: 'rich', plain: 'plain' },
   },
 };
@@ -1413,7 +1374,7 @@ function buildIsolatedRow(ids, allCards, collapsed) {
 
 // Rich rows are HTML in foreignObjects so typeBadge, altitudeBadge and rollupBar
 // stay the board's own renderers, and a click on a bar reaches the board's own
-// handler (the Bar setting flips; the card does not open).
+// handler (every bar flips; the card does not open).
 const MAP_RICH_TOP = 40;
 const MAP_RICH_META_H = 16;
 const MAP_RICH_BAR_OPEN_H = 30;
@@ -1428,7 +1389,7 @@ function mapRichLayout(n, draw) {
   const type = card && card.type != null ? String(card.type).trim() : '';
   const alt = nestingIndex.altitudeOf(n.id);
   const mode = loadRollupBarMode();
-  const rollup = alt ? nestingIndex.rollup(n.id, { countArchived: loadRollupCountArchived() }) : null;
+  const rollup = alt ? nestingIndex.rollup(n.id) : null;
   const hasBar = !!(rollup && rollup.total);
   const hasMeta = !!type || alt >= 1 || !!n.blocked;
   const barH = mode === ROLLUP_BAR_OPEN ? MAP_RICH_BAR_OPEN_H : MAP_RICH_BAR_THIN_H;
@@ -1680,7 +1641,6 @@ function applyProjectName(name) {
     modalFullscreen = null;
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
-    rollupCountArchived = null; // rollup.archived too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     ganttSubview = null; // gantt.subview too
@@ -2882,8 +2842,8 @@ function renderDetailRollup(id) {
     return;
   }
   const mode = loadRollupBarMode();
-  const countArchived = loadRollupCountArchived();
-  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived, mode);
+  // Archived leaves always count as done, so the scope line always says so.
+  box.innerHTML = rollupDetailHtml(index.rollup(id), altitude, boardStatuses(), true, mode);
   box.classList.toggle('detail-rollup--collapsed', mode === ROLLUP_BAR_COLLAPSED);
   paintRollupBars(box);
   box.classList.remove('hidden');
@@ -5572,7 +5532,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popup are exempt as well.
   document.addEventListener('click', (e) => {
     if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup-ctl, .rollup, #graph-toggle-btn, .graph-control')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar, the roll-up bar choices and the roll-up bars themselves must not wipe a building selection
+    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup, #graph-toggle-btn, .graph-control')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar and the roll-up bars must not wipe a building selection
     selectedIds = new Set();
     selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
     renderBoard();

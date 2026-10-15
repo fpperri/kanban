@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { clickAwayExemptions, assertHasSelectors } = require('./helpers/selector-list');
 
 const WEB = path.join(__dirname, '..', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
@@ -15,6 +16,11 @@ function fn(name) {
   return m[0];
 }
 
+// Every roll-up memo and pref loader/saver app.js defines, whatever it is
+// called, so a sandbox runs what the page runs and nothing is stubbed by name.
+const rollupState = () => appSrc.match(/^let rollup\w* = null;$/gm) || [];
+const rollupPrefs = () => [...appSrc.matchAll(/^function ((?:load|save)Rollup\w*)\(/gm)].map((m) => fn(m[1]));
+
 // A sandbox with just what the pref helpers touch: a state, a storage that can
 // be made to throw, and the real merge/key functions.
 function prefSandbox({ stored = {}, throws = false } = {}) {
@@ -22,9 +28,7 @@ function prefSandbox({ stored = {}, throws = false } = {}) {
   const writes = {};
   const sandbox = {
     state: { projectName: 'shop' },
-    storageKey: colState.storageKey,
-    mergeRollupBar: colState.mergeRollupBar,
-    mergeRollupCountArchived: colState.mergeRollupCountArchived,
+    ...colState,
     localStorage: {
       getItem(k) { if (throws) throw new Error('blocked'); return Object.prototype.hasOwnProperty.call(stored, k) ? stored[k] : null; },
       setItem(k, v) { if (throws) throw new Error('blocked'); writes[k] = v; },
@@ -32,12 +36,11 @@ function prefSandbox({ stored = {}, throws = false } = {}) {
     writes,
   };
   vm.createContext(sandbox);
-  vm.runInContext(['let rollupBarMode = null;', 'let rollupCountArchived = null;',
-    fn('loadRollupBarMode'), fn('saveRollupBarMode'), fn('loadRollupCountArchived'), fn('saveRollupCountArchived')].join('\n'), sandbox);
+  vm.runInContext([...rollupState(), ...rollupPrefs()].join('\n'), sandbox);
   return sandbox;
 }
 
-// --- the two per-browser choices ---------------------------------------------
+// --- the one per-browser choice ------------------------------------------------
 
 test('the bar mode defaults to collapsed, reads the saved choice, and is namespaced by board', () => {
   assert.strictEqual(prefSandbox().loadRollupBarMode(), 'collapsed');
@@ -58,25 +61,22 @@ test('the bar mode survives a reload: what is saved is what the next page load r
   assert.strictEqual(reloaded.loadRollupBarMode(), 'open');
 });
 
-test('archived leaves count by default, and the choice to leave them out survives a reload', () => {
-  assert.strictEqual(prefSandbox().loadRollupCountArchived(), true);
-  const first = prefSandbox();
-  vm.runInContext('rollupCountArchived = false; saveRollupCountArchived();', first);
-  assert.deepStrictEqual(first.writes, { 'kanban.shop.rollup.archived': 'false' });
-  assert.strictEqual(prefSandbox({ stored: first.writes }).loadRollupCountArchived(), false);
+test('the page keeps no archived switch: no memo, no loader, no saver, and the old key is never read or written', () => {
+  assert.deepStrictEqual(rollupState(), ['let rollupBarMode = null;']);
+  assert.deepStrictEqual([...appSrc.matchAll(/^function ((?:load|save)Rollup\w*)\(/gm)].map((m) => m[1]), ['loadRollupBarMode', 'saveRollupBarMode']);
+  assert.doesNotMatch(appSrc, /rollup\.archived|CountArchived/);
 });
 
-test('blocked storage falls back to the defaults and a failed save never throws', () => {
+test('blocked storage falls back to the default and a failed save never throws', () => {
   const blocked = prefSandbox({ throws: true });
   assert.strictEqual(blocked.loadRollupBarMode(), 'collapsed');
-  assert.strictEqual(blocked.loadRollupCountArchived(), true);
-  assert.doesNotThrow(() => vm.runInContext('saveRollupBarMode(); saveRollupCountArchived();', blocked));
+  assert.doesNotThrow(() => vm.runInContext('saveRollupBarMode();', blocked));
 });
 
-test('a project rename drops both remembered choices so the next read uses the right board key', () => {
+test('a project rename drops the remembered choice so the next read uses the right board key', () => {
   const body = fn('applyProjectName');
   assert.match(body, /rollupBarMode = null;/);
-  assert.match(body, /rollupCountArchived = null;/);
+  assert.doesNotMatch(body, /rollupCountArchived/);
   assert.ok(body.indexOf('rollupBarMode = null;') < body.indexOf('state.projectName = next;'), 'reset before the new name lands');
 });
 
@@ -105,6 +105,11 @@ test('renderBoard indexes the board once, before any tile is drawn, and tiles on
   }
 });
 
+test('renderBoard only paints the board: it reaches for no header control', () => {
+  assert.doesNotMatch(fn('renderBoard'), /Rollup|rollup/);
+  assert.doesNotMatch(appSrc, /syncRollupControls/);
+});
+
 test('board tiles and archived tiles carry the altitude badge in the head row and the bar as the last line of the main column', () => {
   for (const name of ['cardEl', 'archiveCardEl']) {
     const body = fn(name);
@@ -118,31 +123,28 @@ test('board tiles and archived tiles carry the altitude badge in the head row an
   }
 });
 
-test('the tile reads the remembered mode and the archived choice', () => {
+test('the tile reads the remembered mode and asks the index for every leaf, archived ones included', () => {
   const body = fn('parentTile');
   assert.match(body, /loadRollupBarMode\(\)/);
-  assert.match(body, /countArchived: loadRollupCountArchived\(\)/);
+  assert.match(body, /nestingIndex\.rollup\(card\.id\)/);
   assert.match(body, /nestingIndex\.altitudeOf\(card\.id\)/);
 });
 
-// --- header controls, detail block ---------------------------------------------
+// --- header, detail block ------------------------------------------------------
 
-test('the header carries the bar mode select and the archived checkbox, wired to save and repaint', () => {
-  assert.match(html, /<span id="rollup-ctls" class="rollup-ctls hidden">/);
-  assert.match(html, /<select id="rollup-bar-mode"/);
-  for (const v of ['open', 'collapsed']) assert.match(html, new RegExp(`<option value="${v}">`));
-  assert.doesNotMatch(html.match(/<select id="rollup-bar-mode"[\s\S]*?<\/select>/)[0], /off/, 'the bar has no off choice');
-  assert.match(html, /<input type="checkbox" id="rollup-archived"/);
-  assert.match(appSrc, /\$\('#rollup-bar-mode'\)\.addEventListener\('change'/);
-  assert.match(appSrc, /\$\('#rollup-archived'\)\.addEventListener\('change'/);
-  const sync = fn('syncRollupControls');
-  assert.match(sync, /nestingIndex\.parents\(\)\.length/, 'controls show only on a board that has parents');
+test('the header carries no roll-up control: no Bar select, no Archived box, no wrapper, and nothing wired to them', () => {
+  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+  assert.ok(header.includes('id="graph-toggle-btn"') && header.includes('id="refresh-btn"'), 'the slice is the page header');
+  assert.doesNotMatch(header, /rollup/);
+  assert.match(header, /id="graph-toggle-btn"[^>]*>[^<]*<\/button>\s*<button id="refresh-btn"/, 'the controls around the gap did not move');
+  assert.doesNotMatch(appSrc, /#rollup-/);
+  assert.doesNotMatch(read('app.css'), /rollup-ctl/);
 });
 
-test('a click on the roll-up controls keeps a building multi-selection', () => {
-  const line = appSrc.split('\n').find((l) => l.includes("e.target.closest('#context-menu, #bulk-single"));
-  assert.ok(line, 'the Q0 exemption selector is there');
-  assert.match(line, /\.rollup-ctl\b/);
+test('a click on a roll-up bar keeps a building multi-selection, and the exemption names no control that is gone', () => {
+  const list = clickAwayExemptions(appSrc);
+  assertHasSelectors(list, ['.rollup'], 'the click-away exemption');
+  assert.ok(!list.includes('.rollup-ctl'), 'no exemption for the retired controls');
 });
 
 test('the card detail has a roll-up block under the thread and above the fields, filled from state', () => {
@@ -217,31 +219,28 @@ test('openLeavesNote says nothing for any other status, or for a leaf, or when e
 });
 
 test('the bar and badge builders never write a style attribute in app.js', () => {
-  for (const name of ['parentTile', 'paintRollupBars', 'renderDetailRollup', 'syncRollupControls']) {
+  for (const name of ['parentTile', 'paintRollupBars', 'renderDetailRollup']) {
     assert.doesNotMatch(fn(name), /style="|setAttribute\('style'/, `${name} stays CSP-clean`);
   }
 });
 
 // --- a tile, end to end through the real helpers ---------------------------------
 
-function tileSandbox(cards, { mode, countArchived } = {}) {
+function tileSandbox(cards, { mode, archivedKey } = {}) {
   const colState = require('../web/column-state');
   const stored = {};
   if (mode) stored['kanban.kanban.rollup.bar'] = mode;
-  if (countArchived === false) stored['kanban.kanban.rollup.archived'] = 'false';
+  if (archivedKey !== undefined) stored['kanban.kanban.rollup.archived'] = archivedKey;
   const sandbox = {
     state: { active: cards.filter((c) => !c.archived), archived: cards.filter((c) => c.archived), projectName: 'kanban', priorities: [], statuses: [] },
-    storageKey: colState.storageKey,
-    mergeRollupBar: colState.mergeRollupBar,
-    mergeRollupCountArchived: colState.mergeRollupCountArchived,
-    liveStatuses: colState.liveStatuses,
+    ...colState,
     localStorage: { getItem: (k) => (k in stored ? stored[k] : null), setItem() {} },
     ...require('../web/nesting'),
     ...require('../web/rollup-bar'),
   };
   vm.createContext(sandbox);
-  vm.runInContext(['let rollupBarMode = null;', 'let rollupCountArchived = null;', 'let nestingIndex = null;',
-    fn('boardStatuses'), fn('loadRollupBarMode'), fn('loadRollupCountArchived'), fn('nestingCtx'), fn('buildNestingIndex'), fn('parentTile'),
+  vm.runInContext([...rollupState(), 'let nestingIndex = null;',
+    fn('boardStatuses'), ...rollupPrefs(), fn('nestingCtx'), fn('buildNestingIndex'), fn('parentTile'),
     'nestingIndex = buildNestingIndex();'].join('\n'), sandbox);
   return sandbox;
 }
@@ -277,18 +276,19 @@ test('the remembered open mode puts numbers on the tile, and a saved off still d
   assert.doesNotMatch(off.bar, /rollup-total/);
 });
 
-test('archiving a done story leaves the tile\'s done weight unchanged; leaving archived out drops it', () => {
+test('archiving a done story leaves the tile\'s done weight unchanged', () => {
   const cards = tileCards();
   cards.find((c) => c.id === 10).archived = true;
   assert.strictEqual(segCount(tileSandbox(cards).parentTile({ id: 2 }).bar), 2);
-  assert.strictEqual(segCount(tileSandbox(cards, { countArchived: false }).parentTile({ id: 2 }).bar), 1);
 });
 
-test('the roll-up controls are wired in a block of their own, ahead of the map view wiring', () => {
-  const wiring = appSrc.indexOf('// --- Map view wiring');
-  const bar = appSrc.indexOf("$('#rollup-bar-mode').addEventListener('change'");
-  const archived = appSrc.indexOf("$('#rollup-archived').addEventListener('change'");
-  assert.ok(wiring > 0 && bar > 0 && archived > 0);
-  assert.ok(bar < wiring && archived < wiring, 'neither listener sits in the map block');
-  assert.ok(bar > appSrc.indexOf('function syncRollupControls('), 'the block follows syncRollupControls');
+test('a "false" an older visit stored under the retired archived key changes nothing: archived leaves still count as done', () => {
+  const cards = tileCards();
+  cards.find((c) => c.id === 10).archived = true;
+  for (const archivedKey of ['false', 'true', 'garbage']) {
+    const s = tileSandbox(cards, { mode: 'open', archivedKey });
+    const tile = s.parentTile({ id: 2 });
+    assert.strictEqual(segCount(tile.bar), 2, `stored ${archivedKey}`);
+    assert.match(tile.bar, /<span class="rollup-count">1 done<\/span>/, `stored ${archivedKey}`);
+  }
 });
