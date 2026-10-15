@@ -2281,6 +2281,9 @@ async function reorderCard(id, prev, next) {
 // viewMode at all: "loads normally" means the persisted view stands.
 function consumeDeepLink() {
   const link = parseDeepLink(location.search);
+  // A link with no query writes nothing into the box, so nothing would bring its address in
+  // line with the empty box: an `isolate=1` it carries would stay until the next write.
+  if (!link || !link.q) followSearchInAddress($('#search-input').value);
   if (!link) return;
   // `q` and `view` are applied BEFORE the card is resolved, so a link whose
   // card key is unusable still delivers everything else that parsed.

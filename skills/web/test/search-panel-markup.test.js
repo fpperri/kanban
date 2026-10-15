@@ -42,6 +42,12 @@ test('the input and the clear button are as they were, so everything that reads 
   assert.match(html, /<button type="button" id="search-clear-btn"/);
 });
 
+test('the input\'s hint says the first Esc closes the open panel and a later one clears the box', () => {
+  const hint = attr(tagOf('search-input'), 'title');
+  assert.doesNotMatch(hint, /Esc to clear/);
+  assert.ok(hint.indexOf('closes the search panel') > -1 && hint.indexOf('closes the search panel') < hint.indexOf('clears the box'), hint);
+});
+
 test('the arrow is a button that names the panel it controls, says whether it is open, starts closed and keeps a selection', () => {
   const toggle = tagOf('search-panel-toggle');
   assert.strictEqual(attr(toggle, 'type'), 'button');
