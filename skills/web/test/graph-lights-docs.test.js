@@ -43,6 +43,13 @@ test('the Graph section says a search typed in the Graph is the anchor, hides no
   assert.match(text, /matches light, done cards included/);
 });
 
+test('the Graph section says only a slice: term on its own hides, and the rest of the query lights inside the cut', () => {
+  const text = graph();
+  assert.match(text, /The one thing it hides is the cards outside the cut of a `slice:` term that stands on its own in the query, as in every other view/);
+  assert.match(text, /the rest of the query lights inside the cut/);
+  assert.match(text, /a `slice:` term under `\|` or in a bracket of alternatives is only a term to match, so it lights and hides nothing/);
+});
+
 test('the Graph section says what drops the typed anchor and what a click does to it', () => {
   const text = graph();
   assert.match(text, /Emptying the box, \*\*Esc\*\* and a click on the empty Graph drop the anchor and the dimming/);
@@ -67,6 +74,7 @@ test('the Graph section no longer says the search box filters the Graph or compo
 
 test('the Search section and the multi-select section name the Graph as the exception', () => {
   assert.match(bullet('- **Search**'), /filters every view as you type, except the Graph/);
+  assert.match(bullet('- **Search**'), /lights its matches and hides nothing but a `slice:` cut/);
   assert.match(bullet('- **Multi-select**'), /A search typed in the Graph is the anchor of the selection: its matches are the selected cards/);
 });
 
@@ -74,6 +82,7 @@ test('the web doc\'s Graph section says the same in short: a typed search lights
   const start = webDoc.indexOf('## Graph');
   const section = webDoc.slice(start, webDoc.indexOf('\n## ', start + 4)).replace(/\s+/g, ' ');
   assert.match(section, /A search typed in the Graph hides nothing: its matches light, done cards included, and the rest dims/);
+  assert.match(section, /Only a `slice:` term on its own in the query cuts the Graph, as it cuts every view; under `\|` it lights/);
   assert.match(section, /the box goes on filtering there, while nothing is selected by it/);
   assert.doesNotMatch(section, /or the search\)/);
 });

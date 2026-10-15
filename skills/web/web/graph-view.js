@@ -218,7 +218,7 @@ function graphSetFocus(id) {
 }
 
 // The lone card the selection holds, or null: only a card picked on its own,
-// shown in this view, lights with its relations (R2).
+// shown in this view, lights with its relations.
 function graphLoneCardId() {
   const id = loneCard(selectionState.selection);
   return id !== null && selectedIds.has(id) ? id : null;
@@ -252,7 +252,7 @@ function graphClickNode(id, mods) {
   });
   const typedBefore = isTypedAnchor(selectionState.selection);
   selectByClick(action, id);
-  // A plain click sets a new anchor and clears the box (R3). Shift or Ctrl keeps
+  // A plain click sets a new anchor and clears the box. Shift or Ctrl keeps
   // the query, unless it took out a card the query lit: the query is then its other
   // cards, and the box no longer names the anchor.
   const boxIsDone = action === 'select' || (typedBefore && !isTypedAnchor(selectionState.selection));
@@ -332,7 +332,7 @@ function renderGraphView() {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
     const pool = state.active.concat(state.archived);
-    const visibleIds = graphVisibleIds(pool, graphQueryEffect(currentSearchMatch()).visibleIds, filter, boardStatuses());
+    const visibleIds = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, filter, boardStatuses());
     model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types });
     layoutOpts = { statuses: boardStatuses() };
     layout = graphLayout(model, kind, layoutOpts);

@@ -8,7 +8,7 @@ const { parseSearchQuery, filterCards } = require('../web/search');
 
 // A search typed in the Graph is the anchor of the selection, and the anchor keeps
 // where it came from: a typed query is the one anchor that stops being one when
-// the Graph is left (R14), where a pill's query stays. These are the pure
+// the Graph is left, where a pill's query stays. These are the pure
 // operations; the page's plumbing is pinned in graph-lights-wiring.test.js.
 
 const parts = (selection) => [selection.anchor, ...selection.additions];
@@ -130,7 +130,7 @@ test('the parts keep their source through a poll that prunes gone cards and thro
   assert.deepStrictEqual(parts(turned), [cardPart(2), cardPart(3)]);
 });
 
-test('a plain click on a card sets a card anchor, so the typed anchor is gone; Shift or Ctrl adds the card and keeps the typed anchor (R3)', () => {
+test('a plain click on a card sets a card anchor, so the typed anchor is gone; Shift or Ctrl adds the card and keeps the typed anchor', () => {
   const typed = selectionOf(typedQueryPart('zephyr'));
   const match = () => new Set();
   const resolved = new Set([1]);

@@ -78,6 +78,89 @@ test('the decision hands back what the search module matched, without changing i
   assert.deepStrictEqual(sorted(effect.litIds), before);
 });
 
+// --- a slice: term cuts ---------------------------------------------------------------
+// The one thing a query typed in the Graph hides: the cards outside the cut of a
+// slice: term that stands on its own, the way it does in every other view. The cut
+// is the search module's, over the whole board and the board's hierarchy; the rest
+// of the query lights, inside the cut.
+
+const SLICE_CTX = { ...CTX, hierarchy: ['goal', 'strategy', 'objective', 'epic'] };
+// goal 1, strategy 2, objective 3, epic 4, story 5 (done) under it, and the untiered task 6 at depth 0.
+const TIERED = [
+  card(1, { type: 'goal', tags: ['ui'] }),
+  card(2, { type: 'strategy', parent: 1, tags: ['ui'] }),
+  card(3, { type: 'objective', parent: 2 }),
+  card(4, { type: 'epic', parent: 3, tags: ['ui'] }),
+  card(5, { type: 'story', parent: 4, tags: ['ui'], status: 'done' }),
+  card(6, { type: 'task', tags: ['ui'] }),
+];
+const slicedMatch = (query) => {
+  const terms = parseSearchQuery(query, 'kanban');
+  return { terms, ids: terms.length ? new Set(filterCards(TIERED, terms, SLICE_CTX).map((c) => c.id)) : null };
+};
+const effectOf = (query) => graphQueryEffect(slicedMatch(query), TIERED, SLICE_CTX);
+const shape = (effect) => ({ visibleIds: effect.visibleIds && sorted(effect.visibleIds), litIds: effect.litIds && sorted(effect.litIds) });
+const ALL_TIERED = [1, 2, 3, 4, 5, 6];
+
+test('a slice: term on its own hides the cards outside its cut and lights nothing, since the rest of the query is empty', () => {
+  assert.deepStrictEqual(shape(effectOf('slice:goal..objective')), { visibleIds: [1, 2, 3], litIds: null });
+  assert.deepStrictEqual(shape(effectOf('slice:epic')), { visibleIds: [4], litIds: null });
+});
+
+test('the cut is the cards the search module cuts to, over the whole board', () => {
+  for (const query of ['slice:goal..objective', 'slice:strategy..', 'slice:..objective', 'slice:0', 'slice:objective..epic']) {
+    const cut = filterCards(TIERED, parseSearchQuery(query, 'kanban'), SLICE_CTX).map((c) => c.id).sort((x, y) => x - y);
+    assert.deepStrictEqual(sorted(effectOf(query).visibleIds), cut, query);
+  }
+});
+
+test('a slice: term beside another term hides outside the cut and lights the other term\'s matches inside it', () => {
+  assert.deepStrictEqual(shape(effectOf('slice:goal..objective tags:ui')), { visibleIds: [1, 2, 3], litIds: [1, 2] });
+  assert.deepStrictEqual(shape(effectOf('tags:ui slice:goal..objective')), { visibleIds: [1, 2, 3], litIds: [1, 2] }, 'in either order');
+  assert.deepStrictEqual(shape(effectOf('slice:epic..0 status:done')), { visibleIds: [4, 6], litIds: [] }, 'a query that lights nothing inside the cut lights nothing');
+});
+
+test('a bracket that holds one alternative is no bracket at all, so a slice: term in it still hides', () => {
+  assert.deepStrictEqual(shape(effectOf('(slice:goal..objective) tags:ui')), shape(effectOf('slice:goal..objective tags:ui')));
+  assert.deepStrictEqual(shape(effectOf('((slice:goal..objective))')), shape(effectOf('slice:goal..objective')));
+});
+
+test('a slice: term under | hides nothing; it only lights, like any other term', () => {
+  assert.deepStrictEqual(shape(effectOf('slice:goal..objective | #6')), { visibleIds: null, litIds: [1, 2, 3, 6] });
+  assert.deepStrictEqual(shape(effectOf('#6 | slice:goal..objective')), { visibleIds: null, litIds: [1, 2, 3, 6] });
+});
+
+test('a slice: term inside a bracket of alternatives hides nothing either, and the rest of the query still binds', () => {
+  assert.deepStrictEqual(shape(effectOf('tags:ui (slice:goal | #6)')), { visibleIds: null, litIds: [1, 6] });
+  assert.deepStrictEqual(shape(effectOf('(slice:goal..objective | #6) tags:ui')), { visibleIds: null, litIds: [1, 2, 6] });
+});
+
+test('a top-level slice: term still cuts when another is under |, and only the top-level one hides', () => {
+  assert.deepStrictEqual(shape(effectOf('slice:goal..objective (slice:epic | #6)')), { visibleIds: [1, 2, 3], litIds: [] });
+  assert.deepStrictEqual(shape(effectOf('slice:epic..0 (slice:goal | #6)')), { visibleIds: [4, 6], litIds: [6] });
+});
+
+test('a slice: term that cuts nothing, because it is half typed, hides nothing', () => {
+  for (const query of ['slice:nowhere', 'slice:..', 'slice:nowh', 'slice:zzz..yyy']) {
+    const effect = effectOf(query);
+    assert.deepStrictEqual(sorted(graphVisibleIds(TIERED, effect.visibleIds, FILTER, STATUSES)), ALL_TIERED, query);
+    assert.strictEqual(effect.litIds, null, `${query}: the rest of the query is empty`);
+  }
+  assert.deepStrictEqual(shape(graphQueryEffect(slicedMatch('slice:nowhere tags:ui'), TIERED, SLICE_CTX)).litIds, [1, 2, 4, 5, 6]);
+});
+
+test('a slice: term and the status pills both hide: the Graph draws the cut, less the cards a pill hides', () => {
+  const effect = effectOf('slice:epic..');
+  const noDone = { ...FILTER, done: false };
+  assert.deepStrictEqual(sorted(graphVisibleIds(TIERED, effect.visibleIds, FILTER, STATUSES)), [4, 5, 6]);
+  assert.deepStrictEqual(sorted(graphVisibleIds(TIERED, effect.visibleIds, noDone, STATUSES)), [4, 6]);
+});
+
+test('asking for a cut without the board to cut is a mistake, not a query that hides nothing', () => {
+  assert.throws(() => graphQueryEffect(slicedMatch('slice:goal')), /slice/);
+  assert.doesNotThrow(() => graphQueryEffect(slicedMatch('tags:ui')), 'a query with no slice: term needs no board');
+});
+
 // --- typing does not run the layout again ---------------------------------------------
 
 test('the layout\'s input and its cache key are the same with and without a typed query, so typing does not run the layout again', () => {
@@ -129,7 +212,7 @@ test('hovering a card lights it with its one-hop relations and the lines among t
 
 // --- what rests lit -------------------------------------------------------------------
 
-test('a lone card picked by a click lights with its one-hop relations (R2)', () => {
+test('a lone card picked by a click lights with its one-hop relations', () => {
   const m = model();
   const lit = graphRestLit(m, { selectedIds: new Set([1]), loneCardId: 1 });
   assert.deepStrictEqual(sorted(lit.nodes), [1, 2, 3, 4]);

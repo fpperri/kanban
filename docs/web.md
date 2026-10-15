@@ -56,7 +56,7 @@ order; it is the default sort on a board where any card has a `rank` or a
 `parent`, except in the Archive column, which keeps id order. In an Outline column, dragging a card between two siblings writes its `rank`:
 one card when there is room between the neighbours, that parent's children renumbered
 in tens when there is not. The search box up top filters every view at once, except the
-Graph, which lights its matches and hides nothing.
+Graph, which lights its matches and hides nothing but a `slice:` cut.
 
 A card with children shows `▲n` (how many layers sit below it) and a status bar
 of the leaves under it. Every bar is either collapsed (a thin line) or open (with
@@ -140,7 +140,8 @@ selection of several lights exactly its cards. Double-click (or Enter) opens the
 card; right-click works as on the board.
 
 A search typed in the Graph hides nothing: its matches light, done cards included,
-and the rest dims. Empty the box, press Esc or click the empty Graph to drop it;
+and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
+cuts every view; under `|` it lights. Empty the box, press Esc or click the empty Graph to drop it;
 click a card to start a new selection and clear the box. Switch to another view and
 the box goes on filtering there, while nothing is selected by it. In Force, drag a dot and the cards related to it follow, like pulling on
 a thread; the arrangement stays until the cards change or the page reloads.
@@ -154,12 +155,13 @@ Open it directly with `?view=graph`.
 
 **Search** — the box in the header filters every view as you type, except the Graph, where
 it lights its matches. Terms separated by
-spaces AND together (`tags:ui status:doing`), and four forms go further, one example each:
+spaces AND together (`tags:ui status:doing`), and five forms go further, one example each:
 
 - `|` is or, and a space binds tighter: `tags:ui status:doing | #12` is ui and doing, or card 12.
 - Round brackets group and can nest: `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo.
 - Quotes match a whole value, ignoring case, or any one element of a list: `tags:"grill"` finds a card tagged grill and not one tagged grilling. Quoted text with no field is a phrase in a title, body or tag: `"two words"`.
 - `waiting:` finds the cards waiting for at least one card that is not done, as `blocked:` and `review:` find the stickers.
+- `slice:` cuts every view to a run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards with no tier: `slice:objective..2` runs from the objective tier down to depth 2, `slice:goal` is that one slice, and `slice:goal..` and `slice:..objective` leave an end open. A reversed pair is swapped, an end the board does not have is left open, and a board with no hierarchy cuts by depth. It combines like any term: `tags:ui (slice:goal | #12)`.
 
 A `|` counts only as a token of its own and a bracket only at a token's edge, so `a|b`
 and `fix(auth)` stay literal text, and so does `waiting:3`. Half-typed input never

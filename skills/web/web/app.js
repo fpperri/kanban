@@ -731,8 +731,13 @@ let searchMatchMemo = null;
 // match, which runs right after a repaint, reads it instead of matching again.
 let lastSearchMatch = null;
 
+// What a query resolves against: the nesting context, and the board's hierarchy for slice:.
+function searchCtx() {
+  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy });
+}
+
 function matchedIds(terms) {
-  return new Set(filterCards(state.active.concat(state.archived), terms, nestingCtx()).map((c) => c.id));
+  return new Set(filterCards(state.active.concat(state.archived), terms, searchCtx()).map((c) => c.id));
 }
 
 function computeSearchMatch() {
@@ -742,6 +747,13 @@ function computeSearchMatch() {
 
 function currentSearchMatch() {
   return searchMatchMemo || computeSearchMatch();
+}
+
+// What the box does in the Graph: the cards it hides (a slice: term's cut, from the
+// whole board and its hierarchy) and the cards it lights. The Graph's one decision
+// about a query, read by what is drawn, what is lit and what a selection can reach.
+function currentGraphQueryEffect() {
+  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx());
 }
 
 // The cards one piece of search text matches, over the whole board like the box.
@@ -761,7 +773,7 @@ function searchMatchIds(text) {
 // board again. A query that is no term yet lights nothing, never everything.
 function selectionMatchIds(text) {
   if (loadViewMode() === 'graph' && text === $('#search-input').value) {
-    const lit = graphQueryEffect(currentSearchMatch()).litIds;
+    const lit = currentGraphQueryEffect().litIds;
     return lit ? new Set(lit) : new Set();
   }
   return searchMatchIds(text);
@@ -777,7 +789,7 @@ function shownCardIds() {
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
-    visible = graphVisibleIds(pool, graphQueryEffect(currentSearchMatch()).visibleIds, graphLoadFilter(), boardStatuses());
+    visible = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, graphLoadFilter(), boardStatuses());
   } else if (mode === 'map') {
     visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
   } else if (mode === 'gantt' || mode === 'calendar') {

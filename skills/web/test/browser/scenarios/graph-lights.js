@@ -17,7 +17,9 @@
 // The plan board's live cards are 1 to 18 and 22 to 29. Cards 5 and 10 carry the
 // docs tag, and card 5 is done. Card 7 alone carries the security tag, and it has
 // relations (a parent, a child, a wait), so lighting it alone is not lighting a
-// card with none.
+// card with none. Cards 1, 2, 7, 25 and 26 are the goal, strategy and objective
+// cards, so slice:goal..objective is those five, and card 7 is the one among them
+// that carries the security tag.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // hoveredId, selectedIds.
@@ -25,6 +27,7 @@
 const CASES = {
   docs: { query: 'tags:docs', lit: [5, 10], done: 5 },
   one: { query: 'tags:security', lit: [7], relations: [2, 8, 22] },
+  cut: { query: 'slice:goal..objective tags:security', draws: [1, 2, 7, 25, 26], lit: [7] },
 };
 
 // The cards the scenario may click for a lone card, each with the cards that
@@ -129,6 +132,11 @@ module.exports = {
     await typeQuery(CASES.one.query);
     check('a typed query that matches one card lights that card alone, without its relations',
       await litIs(sorted(...CASES.one.lit)) && (await litLinks()) === 0 && await pickedIs(sorted(...CASES.one.lit)), { lit: await lit() });
+
+    await typeQuery(CASES.cut.query);
+    const DOTS = `[...new Set([...document.querySelectorAll('.graph-node')].map((n)=>Number(n.dataset.id)))].sort((a,b)=>a-b)`;
+    check('a slice: term typed in the Graph hides the dots outside its cut, and the rest of the query lights inside the cut and dims the rest',
+      await waitFor(`${idsOf(DOTS)}===${JSON.stringify(JSON.stringify(CASES.cut.draws))}`) && await litIs(sorted(...CASES.cut.lit)) && await restIsDim(), { lit: await lit(), dots: await ev(DOTS) });
 
     await typeQuery(CASES.docs.query);
     await litIs(sorted(...CASES.docs.lit));

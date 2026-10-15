@@ -316,7 +316,7 @@ function selectionAfterClick(action, id, { selection, resolved, rangeStart, orde
 // The Graph lights a selection and dims the rest, so a search typed there does not
 // hide cards: its text becomes the anchor, and its matches are the lit cards. An
 // anchor keeps where it came from, because the one typed in the Graph is the one
-// anchor that stops being one when the Graph is left (R14): the box goes on
+// anchor that stops being one when the Graph is left: the box goes on
 // filtering the other views, and nothing is selected by it there. A pill's query
 // (queryPart) keeps being the anchor in every view.
 
@@ -329,7 +329,7 @@ function isTypedAnchor(selection) {
 
 // What a write to the box leaves of the selection while the Graph is shown. Text
 // makes the box the anchor: a new one, with the selection it replaced gone, as a
-// click on a card does the other way round (R3); when the box was the anchor
+// click on a card does the other way round; when the box was the anchor
 // already, only its text changes and the additions stay. An empty box takes the
 // anchor and the additions with it, since the model has no anchor-less state; a
 // selection that is not the box's stays.
@@ -356,7 +356,7 @@ function selectionOnViewSwitch(selection, { from, to, boxText }) {
 }
 
 // The card a click picked on its own, or null: a selection that is one card part,
-// the anchor with no additions. Only such a card lights with its relations (R2); a
+// the anchor with no additions. Only such a card lights with its relations; a
 // query or a path that matches one card lights that card alone.
 function loneCard(selection) {
   const anchor = selection.anchor;

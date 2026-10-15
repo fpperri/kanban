@@ -22,6 +22,9 @@ const GRAPH_COLS = (typeof module !== 'undefined' && module.exports)
 const GRAPH_ICONS = (typeof module !== 'undefined' && module.exports)
   ? require('./type-icons')
   : window;
+const GRAPH_SEARCH = (typeof module !== 'undefined' && module.exports)
+  ? require('./search')
+  : window;
 
 const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
 
@@ -157,18 +160,30 @@ function graphLit(model, ids) {
 // What a query typed in the Graph does, as one decision: which cards it hides
 // and which it lights. `match` is the page's shared match result for the box
 // ({ terms, ids }, ids null when there is no query). A typed query is the anchor
-// of the selection, so it hides nothing: visibleIds is null, the way
-// graphVisibleIds reads "draw everything", and it lights exactly its matches,
-// done cards included. A top-level slice: term is the one thing that hides, the
-// cards outside its cut (R1), and the rest of the query lights; isolate, which
-// shows only the lit cards, changes this decision and nothing else.
-function graphQueryEffect(match) {
+// of the selection, so it lights exactly its matches, done cards included, and
+// hides nothing: visibleIds is null, the way graphVisibleIds reads "draw
+// everything". The one exception is a slice: term that stands on its own in the
+// query, as it does in every other view: it hides the cards outside its cut, and
+// the rest of the query lights inside the cut (litIds is null when nothing else
+// is left to light). A slice: term under | or in a bracket of alternatives is
+// only a term to match, so it lights and hides nothing; a bracket that holds one
+// alternative is spliced into the query by the parser, so it counts as on its own.
+// The cut is the search module's, over the whole board (`pool`, live and
+// archived) and the board's hierarchy (in `ctx`), so a card sits in the same slice
+// whatever the view draws. Isolate, which shows only the lit cards, changes this
+// decision and nothing else.
+function graphQueryEffect(match, pool, ctx) {
   const ids = match && match.ids ? match.ids : null;
-  return { visibleIds: null, litIds: ids };
+  const terms = (match && match.terms) || [];
+  const slices = terms.filter((t) => t && t.field === 'slice');
+  if (!ids || !slices.length) return { visibleIds: null, litIds: ids };
+  if (!pool) throw new Error('graphQueryEffect: a slice: term needs the board to cut');
+  const cut = new Set(GRAPH_SEARCH.filterCards(pool, slices, ctx).map((c) => c.id));
+  return { visibleIds: cut, litIds: slices.length < terms.length ? ids : null };
 }
 
 // What the Graph lights when the pointer is not on a card. A lone card picked by
-// a click lights with its one-hop relations, as hovering it does (R2); any other
+// a click lights with its one-hop relations, as hovering it does; any other
 // selection, a typed query's matches included, lights its own cards and the lines
 // between them, so a query that matches one card lights that card alone.
 // `loneCardId` is the selection's one card part, or null.

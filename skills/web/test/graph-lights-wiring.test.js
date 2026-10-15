@@ -176,6 +176,59 @@ test('a poll keeps the query as the anchor and lights a card that comes to match
   assert.deepStrictEqual(s.selection().anchor, typed('zephyr'));
 });
 
+// --- a slice: term typed in the Graph -------------------------------------------------
+// The one thing a query typed in the Graph hides: the cards outside the cut of a
+// slice: term that stands on its own. Card 1 is the goal and card 3, its child,
+// the strategy; every other card has no tier. So slice:goal..strategy is cards 1
+// and 3, the board's own hierarchy being what the page hands the search.
+
+const tiered = () => {
+  const board = makeBoard();
+  board.hierarchy = ['goal', 'strategy'];
+  board.active[0].type = 'goal';
+  board.active[2].type = 'strategy';
+  return board;
+};
+
+test('a slice: term typed in the Graph hides the cards outside its cut, and lights nothing when it is the whole query', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+  assert.strictEqual(s.lit(), null, 'nothing is left in the query to light');
+  assert.deepStrictEqual(s.ids(), [], 'the cut is not a selection');
+  s.type('');
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6], 'clearing the box brings every card back');
+});
+
+test('the rest of the query lights inside the cut, and the selection reaches only those cards', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy zephyr');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+  assert.deepStrictEqual(s.lit().nodes, [1]);
+  assert.deepStrictEqual(s.ids(), [1]);
+  s.type('slice:goal..strategy tags:ui');
+  assert.deepStrictEqual(s.drawn(), [1, 3], 'cards 2 and 5 match tags:ui and sit outside the cut');
+  assert.deepStrictEqual(s.ids(), []);
+  assert.strictEqual(s.lit(), null, 'nothing inside the cut matches, so nothing lights and nothing dims');
+});
+
+test('a slice: term under | hides nothing in the Graph: it lights its cards with the rest of the query', async () => {
+  const s = await open({ board: tiered() });
+  s.type('slice:goal..strategy | tags:ui');
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(s.lit().nodes, [1, 2, 3, 5]);
+  assert.deepStrictEqual(s.ids(), [1, 2, 3, 5]);
+});
+
+test('the cut keeps cutting with the Archive pill on, and a card outside it is not selectable', async () => {
+  const s = await open({ board: tiered(), stored: { 'kanban.kanban.graph.statusFilter': JSON.stringify({ archive: true }) } });
+  s.type('slice:goal..strategy');
+  assert.deepStrictEqual(s.drawn(), [1, 3]);
+  s.type('slice:0 tags:ui');
+  assert.deepStrictEqual(s.drawn(), [2, 4, 5, 6, 7, 8], 'the untiered cards, the archived ones too');
+  assert.deepStrictEqual(s.ids(), [2, 5, 8]);
+});
+
 // --- the decision is what lights ------------------------------------------------------
 
 test('the typed anchor lights what the Graph\'s query decision says the query lights', async () => {
@@ -207,14 +260,14 @@ test('outside the Graph the decision is not asked, and a query part resolves thr
 
 // --- a click --------------------------------------------------------------------------
 
-test('a click on a lone card lights it with its one-hop relations, selects only it, and does not select the relations (R2)', async () => {
+test('a click on a lone card lights it with its one-hop relations, selects only it, and does not select the relations', async () => {
   const s = await open();
   s.click(1);
   assert.deepStrictEqual(s.ids(), [1], 'only the card is selected');
   assert.deepStrictEqual(s.lit().nodes, [1, 2, 3], 'its relations light');
 });
 
-test('a click on a card after a typed query clears the box and lights only that card and its relations (R3)', async () => {
+test('a click on a card after a typed query clears the box and lights only that card and its relations', async () => {
   const s = await open();
   s.type('tags:ui');
   s.click(1);
@@ -403,7 +456,7 @@ test('hovering a dot while a lone card is selected shows that dot\'s relations, 
   assert.deepStrictEqual(s.lit().nodes, [5]);
 });
 
-// --- leaving the Graph (R14) ----------------------------------------------------------
+// --- leaving the Graph ----------------------------------------------------------
 
 test('a query typed in the Graph stops being the anchor on the Board: it still filters, nothing is selected and there are no bulk targets', async () => {
   const s = await open();

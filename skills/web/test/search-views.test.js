@@ -70,7 +70,8 @@ const VIEWS = {
 // and add the archived ones only while their Archive pill is on, the Map hands
 // its filter the matching ids, and a view with no query shows everything. The
 // Graph is the exception: a query typed there lights its matches and hides
-// nothing, so it draws every card whatever the query (graph-lights-wiring.test.js
+// nothing, so it draws every card whatever the query, bar a slice: term on its own,
+// which cuts and is pinned in search-slice-views.test.js (graph-lights-wiring.test.js
 // looks at what is lit).
 function expected(view, match, archive) {
   const everything = ACTIVE.concat(BOARD.archived.map((c) => c.id));
@@ -130,7 +131,7 @@ const expectedGraphAll = (archive) => (archive ? ACTIVE.concat(BOARD.archived.ma
 
 for (const name of Object.keys(VIEWS)) {
   for (const archive of name === 'board' || name === 'map' ? [false] : [false, true]) {
-    const what = name === 'graph' ? 'keeps drawing every card, whatever the query' : 'shows, for each query, the cards it showed before';
+    const what = name === 'graph' ? 'keeps drawing every card, for a query with no slice: term' : 'shows, for each query, the cards it showed before';
     test(`${name}${archive ? ' with Archive on' : ''} ${what}`, async () => {
       const { page, seen } = await openView(name, { archive });
       for (const [query, match] of MATCHES) {

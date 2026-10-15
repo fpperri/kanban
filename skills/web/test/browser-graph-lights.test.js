@@ -5,8 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { listActive, listArchived } = require('../scripts/card-store');
+const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
-const { graphBuild, graphNeighbours } = require('../web/graph-model');
+const { graphBuild, graphNeighbours, graphQueryEffect } = require('../web/graph-model');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
 const lights = require('./browser/scenarios/graph-lights');
@@ -26,7 +27,7 @@ const board = (key) => {
   materialize(key, dir);
   const live = listActive(dir);
   const all = live.concat(listArchived(dir));
-  const ctx = { board: key };
+  const ctx = { board: key, hierarchy: readConfig(dir).hierarchy };
   const model = graphBuild(all, { ctx, visibleIds: new Set(live.map((c) => c.id)) });
   return { key, live, all, ctx, model, byId: new Map(all.map((c) => [c.id, c])) };
 };
@@ -49,6 +50,21 @@ test('each query the scenario types lights, among the cards the Graph draws, the
   for (const [name, { query, lit }] of Object.entries(lights.CASES)) {
     assert.deepStrictEqual(drawn(b, matches(b, query)), lit, `${name}: ${query}`);
   }
+});
+
+test('the cut query draws the cards the scenario says and lights the one inside it, by the Graph model\'s own decision', () => {
+  const b = board('plan');
+  const { query, draws, lit } = lights.CASES.cut;
+  const terms = parseSearchQuery(query, b.key);
+  const match = { terms, ids: new Set(filterCards(b.all, terms, b.ctx).map((c) => c.id)) };
+  const effect = graphQueryEffect(match, b.all, b.ctx);
+  const live = new Set(b.live.map((c) => c.id));
+  assert.deepStrictEqual(sorted([...effect.visibleIds].filter((id) => live.has(id))), draws);
+  assert.deepStrictEqual(sorted([...effect.litIds].filter((id) => live.has(id))), lit);
+  assert.ok(draws.length < b.live.length, 'the cut hides dots');
+  assert.ok(draws.length > lit.length, 'and the dots it keeps are more than the ones that light, so dimming is told from hiding');
+  assert.ok(draws.includes(lit[0]));
+  assert.deepStrictEqual(matches(b, 'slice:goal..objective'), draws, 'the cut on its own is the same five cards');
 });
 
 test('the first query\'s matches include a done card, and the second matches one card that has relations, so lighting it alone is a choice', () => {
@@ -129,7 +145,7 @@ test('run against a stand-in page, the scenario types each query, clicks and pre
   const { page, log } = standIn();
   await lights.run(page);
   const docs = lights.CASES.docs.query;
-  assert.deepStrictEqual(log.typed, [docs, lights.CASES.one.query, docs, docs, docs, docs, docs, docs]);
+  assert.deepStrictEqual(log.typed, [docs, lights.CASES.one.query, lights.CASES.cut.query, docs, docs, docs, docs, docs, docs]);
   assert.deepStrictEqual(log.keys, ['Escape', 'Escape'], 'once with focus in the box and once with it outside');
   assert.strictEqual(log.shiftClicks, 3, 'two Shift+clicks build the selection of three, one adds a card to a query');
   assert.deepStrictEqual(log.checks.map(([name]) => name), [
@@ -142,6 +158,7 @@ test('run against a stand-in page, the scenario types each query, clicks and pre
     'a query typed in the Graph keeps every dot and lights its matches, a done one included, and dims the rest',
     'clearing the box removes the dimming',
     'a typed query that matches one card lights that card alone, without its relations',
+    'a slice: term typed in the Graph hides the dots outside its cut, and the rest of the query lights inside the cut and dims the rest',
     'after a typed query, a plain click on a card clears the box and lights only that card and its relations',
     'after a typed query, Shift+click on an unlit card adds it: the box keeps its text, and the matches and the card light',
     'with a typed query as the only part, Esc clears the box and the dimming, with focus in the box',
@@ -160,6 +177,7 @@ test('every acceptance check of the Graph\'s lighting has a check of its own in 
     'built with Shift+click lights exactly those three and dims the rest',
     'a click on one card lights it and its one-hop relations, and only that card is selected',
     'lights that card alone, without its relations',
+    'a slice: term typed in the Graph hides the dots outside its cut',
     'a plain click on a card clears the box and lights only that card and its relations',
     'Shift+click on an unlit card adds it',
     'Esc clears the box and the dimming, with focus ${inBox ?',
