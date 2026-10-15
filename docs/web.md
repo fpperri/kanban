@@ -165,7 +165,7 @@ card; right-click works as on the board.
 A search typed in the Graph hides nothing: its matches light, done cards included,
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
-click a card to start a new selection and clear the box. Switch to another view and
+click a card to start a new selection and clear the box but for its cut. Switch to another view and
 the box goes on filtering there, while nothing is selected by it. In Force, drag a dot and the cards related to it follow, like pulling on
 a thread; the arrangement stays until the cards change or the page reloads.
 Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.

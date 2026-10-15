@@ -417,6 +417,13 @@ function searchJoinSlice(rest, slices) {
   return `${alts.length > 1 ? `(${alts.join(' | ')})` : alts[0]} ${tail}`;
 }
 
+// What a gesture that clears the box leaves in it: the top-level slice: terms alone. A cut
+// is a cut of the view and no search, so the typed query and the pills' alternatives go and
+// the cut stays, as it does when a pill or Isolate rewrites the box.
+function searchCutOnly(raw) {
+  return searchJoinSlice('', searchSplitSlice(raw).slices);
+}
+
 // The query with its top-level slice: terms replaced by one for `value` (the text after
 // `slice:`), or by none when the value is empty. The rest of the query keeps its meaning,
 // and a query with nothing to change comes back as it was.
@@ -794,7 +801,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
-    searchSplitSlice, searchJoinSlice, searchSetSlice,
+    searchSplitSlice, searchJoinSlice, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
 } else {
@@ -813,6 +820,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchSplitSlice = searchSplitSlice;
   window.searchJoinSlice = searchJoinSlice;
   window.searchSetSlice = searchSetSlice;
+  window.searchCutOnly = searchCutOnly;
   window.searchIsolateText = searchIsolateText;
   window.searchIsolateBox = searchIsolateBox;
   window.searchIsolateRestore = searchIsolateRestore;

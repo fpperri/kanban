@@ -475,11 +475,14 @@ function pillQueriesDropped(before, after) {
 // (`action`, from cardClickAction) and whether the selection's anchor was the typed
 // query before and after it. A plain click sets a new anchor and clears the box. Shift
 // or Ctrl keeps the query, unless it took out a card the typed query lit: the query is
-// then its other cards, and the box no longer names the anchor. While isolated the box
-// holds the isolate text, which a click never touches: it moves the anchor only.
-function boxAfterGraphClick(action, { boxText, typedBefore, typedAfter, isolated }) {
+// then its other cards, and the box no longer names the anchor. What a clear leaves is
+// `cut`, the run of slices the box holds (searchCutOnly, search.js; none when the page
+// names none): the cut is no search, and the Graph keeps drawing what it hides. While
+// isolated the box holds the isolate text, which a click never touches: it moves the
+// anchor only.
+function boxAfterGraphClick(action, { boxText, cut = '', typedBefore, typedAfter, isolated }) {
   if (isolated) return boxText;
-  return action === 'select' || (typedBefore && !typedAfter) ? '' : boxText;
+  return action === 'select' || (typedBefore && !typedAfter) ? cut : boxText;
 }
 
 // The isolate state after the box was written with `reason`. Isolate is a query in the

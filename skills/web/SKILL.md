@@ -883,7 +883,7 @@ to `127.0.0.1` only.
   and the Gantt jump to the nearest match when none is on screen, through the box writer's own
   listener, never on a poll. **Clicks move the anchor only**: a click on a card sets the anchor
   and leaves the box text and the shown set as they are (in the Graph a plain click clears the
-  box when nothing is isolated, and not now), a click on the empty Graph clears nothing, and so
+  box, but for its cut, when nothing is isolated, and not now), a click on the empty Graph clears nothing, and so
   does a double click on empty space. A pill or a slice written while isolated edits the query
   like a hand edit does: isolate stays on while the box holds a query, and ends when the box is
   left holding none (the clear button, an emptied box), when the text it kept is not given back.
@@ -1680,10 +1680,12 @@ to `127.0.0.1` only.
   stands on its own in the query, as in every other view: the rest of the query lights
   inside the cut, and a `slice:` term under `|` or in a bracket of alternatives is only a
   term to match, so it lights and hides nothing. Emptying the box, **Esc** and a double click on the empty Graph drop the anchor and
-  the dimming; a plain click on a card sets a new card anchor and clears the box;
+  the dimming (Esc and the double click leave the box its cut, the `slice:` terms that stand on their own: a cut is no search);
+  a plain click on a card sets a new card anchor and clears the box but for its cut, so the Graph
+  keeps drawing what the box says;
   shift+click or ctrl/cmd+click on an unlit card adds it and keeps the query, and on a card
   the query lit takes it out and turns the query into its other cards, which clears the
-  box, since it no longer names the anchor. The status pills still decide which cards are
+  box but for its cut, since it no longer names the anchor. The status pills still decide which cards are
   drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
   search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
   Calendar keep hiding what does not match, nothing is selected by it there, and a bulk

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  parseSearchQuery, filterCards, searchSetSlice, searchSplitSlice, searchJoinSlice,
+  parseSearchQuery, filterCards, searchSetSlice, searchSplitSlice, searchJoinSlice, searchCutOnly,
   searchHasAlt, searchAddAlt, searchRemoveAlt,
 } = require('../web/search');
 
@@ -184,4 +184,14 @@ test('the alternatives of a box with no run are as they were', () => {
   assert.strictEqual(searchRemoveAlt('review: | blocked:', 'blocked:'), 'review:');
   assert.strictEqual(searchHasAlt('review: | blocked:', 'review:'), true);
   assert.strictEqual(searchHasAlt('tags:ui | slice:epic', 'slice:epic'), true, 'a slice: term that is one alternative among others is just an alternative');
+});
+
+test('searchCutOnly keeps the top-level slice: terms and nothing else', () => {
+  assert.strictEqual(searchCutOnly('zephyr slice:goal..strategy'), 'slice:goal..strategy');
+  assert.strictEqual(searchCutOnly('slice:goal..strategy'), 'slice:goal..strategy');
+  assert.strictEqual(searchCutOnly('(tags:ui | #12) slice:epic.. slice:..3'), 'slice:epic.. slice:..3');
+  assert.strictEqual(searchCutOnly('zephyr'), '');
+  assert.strictEqual(searchCutOnly('slice:goal | tags:ui'), '', 'a term under | is the query\'s own');
+  assert.strictEqual(searchCutOnly(''), '');
+  assert.strictEqual(searchCutOnly(null), '');
 });

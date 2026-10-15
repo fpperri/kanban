@@ -3401,16 +3401,19 @@ function stepSelectionBack() {
 }
 
 // Moves the selection down to `next` ({ selection, rangeStart }) and takes what the
-// step dropped out of the box: a typed anchor takes the box with it, a pill the step
-// drops goes out of it as an alternative, and any other text stays. Esc's step and a
-// double click on empty space (onClickAway) both come through here, so the box and
-// the pills agree whichever way the selection was taken down.
+// step dropped out of the box: a typed anchor takes the box with it, but for the cut, a
+// pill the step drops goes out of it as an alternative, and any other text stays. Esc's
+// step and a double click on empty space (onClickAway) both come through here, so the box
+// and the pills agree whichever way the selection was taken down.
 function moveSelectionTo(next) {
   const boxWasAnchor = isTypedAnchor(selectionState.selection) && !next.selection.anchor;
   const box = $('#search-input').value;
   const shrunk = pillQueriesDropped(selectionState.selection, next.selection).reduce((text, query) => searchRemoveAlt(text, query), box);
   setSelection(next.selection, next.rangeStart);
-  if (boxWasAnchor) writeSearch('', 'selection');
+  if (boxWasAnchor) {
+    const cut = searchCutOnly(box);
+    writeSearch(cut, cut ? 'slice' : 'selection'); // a cut is no search: it never becomes the anchor the step has just dropped
+  }
   else if (shrunk !== box) writeSearch(shrunk, 'pill');
   else renderBoard();
 }
