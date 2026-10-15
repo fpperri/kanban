@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — the board's config, held for the readers that come after (slices, the tier fan, the pill row). assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -727,6 +727,9 @@ function currentSearchTerms() {
 // once per render and every view reads it through currentSearchMatch(). A view
 // repainted on its own (calendar paging, a status pill) makes its own.
 let searchMatchMemo = null;
+// What the last renderBoard matched, kept after it so the jump to the nearest
+// match, which runs right after a repaint, reads it instead of matching again.
+let lastSearchMatch = null;
 
 function computeSearchMatch() {
   const terms = currentSearchTerms();
@@ -833,6 +836,7 @@ function toggleView(mode) {
   viewMode = loadViewMode() === mode ? 'board' : mode;
   saveViewMode();
   renderBoard();
+  moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
 // One mode→container map for everything that needs "which element hosts
@@ -864,6 +868,7 @@ function applyViewMode() {
 function renderBoard() {
   nestingIndex = buildNestingIndex();
   searchMatchMemo = computeSearchMatch();
+  lastSearchMatch = searchMatchMemo;
   try {
     renderBoardColumns();
     applyViewMode();
@@ -1713,6 +1718,8 @@ function applyBoardData(data) {
   // render time (masked pre-move only by priorityRank's built-in fallback).
   applyLists(data.priorities || [], data.tags || []);
   state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
+  state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
+  state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   setSelection(pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id))); // drop ghosts before render (archived cards are in the domain too)
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -3641,6 +3648,22 @@ function calendarChipEl(card, pos, time, isDue) {
 // The sub-view label set for the switcher + the nav buttons' spans.
 const CAL_SUBVIEW_LABELS = { month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
+// The three inputs the Calendar's grids compose before they draw (see
+// renderCalendarMonthGrid and renderCalendarTimeGrid: the search result, the
+// status filter's visible ids and the Archive pill), as the jump to the nearest
+// match needs them. viewShownCards (calendar-model.js) composes them the way the
+// grids do, and calendar-gantt-jump-page.test.js pins that what it answers is
+// what the grids hand to their layout.
+function calendarViewInput(match = currentSearchMatch()) {
+  return {
+    active: state.active,
+    archived: state.archived,
+    searchIds: match.ids,
+    statusIds: ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses()),
+    archiveOn: loadCalendarStatusFilter().archive === true,
+  };
+}
+
 function renderCalendarView() {
   const container = $('#calendar-view');
   const subview = loadCalendarSubview();
@@ -4342,6 +4365,46 @@ function shiftGanttWindow(delta) {
   renderGanttView();
 }
 
+// --- Jump to the nearest match -------------------------------------------------
+// When a change to the search box leaves no shown match inside the visible
+// range of the Calendar or the Gantt, the view moves to the match nearest it:
+// nearestMatchDay (calendar-model.js) decides for both, the Gantt reaching it
+// through ganttNearestMatchDay, whose all sub-view never jumps. Two triggers
+// and no others. A write to the box: a listener of writeSearch, registered
+// below without touching the writer, so Isolate and any later writer get the
+// jump for free. Entering the view: toggleView makes the check once. The 5s
+// poll, a plain re-render, paging with previous and next, Today and a sub-view
+// switch never make it, which is why the poll keeps a paged month and paging
+// after a jump works as usual. An empty box has no matches, so clearing it
+// moves nothing. Both triggers run right after a renderBoard, so the check
+// reads the match that repaint made (lastSearchMatch) and the box is matched
+// once per write; a view that moved repaints on its own.
+function jumpCalendarToMatch() {
+  const input = calendarViewInput(lastSearchMatch || currentSearchMatch());
+  const day = nearestMatchDay(input, calendarVisibleRange(loadCalendarSubview(), currentCalendarAnchor()));
+  if (!day) return false;
+  calendarAnchor = day;
+  return true;
+}
+
+function jumpGanttToMatch() {
+  const input = ganttViewInput(lastSearchMatch || currentSearchMatch());
+  const day = ganttNearestMatchDay(input, loadGanttSubview(), currentGanttAnchor());
+  if (!day) return false;
+  ganttAnchor = day;
+  return true;
+}
+
+// Moves the anchor of the view showing, if it is the Calendar or the Gantt,
+// and repaints that view when it moved.
+function moveViewToNearestMatch() {
+  const mode = loadViewMode();
+  if (mode === 'calendar' && jumpCalendarToMatch()) renderCalendarView();
+  else if (mode === 'gantt' && jumpGanttToMatch()) renderGanttView();
+}
+
+onSearchWrite(moveViewToNearestMatch);
+
 const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
 // The controls row: same markup shape and CSS classes as the calendar's own
@@ -4449,6 +4512,19 @@ function ganttBarEl(bar, win, dayPx) {
     `<span class="gantt-bar-text${titleDisplay.isPromptFallback ? ' gantt-bar-text--prompt-fallback' : ''}"><span class="gantt-bar-id">#${bar.card.id}</span> ${escapeHtml(titleDisplay.text)}</span>` +
     (clipEnd ? '' : `<span class="gantt-handle end" title="${endHint}"></span>`);
   return el;
+}
+
+// The three inputs renderGanttView composes before it draws (the search result,
+// the Gantt's status filter's visible ids and its Archive pill), as the jump to
+// the nearest match needs them; the same shape as calendarViewInput.
+function ganttViewInput(match = currentSearchMatch()) {
+  return {
+    active: state.active,
+    archived: state.archived,
+    searchIds: match.ids,
+    statusIds: ganttFilterVisibleIds(state.active, loadGanttStatusFilter(), boardStatuses()),
+    archiveOn: loadGanttStatusFilter().archive === true,
+  };
 }
 
 function renderGanttView() {

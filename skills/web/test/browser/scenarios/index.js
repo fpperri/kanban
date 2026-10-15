@@ -11,5 +11,7 @@ module.exports = [
   require('./graph'),
   require('./key-guard'),
   require('./card-click'),
+  require('./config-keys'),
   require('./smoke'),
+  require('./calendar-jump'),
 ];

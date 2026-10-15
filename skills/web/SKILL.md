@@ -1035,6 +1035,20 @@ to `127.0.0.1` only.
   the displayed month + query survive the poll. Board/map/calendar/gantt/graph is a five-way
   switch persisted per board in `localStorage` (unknown saved values fall back to
   board).
+  **Jump to the nearest match** — when a change to the search box leaves no shown match
+  inside the visible range, the Calendar jumps to the match nearest it, before or after
+  (`nearestMatchDay`, calendar-model.js; one pure function for the Calendar and the
+  Gantt). It works in the month, week, 3-day and day spans. The month counts every cell of
+  its grid, leading and trailing days included, and a card counts by any day of its
+  schedule span or by its due date. Shown means drawn: a match hidden by a status pill, or
+  an archived match while the Archive pill is off, is not on screen and not a target, and a
+  card with no schedule and no due date is never a target. A match before the range and
+  one after it at the same distance resolve to the earlier day. An empty box has no
+  matches, so clearing it moves nothing. Every write to the box makes the check (typing,
+  a cue click, Path or Tree from a card's menu, a `?q=` link, and any later writer, since
+  the jump is a listener of the one search-box writer); so does entering the Calendar,
+  once, so a query already in the box shows its month. A poll, a re-render, Today and
+  paging with previous and next never jump, so after a jump paging works as usual.
   **Status-filter row** — a pill row above the grid (month AND every sub-view alike),
   sharing the map's pill-row MECHANISM (one builder, comma-joined CSS) rather than a
   duplicate: one toggle per LIVE board status in column order, all ON by default, PLUS
@@ -1166,6 +1180,12 @@ to `127.0.0.1` only.
   drawn there would preview one date and write a different one; a press on that end of
   the bar falls through to an ordinary body drag (shift) instead. No dependency arrows —
   the map view owns the `waiting_for` graph.
+  **Jump to the nearest match** — the Calendar's jump (above), by the same function, in the
+  Month, Week, 3 days and Day sub-views: when a change to the search box leaves no shown
+  match inside the window the sub-view draws, the anchor moves to the nearest match. A
+  Month is the month's own days, with no leading or trailing days, because the Gantt draws
+  none. **All** never jumps, since it already fits every dated card. Entering the Gantt
+  makes the check once; a poll, a re-render and paging never do.
   **Status-filter row** — a pill row above the timeline, sharing the map's pill-row
   MECHANISM: one toggle per LIVE board status in column order, all ON by default, PLUS
   an Archive pseudo-pill (same id list as the map's row) that defaults **OFF** —
@@ -1284,10 +1304,15 @@ assignees:                # who can own cards; feeds the form's assignee combobo
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config, design]    # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
-types:                    # suggested card types; color is OPTIONAL
+types:                    # suggested card types; color and icon are OPTIONAL
   - name: objective
     color: "#a371f7"
+    icon: diamond         # circle | square | diamond | triangle | hexagon | star
   - story                 # bare entry = name only, neutral chip
+hierarchy: [goal, strategy, objective, initiative]   # the types that are the levels of the plan, top first
+pills:                    # the board's own one-click search queries, in block form
+  - next: 'tags:"next-up"'   # label: query
+  - "assignee:@human"        # a query on its own is its own label
 ```
 
 This app is config-driven and doesn't enforce the grab semantics — it renders whatever
@@ -1314,7 +1339,27 @@ handle a card carries.
   listed) and the type chip's color only: a card's `type:` may be any text, and a type
   outside the list still reads as a neutral chip.
   `GET /api/board` carries it as `types: [{name, color}]` (`color` is `''` when absent;
-  `[]` when the key or file is). Human-curated like `tags`; the app only reads.
+  `[]` when the key or file is), and an entry that sets an `icon:` also carries `icon` (the
+  name lowercased with a trailing comment stripped, an unknown name passed through as
+  written; no `icon` key at all when none is set). Human-curated like `tags`; the app only reads.
+- **`icon`** (on a `types:` block entry) is one of `circle`, `square`, `diamond`,
+  `triangle`, `hexagon` or `star`. A later change draws it; today the page only holds it.
+  Labels, queries and icon names are human text: a reader escapes them and never uses one
+  as raw markup or a class name.
+- **`hierarchy`** (inline or block form) lists the type names that are the levels of the
+  plan, top first. `GET /api/board` carries it as `hierarchy: [name, ...]`, the names in
+  order as written: blank entries are dropped, duplicates and case differences pass
+  through for the page to normalise, and a scalar value or an empty list answers `[]`
+  (as does an absent key, even on a board that declares `types:`). It orders drawing and
+  slicing and **enforces nothing**: saving a card nested against it (a goal under an
+  initiative) succeeds and the answer carries no warning (ADR 0013).
+- **`pills`** (block form only) lists the board's own one-click search queries, each a
+  query or a one-key map from a label to a query. `GET /api/board` carries them as
+  `pills: [{label, query}]` in config order; a query on its own is its own label,
+  `- tags: grill` is the label `tags` with the query `grill` (a colon followed by a space
+  ends the key), and an entry that is blank, only a comment, or has an empty label or
+  query is skipped without an error. The page holds `hierarchy` and `pills` on `state`
+  after every load and poll; nothing draws them yet.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's
