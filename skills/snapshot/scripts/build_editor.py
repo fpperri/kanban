@@ -1236,7 +1236,8 @@ const rvReason=c=>blkTxt(c.rv);
 // listed column) and stay visible in the date/graph views.
 let statusVis={archive:false};
 const isVis=k=>k==="archive"?statusVis.archive===true:statusVis[k]!==false;
-const visList=()=>DATA.filter(c=>inQuery(c)&&(c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true)));
+const statusVisible=c=>c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true);
+const visList=()=>DATA.filter(c=>inQuery(c)&&statusVisible(c));
 function opLabel(o){
 if(o.op==="move")return "Move #"+o.id+" \\u2192 "+o.to;
 if(o.op==="create")return "Create \\""+(o.title.length>34?o.title.slice(0,34)+"\\u2026":o.title)+"\\""+(o.status&&o.status!=="backlog"?" in "+o.status:"");
@@ -1479,7 +1480,6 @@ const PILL_HINT="click: turn it on or off, right-click: only this pill (again: e
 const SLICE_HINT="click: grow the run to this slice, or drop it from an end (a run of one: every slice again), right-click: only this slice";
 const SWITCH_ON="Search panel: opens when the box is focused. Click, or press p, to switch it off.";
 const SWITCH_OFF="Search panel: off. Click, or press p, to switch it on and open it.";
-const statusVisible=c=>c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true);
 const panelCards=()=>view.filter(statusVisible);
 function setText(n,t){if(n.textContent!==t)n.textContent=t}
 function setAttr(n,k,v){if(n.getAttribute(k)!==v)n.setAttribute(k,v)}
@@ -2615,7 +2615,7 @@ render();renderMap();renderGantt();renderCalendar()}
 let qItems=[],qOn=-1;
 function qClose(){qItems=[];qOn=-1;const m=$("qmenu");m.style.display="none";m.replaceChildren()}
 function qMark(){Array.from($("qmenu").children).forEach((r,i)=>r.classList.toggle("on",i===qOn))}
-function qPick(it){$("q").value=it.value;qClose();queryChanged()}
+function qPick(it){qClose();writeBox(it.value)}
 function qOpen(){
 const q=$("q");
 qItems=searchSuggestionItems(q.value,q.selectionStart,DATA.map(searchCard),searchCtx);
