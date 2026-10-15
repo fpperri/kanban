@@ -358,13 +358,15 @@ test('the contextmenu listener checks fineMQ.matches FIRST, before resolving a c
 
 test('preventDefault is called only inside gated listeners (contextmenu, dragstart, dragover, drop, beforeunload) — no unconditional interception exists anywhere', () => {
   const matches = [...src.matchAll(/\.preventDefault\(\)/g)];
-  assert.strictEqual(matches.length, 5, 'expected exactly five preventDefault() calls: the contextmenu gate, dragstart/dragover/drop for pointer drag (kanban.proj #241), and the pending-ops close guard (kanban.proj #251)');
+  assert.strictEqual(matches.length, 10, 'expected exactly ten preventDefault() calls: the contextmenu gate (the card menu, and a right-click on a pill or slice entry of the search panel), dragstart/dragover/drop for pointer drag (kanban.proj #241), the pending-ops close guard (kanban.proj #251), and the search panel itself: the Esc that closes it, and the context-menu key, the slice keys and p (panelKey)');
   const spans = [
     ['document.body.addEventListener("contextmenu"', 'openCtxMenu(c.id,e.clientX,e.clientY)});'],
     ['document.body.addEventListener("dragstart"', 'e.dataTransfer.effectAllowed="move"});'],
     ['document.body.addEventListener("dragover"', 'col.classList.add("drag-over")}});'],
     ['document.body.addEventListener("drop"', 'pillEd=null;render()});'],
     ['window.addEventListener("beforeunload"', 'e.returnValue='],
+    ['document.addEventListener("keydown",e=>{if(e.key==="Escape")', 'if(closePanel())e.preventDefault()}});'],
+    ['function panelKey(e){', 'flipSwitch()}}'],
   ];
   const ranges = spans.map(([startMarker, endMarker]) => {
     const start = src.indexOf(startMarker);

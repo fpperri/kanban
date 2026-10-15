@@ -80,6 +80,11 @@ class El {
     return n;
   }
 
+  remove() {
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((c) => c !== this);
+    this.parentNode = null;
+  }
+
   replaceChildren(...nodes) {
     this.children = [];
     this._text = '';
@@ -122,7 +127,13 @@ class El {
 
   scrollTo() {}
 
-  focus(opts) { this.ownerDocument.activeElement = this; this.focusOpts = opts; }
+  // Focus moves to this element, and its own focus listeners hear of it, as in a browser.
+  focus(opts) {
+    const moved = this.ownerDocument.activeElement !== this;
+    this.ownerDocument.activeElement = this;
+    this.focusOpts = opts;
+    if (moved) for (const fn of this.listeners.focus || []) fn({ target: this });
+  }
 
   querySelectorAll(selector) {
     const attrs = [...selector.matchAll(/\[([\w-]+)="([^"]*)"\]/g)].map((m) => [camel(m[1]), m[2]]);
@@ -193,6 +204,19 @@ function loadPage(html, opts = {}) {
       const ev = { target, clientX: 0, clientY: 0, stopPropagation() {}, preventDefault() { prevented = true; } };
       for (const fn of doc.body.listeners.contextmenu || []) fn(ev);
       return prevented;
+    },
+    // A key pressed with focus on target (the page's document-level key listeners hear it, as the
+    // event bubbles there); reports whether the page kept the browser's own action away.
+    key(target, key, mods = {}) {
+      let prevented = false;
+      const ev = { key, target, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, getModifierState: () => false, preventDefault() { prevented = true; }, stopPropagation() {}, ...mods };
+      for (const fn of doc.listeners.keydown || []) fn(ev);
+      return prevented;
+    },
+    // A press of the mouse button on target, which the page's document-level listeners hear.
+    mousedown(target) {
+      const ev = { target, preventDefault() {}, stopPropagation() {} };
+      for (const fn of doc.listeners.mousedown || []) fn(ev);
     },
     change(target) {
       const ev = { target, stopPropagation() {}, preventDefault() {} };
