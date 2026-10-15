@@ -4433,10 +4433,10 @@ function renderGanttView() {
   container.appendChild(buildGanttControls());
   container.appendChild(buildGanttFilterRow());
   // Same search composition as board/map/calendar: the shared match result.
-  // Status filter composes with search
-  // by INTERSECTION — a card is visible only if BOTH say so — same pure
-  // helper and same rule as the map's composition (never a union, never
-  // one side dropped). The search pool spans live + archived
+  // Status filter composes with search by INTERSECTION — a card is visible
+  // only if BOTH say so — same pure helper and same rule as the map's
+  // composition (never a union, never one side dropped). The search pool
+  // spans live + archived
   // unconditionally (same as the map's own search pool) — harmless while the
   // Archive pill is off, since no archived bar is ever added to groups below
   // regardless of whether its id lands in searchIds.
@@ -5110,9 +5110,10 @@ function showContextMenu(x, y) {
 
 // Writes "tree:<id>"/"path:<id>" into the search box (REPLACING its
 // content — not appended) through writeSearch, closes the menu, and runs the
-// normal search flow — no synthetic 'input' event, and no view switch. Single-card only; showContextMenu
-// already hides these items for a multi-card selection, but this guards the
-// no-selection edge case too (e.g. a stale/empty selectedIds).
+// normal search flow — no synthetic 'input' event, and no view switch.
+// Single-card only; showContextMenu already hides these items for a
+// multi-card selection, but this guards the no-selection edge case too (e.g. a
+// stale/empty selectedIds).
 function focusOn(kind) {
   hideContextMenu();
   const id = [...selectedIds][0];
