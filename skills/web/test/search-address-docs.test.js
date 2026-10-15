@@ -27,3 +27,8 @@ test('the deep-link section says a reload or a copied link opens with the same s
   assert.match(deepLinks, /Back and Forward never write the box/);
   assert.match(deepLinks, /the poll never writes the address/i);
 });
+
+test('the deep-link section says a refused replacement lets the address lag until the next change', () => {
+  assert.match(deepLinks, /A browser may refuse a replacement/);
+  assert.match(deepLinks, /the address lags the box, and the next change to `q` catches it up/);
+});

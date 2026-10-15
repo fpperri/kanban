@@ -740,8 +740,9 @@ to `127.0.0.1` only.
     or blank box drops `q`; `card` and `view` ride along untouched. The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
-    when `q` would change, so fast typing stays under the browser's limit on history
-    replacements. A reload, or a link copied from the address bar, opens with the same
+    when `q` would change. A browser may refuse a replacement when there are too many in
+    a short time (Safari throws past 100 in 30 seconds): the refusal is let go, the
+    address lags the box, and the next change to `q` catches it up. A reload, or a link copied from the address bar, opens with the same
     search through the deep link above, whatever the query holds; the poll never writes
     the address. Back and Forward never write the box: when one
     lands on an entry whose `q` differs from the box, the box keeps its text and that

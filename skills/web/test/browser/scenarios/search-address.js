@@ -31,6 +31,14 @@ module.exports = {
     const selectBoxText = () => ev(`(()=>{const i=document.getElementById('search-input');i.focus();i.select()})()`);
     const detailShown = (on) => waitFor(`document.getElementById('detail-modal').classList.contains('hidden')===${on ? 'false' : 'true'}`, 5000);
     const openTile = (id) => ev(`document.querySelector('#board .card-el[data-id="${id}"]').click()`);
+    // Page.reload answers as soon as the reload starts, and the old document lives on until the new one commits, so a wait
+    // taken straight after it can be answered by the page being left. A marker set on the old document is not on the
+    // new one, so waiting for it to be gone is waiting for the reload itself.
+    const reload = async () => {
+      await ev(`window.__beforeReload = true`);
+      await send('Page.reload');
+      if (!(await waitFor(`window.__beforeReload === undefined`, 10000))) throw new Error('the page did not reload');
+    };
 
     await open('/?view=board');
     await boardShows(liveIds, 10000);
@@ -41,7 +49,7 @@ module.exports = {
     check('the browser history does not grow while typing', (await entryCount()) === entriesBeforeTyping, { before: entriesBeforeTyping, now: await entryCount() });
     check('and the board shows the matches', await boardShows(zephyrIds), await shownNow());
 
-    await send('Page.reload');
+    await reload();
     check('after a reload the box holds zephyr and the board shows only its matches', (await waitFor(`document.getElementById('search-input').value==='zephyr'`, 10000)) && (await boardShows(zephyrIds)), { box: await boxText(), shown: await shownNow() });
     check('and the reload left the address as it was', await addressHas({ view: 'board', q: 'zephyr' }), await addressParams());
 
@@ -54,7 +62,7 @@ module.exports = {
     const compound = '#12 | (tags:"next-up" status:doing)';
     await ev(`writeSearch(${JSON.stringify(compound)}, 'menu')`);
     check('a compound query reaches the address whole, with no fragment', (await waitFor(`new URLSearchParams(location.search).get('q')===${JSON.stringify(compound)}`)) && !(await ev(`location.hash`)), await addressParams());
-    await send('Page.reload');
+    await reload();
     check('a box holding #12 | (tags:"next-up" status:doing) comes back unchanged after a reload', (await waitFor(`document.getElementById('search-input').value===${JSON.stringify(compound)}`, 10000)) && (await addressHas({ view: 'board', q: compound })), { box: await boxText(), address: await addressParams() });
 
     await open('/?q=zephyr&view=graph');

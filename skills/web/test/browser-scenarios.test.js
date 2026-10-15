@@ -223,3 +223,14 @@ test('the search-address scenario steps through history with history.back and hi
   assert.ok(src.includes('history.back()') && src.includes('history.forward()'));
   assert.ok(!/\bsleep\(/.test(src));
 });
+
+// Page.reload answers as soon as the reload starts and the old document stays
+// alive until the new one commits, so a wait taken right after it can be
+// answered by the page being left. The scenario marks the old document first and
+// waits for the mark to be gone, and no reload goes around that.
+test('the search-address scenario reloads only through a helper that waits for the old document to be gone', () => {
+  const src = code(source('search-address.js'));
+  assert.strictEqual(src.split("send('Page.reload')").length - 1, 1, 'one raw reload, inside the helper');
+  assert.ok(/window\.__beforeReload = true[\s\S]*send\('Page\.reload'\)[\s\S]*window\.__beforeReload === undefined/.test(src), 'the helper marks the page, reloads, then waits for the mark to be gone');
+  assert.strictEqual(src.split('await reload();').length - 1, 2, 'both reload checks go through the helper');
+});

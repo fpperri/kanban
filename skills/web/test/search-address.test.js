@@ -76,6 +76,32 @@ test('a write that leaves q as it is replaces nothing', async () => {
   assert.strictEqual(session.replaces, replaces);
 });
 
+// Safari throws a SecurityError from history.replaceState after 100 calls in 30
+// seconds. The address then lags the box, the listeners registered after it
+// still hear of the write, and the next write that the browser allows catches
+// the address up.
+test('a replaceState the browser refuses leaves the later listeners told and the address to catch up on the next change', async () => {
+  const { page, session } = await openAt();
+  const told = [];
+  page.ctx.onSearchWrite((text) => told.push(text));
+  const allowed = page.ctx.history.replaceState;
+  let refusing = true;
+  page.ctx.history.replaceState = (...args) => {
+    if (refusing) throw new Error('SecurityError: too many calls to history.replaceState');
+    return allowed.apply(page.ctx.history, args);
+  };
+  page.input.typed('z');
+  page.input.typed('ze');
+  assert.deepStrictEqual(told, ['z', 'ze'], 'a listener after the address follower was told of both writes');
+  assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'and no error reached the input handler');
+  assert.strictEqual(session.search, '', 'the address lags while the browser refuses');
+  assert.strictEqual(page.input.value, 'ze');
+  refusing = false;
+  page.input.typed('zep');
+  assert.strictEqual(qOf(session.search), 'zep', 'the next change catches the address up');
+  assert.deepStrictEqual(told, ['z', 'ze', 'zep']);
+});
+
 test('emptying the box drops q and keeps view, and the clear button does the same', async () => {
   const { page, session } = await openAt('?view=map');
   page.input.typed('zephyr');

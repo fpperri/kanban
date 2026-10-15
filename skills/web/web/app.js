@@ -3081,14 +3081,22 @@ function clearSearch() {
 // whatever its reason, leaves the address's `q` equal to the box's text (an
 // empty box drops it), and the poll, which never writes the box, never moves
 // it. It REPLACES the history entry the page is on, never pushes one, so typing
-// adds nothing to Back and Forward, and only when `q` would change, so fast
-// typing stays under the browser's limit on replacements. card-history.js
-// decides what the address becomes; `card` and `view` ride along untouched.
-// The popstate listener calls this too, after Back or Forward lands.
+// adds nothing to Back and Forward, and only when `q` would change. Replacing
+// only on a change does not keep fast typing under the browser's limit on
+// replacements (every keystroke changes `q`), and Safari throws a SecurityError
+// past it, so a refused replacement is let go: the address lags the box, and the
+// next write that changes `q` catches it up, while the listeners after this one
+// still hear of the write. card-history.js decides what the address becomes;
+// `card` and `view` ride along untouched. The popstate listener calls this too,
+// after Back or Forward lands.
 function followSearchInAddress(text) {
   const search = nextSearchAddress(location.search, text);
   if (search == null) return;
-  history.replaceState(null, '', location.pathname + search);
+  try {
+    history.replaceState(null, '', location.pathname + search);
+  } catch (e) {
+    /* the address lags the box until the next change */
+  }
 }
 
 onSearchWrite(followSearchInAddress);
