@@ -60,14 +60,66 @@ function opensBlock(tail) {
   return t === '' || t[0] === '#';
 }
 
+// The six outline glyphs a type's `icon:` may name. The reader keeps any name it
+// is given (the page draws an unknown one as no icon), so this list is for the
+// consumers that draw and for the tests that pin the contract.
+const ICON_NAMES = Object.freeze(['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star']);
+
+// A type's `icon:` text → its name: lowercased, a trailing comment stripped,
+// and '' (no icon) for a blank value or one that is only a comment.
+function iconName(raw) {
+  const t = raw === undefined ? '' : String(raw).trim();
+  return t[0] === '#' ? '' : scalar(t).toLowerCase();
+}
+
+// One `pills:` entry (the text after its dash) → { label, query }, or null when
+// the entry is blank, only a comment, or has an empty label or an empty query.
+// An entry is a query on its own (quoted or bare; the label is then the query
+// text) or a one-key map from a label to a query. As in YAML a map key ends at
+// the first colon followed by a space or the end of the entry, so `next: x` is
+// the label next with the query x, `tags: grill` is the label tags with the
+// query grill, while `tags:*` and `assignee:@human` have no such colon and stay
+// whole queries; a query that must end in a colon is quoted (`"blocked:"`).
+// Anything after the first pair on its own line is another key, which the
+// caller ignores.
+function splitPillEntry(text) {
+  const t = String(text).trim();
+  if (t === '' || t[0] === '#') return null;
+  let label = null;
+  let value = t;
+  const close = (t[0] === '"' || t[0] === "'") ? closingQuote(t) : -1;
+  if (close !== -1) {
+    const after = t.slice(close + 1);
+    const sep = /^\s*:(?:\s|$)/.exec(after);
+    if (sep) { label = unquote(t.slice(0, close + 1)); value = after.slice(sep[0].length); }
+  } else {
+    const colon = t.search(/:(?:\s|$)/);
+    const comment = t.search(/\s#/);
+    if (colon !== -1 && (comment === -1 || colon < comment)) { label = t.slice(0, colon).trim(); value = t.slice(colon + 1); }
+  }
+  const query = value.trim()[0] === '#' ? '' : scalar(value);
+  if (query === '') return null;
+  if (label === null) label = query;
+  return label === '' ? null : { label, query };
+}
+
+// Index of the quote that closes the quoted text opening `s`, or -1.
+function closingQuote(s) {
+  for (let i = 1; i < s.length; i++) {
+    if (s[i] === '\\') { i++; continue; }
+    if (s[i] === s[0]) return i;
+  }
+  return -1;
+}
+
 // priorities/tags — suggest, never validate. statuses — the official COLUMN
 // list (ordered = column order; absent = built-in four).
 // It drives the board's layout but still never validates a card's on-disk
 // value: an unlisted status renders in the first column until promoted.
-const LIST_KEYS = ['priorities', 'tags', 'statuses'];
+const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] };
+  const config = { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -91,7 +143,12 @@ function parseConfig(text) {
     }
     if (curType) {
       const name = scalar(curType.name !== undefined ? curType.name : '');
-      if (name !== '') config.types.push({ name, color: scalar(curType.color !== undefined ? curType.color : '') });
+      if (name !== '') {
+        const entry = { name, color: scalar(curType.color !== undefined ? curType.color : '') };
+        const icon = iconName(curType.icon);
+        if (icon !== '') entry.icon = icon;
+        config.types.push(entry);
+      }
       curType = null;
     }
   };
@@ -138,6 +195,8 @@ function parseConfig(text) {
         } else {
           section = 'types';
         }
+      } else if (top[1] === 'pills') {
+        section = opensBlock(top[2]) ? 'pills' : null; // block form only; a scalar or inline value answers none
       } else if (LIST_KEYS.includes(top[1])) {
         if (!opensBlock(top[2])) {
           config[top[1]] = parseFlowList(top[2]); // inline flow form
@@ -150,10 +209,17 @@ function parseConfig(text) {
       }
       continue;
     }
+    if (section === 'pills') {
+      const item = line.match(/^\s+-\s*(.*)$/);
+      const pill = item && splitPillEntry(item[1]);
+      if (pill) config.pills.push(pill);
+      continue;
+    }
     if (LIST_KEYS.includes(section)) {
       const item = line.match(/^\s+-\s*(.*)$/);
       if (item) {
-        const v = scalar(item[1]);
+        // A hierarchy entry that is only a comment is blank, as in YAML.
+        const v = section === 'hierarchy' && item[1].trim()[0] === '#' ? '' : scalar(item[1]);
         if (v !== '') config[section].push(v);
       }
       continue;
@@ -204,8 +270,7 @@ function configFile(dir) {
 
 function readConfig(dir) {
   const file = configFile(dir);
-  if (!fs.existsSync(file)) return { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], types: [] };
-  return parseConfig(fs.readFileSync(file, 'utf8'));
+  return parseConfig(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
 }
 
 function writeConfig(dir, config) {
@@ -248,4 +313,4 @@ function allocateId(dir, fromScan) {
   return id;
 }
 
-module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId };
+module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, splitPillEntry, ICON_NAMES };
