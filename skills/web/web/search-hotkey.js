@@ -15,7 +15,8 @@
 // (re-opening it re-selects the prior term), so the muscle memory carries
 // over: keep typing to replace it, or arrow off to edit in place.
 //
-// Decision — suppressed while a modal/popup is open: yes. Every popup shares
+// Decision — suppressed while a surface is open (key-guard.js names them: a popup, the
+// card menu, the notifications panel, the preferences sheet): yes. Every popup shares
 // the .modal-backdrop convention (position:fixed, inset:0 — app.css), which
 // covers the whole viewport, so the search bar sits fully hidden behind it
 // whenever one is open. Unlike Ctrl+S, whose TARGET is the open
@@ -31,7 +32,7 @@ function searchHotkeyPrefill(chord, ctx) {
   if (key !== 'f') return null;
   if (!chord.ctrlKey && !chord.metaKey) return null;
   if (chord.altKey || chord.shiftKey) return null;
-  if (!ctx || ctx.modalOpen) return null;
+  if (!ctx || ctx.surfaceOpen) return null;
   const value = String(ctx.currentValue || '');
   if (!value) return { value: '#', selectionStart: 1, selectionEnd: 1 };
   return { value, selectionStart: 0, selectionEnd: value.length };

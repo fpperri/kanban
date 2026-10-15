@@ -124,6 +124,10 @@ function closingQuote(s) {
 // list (ordered = column order; absent = built-in four).
 // It drives the board's layout but still never validates a card's on-disk
 // value: an unlisted status renders in the first column until promoted.
+// hierarchy — the types that are the levels of the plan, top first. A block entry that is
+// only a comment (`- # note`) is skipped there, as YAML reads it; in the other lists a value
+// that starts with # stays as written, as it always has, since a tag or a status label is free
+// text and a hierarchy entry names a type.
 const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 
 function parseConfig(text) {

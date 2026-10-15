@@ -891,8 +891,10 @@ function toggleRollupBar() {
 }
 
 // The preferences sheet's other settings (prefs.js): what a plain click on a
-// card does in each view, and whether archived leaves count as done. One entry
-// per board, memoized like the choices above and dropped by applyProjectName.
+// card does in each view, whether archived leaves count as done, and the search
+// panel's: whether its pill section and its slice section start folded and whether it
+// opens when the search box is focused. One entry per board, memoized like the
+// choices above and dropped by applyProjectName.
 let prefsMemo = null;
 
 function prefsStorage() {
@@ -3451,7 +3453,7 @@ function onSearchSlashKey(e) {
 // character into whatever's focused, so there's nothing for it to hijack.
 function onSearchChordKey(e) {
   const input = $('#search-input');
-  const result = searchHotkeyPrefill(e, { modalOpen: keyGuardSurface(document) !== null, currentValue: input.value });
+  const result = searchHotkeyPrefill(e, { surfaceOpen: keyGuardSurface(document) !== null, currentValue: input.value });
   if (!result) return;
   e.preventDefault();
   if (result.value !== input.value) writeSearch(result.value, 'prefill');
