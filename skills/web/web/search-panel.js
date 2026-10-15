@@ -9,9 +9,11 @@
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
 // here. A pill is on while its query is the anchor of the selection or one of its
 // additions, so nothing about "on" is kept here: it is read off the selection every
-// time. A click, with either button, makes the pill's query the anchor and writes it
-// to the box; Shift adds it to the selection and grows the box (selection.js decides
-// both, and the search module's alternatives do the box). The buttons are built once
+// time. The pills follow the status pills' rules: a click (Shift or not) turns one pill
+// on or off, its query joining the selection and the box as one more alternative or
+// leaving both, and a right-click solos it, or turns every pill off when it is the one
+// soloed (selection.js decides both, and the search module's alternatives do the box).
+// The first pill on is the anchor and later ones are additions. The buttons are built once
 // and then updated in place by every render, the poll's included, so a pill that has
 // focus keeps it and its count changes under it. The panel adds no `data-holds-poll`:
 // a button left focused by a click would stop the poll for good.
@@ -34,7 +36,7 @@ let searchPanelOpen = false;
 let searchPillsFolded = null;
 let searchPillsFoldedFor = '';
 
-const SEARCH_PILL_HINT = 'click: only this pill, shift+click: add it or take it out';
+const SEARCH_PILL_HINT = 'click: turn it on or off, right-click: only this pill (again: every pill off)';
 
 function searchPanelIsOpen() {
   return searchPanelOpen;
@@ -175,8 +177,8 @@ function foldSearchPills(folded) {
 
 // --- a click on a pill ---------------------------------------------------------------------------
 
-// Carries out what selection.js decides for a click ('click') or a Shift+click
-// ('add') on the pill with this key: the selection and the text of the box change
+// Carries out what selection.js decides for a click ('toggle') or a right-click
+// ('solo') on the pill with this key: the selection and the text of the box change
 // together, and the box is written with the reason 'pill', so the repaint does not
 // take it for a typed search.
 function applyPillGesture(gesture, key) {
@@ -191,17 +193,18 @@ function applyPillGesture(gesture, key) {
   writeSearch(next.boxText, 'pill');
 }
 
+// A click toggles the pill, whatever modifier is held: Shift+click is a plain click.
 function onPillClick(e) {
   const button = e.target.closest('.query-pill');
-  if (button) applyPillGesture(e.shiftKey ? 'add' : 'click', button.dataset.pillKey);
+  if (button) applyPillGesture('toggle', button.dataset.pillKey);
 }
 
-// The other mouse button does what a click does, and the browser's own menu stays shut.
+// The other mouse button solos the pill, and the browser's own menu stays shut.
 function onPillContextMenu(e) {
   const button = e.target.closest('.query-pill');
   if (!button) return;
   e.preventDefault();
-  applyPillGesture(e.shiftKey ? 'add' : 'click', button.dataset.pillKey);
+  applyPillGesture('solo', button.dataset.pillKey);
 }
 
 window.addEventListener('DOMContentLoaded', () => {

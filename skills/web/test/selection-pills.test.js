@@ -7,13 +7,16 @@ const {
 const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt } = require('../web/search');
 
 // What a click on a pill does to the selection and to the search box, as one
-// decision the page carries out. A click, with either button, makes the pill's
-// query the anchor and puts it in the box; a click on the only pill that is on
-// turns it off and empties the box. Shift adds the pill's matches to the
-// selection and grows the box to `anchor | pill`, and takes them out again the
-// second time. The box and the selection are worked out together here, from the
-// search module's own alternatives, so what the box shows and what is selected
-// cannot disagree.
+// decision the page carries out. Pills follow the status pills' rules. A click
+// ('toggle', whatever modifier is held) turns one pill on or off and leaves the
+// others as they were: on, its query joins the selection and the box as one more
+// alternative; off, it goes out of both. A right-click ('solo') makes the pill the
+// only one on with the box holding its query alone, and on the pill that is already
+// the only one on it turns every pill off, the default (the status pills' default
+// is all on, so theirs turns all back on). The first pill on is the anchor and the
+// later ones are additions. The box and the selection are worked out together here,
+// from the search module's own alternatives, so what the box shows and what is
+// selected cannot disagree.
 
 const alts = { has: searchHasAlt, add: searchAddAlt, remove: searchRemoveAlt };
 const selectionOf = (...parts) => parts.reduce((s, p) => addPart(s, p), NO_SELECTION);
@@ -23,149 +26,167 @@ const WAITING = 'waiting:';
 const gesture = (kind, query, selection, boxText) => selectionAfterPill(kind, query, { selection, boxText, alts });
 const shape = (selection) => ({ anchor: selection.anchor, additions: selection.additions });
 
-// --- a click ----------------------------------------------------------------------
+// --- a click: turn one pill on or off ---------------------------------------------------
 
-test('a click on a pill with nothing selected makes its query the anchor and writes it to the box', () => {
-  const next = gesture('click', REVIEW, NO_SELECTION, '');
+test('a click on an off pill with nothing selected turns it on: its query is the anchor and the box holds it', () => {
+  const next = gesture('toggle', REVIEW, NO_SELECTION, '');
   assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [] });
   assert.strictEqual(next.boxText, 'review:');
   assert.strictEqual(next.rangeStart, null, 'a query anchor leaves no range start');
 });
 
-test('a click replaces whatever was selected, additions included, and whatever the box held', () => {
-  const picked = selectionOf(cardPart(1), cardPart(2), pathPart(3));
-  const next = gesture('click', REVIEW, picked, 'status:doing');
-  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [] });
-  assert.strictEqual(next.boxText, 'review:');
-});
-
-test('a click on another pill replaces the one that was on', () => {
-  const next = gesture('click', BLOCKED, selectionOf(queryPart(REVIEW)), 'review:');
-  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(BLOCKED), additions: [] });
-  assert.strictEqual(next.boxText, 'blocked:');
-});
-
-test('a click on a pill that is on with others added keeps it as the anchor and drops the additions', () => {
-  const grown = selectionOf(queryPart(REVIEW), queryPart(BLOCKED));
-  const next = gesture('click', REVIEW, grown, 'review: | blocked:');
-  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [] });
-  assert.strictEqual(next.boxText, 'review:');
-});
-
-test('a click on a pill that is on as an addition makes it the anchor', () => {
-  const grown = selectionOf(queryPart(REVIEW), queryPart(BLOCKED));
-  const next = gesture('click', BLOCKED, grown, 'review: | blocked:');
-  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(BLOCKED), additions: [] });
-  assert.strictEqual(next.boxText, 'blocked:');
-});
-
-test('a click on the only pill that is on turns it off, empties the selection and clears the box', () => {
-  const next = gesture('click', REVIEW, selectionOf(queryPart(REVIEW)), 'review:');
-  assert.deepStrictEqual(shape(next.selection), { anchor: null, additions: [] });
-  assert.strictEqual(next.boxText, '');
-  assert.strictEqual(next.rangeStart, null);
-});
-
-test('a click on a pill that is on, with the box grown by a cue, clears the box too', () => {
-  const next = gesture('click', REVIEW, selectionOf(queryPart(REVIEW)), 'review: assignee:@human');
-  assert.strictEqual(next.selection, NO_SELECTION);
-  assert.strictEqual(next.boxText, '');
-});
-
-test('the pill\'s query is written as the pill gives it, spaces and all', () => {
-  const next = gesture('click', 'tags:ui   status:doing', NO_SELECTION, '');
-  assert.strictEqual(next.boxText, 'tags:ui status:doing');
-  assert.deepStrictEqual(next.selection.anchor, queryPart('tags:ui status:doing'));
-});
-
-// --- shift ------------------------------------------------------------------------
-
-test('shift on a pill with nothing selected does what a click does: there is no anchor to grow from', () => {
-  const next = gesture('add', REVIEW, NO_SELECTION, '');
-  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [] });
-  assert.strictEqual(next.boxText, 'review:');
-});
-
-test('shift on a pill after another adds its query to the selection and grows the box to "anchor | pill"', () => {
-  const next = gesture('add', BLOCKED, selectionOf(queryPart(REVIEW)), 'review:');
+test('a click on a second off pill turns it on beside the first: the first stays the anchor, the second is an addition, and the box grows', () => {
+  const next = gesture('toggle', BLOCKED, selectionOf(queryPart(REVIEW)), 'review:');
   assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [queryPart(BLOCKED)] });
   assert.strictEqual(next.boxText, 'review: | blocked:');
   assert.strictEqual(next.rangeStart, undefined, 'the range start is left as it was');
 });
 
-test('shift again takes the pill\'s part out of the box and the selection', () => {
-  const grown = gesture('add', BLOCKED, selectionOf(queryPart(REVIEW)), 'review:');
-  const back = gesture('add', BLOCKED, grown.selection, grown.boxText);
-  assert.deepStrictEqual(shape(back.selection), { anchor: queryPart(REVIEW), additions: [] });
-  assert.strictEqual(back.boxText, 'review:');
-});
-
 test('a third pill joins at the end and leaves the first two as they were', () => {
-  const two = gesture('add', BLOCKED, selectionOf(queryPart(REVIEW)), 'review:');
-  const three = gesture('add', WAITING, two.selection, two.boxText);
+  const two = gesture('toggle', BLOCKED, selectionOf(queryPart(REVIEW)), 'review:');
+  const three = gesture('toggle', WAITING, two.selection, two.boxText);
   assert.deepStrictEqual(three.selection.additions, [queryPart(BLOCKED), queryPart(WAITING)]);
   assert.strictEqual(three.boxText, 'review: | blocked: | waiting:');
-  const noMiddle = gesture('add', BLOCKED, three.selection, three.boxText);
-  assert.deepStrictEqual(noMiddle.selection.additions, [queryPart(WAITING)]);
-  assert.strictEqual(noMiddle.boxText, 'review: | waiting:');
 });
 
-test('shift on the anchor pill takes it out and the next part becomes the anchor', () => {
+test('a click on an on pill turns it off and takes its query out of the box, and the other pills stay as they were', () => {
+  const three = selectionOf(queryPart(REVIEW), queryPart(BLOCKED), queryPart(WAITING));
+  const next = gesture('toggle', BLOCKED, three, 'review: | blocked: | waiting:');
+  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [queryPart(WAITING)] });
+  assert.strictEqual(next.boxText, 'review: | waiting:');
+  assert.strictEqual(next.rangeStart, undefined, 'the anchor stayed, so the range start is left as it was');
+});
+
+test('a click on the anchor pill turns it off and the next pill becomes the anchor', () => {
   const grown = selectionOf(queryPart(REVIEW), queryPart(BLOCKED));
-  const next = gesture('add', REVIEW, grown, 'review: | blocked:');
+  const next = gesture('toggle', REVIEW, grown, 'review: | blocked:');
   assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(BLOCKED), additions: [] });
   assert.strictEqual(next.boxText, 'blocked:');
+  assert.strictEqual(next.rangeStart, null, 'a query anchor leaves no range start');
 });
 
-test('shift on the only pill that is on turns it off and clears the box, as a click does', () => {
-  const next = gesture('add', REVIEW, selectionOf(queryPart(REVIEW)), 'review:');
+test('a click on the only pill that is on turns it off, empties the selection and clears the box', () => {
+  const next = gesture('toggle', REVIEW, selectionOf(queryPart(REVIEW)), 'review:');
   assert.strictEqual(next.selection, NO_SELECTION);
   assert.strictEqual(next.boxText, '');
+  assert.strictEqual(next.rangeStart, null);
 });
 
-test('shift grows a box that holds spaces by one bracketed alternative, and shrinks it back to the text it had', () => {
-  const grown = gesture('add', BLOCKED, selectionOf(queryPart('tags:ui status:doing')), 'tags:ui status:doing');
+test('a click turns a pill on beside text typed in the box, where there is no anchor to grow from: it joins as one more alternative, and off again takes only it out', () => {
+  const on = gesture('toggle', REVIEW, NO_SELECTION, 'zephyr');
+  assert.deepStrictEqual(shape(on.selection), { anchor: queryPart(REVIEW), additions: [] });
+  assert.strictEqual(on.boxText, 'zephyr | review:');
+  const off = gesture('toggle', REVIEW, on.selection, on.boxText);
+  assert.strictEqual(off.selection, NO_SELECTION);
+  assert.strictEqual(off.boxText, 'zephyr');
+});
+
+test('the pill\'s query is written as the pill gives it, spaces and all', () => {
+  const next = gesture('toggle', 'tags:ui   status:doing', NO_SELECTION, '');
+  assert.strictEqual(next.boxText, 'tags:ui status:doing');
+  assert.deepStrictEqual(next.selection.anchor, queryPart('tags:ui status:doing'));
+});
+
+test('a box that holds spaces grows by one bracketed alternative, and shrinks back to the text it had', () => {
+  const grown = gesture('toggle', BLOCKED, selectionOf(queryPart('tags:ui status:doing')), 'tags:ui status:doing');
   assert.strictEqual(grown.boxText, '(tags:ui status:doing) | blocked:');
-  const back = gesture('add', BLOCKED, grown.selection, grown.boxText);
+  const back = gesture('toggle', BLOCKED, grown.selection, grown.boxText);
   assert.strictEqual(back.boxText, 'tags:ui status:doing');
 });
 
-test('shift with a hand-picked card as the anchor and an empty box adds the pill and leaves the box empty: nothing is hidden, so nothing needs showing', () => {
+test('with a hand-picked card as the anchor and an empty box a click adds the pill and leaves the box empty: nothing is hidden, so nothing needs showing', () => {
   const picked = selectionOf(cardPart(7));
-  const next = gesture('add', REVIEW, picked, '');
+  const next = gesture('toggle', REVIEW, picked, '');
   assert.deepStrictEqual(shape(next.selection), { anchor: cardPart(7), additions: [queryPart(REVIEW)] });
   assert.strictEqual(next.boxText, '');
 });
 
-test('shift with a hand-picked card as the anchor and text in the box grows the box so the pill\'s cards are not hidden by it', () => {
+test('with a hand-picked card as the anchor and text in the box a click grows the box so the pill\'s cards are not hidden by it, and off again shrinks it', () => {
   const picked = selectionOf(cardPart(7));
-  const next = gesture('add', REVIEW, picked, 'status:doing');
+  const next = gesture('toggle', REVIEW, picked, 'status:doing');
   assert.strictEqual(next.boxText, 'status:doing | review:');
-  const back = gesture('add', REVIEW, next.selection, next.boxText);
+  const back = gesture('toggle', REVIEW, next.selection, next.boxText);
   assert.deepStrictEqual(shape(back.selection), { anchor: cardPart(7), additions: [] });
   assert.strictEqual(back.boxText, 'status:doing');
 });
 
-test('shift on a pill that is an addition to a card anchor, with an empty box, takes it out and leaves the box alone', () => {
+test('a click on a pill that is an addition to a card anchor, with an empty box, takes it out and leaves the box alone', () => {
   const picked = selectionOf(cardPart(7), queryPart(REVIEW));
-  const next = gesture('add', REVIEW, picked, '');
+  const next = gesture('toggle', REVIEW, picked, '');
   assert.deepStrictEqual(shape(next.selection), { anchor: cardPart(7), additions: [] });
   assert.strictEqual(next.boxText, '');
 });
 
-test('shift next to a typed anchor keeps the typed anchor and adds the pill beside it', () => {
+test('next to a typed anchor a click keeps the typed anchor and adds the pill beside it', () => {
   const typed = selectionOf(typedQueryPart('zephyr'));
-  const next = gesture('add', REVIEW, typed, 'zephyr');
+  const next = gesture('toggle', REVIEW, typed, 'zephyr');
   assert.deepStrictEqual(shape(next.selection), { anchor: typedQueryPart('zephyr'), additions: [queryPart(REVIEW)] });
   assert.strictEqual(next.boxText, 'zephyr | review:');
+});
+
+// --- a right-click: solo ---------------------------------------------------------------
+
+test('a right-click on an off pill with nothing selected makes it the only one on: its query is the anchor and the box holds it alone', () => {
+  const next = gesture('solo', REVIEW, NO_SELECTION, '');
+  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [] });
+  assert.strictEqual(next.boxText, 'review:');
+  assert.strictEqual(next.rangeStart, null);
+});
+
+test('a right-click on an off pill replaces whatever was selected, cards and other pills included, and whatever the box held', () => {
+  const picked = selectionOf(cardPart(1), cardPart(2), pathPart(3));
+  const next = gesture('solo', REVIEW, picked, 'status:doing');
+  assert.deepStrictEqual(shape(next.selection), { anchor: queryPart(REVIEW), additions: [] });
+  assert.strictEqual(next.boxText, 'review:');
+  const others = gesture('solo', WAITING, selectionOf(queryPart(REVIEW), queryPart(BLOCKED)), 'review: | blocked:');
+  assert.deepStrictEqual(shape(others.selection), { anchor: queryPart(WAITING), additions: [] });
+  assert.strictEqual(others.boxText, 'waiting:');
+});
+
+test('a right-click on an on pill that is not alone makes it the only one on, whether it was the anchor or an addition', () => {
+  const grown = selectionOf(queryPart(REVIEW), queryPart(BLOCKED));
+  const anchor = gesture('solo', REVIEW, grown, 'review: | blocked:');
+  assert.deepStrictEqual(shape(anchor.selection), { anchor: queryPart(REVIEW), additions: [] });
+  assert.strictEqual(anchor.boxText, 'review:');
+  const addition = gesture('solo', BLOCKED, grown, 'review: | blocked:');
+  assert.deepStrictEqual(shape(addition.selection), { anchor: queryPart(BLOCKED), additions: [] });
+  assert.strictEqual(addition.boxText, 'blocked:');
+});
+
+test('a right-click on the only pill that is on turns every pill off and empties the box: pills default to all off', () => {
+  const next = gesture('solo', REVIEW, selectionOf(queryPart(REVIEW)), 'review:');
+  assert.strictEqual(next.selection, NO_SELECTION);
+  assert.strictEqual(next.boxText, '');
+  assert.strictEqual(next.rangeStart, null);
+});
+
+test('turning the soloed pill off empties only what the pills put in the box and leaves the cards the selection holds', () => {
+  const picked = selectionOf(cardPart(7), queryPart(REVIEW));
+  const next = gesture('solo', REVIEW, picked, 'status:doing | review:');
+  assert.deepStrictEqual(shape(next.selection), { anchor: cardPart(7), additions: [] });
+  assert.strictEqual(next.boxText, 'status:doing');
+  const typed = gesture('solo', REVIEW, selectionOf(typedQueryPart('zephyr'), queryPart(REVIEW)), 'zephyr | review:');
+  assert.deepStrictEqual(shape(typed.selection), { anchor: typedQueryPart('zephyr'), additions: [] });
+  assert.strictEqual(typed.boxText, 'zephyr');
+});
+
+test('solo, then a right-click on it again, and then solo once more: the rule is the status pills\' round trip, with all off as the default', () => {
+  const one = gesture('solo', BLOCKED, NO_SELECTION, '');
+  const none = gesture('solo', BLOCKED, one.selection, one.boxText);
+  assert.deepStrictEqual([none.selection, none.boxText], [NO_SELECTION, '']);
+  const again = gesture('solo', BLOCKED, none.selection, none.boxText);
+  assert.deepStrictEqual(shape(again.selection), { anchor: queryPart(BLOCKED), additions: [] });
+  assert.strictEqual(again.boxText, 'blocked:');
 });
 
 test('a pill gesture changes none of the selections it is given', () => {
   const grown = selectionOf(queryPart(REVIEW), queryPart(BLOCKED));
   const before = JSON.stringify(grown);
-  gesture('click', REVIEW, grown, 'review: | blocked:');
-  gesture('add', BLOCKED, grown, 'review: | blocked:');
-  gesture('add', WAITING, grown, 'review: | blocked:');
+  gesture('toggle', REVIEW, grown, 'review: | blocked:');
+  gesture('toggle', BLOCKED, grown, 'review: | blocked:');
+  gesture('toggle', WAITING, grown, 'review: | blocked:');
+  gesture('solo', REVIEW, grown, 'review: | blocked:');
+  gesture('solo', WAITING, grown, 'review: | blocked:');
   assert.strictEqual(JSON.stringify(grown), before);
   assert.strictEqual(JSON.stringify(NO_SELECTION), '{"anchor":null,"additions":[]}');
 });
@@ -182,22 +203,22 @@ const matchQuery = (text) => new Set(filterCards(CARDS, parseSearchQuery(text), 
 const reached = (selection, shown = null) => [...resolveSelection(selection, matchQuery, shown)].sort((a, b) => a - b);
 
 test('outside the Graph a pill\'s matches are the selection, and so are the bulk targets; the second pill adds its own', () => {
-  const one = gesture('click', REVIEW, NO_SELECTION, '');
+  const one = gesture('toggle', REVIEW, NO_SELECTION, '');
   assert.deepStrictEqual(reached(one.selection), [2, 3], 'the done review card is selected too');
-  const two = gesture('add', BLOCKED, one.selection, one.boxText);
+  const two = gesture('toggle', BLOCKED, one.selection, one.boxText);
   assert.deepStrictEqual(reached(two.selection), [1, 2, 3]);
-  const three = gesture('add', BLOCKED, two.selection, two.boxText);
+  const three = gesture('toggle', BLOCKED, two.selection, two.boxText);
   assert.deepStrictEqual(reached(three.selection), [2, 3]);
 });
 
 test('the selection only reaches cards the view shows: with the box on the pill\'s query the matches are all shown', () => {
-  const one = gesture('click', REVIEW, NO_SELECTION, '');
+  const one = gesture('toggle', REVIEW, NO_SELECTION, '');
   assert.deepStrictEqual(reached(one.selection, new Set([2, 3, 4])), [2, 3]);
   assert.deepStrictEqual(reached(one.selection, new Set([4])), []);
 });
 
 test('step back from a grown pill selection drops the added pill and leaves the first, then the anchor', () => {
-  const two = gesture('add', BLOCKED, gesture('click', REVIEW, NO_SELECTION, '').selection, 'review:');
+  const two = gesture('toggle', BLOCKED, gesture('toggle', REVIEW, NO_SELECTION, '').selection, 'review:');
   assert.deepStrictEqual(shape(stepBack(two.selection)), { anchor: queryPart(REVIEW), additions: [] });
   assert.deepStrictEqual(shape(stepBack(stepBack(two.selection))), { anchor: null, additions: [] });
 });
@@ -280,7 +301,7 @@ test('a pill query that is still in the selection afterwards is not reported', (
 });
 
 test('stepping back from a grown pill selection and taking each step out of the box gets the box to "review:" and then to nothing', () => {
-  const two = gesture('add', BLOCKED, gesture('click', REVIEW, NO_SELECTION, '').selection, 'review:');
+  const two = gesture('toggle', BLOCKED, gesture('toggle', REVIEW, NO_SELECTION, '').selection, 'review:');
   const one = stepBack(two.selection);
   const boxOne = pillQueriesDropped(two.selection, one).reduce((text, query) => searchRemoveAlt(text, query), two.boxText);
   assert.strictEqual(boxOne, 'review:');
