@@ -254,3 +254,47 @@ test('the decision reads the lookup, so a view\'s answer drives a plain click en
     assert.strictEqual(click({}, plainClickBehaviour(view)), expected, view);
   }
 });
+
+// --- the preferences sheet sets each view's plain click; the Graph's stays fixed.
+
+test('the plain-click lookup reads the view\'s choice from the preferences\' click map', () => {
+  const click = { board: 'selects', map: 'opens', gantt: 'selects', calendar: 'opens', graph: 'selects' };
+  assert.strictEqual(plainClickBehaviour('board', click), 'selects');
+  assert.strictEqual(plainClickBehaviour('map', click), 'opens');
+  assert.strictEqual(plainClickBehaviour('gantt', click), 'selects');
+  assert.strictEqual(plainClickBehaviour('calendar', click), 'opens');
+});
+
+test('the Graph selects whatever the click map says', () => {
+  assert.strictEqual(plainClickBehaviour('graph', { graph: 'opens' }), 'selects');
+  assert.strictEqual(plainClickBehaviour('graph', {}), 'selects');
+});
+
+test('a view the click map leaves out, or fills with something else, opens', () => {
+  assert.strictEqual(plainClickBehaviour('board', {}), 'opens');
+  assert.strictEqual(plainClickBehaviour('board', { board: 'maybe' }), 'opens');
+  assert.strictEqual(plainClickBehaviour('board', null), 'opens');
+  for (const view of ['constructor', '__proto__', 'toString']) assert.strictEqual(plainClickBehaviour(view, {}), 'opens', view);
+});
+
+test('a choice made for one view changes only that view\'s plain click', () => {
+  const click = { board: 'selects' };
+  for (const view of ['map', 'gantt', 'calendar']) assert.strictEqual(plainClickBehaviour(view, click), 'opens', view);
+});
+
+// --- a double click, or Enter on a focused card, opens it where a plain click only selects.
+
+const { cardOpenAction } = require('../web/selection');
+const open = (extra, plainClick) => cardOpenAction({ shiftKey: false, ctrlKey: false, metaKey: false, plainClick, ...extra });
+
+test('a double click or Enter opens the card in a view whose plain click selects', () => {
+  assert.strictEqual(open({}, 'selects'), 'open');
+});
+
+test('in a view whose plain click already opens the card, a double click or Enter adds nothing', () => {
+  assert.strictEqual(open({}, 'opens'), 'none');
+});
+
+test('a double click or Enter with Shift, Ctrl or Cmd held is part of building a selection and opens nothing', () => {
+  for (const mod of [{ shiftKey: true }, { ctrlKey: true }, { metaKey: true }]) assert.strictEqual(open(mod, 'selects'), 'none', JSON.stringify(mod));
+});

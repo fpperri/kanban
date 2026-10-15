@@ -114,11 +114,16 @@ function dragPlan(ids, byId, dest, refusesDoingFn) {
 
 // What a plain click on a card does, per view: it opens the card, except in
 // the Graph, where a bare click selects (dragging a card makes a click a
-// selection gesture there). Anything the table does not name opens.
+// selection gesture there). The preferences sheet sets the other views one by
+// one; `choices` is its click map ({ board: 'opens' | 'selects', ... }). A view
+// the map leaves out, or fills with anything but 'selects', opens. The Graph
+// selects whatever the map says.
 const PLAIN_CLICK_SELECTS = { graph: true };
 
-function plainClickBehaviour(view) {
-  return Object.prototype.hasOwnProperty.call(PLAIN_CLICK_SELECTS, view) ? 'selects' : 'opens';
+function plainClickBehaviour(view, choices) {
+  if (Object.prototype.hasOwnProperty.call(PLAIN_CLICK_SELECTS, view)) return 'selects';
+  const own = choices && Object.prototype.hasOwnProperty.call(choices, view);
+  return own && choices[view] === 'selects' ? 'selects' : 'opens';
 }
 
 // What a click on a card does, as one pure decision — the page's click
@@ -134,8 +139,17 @@ function cardClickAction({ cue, shiftKey, ctrlKey, metaKey, plainClick }) {
   return plainClick === 'selects' ? 'select' : 'open';
 }
 
+// A double click, or Enter on a focused card, opens it where a plain click only
+// selects it. Where a plain click already opens the card, there is nothing to
+// add; a held Shift, Ctrl or Cmd belongs to building a selection. Returns
+// 'open' | 'none'.
+function cardOpenAction({ shiftKey, ctrlKey, metaKey, plainClick }) {
+  if (shiftKey || ctrlKey || metaKey) return 'none';
+  return plainClick === 'selects' ? 'open' : 'none';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction };
+  module.exports = { toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction };
 } else {
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;
@@ -147,4 +161,5 @@ if (typeof module !== 'undefined' && module.exports) {
   window.isHoverHighlighted = isHoverHighlighted;
   window.plainClickBehaviour = plainClickBehaviour;
   window.cardClickAction = cardClickAction;
+  window.cardOpenAction = cardOpenAction;
 }
