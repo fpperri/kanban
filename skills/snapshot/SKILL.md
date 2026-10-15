@@ -92,8 +92,9 @@ module: a list under the box completes the token under the caret, and after `sli
 `..` it shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0
 to the deepest card with no tier, narrowed to the names that start with what is typed; a tap on a row writes the
 whole term (`slice:goal..objective`), and a tier named with a space is written quoted, the quote
-holding both ends (`slice:"big goal..2"`). A `|` counts only as a token of its own and a bracket
-only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does `waiting:3`.
+holding both ends (`slice:"big goal..2"`). A `|` and a bracket count
+only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so does `waiting:3`, while
+`blocked: |review:` means `blocked: | review:`.
 `#id`/`id:` exact (`<this board's name>#id` too),
 `title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
 `assignee:` (`a:` is its alias) is a case-insensitive substring match on the assignee handle,

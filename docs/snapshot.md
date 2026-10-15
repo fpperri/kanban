@@ -51,8 +51,8 @@ that is not done, as `blocked:` and `review:` find their stickers; and `slice:` 
 run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards
 with no tier: `slice:objective..2`, `slice:goal`, `slice:goal..`. A board with no hierarchy cuts by
 depth. After `slice:` and after `..` the box suggests the board's slices, the tiers in hierarchy
-order and then the depth numbers, and a tap writes the whole term. A `|` counts only as a token of
-its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay literal text.
+order and then the depth numbers, and a tap writes the whole term. A `|` and a bracket count
+only at a token's edge, so `a|b` and `fix(auth)` stay literal text while `a |b` means `a | b`.
 
 ## Search panel
 

@@ -19,8 +19,8 @@
 //                 quoted term carries `exact: true`.
 //   waiting:      bare only: the card waits for at least one card that is not done.
 //                 A value (`waiting:3`) is literal text.
-// `|` counts only as a token of its own and brackets only at a token's edge, so
-// `a|b` and `fix(auth)` stay literal; a quote opens only at the start of a token
+// `|` and brackets count only at a token's edge, so `a|b` and `fix(auth)` stay
+// literal while `a |b` means `a | b`; a quote opens only at the start of a token
 // or after a scope's colon. Nothing here throws on half-typed input: an unclosed
 // quote or bracket reads to the end, a stray closing bracket is ignored.
 // searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
@@ -202,9 +202,10 @@ function searchQuoteAt(s, start) {
 }
 
 // The lexer: the query as tokens with their place in the text. A token is
-// `text` (one term as typed), `or` (a lone |), `open` (a ( at the front of a
-// chunk) or `close` (a ) at the back). Brackets and | count only at a token's
-// edge, so a|b stays one text token.
+// `text` (one term as typed), `or` (a | at the front or the back of a chunk, or
+// a chunk of nothing else), `open` (a ( at the front of a chunk) or `close` (a )
+// at the back). Brackets and | count only at a token's edge, so a|b and
+// fix(auth) stay one text token, while `a |b` and `(a| b)` mean what `a | b` does.
 function lexSearch(raw) {
   const s = String(raw == null ? '' : raw);
   const tokens = [];
@@ -227,7 +228,13 @@ function lexSearch(raw) {
     let end = start;
     while (end < s.length && !/\s/.test(s[end])) end++;
     const bodyEnd = end - searchClosers(s.slice(start, end));
-    if (bodyEnd > start) tokens.push({ kind: s.slice(start, bodyEnd) === '|' ? 'or' : 'text', start, end: bodyEnd });
+    const or = (i) => tokens.push({ kind: 'or', start: i, end: i + 1 });
+    let from = start;
+    while (from < bodyEnd && s[from] === '|') or(from++);
+    let to = bodyEnd;
+    while (to > from && s[to - 1] === '|') to--;
+    if (to > from) tokens.push({ kind: 'text', start: from, end: to });
+    for (let i = to; i < bodyEnd; i++) or(i);
     for (at = bodyEnd; at < end; at++) close(at);
   }
   return { text: s, tokens };

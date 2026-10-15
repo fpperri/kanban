@@ -75,7 +75,7 @@ test('the skill and the docs count the same extra forms, one bullet each in the 
   const bullets = docs.slice(docs.indexOf('**Search**'), docs.indexOf('**Notifications inbox**')).split('\n').filter((l) => l.startsWith('- ')).length;
   assert.strictEqual(said(searchDocs), bullets, 'the docs count the forms they list');
   assert.strictEqual(said(searchBullet), said(searchDocs), 'the skill counts the same forms');
-  const stop = searchBullet.indexOf('A `|` counts only');
+  const stop = searchBullet.indexOf('A `|` and a bracket count only');
   assert.ok(stop > 0, 'the skill has its sentence on literal text, which ends the list of forms');
   const list = searchBullet.slice(0, stop);
   assert.ok(list.includes(`\`${EXAMPLES.run}\``), 'the skill gives slice: its example in the list of forms, before the rules for the odd cases');

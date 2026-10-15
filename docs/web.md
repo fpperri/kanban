@@ -193,8 +193,8 @@ writes the whole term (`slice:goal..objective`). A tier named with a space is wr
 quoted, the quote holding both ends (`slice:"big goal..2"`). The tooltip of a Graph
 caption shows the same kind of term.
 
-A `|` counts only as a token of its own and a bracket only at a token's edge, so `a|b`
-and `fix(auth)` stay literal text, and so does `waiting:3`. Half-typed input never
+A `|` and a bracket count only at a token's edge, so `a|b` and `fix(auth)` stay literal
+text, and so does `waiting:3`, while `blocked: |review:` means `blocked: | review:`. Half-typed input never
 throws, and an empty alternative is dropped rather than matching every card. Clicking a
 tag, assignee, blocked or review cue on a card adds that term to every alternative of
 what the box holds.

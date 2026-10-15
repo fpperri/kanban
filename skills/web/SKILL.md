@@ -321,9 +321,9 @@ to `127.0.0.1` only.
   waiting for at least one card that is not done (a dangling id never makes a card
   waiting), the way `blocked:` and `review:` find their stickers; and
   `slice:<top>..<bottom>` cuts every view to a run of slices, so `slice:objective..2`
-  keeps the cards from the objective tier down to depth 2. A `|` counts only as a
-  token of its own and a bracket only at a token's edge, so `a|b` and `fix(auth)` stay
-  literal text, and so does `waiting:3`. The slices are the board's tiers (the
+  keeps the cards from the objective tier down to depth 2. A `|` and a
+  bracket count only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so
+  does `waiting:3`, while `blocked: |review:` means `blocked: | review:`. The slices are the board's tiers (the
   `hierarchy:` types, top first), then the depths of the cards with no tier (parents
   above, a root is 0), and an end is a tier name in any letter case or a depth number.
   `slice:goal` is that one slice, `slice:goal..` and `slice:..objective` leave an end

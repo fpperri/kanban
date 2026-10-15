@@ -66,12 +66,40 @@ test('a lone | or only bars parse to no terms, so nothing narrows', () => {
   assert.deepStrictEqual(ids('|'), CARDS.map((c) => c.id));
 });
 
-test('| counts only as a token of its own, so a|b and a |b stay literal text', () => {
+test('| counts at the edge of a token, as a bracket does, and stays literal inside one', () => {
   assert.deepStrictEqual(parseSearchQuery('a|b'), [{ field: null, value: 'a|b' }]);
-  assert.deepStrictEqual(parseSearchQuery('a |b'), [{ field: null, value: 'a' }, { field: null, value: '|b' }]);
-  assert.deepStrictEqual(parseSearchQuery('a| b'), [{ field: null, value: 'a|' }, { field: null, value: 'b' }]);
+  assert.deepStrictEqual(parseSearchQuery('a||b'), [{ field: null, value: 'a||b' }]);
   const piped = [card(7, { title: 'left|right' }), card(8, { title: 'left' })];
   assert.deepStrictEqual(ids('left|right', piped), [7]);
+  const either = parseSearchQuery('a | b');
+  assert.strictEqual(either[0].field, 'or');
+  for (const form of ['a |b', 'a| b', 'a|', 'a ||b', '(a |b)', '( a | b )']) {
+    assert.deepStrictEqual(parseSearchQuery(form).length, 1, form);
+  }
+  assert.deepStrictEqual(parseSearchQuery('a |b'), either);
+  assert.deepStrictEqual(parseSearchQuery('a| b'), either);
+  assert.deepStrictEqual(parseSearchQuery('(a |b)'), either);
+  assert.deepStrictEqual(parseSearchQuery('a|'), parseSearchQuery('a'), 'a bar with nothing after it is an empty alternative');
+  assert.deepStrictEqual(parseSearchQuery('|a'), parseSearchQuery('a'));
+  assert.deepStrictEqual(parseSearchQuery('||'), []);
+});
+
+test('a | stuck to the front or the back of a token is an or too, so the query is never silently empty', () => {
+  assert.deepStrictEqual(ids('tags:ui |#12'), ids('tags:ui | #12'));
+  assert.deepStrictEqual(ids('(tags:ui) |#12'), [1, 2, 3, 12]);
+  assert.deepStrictEqual(ids('tags:ui| #12'), [1, 2, 3, 12]);
+  assert.deepStrictEqual(ids('tags:ui|'), ids('tags:ui'));
+  assert.deepStrictEqual(ids('status:doing |status:done'), [1, 4, 5]);
+  const marked = [card(1, { blocked: 'x' }), card(2, { review: 'y' }), card(3)];
+  assert.deepStrictEqual(ids('blocked: |review:', marked), [1, 2]);
+  assert.deepStrictEqual(ids('blocked:| review:', marked), [1, 2]);
+  assert.deepStrictEqual(ids('(blocked:|review:)', marked), [], 'inside a token it is literal text, as it always was');
+});
+
+test('a quoted value keeps its | whatever its edges', () => {
+  const piped = [card(7, { title: 'x |y z' }), card(8, { title: 'x y z' })];
+  assert.deepStrictEqual(ids('"x |y"', piped), [7]);
+  assert.deepStrictEqual(ids('title:"x |y z"', piped), [7]);
 });
 
 test('cardMatchesQuery reads an or term, and an alternative with no terms matches nothing', () => {
