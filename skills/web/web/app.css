@@ -994,16 +994,16 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-isolated-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .map-isolated-row .card { min-width: 160px; max-width: 220px; cursor: pointer; }
 /* Map options (buildMapOptionsRow, app.js): one row of segmented controls. */
-.map-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; font-size: 0.78em; }
-.map-options > .map-section-header { font-size: 0.92em; margin-bottom: 0; }
-.map-option { display: inline-flex; align-items: center; gap: 6px; }
-.map-option-label { color: var(--mut); white-space: nowrap; }
-.map-option-seg { display: inline-flex; border: 1px solid var(--line); border-radius: .15rem; overflow: hidden; }
-.map-option-btn { background: var(--paper); border: none; color: var(--ink); font: inherit; padding: 2px 9px; cursor: pointer; }
-.map-option-btn + .map-option-btn { border-left: 1px solid var(--line); }
-.map-option-btn:hover:not(.active) { background: var(--hover-wash); }
-.map-option-btn.active { background: var(--ink); color: var(--paper); }
-.map-option-btn:focus-visible { outline-offset: -2px; }
+.map-options, .graph-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; font-size: 0.78em; }
+.map-options > .map-section-header, .graph-options > .map-section-header { font-size: 0.92em; margin-bottom: 0; }
+.map-option, .graph-option { display: inline-flex; align-items: center; gap: 6px; }
+.map-option-label, .graph-option-label { color: var(--mut); white-space: nowrap; }
+.map-option-seg, .graph-option-seg { display: inline-flex; border: 1px solid var(--line); border-radius: .15rem; overflow: hidden; }
+.map-option-btn, .graph-option-btn { background: var(--paper); border: none; color: var(--ink); font: inherit; padding: 2px 9px; cursor: pointer; }
+.map-option-btn + .map-option-btn, .graph-option-btn + .graph-option-btn { border-left: 1px solid var(--line); }
+.map-option-btn:hover:not(.active), .graph-option-btn:hover:not(.active) { background: var(--hover-wash); }
+.map-option-btn.active, .graph-option-btn.active { background: var(--ink); color: var(--paper); }
+.map-option-btn:focus-visible, .graph-option-btn:focus-visible { outline-offset: -2px; }
 /* One graph per tree: a heading of root titles and card count above each. */
 .map-graph-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.82em; }
 .map-section-header + .map-graph-heading { margin-top: 4px; border-top: none; padding-top: 0; }
@@ -1199,6 +1199,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-layout-btn, .graph-zoom-btn, .graph-filter-toggle { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .graph-layout-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .graph-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.graph-options { margin-bottom: 8px; }
 .graph-filter-toggle.off { color: var(--mut); text-decoration: line-through; }
 .graph-filter-toggle:hover { background: var(--btn-bg); }
 .graph-key, .graph-count { color: var(--mut); font-size: 0.78em; }
@@ -1233,6 +1234,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-link { fill: none; stroke-width: 1.4px; }
 .graph-link-parent { stroke: var(--mut); opacity: 0.4; }
 .graph-link-wait { stroke: var(--id-waiting); stroke-dasharray: 5 3; opacity: 0.8; }
+.graph-link-counted { stroke-linecap: round; }
+.graph-link-count { fill: var(--mut); font-size: calc(11px / var(--graph-k, 1)); stroke: var(--paper); stroke-width: calc(4px / var(--graph-k, 1)); stroke-linejoin: round; paint-order: stroke; pointer-events: none; }
 .graph-link-cross { opacity: 0.07; }
 .graph-arrow { fill: var(--id-waiting); }
 
@@ -1270,6 +1273,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-dim .graph-node:not(.graph-near) { opacity: 0.15; }
 .graph-dim .graph-link:not(.graph-near) { opacity: 0.06; }
 .graph-dim .graph-link.graph-near { opacity: 0.85; }
+.graph-dim .graph-link:not(.graph-near) + .graph-link-count { opacity: 0.15; }
 
 /* --- Gantt view --------------------------------------------------
    Dated cards as bars on a day timeline, rows grouped by status. #gantt-view

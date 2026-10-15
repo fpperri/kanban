@@ -29,10 +29,29 @@ const GRAPH_LAYOUT_TITLES = {
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
 const GRAPH_LAYOUT_LABELS = { tiers: 'Tiers', force: 'Force', status: 'Status' };
+// The tier fan's option row (GRAPH_FAN_OPTION_VALUES, graph-model.js): what each option is
+// called and says. A value reads as itself on its button. A later option is one more
+// entry here and in the model's table.
+const GRAPH_FAN_OPTION_LABELS = {
+  lines: {
+    label: 'Lines',
+    hint: 'Which parent lines the fan draws. Folded: a line to the end of each dependency chain, and one counted line for the other children of a parent that sit on one ring. Chain: a line to every chain end, as the Map draws them. All: a line to every child. Off: none.',
+  },
+  dependencies: {
+    label: 'Dependencies',
+    hint: 'The dashed arrows for waiting_for, from the card waited for to the card that waits.',
+  },
+  order: {
+    label: 'Order',
+    hint: 'How siblings are ordered within a sector, the way the Map orders its rows. Status: doing, todo, backlog, the other live statuses in column order, done, archived; ties keep the outline order. Rank: the outline order itself.',
+  },
+};
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
 let graphLayoutKind = null;
 let graphStatusFilter = null;
+let graphFanOptions = null;
+let graphOptionsFolded = null;
 const graphViews = new Map();
 let graphCur = null;
 let graphPan = null;
@@ -89,9 +108,62 @@ function graphSoloFilter(col) {
   renderBoard();
 }
 
+// The fan's options and whether its row is folded: one browser choice each for the board,
+// merged with the defaults when read, so a value this version does not offer, or storage
+// that refuses, reads as the default (graph-model.js).
+function graphLoadOptions() {
+  if (graphFanOptions) return graphFanOptions;
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(storageKey(state.projectName, 'graph.options'));
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) { saved = null; }
+  graphFanOptions = mergeGraphFanOptions(saved);
+  return graphFanOptions;
+}
+
+function graphSaveOptions() {
+  try { localStorage.setItem(storageKey(state.projectName, 'graph.options'), JSON.stringify(graphFanOptions)); }
+  catch (e) { /* storage unavailable — the choice just won't persist this session */ }
+}
+
+function graphLoadOptionsFolded() {
+  if (graphOptionsFolded !== null) return graphOptionsFolded;
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(storageKey(state.projectName, 'graph.optionsFolded'));
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) { saved = null; }
+  graphOptionsFolded = mergeGraphOptionsFolded(saved);
+  return graphOptionsFolded;
+}
+
+function graphSaveOptionsFolded() {
+  try { localStorage.setItem(storageKey(state.projectName, 'graph.optionsFolded'), JSON.stringify(graphOptionsFolded)); }
+  catch (e) { /* storage unavailable — the fold just won't persist this session */ }
+}
+
+// A press on an option redraws the Graph and nothing else: the lines and the arrows only
+// redraw, the order moves siblings within their stretch (graph-model.js).
+function graphSetOption(key, value) {
+  const values = Object.prototype.hasOwnProperty.call(GRAPH_FAN_OPTION_VALUES, key) ? GRAPH_FAN_OPTION_VALUES[key] : null;
+  if (!values || !values.includes(value)) return;
+  graphLoadOptions()[key] = value;
+  graphSaveOptions();
+  renderGraphView();
+}
+
+function graphToggleOptions() {
+  graphOptionsFolded = !graphLoadOptionsFolded();
+  graphSaveOptionsFolded();
+  renderGraphView();
+}
+
 function resetGraphViewState() {
   graphLayoutKind = null;
   graphStatusFilter = null;
+  graphFanOptions = null;
+  graphOptionsFolded = null;
   graphViews.clear();
   graphStopDrag(false);
   graphArrangements.clear();
@@ -142,7 +214,48 @@ function graphPlural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-function graphBuildControls(kind, filter, cardCount, relationCount) {
+// The fan's option row: a fold toggle (the Map's, from app.js) and, while it is open, one
+// segmented control for each option in the model's table. Every control keeps the
+// selection and none holds the poll: a press rebuilds the row and hands focus back to the
+// control (keepPillFocus), the way a status pill does. The row is only for Tiers.
+function graphBuildOptionsRow(options, folded) {
+  const row = document.createElement('div');
+  row.className = 'graph-options';
+  row.dataset.keepsSelection = '';
+  row.appendChild(buildMapSectionHeader('graph-options', 'Options', folded));
+  if (folded) return row;
+  for (const key of Object.keys(GRAPH_FAN_OPTION_VALUES)) {
+    const meta = GRAPH_FAN_OPTION_LABELS[key];
+    const group = document.createElement('span');
+    group.className = 'graph-option';
+    group.title = meta.hint;
+    const label = document.createElement('span');
+    label.className = 'graph-option-label';
+    label.textContent = meta.label;
+    group.appendChild(label);
+    const seg = document.createElement('span');
+    seg.className = 'graph-option-seg';
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', meta.label);
+    for (const value of GRAPH_FAN_OPTION_VALUES[key]) {
+      const on = options[key] === value;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `graph-option-btn${on ? ' active' : ''}`;
+      b.dataset.key = key;
+      b.dataset.val = value;
+      b.dataset.keepsSelection = '';
+      b.setAttribute('aria-pressed', String(on));
+      b.textContent = value;
+      seg.appendChild(b);
+    }
+    group.appendChild(seg);
+    row.appendChild(group);
+  }
+  return row;
+}
+
+function graphBuildControls(kind, filter, cardCount, relationCount, fan) {
   const frag = document.createDocumentFragment();
   const row = document.createElement('div');
   row.className = 'graph-controls';
@@ -165,6 +278,7 @@ function graphBuildControls(kind, filter, cardCount, relationCount) {
   count.textContent = `${graphPlural(cardCount, 'card')}, ${graphPlural(relationCount, 'relation')}`;
   row.appendChild(count);
   frag.appendChild(row);
+  if (fan) frag.appendChild(graphBuildOptionsRow(fan.options, fan.folded));
   frag.appendChild(buildFilterPillRow(filter, boardColumnIds(), 'graph-filter-row', 'graph-filter-toggle graph-control',
     (col, on) => col === 'archive'
       ? `${on ? 'Hide' : 'Show'} archived cards on the graph`
@@ -231,7 +345,7 @@ function graphLightCards(lit) {
 // The pointer or keyboard focus on a card: that card and its one-hop relations.
 function graphSetFocus(id) {
   if (!graphCur || id == null || !graphCur.model.byId.has(id)) { graphClearFocus(); return; }
-  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id)));
+  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id), graphCur.lines));
 }
 
 // The lone card the selection holds, or null: only a card picked on its own,
@@ -245,7 +359,7 @@ function graphLoneCardId() {
 // matches included (graphRestLit).
 function graphRestFocus() {
   if (!graphCur) return;
-  graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId() }));
+  graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId() }, graphCur.lines));
 }
 
 function graphSettleFocus() {
@@ -310,6 +424,11 @@ function graphDrawPlan(plan) {
     const p = fixed(graphEl('path', { d: l.d }, l.cls));
     if (l.arrow) p.setAttribute('marker-end', 'url(#graph-arrow-head)');
     world.appendChild(p);
+    if (l.label) {
+      const count = graphEl('text', { x: l.label.x, y: l.label.y, dy: '0.35em', 'text-anchor': 'middle' }, 'graph-link-count');
+      count.textContent = l.label.text;
+      world.appendChild(count);
+    }
     return p;
   });
   const nodeEls = new Map();
@@ -355,19 +474,20 @@ function graphDrawPlan(plan) {
 function renderGraphView() {
   const host = document.getElementById('graph-view');
   graphStopDrag(true);
-  let kind, filter, model, layout, layoutOpts, plan, sig;
+  let kind, filter, fanOptions, model, layout, layoutOpts, plan, sig;
   try {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
+    fanOptions = kind === 'tiers' ? graphLoadOptions() : null;
     const pool = state.active.concat(state.archived);
     const visibleIds = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, filter, boardStatuses());
     model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy });
-    layoutOpts = { statuses: boardStatuses() };
+    layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order };
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
     if (kind === 'force' && graphArrangements.has(sig)) layout = graphWithPositions(layout, model, graphArrangements.get(sig));
     plan = graphPlan(model, layout, {
-      selectedIds, hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text,
+      selectedIds, hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
     });
   } catch (err) {
     const msg = String(err && err.message || err);
@@ -379,7 +499,7 @@ function renderGraphView() {
   host.textContent = '';
   graphCur = null;
 
-  host.appendChild(graphBuildControls(kind, filter, model.nodes.length, model.links.length));
+  host.appendChild(graphBuildControls(kind, filter, model.nodes.length, model.links.length, fanOptions && { options: fanOptions, folded: graphLoadOptionsFolded() }));
   if (!plan.nodes.length) {
     const p = document.createElement('p');
     p.className = 'graph-empty';
@@ -394,14 +514,16 @@ function renderGraphView() {
   const h = drawn.stage.clientHeight || 600;
   drawn.svg.classList.add(`graph-kind-${kind}`);
   let view = graphViews.get(kind);
-  const refit = !view || (view.sig !== sig && !view.touched);
+  const refit = !view || (!view.touched && (view.sig !== sig || view.w !== w || view.h !== h));
   if (!view) {
     view = { x: 0, y: 0, k: 1, sig, touched: false };
     graphViews.set(kind, view);
   }
   view.sig = sig;
+  view.w = w;
+  view.h = h;
   graphCur = {
-    kind, sig, model, layout, view, w, h, nodeCount: plan.nodes.length,
+    kind, sig, model, layout, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
     svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls,
   };
   if (refit) Object.assign(view, graphFit(layout.bounds, w, h), { touched: false });
@@ -547,6 +669,10 @@ function wireGraphView(host) {
   host.addEventListener('click', (e) => {
     const pill = e.target.closest('.graph-filter-toggle[data-col]');
     if (pill) { keepPillFocus(pill, () => graphToggleFilter(pill.dataset.col)); return; }
+    const fold = e.target.closest('.map-section-toggle[data-section="graph-options"]');
+    if (fold) { keepPillFocus(fold, graphToggleOptions); return; }
+    const option = e.target.closest('.graph-option-btn[data-key][data-val]');
+    if (option) { keepPillFocus(option, () => graphSetOption(option.dataset.key, option.dataset.val)); return; }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
     if (layoutBtn) {
       if (mergeGraphLayout(layoutBtn.dataset.layout) === graphLoadLayout()) return;

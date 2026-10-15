@@ -224,14 +224,17 @@ function graphNeighbours(model, id) {
 // query's matches. A lighting is { nodes: Set of card ids, links: Set of indexes
 // into model.links } or null when there is nothing to light, which dims nothing.
 
-// The cards among `ids` that the Graph draws, and the relations that run between
-// two of them.
-function graphLit(model, ids) {
+// The cards among `ids` that the Graph draws, and the lines that run between two of
+// them. `lines` is the list of lines the view draws (the plan's links, each with a
+// `from` and a `to`), and the indexes name the lines in it; with no list the relations
+// of the model stand for the lines. A counted line has the parent at both ends, so it
+// is lit whenever its parent is.
+function graphLit(model, ids, lines) {
   const nodes = new Set();
   for (const id of ids || []) if (model.byId.has(id)) nodes.add(id);
   if (!nodes.size) return null;
   const links = new Set();
-  model.links.forEach((l, i) => {
+  (lines || model.links).forEach((l, i) => {
     if (nodes.has(l.from) && nodes.has(l.to)) links.add(i);
   });
   return { nodes, links };
@@ -267,9 +270,9 @@ function graphQueryEffect(match, pool, ctx) {
 // selection, a typed query's matches included, lights its own cards and the lines
 // between them, so a query that matches one card lights that card alone.
 // `loneCardId` is the selection's one card part, or null.
-function graphRestLit(model, { selectedIds, loneCardId }) {
-  if (loneCardId !== null && loneCardId !== undefined && model.byId.has(loneCardId)) return graphLit(model, graphNeighbours(model, loneCardId));
-  return graphLit(model, selectedIds);
+function graphRestLit(model, { selectedIds, loneCardId }, lines) {
+  if (loneCardId !== null && loneCardId !== undefined && model.byId.has(loneCardId)) return graphLit(model, graphNeighbours(model, loneCardId), lines);
+  return graphLit(model, selectedIds, lines);
 }
 
 // --- layout plumbing -----------------------------------------------------------
@@ -503,6 +506,8 @@ const GRAPH_FAN_SEAM_PAD = 4;
 const GRAPH_FAN_CAPTION_DY = '0.35em';
 const GRAPH_FAN_DIVIDER_IN = 20;
 const GRAPH_FAN_DIVIDER_CLEAR = 9;
+const GRAPH_FAN_BUS_IN = 27;
+const GRAPH_FAN_BUS_LABEL = 14;
 
 // How far the widest outline an icon can draw reaches from its centre, in dot
 // radii. Marks are spaced for it whatever icon a card has, so an icon moves no dot
@@ -1141,6 +1146,39 @@ function graphFanBlockPlan(block) {
   };
 }
 
+// The counted line of the folded mode, drawn as a bus: out from the parent along its
+// own ray to an arc just inside the ring its children sit on (GRAPH_FAN_BUS_IN short of
+// it), one arc through the angles of the parent and every child, and a tick from the arc
+// out to each child. All of it is one path of apart pieces, so a child's mark covers the
+// end of its tick. The label with the count sits on the arc, half way between the parent
+// and the nearest child's angle (the one place the stem does not run through), knocked
+// out of the line by the text's own halo. The children are on one ring, so one radius
+// serves them all.
+function graphFanBus(layout, line) {
+  const at = (r, a) => `${graphRound(Math.cos(a) * r)} ${graphRound(Math.sin(a) * r)}`;
+  const parent = layout.polar.get(line.from);
+  const kids = line.kids.map((id) => layout.polar.get(id));
+  const ring = kids[0].r;
+  const out = ring > parent.r ? 1 : -1;
+  const turn = ring - out * GRAPH_FAN_BUS_IN;
+  const angles = kids.map((k) => k.a).concat(parent.a).sort((x, y) => x - y);
+  const lo = angles[0];
+  const hi = angles[angles.length - 1];
+  let d = `M${at(parent.r, parent.a)}L${at(turn, parent.a)}`;
+  if (hi - lo > 1e-6) d += `M${at(turn, lo)}A${graphRound(turn)} ${graphRound(turn)} 0 ${hi - lo > Math.PI ? 1 : 0} 1 ${at(turn, hi)}`;
+  for (const k of kids) d += `M${at(turn, k.a)}L${at(k.r, k.a)}`;
+  const mids = [];
+  for (let i = 1; i < angles.length; i++) {
+    if ((angles[i] - angles[i - 1]) * turn > GRAPH_FAN_BUS_LABEL) mids.push((angles[i] + angles[i - 1]) / 2);
+  }
+  mids.sort((x, y) => Math.abs(x - parent.a) - Math.abs(y - parent.a));
+  const where = mids.length ? mids[0] : parent.a;
+  return {
+    d,
+    label: { x: graphRound(Math.cos(where) * turn), y: graphRound(Math.sin(where) * turn), text: String(line.count) },
+  };
+}
+
 function graphPlan(model, layout, opts) {
   const o = opts || {};
   const selected = o.selectedIds || new Set();
@@ -1181,15 +1219,27 @@ function graphPlan(model, layout, opts) {
     };
   });
 
+  // The tier fan draws its bands as guide arcs and captions instead of full rings, and
+  // draws the lines its options ask for (graphFanLines); every other layout, and a fan
+  // given no options, draws each relation.
+  const fan = kind === 'tiers' && layout.bands ? layout : null;
   const paths = graphLinkPaths(model, layout, kind);
-  const links = model.links.map((l, i) => {
+  const drawn = fan && o.fan
+    ? graphFanLines(model, fan.places, o.fan)
+    : model.links.map((l, i) => ({ from: l.from, to: l.to, kind: l.kind, link: i }));
+  const links = drawn.map((line) => {
+    if (line.kids) {
+      const bus = graphFanBus(fan, line);
+      return {
+        from: line.from, to: line.to, kind: 'parent', d: bus.d, cls: 'graph-link graph-link-parent graph-link-counted', arrow: false, count: line.count, label: bus.label,
+      };
+    }
+    const l = model.links[line.link];
     const cross = kind === 'status' && clumpOf(model.byId.get(l.from)) !== clumpOf(model.byId.get(l.to));
     const cls = `graph-link graph-link-${l.kind}${cross ? ' graph-link-cross' : ''}`;
-    return { from: l.from, to: l.to, kind: l.kind, d: paths[i], cls, arrow: l.kind === 'wait' };
+    return { from: l.from, to: l.to, kind: l.kind, d: paths[line.link], cls, arrow: l.kind === 'wait' };
   });
 
-  // The tier fan draws its bands as guide arcs and captions instead of full rings.
-  const fan = kind === 'tiers' && layout.bands ? layout : null;
   const rings = fan ? [] : layout.rings.map((r) => ({ cx: graphRound(r.cx), r: graphRound(r.r), label: r.label, cls: 'graph-ring' }));
   const guides = fan ? graphFanGuides(fan) : [];
   const dividers = fan ? graphFanDividers(model, fan) : [];

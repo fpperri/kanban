@@ -174,7 +174,7 @@ test('a double click opens the card, Enter opens and Space selects', () => {
 });
 
 test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {
-  assert.match(fn('graphRestFocus'), /graphRestLit\(graphCur\.model, \{ selectedIds, loneCardId: graphLoneCardId\(\) \}\)/);
+  assert.match(fn('graphRestFocus'), /graphRestLit\(graphCur\.model, \{ selectedIds, loneCardId: graphLoneCardId\(\) \}, graphCur\.lines\)/, 'the lines it lights are the lines drawn');
   assert.match(fn('graphRestFocus'), /graphLightCards\(/);
   assert.match(fn('graphLoneCardId'), /loneCard\(selectionState\.selection\)/);
   assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);
