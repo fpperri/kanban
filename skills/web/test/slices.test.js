@@ -155,3 +155,94 @@ test('a card keeps its slice when its parent is archived or missing from the car
   const alone = withTiers([card(5, { type: 'story', parent: 4 })], board);
   assert.strictEqual(placeOf(alone, 5), 4, 'and the board-wide depth, not the list, decides');
 });
+
+// --- the axis --------------------------------------------------------------------
+
+// The axis as a test reads it: [place, count] in axis order.
+const axisOf = (model) => model.axis.map((s) => [s.kind === 'tier' ? s.name : s.depth, s.count]);
+
+test('the axis lists every tier in hierarchy order, then depths 0 to the deepest card without a tier, each with its count', () => {
+  assert.deepStrictEqual(axisOf(withTiers(fixture())), [
+    ['goal', 3], ['strategy', 1], ['objective', 1], ['epic', 2],
+    [0, 4], [1, 3], [2, 2], [3, 0], [4, 1], [5, 1],
+  ]);
+});
+
+test('the axis lists a tier no card has, and no depth when every card has a tier', () => {
+  assert.deepStrictEqual(axisOf(withTiers([card(9, { type: 'story' }), card(10)])), [
+    ['goal', 0], ['strategy', 0], ['objective', 0], ['epic', 0], [0, 2],
+  ]);
+  assert.deepStrictEqual(axisOf(withTiers([card(1, { type: 'goal' }), card(2, { type: 'Epic', parent: 1 })])), [
+    ['goal', 1], ['strategy', 0], ['objective', 0], ['epic', 1],
+  ]);
+  assert.deepStrictEqual(axisOf(withTiers([])), [['goal', 0], ['strategy', 0], ['objective', 0], ['epic', 0]]);
+  assert.deepStrictEqual(axisOf(slicesOf([], undefined)), []);
+});
+
+test('without a hierarchy the axis is the depths alone', () => {
+  assert.deepStrictEqual(axisOf(slicesOf(fixture(), [])), [[0, 7], [1, 4], [2, 3], [3, 1], [4, 2], [5, 1]]);
+});
+
+test('the axis counts the cards it is given, the depths still board-wide', () => {
+  const board = fixture();
+  const shown = board.filter((c) => !c.archived && c.id !== 3);
+  assert.deepStrictEqual(axisOf(withTiers(shown, board)), [
+    ['goal', 3], ['strategy', 1], ['objective', 0], ['epic', 2],
+    [0, 4], [1, 2], [2, 2], [3, 0], [4, 1], [5, 1],
+  ]);
+  const deepOnly = withTiers([card(6, { type: 'task', parent: 5 })], board);
+  assert.deepStrictEqual(axisOf(deepOnly).slice(4), [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 1]]);
+});
+
+test('hierarchy names are compared without regard to case, the first of two duplicates wins, blank names are ignored', () => {
+  const cards = [card(1, { type: 'goal' }), card(2, { type: 'EPIC' }), card(3, { type: 'epic' }), card(4, { type: 'story' })];
+  const m = slicesOf(cards, ['Goal', 'epic', 'GOAL', '', '   ', 'Epic', null, 7, 'story ']);
+  assert.deepStrictEqual(m.axis.filter((s) => s.kind === 'tier').map((s) => s.name), ['Goal', 'epic', 'story']);
+  assert.deepStrictEqual(axisOf(m), [['Goal', 1], ['epic', 2], ['story', 1]]);
+  const flipped = slicesOf(cards, ['epic', 'Goal', 'EPIC']);
+  assert.deepStrictEqual(axisOf(flipped).slice(0, 2), [['epic', 2], ['Goal', 1]]);
+});
+
+test('over the unit fixture every card is in exactly one slice, and the counts add up to the number of cards', () => {
+  const cards = fixture();
+  const m = withTiers(cards);
+  assert.strictEqual(cards.length, 18);
+  assert.deepStrictEqual([...m.byId.keys()].sort((a, b) => a - b), cards.map((c) => c.id));
+  assert.strictEqual(m.axis.reduce((sum, s) => sum + s.count, 0), cards.length);
+  const tally = new Map();
+  for (const c of cards) tally.set(m.byId.get(c.id), (tally.get(m.byId.get(c.id)) || 0) + 1);
+  for (const s of m.axis) assert.strictEqual(tally.get(s) || 0, s.count, `${s.kind} ${s.name === undefined ? s.depth : s.name}`);
+  assert.deepStrictEqual([...tally.keys()].filter((s) => !m.axis.includes(s)), [], 'every card is in a slice the axis lists');
+});
+
+test('each slice knows its place on the axis, and a card is in the very slice the axis lists', () => {
+  const m = withTiers(fixture());
+  assert.deepStrictEqual(m.axis.map((s) => s.index), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.strictEqual(m.byId.get(7), m.axis[0]);
+  assert.strictEqual(m.byId.get(6), m.axis[9]);
+  assert.strictEqual(m.axis[0].key, 'goal');
+  assert.strictEqual(m.axis[4].key, undefined);
+});
+
+test('slicing never reads a card\'s parent: the depth map is built once per board, not once per card', () => {
+  let reads = 0;
+  const cards = [];
+  for (let id = 1; id <= 300; id++) {
+    const parent = id === 1 ? null : id - 1;
+    cards.push({ id, type: id % 50 === 0 ? 'epic' : 'story', rank: null, priority: 'Normal', get parent() { reads++; return parent; } });
+  }
+  const depths = depthMap(cards, CTX);
+  assert.strictEqual(reads, 300);
+  reads = 0;
+  const m = sliceCards(cards, HIERARCHY, depths);
+  assert.strictEqual(reads, 0);
+  assert.strictEqual(m.axis.length, 4 + 299, 'four tiers, then depths 0 to 298: card 299 is the deepest without a tier');
+  assert.strictEqual(m.byId.get(300).kind, 'tier');
+  assert.strictEqual(m.byId.get(299).depth, 298);
+});
+
+test('a card the depth map does not know is read as a root, and a damaged depth is read as a root', () => {
+  const m = sliceCards([card(1), card(2), card(3), card(4)], HIERARCHY, new Map([[2, -3], [3, 1.5], [4, 'deep']]));
+  assert.deepStrictEqual(placesOf(m), { 1: 0, 2: 0, 3: 0, 4: 0 });
+  assert.deepStrictEqual(axisOf(m).slice(4), [[0, 4]]);
+});

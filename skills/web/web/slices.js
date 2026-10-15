@@ -27,20 +27,42 @@ function sliceTiers(hierarchy) {
   return tiers;
 }
 
+// { axis, byId } over the cards given.
+//   axis: the slices in order, each { index, kind, count } with `name` and `key`
+//     for a tier and `depth` for a depth: every tier of the hierarchy, used or
+//     not, then depths 0 to the deepest card without a tier, a depth no card
+//     has included. Each count is over the cards given, so the caller picks the
+//     basis: the whole board, or what a view shows.
+//   byId: Map card id -> the axis entry the card is in. Every card given is in
+//     exactly one, so the counts add up to the number of cards.
+// A card whose type is in the hierarchy is in its tier, whatever its parent is.
+// Any other card, with no type or a type outside the hierarchy, is in the slice
+// of its depth; one missing from `depths` reads as a root.
 function sliceCards(cards, hierarchy, depths) {
   const tiers = sliceTiers(hierarchy);
-  const byId = new Map();
+  const axis = tiers.map((t, index) => ({ index, kind: 'tier', name: t.name, key: t.key, count: 0 }));
+  const tierAt = new Map(axis.map((s) => [s.key, s]));
+  const placed = [];
+  let deepest = -1;
   for (const c of cards) {
-    const key = typeof c.type === 'string' ? c.type.trim().toLowerCase() : '';
-    const tier = tiers.find((t) => t.key === key);
+    const tier = tierAt.get(typeof c.type === 'string' ? c.type.trim().toLowerCase() : '');
     if (tier) {
-      byId.set(c.id, { kind: 'tier', name: tier.name, key: tier.key });
+      placed.push([c, tier]);
       continue;
     }
     const depth = depths.get(c.id);
-    byId.set(c.id, { kind: 'depth', depth: Number.isInteger(depth) && depth > 0 ? depth : 0 });
+    const at = Number.isInteger(depth) && depth > 0 ? depth : 0;
+    placed.push([c, at]);
+    if (at > deepest) deepest = at;
   }
-  return { byId };
+  for (let depth = 0; depth <= deepest; depth++) axis.push({ index: axis.length, kind: 'depth', depth, count: 0 });
+  const byId = new Map();
+  for (const [c, where] of placed) {
+    const slice = typeof where === 'number' ? axis[tiers.length + where] : where;
+    slice.count++;
+    byId.set(c.id, slice);
+  }
+  return { axis, byId };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
