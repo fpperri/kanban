@@ -1,15 +1,25 @@
 'use strict';
-// The search panel: the panel that hangs under the search box, opened by the
-// toggle at the box's right end. Focusing the box never opens it. It has four
+// The search panel: the panel that hangs under the search box. Focusing the box opens
+// it while the switch is on, which is the default. The switch is the arrow at the box's
+// right end (#search-panel-toggle, announced with aria-pressed): switched off, the panel
+// closes now and focusing the box no longer opens it; switched on again, the panel opens
+// now and opens on focus again. The p key flips the same switch, through the key guard
+// (key-guard.js); the panel is no surface there, so p works with the panel open. The
+// choice is kept per board in the preferences (prefs.js, panelOnFocus) and the
+// preferences sheet shows and sets it too (app.js, setPanelOnFocus). The panel has four
 // regions, each drawn on its own so that what joins the panel later extends one
 // without editing another: the slices (#search-slices, empty for now), the pill
 // section (#search-pills, with its fold control), a divider, and a foot
 // (#search-foot, empty for now).
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
-// here. A pill is on while its query is the anchor of the selection or one of its
-// additions, so nothing about "on" is kept here: it is read off the selection every
-// time. The pills follow the status pills' rules: a click (Shift or not) turns one pill
+// here: the three built-ins, then the board's own pills (state.pills, the config's
+// `pills:`), a `field:*` entry made into one pill per value of the board's active
+// cards. The first eight values of a field show, and a "+N more" button, which is not
+// a pill, opens the rest and folds them again for this visit. A pill is on while its
+// query is the anchor of the selection or one of its additions, so nothing about "on"
+// is kept here: it is read off the selection every time. The pills follow the status
+// pills' rules: a click (Shift or not) turns one pill
 // on or off, its query joining the selection and the box as one more alternative or
 // leaving both, and a right-click solos it, or turns every pill off when it is the one
 // soloed (selection.js decides both, and the search module's alternatives do the box).
@@ -24,28 +34,52 @@
 // the step back. Closing the panel hands focus back to the toggle, except when the Esc
 // was pressed in the box, where focus stays so that the next Esc clears the box. Both
 // steps stop the browser's own Esc, which clears a search field, so the box keeps its
-// text until that last Esc.
+// text until that last Esc. Esc leaves the switch as it was: the box, still focused,
+// opens the panel again the next time it is focused.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
-// searchMatchIds, cardsBeforeSearch, loadPrefsState.
+// searchMatchIds, searchTermText, cardsBeforeSearch, loadPrefsState, setPanelOnFocus,
+// keyGuardOff.
 
 let searchPanelOpen = false;
 // Whether the pill section is folded for this visit; null until it is read from the
 // preferences, which have to wait for the board's name (they are kept per board).
 let searchPillsFolded = null;
 let searchPillsFoldedFor = '';
+// The fields whose value pills are all shown rather than the first eight, for this visit.
+const searchPillGroupsOpen = new Set();
 
 const SEARCH_PILL_HINT = 'click: turn it on or off, right-click: only this pill (again: every pill off)';
+const SEARCH_SWITCH_ON = 'Search panel: opens when the box is focused. Click, or press p, to switch it off.';
+const SEARCH_SWITCH_OFF = 'Search panel: off. Click, or press p, to switch it on and open it.';
 
 function searchPanelIsOpen() {
   return searchPanelOpen;
 }
 
+// What pills.js lists the board's own pills from: the config's entries, the active
+// cards their values come from, and the search module's writer of an exact term.
+function searchPanelBoard() {
+  return { pills: state.pills, cards: state.active, term: searchTermText };
+}
+
+// The pills the panel lists now, with no counts: the chip and a click read these.
+function searchPanelEntries() {
+  return pillEntries(searchPanelBoard());
+}
+
 // The pills the panel lists now, each with how many of the cards the view shows
-// (before the search box and any cut) its query matches.
+// (before the search box and any cut) its query matches. Every pill is here, the
+// ones behind a "+N more" button too.
 function searchPanelPills() {
-  return pillList(cardsBeforeSearch(), searchMatchIds);
+  return pillList(cardsBeforeSearch(), searchMatchIds, searchPanelBoard());
+}
+
+// What the pill section draws: the pills and, where a field has more than eight
+// values, its "+N more" button.
+function searchPanelRows() {
+  return pillRows(searchPanelPills(), [...searchPillGroupsOpen]);
 }
 
 // --- the pill buttons --------------------------------------------------------------------
@@ -65,7 +99,29 @@ function buildPillButton(doc, pill) {
   return button;
 }
 
+// The button that opens the rest of a field's value pills, or folds them again. It is
+// not a pill: no count, and a click on it changes neither the box nor the selection.
+function buildMoreButton(doc, row) {
+  const button = doc.createElement('button');
+  button.type = 'button';
+  button.className = 'query-pill-more';
+  button.dataset.pillKey = row.key;
+  button.dataset.keepsSelection = '';
+  return button;
+}
+
+function updateMoreButton(button, row) {
+  if (button.textContent !== row.label) button.textContent = row.label;
+  const expanded = String(row.expanded);
+  if (button.getAttribute('aria-expanded') !== expanded) button.setAttribute('aria-expanded', expanded);
+  const name = row.expanded ? `Show only the first ${PILLS_SHOWN} ${row.group} pills` : `Show the other ${row.hidden} ${row.group} pills`;
+  if (button.title !== name) button.title = name;
+  if (button.getAttribute('aria-label') !== name) button.setAttribute('aria-label', name);
+}
+
 function updatePillButton(button, pill, on) {
+  const label = button.children[0];
+  if (label.textContent !== pill.label) label.textContent = pill.label;
   const count = button.children[1];
   const text = String(pill.count);
   if (count.textContent !== text) count.textContent = text;
@@ -76,26 +132,30 @@ function updatePillButton(button, pill, on) {
   if (button.title !== title) button.title = title;
 }
 
-// Makes the buttons in `host` the list: one per pill, in order, each showing its
-// count and whether it is on. A button that is there is updated where it stands, so
-// focus on it is never lost; one is added or taken out only when the list changes.
-function syncPillButtons(host, list, selection) {
+// Makes the buttons in `host` the rows: one per pill, in order, each showing its
+// count and whether it is on, and a "+N more" button where a row says so. A button
+// that is there is updated where it stands, so focus on it is never lost; one is
+// added or taken out only when the rows change, and the ones to go are taken out
+// first, so that a button that stays is never moved by the others leaving.
+function syncPillButtons(host, rows, selection) {
   const doc = host.ownerDocument || document;
+  const keys = new Set(rows.map((row) => row.key));
+  for (const el of [...host.children]) if (!keys.has(el.dataset.pillKey)) el.remove();
   const byKey = new Map([...host.children].map((el) => [el.dataset.pillKey, el]));
-  list.forEach((pill, at) => {
-    const button = byKey.get(pill.key) || buildPillButton(doc, pill);
-    updatePillButton(button, pill, pillIsOn(selection, pill));
+  rows.forEach((row, at) => {
+    const more = row.kind === 'more';
+    const button = byKey.get(row.key) || (more ? buildMoreButton(doc, row) : buildPillButton(doc, row));
+    if (more) updateMoreButton(button, row);
+    else updatePillButton(button, row, pillIsOn(selection, row));
     if (host.children[at] !== button) host.insertBefore(button, host.children[at] || null);
   });
-  const keys = new Set(list.map((pill) => pill.key));
-  for (const el of [...host.children]) if (!keys.has(el.dataset.pillKey)) el.remove();
 }
 
 // The chip a closed panel shows: how many pills are on, and a name that says which.
 function syncSearchChip(selection) {
   const chip = $('#search-chip');
   if (!chip) return;
-  const { count, name } = panelChip(pillsOn(selection, BUILT_IN_PILLS).map((pill) => pill.label));
+  const { count, name } = panelChip(pillsOn(selection, searchPanelEntries()).map((pill) => pill.label));
   chip.classList.toggle('hidden', !count || searchPanelOpen);
   chip.textContent = count ? String(count) : '';
   chip.setAttribute('aria-label', name);
@@ -105,9 +165,10 @@ function syncSearchChip(selection) {
 // only while the panel is open, since a closed panel shows no count.
 function renderSearchPanel() {
   applyPillsFold();
+  syncSearchSwitch();
   const selection = selectionState.selection;
   const host = $('#search-pills');
-  if (searchPanelOpen && host) syncPillButtons(host, searchPanelPills(), selection);
+  if (searchPanelOpen && host) syncPillButtons(host, searchPanelRows(), selection);
   syncSearchChip(selection);
 }
 
@@ -120,8 +181,54 @@ function setSearchPanelOpen(open) {
   renderSearchPanel();
 }
 
-function toggleSearchPanel() {
-  setSearchPanelOpen(!searchPanelOpen);
+// --- the switch --------------------------------------------------------------------------------
+
+// Whether the panel opens when the box is focused: the choice kept in the preferences.
+function searchPanelSwitchOn() {
+  return loadPrefsState().panelOnFocus;
+}
+
+// The arrow says whether the switch is on (aria-pressed) and what a click does.
+function syncSearchSwitch() {
+  const toggle = $('#search-panel-toggle');
+  if (!toggle) return;
+  const on = searchPanelSwitchOn();
+  const pressed = String(on);
+  if (toggle.getAttribute('aria-pressed') !== pressed) toggle.setAttribute('aria-pressed', pressed);
+  const title = on ? SEARCH_SWITCH_ON : SEARCH_SWITCH_OFF;
+  if (toggle.title !== title) toggle.title = title;
+}
+
+// What a change of the switch does to the panel, after setPanelOnFocus (app.js) has kept
+// the choice. Off closes the panel now, by the Esc rule: focus goes to the arrow unless
+// the box has it, because a pill that had it is hidden with the panel. On opens the
+// panel now when `openNow` says so; the arrow and p do, the preferences sheet, which is
+// up over the board, does not.
+function applySearchPanelSwitch(on, openNow) {
+  if (!on) closeSearchPanel();
+  else if (openNow) setSearchPanelOpen(true);
+  syncSearchSwitch();
+}
+
+// The arrow's click and the p key.
+function flipSearchPanelSwitch() {
+  setPanelOnFocus(!searchPanelSwitchOn(), true);
+}
+
+// The box was focused: with the switch on, the panel opens.
+function onSearchBoxFocus() {
+  if (searchPanelSwitchOn() && !searchPanelOpen) setSearchPanelOpen(true);
+}
+
+// p: the same switch as the arrow. A key that types nothing but reads a letter, so it reads
+// the whole key guard: off while a field has focus and while a menu, a dialog, the
+// notifications panel or the preferences sheet is up. A chord (Ctrl, Cmd, Alt), Shift on
+// the key and a held key are not it; Caps Lock gives a capital P with no Shift, and counts.
+function onSearchPanelKey(e) {
+  if (!e.key || e.key.toLowerCase() !== 'p' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (keyGuardOff(document)) return;
+  e.preventDefault();
+  flipSearchPanelSwitch();
 }
 
 // Esc's link in the chain: an open panel closes and answers true so the Esc stops
@@ -182,7 +289,7 @@ function foldSearchPills(folded) {
 // together, and the box is written with the reason 'pill', so the repaint does not
 // take it for a typed search.
 function applyPillGesture(gesture, key) {
-  const pill = BUILT_IN_PILLS.find((p) => p.key === key);
+  const pill = searchPanelEntries().find((p) => p.key === key);
   if (!pill) return;
   const next = selectionAfterPill(gesture, pill.query, {
     selection: selectionState.selection,
@@ -193,8 +300,17 @@ function applyPillGesture(gesture, key) {
   writeSearch(next.boxText, 'pill');
 }
 
+// A click on a "+N more" button opens that field's other pills, or folds them again.
+function toggleSearchPillGroup(group) {
+  if (searchPillGroupsOpen.has(group)) searchPillGroupsOpen.delete(group);
+  else searchPillGroupsOpen.add(group);
+  renderSearchPanel();
+}
+
 // A click toggles the pill, whatever modifier is held: Shift+click is a plain click.
 function onPillClick(e) {
+  const more = e.target.closest('.query-pill-more');
+  if (more) { toggleSearchPillGroup(more.dataset.pillKey.replace(/^more:/, '')); return; }
   const button = e.target.closest('.query-pill');
   if (button) applyPillGesture('toggle', button.dataset.pillKey);
 }
@@ -211,7 +327,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const pills = $('#search-pills');
   pills.addEventListener('click', onPillClick);
   pills.addEventListener('contextmenu', onPillContextMenu);
-  $('#search-panel-toggle').addEventListener('click', toggleSearchPanel);
+  $('#search-panel-toggle').addEventListener('click', flipSearchPanelSwitch);
+  $('#search-input').addEventListener('focus', onSearchBoxFocus);
+  document.addEventListener('keydown', onSearchPanelKey);
   $('#search-pills-fold').addEventListener('click', toggleSearchPillsFold);
   document.addEventListener('mousedown', onSearchPanelOutside);
 });

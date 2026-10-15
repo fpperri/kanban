@@ -6,8 +6,9 @@ const path = require('node:path');
 const { searchAddAlt, searchRemoveAlt } = require('../web/search');
 const { pillList } = require('../web/pills');
 
-// The web skill and the web docs describe the search panel: how it opens (the
-// toggle, never focus), the built-in pills and their counts, what a click (Shift or
+// The web skill and the web docs describe the search panel: how it opens (focusing the
+// box while the arrow's switch is on, which the arrow and the p key flip), the built-in
+// pills and their counts, what a click (Shift or
 // not) and a right-click do to the selection and the box, the chip, the fold and its
 // preference, and where Esc takes the panel. The one example of the box growing is
 // held to the search module so a doc cannot promise what the box does not do.
@@ -22,11 +23,48 @@ const docsPanel = flat(docs.slice(docs.indexOf('**Search panel**'), docs.indexOf
 
 const BOTH = [['the web skill', skillPanel], ['the web docs', docsPanel]];
 
-test('both describe the panel as opened by a toggle at the end of the box, and say focusing the box does not open it', () => {
+test('both describe the arrow at the end of the box as the panel\'s switch: on, the default, focusing the box opens the panel; a click switches it off, and a second click on and opens it now', () => {
   for (const [where, text] of BOTH) {
     assert.ok(text.length > 400, `${where}: the Search panel entry is found`);
-    assert.match(text, /toggle/i, where);
-    assert.match(text, /focus(ing)? the (search )?box (does not|never) open/i, where);
+    assert.match(text, /arrow at its right end/, where);
+    assert.match(text, /switch/, where);
+    assert.match(text, /the default, focusing the box (\([^)]*\) )?opens the panel/, where);
+    assert.match(text, /switches it off/, where);
+    assert.match(text, /no longer opens it/, where);
+    assert.match(text, /second click switches it on and opens the panel now/, where);
+    assert.doesNotMatch(text, /never opens/i, `${where}: focusing the box opens the panel now`);
+  }
+});
+
+test('both say the p key flips the same switch, and when it does nothing', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /`p` key flips the same switch/, where);
+    assert.match(text, /text field|field/, where);
+    assert.match(text, /card menu|menu/, where);
+    assert.match(text, /dialog/, where);
+    assert.match(text, /notifications panel/, where);
+    assert.match(text, /preferences sheet/, where);
+  }
+  assert.match(skillPanel, /shared key guard/, 'the skill names the guard');
+  assert.match(skillPanel, /`p` works with the panel open/, 'the skill says the panel is no popup for the key');
+  assert.match(skillPanel, /chord \(Ctrl, Cmd, Alt\), Shift or a held key is not it/, 'the skill says what is not the key');
+});
+
+test('both say the arrow announces the switch, shows it off, and that the choice is kept per board and set in the preferences sheet', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /pressed/, where);
+    assert.match(text, /struck through/, where);
+    assert.match(text, /kept in (the|your) browser per board/, where);
+    assert.match(text, /preferences sheet shows and sets it/, where);
+  }
+  assert.match(skillPanel, /`aria-pressed`/);
+  assert.match(skillPanel, /`aria-expanded`/);
+});
+
+test('both say Esc leaves the switch on, so the box opens the panel again when it is focused', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /Esc leaves the switch on/, where);
+    assert.match(text, /opens the panel again/, where);
   }
 });
 
@@ -96,12 +134,12 @@ test('both describe the fold, and that the preference says how it starts', () =>
   }
 });
 
-test('both give the Esc order: the suggestion list, then the panel with focus back on the toggle, then the selection steps back', () => {
+test('both give the Esc order: the suggestion list, then the panel with focus back on the arrow, then the selection steps back', () => {
   for (const [where, text] of BOTH) {
     assert.match(text, /suggestion list/, where);
     assert.match(text, /Esc/, where);
-    assert.match(text, /focus (goes )?back to the toggle/, where);
-    assert.ok(text.indexOf('suggestion list') < text.indexOf('toggle', text.indexOf('suggestion list')), `${where}: the list comes first`);
+    assert.match(text, /focus (goes )?back to the arrow/, where);
+    assert.ok(text.indexOf('suggestion list') < text.indexOf('arrow', text.indexOf('suggestion list')), `${where}: the list comes first`);
   }
 });
 
@@ -128,6 +166,9 @@ test('the preferences entry of each lists the pill section starting folded', () 
   const docsPrefs = flat(docs.slice(docs.indexOf('**Preferences**'), docs.indexOf('## Other surfaces')));
   for (const [where, text] of [['the web skill', skillPrefs], ['the web docs', docsPrefs]]) {
     assert.match(text, /Pill section starts folded/, where);
+    assert.match(text, /Panel opens when the search box is focused/, where);
+    assert.match(text, /on by default/, where);
+    assert.match(text, /`p`/, where);
   }
 });
 
