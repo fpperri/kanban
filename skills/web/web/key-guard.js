@@ -35,11 +35,23 @@ function keyGuardOff(doc) {
   return keyGuardTyping(doc) || keyGuardSurface(doc) !== null;
 }
 
+// What Esc does once nothing has taken it: 'clear-box' when focus is in the
+// search box (the one text field Esc is for), 'step' when the selection steps
+// back, null when Esc is not ours. The step runs only while the guard is on
+// (nobody typing, nothing open), so Esc in any other text field, and Esc behind
+// an open surface, never touches the selection. An open surface wins over the box.
+function keyGuardEscape(doc, searchBox) {
+  if (keyGuardSurface(doc) !== null) return null;
+  if (searchBox && doc.activeElement === searchBox) return 'clear-box';
+  return keyGuardTyping(doc) ? null : 'step';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { KEY_GUARD_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff };
+  module.exports = { KEY_GUARD_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff, keyGuardEscape };
 } else {
   window.KEY_GUARD_SURFACES = KEY_GUARD_SURFACES;
   window.keyGuardTyping = keyGuardTyping;
   window.keyGuardSurface = keyGuardSurface;
   window.keyGuardOff = keyGuardOff;
+  window.keyGuardEscape = keyGuardEscape;
 }

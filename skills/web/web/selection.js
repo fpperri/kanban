@@ -220,6 +220,19 @@ function stepBack(selection) {
   return selection.anchor ? NO_SELECTION : selection;
 }
 
+// What Esc does to the selection state ({ selection, rangeStart }): one stepBack,
+// with the range start kept honest. After the additions go the range start is the
+// anchor card, as if it had just been clicked, so a Shift range cannot begin at a
+// card that is no longer picked; with no anchor card it is dropped, so a dead
+// selection leaves no invisible range start behind. Nothing picked: the same
+// state comes back, and the caller skips the repaint.
+function selectionAfterEscape(state) {
+  const next = stepBack(state.selection);
+  if (next === state.selection) return state;
+  const anchor = next.anchor;
+  return { selection: next, rangeStart: anchor && anchor.kind === 'card' ? anchor.id : null };
+}
+
 // The parts a poll leaves standing: a card, path or tree part whose card is no
 // longer on the board goes, and a query stays (it may match again). The first
 // part left becomes the anchor if the anchor went.
@@ -276,7 +289,7 @@ function selectionAfterClick(action, id, { selection, resolved, rangeStart, orde
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, pruneSelectionParts, toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, contextSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.cardPart = cardPart;
@@ -289,6 +302,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.resolveSelection = resolveSelection;
   window.removeCard = removeCard;
   window.stepBack = stepBack;
+  window.selectionAfterEscape = selectionAfterEscape;
   window.pruneSelectionParts = pruneSelectionParts;
   window.toggleSelection = toggleSelection;
   window.pruneSelection = pruneSelection;

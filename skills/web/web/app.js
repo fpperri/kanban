@@ -3153,10 +3153,25 @@ function followSearchInAddress(text) {
 
 onSearchWrite(followSearchInAddress);
 
-// What Esc does when nothing is open for it to close: today it clears the
-// search box. The one place the end of the Esc chain lives.
+// What Esc does when nothing is open for it to close, and the one place the end
+// of the Esc chain lives. The key guard (key-guard.js) says which: with focus in
+// the search box Esc clears the box and leaves the selection; with nothing open
+// and nobody typing it steps the selection back and leaves the box as it was;
+// anywhere else (another text field, a select, an open surface) it does nothing.
 function escapeStep() {
-  clearSearch();
+  const action = keyGuardEscape(document, $('#search-input'));
+  if (action === 'clear-box') clearSearch();
+  else if (action === 'step') stepSelectionBack();
+}
+
+// One stage back, as selectionAfterEscape (selection.js) works it out: every
+// addition goes at once and the anchor stays; the next one drops the anchor.
+// Nothing picked, nothing to repaint.
+function stepSelectionBack() {
+  const next = selectionAfterEscape(selectionState);
+  if (next === selectionState) return;
+  setSelection(next.selection, next.rangeStart);
+  renderBoard();
 }
 
 function onSearchSlashKey(e) {
