@@ -426,6 +426,19 @@ test('a quote inside a value cannot be written and is left out, so the term stil
   assert.strictEqual(searchTermText(null, '(x'), '"(x"');
 });
 
+test('a value with a | at its edge is quoted, so the term reads back as the value it was made from', () => {
+  const back = (field, value) => parseSearchQuery(searchTermText(field, value)).map((t) => [t.field, t.value]);
+  assert.deepStrictEqual(back('tags', 'a|'), [['tags', 'a|']]);
+  assert.deepStrictEqual(back('tags', '|'), [['tags', '|']]);
+  assert.deepStrictEqual(back(null, 'a|'), [[null, 'a|']]);
+  assert.deepStrictEqual(back(null, '|a'), [[null, '|a']]);
+  assert.deepStrictEqual(back(null, '|'), [[null, '|']]);
+  assert.strictEqual(searchTermText('tags', 'a|'), 'tags:"a|"');
+  assert.strictEqual(searchTermText('tags', 'a|b'), 'tags:a|b', 'a | inside a value is text');
+  assert.strictEqual(searchTermText('tags', '|a'), 'tags:|a', 'a scope already keeps a | at the front of its value');
+  assert.strictEqual(searchTermText(null, 'a|b'), 'a|b');
+});
+
 test('bracketing a query that holds a | or spaces wraps it, so it can be one term of another query', () => {
   assert.strictEqual(searchBracket('a | b'), '(a | b)');
   assert.strictEqual(searchBracket('a b'), '(a b)');
