@@ -29,6 +29,14 @@ const FORMS = {
   'keys after the list': 'name: b\ntypes:\n  - name: epic\n    color: red\nstatuses: [todo, done]\n',
   'a comment after the key': 'name: b\ntypes:   # suggested card types\n  - name: objective\n    color: "#a371f7"\n  - story\n',
   'no types key': 'name: b\nstatuses: [todo, done]\n',
+  'a type with no icon beside one with an icon': 'name: b\ntypes:\n  - name: goal\n    color: red\n  - name: epic\n    icon: star\n',
+  'a mixed-case icon, bare and quoted': 'name: b\ntypes:\n  - name: a\n    icon: Star\n  - name: b\n    icon: "HEXAGON"\n  - name: c\n    icon: \'Diamond\'\n',
+  'an icon with a trailing comment': 'name: b\ntypes:\n  - name: a\n    icon: star   # five points\n  - name: b\n    icon: "square" # four\n',
+  'an unknown icon name': 'name: b\ntypes:\n  - name: a\n    icon: Blob\n  - name: b\n    icon: 3d-cube\n',
+  'a blank icon, a comment-only icon and an icon written before its name': 'name: b\ntypes:\n  - name: a\n    icon:\n  - name: b\n    icon: ""\n  - name: c\n    icon: # none yet\n  - icon: square\n    name: d\n',
+  'an icon on an entry with no name': 'name: b\ntypes:\n  - icon: star\n  - name: epic\n',
+  'an icon line under an assignee and under a pill, not under a type': 'name: b\nassignees:\n  - handle: "@human"\n    icon: star\ntypes:\n  - name: goal\npills:\n  - next: x\n    icon: star\n',
+  'an inline types list': 'name: b\ntypes: [goal, epic]\n',
 };
 
 for (const [label, config] of Object.entries(FORMS)) {
@@ -42,6 +50,17 @@ test('types keep the order they are written in, with color empty when none is gi
     { name: 'objective', color: '#a371f7' },
     { name: 'epic', color: 'orange' },
     { name: 'story', color: '' },
+  ]);
+});
+
+test('a type carries an icon only when one is set, lowercased and with any trailing comment stripped', () => {
+  const config = 'name: b\ntypes:\n  - name: goal\n    color: "#a371f7"\n    icon: Star # the big one\n  - name: epic\n    color: orange\n  - story\n  - name: task\n    icon: "TRIANGLE"\n  - name: bug\n    icon: Blob\n';
+  assert.deepStrictEqual(typesFor(config), [
+    { name: 'goal', color: '#a371f7', icon: 'star' },
+    { name: 'epic', color: 'orange' },
+    { name: 'story', color: '' },
+    { name: 'task', color: '', icon: 'triangle' },
+    { name: 'bug', color: '', icon: 'blob' },
   ]);
 });
 

@@ -203,8 +203,17 @@ def _config_scalars(kanban_dir, key):
     items = [_scalar(m.group(1)) for m in (re.match(r"^\s+-\s*(.*)$", line) for line in block) if m]
     return [v for v in flow + items if v]
 
+def _icon_name(raw):
+    """A type's `icon:` text as kanban-web's config-store iconName() reads it:
+    lowercased, a trailing comment stripped, '' (no icon) for a blank value or
+    one that is only a comment. Any name is kept; the page draws an unknown
+    one as no icon."""
+    t = (raw or "").strip()
+    return "" if t[:1] == "#" else _scalar(t).lower()
+
 def read_types(kanban_dir):
-    """config.yaml's `types:` list as [{name, color}]."""
+    """config.yaml's `types:` list as [{name, color}], plus `icon` on a type
+    that sets one."""
     flow, block = _config_list(kanban_dir, "types")
     types, cur = [{"name": n, "color": ""} for n in flow], None
 
@@ -213,7 +222,11 @@ def read_types(kanban_dir):
         if cur is not None:
             name = _scalar(cur.get("name", ""))
             if name:
-                types.append({"name": name, "color": _scalar(cur.get("color", ""))})
+                entry = {"name": name, "color": _scalar(cur.get("color", ""))}
+                icon = _icon_name(cur.get("icon", ""))
+                if icon:
+                    entry["icon"] = icon
+                types.append(entry)
             cur = None
 
     for line in block:
