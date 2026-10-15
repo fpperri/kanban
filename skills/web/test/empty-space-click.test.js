@@ -288,6 +288,7 @@ test('Graph: a double click on the empty canvas drops a card selection carried i
 
 const NOT_EMPTY = {
   'a Graph dot': (view) => el('g', { classes: ['graph-node'] }, inView(view)),
+  'a caption of the tier fan, a tab stop with a tip': (view) => el('text', { attrs: ['data-tip'] }, inView(view)),
   'a button': (view) => el('button', {}, inView(view)),
   'a link': (view) => el('a', {}, inView(view)),
   'a text field': (view) => el('input', {}, inView(view)),

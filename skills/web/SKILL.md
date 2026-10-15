@@ -696,7 +696,7 @@ to `127.0.0.1` only.
   the Graph), so its chip goes off. The page reads a double click as the second click of a
   pair (the click's count, 2), never as a `dblclick` event, because the first click's
   repaint can replace the element under the pointer. Empty space is anywhere but a card or a
-  Graph dot, a button, link, text field or select, a popup or the card menu, or a control
+  Graph dot, a caption of the tier fan, a button, link, text field or select, a popup or the card menu, or a control
   wearing the `data-keeps-selection` marker (the menu, the popups, the view toggles, the
   status pills and fold toggles, the roll-up bars and the Graph's controls do). The
   selection survives switching views and it survives the poll. A double click held with

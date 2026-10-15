@@ -5644,8 +5644,9 @@ let selectionGestureClick = null;
 // and a double click event aimed at the replaced element never reaches the document,
 // so the page listens for none there.
 //
-// Empty space is anywhere but on a card or a Graph dot, a control or a text field,
-// a popup or the card menu, or a control marked data-keeps-selection. Ctrl-, cmd- and
+// Empty space is anywhere but on a card or a Graph dot, a caption of the tier fan (the ones
+// with a tip, which are tab stops), a control or a text field, a popup or the card menu, or a
+// control marked data-keeps-selection. Ctrl-, cmd- and
 // shift-clicks build a selection and never clear one. The marked controls are the
 // ones that must not wipe a building selection: the context menu and the bulk popups
 // (so they don't kill their own target batch), the view toggle buttons (the selection
@@ -5655,7 +5656,7 @@ let selectionGestureClick = null;
 // the Graph's controls. A control built by a render path must wear the marker.
 // Where a double click on empty space already means something, that meaning stands
 // and the selection is left (DOUBLE_CLICK_OWNED).
-const NOT_EMPTY_SPACE = '.card-el, .graph-node, button, input, select, textarea, a, .modal-backdrop, .context-menu';
+const NOT_EMPTY_SPACE = '.card-el, .graph-node, [data-tip], button, input, select, textarea, a, .modal-backdrop, .context-menu';
 const DOUBLE_CLICK_OWNED = `${CALENDAR_CREATE_DAY_CELLS}, ${CALENDAR_CREATE_COLUMNS}`;
 
 function onClickAway(e) {

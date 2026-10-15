@@ -39,7 +39,7 @@ test('the multi-select section says a double click on empty space clears the sel
 test('the multi-select section says how the page tells a double click, and what empty space is', () => {
   const text = multiSelect();
   assert.match(text, /the second click of a pair \(the click's count, 2\), never as a `dblclick` event/);
-  assert.match(text, /Empty space is anywhere but a card or a Graph dot, a button, link, text field or select, a popup or the card menu, or a control wearing the `data-keeps-selection` marker/);
+  assert.match(text, /Empty space is anywhere but a card or a Graph dot, a caption of the tier fan, a button, link, text field or select, a popup or the card menu, or a control wearing the `data-keeps-selection` marker/);
   assert.match(text, /held with Shift, Ctrl or Cmd builds a selection and never clears one/);
 });
 

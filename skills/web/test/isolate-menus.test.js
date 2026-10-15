@@ -213,9 +213,9 @@ test('while isolate is on, the canvas menu reads Turn isolate off, and choosing 
   assert.strictEqual(s.box(), '');
 });
 
-test('the canvas menu opens only on empty canvas: not on a card, a Graph dot, a Map node, a link or a control', async () => {
+test('the canvas menu opens only on empty canvas: not on a card, a Graph dot, a caption of the fan, a Map node, a link or a control', async () => {
   for (const [view, canvas] of [['graph', ['#graph-view', '.graph-canvas']], ['map', ['#map-view', '.map-canvas']]]) {
-    for (const on of [['.graph-node'], ['.map-node'], ['a'], ['button'], ['input'], ['select'], ['textarea'], ['.graph-link'], ['.graph-link-count'], ['.map-edge']]) {
+    for (const on of [['.graph-node'], ['[data-tip]'], ['.map-node'], ['a'], ['button'], ['input'], ['select'], ['textarea'], ['.graph-link'], ['.graph-link-count'], ['.map-edge']]) {
       const s = await open({ view });
       const e = s.rightClickAt([...canvas, ...on]);
       assert.strictEqual(e.prevented, false, `${view} on ${on}: the browser's own menu is left alone`);
