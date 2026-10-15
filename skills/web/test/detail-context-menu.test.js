@@ -13,12 +13,16 @@ function fn(name) {
   return m[0];
 }
 
+const declaration = (name) => {
+  const m = appSrc.match(new RegExp(`^let ${name} = .*;$`, 'm'));
+  assert.ok(m, `the page declares ${name}`);
+  return m[0];
+};
+
 function menuSandbox({ detailId = null, selected = [], textSelected = false } = {}) {
   const calls = { renderBoard: 0, menu: [] };
   const sandbox = {
     currentDetailId: detailId,
-    selectedIds: new Set(selected),
-    selectionAnchor: null,
     contextSelection: require('../web/selection').contextSelection,
     window: { getSelection: () => ({ isCollapsed: !textSelected }) },
     renderBoard: () => { calls.renderBoard++; },
@@ -26,7 +30,10 @@ function menuSandbox({ detailId = null, selected = [], textSelected = false } = 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([fn('openCardContextMenu'), fn('onDetailContextMenu')].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('openCardContextMenu'), fn('onDetailContextMenu')].join('\n'), sandbox);
+  vm.runInContext(`setSelection(new Set(${JSON.stringify(selected)}), null)`, sandbox);
+  sandbox.selected = () => [...vm.runInContext('selectedIds', sandbox)];
+  sandbox.rangeStart = () => vm.runInContext('selectionState.rangeStart', sandbox);
   return sandbox;
 }
 
@@ -41,15 +48,15 @@ test('right-clicking the card detail opens the card menu for that card, as a til
   s.onDetailContextMenu(e);
   assert.strictEqual(e.prevented, true, 'the browser menu is replaced');
   assert.deepStrictEqual(s.calls.menu, [[40, 90]]);
-  assert.deepStrictEqual([...s.selectedIds], [7], 'the card shown becomes the selection');
-  assert.strictEqual(s.selectionAnchor, 7);
+  assert.deepStrictEqual(s.selected(), [7], 'the card shown becomes the selection');
+  assert.strictEqual(s.rangeStart(), 7);
   assert.strictEqual(s.calls.renderBoard, 1);
 });
 
 test('a card already in a batch keeps the whole batch as the menu\'s subject', () => {
   const s = menuSandbox({ detailId: 7, selected: [7, 8] });
   s.onDetailContextMenu(rightClick());
-  assert.deepStrictEqual([...s.selectedIds], [7, 8]);
+  assert.deepStrictEqual(s.selected(), [7, 8]);
   assert.strictEqual(s.calls.renderBoard, 0);
   assert.strictEqual(s.calls.menu.length, 1);
 });
@@ -60,7 +67,7 @@ test('with text selected the browser\'s own menu shows', () => {
   s.onDetailContextMenu(e);
   assert.strictEqual(e.prevented, false);
   assert.deepStrictEqual(s.calls.menu, []);
-  assert.strictEqual(s.selectedIds.size, 0, 'the selection is left alone');
+  assert.strictEqual(s.selected().length, 0, 'the selection is left alone');
 });
 
 test('a right-click something else already handled, such as a mention with its own menu, keeps that behaviour', () => {
@@ -68,7 +75,7 @@ test('a right-click something else already handled, such as a mention with its o
   const e = rightClick({ defaultPrevented: true });
   s.onDetailContextMenu(e);
   assert.deepStrictEqual(s.calls.menu, []);
-  assert.strictEqual(s.selectedIds.size, 0);
+  assert.strictEqual(s.selected().length, 0);
 });
 
 test('with no card open the handler does nothing', () => {

@@ -22,13 +22,13 @@
   </div>
   <div class="actions">
     <button id="new-btn">+ New card</button>
-    <button id="map-toggle-btn" type="button" aria-pressed="false"
+    <button id="map-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
       title="Toggle dependency map view (nodes = cards, edges = waiting_for, honors the search filter)">🕸 Map view</button>
-    <button id="calendar-toggle-btn" type="button" aria-pressed="false"
+    <button id="calendar-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
       title="Toggle calendar view (month / week / 3-day / day sub-views of start→end ranges plus due-deadline chips, drag chips to reschedule, honors the search filter)">📅 Calendar</button>
-    <button id="gantt-toggle-btn" type="button" aria-pressed="false"
+    <button id="gantt-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
       title="Toggle gantt view (ranges as bars, due dates as diamonds, on a day timeline — drag a bar to shift, an edge to resize, a diamond to move its due date; honors the search filter)">📊 Gantt</button>
-    <button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>
+    <button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>
     <button id="refresh-btn" title="Reload from disk">⟳ Refresh</button>
     <button id="notif-btn" type="button" class="notif-btn" title="Notifications (agents write to notifications.md)" aria-label="Notifications">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
@@ -206,7 +206,7 @@
   </div>
 </div>
 
-<div id="context-menu" class="context-menu hidden" role="menu">
+<div id="context-menu" class="context-menu hidden" role="menu" data-keeps-selection>
   <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
   <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
   <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
@@ -225,7 +225,7 @@
 <!-- Bulk-edit popups. Single-choice serves Assign… and Set
      priority…; the tags popup is the add/remove workbench. Same
      .modal-backdrop convention as every popup (pauses the poll). -->
-<div id="bulk-single" class="modal-backdrop hidden">
+<div id="bulk-single" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-single-title"></h2>
@@ -244,7 +244,7 @@
   </div>
 </div>
 
-<div id="bulk-tags" class="modal-backdrop hidden">
+<div id="bulk-tags" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-tags-title"></h2>
@@ -268,7 +268,7 @@
      first. The package box completes against the board's existing
      archived/<package>/ folders; a new name creates that folder, an empty box
      archives to the archived/ root. -->
-<div id="bulk-archive" class="modal-backdrop hidden">
+<div id="bulk-archive" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-archive-title"></h2>
@@ -288,7 +288,7 @@
      the form's date-field grammar (free-text input + 📅 picker button, wired
      by the shared .date-pick-btn loop) plus a "clear" checkbox; clear wins
      over a typed value, empty+unchecked leaves the card's value alone. -->
-<div id="bulk-schedule" class="modal-backdrop hidden">
+<div id="bulk-schedule" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-schedule-title"></h2>
