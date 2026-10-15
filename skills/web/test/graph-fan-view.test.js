@@ -87,6 +87,7 @@ test('a caption is a text with the name and the count in two tspans, at its plac
     assert.deepStrictEqual([c.attrs.x, c.attrs.y, c.attrs.dy, c.attrs['text-anchor']], [String(want.x), String(want.y), want.dy, 'middle']);
     assert.deepStrictEqual(c.children.map((t) => [t.tag, t.textContent]), [['tspan', want.name], ['tspan', String(want.count)]]);
     assert.ok(c.children[0].attrs.class === 'graph-caption-name' && c.children[1].attrs.class === 'graph-caption-count');
+    assert.strictEqual(c.attrs['data-kind'], want.kind, 'a caption says whether it names a tier or a depth');
   });
   assert.deepStrictEqual(captions.slice(0, 4).map((c) => v.text(c)), ['goal2', 'strategy2', 'objective1', 'epic1']);
 });

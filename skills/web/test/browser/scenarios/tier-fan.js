@@ -2,14 +2,19 @@
 // The tier fan, drawn. In Tiers the plan board draws a band for each tier of its
 // hierarchy (goal, strategy, objective, epic), tier 1 nearest the centre, then a
 // ring for each depth that holds a card without a tier, and the loose cards
-// without a tier sit in the Unnested block outside the fan. The fixture board has
-// no hierarchy, so its rings follow depth. The malformed board's hierarchy lists
-// a name twice in two cases, and Tiers still draws. The harness closes the
-// scenario with the console-error check, which covers all three boards.
+// without a tier sit in the Unnested block outside the fan. Around them the fan
+// draws a guide arc and a caption (name and count) for each band, a divider
+// between sectors, a caption for the loose cards that have a tier, and the block's
+// title and a caption for each of its columns. The fixture board has no hierarchy,
+// so its rings follow depth and no caption names a tier. The malformed board's
+// hierarchy lists a name twice in two cases, and Tiers still draws each tier once.
+// The harness closes the scenario with the console-error check, which covers all
+// three boards.
 //
 // A dot is read where it is drawn: the translate of its node. The band edges are
 // read from the Graph's own layout (graphCur), so "outside every band" is
-// measured against the band and not against a dot of it.
+// measured against the band and not against a dot of it. A caption is read from
+// its two tspans, the name and the count, and its x and y.
 //
 // What each board's cards are is written out by hand from the fixtures, and
 // skills/web/test/browser-tier-fan-scenario.test.js holds the lists to the real
@@ -20,7 +25,8 @@
 // the hierarchy), 2 and 26 strategies, 7 the objective and 22 the epic. Cards 3
 // to 6, 8, 23 and 24 are nested and have no tier (a story and a task among them),
 // at depths 1, 1, 1, 1, 2, 4 and 5. Every other live card has no parent and no
-// children.
+// children. Card 26 is the one loose card with a tier. Card 1's type has the star
+// icon and card 14's type an icon name that is not one.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // graphCur.
@@ -30,16 +36,26 @@ const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from
 const CASES = {
   plan: {
     tiers: [[1, 25], [2, 26], [7], [22]],
+    tierNames: ['goal', 'strategy', 'objective', 'epic'],
     depths: [[3, 4, 5, 6], [8], [23], [24]],
+    depthNames: ['depth 1', 'depth 2', 'depth 4', 'depth 5'],
     block: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 27, 28, 29],
+    blockColumns: { backlog: [11, 14, 18, 28], todo: [10, 13, 17, 27], doing: [9, 15], done: [12, 16, 29] },
     archived: [19, 20, 21],
+    archivedBlock: [20, 21],
+    looseTier: [26],
+    starCard: 1,
+    unknownIconCard: 14,
+    extraLoose: { title: 'Plan the second objective', type: 'objective', status: 'todo' },
   },
   fixture: {
     depths: [[1], [2, 3, 4, 5, 6], [7, 8]],
+    depthNames: ['roots', 'depth 1', 'depth 2'],
     block: range(9, 18),
   },
   malformed: {
     tiers: [[1], [2]],
+    tierNames: ['goal', 'epic'],
     depths: [[3]],
     block: [4],
   },
@@ -51,21 +67,88 @@ const DOTS = `(()=>{const out={};for(const n of document.querySelectorAll('#grap
 // The outer edge of every tier band, tier 1 first, and of the last band of all.
 const BAND_EDGES = `(()=>{const bands=graphCur.layout.bands;return {tiers:bands.filter((b)=>b.slice.kind==='tier').map((b)=>b.r1),outer:bands.length?bands[bands.length-1].r1:0}})()`;
 
+// What the fan draws around its dots, as the page has it: each caption (its name,
+// count, kind and place), every guide arc's path, every divider's ends, the caption
+// of the loose cards with a tier, and the Unnested block (its frame, its title and
+// the caption of each column). A caption is { name, count, kind, x, y }.
+const FAN_MARKS = `(()=>{const q=(s)=>[...document.querySelectorAll('#graph-view '+s)];`
+  + `const cap=(el)=>{const t=[...el.querySelectorAll('tspan')].map((s)=>s.textContent);return {name:t[0],count:Number(t[1]),kind:el.getAttribute('data-kind')||'',x:parseFloat(el.getAttribute('x')),y:parseFloat(el.getAttribute('y'))}};`
+  + `const frame=q('.graph-block-frame')[0];const title=q('.graph-block-title')[0];const loose=q('.graph-loose-caption')[0];`
+  + `return {captions:q('.graph-caption:not(.graph-loose-caption)').map(cap),guides:q('.graph-guide').map((g)=>g.getAttribute('d')),`
+  + `dividers:q('.graph-divider').map((l)=>['x1','y1','x2','y2'].map((k)=>parseFloat(l.getAttribute(k)))),loose:loose?cap(loose):null,`
+  + `block:frame?{x:parseFloat(frame.getAttribute('x')),y:parseFloat(frame.getAttribute('y')),w:parseFloat(frame.getAttribute('width')),h:parseFloat(frame.getAttribute('height')),`
+  + `title:title?cap(title):null,captions:q('.graph-block-caption').map(cap)}:null}})()`;
+
+// The sectors of the fan, as the layout has them: { kind, tops, from, to } in radians.
+const SECTORS = `graphCur.layout.sectors.map((s)=>({kind:s.kind,tops:s.tops,from:s.from,to:s.to}))`;
+
+// Where everything sits on screen: the stage, each dot, each caption and the block's frame.
+const RECTS = `(()=>{const r=(e)=>{const b=e.getBoundingClientRect();return {l:b.left,t:b.top,r:b.right,b:b.bottom}};const svg=document.querySelector('#graph-view .graph-canvas');if(!svg)return null;`
+  + `const q=(s)=>[...document.querySelectorAll('#graph-view '+s)];const frame=q('.graph-block-frame')[0];`
+  + `return {stage:r(svg),dots:q('.graph-node').map((e)=>Object.assign({id:e.dataset.id},r(e))),`
+  + `captions:q('.graph-caption,.graph-block-title,.graph-block-caption').map((e)=>Object.assign({text:e.textContent},r(e))),block:frame?r(frame):null}})()`;
+
 const TIERS_PRESSED = `(document.querySelector('.graph-layout-btn[aria-pressed=true]')||{dataset:{}}).dataset.layout==='tiers'`;
 const DRAWN = `document.querySelectorAll('#graph-view .graph-node').length>0`;
 const ARCHIVE_PILL = `document.querySelector('.graph-filter-toggle[data-col=archive]').click()`;
+const FIT = `document.querySelector('.graph-zoom-btn[data-graph-action=fit]').click()`;
+const ZOOM_IN = `document.querySelector('.graph-zoom-btn[data-graph-action=in]').click()`;
+const FITTED = `graphCur.view.touched===false`;
+const ZOOMED = `graphCur.view.touched===true`;
+const layoutIs = (name) => `(document.querySelector('.graph-layout-btn[aria-pressed=true]')||{dataset:{}}).dataset.layout==='${name}'&&document.querySelectorAll('#graph-view .graph-node').length>0`;
+const pickLayout = (name) => `document.querySelector('.graph-layout-btn[data-layout=${name}]').click()`;
+const addLoose = (card) => `fetch('/api/cards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(${JSON.stringify(card)})}).then((r)=>r.status)`;
+const hasDot = (id) => `!!document.querySelector('#graph-view .graph-node[data-id="${id}"]')`;
+
+// The shape of every dot, as the type-icons scenario reads it.
+const { DOT_SHAPES } = require('./type-icons');
+
+// Every number in a path or on a line is a finite one.
+const NUMBER = /-?\d+(?:\.\d+)?(?:e-?\d+)?/g;
+const finitePath = (d) => typeof d === 'string' && !/NaN|Infinity|undefined/.test(d) && (d.match(NUMBER) || []).length >= 4 && (d.match(NUMBER) || []).every((n) => Number.isFinite(Number(n)));
+const finiteCap = (c) => !!c && Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.count) && typeof c.name === 'string' && c.name !== '';
+const finiteMarks = (m) => !!m && m.guides.length > 0 && m.guides.every(finitePath)
+  && m.dividers.every((l) => l.length === 4 && l.every(Number.isFinite)) && m.captions.length > 0 && m.captions.every(finiteCap)
+  && (!m.loose || finiteCap(m.loose)) && (!m.block || (finiteCap(m.block.title) && m.block.captions.every(finiteCap)
+    && [m.block.x, m.block.y, m.block.w, m.block.h].every(Number.isFinite)));
+
+// A guide arc's radius: the first number after the A of its path.
+const guideRadii = (guides) => guides.map((d) => Number(/A(-?[\d.]+)/.exec(d)[1]));
+
+// Everything that lies outside the stage, by name.
+function outsideStage(r, slack = 1) {
+  const out = [];
+  const inside = (b) => b.l >= r.stage.l - slack && b.t >= r.stage.t - slack && b.r <= r.stage.r + slack && b.b <= r.stage.b + slack;
+  for (const d of r.dots) if (!inside(d)) out.push(`dot ${d.id}`);
+  for (const c of r.captions) if (!inside(c)) out.push(`caption ${c.text}`);
+  if (r.block && !inside(r.block)) out.push('the Unnested block');
+  return out;
+}
 
 module.exports = {
   name: 'tier-fan',
   board: 'plan',
   alsoBoards: ['fixture', 'malformed'],
-  timeoutMs: 60000,
+  timeoutMs: 120000,
   CASES,
   DOTS,
   BAND_EDGES,
+  FAN_MARKS,
+  SECTORS,
+  RECTS,
   TIERS_PRESSED,
   DRAWN,
   ARCHIVE_PILL,
+  FIT,
+  ZOOM_IN,
+  FITTED,
+  ZOOMED,
+  layoutIs,
+  pickLayout,
+  addLoose,
+  hasDot,
+  outsideStage,
+  finiteMarks,
   async run(page) {
     const { ev, open, waitFor, check, shot } = page;
 
@@ -78,10 +161,13 @@ module.exports = {
       return waitFor('!window.__stale', 10000);
     };
     const dots = () => ev(DOTS);
+    const marks = () => ev(FAN_MARKS);
     const ofDot = (all, id) => (all[id] ? Math.hypot(all[id].x, all[id].y) : NaN);
     const finite = (all) => Object.values(all).every((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
     const radii = (all, ids) => ids.map((id) => ofDot(all, id));
     const apart = (list) => list.every((x) => Number.isFinite(x));
+    const names = (list) => list.map((c) => c.name);
+    const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
     // Every group sits on one ring, and each group's ring is farther out than the last.
     const inOrder = (all, groups) => {
@@ -99,6 +185,12 @@ module.exports = {
       check(`${key}: the Graph draws in Tiers`, drawn);
       return drawn;
     };
+    const pick = async (name) => {
+      await ev(pickLayout(name));
+      return waitFor(layoutIs(name), 10000);
+    };
+    // Nothing of the fan is on the page.
+    const fanGone = (m) => m.captions.length === 0 && m.guides.length === 0 && m.dividers.length === 0 && m.loose === null && m.block === null;
 
     // --- the plan board: bands for the tiers, rings for the depths, the Unnested block -------
     const plan = CASES.plan;
@@ -115,11 +207,108 @@ module.exports = {
       check('plan: the nested cards with no tier sit on a ring for each depth, in depth order', inOrder(all, plan.depths), plan.depths.map((ids) => radii(all, ids)));
       const block = radii(all, plan.block);
       check('plan: the Unnested cards sit outside the fan', apart(block) && Math.min(...block) > edges.outer, { block, edges });
+
+      // The captions: a tier that has a card shows its name and count, in hierarchy
+      // order from the centre, and one caption for each non-empty depth follows.
+      const m = await marks();
+      const tierCaps = m.captions.filter((c) => c.kind === 'tier');
+      const depthCaps = m.captions.filter((c) => c.kind === 'depth');
+      check('plan: each tier that has a card shows one caption with its name and count, in hierarchy order from the centre',
+        sameList(names(tierCaps), plan.tierNames) && sameList(tierCaps.map((c) => c.count), plan.tiers.map((ids) => ids.length))
+        && tierCaps.every((c, i) => i === 0 || c.x < tierCaps[i - 1].x), tierCaps);
+      check('plan: one caption per non-empty depth follows, in depth order', sameList(names(depthCaps), plan.depthNames)
+        && sameList(depthCaps.map((c) => c.count), plan.depths.map((ids) => ids.length)) && depthCaps.every((c, i) => c.x < (i ? depthCaps[i - 1].x : (tierCaps[tierCaps.length - 1] || { x: 0 }).x))
+        && m.captions.length === tierCaps.length + depthCaps.length, depthCaps);
+      check('plan: every guide arc, divider and caption has finite coordinates', finiteMarks(m) && m.dividers.length >= 1, m);
+      const radiiOfGuides = guideRadii(m.guides);
+      check('plan: there is a guide arc for each band, and none is drawn through the cards of the Unnested block',
+        m.guides.length >= plan.tiers.length + plan.depths.length
+        && plan.block.every((id) => radiiOfGuides.every((r) => Math.abs(ofDot(all, id) - r) > 6)), { radiiOfGuides, block });
+
+      // The sector of loose cards with a tier is one sector, with a caption that counts them.
+      const sectors = await ev(SECTORS);
+      const looseSectors = sectors.filter((s) => s.kind === 'loose');
+      check('plan: the loose cards with a tier share one sector, under a caption that counts them',
+        looseSectors.length === 1 && sameList(looseSectors[0].tops, plan.looseTier) && !!m.loose && m.loose.count === plan.looseTier.length
+        && m.loose.name === 'Unnested, with a tier', { sectors, loose: m.loose });
+
+      // The Unnested block: a caption for each status, with the cards of that status under it.
+      const statuses = Object.keys(plan.blockColumns);
+      const b = m.block;
+      const captionOf = (id) => (b ? b.captions.filter((c) => c.x <= all[id].x).sort((p, q) => q.x - p.x)[0] : null);
+      const underOwn = (status) => plan.blockColumns[status].every((id) => {
+        const c = captionOf(id);
+        return !!c && c.name === status && all[id].y > c.y && all[id].x >= b.x && all[id].x <= b.x + b.w && all[id].y <= b.y + b.h;
+      });
+      check('plan: the Unnested block is titled with its count and has a column caption for each status, in the board\'s order',
+        !!b && !!b.title && b.title.name === 'Unnested' && b.title.count === plan.block.length && sameList(names(b.captions), statuses)
+        && b.captions.every((c, i) => c.count === plan.blockColumns[statuses[i]].length && (i === 0 || c.x > b.captions[i - 1].x)), b);
+      check('plan: every loose card without a tier is in the block under the caption for its status', !!b && statuses.every(underOwn), b);
+      check('plan: and none of them is on a ring', plan.block.every((id) => radiiOfGuides.every((r) => Math.abs(ofDot(all, id) - r) > 6) && ofDot(all, id) > edges.outer), { block });
+
+      // The star-typed card's dot is a star, the card of the type with an unknown icon is round.
+      const shapes = await ev(DOT_SHAPES);
+      check('plan: in the fan a star-typed card\'s dot is a star', shapes[plan.starCard] === 'star', shapes[plan.starCard]);
+      check('plan: and a card of the unknown-icon type has a round dot', shapes[plan.unknownIconCard] === 'circle', shapes[plan.unknownIconCard]);
+
+      // Fit, and the first draw, frame every dot, every caption and the block.
+      const first = await ev(RECTS);
+      check('plan: the first draw frames every dot, every caption and the Unnested block', !!first && outsideStage(first).length === 0, first && outsideStage(first));
+      await ev(ZOOM_IN);
+      await ev(ZOOM_IN);
+      await waitFor(ZOOMED);
+      await ev(FIT);
+      await waitFor(FITTED);
+      const fitted = await ev(RECTS);
+      check('plan: after Fit every dot, every caption and the Unnested block lie inside the canvas', !!fitted && outsideStage(fitted).length === 0, fitted && outsideStage(fitted));
       await shot('tier-fan-plan');
 
+      // Force and Status draw none of it, and Tiers brings it back.
+      for (const other of ['force', 'status']) {
+        if (await pick(other)) {
+          const gone = await marks();
+          check(`plan: ${other} draws no arc, caption, divider or block`, fanGone(gone), gone);
+        }
+      }
+      if (await pick('tiers')) {
+        const back = await marks();
+        check('plan: back in Tiers the arcs, captions, dividers and block are back', sameList(back.guides, m.guides) && sameList(names(back.captions), names(m.captions))
+          && back.dividers.length === m.dividers.length && !!back.block && !!back.loose, back);
+      }
+
+      // The Archive status pill brings the archived cards: an archived loose card without a tier is in the block's archived column.
       await ev(ARCHIVE_PILL);
-      check('plan: the Archive pill draws the archived cards', await waitFor(`${[19, 20, 21].map((id) => `!!document.querySelector('#graph-view .graph-node[data-id="${id}"]')`).join('&&')}`), Object.keys(await dots()));
-      check('plan: and no dot position is NaN with them', finite(await dots()));
+      check('plan: the Archive pill draws the archived cards', await waitFor(plan.archived.map(hasDot).join('&&')), Object.keys(await dots()));
+      const withArchive = await dots();
+      check('plan: and no dot position is NaN with them', finite(withArchive));
+      const shown = await marks();
+      const archivedCol = shown.block && shown.block.captions[shown.block.captions.length - 1];
+      check('plan: with the Archive pill on, an archived loose card without a tier shows in the block\'s archived column',
+        !!archivedCol && archivedCol.name === 'archived' && archivedCol.count === plan.archivedBlock.length
+        && plan.archivedBlock.every((id) => withArchive[id] && withArchive[id].x >= archivedCol.x && withArchive[id].y > archivedCol.y), shown.block);
+      const after = await ev(BAND_EDGES);
+      const inBlock = (id) => !!shown.block && withArchive[id].x >= shown.block.x && withArchive[id].x <= shown.block.x + shown.block.w
+        && withArchive[id].y >= shown.block.y && withArchive[id].y <= shown.block.y + shown.block.h;
+      check('plan: an archived card that is nested stays on its ring and out of the block', plan.archived.filter((id) => !plan.archivedBlock.includes(id))
+        .every((id) => withArchive[id] && !inBlock(id) && ofDot(withArchive, id) < after.outer), { shown: shown.block, after });
+
+      // A second loose card with a tier joins the first in the same sector, and the caption counts both.
+      const added = await ev(addLoose(plan.extraLoose));
+      check('plan: a second loose card with a tier is created', added === 201, added);
+      await load('/?view=graph', 'plan');
+      await waitFor(`${DRAWN}&&${TIERS_PRESSED}&&document.querySelectorAll('#graph-view .graph-node').length>${Object.keys(withArchive).length}`, 10000);
+      const grown = await ev(SECTORS);
+      const looseNow = grown.filter((s) => s.kind === 'loose');
+      const grownDots = await dots();
+      const newId = Object.keys(grownDots).map(Number).find((id) => !withArchive[id]);
+      const inSector = (id, s) => {
+        const a = Math.atan2(grownDots[id].y, grownDots[id].x);
+        return a <= s.from + 1e-6 && a >= s.to - 1e-6;
+      };
+      const grownMarks = await marks();
+      check('plan: the loose cards with a tier, two now, still share one sector, and its caption counts both',
+        looseNow.length === 1 && looseNow[0].tops.length === 2 && looseNow[0].tops.includes(plan.looseTier[0]) && looseNow[0].tops.includes(newId)
+        && looseNow[0].tops.every((id) => inSector(id, looseNow[0])) && !!grownMarks.loose && grownMarks.loose.count === 2, { grown, loose: grownMarks.loose });
     }
 
     // --- the fixture board has no hierarchy: the rings follow depth ------------------------
@@ -131,6 +320,12 @@ module.exports = {
       const edges = await ev(BAND_EDGES);
       const block = radii(all, fixture.block);
       check('fixture: the loose cards sit outside the rings', apart(block) && edges.tiers.length === 0 && Math.min(...block) > edges.outer, { block, edges });
+      const m = await marks();
+      check('fixture: the fan shows depth captions and no tier caption', sameList(names(m.captions), fixture.depthNames)
+        && sameList(m.captions.map((c) => c.count), fixture.depths.map((ids) => ids.length)) && m.captions.every((c) => c.kind === 'depth'), m.captions);
+      check('fixture: every guide arc, divider and caption has finite coordinates', finiteMarks(m), m);
+      const rects = await ev(RECTS);
+      check('fixture: the first draw frames every dot, every caption and the Unnested block', !!rects && outsideStage(rects).length === 0, rects && outsideStage(rects));
     }
 
     // --- the malformed board's hierarchy names two tiers, each twice ------------------------
@@ -143,6 +338,11 @@ module.exports = {
       check('malformed: the two tiers are bands, the first nearer the centre', edges.tiers.length === 2 && tiers.every((rs) => apart(rs)) && Math.max(...tiers[0]) < Math.min(...tiers[1]), { tiers, edges });
       const depth = radii(all, malformed.depths[0]);
       check('malformed: the depth ring is outside the tiers and the Unnested card outside the fan', apart(depth) && Math.min(...depth) > edges.tiers[1] && Math.min(...radii(all, malformed.block)) > edges.outer, { depth, edges });
+      const m = await marks();
+      const tierCaps = m.captions.filter((c) => c.kind === 'tier');
+      check('malformed: the fan captions each tier once', sameList(tierCaps.map((c) => c.name.toLowerCase()), malformed.tierNames)
+        && sameList(tierCaps.map((c) => c.count), malformed.tiers.map((ids) => ids.length)), tierCaps);
+      check('malformed: every guide arc, divider and caption has finite coordinates', finiteMarks(m), m);
     }
   },
 };

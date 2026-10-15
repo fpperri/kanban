@@ -120,6 +120,7 @@ function graphTspan(text, cls, attrs) {
 function graphCaptionEl(c, anchor) {
   const el = graphEl('text', { x: c.x, y: c.y, 'text-anchor': anchor }, c.cls);
   if (c.dy) el.setAttribute('dy', c.dy);
+  if (c.kind) el.setAttribute('data-kind', c.kind);
   el.appendChild(graphTspan(c.name, 'graph-caption-name'));
   el.appendChild(graphTspan(String(c.count), 'graph-caption-count', { dx: '0.4em' }));
   return el;
