@@ -612,6 +612,13 @@ pill builds. This page has neither: a tap opens a card, the panel has no foot, a
 writes the box, with no anchor and no Shift addition. It has no `m` key that steps through the
 pills either, and no preferences sheet for the panel's switch and folds.
 
+**No jump to the nearest match.** kanban-web's Calendar and Gantt, when a change to the search box
+leaves no match inside the range on screen, move to the match nearest that range (`nearestMatchDay`
+in `calendar-model.js`, and its Gantt counterpart). This page's Calendar and Gantt filter by the box
+the same way but stay on the month or the range they show, so a search can leave an empty stretch:
+page the Calendar or scroll the Gantt to the match yourself. The jump is not ported, since the page
+ports those models and does not embed them.
+
 **No Graph view.** kanban-web's Graph, which draws every card at once as a dot in the tier fan, Force
 or Status layout, with its option row, its lighting and its names, has no counterpart: the Map is this
 page's one picture of the relations, and the slices and pills of the panel cut every view without it.

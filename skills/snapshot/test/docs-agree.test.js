@@ -25,6 +25,14 @@ test('the gaps section names Isolate, the selection and the Graph, each as web-o
   assert.match(gaps, /kanban-web only|only in kanban-web|kanban-web's/);
 });
 
+test('the gaps section says the Calendar and the Gantt do not jump to the nearest match, and the doc agrees', () => {
+  assert.match(gaps, /\*\*No jump to the nearest match\.\*\*/);
+  assert.match(gaps, /Calendar and Gantt[^.]*move to the match nearest/);
+  assert.match(gaps, /`nearestMatchDay`/);
+  assert.match(gaps, /stay on the month or the range they show/);
+  assert.match(flat(docs), /do not jump to the nearest match/);
+});
+
 test('the skill does not say the editor has no query-append affordance, since a pill appends to the box', () => {
   assert.doesNotMatch(flat(skill), /no additive query-append affordance/);
   assert.match(flat(skill), /no badge is tap-to-filter here/);
