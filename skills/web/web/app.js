@@ -3071,6 +3071,22 @@ function clearSearch() {
   writeSearch('', 'clear');
 }
 
+// The address follows the box: one more listener of the writer, so every write,
+// whatever its reason, leaves the address's `q` equal to the box's text (an
+// empty box drops it), and the poll, which never writes the box, never moves
+// it. It REPLACES the history entry the page is on, never pushes one, so typing
+// adds nothing to Back and Forward, and only when `q` would change, so fast
+// typing stays under the browser's limit on replacements. card-history.js
+// decides what the address becomes; `card` and `view` ride along untouched.
+// The popstate listener (below) calls this too, after Back or Forward lands.
+function followSearchInAddress(text) {
+  const search = nextSearchAddress(location.search, text);
+  if (search == null) return;
+  history.replaceState(null, '', location.pathname + search);
+}
+
+onSearchWrite(followSearchInAddress);
+
 function onSearchSlashKey(e) {
   if (e.key !== '/' || keyGuardOff(document)) return;
   e.preventDefault();
