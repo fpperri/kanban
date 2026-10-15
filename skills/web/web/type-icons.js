@@ -12,7 +12,8 @@
 
 // Each shape is a polygon: `sides` corners (twice that for a star, which
 // alternates `outer` and `inner`), the first one at `turn` degrees, at `outer`
-// times the dot radius from the centre. The circle is the plain dot.
+// times the dot radius from the centre. The circle is the plain dot. The glyphs are the
+// filled forms, because the Graph fills the dot in the same shape: a chip's mark and its dot read as one.
 const TYPE_ICON_SHAPES = new Map([
   ['circle', { glyph: '\u25cf', round: true }],
   ['square', { glyph: '\u25a0', sides: 4, turn: 45, outer: 1.2 }],
