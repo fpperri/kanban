@@ -404,6 +404,18 @@ test('the preferences scenario closes the sheet three ways, presses Tab, double 
   assert.ok(src.includes('/api/board') && src.includes('readFileSync') && src.includes('boardDir'), 'the board\'s files are compared as the server reports its folder');
 });
 
+test('the preferences scenario starts its Tab check from the last control the sheet has, found in the page, not from a control it names', () => {
+  const src = source('preferences.js');
+  const from = src.indexOf('no Tab trap');
+  const step = code(src.slice(from, src.indexOf('the poll and the single-key shortcuts', from)));
+  assert.ok(from > 0 && step.includes(`key('Tab')`), 'the Tab step is found');
+  assert.ok(/lastControl/.test(step), 'the control Tab leaves from is the last control of the sheet');
+  assert.ok(!/getElementById\('prefs-(?!sheet)/.test(step) && !/archivedBox/.test(step), 'no control is named: a control added at the end of the sheet moves the last one');
+  const def = code(src).match(/const lastControl = (`[^`]*`);/);
+  assert.ok(def, 'the last control is one expression');
+  assert.ok(def[1].includes('#prefs-sheet') && /\[c\.length-1\]|\.pop\(\)|\.at\(-1\)/.test(def[1]), 'read from the sheet, the last of its controls');
+});
+
 test('the preferences scenario waits on the page, never on a fixed sleep, and loads each page cold', () => {
   const src = code(source('preferences.js'));
   assert.ok(!/\bsleep\(/.test(src));

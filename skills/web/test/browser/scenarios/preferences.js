@@ -31,6 +31,8 @@ module.exports = {
     const opt = (pref, value, view) => `#prefs-sheet .prefs-opt[data-pref="${pref}"]${view ? `[data-view="${view}"]` : ''}[data-value="${value}"]`;
     const pressed = (sel) => `document.querySelector(${JSON.stringify(sel)}).getAttribute('aria-pressed')==='true'`;
     const archivedBox = `document.getElementById('prefs-archived-done')`;
+    // Where Tab leaves the sheet: the last of its controls in the page's own order, so a row added at the end of the sheet moves it.
+    const lastControl = `(()=>{const c=[...document.querySelectorAll('#prefs-sheet button:not([disabled]), #prefs-sheet input:not([disabled]), #prefs-sheet select:not([disabled]), #prefs-sheet textarea:not([disabled])')];return c[c.length-1]})()`;
 
     const clickOn = async (sel) => {
       const p = await centre(sel);
@@ -119,7 +121,7 @@ module.exports = {
 
     // --- no Tab trap ----------------------------------------------------------------------
     await openSheet();
-    await ev(`${archivedBox}.focus()`);
+    await ev(`${lastControl}.focus()`);
     await key('Tab');
     check('Tab from the last control of the sheet moves focus out of the sheet', await waitFor(`!document.getElementById('prefs-sheet').contains(document.activeElement)`, 2500), await ev(`document.activeElement&&(document.activeElement.id||document.activeElement.tagName)`));
     await closeWithEscape();
