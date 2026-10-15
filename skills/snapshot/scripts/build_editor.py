@@ -203,8 +203,17 @@ def _config_scalars(kanban_dir, key):
     items = [_scalar(m.group(1)) for m in (re.match(r"^\s+-\s*(.*)$", line) for line in block) if m]
     return [v for v in flow + items if v]
 
+def _icon_name(raw):
+    """A type's `icon:` text as kanban-web's config-store iconName() reads it:
+    lowercased, a trailing comment stripped, '' (no icon) for a blank value or
+    one that is only a comment. Any name is kept; the page draws an unknown
+    one as no icon."""
+    t = (raw or "").strip()
+    return "" if t[:1] == "#" else _scalar(t).lower()
+
 def read_types(kanban_dir):
-    """config.yaml's `types:` list as [{name, color}]."""
+    """config.yaml's `types:` list as [{name, color}], plus `icon` on a type
+    that sets one."""
     flow, block = _config_list(kanban_dir, "types")
     types, cur = [{"name": n, "color": ""} for n in flow], None
 
@@ -213,7 +222,11 @@ def read_types(kanban_dir):
         if cur is not None:
             name = _scalar(cur.get("name", ""))
             if name:
-                types.append({"name": name, "color": _scalar(cur.get("color", ""))})
+                entry = {"name": name, "color": _scalar(cur.get("color", ""))}
+                icon = _icon_name(cur.get("icon", ""))
+                if icon:
+                    entry["icon"] = icon
+                types.append(entry)
             cur = None
 
     for line in block:
@@ -232,6 +245,61 @@ def read_types(kanban_dir):
             cur[field.group(1)] = field.group(2)
     flush()
     return types
+
+def _closing_quote(s):
+    """Index of the quote that closes the quoted text opening `s`, or -1."""
+    i = 1
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+            continue
+        if s[i] == s[0]:
+            return i
+        i += 1
+    return -1
+
+def _split_pill_entry(text):
+    """One `pills:` entry (the text after its dash) as {label, query}, or None
+    when it is blank, only a comment, or has an empty label or query. The same
+    rules as splitPillEntry() in kanban-web's config-store.js: an entry is a
+    query on its own (the label is then the query text) or a one-key map from a
+    label to a query, and a map key ends at the first colon followed by a space
+    or the end of the entry, so `tags: grill` is the label tags with the query
+    grill while `tags:*` and `assignee:@human` stay whole queries. Anything
+    after the first pair is another key, which the caller ignores."""
+    t = text.strip()
+    if t == "" or t[0] == "#":
+        return None
+    label, value = None, t
+    close = _closing_quote(t) if t[0] in ('"', "'") else -1
+    if close != -1:
+        after = t[close + 1:]
+        sep = re.match(r"\s*:(?:\s|\Z)", after)
+        if sep:
+            label, value = _unquote(t[:close + 1]), after[sep.end():]
+    else:
+        colon = re.search(r":(?:\s|\Z)", t)
+        comment = re.search(r"\s#", t)
+        if colon and (not comment or colon.start() < comment.start()):
+            label, value = t[:colon.start()].strip(), t[colon.start() + 1:]
+    query = "" if value.strip()[:1] == "#" else _scalar(value)
+    if query == "":
+        return None
+    if label is None:
+        label = query
+    return None if label == "" else {"label": label, "query": query}
+
+def read_pills(kanban_dir):
+    """config.yaml's `pills:` block as [{label, query}] in the order written.
+    Block form only: a scalar or inline value answers none, as in kanban-web."""
+    _, block = _config_list(kanban_dir, "pills")
+    pills = []
+    for line in block:
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        pill = _split_pill_entry(item.group(1)) if item else None
+        if pill:
+            pills.append(pill)
+    return pills
 
 def read_priorities(kanban_dir):
     return _config_scalars(kanban_dir, "priorities")
@@ -269,6 +337,7 @@ NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
 MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
 WAITING_BLOCKED_JS = os.path.join(WEB_MODULES, "waiting-blocked.js")
 SEARCH_JS = os.path.join(WEB_MODULES, "search.js")
+TYPE_ICONS_JS = os.path.join(WEB_MODULES, "type-icons.js")
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
@@ -295,6 +364,9 @@ def read_waiting_blocked():
 
 def read_search():
     return read_embedded(SEARCH_JS, "the search module")
+
+def read_type_icons():
+    return read_embedded(TYPE_ICONS_JS, "the type icons module")
 
 def main():
     p = argparse.ArgumentParser()
@@ -338,6 +410,7 @@ def main():
                     .replace("__MAP_RELATIONS_JS__", read_map_relations())
                     .replace("__WAITING_BLOCKED_JS__", read_waiting_blocked())
                     .replace("__SEARCH_JS__", read_search())
+                    .replace("__TYPE_ICONS_JS__", read_type_icons())
                     .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
                     .replace("__BASE_LABEL__", label)
                     .replace("__BASE_ISO__", iso)
@@ -345,6 +418,7 @@ def main():
                     .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
                     .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
                     .replace("__TYPES__", emb(read_types(a.kanban_dir)))
+                    .replace("__PILLS__", emb(read_pills(a.kanban_dir)))
                     .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
                     .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
                     .replace("__DATA__", emb(cards))
@@ -490,6 +564,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    family, distinct from --id-waiting (waiting) and --blocked-ink (blocked). */
 .rbadge{background:var(--review-bg);color:var(--review-ink)}
 .type-chip{display:inline-block;font-size:.7rem;margin-left:6px;padding:0 7px;border:1px solid var(--line-strong);border-radius:.15rem;background:var(--btn-bg);color:var(--mut);white-space:nowrap}
+.type-icon{margin-right:.35em;line-height:1}
 .alt-badge{display:inline-block;margin-left:6px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.65rem;font-weight:600;color:var(--mut);border:1px solid var(--line-strong);border-radius:.15rem;padding:0 5px;white-space:nowrap}
 .rollup{margin-top:6px}
 .rollup-bar{display:flex;height:8px;border-radius:.15rem;overflow:hidden;background:var(--raised)}
@@ -765,6 +840,8 @@ __WAITING_BLOCKED_JS__</script>
 <script>
 __SEARCH_JS__</script>
 <script>
+__TYPE_ICONS_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -796,6 +873,8 @@ const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
 const TYPES=__TYPES__;
+// The board's own one-click queries from config.yaml, in the order written: [{label, query}].
+const PILLS=__PILLS__;
 const PRIOS=__PRIORITIES__;
 // Assignee color: a reserved config.yaml `color:` wins (painted exactly as
 // given); else the handle hashes into the SAME --hash-a.."h" token family
@@ -1109,8 +1188,11 @@ const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
 return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
 // Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
+// A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, is the chip it was before icons.
 function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
-const s=el("span","type-chip",t);s.title=t;
+const g=typeIconGlyph(typeIconOf(t,TYPES));
+const s=el("span","type-chip",g?undefined:t);s.title=t;
+if(g){const i=el("span","type-icon",g);i.setAttribute("aria-hidden","true");s.appendChild(i);s.appendChild(document.createTextNode(t))}
 const col=typeColor(t);if(col){s.style.color=col;s.style.borderColor=col}
 return s}
 function altBadge(n){const b=el("span","alt-badge","\\u25b2"+n);b.title="altitude: layers below";return b}
