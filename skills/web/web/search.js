@@ -126,6 +126,9 @@ function parseTerm(token, board) {
       const value = prefixed[2].trim().toLowerCase();
       return value ? { field: key, value } : null;
     }
+    // waiting: is a complete term of its own, like review:/blocked:, and takes
+    // no value: `waiting:3` falls through to bare text below.
+    if (key === 'waiting' && !prefixed[2]) return { field: 'waiting', value: '' };
     // ADR 0009: bare review:/blocked: is itself a complete "sticker present"
     // term — always returned, even with an empty value (never dropped).
     if (STICKER_FIELDS.includes(key)) {
@@ -263,10 +266,10 @@ function termMatchesCard(term, card) {
     case 'review': return term.value ? searchFieldHit(WBS.reviewReason(card.review), term) : WBS.isReviewValue(card.review);
     case 'blocked': return term.value ? searchFieldHit(WBS.blockedReason(card.blocked), term) : WBS.isBlockedValue(card.blocked);
     // pre-resolved by filterCards (below) into an id Set — a raw,
-    // unresolved 'tree'/'path' term has no graph to resolve against here (a
-    // single (term, card) pair isn't enough), so it matches nothing rather
-    // than throwing. Always goes through filterCards in practice.
-    case 'tree': case 'path': return false;
+    // unresolved 'tree'/'path'/'waiting' term has no graph to resolve against
+    // here (a single (term, card) pair isn't enough), so it matches nothing
+    // rather than throwing. Always goes through filterCards in practice.
+    case 'tree': case 'path': case 'waiting': return false;
     case 'ids': return term.ids.has(Number(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: { // bare term: title + body + tags; a phrase reads across a line break
@@ -289,10 +292,9 @@ function cardMatchesQuery(card, terms) {
 // termMatchesCard's 'ids' case stays a pure, cheap Set.has() with no graph
 // access of its own.
 //
-// resolveTerms is that one pass, and it is recursive: a group term carries
-// `alts`, arrays of terms, and each array resolves by the same call. Nothing
-// produces a group yet; or-groups, `waiting:` and `slice:` resolve here too
-// once the grammar has them.
+// resolveTerms is that one pass, and it is recursive: an or term carries
+// `alts`, arrays of terms, and each array resolves by the same call. `waiting:`
+// resolves here, and `slice:` will too.
 //
 // The context says where the graph comes from. By default it is
 // dependency-graph.js's treeIds/pathIds — which in turn build their adjacency
@@ -308,15 +310,26 @@ function cardMatchesQuery(card, terms) {
 // never a pre-filtered subset — traversal is always over live + archived
 // cards, by design. A subset would silently produce a
 // wrong/smaller graph with no error.
-function resolveTerms(cards, terms, ctx) {
+//
+// waiting: resolves here too, over the same whole board: the ids of the cards
+// waiting for at least one card that is not done (waiting-blocked.js's
+// unresolvedWaits, so a dangling id never makes a card waiting). `memo` is the
+// recursion's own, so the board is walked once however many groups hold it.
+function resolveTerms(cards, terms, ctx, memo = {}) {
   const graph = (ctx && ctx.graph) || DG;
   let changed = false;
   const resolved = terms.map((term) => {
     let next = term;
     if (term.field === 'tree') next = { field: 'ids', value: term.value, ids: graph.treeIds(cards, term.value, ctx) };
     else if (term.field === 'path') next = { field: 'ids', value: term.value, ids: graph.pathIds(cards, term.value, ctx) };
-    else if (Array.isArray(term.alts)) {
-      const alts = term.alts.map((alt) => resolveTerms(cards, alt, ctx));
+    else if (term.field === 'waiting') {
+      if (!memo.waiting) {
+        const byId = new Map(cards.map((c) => [c.id, c]));
+        memo.waiting = new Set(cards.filter((c) => WBS.unresolvedWaits(c.waiting_for, byId).length > 0).map((c) => Number(c.id)));
+      }
+      next = { field: 'ids', value: term.value, ids: memo.waiting };
+    } else if (Array.isArray(term.alts)) {
+      const alts = term.alts.map((alt) => resolveTerms(cards, alt, ctx, memo));
       if (alts.some((alt, i) => alt !== term.alts[i])) next = Object.assign({}, term, { alts });
     }
     if (next !== term) changed = true;
