@@ -107,36 +107,67 @@ function parseTerm(token, board) {
   return { field: null, value: token.toLowerCase() };
 }
 
+// How many of a chunk's trailing ) close a group. A ) that closes a ( inside
+// the same chunk is part of the text, which keeps fix(auth) literal.
+function searchClosers(body) {
+  let run = 0;
+  while (run < body.length && body[body.length - 1 - run] === ')') run++;
+  if (!run) return 0;
+  const before = body.slice(0, body.length - run);
+  const opened = before.split('(').length - before.split(')').length;
+  return run - Math.min(run, Math.max(0, opened));
+}
+
 // The lexer: the query as tokens with their place in the text. A token is
-// `text` (one term as typed), `or` (a lone |).
+// `text` (one term as typed), `or` (a lone |), `open` (a ( at the front of a
+// chunk) or `close` (a ) at the back). Brackets and | count only at a token's
+// edge, so a|b stays one text token.
 function lexSearch(raw) {
   const s = String(raw == null ? '' : raw);
   const tokens = [];
   const word = /\S+/g;
   let m;
   while ((m = word.exec(s))) {
-    tokens.push({ kind: m[0] === '|' ? 'or' : 'text', start: m.index, end: m.index + m[0].length });
+    let start = m.index;
+    const end = start + m[0].length;
+    while (start < end && s[start] === '(') tokens.push({ kind: 'open', start, end: ++start });
+    const bodyEnd = end - searchClosers(s.slice(start, end));
+    if (bodyEnd > start) tokens.push({ kind: s.slice(start, bodyEnd) === '|' ? 'or' : 'text', start, end: bodyEnd });
+    for (let at = bodyEnd; at < end; at++) tokens.push({ kind: 'close', start: at, end: at + 1 });
   }
   return { text: s, tokens };
 }
 
-// The parser: tokens to alternatives, each a list of items (a text token).
+// The parser: tokens to alternatives, each a list of items (a text token, or
+// { group } holding the alternatives inside a bracket). An unclosed bracket
+// reads to the end of the input; a closing bracket with no bracket open is
+// ignored.
 function parseSearchAlts(tokens) {
-  const alts = [[]];
-  tokens.forEach((token) => {
-    if (token.kind === 'or') alts.push([]);
-    else alts[alts.length - 1].push(token);
-  });
-  return alts;
+  let at = 0;
+  const read = (depth) => {
+    const alts = [[]];
+    while (at < tokens.length) {
+      const token = tokens[at++];
+      if (token.kind === 'or') alts.push([]);
+      else if (token.kind === 'open') alts[alts.length - 1].push({ group: read(depth + 1) });
+      else if (token.kind === 'close') { if (depth > 0) return alts; }
+      else alts[alts.length - 1].push(token);
+    }
+    return alts;
+  };
+  return read(0);
 }
 
 // Alternatives to terms: an empty alternative (no items, or only not-yet-terms)
 // is dropped, since an all-of-nothing check is true and it would match every
-// card while someone types. One alternative left is the flat term list; two or
-// more are one `or` term holding them.
+// card while someone types. One alternative left is the flat term list, and a
+// bracket holding one is spliced into the list around it; two or more are one
+// `or` term holding them.
 function searchAltsToTerms(alts, text, board) {
   const lists = alts
-    .map((alt) => alt.map((item) => parseTerm(text.slice(item.start, item.end), board)).filter(Boolean))
+    .map((alt) => alt.flatMap((item) => (item.group
+      ? searchAltsToTerms(item.group, text, board)
+      : [parseTerm(text.slice(item.start, item.end), board)].filter(Boolean))))
     .filter((list) => list.length);
   if (lists.length <= 1) return lists[0] || [];
   return [{ field: 'or', alts: lists }];
