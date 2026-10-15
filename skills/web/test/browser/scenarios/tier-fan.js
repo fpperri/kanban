@@ -40,7 +40,7 @@
 // icon and card 14's type an icon name that is not one.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// graphCur, graphLoadOptions, graphSetOption.
+// graphCur, graphLoadOptions, graphSetOption, autoRefreshTick.
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
@@ -115,6 +115,9 @@ const captionNamed = (name) => `[...document.querySelectorAll(${CAPTIONS})].find
 const captionCentre = (name) => `(()=>{const e=${captionNamed(name)};if(!e)return null;const b=e.getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()`;
 const focusCaption = (name) => `(()=>{const e=${captionNamed(name)};if(!e)return false;e.focus();return document.activeElement===e})()`;
 const BLUR = `document.activeElement&&document.activeElement.blur()`;
+// The 5s poll, run by hand: it rebuilds every caption, and puts focus back on the one that had it.
+const POLL = `autoRefreshTick()`;
+const focusedCaption = (name) => `(()=>{const e=document.activeElement;return !!e&&!!e.closest&&!!e.closest(${CAPTIONS})&&e.textContent===${JSON.stringify(name)}})()`;
 const NO_COUNT = `document.querySelectorAll('#graph-view .graph-caption-count').length`;
 
 // The tooltip as the page shows it, null while it is hidden: its lines, where it, the
@@ -228,6 +231,8 @@ module.exports = {
   FAN_MARKS,
   NO_COUNT,
   BLUR,
+  POLL,
+  focusedCaption,
   TIP,
   TIP_HIDDEN,
   EMPTY_POINT,
@@ -426,6 +431,20 @@ module.exports = {
         if (!(await waitFor(TIP_HIDDEN))) focusFailures.push({ name, stuck: true });
       }
       check('plan: keyboard focus on a caption shows the same tooltip, and moving focus off it hides the tooltip', focusFailures.length === 0, focusFailures);
+
+      // A poll rebuilds every caption: the one that had focus has it still, and its tooltip shows.
+      const pollFailures = [];
+      for (const name of ['epic', 'Unnested']) {
+        const on = await ev(focusCaption(name));
+        const before = on && await waitFor(tipHas(plan.tips[name]));
+        await ev(POLL);
+        const kept = await ev(focusedCaption(name));
+        const tipBack = kept && await waitFor(tipHas(plan.tips[name]));
+        if (!before || !kept || !tipBack) pollFailures.push({ name, on, before, kept, tipBack });
+        await ev(BLUR);
+        if (!(await waitFor(TIP_HIDDEN))) pollFailures.push({ name, stuck: true });
+      }
+      check('plan: a poll leaves keyboard focus on the caption that had it, with its tooltip showing', pollFailures.length === 0, pollFailures);
 
       // The term a tooltip names is the term the search box takes: it cuts the Graph to the band's cards.
       const dotsBefore = Object.keys(all).length;
