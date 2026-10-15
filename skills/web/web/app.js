@@ -2927,7 +2927,13 @@ function closeCard() {
 // close rather than openDetailModal's normal toast — state.active/archived
 // can still name a card whose file a poll hasn't caught up with yet, since
 // the poll itself is paused for as long as this popup is open).
+//
+// Back and Forward never write the search box: the box keeps its text, and an
+// entry that landed with another `q` is replaced to carry the box's text, so
+// the address always says what the box says. This comes first, ahead of the
+// bail-out below, because the address moved whether or not the popup does.
 window.addEventListener('popstate', () => {
+  followSearchInAddress($('#search-input').value);
   // An edit/new-card form, or any other popup, covers the same z-index slot
   // as the detail popup and may hold unsaved typing (formSnapshot) that
   // openDetailModal would silently overwrite if Edit were then clicked on
@@ -3076,6 +3082,30 @@ function clearSearch() {
   if (!input || !input.value) return;
   writeSearch('', 'clear');
 }
+
+// The address follows the box: one more listener of the writer, so every write,
+// whatever its reason, leaves the address's `q` equal to the box's text (an
+// empty box drops it), and the poll, which never writes the box, never moves
+// it. It REPLACES the history entry the page is on, never pushes one, so typing
+// adds nothing to Back and Forward, and only when `q` would change. Replacing
+// only on a change does not keep fast typing under the browser's limit on
+// replacements (every keystroke changes `q`), and Safari throws a SecurityError
+// past it, so a refused replacement is let go: the address lags the box, and the
+// next write that changes `q` catches it up, while the listeners after this one
+// still hear of the write. card-history.js decides what the address becomes;
+// `card` and `view` ride along untouched. The popstate listener calls this too,
+// after Back or Forward lands.
+function followSearchInAddress(text) {
+  const search = nextSearchAddress(location.search, text);
+  if (search == null) return;
+  try {
+    history.replaceState(null, '', location.pathname + search);
+  } catch (e) {
+    /* the address lags the box until the next change */
+  }
+}
+
+onSearchWrite(followSearchInAddress);
 
 // What Esc does when nothing is open for it to close: today it clears the
 // search box. The one place the end of the Esc chain lives.

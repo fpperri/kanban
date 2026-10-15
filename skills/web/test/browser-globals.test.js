@@ -17,6 +17,7 @@ const PAGE_GLOBALS = [
   'isDragging',
   'renderGraphView',
   'selectedIds',
+  'writeSearch',
 ];
 
 const webDir = path.join(__dirname, '..', 'web');
