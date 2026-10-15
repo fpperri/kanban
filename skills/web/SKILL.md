@@ -736,8 +736,8 @@ to `127.0.0.1` only.
   in the browser per board, in the board's own `prefs` entry, and the preferences sheet
   shows and sets it. An open panel adds nothing to the header's height, and a press
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
-  four regions, drawn on their own: one for slices (empty so
-  far), the **pill section** with its fold control, a divider, and a foot (empty so far).
+  four regions, drawn on their own: the **slice section** (next entry) with its fold control,
+  the **pill section** with its fold control, a divider, and a foot (empty so far).
   The pill section lists the built-in pills, blocked, review and waiting, in that order,
   each with a count of the cards its query matches, done cards included. The counts are
   taken over the cards the view shows after its status pills and the Archive pill and
@@ -787,6 +787,41 @@ to `127.0.0.1` only.
   never the status pills' classes. The list and its counts are worked out in `pills.js`,
   which needs no other module so that the snapshot can embed it, and the box grows and
   shrinks through the search module's `searchAddAlt` and `searchRemoveAlt`.
+- **Slice section** — the first region of the search panel lists the board's slices, top to
+  bottom: first the tiers some card of the board is in (live or archived; a tier no card is in
+  is left out), each with the icon its type has in the config's `types:` list, then every
+  depth (`depth 0`, `depth 1`, ...). Each entry shows its count, taken over the cards the view
+  shows after its status pills and the Archive pill and before the search box and the run, so
+  setting a run or turning a pill on leaves every count as it was and a run never zeroes the
+  entries needed to grow it again. The entries in the **run** are pressed (`aria-pressed`), and
+  each entry's accessible name states its label, its count and whether it is in the run, such
+  as `epic, 3 cards, in the run`. The run is the `slice:` term at the top level of the query in
+  the box, so a term edited by hand updates the entries at once; a run that covers every slice
+  writes no term, and a single unknown name, which cuts nothing, shows every entry as pressed.
+  A click on an entry outside the run grows the run to it; a click on an end of the run drops
+  that end; a click on a run of one brings every slice back; a click inside the run that is
+  not an end changes nothing. A right-click keeps only that slice, and so do the context-menu
+  key and Shift+F10 on a focused entry. The term is written through the search module's
+  `searchSetSlice`: a run set on a query that holds `|` brackets the query, so
+  `tags:ui | #12` becomes `(tags:ui | #12) slice:goal..objective` and the run cuts all of it, not
+  only the last group; a run set again replaces the one there, and a run that reaches an end
+  of the list leaves that end open (`slice:epic..`). A run is not an alternative of the box, so
+  turning a pill on or off, or soloing it, leaves the run where it stands. In the Graph the
+  run's term hides the cards outside it while the rest of the query lights (see the Graph view
+  entry), and a typed search stays the anchor, following the box. **Keys:** `[` moves the
+  bottom of the run up and `]` moves it down, `{` moves its top up and `}` moves it down, in
+  every view and with the search panel open or closed. Each stops at the ends of the axis, and
+  the top never passes the bottom. They read the shared key guard, so they do nothing while a
+  text field (the search box too) has focus or while a card menu, a dialog, the notifications
+  panel or the preferences sheet is up, and a chord (Ctrl, Cmd, Alt) is not them (AltGr, which
+  types the brackets on a layout with none of its own, is not a chord). With the panel
+  closed, the chip counts a run that cuts and its name says so (`1 on: slice goal..objective`). The
+  section folds with its fold control for the visit, and the preferences sheet's **Slice
+  section starts folded** (on by default) says how it starts. The entries are `.slice-entry`
+  buttons, never the pills' classes, built once and updated in place by every render (the
+  poll's included), so an entry that has focus keeps it; Tab reaches the fold control and
+  every entry, and Enter and Space act as a click. The list and the arithmetic of the run are
+  worked out in `slice-run.js`, which needs no other module so that the snapshot can embed it.
 - **Board pills** — the pill section also lists the board's own pills, after blocked, review
   and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
   query, or a label and a query, shown as its label (the board answer carries them as
@@ -820,7 +855,9 @@ to `127.0.0.1` only.
   Map's rich row and the card detail, whose scope line says "Archived leaves count as done."
   or "Archived leaves are left out." A value an earlier visit saved under the retired
   `rollup.archived` key is not read, so a browser that kept `false` there counts archived
-  leaves again and the sheet shows the toggle on. **Pill section starts folded** is off by
+  leaves again and the sheet shows the toggle on. **Slice section starts folded** is on by
+  default: it says how the search panel's slice section starts, and the section's own fold
+  control still folds it for the visit. **Pill section starts folded** is off by
   default: it says how the search panel's pill section starts, and the section's own fold
   control still folds it for the visit. **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
@@ -907,7 +944,8 @@ to `127.0.0.1` only.
   a select or an editable element has focus) and a surface check (an open card menu, an
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
   does `p`, which flips the search panel's switch (see Search panel), and `m`, which
-  steps through the pills; Ctrl+F
+  steps through the pills, and so do `[`, `]`, `{` and `}`, which move the run of slices
+  (see Slice section); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the
