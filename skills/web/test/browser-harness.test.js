@@ -100,7 +100,7 @@ test('a plain key is a key down with its text and a key up', () => {
 test('Escape and the arrows carry their key codes and no text, Enter types a carriage return', () => {
   assert.deepStrictEqual(keyEvents('Escape')[0], { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27, modifiers: 0 });
   assert.strictEqual(keyEvents('Enter')[0].windowsVirtualKeyCode, 13);
-  assert.strictEqual(keyEvents('Enter')[0].text, '');
+  assert.strictEqual(keyEvents('Enter')[0].text, '\r');
   assert.strictEqual(keyEvents('ArrowLeft')[0].windowsVirtualKeyCode, 37);
   assert.strictEqual(keyEvents('ContextMenu')[0].windowsVirtualKeyCode, 93);
   assert.strictEqual(keyEvents('F10')[0].windowsVirtualKeyCode, 121);
