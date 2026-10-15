@@ -81,6 +81,7 @@ test('the pill section has a fold control that says whether it is open and names
   assert.strictEqual(attr(fold, 'type'), 'button');
   assert.strictEqual(attr(fold, 'aria-expanded'), 'true', 'unfolded to start');
   assert.strictEqual(attr(fold, 'aria-controls'), 'search-pills');
+  assert.strictEqual(attr(fold, 'aria-label'), 'Pills', 'a name without the caret the stylesheet draws after it');
   assert.notStrictEqual(attr(fold, 'data-keeps-selection'), null);
   const pills = tagOf('search-pills');
   assert.strictEqual(attr(pills, 'role'), 'group');
