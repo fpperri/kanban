@@ -121,7 +121,7 @@ function standIn(over = {}) {
     if ((view !== 'graph' || layout !== 'tiers') && !over.stepsEverywhere) return;
     if (over.nDead) return;
     st().names = over.stuck ? 'all' : nextName(st().names);
-    if (typeof focus === 'string' && focus.startsWith('names=')) focus = over.focusLost ? null : `names=${st().names}`;
+    if (typeof focus === 'string' && focus.startsWith('names=')) focus = over.focusLost ? null : over.focusFollows ? `names=${st().names}` : focus;
   };
   const labels = () => (view === 'graph' && layout === 'tiers' ? model().nodes.length + (doubled ? 1 : 0) : 0);
   const group = () => {
@@ -332,8 +332,9 @@ test('a search panel that eats the key fails: the key must work with the panel o
   await failsWith({ panelBlocksN: true }, /with the search panel open and focus outside the box, n steps the setting/, 'the panel blocks n');
 });
 
-test('a step that loses the focus of an option, or a footer that goes stale, fails', async () => {
+test('a step that loses the focus of an option or moves it to the option the step reached, or a footer that goes stale, fails', async () => {
   await failsWith({ focusLost: true }, /n with focus on an option steps the setting, and the option keeps focus/, 'focus lost');
+  await failsWith({ focusFollows: true }, /n with focus on an option steps the setting, and the option keeps focus/, 'focus moves to the option the step reached');
   await failsWith({ lineStale: true }, /footer line/, 'the footer line does not follow');
 });
 
