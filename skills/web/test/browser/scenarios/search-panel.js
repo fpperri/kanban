@@ -312,8 +312,8 @@ module.exports = {
 
     // --- the keyboard: Tab, Enter and Space ---------------------------------------------------------------------------------
     await closePanel();
-    await ev(`document.getElementById('search-input').focus()`);
-    check('focus in the box opens the panel that Esc had closed', await waitFor(panelOpen));
+    await key('Tab', { shift: true });
+    check('Shift+Tab from the toggle reaches the box and opens the panel that Esc had closed', await ev(boxFocused) && await waitFor(panelOpen), await focusId());
     await key('Tab');
     check('Tab from the box reaches the toggle', (await focusId()) === 'search-panel-toggle', await focusId());
     await key('Enter');
@@ -354,6 +354,10 @@ module.exports = {
     check('the third Esc, with focus in the box, clears it', await boxIs(''), await boxText());
     await focusBoxAtEnd();
     check('Esc left the switch on: focusing the box opens the panel again', await waitFor(panelOpen) && await ev(SWITCH_ON));
+    await closePanel();
+    await ev(`document.activeElement.blur()`);
+    await clickOn('#search-input');
+    check('a click into the box opens the panel', await waitFor(panelOpen) && await ev(boxFocused));
     await openPanel();
     await ev(`document.querySelector(${JSON.stringify(pillSel('review'))}).focus()`);
     await key('Escape');
