@@ -887,7 +887,8 @@ function toggleView(mode) {
   const from = loadViewMode();
   viewMode = from === mode ? 'board' : mode;
   saveViewMode();
-  setSelection(selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText: $('#search-input').value })); // R14: a search typed in the Graph is not the anchor anywhere else
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText: $('#search-input').value }); // a search typed in the Graph is not the anchor anywhere else
+  if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
@@ -3134,7 +3135,7 @@ function writeSearch(text, reason) {
   const input = $('#search-input');
   if (!input) return;
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
-  boxWriteText = text;
+  boxWritten = true;
   renderBoard();
   searchWriteListeners.forEach((listener) => listener(text, reason));
 }
@@ -3171,17 +3172,17 @@ onSearchWrite(followSearchInAddress);
 
 // The selection follows the box while the Graph is shown: a search typed there is
 // the anchor of the selection (selectionAfterTyping, selection.js), so the Graph
-// lights its matches instead of hiding the rest. The writer leaves the text it
-// wrote here and the repaint it makes takes it into the selection, through
-// setSelection like every other write, before the id set is worked out: the one
-// repaint paints the new anchor, and parses and matches the box once. The other
-// views keep filtering and select nothing.
-let boxWriteText = null;
+// lights its matches instead of hiding the rest. The writer marks that it wrote and
+// the repaint it makes takes the box into the selection, through setSelection like
+// every other write, before the id set is worked out: the one repaint paints the
+// new anchor, and parses and matches the box once. The other views keep filtering
+// and select nothing.
+let boxWritten = false;
 
 function selectionFollowingBox(selection) {
-  const text = boxWriteText;
-  boxWriteText = null;
-  return text !== null && loadViewMode() === 'graph' ? selectionAfterTyping(selection, text) : selection;
+  const written = boxWritten;
+  boxWritten = false;
+  return written && loadViewMode() === 'graph' ? selectionAfterTyping(selection, $('#search-input').value) : selection;
 }
 
 // What Esc does when nothing is open for it to close: today it clears the

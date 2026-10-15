@@ -129,9 +129,9 @@ function graphNeighbours(model, id) {
 }
 
 // --- lighting ------------------------------------------------------------------
-// The Graph dims everything but a lit set. One lit set drives the dimming whoever
+// The Graph dims everything but what is lit. One lighting drives the dimming whoever
 // asks: the pointer on a card, a lone card picked by a click, a selection, a typed
-// query's matches. A lit set is { nodes: Set of card ids, links: Set of indexes
+// query's matches. A lighting is { nodes: Set of card ids, links: Set of indexes
 // into model.links } or null when there is nothing to light, which dims nothing.
 
 // The cards among `ids` that the Graph draws, and the relations that run between

@@ -9,7 +9,9 @@
 // click: a plain click makes the card the anchor of a new selection, Shift or
 // Ctrl/Cmd adds one card or takes it out (the layout has no reading order to
 // range over), all painted in place, and a double click opens, because
-// dragging a card makes a bare click a selection gesture.
+// dragging a card makes a bare click a selection gesture. What is selected is
+// lit and the rest dims (graphLightCards); a search typed in the box hides
+// nothing, it is the anchor of the selection and its matches light.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
@@ -198,8 +200,8 @@ function graphClearFocus() {
   for (const el of graphCur.svg.querySelectorAll('.graph-near')) el.classList.remove('graph-near');
 }
 
-// The one dimming: everything but the lit set (graphLit, graph-model.js) dims, and
-// the set and the lines between its cards stay lit. The pointer, a lone card, a
+// The one dimming: everything but the lighting (graphLit, graph-model.js) dims, and
+// its cards and the lines between them stay lit. The pointer, a lone card, a
 // selection and a typed search all light through here; null lights nothing.
 function graphLightCards(lit) {
   graphClearFocus();

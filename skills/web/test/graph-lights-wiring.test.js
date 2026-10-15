@@ -458,7 +458,7 @@ test('a selection built outside the Graph is not touched by typing there', async
   assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(5)] });
 });
 
-// --- the lit set is one mechanism -----------------------------------------------------
+// --- the lighting is one mechanism ----------------------------------------------------
 
 function fakeGraph(page) {
   const el = () => {
@@ -475,7 +475,7 @@ function fakeGraph(page) {
   return { svg, nodes, links, model };
 }
 
-test('lighting a set dims the canvas and marks exactly the set and the lines between its cards, and lighting another set replaces it', async () => {
+test('a lighting dims the canvas and marks exactly its cards and the lines between them, and the next lighting replaces it', async () => {
   const s = await open();
   s.page.ctx.graphLightCards = s.realLightCards;
   const f = fakeGraph(s.page);
@@ -494,7 +494,7 @@ test('lighting a set dims the canvas and marks exactly the set and the lines bet
   assert.deepStrictEqual(lit(), []);
 });
 
-test('there is one dimming mechanism: the hover, the lone card and the selection all go through the lighting of a set', async () => {
+test('there is one dimming mechanism: the hover, the lone card and the selection all go through the same lighting', async () => {
   const s = await open();
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
   const body = (name) => (src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`)) || [''])[0];

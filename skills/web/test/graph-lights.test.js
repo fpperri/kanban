@@ -8,7 +8,7 @@ const { parseSearchQuery, filterCards } = require('../web/search');
 
 // What the Graph lights. A query typed in the Graph hides nothing: it is the
 // anchor of the selection, and its matches light while the rest dims. One pure
-// decision says which cards a Graph query hides and which it lights, one lit set
+// decision says which cards a Graph query hides and which it lights, one lighting
 // drives the dimming whether it comes from the pointer, a lone card or a
 // selection, and the layout never hears of the query.
 
@@ -102,18 +102,18 @@ test('the check is a real one: hiding the non-matches, as the Graph did before, 
   assert.notStrictEqual(graphSignature(hidden, 'tiers', { statuses: STATUSES }), graphSignature(kept, 'tiers', { statuses: STATUSES }));
 });
 
-// --- a lit set ------------------------------------------------------------------------
+// --- a lighting -----------------------------------------------------------------------
 
 const model = () => graphBuild(POOL, { ctx: CTX, visibleIds: drawn(matchOf('')) });
 
-test('a lit set is the cards asked for that the Graph draws, and the relations that run between two of them', () => {
+test('a lighting is the cards asked for that the Graph draws, and the relations that run between two of them', () => {
   const m = model();
   const lit = graphLit(m, new Set([1, 3, 5, 6, 99]));
   assert.deepStrictEqual(sorted(lit.nodes), [1, 3, 5], 'card 6 is archived and not drawn, card 99 is not on the board');
   assert.deepStrictEqual([...lit.links].map((i) => `${m.links[i].from}>${m.links[i].to}`), ['1>3']);
 });
 
-test('a lit set of nothing is no lit set, so nothing dims', () => {
+test('a lighting of nothing is none at all, so nothing dims', () => {
   const m = model();
   assert.strictEqual(graphLit(m, new Set()), null);
   assert.strictEqual(graphLit(m, new Set([99])), null);

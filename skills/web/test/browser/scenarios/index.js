@@ -12,6 +12,7 @@ module.exports = [
   require('./key-guard'),
   require('./card-click'),
   require('./selection'),
+  require('./graph-lights'),
   require('./config-keys'),
   require('./smoke'),
   require('./calendar-jump'),
