@@ -158,6 +158,16 @@ test('the exit code is 1 when nothing ran, so an empty run never passes', () => 
   assert.strictEqual(exitCodeFor([]), EXIT.FAILED);
 });
 
+test('the summary lines up its columns whatever the longest scenario name is', async () => {
+  const results = await runScenarios([ok('graph', 'a'), ok('tier-fan-unnested', 'b')], fakeEnv(), quiet);
+  const lines = summaryLines(results).filter((l) => /^PASS /.test(l));
+  assert.strictEqual(lines.length, 2);
+  const at = (l) => l.indexOf('checks');
+  assert.strictEqual(at(lines[0]), at(lines[1]), lines.join('\n'));
+  const timeAt = (l) => l.search(/\s\d+(\.\d+)?s\s/);
+  assert.strictEqual(timeAt(lines[0]), timeAt(lines[1]), lines.join('\n'));
+});
+
 test('the summary names every scenario with its verdict, then the totals', async () => {
   const boom = { name: 'boom', board: 'fixture', run: async () => { throw new Error('nope'); } };
   const results = await runScenarios([ok('graph', 'a', 'b'), boom], fakeEnv(), quiet);

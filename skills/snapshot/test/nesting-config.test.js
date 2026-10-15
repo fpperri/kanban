@@ -4,8 +4,11 @@ const { parseConfig } = require('../../web/scripts/config-store');
 const { BOARD, withSnapshot } = require('./nesting-fixture');
 
 // The snapshot reads the same config.yaml lists as kanban-web: the card types
-// (a name and an optional color each) and the priority order that sorts
-// siblings with no rank.
+// (a name, an optional color and an optional icon each), the priority order that
+// sorts siblings with no rank, the statuses, the board pills (a label and a query
+// each) and the hierarchy (the type names that are the tiers). The tables below
+// pin each reader to kanban-web's entry form by entry form, and the last tests
+// pin the placeholders a config value may name.
 
 function embeddedConst(html, name) {
   const m = new RegExp(`const ${name}=(.*);\\n`).exec(html);

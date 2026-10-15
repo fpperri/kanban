@@ -1,14 +1,18 @@
 'use strict';
 // The browser runner's harness: everything a scenario stands on, kept apart
-// from the scenarios so it can be unit tested without a browser (see
-// skills/web/test/browser-harness.test.js and its two siblings).
+// from the scenarios so it can be unit tested without a browser (see the
+// skills/web/test/browser-*.test.js files that require it, browser-harness.test.js
+// first).
 //
-//   command line   parseArgs, selectScenarios, withFault
-//   Chrome         chromeArgs (the sandbox switch)
-//   input          keyEvents, contextMenuExpr
-//   processes      createRegistry: what a run starts, and ending all of it
-//   the loop       runScenarios: a timeout and a console-error check for each
-//                  scenario, and whatever happens to one recorded under its name
+//   command line     parseArgs, selectScenarios, withFault
+//   Chrome           chromeArgs (the sandbox switch)
+//   input            keyEvents, contextMenuExpr
+//   processes        createRegistry: what a run starts, and ending all of it
+//   starting Chrome  startChromeUntilPage, waitForPageTarget: a Chrome that lists a
+//                    page, started again once if it never does
+//   the loop         runScenarios: a timeout and a console-error check for each
+//                    scenario, and whatever happens to one recorded under its name;
+//                    summaryLines: its report
 //
 // No dependencies; needs Node >= 22 (global fetch and WebSocket).
 
@@ -364,9 +368,10 @@ function exitCodeFor(results) {
 
 function summaryLines(results) {
   const lines = ['', 'Scenarios'];
+  const width = Math.max(10, ...results.map((r) => r.name.length));
   for (const r of results) {
     const note = r.error ? `  ${r.error}` : `  ${r.checks.length} checks`;
-    lines.push(`${r.status}  ${r.name.padEnd(10)} ${seconds(r.ms).padStart(7)}${note}`);
+    lines.push(`${r.status}  ${r.name.padEnd(width)} ${seconds(r.ms).padStart(7)}${note}`);
   }
   const failed = results.filter((r) => r.status === 'FAIL').length;
   const checks = results.reduce((n, r) => n + r.checks.length, 0);
