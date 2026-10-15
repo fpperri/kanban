@@ -173,7 +173,7 @@ function standIn() {
     if (/^\[\.\.\.new Set\(\[\.\.\.document\.querySelectorAll\('#board \.card-el'\)\]/.test(expr)) return planIds;
     if (/^JSON\.stringify\(Object\.fromEntries/.test(expr)) return JSON.stringify(panel.CASES.counts);
     if (/getElementById\('search-chip'\);return/.test(expr)) return { hidden: false, text: '1', name: '1 on: review' };
-    if (/#search-pills \.query-pill'\)\]\.map\(\(b\)=>b\.dataset\.pillKey\)$/.test(expr)) return ['blocked', 'review', 'waiting'];
+    if (/#search-pills \.query-pill'\)\]\.filter\(.*\.map\(\(b\)=>b\.dataset\.pillKey\)$/.test(expr)) return ['blocked', 'review', 'waiting'];
     if (/^document\.activeElement&&\(document\.activeElement\.id/.test(expr)) return 'search-panel-toggle';
     if (/offsetHeight/.test(expr)) return 40;
     if (/fetch\('\/api\/cards\//.test(expr)) return 200;
