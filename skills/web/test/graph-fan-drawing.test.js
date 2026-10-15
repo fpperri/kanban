@@ -207,10 +207,11 @@ test('drawing: the block has a column for each status, in the board\'s order, an
     assert.deepStrictEqual(col.ids.slice().sort((a, b) => a - b), want.filter((c) => c.status === col.label).map((c) => c.id).sort((a, b) => a - b), col.label);
     assert.strictEqual(col.count, col.ids.length);
   }
-  for (let i = 1; i < plan.block.columns.length; i++) assert.ok(plan.block.columns[i].x >= plan.block.columns[i - 1].x + plan.block.columns[i - 1].w - 0.01, 'columns do not overlap');
+  // the plan rounds each number to a hundredth, so two that meet can be 0.015 apart
+  for (let i = 1; i < plan.block.columns.length; i++) assert.ok(plan.block.columns[i].x >= plan.block.columns[i - 1].x + plan.block.columns[i - 1].w - 0.02, 'columns do not overlap');
 });
 
-test('drawing: the block\'s title is Unnested and its count, and each column is captioned with its status and count, inside the column', () => {
+test('drawing: the block\'s title is Unnested, and each column is captioned with its status, inside the column, both counted in their tips', () => {
   const plan = planOf(planModel());
   const { block } = plan;
   assert.deepStrictEqual([block.title.name, block.title.count], ['Unnested', PLAN.block.length]);
@@ -218,7 +219,7 @@ test('drawing: the block\'s title is Unnested and its count, and each column is 
   for (const col of block.columns) {
     assert.deepStrictEqual([col.caption.name, col.caption.count], [col.label, col.ids.length]);
     assert.ok(col.caption.x >= col.x && col.caption.x < col.x + col.w, `${col.label}'s caption starts in its column`);
-    assert.ok(col.w >= `${col.label} ${col.count}`.length * 6, `${col.label}'s column is wide enough for its caption`);
+    assert.ok(col.w >= col.label.length * 6, `${col.label}'s column is wide enough for its caption`);
     assert.strictEqual(col.caption.y, block.title.y, 'the captions share a baseline under the title');
   }
   assert.ok(block.title.dy.startsWith('-'), 'the title stands above the captions');

@@ -40,7 +40,7 @@ function fakeDocument() {
 function stamp(model, layout, kind) {
   const sandbox = { document: fakeDocument() };
   vm.createContext(sandbox);
-  const helpers = ['graphEl', 'graphTspan', 'graphCaptionEl', 'graphDrawPlan'].map((n) => fn(n)).join('\n');
+  const helpers = ['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan'].map((n) => fn(n)).join('\n');
   vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${helpers}`, sandbox);
   const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
@@ -79,7 +79,7 @@ test('the fan is stamped from the plan: an arc for each guide, a line for each d
   });
 });
 
-test('a caption is a text with the name and the count in two tspans, at its place on the seam, its text running away from it', () => {
+test('a caption is a text with its name in one tspan, at its place on the seam, its text running away from it', () => {
   const v = fanOf('tiers');
   const captions = v.by('graph-caption').filter((c) => !c.attrs.class.includes('graph-loose-caption'));
   assert.strictEqual(captions.length, v.plan.captions.length);
@@ -87,11 +87,11 @@ test('a caption is a text with the name and the count in two tspans, at its plac
     const want = v.plan.captions[i];
     assert.strictEqual(c.tag, 'text');
     assert.deepStrictEqual([c.attrs.x, c.attrs.y, c.attrs.dy, c.attrs['text-anchor']], [String(want.x), String(want.y), want.dy, want.anchor]);
-    assert.deepStrictEqual(c.children.map((t) => [t.tag, t.textContent]), [['tspan', want.name], ['tspan', String(want.count)]]);
-    assert.ok(c.children[0].attrs.class === 'graph-caption-name' && c.children[1].attrs.class === 'graph-caption-count');
+    assert.deepStrictEqual(c.children.map((t) => [t.tag, t.textContent]), [['tspan', want.name]]);
+    assert.strictEqual(c.children[0].attrs.class, 'graph-caption-name');
     assert.strictEqual(c.attrs['data-kind'], want.kind, 'a caption says whether it names a tier or a depth');
   });
-  assert.deepStrictEqual(captions.slice(0, 4).map((c) => v.text(c)), ['goal2', 'strategy2', 'objective1', 'epic1']);
+  assert.deepStrictEqual(captions.slice(0, 4).map((c) => v.text(c)), ['goal', 'strategy', 'objective', 'epic']);
   assert.deepStrictEqual(captions.slice(0, 4).map((c) => c.attrs['text-anchor']), ['end', 'start', 'end', 'start'], 'neighbours take opposite sides of the seam');
 });
 
@@ -103,7 +103,7 @@ test('the loose caption is stamped where the plan puts it, outside the rim, anch
   const lone = buildOf([card(1, { type: 'goal' }), card(2, { type: 'epic' })]);
   const bottom = stamp(lone, graphLayout(lone, 'tiers', { statuses: STATUSES }), 'tiers').by('graph-loose-caption')[0];
   assert.strictEqual(bottom.attrs['text-anchor'], 'middle', 'a caption under the fan is centred on its point');
-  assert.deepStrictEqual(c.children.map((t) => t.textContent), ['Unnested, with a tier', '1']);
+  assert.deepStrictEqual(c.children.map((t) => t.textContent), ['Unnested, with a tier']);
 });
 
 test('the Unnested block is a frame, a title and a caption for each column, and its dots are the nodes', () => {
@@ -113,11 +113,11 @@ test('the Unnested block is a frame, a title and a caption for each column, and 
   assert.deepStrictEqual([frame.attrs.x, frame.attrs.y, frame.attrs.width, frame.attrs.height], [v.plan.block.x, v.plan.block.y, v.plan.block.w, v.plan.block.h].map(String));
   assert.strictEqual(frame.attrs['vector-effect'], 'non-scaling-stroke');
   const [title] = v.by('graph-block-title');
-  assert.deepStrictEqual(title.children.map((t) => t.textContent), ['Unnested', String(v.plan.block.title.count)]);
+  assert.deepStrictEqual(title.children.map((t) => t.textContent), ['Unnested']);
   assert.strictEqual(title.attrs.dy, '-1.5em');
   assert.strictEqual(title.attrs['text-anchor'], 'start');
   const captions = v.by('graph-block-caption');
-  assert.deepStrictEqual(captions.map((c) => c.children.map((t) => t.textContent)), v.plan.block.columns.map((c) => [c.label, String(c.count)]));
+  assert.deepStrictEqual(captions.map((c) => c.children.map((t) => t.textContent)), v.plan.block.columns.map((c) => [c.label]));
   assert.deepStrictEqual(captions.map((c) => c.attrs.x), v.plan.block.columns.map((c) => String(c.caption.x)));
   assert.strictEqual(v.all.filter((e) => (e.attrs.class || '').split(' ').includes('graph-node')).length, v.plan.nodes.length);
 });
@@ -146,12 +146,12 @@ test('the view makes the marks with DOM calls and classes only: no style attribu
 test('app.css has a rule for each class the fan\'s marks use, drawn in tokens and sized for the screen', () => {
   const v = fanOf('tiers');
   const used = new Set();
-  for (const el of v.all) for (const c of (el.attrs.class || '').split(' ')) if (c.startsWith('graph-')) used.add(c);
-  for (const c of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-caption-name', 'graph-caption-count', 'graph-loose-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption']) {
+  for (const el of v.all) for (const c of (el.attrs.class || el.className || '').split(' ')) if (c.startsWith('graph-')) used.add(c);
+  for (const c of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-caption-name', 'graph-loose-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-tip']) {
     assert.ok(used.has(c), `${c} is stamped`);
   }
-  for (const c of ['graph-guide', 'graph-guide-empty', 'graph-guide-sub', 'graph-divider', 'graph-caption', 'graph-caption-muted', 'graph-caption-name', 'graph-caption-count',
-    'graph-loose-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption']) {
+  for (const c of ['graph-guide', 'graph-guide-empty', 'graph-guide-sub', 'graph-divider', 'graph-caption', 'graph-caption-muted', 'graph-caption-name',
+    'graph-loose-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-tip', 'graph-tip-line', 'graph-tip-term']) {
     assert.ok(new RegExp(`\\.${c}(?![\\w-])`).test(css), `${c} has a rule`);
   }
   for (const sel of ['.graph-caption', '.graph-block-title', '.graph-block-caption']) {

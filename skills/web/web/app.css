@@ -1227,13 +1227,19 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-ring-label { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-title { fill: var(--ink); font-weight: 600; font-size: calc(15px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 
-.graph-caption, .graph-block-caption, .graph-block-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-caption, .graph-block-caption, .graph-block-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: all; }
 .graph-caption, .graph-block-caption { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-block-title { fill: var(--ink); font-weight: 600; font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-caption-name { fill: var(--ink); }
-.graph-caption-count { fill: var(--mut); }
 .graph-caption-muted .graph-caption-name { fill: var(--mut); }
 .graph-loose-caption { font-style: italic; }
+.graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { outline: none; stroke: var(--accent-soft); }
+.graph-caption:focus-visible .graph-caption-name, .graph-block-caption:focus-visible .graph-caption-name, .graph-block-title:focus-visible .graph-caption-name { fill: var(--accent); }
+.graph-tip { position: absolute; z-index: 3; max-width: min(24em, 100%); padding: 6px 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 0.78em; line-height: 1.4; pointer-events: none; }
+.graph-tip[hidden] { display: none; }
+.graph-tip-line { margin: 0; }
+.graph-tip-line:first-child { font-weight: 600; }
+.graph-tip-term { margin: 3px 0 0; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
 
 .graph-link { fill: none; stroke-width: 1.4px; }
 .graph-link-parent { stroke: var(--mut); opacity: 0.4; }

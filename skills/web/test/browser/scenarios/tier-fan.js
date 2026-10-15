@@ -4,7 +4,11 @@
 // ring for each depth that holds a card without a tier, and the loose cards
 // without a tier sit in the Unnested block outside the fan. The fan goes all the
 // way round the centre but for a narrow seam at the top, where the band captions
-// (name and count) stand one above another, neighbours on opposite sides of it.
+// (a name, no count) stand one above another, neighbours on opposite sides of it.
+// A caption shows its name alone and is a tab stop: the pointer or keyboard focus on
+// it shows a tooltip with the number of its cards, how they split by status and, for
+// a tier or a depth, the slice: term that cuts to it. Typing that term cuts the
+// Graph to the cards of the band.
 // Around the dots the fan also draws a guide arc for each band, a divider between
 // sectors, a caption for the loose cards that have a tier, outside the rim, and
 // the block's title and a caption for each of its columns. No two captions
@@ -17,7 +21,9 @@
 // A dot is read where it is drawn: the translate of its node. The band edges are
 // read from the Graph's own layout (graphCur), so "outside every band" is
 // measured against the band and not against a dot of it. A caption is read from
-// its two tspans, the name and the count, and its x and y.
+// its tspan (the name), its x and y and the tip it carries: the count is read off
+// that tip, and the tooltip itself off the page once the pointer or focus is on a
+// caption.
 //
 // What each board's cards are is written out by hand from the fixtures, and
 // skills/web/test/browser-tier-fan-scenario.test.js holds the lists to the real
@@ -50,6 +56,23 @@ const CASES = {
     starCard: 1,
     unknownIconCard: 14,
     extraLoose: { title: 'Plan the second objective', type: 'objective', status: 'todo' },
+    // What the tooltip of each caption says, line by line, the slice: term last where there is one.
+    tips: {
+      goal: ['2 cards', 'backlog 1 · doing 1', 'slice:goal'],
+      strategy: ['2 cards', 'todo 1 · doing 1', 'slice:strategy'],
+      objective: ['1 card', 'todo 1', 'slice:objective'],
+      epic: ['1 card', 'doing 1', 'slice:epic'],
+      'depth 1': ['4 cards', 'backlog 1 · todo 2 · done 1', 'slice:1'],
+      'depth 2': ['1 card', 'backlog 1', 'slice:2'],
+      'depth 4': ['1 card', 'doing 1', 'slice:4'],
+      'depth 5': ['1 card', 'todo 1', 'slice:5'],
+      'Unnested, with a tier': ['1 card', 'todo 1'],
+      Unnested: ['13 cards', 'backlog 4 · todo 4 · doing 2 · done 3'],
+      backlog: ['4 cards'],
+      todo: ['4 cards'],
+      doing: ['2 cards'],
+      done: ['3 cards'],
+    },
   },
   fixture: {
     depths: [[1], [2, 3, 4, 5, 6], [7, 8]],
@@ -71,16 +94,43 @@ const DOTS = `(()=>{const out={};for(const n of document.querySelectorAll('#grap
 const BAND_EDGES = `(()=>{const bands=graphCur.layout.bands;return {tiers:bands.filter((b)=>b.slice.kind==='tier').map((b)=>b.r1),outer:bands.length?bands[bands.length-1].r1:0}})()`;
 
 // What the fan draws around its dots, as the page has it: each caption (its name,
-// count, kind and place), every guide arc's path, every divider's ends, the caption
+// kind and place), every guide arc's path, every divider's ends, the caption
 // of the loose cards with a tier, and the Unnested block (its frame, its title and
-// the caption of each column). A caption is { name, count, kind, x, y }.
+// the caption of each column). A caption is { name, text, count, kind, tabindex, x, y }:
+// `text` is all it draws, and `count` the number its tip starts with.
 const FAN_MARKS = `(()=>{const q=(s)=>[...document.querySelectorAll('#graph-view '+s)];`
-  + `const cap=(el)=>{const t=[...el.querySelectorAll('tspan')].map((s)=>s.textContent);return {name:t[0],count:Number(t[1]),kind:el.getAttribute('data-kind')||'',x:parseFloat(el.getAttribute('x')),y:parseFloat(el.getAttribute('y'))}};`
+  + `const cap=(el)=>{const t=[...el.querySelectorAll('tspan')].map((s)=>s.textContent);return {name:t[0],text:el.textContent,count:parseInt(el.getAttribute('data-tip')||'',10),kind:el.getAttribute('data-kind')||'',tabindex:el.getAttribute('tabindex'),x:parseFloat(el.getAttribute('x')),y:parseFloat(el.getAttribute('y'))}};`
   + `const frame=q('.graph-block-frame')[0];const title=q('.graph-block-title')[0];const loose=q('.graph-loose-caption')[0];`
   + `return {captions:q('.graph-caption:not(.graph-loose-caption)').map(cap),guides:q('.graph-guide').map((g)=>g.getAttribute('d')),`
   + `dividers:q('.graph-divider').map((l)=>['x1','y1','x2','y2'].map((k)=>parseFloat(l.getAttribute(k)))),loose:loose?cap(loose):null,`
   + `block:frame?{x:parseFloat(frame.getAttribute('x')),y:parseFloat(frame.getAttribute('y')),w:parseFloat(frame.getAttribute('width')),h:parseFloat(frame.getAttribute('height')),`
   + `title:title?cap(title):null,captions:q('.graph-block-caption').map(cap)}:null}})()`;
+
+// The captions, by what each says, and what the pointer and focus do to them.
+const CAPTIONS = `'#graph-view .graph-caption,#graph-view .graph-block-title,#graph-view .graph-block-caption'`;
+const captionNamed = (name) => `[...document.querySelectorAll(${CAPTIONS})].find((x)=>x.textContent===${JSON.stringify(name)})`;
+const captionCentre = (name) => `(()=>{const e=${captionNamed(name)};if(!e)return null;const b=e.getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()`;
+const focusCaption = (name) => `(()=>{const e=${captionNamed(name)};if(!e)return false;e.focus();return document.activeElement===e})()`;
+const BLUR = `document.activeElement&&document.activeElement.blur()`;
+const NO_COUNT = `document.querySelectorAll('#graph-view .graph-caption-count').length`;
+
+// The tooltip as the page shows it, null while it is hidden: its lines, where it, the
+// stage and the caption it describes are on screen, and what that caption says.
+const TIP = `(()=>{const t=document.querySelector('#graph-view .graph-tip');if(!t||t.hidden)return null;`
+  + `const r=(e)=>{const b=e.getBoundingClientRect();return {l:b.left,t:b.top,r:b.right,b:b.bottom}};`
+  + `const s=document.querySelector('#graph-view .graph-stage');const d=document.querySelector('#graph-view [aria-describedby=graph-tip]');`
+  + `return {lines:[...t.children].map((p)=>p.textContent),tip:r(t),stage:r(s),described:d?d.textContent:null,caption:d?r(d):null}})()`;
+const tipHas = (lines) => `(()=>{const t=document.querySelector('#graph-view .graph-tip');return !!t&&!t.hidden&&JSON.stringify([...t.children].map((p)=>p.textContent))===${JSON.stringify(JSON.stringify(lines))}})()`;
+const TIP_HIDDEN = `(()=>{const t=document.querySelector('#graph-view .graph-tip');return !!t&&t.hidden})()`;
+
+// A point of the canvas with nothing on it: the first corner whose element is the canvas itself.
+const EMPTY_POINT = `(()=>{const c=document.querySelector('#graph-view .graph-canvas');if(!c)return null;const s=c.getBoundingClientRect();`
+  + `for(const [x,y] of [[s.left+8,s.top+8],[s.right-8,s.top+8],[s.left+8,s.bottom-8],[s.right-8,s.bottom-8]]){if(document.elementFromPoint(x,y)===c)return {x,y}}return null})()`;
+
+// Typing in the search box, and the dots the Graph draws.
+const typeInBox = (text) => `(()=>{const i=document.getElementById('search-input');i.value=${JSON.stringify(text)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`;
+const dotsAre = (ids) => `JSON.stringify([...new Set([...document.querySelectorAll('#graph-view .graph-node')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids.slice().sort((a, b) => a - b)))}`;
+const dotCountIs = (n) => `document.querySelectorAll('#graph-view .graph-node').length===${n}`;
 
 // The sectors of the fan, as the layout has them: { kind, tops, from, to } in radians,
 // turning from the left of the seam round to its right (`from` the larger), and the
@@ -169,6 +219,17 @@ module.exports = {
   DOTS,
   BAND_EDGES,
   FAN_MARKS,
+  NO_COUNT,
+  BLUR,
+  TIP,
+  TIP_HIDDEN,
+  EMPTY_POINT,
+  captionCentre,
+  focusCaption,
+  tipHas,
+  typeInBox,
+  dotsAre,
+  dotCountIs,
   SECTORS,
   SWEEP,
   CIRCLE,
@@ -190,7 +251,7 @@ module.exports = {
   turned,
   finiteMarks,
   async run(page) {
-    const { ev, open, waitFor, check, shot } = page;
+    const { ev, open, waitFor, check, shot, mouse } = page;
 
     // A page that is being left still answers for a moment after the navigation
     // starts, so a wait on the new page would read the old one. The old page is
@@ -248,12 +309,13 @@ module.exports = {
       const block = radii(all, plan.block);
       check('plan: the Unnested cards sit outside the fan', apart(block) && Math.min(...block) > edges.outer, { block, edges });
 
-      // The captions: a tier that has a card shows its name and count, in hierarchy
+      // The captions: a tier that has a card shows its name, in hierarchy
       // order from the centre, and one caption for each non-empty depth follows.
+      // What each counts is the number its tip starts with.
       const m = await marks();
       const tierCaps = m.captions.filter((c) => c.kind === 'tier');
       const depthCaps = m.captions.filter((c) => c.kind === 'depth');
-      check('plan: each tier that has a card shows one caption with its name and count, in hierarchy order from the centre',
+      check('plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards',
         sameList(names(tierCaps), plan.tierNames) && sameList(tierCaps.map((c) => c.count), plan.tiers.map((ids) => ids.length))
         && tierCaps.every((c, i) => i === 0 || c.y < tierCaps[i - 1].y), tierCaps);
       check('plan: one caption per non-empty depth follows, in depth order', sameList(names(depthCaps), plan.depthNames)
@@ -277,7 +339,7 @@ module.exports = {
       // The sector of loose cards with a tier is one sector, with a caption that counts them.
       const sectors = await ev(SECTORS);
       const looseSectors = sectors.filter((s) => s.kind === 'loose');
-      check('plan: the loose cards with a tier share one sector, under a caption that counts them',
+      check('plan: the loose cards with a tier share one sector, under a caption whose tip counts them',
         looseSectors.length === 1 && sameList(looseSectors[0].tops, plan.looseTier) && !!m.loose && m.loose.count === plan.looseTier.length
         && m.loose.name === 'Unnested, with a tier', { sectors, loose: m.loose });
 
@@ -289,7 +351,7 @@ module.exports = {
         const c = captionOf(id);
         return !!c && c.name === status && all[id].y > c.y && all[id].x >= b.x && all[id].x <= b.x + b.w && all[id].y <= b.y + b.h;
       });
-      check('plan: the Unnested block is titled with its count and has a column caption for each status, in the board\'s order',
+      check('plan: the Unnested block is titled Unnested and has a column caption for each status, in the board\'s order, their tips counting the cards',
         !!b && !!b.title && b.title.name === 'Unnested' && b.title.count === plan.block.length && sameList(names(b.captions), statuses)
         && b.captions.every((c, i) => c.count === plan.blockColumns[statuses[i]].length && (i === 0 || c.x > b.captions[i - 1].x)), b);
       check('plan: every loose card without a tier is in the block under the caption for its status', !!b && statuses.every(underOwn), b);
@@ -315,6 +377,60 @@ module.exports = {
       check('plan: after Fit the whole circle lies inside the canvas', circleOutside(await ev(CIRCLE)).length === 0, await ev(CIRCLE));
       check('plan: no two captions overlap after Fit', !!fitted && overlapping(fitted.captions).length === 0, fitted && overlapping(fitted.captions));
       await shot('tier-fan-plan');
+
+      // A caption is its name alone and a tab stop; what it counts is in its tip.
+      const captionMarks = m.captions.concat(m.loose ? [m.loose] : [], m.block ? [m.block.title].concat(m.block.captions) : []);
+      check('plan: every caption of the fan shows its name alone, with no count in its text, and is a tab stop',
+        captionMarks.length === Object.keys(plan.tips).length && captionMarks.every((c) => c.text === c.name && c.tabindex === '0') && (await ev(NO_COUNT)) === 0, captionMarks);
+
+      // The pointer on a caption shows its tooltip: the count, the split by status and the
+      // term to type, whole on the stage and clear of the caption it describes.
+      const tipClear = (t) => !!t && !!t.caption && t.tip.l >= t.stage.l - 1 && t.tip.r <= t.stage.r + 1 && t.tip.t >= t.stage.t - 1 && t.tip.b <= t.stage.b + 1
+        && (t.tip.t >= t.caption.b - 1 || t.tip.b <= t.caption.t + 1);
+      const hoverFailures = [];
+      for (const name of Object.keys(plan.tips)) {
+        const at = await ev(captionCentre(name));
+        let shown = false;
+        if (at) {
+          await mouse('mouseMoved', at.x, at.y);
+          shown = await waitFor(tipHas(plan.tips[name]));
+        }
+        const t = shown ? await ev(TIP) : null;
+        if (!shown || t.described !== name || !tipClear(t)) hoverFailures.push({ name, at, t });
+      }
+      check('plan: hovering a caption shows its count, its split by status and the slice: term to type in a tooltip, whole on the stage and clear of the caption',
+        hoverFailures.length === 0, hoverFailures);
+      const empty = await ev(EMPTY_POINT);
+      if (empty) await mouse('mouseMoved', empty.x, empty.y);
+      check('plan: moving the pointer off a caption hides the tooltip', !!empty && await waitFor(TIP_HIDDEN), empty);
+
+      // Keyboard focus does the same, and moving focus off a caption hides it.
+      const focusFailures = [];
+      for (const name of ['epic', 'depth 1', 'Unnested', 'done']) {
+        const on = await ev(focusCaption(name));
+        const shown = on && await waitFor(tipHas(plan.tips[name]));
+        const t = shown ? await ev(TIP) : null;
+        if (!shown || t.described !== name || !tipClear(t)) focusFailures.push({ name, on, t });
+        await ev(BLUR);
+        if (!(await waitFor(TIP_HIDDEN))) focusFailures.push({ name, stuck: true });
+      }
+      check('plan: keyboard focus on a caption shows the same tooltip, and moving focus off it hides the tooltip', focusFailures.length === 0, focusFailures);
+
+      // The term a tooltip names is the term the search box takes: it cuts the Graph to the band's cards.
+      const dotsBefore = Object.keys(all).length;
+      const cutFailures = [];
+      for (const [name, ids] of [['epic', plan.tiers[3]], ['depth 1', plan.depths[0]]]) {
+        await ev(focusCaption(name));
+        const named = (await waitFor(tipHas(plan.tips[name]))) ? await ev(TIP) : null;
+        const term = named ? named.lines[named.lines.length - 1] : '';
+        await ev(BLUR);
+        await ev(typeInBox(term));
+        const cut = await waitFor(dotsAre(ids));
+        await ev(typeInBox(''));
+        const back = await waitFor(dotCountIs(dotsBefore));
+        if (!cut || !back) cutFailures.push({ name, term, cut, back, now: await dots() });
+      }
+      check('plan: typing the term a tooltip names cuts the Graph to the cards of that band', cutFailures.length === 0, cutFailures);
 
       // Force and Status draw none of it, and Tiers brings it back.
       for (const other of ['force', 'status']) {
@@ -360,7 +476,7 @@ module.exports = {
         return a <= s.from + 1e-6 && a >= s.to - 1e-6;
       };
       const grownMarks = await marks();
-      check('plan: the loose cards with a tier, two now, still share one sector, and its caption counts both',
+      check('plan: the loose cards with a tier, two now, still share one sector, and its tip counts both',
         looseNow.length === 1 && looseNow[0].tops.length === 2 && looseNow[0].tops.includes(plan.looseTier[0]) && looseNow[0].tops.includes(newId)
         && looseNow[0].tops.every((id) => inSector(id, looseNow[0])) && !!grownMarks.loose && grownMarks.loose.count === 2, { grown, loose: grownMarks.loose });
     }
