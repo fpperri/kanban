@@ -92,7 +92,7 @@ test('the board\'s parents, waits and order are what the scenario says they are'
 test('the option values and defaults the scenario names are the model\'s', () => {
   assert.deepStrictEqual(CASE.values, JSON.parse(JSON.stringify(GRAPH_FAN_OPTION_VALUES)));
   assert.deepStrictEqual(CASE.defaults, JSON.parse(JSON.stringify(GRAPH_FAN_OPTION_DEFAULTS)));
-  assert.deepStrictEqual(CASE.labels, ['Lines', 'Dependencies', 'Order', 'Unnested']);
+  assert.deepStrictEqual(CASE.labels, ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested']);
 });
 
 test('the order really seats the children of card 1 as the scenario says, on the real layout', () => {
@@ -146,7 +146,7 @@ function standIn(over = {}) {
   const rows = () => {
     if (kind !== 'tiers') return null;
     const s = st();
-    const text = { lines: 'Lines', dependencies: 'Dependencies', order: 'Order', unnested: 'Unnested' };
+    const text = { lines: 'Lines', dependencies: 'Dependencies', order: 'Order', names: 'Names', unnested: 'Unnested' };
     return {
       expanded: !s.folded,
       label: s.folded ? 'Expand Options' : 'Collapse Options',

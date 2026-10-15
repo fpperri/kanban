@@ -14,9 +14,12 @@
 // nothing, it is the anchor of the selection and its matches light. A caption of
 // the tier fan shows its name alone; the pointer or focus on it shows its tip, one
 // tooltip the stage shares (graphShowTip), with the count of its cards. Tiers also has an
-// option row (lines, dependencies, order, unnested), folded behind a toggle and kept per board:
+// option row (lines, dependencies, order, names, unnested), folded behind a toggle and kept per board:
 // a press redraws the Graph and hands focus back to the control, and no control of the
-// row holds the poll, starts a pan or clears the selection.
+// row holds the poll, starts a pan or clears the selection. Names says which cards carry their
+// title beside the dot (graphFanNames, graph-model.js): every card of the fan has one label
+// and the graph-named class on its node shows it, so a selection paints names in place; the
+// n key steps the setting through the shared key guard while the Graph shows Tiers.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
@@ -50,6 +53,10 @@ const GRAPH_FAN_OPTION_LABELS = {
   order: {
     label: 'Order',
     hint: 'How siblings are ordered within a sector, the way the Map orders its rows. Status: doing, todo, backlog, the other live statuses in column order, done, archived; ties keep the outline order. Rank: the outline order itself.',
+  },
+  names: {
+    label: 'Names',
+    hint: 'Which cards carry their title beside the dot. Relevant: the selection and the cards it lights, then parents from the highest altitude down, up to 24 names; every card on a fan of 24 cards or fewer. All: every card. None: no card. Press n to step through them.',
   },
   unnested: {
     label: 'Unnested',
@@ -322,7 +329,7 @@ function graphBuildControls(kind, filter, cardCount, relationCount, fan) {
       : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the graph`));
   const key = document.createElement('p');
   key.className = 'graph-key';
-  key.textContent = GRAPH_KEY;
+  key.textContent = fan ? `${GRAPH_KEY} · n steps the names: ${fan.options.names}` : GRAPH_KEY;
   frag.appendChild(key);
   return frag;
 }
@@ -450,9 +457,18 @@ function graphSettleFocus() {
   else graphRestFocus();
 }
 
+// The names of the fan follow the selection like the lighting does: the cards it lights are
+// named (graphFanNames), painted on the nodes already drawn. The layout never reads them.
+function graphPaintNames() {
+  if (!graphCur || graphCur.kind !== 'tiers') return;
+  const named = graphFanNames(graphCur.model, graphLoadOptions().names, { selectedIds, loneCardId: graphLoneCardId() });
+  for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('graph-named', named.has(nid));
+}
+
 function graphPaintSelection() {
   if (!graphCur) return;
   for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', selectedIds.has(nid));
+  graphPaintNames();
   graphRestFocus();
 }
 
@@ -541,6 +557,11 @@ function graphDrawPlan(plan) {
     const label = graphEl('text', { x: n.reach + 3 }, 'graph-node-id');
     label.textContent = String(n.id);
     g.appendChild(label);
+    if (n.name !== undefined) {
+      const name = graphEl('text', { x: n.reach + 3 }, 'graph-node-name');
+      name.textContent = n.name;
+      g.appendChild(name);
+    }
     world.appendChild(g);
     nodeEls.set(n.id, g);
   }
@@ -578,7 +599,7 @@ function renderGraphView() {
     sig = graphSignature(model, kind, layoutOpts);
     if (kind === 'force' && graphArrangements.has(sig)) layout = graphWithPositions(layout, model, graphArrangements.get(sig));
     plan = graphPlan(model, layout, {
-      selectedIds, hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
+      selectedIds, loneCardId: graphLoneCardId(), hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
     });
   } catch (err) {
     const msg = String(err && err.message || err);
@@ -889,7 +910,26 @@ function wireGraphView(host) {
   host.addEventListener('focusout', tipOff);
 }
 
+// The n key steps the fan's names: relevant, all, none. A key that types nothing but reads a
+// letter, so it reads the whole key guard unchanged, as p, m and i do: off while a field has
+// focus and while a menu, a dialog, the notifications panel or the preferences sheet is up;
+// the search panel is not one of those. It acts only while the Graph shows Tiers, the one
+// layout with names. A chord (Ctrl, Cmd, Alt), Shift on the key and a held key are not it;
+// Caps Lock gives a capital N with no Shift, and counts. An option that has focus is
+// rebuilt by the redraw, so it gets focus back, as after a press.
+function onGraphNamesKey(e) {
+  if (!e.key || e.key.toLowerCase() !== 'n' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (keyGuardOff(document)) return;
+  if (loadViewMode() !== 'graph' || graphLoadLayout() !== 'tiers') return;
+  e.preventDefault();
+  const step = () => graphSetOption('names', graphFanNextNames(graphLoadOptions().names));
+  const pill = focusedPill();
+  if (pill) keepPillFocus(pill, step);
+  else step();
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   $('#graph-toggle-btn').addEventListener('click', () => toggleView('graph'));
   wireGraphView($('#graph-view'));
+  document.addEventListener('keydown', onGraphNamesKey);
 });

@@ -48,6 +48,9 @@ function mergeGraphLayout(saved) {
 //   order         how siblings are ordered within a sector, the way the Map orders
 //                 its rows: by status (doing, todo, backlog, ..., done, archived) or
 //                 by rank, the outline's own order.
+//   names         which cards carry their title beside the dot: relevant (the selection
+//                 and what it lights, then parents from the highest altitude down, up to
+//                 a cap; every card on a small fan), all or none (graphFanNames).
 //   unnested      where the cards with no parent, no children and no tier are drawn:
 //                 outermost (one ring outside every depth ring, grouped by status, under
 //                 an `unnested` caption), off (not drawn, and no relation to a drawn card
@@ -57,6 +60,7 @@ const GRAPH_FAN_OPTION_VALUES = Object.freeze({
   lines: Object.freeze(['folded', 'chain', 'all', 'off']),
   dependencies: Object.freeze(['on', 'off']),
   order: Object.freeze(['status', 'rank']),
+  names: Object.freeze(['relevant', 'all', 'none']),
   unnested: Object.freeze(['outermost', 'off', 'depth 0', 'table']),
 });
 
@@ -317,6 +321,65 @@ function graphQueryEffect(match, pool, ctx, { isolated = false } = {}) {
 function graphRestLit(model, { selectedIds, loneCardId }, lines) {
   if (loneCardId !== null && loneCardId !== undefined && model.byId.has(loneCardId)) return graphLit(model, graphNeighbours(model, loneCardId), lines);
   return graphLit(model, selectedIds, lines);
+}
+
+// --- the tier fan's names --------------------------------------------------------
+// Which cards carry their title beside the dot. A pure function of the model, so the
+// page and the tests ask the same question. Relevant names what is lit when the pointer
+// is on no card (graphRestLit): the selection, a typed query's or a pill's matches among
+// it, and a lone card's one-hop relations, always, however many. It then names parents
+// while the named set is under the cap, the highest altitude first (the glossary's: the
+// layers of cards drawn below a card, blind to type), ties by id. A fan of the small size
+// or fewer cards names every card. All names every card and none names none. Names are
+// plain labels; where one sits is the stylesheet's business, and the layout never reads
+// the setting (it is in neither the signature nor the cache key). The cap and the small
+// size are the prototype's (GPROTO_NAMES_CAP, geo.few: 24).
+const GRAPH_FAN_NAMES_CAP = 24;
+const GRAPH_FAN_NAMES_SMALL = 24;
+const GRAPH_FAN_NAME_CHARS = 38;
+
+// A card's altitude among the cards drawn: nodes come parents before children, so one pass
+// from the last node to the first has every child's altitude before its parent's.
+function graphFanAltitudes(model) {
+  const altitude = new Map(model.nodes.map((n) => [n.id, 0]));
+  for (let i = model.nodes.length - 1; i >= 0; i--) {
+    const n = model.nodes[i];
+    if (n.parentId !== null && altitude.has(n.parentId)) altitude.set(n.parentId, Math.max(altitude.get(n.parentId), altitude.get(n.id) + 1));
+  }
+  return altitude;
+}
+
+function graphFanNames(model, names, { selectedIds, loneCardId } = {}) {
+  const mode = GRAPH_FAN_OPTION_VALUES.names.includes(names) ? names : GRAPH_FAN_OPTION_DEFAULTS.names;
+  if (mode === 'none') return new Set();
+  if (mode === 'all' || model.nodes.length <= GRAPH_FAN_NAMES_SMALL) return new Set(model.nodes.map((n) => n.id));
+  const lit = graphRestLit(model, { selectedIds, loneCardId });
+  const named = new Set(lit ? lit.nodes : []);
+  const altitude = graphFanAltitudes(model);
+  const parents = model.nodes.filter((n) => altitude.get(n.id) > 0)
+    .sort((a, b) => altitude.get(b.id) - altitude.get(a.id) || a.id - b.id);
+  for (const n of parents) {
+    if (named.size >= GRAPH_FAN_NAMES_CAP) break;
+    named.add(n.id);
+  }
+  return named;
+}
+
+// The value the n key sets next: relevant, all, none, and round to relevant. A value the
+// row does not offer steps from the default.
+function graphFanNextNames(current) {
+  const values = GRAPH_FAN_OPTION_VALUES.names;
+  const from = values.includes(current) ? current : GRAPH_FAN_OPTION_DEFAULTS.names;
+  return values[(values.indexOf(from) + 1) % values.length];
+}
+
+// The text a name shows: the card's title on one line, cut with an ellipsis past the room a
+// name has, or the card's number when it has no title. Text only: the page sets it as text.
+function graphFanNameText(title, id) {
+  const text = String(title === null || title === undefined ? '' : title).replace(/\s+/g, ' ').trim();
+  if (!text) return `#${id}`;
+  const chars = Array.from(text);
+  return chars.length > GRAPH_FAN_NAME_CHARS ? `${chars.slice(0, GRAPH_FAN_NAME_CHARS - 1).join('').trimEnd()}…` : text;
 }
 
 // --- layout plumbing -----------------------------------------------------------
@@ -1377,6 +1440,11 @@ function graphPlan(model, layout, opts) {
   const titleOf = o.titleOf || ((c) => c.title || '');
   const kind = graphKindOf(layout, o.kind);
   const { clumpOf } = graphClumps(layout, kind);
+  // The tier fan names cards by its Names option; with no option row (Force, Status, a plan
+  // given no options) no card is named and none carries a name.
+  const named = kind === 'tiers' && o.fan
+    ? graphFanNames(model, o.fan.names, { selectedIds: selected, loneCardId: o.loneCardId })
+    : null;
 
   const nodes = model.nodes.map((n) => {
     const p = layout.pos.get(n.id);
@@ -1391,6 +1459,7 @@ function graphPlan(model, layout, opts) {
     if (n.review) cls.push('is-review');
     if (n.deg >= 3) cls.push('graph-hub');
     if (n.deg === 0) cls.push('is-loose');
+    if (named && named.has(n.id)) cls.push('graph-named');
     const r = graphRadius(n);
     const iconed = n.shape !== undefined && n.shape !== 'circle';
     const reach = iconed ? GRAPH_ICONS.typeIconReach(n.shape, r) : r;
@@ -1407,6 +1476,7 @@ function graphPlan(model, layout, opts) {
       flagRing: ring(n.kids > 0 ? 6 : 3),
       cls: cls.join(' '),
       title: `#${n.id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`,
+      ...(named ? { name: graphFanNameText(titleOf(n.card), n.id) } : {}),
     };
   });
 
@@ -1454,7 +1524,9 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_LAYOUTS, mergeGraphLayout,
     GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions, mergeGraphOptionsFolded,
+    GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL,
     graphBuild, graphUnnestedIds, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
+    graphFanNames, graphFanNextNames, graphFanNameText,
     graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
@@ -1474,6 +1546,10 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphLit = graphLit;
   window.graphQueryEffect = graphQueryEffect;
   window.graphRestLit = graphRestLit;
+  window.GRAPH_FAN_NAMES_CAP = GRAPH_FAN_NAMES_CAP;
+  window.GRAPH_FAN_NAMES_SMALL = GRAPH_FAN_NAMES_SMALL;
+  window.graphFanNames = graphFanNames;
+  window.graphFanNextNames = graphFanNextNames;
   window.graphFanPlace = graphFanPlace;
   window.graphFanLines = graphFanLines;
   window.graphLayoutTiers = graphLayoutTiers;

@@ -14,6 +14,7 @@ const PAGE_GLOBALS = [
   'boardControlFocused',
   'graphCur',
   'graphFanLines',
+  'graphFanNames',
   'graphLoadOptions',
   'graphNeighbours',
   'graphSetOption',

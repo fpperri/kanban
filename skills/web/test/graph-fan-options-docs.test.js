@@ -74,6 +74,6 @@ test('the Graph section no longer says every relation is drawn in Tiers', () => 
 test('the web doc says the same in short', () => {
   const text = docGraph();
   assert.match(text, /an option row above the fan, folded until opened/);
-  assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\) and Unnested \(outermost, off, depth 0, table\)/);
+  assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /kept per board/);
 });

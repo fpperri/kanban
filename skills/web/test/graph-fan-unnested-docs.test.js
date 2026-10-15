@@ -23,9 +23,9 @@ const docGraph = () => {
   return webDoc.slice(start, webDoc.indexOf('\n## ', start + 4)).replace(/\s+/g, ' ');
 };
 
-test('the Graph section says the row holds four options, and Unnested is the fourth, with four modes and outermost the default', () => {
+test('the Graph section says the row holds five options, and Unnested is the fifth, with four modes and outermost the default', () => {
   const text = graph();
-  assert.match(text, /It holds four options, the first value of each the default/);
+  assert.match(text, /It holds five options, the first value of each the default/);
   assert.match(text, /\*\*Unnested\*\* says where the cards with no parent, no children and no tier are drawn: \*\*outermost\*\* \(the default\)/);
   assert.match(text, /\*\*off\*\*[^.]*\*\*depth 0\*\*[^.]*\*\*table\*\*/);
 });
@@ -70,7 +70,7 @@ test('the Graph section does not call the ring the outermost ring of the old lay
 
 test('the web doc names the fourth option and the four modes in short', () => {
   const text = docGraph();
-  assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\) and Unnested \(outermost, off, depth 0, table\)/);
+  assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /Unnested says where the cards with no parent, no children and no tier are drawn: on one ring outside the fan by default/);
   assert.doesNotMatch(text, /on the outer ring/);
 });

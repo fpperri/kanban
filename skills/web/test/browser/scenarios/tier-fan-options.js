@@ -2,8 +2,8 @@
 // The tier fan's option row, on the plan board. In Tiers an option row stands above the
 // fan, folded on the first open behind an Options toggle and absent in Force and Status.
 // Unfolded it holds Lines (folded, chain, all, off), Dependencies (on, off), Order
-// (status, rank) and Unnested (outermost, off, depth 0, table; tier-fan-unnested's), one
-// button of each pressed. Each lines mode and the dependencies switch
+// (status, rank), Names (relevant, all, none; fan-names's) and Unnested (outermost, off, depth 0,
+// table; tier-fan-unnested's), one button of each pressed. Each lines mode and the dependencies switch
 // redraw the fan with the number of lines the model predicts (graphFanLines, read from
 // the page) and the number worked out by hand for the board; the order seats the
 // siblings of a sector another way and moves no card to another ring. A reload keeps the
@@ -45,9 +45,9 @@ const CASES = {
   plan: {
     parentLines: { folded: 7, chain: 7, all: 11, off: 0 },
     waits: 6,
-    defaults: { lines: 'folded', dependencies: 'on', order: 'status', unnested: 'outermost' },
-    values: { lines: ['folded', 'chain', 'all', 'off'], dependencies: ['on', 'off'], order: ['status', 'rank'], unnested: ['outermost', 'off', 'depth 0', 'table'] },
-    labels: ['Lines', 'Dependencies', 'Order', 'Unnested'],
+    defaults: { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' },
+    values: { lines: ['folded', 'chain', 'all', 'off'], dependencies: ['on', 'off'], order: ['status', 'rank'], names: ['relevant', 'all', 'none'], unnested: ['outermost', 'off', 'depth 0', 'table'] },
+    labels: ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested'],
     // The children of card 1 and the order each option seats them in, first seat first.
     siblings: [2, 3, 4, 5, 6],
     seats: { status: [2, 3, 6, 4, 5], rank: [2, 3, 4, 5, 6] },
@@ -195,7 +195,7 @@ module.exports = {
     await pressOn(FOLD_TOGGLE);
     check('plan: the toggle unfolds the row', await waitFor(ROW_EXPANDED, 6000), await rowState());
     state = await rowState();
-    check('plan: unfolded the row holds Lines, Dependencies, Order and Unnested, each with its values in words, the first of each pressed',
+    check('plan: unfolded the row holds Lines, Dependencies, Order, Names and Unnested, each with its values in words, the first of each pressed',
       !!state && sameList(state.groups.map((g) => g.label), plan.labels)
       && state.groups.every((g, i) => sameList(g.buttons.map((b) => b.val), plan.values[Object.keys(plan.values)[i]]) && sameList(g.buttons.map((b) => b.text), g.buttons.map((b) => b.val)))
       && sameList(state.groups.map((g) => g.buttons.filter((b) => b.pressed).map((b) => b.val).join()), Object.values(plan.defaults))
@@ -271,8 +271,8 @@ module.exports = {
     await load('plan');
     await waitFor(ROW_EXPANDED, 6000);
     state = await rowState();
-    check('plan: a reload keeps the options and the fold: chain, on, rank, unfolded',
-      !!state && state.expanded === true && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', plan.defaults.unnested]), state);
+    check('plan: a reload keeps the options and the fold: chain, on, rank, relevant, outermost, unfolded',
+      !!state && state.expanded === true && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
     await settledOn(plan.withAdded.chain, plan.waits);
     check('plan: and draws what they say', (await counts()).parent === plan.withAdded.chain, await counts());
     check('fixture: another board starts folded with the defaults, whatever the plan board chose', await load('fixture') && await waitFor(ROW_FOLDED, 6000), await rowState());
@@ -283,7 +283,7 @@ module.exports = {
     await load('plan');
     await waitFor(ROW_EXPANDED, 6000);
     state = await rowState();
-    check('plan: back on the plan board its choices are as they were left', !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', plan.defaults.unnested]), state);
+    check('plan: back on the plan board its choices are as they were left', !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
 
     // --- a press does not pan, and does not clear the selection -------------------------------------
     let target = null;

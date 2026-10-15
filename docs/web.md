@@ -142,12 +142,14 @@ per board, with **Tiers** first:
   when the Archive pill is on.
 
 Tiers has an option row above the fan, folded until opened: Lines (folded, chain,
-all, off), Dependencies (on, off), Order (status, rank) and Unnested (outermost, off,
-depth 0, table). Folded, the default, draws a line to the end of each dependency chain
-and one counted line for a parent's other children on one ring. Unnested says where the
-cards with no parent, no children and no tier are drawn: on one ring outside the fan by
-default, not at all, on the depth 0 ring, or in the block outside the rim. The row's
-choices are kept per board.
+all, off), Dependencies (on, off), Order (status, rank), Names (relevant, all, none)
+and Unnested (outermost, off, depth 0, table). Folded, the default, draws a line to the
+end of each dependency chain and one counted line for a parent's other children on one
+ring. Names puts a card's title beside its dot: relevant, the default, names the
+selection, what it lights and the highest parents, all names every card and none names
+no card; the n key steps through them. Unnested says where the cards with no parent, no
+children and no tier are drawn: on one ring outside the fan by default, not at all, on
+the depth 0 ring, or in the block outside the rim. The row's choices are kept per board.
 
 A dot takes its status colour, grows with its relations, goes hollow when done
 and dim when archived. A ring around it means children; red is blocked, amber

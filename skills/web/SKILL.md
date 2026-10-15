@@ -1594,13 +1594,13 @@ to `127.0.0.1` only.
   ring is **blocked**, an amber ring **waiting**, a gold ring **review**; the child ring and
   the flag rings sit outside every shape, the star's points included. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
-  the view is zoomed in, or when the graph is small. **Relations:** in Force and Status a solid line joins a
+  the view is zoomed in, or when the graph is small; a card the Tiers fan names prints its title there instead (see **Options**). **Relations:** in Force and Status a solid line joins a
   parent to its child, in Tiers the Lines option says which parent lines are drawn (see **Options**),
   and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
   root there; a card waiting on a hidden card still reads waiting.
   **Options.** Tiers has an **option row** above the fan, folded behind an Options toggle, like the Map's, and starts
-  folded; Force and Status have no option row. It holds four options, the first value of each the
+  folded; Force and Status have no option row. It holds five options, the first value of each the
   default. **Lines** draws the parent lines: **folded** (the default) gives a line to the end of each
   dependency chain, as the Map draws its chain ends, and a parent's other children on one ring share one
   **counted line** that prints their count; **chain** gives a line to every chain end and none to the
@@ -1608,6 +1608,18 @@ to `127.0.0.1` only.
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
   orders its rows, or by **rank**, the outline's own order; cards of one status keep the outline's order.
+  **Names** says which cards carry their title beside the dot: **relevant** (the default) names the selection
+  and the cards it lights (a lone card's one-hop relations and a pill's matches among them), then the parents from
+  the highest altitude down while fewer than 24 cards are named, and on a fan of 24 cards or fewer every card;
+  **all** names every card; **none** names no card. Altitude is the glossary's: the layers of cards drawn below a
+  card, blind to type. A name is the card's title as plain text, cut to 38 characters, set in place of its id
+  label; a click on a card names it and what it lights in place, with no redraw. Names never run the layout
+  again: the setting is in neither the layout's cache key nor what re-fits an untouched view, so only the named
+  set changes. **n** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
+  whether the row is folded or not; it reads the shared key guard, so it does nothing while a field has focus (the
+  search box types an n) or while a card menu, a dialog, the notifications panel or the preferences sheet is
+  open, and it works with the search panel open. The footer line under the Graph shows the setting (`n steps the
+  names: relevant`). Force and Status have no names.
   **Unnested** says where the cards with no parent, no children and no tier are drawn: **outermost** (the default) draws
   them on one ring outside every depth ring, grouped by status in the board's order, archived cards last,
   under an `unnested` caption on the seam, level with the ring, whose tooltip counts them and names no slice;
