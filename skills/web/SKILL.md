@@ -1306,9 +1306,19 @@ to `127.0.0.1` only.
   while the graph is up) swaps the board for the **Graph**: every card at once as a dot,
   joined by its relations, in one of three **layouts** picked from a button row in the
   graph's own header (`aria-pressed` marks the active one). **Tiers** opens first and is
-  the default for any unknown saved value. Tiers puts the roots at the centre with each
-  depth on its own ring, a root's tree in its own sector of the circle, and the
-  **unnested** cards (no parent and no children) on the outermost ring. **Force** pulls
+  the default for any unknown saved value. Tiers draws the **tier fan**: the
+  centre is the apex and the fan opens downward from it, a **band** for each tier of the
+  board's `hierarchy:`, tier 1 innermost, then a **ring** for each depth that holds a card
+  without a tier (a card whose type is not in the hierarchy, or that has none). A depth
+  with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
+  the band of its slice, worked out from the whole board, so a hidden or archived parent
+  never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
+  with no warning. A root and the cards nested under it take a **sector** of the fan, its
+  width following the arc its leaves need, with a divider between sectors; loose cards
+  with a tier share a sector of their own. The other **unnested** cards (no parent and no
+  children on the board) sit in the **Unnested** block outside the rim, a column for each
+  status in the board's order, archived cards last. On a board with no hierarchy every
+  slice is a depth, so Tiers draws a ring for each depth. **Force** pulls
   related cards together and rings the unrelated ones round the edge; it is a fixed
   simulation with no randomness, so the same cards always land in the same place. **Status**
   draws one ring per status, the board's last column innermost: done, doing, todo,
@@ -1331,7 +1341,7 @@ to `127.0.0.1` only.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
-  (archived, or filtered out by a pill) is drawn as a root. The search box hides nothing
+  (archived, or filtered out by a pill) is drawn as a root, the top of its own sector, in the band of its slice. The search box hides nothing
   here but a `slice:` cut (see **Lighting**), and it spans live and archived cards alike. A count of cards
   and relations sits in the header; a board with nothing to draw says "No cards to show".
   **Lighting.** The Graph dims everything but what is lit, and one dimming serves the

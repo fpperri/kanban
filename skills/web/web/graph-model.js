@@ -25,6 +25,9 @@ const GRAPH_ICONS = (typeof module !== 'undefined' && module.exports)
 const GRAPH_SEARCH = (typeof module !== 'undefined' && module.exports)
   ? require('./search')
   : window;
+const GRAPH_SLICES = (typeof module !== 'undefined' && module.exports)
+  ? require('./slices')
+  : window;
 
 const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
 
@@ -41,15 +44,30 @@ function mergeGraphLayout(saved) {
 // rank): that is the view's DOM order and defines shift-click range selection.
 // opts.types is the board's `types:` list; a node whose type has an icon there
 // carries that icon's name as its shape, every other node is a circle.
+// opts.hierarchy is the board's hierarchy (type names, top first; ctx.hierarchy
+// when not given). Which slice a card is in, and whether it is nested at all, is
+// read from the whole pool, never from the drawn cards: a card whose parent is
+// hidden or archived keeps its depth and so its slice. Each node carries its
+// slice's index on the board's axis (`sliceIndex`) and `nested` (it has a parent
+// or children somewhere on the board); the model carries the axis.
 
 function graphBuild(cards, opts) {
   const ctx = (opts && opts.ctx) || null;
   const visibleIds = (opts && opts.visibleIds) || null;
   const types = (opts && opts.types) || null;
+  const hierarchy = (opts && opts.hierarchy) || (ctx && ctx.hierarchy) || [];
   const pool = new Map();
   for (const c of cards || []) if (!pool.has(c.id)) pool.set(c.id, c);
   const drawn = new Map();
   for (const c of pool.values()) if (!visibleIds || visibleIds.has(c.id)) drawn.set(c.id, c);
+
+  const whole = [...pool.values()];
+  const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
+  const nested = new Set();
+  for (const c of whole) {
+    const pid = GRAPH_NEST.localParentId(c, ctx);
+    if (pid !== null && pid !== c.id && pool.has(pid)) { nested.add(c.id); nested.add(pid); }
+  }
 
   const parentOf = new Map();
   for (const c of drawn.values()) {
@@ -110,6 +128,8 @@ function graphBuild(cards, opts) {
       depth: parent ? parent.depth + 1 : 0,
       rootId: parent ? parent.rootId : id,
       parentId,
+      sliceIndex: slices.byId.get(id).index,
+      nested: nested.has(id),
     };
     nodes.push(node);
     byId.set(id, node);
@@ -122,7 +142,7 @@ function graphBuild(cards, opts) {
     byId.get(l.to).deg++;
     if (l.kind === 'parent') byId.get(l.from).kids++;
   }
-  return { nodes, links, byId };
+  return { nodes, links, byId, axis: slices.axis };
 }
 
 function graphRadius(node) {
@@ -194,7 +214,7 @@ function graphRestLit(model, { selectedIds, loneCardId }) {
 
 // --- layout plumbing -----------------------------------------------------------
 
-function graphFinish(model, pos, rings, spokes, titles) {
+function graphFinish(model, pos, rings, spokes, titles, extra) {
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -210,100 +230,272 @@ function graphFinish(model, pos, rings, spokes, titles) {
   }
   for (const r of rings) grow(r.cx - r.r, -r.r, r.cx + r.r, r.r);
   for (const t of titles) grow(t.x, t.y - 16, t.x + 80, t.y + 4);
+  const block = extra && extra.block;
+  if (block) grow(block.x, block.y, block.x + block.w, block.y + block.h);
   const bounds = Number.isFinite(x0) ? { x0, y0, x1, y1 } : { x0: -100, y0: -100, x1: 100, y1: 100 };
-  return { pos, rings, spokes, titles, bounds };
+  return { pos, rings, spokes, titles, bounds, ...extra };
 }
 
-// --- layout: tiers -------------------------------------------------------------
-
-const GRAPH_TIER_BASE = 90;
-const GRAPH_TIER_STEP = 85;
-const GRAPH_TIER_LEAF_ARC = 18;
-const GRAPH_TIER_LOOSE_ARC = 9;
-
-function graphLayoutTiers(model) {
-  const { nodes } = model;
-  const kidsOf = new Map();
+// --- layout: the tier fan ------------------------------------------------------
+// graphFanPlace is the one place a card's band, sector and block are decided:
+// pure, from the model alone, in one pass over the nodes in outline order
+// (parents before children), so a chain of any depth costs no stack. What it
+// answers for each drawn card, as { band, sub, sector, block }:
+//   band    the card's slice on the board's axis, read from the whole board, so a
+//           hidden or archived parent never moves a card. A card nested against
+//           the hierarchy (a tier 1 card under the lowest tier) is in its own
+//           tier's band.
+//   sub     the ring inside a tier's band: how many cards above it on its thread
+//           are in the same slice, so a card never shares a ring with its parent.
+//   sector  the tree it belongs to, an index into `sectors`: a root and the cards
+//           nested under it, in outline order, then one sector for the loose cards
+//           that have a tier. null for a card in the block.
+//   block   the status column of the Unnested block, for a loose card with no tier.
+// A card is loose when it is unnested on the whole board: no parent and no
+// children, drawn or not, so hiding its relatives never moves it. `bands` lists
+// the bands that are drawn: every tier, empty ones too, then only the depths
+// that hold a card without a tier that is not in the block (a depth with none
+// has no ring). `columns` are the block's columns in the board's status order,
+// archived cards last.
+function graphFanPlace(model, opts) {
+  const { nodes, axis } = model;
+  const tierCount = axis.filter((s) => s.kind === 'tier').length;
+  const statuses = GRAPH_COLS.liveStatuses(opts && opts.statuses);
+  const places = new Map();
+  const sectors = [];
+  const sectorOfRoot = new Map();
+  const loose = [];
+  const rows = axis.map(() => ({ count: 0, maxSub: 0 }));
+  const live = new Map(statuses.map((s) => [s, []]));
+  const archived = [];
+  const above = new Array(axis.length).fill(0);
+  const stack = [];
   for (const n of nodes) {
-    if (n.parentId === null) continue;
-    if (!kidsOf.has(n.parentId)) kidsOf.set(n.parentId, []);
-    kidsOf.get(n.parentId).push(n.id);
+    while (stack.length && (n.parentId === null || stack[stack.length - 1].id !== n.parentId)) above[stack.pop().sliceIndex]--;
+    const place = { band: n.sliceIndex, sub: above[n.sliceIndex], sector: null, block: null };
+    places.set(n.id, place);
+    stack.push(n);
+    above[n.sliceIndex]++;
+    if (!n.nested && n.sliceIndex >= tierCount) {
+      place.sub = 0;
+      if (n.archived) { place.block = 'archived'; archived.push(n.id); }
+      else {
+        place.block = GRAPH_COLS.columnForStatus(n.status, statuses);
+        live.get(place.block).push(n.id);
+      }
+      continue;
+    }
+    if (!n.nested) loose.push(n.id);
+    else {
+      if (n.parentId === null) {
+        sectorOfRoot.set(n.id, sectors.length);
+        sectors.push({ kind: 'tree', rootId: n.id, tops: [n.id], leaves: 0 });
+      }
+      place.sector = sectorOfRoot.get(n.rootId);
+    }
+    const row = rows[n.sliceIndex];
+    row.count++;
+    row.maxSub = Math.max(row.maxSub, place.sub);
+  }
+  if (loose.length) {
+    for (const id of loose) places.get(id).sector = sectors.length;
+    sectors.push({ kind: 'loose', rootId: null, tops: loose, leaves: loose.length });
   }
   const leaves = new Map();
   for (let i = nodes.length - 1; i >= 0; i--) {
-    const list = kidsOf.get(nodes[i].id);
-    leaves.set(nodes[i].id, list ? list.reduce((s, k) => s + leaves.get(k), 0) : 1);
+    const own = leaves.get(nodes[i].id) || 1;
+    leaves.set(nodes[i].id, own);
+    if (nodes[i].parentId !== null) leaves.set(nodes[i].parentId, (leaves.get(nodes[i].parentId) || 0) + own);
   }
-  const roots = nodes.filter((n) => n.parentId === null);
-  const trees = roots.filter((n) => n.kids > 0);
-  const unnested = roots.filter((n) => n.kids === 0);
-  const maxDepth = nodes.reduce((m, n) => Math.max(m, n.depth), 0);
-  const totalLeaves = trees.reduce((s, t) => s + leaves.get(t.id), 0) || 1;
+  for (const s of sectors) if (s.kind === 'tree') s.leaves = leaves.get(s.rootId);
 
-  let share = 0;
-  if (!trees.length) share = 1;
-  else if (unnested.length) share = Math.max(0.15, Math.min(0.5, unnested.length / nodes.length));
+  const bands = [];
+  axis.forEach((slice, index) => {
+    if (slice.kind === 'depth' && !rows[index].count) return;
+    bands.push({ slice, index, count: rows[index].count, subs: rows[index].count ? rows[index].maxSub + 1 : 0 });
+  });
+  const columns = statuses.filter((s) => live.get(s).length).map((s) => ({ label: s, ids: live.get(s) }));
+  if (archived.length) columns.push({ label: 'archived', ids: archived });
+  return { places, bands, sectors, columns };
+}
 
-  // A ring holding a leaf must be wide enough that the angle one leaf gets
-  // still spaces neighbouring dots apart; inner rings only keep the fixed step.
-  const leafAngle = Math.PI * 2 * (1 - share) / totalLeaves;
-  const leafDepth = new Array(maxDepth + 1).fill(false);
-  for (const n of nodes) if (!kidsOf.has(n.id) && (n.parentId !== null || n.kids > 0)) leafDepth[n.depth] = true;
-  const ringR = [GRAPH_TIER_BASE];
-  for (let d = 1; d <= maxDepth; d++) {
-    ringR.push(Math.max(ringR[d - 1] + GRAPH_TIER_STEP, leafDepth[d] && leafAngle > 0 ? GRAPH_TIER_LEAF_ARC / leafAngle : 0));
+// --- layout: tiers -------------------------------------------------------------
+// The tier fan. The apex is the origin and the fan opens downward, from
+// GRAPH_FAN_FROM on the left round to GRAPH_FAN_TO on the right. Bands run from the
+// apex out in the order of the board's axis (graphFanPlace): a band for each tier,
+// tier 1 innermost, then a ring for each depth that holds a card without a tier.
+// A band is a stretch of radius; the dots of a band sit on its rings (a tier
+// whose cards nest in one another has a ring for each level). Each tree takes a
+// sector of the fan, its share the sum of what its cards need, and a card sits at
+// the middle of the stretch its own subtree is given, so a parent is between its
+// children. What a card needs is the angle that spaces its mark from its
+// neighbours' on its ring; when the sectors would need more angle than the fan
+// has, every radius grows to give it, so no two dots on a ring ever touch.
+// Loose cards with no tier sit in the Unnested block outside the rim.
+//
+// The layout answers more than positions, for whatever draws bands, captions and
+// the block's frame: `bands` ({ index, slice, count, subs, r0, r1, rings }),
+// `sectors` ({ kind, rootId, tops, leaves, from, to } in radians, `from` the left
+// edge), `block` ({ x, y, w, h, columns: [{ label, ids, x, w }] }, columns
+// relative to the block) and `fan` ({ from, to }). `rings` are the circles drawn
+// through the rows of dots, and `spokes` the dividers between sectors. Every pass
+// below walks the nodes in outline order, forwards or back, never recursing.
+
+const GRAPH_FAN_FROM = 172 * Math.PI / 180;
+const GRAPH_FAN_TO = 8 * Math.PI / 180;
+const GRAPH_FAN_GAP = 5 * Math.PI / 180;
+const GRAPH_FAN_R0 = 60;
+const GRAPH_FAN_PITCH = 56;
+const GRAPH_FAN_EMPTY = 20;
+const GRAPH_FAN_MARK_GAP = 8;
+const GRAPH_FAN_CLEAR = 30;
+const GRAPH_FAN_BLOCK_PITCH = 22;
+const GRAPH_FAN_BLOCK_ROWS = 10;
+const GRAPH_FAN_BLOCK_TOP = 24;
+const GRAPH_FAN_BLOCK_PAD = 12;
+const GRAPH_FAN_BLOCK_COLUMN = 56;
+
+// How far the widest outline an icon can draw reaches from its centre, in dot
+// radii. Marks are spaced for it whatever icon a card has, so an icon moves no dot
+// and editing one does not redraw the fan.
+const GRAPH_FAN_REACH = Math.max(1, ...GRAPH_ICONS.TYPE_ICON_NAMES.map((name) => GRAPH_ICONS.typeIconReach(name, 10) / 10));
+
+function graphFanLabel(band) {
+  if (band.slice.kind === 'tier') return band.slice.name;
+  return band.slice.depth === 0 ? 'roots' : `depth ${band.slice.depth}`;
+}
+
+// The Unnested block: a column for each status, its dots in rows of ten. Placed in
+// the corner the fan leaves free, clear of the rim; with no fan, centred.
+function graphFanBlock(columns, outer, pos) {
+  if (!columns.length) return null;
+  let x = 0;
+  let rows = 0;
+  const cols = columns.map((c) => {
+    const w = Math.max(Math.ceil(c.ids.length / GRAPH_FAN_BLOCK_ROWS) * GRAPH_FAN_BLOCK_PITCH + GRAPH_FAN_BLOCK_PAD, GRAPH_FAN_BLOCK_COLUMN);
+    const col = { label: c.label, ids: c.ids, x, w };
+    x += w;
+    rows = Math.max(rows, Math.min(GRAPH_FAN_BLOCK_ROWS, c.ids.length));
+    return col;
+  });
+  const w = x;
+  const h = GRAPH_FAN_BLOCK_TOP + rows * GRAPH_FAN_BLOCK_PITCH + GRAPH_FAN_BLOCK_PAD;
+  let bx = -w / 2;
+  let by = 0;
+  if (outer > 0) {
+    by = Math.max(0, outer - h);
+    const clear = outer + GRAPH_FAN_CLEAR;
+    bx = by < clear ? Math.sqrt(clear * clear - by * by) : 0;
   }
-  if (leafDepth[0] && leafAngle > 0) ringR[0] = Math.max(ringR[0], GRAPH_TIER_LEAF_ARC / leafAngle);
+  for (const col of cols) {
+    col.ids.forEach((id, i) => {
+      pos.set(id, {
+        x: bx + col.x + GRAPH_FAN_BLOCK_PAD / 2 + (Math.floor(i / GRAPH_FAN_BLOCK_ROWS) + 0.5) * GRAPH_FAN_BLOCK_PITCH,
+        y: by + GRAPH_FAN_BLOCK_TOP + ((i % GRAPH_FAN_BLOCK_ROWS) + 0.5) * GRAPH_FAN_BLOCK_PITCH,
+      });
+    });
+  }
+  return { x: bx, y: by, w, h, columns: cols };
+}
+
+function graphLayoutTiers(model, opts) {
+  const { nodes } = model;
+  const fan = graphFanPlace(model, opts);
+  const { places } = fan;
+
+  // Bands at the size they start with, from the apex out; `grow` below scales them.
+  const bands = [];
+  let r = GRAPH_FAN_R0;
+  for (const b of fan.bands) {
+    const r0 = r;
+    r += b.subs ? b.subs * GRAPH_FAN_PITCH : GRAPH_FAN_EMPTY;
+    bands.push({ ...b, r0, r1: r });
+  }
+  const bandAt = new Map(bands.map((b) => [b.index, b]));
+  const ringOf = (id) => {
+    const p = places.get(id);
+    return bandAt.get(p.band).r0 + (p.sub + 0.5) * GRAPH_FAN_PITCH;
+  };
+
+  // What each card needs of the fan, in radians at the starting size: the angle
+  // that spaces its mark from its neighbours' on its ring, or what its children
+  // need together when that is more. Children come after parents in outline order,
+  // so walking back finishes every child before its parent.
+  const span = new Map();
+  const below = new Map();
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    if (places.get(n.id).sector === null) continue;
+    const own = (2 * graphRadius(n) * GRAPH_FAN_REACH + GRAPH_FAN_MARK_GAP) / ringOf(n.id);
+    const need = Math.max(own, below.get(n.id) || 0);
+    span.set(n.id, need);
+    if (n.parentId !== null) below.set(n.parentId, (below.get(n.parentId) || 0) + need);
+  }
+  const needed = fan.sectors.reduce((sum, s) => sum + s.tops.reduce((t, id) => t + span.get(id), 0), 0);
+  const gap = fan.sectors.length > 1 ? Math.min(GRAPH_FAN_GAP, (GRAPH_FAN_FROM - GRAPH_FAN_TO) / (3 * fan.sectors.length)) : 0;
+  const free = GRAPH_FAN_FROM - GRAPH_FAN_TO - gap * Math.max(0, fan.sectors.length - 1);
+  const scale = needed ? free / needed : 0;
+  const grow = needed > free ? needed / free : 1;
+
+  // The stretch of the fan each card is given, measured from the left edge: a
+  // sector's cards one after another, then each card's children inside its own
+  // stretch, centred, in outline order.
+  const from = new Map();
+  const width = new Map();
+  const next = new Map();
+  const seat = (id, at, w) => {
+    from.set(id, at);
+    width.set(id, w);
+    next.set(id, at + (w - (w * (below.get(id) || 0)) / span.get(id)) / 2);
+  };
+  let at = 0;
+  const sectors = fan.sectors.map((s) => {
+    const left = GRAPH_FAN_FROM - at;
+    for (const id of s.tops) {
+      const w = span.get(id) * scale;
+      seat(id, at, w);
+      at += w;
+    }
+    const placed = { ...s, from: left, to: GRAPH_FAN_FROM - at };
+    at += gap;
+    return placed;
+  });
+  for (const n of nodes) {
+    if (n.parentId === null || places.get(n.id).sector === null) continue;
+    const w = (width.get(n.parentId) * span.get(n.id)) / span.get(n.parentId);
+    const start = next.get(n.parentId);
+    next.set(n.parentId, start + w);
+    seat(n.id, start, w);
+  }
 
   const pos = new Map();
-  const spokes = [];
-  const stack = [];
-  const place = (rootId, rootA0, rootA1) => {
-    stack.push([rootId, rootA0, rootA1]);
-    while (stack.length) {
-      const [id, a0, a1] = stack.pop();
-      const n = model.byId.get(id);
-      const ang = (a0 + a1) / 2;
-      const rad = ringR[n.depth];
-      pos.set(id, { x: Math.cos(ang) * rad, y: Math.sin(ang) * rad });
-      const list = kidsOf.get(id);
-      if (!list) continue;
-      let s = a0;
-      for (const k of list) {
-        const w = (a1 - a0) * leaves.get(k) / leaves.get(id);
-        stack.push([k, s, s + w]);
-        s += w;
-      }
-    }
-  };
-  let a = -Math.PI / 2;
-  for (const t of trees) {
-    const w = Math.PI * 2 * (1 - share) * leaves.get(t.id) / totalLeaves;
-    spokes.push({ angle: a, r1: 0 });
-    place(t.id, a, a + w);
-    a += w;
-  }
-  const sector = Math.PI * 2 * share;
-  const outer = Math.max(
-    ringR[maxDepth] + GRAPH_TIER_STEP,
-    unnested.length ? unnested.length * GRAPH_TIER_LOOSE_ARC / sector : 0,
-  );
-  unnested.forEach((n, i) => {
-    const ang = a + sector * (i + 0.5) / unnested.length;
-    const rad = outer + (i % 2 ? 24 : 0);
+  for (const n of nodes) {
+    if (places.get(n.id).sector === null) continue;
+    const ang = GRAPH_FAN_FROM - (from.get(n.id) + width.get(n.id) / 2);
+    const rad = ringOf(n.id) * grow;
     pos.set(n.id, { x: Math.cos(ang) * rad, y: Math.sin(ang) * rad });
-  });
-
-  const rings = [];
-  if (trees.length) {
-    for (let d = 0; d <= maxDepth; d++) {
-      rings.push({ cx: 0, r: ringR[d], label: d === 0 ? 'roots' : `depth ${d}` });
-    }
   }
-  if (unnested.length) rings.push({ cx: 0, r: outer, label: 'unnested' });
-  const reach = rings.length ? rings[rings.length - 1].r + 30 : 0;
-  for (const s of spokes) s.r1 = reach;
-  return graphFinish(model, pos, rings, spokes.length > 1 ? spokes : [], []);
+
+  const grown = bands.map((b) => ({
+    index: b.index,
+    slice: b.slice,
+    count: b.count,
+    subs: b.subs,
+    r0: b.r0 * grow,
+    r1: b.r1 * grow,
+    rings: b.subs
+      ? Array.from({ length: b.subs }, (_, k) => (b.r0 + (k + 0.5) * GRAPH_FAN_PITCH) * grow)
+      : [(b.r0 + GRAPH_FAN_EMPTY / 2) * grow],
+  }));
+  const rings = grown.flatMap((b) => b.rings.map((ring, k) => ({
+    cx: 0, r: ring, label: k ? `${graphFanLabel(b)} ${k + 1}` : graphFanLabel(b),
+  })));
+  const outer = grown.length ? grown[grown.length - 1].r1 : 0;
+  const spokes = sectors.slice(0, -1).map((s) => ({ angle: s.to - gap / 2, r1: outer + GRAPH_FAN_CLEAR }));
+  const block = graphFanBlock(fan.columns, outer, pos);
+  return graphFinish(model, pos, rings, spokes, [], {
+    bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places,
+  });
 }
 
 // --- layout: status ------------------------------------------------------------
@@ -480,14 +672,28 @@ function graphWithPositions(layout, model, overrides) {
 // Keyed by what decides positions: node ids, statuses, archived flags, links,
 // kind and the statuses list. Not blocked/review, which only change colour.
 
+// The tier fan places a card by its slice, which its type, the hierarchy and the
+// whole board's nesting decide, so the Tiers key holds each card's type (without
+// regard to case, as a tier does), its slice and whether it is nested, and the
+// hierarchy's tiers. Force and Status do not read them.
 const GRAPH_CACHE_MAX = 8;
 const graphCache = new Map();
 
+function graphTypeKey(type) {
+  return typeof type === 'string' ? type.trim().toLowerCase() : '';
+}
+
 function graphSignature(model, kind, opts) {
-  const nodes = model.nodes.map((n) => `${n.id}:${n.status}:${n.archived ? 1 : 0}`).join(',');
+  const fan = kind === 'tiers';
+  const nodes = model.nodes.map((n) => {
+    const base = `${n.id}:${n.status}:${n.archived ? 1 : 0}`;
+    return fan ? `${base}:${graphTypeKey(n.card.type)}:${n.sliceIndex}:${n.nested ? 1 : 0}` : base;
+  }).join(',');
   const links = model.links.map((l) => `${l.from}>${l.to}${l.kind === 'wait' ? 'w' : 'p'}`).join(',');
   const statuses = ((opts && opts.statuses) || []).join(',');
-  return [kind, statuses, nodes, links].join('|');
+  const key = [kind, statuses, nodes, links];
+  if (fan) key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
+  return key.join('|');
 }
 
 function graphLayoutCacheClear() {
@@ -500,7 +706,7 @@ function graphLayout(model, kind, opts) {
   if (graphCache.has(key)) return graphCache.get(key);
   const layout = which === 'status' ? graphLayoutStatus(model, opts)
     : which === 'force' ? graphLayoutForce(model)
-      : graphLayoutTiers(model);
+      : graphLayoutTiers(model, opts);
   graphCache.set(key, layout);
   if (graphCache.size > GRAPH_CACHE_MAX) graphCache.delete(graphCache.keys().next().value);
   return layout;
@@ -547,6 +753,7 @@ const graphRound = (v) => Math.round(v * 100) / 100;
 function graphKindOf(layout, kind) {
   if (kind) return kind;
   if (layout.rings.some((r) => r.status !== undefined)) return 'status';
+  if (layout.bands) return 'tiers';
   return layout.rings.length > 0 || layout.spokes.length > 0 ? 'tiers' : 'force';
 }
 
@@ -635,8 +842,8 @@ function graphPlan(model, layout, opts) {
   const spokes = layout.spokes.map((s) => ({
     x1: 0,
     y1: 0,
-    x2: graphRound(Math.cos(s.angle - 0.02) * s.r1),
-    y2: graphRound(Math.sin(s.angle - 0.02) * s.r1),
+    x2: graphRound(Math.cos(s.angle) * s.r1),
+    y2: graphRound(Math.sin(s.angle) * s.r1),
   }));
   const titles = layout.titles.map((t) => ({ x: graphRound(t.x), y: graphRound(t.y), text: t.text }));
   return { nodes, links, rings, spokes, titles };
@@ -646,7 +853,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_LAYOUTS, mergeGraphLayout,
     graphBuild, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
-    graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
+    graphFanPlace, graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
     graphVisibleIds, graphZoomAt, graphPlan,
@@ -660,6 +867,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphLit = graphLit;
   window.graphQueryEffect = graphQueryEffect;
   window.graphRestLit = graphRestLit;
+  window.graphFanPlace = graphFanPlace;
   window.graphLayoutTiers = graphLayoutTiers;
   window.graphLayoutStatus = graphLayoutStatus;
   window.graphLayoutForce = graphLayoutForce;

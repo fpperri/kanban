@@ -113,15 +113,15 @@ const treeCards = () => [
 ];
 const trees = () => build(treeCards());
 
-test('tiers: each depth sits on ring 90 + 85 * depth', () => {
+test('tiers: each depth sits on its own ring, a band of 56 further out than the last, the first at 88', () => {
   const m = trees();
   const l = graphLayoutTiers(m);
   for (const n of m.nodes.filter((x) => x.parentId !== null || x.kids)) {
     const p = l.pos.get(n.id);
-    assert.ok(Math.abs(Math.hypot(p.x, p.y) - (90 + 85 * n.depth)) < 1e-6, `card ${n.id}`);
+    assert.ok(Math.abs(Math.hypot(p.x, p.y) - (88 + 56 * n.depth)) < 1e-6, `card ${n.id}`);
   }
   assert.deepStrictEqual(l.rings.map((r) => [r.r, r.label]), [
-    [90, 'roots'], [175, 'depth 1'], [260, 'depth 2'], [345, 'unnested'],
+    [88, 'roots'], [144, 'depth 1'], [200, 'depth 2'],
   ]);
 });
 
@@ -143,38 +143,25 @@ test('tiers: over this fixture, unfiltered, the depths the slice module gives ar
   assert.deepStrictEqual(l.rings.slice(0, slices.axis.length).map((r) => r.label), ['roots', 'depth 1', 'depth 2']);
 });
 
-test('tiers: children sit inside the parent sector and share it by leaf count', () => {
+test('tiers: children sit inside the sector of their root, and a parent sits between its children', () => {
   const m = trees();
   const l = graphLayoutTiers(m);
   const a = (id) => ang(l.pos.get(id));
-  const within = (id, lo, hi) => {
-    const x = (a(id) - lo + 4 * Math.PI) % (2 * Math.PI);
-    return x >= -1e-9 && x <= ((hi - lo) % (2 * Math.PI)) + 1e-9;
-  };
-  const sector = (id) => {
-    const leaves = (n) => {
-      const ks = m.nodes.filter((k) => k.parentId === n);
-      return ks.length ? ks.reduce((s, k) => s + leaves(k.id), 0) : 1;
-    };
-    return leaves(id);
-  };
-  assert.strictEqual(sector(1), 3);
-  const w1 = a(1) - (-Math.PI / 2);
-  const lo = -Math.PI / 2;
-  const hi = lo + 2 * w1;
-  for (const id of [2, 3, 4, 5]) assert.ok(within(id, lo, hi), `card ${id} outside sector of 1`);
-  const lo2 = lo;
-  const hi2 = lo + 2 * w1 * (2 / 3);
-  for (const id of [4, 5]) assert.ok(within(id, lo2, hi2), `card ${id} outside sector of 2`);
+  const [first, second] = l.sectors;
+  assert.deepStrictEqual([first.rootId, first.leaves, second.rootId, second.leaves], [1, 3, 6, 1]);
+  for (const id of [1, 2, 3, 4, 5]) assert.ok(a(id) <= first.from + 1e-9 && a(id) >= first.to - 1e-9, `card ${id} outside sector of 1`);
+  for (const id of [6, 7]) assert.ok(a(id) <= second.from + 1e-9 && a(id) >= second.to - 1e-9, `card ${id} outside sector of 6`);
+  assert.ok(a(4) > a(2) && a(2) > a(5) && a(5) > a(3), 'the children of 2 are left of 3, and 2 is between its own');
+  assert.ok(a(2) > a(1) && a(1) > a(3), 'and 1 is between its children 2 and 3');
 });
 
-test('tiers: unnested cards go on the outer ring, alternating outward', () => {
+test('tiers: unnested cards go to the Unnested block outside the rings, in a column for their status', () => {
   const m = trees();
   const l = graphLayoutTiers(m);
-  const outer = 90 + 85 * 3;
-  const radii = [8, 9].map((id) => Math.hypot(l.pos.get(id).x, l.pos.get(id).y));
-  assert.ok(Math.abs(radii[0] - outer) < 1e-6);
-  assert.ok(Math.abs(radii[1] - (outer + 24)) < 1e-6);
+  const outer = 88 + 56 * 2 + 28;
+  assert.strictEqual(l.bands[l.bands.length - 1].r1, outer);
+  for (const id of [8, 9]) assert.ok(Math.hypot(l.pos.get(id).x, l.pos.get(id).y) > outer + 20, `card ${id}`);
+  assert.deepStrictEqual(l.block.columns.map((c) => [c.label, c.ids]), [['todo', [8, 9]]]);
 });
 
 test('tiers: deterministic, finite, and safe on 0 and 1 node', () => {
@@ -472,7 +459,7 @@ test('plan: rings, spokes and titles come from the layout; output is finite and 
   }
   assert.strictEqual(graphPlan(m, graphLayout(m, 'tiers'), planOpts()).spokes.length, 0, 'one tree needs no sector dividers');
   const two = build([card(1), card(2, { parent: 1 }), card(3), card(4, { parent: 3 })]);
-  assert.ok(graphPlan(two, graphLayout(two, 'tiers'), planOpts()).spokes.length > 1, 'two trees get dividers');
+  assert.strictEqual(graphPlan(two, graphLayout(two, 'tiers'), planOpts()).spokes.length, 1, 'two trees get a divider between them');
   const empty = build([]);
   const e = graphPlan(empty, graphLayout(empty, 'tiers'), planOpts());
   assert.deepStrictEqual(e.nodes, []);

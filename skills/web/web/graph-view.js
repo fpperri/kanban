@@ -24,7 +24,7 @@ const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
 const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_LAYOUT_TITLES = {
-  tiers: 'Tiers: roots at the centre, each depth on its own ring',
+  tiers: 'Tiers: a band per tier, then a ring per depth for the cards without a tier',
   force: 'Force: related cards pull together, loose cards sit around the edge',
   status: 'Status: one ring per status, done innermost; archive is its own group',
 };
@@ -333,7 +333,7 @@ function renderGraphView() {
     filter = graphLoadFilter();
     const pool = state.active.concat(state.archived);
     const visibleIds = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, filter, boardStatuses());
-    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types });
+    model = graphBuild(pool, { ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy });
     layoutOpts = { statuses: boardStatuses() };
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
