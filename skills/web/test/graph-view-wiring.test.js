@@ -225,3 +225,99 @@ test('the key says the dashed arrow points at the card that waits', () => {
   assert.match(src, /const GRAPH_KEY = '[^']*dashed arrow: points at the card that waits[,']/);
   assert.ok(!src.includes('dashed arrow: waits for'));
 });
+
+// --- type icons: the dot is drawn in its type's outline ----------------------------------
+
+const vm = require('node:vm');
+
+function fakeDocument() {
+  const make = (tag) => ({
+    tag, attrs: {}, children: [], textContent: '', className: '',
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+    getAttribute(k) { return this.attrs[k]; },
+    appendChild(c) { this.children.push(c); return c; },
+  });
+  return { createElementNS: (ns, tag) => make(tag), createElement: (tag) => make(tag) };
+}
+
+function drawn(cards, types) {
+  const sandbox = { document: fakeDocument() };
+  vm.createContext(sandbox);
+  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphDrawPlan')}`, sandbox);
+  const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] }, types });
+  const plan = graphPlan(model, graphLayout(model, 'tiers'), { statusClass: (s) => s, titleOf: (c) => c.title });
+  const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
+  const all = [];
+  const walk = (el) => { all.push(el); el.children.forEach(walk); };
+  walk(out.stage);
+  const nodeOf = (id) => out.nodeEls.get(id);
+  return { plan, all, nodeOf, node: (id) => plan.nodes.find((n) => n.id === id) };
+}
+
+const iconCard = (id, extra = {}) => ({ id, title: `t${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra });
+const kids = (el, cls) => el.children.filter((c) => c.attrs.class === cls);
+
+test('a node of a type with an icon draws its dot as a path in that outline, keeping the dot class', () => {
+  const view = drawn([iconCard(1, { type: 'goal' })], [{ name: 'goal', color: '', icon: 'star' }]);
+  const g = view.nodeOf(1);
+  const dots = kids(g, 'graph-dot');
+  assert.strictEqual(dots.length, 1);
+  assert.strictEqual(dots[0].tag, 'path');
+  assert.strictEqual(dots[0].attrs.d, view.node(1).d);
+  assert.match(dots[0].attrs.d, /^M.*Z$/);
+  assert.strictEqual(dots[0].attrs['vector-effect'], 'non-scaling-stroke');
+  assert.strictEqual(dots[0].attrs.r, undefined);
+});
+
+test('a node with no icon, or an unknown one, still draws the round dot', () => {
+  const view = drawn([iconCard(1, { type: 'bug' }), iconCard(2), iconCard(3, { type: 'story' })], [
+    { name: 'bug', color: '', icon: 'blob' }, { name: 'story', color: '', icon: 'circle' },
+  ]);
+  for (const id of [1, 2, 3]) {
+    const dots = kids(view.nodeOf(id), 'graph-dot');
+    assert.strictEqual(dots.length, 1, `card ${id}`);
+    assert.strictEqual(dots[0].tag, 'circle', `card ${id}`);
+    assert.strictEqual(dots[0].attrs.r, String(view.node(id).r), `card ${id}`);
+    assert.strictEqual(dots[0].attrs.d, undefined, `card ${id}`);
+  }
+});
+
+test('the child and flag rings and the id label are placed from the plan, so they clear the shape', () => {
+  const view = drawn([iconCard(1, { type: 'goal', blocked: true }), iconCard(2, { parent: 1 })], [{ name: 'goal', color: '', icon: 'star' }]);
+  const g = view.nodeOf(1);
+  const n = view.node(1);
+  assert.strictEqual(kids(g, 'graph-kids-ring')[0].attrs.r, String(n.kidsRing));
+  assert.strictEqual(kids(g, 'graph-flag-ring')[0].attrs.r, String(n.flagRing));
+  assert.strictEqual(kids(g, 'graph-node-id')[0].attrs.x, String(n.reach + 3));
+  assert.ok(n.kidsRing > n.r + 3, 'a star reaches past a round dot, so its rings sit further out');
+});
+
+test('a node with no icon draws the rings and the label where it always did', () => {
+  const view = drawn([iconCard(1, { blocked: true }), iconCard(2, { parent: 1 })], []);
+  const g = view.nodeOf(1);
+  const n = view.node(1);
+  assert.strictEqual(kids(g, 'graph-kids-ring')[0].attrs.r, String(n.r + 3));
+  assert.strictEqual(kids(g, 'graph-flag-ring')[0].attrs.r, String(n.r + 6));
+  assert.strictEqual(kids(g, 'graph-node-id')[0].attrs.x, String(n.r + 3));
+});
+
+test('drawing a typed board emits no style attribute and takes no colour from the icon', () => {
+  const view = drawn([iconCard(1, { type: 'goal' })], [{ name: 'goal', color: '#a371f7', icon: 'hexagon' }]);
+  for (const el of view.all) {
+    assert.strictEqual(el.attrs.style, undefined, el.tag);
+    assert.strictEqual(el.attrs.fill, undefined, el.tag);
+    assert.strictEqual(el.attrs.stroke, undefined, el.tag);
+  }
+});
+
+test('the render passes the board\'s types list to the model', () => {
+  assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\btypes: state\.types[^}]*\}\)/);
+});
+
+test('the dot rule paints a path as well as a circle: filled in the status colour, round-cornered when stroked', () => {
+  const rule = css.match(/\.graph-dot \{[^}]*\}/);
+  assert.ok(rule, '.graph-dot rule');
+  assert.match(rule[0], /fill: currentColor/);
+  assert.match(rule[0], /stroke-linejoin: round/);
+  assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b/);
+});

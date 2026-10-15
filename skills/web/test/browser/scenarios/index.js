@@ -11,5 +11,6 @@ module.exports = [
   require('./key-guard'),
   require('./card-click'),
   require('./config-keys'),
+  require('./type-icons'),
   require('./smoke'),
 ];
