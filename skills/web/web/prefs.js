@@ -25,6 +25,8 @@ const PREFS_CLICK_VIEWS = ['board', 'map', 'gantt', 'calendar'];
 const PREFS_CLICK_CHOICES = ['opens', 'selects'];
 // The Graph's plain click is always a selection; the sheet shows it fixed.
 const PREFS_GRAPH_CLICK = 'selects';
+// The sheet's on/off settings, which mergePrefs and prefsWith both validate by this list.
+const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'slicesFolded', 'panelOnFocus'];
 
 function prefsDefaults() {
   const click = {};
@@ -54,15 +56,12 @@ function mergePrefs(saved) {
       if (PREFS_CLICK_CHOICES.includes(choice)) prefs.click[view] = choice;
     }
   }
-  if (typeof value.archivedDone === 'boolean') prefs.archivedDone = value.archivedDone;
-  if (typeof value.pillsFolded === 'boolean') prefs.pillsFolded = value.pillsFolded;
-  if (typeof value.slicesFolded === 'boolean') prefs.slicesFolded = value.slicesFolded;
-  if (typeof value.panelOnFocus === 'boolean') prefs.panelOnFocus = value.panelOnFocus;
+  for (const key of PREFS_BOOLEANS) if (typeof value[key] === 'boolean') prefs[key] = value[key];
   return prefs;
 }
 
-// The set with one change from the sheet applied: { click: { board: 'selects' } }
-// { archivedDone: false }, { pillsFolded: true }, { slicesFolded: false } or { panelOnFocus: false }. The change goes through the same validation as a
+// The set with one change from the sheet applied: { click: { board: 'selects' } } or one
+// of the on/off settings, { archivedDone: false } and the like. The change goes through the same validation as a
 // stored value, so one the sheet cannot make (a bad choice, the Graph set to
 // opens) leaves the set as it was. The set passed in is not touched.
 function prefsWith(prefs, change) {
@@ -71,10 +70,7 @@ function prefsWith(prefs, change) {
   for (const view of PREFS_CLICK_VIEWS) {
     if (Object.prototype.hasOwnProperty.call(click, view) && PREFS_CLICK_CHOICES.includes(click[view])) next.click[view] = click[view];
   }
-  if (change && typeof change.archivedDone === 'boolean') next.archivedDone = change.archivedDone;
-  if (change && typeof change.pillsFolded === 'boolean') next.pillsFolded = change.pillsFolded;
-  if (change && typeof change.slicesFolded === 'boolean') next.slicesFolded = change.slicesFolded;
-  if (change && typeof change.panelOnFocus === 'boolean') next.panelOnFocus = change.panelOnFocus;
+  for (const key of PREFS_BOOLEANS) if (change && typeof change[key] === 'boolean') next[key] = change[key];
   return next;
 }
 

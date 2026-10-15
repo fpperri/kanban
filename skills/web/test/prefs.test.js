@@ -215,6 +215,21 @@ test('one view\'s choice changes alone, and the set passed in is not touched', (
   assert.deepStrictEqual(prefs, DEFAULTS, 'the set passed in is left as it was');
 });
 
+test('every boolean the defaults hold is read from a stored entry and taken from a change, and neither takes a value that is not a boolean', () => {
+  const defaults = prefsDefaults();
+  const keys = Object.keys(defaults).filter((key) => typeof defaults[key] === 'boolean');
+  assert.deepStrictEqual(keys, ['archivedDone', 'pillsFolded', 'slicesFolded', 'panelOnFocus']);
+  for (const key of keys) {
+    const flipped = !defaults[key];
+    assert.strictEqual(mergePrefs(JSON.stringify({ [key]: flipped }))[key], flipped, `${key} is read`);
+    assert.strictEqual(prefsWith(defaults, { [key]: flipped })[key], flipped, `${key} is taken from a change`);
+    for (const bad of ['yes', 0, 1, null, [], {}]) {
+      assert.strictEqual(mergePrefs(JSON.stringify({ [key]: bad }))[key], defaults[key], `${key} read as ${JSON.stringify(bad)}`);
+      assert.strictEqual(prefsWith(prefsWith(defaults, { [key]: flipped }), { [key]: bad })[key], flipped, `${key} changed to ${JSON.stringify(bad)}`);
+    }
+  }
+});
+
 test('the archived-leaves choice changes alone', () => {
   const next = prefsWith(prefsDefaults(), { archivedDone: false });
   assert.strictEqual(next.archivedDone, false);
