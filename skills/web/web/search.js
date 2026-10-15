@@ -26,8 +26,8 @@
 // searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
 // interface for code that writes the box; searchHasAlt/searchAddAlt/searchRemoveAlt
 // are its other half, for a query that joins the box as one more alternative, and
-// searchSetSlice/searchSliceValues are its third, for the run of slices the slice
-// section writes and reads.
+// searchSetSlice is its third, for the run of slices the slice section writes (it reads the
+// run off the parse: the top-level terms with the field slice).
 //
 // The terms:
 //   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
@@ -426,11 +426,6 @@ function searchSetSlice(raw, value) {
   return searchJoinSlice(rest, run);
 }
 
-// The values of the top-level slice: terms of the query, as the parse reads them.
-function searchSliceValues(raw) {
-  return parseSearchQuery(raw).filter((t) => t.field === 'slice').map((t) => t.value);
-}
-
 // --- The alternatives of the box. A query joins the box as one more alternative
 // (`review: | blocked:`) and leaves it the same way, whole, whatever else the
 // box holds, since `|` binds loosest. An alternative that holds spaces is
@@ -690,7 +685,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt,
-    searchSplitSlice, searchJoinSlice, searchSetSlice, searchSliceValues,
+    searchSplitSlice, searchJoinSlice, searchSetSlice,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -708,5 +703,4 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchSplitSlice = searchSplitSlice;
   window.searchJoinSlice = searchJoinSlice;
   window.searchSetSlice = searchSetSlice;
-  window.searchSliceValues = searchSliceValues;
 }

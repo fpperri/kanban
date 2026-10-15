@@ -7,7 +7,7 @@ const { sliceCards } = require('../web/slices');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { depthMap } = require('../web/nesting');
 const {
-  sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName,
+  sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName, sliceEntryKey,
 } = require('../web/slice-run');
 
 // The slice section's run of slices, as pure arithmetic over the list the section
@@ -258,6 +258,16 @@ test('an entry\'s name states its label, its count and whether it is in the run'
   assert.strictEqual(sliceEntryName({ label: 'goal', count: 1 }, true), 'goal, 1 card, in the run');
 });
 
+test('an entry\'s key is its own whatever the list holds, and the same after the list changes', () => {
+  const keys = list().map(sliceEntryKey);
+  assert.deepStrictEqual(keys, ['t:goal', 't:strategy', 't:epic', 'd:0', 'd:1', 'd:2', 'd:3', 'd:4']);
+  assert.strictEqual(new Set(keys).size, keys.length);
+  const more = sliceListOf(sliceCards([...CARDS, { id: 8, type: 'objective', parent: null }], HIERARCHY, depthMap([...CARDS, { id: 8, type: 'objective', parent: null }], { board: 'b' })), [1, 8]);
+  assert.deepStrictEqual(more.slice(0, 4).map(sliceEntryKey), ['t:goal', 't:strategy', 't:objective', 't:epic'], 'a tier that joins leaves the others\' keys as they were');
+  const cased = sliceListOf(sliceCards([{ id: 1, type: 'Goal', parent: null }], ['Goal'], new Map([[1, 0]])), [1]);
+  assert.strictEqual(sliceEntryKey(cased[0]), 't:goal', 'a tier is keyed without regard to letter case');
+});
+
 // --- the module -----------------------------------------------------------------------------------
 
 test('the module stands alone: it requires nothing, so the snapshot can embed its source, and in a page it adds only its own names', () => {
@@ -267,7 +277,7 @@ test('the module stands alone: it requires nothing, so the snapshot can embed it
   page.window = page;
   vm.createContext(page);
   vm.runInContext(source, page);
-  for (const name of ['sliceRunBounds', 'sliceListOf', 'sliceRunOf', 'sliceRunClick', 'sliceRunKeep', 'sliceRunStep', 'sliceRunValue', 'sliceRunCuts', 'sliceEntryName']) {
+  for (const name of ['sliceRunBounds', 'sliceListOf', 'sliceRunOf', 'sliceRunClick', 'sliceRunKeep', 'sliceRunStep', 'sliceRunValue', 'sliceRunCuts', 'sliceEntryName', 'sliceEntryKey']) {
     assert.strictEqual(typeof page[name], 'function', name);
   }
 });

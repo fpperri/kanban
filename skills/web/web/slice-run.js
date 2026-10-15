@@ -124,6 +124,13 @@ function sliceRunCuts(list, run) {
   return !run || run.from > 0 || run.to < list.length - 1;
 }
 
+// A key that is the entry's own, whatever the list holds around it: the same after a
+// tier joins or leaves, so a button built for it is found again and updated where it
+// stands.
+function sliceEntryKey(entry) {
+  return entry.kind === 'tier' ? `t:${entry.name.toLowerCase()}` : `d:${entry.depth}`;
+}
+
 // What a screen reader is told of an entry: its label, its count and whether it is in
 // the run.
 function sliceEntryName(entry, inRun) {
@@ -131,7 +138,7 @@ function sliceEntryName(entry, inRun) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SLICE_RUN_KEYS, sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName };
+  module.exports = { SLICE_RUN_KEYS, sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName, sliceEntryKey };
 } else {
   window.SLICE_RUN_KEYS = SLICE_RUN_KEYS;
   window.sliceRunBounds = sliceRunBounds;
@@ -143,4 +150,5 @@ if (typeof module !== 'undefined' && module.exports) {
   window.sliceRunValue = sliceRunValue;
   window.sliceRunCuts = sliceRunCuts;
   window.sliceEntryName = sliceEntryName;
+  window.sliceEntryKey = sliceEntryKey;
 }

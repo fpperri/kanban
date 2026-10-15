@@ -197,7 +197,7 @@ test('the panel is not a surface the key guard names: the slice keys and the res
 });
 
 test('a pill\'s write to the box carries its reason, and nothing else writes with it', () => {
-  assert.strictEqual(panelSrc.split("writeSearch(next.boxText, 'pill')").length - 1, 1);
+  assert.strictEqual(panelSrc.split("writeSearch(searchJoinSlice(next.boxText, slices), 'pill')").length - 1, 1, 'the one write of a pill gesture puts the run of slices back');
   const writers = [...appSrc.matchAll(/writeSearch\([^)]*'pill'\)/g)];
   assert.strictEqual(writers.length, 1, 'the step down the selection is the one other: it takes a dropped pill out of the box');
   assert.match(appSrc.match(/function moveSelectionTo\([\s\S]*?\n\}/)[0], /writeSearch\(shrunk, 'pill'\)/);
@@ -251,7 +251,7 @@ test('the arrow switched off is struck through, by a rule that dims nothing with
 });
 
 test('the toggle, the fold control and the pills show a focus ring, and a pill that is on is drawn apart', () => {
-  assert.match(block, /\.search-panel-toggle:focus-visible[^{]*\.search-fold:focus-visible[^{]*\.query-pill:focus-visible \{[^}]*outline: 2px solid var\(--accent\)/);
+  assert.match(block, /\.search-panel-toggle:focus-visible[^{]*\.search-fold:focus-visible[^{]*\.query-pill:focus-visible[^{]*\.slice-entry:focus-visible \{[^}]*outline: 2px solid var\(--accent\)/);
   assert.match(block, /\.query-pill\.on \{[^}]*background: var\(--accent-soft\)/);
 });
 

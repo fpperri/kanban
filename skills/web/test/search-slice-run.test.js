@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  parseSearchQuery, filterCards, searchSetSlice, searchSplitSlice, searchJoinSlice, searchSliceValues,
+  parseSearchQuery, filterCards, searchSetSlice, searchSplitSlice, searchJoinSlice,
   searchHasAlt, searchAddAlt, searchRemoveAlt,
 } = require('../web/search');
 
@@ -26,6 +26,7 @@ const CARDS = [
   card(12, 'epic', null, ['ui']),
 ];
 const CTX = { board: 'b', hierarchy: HIERARCHY };
+const sliceValues = (text) => parseSearchQuery(text, 'b').filter((t) => t.field === 'slice').map((t) => t.value);
 const idsOf = (text) => filterCards(CARDS, parseSearchQuery(text, 'b'), CTX).map((c) => c.id).sort((a, b) => a - b);
 const both = (a, b) => idsOf(a).filter((id) => idsOf(b).includes(id));
 
@@ -98,7 +99,7 @@ test('a query half typed gets the run without losing or running into what is typ
 
 test('a value with spaces is quoted, so it stays one term', () => {
   assert.strictEqual(searchSetSlice('', 'my tier..epic'), 'slice:"my tier..epic"');
-  assert.deepStrictEqual(searchSliceValues('slice:"my tier..epic"'), ['my tier..epic']);
+  assert.deepStrictEqual(sliceValues('slice:"my tier..epic"'), ['my tier..epic']);
 });
 
 test('setting a run never changes what the rest of the query matches: the cards are the old ones inside the run', () => {
@@ -115,16 +116,16 @@ test('setting a run never changes what the rest of the query matches: the cards 
 
 // --- reading the run ------------------------------------------------------------------------------
 
-test('the values of the box\'s slice: terms are the ones the parse holds at the top level, the ones the Graph hides by', () => {
-  assert.deepStrictEqual(searchSliceValues('slice:goal..epic'), ['goal..epic']);
-  assert.deepStrictEqual(searchSliceValues('(tags:ui | #12) slice:goal..epic'), ['goal..epic']);
-  assert.deepStrictEqual(searchSliceValues('slice:goal slice:epic'), ['goal', 'epic']);
-  assert.deepStrictEqual(searchSliceValues('(slice:goal) tags:ui'), ['goal']);
-  assert.deepStrictEqual(searchSliceValues('tags:ui | slice:goal'), []);
-  assert.deepStrictEqual(searchSliceValues('(slice:goal | #3) tags:ui'), []);
-  assert.deepStrictEqual(searchSliceValues('slice:'), [], 'a slice: with no value yet is no term');
-  assert.deepStrictEqual(searchSliceValues(''), []);
-  assert.deepStrictEqual(searchSliceValues('slice:goal |'), ['goal'], 'an empty alternative is dropped, so what is left is the whole query');
+test('the run the slice section reads is the parse\'s slice: terms at the top level, the ones the Graph hides by', () => {
+  assert.deepStrictEqual(sliceValues('slice:goal..epic'), ['goal..epic']);
+  assert.deepStrictEqual(sliceValues('(tags:ui | #12) slice:goal..epic'), ['goal..epic']);
+  assert.deepStrictEqual(sliceValues('slice:goal slice:epic'), ['goal', 'epic']);
+  assert.deepStrictEqual(sliceValues('(slice:goal) tags:ui'), ['goal']);
+  assert.deepStrictEqual(sliceValues('tags:ui | slice:goal'), []);
+  assert.deepStrictEqual(sliceValues('(slice:goal | #3) tags:ui'), []);
+  assert.deepStrictEqual(sliceValues('slice:'), [], 'a slice: with no value yet is no term');
+  assert.deepStrictEqual(sliceValues(''), []);
+  assert.deepStrictEqual(sliceValues('slice:goal |'), ['goal'], 'an empty alternative is dropped, so what is left is the whole query');
 });
 
 test('the terms set apart are exactly the slice: terms the parse holds at the top level', () => {
@@ -133,9 +134,8 @@ test('the terms set apart are exactly the slice: terms the parse holds at the to
     'slice:goal |', 'slice:goal | status:', 'a | b slice:x', '(a slice:1)', '((slice:1))', 'slice:goal slice:epic tags:ui', '', 'tags:ui',
   ];
   for (const q of queries) {
-    const top = parseSearchQuery(q, 'b').filter((t) => t.field === 'slice').map((t) => t.value);
-    assert.deepStrictEqual(searchSplitSlice(q).slices.map((text) => searchSliceValues(text)[0]), top, q);
-    assert.deepStrictEqual(searchSliceValues(q), top, q);
+    const top = sliceValues(q);
+    assert.deepStrictEqual(searchSplitSlice(q).slices.map((text) => sliceValues(text)[0]), top, q);
   }
 });
 

@@ -8,9 +8,9 @@
 // choice is kept per board in the preferences (prefs.js, panelOnFocus) and the
 // preferences sheet shows and sets it too (app.js, setPanelOnFocus). The panel has four
 // regions, each drawn on its own so that what joins the panel later extends one
-// without editing another: the slices (#search-slices, empty for now), the pill
-// section (#search-pills, with its fold control), a divider, and a foot
-// (#search-foot, empty for now).
+// without editing another: the slice section (#search-slices, with its fold control,
+// drawn by search-slices.js), the pill section (#search-pills, with its fold control), a
+// divider, and a foot (#search-foot, empty for now).
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
 // here. A pill is on while its query is the anchor of the selection or one of its
@@ -100,11 +100,12 @@ function syncPillButtons(host, list, selection) {
   for (const el of [...host.children]) if (!keys.has(el.dataset.pillKey)) el.remove();
 }
 
-// The chip a closed panel shows: how many pills are on, and a name that says which.
+// The chip a closed panel shows: how many pills are on, and a run of slices that cuts, and
+// a name that says which.
 function syncSearchChip(selection) {
   const chip = $('#search-chip');
   if (!chip) return;
-  const { count, name } = panelChip(pillsOn(selection, BUILT_IN_PILLS).map((pill) => pill.label));
+  const { count, name } = panelChip(pillsOn(selection, BUILT_IN_PILLS).map((pill) => pill.label).concat(searchSlicesChipNames()));
   chip.classList.toggle('hidden', !count || searchPanelOpen);
   chip.textContent = count ? String(count) : '';
   chip.setAttribute('aria-label', name);
@@ -114,6 +115,7 @@ function syncSearchChip(selection) {
 // only while the panel is open, since a closed panel shows no count.
 function renderSearchPanel() {
   applyPillsFold();
+  renderSearchSlices();
   syncSearchSwitch();
   const selection = selectionState.selection;
   const host = $('#search-pills');
@@ -236,17 +238,19 @@ function foldSearchPills(folded) {
 // Carries out what selection.js decides for a click ('toggle') or a right-click
 // ('solo') on the pill with this key: the selection and the text of the box change
 // together, and the box is written with the reason 'pill', so the repaint does not
-// take it for a typed search.
+// take it for a typed search. A run of slices in the box is not the pills' to change: it
+// is set apart for the gesture and put back after it.
 function applyPillGesture(gesture, key) {
   const pill = BUILT_IN_PILLS.find((p) => p.key === key);
   if (!pill) return;
+  const { rest, slices } = searchSplitSlice($('#search-input').value);
   const next = selectionAfterPill(gesture, pill.query, {
     selection: selectionState.selection,
-    boxText: $('#search-input').value,
+    boxText: rest,
     alts: { add: searchAddAlt, remove: searchRemoveAlt },
   });
   setSelection(next.selection, next.rangeStart);
-  writeSearch(next.boxText, 'pill');
+  writeSearch(searchJoinSlice(next.boxText, slices), 'pill');
 }
 
 // A click toggles the pill, whatever modifier is held: Shift+click is a plain click.
