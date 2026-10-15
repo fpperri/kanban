@@ -1244,10 +1244,15 @@ assignees:                # who can own cards; feeds the form's assignee combobo
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config, design]    # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
-types:                    # suggested card types; color is OPTIONAL
+types:                    # suggested card types; color and icon are OPTIONAL
   - name: objective
     color: "#a371f7"
+    icon: diamond         # circle | square | diamond | triangle | hexagon | star
   - story                 # bare entry = name only, neutral chip
+hierarchy: [goal, strategy, objective, initiative]   # the types that are the levels of the plan, top first
+pills:                    # the board's own one-click search queries, in block form
+  - next: 'tags:"next-up"'   # label: query
+  - "assignee:@human"        # a query on its own is its own label
 ```
 
 This app is config-driven and doesn't enforce the grab semantics — it renders whatever
@@ -1274,7 +1279,27 @@ handle a card carries.
   listed) and the type chip's color only: a card's `type:` may be any text, and a type
   outside the list still reads as a neutral chip.
   `GET /api/board` carries it as `types: [{name, color}]` (`color` is `''` when absent;
-  `[]` when the key or file is). Human-curated like `tags`; the app only reads.
+  `[]` when the key or file is), and an entry that sets an `icon:` also carries `icon` (the
+  name lowercased with a trailing comment stripped, an unknown name passed through as
+  written; no `icon` key at all when none is set). Human-curated like `tags`; the app only reads.
+- **`icon`** (on a `types:` block entry) is one of `circle`, `square`, `diamond`,
+  `triangle`, `hexagon` or `star`. A later change draws it; today the page only holds it.
+  Labels, queries and icon names are human text: a reader escapes them and never uses one
+  as raw markup or a class name.
+- **`hierarchy`** (inline or block form) lists the type names that are the levels of the
+  plan, top first. `GET /api/board` carries it as `hierarchy: [name, ...]`, the names in
+  order as written: blank entries are dropped, duplicates and case differences pass
+  through for the page to normalise, and a scalar value or an empty list answers `[]`
+  (as does an absent key, even on a board that declares `types:`). It orders drawing and
+  slicing and **enforces nothing**: saving a card nested against it (a goal under an
+  initiative) succeeds and the answer carries no warning (ADR 0013).
+- **`pills`** (block form only) lists the board's own one-click search queries, each a
+  query or a one-key map from a label to a query. `GET /api/board` carries them as
+  `pills: [{label, query}]` in config order; a query on its own is its own label,
+  `- tags: grill` is the label `tags` with the query `grill` (a colon followed by a space
+  ends the key), and an entry that is blank, only a comment, or has an empty label or
+  query is skipped without an error. The page holds `hierarchy` and `pills` on `state`
+  after every load and poll; nothing draws them yet.
 - **`assignees[].color`** (OPTIONAL) reserves a fixed text color for that handle,
   mirroring `statuses`' own color rule exactly: reserved wins; absent, the handle hashes
   into the SAME 8-color `STATUS_PALETTE` custom statuses use (reusing status-colors.js's

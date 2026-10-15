@@ -153,16 +153,27 @@ assignees: # role-trio registry
 priorities: [High, Normal, Low] # ordered highest first
 tags: [skills, config, design] # curated tag vocabulary
 statuses: [backlog, todo, doing, done] # official column list, in board order
-types: # card types: name plus an optional chip color
+types: # card types: name plus an optional chip color and icon
   - name: objective
     color: "#a371f7"
+    icon: diamond # circle | square | diamond | triangle | hexagon | star
   - story
+hierarchy: [goal, strategy, objective, initiative] # the types that are the levels of the plan, top first
+pills: # the board's own one-click search queries, in block form
+  - next: 'tags:"next-up"' # label: query
+  - "assignee:@human" # a query on its own is its own label
 ```
 
 Every list here **suggests, never validates** — free text still saves and
 renders fine everywhere. An unlisted on-disk `status` renders under the list's
 first column with its raw value shown, never rewritten; promotion is a human
 adding it to the list.
+
+`hierarchy` orders drawing and slicing and enforces nothing: a card of any type
+may sit under any other. `kanban-web`'s board answer (`GET /api/board`) carries
+`hierarchy`, `pills` and each type's `icon` to the page alongside the lists
+above; a board without those keys answers an empty hierarchy, no pills and the
+same types as before.
 
 ## More docs
 

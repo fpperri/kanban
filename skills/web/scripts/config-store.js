@@ -31,6 +31,14 @@
 //     - name: objective   # a card's `type:` may be any text; this list gives
 //       color: "#a371f7"  # known names an OPTIONAL chip colour (absent = neutral)
 //     - story             # bare entry = name only; `types: [a, b]` also works
+//       icon: star        # OPTIONAL: lowercased, kept as written when unknown
+//   hierarchy: [goal, epic]  # the types that are the levels of the plan, top first;
+//                         # orders drawing and slicing, enforces nothing
+//   pills:                # the board's own one-click search queries, block form only
+//     - next: 'tags:"next-up"'  # a label and its query, or a query alone (its own label)
+//
+// Every one of the three is human text: read tolerantly, blank and malformed
+// entries skipped, never fatal. A type's `icon` is answered only when set.
 //
 // Same tolerant hand-rolled parsing discipline as notifications-store: skip
 // what doesn't parse, never fatal. The registry suggests, it never validates.
