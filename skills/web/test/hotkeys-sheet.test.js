@@ -127,7 +127,7 @@ test('the gear opens the sheet with one row per hotkey, in the list\'s order, ea
   });
 });
 
-test('every key the card names has a row on the page, so the list on the page is the list in hotkeys.js', async () => {
+test('every key the page answers has a row on the page, so the list on the page is the list in hotkeys.js', async () => {
   const s = await open();
   s.clickGear();
   const shown = s.rows().flatMap((row) => s.keysOf(row));

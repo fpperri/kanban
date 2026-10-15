@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 // The glossary, ADR 0006's amendments, the README, the web skill and the web doc tell one
-// story about pills, the selection, icons and the config keys. Each ticket pins its own
-// section; these tests pin the places where two sections once disagreed, and the places
+// story about pills, the selection, icons and the config keys. Each section has its own
+// tests; these tests pin the places where two sections once disagreed, and the places
 // no section named: a board pill clicks as a built-in does, the page draws what the
 // config carries, a key the guard covers is named with the others, a doc that lists the
 // keys of a type lists its icon.

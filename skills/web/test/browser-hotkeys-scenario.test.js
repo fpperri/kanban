@@ -24,7 +24,7 @@ test('the scenario is in the runner, on the plan board, with time for its steps'
   assert.ok(scenario.timeoutMs >= 60000);
 });
 
-test('the keys the scenario looks for are the keys the card names, and each is a label in the list', () => {
+test('the keys the scenario looks for are the keys the page answers, and each is a label in the list', () => {
   assert.deepStrictEqual(CASES.keys, ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?']);
   const labels = HOTKEYS.flatMap((h) => h.keys);
   assert.deepStrictEqual(CASES.keys.filter((k) => !labels.includes(k)), []);
@@ -106,12 +106,12 @@ test('it presses ? as Shift with the slash key, as a US keyboard does, and never
   for (const [, mods] of questions) assert.deepStrictEqual(mods, { shift: true });
 });
 
-test('it makes the checks the card asks for: the sheet opens at the section, the list, the states, and the places ? does nothing', async () => {
+test('it makes these checks: the sheet opens at the section, the list, the states, and the places ? does nothing', async () => {
   const page = standIn();
   await scenario.run(page);
   const names = page.log.checks.map(([n]) => n);
   for (const part of [
-    'opens the preferences sheet', 'Hotkeys heading is inside the sheet', 'a key element for every key the card names',
+    'opens the preferences sheet', 'Hotkeys heading is inside the sheet', 'a key element for every key the page answers',
     'one row for each entry of the list', 'shows its default', 'with the sheet up, ? does nothing', 'with focus in the search box, ? is typed',
     'with a dialog up, ? does nothing', 'with a card menu up, ? does nothing', 'with the notifications panel up, ? does nothing',
     'the sheet shows the names the Graph now draws', 'still shows the names the board kept',

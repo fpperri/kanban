@@ -11,7 +11,7 @@ const labels = (rows) => rows.flatMap((row) => row.keys);
 const NOW = { names: 'relevant', pills: [], slice: '', isolate: false, panelOnFocus: true };
 const rowOf = (rows, id) => rows.find((row) => row.id === id);
 
-test('the list shows every key the card names, each with what it does', () => {
+test('the list shows every key the page answers, each with what it does', () => {
   const rows = hotkeyRows(NOW);
   const named = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
   assert.deepStrictEqual(named.filter((key) => !labels(rows).includes(key)), []);

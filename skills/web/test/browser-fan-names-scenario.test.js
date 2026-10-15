@@ -281,7 +281,7 @@ test('against the real model every check passes', async () => {
   assert.ok(page.checks.length >= 55, `only ${page.checks.length} checks ran`);
 });
 
-test('the checks the card asks for are each in the scenario', async () => {
+test('each check listed here is in the scenario', async () => {
   const names = (await run()).checks.map(([n]) => n);
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `no check matches ${re}`);
   has(/the row shows Names with relevant, all and none/);

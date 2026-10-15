@@ -339,7 +339,7 @@ test('against the real layout every check passes, on each board in turn', async 
   assert.deepStrictEqual(page.opened, ['plan/?view=graph', 'plan/?view=graph', 'fixture/?view=graph', 'malformed/?view=graph']);
 });
 
-test('the checks the card asks for are each in the scenario', async () => {
+test('each check listed here is in the scenario', async () => {
   const page = await run();
   const names = page.checks.map(([n]) => n);
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `no check matches ${re}`);

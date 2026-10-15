@@ -150,7 +150,7 @@ test('run once against a stand-in page the scenario finishes, and every expressi
   for (const n of names) assert.ok(n.length > 12 && /[a-z]/.test(n), n);
 });
 
-test('it covers every acceptance check the ticket names, each by a check of its own', async () => {
+test('it covers every behaviour listed here, each by a check of its own', async () => {
   const page = standIn();
   await scenario.run(page);
   const names = page.log.checks.map(([n]) => n);
