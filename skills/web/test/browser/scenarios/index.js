@@ -12,4 +12,5 @@ module.exports = [
   require('./card-click'),
   require('./config-keys'),
   require('./smoke'),
+  require('./calendar-jump'),
 ];

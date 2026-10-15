@@ -628,6 +628,79 @@ function calendarCreateStart(day, rawMin) {
   return withDateTime(day, Math.max(0, Math.min(1439, snapped)));
 }
 
+// === jump to the nearest match ===========================================
+// When a change to the search box leaves no shown match inside the visible
+// range of the Calendar or the Gantt, the view moves to the match nearest that
+// range. ONE pure function decides for both views (the gantt's sized sub-views
+// reach it through gantt-model.js's ganttNearestMatchDay), so "shown" and
+// "nearest" mean the same thing in both.
+//
+// Shown means drawn: the cards the search box matches, minus those a status
+// pill hides, plus the archived matches while the Archive pill is on. The
+// status pills never govern an archived card, only the Archive pill and the
+// search do. This is the composition the Calendar's two grids and the Gantt's
+// rows make before they draw; the jump counts what it answers, and a page test
+// (calendar-gantt-jump-page.test.js) pins that it is what they hand to their
+// layout. `view` carries the inputs: { active, archived, searchIds, statusIds,
+// archiveOn }; searchIds and statusIds are Sets of card ids, null for "not
+// filtering" (no query; every status pill on).
+function viewShownCards(view) {
+  const keeps = (ids, card) => !ids || ids.has(card.id);
+  return {
+    live: (view.active || []).filter((c) => keeps(view.searchIds, c) && keeps(view.statusIds, c)),
+    archived: view.archiveOn ? (view.archived || []).filter((c) => keeps(view.searchIds, c)) : [],
+  };
+}
+
+// The first and last day the Calendar draws in a sub-view. A month draws every
+// cell of its grid, the leading and trailing days of the neighbouring months
+// included.
+function calendarVisibleRange(subview, anchorDay) {
+  if (subview === 'month') {
+    const [y, m] = anchorDay.split('-').map(Number);
+    const cells = monthGrid(y, m - 1);
+    return { startDay: cells[0].date, endDay: cells[cells.length - 1].date };
+  }
+  const days = calendarSubviewDays(subview, anchorDay);
+  return { startDay: days[0], endDay: days[days.length - 1] };
+}
+
+// The day to move a view to, or null when it stays where it is: null when a
+// shown match has a day of its span or its due date inside `range` (inclusive
+// days), or when there is no match to move to. A card counts by the days
+// cardSchedule and dueMarker give it, so one with neither is never a target.
+// Otherwise the answer is the day of the match closest to the range, before it
+// or after it: the last day of a span that ends before the range, the first
+// day of one that starts after it. A match before the range and one after it
+// at the same distance resolve to the earlier day, so the same input always
+// gives the same answer. No search box query means no matches, so nothing moves.
+function nearestMatchDay(view, range) {
+  if (!view.searchIds) return null;
+  const shown = viewShownCards(view);
+  let before = null;
+  let after = null;
+  for (const card of shown.live.concat(shown.archived)) {
+    const schedule = cardSchedule(card);
+    const due = dueMarker(card);
+    const spans = [];
+    if (schedule.kind === 'range') spans.push([schedule.startDay, schedule.endDay]);
+    else if (schedule.kind === 'single') spans.push([schedule.day, schedule.day]);
+    if (due) spans.push([due.day, due.day]);
+    for (const [first, last] of spans) {
+      if (last < range.startDay) {
+        if (before === null || last > before) before = last;
+      } else if (first > range.endDay) {
+        if (after === null || first < after) after = first;
+      } else {
+        return null;
+      }
+    }
+  }
+  if (before === null) return after;
+  if (after === null) return before;
+  return diffDays(range.endDay, after) < diffDays(before, range.startDay) ? after : before;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     VIEW_MODES, CALENDAR_MAX_CHIPS_PER_DAY,
@@ -642,6 +715,7 @@ if (typeof module !== 'undefined' && module.exports) {
     minutesToTime, CALENDAR_DRAG_SNAP_MIN, // time-grid drag/resize
     rescheduleRangeAtTime, rescheduleDueAtTime, resizeRangeAtTime,
     calendarCreateStart, // click-to-create prefill
+    viewShownCards, calendarVisibleRange, nearestMatchDay, // jump to the nearest match
   };
 } else {
   window.VIEW_MODES = VIEW_MODES;
@@ -681,4 +755,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.rescheduleDueAtTime = rescheduleDueAtTime;
   window.resizeRangeAtTime = resizeRangeAtTime;
   window.calendarCreateStart = calendarCreateStart; // click-to-create prefill
+  window.viewShownCards = viewShownCards; // jump to the nearest match
+  window.calendarVisibleRange = calendarVisibleRange;
+  window.nearestMatchDay = nearestMatchDay; // gantt-model.js reads it off window
 }
