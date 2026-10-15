@@ -1277,10 +1277,10 @@ function buildCalendarFilterRow() {
       : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the calendar`);
 }
 
-// The two collapsible map sections share this header shape — a
-// chevron toggle (same CHEVRON_LEFT/RIGHT_ICON + .column-toggle look as the
-// board's per-column collapse) plus a count label. data-section
-// names which half of loadMapSectionsCollapsed() the click flips; the
+// The map's fold toggles (the graphs, No relations, the options row) share
+// this header shape — a chevron toggle (same CHEVRON_LEFT/RIGHT_ICON +
+// .column-toggle look as the board's per-column collapse) plus a label.
+// data-section names which entry of loadMapSectionsCollapsed() the click flips; the
 // delegated #map-view listener (see the map wiring section) reads it.
 function buildMapSectionHeader(section, label, collapsed) {
   const header = document.createElement('div');

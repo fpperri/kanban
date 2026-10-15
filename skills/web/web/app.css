@@ -308,7 +308,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    .column-header keeps its own font-weight and per-status colour untouched. */
 .column-name { flex: 1; text-transform: uppercase; letter-spacing: 0.09em; }
 .column-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-/* .map-section-toggle (the map's graphs/No relations collapse
+/* .map-section-toggle (the map's graphs, No relations and Options fold
    chevrons) shares this exact look — one rule, not a per-view duplicate. */
 .column-toggle, .map-section-toggle { background: transparent; border: none; color: inherit; padding: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 .column-toggle:hover, .map-section-toggle:hover { color: var(--ink); }

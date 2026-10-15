@@ -900,8 +900,8 @@ to `127.0.0.1` only.
   graphs. Real nodes + No relations tiles carry the full shared grammar (click for
   detail, ctrl/shift-select, right-click menu); ghost stubs stay click-through only.
   View mode, query, and status filter all persist across the poll's re-render.
-  **Collapsible sections** — the graphs (one section for all of them) and the No
-  relations row each get their own collapse/expand toggle (same chevron + look as the board's per-column
+  **Collapsible sections** — the graphs (one section for all of them), the No
+  relations row and the options row (folded by default, see Map options) each get their own collapse/expand toggle (same chevron + look as the board's per-column
   collapse), sharing one header builder. State persists per board in `localStorage`
   (`map.sections.collapsed`, merged defensively) and survives the poll; collapsing
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.

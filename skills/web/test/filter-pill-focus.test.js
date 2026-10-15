@@ -269,7 +269,7 @@ test('a poll render hands focus back to the rebuilt Options toggle, without scro
   assert.strictEqual(opts && opts.preventScroll, true);
 });
 
-test('pressing the Options toggle refocuses it after the row rebuilds', () => {
+test('the Options toggle maps to a refocus selector that names it', () => {
   const s = focusSandbox();
   const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
   const toggle = optionsToggleOf(optionsRowSandbox().buildMapOptionsRow().outerHTML);
