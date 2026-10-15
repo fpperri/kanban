@@ -203,7 +203,7 @@ test('an inline types list has no icons', async () => {
 const OLD_BLOCKS = {
   name: 'name: plan\n',
   nextId: 'nextId: 30\n',
-  assignees: 'assignees:\n  - handle: "@human"\n    name: "Human"\n    kind: human\n    description: "A person."\n  - handle: "@afk"\n    name: "AI"\n    kind: ai-afk\n    description: "Unattended."\n',
+  assignees: 'assignees:\n  - handle: "@human"\n    name: "Human"\n    kind: human\n    description: "A person."\n  - handle: "@afk"\n    name: "Unattended"\n    kind: ai-afk\n    description: "Runs alone."\n',
   priorities: 'priorities:\n  - High\n  - Low\n',
   tags: 'tags: [skills, config]\n',
   statuses: 'statuses:\n  - todo\n  - done\n',
