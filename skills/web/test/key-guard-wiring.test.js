@@ -31,6 +31,7 @@ function page({ active = field('BODY'), open = [], value = '' } = {}) {
     document: { activeElement: active, querySelector: (sel) => (open.includes(sel) ? { id: 'open' } : null) },
     $: (sel) => (sel === '#search-input' ? input : null),
     renderBoard() { log.renders++; },
+    writeSearch(text) { input.value = text; log.renders++; },
     ...guard,
     searchHotkeyPrefill: hotkey.searchHotkeyPrefill,
   };

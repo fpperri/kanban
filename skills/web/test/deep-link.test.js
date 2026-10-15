@@ -140,11 +140,10 @@ const CONSUME = (() => {
   return from.slice(0, from.indexOf('\nfunction ', 1));
 })();
 
-test('consumeDeepLink writes q into the search box and re-renders', () => {
+test('consumeDeepLink writes q into the search box through its writer, which re-renders', () => {
   assert.match(CONSUME, /link\.q/, 'consumeDeepLink never reads link.q');
-  assert.match(CONSUME, /\$\('#search-input'\)/, 'the query never reaches #search-input');
-  assert.match(CONSUME, /input\.value = link\.q/, 'the query is not written into the box');
-  assert.match(CONSUME, /if \(link\.q \|\| link\.view\) renderBoard\(\);/, 'a q-only link never re-renders');
+  assert.match(CONSUME, /writeSearch\(link\.q, 'link'\)/, 'the query is not written into the box through the writer');
+  assert.match(CONSUME, /else if \(link\.view\) renderBoard\(\);/, 'a view-only link never re-renders');
 });
 
 test('consumeDeepLink resolves the card only when the link asked for one', () => {
