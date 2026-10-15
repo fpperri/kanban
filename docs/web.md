@@ -146,12 +146,13 @@ Open it directly with `?view=graph`.
 ## More on the board
 
 **Search** — the box in the header filters every view as you type. Terms separated by
-spaces AND together (`tags:ui status:doing`), and four forms go further, one example each:
+spaces AND together (`tags:ui status:doing`), and five forms go further, one example each:
 
 - `|` is or, and a space binds tighter: `tags:ui status:doing | #12` is ui and doing, or card 12.
 - Round brackets group and can nest: `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo.
 - Quotes match a whole value, ignoring case, or any one element of a list: `tags:"grill"` finds a card tagged grill and not one tagged grilling. Quoted text with no field is a phrase in a title, body or tag: `"two words"`.
 - `waiting:` finds the cards waiting for at least one card that is not done, as `blocked:` and `review:` find the stickers.
+- `slice:` cuts every view to a run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards with no tier: `slice:objective..2` runs from the objective tier down to depth 2, `slice:goal` is that one slice, and `slice:goal..` and `slice:..objective` leave an end open. A reversed pair is swapped, an end the board does not have is left open, and a board with no hierarchy cuts by depth. It combines like any term: `tags:ui (slice:goal | #12)`.
 
 A `|` counts only as a token of its own and a bracket only at a token's edge, so `a|b`
 and `fix(auth)` stay literal text, and so does `waiting:3`. Half-typed input never

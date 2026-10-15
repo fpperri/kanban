@@ -731,8 +731,13 @@ let searchMatchMemo = null;
 // match, which runs right after a repaint, reads it instead of matching again.
 let lastSearchMatch = null;
 
+// What a query resolves against: the nesting context, and the board's hierarchy for slice:.
+function searchCtx() {
+  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy });
+}
+
 function matchedIds(terms) {
-  return new Set(filterCards(state.active.concat(state.archived), terms, nestingCtx()).map((c) => c.id));
+  return new Set(filterCards(state.active.concat(state.archived), terms, searchCtx()).map((c) => c.id));
 }
 
 function computeSearchMatch() {

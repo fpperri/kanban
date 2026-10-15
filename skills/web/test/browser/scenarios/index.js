@@ -18,4 +18,5 @@ module.exports = [
   require('./smoke'),
   require('./calendar-jump'),
   require('./card-menu'),
+  require('./slice-term'),
 ];
