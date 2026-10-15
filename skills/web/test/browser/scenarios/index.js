@@ -9,5 +9,6 @@ module.exports = [
   require('./search-address'),
   require('./graph'),
   require('./key-guard'),
+  require('./card-click'),
   require('./smoke'),
 ];

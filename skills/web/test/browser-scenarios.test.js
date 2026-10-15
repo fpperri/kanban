@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a graph, a key-guard and a smoke scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a graph, a key-guard, a card-click and a smoke scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'graph', 'key-guard', 'smoke']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'graph', 'key-guard', 'card-click', 'smoke']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -233,4 +233,45 @@ test('the search-address scenario reloads only through a helper that waits for t
   assert.strictEqual(src.split("send('Page.reload')").length - 1, 1, 'one raw reload, inside the helper');
   assert.ok(/window\.__beforeReload = true[\s\S]*send\('Page\.reload'\)[\s\S]*window\.__beforeReload === undefined/.test(src), 'the helper marks the page, reloads, then waits for the mark to be gone');
   assert.strictEqual(src.split('await reload();').length - 1, 2, 'both reload checks go through the helper');
+});
+
+// The click grammar's browser drive, on the fixture board: what a click on a
+// card does in each view, and what the bulk confirmations say.
+const CARD_CLICK_CHECKS = [
+  'card 3 is dated today for the Calendar and Gantt clicks',
+  'a plain click opens the card in the ${view}',
+  'Ctrl+click toggles one card in', 'Ctrl+click on a selected card toggles it out', 'Cmd+click toggles one card in',
+  'Shift+click adds the range from the last toggled card', 'none of those clicks opened a card',
+  'a right-click on a card outside the selection replaces the selection', 'Escape closes that menu and keeps the selection',
+  'a click on empty space clears the selection', 'two cards are selected for the bulk confirmations',
+  'the archive confirmation names the count', 'the delete confirmation names the count',
+  'in the Graph, Enter on a focused card opens it',
+];
+
+test('the card-click scenario runs on the fixture board and makes every check of the click grammar', () => {
+  assert.strictEqual(byName('card-click').board, 'fixture');
+  assert.strictEqual(byName('card-click').alsoBoards, undefined);
+  const src = source('card-click.js');
+  const named = (n) => src.includes(`check('${n}'`) || src.includes(`check(\`${n}\``);
+  const missing = CARD_CLICK_CHECKS.filter((n) => !named(n));
+  assert.deepStrictEqual(missing, [], 'checks the click grammar needs and the scenario does not make');
+});
+
+test('the card-click scenario clicks the Board, the Map, the Calendar and the Gantt, and presses Enter in the Graph', () => {
+  const src = code(source('card-click.js'));
+  for (const view of ['board', 'map', 'calendar', 'gantt']) assert.ok(src.includes(`['${view}', `), `${view} is clicked`);
+  assert.ok(/showView\('graph'/.test(src) && /key\('Enter'\)/.test(src));
+});
+
+test('the card-click scenario holds both clicks of a range, a Cmd click and a Ctrl click, and answers the confirmations with no', () => {
+  const src = code(source('card-click.js'));
+  assert.ok(src.includes('modifiers: 2') && src.includes('modifiers: 4') && src.includes('modifiers: 8'), 'Ctrl, Cmd and Shift');
+  assert.ok(/window\.confirm=\(m\)=>\{window\.__asked\.push\(m\);return false\}/.test(src), 'a confirmation that refuses, so nothing is archived or deleted');
+});
+
+test('the card-click scenario opens the card menu with the right-click helper and waits on the page, never on a fixed sleep', () => {
+  const src = code(source('card-click.js'));
+  assert.ok(/page\.rightClick|rightClick\(cardIn/.test(src));
+  assert.ok(!/contextmenu/.test(src), 'a hand-made contextmenu event');
+  assert.ok(!/\bsleep\(/.test(src));
 });

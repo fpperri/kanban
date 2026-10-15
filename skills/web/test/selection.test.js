@@ -20,11 +20,11 @@ test('pruneSelection of an empty set stays empty', () => {
   assert.deepStrictEqual([...pruneSelection(new Set(), [1, 2])], []);
 });
 
-// --- shift+click adds a RANGE between the anchor and the target,
+// --- shift+click adds a RANGE between the range start and the target,
 // in the active view's rendered order. Additive (union), never replacing —
 // the card's grammar is "shift to ADD a range".
 
-test('rangeSelection adds every id between anchor and target inclusive, without mutating input', () => {
+test('rangeSelection adds every id between the range start and target inclusive, without mutating input', () => {
   const order = [10, 20, 30, 40, 50];
   const s0 = new Set([10]);
   const s1 = rangeSelection(s0, order, 10, 40);
@@ -32,7 +32,7 @@ test('rangeSelection adds every id between anchor and target inclusive, without 
   assert.deepStrictEqual([...s0], [10]); // input untouched
 });
 
-test('rangeSelection works upward too (target before anchor in order)', () => {
+test('rangeSelection works upward too (target before the range start in order)', () => {
   const s = rangeSelection(new Set(), [10, 20, 30, 40], 40, 20);
   assert.deepStrictEqual([...s].sort((a, b) => a - b), [20, 30, 40]);
 });
@@ -42,12 +42,12 @@ test('rangeSelection is additive: existing selection outside the range survives'
   assert.deepStrictEqual([...s].sort((a, b) => a - b), [10, 20, 99]);
 });
 
-test('rangeSelection with anchor === target selects just that card', () => {
+test('rangeSelection with the range start === target selects just that card', () => {
   const s = rangeSelection(new Set(), [10, 20, 30], 20, 20);
   assert.deepStrictEqual([...s], [20]);
 });
 
-test('rangeSelection with a missing/stale anchor degrades to adding just the target — never a toggle, shift must not deselect', () => {
+test('rangeSelection with a missing/stale range start degrades to adding just the target — never a toggle, shift must not deselect', () => {
   const grown = rangeSelection(new Set([10]), [10, 20, 30], null, 30);
   assert.deepStrictEqual([...grown].sort((a, b) => a - b), [10, 30]);
   const kept = rangeSelection(new Set([10, 30]), [10, 20, 30], 99, 30);
@@ -201,4 +201,56 @@ test('archiveNeedsConfirm is true when any card in the batch is not done', () =>
 
 test('archiveNeedsConfirm on a single done card is false (tile Archive button, one card)', () => {
   assert.strictEqual(archiveNeedsConfirm([{ id: 1, status: 'done' }]), false);
+});
+
+// --- what a click on a card does: one pure decision beside the selection
+// helpers, with each view's plain-click behaviour passed in from a lookup.
+
+const { plainClickBehaviour, cardClickAction } = require('../web/selection');
+
+test('the plain-click lookup answers "selects" for the Graph and "opens" for the Board, Map, Gantt and Calendar', () => {
+  assert.strictEqual(plainClickBehaviour('graph'), 'selects');
+  for (const view of ['board', 'map', 'gantt', 'calendar']) assert.strictEqual(plainClickBehaviour(view), 'opens', view);
+});
+
+test('the plain-click lookup answers "opens" for a view it does not know, never a prototype key', () => {
+  for (const view of ['', 'nope', 'constructor', '__proto__', undefined, null]) assert.strictEqual(plainClickBehaviour(view), 'opens', String(view));
+});
+
+const PLAIN_CLICKS = ['opens', 'selects'];
+const click = (extra, plainClick) => cardClickAction({ cue: false, shiftKey: false, ctrlKey: false, metaKey: false, plainClick, ...extra });
+
+test('a plain click opens the card in a view whose plain click opens, and selects it in one whose plain click selects', () => {
+  assert.strictEqual(click({}, 'opens'), 'open');
+  assert.strictEqual(click({}, 'selects'), 'select');
+});
+
+test('Ctrl and Cmd click toggle one card and Shift click adds a range, whatever the view\'s plain click does', () => {
+  for (const plainClick of PLAIN_CLICKS) {
+    assert.strictEqual(click({ ctrlKey: true }, plainClick), 'toggle', `ctrl, ${plainClick}`);
+    assert.strictEqual(click({ metaKey: true }, plainClick), 'toggle', `cmd, ${plainClick}`);
+    assert.strictEqual(click({ shiftKey: true }, plainClick), 'range', `shift, ${plainClick}`);
+  }
+});
+
+test('Shift wins over Ctrl and Cmd when both are held', () => {
+  for (const plainClick of PLAIN_CLICKS) {
+    assert.strictEqual(click({ shiftKey: true, ctrlKey: true }, plainClick), 'range');
+    assert.strictEqual(click({ shiftKey: true, metaKey: true }, plainClick), 'range');
+  }
+});
+
+test('a click on a cue (assignee, tag, blocked or review pill) is a search shortcut, with or without a modifier, in any view', () => {
+  const modifiers = [{}, { ctrlKey: true }, { metaKey: true }, { shiftKey: true }];
+  for (const cue of ['assignee', 'tag', 'blocked', 'review']) {
+    for (const plainClick of PLAIN_CLICKS) {
+      for (const mod of modifiers) assert.strictEqual(click({ cue, ...mod }, plainClick), 'cue', `${cue} ${JSON.stringify(mod)} ${plainClick}`);
+    }
+  }
+});
+
+test('the decision reads the lookup, so a view\'s answer drives a plain click end to end', () => {
+  for (const [view, expected] of [['board', 'open'], ['map', 'open'], ['gantt', 'open'], ['calendar', 'open'], ['graph', 'select']]) {
+    assert.strictEqual(click({}, plainClickBehaviour(view)), expected, view);
+  }
 });

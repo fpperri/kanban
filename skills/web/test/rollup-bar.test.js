@@ -33,7 +33,7 @@ test('rollupSegments follow the board\'s status order, then any other status by 
 
 test('rollupBar: collapsed is a thin bar of weighted segments with no numbers', () => {
   const html = rollupBar(roll({ done: 2, doing: 1, backlog: 1 }), 'collapsed', ORDER);
-  assert.match(html, /^<div class="rollup"><div class="rollup-bar thin">/);
+  assert.match(html, /^<div class="rollup" data-keeps-selection><div class="rollup-bar thin">/);
   const segs = [...html.matchAll(/<span class="rollup-seg rollup-seg--(\w[\w-]*)" data-n="(\d+)" title="([^"]*)"><\/span>/g)];
   assert.deepStrictEqual(segs.map((m) => [m[1], m[2], m[3]]), [
     ['backlog', '1', 'backlog: 1'], ['doing', '1', 'doing: 1'], ['done', '2', 'done: 2'],
@@ -115,7 +115,7 @@ test('rollupDetailHtml: the open bar, then the scope line', () => {
 
 test('rollupDetailHtml: collapsed is the thin bar alone, no title, numbers or scope line', () => {
   const html = rollupDetailHtml(roll({ done: 2, todo: 1 }), 2, ORDER, true, 'collapsed');
-  assert.match(html, /^<div class="rollup"><div class="rollup-bar thin">/);
+  assert.match(html, /^<div class="rollup" data-keeps-selection><div class="rollup-bar thin">/);
   assert.strictEqual((html.match(/data-n="/g) || []).length, 2, 'one segment per status');
   for (const gone of ['rollup-counts', 'rollup-total', 'rollup-scope', 'rollup-title', 'alt-badge']) {
     assert.ok(!html.includes(gone), `${gone} is for the open bar`);

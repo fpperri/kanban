@@ -577,7 +577,7 @@ to `127.0.0.1` only.
 - **Multi-select** — one interaction grammar, uniform across **all five views**
   (ADR 0006), with file-manager gestures: click a card's representation to open its
   detail popup, ctrl+click (cmd on mac) to toggle it in/out of the selection,
-  shift+click to ADD the whole range between the anchor (the last toggled/range-started
+  shift+click to ADD the whole range between the range start (the last toggled/range-started
   card) and the target — in the active view's rendered order, additive, never
   deselecting — right-click for the bulk context menu. Applies on board tiles (live and
   archived), map nodes and the map's No relations tiles, graph nodes, calendar chips (every chip of a
@@ -600,7 +600,13 @@ to `127.0.0.1` only.
   click handler), these two hide whenever the effective selection is more than one card.
   Any plain click outside the context menu / bulk popups clears the selection (empty
   calendar day cells and map/gantt whitespace included); the view-toggle buttons (Graph's too) are
-  exempt, so the selection **survives switching views**, and it survives the poll.
+  exempt, so the selection **survives switching views**, and it survives the poll. A control
+  stays out of that clear by wearing the `data-keeps-selection` marker (the menu, the popups,
+  the view toggles, the status pills and fold toggles, the roll-up bars and the Graph's
+  controls do); the 5s refresh likewise skips while a control wearing `data-holds-poll` has
+  focus. Every write to the selection goes through one function (`setSelection`), every bulk
+  action reads its target cards through one reader (`bulkTargets`), and a bulk popup acts on
+  the cards it held when it opened.
   Exceptions: the map's muted, dashed ghost stubs are click-through-to-detail only, never
   selectable — they stand for cards the active filters hid; a dangling-id stub (no such
   card) is fully inert, and a filtered-out card can't join a selection anywhere else
