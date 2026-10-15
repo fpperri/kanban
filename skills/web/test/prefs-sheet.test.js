@@ -405,7 +405,7 @@ test('a click on the gear or inside the sheet leaves a selection as it was', () 
   const [gear] = tagsOf(header, /<button[^>]*id="prefs-btn"[^>]*>/);
   const [root] = tagsOf(sheetHtml, /<div id="prefs-sheet"[^>]*>/);
   assert.ok(gear.includes(KEEPS) && root.includes(KEEPS));
-  const sandbox = { setSelection() { throw new Error('the selection was cleared'); }, renderBoard() { throw new Error('the board repainted'); }, selectedIds: new Set([1, 2]) };
+  const sandbox = { setSelection() { throw new Error('the selection was cleared'); }, renderBoard() { throw new Error('the board repainted'); }, selectedIds: new Set([1, 2]), selectionGestureClick: null };
   vm.createContext(sandbox);
   vm.runInContext(fn('onClickAway'), sandbox);
   for (const marked of [gear, root]) {

@@ -5,9 +5,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // In a view whose plain click selects a card (the Graph always, any other view
-// when the preferences sheet says so), a double click or Enter on a focused card
-// opens it. The one delegate that carries this out is run here against a fake
-// page, with the real decision from selection.js.
+// when the preferences sheet says so), Enter on a focused card opens it. The one
+// key handler that carries this out is run here against a fake page, with the
+// real decision from selection.js. A double click is the second click of the card
+// click handler, not an event of its own (card-click-page.test.js drives it).
 
 const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
@@ -29,7 +30,7 @@ function gesturePage({ view = 'board', click = {}, dragging = {} } = {}) {
   };
   Object.assign(sandbox, dragging);
   vm.createContext(sandbox);
-  vm.runInContext(fn('onCardOpenGesture'), sandbox);
+  vm.runInContext(fn('onCardOpenKey'), sandbox);
   return sandbox;
 }
 
@@ -49,50 +50,39 @@ function targetIn({ card = true, inside = [], isCard = false } = {}) {
   return target;
 }
 
-const dbl = (target, extra = {}) => ({
-  type: 'dblclick', target, shiftKey: false, ctrlKey: false, metaKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra,
+const enter = (target, extra = {}) => ({
+  type: 'keydown', key: 'Enter', repeat: false, target, shiftKey: false, ctrlKey: false, metaKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra,
 });
-const enter = (target, extra = {}) => ({ ...dbl(target), type: 'keydown', key: 'Enter', repeat: false, ...extra });
 
 const SELECTS = { board: 'selects', map: 'selects', gantt: 'selects', calendar: 'selects' };
-
-test('a double click on a card opens it in each view the preferences set to selects', () => {
-  for (const view of ['board', 'map', 'gantt', 'calendar']) {
-    const page = gesturePage({ view, click: SELECTS });
-    page.onCardOpenGesture(dbl(targetIn()));
-    assert.deepStrictEqual(page.calls.open, [7], view);
-  }
-});
 
 test('Enter on a focused card opens it in each view the preferences set to selects, and keeps the key from doing anything else', () => {
   for (const view of ['board', 'map', 'gantt', 'calendar']) {
     const page = gesturePage({ view, click: SELECTS });
     const e = enter(targetIn({ isCard: true }));
-    page.onCardOpenGesture(e);
+    page.onCardOpenKey(e);
     assert.deepStrictEqual(page.calls.open, [7], view);
     assert.strictEqual(e.defaultPrevented, true, view);
   }
 });
 
-test('in a view whose plain click opens the card, a double click and Enter add nothing', () => {
+test('in a view whose plain click opens the card, Enter adds nothing', () => {
   for (const view of ['board', 'map', 'gantt', 'calendar']) {
     const page = gesturePage({ view });
-    page.onCardOpenGesture(dbl(targetIn()));
-    page.onCardOpenGesture(enter(targetIn({ isCard: true })));
+    page.onCardOpenKey(enter(targetIn({ isCard: true })));
     assert.deepStrictEqual(page.calls.open, [], view);
   }
 });
 
 test('a view left at opens stays at opens when another is set to selects', () => {
   const page = gesturePage({ view: 'calendar', click: { board: 'selects' } });
-  page.onCardOpenGesture(dbl(targetIn()));
+  page.onCardOpenKey(enter(targetIn({ isCard: true })));
   assert.deepStrictEqual(page.calls.open, []);
 });
 
-test('the Graph keeps its own double click and Enter: the delegate leaves a Graph node alone', () => {
+test('the Graph keeps its own Enter: the handler leaves a Graph node alone', () => {
   const page = gesturePage({ view: 'graph' });
-  page.onCardOpenGesture(dbl(targetIn({ inside: ['.graph-node'] })));
-  page.onCardOpenGesture(enter(targetIn({ isCard: true, inside: ['.graph-node'] })));
+  page.onCardOpenKey(enter(targetIn({ isCard: true, inside: ['.graph-node'] })));
   assert.deepStrictEqual(page.calls.open, []);
 });
 
@@ -100,53 +90,50 @@ test('Enter only counts on the card itself: on a button or a field inside it, it
   const page = gesturePage({ click: SELECTS });
   for (const control of ['button', 'select', 'input', 'a']) {
     const e = enter(targetIn({ inside: [control] }));
-    page.onCardOpenGesture(e);
+    page.onCardOpenKey(e);
     assert.strictEqual(e.defaultPrevented, false, control);
   }
   const inner = enter(targetIn());
-  page.onCardOpenGesture(inner);
+  page.onCardOpenKey(inner);
   assert.strictEqual(inner.defaultPrevented, false, 'a child of the card, not the card');
   assert.deepStrictEqual(page.calls.open, []);
 });
 
-test('a double click on a button, a field, a cue or a roll-up bar inside a card opens nothing', () => {
+test('Enter on a roll-up bar inside a card opens nothing', () => {
   const page = gesturePage({ click: SELECTS });
-  for (const inside of ['button', 'select', 'input', 'a', '.card-assignee', '.tag', '.blocked-pill', '.review-pill', '.rollup']) {
-    page.onCardOpenGesture(dbl(targetIn({ inside: [inside] })));
-  }
+  page.onCardOpenKey(enter(targetIn({ isCard: true, inside: ['.rollup'] })));
   assert.deepStrictEqual(page.calls.open, []);
 });
 
 test('Enter held down opens once, and other keys open nothing', () => {
   const page = gesturePage({ click: SELECTS });
-  page.onCardOpenGesture(enter(targetIn({ isCard: true }), { repeat: true }));
-  for (const key of [' ', 'Escape', 'a', 'Tab']) page.onCardOpenGesture(enter(targetIn({ isCard: true }), { key }));
+  page.onCardOpenKey(enter(targetIn({ isCard: true }), { repeat: true }));
+  for (const key of [' ', 'Escape', 'a', 'Tab']) page.onCardOpenKey(enter(targetIn({ isCard: true }), { key }));
   assert.deepStrictEqual(page.calls.open, []);
 });
 
-test('a held Shift, Ctrl or Cmd belongs to building a selection, so the gesture opens nothing', () => {
+test('a held Shift, Ctrl or Cmd belongs to building a selection, so Enter opens nothing', () => {
   const page = gesturePage({ click: SELECTS });
   for (const mod of ['shiftKey', 'ctrlKey', 'metaKey']) {
-    page.onCardOpenGesture(dbl(targetIn(), { [mod]: true }));
-    page.onCardOpenGesture(enter(targetIn({ isCard: true }), { [mod]: true }));
+    page.onCardOpenKey(enter(targetIn({ isCard: true }), { [mod]: true }));
   }
   assert.deepStrictEqual(page.calls.open, []);
 });
 
 test('nothing opens from empty space, or while a drag is under way', () => {
   const page = gesturePage({ click: SELECTS });
-  page.onCardOpenGesture(dbl(targetIn({ card: false })));
+  page.onCardOpenKey(enter(targetIn({ card: false })));
   assert.deepStrictEqual(page.calls.open, []);
   for (const dragging of [{ isDragging: true }, { ganttDrag: {} }, { calTimeDrag: {} }]) {
     const busy = gesturePage({ click: SELECTS, dragging });
-    busy.onCardOpenGesture(dbl(targetIn()));
+    busy.onCardOpenKey(enter(targetIn({ isCard: true })));
     assert.deepStrictEqual(busy.calls.open, [], JSON.stringify(dragging));
   }
 });
 
-test('the page registers the delegate once for the double click and once for the key, on the document', () => {
-  assert.match(appSrc, /document\.addEventListener\('dblclick', onCardOpenGesture\);/);
-  assert.match(appSrc, /document\.addEventListener\('keydown', onCardOpenGesture\);/);
+test('the page registers the key handler on the document and no double click handler: opening rides the click', () => {
+  assert.match(appSrc, /document\.addEventListener\('keydown', onCardOpenKey\);/);
+  assert.doesNotMatch(appSrc, /document\.addEventListener\('dblclick'/);
 });
 
 test('a double click on a Calendar card is not a create gesture: the Calendar keeps skipping cards', () => {

@@ -42,6 +42,7 @@ test('the web skill describes the click setting: per view, opens by default, the
   assert.match(text, /the Graph is shown fixed at selects/);
   assert.match(text, /a double click, or Enter on a focused card, opens it/);
   assert.match(text, /A double click on a Calendar card opens it and never starts a new card/);
+  assert.match(text, /Opening a card that way is a peek: the selection stays as it was/);
 });
 
 test('the web skill describes the roll-up settings and the old key that is no longer read', () => {
@@ -76,7 +77,7 @@ test('the human docs describe the gear, each setting, where they are kept and ho
   assert.match(text, /kept in your browser, per board, and are never written to the board's files/);
   assert.match(text, /\*A plain click on a card\* opens the card or selects it, chosen separately for the Board, Map, Gantt and Calendar \(it opens, by default\)/);
   assert.match(text, /The Graph is shown fixed at selects/);
-  assert.match(text, /a double click on a card, or Enter on a focused card, opens it/);
+  assert.match(text, /a double click on a card, or Enter on a focused card, opens it and leaves the selection as it was/);
   assert.match(text, /\*Roll-up bar\* is open or collapsed, the same choice a click on any bar flips/);
   assert.match(text, /\*Count archived leaves as done\* is on by default/);
   assert.match(text, /closes with Esc, a click outside it or its close button, and focus goes back to the gear/);

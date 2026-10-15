@@ -282,24 +282,61 @@ test('a choice made for one view changes only that view\'s plain click', () => {
   for (const view of ['map', 'gantt', 'calendar']) assert.strictEqual(plainClickBehaviour(view, click), 'opens', view);
 });
 
-// --- a double click, or Enter on a focused card, opens it where a plain click only selects.
+// --- a double click is the second click of a plain click that selects: it peeks.
+
+test('the second click of a double click, in a view whose plain click selects, is a peek: it opens the card and leaves the selection', () => {
+  assert.strictEqual(click({ detail: 2 }, 'selects'), 'peek');
+  assert.strictEqual(click({ detail: 1 }, 'selects'), 'select', 'the first click selects');
+});
+
+test('a click that names no count is a first click', () => {
+  assert.strictEqual(click({}, 'selects'), 'select');
+  assert.strictEqual(click({ detail: 0 }, 'selects'), 'select', 'a click from the keyboard carries a count of 0');
+});
+
+test('a third click of a triple click selects again; only the second opens', () => {
+  assert.strictEqual(click({ detail: 3 }, 'selects'), 'select');
+});
+
+test('in a view whose plain click opens the card, the count changes nothing', () => {
+  for (const detail of [0, 1, 2, 3]) assert.strictEqual(click({ detail }, 'opens'), 'open', String(detail));
+});
+
+test('a cue, Shift, Ctrl or Cmd wins over the second click of a double click', () => {
+  for (const plainClick of PLAIN_CLICKS) {
+    assert.strictEqual(click({ detail: 2, cue: 'tag' }, plainClick), 'cue');
+    assert.strictEqual(click({ detail: 2, shiftKey: true }, plainClick), 'range');
+    assert.strictEqual(click({ detail: 2, ctrlKey: true }, plainClick), 'toggle');
+    assert.strictEqual(click({ detail: 2, metaKey: true }, plainClick), 'toggle');
+  }
+});
+
+// --- the click-away rule leaves alone what a card click built or kept.
+
+const { clickKeepsSelection } = require('../web/selection');
+
+test('a selection the card click built or kept survives the click-away rule: a select and a peek', () => {
+  assert.strictEqual(clickKeepsSelection('select'), true);
+  assert.strictEqual(clickKeepsSelection('peek'), true);
+});
+
+test('every other card click leaves the click-away rule as it was', () => {
+  for (const action of ['open', 'cue', 'toggle', 'range', 'none', undefined]) assert.strictEqual(clickKeepsSelection(action), false, String(action));
+});
+
+// --- Enter on a focused card opens it where a plain click only selects.
 
 const { cardOpenAction } = require('../web/selection');
-const open = (extra, plainClick) => cardOpenAction({ cue: false, shiftKey: false, ctrlKey: false, metaKey: false, plainClick, ...extra });
+const open = (extra, plainClick) => cardOpenAction({ shiftKey: false, ctrlKey: false, metaKey: false, plainClick, ...extra });
 
-test('a double click or Enter opens the card in a view whose plain click selects', () => {
+test('Enter opens the card in a view whose plain click selects', () => {
   assert.strictEqual(open({}, 'selects'), 'open');
 });
 
-test('in a view whose plain click already opens the card, a double click or Enter adds nothing', () => {
+test('in a view whose plain click already opens the card, Enter adds nothing', () => {
   assert.strictEqual(open({}, 'opens'), 'none');
 });
 
-test('a double click on a cue stays a search shortcut and opens nothing', () => {
-  assert.strictEqual(open({ cue: true }, 'selects'), 'none');
-  assert.strictEqual(open({ cue: true }, 'opens'), 'none');
-});
-
-test('a double click or Enter with Shift, Ctrl or Cmd held is part of building a selection and opens nothing', () => {
+test('Enter with Shift, Ctrl or Cmd held is part of building a selection and opens nothing', () => {
   for (const mod of [{ shiftKey: true }, { ctrlKey: true }, { metaKey: true }]) assert.strictEqual(open(mod, 'selects'), 'none', JSON.stringify(mod));
 });

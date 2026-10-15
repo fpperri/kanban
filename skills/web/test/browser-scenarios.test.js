@@ -321,6 +321,7 @@ const PREFERENCES_CHECKS = [
   'while the sheet is open, / does nothing', 'while the sheet is open, Ctrl+F does nothing',
   'a click inside the sheet leaves the card selection as it was',
   'in a Board set to selects a plain click selects a card without opening it', 'and a double click opens it',
+  'and opening it leaves the card selected',
   'a reload keeps the choice: the sheet shows the Board at selects', "no file in the board\\'s directory changes",
   'in a Map set to selects, Enter on a focused card opens it', 'in a Calendar set to selects, a double click on a card opens it',
   'by default the parent above the archived leaf counts that leaf as done',

@@ -186,8 +186,9 @@ never written to the board's files.
 - *A plain click on a card* opens the card or selects it, chosen separately for the
   Board, Map, Gantt and Calendar (it opens, by default). The Graph is shown fixed at
   selects. Where a click selects, a double click on a card, or Enter on a focused card,
-  opens it; Ctrl or Cmd click and Shift click build a selection as before, and a double
-  click on a Calendar card opens it rather than starting a new one.
+  opens it and leaves the selection as it was; Ctrl or Cmd click and Shift click build a
+  selection as before, and a double click on a Calendar card opens it rather than starting
+  a new one.
 - *Roll-up bar* is open or collapsed, the same choice a click on any bar flips.
 - *Count archived leaves as done* is on by default. Off, the board's tiles, the Map's
   cards and the card detail (whose scope line says so) leave archived leaves out of the

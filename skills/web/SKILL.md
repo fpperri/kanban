@@ -665,7 +665,8 @@ to `127.0.0.1` only.
   the Calendar (the default is opens, as before); the Graph is shown fixed at selects. In a
   view set to selects a plain click selects the card alone, and a double click, or Enter on a
   focused card, opens it; ctrl/cmd+click and shift+click build the selection in every view as
-  they always did. A double click on a Calendar card opens it and never starts a new card.
+  they always did. Opening a card that way is a peek: the selection stays as it was. A double
+  click on a Calendar card opens it and never starts a new card.
   **Roll-up bar** is open or collapsed, the one choice a click on any bar flips. **Count
   archived leaves as done** is on by default and feeds every roll-up: the board tile, the
   Map's rich row and the card detail, whose scope line says "Archived leaves count as done."

@@ -5396,10 +5396,13 @@ function selectByClick(action, id) {
 // ctrl/cmd+click toggles one card and plants the range start; the first card
 // picked is the anchor and later ones are additions; a plain click breaks any
 // selection, then opens the card (or, in a view whose plain click selects,
-// makes it the anchor of a new selection). renderBoard() repaints whichever view
-// is active — board columns always, plus the active map/calendar/gantt.
+// makes it the anchor of a new selection); the second click of a double click in
+// such a view is a peek, which opens the card and leaves the selection alone.
+// renderBoard() repaints whichever view is active — board columns always, plus
+// the active map/calendar/gantt.
 function applyCardClick(action, id, cue) {
   if (action === 'cue') { searchByCue(cue, id); return; }
+  if (action === 'peek') { openCard(id); return; }
   const hadSelection = selectedIds.size > 0;
   selectByClick(action, id);
   if (action !== 'open') { renderBoard(); return; }
@@ -5407,28 +5410,32 @@ function applyCardClick(action, id, cue) {
   openCard(id);
 }
 
-// A double click, or Enter on a focused card, opens it in a view whose plain
-// click selects: the Graph always, any other view when the preferences sheet
-// says so. cardOpenAction (selection.js) decides; the Graph keeps its own
-// handlers for both. Enter counts only on the card itself, since on a control
-// inside it the key belongs to the control. A double click on a card never
-// reaches the Calendar's create gesture, which skips cards.
-function onCardOpenGesture(e) {
-  const byKey = e.type !== 'dblclick';
-  if (byKey && (e.key !== 'Enter' || e.repeat)) return;
+// Enter on a focused card opens it in a view whose plain click selects: the
+// Graph always, any other view when the preferences sheet says so.
+// cardOpenAction (selection.js) decides; the Graph keeps its own handler for the
+// key. It counts only on the card itself, since on a control inside it the key
+// belongs to the control. A double click is not here: it is the second click of
+// the card handler below, which carries the click count. A double click on a
+// card never reaches the Calendar's create gesture, which skips cards.
+function onCardOpenKey(e) {
+  if (e.key !== 'Enter' || e.repeat) return;
   if (isDragging || ganttDrag || calTimeDrag) return;
   const el = e.target.closest('.card-el');
   if (!el || e.target.closest('.graph-node, button, select, input, a, .rollup')) return;
-  if (byKey && el !== e.target) return;
+  if (el !== e.target) return;
   const action = cardOpenAction({
-    cue: !!e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill'),
     shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
     plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click),
   });
   if (action !== 'open') return;
-  if (byKey) e.preventDefault();
+  e.preventDefault();
   openCard(Number(el.dataset.id));
 }
+
+// The click the card handler last carried out as a selection (a plain click that
+// selected a card, or the peek of a double click). The click-away rule below sees
+// the same click and must not drop what that click built or kept.
+let selectionGestureClick = null;
 
 // Q0: any plain click that isn't on a control marked data-keeps-selection
 // drops the multi-selection. Ctrl-, cmd- and shift-clicks build it. The marked
@@ -5441,6 +5448,7 @@ function onCardOpenGesture(e) {
 // Graph's controls. A control built by a render path must wear the marker.
 function onClickAway(e) {
   if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
+  if (e === selectionGestureClick) return;
   if (e.target.closest('[data-keeps-selection]')) return;
   setSelection(NO_SELECTION, null); // a dead selection must not leave an invisible range start behind
   renderBoard();
@@ -5798,8 +5806,9 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('button, select, input, a')) return;
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
     const view = loadViewMode();
-    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view) });
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
     applyCardClick(action, Number(el.dataset.id), cue);
+    if (clickKeepsSelection(action)) selectionGestureClick = e;
   });
   // Right-click on any card-el opens the bulk menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page).
@@ -5811,8 +5820,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     openCardContextMenu(e, Number(el.dataset.id));
   });
-  document.addEventListener('dblclick', onCardOpenGesture);
-  document.addEventListener('keydown', onCardOpenGesture);
+  document.addEventListener('keydown', onCardOpenKey);
   // The preferences sheet: the gear opens it; its close button and a click on
   // the backdrop close it, and so does Esc (its own line in the Esc handler).
   $('#prefs-btn').addEventListener('click', openPrefsSheet);

@@ -174,6 +174,7 @@ module.exports = {
     const again = await pointOn(tile(3));
     await doubleClick(again.x, again.y);
     check('and a double click opens it', await waitFor(hasCard(3), 3000), await ev('location.search'));
+    check('and opening it leaves the card selected', await ev(`selectedIds.size===1&&selectedIds.has(3)`), await ev('[...selectedIds]'));
     await key('Escape');
     await waitFor(noCard, 2500);
 
