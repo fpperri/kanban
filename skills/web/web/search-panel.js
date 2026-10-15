@@ -23,10 +23,13 @@
 // on or off, its query joining the selection and the box as one more alternative or
 // leaving both, and a right-click solos it, or turns every pill off when it is the one
 // soloed (selection.js decides both, and the search module's alternatives do the box).
-// The first pill on is the anchor and later ones are additions. The buttons are built once
-// and then updated in place by every render, the poll's included, so a pill that has
-// focus keeps it and its count changes under it. The panel adds no `data-holds-poll`:
-// a button left focused by a click would stop the poll for good.
+// The first pill on is the anchor and later ones are additions. The m key steps through
+// the pills, and Shift+m back through them: each press solos the next pill (pillStep in
+// pills.js names it), then turns every pill off after the last, whatever the view and
+// whether the panel is open. The buttons are built once and then updated in place by
+// every render, the poll's included, so a pill that has focus keeps it and its count
+// changes under it. The panel adds no `data-holds-poll`: a button left focused by a
+// click would stop the poll for good.
 //
 // Esc: the panel is one link of the Esc chain (closeSearchPanel, called from the
 // document's Esc handler in app.js after the popups and before the selection step).
@@ -152,7 +155,7 @@ function syncPillButtons(host, rows, selection) {
 }
 
 // The chip a closed panel shows: how many pills are on, and a run of slices that cuts, and
-// a name that says which.
+// a name that says which, for a screen reader (its accessible name) and as its hover text.
 function syncSearchChip(selection) {
   const chip = $('#search-chip');
   if (!chip) return;
@@ -160,6 +163,7 @@ function syncSearchChip(selection) {
   chip.classList.toggle('hidden', !count || searchPanelOpen);
   chip.textContent = count ? String(count) : '';
   chip.setAttribute('aria-label', name);
+  if (chip.title !== name) chip.title = name;
 }
 
 // Every repaint of the board comes here (renderBoard): the chip always, the pills
@@ -304,6 +308,29 @@ function applyPillGesture(gesture, key) {
   writeSearch(searchJoinSlice(next.boxText, slices), 'pill');
 }
 
+// The m key: one step through the pills, forward (1) or back (-1). The step is a solo, as a
+// right-click on the pill the step lands on would be; after the last pill that solo is on a
+// pill that is on alone, so it turns every pill off. A value pill the "+N more" button hides
+// is shown first, so that its button is on the panel when the step lands on it.
+function stepSearchPill(direction) {
+  const pill = pillStep(searchPanelEntries(), selectionState.selection, direction);
+  if (!pill) return;
+  if (pill.group) searchPillGroupsOpen.add(pill.group);
+  applyPillGesture('solo', pill.key);
+}
+
+// m and Shift+m: a key that types nothing but reads a letter, so it reads the whole key guard,
+// as p does: off while a field has focus and while a menu, a dialog, the notifications panel or
+// the preferences sheet is up. A chord (Ctrl, Cmd, Alt) and a held key are not it. Shift on
+// the key says backwards, whatever the letter's case: Caps Lock gives a capital M with no
+// Shift, which is forward.
+function onPillStepKey(e) {
+  if (!e.key || e.key.toLowerCase() !== 'm' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (keyGuardOff(document)) return;
+  e.preventDefault();
+  stepSearchPill(e.shiftKey ? -1 : 1);
+}
+
 // A click on a "+N more" button opens that field's other pills, or folds them again.
 function toggleSearchPillGroup(group) {
   if (searchPillGroupsOpen.has(group)) searchPillGroupsOpen.delete(group);
@@ -334,6 +361,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#search-panel-toggle').addEventListener('click', flipSearchPanelSwitch);
   $('#search-input').addEventListener('focus', onSearchBoxFocus);
   document.addEventListener('keydown', onSearchPanelKey);
+  document.addEventListener('keydown', onPillStepKey);
   $('#search-pills-fold').addEventListener('click', toggleSearchPillsFold);
   document.addEventListener('mousedown', onSearchPanelOutside);
 });

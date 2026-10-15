@@ -26,4 +26,5 @@ module.exports = [
   require('./empty-space'),
   require('./board-pills'),
   require('./slice-section'),
+  require('./pill-step'),
 ];

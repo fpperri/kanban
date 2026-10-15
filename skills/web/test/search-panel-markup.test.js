@@ -161,6 +161,21 @@ test('the p key is read by one document keydown listener of the panel script, th
   assert.doesNotMatch(handler, /KEY_GUARD_SURFACES|querySelector/, 'the guard decides, not a list of the handler\'s own');
 });
 
+test('the m key is read by one document keydown listener of the panel script, through the whole key guard, and steps by the pill list\'s own step', () => {
+  const code = panelSrc.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  assert.strictEqual(code.split("addEventListener('keydown', onPillStepKey)").length - 1, 1);
+  const handler = code.match(/function onPillStepKey\([\s\S]*?\n\}/)[0];
+  assert.match(handler, /keyGuardOff\(document\)/, 'off while typing and while a popup is up');
+  assert.match(handler, /e\.ctrlKey \|\| e\.metaKey \|\| e\.altKey/, 'a chord is not the key');
+  assert.match(handler, /e\.repeat/, 'a held key steps once');
+  assert.match(handler, /e\.shiftKey \? -1 : 1/, 'Shift steps backwards');
+  assert.ok(handler.indexOf('keyGuardOff') < handler.indexOf('preventDefault'), 'the browser\'s own response is stopped only when the key acts');
+  assert.doesNotMatch(handler, /KEY_GUARD_SURFACES|querySelector/, 'the guard decides, not a list of the handler\'s own');
+  const step = code.match(/function stepSearchPill\([\s\S]*?\n\}/)[0];
+  assert.match(step, /pillStep\(searchPanelEntries\(\), selectionState\.selection, direction\)/, 'the step is the pill list\'s, over the pills the panel lists');
+  assert.match(step, /applyPillGesture\('solo', pill\.key\)/, 'the step is a solo, as a right-click is');
+});
+
 test('the arrow and the p key flip one switch, and the preferences sheet sets the same one', () => {
   assert.match(panelSrc, /\$\('#search-panel-toggle'\)\.addEventListener\('click', flipSearchPanelSwitch\);/);
   assert.match(panelSrc.match(/function flipSearchPanelSwitch\([\s\S]*?\n\}/)[0], /setPanelOnFocus\(!searchPanelSwitchOn\(\), true\)/);

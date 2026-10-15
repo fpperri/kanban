@@ -755,13 +755,23 @@ to `127.0.0.1` only.
   in the box; a right-click on the soloed pill turns every pill off, the pills' default
   (the status pills' default is all on, so theirs turns all back on). The first pill on
   is the **anchor** of the selection and later ones are additions, so Esc takes the later
-  pills out first and then the anchor. A pill is on while its query is the anchor or an
+  pills out first and then the anchor. The `m` key steps through the pills: each press
+  turns on the next pill alone, as a right-click does, so the box holds its query alone, in
+  the panel's order: off, blocked, review, waiting, then the board's own pills, then off
+  again (that last step is the right-click on the soloed pill, every pill off). Shift+m
+  steps backwards; with none on or several on it starts from the first pill (Shift+m, from
+  the last), and a pill that holds a query an earlier pill holds is the same step. It
+  works in every view, the panel open or closed, and a value pill behind a **+N more**
+  button is shown when the step reaches it. It reads the shared key guard, so it does
+  nothing while a text field has focus or a card menu, a dialog, the notifications panel or
+  the preferences sheet is up; a chord (Ctrl, Cmd, Alt) or a held key is not it. A pill is
+  on while its query is the anchor or an
   addition, and is announced as pressed (`aria-pressed`); typing in the box, or clearing
   it, turns off every pill whose query the box no longer holds (in the Graph the typed
   text becomes the anchor). A pill's anchor is not a typed search, so it
   stays the anchor when the Graph is left. With the panel closed, a chip inside the box
-  counts what is on and its accessible name says what (`1 on: review`); with nothing on
-  there is no chip. The pill section folds with its fold control for the visit, and the
+  counts what is on and its accessible name says what (`1 on: review`), and the chip's
+  hover text says it too; with nothing on there is no chip. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
@@ -933,8 +943,9 @@ to `127.0.0.1` only.
   Both read one **key guard** (`key-guard.js`): a typing check (a text field, a text area,
   a select or an editable element has focus) and a surface check (an open card menu, an
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
-  does `p`, which flips the search panel's switch (see Search panel), and so do `[`, `]`,
-  `{` and `}`, which move the run of slices (see Slice section); Ctrl+F
+  does `p`, which flips the search panel's switch (see Search panel), and `m`, which
+  steps through the pills, and so do `[`, `]`, `{` and `}`, which move the run of slices
+  (see Slice section); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the

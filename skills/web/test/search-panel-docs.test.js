@@ -50,6 +50,29 @@ test('both say the p key flips the same switch, and when it does nothing', () =>
   assert.match(skillPanel, /chord \(Ctrl, Cmd, Alt\), Shift or a held key is not it/, 'the skill says what is not the key');
 });
 
+test('both say the m key steps through the pills: the next pill alone, in the panel\'s order, then every pill off, and Shift+m backwards', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /`m` key steps through the pills/, where);
+    assert.match(text, /next pill alone/, where);
+    assert.match(text, /off, blocked, review, waiting, then the board's own pills, then off again/, where);
+    assert.match(text, /Shift\+m steps backwards/, where);
+    assert.match(text, /query alone/, where);
+    assert.match(text, /every view/, where);
+    assert.match(text, /text field|field/, where);
+    assert.match(text, /card menu|menu/, where);
+    assert.match(text, /dialog/, where);
+    assert.match(text, /notifications panel/, where);
+    assert.match(text, /preferences sheet/, where);
+  }
+  assert.match(skillPanel, /as a right-click does/, 'the skill says the step is a solo');
+  assert.match(skillPanel, /shared key guard/, 'the skill names the guard');
+  assert.match(skillPanel, /with none on or several on it starts from the first pill \(Shift\+m, from the last\)/, 'the skill says where it starts');
+  assert.match(skillPanel, /pill that holds a query an earlier pill holds is the same step/, 'the skill says pills of one query are one step');
+  assert.match(skillPanel, /\*\*\+N more\*\* button is shown when the step reaches it/, 'the skill says a hidden value pill is shown');
+  assert.match(skillPanel, /chip's hover text/, 'the skill says the chip names the pill on in its hover text');
+  assert.match(flat(skill.slice(skill.indexOf('does `p`, which flips'), skill.indexOf('- **Comboboxes**'))), /`m`, which steps through the pills/, 'the key guard entry names m');
+});
+
 test('both say the arrow announces the switch, shows it off, and that the choice is kept per board and set in the preferences sheet', () => {
   for (const [where, text] of BOTH) {
     assert.match(text, /pressed/, where);
