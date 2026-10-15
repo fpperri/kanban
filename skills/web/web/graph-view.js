@@ -110,6 +110,8 @@ function graphButton(cls, text, title, data) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = `${cls} graph-control`;
+  b.dataset.keepsSelection = '';
+  b.dataset.holdsPoll = '';
   b.textContent = text;
   b.title = title;
   for (const [k, v] of Object.entries(data || {})) b.dataset[k] = v;
@@ -217,8 +219,7 @@ function graphSettleFocus() {
 }
 
 function graphSelectOnly(id) {
-  selectedIds = new Set([id]);
-  selectionAnchor = id;
+  setSelection(new Set([id]), id);
   if (!graphCur) return;
   for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', nid === id);
   graphRestFocus();
