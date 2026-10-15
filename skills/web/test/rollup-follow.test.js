@@ -262,6 +262,7 @@ function flipSandbox({ mode, detailId = null } = {}) {
     openCard: (id) => { s.flip.opened.push(id); },
     renderBoardColumns: () => { s.flip.columns++; },
     applyViewMode: () => { s.flip.views++; },
+    computeSearchMatch: () => ({ terms: [], ids: null }),
   });
   vm.runInContext([selectionSteps(), fn('renderBoard'), sharedClickHandler()].join('\n'), s);
   assert.strictEqual(listeners.length, 1);

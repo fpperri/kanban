@@ -720,6 +720,25 @@ function currentSearchTerms() {
   return parseSearchQuery(input ? input.value : '', state.projectName);
 }
 
+// What the box matches, parsed and matched once: `terms` is the parse, `ids`
+// the Set of matching card ids, and null means no query. Matching runs over the
+// whole board, live and archived, because tree: and path: traverse both; each
+// view intersects `ids` with the cards it shows. renderBoard makes the result
+// once per render and every view reads it through currentSearchMatch(). A view
+// repainted on its own (calendar paging, a status pill) makes its own.
+let searchMatchMemo = null;
+
+function computeSearchMatch() {
+  const terms = currentSearchTerms();
+  const ids = terms.length
+    ? new Set(filterCards(state.active.concat(state.archived), terms, nestingCtx()).map((c) => c.id)) : null;
+  return { terms, ids };
+}
+
+function currentSearchMatch() {
+  return searchMatchMemo || computeSearchMatch();
+}
+
 // --- View mode: board (columns) / dependency map / calendar
 // / gantt. A closed set, with the same lazy-loaded,
 // localStorage-persisted discipline as collapsedColumns/columnSort above
@@ -844,8 +863,13 @@ function applyViewMode() {
 
 function renderBoard() {
   nestingIndex = buildNestingIndex();
-  renderBoardColumns();
-  applyViewMode();
+  searchMatchMemo = computeSearchMatch();
+  try {
+    renderBoardColumns();
+    applyViewMode();
+  } finally {
+    searchMatchMemo = null;
+  }
 }
 
 // Publishes the sticky page header's real rendered height as
@@ -889,18 +913,14 @@ function renderBoardColumns() {
   board.innerHTML = '';
   const collapsed = loadCollapsedColumns();
   const colSort = loadColumnSort();
-  const searchTerms = currentSearchTerms();
-  const searchActive = searchTerms.length > 0;
+  const searchIds = currentSearchMatch().ids;
+  const searchActive = searchIds !== null;
   const clearBtn = $('#search-clear-btn');
   if (clearBtn) clearBtn.classList.toggle('hidden', !searchActive);
   // tree:/path: terms need the FULL active+archived graph to
   // resolve connectivity — resolving per column (a pre-sliced subset) would
-  // see almost no edges. Mirrors renderMapView/renderCalendar*/renderGantt's
-  // own "resolve searchIds once against the full board" pattern: compute the
-  // matching id set ONCE here, then each column below intersects against it
-  // by id rather than re-calling filterCards on its own slice.
-  const searchIds = searchActive
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  // see almost no edges. The shared match result is that full-board
+  // resolution, so each column below intersects against it by id.
   // Columns render FROM the configured statuses list (+ archive at
   // the far right). A card whose status isn't listed renders in the FIRST
   // column via columnForStatus — the catch-all — with cardEl's raw-status chip.
@@ -1043,8 +1063,7 @@ function renderMapView() {
   container.appendChild(buildMapFilterRow());
   container.appendChild(buildMapOptionsRow());
   container.appendChild(buildMapZoomControls());
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  const searchIds = currentSearchMatch().ids;
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildRelationsGraph sees one combined
   // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
@@ -2035,15 +2054,6 @@ function consumeDeepLink() {
   if (!link) return;
   // `q` and `view` are applied BEFORE the card is resolved, so a link whose
   // card key is unusable still delivers everything else that parsed.
-  if (link.q) {
-    // Straight into the box, then renderBoard() — the same pattern
-    // focusOn/addSearchTerm already use. There is no
-    // query state anywhere: currentSearchTerms() re-reads #search-input on
-    // every render, so putting the value there IS applying the filter, and
-    // it lands somewhere visible that one gesture clears.
-    const input = $('#search-input');
-    if (input) input.value = link.q;
-  }
   if (link.view) {
     // Direct assignment, not toggleView/saveViewMode: this override is for
     // THIS load only (wins ONCE) — it must never overwrite the persisted
@@ -2051,7 +2061,13 @@ function consumeDeepLink() {
     // wherever the user last left the view via the normal toggle.
     viewMode = link.view;
   }
-  if (link.q || link.view) renderBoard();
+  // Straight into the box through its writer, which repaints. There is no
+  // query state anywhere: currentSearchTerms() re-reads #search-input on
+  // every render, so putting the value there IS applying the filter, and
+  // it lands somewhere visible that one gesture clears. The view is set
+  // first, so that repaint and the listeners told after it see the link's view.
+  if (link.q) writeSearch(link.q, 'link');
+  else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
   const card = state.active.concat(state.archived).find((c) => c.id === link.id);
@@ -3034,11 +3050,31 @@ window.addEventListener('DOMContentLoaded', () => {
 // sheet is open; Ctrl+F types nothing, so it reads only the surface check and
 // still works from inside a text field. Ctrl+F has its own `#`-prefill/
 // select-all logic — see onSearchChordKey.
+//
+// The one writer of the box: typing, the clear button, a cue click, the Ctrl+F
+// prefill, Path and Tree from a card's menu and a ?q= link all come through
+// writeSearch(text, reason). It sets the box, repaints the board, then tells
+// each listener (text, reason). Code that must react to a write registers
+// with onSearchWrite rather than editing a writer. The poll repaints without
+// writing the box, so it tells no one.
+const searchWriteListeners = [];
+
+function onSearchWrite(listener) {
+  searchWriteListeners.push(listener);
+}
+
+function writeSearch(text, reason) {
+  const input = $('#search-input');
+  if (!input) return;
+  if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
+  renderBoard();
+  searchWriteListeners.forEach((listener) => listener(text, reason));
+}
+
 function clearSearch() {
   const input = $('#search-input');
   if (!input || !input.value) return;
-  input.value = '';
-  renderBoard();
+  writeSearch('', 'clear');
 }
 
 // What Esc does when nothing is open for it to close: today it clears the
@@ -3072,9 +3108,7 @@ function onSearchChordKey(e) {
   const result = searchHotkeyPrefill(e, { modalOpen: keyGuardSurface(document) !== null, currentValue: input.value });
   if (!result) return;
   e.preventDefault();
-  const changed = result.value !== input.value;
-  input.value = result.value;
-  if (changed) renderBoard();
+  if (result.value !== input.value) writeSearch(result.value, 'prefill');
   input.focus();
   input.setSelectionRange(result.selectionStart, result.selectionEnd);
 }
@@ -3090,8 +3124,7 @@ function addSearchTerm(term) {
   const input = $('#search-input');
   const terms = input.value.trim() ? input.value.trim().split(/\s+/) : [];
   if (terms.includes(term)) return;
-  input.value = terms.concat(term).join(' ');
-  renderBoard();
+  writeSearch(terms.concat(term).join(' '), 'cue');
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -3104,12 +3137,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // removed from the front, so typing feels uninterrupted.
   input.addEventListener('input', () => {
     const stripped = searchHashStrip(input.value);
-    if (stripped !== null) {
-      const caret = Math.max(0, input.selectionStart - 1);
-      input.value = stripped;
-      input.setSelectionRange(caret, caret);
-    }
-    renderBoard();
+    const caret = stripped === null ? null : Math.max(0, input.selectionStart - 1);
+    writeSearch(stripped === null ? input.value : stripped, 'typing');
+    if (caret !== null) input.setSelectionRange(caret, caret);
   });
   $('#search-clear-btn').addEventListener('click', clearSearch);
   document.addEventListener('keydown', onSearchSlashKey);
@@ -3620,16 +3650,15 @@ function renderCalendarView() {
 // function (the sub-view switcher branches between this and the time grid).
 function renderCalendarMonthGrid(container) {
   const { year, monthIndex } = currentCalendarMonth();
-  // Same search composition as the board and map: read the live input value
-  // each render (see currentSearchTerms), filter with the shared filterCards.
+  // Same search composition as the board and map: read the shared match
+  // result (see currentSearchMatch).
   // A card appears via its RANGE (cardSchedule) and/or its DUE
   // marker (dueMarker) — a due-only card has no schedule but still chips.
   // The search pool spans live + archived unconditionally, same as
   // the gantt — harmless while the Archive pill is off, since no archived
   // card is ever added to `cards` below regardless of whether its id lands
   // in searchIds.
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  const searchIds = currentSearchMatch().ids;
   // Status filter composes with search by INTERSECTION — same rule
   // as the map's and the gantt's composition. ganttFilterVisibleIds
   // (not mapFilterVisibleIds) is the right helper here too: the calendar
@@ -3762,8 +3791,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   // band AND the timed hour grid alike, not just the month view. Same
   // live+archived search pool and Archive-pill composition as the month
   // grid too, so the toggle applies to both grids alike.
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  const searchIds = currentSearchMatch().ids;
   const statusIds = ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses());
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
   const cards = visibleIds ? state.active.filter((c) => visibleIds.has(c.id)) : state.active;
@@ -4419,18 +4447,15 @@ function renderGanttView() {
   // wipe these rows straight back out).
   container.appendChild(buildGanttControls());
   container.appendChild(buildGanttFilterRow());
-  // Same search composition as board/map/calendar: live input value each
-  // render, shared filterCards. Status filter composes with search
-  // by INTERSECTION — a card is visible only if BOTH say so — same pure
-  // helper and same rule as the map's composition (never a union, never
-  // one side dropped). The search pool spans live + archived
+  // Same search composition as board/map/calendar: the shared match result.
+  // Status filter composes with search by INTERSECTION — a card is visible
+  // only if BOTH say so — same pure helper and same rule as the map's
+  // composition (never a union, never one side dropped). The search pool
+  // spans live + archived
   // unconditionally (same as the map's own search pool) — harmless while the
   // Archive pill is off, since no archived bar is ever added to groups below
   // regardless of whether its id lands in searchIds.
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id))
-    : null;
+  const searchIds = currentSearchMatch().ids;
   // NOT mapFilterVisibleIds — that folds an unlisted status
   // into the FIRST column's toggle, correct for the map/board but wrong here.
   // ganttGroups (below) buckets cards by their RAW status and gives an
@@ -5172,17 +5197,16 @@ function showContextMenu(x, y) {
 }
 
 // Writes "tree:<id>"/"path:<id>" into the search box (REPLACING its
-// content — not appended), closes the menu, and runs the normal search flow
-// via renderBoard() — same direct-call convention as clearSearch(), no
-// synthetic 'input' event, and no view switch. Single-card only; showContextMenu
-// already hides these items for a multi-card selection, but this guards the
-// no-selection edge case too (e.g. a stale/empty selectedIds).
+// content — not appended) through writeSearch, closes the menu, and runs the
+// normal search flow — no synthetic 'input' event, and no view switch.
+// Single-card only; showContextMenu already hides these items for a
+// multi-card selection, but this guards the no-selection edge case too (e.g. a
+// stale/empty selectedIds).
 function focusOn(kind) {
   hideContextMenu();
   const id = [...selectedIds][0];
   if (id == null) return;
-  $('#search-input').value = `${kind}:${id}`;
-  renderBoard();
+  writeSearch(`${kind}:${id}`, 'menu');
 }
 
 // Bulk archive asks WHERE before it moves anything (ADR 0010): the

@@ -20,8 +20,8 @@ function fn(name, src = appSrc) {
   return m[0];
 }
 
-const declaration = (name) => {
-  const m = appSrc.match(new RegExp(`^let ${name} = .*;$`, 'm'));
+const declaration = (name, kind = 'let') => {
+  const m = appSrc.match(new RegExp(`^${kind} ${name} = .*;$`, 'm'));
   assert.ok(m, `the page declares ${name}`);
   return m[0];
 };
@@ -345,7 +345,7 @@ function escapeSandbox(value) {
   const input = { value };
   const sandbox = { $: (sel) => { assert.strictEqual(sel, '#search-input'); return input; }, renderBoard: () => { calls.render++; }, calls, input };
   vm.createContext(sandbox);
-  vm.runInContext([fn('clearSearch'), fn('escapeStep')].join('\n'), sandbox);
+  vm.runInContext([declaration('searchWriteListeners', 'const'), fn('writeSearch'), fn('clearSearch'), fn('escapeStep')].join('\n'), sandbox);
   return sandbox;
 }
 
