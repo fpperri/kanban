@@ -225,3 +225,25 @@ test('malformed board: the board readers load it and its views have cards to dra
   assert.ok(b.cards.some((c) => c.parent !== null), 'no nested card');
   assert.ok(b.cards.some((c) => c.start_date || c.due_date), 'no dated card for the Calendar and Gantt');
 });
+
+test('materializing a board again puts it back as it was, and keeps the folder', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-fixture-again-'));
+  tmpRoots.push(root);
+  const dir = path.join(root, 'board');
+  const listing = () => fs.readdirSync(dir, { recursive: true }).sort();
+  materialize('plan', dir, { port: 7123 });
+  const before = listing();
+  const config = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+  assert.ok(/^port: 7123\r?\n/.test(config), 'the port is the first line');
+  fs.writeFileSync(path.join(dir, '0001.zephyr-platform-migration.card.md'), 'edited');
+  fs.writeFileSync(path.join(dir, 'stray.txt'), 'left by a scenario');
+  fs.rmSync(path.join(dir, 'archived'), { recursive: true });
+  materialize('plan', dir, { port: 7123 });
+  assert.deepStrictEqual(listing(), before);
+  assert.strictEqual(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'), config);
+  assert.ok(fs.readFileSync(path.join(dir, '0001.zephyr-platform-migration.card.md'), 'utf8').includes('type: goal'));
+});
+
+test('an unknown board is refused and the known ones are listed', () => {
+  assert.throws(() => materialize('nope', os.tmpdir()), /unknown board 'nope': fixture, plan, malformed/);
+});

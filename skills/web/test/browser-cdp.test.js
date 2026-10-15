@@ -282,3 +282,23 @@ test('a failed scenario leaves a screenshot named FAIL for it when screenshots a
   await env.end({ name: 'graph', board: 'fixture' }, { status: 'PASS' });
   assert.deepStrictEqual(fs.readdirSync(dir), ['FAIL-smoke.png']);
 });
+
+test('a page tells its scenario whether screenshots are on', () => {
+  assert.strictEqual(livePage(fakeCdp(), { shotsDir: os.tmpdir() }).page.shotsOn, true);
+  assert.strictEqual(livePage(fakeCdp()).page.shotsOn, false);
+});
+
+test('a scenario that names more boards gets each one cleared and put back, and can open a path on any of them', async () => {
+  const resets = [];
+  const { env, cdp } = envFixture({ resetBoard: (k) => { resets.push(k); } });
+  const page = await env.begin({ name: 'smoke', board: 'plan', alsoBoards: ['fixture'] }, { check() {}, scope: { aborted: false } });
+  const cleared = cdp.calls.filter((c) => c[0] === 'Storage.clearDataForOrigin').map((c) => c[1].origin).sort();
+  assert.deepStrictEqual(cleared, ['http://127.0.0.1:7001', 'http://127.0.0.1:7002']);
+  assert.deepStrictEqual(resets.sort(), ['fixture', 'plan']);
+  assert.strictEqual(page.base, 'http://127.0.0.1:7002');
+  assert.strictEqual(page.baseOf('fixture'), 'http://127.0.0.1:7001');
+  await page.open('/?view=map', 'fixture');
+  const nav = cdp.calls.filter((c) => c[0] === 'Page.navigate').pop();
+  assert.deepStrictEqual(nav[1], { url: 'http://127.0.0.1:7001/?view=map' });
+  assert.throws(() => page.baseOf('malformed'), /scenario 'smoke' did not name board 'malformed'/);
+});

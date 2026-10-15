@@ -19,14 +19,15 @@ const BOARDS = {
   malformed: { name: 'malformed', layers: ['fixture-malformed'] },
 };
 
-// Writes board `key` into `dest`, which is emptied first, so calling it again
-// puts a board back as it was. `port` pins the serving port the way a human
-// would, as the first line of the config.
+// Writes board `key` into `dest`, whose contents are cleared first (the folder
+// itself stays, since a server may be standing on it), so calling it again puts
+// a board back as it was. `port` pins the serving port the way a human would,
+// as the first line of the config.
 function materialize(key, dest, { port } = {}) {
   const board = BOARDS[key];
   if (!board) throw new Error(`unknown board '${key}': ${Object.keys(BOARDS).join(', ')}`);
-  fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(dest)) fs.rmSync(path.join(dest, entry), { recursive: true, force: true });
   for (const layer of board.layers) fs.cpSync(path.join(__dirname, layer), dest, { recursive: true, force: true });
   if (port) {
     const cfg = path.join(dest, 'config.yaml');

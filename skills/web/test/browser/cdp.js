@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { keyEvents, contextMenuExpr, sleep } = require('./harness');
+const { keyEvents, contextMenuExpr, sleep, boardsOf } = require('./harness');
 
 const CALL_TIMEOUT_MS = 20000;
 const EVENT_LIMIT = 5000;
@@ -71,7 +71,7 @@ function connectCdp(wsUrl, { WebSocketImpl = WebSocket, callTimeoutMs = CALL_TIM
 // Everything a scenario does to the browser goes through its page. Once the
 // scenario is over (done, timed out or Chrome lost), every call throws, so a
 // scenario that was cut off unwinds instead of carrying on against the next one.
-function makePage({ cdp, base, scope, check, shotsDir = null, scenario = 'scenario' }) {
+function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenario = 'scenario' }) {
   const live = () => { if (scope.aborted) throw new Error('scenario is over'); };
   const send = async (method, params) => { live(); return cdp.send(method, params); };
   const ev = async (expr) => { live(); return cdp.ev(expr); };
@@ -111,9 +111,15 @@ function makePage({ cdp, base, scope, check, shotsDir = null, scenario = 'scenar
     fs.writeFileSync(path.join(shotsDir, `${scenario}-${String(++shotN).padStart(2, '0')}-${name}.png`), Buffer.from(r.data, 'base64'));
   };
 
+  const baseOf = (key) => {
+    if (!bases[key]) throw new Error(`scenario '${scenario}' did not name board '${key}'`);
+    return bases[key];
+  };
+
   return {
-    base, scope, check, send, ev, sleep: pause, waitFor, waitUntil, centre, mouse, click, key, rightClick, shot,
-    open: (pathAndQuery) => send('Page.navigate', { url: `${base}${pathAndQuery}` }),
+    base, baseOf, scope, check, send, ev, sleep: pause, waitFor, waitUntil, centre, mouse, click, key, rightClick, shot,
+    shotsOn: !!shotsDir,
+    open: (pathAndQuery, boardKey) => send('Page.navigate', { url: `${boardKey ? baseOf(boardKey) : base}${pathAndQuery}` }),
   };
 }
 
@@ -142,15 +148,20 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
   return {
     gone,
     async begin(sc, ctx) {
-      const board = boards[sc.board];
-      if (!board) throw new Error(`scenario '${sc.name}' names board '${sc.board}', which the run did not start`);
+      const keys = boardsOf(sc);
+      for (const k of keys) {
+        if (!boards[k]) throw new Error(`scenario '${sc.name}' names board '${k}', which the run did not start`);
+      }
       await cdp.send('Page.navigate', { url: 'about:blank' });
-      await cdp.send('Storage.clearDataForOrigin', { origin: new URL(board.base).origin, storageTypes: 'all' });
-      await resetBoard(sc.board);
+      for (const k of keys) {
+        await cdp.send('Storage.clearDataForOrigin', { origin: new URL(boards[k].base).origin, storageTypes: 'all' });
+        await resetBoard(k);
+      }
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Emulation.setEmulatedMedia', { features: [] });
       cdp.takeEvents();
-      return makePage({ cdp, base: board.base, scope: ctx.scope, check: ctx.check, shotsDir, scenario: sc.name });
+      const bases = Object.fromEntries(keys.map((k) => [k, boards[k].base]));
+      return makePage({ cdp, base: boards[sc.board].base, bases, scope: ctx.scope, check: ctx.check, shotsDir, scenario: sc.name });
     },
     async end(sc, rec) {
       if (rec.status !== 'FAIL' || !shotsDir) return;

@@ -218,6 +218,9 @@ const END_GRACE_MS = 5000;
 
 const seconds = (ms) => `${ms / 1000}s`;
 
+// The boards a scenario drives: the one it names, then any it also names.
+const boardsOf = (sc) => [sc.board, ...(sc.alsoBoards || [])];
+
 async function runOne(sc, env, opts, log) {
   const rec = { name: sc.name, board: sc.board, status: 'PASS', checks: [], error: null, ms: 0 };
   const scope = { aborted: false };
@@ -229,7 +232,7 @@ async function runOne(sc, env, opts, log) {
   const timeoutMs = sc.timeoutMs || opts.timeoutMs || DEFAULT_TIMEOUT_MS;
   const t0 = Date.now();
   let timer;
-  log(`== ${sc.name}  (board ${sc.board})`);
+  log(`== ${sc.name}  (board ${boardsOf(sc).join(', ')})`);
   const work = async () => {
     const lostAlready = await Promise.race([env.gone, Promise.resolve(null)]);
     if (lostAlready) throw new Error(`Chrome is gone: ${lostAlready}`);
@@ -298,6 +301,6 @@ function summaryLines(results) {
 
 module.exports = {
   EXIT, DEFAULT_TIMEOUT_MS, parseArgs, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
-  isAlive, killTree, createRegistry, sleep,
+  isAlive, killTree, createRegistry, sleep, boardsOf,
   runScenarios, withFault, exitCodeFor, summaryLines,
 };
