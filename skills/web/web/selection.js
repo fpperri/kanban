@@ -368,6 +368,59 @@ function selectionOnViewSwitch(selection, { from, to, boxText }) {
   return selection;
 }
 
+// --- A click on a pill ----------------------------------------------------------
+// A pill is a search query offered as one click, and its part in the selection is
+// a query part with no source (a typed query has one). The page carries out what
+// these two functions decide: the selection and the text of the box change
+// together, worked out here from the search module's alternatives (`alts`: has,
+// add and remove one alternative of a box's text), so what the box shows and what
+// is selected cannot disagree.
+
+function pillQueryText(query) { return String(query).trim().replace(/\s+/g, ' '); }
+
+function isPillPart(part, query) {
+  return part.kind === 'query' && !part.source && pillQueryText(part.text) === pillQueryText(query);
+}
+
+// What a click on a pill does. A click, with either button ('click'), makes the
+// pill's query the anchor and puts it in the box, whatever was selected and
+// whatever the box held; on the only pill that is on it turns that pill off,
+// empties the selection and clears the box. Shift ('add') adds the pill's query to
+// the selection and grows the box to `box | pill` so the pill's cards are not hidden
+// by it, and takes the part out of both when the pill is on already. With no
+// anchor to grow from, or on the only pill that is on, Shift does what a click does.
+// A box that is empty hides nothing, so an addition leaves it empty. Returns
+// { selection, boxText, rangeStart }; a rangeStart of undefined leaves the range
+// start as it was, and a query anchor leaves none (null).
+function selectionAfterPill(gesture, query, { selection, boxText, alts }) {
+  const text = pillQueryText(query);
+  const parts = partsOf(selection);
+  const on = parts.some((part) => isPillPart(part, text));
+  const only = on && parts.length === 1;
+  if (only) return { selection: NO_SELECTION, boxText: '', rangeStart: null };
+  if (gesture !== 'add' || !selection.anchor) return { selection: setAnchor(selection, queryPart(text)), boxText: text, rangeStart: null };
+  if (!on) return { selection: addPart(selection, queryPart(text)), boxText: String(boxText).trim() ? alts.add(boxText, text) : boxText, rangeStart: undefined };
+  const kept = parts.filter((part) => !isPillPart(part, text)).reduce((next, part) => addPart(next, part), NO_SELECTION);
+  const anchorWent = kept.anchor !== selection.anchor;
+  return { selection: kept, boxText: alts.remove(boxText, text), rangeStart: anchorWent ? (kept.anchor && kept.anchor.kind === 'card' ? kept.anchor.id : null) : undefined };
+}
+
+// What an edit of the box by hand (typing, the clear button) leaves of the
+// selection ({ selection, rangeStart }): a pill's query the box no longer holds as
+// an alternative stops being the anchor or an addition, so the pill is off. A card,
+// a path, a tree and a typed query stay. `holds(boxText, query)` is the search
+// module's. Nothing to drop: the same state comes back, and the caller skips the
+// repaint. When the anchor goes the next part is the anchor, and the range start
+// follows it, as when any anchor goes.
+function selectionAfterBoxEdit(state, boxText, holds) {
+  const parts = partsOf(state.selection);
+  const kept = parts.filter((part) => part.kind !== 'query' || part.source || holds(boxText, part.text));
+  if (kept.length === parts.length) return state;
+  const selection = kept.reduce((next, part) => addPart(next, part), NO_SELECTION);
+  if (selection.anchor === state.selection.anchor) return { selection, rangeStart: state.rangeStart };
+  return { selection, rangeStart: selection.anchor && selection.anchor.kind === 'card' ? selection.anchor.id : null };
+}
+
 // The card a click picked on its own, or null: a selection that is one card part,
 // the anchor with no additions. Only such a card lights with its relations; a
 // query or a path that matches one card lights that card alone.
@@ -377,9 +430,11 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, partCards, resolveSelection, removeCard, stepBack, selectionAfterEscape, pruneSelectionParts, toggleSelection, pruneSelection, cardMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, clickKeepsSelection, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
+  window.selectionAfterPill = selectionAfterPill;
+  window.selectionAfterBoxEdit = selectionAfterBoxEdit;
   window.typedQueryPart = typedQueryPart;
   window.isTypedAnchor = isTypedAnchor;
   window.selectionAfterTyping = selectionAfterTyping;
