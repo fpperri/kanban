@@ -78,6 +78,8 @@ module.exports = {
     const focusId = () => ev(`document.activeElement&&(document.activeElement.id||document.activeElement.dataset.pillKey||document.activeElement.tagName)`);
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
     const MENU_OPEN = `(()=>{const m=document.querySelector('#search-input ~ .combobox-menu');return !!m&&!m.hidden})()`;
+    const BULK_LIST_OPEN = `(()=>{const m=document.querySelector('#bulk-single-input ~ .combobox-menu');return !!m&&!m.hidden})()`;
+    const BULK_POPUP_OPEN = `!document.getElementById('bulk-single').classList.contains('hidden')`;
 
     const clickOn = async (sel, extra = {}) => {
       const p = await centre(sel);
@@ -155,8 +157,12 @@ module.exports = {
     check('a right-click on a selected card opens the card menu', await waitFor(`!document.getElementById('context-menu').classList.contains('hidden')`));
     await ev(`document.getElementById('ctx-assign').click()`);
     check('the bulk popup counts the selected cards', await waitFor(`document.getElementById('bulk-single-title').textContent==='Assign ${CASES.review.length} card(s)'`), await ev(`document.getElementById('bulk-single-title').textContent`));
+    // The popup's value box is an assignee combobox that opens its list as the popup focuses it, and an open list takes the first Esc, as the search box's does.
+    check('the bulk popup has its assignee suggestion list open', await waitFor(BULK_LIST_OPEN));
     await key('Escape');
-    check('Esc closes the bulk popup first', await waitFor(`document.getElementById('bulk-single').classList.contains('hidden')`) && await ev(panelOpen));
+    check('the first Esc closes that suggestion list and leaves the bulk popup open', await waitFor(`!(${BULK_LIST_OPEN})`) && await ev(BULK_POPUP_OPEN) && await ev(panelOpen));
+    await key('Escape');
+    check('the next Esc closes the bulk popup, before the panel, which stays open', await waitFor(`!(${BULK_POPUP_OPEN})`) && await ev(panelOpen));
 
     await clickOn(pillSel('review'));
     check('a click on review again clears the box', await boxIs(''), await boxText());
