@@ -639,11 +639,11 @@ function calendarCreateStart(day, rawMin) {
 // pill hides, plus the archived matches while the Archive pill is on. The
 // status pills never govern an archived card, only the Archive pill and the
 // search do. This is the composition the Calendar's two grids and the Gantt's
-// rows make before they draw, and they call viewShownCards for it, so what the
-// jump counts as on screen cannot drift from what is on screen. `view` carries
-// the inputs: { active, archived, searchIds, statusIds, archiveOn }; searchIds
-// and statusIds are Sets of card ids, null for "not filtering" (no query; every
-// status pill on).
+// rows make before they draw; the jump counts what it answers, and a page test
+// (calendar-gantt-jump-page.test.js) pins that it is what they hand to their
+// layout. `view` carries the inputs: { active, archived, searchIds, statusIds,
+// archiveOn }; searchIds and statusIds are Sets of card ids, null for "not
+// filtering" (no query; every status pill on).
 function viewShownCards(view) {
   const keeps = (ids, card) => !ids || ids.has(card.id);
   return {
