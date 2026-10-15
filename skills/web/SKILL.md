@@ -781,7 +781,10 @@ to `127.0.0.1` only.
   in the box; a right-click on the soloed pill turns every pill off, the pills' default
   (the status pills' default is all on, so theirs turns all back on). The first pill on
   is the **anchor** of the selection and later ones are additions, so Esc takes the later
-  pills out first and then the anchor. The `m` key steps through the pills: each press
+  pills out first and then the anchor. When the anchor is a card, path or tree you picked and
+  the box is empty, a click on a pill leaves the box empty, since an empty box hides nothing:
+  the pill is on and its matches are selected, but its query is not in the box or the address,
+  and typing in the box drops it. The `m` key steps through the pills: each press
   turns on the next pill alone, as a right-click does, so the box holds its query alone, in
   the panel's order: off, blocked, review, waiting, then the board's own pills, then off
   again (that last step is the right-click on the soloed pill, every pill off). Shift+m
@@ -794,10 +797,13 @@ to `127.0.0.1` only.
   on while its query is the anchor or an
   addition, and is announced as pressed (`aria-pressed`); typing in the box, or clearing
   it, turns off every pill whose query the box no longer holds (in the Graph the typed
-  text becomes the anchor). A pill's anchor is not a typed search, so it
+  text becomes the anchor). A query typed by hand is never a pill, even one that reads as a
+  pill's query: type `review:` and the review pill stays off. A pill's anchor is not a typed search, so it
   stays the anchor when the Graph is left. With the panel closed, a chip inside the box
   counts what is on and its accessible name says what (`1 on: review`), and the chip's
-  hover text says it too; with nothing on there is no chip. The pill section folds with its fold control for the visit, and the
+  hover text says it too; with nothing on there is no chip. A reload, or a link, carries the
+  box's text and not the selection, so a cut and isolate come back but a pill shows off, with
+  its query in the box as typed text. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
@@ -1118,8 +1124,10 @@ to `127.0.0.1` only.
     when `q` would change. A browser may refuse a replacement when there are too many in
     a short time (Safari throws past 100 in 30 seconds): the refusal is let go, the
     address lags the box, and the next change to `q` catches it up. A reload, or a link copied from the address bar, opens with the same
-    search through the deep link above, whatever the query holds; the poll never writes
-    the address. Back and Forward never write the box: when one
+    search through the deep link above, whatever the query holds. The link carries the
+    box's text and not the selection, so a cut and isolate come back, but a pill shows off (its
+    query is there as typed text and, outside the Graph, its matches are not selected). The
+    poll never writes the address. Back and Forward never write the box: when one
     lands on an entry whose `q` differs from the box, the box keeps its text and that
     entry is replaced to carry it. Opening a card still takes one history step, which now
     carries the query too. `card-history.js` decides the new address (a pure function: the

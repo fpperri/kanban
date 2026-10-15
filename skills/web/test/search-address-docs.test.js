@@ -32,3 +32,8 @@ test('the deep-link section says a refused replacement lets the address lag unti
   assert.match(deepLinks, /A browser may refuse a replacement/);
   assert.match(deepLinks, /the address lags the box, and the next change to `q` catches it up/);
 });
+
+test("the deep-link section says a reload carries the box's text and so not a pill's on state", () => {
+  assert.match(deepLinks, /carries the box's text and not the selection/);
+  assert.match(deepLinks, /a cut and isolate come back, but a pill shows off/);
+});

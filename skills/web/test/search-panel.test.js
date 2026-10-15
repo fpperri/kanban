@@ -617,6 +617,28 @@ test('in the Graph the typed text becomes the anchor, and the pill is off', asyn
   assert.deepStrictEqual(s.on(), []);
 });
 
+test("a query typed by hand that is exactly a pill's query leaves the pill off, in the Board and in the Graph", async () => {
+  for (const view of ['board', 'graph']) {
+    const s = await open({ view });
+    s.type('review:');
+    assert.strictEqual(s.box(), 'review:', view);
+    assert.deepStrictEqual(s.on(), [], view);
+    assert.deepStrictEqual(s.pills().map((p) => p.key), ['blocked', 'review', 'waiting'], view);
+  }
+});
+
+test("a link whose q is a pill's query opens with the query in the box as typed text: the pill is off and, outside the Graph, nothing is selected", async () => {
+  const board = await open({ search: '?q=review%3A' });
+  assert.strictEqual(board.box(), 'review:');
+  assert.deepStrictEqual(board.shown(), [5, 6], 'the filter travels');
+  assert.deepStrictEqual(board.on(), []);
+  assert.deepStrictEqual(board.ids(), []);
+  const graph = await open({ view: 'graph', search: '?q=review%3A' });
+  assert.strictEqual(graph.box(), 'review:');
+  assert.deepStrictEqual(graph.on(), []);
+  assert.deepStrictEqual(graph.selection(), { anchor: typed('review:'), additions: [] });
+});
+
 test('the clear button turns the pill off too', async () => {
   const s = await open();
   s.click('review');
