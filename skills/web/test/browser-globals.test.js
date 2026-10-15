@@ -17,6 +17,7 @@ const PAGE_GLOBALS = [
   'graphFanNames',
   'graphLoadOptions',
   'graphNeighbours',
+  'graphSetOption',
   'hoveredId',
   'isDragging',
   'renderGraphView',

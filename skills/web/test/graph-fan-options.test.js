@@ -5,26 +5,28 @@ const {
   GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions, mergeGraphOptionsFolded,
 } = require('../web/graph-model');
 
-// The tier fan's option row holds four settings: how the parent lines are drawn
+// The tier fan's option row holds five settings: how the parent lines are drawn
 // (lines), whether the dependency arrows are (dependencies), how siblings are
-// ordered within a sector (order), and which cards carry their title (names). What a
-// browser stored for a board is merged with the defaults the way the Map's options
-// are: a stale or hand-edited value is read as its default.
+// ordered within a sector (order), which cards carry their title (names), and where the
+// cards with no parent, no children and no tier are drawn (unnested). What a browser stored
+// for a board is merged with the defaults the way the Map's options are: a stale or
+// hand-edited value is read as its default.
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
-const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant' };
+const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' };
 
-test('the options offer lines: folded, chain, all, off; dependencies: on, off; order: status, rank; names: relevant, all, none, the first of each the default', () => {
+test('the options offer lines: folded, chain, all, off; dependencies: on, off; order: status, rank; names: relevant, all, none; unnested: outermost, off, depth 0, table, the first of each the default', () => {
   assert.deepStrictEqual(plain(GRAPH_FAN_OPTION_VALUES), {
     lines: ['folded', 'chain', 'all', 'off'],
     dependencies: ['on', 'off'],
     order: ['status', 'rank'],
     names: ['relevant', 'all', 'none'],
+    unnested: ['outermost', 'off', 'depth 0', 'table'],
   });
   assert.deepStrictEqual(plain(GRAPH_FAN_OPTION_DEFAULTS), DEFAULTS);
 });
 
-test('nothing stored gives the defaults: folded, on, status, relevant', () => {
+test('nothing stored gives the defaults: folded, on, status, relevant, outermost', () => {
   for (const nothing of [undefined, null, {}, [], 'folded', 7, true]) {
     assert.deepStrictEqual(plain(mergeGraphFanOptions(nothing)), DEFAULTS, JSON.stringify(nothing));
   }
@@ -34,9 +36,12 @@ test('a stored choice is kept and the rest stays at its default', () => {
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all' })), { ...DEFAULTS, lines: 'all' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ dependencies: 'off', order: 'rank' })), { ...DEFAULTS, dependencies: 'off', order: 'rank' });
   assert.deepStrictEqual(
-    plain(mergeGraphFanOptions({ lines: 'off', dependencies: 'off', order: 'rank', names: 'none' })),
-    { lines: 'off', dependencies: 'off', order: 'rank', names: 'none' },
+    plain(mergeGraphFanOptions({ lines: 'off', dependencies: 'off', order: 'rank', names: 'none', unnested: 'table' })),
+    { lines: 'off', dependencies: 'off', order: 'rank', names: 'none', unnested: 'table' },
   );
+  for (const unnested of GRAPH_FAN_OPTION_VALUES.unnested) {
+    assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested })), { ...DEFAULTS, unnested }, unnested);
+  }
 });
 
 test('a stored Names value merges with the defaults: all and none are kept, and the other options stay at theirs', () => {
@@ -55,14 +60,17 @@ test('an unknown stored Names value falls back to relevant, whatever its neighbo
 
 test('a value the row does not offer falls back to its own default, whatever its neighbours hold', () => {
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'every', dependencies: 'off', order: 'layout' })), { ...DEFAULTS, dependencies: 'off' });
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: ['all'], dependencies: 1, order: null })), DEFAULTS);
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: ['all'], dependencies: 1, order: null, unnested: 0 })), DEFAULTS);
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'ALL' })), DEFAULTS, 'a value is compared as written');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested: 'ring', order: 'rank' })), { ...DEFAULTS, order: 'rank' }, 'an unknown unnested mode reads as outermost');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested: 'Table' })), DEFAULTS, 'compared as written');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested: 'depth0' })), DEFAULTS);
 });
 
 test('a key the row does not have is dropped, and an inherited name such as toString is no value', () => {
-  const merged = mergeGraphFanOptions({ lines: 'chain', speed: 'fast', toString: 'on', __proto__: { order: 'rank', names: 'all' } });
+  const merged = mergeGraphFanOptions({ lines: 'chain', speed: 'fast', toString: 'on', __proto__: { order: 'rank', names: 'all', unnested: 'off' } });
   assert.deepStrictEqual(plain(merged), { ...DEFAULTS, lines: 'chain' });
-  assert.deepStrictEqual(Object.keys(merged), ['lines', 'dependencies', 'order', 'names']);
+  assert.deepStrictEqual(Object.keys(merged), ['lines', 'dependencies', 'order', 'names', 'unnested']);
 });
 
 test('merging gives a new object: the stored one is not changed and the defaults are not shared', () => {
