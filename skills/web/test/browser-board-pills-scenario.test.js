@@ -131,14 +131,18 @@ test('the ids and classes the scenario drives are in the page the panel is drawn
 // A stand-in for the page: every expression the scenario sends is parsed, so a typo in
 // one fails here, and what it reads back is answered the way a browser would for the
 // scenario's own reads. Whether each check holds is for the browser to say.
-function standIn() {
-  const log = { exprs: [], bad: [], checks: [], opened: [], clicks: 0, modifiers: [] };
+function standIn({ panelStartsShut = false, switchOff = false } = {}) {
+  const log = { exprs: [], bad: [], checks: [], opened: [], clicks: 0, modifiers: [], centred: [], focused: 0 };
+  let panelUp = !panelStartsShut;
   const parse = (expr) => {
     try { new vm.Script(`(${expr})`); } catch (e) { log.bad.push(`${e.message}: ${String(expr).slice(0, 120)}`); }
   };
   const plan = boardOf('plan');
   const liveIds = plan.live.map((c) => c.id);
   const answer = (expr) => {
+    if (panelStartsShut && /^!document\.getElementById\('search-panel'\)\.classList/.test(expr)) return panelUp;
+    if (panelStartsShut && /getElementById\('search-panel-toggle'\)\.getAttribute\('aria-pressed'\)==='false'$/.test(expr)) return switchOff;
+    if (panelStartsShut && /getElementById\('search-input'\)\.focus\(\)$/.test(expr)) { log.focused++; panelUp = !switchOff; return true; }
     if (/^\[\.\.\.new Set\(\[\.\.\.document\.querySelectorAll\('#board \.card-el'\)\]/.test(expr)) return liveIds;
     if (/^JSON\.stringify\(Object\.fromEntries/.test(expr)) return JSON.stringify(CASES.counts);
     if (/^\[\.\.\.document\.querySelectorAll\('#search-pills > \*'\)\]\.map\(\(b\)=>b\.dataset\.pillKey\)$/.test(expr)) return ['blocked', 'review', 'waiting', 'value:tags:grill', 'more:tags'];
@@ -152,10 +156,10 @@ function standIn() {
   return {
     log,
     ev: async (expr) => { log.exprs.push(expr); parse(expr); return answer(expr); },
-    open: async (p, key) => { log.opened.push([key || 'plan', p]); },
+    open: async (p, key) => { log.opened.push([key || 'plan', p]); panelUp = !panelStartsShut; },
     waitFor: async (expr) => { log.exprs.push(expr); parse(expr); return true; },
-    centre: async () => ({ x: 10, y: 10 }),
-    click: async (x, y, extra = {}) => { log.clicks++; log.modifiers.push(extra.modifiers || 0); },
+    centre: async (selector) => { log.centred.push(selector); return { x: 10, y: 10 }; },
+    click: async (x, y, extra = {}) => { log.clicks++; log.modifiers.push(extra.modifiers || 0); if (panelStartsShut && switchOff) panelUp = true; },
     check: (name, ok) => log.checks.push([name, ok]),
   };
 }
@@ -183,6 +187,20 @@ test('it clicks every board pill in turn, the revealed ones too, and a Shift+cli
   assert.strictEqual(page.log.modifiers.filter((m) => m === 8).length, 1);
   assert.ok(code.includes('[...CASES.own, ...SHOWN_TAGS, ...REST_TAGS]'), 'the loop names the own pills of the board and every tag');
   for (const label of [...CASES.own, ...CASES.shownTags, ...CASES.restTags]) assert.ok(CASES.queries[label] && CASES.counts[label] !== undefined, `${label} has its query and its count`);
+});
+
+test('with the switch on, the scenario opens the panel by focusing the box and never clicks the arrow, which would switch the panel off', async () => {
+  const page = standIn({ panelStartsShut: true });
+  await scenario.run(page);
+  assert.deepStrictEqual(page.log.centred.filter((s) => s === '#search-panel-toggle'), []);
+  assert.strictEqual(page.log.focused, 3, 'the box is focused once on each of the three boards');
+});
+
+test('with the switch off, the scenario clicks the arrow to open the panel, which turns the switch on', async () => {
+  const page = standIn({ panelStartsShut: true, switchOff: true });
+  await scenario.run(page);
+  assert.strictEqual(page.log.centred.filter((s) => s === '#search-panel-toggle').length, 3);
+  assert.strictEqual(page.log.focused, 0);
 });
 
 test('every check the scenario makes has a name that says what it holds', async () => {

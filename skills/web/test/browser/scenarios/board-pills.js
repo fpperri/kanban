@@ -76,11 +76,18 @@ module.exports = {
     const shownIs = (ids) => waitFor(`${idsExpr(SHOWN)}===${JSON.stringify(JSON.stringify(ids))}`);
     const PANEL = `document.getElementById('search-panel')`;
     const panelOpen = `!${PANEL}.classList.contains('hidden')&&${PANEL}.getBoundingClientRect().height>0`;
+    const SWITCH_OFF = `document.getElementById('search-panel-toggle').getAttribute('aria-pressed')==='false'`;
+    // The panel opens when the box is focused while the switch (the arrow) is on, which is how a board starts. A click
+    // on the arrow would switch it off, so the arrow is clicked only when the switch is already off: that turns it on and opens the panel.
     const openPanel = async () => {
       if (!(await ev(panelOpen))) {
-        const p = await centre('#search-panel-toggle');
-        if (!p) throw new Error('nothing matches #search-panel-toggle');
-        await click(p.x, p.y);
+        if (await ev(SWITCH_OFF)) {
+          const p = await centre('#search-panel-toggle');
+          if (!p) throw new Error('nothing matches #search-panel-toggle');
+          await click(p.x, p.y);
+        } else {
+          await ev(`document.getElementById('search-input').focus()`);
+        }
       }
       return waitFor(panelOpen);
     };

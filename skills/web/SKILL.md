@@ -723,10 +723,20 @@ to `127.0.0.1` only.
   only** (cards the doing gate refuses — waiting or blocked — are skipped per card, with
   one summary toast naming which gate); calendar/gantt drags always move the single card
   under the pointer, selected or not.
-- **Search panel** — the search box has a border and a toggle at its right end (a caret,
-  with `aria-expanded`) that opens a panel under it. Focusing the box never opens it, an
-  open panel adds nothing to the header's height, and a press anywhere outside the search
-  bar closes it. The panel has four regions, drawn on their own: one for slices (empty so
+- **Search panel** — the search box has a border and an arrow at its right end (a caret)
+  that is the switch of a panel under the box. With the switch on, the default, focusing
+  the box (a click, Tab, `/` or Ctrl+F) opens the panel. A click on the arrow switches it
+  off: the panel closes now and focusing the box no longer opens it; a second click
+  switches it on and opens the panel now. The `p` key flips the same switch. It reads the
+  shared key guard, so it does nothing while a text field has focus or a card menu, a
+  dialog, the notifications panel or the preferences sheet is up; the panel is no popup, so
+  `p` works with the panel open, and a chord (Ctrl, Cmd, Alt), Shift or a held key is not
+  it. The arrow announces the switch with `aria-pressed` (and whether the panel is open
+  with `aria-expanded`), and is struck through while the switch is off. The choice is kept
+  in the browser per board, in the board's own `prefs` entry, and the preferences sheet
+  shows and sets it. An open panel adds nothing to the header's height, and a press
+  anywhere outside the search bar closes it, leaving the switch as it was. The panel has
+  four regions, drawn on their own: one for slices (empty so
   far), the **pill section** with its fold control, a divider, and a foot (empty so far).
   The pill section lists the built-in pills, blocked, review and waiting, in that order,
   each with a count of the cards its query matches, done cards included. The counts are
@@ -753,10 +763,11 @@ to `127.0.0.1` only.
   counts what is on and its accessible name says what (`1 on: review`); with nothing on
   there is no chip. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
-  The toggle, the fold control and every pill are buttons, so Tab reaches them and Enter
+  The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
-  goes back to the toggle, and stays in the box when Esc was pressed there), and only then
-  clears the box, with focus in it, or steps the selection back. The box keeps its text
+  goes back to the arrow, and stays in the box when Esc was pressed there), and only then
+  clears the box, with focus in it, or steps the selection back. Esc leaves the switch on,
+  so the box, focused again, opens the panel again. The box keeps its text
   through the first two, because the browser's own Esc, which clears a search field, is
   stopped for them. The panel is no popup: the 5s poll runs while it is open and updates the
   pills and their counts where they stand, so a pill that has focus keeps its focus; a
@@ -801,11 +812,14 @@ to `127.0.0.1` only.
   `rollup.archived` key is not read, so a browser that kept `false` there counts archived
   leaves again and the sheet shows the toggle on. **Pill section starts folded** is off by
   default: it says how the search panel's pill section starts, and the section's own fold
-  control still folds it for the visit. The sheet closes on Esc, on a click outside
+  control still folds it for the visit. **Panel opens when the search box is focused** is
+  on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
+  so each shows what the others did; turning it off closes the panel, and turning it on
+  from the sheet leaves the panel closed until the box is focused. The sheet closes on Esc, on a click outside
   it or with its close button, and focus goes back to the gear; like the other popups it
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
-  not rebuild the board under it, `/` and Ctrl+F do nothing (the shared key guard names the
-  sheet), and a click inside it never clears a selection.
+  not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
+  the sheet), and a click inside it never clears a selection.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the
@@ -881,7 +895,8 @@ to `127.0.0.1` only.
   field has focus as well as while a popup is up.
   Both read one **key guard** (`key-guard.js`): a typing check (a text field, a text area,
   a select or an editable element has focus) and a surface check (an open card menu, an
-  open dialog, the notifications panel or the preferences sheet). `/` reads both; Ctrl+F
+  open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
+  does `p`, which flips the search panel's switch (see Search panel); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the

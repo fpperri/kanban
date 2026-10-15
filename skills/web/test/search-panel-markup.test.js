@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-// The search box, its toggle and chip, and the panel under it: the markup the page
+// The search box, its arrow (the panel's switch) and chip, and the panel under it: the markup the page
 // ships, the stylesheet rules that draw it (a strict CSP allows no inline style, so
 // every rule is in app.css, in the page's own tokens), and the places in the page
 // code that keep it out of the way of a selection, the poll and Esc. How the pills
@@ -42,13 +42,21 @@ test('the input and the clear button are as they were, so everything that reads 
   assert.match(html, /<button type="button" id="search-clear-btn"/);
 });
 
-test('the toggle is a button that names the panel it opens, says whether it is open, starts closed and keeps a selection', () => {
+test('the arrow is a button that names the panel it controls, says whether it is open, starts closed and keeps a selection', () => {
   const toggle = tagOf('search-panel-toggle');
   assert.strictEqual(attr(toggle, 'type'), 'button');
   assert.strictEqual(attr(toggle, 'aria-expanded'), 'false');
   assert.strictEqual(attr(toggle, 'aria-controls'), 'search-panel');
   assert.ok(attr(toggle, 'aria-label'), 'it has a name for assistive technology');
   assert.notStrictEqual(attr(toggle, 'data-keeps-selection'), null);
+});
+
+test('the arrow is a switch: it starts pressed, the panel opening on focus, and its name and tooltip say what it does and name the p key', () => {
+  const toggle = tagOf('search-panel-toggle');
+  assert.strictEqual(attr(toggle, 'aria-pressed'), 'true', 'on to start, the default');
+  assert.match(attr(toggle, 'aria-label'), /opens on focus/i, 'a name that reads right with the pressed state after it');
+  assert.match(attr(toggle, 'title'), /opens when the box is focused/i);
+  assert.match(attr(toggle, 'title'), /\bp\b/);
 });
 
 test('the chip is a hidden image with a name the page fills in, and keeps a selection', () => {
@@ -134,9 +142,30 @@ test('the pill list and the panel are page scripts, the list first, both ahead o
   assert.ok(served.includes('pills.js') && served.includes('search-panel.js'));
 });
 
-test('focusing the search box does not open the panel: the panel script never listens to the box', () => {
+test('focusing the search box opens the panel through one focus listener on the box, which asks the switch first', () => {
   const code = panelSrc.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-  assert.doesNotMatch(code, /'focus'|"focus"|focusin/);
+  assert.strictEqual(code.split("'focus'").length - 1, 1, 'one focus listener in the panel script');
+  assert.match(code, /\$\('#search-input'\)\.addEventListener\('focus', onSearchBoxFocus\);/);
+  assert.match(code.match(/function onSearchBoxFocus\([\s\S]*?\n\}/)[0], /searchPanelSwitchOn\(\)/);
+  assert.doesNotMatch(code, /focusin/);
+});
+
+test('the p key is read by one document keydown listener of the panel script, through the whole key guard', () => {
+  const code = panelSrc.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  assert.match(code, /document\.addEventListener\('keydown', onSearchPanelKey\);/);
+  const handler = code.match(/function onSearchPanelKey\([\s\S]*?\n\}/)[0];
+  assert.match(handler, /keyGuardOff\(document\)/, 'off while typing and while a popup is up');
+  assert.match(handler, /e\.ctrlKey \|\| e\.metaKey \|\| e\.altKey/, 'a chord is not the key');
+  assert.match(handler, /e\.repeat/, 'a held key flips it once');
+  assert.ok(handler.indexOf('keyGuardOff') < handler.indexOf('preventDefault'), 'the browser\'s own response is stopped only when the key acts');
+  assert.doesNotMatch(handler, /KEY_GUARD_SURFACES|querySelector/, 'the guard decides, not a list of the handler\'s own');
+});
+
+test('the arrow and the p key flip one switch, and the preferences sheet sets the same one', () => {
+  assert.match(panelSrc, /\$\('#search-panel-toggle'\)\.addEventListener\('click', flipSearchPanelSwitch\);/);
+  assert.match(panelSrc.match(/function flipSearchPanelSwitch\([\s\S]*?\n\}/)[0], /setPanelOnFocus\(!searchPanelSwitchOn\(\), true\)/);
+  assert.match(panelSrc.match(/function onSearchPanelKey\([\s\S]*?\n\}/)[0], /flipSearchPanelSwitch\(\)/);
+  assert.match(appSrc.match(/function setPanelOnFocus\([\s\S]*?\n\}/)[0], /applySearchPanelSwitch\(on, openNow\)/);
 });
 
 test('the panel script draws with classes only: no style, no innerHTML, no inline handler', () => {
@@ -212,6 +241,13 @@ test('the box carries the border and the input gives up its own, so the header i
   assert.match(block, /\.search-box \{[^}]*border: 1px solid var\(--line\)/);
   assert.match(block, /\.search-box \.search-input \{[^}]*border: 0/);
   assert.match(block, /\.search-box:focus-within \{[^}]*border-color: var\(--accent\)/);
+});
+
+test('the arrow switched off is struck through, by a rule that dims nothing with opacity', () => {
+  const off = block.match(/\.search-panel-toggle\[aria-pressed="false"\] \{([^}]*)\}/);
+  assert.ok(off, 'a rule for the arrow while the switch is off');
+  assert.match(off[1], /text-decoration: line-through/, 'a cue that is not a colour');
+  assert.doesNotMatch(off[1], /opacity/);
 });
 
 test('the toggle, the fold control and the pills show a focus ring, and a pill that is on is drawn apart', () => {
