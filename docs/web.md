@@ -201,6 +201,19 @@ the box. The box keeps its text through the first two, because the browser's own
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
 
+**Board pills** — the pill section also lists the board's own pills, after blocked, review
+and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
+query, or a label and a query, shown as its label; a malformed entry is skipped. A board
+pill shows a count like the built-ins and clicks as they do: a click makes its query the
+anchor and puts it in the box, and Shift+click grows the box to `anchor | pill`. A `field:*`
+entry, such as `tags:*` or `assignee:*` (also `status:*`, `priority:*` and `type:*`), makes
+one pill per distinct value the board's active cards hold in that field, sorted and labelled
+by the value. Each matches its value exactly, so the `grill` pill never catches `grilling`
+and a value with a space stays one term. The first eight values of a field show, and a
+**+N more** button reveals the rest and folds them back. A pill that has focus keeps it
+across the poll. Next up is not built in: it is a pill a board defines, such as
+`- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
+
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
 error), and per-entry archiving.

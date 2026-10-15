@@ -756,6 +756,24 @@ to `127.0.0.1` only.
   never the status pills' classes. The list and its counts are worked out in `pills.js`,
   which needs no other module so that the snapshot can embed it, and the box grows and
   shrinks through the search module's `searchAddAlt` and `searchRemoveAlt`.
+- **Board pills** — the pill section also lists the board's own pills, after blocked, review
+  and waiting, in config order. Each `pills:` entry of `config.yaml` is a query, shown as its
+  query, or a label and a query, shown as its label (the board answer carries them as
+  `pills: [{label, query}]`; an entry that is malformed is skipped, never an error). A board
+  pill shows a count like the built-ins, over the same cards, and clicks as they do: a click
+  makes its query the anchor and puts it in the box, and Shift+click grows the box to
+  `anchor | pill`. A `field:*` entry, such as `tags:*` or `assignee:*` (also `status:*`,
+  `priority:*` and `type:*`), makes one pill per distinct value the board's active cards hold
+  in that field, in the place the entry holds, sorted and labelled by the value. Each matches
+  its value exactly, through the search module's term writer, so the `grill` pill never
+  catches `grilling` and a value with a space stays one term. The first eight values of a
+  field show, and a **+N more** button, which is no pill, reveals the rest and folds them
+  back (it reads *fewer* while they show, and keeps its place); an open field stays open for
+  the visit. Each value pill is keyed by its field and value and each other pill by its
+  query, and the buttons are updated where they stand, so a pill that has focus keeps its
+  focus across the poll and its count changes under it. The chip counts a pill that is on
+  even while the button hides it. Next up is not built in: it is a pill a board defines, such
+  as `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
   from the right that holds the settings which rarely change. Each is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
