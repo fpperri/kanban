@@ -90,8 +90,16 @@ A card with no parent. A loose card and the top of a tall tree are both roots.
 _Avoid_: top-level card, orphan.
 
 **Card type** (via **type**):
-What a card is (goal, strategy, objective, epic, story, ...), usually a word from the board's own suggested list, though any word reads. The kanban renders the word and, if the board's config gives one, its color; it attaches no meaning to it. Rules about types belong to whoever uses the board.
-_Avoid_: tier, category, class, kind; epic flag (retired).
+What a card is (goal, strategy, objective, epic, story, ...), usually a word from the board's own suggested list, though any word reads. The kanban renders the word and, if the board's config gives one, its color; beyond the board's **hierarchy**, which only orders how types are drawn, it attaches no meaning to it. Rules about types belong to whoever uses the board.
+_Avoid_: category, class, kind; tier (a type's place in the hierarchy); epic flag (retired).
+
+**Hierarchy** (via **hierarchy:**):
+The types a board declares as the levels of its plan, top first (goal, strategy, objective, epic). Other types stay ordinary types. The kanban draws and slices by it and enforces nothing: any card may sit under any parent, whatever the two types.
+_Avoid_: ladder, cascade, type order (the `types:` list has none).
+
+**Tier**:
+A card's place in the hierarchy, read from its type: the first type listed is tier 1. A card whose type is not in the hierarchy, or that has no type, has no tier. Never stored, never checked against nesting.
+_Avoid_: level, rung, band (how the Graph draws a tier), altitude (that counts layers below).
 
 **Rank** (via **rank**):
 Where a card sits among its siblings, as a number stepped by 10 so a card can be slotted between two others without renumbering. Separate from priority: priority is how much a card matters, rank is where it sits in the list.
@@ -103,7 +111,7 @@ _Avoid_: level number, nesting number (as a stored field).
 
 **Altitude** (derived):
 How many layers of cards sit below a card: a card with no children is 0. Blind to type, so a story with sub-steps and an epic with stories both stand at 1. Worked out at read time, never stored.
-_Avoid_: tier (the cascade position a card's type carries), height, weight, nesting number.
+_Avoid_: tier (a type's place in the hierarchy), height, weight, nesting number.
 
 **Leaf**:
 A card with no children: the actual work under a parent.
@@ -150,7 +158,7 @@ Of one parent's children, a child where a chain of its siblings meets the parent
 _Avoid_: terminal, leaf (that is a card with no children).
 
 **Graph view** (web only):
-The view that draws every card at once as a dot, joined by its relations, in one of three layouts: tiers (the default), force or status. Not the Map's "graph": the Map draws one graph per tree, under a heading, while the Graph view puts every card on one canvas. A card with no parent and no children is **unnested**; the tiers layout rings those on the outermost circle.
+The view that draws every card at once as a dot, joined by its relations, in one of three layouts: tiers (the default), force or status. The tiers layout gives each tier its own band, tier 1 innermost, then rings the cards without a tier by depth. Not the Map's "graph": the Map draws one graph per tree, under a heading, while the Graph view puts every card on one canvas. A card with no parent and no children is **unnested**.
 _Avoid_: network, node-link diagram, the Map (that is a different view).
 
 **Unnested**:
