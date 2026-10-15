@@ -253,3 +253,55 @@ test('an icon line under an assignee entry or a pill is not read as a type icon'
   assert.deepStrictEqual(answer.assignees.map((a) => a.handle), ['@human']);
   assert.deepStrictEqual(answer.pills, [{ label: 'next', query: 'x' }]);
 });
+
+// --- the hierarchy enforces nothing (ADR 0013) -------------------------------
+
+async function withBoard(config, fn) {
+  const dir = tmpBoard(config);
+  fs.writeFileSync(path.join(dir, '0002.the-epic.card.md'), '---\nid: 2\nstatus: todo\npriority: Normal\ntype: epic\n---\n\n# The epic\n');
+  fs.writeFileSync(path.join(dir, '0003.the-goal.card.md'), '---\nid: 3\nstatus: todo\npriority: Normal\ntype: goal\n---\n\n# The goal\n');
+  const srv = createServer(dir);
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  const call = async (method, url, body) => {
+    const res = await fetch(`${base}${url}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return { status: res.status, json: await res.json() };
+  };
+  try { return await fn(call); } finally { srv.close(); }
+}
+
+const HIERARCHY_BOARD = 'nextId: 10\nhierarchy: [goal, strategy, objective, epic]\ntypes:\n  - name: goal\n    icon: star\n  - name: epic\n    icon: square\n';
+
+test('creating a goal under an epic, against the hierarchy, succeeds and the answer carries no warning', async () => {
+  await withBoard(HIERARCHY_BOARD, async (call) => {
+    const created = await call('POST', '/api/cards', { title: 'A goal under an epic', type: 'goal', parent: '2' });
+    assert.strictEqual(created.status, 201);
+    assert.strictEqual(created.json.parent, 2);
+    assert.strictEqual(created.json.type, 'goal');
+    assert.deepStrictEqual(Object.keys(created.json).filter((k) => /warn|error|hierarchy/i.test(k)), []);
+  });
+});
+
+test('moving a goal under an epic, against the hierarchy, succeeds and the answer carries no warning', async () => {
+  await withBoard(HIERARCHY_BOARD, async (call) => {
+    const moved = await call('PATCH', '/api/cards/3', { parent: '2' });
+    assert.strictEqual(moved.status, 200);
+    assert.strictEqual(moved.json.parent, 2);
+    assert.deepStrictEqual(Object.keys(moved.json).filter((k) => /warn|error|hierarchy/i.test(k)), []);
+    const board = await call('GET', '/api/board');
+    assert.strictEqual(board.json.active.find((c) => c.id === 3).parent, 2);
+    assert.deepStrictEqual(board.json.hierarchy, ['goal', 'strategy', 'objective', 'epic']);
+  });
+});
+
+test('the counter write that creating a card makes keeps the hierarchy, pills and icon lines of the live config', async () => {
+  const config = `${HIERARCHY_BOARD}pills:\n  - next: 'tags:"next-up"'\n  - "assignee:@human"\n`;
+  const dir = tmpBoard(config);
+  const srv = createServer(dir);
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  try {
+    const res = await fetch(`http://127.0.0.1:${srv.address().port}/api/cards`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Counter' }) });
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'), config.replace('nextId: 10', 'nextId: 11'));
+  } finally { srv.close(); }
+});

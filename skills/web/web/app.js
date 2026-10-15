@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — the board's config, held for the readers that come after (slices, the tier fan, the pill row). assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -1710,6 +1710,8 @@ function applyBoardData(data) {
   // render time (masked pre-move only by priorityRank's built-in fallback).
   applyLists(data.priorities || [], data.tags || []);
   state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
+  state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
+  state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   selectedIds = pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id)); // drop ghosts before render (archived cards are in the domain too)
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
