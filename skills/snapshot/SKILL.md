@@ -72,6 +72,8 @@ A search box under the header filters every view at once — the same query gram
 as kanban-web, because the page runs kanban-web's own search module
 (`skills/web/web/search.js`, with the waiting rules in `skills/web/web/waiting-blocked.js`),
 embedded as is, so a query finds on the phone what it finds at the desk. Terms AND together,
+`|` is or and round brackets group (`tags:ui (status:doing | status:todo)`), a quoted value matches
+whole (`tags:"grill"`), a bare `waiting:` finds the cards waiting for a card that is not done,
 `#id`/`id:` exact (`<this board's name>#id` too),
 `title:`/`body:`/`status:`/`priority:`/`tags:`/`file:`/`type:` scoped substrings,
 `assignee:` (`a:` is its alias) is a case-insensitive substring match on the assignee handle,

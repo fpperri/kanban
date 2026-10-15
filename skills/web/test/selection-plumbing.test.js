@@ -138,6 +138,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     openCard: (id) => { calls.open.push(id); },
     renderBoard: () => { calls.render++; },
     addSearchTerm: (term) => { calls.terms.push(term); },
+    searchTermText: require('../web/search').searchTermText,
     toggleRollupBar() {},
     calls,
   };
