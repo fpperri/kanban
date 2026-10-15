@@ -89,6 +89,17 @@ test('both give the Esc order: the suggestion list, then the panel with focus ba
   }
 });
 
+test('both say the box keeps its text through the first two Esc presses, and focus stays in the box when Esc was pressed there', () => {
+  for (const [where, text] of BOTH) {
+    const esc = text.slice(text.indexOf('suggestion list'));
+    assert.match(esc, /stays in the box/, where);
+    assert.match(esc, /keeps its text/, where);
+    assert.match(esc, /browser's own Esc/, where);
+  }
+  const popups = flat(skill.slice(skill.indexOf('**Esc** closes whichever popup is open'), skill.indexOf('**Alt+Enter**')));
+  assert.match(popups, /stays in the box/, 'the popups entry gives the same focus rule');
+});
+
 test('both say the panel does not pause the board: the poll runs with it open, and a pill with focus keeps it', () => {
   for (const [where, text] of BOTH) {
     assert.match(text, /poll/, where);

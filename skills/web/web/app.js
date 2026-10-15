@@ -3193,7 +3193,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
-    if (closeSearchPanel()) return; // the search panel closes on its own Esc, ahead of the selection step
+    if (closeSearchPanel()) { e.preventDefault(); return; } // the search panel closes on its own Esc, ahead of the selection step, and a search field's own Esc must not clear the box as well
     if (e.repeat) return; // a held Esc is one press: it runs one stage
     escapeStep();
   });
@@ -6157,7 +6157,7 @@ function attachCombobox(input, getOptions, opts = {}) {
   input.addEventListener('input', (e) => { if (e.isTrusted) { typed = true; open(true); } });
   input.addEventListener('blur', close);
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !menu.hidden) { close(); e.stopPropagation(); return; }
+    if (e.key === 'Escape' && !menu.hidden) { close(); e.preventDefault(); e.stopPropagation(); return; } // preventDefault: a search field's own Esc would clear it too
     if (menu.hidden) return; // closed menu: Enter/Arrows are the form's or the browser's business, not ours
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault(); // don't let the browser hunt for another focusable element

@@ -13,8 +13,10 @@
 // query is the anchor or an addition, and typing in the box turns it off. A closed
 // panel shows a chip counting what is on, named for a screen reader. Tab reaches the
 // toggle, the fold control and every pill, and Enter and Space act as a click. Esc
-// closes the suggestion list first, then the panel with focus back on the toggle, then
-// clears the box when focus is in it. A focused pill keeps its focus across a poll and
+// closes the suggestion list first, then the panel, then clears the box: with focus in
+// the box the text stays through the first two presses (the browser's own Esc, which
+// clears a search field, is stopped for them) and focus stays in the box, and with
+// focus on a pill the panel closes and focus goes back to the toggle. A focused pill keeps its focus across a poll and
 // its count changes under it. A click on the toggle, the fold control or the panel's
 // empty space never clears a card selection. In the Graph a click on a pill lights its
 // cards, a done one included, and hides nothing, and with the Done status pill off the
@@ -78,6 +80,8 @@ module.exports = {
     const focusId = () => ev(`document.activeElement&&(document.activeElement.id||document.activeElement.dataset.pillKey||document.activeElement.tagName)`);
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
     const MENU_OPEN = `(()=>{const m=document.querySelector('#search-input ~ .combobox-menu');return !!m&&!m.hidden})()`;
+    const BULK_LIST_OPEN = `(()=>{const m=document.querySelector('#bulk-single-input ~ .combobox-menu');return !!m&&!m.hidden})()`;
+    const BULK_POPUP_OPEN = `!document.getElementById('bulk-single').classList.contains('hidden')`;
 
     const clickOn = async (sel, extra = {}) => {
       const p = await centre(sel);
@@ -155,8 +159,12 @@ module.exports = {
     check('a right-click on a selected card opens the card menu', await waitFor(`!document.getElementById('context-menu').classList.contains('hidden')`));
     await ev(`document.getElementById('ctx-assign').click()`);
     check('the bulk popup counts the selected cards', await waitFor(`document.getElementById('bulk-single-title').textContent==='Assign ${CASES.review.length} card(s)'`), await ev(`document.getElementById('bulk-single-title').textContent`));
+    // The popup's value box is an assignee combobox that opens its list as the popup focuses it, and an open list takes the first Esc, as the search box's does.
+    check('the bulk popup has its assignee suggestion list open', await waitFor(BULK_LIST_OPEN));
     await key('Escape');
-    check('Esc closes the bulk popup first', await waitFor(`document.getElementById('bulk-single').classList.contains('hidden')`) && await ev(panelOpen));
+    check('the first Esc closes that suggestion list and leaves the bulk popup open', await waitFor(`!(${BULK_LIST_OPEN})`) && await ev(BULK_POPUP_OPEN) && await ev(panelOpen));
+    await key('Escape');
+    check('the next Esc closes the bulk popup, before the panel, which stays open', await waitFor(`!(${BULK_POPUP_OPEN})`) && await ev(panelOpen));
 
     await clickOn(pillSel('review'));
     check('a click on review again clears the box', await boxIs(''), await boxText());
@@ -240,15 +248,15 @@ module.exports = {
     await focusBoxAtEnd();
     check('focus in the box holding text opens its suggestion list, with the panel open', await waitFor(MENU_OPEN) && await ev(panelOpen));
     await key('Escape');
-    check('the first Esc closes the suggestion list and leaves the panel open', await waitFor(`!(${MENU_OPEN})`) && await ev(panelOpen));
+    check('the first Esc closes the suggestion list, leaves the panel open and the box holding its text', await waitFor(`!(${MENU_OPEN})`) && await ev(panelOpen) && (await boxText()) === 'zephyr', await boxText());
     await key('Escape');
-    check('the next Esc closes the panel and puts focus back on the toggle', await waitFor(panelShut) && await ev(`document.activeElement===${TOGGLE}`));
-    await ev(`(()=>{const i=document.getElementById('search-input');i.focus();i.select()})()`);
-    await send('Input.insertText', { text: 'zephyr' });
-    await boxIs('zephyr');
-    // Typing opens the suggestion list again, which takes the first Esc; a search field also clears itself on Esc by the browser's own default, so the box is empty after one press or two.
-    for (let i = 0; i < 2 && (await boxText()) !== ''; i++) await key('Escape');
-    check('with focus in the box, Esc clears it', await boxIs(''), await boxText());
+    check('the second Esc closes the panel, keeps the text and leaves focus in the box', await waitFor(panelShut) && (await boxText()) === 'zephyr' && await ev(`document.activeElement===document.getElementById('search-input')`), { box: await boxText(), focus: await focusId() });
+    await key('Escape');
+    check('the third Esc, with focus in the box, clears it', await boxIs(''), await boxText());
+    await openPanel();
+    await ev(`document.querySelector(${JSON.stringify(pillSel('review'))}).focus()`);
+    await key('Escape');
+    check('Esc with focus on a pill closes the panel and puts focus back on the toggle', await waitFor(panelShut) && await ev(`document.activeElement===${TOGGLE}`), await focusId());
 
     // --- a click on the toggle, the fold control or the panel\'s empty space keeps a selection ---------------------------------------------------
     const [first, second] = liveIds.filter((id) => ![9, 10, 12].includes(id));

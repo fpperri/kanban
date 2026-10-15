@@ -323,7 +323,7 @@ const ESC_STEPS_CHECKS = [
   'the Board draws the plan board', 'Ctrl+clicks on three cards select them, the first the anchor',
   'the first Esc on the Board leaves the first card selected', 'the second Esc on the Board clears the selection',
   'a search narrows the Board and three of its cards are selected', 'focus in the box holding text opens its suggestion menu',
-  'the first Esc in the search box closes the suggestion menu and keeps the selection',
+  'the first Esc in the search box closes the suggestion menu, keeps the selection and keeps the box text',
   'the next Esc in the search box clears the box and keeps the selection',
   'the box has text again and focus has left it',
   'Esc with focus outside the search box steps the selection back and leaves the box text as it was',
@@ -359,7 +359,7 @@ test('the esc-steps scenario lets the suggestion menu take the first Esc in the 
   assert.ok(src.includes('#search-input ~ .combobox-menu'), 'the menu is the one beside the box');
   const at = (text) => src.indexOf(text);
   const opened = at("check('focus in the box holding text opens its suggestion menu'");
-  const closed = at("check('the first Esc in the search box closes the suggestion menu and keeps the selection'");
+  const closed = at("check('the first Esc in the search box closes the suggestion menu, keeps the selection and keeps the box text'");
   const cleared = at("check('the next Esc in the search box clears the box and keeps the selection'");
   assert.ok(opened > 0 && opened < closed && closed < cleared, 'open, then the first Esc closes it, then the next clears the box');
   const word = /insertText', \{ text: '([^']+)'/.exec(src)[1];
@@ -367,6 +367,9 @@ test('the esc-steps scenario lets the suggestion menu take the first Esc in the 
   const presses = (from, to) => src.slice(from, to).split('escape()').length - 1;
   assert.strictEqual(presses(opened, closed), 1, 'one Esc between the menu opening and its closing');
   assert.strictEqual(presses(closed, cleared), 1, 'one more Esc before the box is checked clear');
+  const firstCheck = src.slice(closed, src.indexOf('\n', closed));
+  assert.ok(/\(await boxText\(\)\) === 'zephyr'/.test(firstCheck), 'the box still holds its text after the first Esc: the browser\'s own Esc, which clears a search field, is stopped for the list step');
+  assert.ok(!/differs by browser|not asserted/.test(source('esc-steps.js')), 'no hedge about what the box holds after the first Esc');
 });
 
 // The preferences scenario, on the fixture board: the gear and the sheet, and
@@ -402,6 +405,18 @@ test('the preferences scenario closes the sheet three ways, presses Tab, double 
   assert.ok(src.includes(`key('Tab')`) && src.includes(`key('Enter')`));
   assert.ok(src.includes('clickCount: 1') && src.includes('clickCount: 2'), 'a double click is two clicks with their counts');
   assert.ok(src.includes('/api/board') && src.includes('readFileSync') && src.includes('boardDir'), 'the board\'s files are compared as the server reports its folder');
+});
+
+test('the preferences scenario starts its Tab check from the last control the sheet has, found in the page, not from a control it names', () => {
+  const src = source('preferences.js');
+  const from = src.indexOf('no Tab trap');
+  const step = code(src.slice(from, src.indexOf('the poll and the single-key shortcuts', from)));
+  assert.ok(from > 0 && step.includes(`key('Tab')`), 'the Tab step is found');
+  assert.ok(/lastControl/.test(step), 'the control Tab leaves from is the last control of the sheet');
+  assert.ok(!/getElementById\('prefs-(?!sheet)/.test(step) && !/archivedBox/.test(step), 'no control is named: a control added at the end of the sheet moves the last one');
+  const def = code(src).match(/const lastControl = (`[^`]*`);/);
+  assert.ok(def, 'the last control is one expression');
+  assert.ok(def[1].includes('#prefs-sheet') && /\[c\.length-1\]|\.pop\(\)|\.at\(-1\)/.test(def[1]), 'read from the sheet, the last of its controls');
 });
 
 test('the preferences scenario waits on the page, never on a fixed sleep, and loads each page cold', () => {

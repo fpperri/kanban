@@ -190,8 +190,10 @@ closed, a chip in the box counts what is on, and its name for a screen reader sa
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the toggle, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
-toggle), and then clears the box, when focus is in it, or steps the selection back, which
-also takes the added pills back out of the box. The board keeps refreshing on its poll while
+toggle, and stays in the box when Esc was pressed there), and then clears the box, when
+focus is in it, or steps the selection back, which also takes the added pills back out of
+the box. The box keeps its text through the first two, because the browser's own Esc, which
+clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in

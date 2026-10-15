@@ -85,6 +85,54 @@ test('the scenario does not wait on a fixed sleep, and presses its keys and its 
   assert.ok(/rightClick\(pillSel\('review'\)\)/.test(code), 'a right-click on a pill');
 });
 
+test('the bulk popup\'s value box opens an assignee suggestion list on focus, so the scenario sends one Esc for the list and the next for the popup', () => {
+  const web = path.join(__dirname, '..', 'web');
+  const html = fs.readFileSync(path.join(web, 'app.html'), 'utf8');
+  const app = fs.readFileSync(path.join(web, 'app.js'), 'utf8');
+  assert.ok(/<label>[^<]*<input id="bulk-single-input"><\/label>/.test(html), 'the combobox menu is appended after the input, inside its label');
+  assert.ok(app.includes("attachCombobox($('#bulk-single-input')"), 'the value box is a combobox');
+  assert.ok(/function openBulkSingle[\s\S]*?\$\('#bulk-single-input'\)\.focus\(\)/.test(app), 'the popup focuses it as it opens, which opens the list');
+  const from = code.indexOf("check('the bulk popup counts the selected cards'");
+  const to = code.indexOf("check('a click on review again clears the box'");
+  const step = code.slice(from, to);
+  assert.ok(from > 0 && to > from, 'the bulk popup step is found');
+  assert.ok(code.includes('#bulk-single-input ~ .combobox-menu'), 'the list is the combobox menu after the value box');
+  assert.strictEqual(step.split("key('Escape')").length - 1, 2, 'one Esc for the list, one for the popup');
+  const [firstEsc, secondEsc] = [step.indexOf("key('Escape')"), step.lastIndexOf("key('Escape')")];
+  const listOpen = step.indexOf('BULK_LIST_OPEN');
+  assert.ok(listOpen > -1 && listOpen < firstEsc, 'the list is seen open before the first Esc');
+  const afterFirst = step.slice(firstEsc, secondEsc);
+  assert.ok(afterFirst.includes('!(${BULK_LIST_OPEN})') && afterFirst.includes('BULK_POPUP_OPEN') && afterFirst.includes('panelOpen'), 'after the first Esc the list is shut, the popup and the panel are open');
+  const afterSecond = step.slice(secondEsc);
+  assert.ok(afterSecond.includes('!(${BULK_POPUP_OPEN})') && afterSecond.includes('panelOpen'), 'after the second Esc the popup is shut and the panel is still open');
+});
+
+test('the Esc chain is three presses, each asserted on its own: the box keeps its text after the list step and after the panel step, and no loop of presses stands in for them', () => {
+  const from = code.indexOf("check('focus in the box holding text opens its suggestion list");
+  const third = code.indexOf("check('the third Esc, with focus in the box, clears it'");
+  const to = code.indexOf('await openPanel();', third);
+  const span = code.slice(from, to);
+  assert.ok(from > 0 && third > from && to > third, 'the Esc chain is found');
+  assert.strictEqual(span.split("key('Escape')").length - 1, 3, 'one Esc for the list, one for the panel, one for the box');
+  assert.ok(!/\bfor\s*\(|\bwhile\s*\(/.test(span), 'no loop of presses');
+  const presses = [...span.matchAll(/key\('Escape'\)/g)].map((m) => m.index);
+  const afterList = span.slice(presses[0], presses[1]);
+  assert.ok(/MENU_OPEN/.test(afterList) && /boxText\(\)\) === 'zephyr'/.test(afterList) && /panelOpen/.test(afterList), 'after the first Esc: the list is shut, the panel open, the text still there');
+  const afterPanel = span.slice(presses[1], presses[2]);
+  assert.ok(/panelShut/.test(afterPanel) && /boxText\(\)\) === 'zephyr'/.test(afterPanel), 'after the second Esc: the panel is shut and the text still there');
+  assert.ok(/activeElement===document\.getElementById\('search-input'\)/.test(afterPanel), 'and focus is still in the box');
+  assert.ok(!/TOGGLE/.test(afterPanel), 'focus is not on the toggle');
+  assert.ok(/boxIs\(''\)/.test(span.slice(presses[2])), 'after the third Esc the box is empty');
+});
+
+test('Esc with focus on a pill closes the panel and puts focus back on the toggle, where Esc from the box leaves focus in the box', () => {
+  const at = code.indexOf("check('Esc with focus on a pill closes the panel and puts focus back on the toggle'");
+  assert.ok(at > 0, 'the check is made');
+  const before = code.slice(code.lastIndexOf('await openPanel();', at), at);
+  assert.ok(/pillSel\('review'\)[^\n]*\.focus\(\)/.test(before) && before.includes("key('Escape')"), 'focus goes on a pill, then Esc');
+  assert.ok(/waitFor\(panelShut\)/.test(code.slice(at, at + 300)) && /activeElement===\$\{TOGGLE\}/.test(code.slice(at, at + 300)), 'the panel is shut and focus is on the toggle');
+});
+
 test('the ids and classes the scenario drives are in the page the panel is drawn on', () => {
   const web = path.join(__dirname, '..', 'web');
   const page = ['app.html', 'search-panel.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');

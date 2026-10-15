@@ -2634,10 +2634,12 @@ test('attachCombobox keydown grammar: Up/Down move a highlight, Enter picks it, 
   const fn = js.match(/function attachCombobox\([\s\S]*?\n\}/);
   assert.ok(fn, 'attachCombobox found in app.js');
   const body = fn[0];
-  // Esc: the contract survives untouched — closes the menu ONLY and
-  // stops propagation so the document-level popup-close handler never sees
-  // this keypress (the next Esc is the one that closes the popup/modal).
-  assert.match(body, /if \(e\.key === 'Escape' && !menu\.hidden\) \{ close\(\); e\.stopPropagation\(\); return; \}/);
+  // Esc: closes the menu ONLY and stops propagation so the document-level
+  // popup-close handler never sees this keypress (the next Esc is the one
+  // that closes the popup/modal). It also stops the browser's own default,
+  // which would clear a search field on this same Esc (search-panel.test.js
+  // drives that end to end).
+  assert.match(body, /if \(e\.key === 'Escape' && !menu\.hidden\) \{ close\(\); e\.preventDefault\(\); e\.stopPropagation\(\); return; \}/);
   // A closed menu hands every other key back — no Arrow/Enter handling runs,
   // so a bare Enter reaches the surrounding <form>'s native submit-on-Enter
   // (the minimal-create flow must not break).
