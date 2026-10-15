@@ -754,6 +754,19 @@ function searchMatchIds(text) {
   return terms.length ? matchedIds(terms) : new Set();
 }
 
+// The matcher the selection resolves its parts through: the search module's, except
+// for the text the box holds while the Graph is shown. That text is the typed
+// anchor (or a pill's query written to the box), and what it lights is the Graph's
+// query decision, read off the one match this render made instead of matching the
+// board again. A query that is no term yet lights nothing, never everything.
+function selectionMatchIds(text) {
+  if (loadViewMode() === 'graph' && text === $('#search-input').value) {
+    const lit = graphQueryEffect(currentSearchMatch()).litIds;
+    return lit ? new Set(lit) : new Set();
+  }
+  return searchMatchIds(text);
+}
+
 // The cards the view being shown shows, which is all a selection can reach (the
 // Board shows the cards of its expanded columns, the other views the cards their
 // status pills, their Archive pill and the search box leave). It reads the same
@@ -764,7 +777,7 @@ function shownCardIds() {
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
-    visible = graphVisibleIds(pool, searchIds, graphLoadFilter(), boardStatuses());
+    visible = graphVisibleIds(pool, graphQueryEffect(currentSearchMatch()).visibleIds, graphLoadFilter(), boardStatuses());
   } else if (mode === 'map') {
     visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
   } else if (mode === 'gantt' || mode === 'calendar') {
@@ -871,8 +884,10 @@ function openLeavesNote(cards, status) {
 // calendar ⇄ board — and pressing one while the OTHER view is active jumps
 // straight to the pressed view (no board stopover).
 function toggleView(mode) {
-  viewMode = loadViewMode() === mode ? 'board' : mode;
+  const from = loadViewMode();
+  viewMode = from === mode ? 'board' : mode;
   saveViewMode();
+  setSelection(selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText: $('#search-input').value })); // R14: a search typed in the Graph is not the anchor anywhere else
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
@@ -908,7 +923,7 @@ function renderBoard() {
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
   try {
-    setSelection(selectionState.selection); // what the view shows may have changed: a pill, the box, a view switch, a poll
+    setSelection(selectionFollowingBox(selectionState.selection)); // what the view shows may have changed: a pill, the box, a view switch, a poll
     renderBoardColumns();
     applyViewMode();
   } finally {
@@ -3119,6 +3134,7 @@ function writeSearch(text, reason) {
   const input = $('#search-input');
   if (!input) return;
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
+  boxWriteText = text;
   renderBoard();
   searchWriteListeners.forEach((listener) => listener(text, reason));
 }
@@ -3152,6 +3168,21 @@ function followSearchInAddress(text) {
 }
 
 onSearchWrite(followSearchInAddress);
+
+// The selection follows the box while the Graph is shown: a search typed there is
+// the anchor of the selection (selectionAfterTyping, selection.js), so the Graph
+// lights its matches instead of hiding the rest. The writer leaves the text it
+// wrote here and the repaint it makes takes it into the selection, through
+// setSelection like every other write, before the id set is worked out: the one
+// repaint paints the new anchor, and parses and matches the box once. The other
+// views keep filtering and select nothing.
+let boxWriteText = null;
+
+function selectionFollowingBox(selection) {
+  const text = boxWriteText;
+  boxWriteText = null;
+  return text !== null && loadViewMode() === 'graph' ? selectionAfterTyping(selection, text) : selection;
+}
 
 // What Esc does when nothing is open for it to close: today it clears the
 // search box. The one place the end of the Esc chain lives.
@@ -5204,7 +5235,7 @@ function dropGoneCards() {
 // they reach among the cards the view shows.
 function setSelection(selection, rangeStart = selectionState.rangeStart) {
   selectionState = { selection, rangeStart };
-  selectedIds = resolveSelection(selection, searchMatchIds, shownCardIds);
+  selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -5297,7 +5328,7 @@ function selectByClick(action, id) {
     resolved: selectedIds,
     rangeStart: selectionState.rangeStart,
     order: action === 'range' ? visibleCardIds() : [],
-    matchQuery: searchMatchIds,
+    matchQuery: selectionMatchIds,
   });
   setSelection(next.selection, next.rangeStart);
 }
@@ -5329,10 +5360,13 @@ function applyCardClick(action, id, cue) {
 // collapse toggles, the map options and zoom toolbar, the roll-up bars and the
 // Graph's controls. A control built by a render path must wear the marker.
 function onClickAway(e) {
-  if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
+  const typed = isTypedAnchor(selectionState.selection);
+  if ((!selectedIds.size && !typed) || e.shiftKey || e.ctrlKey || e.metaKey) return;
   if (e.target.closest('[data-keeps-selection]')) return;
+  if (typed && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a click on the header or the box
   setSelection(NO_SELECTION, null); // a dead selection must not leave an invisible range start behind
-  renderBoard();
+  if (typed) writeSearch('', 'selection'); // the anchor was the box, so the box goes with it
+  else renderBoard();
 }
 
 function showContextMenu(x, y) {

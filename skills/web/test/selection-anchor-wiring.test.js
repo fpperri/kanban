@@ -121,7 +121,9 @@ for (const [view, f] of Object.entries(FILTERS)) {
   });
 }
 
-for (const view of ['board', 'map', 'calendar', 'gantt', 'graph']) {
+// The Graph is not among them: a search typed there hides nothing and is the anchor
+// of the selection, which graph-lights-wiring.test.js pins.
+for (const view of ['board', 'map', 'calendar', 'gantt']) {
   test(`${view}: a search that hides a card takes it out of the id set, and clearing the box brings it back`, async () => {
     const s = await open({ view });
     s.select('cardPart(1)', "queryPart('tags:ui')");

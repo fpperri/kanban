@@ -68,10 +68,14 @@ const VIEWS = {
 // The cards a view shows for a match, by the rules the views have always had:
 // the Board lists every card in its columns, the live views take the live cards
 // and add the archived ones only while their Archive pill is on, the Map hands
-// its filter the matching ids, and a view with no query shows everything.
+// its filter the matching ids, and a view with no query shows everything. The
+// Graph is the exception: a query typed there lights its matches and hides
+// nothing, so it draws every card whatever the query (graph-lights-wiring.test.js
+// looks at what is lit).
 function expected(view, match, archive) {
   const everything = ACTIVE.concat(BOARD.archived.map((c) => c.id));
   const all = match === null ? everything : match;
+  if (view === 'graph') return (archive ? everything : ACTIVE).slice().sort((a, b) => a - b);
   if (view === 'board') return all.slice().sort((a, b) => a - b);
   if (view === 'map') return match === null ? null : match.slice().sort((a, b) => a - b);
   if (archive) return all.slice().sort((a, b) => a - b);
@@ -126,7 +130,8 @@ const expectedGraphAll = (archive) => (archive ? ACTIVE.concat(BOARD.archived.ma
 
 for (const name of Object.keys(VIEWS)) {
   for (const archive of name === 'board' || name === 'map' ? [false] : [false, true]) {
-    test(`${name}${archive ? ' with Archive on' : ''} shows, for each query, the cards it showed before`, async () => {
+    const what = name === 'graph' ? 'keeps drawing every card, whatever the query' : 'shows, for each query, the cards it showed before';
+    test(`${name}${archive ? ' with Archive on' : ''} ${what}`, async () => {
       const { page, seen } = await openView(name, { archive });
       for (const [query, match] of MATCHES) {
         seen.tiles.length = 0;

@@ -166,9 +166,10 @@ test('a double click opens the card, Enter opens and Space selects', () => {
   assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(Number\(node\.dataset\.id\), \{\}\); \}/, 'Space acts as a plain click');
 });
 
-test('a single selected card keeps its relations lit; hover is temporary and render re-applies the rest focus', () => {
-  assert.match(fn('graphRestFocus'), /selectedIds\.size === 1/);
-  assert.match(fn('graphRestFocus'), /graphSetFocus\(/);
+test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {
+  assert.match(fn('graphRestFocus'), /graphRestLit\(graphCur\.model, \{ selectedIds, loneCardId: graphLoneCardId\(\) \}\)/);
+  assert.match(fn('graphRestFocus'), /graphLightCards\(/);
+  assert.match(fn('graphLoneCardId'), /loneCard\(selectionState\.selection\)/);
   assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);
   const render = fn('renderGraphView');
   assert.ok(render.trim().endsWith('graphSettleFocus();\n}'));

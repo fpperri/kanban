@@ -198,20 +198,35 @@ function graphClearFocus() {
   for (const el of graphCur.svg.querySelectorAll('.graph-near')) el.classList.remove('graph-near');
 }
 
-function graphSetFocus(id) {
+// The one dimming: everything but the lit set (graphLit, graph-model.js) dims, and
+// the set and the lines between its cards stay lit. The pointer, a lone card, a
+// selection and a typed search all light through here; null lights nothing.
+function graphLightCards(lit) {
   graphClearFocus();
-  if (!graphCur || id == null || !graphCur.model.byId.has(id)) return;
-  const near = graphNeighbours(graphCur.model, id);
+  if (!graphCur || !lit) return;
   graphCur.svg.classList.add('graph-dim');
-  for (const n of near) graphCur.nodeEls.get(n).classList.add('graph-near');
-  graphCur.model.links.forEach((l, i) => {
-    if (near.has(l.from) && near.has(l.to)) graphCur.linkEls[i].classList.add('graph-near');
-  });
+  for (const id of lit.nodes) graphCur.nodeEls.get(id).classList.add('graph-near');
+  for (const i of lit.links) graphCur.linkEls[i].classList.add('graph-near');
 }
 
+// The pointer or keyboard focus on a card: that card and its one-hop relations.
+function graphSetFocus(id) {
+  if (!graphCur || id == null || !graphCur.model.byId.has(id)) { graphClearFocus(); return; }
+  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id)));
+}
+
+// The lone card the selection holds, or null: only a card picked on its own,
+// shown in this view, lights with its relations (R2).
+function graphLoneCardId() {
+  const id = loneCard(selectionState.selection);
+  return id !== null && selectedIds.has(id) ? id : null;
+}
+
+// What lights when the pointer is on no card: the selection, a typed search's
+// matches included (graphRestLit).
 function graphRestFocus() {
-  if (graphCur && selectedIds.size === 1) graphSetFocus([...selectedIds][0]);
-  else graphClearFocus();
+  if (!graphCur) return;
+  graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId() }));
 }
 
 function graphSettleFocus() {
@@ -233,8 +248,14 @@ function graphClickNode(id, mods) {
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
     plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'),
   });
+  const typedBefore = isTypedAnchor(selectionState.selection);
   selectByClick(action, id);
-  graphPaintSelection();
+  // A plain click sets a new anchor and clears the box (R3). Shift or Ctrl keeps
+  // the query, unless it took out a card the query lit: the query is then its other
+  // cards, and the box no longer names the anchor.
+  const boxIsDone = action === 'select' || (typedBefore && !isTypedAnchor(selectionState.selection));
+  if (boxIsDone && $('#search-input').value) writeSearch('', 'selection');
+  else graphPaintSelection();
 }
 
 // --- render --------------------------------------------------------------------
@@ -307,8 +328,7 @@ function renderGraphView() {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
     const pool = state.active.concat(state.archived);
-    const searchIds = currentSearchMatch().ids;
-    const visibleIds = graphVisibleIds(pool, searchIds, filter, boardStatuses());
+    const visibleIds = graphVisibleIds(pool, graphQueryEffect(currentSearchMatch()).visibleIds, filter, boardStatuses());
     model = graphBuild(pool, { ctx: nestingCtx(), visibleIds });
     layoutOpts = { statuses: boardStatuses() };
     layout = graphLayout(model, kind, layoutOpts);
