@@ -81,15 +81,17 @@ test('depth map: the first of two cards with one id is the card, as in the nesti
   assert.deepStrictEqual(objectOf(depthMap(cards, CTX)), { 1: 0, 2: 1 });
 });
 
-test('depth map: a 6000-deep chain gets its depths without a stack overflow', () => {
-  const cards = [];
-  for (let id = 1; id <= 6000; id++) cards.push(card(id, { parent: id === 1 ? null : id - 1 }));
-  cards.reverse();
-  const map = depthMap(cards, CTX);
-  assert.strictEqual(map.size, 6000);
-  assert.strictEqual(map.get(1), 0);
-  assert.strictEqual(map.get(3000), 2999);
-  assert.strictEqual(map.get(6000), 5999);
+test('depth map: a 6000-deep chain, and one far deeper, get their depths without a stack overflow', () => {
+  for (const size of [6000, 60000]) {
+    const cards = [];
+    for (let id = 1; id <= size; id++) cards.push(card(id, { parent: id === 1 ? null : id - 1 }));
+    cards.reverse();
+    const map = depthMap(cards, CTX);
+    assert.strictEqual(map.size, size);
+    assert.strictEqual(map.get(1), 0);
+    assert.strictEqual(map.get(size / 2), size / 2 - 1);
+    assert.strictEqual(map.get(size), size - 1);
+  }
 });
 
 test('depth map: built once per board, so it reads each card once however many cards there are', () => {

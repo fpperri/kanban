@@ -66,8 +66,7 @@ function sliceCards(cards, hierarchy, depths) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { sliceTiers, sliceCards };
+  module.exports = { sliceCards };
 } else {
-  window.sliceTiers = sliceTiers;
   window.sliceCards = sliceCards;
 }
