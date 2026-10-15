@@ -89,7 +89,10 @@ function mergeGraphOptionsFolded(saved) {
 // read from the whole pool, never from the drawn cards: a card whose parent is
 // hidden or archived keeps its depth and so its slice. Each node carries its
 // slice's index on the board's axis (`sliceIndex`) and `nested` (it has a parent
-// or children somewhere on the board); the model carries the axis.
+// or children somewhere on the board); the model carries the axis. Each node also
+// carries `chainEnd` (the Map's reading of whether it is the end of its chain of
+// siblings) and `chained` (a dependency joins it to a sibling), both read from the
+// whole pool, for the tier fan's lines (graphFanLines).
 
 function graphBuild(cards, opts) {
   const ctx = (opts && opts.ctx) || null;
@@ -1017,6 +1020,10 @@ function graphZoomAt(view, px, py, factor, min = 0.1, max = 8) {
 // (a circle node has none: the view draws the round dot), and its `reach`, how
 // far that shape goes from the centre. The child ring, the flag ring and the id
 // label are placed from the reach, so they clear every corner of every shape.
+// The links are the lines drawn. The tier fan, given its options as `opts.fan`
+// (GRAPH_FAN_OPTION_VALUES), draws the lines graphFanLines lists, some of them
+// counted lines drawn as a bus; every other layout, and a fan given no options,
+// draws a line for each relation of the model.
 
 const graphRound = (v) => Math.round(v * 100) / 100;
 

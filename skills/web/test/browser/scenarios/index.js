@@ -21,6 +21,7 @@ module.exports = [
   require('./card-menu'),
   require('./slice-term'),
   require('./tier-fan'),
+  require('./tier-fan-options'),
   require('./esc-steps'),
   require('./search-panel'),
   require('./empty-space'),

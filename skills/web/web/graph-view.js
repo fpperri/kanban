@@ -11,7 +11,10 @@
 // range over), all painted in place, and a double click opens, because
 // dragging a card makes a bare click a selection gesture. What is selected is
 // lit and the rest dims (graphLightCards); a search typed in the box hides
-// nothing, it is the anchor of the selection and its matches light.
+// nothing, it is the anchor of the selection and its matches light. Tiers also has an
+// option row (lines, dependencies, order), folded behind a toggle and kept per board:
+// a press redraws the Graph and hands focus back to the control, and no control of the
+// row holds the poll, starts a pan or clears the selection.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;

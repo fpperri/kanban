@@ -138,6 +138,11 @@ per board, with **Tiers** first:
   doing, todo, backlog from the centre out). Archived cards form a second group
   when the Archive pill is on.
 
+Tiers has an option row above the fan, folded until opened: Lines (folded, chain,
+all, off), Dependencies (on, off) and Order (status, rank). Folded, the default, draws
+a line to the end of each dependency chain and one counted line for a parent's other
+children on one ring. The row's choices are kept per board.
+
 A dot takes its status colour, grows with its relations, goes hollow when done
 and dim when archived. A ring around it means children; red is blocked, amber
 waiting, gold review. Hover or focus a dot to light that card and its relations

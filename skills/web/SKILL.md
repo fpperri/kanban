@@ -1425,10 +1425,25 @@ to `127.0.0.1` only.
   ring is **blocked**, an amber ring **waiting**, a gold ring **review**; the child ring and
   the flag rings sit outside every shape, the star's points included. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
-  the view is zoomed in, or when the graph is small. **Relations:** a solid line joins a
-  parent to its child, and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
+  the view is zoomed in, or when the graph is small. **Relations:** in Force and Status a solid line joins a
+  parent to its child, in Tiers the Lines option says which parent lines are drawn (see **Options**),
+  and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
   root there; a card waiting on a hidden card still reads waiting.
+  **Options.** Tiers has an **option row** above the fan, folded behind an Options toggle, like the Map's, and starts
+  folded; Force and Status have no option row. It holds three options, the first value of each the
+  default. **Lines** draws the parent lines: **folded** (the default) gives a line to the end of each
+  dependency chain, as the Map draws its chain ends, and a parent's other children on one ring share one
+  **counted line** that prints their count; **chain** gives a line to every chain end and none to the
+  other children; **all** gives a line to every child; **off** draws no parent line. **Dependencies** are
+  on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
+  **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
+  orders its rows, or by **rank**, the outline's own order; cards of one status keep the outline's order. A counted line
+  lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a pill or a search
+  never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
+  sector, and no card changes its band, its ring or its sector. The choices are kept per board in `localStorage` under
+  `graph.options`, and whether the row is folded under `graph.optionsFolded`; a press on the row never starts a pan,
+  never clears the selection and never pauses the 5-second poll.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
