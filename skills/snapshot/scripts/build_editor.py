@@ -1038,7 +1038,7 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // resolves the terms once per query change.
 let qTerms=[];
 const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
-function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,review:c.rv,blocked:c.bl}}
+function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,review:c.rv,blocked:c.bl,waiting_for:c.w}}
 function setQuery(text){qTerms=resolveTerms(DATA.map(searchCard),parseSearchQuery(text,BOARD),{board:BOARD,graph:searchGraph})}
 const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
 // Waiting vs blocked/review (review is ADR 0009):
