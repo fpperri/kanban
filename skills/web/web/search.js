@@ -9,7 +9,7 @@
 //   a | b         or: `|` binds looser than a space, so `tags:ui status:doing | #12`
 //                 is (ui and doing) or card 12. The parse of an or is one term,
 //                 { field: 'or', alts: [[term, ...], ...] }; a query with no or
-//                 is the same flat list of terms as before. An empty alternative
+//                 is a flat list of terms. An empty alternative
 //                 (a trailing `|`, `a | status:`) is dropped, never every card.
 //   ( a | b )     round brackets group and nest. A bracket holding no or is spliced
 //                 into the terms around it, so `(draft)` parses as `draft`.
@@ -23,7 +23,7 @@
 // literal while `a |b` means `a | b`; a quote opens only at the start of a token
 // or after a scope's colon. Nothing here throws on half-typed input: an unclosed
 // quote or bracket reads to the end, a stray closing bracket is ignored.
-// searchAddTerm/searchRemoveTerm/searchBracket/searchTermText are the term
+// searchAddTerm/searchBracket/searchTermText are the term
 // interface for code that writes the box; searchHasAlt/searchAddAlt/searchRemoveAlt
 // are its other half, for a query that joins the box as one more alternative, and
 // searchSetSlice is its third, for the run of slices the slice section writes (it reads the
@@ -293,8 +293,8 @@ function searchFieldHit(text, term) {
   return term.exact ? searchFlat(low) === term.value : low.includes(term.value);
 }
 
-// --- The term interface. Code that writes to the box (a cue click, and later a
-// pill, a slice or isolate) edits the text through these, never by joining
+// --- The term interface. Code that writes to the box (a cue click, a pill, a slice
+// or isolate) edits the text through these, never by joining
 // strings: `|` binds looser than a space, so a term appended to `a | b` would
 // bind to b only. Each returns the new text, and the text it was handed when
 // nothing changed, so a caller can tell a no-op by comparing.
@@ -348,23 +348,6 @@ function searchAddTerm(raw, term) {
     return parts.join(' ');
   });
   return changed ? written.join(' | ') : text;
-}
-
-// Removes `term` wherever it stands, inside brackets too, and drops a bracket
-// or an alternative that is left empty.
-function searchRemoveTerm(raw, term) {
-  const text = String(raw == null ? '' : raw);
-  const drop = searchTermString(term);
-  if (!drop) return text;
-  let removed = false;
-  const strip = (alts) => alts.map((alt) => alt.flatMap((item) => {
-    if (item.group) return [{ group: strip(item.group) }];
-    if (text.slice(item.start, item.end) !== drop) return [item];
-    removed = true;
-    return [];
-  }));
-  const left = strip(parseSearchAlts(lexSearch(text).tokens));
-  return removed ? searchRenderAlts(left, text) : text;
 }
 
 // Wraps a query that holds more than one term, or a |, in round brackets, so it
@@ -719,8 +702,8 @@ function sliceEndIndex(axis, text) {
 }
 
 // The ids in the run of slices a slice: value names. An end with no slice is open,
-// so a value with neither end known is no cut. A page that has not loaded the
-// slices module (the snapshot, until it embeds it) cuts nothing.
+// so a value with neither end known is no cut. A page that has not loaded slices.js
+// and nesting.js cuts nothing.
 function sliceIds(cards, value, ctx, memo) {
   const slices = searchSlices(cards, ctx, memo);
   if (!slices) return new Set(cards.map((c) => Number(c.id)));
@@ -846,7 +829,7 @@ function searchSuggestionItems(raw, caret, cards, ctx) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
-    searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
+    searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
@@ -858,7 +841,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchSuggestionItems = searchSuggestionItems;
   window.searchTermText = searchTermText;
   window.searchAddTerm = searchAddTerm;
-  window.searchRemoveTerm = searchRemoveTerm;
   window.searchBracket = searchBracket;
   window.searchHasAlt = searchHasAlt;
   window.searchAddAlt = searchAddAlt;

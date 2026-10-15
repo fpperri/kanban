@@ -2296,7 +2296,7 @@ function consumeDeepLink() {
   if (link.q) {
     // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
     // and the listeners told of it (the address, the chip) see it on.
-    if (deepLinkIsolates(location.search)) isolateFromLink(link.q);
+    if (link.isolate) isolateFromLink(link.q);
     writeSearch(link.q, 'link');
   } else if (link.view) renderBoard();
   if (!link.hasCard) return;

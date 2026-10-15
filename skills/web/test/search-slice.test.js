@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const {
-  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm,
+  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm,
 } = require('../web/search');
 
 // The slice: term, driven through the search module's own seam: a query string
@@ -218,7 +218,6 @@ test('the term interface writes a slice: term the parser reads back', () => {
     assert.deepStrictEqual(parseSearchQuery(searchTermText('slice', value)), [{ field: 'slice', value }], value);
   }
   assert.strictEqual(searchAddTerm('tags:ui | #12', { field: 'slice', value: 'goal..objective' }), 'tags:ui slice:goal..objective | #12 slice:goal..objective');
-  assert.strictEqual(searchRemoveTerm('tags:ui slice:goal..objective', { field: 'slice', value: 'goal..objective' }), 'tags:ui');
 });
 
 test('the parse keeps the cut as one term, and a bare slice: is not yet a term', () => {

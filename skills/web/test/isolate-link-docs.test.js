@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { nextSearchAddress } = require('../web/card-history');
-const { deepLinkIsolates } = require('../web/deep-link');
+const { parseDeepLink } = require('../web/deep-link');
 
 // The web skill and the web docs say that the link carries isolate and list the Isolate entries of
 // the menus. The one example address is held to the address function, so a doc cannot promise an
@@ -57,7 +57,7 @@ test('the example address is the one the page writes, and the deep-link reader a
   assert.ok(skillIsolate.includes('`?q=%2312+%7C+%235&isolate=1`'));
   const address = nextSearchAddress('', '#12 | #5', true);
   assert.strictEqual(address, '?q=%2312+%7C+%235&isolate=1');
-  assert.strictEqual(deepLinkIsolates(address), true);
+  assert.strictEqual(parseDeepLink(address).isolate, true);
 });
 
 test('both list the Isolate entries of the menus: inside the selection, the empty Graph or Map canvas, and Turn isolate off', () => {

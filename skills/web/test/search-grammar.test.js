@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchRemoveTerm, searchBracket, searchSuggestionItems, searchRemoveGrownAlt,
+  parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchBracket, searchSuggestionItems, searchRemoveGrownAlt,
 } = require('../web/search');
 
 // The search grammar beyond space-separated terms: `|` for or, round brackets,
@@ -426,32 +426,6 @@ test('a quote inside a value cannot be written and is left out, so the term stil
   assert.strictEqual(searchTermText(null, '(x'), '"(x"');
 });
 
-test('removing a term takes it out of every alternative', () => {
-  assert.strictEqual(searchRemoveTerm('blocked: tags:ui | review: tags:ui', 'tags:ui'), 'blocked: | review:');
-  assert.strictEqual(searchRemoveTerm('a tags:ui b', 'tags:ui'), 'a b');
-  assert.strictEqual(searchRemoveTerm('tags:ui', 'tags:ui'), '');
-  assert.strictEqual(searchRemoveTerm('a | tags:ui', 'tags:ui'), 'a', 'an alternative left empty is dropped');
-  assert.strictEqual(searchRemoveTerm('a tags:"two words"', { field: 'tags', value: 'two words' }), 'a');
-});
-
-test('removing a term reaches into brackets and drops a bracket it empties', () => {
-  assert.strictEqual(searchRemoveTerm('a (tags:ui | b)', 'tags:ui'), 'a (b)');
-  assert.strictEqual(searchRemoveTerm('a (tags:ui)', 'tags:ui'), 'a');
-  assert.strictEqual(searchRemoveTerm('a ((tags:ui) | tags:ui)', 'tags:ui'), 'a');
-});
-
-test('removing a term that is not there returns the text as it was', () => {
-  assert.strictEqual(searchRemoveTerm('a   |  b', 'tags:ui'), 'a   |  b');
-  assert.strictEqual(searchRemoveTerm('', 'tags:ui'), '');
-  assert.strictEqual(searchRemoveTerm('tags:uikit', 'tags:ui'), 'tags:uikit', 'a term is removed whole, never in part');
-});
-
-test('add then remove gets the query back, and the box matches what it matched before', () => {
-  const start = 'blocked: | review:';
-  const there = searchAddTerm(start, 'tags:ui');
-  assert.strictEqual(searchRemoveTerm(there, 'tags:ui'), start);
-});
-
 test('bracketing a query that holds a | or spaces wraps it, so it can be one term of another query', () => {
   assert.strictEqual(searchBracket('a | b'), '(a | b)');
   assert.strictEqual(searchBracket('a b'), '(a b)');
@@ -533,8 +507,6 @@ test('an unclosed quote is closed where a term is added after it, so the term is
   assert.strictEqual(searchAddTerm('tags:"two wo | b', 'status:doing'), 'tags:"two wo | b" status:doing');
   assert.deepStrictEqual(ids(searchAddTerm('zephyr "mig', 'tags:ui')), [1]);
   assert.strictEqual(searchAddTerm('a (b', 'tags:ui'), 'a (b) tags:ui', 'an open bracket is closed the same way');
-  assert.strictEqual(searchRemoveTerm('a "b tags:ui', 'tags:ui'), 'a "b tags:ui', 'inside the quote it is text, not a term');
-  assert.strictEqual(searchRemoveTerm('a "b" tags:ui', 'tags:ui'), 'a "b"');
 });
 
 test('waiting: reads ids the way the waiting rule does, so a card from a page that keeps ids as text still waits', () => {
@@ -555,7 +527,6 @@ test('a trailing |, "a | status:", an unclosed quote, an unclosed bracket and a 
       searchSuggestionItems(q);
       searchSuggestionItems(q, 0);
       searchAddTerm(q, 'tags:x');
-      searchRemoveTerm(q, 'tags:x');
       searchBracket(q);
     }, JSON.stringify(q));
   }
