@@ -137,3 +137,54 @@ for (const name of Object.keys(VIEWS)) {
     });
   }
 }
+
+// One render parses the box and matches it once, whichever view is showing; the
+// board always repaints with the active view, so before this the Map, Calendar,
+// Gantt and Graph each did it a second time.
+const REPAINT = {
+  board: null,
+  map: 'renderMapView()',
+  calendarMonth: 'renderCalendarView()',
+  calendarGrid: 'renderCalendarView()',
+  gantt: 'renderGanttView()',
+  graph: 'renderGraphView()',
+};
+
+for (const name of Object.keys(VIEWS)) {
+  test(`${name}: one render parses and matches the query once`, async () => {
+    const { page, seen } = await openView(name);
+    page.input.typed('tree:1');
+    assert.strictEqual(seen.parsed, 1, 'parsed once');
+    assert.strictEqual(seen.matched, 1, 'matched once');
+    seen.parsed = seen.matched = 0;
+    page.input.typed('');
+    assert.strictEqual(seen.parsed, 1, 'an empty box is still read once');
+    assert.strictEqual(seen.matched, 0, 'and there is nothing to match');
+    seen.parsed = seen.matched = 0;
+    page.input.typed('zephyr');
+    seen.parsed = seen.matched = 0;
+    page.run('renderBoard()');
+    assert.strictEqual(seen.parsed, 1, 'a repaint with no write parses once');
+    assert.strictEqual(seen.matched, 1, 'a repaint with no write matches once');
+  });
+
+  if (REPAINT[name]) {
+    test(`${name}: a view repainted on its own reads the box once for that repaint`, async () => {
+      const { page, seen } = await openView(name);
+      page.input.typed('zephyr');
+      seen.parsed = seen.matched = 0;
+      page.run(REPAINT[name]);
+      assert.strictEqual(seen.parsed, 1);
+      assert.strictEqual(seen.matched, 1);
+    });
+  }
+}
+
+test('a poll parses and matches the query once for its repaint', async () => {
+  const { page, seen } = await openView('gantt');
+  page.input.typed('zephyr');
+  seen.parsed = seen.matched = 0;
+  await page.run('autoRefreshTick()');
+  assert.strictEqual(seen.parsed, 1);
+  assert.strictEqual(seen.matched, 1);
+});
