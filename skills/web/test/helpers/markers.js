@@ -114,6 +114,7 @@ const SITES = (cls) => () => templateSites(appSrc, cls);
 
 const CONTROLS = {
   '#context-menu': STATIC('context-menu'),
+  '#detail-modal': STATIC('detail-modal'),
   '#bulk-single': STATIC('bulk-single'),
   '#bulk-tags': STATIC('bulk-tags'),
   '#bulk-schedule': STATIC('bulk-schedule'),

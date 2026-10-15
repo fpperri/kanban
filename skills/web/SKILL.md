@@ -644,19 +644,31 @@ to `127.0.0.1` only.
   their gutter labels** alike. Each view paints its own selected marker
   (board/calendar/gantt: blue outline + dark wash; map: dark wash + blue glow — the
   node's border and status dot are unaffected; graph: an accent outline on the dot plus
-  a glow). Right-click: an unselected
-  card becomes the anchor of a new selection in the same gesture; an already-selected one keeps the
-  whole batch as the target. Right-clicking inside an open card detail opens the same
-  menu for the card shown, and once an action has run the popup is read again so it shows
+  a glow). Right-click: a card outside the selection opens a menu for that card alone and leaves
+  the selection, and its range start, exactly as it was; the menu leads with **Peek** (opens the
+  card's details through the same path a plain open takes, so card history takes its step, and
+  does not touch the selection) and **Add to selection** (the card joins as an addition, or becomes
+  the anchor of an empty selection). A card inside the selection opens the menu for the whole
+  resolved selection, the cards a path, a tree or a pill added included, and the menu has neither
+  Peek nor Add to selection. Right-clicking inside an open card detail opens the same
+  menu for the card shown, without Peek, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
-  already handles the right-click itself, the browser's own menu shows instead. The menu — **Assign…**, **Set priority…**, **Edit tags…**,
+  already handles the right-click itself, the browser's own menu shows instead. The card details
+  keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add to selection**,
+  **Assign…**, **Set priority…**, **Edit tags…**,
   **Schedule…**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
-  acts on the selection regardless of which view opened it. **Dependency tree**/
-  **Dependency path** are sugar over the `tree:<id>`/`path:<id>` search terms: clicking
-  one replaces the search box's content with that term for the single selected card and
-  runs the normal search — no view switch. They're the only menu items conditionally
-  hidden: the other seven always render (mixed-selection handling lives inside each
-  click handler), these two hide whenever the effective selection is more than one card.
+  acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
+  selection inside it, regardless of which view opened it. The subject is fixed when the menu
+  opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
+  is when Apply is pressed. **Dependency tree**/
+  **Dependency path** add the card's tree or path to the selection as one part: the cards it
+  reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
+  with the rest. They no longer write the search box, which is left as it was; a typed
+  `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
+  names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
+  outside the selection (Peek is also left out of the card details' own menu), Tree and Path
+  show only when the subject is one card; the others always render (mixed-selection handling
+  lives inside each click handler).
   Any plain click outside the context menu / bulk popups clears the selection (empty
   calendar day cells and map/gantt whitespace included); the view-toggle buttons (Graph's too) are
   exempt, so the selection **survives switching views**, and it survives the poll. A control
@@ -1029,7 +1041,8 @@ to `127.0.0.1` only.
   error), and a card with no edges resolves to a component/cone of one — itself.
   Focusing hides everything outside the result and re-lays-out, exactly like a typed
   search — a cone edge exiting the focused set renders as the existing ghost stub, no
-  new rendering path. The right-click menu offers these as sugar — see Multi-select.
+  new rendering path. The right-click menu adds a card's tree or path to the selection
+  instead of writing a term — see Multi-select.
   Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
   GLOSSARY.md's parity table.
   **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls

@@ -103,7 +103,7 @@ test('the Calendar month counts the leading and trailing days of its grid as dra
   assert.strictEqual(ganttAnchor(gantt), '2026-07-28', 'the Gantt\'s August window is the month\'s own days');
 });
 
-test('typing, a cue click, Path from the card menu and a ?q= link each make the check', async () => {
+test('typing, a cue click and a ?q= link each make the check, and Path from the card menu, which writes no query, moves nothing', async () => {
   const typing = await pageIn('calendar');
   typing.input.typed('centennial');
   assert.strictEqual(calendarAnchor(typing), '2031-06-02', 'typing');
@@ -119,10 +119,10 @@ test('typing, a cue click, Path from the card menu and a ?q= link each make the 
   assert.strictEqual(calendarAnchor(cue), '2031-06-02', 'a cue click');
 
   const menu = await pageIn('calendar');
-  menu.run('selectedIds = new Set([2])');
+  menu.rightClickCard(2);
   menu.menu.path.fire('click');
-  assert.strictEqual(menu.input.value, 'path:2');
-  assert.strictEqual(calendarAnchor(menu), '2031-06-02', 'Path from the card menu');
+  assert.strictEqual(menu.input.value, '', 'Path adds to the selection and leaves the box alone');
+  assert.strictEqual(calendarAnchor(menu), '2026-07-15', 'so the Calendar stays where it was');
 
   const link = loadPage({ board: BOARD, search: '?q=centennial&view=calendar' });
   await link.start();
