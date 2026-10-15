@@ -18,6 +18,7 @@ const PAGE_GLOBALS = [
   'renderGraphView',
   'selectedIds',
   'state',
+  'writeSearch',
 ];
 
 const webDir = path.join(__dirname, '..', 'web');

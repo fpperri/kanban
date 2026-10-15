@@ -6,6 +6,7 @@
 
 module.exports = [
   require('./search-box'),
+  require('./search-address'),
   require('./graph'),
   require('./key-guard'),
   require('./card-click'),
