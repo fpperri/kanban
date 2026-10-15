@@ -37,6 +37,43 @@ function isolateNow() {
   return isolateFrom;
 }
 
+// The text the box held before isolating is kept in the browser, per board, beside the isolate
+// text it goes with (isolateRecord, selection.js), so a reload that opens isolated can still give
+// it back. Every read and write guards against storage that is blocked or full: the page works
+// without it, and the text is then unknown, which gives back an empty box.
+const ISOLATE_KEPT_FEATURE = 'isolate.kept';
+
+function isolateKeep(previous, text) {
+  const store = prefsStorage();
+  if (!store) return;
+  try { store.setItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE), isolateRecord(previous, text)); }
+  catch (e) { /* storage unavailable or full: the text will be unknown after a reload */ }
+}
+
+function isolateForget() {
+  const store = prefsStorage();
+  if (!store) return;
+  try { store.removeItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE)); }
+  catch (e) { /* nothing to forget */ }
+}
+
+function isolateKept(q) {
+  const store = prefsStorage();
+  let raw = null;
+  if (store) {
+    try { raw = store.getItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE)); }
+    catch (e) { raw = null; }
+  }
+  return isolatePreviousFrom(raw, q);
+}
+
+// A link that opens isolated (consumeDeepLink): isolate is on before the link's query reaches the
+// box, so the repaint, the address and every listener of the write see it on. What it gives back
+// is the text kept for this very query, or nothing.
+function isolateFromLink(q) {
+  isolateFrom = { previous: isolateKept(q) };
+}
+
 // The switch says whether isolate is on (aria-checked) and what a click does. Every repaint of
 // the board comes here (renderSearchPanel), so the poll keeps it right.
 function syncIsolateSwitch() {
@@ -58,6 +95,7 @@ function isolateTurnOn() {
   const text = searchIsolateBox(box, partsOf(selectionState.selection));
   if (!text) { toast('Nothing is selected to isolate. Pick a card, a pill, or add a path or a tree first.'); return false; }
   isolateFrom = { previous: box };
+  isolateKeep(box, text);
   writeSearch(text, 'isolate');
   return true;
 }
@@ -68,6 +106,7 @@ function isolateTurnOff() {
   if (!isolateFrom) return false;
   const text = searchIsolateRestore($('#search-input').value, isolateFrom.previous);
   isolateFrom = null;
+  isolateForget();
   writeSearch(text, 'isolate');
   return true;
 }
@@ -98,8 +137,10 @@ function isolateEscapeKeepsBox(e) {
 // the text it would give back.
 function isolateOnWrite(text, reason) {
   const next = isolateAfterWrite(isolateFrom, text, reason);
+  if (next && reason !== 'isolate') isolateKeep(next.previous, text); // the kept text goes with the isolate text the box holds now
   if (next === isolateFrom) return;
   isolateFrom = next;
+  if (!next) isolateForget();
   renderSearchPanel();
 }
 

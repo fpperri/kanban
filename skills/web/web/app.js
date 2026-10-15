@@ -2272,8 +2272,10 @@ function consumeDeepLink() {
   // every render, so putting the value there IS applying the filter, and
   // it lands somewhere visible that one gesture clears. The view is set
   // first, so that repaint and the listeners told after it see the link's view.
-  if (link.q) writeSearch(link.q, 'link');
-  else if (link.view) renderBoard();
+  if (link.q) {
+    if (deepLinkIsolates(location.search)) isolateFromLink(link.q);
+    writeSearch(link.q, 'link');
+  } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
   const card = state.active.concat(state.archived).find((c) => c.id === link.id);
@@ -3312,7 +3314,7 @@ function clearSearch() {
 // `card` and `view` ride along untouched. The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
-  const search = nextSearchAddress(location.search, text);
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null);
   if (search == null) return;
   try {
     history.replaceState(null, '', location.pathname + search);
