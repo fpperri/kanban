@@ -5868,7 +5868,7 @@ let bulkPopupIds = []; // the ids an open bulk popup captured when it opened; th
 // the right-clicked card alone outside the selection, the resolved selection inside
 // it. Fixed when the menu opens, so the menu's entries and the popups they open act
 // on those cards whatever the selection and the poll do meanwhile.
-let menuSubject = { ids: [], inSelection: false, peek: false, add: false, dependency: false };
+let menuSubject = { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: false, canvas: false };
 
 // The one reader of the cards a bulk action acts on, live or archived, in the
 // order they were selected; an id with no card (deleted mid-selection) is

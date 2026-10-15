@@ -1,6 +1,7 @@
 'use strict';
-// Pure decision logic for wiring the card detail popup into the browser's OWN
-// history — so Alt+Left/Alt+Right, the mouse back/forward
+// Pure decision logic for the page's address: the card detail popup in the browser's OWN
+// history, and the search box's text and isolate flag in the query string. The popup is
+// wired in so Alt+Left/Alt+Right, the mouse back/forward
 // buttons, and the browser's own arrows all step between opened cards with no
 // separate keyboard shortcut fighting them. No DOM here — same
 // dual-environment pattern as deep-link.js/refresh-policy.js: loaded as a
@@ -24,7 +25,7 @@
 // become, and the caller REPLACES the entry it is on, so typing grows no
 // history. Back and Forward never write the box; when one lands on an entry
 // whose `q` differs from the box, the caller replaces that entry with the
-// box's text.
+// box's text. `isolate=1` rides beside `q` the same way: it is never a step either.
 
 // The `card` param out of a querystring, applying the same hasCard/id rules
 // as deep-link.js's parseDeepLink (a missing, non-numeric, or
@@ -61,8 +62,7 @@ function nextCardHistorySearch(currentSearch, targetId) {
 // the box is empty or blank, and every OTHER parameter (card, view, and
 // whatever a later one adds) stays as it was. ISOLATED says whether isolate is on:
 // then `isolate=1` stands beside `q`, and it is gone when isolate is off or the box
-// holds no query (an isolate with no query is nothing). An ISOLATED left undefined
-// leaves the parameter as it is. Returns the new search string
+// holds no query (an isolate with no query is nothing). Returns the new search string
 // (leading "?", or "" when nothing is left), or null when the address already
 // matches — the caller replaces the history entry only when this is not null,
 // so fast typing never hammers the browser's limit on history replacements.
@@ -79,13 +79,11 @@ function nextSearchAddress(currentSearch, boxText, isolated) {
     params.delete('q');
     changed = true;
   }
-  if (isolated !== undefined) {
-    if (isolated && text.trim()) {
-      if (params.get('isolate') !== '1') { params.set('isolate', '1'); changed = true; }
-    } else if (params.has('isolate')) {
-      params.delete('isolate');
-      changed = true;
-    }
+  if (isolated && text.trim()) {
+    if (params.get('isolate') !== '1') { params.set('isolate', '1'); changed = true; }
+  } else if (params.has('isolate')) {
+    params.delete('isolate');
+    changed = true;
   }
   if (!changed) return null;
   const qs = params.toString();

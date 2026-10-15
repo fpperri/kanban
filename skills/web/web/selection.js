@@ -123,21 +123,17 @@ function dragPlan(ids, byId, dest, refusesDoingFn) {
 // one; `choices` is its click map ({ board: 'opens' | 'selects', ... }). A view
 // the map leaves out, or fills with anything but 'selects', opens. The Graph
 // selects whatever the map says.
-const PLAIN_CLICK_SELECTS = { graph: true };
-
 function plainClickBehaviour(view, choices) {
-  if (Object.prototype.hasOwnProperty.call(PLAIN_CLICK_SELECTS, view)) return 'selects';
+  if (view === 'graph') return 'selects';
   const own = choices && Object.prototype.hasOwnProperty.call(choices, view);
   return own && choices[view] === 'selects' ? 'selects' : 'opens';
 }
 
 // Whether Shift+click adds a range of cards between the range start and the
 // target. The Graph's layout has no reading order to range over, so there Shift
-// adds one card, like Ctrl. A view the table does not name ranges.
-const SHIFT_ADDS_ONE = { graph: true };
-
+// adds one card, like Ctrl. Every other view ranges.
 function shiftAddsRange(view) {
-  return !Object.prototype.hasOwnProperty.call(SHIFT_ADDS_ONE, view);
+  return view !== 'graph';
 }
 
 // What a click on a card does, as one pure decision — the page's click

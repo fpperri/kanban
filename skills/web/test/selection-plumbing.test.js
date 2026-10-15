@@ -699,3 +699,12 @@ test('a popup applies to the targets it captured: the apply steps read the captu
     assert.match(fn(name), /captureBulkTargets\(\)/, `${name} captures when it starts`);
   }
 });
+
+test('the menu subject before any menu has opened carries every key a menu subject has, the card menu\'s and the canvas menu\'s', () => {
+  const { cardMenuFor, canvasMenuFor } = require('../web/selection');
+  const sandbox = vm.createContext({});
+  const initial = vm.runInContext(`${declaration('menuSubject')}; menuSubject`, sandbox);
+  const keys = new Set([...Object.keys(cardMenuFor(new Set(), 1)), ...Object.keys(canvasMenuFor())]);
+  assert.deepStrictEqual(Object.keys(initial).sort(), [...keys].sort());
+  for (const key of keys) if (key !== 'ids') assert.strictEqual(initial[key], false, key);
+});
