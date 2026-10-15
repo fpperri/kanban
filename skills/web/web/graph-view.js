@@ -791,10 +791,15 @@ function wireGraphView(host) {
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
     if (layoutBtn) {
       if (mergeGraphLayout(layoutBtn.dataset.layout) === graphLoadLayout()) return;
-      graphLayoutKind = mergeGraphLayout(layoutBtn.dataset.layout);
+      const was = graphLoadLayout();
+      const next = mergeGraphLayout(layoutBtn.dataset.layout);
+      graphLayoutKind = next;
       graphViews.delete(graphLayoutKind);
       graphSaveLayout();
-      renderGraphView();
+      // Unnested off is the Tiers layout's alone, so a switch into or out of Tiers changes the cards the
+      // Graph draws, and a selection and the pill counts only reach those: the board works them out again.
+      if (graphLoadOptions().unnested === 'off' && (was === 'tiers' || next === 'tiers')) renderBoard();
+      else renderGraphView();
       return;
     }
     const zoomBtn = e.target.closest('.graph-zoom-btn[data-graph-action]');

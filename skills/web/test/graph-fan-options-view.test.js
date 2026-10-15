@@ -555,3 +555,43 @@ test('a mode frames the view again when the person has not moved it, and leaves 
   pressOption(s, 'unnested', 'depth 0');
   assert.deepStrictEqual(viewOf(s), zoomed, 'a view the person zoomed stays as it is');
 });
+
+// Switching the layout changes the cards the Graph draws when Unnested is off (it is the Tiers layout's
+// alone), and a selection and the pill and slice counts only reach the cards the view draws.
+const layoutButton = (s, layout) => {
+  const button = byClass(s.host, 'graph-layout-btn').map(matcher).find((b) => b.dataset.layout === layout);
+  assert.ok(button, `the ${layout} button is there`);
+  return button;
+};
+
+test('switching from Force to Tiers with Unnested off takes the unnested card out of the selection, and switching back brings it again', async () => {
+  const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
+  const s = await open({ stored, layout: 'force' });
+  s.run('setSelection(addPart(addPart(NO_SELECTION, cardPart(3)), cardPart(7)), 3)');
+  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'Force draws every card');
+  assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6, 7]);
+  s.click(layoutButton(s, 'tiers'));
+  assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6], 'Tiers with Unnested off leaves card 7 out');
+  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3], 'so the selection does not hold it: no bulk edit can reach a card the view does not draw');
+  s.click(layoutButton(s, 'force'));
+  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'Force draws it again');
+});
+
+test('the pill counts follow the layout switch the same way', async () => {
+  const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
+  const s = await open({ stored, layout: 'force' });
+  const counted = () => JSON.parse(s.run('JSON.stringify(cardsBeforeSearch().map((c) => c.id).sort((a, b) => a - b))'));
+  assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6, 7]);
+  s.click(layoutButton(s, 'tiers'));
+  assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('a layout switch with Unnested on is a redraw alone: it works the selection out no more than it did', async () => {
+  const s = await open({ stored: UNFOLDED, layout: 'force' });
+  let repaints = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...args) => { repaints++; return real(...args); };
+  s.click(layoutButton(s, 'tiers'));
+  assert.strictEqual(repaints, 0);
+  assert.strictEqual(s.run('graphLoadLayout()'), 'tiers');
+});

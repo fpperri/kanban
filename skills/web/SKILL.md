@@ -1654,7 +1654,8 @@ to `127.0.0.1` only.
   them on one ring outside every depth ring, grouped by status in the board's order, archived cards last,
   under an `unnested` caption on the seam, level with the ring, whose tooltip counts them and names no slice;
   **off** does not draw them, and neither is a line or an arrow that joins one to a card that is drawn, and a selection
-  reaches only the cards the Graph draws, so they leave it with the dots and come back with them;
+  reaches only the cards the Graph draws, so they leave it with the dots and come back with them (so a
+  switch into or out of Tiers while Unnested is off works the selection and the pill counts out again);
   **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
   the ring's caption is the depth 0 band's, `roots`, and its tooltip counts them; **table** draws the Unnested
   block outside the rim. The Unnested option is Tiers' own: Force and Status draw every card. A counted line
