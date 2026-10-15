@@ -55,13 +55,13 @@ const SEARCH_BOX_CHECKS = [
   'the clear button empties the box and brings every card back', 'an assignee cue click writes assignee:@human',
   'the same cue clicked again leaves the box as it was', 'a blocked pill click writes blocked: and keeps the blocked cards',
   'a second cue adds to the box', 'a review pill click writes review: and keeps the cards awaiting review',
-  'a right-click on a card opens its menu', 'Path from the menu writes path:4 and keeps that card\\\'s dependency path',
+  'a right-click on a card opens its menu', 'Path from the menu adds that card\\\'s dependency path to the selection and leaves the box empty',
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a config-keys, a smoke and a calendar-jump scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a config-keys, a smoke, a calendar-jump and a card-menu scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'config-keys', 'smoke', 'calendar-jump']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'config-keys', 'smoke', 'calendar-jump', 'card-menu']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -242,7 +242,7 @@ const CARD_CLICK_CHECKS = [
   'a plain click opens the card in the ${view}',
   'Ctrl+click toggles one card in', 'Ctrl+click on a selected card toggles it out', 'Cmd+click toggles one card in',
   'Shift+click adds the range from the last toggled card', 'none of those clicks opened a card',
-  'a right-click on a card outside the selection replaces the selection', 'Escape closes that menu and keeps the selection',
+  'a right-click on a card outside the selection opens its menu and leaves the selection as it was', 'Escape closes that menu and keeps the selection',
   'a click on empty space clears the selection', 'two cards are selected for the bulk confirmations',
   'the archive confirmation names the count', 'the delete confirmation names the count',
   'in the Graph, Enter on a focused card opens it',
@@ -309,4 +309,58 @@ test('the selection scenario finds a card\'s dot by its class and clicks it only
   const src = code(source('selection.js'));
   assert.ok(src.includes('.graph-dot') && !/circle/.test(src));
   assert.ok(/elementFromPoint/.test(src));
+});
+
+// The card menu's browser drive, on the fixture board: what a right-click on a
+// card outside the selection offers in every view, Peek, Add to selection, the
+// bulk entries on the menu's subject, and Path and Tree adding to the selection.
+const CARD_MENU_CHECKS = [
+  'cards 1, 3 and 4 are dated today for the Calendar and Gantt right-clicks', 'two cards are picked on the Board',
+  'Board: a right-click on a third card opens a menu led by Peek and Add to selection', 'Board: the two cards stay selected',
+  'Board: the menu closes on Escape', '${view}: the view draws card 4 and the two cards are still selected',
+  '${view}: a right-click on a card outside the selection opens a menu led by Peek and Add to selection', '${view}: and leaves the selection unchanged',
+  'Peek opens the card details', 'and the two cards stay selected while they are open',
+  'the details own right-click menu offers no Peek and still offers Add to selection', 'Escape closes the details',
+  'after they close, the same two cards are selected', 'closing the details with the X button leaves the same two cards selected',
+  'Add to selection makes three cards selected', 'and the new card joins after the anchor',
+  'with nothing selected, a right-click picks no card', 'Add to selection with nothing selected selects that one card as the anchor',
+  'Board: after a right-click outside a two-card selection, Set priority changes only the right-clicked card', 'and the two cards are still selected',
+  'Board: after a right-click inside a two-card selection, Set priority changes both cards',
+  'Dependency path and Dependency tree are in the menu for one card',
+  'Dependency path on a card adds its path, marked on the Board', 'and the path is one part of the selection',
+  'and the search box is unchanged after Dependency path', 'and the path is lit in the Graph',
+  'Dependency tree on a card adds its tree, marked on the Board', 'and the tree is one part of the selection',
+  'and the search box is unchanged after Dependency tree', 'and the tree is lit in the Graph',
+  'Dependency path and Dependency tree are absent from the menu when its subject is several cards',
+  'archiving a selection that holds a path part names the resolved count', 'deleting a selection that holds a path part names the resolved count',
+];
+
+test('the card-menu scenario runs on the fixture board and makes every check the card menu owes', () => {
+  assert.strictEqual(byName('card-menu').board, 'fixture');
+  assert.strictEqual(byName('card-menu').alsoBoards, undefined);
+  const src = source('card-menu.js');
+  const named = (n) => src.includes(`check('${n}'`) || src.includes(`check(\`${n}\``);
+  assert.deepStrictEqual(CARD_MENU_CHECKS.filter((n) => !named(n)), [], 'checks the card menu needs and the scenario does not make');
+});
+
+test('the card-menu scenario right-clicks a card in the Board, the Graph, the Map, the Calendar and the Gantt, and in the open details', () => {
+  const src = code(source('card-menu.js'));
+  for (const view of ['graph', 'map', 'calendar', 'gantt']) assert.ok(src.includes(`['${view}', '#${view}-view']`), `${view} is right-clicked`);
+  assert.ok(src.includes(`rightClick('#detail-modal .modal')`), 'the details own menu');
+  assert.ok(src.includes('ctx-peek') && src.includes('ctx-add') && src.includes('ctx-path') && src.includes('ctx-tree'), 'every new entry');
+});
+
+test('the card-menu scenario opens the card menu with the right-click helper, closes the details both ways, and waits on the page, never on a fixed sleep', () => {
+  const src = code(source('card-menu.js'));
+  assert.ok(/rightClick\(cardIn\(/.test(src));
+  assert.ok(!/contextmenu/.test(src), 'a hand-made contextmenu event');
+  assert.ok(!/\bsleep\(/.test(src));
+  assert.ok(src.includes(`key('Escape')`) && src.includes('#detail-close'), 'Escape and the X button');
+  assert.ok(/window\.confirm=\(m\)=>\{window\.__asked\.push\(m\);return false\}/.test(src), 'a confirmation that refuses, so nothing is archived or deleted');
+});
+
+test('the card-menu scenario reopens the Board by its deep link, so a view left on by the last check cannot hide it', () => {
+  const src = code(source('card-menu.js'));
+  assert.ok(src.includes(`open('/?view=board')`));
+  assert.ok(!src.includes(`open('/')`));
 });

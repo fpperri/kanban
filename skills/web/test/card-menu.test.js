@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage, control, harmless } = require('./helpers/page-vm');
+const { assertKeepsSelection } = require('./helpers/markers');
 
 // The card menu in the real page (helpers/page-vm.js runs every script the page
 // loads in one vm). A right-click on a card outside the selection opens the menu
@@ -117,6 +118,10 @@ test('the card details\' own menu has no Peek, and a right-click there leaves th
 });
 
 // --- Peek and Add to selection -------------------------------------------------------
+
+test('the card details popup keeps the selection when a click lands in it, so closing a peek costs the selection nothing', () => {
+  assertKeepsSelection(['#detail-modal'], 'the card details popup');
+});
 
 test('Peek opens the card\'s details through the plain open path and leaves the selection and its range start as they were', async () => {
   const s = await open();
