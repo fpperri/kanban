@@ -59,14 +59,18 @@ test('the panel text describes the slice section: the tiers the board uses and t
   assert.ok(text.includes('`slice:strategy..`'));
 });
 
-test('the panel text says the keep-only gestures need a fine pointer, and what a tap does on a phone', () => {
+test('the panel text says the right-click and the key on a pill need a fine pointer, the key on a slice entry needs none, and what a tap does on a phone', () => {
   const text = flat(panel[0]);
-  assert.match(text, /right-click[^.]*context-menu key[^.]*Shift\+F10[^.]*only where the pointer is fine and hovers/);
+  assert.match(text, /right-click on a pill or a slice entry, and the context-menu key and Shift\+F10 on a pill, run only where the pointer is fine and hovers/);
+  assert.match(text, /context-menu key and Shift\+F10 on a slice entry[^.]*keep only that slice with any pointer/);
+  assert.doesNotMatch(text, /Shift\+F10 on an entry, run only where/, 'the key on a slice entry has no pointer gate');
   assert.match(text, /on a phone a long-press neither keeps a pill alone nor keeps only a slice/);
   assert.match(text, /a tap on a slice entry grows the run, drops an end or removes the cut/);
   const docs = flat(read('docs', 'snapshot.md'));
   const at = docs.indexOf('## Search panel');
-  assert.match(docs.slice(at, docs.indexOf('##', at + 5)), /right-clicks need a mouse[^.]*a tap/);
+  const section = docs.slice(at, docs.indexOf('##', at + 5));
+  assert.match(section, /right-clicks need a mouse[^.]*a tap/);
+  assert.match(section, /context-menu key and Shift\+F10 on a focused slice entry keep only that slice with any pointer/);
 });
 
 test('the panel text says what the counts are taken over, and describes the chip and the keyboard', () => {
