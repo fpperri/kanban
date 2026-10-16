@@ -21,8 +21,9 @@
 // query is the anchor or an addition, and typing in the box turns it off. A closed
 // panel shows a chip counting what is on, named for a screen reader. The chip is a tab
 // stop while it is shown: Shift+Tab from the arrow passes the clear button and reaches it,
-// it wears the focus ring, Enter and Space on it open the panel and put focus on the
-// arrow, a mouse click on it opens nothing, and Tab skips it while it is hidden. Tab reaches the
+// it wears the focus ring and the pointer hand, Enter, Space and a mouse click on it open the
+// panel and put focus on the arrow, Enter held down on it opens the panel once and the repeats of
+// the held key do not flip the arrow's switch, and Tab skips it while it is hidden. Tab reaches the
 // toggle, the fold control and every pill, and Enter and Space act as a click. Esc
 // closes the suggestion list first, then the panel, then clears the box: with focus in
 // the box the text stays through the first two presses (the browser's own Esc, which
@@ -330,6 +331,7 @@ module.exports = {
     const CHIP_FACTS = `(()=>{const c=${CHIP};return {tag:c.tagName,tabIndex:c.tabIndex,controls:c.getAttribute('aria-controls'),expanded:c.getAttribute('aria-expanded')}})()`;
     const CHIP_RING = `(()=>{const s=getComputedStyle(${CHIP});return s.outlineStyle==='solid'&&parseFloat(s.outlineWidth)===2&&s.outlineColor===s.borderTopColor})()`;
     const CHIP_HIDDEN = `${CHIP}.classList.contains('hidden')`;
+    const CHIP_HAND = `(()=>{const c=getComputedStyle(${CHIP}).cursor;return c==='pointer'&&c===getComputedStyle(${TOGGLE}).cursor})()`;
     const onArrow = `document.activeElement===${TOGGLE}`;
     await clickOn(pillSel('review'));
     await boxIs('review:');
@@ -342,6 +344,7 @@ module.exports = {
     const reachedChip = await focusId();
     check('Shift+Tab from the arrow passes the clear button and reaches the chip, so the chip is a tab stop in the order of the box', passed === 'search-clear-btn' && reachedChip === 'search-chip', { passed, reachedChip });
     check('the focused chip wears the focus ring of the other header controls: two pixels, solid, in the accent', await ev(CHIP_RING));
+    check('the chip shows the pointer hand the arrow and the other header buttons show', await ev(CHIP_HAND));
     await key('Enter');
     check('Enter on the focused chip opens the panel, the chip leaves with it, and focus goes to the arrow, not into the box', await waitFor(panelOpen) && await waitFor(CHIP_HIDDEN) && await ev(onArrow) && !(await ev(boxFocused)), { chip: await chip(), focus: await focusId() });
     check('opening the panel from the chip changes neither the box nor the selection', await boxIs('review:') && await pickedIs(CASES.review), await boxText());
@@ -353,9 +356,27 @@ module.exports = {
     await key(' ');
     check('Space on the focused chip opens the panel too, with focus on the arrow', await waitFor(panelOpen) && await waitFor(CHIP_HIDDEN) && await ev(onArrow), { chip: await chip(), focus: await focusId() });
     await closePanel();
+    // Enter held down: one key down on the chip, then the auto-repeats a held key sends, which land on the arrow the chip handed focus to.
+    const ENTER = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 };
+    const HELD = `window.__heldEnter`;
+    await ev(`(()=>{const log=window.__heldEnter=[];const on=(e)=>{if(e.key==='Enter')log.push({repeat:e.repeat,on:e.target.id})};document.addEventListener('keydown',on,true);window.__heldEnterOff=()=>document.removeEventListener('keydown',on,true)})()`);
+    await ev(`${CHIP}.focus()`);
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', ...ENTER, text: '\r' });
+    check('Enter held on the focused chip: the key going down opens the panel, the chip leaves with it, and focus goes to the arrow', await waitFor(panelOpen) && await waitFor(CHIP_HIDDEN) && await ev(onArrow) && await ev(`${HELD}.length===1&&${HELD}[0].on==='search-chip'&&!${HELD}[0].repeat`), { chip: await chip(), focus: await focusId(), held: await ev(HELD) });
+    for (let i = 0; i < 3; i++) await send('Input.dispatchKeyEvent', { type: 'keyDown', ...ENTER, text: '\r', autoRepeat: true });
+    check('the page sees the three auto-repeats of the held Enter land on the arrow, not on the chip', await ev(`${HELD}.filter((k)=>k.repeat&&k.on==='search-panel-toggle').length===3&&${HELD}.length===4`), await ev(HELD));
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', ...ENTER });
+    check('the auto-repeats of the held Enter neither switch the arrow off nor shut the panel, and focus is still on the arrow when the key comes up', await ev(SWITCH_ON) && await ev(panelOpen) && await ev(onArrow), { held: await ev(HELD) });
+    await ev(`window.__heldEnterOff()`);
+    await key('Enter');
+    const pressedOff = await waitFor(SWITCH_OFF) && await waitFor(panelShut);
+    await key('Enter');
+    check('a fresh Enter on the arrow still switches it off, and a second one switches it on and opens the panel', pressedOff && await waitFor(SWITCH_ON) && await waitFor(panelOpen));
+    await closePanel();
     await clickOn('#search-chip');
     await frames();
-    check('a click with the mouse on the chip opens nothing, as before, and leaves the box and the selection alone', await ev(panelShut) && !(await chip()).hidden && await boxIs('review:') && await pickedIs(CASES.review), { chip: await chip(), box: await boxText() });
+    check('a click with the mouse on the chip opens the panel as Enter and Space do: the chip leaves with it, focus goes to the arrow, and the box and the selection are as they were', await waitFor(panelOpen) && await waitFor(CHIP_HIDDEN) && await ev(onArrow) && !(await ev(boxFocused)) && await boxIs('review:') && await pickedIs(CASES.review), { chip: await chip(), focus: await focusId(), box: await boxText() });
+    await closePanel();
     await clearBox();
     check('with nothing on the chip is hidden', await waitFor(CHIP_HIDDEN));
     await ev(`${TOGGLE}.focus()`);

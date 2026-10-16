@@ -31,8 +31,10 @@
 // changes under it. The panel adds no `data-holds-poll`: a button left focused by a
 // click would stop the poll for good.
 //
-// The chip is a button, so Tab reaches it, in the box's order, while it is shown, and a press of
-// Enter or Space on it opens the panel (onSearchChipClick). A hidden chip is no tab stop.
+// The chip is a button, so Tab reaches it, in the box's order, while it is shown, and a click with
+// the mouse, or a press of Enter or Space, on it opens the panel (onSearchChipClick). A hidden chip
+// is no tab stop. Enter held on it opens the panel once: the arrow ignores the repeats of the held
+// key (onSearchSwitchKeyDown).
 //
 // Esc: the panel is one link of the Esc chain (closeSearchPanel, called from the
 // document's Esc handler in app.js after the popups and before the selection step).
@@ -207,14 +209,13 @@ function setSearchPanelOpen(open) {
   renderSearchPanel();
 }
 
-// The chip's activation. A button turns Enter and Space into a click that has no pointer behind it
-// (detail 0), which is also how assistive technology activates one; a click with the mouse (detail
-// 1 or more) does nothing, as it did before the chip was a tab stop. The panel opens whatever the
-// arrow's switch says, since this is a press on purpose and leaves the switch as it was. The chip
-// leaves with the open panel, so focus goes to the arrow, the control Esc hands focus back to,
-// and not into the box, whose focus would open its suggestion list over the panel.
-function onSearchChipClick(e) {
-  if (e.detail !== 0) return;
+// The chip's activation: a click with the mouse, or Enter or Space, which a button turns into a
+// click that has no pointer behind it (the way assistive technology activates one too). All of them
+// do the same. The panel opens whatever the arrow's switch says, since this is a press on purpose
+// and leaves the switch as it was. The chip leaves with the open panel, so focus goes to the arrow,
+// the control Esc hands focus back to, and not into the box, whose focus would open its suggestion
+// list over the panel.
+function onSearchChipClick() {
   setSearchPanelOpen(true);
   $('#search-panel-toggle').focus();
 }
@@ -252,6 +253,15 @@ function applySearchPanelSwitch(on, openNow) {
 // The arrow's click and the p key.
 function flipSearchPanelSwitch() {
   setPanelOnFocus(!searchPanelSwitchOn(), true);
+}
+
+// A key held down repeats its keydown, and a browser clicks a button for every Enter keydown, the
+// repeats included. Enter held on the chip opens the panel and hands focus to the arrow with the key
+// still down, so the repeats land on the arrow and would flip its switch over and over. The arrow
+// ignores them: only the keydown that starts a press switches, and stopping a repeat is what stops
+// its click. Other keys, held or not, are left to the browser (a held Tab keeps moving focus).
+function onSearchSwitchKeyDown(e) {
+  if (e.repeat && e.key === 'Enter') e.preventDefault();
 }
 
 // The box was focused: with the switch on, the panel opens.
@@ -403,6 +413,7 @@ window.addEventListener('DOMContentLoaded', () => {
   pills.addEventListener('click', onPillClick);
   pills.addEventListener('contextmenu', onPillContextMenu);
   $('#search-panel-toggle').addEventListener('click', flipSearchPanelSwitch);
+  $('#search-panel-toggle').addEventListener('keydown', onSearchSwitchKeyDown);
   $('#search-chip').addEventListener('click', onSearchChipClick);
   $('#search-input').addEventListener('focus', onSearchBoxFocus);
   document.addEventListener('keydown', onSearchPanelKey);

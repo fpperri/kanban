@@ -183,7 +183,7 @@ test('the ids and classes the scenario drives are in the page the panel is drawn
 // one fails here, and what it reads back is answered the way a browser would for the
 // scenario's own reads. Whether each check holds is for the browser to say.
 function standIn() {
-  const log = { exprs: [], bad: [], checks: [], opened: [], keys: [], clicks: 0, clickLog: [] };
+  const log = { exprs: [], bad: [], checks: [], opened: [], keys: [], sent: [], clicks: 0, clickLog: [] };
   const parse = (expr) => {
     try { new vm.Script(`(${expr})`); } catch (e) { log.bad.push(`${e.message}: ${String(expr).slice(0, 120)}`); }
   };
@@ -206,7 +206,7 @@ function standIn() {
   const page = {
     log,
     ev: async (expr) => { log.exprs.push(expr); parse(expr); return answer(expr); },
-    send: async () => {},
+    send: async (method, params) => { log.sent.push([method, params]); },
     open: async (p) => { log.opened.push(p); },
     waitFor: async (expr) => { log.exprs.push(expr); parse(expr); return true; },
     centre: async () => ({ x: 10, y: 10 }),
@@ -309,18 +309,23 @@ test('the scenario drives the switch in order: focus opens the panel, a click sw
   assert.strictEqual(sheet.split("clickOn('#prefs-panel-on-focus')").length - 1, 2, 'the checkbox is clicked off and on again');
 });
 
-test('the scenario drives the chip as a tab stop: Shift+Tab reaches it, Enter and Space open the panel from it, a mouse click does not, and Tab skips it while it is hidden', async () => {
+test('the scenario drives the chip as a tab stop: Shift+Tab reaches it, Enter, Space and a mouse click open the panel from it, and Tab skips it while it is hidden', async () => {
   const at = (name) => code.indexOf(`check('${name}'`);
   const names = [
     'with the panel closed and a pill on, the chip is a button in the Tab order, named for the pill and pointing at the panel',
     'Shift+Tab from the arrow passes the clear button and reaches the chip, so the chip is a tab stop in the order of the box',
     'the focused chip wears the focus ring of the other header controls: two pixels, solid, in the accent',
+    'the chip shows the pointer hand the arrow and the other header buttons show',
     'Enter on the focused chip opens the panel, the chip leaves with it, and focus goes to the arrow, not into the box',
     'opening the panel from the chip changes neither the box nor the selection',
     'Esc with focus on the arrow shuts the panel again and the chip comes back',
     'Shift+Tab twice from the arrow reaches the chip again',
     'Space on the focused chip opens the panel too, with focus on the arrow',
-    'a click with the mouse on the chip opens nothing, as before, and leaves the box and the selection alone',
+    'Enter held on the focused chip: the key going down opens the panel, the chip leaves with it, and focus goes to the arrow',
+    'the page sees the three auto-repeats of the held Enter land on the arrow, not on the chip',
+    'the auto-repeats of the held Enter neither switch the arrow off nor shut the panel, and focus is still on the arrow when the key comes up',
+    'a fresh Enter on the arrow still switches it off, and a second one switches it on and opens the panel',
+    'a click with the mouse on the chip opens the panel as Enter and Space do: the chip leaves with it, focus goes to the arrow, and the box and the selection are as they were',
     'with nothing on the chip is hidden',
     'Shift+Tab from the arrow skips the hidden chip and the hidden clear button and lands in the box, which opens the panel',
   ];
@@ -332,6 +337,15 @@ test('the scenario drives the chip as a tab stop: Shift+Tab reaches it, Enter an
   assert.ok(section.includes("clickOn('#search-chip')"), 'the pointer check is a real click');
   assert.ok(!/getElementById\('search-chip'\)\.click\(\)/.test(code), 'no script click stands in for a key or a pointer');
   assert.ok(at(names[0]) > at('typing in the box turns the pill off') && at(names[names.length - 1]) < at('Shift+Tab from the toggle reaches the box and opens the panel that Esc had closed'), 'between the typing check and the keyboard section, leaving the panel open for it');
+});
+
+test('the scenario holds Enter on the chip with real key events: one key down, three more flagged as auto-repeat, then the key up', async () => {
+  const page = standIn();
+  await panel.run(page);
+  const enter = page.log.sent.filter(([method, params]) => method === 'Input.dispatchKeyEvent' && params.key === 'Enter');
+  assert.deepStrictEqual(enter.map(([, p]) => [p.type, !!p.autoRepeat]), [['keyDown', false], ['keyDown', true], ['keyDown', true], ['keyDown', true], ['keyUp', false]]);
+  assert.ok(enter.every(([, p]) => p.code === 'Enter' && p.windowsVirtualKeyCode === 13), 'the key a browser sends for Enter');
+  assert.strictEqual(enter[0][1].text, '\r', 'the first key down types the return that activates a button, as the runner\'s own Enter does');
 });
 
 test('every check the scenario makes has a name that says what it holds', async () => {

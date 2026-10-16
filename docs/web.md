@@ -232,8 +232,10 @@ announced as pressed, and typing in the box turns it off. A query typed by hand 
 pill, even one that reads as a pill's query: type `review:` and the review pill stays off. With the panel
 closed, a chip in the box counts what is on, and its name for a screen reader, and its hover text, say which.
 Tab reaches the chip while it is shown, between the box and the clear button, and it is no tab stop when it
-is hidden (the panel open, or nothing on); Enter and Space on it open the panel, with focus on the arrow,
-and a click with the mouse does nothing.
+is hidden (the panel open, or nothing on); Enter and Space on it open the panel, and so does a click with the
+mouse, with focus on the arrow either way, and it shows the pointer hand the other header buttons show.
+A held Enter acts once: the arrow ignores the repeats of a held key, so Enter held on the chip opens the
+panel and does not flip the switch.
 A reload, or a link, carries the box's text and not the selection, so a cut and isolate come back
 but a pill shows off, with its query in the box as typed text.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
