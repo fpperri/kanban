@@ -10,7 +10,8 @@ const path = require('node:path');
 const { listActive, listArchived } = require('../../scripts/card-store');
 const { readConfig } = require('../../scripts/config-store');
 const { materialize } = require('../browser/boards');
-const { graphBuild } = require('../../web/graph-model');
+const { graphBuild, graphFit, graphFanNames } = require('../../web/graph-model');
+const { graphNamesPlace, graphNamesRim } = require('../../web/graph-names');
 
 const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 const HIERARCHY = ['goal', 'strategy', 'objective', 'epic'];
@@ -118,6 +119,78 @@ function clashes(rects) {
   return out;
 }
 
+// How wide a name comes out on screen, in px, by the same reading as the captions above.
+const nameMeasure = (text, size = 11) => Array.from(String(text)).length * CHAR_PX * (size / 11);
+
+// Points every `step` or closer along a path the plan draws, read here without the
+// placement's own flattener: M, L, Q and A, the commands the plan's lines use. Every arc the
+// plan draws is round and centred on the apex, so an arc is walked round the origin, and one
+// that is not throws.
+const PATH_NUM = /[MLQA]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
+function pathPoints(d, step = 0.5) {
+  const tokens = String(d).match(PATH_NUM) || [];
+  const points = [];
+  let pen = null;
+  let i = 0;
+  const num = () => Number(tokens[i++]);
+  const walk = (n, at) => { for (let s = 1; s <= n; s++) points.push(at(s / n)); };
+  let cmd = null;
+  while (i < tokens.length) {
+    if (/^[A-Za-z]$/.test(tokens[i])) cmd = tokens[i++].toUpperCase();
+    if (cmd === 'M') {
+      pen = { x: num(), y: num() };
+      points.push(pen);
+      cmd = 'L';
+    } else if (cmd === 'L') {
+      const to = { x: num(), y: num() };
+      const from = pen;
+      walk(Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / step)), (t) => ({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }));
+      pen = to;
+    } else if (cmd === 'Q') {
+      const c = { x: num(), y: num() };
+      const to = { x: num(), y: num() };
+      const from = pen;
+      const long = Math.hypot(c.x - from.x, c.y - from.y) + Math.hypot(to.x - c.x, to.y - c.y);
+      walk(Math.max(1, Math.ceil(long / step)), (t) => ({
+        x: (1 - t) * (1 - t) * from.x + 2 * (1 - t) * t * c.x + t * t * to.x,
+        y: (1 - t) * (1 - t) * from.y + 2 * (1 - t) * t * c.y + t * t * to.y,
+      }));
+      pen = to;
+    } else if (cmd === 'A') {
+      const r = num();
+      num();
+      num();
+      const large = num();
+      const sweep = num();
+      const to = { x: num(), y: num() };
+      const from = pen;
+      if (Math.abs(Math.hypot(from.x, from.y) - r) > 0.05 || Math.abs(Math.hypot(to.x, to.y) - r) > 0.05) throw new Error(`an arc not centred on the apex: ${d}`);
+      const a0 = Math.atan2(from.y, from.x);
+      let turn = Math.atan2(to.y, to.x) - a0;
+      if (sweep) while (turn <= 0) turn += 2 * Math.PI;
+      else while (turn >= 0) turn -= 2 * Math.PI;
+      if ((Math.abs(turn) > Math.PI) !== (large === 1)) throw new Error(`an arc whose flags disagree with its ends: ${d}`);
+      walk(Math.max(1, Math.ceil(Math.abs(turn) * r / step)), (t) => ({ x: Math.cos(a0 + turn * t) * r, y: Math.sin(a0 + turn * t) * r }));
+      pen = to;
+    } else {
+      throw new Error(`a path command the plan does not draw: ${tokens[i - 1]} in ${d}`);
+    }
+  }
+  return points;
+}
+
+// The names placed on `plan` once Fit has framed the fan on a `w` by `h` stage and the view is
+// zoomed by `zoom`, with `names` the Names setting and the widths measured as above. The id
+// labels all show on a fan of 60 cards or fewer, or zoomed in to 1.4, as on the page.
+function placeOn(model, layout, plan, { names = 'all', w = 1600, h = 800, zoom = 1, keep = new Set(), measure = nameMeasure } = {}) {
+  const k = graphFit(layout.bounds, w, h).k * zoom;
+  const input = {
+    plan, rim: graphNamesRim(layout), named: graphFanNames(model, names), keep, k, labelsAll: k >= 1.4 || plan.nodes.length <= 60, measure, font: '',
+  };
+  return { input, k, result: graphNamesPlace(input) };
+}
+
 module.exports = {
   STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
+  nameMeasure, pathPoints, placeOn,
 };
