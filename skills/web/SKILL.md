@@ -1695,11 +1695,11 @@ to `127.0.0.1` only.
   its name. With the table choice, the Unnested block's named cards sit in one list above the block, the column furthest
   right nearest it, each joined to its dot by a leader that runs up its column's left side. A name keeps off every dot,
   caption and other name, and off an id label that shows without a hover or a selection, and never crosses a parent
-  line or a dependency line that is drawn; a card with no room is left unnamed, and its id label shows as it would with
-  no name. A leader keeps off no name, caption or line: it can run under a parent's name or across a caption. In the
-  block's list a card whose column line would run inside or hard against the rim, or across a name or a caption, is
-  left unnamed, so the
-  block's left-hand columns, nearest the fan, are the first to lose their names and can lose all of them. Rows are
+  line or a dependency line that is drawn, or a divider between sectors; a card with no room is left unnamed, and its
+  id label shows as it would with no name. A leader keeps off no name, caption or line: it can run under a parent's
+  name or across a caption. In the block's list a card whose column line would run inside or hard against the rim, or
+  across a name or a caption, is left unnamed, so the block's left-hand columns, nearest the fan, are the first to lose
+  their names and can lose all of them. Rows are
   bounded by the fan, not by the panel, so a long name at the panel's edge can run past it until the view is panned.
   Names are placed again once a zoom settles (zoomed out, a name takes more of the fan's own room, so fewer find a
   place) and when what they depend on changes, the selection, the setting, a card's title or sticker or a line; a pan

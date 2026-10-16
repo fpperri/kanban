@@ -53,7 +53,7 @@ test('the Graph section says the Unnested block\'s names sit in one list above t
 test('the Graph section says what a name keeps off, and that a card with no room is left unnamed and keeps its id label', () => {
   const text = graph();
   assert.match(text, /A name keeps off every dot, caption and other name, and off an id label that shows without a hover or a selection/);
-  assert.match(text, /never crosses a parent line or a dependency line that is drawn/);
+  assert.match(text, /never crosses a parent line or a dependency line that is drawn, or a divider between sectors/);
   assert.match(text, /a card with no room is left unnamed, and its id label shows as it would with no name/);
 });
 

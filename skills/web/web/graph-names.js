@@ -13,8 +13,9 @@
 //   The Unnested block's named cards are listed above the block, the column furthest right
 //   nearest it, each joined to its dot by a line up its column's left side.
 // A name keeps off every dot, caption, id label, the Unnested block and every other
-// name, and never crosses a line the plan draws. Same dual-environment pattern as
-// graph-model.js; it needs nothing from it, since every input comes in the plan.
+// name, and never crosses a line the plan draws: a parent line, a dependency line or a
+// divider between sectors. Same dual-environment pattern as graph-model.js; it needs
+// nothing from it, since every input comes in the plan.
 
 const GRAPH_NAME_PX = 11;
 const GRAPH_NAME_ROW = 13;
@@ -305,13 +306,15 @@ function graphNamesKey(input) {
     return [n.id, n.x, n.y, n.reach, n.kidsRing, n.flagRing, f.kids, f.flagged, f.hub, n.name];
   });
   const links = (plan.links || []).map((l) => [l.d, l.label ? [l.label.x, l.label.y, l.label.text] : null]);
+  const dividers = (plan.dividers || []).map((v) => [v.x1, v.y1, v.x2, v.y2]);
   const b = plan.block;
   const block = b ? [b.x, b.y, b.w, b.h, b.pitch, text(b.title), (b.columns || []).map((c) => [c.x, c.w, c.ids, text(c.caption)])] : null;
-  return JSON.stringify([o.k, o.rim, !!o.labelsAll, String(o.font || ''), ids(o.named), ids(o.keep), nodes, links, (plan.captions || []).map(text), text(plan.looseCaption), block]);
+  return JSON.stringify([o.k, o.rim, !!o.labelsAll, String(o.font || ''), ids(o.named), ids(o.keep), nodes, links, dividers, (plan.captions || []).map(text), text(plan.looseCaption), block]);
 }
 
 // Where each named card's name goes. `input`:
-//   plan       what graphPlan gives the fan (its nodes, links, captions, loose caption, block)
+//   plan       what graphPlan gives the fan (its nodes, links, dividers, captions, loose caption,
+//              block)
 //   rim        graphNamesRim(layout)
 //   named      the ids named (graphFanNames)
 //   keep       the ids lit at rest (the selection and what it lights): the last to lose a name
@@ -351,7 +354,7 @@ function graphNamesPlace(input) {
   const bend = rim + GRAPH_NAME_RAIL / k;
 
   // What a name keeps off, in one grid: a disc for each mark, the box of each text the fan
-  // shows, the block's frame, and the segments of every line drawn.
+  // shows, the block's frame, and the segments of every line drawn and every divider.
   const idx = graphNameIndex(Math.max(GRAPH_NAME_CELL, 4 * rowH));
   const nodes = plan.nodes.map((n) => {
     const f = graphNameFlags(n.cls);
@@ -387,14 +390,18 @@ function graphNamesPlace(input) {
     const x0 = n.x + n.reach + 3;
     idx.add({ t: 'box', owner: n.id, box: { x0: x0 - pad, x1: x0 + px(String(n.id)) / k + pad, y0: n.y - rowH / 2, y1: n.y + rowH / 2 } });
   }
+  const segment = (s) => {
+    const f = GRAPH_NAME_FLAT;
+    idx.add({
+      t: 'seg', owner: null, ...s, box: { x0: Math.min(s.x0, s.x1) - f, y0: Math.min(s.y0, s.y1) - f, x1: Math.max(s.x0, s.x1) + f, y1: Math.max(s.y0, s.y1) + f },
+    });
+  };
   for (const l of plan.links || []) {
-    for (const s of graphNameFlatten(l.d, GRAPH_NAME_FLAT)) {
-      const f = GRAPH_NAME_FLAT;
-      idx.add({
-        t: 'seg', owner: null, ...s, box: { x0: Math.min(s.x0, s.x1) - f, y0: Math.min(s.y0, s.y1) - f, x1: Math.max(s.x0, s.x1) + f, y1: Math.max(s.y0, s.y1) + f },
-      });
-    }
+    for (const s of graphNameFlatten(l.d, GRAPH_NAME_FLAT)) segment(s);
     if (l.label) textBox({ name: l.label.text, x: l.label.x, y: l.label.y, dy: '0.35em', anchor: 'middle' }, GRAPH_NAME_PX, false);
+  }
+  for (const v of plan.dividers || []) {
+    if ([v.x1, v.y1, v.x2, v.y2].every(Number.isFinite)) segment({ x0: v.x1, y0: v.y1, x1: v.x2, y1: v.y2 });
   }
   const hits = (it, box) => {
     stats.tests++;

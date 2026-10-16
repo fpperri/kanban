@@ -39,8 +39,9 @@ const cases = () => {
       const layout = graphLayoutTiers(MODEL, { statuses: STATUSES, unnested });
       const fan = { lines, dependencies: 'on', order: 'status', names: 'all', unnested };
       const plan = graphPlan(MODEL, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, fan });
-      // Every point of every line, by x, so a box finds the points under it at once.
-      const points = plan.links.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l }))).sort((p, q) => p.x - q.x);
+      // Every point of every line and divider, by x, so a box finds the points under it at once.
+      const drawn = [...plan.links, ...plan.dividers.map((v) => ({ d: `M${v.x1} ${v.y1}L${v.x2} ${v.y2}`, from: 'divider', to: '' }))];
+      const points = drawn.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l }))).sort((p, q) => p.x - q.x);
       for (const [w, h] of STAGES) {
         for (const zoom of ZOOMS) out.push({ where: `${unnested}/${lines} ${w}x${h} zoom ${zoom}`, zoom, layout, plan, points, ...placeOn(MODEL, layout, plan, { w, h, zoom }) });
       }

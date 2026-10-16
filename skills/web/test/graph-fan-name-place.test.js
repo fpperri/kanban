@@ -49,6 +49,8 @@ const corners = (b) => [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]];
 // How far a box is from a point: 0 when the point is in it.
 const reachOf = (b, x, y) => Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
 const round = (v) => Math.round(v * 100) / 100;
+// Every line the plan draws: its parent and dependency lines, and the dividers between sectors.
+const linesOf = (plan) => [...plan.links, ...plan.dividers.map((v) => ({ d: `M${v.x1} ${v.y1}L${v.x2} ${v.y2}`, from: 'divider', to: '' }))];
 const NUM = /-?\d+(?:\.\d+)?(?:e-?\d+)?/g;
 
 // Every way the plan board is drawn here: the Unnested cards on the outermost ring or in the
@@ -236,6 +238,7 @@ test('the key holds everything the placement reads: the same input gives the sam
     'a caption': (o) => { o.plan.captions[0].name = 'goals'; },
     'the rim': (o) => { o.rim += 1; },
     'a dot': (o) => { o.plan.nodes[0].x += 1; },
+    'a divider': (o) => { o.plan.dividers[0].x1 += 1; },
   };
   for (const [what, change] of Object.entries(changed)) {
     const o = base();
@@ -545,9 +548,10 @@ test('plan board: no two placed names overlap, and none covers a dot, a caption 
   assert.ok(rows > 0);
 });
 
-test('no placed name crosses a parent line or a dependency line the plan draws', () => {
+test('no placed name crosses a parent line, a dependency line or a divider the plan draws', () => {
   for (const c of matrix(['folded', 'all', 'chain'])) {
-    const points = c.plan.links.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l })));
+    assert.ok(c.plan.dividers.length, 'a divider to cross');
+    const points = linesOf(c.plan).flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l })));
     for (const [id, p] of c.result.placed) {
       assert.ok(within(drawnBox(p, c.k), p.box), `${c.where}: card ${id}'s text runs out of the room it takes`);
       const b = { x0: p.box.x0 + 1e-6, x1: p.box.x1 - 1e-6, y0: p.box.y0 + 1e-6, y1: p.box.y1 - 1e-6 };
