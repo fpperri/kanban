@@ -34,4 +34,5 @@ module.exports = [
   require('./isolate-link'),
   require('./hotkeys'),
   require('./open-keeps-pills'),
+  require('./band-tint'),
 ];
