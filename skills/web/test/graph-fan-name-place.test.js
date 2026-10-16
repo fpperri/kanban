@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const { graphLayoutTiers, graphPlan, graphFanNames } = require('../web/graph-model');
 const {
-  GRAPH_NAME_PAD, GRAPH_NAME_ROW,
+  GRAPH_NAME_PAD, GRAPH_NAME_ROW, GRAPH_NAME_POLE,
   graphNamesPlace, graphNamesKey, graphNamesRim, graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets,
 } = require('../web/graph-names');
 const {
@@ -28,6 +28,11 @@ const PLAN_PARENTS = [1, 2, 7, 22, 23];
 // The plan board's other cards named in a row at Fit on 1600x800, the Unnested cards on the
 // outermost ring: measured, and pinned so a change that loses one shows.
 const ROWS_AT_FIT = 21;
+// The plan board's block cards left unnamed under table at Fit on each stage: measured, and
+// pinned so the loss shows. The backlog column's line runs up the block's left edge, which is
+// inside the rim's reach at every row a name could take, so its four cards are never listed.
+const BACKLOG = [11, 14, 18, 28];
+const BLOCK_UNNAMED_AT_FIT = { '1600x800': BACKLOG, '1280x720': BACKLOG, '1000x700': BACKLOG };
 const STAGES = [[1600, 800], [1280, 720], [1000, 700]];
 const ZOOMS = [1, 2, 0.6];
 const ids = (it) => [...it].sort((a, b) => a - b);
@@ -333,6 +338,46 @@ test('down each side, the rows keep their cards\' order, so no two leaders cross
         return { id, y: p.y, down: n.y / Math.hypot(n.x, n.y) };
       }).sort((p, q) => p.down - q.down || p.id - q.id);
       for (let i = 1; i < rows.length; i++) assert.ok(rows[i].y > rows[i - 1].y, `${c.where} ${side}: card ${rows[i].id} is named below card ${rows[i - 1].id}`);
+    }
+  }
+});
+
+// --- the Unnested block's list -----------------------------------------------------------
+
+test('the Unnested block\'s named cards sit in one list above the block, the column furthest right nearest it', () => {
+  const { layout, plan } = fanOf(MODEL, { unnested: 'table' });
+  const b = plan.block;
+  assert.strictEqual(b.pitch, 22, 'the plan gives the pitch of the block\'s dots');
+  const blockIds = b.columns.flatMap((col) => col.ids);
+  for (const [w, h] of STAGES) {
+    for (const zoom of ZOOMS) {
+      const where = `${w}x${h} zoom ${zoom}`;
+      const { result, k } = placeOn(MODEL, layout, plan, { w, h, zoom });
+      const rowH = GRAPH_NAME_ROW / k;
+      const listed = [];
+      b.columns.forEach((col, ci) => col.ids.forEach((id, order) => {
+        const p = result.placed.get(id);
+        if (!p) return;
+        const n = nodeOf(plan, id);
+        assert.strictEqual(p.kind, 'list', `${where}: card ${id}`);
+        assert.ok(p.box.y1 <= b.y, `${where}: card ${id} is named above the block`);
+        const j = (b.y - p.y) / rowH - 0.9;
+        assert.ok(Math.abs(j - Math.round(j)) < 1e-6 && Math.round(j) >= 0, `${where}: card ${id} is in a row of the list`);
+        const pole = col.x + GRAPH_NAME_POLE;
+        assert.ok(Math.abs(p.x - (pole + 4 / k)) < 1e-9 && p.anchor === 'start', `${where}: card ${id}'s name starts just right of its column's line`);
+        assert.ok(p.leader.d.startsWith(`M0 0L${round(-b.pitch / 2)} ${round(-b.pitch / 2)}H${round(pole - n.x)}V${round(p.y - n.y)}`), `${where}: card ${id}'s leader runs out between the rows of dots and up its column's line to its row`);
+        listed.push({ id, ci, order, j: Math.round(j) });
+      }));
+      assert.strictEqual(new Set(listed.map((l) => l.j)).size, listed.length, `${where}: one name to a row`);
+      listed.sort((p, q) => p.j - q.j);
+      for (let i = 1; i < listed.length; i++) {
+        const [lower, upper] = [listed[i - 1], listed[i]];
+        assert.ok(upper.ci < lower.ci || (upper.ci === lower.ci && upper.order < lower.order), `${where}: card ${upper.id} is listed above card ${lower.id}`);
+      }
+      if (zoom === 1) {
+        assert.deepStrictEqual(result.unnamed.filter((id) => blockIds.includes(id)), BLOCK_UNNAMED_AT_FIT[`${w}x${h}`], `${where}: the block cards left unnamed`);
+        assert.ok(listed.length > 0, where);
+      }
     }
   }
 });

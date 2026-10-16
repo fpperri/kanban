@@ -1388,12 +1388,13 @@ function graphFanDividers(model, layout) {
 // The block as marks: its frame, its title and the caption of each column, in the
 // world. Text hangs up from a baseline near the bottom of the header (`base` below
 // the block's top); the title stands one and a half of its own heights above the
-// captions. All of it starts at its x.
+// captions. All of it starts at its x. `pitch` is the room each dot takes, for the names
+// listed above the block (graph-names.js).
 function graphFanBlockPlan(block) {
   if (!block) return null;
   const base = graphRound(block.y + block.base);
   return {
-    x: graphRound(block.x), y: graphRound(block.y), w: graphRound(block.w), h: graphRound(block.h), cls: 'graph-block-frame',
+    x: graphRound(block.x), y: graphRound(block.y), w: graphRound(block.w), h: graphRound(block.h), pitch: GRAPH_FAN_BLOCK_PITCH, cls: 'graph-block-frame',
     title: {
       name: GRAPH_FAN_BLOCK_NAME, count: block.count, x: graphRound(block.x + GRAPH_FAN_BLOCK_PAD / 2), y: base, dy: '-1.5em', anchor: 'start', cls: 'graph-block-title',
       tip: graphFanTip(block.count, block.columns.map((c) => [c.label, c.count]), null),

@@ -10,6 +10,8 @@
 //   Every other card of the fan is named in a row outside the rim on its own side, joined
 //   to its dot by a leader that runs out along the card's own ray, round a rail just outside
 //   the rim and out to the name.
+//   The Unnested block's named cards are listed above the block, the column furthest right
+//   nearest it, each joined to its dot by a line up its column's left side.
 // A name keeps off every dot, caption, id label, the Unnested block and every other
 // name, and never crosses a line the plan draws. Same dual-environment pattern as
 // graph-model.js; it needs nothing from it, since every input comes in the plan.
@@ -318,8 +320,8 @@ function graphNamesKey(input) {
 //   measure    (text, size px, bold) -> its width on screen in px; anything but a number of 0
 //              or more is read as GRAPH_NAME_CHAR_PX a character at 11px
 //   font       the font measured in; read by the key alone
-// The answer: `placed`, a Map from id to { kind ('beside' or 'row'), side ('L' or 'R' for a
-// row, null beside a ring), text, x, y, anchor, box, leader }, where `text` is what shows (a
+// The answer: `placed`, a Map from id to { kind ('beside', 'row' or 'list'), side ('L' or 'R'
+// for a row, else null), text, x, y, anchor, box, leader }, where `text` is what shows (a
 // name cut to its room ends in an ellipsis), (x, y) its anchor point in the world, y the middle
 // of the line, `box` the room it takes, padded, and `leader` null beside a ring, else { from,
 // to, d }: where it leaves the dot and stops short of the name, in the world, and its path,
@@ -439,8 +441,9 @@ function graphNamesPlace(input) {
 
   // A parent's name: beside its ring, inside the rim, in the first free place of eighteen in
   // order of liking (outward first, then the other side, under and over, the diagonals, then
-  // a little up and down), its whole title or a shorter one; clear of the other names' rays
-  // where any place is, else across the fewest. Inner parents choose first.
+  // a little up and down), else beside it further out (GRAPH_NAME_FAR, up to two lines up or
+  // down), its whole title or a shorter one; clear of the other names' rays where any place
+  // is, else across the fewest. Inner parents choose first.
   const inRim = (b) => {
     const fx = Math.max(Math.abs(b.x0), Math.abs(b.x1));
     const fy = Math.max(Math.abs(b.y0), Math.abs(b.y1));
@@ -514,6 +517,85 @@ function graphNamesPlace(input) {
     return end - a;
   };
   const discs = nodes.filter((n) => !blockIds.has(n.id)).map((n) => ({ owner: n.id, ...n.disc }));
+  const minW = GRAPH_NAME_MIN_W / k;
+  const edge = rim + GRAPH_NAME_EDGE / k;
+  const top = -(edge + GRAPH_NAME_ROWS_BEYOND * rowH);
+
+  // The Unnested block's named cards: one list above the block, a name to a row, the rows
+  // counted up from the block. Each name starts just right of its column's line, which runs up
+  // the column's left side from the block to the name's row, and the columns further right
+  // take the rows nearer the block, so a line only passes rows whose names start to its right.
+  // A card whose line would run inside the rim (GRAPH_NAME_EDGE beyond it), or across a name
+  // or a caption on the way up, is left unnamed and the next card tries the same row; when the
+  // list would run past the rows over the fan, the least wanted card is left out instead. The
+  // leader runs from the dot up and left between the rows of dots to the column's line, up it
+  // and out to the name.
+  const listed = [];
+  if (block) {
+    (block.columns || []).forEach((col, ci) => (col.ids || []).forEach((id, order) => {
+      const n = nodes.find((m) => m.id === id);
+      if (n && named.has(id)) listed.push({ n, ci, order, pole: col.x + GRAPH_NAME_POLE, w: px(n.name) / k + pad });
+    }));
+  }
+  if (listed.length) {
+    const reach = Math.max(...listed.map((c) => c.w)) + 7 / k;
+    const rowAt = (j) => block.y - (j + GRAPH_NAME_BLOCK_UP) * rowH;
+    const edgeAt = (j) => block.y - (j + GRAPH_NAME_BLOCK_UP - 0.5) * rowH;
+    const barred = (c, y) => {
+      const near = y <= 0 && block.y >= 0 ? 0 : Math.min(Math.abs(y), Math.abs(block.y));
+      if (rim > 0 && near < edge && c.pole - 3 / k < Math.sqrt(edge * edge - near * near)) return true;
+      const line = { x0: c.pole - 2 / k, x1: c.pole + 2 / k, y0: y, y1: block.y - 3 / k };
+      return idx.each(line, (it) => {
+        if (it.t !== 'box') return false;
+        stats.tests++;
+        return graphNameMeets(it.box, line);
+      });
+    };
+    const place = (list) => {
+      const out = [];
+      const left = [];
+      let j = 0;
+      for (const c of list) {
+        let got = null;
+        for (; !got; j++) {
+          const y = rowAt(j);
+          if (y < top) return { out, left, full: true };
+          if (barred(c, y)) { left.push(c); break; }
+          const room = roomAt('R', c.pole - 3 / k, y, reach) - 7 / k;
+          if (room >= minW) got = { c, j, y, room };
+        }
+        if (got) out.push(got);
+      }
+      return { out, left, full: false };
+    };
+    let wanted = listed.slice().sort((p, q) => p.n.prio - q.n.prio || p.ci - q.ci || p.order - q.order);
+    let rows = [];
+    while (wanted.length) {
+      const res = place(wanted.slice().sort((p, q) => q.ci - p.ci || q.order - p.order));
+      stats.dropped += res.left.length;
+      wanted = wanted.filter((c) => !res.left.includes(c));
+      if (!res.full) { rows = res.out; break; }
+      if (!res.left.length) { wanted.pop(); stats.dropped++; }
+    }
+    const tops = new Map();
+    for (const { c, j, y, room } of rows) {
+      const { n, pole } = c;
+      const text = graphNameFit(n.name, (room - pad) * k, (t) => px(t));
+      if (!text) continue;
+      const a = pole + 4 / k;
+      const half = (block.pitch || 0) / 2;
+      const local = (x, yy) => `${graphNameRound(x - n.x)} ${graphNameRound(yy - n.y)}`;
+      const to = { x: pole + 2 / k, y };
+      const d = `M0 0L${graphNameRound(-half)} ${graphNameRound(-half)}H${graphNameRound(pole - n.x)}V${graphNameRound(y - n.y)}L${local(to.x, to.y)}`;
+      claim(n.id, {
+        kind: 'list', side: null, text, x: a, y, anchor: 'start',
+        box: { x0: pole - 3 / k, x1: a + px(text) / k + pad, y0: edgeAt(j + 1), y1: edgeAt(j) },
+        leader: { from: { x: n.x, y: n.y }, to, d },
+      });
+      tops.set(pole, Math.min(tops.has(pole) ? tops.get(pole) : Infinity, edgeAt(j + 1)));
+    }
+    for (const [pole, y] of tops) idx.add({ t: 'box', owner: null, box: { x0: pole - 3 / k, x1: pole + 3 / k, y0: y, y1: block.y } });
+  }
 
   // Every other card of the fan: in a row outside the rim, on its own side (left or right of
   // the apex), the rows one name high and level with each other on a side, from three rows over
@@ -525,9 +607,7 @@ function graphNamesPlace(input) {
   // The leader runs from the dot's edge out along the card's own ray, round any mark in the
   // way, to the rail, round the rail to the row's height, and out to GRAPH_NAME_GAP short of
   // the name; the rows keep the order down the side, so leaders sharing the rail never cross.
-  const minW = GRAPH_NAME_MIN_W / k;
-  const edge = rim + GRAPH_NAME_EDGE / k;
-  const last = Math.floor((edge + GRAPH_NAME_ROWS_BEYOND * rowH) / rowH);
+  const last = Math.floor(-top / rowH);
   for (const side of ['L', 'R']) {
     const dir = side === 'L' ? -1 : 1;
     const cards = fanCards.filter((n) => (n.x < 0 ? 'L' : 'R') === side).map((n) => {
