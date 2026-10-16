@@ -801,7 +801,11 @@ to `127.0.0.1` only.
   pill's query: type `review:` and the review pill stays off. A pill's anchor is not a typed search, so it
   stays the anchor when the Graph is left. With the panel closed, a chip inside the box
   counts what is on and its accessible name says what (`1 on: review`), and the chip's
-  hover text says it too; with nothing on there is no chip. A reload, or a link, carries the
+  hover text says it too; with nothing on there is no chip. The chip is a button: Tab
+  reaches the chip while it is shown, between the box and the clear button, and it is no tab
+  stop when it is hidden (the panel open, or nothing on); Enter and Space on it open the
+  panel, with focus on the arrow, and it shows the focus ring the arrow shows. A click with
+  the mouse does nothing, as before. A reload, or a link, carries the
   box's text and not the selection, so a cut and isolate come back but a pill shows off, with
   its query in the box as typed text. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.

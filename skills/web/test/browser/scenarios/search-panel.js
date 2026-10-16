@@ -19,7 +19,10 @@
 // every pill off. With the panel closed Esc outside the box takes the added pill back
 // out of the box, and the next Esc clears it. A pill is on, and announced as pressed, while its
 // query is the anchor or an addition, and typing in the box turns it off. A closed
-// panel shows a chip counting what is on, named for a screen reader. Tab reaches the
+// panel shows a chip counting what is on, named for a screen reader. The chip is a tab
+// stop while it is shown: Shift+Tab from the arrow passes the clear button and reaches it,
+// it wears the focus ring, Enter and Space on it open the panel and put focus on the
+// arrow, a mouse click on it opens nothing, and Tab skips it while it is hidden. Tab reaches the
 // toggle, the fold control and every pill, and Enter and Space act as a click. Esc
 // closes the suggestion list first, then the panel, then clears the box: with focus in
 // the box the text stays through the first two presses (the browser's own Esc, which
@@ -321,6 +324,43 @@ module.exports = {
     await send('Input.insertText', { text: 'x' });
     check('typing in the box turns the pill off', await boxIs('review:x') && await waitFor(`document.querySelector(${JSON.stringify(pillSel('review'))}).getAttribute('aria-pressed')==='false'`) && await pickedIs([]), await boxText());
     await clearBox();
+
+    // --- the chip is a tab stop: Tab reaches it while it is shown, Enter and Space open the panel -----------------------
+    const CHIP = `document.getElementById('search-chip')`;
+    const CHIP_FACTS = `(()=>{const c=${CHIP};return {tag:c.tagName,tabIndex:c.tabIndex,controls:c.getAttribute('aria-controls'),expanded:c.getAttribute('aria-expanded')}})()`;
+    const CHIP_RING = `(()=>{const s=getComputedStyle(${CHIP});return s.outlineStyle==='solid'&&parseFloat(s.outlineWidth)===2&&s.outlineColor===s.borderTopColor})()`;
+    const CHIP_HIDDEN = `${CHIP}.classList.contains('hidden')`;
+    const onArrow = `document.activeElement===${TOGGLE}`;
+    await clickOn(pillSel('review'));
+    await boxIs('review:');
+    await closePanel();
+    const facts = await ev(CHIP_FACTS);
+    check('with the panel closed and a pill on, the chip is a button in the Tab order, named for the pill and pointing at the panel', !(await chip()).hidden && /1 on: review/.test((await chip()).name) && facts.tag === 'BUTTON' && facts.tabIndex === 0 && facts.controls === 'search-panel' && facts.expanded === 'false', { chip: await chip(), facts });
+    await key('Tab', { shift: true });
+    const passed = await focusId();
+    await key('Tab', { shift: true });
+    const reachedChip = await focusId();
+    check('Shift+Tab from the arrow passes the clear button and reaches the chip, so the chip is a tab stop in the order of the box', passed === 'search-clear-btn' && reachedChip === 'search-chip', { passed, reachedChip });
+    check('the focused chip wears the focus ring of the other header controls: two pixels, solid, in the accent', await ev(CHIP_RING));
+    await key('Enter');
+    check('Enter on the focused chip opens the panel, the chip leaves with it, and focus goes to the arrow, not into the box', await waitFor(panelOpen) && await waitFor(CHIP_HIDDEN) && await ev(onArrow) && !(await ev(boxFocused)), { chip: await chip(), focus: await focusId() });
+    check('opening the panel from the chip changes neither the box nor the selection', await boxIs('review:') && await pickedIs(CASES.review), await boxText());
+    await key('Escape');
+    check('Esc with focus on the arrow shuts the panel again and the chip comes back', await waitFor(panelShut) && !(await chip()).hidden, await chip());
+    await key('Tab', { shift: true });
+    await key('Tab', { shift: true });
+    check('Shift+Tab twice from the arrow reaches the chip again', (await focusId()) === 'search-chip', await focusId());
+    await key(' ');
+    check('Space on the focused chip opens the panel too, with focus on the arrow', await waitFor(panelOpen) && await waitFor(CHIP_HIDDEN) && await ev(onArrow), { chip: await chip(), focus: await focusId() });
+    await closePanel();
+    await clickOn('#search-chip');
+    await frames();
+    check('a click with the mouse on the chip opens nothing, as before, and leaves the box and the selection alone', await ev(panelShut) && !(await chip()).hidden && await boxIs('review:') && await pickedIs(CASES.review), { chip: await chip(), box: await boxText() });
+    await clearBox();
+    check('with nothing on the chip is hidden', await waitFor(CHIP_HIDDEN));
+    await ev(`${TOGGLE}.focus()`);
+    await key('Tab', { shift: true });
+    check('Shift+Tab from the arrow skips the hidden chip and the hidden clear button and lands in the box, which opens the panel', (await focusId()) === 'search-input' && await waitFor(panelOpen), await focusId());
 
     // --- the keyboard: Tab, Enter and Space ---------------------------------------------------------------------------------
     await closePanel();

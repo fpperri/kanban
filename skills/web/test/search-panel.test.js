@@ -980,6 +980,56 @@ test('with the panel open the chip is hidden: the pills show what is on', async 
   assert.strictEqual(chip.hidden(), false);
 });
 
+// --- the chip is a tab stop ------------------------------------------------------------------
+
+// The chip is a button, so Enter and Space on it reach the page as a click that has no pointer
+// behind it (detail 0), which is also how assistive technology activates a button; a mouse click
+// has a count of 1 or more.
+const keyOnChip = (s) => s.elements['#search-chip'].fire('click', { detail: 0 });
+const mouseOnChip = (s) => s.elements['#search-chip'].fire('click', { detail: 1 });
+
+test('Enter or Space on the shown chip opens the panel, and the chip, which leaves with it, hands focus to the arrow', async () => {
+  const s = await open();
+  const chip = chipOf(s);
+  let boxFocus = 0;
+  s.page.input.focus = () => { boxFocus++; };
+  s.click('review');
+  assert.strictEqual(chip.hidden(), false);
+  assert.strictEqual(s.isOpen(), false);
+  keyOnChip(s);
+  assert.strictEqual(s.isOpen(), true);
+  assert.strictEqual(chip.hidden(), true, 'the pills show what is on now');
+  assert.strictEqual(s.elements['#search-panel-toggle'].focused, 1, 'focus goes where Esc would have put it');
+  assert.strictEqual(boxFocus, 0, 'and not into the box, whose focus would open a suggestion list over the panel');
+});
+
+test('the chip opens the panel with the arrow switched off too, and leaves the switch off', async () => {
+  const s = await open();
+  s.page.run('setPanelOnFocus(false)');
+  s.click('review');
+  keyOnChip(s);
+  assert.strictEqual(s.isOpen(), true);
+  assert.strictEqual(s.page.run('searchPanelSwitchOn()'), false);
+});
+
+test('a mouse click on the chip does what it did before the chip was a tab stop: nothing', async () => {
+  const s = await open();
+  s.click('review');
+  mouseOnChip(s);
+  assert.strictEqual(s.isOpen(), false);
+  assert.strictEqual(s.elements['#search-panel-toggle'].focused, 0);
+  assert.strictEqual(s.box(), 'review:', 'and the box and the selection are as they were');
+  assert.deepStrictEqual(s.ids(), [5, 6]);
+});
+
+test('the chip keeps a name that says how many are on, and the same words as its hover text', async () => {
+  const s = await open();
+  s.click('review');
+  s.click('blocked');
+  assert.strictEqual(s.elements['#search-chip'].attrs['aria-label'], '2 on: blocked, review');
+  assert.strictEqual(s.elements['#search-chip'].title, '2 on: blocked, review');
+});
+
 // --- the fold and the preference ------------------------------------------------------------------
 
 test('the pill section starts unfolded, and "pill section starts folded" in the preferences sheet is off', async () => {
