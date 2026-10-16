@@ -1,0 +1,104 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const { performance } = require('node:perf_hooks');
+
+const { graphLayoutTiers, graphPlan, graphFanNames } = require('../web/graph-model');
+const { graphNamesPlace, graphNameMeets, graphNameDiscHits } = require('../web/graph-names');
+const {
+  STATUSES, buildOf, rootShapedCards, placeOn, pathPoints,
+} = require('./helpers/fan-boards');
+
+// A fan of 150 cards with names on all: the size of a real shop board's fan, which the
+// prototype's placement never tried. Every card is either placed clear of every other name,
+// every dot and every line, or left unnamed, and the work the placement does is bounded: the
+// count of exact tests is pinned from a measurement, and the time is a loose check on top.
+// The cards: the first 110 of the tree of rootShapedCards (its goals, strategies, objectives,
+// epics and their children) and its 40 loose cards; every seventh tree card waits for the
+// card three before it, and five loose cards wait for a tree card, so dependency lines run out
+// to the outermost ring or the Unnested block.
+
+const crowd = () => {
+  const all = rootShapedCards();
+  const cards = all.filter((c) => c.id <= 110 || (c.id >= 186 && c.id <= 225)).map((c) => ({ ...c, waiting_for: [] }));
+  for (const c of cards) if (c.id <= 110 && c.id % 7 === 0) c.waiting_for = [c.id - 3];
+  [186, 194, 202, 210, 218].forEach((id, i) => { cards.find((c) => c.id === id).waiting_for = [10 + 20 * i]; });
+  return cards;
+};
+const MODEL = buildOf(crowd());
+const STAGES = [[1600, 800], [1280, 720], [1000, 700]];
+const ZOOMS = [1, 2, 0.5];
+// Measured over every case below, and pinned: the fewest cards placed at each zoom, and twice
+// the most exact tests one placement made.
+const PLACED_AT_LEAST = { 1: 124, 2: 139, 0.5: 56 };
+const TESTS_AT_MOST = 2 * 53376;
+
+const cases = () => {
+  const out = [];
+  for (const unnested of ['outermost', 'table']) {
+    for (const lines of ['folded', 'all']) {
+      const layout = graphLayoutTiers(MODEL, { statuses: STATUSES, unnested });
+      const fan = { lines, dependencies: 'on', order: 'status', names: 'all', unnested };
+      const plan = graphPlan(MODEL, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, fan });
+      // Every point of every line, by x, so a box finds the points under it at once.
+      const points = plan.links.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l }))).sort((p, q) => p.x - q.x);
+      for (const [w, h] of STAGES) {
+        for (const zoom of ZOOMS) out.push({ where: `${unnested}/${lines} ${w}x${h} zoom ${zoom}`, zoom, layout, plan, points, ...placeOn(MODEL, layout, plan, { w, h, zoom }) });
+      }
+    }
+  }
+  return out;
+};
+const firstAt = (points, x) => {
+  let lo = 0;
+  let hi = points.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].x <= x) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+};
+
+test('a 150-card fan with names on all places every card without overlap or leaves it unnamed, within a bounded amount of work', () => {
+  assert.strictEqual(MODEL.nodes.length, 150);
+  assert.ok(MODEL.links.filter((l) => l.kind === 'wait').length >= 20, 'dependency lines to cross');
+  const named = [...graphFanNames(MODEL, 'all')].sort((a, b) => a - b);
+  assert.strictEqual(named.length, 150);
+  let lists = 0;
+  for (const c of cases()) {
+    const { result } = c;
+    const placed = [...result.placed];
+    assert.deepStrictEqual([...result.placed.keys(), ...result.unnamed].sort((a, b) => a - b), named, `${c.where}: every card placed or unnamed`);
+    assert.ok(result.unnamed.every((id) => !result.placed.has(id)), `${c.where}: never both`);
+    assert.ok(result.placed.size >= PLACED_AT_LEAST[c.zoom], `${c.where}: ${result.placed.size} placed, fewer than ${PLACED_AT_LEAST[c.zoom]}`);
+    assert.ok(result.stats.tests <= TESTS_AT_MOST, `${c.where}: ${result.stats.tests} exact tests`);
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) assert.ok(!graphNameMeets(placed[i][1].box, placed[j][1].box), `${c.where}: cards ${placed[i][0]} and ${placed[j][0]} overlap`);
+    }
+    for (const [id, p] of placed) {
+      if (p.kind === 'list') lists++;
+      for (const n of c.plan.nodes) {
+        if (n.id !== id) assert.ok(!graphNameDiscHits(p.box, { x: n.x, y: n.y, r: n.reach }), `${c.where}: card ${id}'s name covers card ${n.id}`);
+      }
+      const b = { x0: p.box.x0 + 1e-6, x1: p.box.x1 - 1e-6, y0: p.box.y0 + 1e-6, y1: p.box.y1 - 1e-6 };
+      for (let i = firstAt(c.points, b.x0); i < c.points.length && c.points[i].x < b.x1; i++) {
+        const q = c.points[i];
+        assert.ok(!(q.y > b.y0 && q.y < b.y1), `${c.where}: card ${id}'s name lies over the line ${q.l.from}>${q.l.to}`);
+      }
+    }
+  }
+  assert.ok(lists > 0, 'the Unnested block lists names too');
+});
+
+test('a 150-card fan is placed in well under the time of a frame', () => {
+  for (const c of cases().filter((x) => x.zoom === 1)) {
+    graphNamesPlace(c.input);
+    let best = Infinity;
+    for (let i = 0; i < 3; i++) {
+      const t0 = performance.now();
+      graphNamesPlace(c.input);
+      best = Math.min(best, performance.now() - t0);
+    }
+    assert.ok(best < 100, `${c.where}: ${best.toFixed(1)} ms`);
+  }
+});
