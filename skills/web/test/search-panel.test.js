@@ -1055,6 +1055,61 @@ test('the chip keeps a name that says how many are on, and the same words as its
   assert.strictEqual(s.elements['#search-chip'].title, '2 on: blocked, review');
 });
 
+// --- a held Enter ---------------------------------------------------------------------------------
+
+// Enter on a focused button, the way a browser handles it: the keydown reaches the page's listeners and,
+// unless one of them stops it, the button gets a click with no pointer behind it (detail 0), for the first
+// keydown and for every auto-repeated one while the key is held. The vm does not do that by itself.
+const enterOn = (el, { repeat = false } = {}) => {
+  let prevented = false;
+  el.fire('keydown', { key: 'Enter', repeat, preventDefault() { prevented = true; } });
+  if (!prevented) el.fire('click', { detail: 0 });
+  return prevented;
+};
+
+test('holding Enter on the chip opens the panel once: the key repeats land on the arrow, which ignores them, so the switch stays on and the panel stays open', async () => {
+  const s = await open();
+  s.click('review');
+  const arrowEl = toggleOf(s);
+  enterOn(s.elements['#search-chip']);
+  assert.strictEqual(s.isOpen(), true);
+  assert.strictEqual(arrowEl.focused, 1, 'the key is still down, and focus is on the arrow, where its repeats now land');
+  for (let i = 1; i <= 4; i++) {
+    enterOn(arrowEl, { repeat: true });
+    assert.strictEqual(s.isOpen(), true, `repeat ${i}: the panel is still open`);
+    assert.strictEqual(s.page.run('searchPanelSwitchOn()'), true, `repeat ${i}: and the switch is still on`);
+  }
+  assert.strictEqual(s.box(), 'review:');
+  assert.deepStrictEqual(s.ids(), [5, 6]);
+});
+
+test('Enter on the arrow switches once per press: the repeats of a held key are ignored, and the next press switches again', async () => {
+  const s = await open();
+  const arrowEl = toggleOf(s);
+  enterOn(arrowEl);
+  assert.strictEqual(s.page.run('searchPanelSwitchOn()'), false, 'a press switches it off');
+  for (let i = 1; i <= 3; i++) {
+    enterOn(arrowEl, { repeat: true });
+    assert.strictEqual(s.page.run('searchPanelSwitchOn()'), false, `repeat ${i}: the held key does not switch it back`);
+  }
+  enterOn(arrowEl);
+  assert.strictEqual(s.page.run('searchPanelSwitchOn()'), true, 'a second press switches it on');
+  assert.strictEqual(s.isOpen(), true, 'and opens the panel now');
+});
+
+test('the arrow stops the browser only for a repeating Enter: a held Tab, Space, Escape or arrow key goes through', async () => {
+  const s = await open();
+  const arrowEl = toggleOf(s);
+  for (const key of ['Tab', ' ', 'Escape', 'ArrowRight', 'p']) {
+    let prevented = 0;
+    arrowEl.fire('keydown', { key, repeat: true, preventDefault() { prevented++; } });
+    assert.strictEqual(prevented, 0, `a repeating ${JSON.stringify(key)} is left to the browser`);
+  }
+  let first = 0;
+  arrowEl.fire('keydown', { key: 'Enter', repeat: false, preventDefault() { first++; } });
+  assert.strictEqual(first, 0, 'and so is the first Enter, which is a press');
+});
+
 // --- the fold and the preference ------------------------------------------------------------------
 
 test('the pill section starts unfolded, and "pill section starts folded" in the preferences sheet is off', async () => {

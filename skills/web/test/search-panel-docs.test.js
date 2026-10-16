@@ -163,6 +163,14 @@ test('both say the chip is a tab stop while it is shown and none while it is hid
   assert.match(skillPanel, /focus ring the arrow shows/, 'the skill says the chip wears the arrow\'s ring');
 });
 
+test('both say a held Enter acts once: the arrow ignores the repeats of a held key, so Enter held on the chip opens the panel and does not flip the switch', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /A held Enter acts once/, where);
+    assert.match(text, /the arrow ignores the repeats of a held key/, where);
+    assert.match(text, /Enter held on the chip opens the panel and does not flip the switch/, where);
+  }
+});
+
 test('both describe the fold, and that the preference says how it starts', () => {
   for (const [where, text] of BOTH) {
     assert.match(text, /fold/i, where);
