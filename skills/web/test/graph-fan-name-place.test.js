@@ -9,7 +9,7 @@ const {
   graphNamesPlace, graphNamesKey, graphNamesRim, graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets,
 } = require('../web/graph-names');
 const {
-  STATUSES, loadBoard, cleanUp, drawnModel, nameMeasure, placeOn,
+  STATUSES, loadBoard, cleanUp, drawnModel, nameMeasure, placeOn, captionRects, pathPoints,
 } = require('./helpers/fan-boards');
 
 // Where the tier fan's names sit. One pure function (graphNamesPlace) takes the plan the
@@ -25,6 +25,9 @@ after(cleanUp);
 const BOARD = loadBoard('plan');
 const MODEL = drawnModel(BOARD);
 const PLAN_PARENTS = [1, 2, 7, 22, 23];
+// The plan board's other cards named in a row at Fit on 1600x800, the Unnested cards on the
+// outermost ring: measured, and pinned so a change that loses one shows.
+const ROWS_AT_FIT = 21;
 const STAGES = [[1600, 800], [1280, 720], [1000, 700]];
 const ZOOMS = [1, 2, 0.6];
 const ids = (it) => [...it].sort((a, b) => a - b);
@@ -40,6 +43,27 @@ const flaggedOf = (n) => / is-(blocked|waiting|review)/.test(n.cls);
 const corners = (b) => [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]];
 // How far a box is from a point: 0 when the point is in it.
 const reachOf = (b, x, y) => Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
+const round = (v) => Math.round(v * 100) / 100;
+const NUM = /-?\d+(?:\.\d+)?(?:e-?\d+)?/g;
+
+// Every way the plan board is drawn here: the Unnested cards on the outermost ring or in the
+// block, the lines given, Dependencies on, on three stages at Fit and zoomed in and out.
+const matrix = (lineChoices = ['folded', 'all']) => {
+  const out = [];
+  for (const unnested of ['outermost', 'table']) {
+    for (const lines of lineChoices) {
+      const { layout, plan } = fanOf(MODEL, { unnested, lines });
+      for (const [w, h] of STAGES) {
+        for (const zoom of ZOOMS) {
+          out.push({
+            where: `${unnested}/${lines} ${w}x${h} zoom ${zoom}`, unnested, w, h, zoom, layout, plan, ...placeOn(MODEL, layout, plan, { w, h, zoom }),
+          });
+        }
+      }
+    }
+  }
+  return out;
+};
 
 // --- the primitives -----------------------------------------------------------------------
 
@@ -264,6 +288,100 @@ test('a parent\'s name sits beside its ring, inside the rim, with no leader, and
   }
 });
 
+// --- every other card in a row outside the rim --------------------------------------------
+
+test('every other named card\'s name sits outside the rim, its leader running from its dot out to its name', () => {
+  for (const c of matrix()) {
+    const rim = graphNamesRim(c.layout);
+    for (const [id, p] of c.result.placed) {
+      if (p.kind === 'beside') continue;
+      const where = `${c.where}: card ${id}`;
+      const n = nodeOf(c.plan, id);
+      assert.ok(!n.cls.includes(' has-kids'), `${where} is not a parent`);
+      for (const [x, y] of corners(p.box)) assert.ok(Math.hypot(x, y) > rim, `${where}: outside the rim`);
+      const { from, to, d } = p.leader;
+      const out = Math.hypot(from.x - n.x, from.y - n.y);
+      if (p.kind === 'row') {
+        assert.ok(out >= n.reach && out <= n.reach + 2.5 + 0.01, `${where}: the leader starts at its dot's edge (${out} from its centre)`);
+        assert.strictEqual(p.side, n.x < 0 ? 'L' : 'R', `${where}: on its own side`);
+        assert.strictEqual(p.anchor, p.side === 'L' ? 'end' : 'start');
+        const near = p.side === 'L' ? p.box.x1 : p.box.x0;
+        assert.strictEqual(p.x, near, `${where}: the text starts at the near edge of its box`);
+        assert.ok(Math.abs((p.side === 'L' ? to.x - near : near - to.x) - 3 / c.k) < 0.01, `${where}: the leader stops 3px short of its name`);
+      } else {
+        assert.ok(out < 1e-9, `${where}: a listed card's leader starts at its centre`);
+      }
+      assert.ok(Math.abs(to.y - (p.box.y0 + p.box.y1) / 2) < 0.01 && Math.abs(to.y - p.y) < 0.01, `${where}: level with its name`);
+      assert.match(d, /^M/);
+      assert.ok(!/NaN|Infinity/.test(d), where);
+      const nums = d.match(NUM).map(Number);
+      assert.deepStrictEqual(nums.slice(0, 2), [round(from.x - n.x), round(from.y - n.y)], `${where}: drawn from its dot`);
+      assert.deepStrictEqual(nums.slice(-2), [round(to.x - n.x), round(to.y - n.y)], `${where}: to its name`);
+    }
+  }
+  const { layout, plan } = fanOf(MODEL);
+  const { result } = placeOn(MODEL, layout, plan, { w: 1600, h: 800 });
+  const rows = [...result.placed.values()].filter((p) => p.kind === 'row').length;
+  assert.strictEqual(rows, ROWS_AT_FIT, 'at Fit on 1600x800 the plan board names its other cards in rows');
+});
+
+test('down each side, the rows keep their cards\' order, so no two leaders cross', () => {
+  for (const c of matrix()) {
+    for (const side of ['L', 'R']) {
+      const rows = [...c.result.placed].filter(([, p]) => p.kind === 'row' && p.side === side).map(([id, p]) => {
+        const n = nodeOf(c.plan, id);
+        return { id, y: p.y, down: n.y / Math.hypot(n.x, n.y) };
+      }).sort((p, q) => p.down - q.down || p.id - q.id);
+      for (let i = 1; i < rows.length; i++) assert.ok(rows[i].y > rows[i - 1].y, `${c.where} ${side}: card ${rows[i].id} is named below card ${rows[i - 1].id}`);
+    }
+  }
+});
+
+// --- no name over another, a mark, a caption or a line ---------------------------------------
+
+test('plan board: no two placed names overlap, and none covers a dot, a caption or the block, at every fit and zoom', () => {
+  let rows = 0;
+  for (const c of matrix()) {
+    const placed = [...c.result.placed];
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) assert.ok(!graphNameMeets(placed[i][1].box, placed[j][1].box), `${c.where}: cards ${placed[i][0]} and ${placed[j][0]}`);
+    }
+    const captions = captionRects(c.plan, { x: 0, y: 0, k: c.k }).map((r) => ({
+      name: r.name, x0: r.l / c.k, x1: r.r / c.k, y0: r.t / c.k, y1: r.b / c.k,
+    }));
+    const b = c.plan.block;
+    for (const [id, p] of placed) {
+      if (p.kind !== 'beside') rows++;
+      for (const n of c.plan.nodes) {
+        if (n.id !== id) assert.ok(!graphNameDiscHits(p.box, { x: n.x, y: n.y, r: n.reach }), `${c.where}: card ${id}'s name covers card ${n.id}`);
+      }
+      for (const r of captions) assert.ok(!graphNameMeets(p.box, r), `${c.where}: card ${id}'s name covers the caption ${r.name}`);
+      if (b) assert.ok(!graphNameMeets(p.box, { x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h }), `${c.where}: card ${id}'s name covers the block`);
+    }
+  }
+  assert.ok(rows > 0);
+});
+
+test('no placed name crosses a parent line or a dependency line the plan draws', () => {
+  for (const c of matrix(['folded', 'all', 'chain'])) {
+    const points = c.plan.links.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l })));
+    for (const [id, p] of c.result.placed) {
+      const b = { x0: p.box.x0 + 1e-6, x1: p.box.x1 - 1e-6, y0: p.box.y0 + 1e-6, y1: p.box.y1 - 1e-6 };
+      const on = points.find((q) => q.x > b.x0 && q.x < b.x1 && q.y > b.y0 && q.y < b.y1);
+      assert.ok(!on, `${c.where}: card ${id}'s name lies over the line ${on && `${on.l.from}>${on.l.to}`}`);
+    }
+  }
+});
+
+test('the same input places the same names, twice over', () => {
+  for (const unnested of ['outermost', 'table']) {
+    const { layout, plan } = fanOf(MODEL, { unnested, lines: 'all' });
+    const a = placeOn(MODEL, layout, plan, { w: 1280, h: 720 }).result;
+    const b = placeOn(MODEL, layout, plan, { w: 1280, h: 720 }).result;
+    assert.deepStrictEqual(a, b, unnested);
+  }
+});
+
 test('relevant on the plan board names its five parents, each beside its ring with no leader', () => {
   for (const unnested of ['outermost', 'table']) {
     const { layout, plan } = fanOf(MODEL, { unnested, names: 'relevant' });
@@ -306,6 +424,7 @@ test('a zoom far out (k 0.01) places without a throw or a number that is not one
   assert.deepStrictEqual(ids([...far.placed.keys(), ...far.unnamed]), ids(named));
   for (const p of far.placed.values()) {
     for (const v of [p.x, p.y, p.box.x0, p.box.x1, p.box.y0, p.box.y1]) assert.ok(Number.isFinite(v));
+    if (p.leader) assert.ok(!/NaN|Infinity/.test(p.leader.d));
   }
   for (const k of [NaN, 0, -1, Infinity, undefined]) {
     const none = graphNamesPlace(input(k));

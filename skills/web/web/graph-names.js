@@ -7,6 +7,9 @@
 // on screen at any zoom, so every size given here in px is divided by the zoom k to
 // become the world's units; the marks themselves are in world units already.
 //   A parent, a card with a child drawn, is named beside its ring, inside the rim.
+//   Every other card of the fan is named in a row outside the rim on its own side, joined
+//   to its dot by a leader that runs out along the card's own ray, round a rail just outside
+//   the rim and out to the name.
 // A name keeps off every dot, caption, id label, the Unnested block and every other
 // name, and never crosses a line the plan draws. Same dual-environment pattern as
 // graph-model.js; it needs nothing from it, since every input comes in the plan.
@@ -315,9 +318,12 @@ function graphNamesKey(input) {
 //   measure    (text, size px, bold) -> its width on screen in px; anything but a number of 0
 //              or more is read as GRAPH_NAME_CHAR_PX a character at 11px
 //   font       the font measured in; read by the key alone
-// The answer: `placed`, a Map from id to { kind ('beside'), side, text, x, y, anchor, box,
-// leader }, where `text` is what shows (a name cut to its room ends in an ellipsis), (x, y) its
-// anchor point in the world, y the middle of the line, and `box` the room it takes, padded;
+// The answer: `placed`, a Map from id to { kind ('beside' or 'row'), side ('L' or 'R' for a
+// row, null beside a ring), text, x, y, anchor, box, leader }, where `text` is what shows (a
+// name cut to its room ends in an ellipsis), (x, y) its anchor point in the world, y the middle
+// of the line, `box` the room it takes, padded, and `leader` null beside a ring, else { from,
+// to, d }: where it leaves the dot and stops short of the name, in the world, and its path,
+// drawn in the card's own group (every point less the card's);
 // `unnamed`, the named ids with no room, in order; and `stats`, the work done (`tests`, the
 // exact tests of a place against what it keeps off).
 function graphNamesPlace(input) {
@@ -485,7 +491,175 @@ function graphNamesPlace(input) {
     }
     if (got) claim(n.id, got);
   }
+
+  // How far a name starting `a` out from the middle of the fan, in the row at y, may run on
+  // `side` before it meets something, keeping GRAPH_NAME_GAP off it: every box, disc and
+  // line piece in the row's band counts. Looked at up to `reach` further; Infinity when the
+  // way is clear that far.
+  const gap = GRAPH_NAME_GAP / k;
+  const roomAt = (side, a, y, reach) => {
+    const lo = y - rowH / 2;
+    const hi = y + rowH / 2;
+    const q = side === 'L' ? { x0: -(a + reach + gap), x1: -a, y0: lo, y1: hi } : { x0: a, x1: a + reach + gap, y0: lo, y1: hi };
+    let end = Infinity;
+    idx.each(q, (it) => {
+      stats.tests++;
+      const ext = graphNameExtent(it, lo, hi);
+      if (!ext) return false;
+      const o0 = side === 'L' ? -ext[1] : ext[0];
+      const o1 = side === 'L' ? -ext[0] : ext[1];
+      if (o1 > a) end = Math.min(end, o0 - gap);
+      return false;
+    });
+    return end - a;
+  };
+  const discs = nodes.filter((n) => !blockIds.has(n.id)).map((n) => ({ owner: n.id, ...n.disc }));
+
+  // Every other card of the fan: in a row outside the rim, on its own side (left or right of
+  // the apex), the rows one name high and level with each other on a side, from three rows over
+  // the rim to three under it. A row starts just outside the rim (GRAPH_NAME_EDGE beyond it)
+  // and holds at least GRAPH_NAME_MIN_W of room. The cards of a side, in their order down it,
+  // take rows in the same order, each as near level with where its leader meets the rail
+  // (GRAPH_NAME_RAIL outside the rim) as the others allow; when there are more cards than
+  // rows the least wanted go first (not lit at rest), then the one with the closest neighbour.
+  // The leader runs from the dot's edge out along the card's own ray, round any mark in the
+  // way, to the rail, round the rail to the row's height, and out to GRAPH_NAME_GAP short of
+  // the name; the rows keep the order down the side, so leaders sharing the rail never cross.
+  const minW = GRAPH_NAME_MIN_W / k;
+  const edge = rim + GRAPH_NAME_EDGE / k;
+  const last = Math.floor((edge + GRAPH_NAME_ROWS_BEYOND * rowH) / rowH);
+  for (const side of ['L', 'R']) {
+    const dir = side === 'L' ? -1 : 1;
+    const cards = fanCards.filter((n) => (n.x < 0 ? 'L' : 'R') === side).map((n) => {
+      let ray = Math.atan2(n.y, n.x);
+      if (side === 'L' && ray < 0) ray += 2 * Math.PI;
+      return { n, ray, yd: bend * Math.sin(ray), w: px(n.name) / k + pad };
+    }).sort((p, q) => p.yd - q.yd || p.n.id - q.n.id);
+    if (!cards.length) continue;
+    const reach = Math.max(...cards.map((c) => c.w));
+    const rows = [];
+    for (let j = -last; j <= last; j++) {
+      const y = j * rowH;
+      const a = Math.max(Math.abs(y) < edge ? Math.sqrt(edge * edge - y * y) : 0, GRAPH_NAME_FLOOR / k);
+      const room = roomAt(side, a, y, reach);
+      if (room >= minW) rows.push({ j, y, a, room });
+    }
+    stats.rows[side] = rows.length;
+    const cost = (c, row) => {
+      if (row.room < Math.min(c.w, minW)) return Infinity;
+      const move = (row.y - c.yd) / rowH;
+      return move * move + (row.room < c.w ? 0.5 : 0);
+    };
+    let list = cards;
+    const dropWorst = () => {
+      let at = 0;
+      let worst = -Infinity;
+      list.forEach((c, i) => {
+        const near = Math.min(i ? c.yd - list[i - 1].yd : Infinity, i < list.length - 1 ? list[i + 1].yd - c.yd : Infinity);
+        const score = c.n.prio * 1e6 - near;
+        if (score > worst || !i) { worst = score; at = i; }
+      });
+      stats.dropped++;
+      list = list.slice(0, at).concat(list.slice(at + 1));
+    };
+    while (list.length > rows.length) dropWorst();
+    let got = graphNameAssign(list, rows, cost);
+    while (!got && list.length) {
+      dropWorst();
+      got = graphNameAssign(list, rows, cost);
+    }
+    if (!got) continue;
+    list.forEach((c, i) => {
+      const { n, ray } = c;
+      const row = got[i];
+      const text = graphNameFit(n.name, (row.room - pad) * k, (t) => px(t));
+      if (!text) return;
+      const tw = px(text) / k;
+      const x = dir * row.a;
+      // From the row's number, so neighbouring rows share one edge to the last bit.
+      const y0 = (row.j - 0.5) * rowH;
+      const y1 = (row.j + 0.5) * rowH;
+      const box = dir > 0 ? { x0: x, x1: x + tw + pad, y0, y1 } : { x0: x - tw - pad, x1: x, y0, y1 };
+      const out = n.reach + GRAPH_NAME_LEADER_OUT;
+      const from = { x: n.x + Math.cos(ray) * out, y: n.y + Math.sin(ray) * out };
+      const to = { x: dir * (row.a - gap), y: row.y };
+      let turn = Math.atan2(row.y, x);
+      if (side === 'L' && turn < 0) turn += 2 * Math.PI;
+      const local = (p) => `${graphNameRound(p.x - n.x)} ${graphNameRound(p.y - n.y)}`;
+      const rail = { x: Math.cos(turn) * bend, y: Math.sin(turn) * bend };
+      const d = `M${local(from)}${graphNameRun(ray, Math.hypot(n.x, n.y) + out, bend, discs, n.id, local, stats)}`
+        + `A${graphNameRound(bend)} ${graphNameRound(bend)} 0 0 ${turn > ray ? 1 : 0} ${local(rail)}L${local(to)}`;
+      claim(n.id, {
+        kind: 'row', side, text, x, y: row.y, anchor: dir > 0 ? 'start' : 'end', box, leader: { from, to, d },
+      });
+    });
+  }
   return done();
+}
+
+// The stretch of x a thing in the index takes in the band of y from `lo` to `hi`, or null
+// when it is not in it: a box's own, a disc's chord, a line piece's run inside the band.
+function graphNameExtent(it, lo, hi) {
+  if (it.t === 'disc') {
+    const dy = Math.max(lo - it.y, 0, it.y - hi);
+    if (dy >= it.r) return null;
+    const half = Math.sqrt(it.r * it.r - dy * dy);
+    return [it.x - half, it.x + half];
+  }
+  if (it.t === 'seg') {
+    const f = GRAPH_NAME_FLAT;
+    const l = lo - f;
+    const h = hi + f;
+    const dy = it.y1 - it.y0;
+    let t0 = 0;
+    let t1 = 1;
+    if (dy === 0) {
+      if (it.y0 < l || it.y0 > h) return null;
+    } else {
+      const ta = (l - it.y0) / dy;
+      const tb = (h - it.y0) / dy;
+      t0 = Math.max(0, Math.min(ta, tb));
+      t1 = Math.min(1, Math.max(ta, tb));
+      if (t0 > t1) return null;
+    }
+    const xa = it.x0 + (it.x1 - it.x0) * t0;
+    const xb = it.x0 + (it.x1 - it.x0) * t1;
+    return [Math.min(xa, xb) - f, Math.max(xa, xb) + f];
+  }
+  return it.box.y1 > lo && it.box.y0 < hi ? [it.box.x0, it.box.x1] : null;
+}
+
+// The run of a leader out along the ray at `ray` from radius r0 to r1, as path text after its
+// start: straight, but round any mark on the ray (GRAPH_NAME_DETOUR clear of its disc) on the
+// side of the mark the ray already lies, back onto the ray beyond it. `local` writes a point
+// relative to the card the leader is drawn in.
+function graphNameRun(ray, r0, r1, discs, own, local, stats) {
+  const s = r1 > r0 ? 1 : -1;
+  const at = (r, a) => local({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+  const arc = (r, a0, a1) => `A${graphNameRound(r)} ${graphNameRound(r)} 0 0 ${a1 > a0 ? 1 : 0} ${at(r, a1)}`;
+  const hits = [];
+  for (const m of discs) {
+    if (m.owner === own) continue;
+    stats.tests++;
+    const mr = Math.hypot(m.x, m.y);
+    if ((mr - r0) * s <= 0 || (r1 - mr) * s <= 0) continue;
+    const reach = m.r + GRAPH_NAME_DETOUR;
+    let off = ray - Math.atan2(m.y, m.x);
+    off -= 2 * Math.PI * Math.round(off / (2 * Math.PI));
+    if (Math.abs(off * mr) < reach) hits.push({ mr, ma: ray - off, reach, way: off >= 0 ? 1 : -1 });
+  }
+  hits.sort((p, q) => (p.mr - q.mr) * s);
+  let d = '';
+  let r = r0;
+  for (const h of hits) {
+    const a2 = h.ma + (h.way * h.reach) / h.mr;
+    const rin = s > 0 ? Math.max(r, h.mr - h.reach) : Math.min(r, h.mr + h.reach);
+    const rout = h.mr + s * h.reach;
+    if ((rout - r1) * s >= 0) break;
+    d += `L${at(rin, ray)}${arc(rin, ray, a2)}L${at(rout, a2)}${arc(rout, a2, ray)}`;
+    r = rout;
+  }
+  return `${d}L${at(r1, ray)}`;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
