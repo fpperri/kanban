@@ -238,7 +238,7 @@ it starts. Tab reaches the arrow, the fold control and every pill, and Enter and
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
 arrow, and stays in the box when Esc was pressed there), and then clears the box, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
-the box; a plain click on a card, which opens it or selects it, drops the pills the same way. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
+the box; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
 

@@ -5596,24 +5596,27 @@ function selectByClick(action, id) {
 // between the range start and the target, in the active view's rendered order;
 // ctrl/cmd+click toggles one card and plants the range start; the first card
 // picked is the anchor and later ones are additions; a plain click breaks any
-// selection, then opens the card (or, in a view whose plain click selects,
+// selection but for its pills, then opens the card (or, in a view whose plain click selects,
 // makes it the anchor of a new selection); the second click of a double click in
 // such a view is a peek, which opens the card and leaves the selection alone.
 // renderBoard() repaints whichever view is active — board columns always, plus
-// the active map/calendar/gantt. A click that opens or selects drops the pills the
-// selection held, and their queries leave the box with them, as they do on Esc and on a
-// double click on empty space, so the panel and the box agree; any other text stays. A
-// Ctrl-click that takes out a card a pill lit turns the pill into its other cards and
-// leaves the box, so the view does not widen under the click. While isolated a click moves
-// the anchor only: the box holds the isolate text, which it never writes.
+// the active map/calendar/gantt. Opening a card changes no filter: a click that opens it
+// leaves every pill on and the box as they were, so the view behind the card details shows
+// the same cards, and drops only the other parts of the selection (selectionAfterClick). A
+// click that only selects a card drops the pills the selection held, and their queries leave
+// the box with them, as they do on Esc and on a double click on empty space, so the panel and
+// the box agree; any other text stays. A Ctrl-click that takes out a card a pill lit turns
+// the pill into its other cards and leaves the box, so the view does not widen under the
+// click. While isolated a click moves the anchor only: the box holds the isolate text, which
+// it never writes.
 function applyCardClick(action, id, cue) {
   if (action === 'cue') { searchByCue(cue, id); return; }
   if (action === 'peek') { openCard(id); return; }
   const before = selectionState.selection;
   const held = partsOf(before).length > 0;
   selectByClick(action, id);
-  if ((action === 'open' || action === 'select') && held && !isolateNow()) moveSelectionTo(selectionState, before);
-  else if (action !== 'open' || held) renderBoard();
+  if (action === 'select' && held && !isolateNow()) moveSelectionTo(selectionState, before);
+  else if (action !== 'open' || selectionState.selection !== before) renderBoard();
   if (action === 'open') openCard(id);
 }
 

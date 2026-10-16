@@ -571,16 +571,17 @@ test('in the Graph the typed text only lights, so it does not join the isolate t
 
 // --- a click on a card and the pills' queries in the box ---------------------------------
 // A pill is on while its query is the anchor or an addition, so a click that drops it from the
-// selection (a plain click that opens a card, or one that selects another card) takes its query
-// out of the box too, as Esc and a double click on empty space do. While isolated a click moves the
-// anchor only, and the box holds the isolate text, which it never touches.
+// selection (a plain click that selects another card) takes its query out of the box too, as Esc
+// and a double click on empty space do. A plain click that opens a card drops no pill: opening a
+// card changes no filter (open-keeps-pills.test.js). While isolated a click moves the anchor only,
+// and the box holds the isolate text, which it never touches.
 
 const opens = () => {
   const s = [];
   return { calls: s, wrap: (page) => { page.ctx.openCard = (id) => { s.push(id); }; } };
 };
 
-test('a plain click that opens a card takes the pill it dropped out of the box, and keeps the text typed beside it', async () => {
+test('a plain click that opens a card keeps the pill on and its query in the box, with the text typed beside it', async () => {
   const s = await open();
   const spy = opens();
   spy.wrap(s.page);
@@ -589,11 +590,11 @@ test('a plain click that opens a card takes the pill it dropped out of the box, 
   assert.strictEqual(s.box(), 'zephyr | review:');
   s.click(1);
   assert.deepStrictEqual(spy.calls, [1], 'the card opens');
-  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
-  assert.strictEqual(s.box(), 'zephyr', 'the pill is off and its query is gone from the box');
+  assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] });
+  assert.strictEqual(s.box(), 'zephyr | review:', 'the pill is still on and its query is still in the box');
 });
 
-test('a pill that is the only text in the box goes with the selection, so the view is not left filtered by a pill that shows off', async () => {
+test('a pill that is the only text in the box stays with the selection, so the view behind the card is filtered by a pill that shows on', async () => {
   const s = await open();
   const spy = opens();
   spy.wrap(s.page);
@@ -601,8 +602,8 @@ test('a pill that is the only text in the box goes with the selection, so the vi
   assert.strictEqual(s.box(), 'review:');
   assert.deepStrictEqual(s.shown(), [5]);
   s.click(5);
-  assert.strictEqual(s.box(), '');
-  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.strictEqual(s.box(), 'review:');
+  assert.deepStrictEqual(s.shown(), [5]);
   assert.deepStrictEqual(spy.calls, [5]);
 });
 
@@ -634,7 +635,7 @@ test('a click that keeps the pill, or adds to the selection, writes nothing to t
   assert.strictEqual(s.box(), 'review:');
 });
 
-test('while isolated a click that opens a card empties the selection and leaves the isolate text, pills included', async () => {
+test('while isolated a click that opens a card leaves the isolate text and the pills in the selection', async () => {
   const s = await open();
   const spy = opens();
   spy.wrap(s.page);
@@ -643,7 +644,7 @@ test('while isolated a click that opens a card empties the selection and leaves 
   assert.strictEqual(s.box(), 'review:');
   s.click(2);
   assert.deepStrictEqual(spy.calls, [2], 'the card opens');
-  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] });
   assert.strictEqual(s.box(), 'review:', 'the pill query is the isolate text now, and the shown set does not shrink');
   assert.notStrictEqual(s.isolate(), null);
   assert.deepStrictEqual(s.shown(), [5]);
@@ -659,11 +660,11 @@ test('while isolated a click that selects another card moves the anchor and leav
   assert.strictEqual(s.box(), 'review:', 'the box is the isolate text and a click never writes it');
 });
 
-test('a plain click repaints when the selection held parts that matched nothing, so a pill drawn as on is redrawn', async () => {
+test('a plain click that opens a card repaints when it drops a part that matched nothing, and not when it drops nothing', async () => {
   const s = await open();
   const spy = opens();
   spy.wrap(s.page);
-  s.pick("queryPart('nothing-matches-this')");
+  s.pick('pathPart(99)');
   assert.deepStrictEqual(s.ids(), []);
   let renders = 0;
   const real = s.page.ctx.renderBoard;
@@ -674,6 +675,10 @@ test('a plain click repaints when the selection held parts that matched nothing,
   renders = 0;
   s.click(3);
   assert.strictEqual(renders, 0, 'nothing was selected and nothing changes');
+  s.pick("queryPart('nothing-matches-this')");
+  s.click(3);
+  assert.strictEqual(renders, 0, 'a pill that matches nothing stays on, so there is nothing to repaint');
+  assert.deepStrictEqual(s.selection(), { anchor: q('nothing-matches-this'), additions: [] });
 });
 
 // --- a pill whose alternative a cue click has grown ----------------------------------------
