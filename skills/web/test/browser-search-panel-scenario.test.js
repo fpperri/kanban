@@ -265,7 +265,7 @@ test('it presses Escape through the three links of the chain, and Tab, Enter and
   assert.ok(count('Escape') >= 6, 'the bulk popup, the two steps with the panel closed, the list, the panel and the sheet, and the box as many times as it takes');
   assert.ok(count('Tab') >= 8);
   assert.ok(count('Enter') >= 3);
-  assert.strictEqual(count(' '), 3, 'Space on the arrow, on a pill and on the fold control');
+  assert.strictEqual(count(' '), 4, 'Space on the arrow, on the chip, on a pill and on the fold control');
   assert.strictEqual(count('p'), 7, 'p off, on, in the box, under a card menu, under the sheet, off again before the reload, on after it');
 });
 
@@ -307,6 +307,31 @@ test('the scenario drives the switch in order: focus opens the panel, a click sw
   assert.ok(!/check\('the toggle opens the panel and says it is expanded'/.test(code), 'a click on the arrow no longer opens a panel that is already switched on');
   const sheet = code.slice(at('the sheet shows "Panel opens when the search box is focused" on'));
   assert.strictEqual(sheet.split("clickOn('#prefs-panel-on-focus')").length - 1, 2, 'the checkbox is clicked off and on again');
+});
+
+test('the scenario drives the chip as a tab stop: Shift+Tab reaches it, Enter and Space open the panel from it, a mouse click does not, and Tab skips it while it is hidden', async () => {
+  const at = (name) => code.indexOf(`check('${name}'`);
+  const names = [
+    'with the panel closed and a pill on, the chip is a button in the Tab order, named for the pill and pointing at the panel',
+    'Shift+Tab from the arrow passes the clear button and reaches the chip, so the chip is a tab stop in the order of the box',
+    'the focused chip wears the focus ring of the other header controls: two pixels, solid, in the accent',
+    'Enter on the focused chip opens the panel, the chip leaves with it, and focus goes to the arrow, not into the box',
+    'opening the panel from the chip changes neither the box nor the selection',
+    'Esc with focus on the arrow shuts the panel again and the chip comes back',
+    'Shift+Tab twice from the arrow reaches the chip again',
+    'Space on the focused chip opens the panel too, with focus on the arrow',
+    'a click with the mouse on the chip opens nothing, as before, and leaves the box and the selection alone',
+    'with nothing on the chip is hidden',
+    'Shift+Tab from the arrow skips the hidden chip and the hidden clear button and lands in the box, which opens the panel',
+  ];
+  for (const name of names) assert.ok(at(name) > 0, name);
+  assert.ok(names.every((n, i) => !i || at(n) > at(names[i - 1])), 'in the order they are driven');
+  const section = code.slice(at(names[0]), at(names[names.length - 1]));
+  assert.ok(section.includes("key('Enter')") && section.includes("key(' ')"), 'real key presses, not a script click');
+  assert.strictEqual(section.split("key('Tab', { shift: true })").length - 1, 5, 'Shift+Tab twice to the chip, twice again, and once more past the hidden one');
+  assert.ok(section.includes("clickOn('#search-chip')"), 'the pointer check is a real click');
+  assert.ok(!/getElementById\('search-chip'\)\.click\(\)/.test(code), 'no script click stands in for a key or a pointer');
+  assert.ok(at(names[0]) > at('typing in the box turns the pill off') && at(names[names.length - 1]) < at('Shift+Tab from the toggle reaches the box and opens the panel that Esc had closed'), 'between the typing check and the keyboard section, leaving the panel open for it');
 });
 
 test('every check the scenario makes has a name that says what it holds', async () => {

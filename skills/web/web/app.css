@@ -276,13 +276,15 @@ button:hover { background: var(--btn-hover); }
 .search-box { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; }
 .search-box:focus-within { border-color: var(--accent); }
 .search-box .search-input { flex: 1 1 60px; min-width: 60px; width: auto; border: 0; background: transparent; }
-.search-chip { flex-shrink: 0; margin-right: 2px; padding: 1px 8px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--accent-strong); font-size: 0.75em; white-space: nowrap; }
+.search-chip { flex-shrink: 0; margin-right: 2px; padding: 1px 8px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--accent-strong); font: inherit; font-size: 0.75em; white-space: nowrap; cursor: default; }
+.search-chip:hover { background: var(--accent-soft); }
 .search-panel-toggle { flex-shrink: 0; background: transparent; border: 0; color: var(--mut); padding: 4px 8px; font-size: 0.85em; }
 .search-panel-toggle:hover { background: transparent; color: var(--ink); }
 .search-panel-toggle[aria-expanded="true"] { color: var(--accent); }
 .search-panel-toggle[aria-pressed="false"] { text-decoration: line-through; }
 .search-panel-toggle:focus-visible, .search-fold:focus-visible, .query-pill:focus-visible, .slice-entry:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .isolate-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 300px; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); }
 .search-slices:empty { display: none; }
 .search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }

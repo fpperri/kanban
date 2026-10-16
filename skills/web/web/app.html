@@ -17,6 +17,8 @@
   <!-- The search box is a bordered box holding the input, a chip, the clear button
        and the arrow, a switch (aria-pressed): on, the default, focusing the input
        opens the panel under it; off, nothing does. The p key flips it too.
+       The chip is a button, so it is a tab stop while it is shown (hidden, it is none):
+       Enter and Space on it open the panel.
        The panel hangs from the bar without adding to the header's height. It has a
        region for the slices, the pill section, a divider and a foot, which holds the
        Isolate switch (a button with role switch: aria-checked says whether isolate is
@@ -30,7 +32,7 @@
       <input type="search" id="search-input" class="search-input" autocomplete="off"
         placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
         title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. slice:objective..2 cuts every view to a run of slices (tiers, then depths). Press / to focus. Esc closes the search panel when it is open, then clears the box.">
-      <span id="search-chip" class="search-chip hidden" role="img" data-keeps-selection></span>
+      <button type="button" id="search-chip" class="search-chip hidden" aria-controls="search-panel" aria-expanded="false" data-keeps-selection></button>
       <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search" aria-label="Clear search">&#10005;</button>
       <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
     </div>

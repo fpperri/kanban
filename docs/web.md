@@ -231,6 +231,9 @@ panel or the preferences sheet is up. A pill is on while its query is the anchor
 announced as pressed, and typing in the box turns it off. A query typed by hand is never a
 pill, even one that reads as a pill's query: type `review:` and the review pill stays off. With the panel
 closed, a chip in the box counts what is on, and its name for a screen reader, and its hover text, say which.
+Tab reaches the chip while it is shown, between the box and the clear button, and it is no tab stop when it
+is hidden (the panel open, or nothing on); Enter and Space on it open the panel, with focus on the arrow,
+and a click with the mouse does nothing.
 A reload, or a link, carries the box's text and not the selection, so a cut and isolate come back
 but a pill shows off, with its query in the box as typed text.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how

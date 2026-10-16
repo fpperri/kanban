@@ -150,6 +150,18 @@ test('both describe the chip a closed panel shows, and that its name says what i
   }
 });
 
+test('both say the chip is a tab stop while it is shown and none while it is hidden, that Enter and Space on it open the panel, and that a mouse click still does nothing', () => {
+  for (const [where, text] of BOTH) {
+    assert.match(text, /Tab reaches the chip while it is shown/, where);
+    assert.match(text, /between the box and the clear button/, where);
+    assert.match(text, /no tab stop when it is hidden/, where);
+    assert.match(text, /Enter and Space on it open the panel/, where);
+    assert.match(text, /focus on the arrow/, where);
+    assert.match(text, /click with the mouse does nothing/, where);
+  }
+  assert.match(skillPanel, /focus ring the arrow shows/, 'the skill says the chip wears the arrow\'s ring');
+});
+
 test('both describe the fold, and that the preference says how it starts', () => {
   for (const [where, text] of BOTH) {
     assert.match(text, /fold/i, where);

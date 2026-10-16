@@ -65,12 +65,21 @@ test('the arrow is a switch: it starts pressed, the panel opening on focus, and 
   assert.match(attr(toggle, 'title'), /\bp\b/);
 });
 
-test('the chip is a hidden image with a name the page fills in, and keeps a selection', () => {
+test('the chip is a hidden button with a name the page fills in, and keeps a selection', () => {
   const chip = tagOf('search-chip');
-  assert.match(attr(chip, 'class'), /(^|\s)hidden(\s|$)/);
-  assert.strictEqual(attr(chip, 'role'), 'img', 'a span with an accessible name needs a role that takes one');
+  assert.match(attr(chip, 'class'), /(^|\s)hidden(\s|$)/, 'hidden to start: a hidden control is no tab stop');
+  assert.match(chip, /^<button\b/, 'a real button: Tab reaches it, and Enter and Space reach the page as a click');
+  assert.strictEqual(attr(chip, 'type'), 'button');
+  assert.strictEqual(attr(chip, 'role'), null, 'the button\'s own role, not an image');
+  assert.strictEqual(attr(chip, 'tabindex'), null, 'its place in the page is its place in the Tab order');
   assert.notStrictEqual(attr(chip, 'data-keeps-selection'), null);
-  assert.match(bar, /<span id="search-chip"[^>]*><\/span>/, 'no text of its own: the page writes the count');
+  assert.match(bar, /<button type="button" id="search-chip"[^>]*><\/button>/, 'no text of its own: the page writes the count');
+});
+
+test('the chip names the panel it opens, which is shut whenever the chip is shown', () => {
+  const chip = tagOf('search-chip');
+  assert.strictEqual(attr(chip, 'aria-controls'), 'search-panel');
+  assert.strictEqual(attr(chip, 'aria-expanded'), 'false');
 });
 
 // --- the panel ------------------------------------------------------------------------
@@ -277,6 +286,19 @@ test('the arrow switched off is struck through, by a rule that dims nothing with
 test('the toggle, the fold control and the pills show a focus ring, and a pill that is on is drawn apart', () => {
   assert.match(block, /\.search-panel-toggle:focus-visible[^{]*\.search-fold:focus-visible[^{]*\.query-pill:focus-visible[^{]*\.slice-entry:focus-visible \{[^}]*outline: 2px solid var\(--accent\)/);
   assert.match(block, /\.query-pill\.on \{[^}]*background: var\(--accent-soft\)/);
+});
+
+test('the chip shows the focus ring the arrow and the pills show, from the same tokens', () => {
+  const ring = 'outline: 2px solid var(--accent); outline-offset: 1px;';
+  assert.ok(block.includes(`.search-chip:focus-visible { ${ring} }`), 'the chip has the ring');
+  assert.ok(block.includes(`.slice-entry:focus-visible { ${ring} }`), 'the same ring as the arrow, the fold controls and the pills');
+});
+
+test('the chip draws as it did before it was a button: its own font, no hover wash of the button rule, and no pointer hand for a click that does nothing', () => {
+  const chip = block.match(/\.search-chip \{([^}]*)\}/)[1];
+  assert.match(chip, /font: inherit; font-size: 0\.75em/, 'the button\'s own font is reset, then the chip\'s size');
+  assert.match(chip, /cursor: default/);
+  assert.match(block, /\.search-chip:hover \{[^}]*background: var\(--accent-soft\)/, 'the global button:hover rule would otherwise wash it');
 });
 
 test('the pills use their own class, never a status pill\'s, so those rules, the poll\'s focus keeper and the click-away list never reach them', () => {
