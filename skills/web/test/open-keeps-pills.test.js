@@ -86,6 +86,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
     nodeClick: (id, m = {}) => elements['#graph-view'].fire('click', nodeEvent(id, m)),
     nodeDoubleClick: async (id) => { elements['#graph-view'].fire('dblclick', nodeEvent(id)); await page.settle(); },
     nodeEnter: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: 'Enter' })); await page.settle(); },
+    nodeSpace: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: ' ' })); await page.settle(); },
     close: async () => { session.close.fire('click'); await page.settle(); },
   };
   return s;
@@ -257,6 +258,34 @@ test('a plain click on a card in the Graph, which selects it, still takes the pi
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.on(), []);
+});
+
+test('a plain click on a card in the Graph, which paints in place, takes the pill off the chip too', async () => {
+  const s = await open({ view: 'graph' });
+  s.pillClick('review');
+  assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' }, 'the chip counts the pill');
+  s.nodeClick(5);
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.on(), []);
+  assert.deepStrictEqual(s.chip(), { hidden: true, text: '' }, 'the chip counts nothing, as the box and the selection say');
+});
+
+test('Space on a focused card in the Graph, which acts as a plain click, takes the pill off the chip too', async () => {
+  const s = await open({ view: 'graph' });
+  s.pillClick('review');
+  assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' });
+  await s.nodeSpace(5);
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.chip(), { hidden: true, text: '' });
+});
+
+test('a Shift+click in the Graph that adds a card to a pill keeps the pill and its chip', async () => {
+  const s = await open({ view: 'graph' });
+  s.pillClick('review');
+  s.nodeClick(2, { shiftKey: true });
+  assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [a(2)] });
+  assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' });
 });
 
 test('Esc still takes the pill out of the box and off the selection', async () => {
