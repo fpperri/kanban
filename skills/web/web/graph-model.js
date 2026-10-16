@@ -31,6 +31,9 @@ const GRAPH_SLICES = (typeof module !== 'undefined' && module.exports)
 const GRAPH_MAPREL = (typeof module !== 'undefined' && module.exports)
   ? require('./map-relations')
   : window;
+const GRAPH_TYPES = (typeof module !== 'undefined' && module.exports)
+  ? require('./type-badge')
+  : window;
 
 const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
 
@@ -1442,6 +1445,21 @@ function graphFanBus(layout, line) {
   };
 }
 
+// The wash of each tier band that holds a card: one entry for each, in tier order, with the
+// tier's name and the colour its type has in the board's `types` ('' when it has none). A
+// wash is the whole ring of its band, between the band's edges, as one path of two circles
+// the view fills even-odd, so the middle is left bare.
+function graphFanTints(layout, types) {
+  const circle = (r) => `M${r} 0A${r} ${r} 0 1 0 ${-r} 0A${r} ${r} 0 1 0 ${r} 0Z`;
+  return layout.bands.filter((b) => b.slice && b.slice.kind === 'tier' && b.count).map((b) => ({
+    band: b.index,
+    tier: b.slice.name,
+    color: GRAPH_TYPES.typeColor(b.slice.name, types),
+    d: circle(graphRound(b.r1)) + circle(graphRound(b.r0)),
+    cls: 'graph-tint',
+  }));
+}
+
 function graphPlan(model, layout, opts) {
   const o = opts || {};
   const selected = o.selectedIds || new Set();
@@ -1513,6 +1531,7 @@ function graphPlan(model, layout, opts) {
   const rings = fan ? [] : layout.rings.map((r) => ({ cx: graphRound(r.cx), r: graphRound(r.r), label: r.label, cls: 'graph-ring' }));
   const guides = fan ? graphFanGuides(fan) : [];
   const dividers = fan ? graphFanDividers(model, fan) : [];
+  const tints = fan ? graphFanTints(fan, o.types) : [];
   const block = fan ? graphFanBlockPlan(fan.block) : null;
   const looseCaption = fan && fan.looseCaption ? {
     name: fan.looseCaption.name, count: fan.looseCaption.count, x: graphRound(fan.looseCaption.x), y: graphRound(fan.looseCaption.y),
@@ -1526,7 +1545,7 @@ function graphPlan(model, layout, opts) {
     tip: graphFanTip(c.count, c.split, c.term),
   })) : [];
   const titles = layout.titles.map((t) => ({ x: graphRound(t.x), y: graphRound(t.y), text: t.text }));
-  return { nodes, links, rings, titles, guides, captions, dividers, block, looseCaption };
+  return { nodes, links, rings, titles, guides, tints, captions, dividers, block, looseCaption };
 }
 
 if (typeof module !== 'undefined' && module.exports) {

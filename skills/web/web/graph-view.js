@@ -525,6 +525,14 @@ function graphDrawPlan(plan) {
   svg.appendChild(world);
 
   const fixed = (el) => { el.setAttribute('vector-effect', 'non-scaling-stroke'); return el; };
+  // The washes of the tier bands come first, so they lie behind every other mark. A type's
+  // colour is open text, so it rides a data attribute and the page paints it once the Graph
+  // is on the page (paintTypeColors), as it does a type chip's; the stylesheet does the rest.
+  for (const t of plan.tints) {
+    const wash = graphEl('path', { d: t.d, 'data-tier': t.tier }, t.cls);
+    if (t.color) wash.setAttribute('data-type-color', t.color);
+    world.appendChild(wash);
+  }
   for (const r of plan.rings) {
     world.appendChild(fixed(graphEl('circle', { cx: r.cx, cy: 0, r: r.r }, r.cls)));
   }
@@ -615,6 +623,7 @@ function renderGraphView() {
     if (kind === 'force' && graphArrangements.has(sig)) layout = graphWithPositions(layout, model, graphArrangements.get(sig));
     plan = graphPlan(model, layout, {
       selectedIds, loneCardId: graphLoneCardId(), hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
+      types: state.types,
     });
   } catch (err) {
     const msg = String(err && err.message || err);
@@ -637,6 +646,7 @@ function renderGraphView() {
 
   const drawn = graphDrawPlan(plan);
   host.appendChild(drawn.stage);
+  paintTypeColors(drawn.svg);
   const w = drawn.stage.clientWidth || 800;
   const h = drawn.stage.clientHeight || 600;
   drawn.svg.classList.add(`graph-kind-${kind}`);

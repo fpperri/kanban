@@ -131,7 +131,10 @@ per board, with **Tiers** first:
   column for each status, when the Unnested option is table (by default they are on a ring
   outside the fan: see the option row below). Each band has a faint arc and a caption with its name
   up the seam at the top, there is a divider between sectors, and the Unnested
-  block is titled and each column is captioned with its status. A caption shows
+  block is titled and each column is captioned with its status. Each tier band that
+  holds a card is washed in its type's colour, a neutral wash when the type has none,
+  behind the lines and the dots; depth rings, the Unnested ring and the Unnested block
+  are not washed, and a click on a wash is a click on empty space. A caption shows
   its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
   with its count, its split by status and the `slice:` term that cuts to it. Fit
   and the first draw frame all of it.
