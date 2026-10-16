@@ -33,4 +33,5 @@ module.exports = [
   require('./isolate'),
   require('./isolate-link'),
   require('./hotkeys'),
+  require('./open-keeps-pills'),
 ];

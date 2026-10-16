@@ -309,8 +309,10 @@ function selectionWithoutCard(selection, id, matchQuery) {
 // a new anchor and drops the additions; a toggle takes a selected card out and
 // adds an unselected one; a range adds the cards between the range start and the
 // card that are not selected yet, each as an addition; a click that opens the card
-// empties the selection. The first card picked becomes the anchor, because adding
-// to an empty selection does that. A cue is the caller's search shortcut.
+// empties the selection but for its pills, because opening a card changes no filter: a
+// pill that is on stays on, in its order (the first is the anchor), and every other part
+// goes. The first card picked becomes the anchor, because adding to an empty selection
+// does that. A cue is the caller's search shortcut.
 function selectionAfterClick(action, id, { selection, resolved, rangeStart, order, matchQuery }) {
   if (action === 'select') return { selection: setAnchor(selection, cardPart(id)), rangeStart: id };
   if (action === 'toggle') {
@@ -322,7 +324,12 @@ function selectionAfterClick(action, id, { selection, resolved, rangeStart, orde
     const added = [...rangeSelection(resolved, order, start, id)].filter((card) => !resolved.has(card));
     return { selection: added.reduce((next, card) => addPart(next, cardPart(card)), selection), rangeStart: start };
   }
-  if (action === 'open') return { selection: NO_SELECTION, rangeStart: null };
+  if (action === 'open') {
+    const parts = partsOf(selection);
+    const pills = parts.filter(isAnyPillPart);
+    const next = pills.length === parts.length ? selection : selectionFromParts(pills);
+    return { selection: next, rangeStart: rangeStartOf(next) };
+  }
   return { selection, rangeStart };
 }
 

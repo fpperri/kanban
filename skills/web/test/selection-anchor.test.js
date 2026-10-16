@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, resolveSelection, selectionWithoutCard, stepBack, pruneSelectionParts,
-  cardClickAction, shiftAddsRange, selectionAfterClick,
+  cardClickAction, shiftAddsRange, selectionAfterClick, typedQueryPart,
 } = require('../web/selection');
 const { parseSearchQuery, filterCards } = require('../web/search');
 
@@ -372,6 +372,23 @@ test('a Shift click on a card that is not in the view\'s order changes nothing',
 test('a plain click that opens a card empties the selection and its range start', () => {
   const state = start(selectionOf(cardPart(1), cardPart(2)), 2);
   for (const view of plainViews) assert.deepStrictEqual(clickOn(state, view, 4), { selection: NO_SELECTION, rangeStart: null }, view);
+});
+
+test('a plain click that opens a card keeps the pills the selection held, in their order, and drops every other part', () => {
+  const state = start(selectionOf(cardPart(1), queryPart('review:'), pathPart(2), treePart(3), queryPart('blocked:'), typedQueryPart('zephyr')), 1);
+  for (const view of plainViews) {
+    assert.deepStrictEqual(clickOn(state, view, 4), { selection: { anchor: queryPart('review:'), additions: [queryPart('blocked:')] }, rangeStart: null }, view);
+  }
+});
+
+test('a plain click that opens a card leaves a selection of pills alone: the very same selection comes back', () => {
+  const state = start(selectionOf(queryPart('review:'), queryPart('blocked:')), null);
+  for (const view of plainViews) assert.strictEqual(clickOn(state, view, 4).selection, state.selection, view);
+});
+
+test('a click that selects a card still replaces the pills the selection held', () => {
+  const state = start(selectionOf(queryPart('review:'), queryPart('blocked:')), null);
+  assert.deepStrictEqual(clickOn(state, 'graph', 4), { selection: { anchor: cardPart(4), additions: [] }, rangeStart: 4 });
 });
 
 test('in the Graph a click makes the card a new anchor and drops the additions, whatever the selection was', () => {
