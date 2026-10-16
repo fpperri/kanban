@@ -7,7 +7,7 @@ const {
 } = require('../web/graph-model');
 const { loadBoard, cleanUp, drawnModel, card, buildOf } = require('./helpers/fan-boards');
 
-// The tier fan's Names option: which cards carry their title beside the dot. One pure
+// The tier fan's Names option: which cards carry their title. One pure
 // function of the model gives the named set (graphFanNames). Relevant names the selection
 // and the cards it lights (a lone card's one-hop relations among them, a pill's matches
 // being the selection), then the parents from the highest altitude down while the named

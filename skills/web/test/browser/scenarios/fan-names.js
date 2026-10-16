@@ -1,7 +1,7 @@
 'use strict';
 // The tier fan's Names option and the n key, on the plan board. The option row's Names holds
-// relevant, all and none, relevant pressed by default. A name is a plain label beside a dot:
-// every card of the fan has exactly one, and the page shows the ones the setting names
+// relevant, all and none, relevant pressed by default. A name is a plain label of a card:
+// every card of the fan has exactly one, and the page names the ones the setting names
 // (graphFanNames). On the plan board relevant names the five parents from the highest
 // altitude down (the fan is above the small size), all names every card and none names none,
 // each the number the model predicts, so each choice changes the number drawn. A card named
@@ -17,8 +17,9 @@
 // two and not their relations. The malformed board draws its names in every setting. The harness
 // closes the scenario with the console-error check, which covers all three boards.
 //
-// A name is shown when its label's computed display is not none: the stylesheet shows the label
-// of a node with the graph-named class, so this reads what a person sees.
+// A card is named when its node has the graph-named class, which the page gives the cards the
+// setting names. Whether a named card's name found room, and where it sits, is fan-name-rows's:
+// a card with no room keeps its id label. A name cut to its room ends in an ellipsis.
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. Its parents, the cards with a child, are
 // 1, 2, 7, 22 and 23 (altitudes 5, 4, 3, 2 and 1). Card 5 is a child of card 1 that waits for
@@ -58,8 +59,8 @@ const CASES = {
 
 const BOX = `document.getElementById('search-input')`;
 const NODES = `[...document.querySelectorAll('#graph-view .graph-node')]`;
-// The ids of the cards whose name label is shown, in order, and how many labels the stage holds.
-const NAMED = `${NODES}.filter((n)=>{const t=n.querySelector('.graph-node-name');return !!t&&getComputedStyle(t).display!=='none'}).map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b)`;
+// The ids of the cards named, in order, and how many labels the stage holds.
+const NAMED = `${NODES}.filter((n)=>n.classList.contains('graph-named')).map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b)`;
 const LABEL_COUNT = `document.querySelectorAll('#graph-view .graph-node-name').length`;
 const NODE_COUNT = `document.querySelectorAll('#graph-view .graph-node').length`;
 // Every card has exactly one label, and each is a text (an SVG text, never markup).
@@ -93,6 +94,8 @@ const FOCUS_BOX = `${BOX}.focus()`;
 const CANVAS_DRAGGED = `graphCur.view.touched===true`;
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// A name shows a card's title whole, or a start of it with an ellipsis when its room is shorter.
+const showsTitle = (shown, title) => typeof shown === 'string' && (shown === title || (shown.length > 1 && shown.endsWith('…') && title.startsWith(shown.slice(0, -1))));
 const sorted = (ids) => ids.slice().sort((a, b) => a - b);
 const union = (...lists) => sorted([...new Set(lists.flat())]);
 
@@ -191,7 +194,7 @@ module.exports = {
     check('plan: all is pressed and names every card', await choose('all') && await settles(plan.live), await named());
     counts.all = (await named()).length;
     check('plan: and they are the names the model predicts', await ev(NAMED_ARE_PREDICTED('all')), { drawn: await named(), predicted: await ev(predicted('all')) });
-    check('plan: a named card shows its title', (await ev(nameOf(plan.title.id))) === plan.title.text, await ev(nameOf(plan.title.id)));
+    check('plan: a named card shows its title', showsTitle(await ev(nameOf(plan.title.id)), plan.title.text), await ev(nameOf(plan.title.id)));
     check('plan: and the footer line follows', await waitFor(keyLineSays('all'), 4000), await ev(KEY_LINE));
     check('plan: none is pressed and names no card', await choose('none') && await settles([]), await named());
     counts.none = (await named()).length;

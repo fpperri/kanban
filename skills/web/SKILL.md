@@ -1659,7 +1659,8 @@ to `127.0.0.1` only.
   ring is **blocked**, an amber ring **waiting**, a gold ring **review**; the child ring and
   the flag rings sit outside every shape, the star's points included. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
-  the view is zoomed in, or when the graph is small; a card the Tiers fan names prints its title there instead (see **Options**). **Relations:** in Force and Status a solid line joins a
+  the view is zoomed in, or when the graph is small; a card the Tiers fan names and finds room for shows its title instead,
+  beside its ring or in a row outside the rim (see **Options**). **Relations:** in Force and Status a solid line joins a
   parent to its child, in Tiers the Lines option says which parent lines are drawn (see **Options**),
   and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
@@ -1673,18 +1674,36 @@ to `127.0.0.1` only.
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
   orders its rows, or by **rank**, the outline's own order; cards of one status keep the outline's order.
-  **Names** says which cards carry their title beside the dot: **relevant** (the default) names the selection
+  **Names** says which cards carry their title: **relevant** (the default) names the selection
   and the cards it lights (a lone card's one-hop relations and a pill's matches among them), then the parents from
   the highest altitude down while fewer than 24 cards are named, and on a fan of 24 cards or fewer every card;
   **all** names every card; **none** names no card. Altitude is the glossary's: the layers of cards below a
-  card on the board, drawn or not, blind to type, as the badge on its tile counts them. A name is the card's title as plain text, cut to 38 characters, set in place of its id
-  label; a click on a card names it and what it lights in place, with no redraw. Names never run the layout
+  card on the board, drawn or not, blind to type, as the badge on its tile counts them. A name is the card's title
+  as plain text, cut to 38 characters, and shorter, with an ellipsis, when its place has less room; a named card that
+  finds room shows it in place of its id label; a click on a card names it and what it lights in place, with no redraw.
+  Names never run the layout
   again: the setting is in neither the layout's cache key nor what re-fits an untouched view, so only the named
   set changes. **n** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
   whether the row is folded or not; it reads the shared key guard, so it does nothing while a field has focus (the
   search box types an n) or while a card menu, a dialog, the notifications panel or the preferences sheet is
   open, and it works with the search panel open. The footer line under the Graph shows the setting (`n steps the
   names: relevant`). Force and Status have no names.
+  **Where names sit.** A name is never tilted and keeps its size on screen at any zoom. A parent, a card with children,
+  which wears the outer ring, is named beside its ring, inside the rim. Every other named card is named in a row outside
+  the rim on its own side of the fan, the cards of a side taking the rows in the order of their rays down it, and a
+  leader runs from its dot out along its own ray, round any dot in the way, along a rail just outside the rim and out to
+  its name. With the table choice, the Unnested block's named cards sit in one list above the block, the column furthest
+  right nearest it, each joined to its dot by a leader that runs up its column's left side. A name keeps off every dot,
+  caption and other name, and off an id label that shows without a hover or a selection, and never crosses a parent
+  line or a dependency line that is drawn, or a divider between sectors; a card with no room is left unnamed, and its
+  id label shows as it would with no name. A leader keeps off no name, caption or line: it can run under a parent's
+  name or across a caption. In the block's list a card whose column line would run inside or hard against the rim, or
+  across a name or a caption, is left unnamed, so the block's left-hand columns, nearest the fan, are the first to lose
+  their names and can lose all of them. Rows are
+  bounded by the fan, not by the panel, so a long name at the panel's edge can run past it until the view is panned.
+  Names are placed again once a zoom settles (zoomed out, a name takes more of the fan's own room, so fewer find a
+  place) and when what they depend on changes, the selection, the setting, a card's title or sticker or a line; a pan
+  moves none, and a poll that brings nothing new places nothing.
   **Unnested** says where the cards with no parent, no children and no tier are drawn: **outermost** (the default) draws
   them on one ring outside every depth ring, grouped by status in the board's order, archived cards last,
   under an `unnested` caption on the seam, level with the ring, whose tooltip counts them and names no slice;
