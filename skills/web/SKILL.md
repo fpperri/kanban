@@ -1620,7 +1620,13 @@ to `127.0.0.1` only.
   sides of the seam so they never touch; a tier nobody
   is in keeps a thin band and a muted caption when it has room for one, and a
   depth with no card draws nothing; a tier whose cards nest in one another gets a lighter
-  arc through each further row. A caption shows its name alone: hovering it, or moving
+  arc through each further row. Each tier band that holds a card is washed in its type's
+  colour (the `color:` of that type in the board's `types:` list), one **wash** across its
+  whole ring, behind the lines, the dots and the captions, so the hierarchy reads as coloured
+  areas; a tier whose type has no colour gets a neutral wash, and a tier nobody is in, a depth
+  ring, the Unnested ring and the Unnested block get none. The wash takes no click: a click or
+  a double click on it is a click on empty space. A `slice:` cut, a status pill and isolate keep
+  the washes of the bands still drawn and drop those of the bands they leave empty. A caption shows its name alone: hovering it, or moving
   keyboard focus onto it (a caption is a tab stop), shows a **tooltip** with the number of
   its cards, how they split by status (`backlog 1 · doing 1`) and, for a tier or a depth, the
   `slice:` term that cuts to it (`slice:epic`, `slice:1`). The tooltip stands under the
