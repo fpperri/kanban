@@ -621,6 +621,24 @@ test('a zoom far out (k 0.01) places without a throw or a number that is not one
   }
 });
 
+test('a card whose place or size is not a number is left unnamed, and every other card is named as if it were not there', () => {
+  const node = (id, a, r) => ({
+    id, x: Math.cos(a) * r, y: Math.sin(a) * r, reach: 7, kidsRing: 10, flagRing: 10, cls: 'graph-node', name: `Card ${id} title`,
+  });
+  const cards = [node(1, 0.2, 80), node(2, Math.PI - 0.2, 80), node(3, Math.PI / 2, 80), node(4, -Math.PI / 2 + 0.2, 80), node(5, 1, 60), node(6, 2.2, 60)];
+  const place = (nodes, named) => graphNamesPlace({
+    plan: { nodes, links: [], captions: [] }, rim: 100, named: new Set(named), keep: new Set(), k: 1, labelsAll: true, measure: nameMeasure, font: '',
+  });
+  const sound = place(cards, [1, 2, 3, 4, 5, 6]);
+  assert.strictEqual(sound.placed.size, 6);
+  const odd = { ...node(7, 1.5, 70) };
+  for (const [what, bad] of [['x', { x: NaN }], ['y', { y: Infinity }], ['reach', { reach: NaN }], ['ring', { cls: 'graph-node has-kids', kidsRing: undefined }]]) {
+    const got = place([...cards, { ...odd, ...bad }], [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepStrictEqual(got.unnamed, [7], what);
+    assert.deepStrictEqual([...got.placed.entries()], [...sound.placed.entries()], `${what}: the others are named as before`);
+  }
+});
+
 test('a measure that answers no number falls back to the width of the text\'s characters', () => {
   const { layout, plan } = fanOf(MODEL);
   const named = graphFanNames(MODEL, 'relevant');

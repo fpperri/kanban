@@ -356,6 +356,8 @@ function graphNamesPlace(input) {
   // What a name keeps off, in one grid: a disc for each mark, the box of each text the fan
   // shows, the block's frame, and the segments of every line drawn and every divider.
   const idx = graphNameIndex(Math.max(GRAPH_NAME_CELL, 4 * rowH));
+  // A card with no place or size to read is left unnamed and keeps nothing off: a number that
+  // is not one would make every cost on its side not one either, and the side lose its names.
   const nodes = plan.nodes.map((n) => {
     const f = graphNameFlags(n.cls);
     const node = {
@@ -364,7 +366,7 @@ function graphNamesPlace(input) {
     };
     node.disc = { x: n.x, y: n.y, r: (f.flagged ? n.flagRing : f.kids ? n.kidsRing : n.reach) + GRAPH_NAME_MARK_PAD };
     return node;
-  });
+  }).filter((n) => [n.x, n.y, n.reach, n.disc.r].every(Number.isFinite));
   for (const n of nodes) {
     const r = n.disc.r;
     idx.add({ t: 'disc', owner: n.id, ...n.disc, box: { x0: n.x - r, y0: n.y - r, x1: n.x + r, y1: n.y + r } });
