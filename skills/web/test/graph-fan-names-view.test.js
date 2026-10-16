@@ -10,8 +10,8 @@ const { KEY_GUARD_SURFACES } = require('../web/key-guard');
 // The tier fan's Names option and the n key in the real page (helpers/page-vm.js runs every
 // script the page loads in one vm, with elements a test can read back). Names is a fourth
 // option of the row: relevant (the default), all or none, kept per board with the other
-// options. A named card shows its title beside its dot, as text, in a label the stylesheet
-// decides the place of; the setting never reaches the layout. The n key steps through the
+// options. A named card shows its title as text, in a label placed where graph-names.js finds
+// it room (graph-fan-name-rows-view.test.js); the setting never reaches the layout. The n key steps through the
 // values while the Graph shows Tiers, through the shared key guard. The browser runner
 // drives the same in Chrome (scenarios/fan-names.js).
 
@@ -361,7 +361,7 @@ test('n with focus on an option hands focus back to that same option in the rebu
 
 // --- the stylesheet --------------------------------------------------------------------------------------------------
 
-test('the stylesheet shows a name for a named node only, in a size that holds at any zoom, with tokens and no hex colour', () => {
+test('the stylesheet shows a name for a named node with room only, in a size that holds at any zoom, with tokens and no hex colour', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
   const rule = (sel) => {
     const at = css.indexOf(`${sel} {`);
@@ -372,9 +372,9 @@ test('the stylesheet shows a name for a named node only, in a size that holds at
   assert.match(rule('.graph-node-name'), /font-size: calc\(11px \/ var\(--graph-k, 1\)\)/);
   assert.match(rule('.graph-node-name'), /stroke-width: calc\(4px \/ var\(--graph-k, 1\)\)/);
   assert.match(rule('.graph-node-name'), /pointer-events: none/, 'a name never takes the pointer from a dot');
-  assert.match(rule('.graph-node.graph-named .graph-node-name'), /display: inline/);
-  assert.match(rule('.graph-node.graph-named .graph-node-id'), /display: none/, 'a named card shows its title where its id would be');
-  for (const sel of ['.graph-node-name', '.graph-node.graph-named .graph-node-name', '.graph-node.graph-named .graph-node-id']) {
+  assert.match(rule('.graph-node.graph-named.graph-placed .graph-node-name'), /display: inline/);
+  assert.match(rule('.graph-node.graph-named.graph-placed .graph-node-id'), /display: none/, 'a named card whose name found room shows its title in place of its id');
+  for (const sel of ['.graph-node-name', '.graph-node.graph-named.graph-placed .graph-node-name', '.graph-node.graph-named.graph-placed .graph-node-id']) {
     assert.doesNotMatch(rule(sel), /#[0-9a-fA-F]{3,8}\b|style=/, sel);
   }
 });

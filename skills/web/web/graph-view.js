@@ -17,8 +17,9 @@
 // option row (lines, dependencies, order, names, unnested), folded behind a toggle and kept per board:
 // a press redraws the Graph and hands focus back to the control, and no control of the
 // row holds the poll, starts a pan or clears the selection. Names says which cards carry their
-// title beside the dot (graphFanNames, graph-model.js): every card of the fan has one label
-// and the graph-named class on its node shows it, so a selection paints names in place; the
+// title (graphFanNames, graph-model.js) and graph-names.js where each sits: every card of the
+// fan has one label and one leader, set from the placement with attributes and classes, so a
+// selection paints names in place, and a zoom places them again once it settles; the
 // n key steps the setting through the shared key guard while the Graph shows Tiers.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
@@ -78,6 +79,14 @@ const graphArrangements = new Map();
 const GRAPH_ARRANGEMENTS_MAX = 6;
 let graphFrame = 0;
 let graphLastError = null;
+// Where the fan's names sit (graphNamesPlace, graph-names.js) is worked out again only when
+// what it reads changes: the last placement and its key, the placement a zoom has queued, and
+// the widths of the texts measured so far, in the stage's font.
+const GRAPH_NAMES_SETTLE_MS = 140;
+const GRAPH_NAMES_MEASURED_MAX = 4000;
+let graphNamesMemo = null;
+let graphNamesTimer = 0;
+const graphNamesMeasure = { family: null, ctx: null, seen: new Map() };
 
 function graphLoadLayout() {
   if (graphLayoutKind) return graphLayoutKind;
@@ -205,6 +214,9 @@ function resetGraphViewState() {
   graphCur = null;
   if (graphPan && graphPan.moved) isDragging = false;
   graphPan = null;
+  clearTimeout(graphNamesTimer);
+  graphNamesTimer = 0;
+  graphNamesMemo = null;
 }
 
 // --- DOM helpers ---------------------------------------------------------------
@@ -356,7 +368,13 @@ function graphApplyTransform() {
   svg.style.setProperty('--graph-k', String(k));
   arrow.setAttribute('markerWidth', 9 / k);
   arrow.setAttribute('markerHeight', 9 / k);
-  svg.classList.toggle('graph-labels-all', k >= GRAPH_LABELS_ALL_K || graphCur.nodeCount <= GRAPH_LABELS_ALL_MAX_NODES);
+  svg.classList.toggle('graph-labels-all', graphLabelsAll(k));
+  graphQueueNames();
+}
+
+// Whether every card's id label shows at the zoom k: zoomed in, or on a small graph.
+function graphLabelsAll(k) {
+  return k >= GRAPH_LABELS_ALL_K || graphCur.nodeCount <= GRAPH_LABELS_ALL_MAX_NODES;
 }
 
 function graphScheduleTransform() {
@@ -468,12 +486,86 @@ function graphSettleFocus() {
   else graphRestFocus();
 }
 
+// The width of a text on screen in px, at `size` px, as the stage's font draws it: read off a
+// canvas, with a little slack for the text's own rendering, and kept by text. Where no canvas
+// measures, the width of its characters, as graph-names.js reckons them.
+function graphMeasureName(text, size = GRAPH_NAME_PX, bold = false) {
+  const m = graphNamesMeasure;
+  const t = String(text);
+  const key = `${size} ${bold ? 'b' : 'r'} ${t}`;
+  if (m.seen.has(key)) return m.seen.get(key);
+  if (!m.ctx) {
+    try { m.ctx = document.createElement('canvas').getContext('2d'); } catch (err) { m.ctx = null; }
+  }
+  let w = NaN;
+  if (m.ctx) {
+    m.ctx.font = `${bold ? 600 : 400} ${size}px ${m.family || 'sans-serif'}`;
+    const got = m.ctx.measureText(t).width;
+    if (typeof got === 'number' && Number.isFinite(got)) w = got * 1.03 + 1;
+  }
+  if (!Number.isFinite(w)) w = (Array.from(t).length * GRAPH_NAME_CHAR_PX * size) / GRAPH_NAME_PX;
+  if (m.seen.size >= GRAPH_NAMES_MEASURED_MAX) m.seen.clear();
+  m.seen.set(key, w);
+  return w;
+}
+
+// The font the stage draws its names in, read once a placement; a new one forgets every width.
+function graphNamesFont() {
+  const family = String(getComputedStyle(graphCur.svg).fontFamily || '');
+  if (family !== graphNamesMeasure.family) {
+    graphNamesMeasure.family = family;
+    graphNamesMeasure.seen.clear();
+  }
+  return family;
+}
+
 // The names of the fan follow the selection like the lighting does: the cards it lights are
-// named (graphFanNames), painted on the nodes already drawn. The layout never reads them.
+// named (graphFanNames), and where each name sits is graphNamesPlace's, worked out again only
+// when its key changes (a new zoom, named set, board or font), so a poll that brings nothing new
+// places nothing. Painted on the nodes already drawn, with attributes and classes alone:
+// graph-named is the named set, graph-placed a name that found room, graph-called one in a row
+// or a list, joined to its dot by its leader. The layout never reads them.
 function graphPaintNames() {
-  if (!graphCur || graphCur.kind !== 'tiers') return;
-  const named = graphFanNames(graphCur.model, graphLoadOptions().names, { selectedIds, loneCardId: graphLoneCardId() });
-  for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('graph-named', named.has(nid));
+  clearTimeout(graphNamesTimer);
+  graphNamesTimer = 0;
+  if (!graphCur || graphCur.kind !== 'tiers' || !graphCur.nameEls.size) {
+    if (graphCur) graphCur.names = null;
+    return;
+  }
+  const loneCardId = graphLoneCardId();
+  const named = graphFanNames(graphCur.model, graphLoadOptions().names, { selectedIds, loneCardId });
+  const lit = graphRestLit(graphCur.model, { selectedIds, loneCardId }, graphCur.lines);
+  const k = graphCur.view.k;
+  const input = {
+    plan: graphCur.plan, rim: graphNamesRim(graphCur.layout), named, keep: lit ? lit.nodes : [], k, labelsAll: graphLabelsAll(k),
+    measure: graphMeasureName, font: graphNamesFont(),
+  };
+  const key = graphNamesKey(input);
+  if (!graphNamesMemo || graphNamesMemo.key !== key) graphNamesMemo = { key, result: graphNamesPlace(input) };
+  const names = graphNamesMemo.result;
+  graphCur.names = names;
+  for (const n of graphCur.plan.nodes) {
+    const g = graphCur.nodeEls.get(n.id);
+    const els = graphCur.nameEls.get(n.id);
+    if (!g || !els) continue;
+    const p = names.placed.get(n.id);
+    g.classList.toggle('graph-named', named.has(n.id));
+    g.classList.toggle('graph-placed', !!p);
+    g.classList.toggle('graph-called', !!(p && p.leader));
+    els.text.textContent = p ? p.text : n.name;
+    els.text.setAttribute('x', p ? graphRound(p.x - n.x) : n.reach + 3);
+    els.text.setAttribute('y', p ? graphRound(p.y - n.y) : 0);
+    els.text.setAttribute('text-anchor', p ? p.anchor : 'start');
+    els.leader.setAttribute('d', p && p.leader ? p.leader.d : '');
+  }
+}
+
+// A zoom places the names again once it settles: each step of it puts the placement off, and
+// a pan, which keeps the zoom, places nothing. O(1), so the transform stays one write a frame.
+function graphQueueNames() {
+  if (!graphCur || graphCur.kind !== 'tiers' || !graphCur.names || graphCur.names.k === graphCur.view.k) return;
+  clearTimeout(graphNamesTimer);
+  graphNamesTimer = setTimeout(graphPaintNames, GRAPH_NAMES_SETTLE_MS);
 }
 
 function graphPaintSelection() {
@@ -564,12 +656,16 @@ function graphDrawPlan(plan) {
     return p;
   });
   const nodeEls = new Map();
+  const nameEls = new Map();
   for (const n of plan.nodes) {
     const g = graphEl('g', { transform: `translate(${n.x} ${n.y})`, tabindex: 0 }, n.cls);
     g.setAttribute('data-id', String(n.id));
     const title = graphEl('title');
     title.textContent = n.title;
     g.appendChild(title);
+    // A named card's leader runs from its dot to its name once the names are placed
+    // (graphPaintNames); drawn first, so the dot covers where it starts.
+    const leader = n.name !== undefined ? g.appendChild(fixed(graphEl('path', { d: '' }, 'graph-node-leader'))) : null;
     // A type with an icon draws its dot as that outline (the plan holds it as `d`, from
     // a closed table), still the one graph-dot in the status colour; every other card is round.
     g.appendChild(fixed(n.d ? graphEl('path', { d: n.d }, 'graph-dot') : graphEl('circle', { r: n.r }, 'graph-dot')));
@@ -584,6 +680,7 @@ function graphDrawPlan(plan) {
       const name = graphEl('text', { x: n.reach + 3 }, 'graph-node-name');
       name.textContent = n.name;
       g.appendChild(name);
+      nameEls.set(n.id, { text: name, leader });
     }
     world.appendChild(g);
     nodeEls.set(n.id, g);
@@ -601,7 +698,7 @@ function graphDrawPlan(plan) {
   stage.appendChild(svg);
   const tip = graphBuildTip();
   stage.appendChild(tip);
-  return { stage, svg, world, arrow, linkEls, nodeEls, tip };
+  return { stage, svg, world, arrow, linkEls, nodeEls, nameEls, tip };
 }
 
 function renderGraphView() {
@@ -658,10 +755,11 @@ function renderGraphView() {
   }
   view.sig = sig;
   graphCur = {
-    kind, sig, model, layout, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
-    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, tip: drawn.tip, tipFor: null,
+    kind, sig, model, layout, plan, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
+    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
   };
   if (refit) Object.assign(view, graphFit(layout.bounds, w, h), { touched: false });
+  graphPaintNames();
   graphApplyTransform();
   graphSettleFocus();
 }
