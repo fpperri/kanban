@@ -329,14 +329,17 @@ function graphNamesKey(input) {
 // of the line, `box` the room it takes, padded, and `leader` null beside a ring, else { from,
 // to, d }: where it leaves the dot and stops short of the name, in the world, and its path,
 // drawn in the card's own group (every point less the card's);
-// `unnamed`, the named ids with no room, in order; and `stats`, the work done (`tests`, the
-// exact tests of a place against what it keeps off).
+// `unnamed`, the named ids with no room, in order; and `stats`, the work done: `tests`, the
+// exact tests of a place against what it keeps off; `rays`, the marks looked at for the
+// leaders' runs; `cells`, the cells of the tables that give a side's rows out.
 function graphNamesPlace(input) {
   const o = input || {};
   const named = new Set(o.named || []);
   const rim = Number.isFinite(o.rim) && o.rim > 0 ? o.rim : 0;
   const k = o.k;
-  const stats = { tests: 0, rows: { L: 0, R: 0 }, dropped: 0 };
+  const stats = {
+    tests: 0, rays: 0, cells: 0, rows: { L: 0, R: 0 }, dropped: 0,
+  };
   const placed = new Map();
   const done = () => ({
     k, rim, placed, unnamed: [...named].filter((id) => !placed.has(id)).sort((a, b) => a - b), stats,
@@ -652,11 +655,15 @@ function graphNamesPlace(input) {
       stats.dropped++;
       list = list.slice(0, at).concat(list.slice(at + 1));
     };
+    const assign = () => {
+      stats.cells += list.length * rows.length;
+      return graphNameAssign(list, rows, cost);
+    };
     while (list.length > rows.length) dropWorst();
-    let got = graphNameAssign(list, rows, cost);
+    let got = assign();
     while (!got && list.length) {
       dropWorst();
-      got = graphNameAssign(list, rows, cost);
+      got = assign();
     }
     if (!got) continue;
     list.forEach((c, i) => {
@@ -730,7 +737,7 @@ function graphNameRun(ray, r0, r1, discs, own, local, stats) {
   const hits = [];
   for (const m of discs) {
     if (m.owner === own) continue;
-    stats.tests++;
+    stats.rays++;
     const mr = Math.hypot(m.x, m.y);
     if ((mr - r0) * s <= 0 || (r1 - mr) * s <= 0) continue;
     const reach = m.r + GRAPH_NAME_DETOUR;

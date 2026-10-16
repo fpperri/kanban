@@ -8,10 +8,10 @@ const {
   STATUSES, buildOf, rootShapedCards, placeOn, pathPoints, drawnBox, within, leaderPieces, leaderCrossings,
 } = require('./helpers/fan-boards');
 
-// A fan of 150 cards with names on all: the size of a real shop board's fan, which the
-// prototype's placement never tried. Every card is either placed clear of every other name,
-// every dot and every line, or left unnamed, and the work the placement does is bounded: the
-// count of exact tests is pinned from a measurement, and the time is a loose check on top.
+// A fan of 150 cards with names on all: the size of a real shop board's fan. Every card is
+// either placed clear of every other name, every dot and every line, or left unnamed, and the
+// work the placement does is bounded: the counts of its work at each zoom are pinned from a
+// measurement, and its time is held under a frame's on top.
 // The cards: the first 110 of the tree of rootShapedCards (its goals, strategies, objectives,
 // epics and their children) and its 40 loose cards; every seventh tree card waits for the
 // card three before it, and five loose cards wait for a tree card, so dependency lines run out
@@ -27,10 +27,17 @@ const crowd = () => {
 const MODEL = buildOf(crowd());
 const STAGES = [[1600, 800], [1280, 720], [1000, 700]];
 const ZOOMS = [1, 2, 0.5];
-// Measured over every case below, and pinned: the fewest cards placed at each zoom, and twice
-// the most exact tests one placement made.
+// Measured over every case below, and pinned at each zoom: the fewest cards placed, and twice
+// the most work one placement did, in exact tests of a place, marks looked at for the leaders'
+// runs and cells of the tables that give the rows out.
 const PLACED_AT_LEAST = { 1: 124, 2: 139, 0.5: 56 };
-const TESTS_AT_MOST = 2 * 53376;
+const WORK_AT_MOST = {
+  1: { tests: 2 * 24538, rays: 2 * 14453, cells: 2 * 6111 },
+  2: { tests: 2 * 4374, rays: 2 * 14453, cells: 2 * 11349 },
+  0.5: { tests: 2 * 43016, rays: 2 * 10430, cells: 2 * 2450 },
+};
+// A frame at 60 a second.
+const FRAME_MS = 16;
 
 const cases = () => {
   const out = [];
@@ -72,7 +79,7 @@ test('a 150-card fan with names on all places every card without overlap or leav
     assert.deepStrictEqual([...result.placed.keys(), ...result.unnamed].sort((a, b) => a - b), named, `${c.where}: every card placed or unnamed`);
     assert.ok(result.unnamed.every((id) => !result.placed.has(id)), `${c.where}: never both`);
     assert.ok(result.placed.size >= PLACED_AT_LEAST[c.zoom], `${c.where}: ${result.placed.size} placed, fewer than ${PLACED_AT_LEAST[c.zoom]}`);
-    assert.ok(result.stats.tests <= TESTS_AT_MOST, `${c.where}: ${result.stats.tests} exact tests`);
+    for (const [what, most] of Object.entries(WORK_AT_MOST[c.zoom])) assert.ok(result.stats[what] <= most, `${c.where}: ${result.stats[what]} ${what}, more than ${most}`);
     for (let i = 0; i < placed.length; i++) {
       for (let j = i + 1; j < placed.length; j++) assert.ok(!graphNameMeets(placed[i][1].box, placed[j][1].box), `${c.where}: cards ${placed[i][0]} and ${placed[j][0]} overlap`);
     }
@@ -101,15 +108,15 @@ test('on a 150-card fan no two leaders cross, though many share the rail and the
   }
 });
 
-test('a 150-card fan is placed in well under the time of a frame', () => {
-  for (const c of cases().filter((x) => x.zoom === 1)) {
+test('a 150-card fan is placed within the time of a frame, at every zoom', () => {
+  for (const c of cases()) {
     graphNamesPlace(c.input);
     let best = Infinity;
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       const t0 = performance.now();
       graphNamesPlace(c.input);
       best = Math.min(best, performance.now() - t0);
     }
-    assert.ok(best < 100, `${c.where}: ${best.toFixed(1)} ms`);
+    assert.ok(best < FRAME_MS, `${c.where}: ${best.toFixed(1)} ms`);
   }
 });
