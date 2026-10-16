@@ -5,7 +5,7 @@ const { performance } = require('node:perf_hooks');
 const { graphLayoutTiers, graphPlan, graphFanNames } = require('../web/graph-model');
 const { graphNamesPlace, graphNameMeets, graphNameDiscHits } = require('../web/graph-names');
 const {
-  STATUSES, buildOf, rootShapedCards, placeOn, pathPoints,
+  STATUSES, buildOf, rootShapedCards, placeOn, pathPoints, drawnBox, within,
 } = require('./helpers/fan-boards');
 
 // A fan of 150 cards with names on all: the size of a real shop board's fan, which the
@@ -77,6 +77,7 @@ test('a 150-card fan with names on all places every card without overlap or leav
     }
     for (const [id, p] of placed) {
       if (p.kind === 'list') lists++;
+      assert.ok(within(drawnBox(p, c.k), p.box), `${c.where}: card ${id}'s text runs out of the room it takes`);
       for (const n of c.plan.nodes) {
         if (n.id !== id) assert.ok(!graphNameDiscHits(p.box, { x: n.x, y: n.y, r: n.reach }), `${c.where}: card ${id}'s name covers card ${n.id}`);
       }

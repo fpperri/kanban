@@ -11,7 +11,7 @@ const { listActive, listArchived } = require('../../scripts/card-store');
 const { readConfig } = require('../../scripts/config-store');
 const { materialize } = require('../browser/boards');
 const { graphBuild, graphFit, graphFanNames } = require('../../web/graph-model');
-const { graphNamesPlace, graphNamesRim } = require('../../web/graph-names');
+const { GRAPH_NAME_ROW, graphNamesPlace, graphNamesRim } = require('../../web/graph-names');
 
 const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 const HIERARCHY = ['goal', 'strategy', 'objective', 'epic'];
@@ -190,7 +190,19 @@ function placeOn(model, layout, plan, { names = 'all', w = 1600, h = 800, zoom =
   return { input, k, result: graphNamesPlace(input) };
 }
 
+// Where a placed name's text comes out as the page draws it, in the world: from its anchor
+// point as wide as `measure` reads its text, one row high round its middle line. A test that
+// checks the box a placement reports checks the text only once the text lies inside that box.
+function drawnBox(p, k, measure = nameMeasure) {
+  const w = measure(p.text) / k;
+  const h = GRAPH_NAME_ROW / k;
+  const x0 = p.anchor === 'middle' ? p.x - w / 2 : p.anchor === 'end' ? p.x - w : p.x;
+  return { x0, x1: x0 + w, y0: p.y - h / 2, y1: p.y + h / 2 };
+}
+const within = (inner, outer, slack = 1e-9) => inner.x0 >= outer.x0 - slack && inner.x1 <= outer.x1 + slack
+  && inner.y0 >= outer.y0 - slack && inner.y1 <= outer.y1 + slack;
+
 module.exports = {
   STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
-  nameMeasure, pathPoints, placeOn,
+  nameMeasure, pathPoints, placeOn, drawnBox, within,
 };

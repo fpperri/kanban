@@ -9,7 +9,7 @@ const {
   graphNamesPlace, graphNamesKey, graphNamesRim, graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets,
 } = require('../web/graph-names');
 const {
-  STATUSES, loadBoard, cleanUp, drawnModel, nameMeasure, placeOn, captionRects, pathPoints,
+  STATUSES, loadBoard, cleanUp, drawnModel, nameMeasure, placeOn, captionRects, pathPoints, drawnBox, within,
 } = require('./helpers/fan-boards');
 
 // Where the tier fan's names sit. One pure function (graphNamesPlace) takes the plan the
@@ -382,12 +382,38 @@ test('the Unnested block\'s named cards sit in one list above the block, the col
   }
 });
 
+test('a listed name with something in its row is cut to the room left, and its text stays inside the room it takes', () => {
+  // One block card under a block well outside a small fan, and a caption to the right of the
+  // list's first row: the name, far longer than the room, is cut short of the caption.
+  const name = 'A title far too long for the room its row has';
+  const row = 300 - 0.9 * GRAPH_NAME_ROW;
+  const caption = { name: 'XXXX', x: 600, y: row, dy: '0.35em', anchor: 'start' };
+  const plan = {
+    nodes: [{ id: 9, x: 510, y: 320, reach: 4, kidsRing: 8, flagRing: 9, cls: 'graph-node', name }],
+    links: [],
+    captions: [caption],
+    looseCaption: null,
+    block: { x: 500, y: 300, w: 60, h: 40, pitch: 22, title: null, columns: [{ x: 500, w: 60, ids: [9], caption: null }] },
+  };
+  const result = graphNamesPlace({
+    plan, rim: 100, named: new Set([9]), keep: new Set(), k: 1, labelsAll: false, measure: nameMeasure, font: '',
+  });
+  const p = result.placed.get(9);
+  assert.ok(p, 'the card is listed');
+  assert.strictEqual(p.kind, 'list');
+  assert.ok(p.text.endsWith('…') && name.startsWith(p.text.slice(0, -1)) && p.text.length < name.length, p.text);
+  assert.ok(within(drawnBox(p, 1), p.box), 'its text inside the room it takes');
+  const c = captionRects({ captions: [caption] }, { x: 0, y: 0, k: 1 })[0];
+  assert.ok(!graphNameMeets(p.box, { x0: c.l, x1: c.r, y0: c.t, y1: c.b }), 'clear of the caption');
+});
+
 // --- no name over another, a mark, a caption or a line ---------------------------------------
 
 test('plan board: no two placed names overlap, and none covers a dot, a caption or the block, at every fit and zoom', () => {
   let rows = 0;
   for (const c of matrix()) {
     const placed = [...c.result.placed];
+    for (const [id, p] of placed) assert.ok(within(drawnBox(p, c.k), p.box), `${c.where}: card ${id}'s text runs out of the room it takes`);
     for (let i = 0; i < placed.length; i++) {
       for (let j = i + 1; j < placed.length; j++) assert.ok(!graphNameMeets(placed[i][1].box, placed[j][1].box), `${c.where}: cards ${placed[i][0]} and ${placed[j][0]}`);
     }
@@ -411,6 +437,7 @@ test('no placed name crosses a parent line or a dependency line the plan draws',
   for (const c of matrix(['folded', 'all', 'chain'])) {
     const points = c.plan.links.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l })));
     for (const [id, p] of c.result.placed) {
+      assert.ok(within(drawnBox(p, c.k), p.box), `${c.where}: card ${id}'s text runs out of the room it takes`);
       const b = { x0: p.box.x0 + 1e-6, x1: p.box.x1 - 1e-6, y0: p.box.y0 + 1e-6, y1: p.box.y1 - 1e-6 };
       const on = points.find((q) => q.x > b.x0 && q.x < b.x1 && q.y > b.y0 && q.y < b.y1);
       assert.ok(!on, `${c.where}: card ${id}'s name lies over the line ${on && `${on.l.from}>${on.l.to}`}`);
