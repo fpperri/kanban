@@ -1,6 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { BOARD, card } = require('./nesting-fixture');
+const { BOARD, PAGE_SCRIPTS, card } = require('./nesting-fixture');
 const { byClass } = require('./page-harness');
 const { board, column, idsIn, open, sheet, tile, tiles } = require('./nesting-view');
 
@@ -364,7 +364,7 @@ test('the embedded module and the page script load together without a name clash
   const { loadPage } = require('./page-harness');
   withSnapshot(BOARD, (html) => {
     const page = loadPage(html);
-    assert.strictEqual(page.scripts.length, 3, 'the nesting module, the map module, then the page');
+    assert.strictEqual(page.scripts.length, PAGE_SCRIPTS, 'one script element for each embedded module, then the page');
     assert.strictEqual(page.run('typeof outlineOrder + typeof rollupIndex + typeof threadOf'), 'functionfunctionfunction');
   });
 });

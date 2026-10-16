@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
-const { BOARD, card, lf, mapRelationsPath, nestingPath, withSnapshot } = require('./nesting-fixture');
+const { BOARD, PAGE_SCRIPTS, card, lf, mapRelationsPath, nestingPath, withSnapshot } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
 
 // The snapshot carries the map's graph rules as the same source kanban-web runs,
@@ -33,7 +33,7 @@ test('a card that happens to contain the map module placeholder keeps its own te
 test('the modules and the page script load together without a name clash, and the page can call the map rules', () => {
   withSnapshot(BOARD, (html) => {
     const page = loadPage(html);
-    assert.strictEqual(page.scripts.length, 3, 'the nesting module, the map module, then the page');
+    assert.strictEqual(page.scripts.length, PAGE_SCRIPTS, 'one script element for each embedded module, then the page');
     assert.ok(page.scripts[0].includes(nestingSource) && page.scripts[1].includes(mapSource));
     assert.strictEqual(page.run('typeof mapShapeRelations + typeof mapOrderRow + typeof mapParentLineEnds'), 'functionfunctionfunction');
     assert.strictEqual(page.run('MAP_OPTION_DEFAULTS.parentLines'), 'chain');

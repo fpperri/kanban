@@ -14,25 +14,59 @@
     <!-- copy button INSIDE the h1 so it rides beside the title when the flex header wraps -->
     <h1><span id="project-name" class="project-name"></span> <button type="button" id="board-copy-btn" class="board-copy-btn" title="Copy the board folder's absolute path" aria-label="Copy the board folder's absolute path">&#x29C9;</button></h1>
   </div>
+  <!-- The search box is a bordered box holding the input, a chip, the clear button
+       and the arrow, a switch (aria-pressed): on, the default, focusing the input
+       opens the panel under it; off, nothing does. The p key flips it too.
+       The chip is a button, so it is a tab stop while it is shown (hidden, it is none):
+       a click, Enter and Space on it open the panel.
+       The panel hangs from the bar without adding to the header's height. It has a
+       region for the slices, the pill section, a divider and a foot, which holds the
+       Isolate switch (a button with role switch: aria-checked says whether isolate is
+       on; the i key flips it too); each is drawn on its own, so what joins the panel
+       later extends one without editing another.
+       Every control in the bar and the panel wears data-keeps-selection, so a click on
+       it never clears a selection, and none wears data-holds-poll: a focused pill is
+       kept in place across the poll, which never pauses while the panel is open. -->
   <div class="search-bar">
-    <input type="search" id="search-input" class="search-input" autocomplete="off"
-      placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
-      title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Press / to focus, Esc to clear.">
-    <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search (Esc)" aria-label="Clear search">&#10005;</button>
+    <div class="search-box">
+      <input type="search" id="search-input" class="search-input" autocomplete="off"
+        placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
+        title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. slice:objective..2 cuts every view to a run of slices (tiers, then depths). Press / to focus. Esc closes the search panel when it is open, then clears the box.">
+      <button type="button" id="search-chip" class="search-chip hidden" aria-controls="search-panel" aria-expanded="false" data-keeps-selection></button>
+      <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search" aria-label="Clear search">&#10005;</button>
+      <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
+    </div>
+    <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters" data-keeps-selection>
+      <section id="search-slices-section" class="search-section hidden" aria-labelledby="search-slices-fold">
+        <button type="button" id="search-slices-fold" class="search-fold" data-keeps-selection aria-expanded="false" aria-controls="search-slices" aria-label="Slices" title="Fold or unfold the slices">Slices</button>
+        <div id="search-slices" class="search-slices hidden" role="group" aria-labelledby="search-slices-fold"></div>
+      </section>
+      <section class="search-section" aria-labelledby="search-pills-fold">
+        <button type="button" id="search-pills-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-pills" aria-label="Pills" title="Fold or unfold the pills">Pills</button>
+        <div id="search-pills" class="search-pills" role="group" aria-labelledby="search-pills-fold"></div>
+      </section>
+      <hr class="search-divider">
+      <div id="search-foot">
+        <button type="button" id="isolate-switch" class="isolate-switch" role="switch" aria-checked="false" data-keeps-selection title="Isolate: show only the selection, in every view, by writing it into the search box. Click, or press i, to turn it on."><span class="isolate-switch-track" aria-hidden="true"></span><span class="isolate-switch-label">Isolate</span></button>
+      </div>
+    </div>
   </div>
   <div class="actions">
     <button id="new-btn">+ New card</button>
-    <button id="map-toggle-btn" type="button" aria-pressed="false"
+    <button id="map-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
       title="Toggle dependency map view (nodes = cards, edges = waiting_for, honors the search filter)">🕸 Map view</button>
-    <button id="calendar-toggle-btn" type="button" aria-pressed="false"
+    <button id="calendar-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
       title="Toggle calendar view (month / week / 3-day / day sub-views of start→end ranges plus due-deadline chips, drag chips to reschedule, honors the search filter)">📅 Calendar</button>
-    <button id="gantt-toggle-btn" type="button" aria-pressed="false"
+    <button id="gantt-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
       title="Toggle gantt view (ranges as bars, due dates as diamonds, on a day timeline — drag a bar to shift, an edge to resize, a diamond to move its due date; honors the search filter)">📊 Gantt</button>
-    <button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>
+    <button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>
     <button id="refresh-btn" title="Reload from disk">⟳ Refresh</button>
     <button id="notif-btn" type="button" class="notif-btn" title="Notifications (agents write to notifications.md)" aria-label="Notifications">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
       <span id="notif-badge" class="notif-badge hidden"></span>
+    </button>
+    <button id="prefs-btn" type="button" class="prefs-btn" data-keeps-selection aria-haspopup="dialog" aria-expanded="false" title="Preferences" aria-label="Preferences">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
     </button>
     <span id="stale-indicator" class="hidden" title="Auto-refresh can't reach the server — showing last loaded data">⚠ stale</span>
   </div>
@@ -171,7 +205,7 @@
   </form>
 </div>
 
-<div id="detail-modal" class="modal-backdrop hidden">
+<div id="detail-modal" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal detail-modal">
     <div class="detail-header popup-header">
       <div>
@@ -206,15 +240,24 @@
   </div>
 </div>
 
-<div id="context-menu" class="context-menu hidden" role="menu">
+<div id="context-menu" class="context-menu hidden" role="menu" data-keeps-selection>
+  <!-- Peek and Add to selection lead the menu a right-click opens on a card
+       outside the selection; Peek is also left out of the card details' own
+       menu (both toggled in showContextMenu, main script below). -->
+  <button type="button" id="ctx-peek" role="menuitem">Peek</button>
+  <button type="button" id="ctx-add" role="menuitem">Add to selection</button>
   <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
   <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
   <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
   <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
-  <!-- Sugar over tree:<id>/path:<id> search terms — writes the term
-       into the search box and runs the normal search flow, no view switch.
-       Single-card only: hidden whenever the effective selection is >1 card
-       (toggled in showContextMenu, main script below). -->
+  <!-- Isolate leads nothing and trails the edits: it is offered inside the selection
+       only, and alone in the small menu of the empty Graph or Map canvas (toggled in
+       showContextMenu, main script below). It reads Turn isolate off while isolate is on. -->
+  <button type="button" id="ctx-isolate" role="menuitem" class="hidden">Isolate</button>
+  <!-- Add the card's dependency tree or path to the selection as one part;
+       the search box is left alone. One card only: hidden whenever the
+       menu's subject is more than one card (toggled in showContextMenu,
+       main script below). -->
   <button type="button" id="ctx-tree" role="menuitem">Dependency tree</button>
   <button type="button" id="ctx-path" role="menuitem">Dependency path</button>
   <button type="button" id="ctx-archive" role="menuitem">Archive selected</button>
@@ -225,7 +268,7 @@
 <!-- Bulk-edit popups. Single-choice serves Assign… and Set
      priority…; the tags popup is the add/remove workbench. Same
      .modal-backdrop convention as every popup (pauses the poll). -->
-<div id="bulk-single" class="modal-backdrop hidden">
+<div id="bulk-single" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-single-title"></h2>
@@ -244,7 +287,7 @@
   </div>
 </div>
 
-<div id="bulk-tags" class="modal-backdrop hidden">
+<div id="bulk-tags" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-tags-title"></h2>
@@ -268,7 +311,7 @@
      first. The package box completes against the board's existing
      archived/<package>/ folders; a new name creates that folder, an empty box
      archives to the archived/ root. -->
-<div id="bulk-archive" class="modal-backdrop hidden">
+<div id="bulk-archive" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-archive-title"></h2>
@@ -288,7 +331,7 @@
      the form's date-field grammar (free-text input + 📅 picker button, wired
      by the shared .date-pick-btn loop) plus a "clear" checkbox; clear wins
      over a typed value, empty+unchecked leaves the card's value alone. -->
-<div id="bulk-schedule" class="modal-backdrop hidden">
+<div id="bulk-schedule" class="modal-backdrop hidden" data-keeps-selection>
   <div class="modal bulk-modal">
     <div class="modal-header popup-header">
       <h2 id="bulk-schedule-title"></h2>
@@ -332,6 +375,83 @@
   </div>
 </div>
 
+<!-- Preferences sheet: the settings that rarely change, kept in this browser
+     per board and never written to the board. It sits on the modal backdrop, so
+     the poll pauses and the Esc catch-all see it (and Esc, a click outside and
+     the close button each close it and hand focus back to the gear); the key
+     guard names it, so / and Ctrl+F stand still while it is open. Nothing here
+     sets a tab order: it traps no Tab, like the other popups. -->
+<div id="prefs-sheet" class="modal-backdrop prefs-backdrop hidden" data-keeps-selection>
+  <aside class="prefs-sheet" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+    <div class="prefs-head">
+      <h2 id="prefs-title">Preferences</h2>
+      <button type="button" id="prefs-close" class="icon-btn" data-keeps-selection data-holds-poll title="Close" aria-label="Close preferences">&#10005;</button>
+    </div>
+    <section class="prefs-group" aria-labelledby="prefs-click-title">
+      <h3 id="prefs-click-title">A plain click on a card</h3>
+      <p class="prefs-hint">Opens the card, or selects it. Where a click selects, a double click or Enter on a focused card opens it. Ctrl or Cmd click toggles a card and Shift click adds a range in every view.</p>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-board">Board</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-board">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-map">Map</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-map">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-gantt">Gantt</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-gantt">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-calendar">Calendar</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-calendar">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="opens" aria-pressed="false">opens</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="selects" aria-pressed="false">selects</button>
+        </span>
+      </div>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-graph">Graph</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-graph">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
+        </span>
+      </div>
+    </section>
+    <section class="prefs-group" aria-labelledby="prefs-rollup-title">
+      <h3 id="prefs-rollup-title">Roll-ups</h3>
+      <p class="prefs-hint">Every parent card shows a bar of the leaves below it; a click on any bar flips it for all of them, the same choice as here.</p>
+      <div class="prefs-row">
+        <span class="prefs-label" id="prefs-label-bar">Bar</span>
+        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-bar">
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="open" aria-pressed="false">open</button>
+          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="collapsed" aria-pressed="false">collapsed</button>
+        </span>
+      </div>
+      <label class="prefs-check"><input type="checkbox" id="prefs-archived-done" data-keeps-selection data-holds-poll> Count archived leaves as done</label>
+    </section>
+    <section class="prefs-group" aria-labelledby="prefs-panel-title">
+      <h3 id="prefs-panel-title">Search panel</h3>
+      <p class="prefs-hint">The panel under the search box lists the slices and the pills. A section's fold control folds it for this visit; these are how each starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
+      <label class="prefs-check"><input type="checkbox" id="prefs-slices-folded" data-keeps-selection data-holds-poll> Slice section starts folded</label>
+      <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
+      <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
+    </section>
+    <section class="prefs-group" id="prefs-hotkeys" aria-labelledby="prefs-hotkeys-title">
+      <h3 id="prefs-hotkeys-title">Hotkeys</h3>
+      <p class="prefs-hint">Every key the page answers and, where a key has one, the state it is in now. The single keys do nothing while you type in a field, or while a menu, a dialog or this sheet is up. Press ? to open this list.</p>
+      <ul id="hotkeys-list" class="hotkeys-list"></ul>
+    </section>
+  </aside>
+</div>
+
 <script src="/refresh-policy.js"></script>
 <script src="/column-state.js"></script>
 <script src="/column-sort.js"></script>
@@ -340,9 +460,13 @@
 <script src="/map-relations.js"></script>
 <script src="/dependency-graph.js"></script>
 <script src="/nesting.js"></script>
+<script src="/slices.js"></script>
+<script src="/slice-run.js"></script>
+<script src="/pills.js"></script>
 <script src="/map-zoom.js"></script>
 <script src="/calendar-model.js"></script>
 <script src="/gantt-model.js"></script>
+<script src="/type-icons.js"></script>
 <script src="/graph-model.js"></script>
 <script src="/date-picker.js"></script>
 <script src="/modal-fullscreen.js"></script>
@@ -356,13 +480,20 @@
 <script src="/prose.js"></script>
 <script src="/notifications.js"></script>
 <script src="/form-guard.js"></script>
+<script src="/prefs.js"></script>
 <script src="/selection.js"></script>
 <script src="/status-colors.js"></script>
 <script src="/assignee-colors.js"></script>
 <script src="/save-hotkey.js"></script>
 <script src="/search-hotkey.js"></script>
+<script src="/key-guard.js"></script>
 <script src="/deep-link.js"></script>
 <script src="/card-history.js"></script>
+<script src="/search-panel.js"></script>
+<script src="/search-slices.js"></script>
+<script src="/isolate.js"></script>
+<script src="/hotkeys.js"></script>
+<script src="/hotkeys-sheet.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>
 </body>

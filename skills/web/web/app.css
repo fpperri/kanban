@@ -259,12 +259,65 @@ button { background: var(--btn-bg); border: 1px solid var(--line); color: var(--
 button:hover { background: var(--btn-hover); }
 #new-btn { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
 #stale-indicator { align-self: center; color: var(--warn); font-size: 0.78em; }
-.search-bar { display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
+.search-bar { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
 .search-input { width: 100%; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 10px; border-radius: .15rem; font-size: 0.85em; font-family: inherit; }
 .search-input:focus { outline: none; border-color: var(--accent); }
 .search-input::placeholder { color: var(--mut); }
 .search-clear { background: transparent; border: none; color: var(--mut); padding: 4px 6px; cursor: pointer; font-size: 0.85em; flex-shrink: 0; }
 .search-clear:hover { color: var(--crit); background: transparent; }
+/* Search box and search panel. The box is the bordered frame round the input, the
+   chip, the clear button and the toggle; the input gives up its own border, so the
+   header is as tall as it was. The panel hangs from the bar (position: absolute,
+   so it adds nothing to the header's height) and sits below the suggestion list,
+   which hangs from the box at z-index 30: where both are open the list is on top.
+   The pills use their own classes (.query-pill), never the status pills' (.map-
+   filter-toggle and the rest), so the click-away marker, the poll's focus keeper
+   and the status pills' rules never reach them. Colours are tokens only. */
+.search-box { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; }
+.search-box:focus-within { border-color: var(--accent); }
+.search-box .search-input { flex: 1 1 60px; min-width: 60px; width: auto; border: 0; background: transparent; }
+.search-chip { flex-shrink: 0; margin-right: 2px; padding: 1px 8px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--accent-strong); font: inherit; font-size: 0.75em; white-space: nowrap; }
+.search-chip:hover { background: var(--accent-soft); }
+.search-panel-toggle { flex-shrink: 0; background: transparent; border: 0; color: var(--mut); padding: 4px 8px; font-size: 0.85em; }
+.search-panel-toggle:hover { background: transparent; color: var(--ink); }
+.search-panel-toggle[aria-expanded="true"] { color: var(--accent); }
+.search-panel-toggle[aria-pressed="false"] { text-decoration: line-through; }
+.search-panel-toggle:focus-visible, .search-fold:focus-visible, .query-pill:focus-visible, .slice-entry:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.isolate-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 300px; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); }
+.search-slices:empty { display: none; }
+.search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.search-fold { background: transparent; border-color: transparent; color: var(--mut); padding: 2px 6px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.search-fold::after { content: " \25BE"; }
+.search-fold[aria-expanded="false"]::after { content: " \25B8"; }
+.search-fold:hover { background: var(--btn-hover); color: var(--ink); }
+.search-pills, .search-slices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.query-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
+.query-pill:hover { background: var(--btn-hover); }
+.query-pill-label { min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.query-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+.query-pill-count { color: var(--mut); font-variant-numeric: tabular-nums; }
+.query-pill.on .query-pill-count { color: var(--accent-strong); }
+.slice-entry { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
+.slice-entry:hover { background: var(--btn-hover); }
+.slice-entry.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+.slice-entry-icon:empty { display: none; }
+.slice-entry-label { min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.slice-entry-count { color: var(--mut); font-variant-numeric: tabular-nums; }
+.slice-entry.on .slice-entry-count { color: var(--accent-strong); }
+.query-pill-more { padding: 2px 10px; background: transparent; border: 1px dashed var(--line); border-radius: .15rem; color: var(--mut); font-size: 0.8em; cursor: pointer; user-select: none; }
+.query-pill-more:hover { background: var(--btn-hover); color: var(--ink); }
+.query-pill-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-divider { width: 100%; margin: 0; border: 0; border-top: 1px solid var(--line); }
+.isolate-switch { display: inline-flex; align-items: center; gap: 8px; padding: 2px 6px; background: transparent; border-color: transparent; color: var(--ink); font-size: 0.85em; cursor: pointer; user-select: none; }
+.isolate-switch:hover { background: var(--btn-hover); }
+.isolate-switch-track { position: relative; flex-shrink: 0; width: 28px; height: 16px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: .15rem; }
+.isolate-switch-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: var(--mut); border-radius: 50%; }
+.isolate-switch[aria-checked="true"] .isolate-switch-track { background: var(--accent-soft); border-color: var(--accent); }
+.isolate-switch[aria-checked="true"] .isolate-switch-track::after { left: 14px; background: var(--accent); }
+.isolate-switch[aria-checked="true"] { color: var(--accent-strong); }
+/* End search box and search panel */
 /* Signals a collapsed column that still has hits — the count itself
    already reads matching/total, this just adds a visual nudge to notice it. */
 .column.search-match .column-count { color: var(--accent); font-weight: 700; }
@@ -430,8 +483,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .status-chip { background: var(--btn-bg); border: 1px dashed var(--mut); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mut); margin-left: 6px; }
 /* Card-type chip. Neutral by default; a type the board's `types:` list gives a
    color paints color + borderColor through the CSSOM (app.js paintTypeColors),
-   since the value is free-form and a style attribute is blocked by the CSP. */
+   since the value is free-form and a style attribute is blocked by the CSP.
+   A type with an icon starts its chip with that glyph (type-icons.js): plain
+   text with no colour rule, so it wears the chip's colour. A tile's chip stays
+   inside the tile's text column however wide the glyph makes it, so it cannot
+   run under the date stack. */
 .type-chip { background: var(--btn-bg); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 1px 7px; font-size: 0.7em; color: var(--mut); white-space: nowrap; }
+.type-icon { margin-right: 0.35em; line-height: 1; }
+.card-head .type-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 /* Parent cards: the altitude badge sits in the tile's head row, the roll-up bar is
    its last line. Segment weights arrive through the CSSOM (paintRollupBars sets
    flex-grow from data-n) because a style attribute is blocked by the CSP; colours
@@ -957,16 +1016,16 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-isolated-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .map-isolated-row .card { min-width: 160px; max-width: 220px; cursor: pointer; }
 /* Map options (buildMapOptionsRow, app.js): one row of segmented controls. */
-.map-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; font-size: 0.78em; }
-.map-options > .map-section-header { font-size: 0.92em; margin-bottom: 0; }
-.map-option { display: inline-flex; align-items: center; gap: 6px; }
-.map-option-label { color: var(--mut); white-space: nowrap; }
-.map-option-seg { display: inline-flex; border: 1px solid var(--line); border-radius: .15rem; overflow: hidden; }
-.map-option-btn { background: var(--paper); border: none; color: var(--ink); font: inherit; padding: 2px 9px; cursor: pointer; }
-.map-option-btn + .map-option-btn { border-left: 1px solid var(--line); }
-.map-option-btn:hover:not(.active) { background: var(--hover-wash); }
-.map-option-btn.active { background: var(--ink); color: var(--paper); }
-.map-option-btn:focus-visible { outline-offset: -2px; }
+.map-options, .graph-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; font-size: 0.78em; }
+.map-options > .map-section-header, .graph-options > .map-section-header { font-size: 0.92em; margin-bottom: 0; }
+.map-option, .graph-option { display: inline-flex; align-items: center; gap: 6px; }
+.map-option-label, .graph-option-label { color: var(--mut); white-space: nowrap; }
+.map-option-seg, .graph-option-seg { display: inline-flex; border: 1px solid var(--line); border-radius: .15rem; overflow: hidden; }
+.map-option-btn, .graph-option-btn { background: var(--paper); border: none; color: var(--ink); font: inherit; padding: 2px 9px; cursor: pointer; }
+.map-option-btn + .map-option-btn, .graph-option-btn + .graph-option-btn { border-left: 1px solid var(--line); }
+.map-option-btn:hover:not(.active), .graph-option-btn:hover:not(.active) { background: var(--hover-wash); }
+.map-option-btn.active, .graph-option-btn.active { background: var(--ink); color: var(--paper); }
+.map-option-btn:focus-visible, .graph-option-btn:focus-visible { outline-offset: -2px; }
 /* One graph per tree: a heading of root titles and card count above each. */
 .map-graph-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.82em; }
 .map-section-header + .map-graph-heading { margin-top: 4px; border-top: none; padding-top: 0; }
@@ -1162,6 +1221,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-layout-btn, .graph-zoom-btn, .graph-filter-toggle { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .graph-layout-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .graph-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.graph-options { margin-bottom: 8px; }
 .graph-filter-toggle.off { color: var(--mut); text-decoration: line-through; }
 .graph-filter-toggle:hover { background: var(--btn-bg); }
 .graph-key, .graph-count { color: var(--mut); font-size: 0.78em; }
@@ -1176,14 +1236,36 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-canvas.graph-dragging, .graph-canvas.graph-dragging .graph-node { cursor: grabbing; }
 
 .graph-ring { fill: none; stroke: var(--line-strong); stroke-width: 1px; stroke-dasharray: 4 4; opacity: 0.6; }
-.graph-spoke { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; }
+.graph-tint { fill: var(--mut); fill-opacity: 0.13; fill-rule: evenodd; stroke: none; pointer-events: none; }
+.graph-tint[data-type-color] { fill: currentColor; }
+.graph-guide { fill: none; stroke: var(--line-strong); stroke-width: 1px; opacity: 0.55; pointer-events: none; }
+.graph-guide-sub { stroke-dasharray: 2 5; opacity: 0.4; }
+.graph-guide-empty { stroke-dasharray: 4 4; opacity: 0.35; }
+.graph-divider { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; pointer-events: none; }
+.graph-block-frame { fill: none; stroke: var(--line); stroke-width: 1px; stroke-dasharray: 4 4; pointer-events: none; }
 .graph-ring-label, .graph-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
 .graph-ring-label { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-title { fill: var(--ink); font-weight: 600; font-size: calc(15px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 
+.graph-caption, .graph-block-caption, .graph-block-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: all; }
+.graph-caption, .graph-block-caption { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
+.graph-block-title { fill: var(--ink); font-weight: 600; font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
+.graph-caption-name { fill: var(--ink); }
+.graph-caption-muted .graph-caption-name { fill: var(--mut); }
+.graph-loose-caption { font-style: italic; }
+.graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { outline: none; stroke: var(--accent-soft); }
+.graph-caption:focus-visible .graph-caption-name, .graph-block-caption:focus-visible .graph-caption-name, .graph-block-title:focus-visible .graph-caption-name { fill: var(--accent); }
+.graph-tip { position: absolute; z-index: 3; max-width: min(24em, 100%); padding: 6px 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 0.78em; line-height: 1.4; pointer-events: none; }
+.graph-tip[hidden] { display: none; }
+.graph-tip-line { margin: 0; }
+.graph-tip-line:first-child { font-weight: 600; }
+.graph-tip-term { margin: 3px 0 0; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
+
 .graph-link { fill: none; stroke-width: 1.4px; }
 .graph-link-parent { stroke: var(--mut); opacity: 0.4; }
 .graph-link-wait { stroke: var(--id-waiting); stroke-dasharray: 5 3; opacity: 0.8; }
+.graph-link-counted { stroke-linecap: round; }
+.graph-link-count { fill: var(--mut); font-size: calc(11px / var(--graph-k, 1)); stroke: var(--paper); stroke-width: calc(4px / var(--graph-k, 1)); stroke-linejoin: round; paint-order: stroke; pointer-events: none; }
 .graph-link-cross { opacity: 0.07; }
 .graph-arrow { fill: var(--id-waiting); }
 
@@ -1201,7 +1283,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-node.status-palette-5 { color: var(--hash-f); }
 .graph-node.status-palette-6 { color: var(--hash-g); }
 .graph-node.status-palette-7 { color: var(--hash-h); }
-.graph-dot { fill: currentColor; stroke: none; }
+.graph-dot { fill: currentColor; stroke: none; stroke-linejoin: round; }
 .graph-node.is-done .graph-dot { fill: var(--surface); stroke: currentColor; stroke-width: 1.8px; }
 .graph-node.archived { opacity: 0.65; }
 .graph-kids-ring, .graph-flag-ring { fill: none; stroke-width: 1.4px; pointer-events: none; }
@@ -1217,10 +1299,16 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 
 .graph-node-id { display: none; font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); dominant-baseline: central; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
 .graph-node.graph-hub .graph-node-id, .graph-node.hover-highlight .graph-node-id, .graph-node.selected .graph-node-id, .graph-labels-all .graph-node-id { display: inline; }
+/* The tier fan's names: every card of the fan has a label, and graph-named on its node shows it
+   in place of the id, so the Names option and a selection only toggle a class. */
+.graph-node-name { display: none; font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); dominant-baseline: central; fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
+.graph-node.graph-named .graph-node-name { display: inline; }
+.graph-node.graph-named .graph-node-id { display: none; }
 
 .graph-dim .graph-node:not(.graph-near) { opacity: 0.15; }
 .graph-dim .graph-link:not(.graph-near) { opacity: 0.06; }
 .graph-dim .graph-link.graph-near { opacity: 0.85; }
+.graph-dim .graph-link:not(.graph-near) + .graph-link-count { opacity: 0.15; }
 
 /* --- Gantt view --------------------------------------------------
    Dated cards as bars on a day timeline, rows grouped by status. #gantt-view
@@ -1384,6 +1472,41 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .notif-level--warning { color: var(--warn); }
 .notif-level--error { color: var(--crit); }
 
+/* Preferences sheet: the gear in the header and the full-height sheet it opens
+   from the right, on the modal backdrop. Colours come from the tokens. The
+   slide-in is an animation that plays each time the sheet stops being .hidden,
+   so no script sets a class or a style for it. */
+.prefs-btn { display: inline-flex; align-items: center; padding: 6px 8px; }
+.prefs-btn svg { width: 15px; height: 15px; }
+.prefs-btn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.prefs-backdrop { justify-content: flex-end; align-items: stretch; }
+.prefs-sheet { width: min(380px, 100vw); height: 100vh; overflow-y: auto; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop); padding: 20px; display: flex; flex-direction: column; gap: 22px; animation: prefs-slide 160ms ease-out; }
+@keyframes prefs-slide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .prefs-sheet { animation: none; } }
+.prefs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.prefs-head h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.prefs-group { display: flex; flex-direction: column; gap: 10px; }
+.prefs-group h3 { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.prefs-hint { color: var(--mut); font-size: 0.8em; line-height: 1.5; }
+.prefs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.prefs-label { color: var(--ink); font-size: 0.9em; }
+.prefs-seg { display: inline-flex; }
+.prefs-opt { border-radius: 0; font-size: 0.8em; }
+.prefs-opt + .prefs-opt { margin-left: -1px; }
+.prefs-opt:first-child { border-top-left-radius: .15rem; border-bottom-left-radius: .15rem; }
+.prefs-opt:last-child { border-top-right-radius: .15rem; border-bottom-right-radius: .15rem; }
+.prefs-opt[aria-pressed="true"] { position: relative; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.prefs-opt:disabled { cursor: default; }
+.prefs-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 0.9em; cursor: pointer; }
+.hotkeys-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hotkey-row { display: grid; grid-template-columns: minmax(84px, 34%) 1fr; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 0.85em; }
+.hotkey-row:first-child { border-top: 0; }
+.hotkey-keys { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px; }
+.hotkey-key { font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.9em; line-height: 1.6; color: var(--ink); background: var(--raised); border: 1px solid var(--line-strong); border-radius: .15rem; padding: 0 5px; }
+.hotkey-what { color: var(--ink); line-height: 1.45; }
+.hotkey-state { grid-column: 2; color: var(--accent); font-size: 0.9em; }
+/* End preferences sheet */
+
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
    on any piece of a card lights every piece sharing its id (app.js's
    hoveredId, applied the same way .selected below reads selectedIds) — a
@@ -1434,6 +1557,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
 .context-menu button:hover { background: var(--btn-hover); }
 .context-menu button.danger:hover { background: var(--crit-soft); color: var(--crit); }
+.context-menu.canvas-menu button:not(#ctx-isolate) { display: none; }
 body.shift-held .card-el { user-select: none; } /* shift+click selects cards, not their text — only while shift is down, so text stays copyable otherwise (covers every view's card-el) */
 
 /* Theme every visible scrollbar to match the dark palette

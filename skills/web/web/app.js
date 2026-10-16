@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], archivePackages: [] }; // assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -720,6 +720,111 @@ function currentSearchTerms() {
   return parseSearchQuery(input ? input.value : '', state.projectName);
 }
 
+// What the box matches, parsed and matched once: `terms` is the parse, `ids`
+// the Set of matching card ids, and null means no query. Matching runs over the
+// whole board, live and archived, because tree: and path: traverse both; each
+// view intersects `ids` with the cards it shows. renderBoard makes the result
+// once per render and every view reads it through currentSearchMatch(). A view
+// repainted on its own (calendar paging, a status pill) makes its own.
+let searchMatchMemo = null;
+// What the last renderBoard matched, kept after it so the jump to the nearest
+// match, which runs right after a repaint, reads it instead of matching again.
+let lastSearchMatch = null;
+
+// What a query resolves against: the nesting context, and the board's hierarchy for slice:.
+function searchCtx() {
+  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy });
+}
+
+function matchedIds(terms) {
+  return new Set(filterCards(state.active.concat(state.archived), terms, searchCtx()).map((c) => c.id));
+}
+
+function computeSearchMatch() {
+  const terms = currentSearchTerms();
+  return { terms, ids: terms.length ? matchedIds(terms) : null };
+}
+
+function currentSearchMatch() {
+  return searchMatchMemo || computeSearchMatch();
+}
+
+// What the box does in the Graph: the cards it hides (a slice: term's cut, from the
+// whole board and its hierarchy) and the cards it lights. The Graph's one decision
+// about a query, read by what is drawn, what is lit and what a selection can reach.
+// While isolate is on the whole query is a cut, as it is in every other view.
+function currentGraphQueryEffect() {
+  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx(), { isolated: isolateNow() !== null });
+}
+
+// The cards one piece of search text matches, over the whole board like the box.
+// It is the matcher a selection resolves its query, path and tree parts through,
+// so a part and its search term cannot disagree. Text that is not a term yet
+// (an empty box, `status:` mid-keystroke) matches nothing here, where the box
+// shows everything for it: a part must never select the whole board.
+function searchMatchIds(text) {
+  const terms = parseSearchQuery(text, state.projectName);
+  return terms.length ? matchedIds(terms) : new Set();
+}
+
+// The matcher the selection resolves its parts through: the search module's, except
+// for the text the box holds while the Graph is shown. That text is the typed
+// anchor (or a pill's query written to the box), and what it lights is the Graph's
+// query decision, read off the one match this render made instead of matching the
+// board again. A query that is no term yet lights nothing, never everything.
+function selectionMatchIds(text) {
+  if (loadViewMode() === 'graph' && text === $('#search-input').value) {
+    const lit = currentGraphQueryEffect().litIds;
+    return lit ? new Set(lit) : new Set();
+  }
+  return searchMatchIds(text);
+}
+
+// Whether the Gantt and the Calendar can draw the card: it has a working range or a due
+// date. A card with neither has no bar, no chip and no marker in either view, and neither
+// has a tray for it, so it is not shown there.
+function cardIsScheduled(card) {
+  return cardSchedule(card).kind !== 'none' || dueMarker(card) !== null;
+}
+
+// The cards the view being shown shows, which is all a selection can reach (the
+// Board shows the cards of its expanded columns, the other views the cards their
+// status pills, their Archive pill and the search box leave, and the Gantt and the Calendar
+// only those with a date). It reads the same
+// filters each view draws with, so the id set follows what is on screen.
+// `withSearch` false leaves the search box and its cut out: the cards the status
+// pills and Archive leave, which is what the pill counts are taken over.
+function viewCardIds(withSearch) {
+  const pool = state.active.concat(state.archived);
+  const searchIds = withSearch ? currentSearchMatch().ids : null;
+  const mode = loadViewMode();
+  let visible;
+  if (mode === 'graph') {
+    visible = graphVisibleIds(pool, withSearch ? currentGraphQueryEffect().visibleIds : null, graphLoadFilter(), boardStatuses(), graphLeftOut(pool));
+  } else if (mode === 'map') {
+    visible = intersectVisibleIds(searchIds, mapFilterVisibleIds(pool, loadMapStatusFilter(), state.statuses));
+  } else if (mode === 'gantt' || mode === 'calendar') {
+    const shown = viewShownCards(timelineViewInput(mode === 'gantt' ? loadGanttStatusFilter() : loadCalendarStatusFilter(), searchIds));
+    visible = new Set(shown.live.concat(shown.archived).filter(cardIsScheduled).map((c) => c.id));
+  } else {
+    const collapsed = loadCollapsedColumns();
+    const open = pool.filter((c) => !collapsed[mapFilterColumn(c, boardStatuses())]);
+    visible = intersectVisibleIds(searchIds, new Set(open.map((c) => c.id)));
+  }
+  return visible || new Set(pool.map((c) => c.id));
+}
+
+function shownCardIds() {
+  return viewCardIds(true);
+}
+
+// The cards the view shows before the search box and any cut: what the pill counts
+// are taken over, so turning one pill on leaves the others' counts as they were.
+function cardsBeforeSearch() {
+  const ids = viewCardIds(false);
+  return state.active.concat(state.archived).filter((c) => ids.has(c.id));
+}
+
 // --- View mode: board (columns) / dependency map / calendar
 // / gantt. A closed set, with the same lazy-loaded,
 // localStorage-persisted discipline as collapsedColumns/columnSort above
@@ -763,12 +868,129 @@ function saveRollupBarMode() {
   catch (e) { /* storage unavailable/full — the choice just won't persist this session */ }
 }
 
-// One setting for every bar: a click on any bar flips it for the board and the open detail alike.
-function toggleRollupBar() {
-  rollupBarMode = nextRollupBar(loadRollupBarMode());
-  saveRollupBarMode();
+// Every roll-up repaints from its setting: the board's bars and tiles, and the
+// open card detail.
+function repaintRollups() {
   renderBoard();
   if (currentDetailId != null) renderDetailRollup(currentDetailId);
+}
+
+// One setting for every bar, with one setter: a click on any bar flips it
+// (toggleRollupBar) and the preferences sheet sets it to a named mode. Both
+// write the same stored choice, so they always agree.
+function setRollupBarMode(mode) {
+  rollupBarMode = mergeRollupBar(mode);
+  saveRollupBarMode();
+  repaintRollups();
+}
+
+function toggleRollupBar() {
+  setRollupBarMode(nextRollupBar(loadRollupBarMode()));
+}
+
+// The preferences sheet's other settings (prefs.js): what a plain click on a
+// card does in each view, whether archived leaves count as done, and the search
+// panel's: whether its pill section and its slice section start folded and whether it
+// opens when the search box is focused. One entry per board, memoized like the
+// choices above and dropped by applyProjectName.
+let prefsMemo = null;
+
+function prefsStorage() {
+  try { return localStorage; } catch (e) { return null; } // blocked storage throws on access
+}
+
+function loadPrefsState() {
+  if (!prefsMemo) prefsMemo = loadPrefs(prefsStorage(), state.projectName);
+  return prefsMemo;
+}
+
+function savePrefsState() {
+  savePrefs(prefsStorage(), state.projectName, loadPrefsState());
+}
+
+// Every roll-up call passes this: the Board tile, the Map's rich row and the
+// card detail with its scope line.
+function countArchivedLeaves() {
+  return loadPrefsState().archivedDone;
+}
+
+function setClickPref(view, value) {
+  prefsMemo = prefsWith(loadPrefsState(), { click: { [view]: value } });
+  savePrefsState();
+}
+
+function setArchivedDone(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { archivedDone: on });
+  savePrefsState();
+  repaintRollups();
+}
+
+// Whether the search panel's pill section starts folded; the section takes the
+// choice now (search-panel.js).
+function setPillsFolded(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { pillsFolded: on });
+  savePrefsState();
+  foldSearchPills(on);
+}
+
+// Whether the search panel's slice section starts folded; the section takes the choice now
+// (search-slices.js).
+function setSlicesFolded(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { slicesFolded: on });
+  savePrefsState();
+  foldSearchSlices(on);
+}
+
+// Whether the search panel opens when the search box is focused: the switch at the end
+// of the box, flipped by a click on the arrow and by the p key (which open the panel at
+// once when they turn it on), and shown and set in the preferences sheet (which does
+// not, with the sheet up over the board). The panel follows now (search-panel.js).
+function setPanelOnFocus(on, openNow = false) {
+  prefsMemo = prefsWith(loadPrefsState(), { panelOnFocus: on });
+  savePrefsState();
+  applySearchPanelSwitch(on, openNow);
+}
+
+// --- The preferences sheet, opened by the gear in the header. It lists the
+// settings above and the roll-up bar mode, and writes each to the browser the
+// moment it is chosen. It sits on the modal backdrop (so the poll pauses and
+// the Esc catch-all see it), Esc has its own line in the Esc handler, and the
+// key guard names it. Focus goes to its close button on open and back to the
+// gear on close; there is no Tab trap, like the other popups.
+function prefOptionOn(opt) {
+  if (opt.dataset.pref === 'bar') return loadRollupBarMode() === opt.dataset.value;
+  return loadPrefsState().click[opt.dataset.view] === opt.dataset.value;
+}
+
+function syncPrefsSheet() {
+  $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
+  $('#prefs-archived-done').checked = countArchivedLeaves();
+  $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
+  $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
+  $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
+}
+
+function openPrefsSheet() {
+  syncPrefsSheet();
+  $('#prefs-sheet').classList.remove('hidden');
+  $('#prefs-btn').setAttribute('aria-expanded', 'true');
+  $('#prefs-close').focus();
+}
+
+function closePrefsSheet() {
+  $('#prefs-sheet').classList.add('hidden');
+  $('#prefs-btn').setAttribute('aria-expanded', 'false');
+  $('#prefs-btn').focus();
+}
+
+// A click on the backdrop outside the sheet closes it; one on a choice makes it.
+function onPrefsSheetClick(e) {
+  if (e.target.id === 'prefs-sheet') { closePrefsSheet(); return; }
+  const opt = e.target.closest('.prefs-opt');
+  if (!opt || opt.disabled) return;
+  if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
+  else setClickPref(opt.dataset.view, opt.dataset.value);
+  syncPrefsSheet();
 }
 
 // Cards are edited in place (optimistic drops), so the nesting index is rebuilt
@@ -787,7 +1009,7 @@ function buildNestingIndex() {
 function parentTile(card) {
   const altitude = nestingIndex.altitudeOf(card.id);
   if (!altitude) return { badge: '', bar: '' };
-  const rollup = nestingIndex.rollup(card.id);
+  const rollup = nestingIndex.rollup(card.id, { countArchived: countArchivedLeaves() });
   return { badge: altitudeBadge(altitude), bar: rollupBar(rollup, loadRollupBarMode(), boardStatuses()) };
 }
 
@@ -811,9 +1033,14 @@ function openLeavesNote(cards, status) {
 // calendar ⇄ board — and pressing one while the OTHER view is active jumps
 // straight to the pressed view (no board stopover).
 function toggleView(mode) {
-  viewMode = loadViewMode() === mode ? 'board' : mode;
+  const from = loadViewMode();
+  viewMode = from === mode ? 'board' : mode;
   saveViewMode();
+  const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
+  if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
+  moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
 // One mode→container map for everything that needs "which element hosts
@@ -844,8 +1071,16 @@ function applyViewMode() {
 
 function renderBoard() {
   nestingIndex = buildNestingIndex();
-  renderBoardColumns();
-  applyViewMode();
+  searchMatchMemo = computeSearchMatch();
+  lastSearchMatch = searchMatchMemo;
+  try {
+    setSelection(selectionFollowingBox(selectionState.selection)); // what the view shows may have changed: a pill, the box, a view switch, a poll
+    renderBoardColumns();
+    applyViewMode();
+    renderSearchPanel(); // the chip, and the pills' counts in place while the panel is open
+  } finally {
+    searchMatchMemo = null;
+  }
 }
 
 // Publishes the sticky page header's real rendered height as
@@ -889,18 +1124,14 @@ function renderBoardColumns() {
   board.innerHTML = '';
   const collapsed = loadCollapsedColumns();
   const colSort = loadColumnSort();
-  const searchTerms = currentSearchTerms();
-  const searchActive = searchTerms.length > 0;
+  const searchIds = currentSearchMatch().ids;
+  const searchActive = searchIds !== null;
   const clearBtn = $('#search-clear-btn');
   if (clearBtn) clearBtn.classList.toggle('hidden', !searchActive);
   // tree:/path: terms need the FULL active+archived graph to
   // resolve connectivity — resolving per column (a pre-sliced subset) would
-  // see almost no edges. Mirrors renderMapView/renderCalendar*/renderGantt's
-  // own "resolve searchIds once against the full board" pattern: compute the
-  // matching id set ONCE here, then each column below intersects against it
-  // by id rather than re-calling filterCards on its own slice.
-  const searchIds = searchActive
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  // see almost no edges. The shared match result is that full-board
+  // resolution, so each column below intersects against it by id.
   // Columns render FROM the configured statuses list (+ archive at
   // the far right). A card whose status isn't listed renders in the FIRST
   // column via columnForStatus — the catch-all — with cardEl's raw-status chip.
@@ -939,13 +1170,13 @@ function renderBoardColumns() {
     // persisted per-column state, so a re-render (poll/drag/toggle/search)
     // never visually resets the control out from under the user.
     const sortControls = isCollapsed ? '' :
-      `<select class="column-sort-field" data-col="${escapeHtml(col)}" ` +
+      `<select class="column-sort-field" data-holds-poll data-col="${escapeHtml(col)}" ` +
         `aria-label="Sort ${escapeHtml(label)} column by" title="Sort by">` +
         SORT_FIELDS.map((f) =>
           `<option value="${f}"${sortState.field === f ? ' selected' : ''}>${escapeHtml(SORT_FIELD_LABELS[f])}</option>`
         ).join('') +
       `</select>` +
-      `<button type="button" class="column-sort-dir" data-col="${escapeHtml(col)}" ` +
+      `<button type="button" class="column-sort-dir" data-holds-poll data-col="${escapeHtml(col)}" ` +
         `aria-label="Toggle sort direction, currently ${sortState.direction === 'desc' ? 'descending' : 'ascending'}" ` +
         `title="Sort direction: ${sortState.direction === 'desc' ? 'descending' : 'ascending'} (click to toggle)">` +
         (sortState.direction === 'desc' ? '&#8595;' : '&#8593;') +
@@ -968,9 +1199,9 @@ function renderBoardColumns() {
         // row already revealed (see enableAiPrompt(), wired in the delegated
         // click listener below).
         (showsColumnAdd(col, isCollapsed) ?
-          `<button type="button" class="column-add" data-col="${escapeHtml(col)}" ` +
+          `<button type="button" class="column-add" data-holds-poll data-col="${escapeHtml(col)}" ` +
             `aria-label="New card in ${escapeHtml(label)}" title="New card in ${escapeHtml(label)}">+</button>` +
-          `<button type="button" class="column-add-ai" data-col="${escapeHtml(col)}" ` +
+          `<button type="button" class="column-add-ai" data-holds-poll data-col="${escapeHtml(col)}" ` +
             `aria-label="New AI-prompt card in ${escapeHtml(label)}" title="New card in ${escapeHtml(label)} with AI prompt enabled">${AI_PROMPT_ICON}</button>` : '') +
       `</div>`;
     // Custom columns get their deterministic hashed color inline
@@ -1043,8 +1274,7 @@ function renderMapView() {
   container.appendChild(buildMapFilterRow());
   container.appendChild(buildMapOptionsRow());
   container.appendChild(buildMapZoomControls());
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(allCards, searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  const searchIds = currentSearchMatch().ids;
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildRelationsGraph sees one combined
   // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
@@ -1077,8 +1307,8 @@ function renderMapView() {
 // The status-filter pill row MECHANISM — one toggle per column,
 // shared verbatim between the map and the gantt rather than each
 // view duplicating the markup/build-loop. Only the filter state, the id list,
-// the row/pill class (so each view's own delegated listener and its own
-// Q0-exemption selector keep targeting just their own pills), and
+// the row/pill class (so each view's own delegated listener keeps targeting
+// just its own pills), and
 // the tooltip wording differ per caller. The look itself is ALSO shared, not
 // duplicated — app.css comma-joins the two views' pill classes onto one
 // declaration each. The identity dot's color comes from statusColorVar() for EVERY pill —
@@ -1099,6 +1329,7 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
     btn.type = 'button';
     btn.className = pillClass + (on ? '' : ' off');
     btn.dataset.col = col;
+    btn.dataset.keepsSelection = '';
     btn.setAttribute('aria-pressed', String(on));
     btn.title = titleFor(col, on) + ' Right-click to solo (right-click the soloed pill again to restore all).';
     const dot = document.createElement('span');
@@ -1110,22 +1341,28 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
   return row;
 }
 
-const PILL_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle';
+const REFOCUS_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn';
 
-function pillSelector(el) {
-  const key = el.dataset.col !== undefined ? 'col' : 'section';
-  return `.${el.classList[0]}[data-${key}="${String(el.dataset[key]).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+// What finds a rebuilt control again after a render: its class and what names it, a status
+// pill's column or a fold toggle's section, or for a button of the Graph's option row its
+// option and its value.
+function refocusSelector(el) {
+  const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
+  if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
+  if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
+  return `.${el.classList[0]}${named('section')}`;
 }
 
-function focusedPill() {
+function focusedRebuiltControl() {
   const el = document.activeElement;
-  return el && el.closest ? el.closest(PILL_SELECTOR) : null;
+  return el && el.closest ? el.closest(REFOCUS_SELECTOR) : null;
 }
 
-// A pill or fold toggle is rebuilt by the render its own press triggers, so
-// focus has to be handed back to the new element.
-function keepPillFocus(el, action) {
-  const selector = pillSelector(el);
+// A status pill, a fold toggle or an option button is rebuilt by the render its own press
+// triggers, so focus has to be handed back to the new element.
+function keepControlFocus(el, action) {
+  const selector = refocusSelector(el);
   action();
   const next = document.querySelector(selector);
   if (next) next.focus({ preventScroll: true });
@@ -1163,6 +1400,8 @@ function buildMapZoomControls() {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'map-zoom-btn';
+    b.dataset.keepsSelection = '';
+    b.dataset.holdsPoll = '';
     b.dataset.zoomAction = action;
     b.title = title;
     b.setAttribute('aria-label', title);
@@ -1230,7 +1469,7 @@ function mapOptionsRowHtml(options) {
     const meta = MAP_OPTION_LABELS[key];
     const buttons = MAP_OPTION_VALUES[key].map((value) => {
       const on = options[key] === value;
-      return `<button type="button" class="map-option-btn${on ? ' active' : ''}" data-key="${key}" data-val="${value}" aria-pressed="${on}">${escapeHtml(meta.values[value])}</button>`;
+      return `<button type="button" class="map-option-btn${on ? ' active' : ''}" data-key="${key}" data-val="${value}" aria-pressed="${on}" data-keeps-selection data-holds-poll>${escapeHtml(meta.values[value])}</button>`;
     }).join('');
     return `<span class="map-option" title="${escapeHtml(meta.hint)}"><span class="map-option-label">${escapeHtml(meta.label)}</span><span class="map-option-seg" role="group" aria-label="${escapeHtml(meta.label)}">${buttons}</span></span>`;
   }).join('');
@@ -1287,7 +1526,7 @@ function buildMapSectionHeader(section, label, collapsed) {
   header.className = 'map-section-header';
   header.innerHTML =
     `<button type="button" class="map-section-toggle" data-section="${section}" ` +
-      `aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escapeHtml(label)}" aria-expanded="${!collapsed}">` +
+      `aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escapeHtml(label)}" aria-expanded="${!collapsed}" data-keeps-selection>` +
       (collapsed ? CHEVRON_RIGHT_ICON : CHEVRON_LEFT_ICON) +
     `</button>` +
     `<span>${escapeHtml(label)}</span>`;
@@ -1393,7 +1632,7 @@ function mapRichLayout(n, draw) {
   const type = card && card.type != null ? String(card.type).trim() : '';
   const alt = nestingIndex.altitudeOf(n.id);
   const mode = loadRollupBarMode();
-  const rollup = alt ? nestingIndex.rollup(n.id) : null;
+  const rollup = alt ? nestingIndex.rollup(n.id, { countArchived: countArchivedLeaves() }) : null;
   const hasBar = !!(rollup && rollup.total);
   const hasMeta = !!type || alt >= 1 || !!n.blocked;
   const barH = mode === ROLLUP_BAR_OPEN ? MAP_RICH_BAR_OPEN_H : MAP_RICH_BAR_THIN_H;
@@ -1645,6 +1884,7 @@ function applyProjectName(name) {
     modalFullscreen = null;
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
+    prefsMemo = null; // the preferences entry too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     ganttSubview = null; // gantt.subview too
@@ -1691,8 +1931,10 @@ function applyBoardData(data) {
   // render time (masked pre-move only by priorityRank's built-in fallback).
   applyLists(data.priorities || [], data.tags || []);
   state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
+  state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
+  state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
-  selectedIds = pruneSelection(selectedIds, [...state.active, ...state.archived].map((c) => c.id)); // drop ghosts before render (archived cards are in the domain too)
+  dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
   // them, so an unattended poll would drop a Tab-navigating user's focus to
   // <body>. The header controls solve that by blocking the refresh
@@ -1703,13 +1945,21 @@ function applyBoardData(data) {
   const focusedCard = document.activeElement && document.activeElement.closest && document.activeElement.closest('.card-el');
   const focusedCardId = focusedCard ? focusedCard.dataset.id : null;
   const pointerId = hoveredId;
-  const pill = focusedPill();
-  const pillSel = pill ? pillSelector(pill) : null;
+  const control = focusedRebuiltControl();
+  const controlSel = control ? refocusSelector(control) : null;
+  // A caption of the Graph's tier fan is a tab stop the render rebuilds, so it is found
+  // again by its key (graphCaptionEl); focusing it shows its tip again.
+  const caption = document.activeElement && document.activeElement.closest ? document.activeElement.closest('[data-caption]') : null;
+  const captionKey = caption ? caption.getAttribute('data-caption') : null;
   renderBoard();
-  if (pillSel) {
-    const again = document.querySelector(pillSel);
+  if (controlSel) {
+    const again = document.querySelector(controlSel);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
+  }
+  if (captionKey !== null) {
+    const again = document.querySelector(`[data-caption="${captionKey}"]`);
+    if (again) again.focus({ preventScroll: true });
   }
   if (focusedCard) {
     const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);
@@ -1757,12 +2007,14 @@ function anyModalOpen() {
 // and nothing takes that focus back, so listing .card-el here would freeze
 // the poll for the rest of the session — no stale indicator, no error, just a
 // board that quietly stops updating. applyBoardData re-finds the focused card
-// and pill after its render instead.
+// and rebuilt control after its render instead.
+// The controls that hold the poll carry data-holds-poll; a control built by a
+// render path must wear it, and a status pill, fold toggle or option button must not.
 function boardControlFocused() {
   const el = document.activeElement;
-  // Pills and fold toggles are not here: they are rebuilt by every render, so
-  // applyBoardData refocuses the focused one instead of freezing the poll.
-  return !!(el && el.closest && el.closest('.column-sort-field, .column-sort-dir, .cal-nav, .column-add, .column-add-ai, .map-zoom-btn, .map-option-btn, .graph-control:not(.graph-filter-toggle)'));
+  // Status pills, fold toggles and option buttons are not here: they are rebuilt by every
+  // render, so applyBoardData refocuses the focused one instead of freezing the poll.
+  return !!(el && el.closest && el.closest('[data-holds-poll]'));
 }
 
 function setStale(stale) {
@@ -1810,7 +2062,8 @@ function wireDrag() {
       // whole selection. Captured at dragstart — the flag, not the live set,
       // decides at drop time, so a poll pruning the set mid-drag can't flip
       // a bulk drag into a single-card one halfway through.
-      bulkDragIds = (selectedIds.has(Number(el.dataset.id)) && selectedIds.size > 1) ? [...selectedIds] : null;
+      const dragged = bulkTargets();
+      bulkDragIds = (dragged.length > 1 && dragged.some((c) => c.id === Number(el.dataset.id))) ? dragged.map((c) => c.id) : null;
       dragCardId = Number(el.dataset.id);
     });
     el.addEventListener('dragend', () => {
@@ -2026,18 +2279,12 @@ async function reorderCard(id, prev, next) {
 // viewMode at all: "loads normally" means the persisted view stands.
 function consumeDeepLink() {
   const link = parseDeepLink(location.search);
+  // A link with no query writes nothing into the box, so nothing would bring its address in
+  // line with the empty box: an `isolate=1` it carries would stay until the next write.
+  if (!link || !link.q) followSearchInAddress($('#search-input').value);
   if (!link) return;
   // `q` and `view` are applied BEFORE the card is resolved, so a link whose
   // card key is unusable still delivers everything else that parsed.
-  if (link.q) {
-    // Straight into the box, then renderBoard() — the same pattern
-    // focusOn/addSearchTerm already use. There is no
-    // query state anywhere: currentSearchTerms() re-reads #search-input on
-    // every render, so putting the value there IS applying the filter, and
-    // it lands somewhere visible that one gesture clears.
-    const input = $('#search-input');
-    if (input) input.value = link.q;
-  }
   if (link.view) {
     // Direct assignment, not toggleView/saveViewMode: this override is for
     // THIS load only (wins ONCE) — it must never overwrite the persisted
@@ -2045,7 +2292,17 @@ function consumeDeepLink() {
     // wherever the user last left the view via the normal toggle.
     viewMode = link.view;
   }
-  if (link.q || link.view) renderBoard();
+  // Straight into the box through its writer, which repaints. There is no
+  // query state anywhere: currentSearchTerms() re-reads #search-input on
+  // every render, so putting the value there IS applying the filter, and
+  // it lands somewhere visible that one gesture clears. The view is set
+  // first, so that repaint and the listeners told after it see the link's view.
+  if (link.q) {
+    // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
+    // and the listeners told of it (the address, the chip) see it on.
+    if (link.isolate) isolateFromLink(link.q);
+    writeSearch(link.q, 'link');
+  } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
   const card = state.active.concat(state.archived).find((c) => c.id === link.id);
@@ -2846,8 +3103,8 @@ function renderDetailRollup(id) {
     return;
   }
   const mode = loadRollupBarMode();
-  // Archived leaves always count as done, so the scope line always says so.
-  box.innerHTML = rollupDetailHtml(index.rollup(id), altitude, boardStatuses(), true, mode);
+  const countArchived = countArchivedLeaves();
+  box.innerHTML = rollupDetailHtml(index.rollup(id, { countArchived }), altitude, boardStatuses(), countArchived, mode);
   box.classList.toggle('detail-rollup--collapsed', mode === ROLLUP_BAR_COLLAPSED);
   paintRollupBars(box);
   box.classList.remove('hidden');
@@ -2905,7 +3162,13 @@ function closeCard() {
 // close rather than openDetailModal's normal toast — state.active/archived
 // can still name a card whose file a poll hasn't caught up with yet, since
 // the poll itself is paused for as long as this popup is open).
+//
+// Back and Forward never write the search box: the box keeps its text, and an
+// entry that landed with another `q` is replaced to carry the box's text, so
+// the address always says what the box says. This comes first, ahead of the
+// bail-out below, because the address moved whether or not the popup does.
 window.addEventListener('popstate', () => {
+  followSearchInAddress($('#search-input').value);
   // An edit/new-card form, or any other popup, covers the same z-index slot
   // as the detail popup and may hold unsaved typing (formSnapshot) that
   // openDetailModal would silently overwrite if Edit were then clicked on
@@ -2976,11 +3239,14 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
+    if (!$('#prefs-sheet').classList.contains('hidden')) { closePrefsSheet(); return; }
     if (!$('#detail-modal').classList.contains('hidden')) { closeCard(); return; }
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
-    clearSearch();
+    if (closeSearchPanel()) { e.preventDefault(); return; } // the search panel closes on its own Esc, ahead of the selection step, and a search field's own Esc must not clear the box as well
+    if (e.repeat) return; // a held Esc is one press: it runs one stage
+    escapeStep(e);
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable
   // popup is open — the keyboard twin of that popup's toggle button, going
@@ -3022,31 +3288,201 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- Search box wiring: live filter-as-you-type, clear button,
-// `/` focuses the box (skipped while any input/textarea/select/contentEditable
-// already has focus, so it doesn't hijack typing elsewhere — including inside
-// either modal, whose fields are all one of those tag names). Ctrl+F/Cmd+F
-// also focuses it, with its own `#`-prefill/select-all
-// logic — see the keydown listener below.
+// `/` focuses the box. Both it and Ctrl+F/Cmd+F read the shared key guard
+// (key-guard.js): `/` types a character, so it stays off while a field has
+// focus and while a menu, a dialog, the notifications panel or the preferences
+// sheet is open; Ctrl+F types nothing, so it reads only the surface check and
+// still works from inside a text field. Ctrl+F has its own `#`-prefill/
+// select-all logic — see onSearchChordKey.
+//
+// The one writer of the box: typing, the clear button, a cue click, a pill, a click or a key
+// of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
+// and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
+// on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
+// 'cue', 'pill', 'slice', 'isolate', 'link', 'prefill' and 'selection'. It sets the
+// box, repaints the board, then tells each listener (text, reason). Code that
+// must react to a write registers with onSearchWrite rather than editing a
+// writer. The poll repaints without writing the box, so it tells no one. A write
+// whose caller paints in place passes repaint false (a click in the Graph that
+// clears the box): it must not replace the card under the pointer, or a double
+// click would never reach it.
+const searchWriteListeners = [];
+
+function onSearchWrite(listener) {
+  searchWriteListeners.push(listener);
+}
+
+function writeSearch(text, reason, repaint = true) {
+  const input = $('#search-input');
+  if (!input) return;
+  if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
+  if (repaint) {
+    pendingWriteReason = reason;
+    renderBoard();
+  } else {
+    lastSearchMatch = null; // no repaint matched this text, and the listeners must not read the last one's match
+  }
+  searchWriteListeners.forEach((listener) => listener(text, reason));
+}
+
 function clearSearch() {
   const input = $('#search-input');
   if (!input || !input.value) return;
-  input.value = '';
-  renderBoard();
+  writeSearch('', 'clear');
 }
 
-// Append a scoped term to whatever's already in the search
-// box (assignee cue / tag click on a card tile) and re-render — same direct-
-// call convention as focusOn() (further down): set the box, call
-// renderBoard() straight, no synthetic 'input' event needed. Idempotent
-// rather than a toggle: clicking the same assignee/tag again while its term
-// is already present is a no-op — simpler than tracking "did I add this" to
-// support removing it again.
+// The address follows the box: one more listener of the writer, so every write,
+// whatever its reason, leaves the address's `q` equal to the box's text (an
+// empty box drops it), and the poll, which never writes the box, never moves
+// it. It REPLACES the history entry the page is on, never pushes one, so typing
+// adds nothing to Back and Forward, and only when `q` would change. Replacing
+// only on a change does not keep fast typing under the browser's limit on
+// replacements (every keystroke changes `q`), and Safari throws a SecurityError
+// past it, so a refused replacement is let go: the address lags the box, and the
+// next write that changes `q` catches it up, while the listeners after this one
+// still hear of the write. card-history.js decides what the address becomes;
+// `card` and `view` ride along untouched, and `isolate=1` stands beside `q` while
+// isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
+// after Back or Forward lands.
+function followSearchInAddress(text) {
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null);
+  if (search == null) return;
+  try {
+    history.replaceState(null, '', location.pathname + search);
+  } catch (e) {
+    /* the address lags the box until the next change */
+  }
+}
+
+onSearchWrite(followSearchInAddress);
+
+// The selection follows the box while the Graph is shown: a search typed there is
+// the anchor of the selection (selectionAfterTyping, selection.js), so the Graph
+// lights its matches instead of hiding the rest. The writer marks why it wrote (the
+// reason it was given) and the repaint it makes takes the box into the selection,
+// through setSelection like every other write, before the id set is worked out: the
+// one repaint paints the new anchor, and parses and matches the box once. The other
+// views keep filtering and select nothing.
+//
+// A run of slices written by the slice section (the reason 'slice') is a cut, not a search:
+// it never makes the box the anchor, and a typed anchor keeps following the box, so the
+// Graph still lights what the whole query, the cut included, matches.
+//
+// A write by hand, typing or the clear button, also takes a pill off when the box no
+// longer holds its query (selectionAfterBoxEdit, selection.js), in every view. A
+// pill's own write (the reason 'pill') changes the selection and the box together
+// first, so the box is not taken for a typed search: a pill's query is not the typed
+// anchor, and stays the anchor when the Graph is left. Isolate's own write (the reason
+// 'isolate') leaves the selection as it is, and while isolate is on the box holds the
+// isolate text, which is never a typed search: it does not become the anchor.
+let pendingWriteReason = null;
+
+function selectionFollowingBox(selection) {
+  const reason = pendingWriteReason;
+  pendingWriteReason = null;
+  if (!reason || reason === 'pill' || reason === 'isolate') return selection;
+  const text = $('#search-input').value;
+  const isolated = isolateNow() !== null;
+  if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
+  const followed = loadViewMode() === 'graph' && !isolated ? selectionAfterTyping(selection, text) : selection;
+  if (reason !== 'typing' && reason !== 'clear') return followed;
+  return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
+}
+
+// What Esc does when nothing is open for it to close, and the one place the end
+// of the Esc chain lives. The key guard (key-guard.js) says which: with focus in
+// the search box Esc clears the box and leaves the selection; with nothing open
+// and nobody typing it steps the selection back and leaves the box as it was;
+// anywhere else (another text field, a select, an open surface) it does nothing. While
+// isolated the box holds the isolate text, and Esc in it gives back the text it held
+// instead of clearing: the browser's own Esc, which clears a search field, is stopped (`e` is
+// the key's event), or it would take that text away again.
+function escapeStep(e) {
+  const action = keyGuardEscape(document, $('#search-input'));
+  if (action === 'clear-box') {
+    if (isolateTurnOff()) e.preventDefault();
+    else clearSearch();
+  } else if (action === 'step') stepSelectionBack();
+}
+
+// One stage back, as selectionAfterEscape (selection.js) works it out: isolate goes off
+// first and gives the box its text back; then every addition goes at once and the anchor
+// stays; the next one drops the anchor. Nothing picked, nothing to repaint. A box that was
+// the anchor (a search typed in the Graph) goes with it, as it does on a double click on
+// the empty Graph. A pill the step drops goes out of the box too (the additions first, so
+// the box is back to the anchor's query, and then the anchor's), while any other text in
+// the box stays.
+function stepSelectionBack() {
+  const now = { ...selectionState, isolate: isolateNow() };
+  const next = selectionAfterEscape(now);
+  if (next === now) return;
+  if (now.isolate && !next.isolate) { isolateTurnOff(); return; }
+  moveSelectionTo(next);
+}
+
+// Moves the selection down to `next` ({ selection, rangeStart }) and takes what the
+// step dropped out of the box: a typed anchor takes the box with it, but for the cut, a
+// pill the step drops goes out of it as an alternative, and any other text stays. Esc's
+// step, a double click on empty space (onClickAway) and a click on a card that opens or
+// selects it (applyCardClick) all come through here, so the box and the pills agree
+// whichever way the selection was taken down. `from` is the selection the step started from,
+// which is the current one unless the caller has written `next` already, as a click has.
+function moveSelectionTo(next, from = selectionState.selection) {
+  const boxWasAnchor = isTypedAnchor(from) && !next.selection.anchor;
+  const box = $('#search-input').value;
+  const shrunk = pillQueriesDropped(from, next.selection).reduce((text, query) => searchRemoveGrownAlt(text, query), box);
+  setSelection(next.selection, next.rangeStart);
+  if (boxWasAnchor) {
+    const cut = searchCutOnly(box);
+    writeSearch(cut, cut ? 'slice' : 'selection'); // a cut is no search: it never becomes the anchor the step has just dropped
+  }
+  else if (shrunk !== box) writeSearch(shrunk, 'pill');
+  else renderBoard();
+}
+
+function onSearchSlashKey(e) {
+  if (e.key !== '/' || keyGuardOff(document)) return;
+  e.preventDefault();
+  $('#search-input').focus();
+}
+
+// Ctrl+F / Cmd+F: focus the search box, preventDefault
+// on the browser's own find bar. search-hotkey.js owns the chord + value
+// decision — an empty box gets "#" prefilled with the caret right after it
+// (typing digits immediately forms the #<id> exact-match term), a box that
+// already holds a query gets select-all instead, so the chord never
+// silently clobbers a query someone already typed (typing overwrites the
+// selection, same as any focused input). Suppressed while a surface is open
+// (keyGuardSurface — the poll's modal test plus the card menu, the
+// notifications panel and the preferences sheet): a popup's .modal-backdrop
+// covers the whole viewport, so the search bar sits hidden behind it; the
+// browser's native find stands in that case instead — mirror of Ctrl+S, which
+// only fires INSIDE a popup, this one only fires OUTSIDE one. Unlike the "/"
+// hotkey, no typing check is needed: Ctrl+F never inserts a literal
+// character into whatever's focused, so there's nothing for it to hijack.
+function onSearchChordKey(e) {
+  const input = $('#search-input');
+  const result = searchHotkeyPrefill(e, { surfaceOpen: keyGuardSurface(document) !== null, currentValue: input.value });
+  if (!result) return;
+  e.preventDefault();
+  if (result.value !== input.value) writeSearch(result.value, 'prefill');
+  input.focus();
+  input.setSelectionRange(result.selectionStart, result.selectionEnd);
+}
+
+// Add a scoped term to whatever's already in the search
+// box (assignee cue / tag click on a card tile) and re-render: it writes through
+// writeSearch(next, 'cue'), the box's one writer, with no synthetic 'input' event.
+// The term goes through the search module's term interface, so it lands in every
+// alternative of a query holding `|` and a value with spaces stays one quoted term.
+// Idempotent rather than a toggle: clicking the same assignee/tag again while
+// its term is already present is a no-op — simpler than tracking "did I add
+// this" to support removing it again.
 function addSearchTerm(term) {
   const input = $('#search-input');
-  const terms = input.value.trim() ? input.value.trim().split(/\s+/) : [];
-  if (terms.includes(term)) return;
-  input.value = terms.concat(term).join(' ');
-  renderBoard();
+  const next = searchAddTerm(input.value, term);
+  if (next === input.value) return;
+  writeSearch(next, 'cue');
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -3058,55 +3494,25 @@ window.addEventListener('DOMContentLoaded', () => {
   // broken #<id> one. Caret shifts left by the same 1 char the strip
   // removed from the front, so typing feels uninterrupted.
   input.addEventListener('input', () => {
-    const stripped = searchHashStrip(input.value);
-    if (stripped !== null) {
-      const caret = Math.max(0, input.selectionStart - 1);
-      input.value = stripped;
-      input.setSelectionRange(caret, caret);
-    }
-    renderBoard();
+    const stripped = isolateNow() ? null : searchHashStrip(input.value); // the isolate text's leading # is a card, not an id still being typed
+    const caret = stripped === null ? null : Math.max(0, input.selectionStart - 1);
+    writeSearch(stripped === null ? input.value : stripped, 'typing');
+    if (caret !== null) input.setSelectionRange(caret, caret);
   });
   $('#search-clear-btn').addEventListener('click', clearSearch);
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== '/') return;
-    const active = document.activeElement;
-    const tag = active && active.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (active && active.isContentEditable)) return;
-    e.preventDefault();
-    input.focus();
-  });
-  // Ctrl+F / Cmd+F: focus the search box, preventDefault
-  // on the browser's own find bar. search-hotkey.js owns the chord + value
-  // decision — an empty box gets "#" prefilled with the caret right after it
-  // (typing digits immediately forms the #<id> exact-match term), a box that
-  // already holds a query gets select-all instead, so the chord never
-  // silently clobbers a query someone already typed (typing overwrites the
-  // selection, same as any focused input). Suppressed while any modal/popup
-  // is open (anyModalOpen(), the same guard the 5s poll uses) — every
-  // popup's .modal-backdrop covers the whole viewport, so the search bar
-  // sits hidden behind it; browser's native find stands in that case
-  // instead — mirror of Ctrl+S, which only fires INSIDE a popup,
-  // this one only fires OUTSIDE one. Unlike the "/" hotkey above, no
-  // active-element check is needed: Ctrl+F never inserts a literal
-  // character into whatever's focused, so there's nothing for it to hijack.
-  document.addEventListener('keydown', (e) => {
-    const result = searchHotkeyPrefill(e, { modalOpen: anyModalOpen(), currentValue: input.value });
-    if (!result) return;
-    e.preventDefault();
-    const changed = result.value !== input.value;
-    input.value = result.value;
-    if (changed) renderBoard();
-    input.focus();
-    input.setSelectionRange(result.selectionStart, result.selectionEnd);
-  });
+  document.addEventListener('keydown', onSearchSlashKey);
+  document.addEventListener('keydown', onSearchChordKey);
   // Autocomplete dropdown, same hand-rolled combobox (native
   // <datalist> misrenders in VSCode's Simple Browser — see attachCombobox's
   // own header comment) the create/edit form uses for priority/assignee/tags.
   // getOptions reads input.value itself (searchSuggestionItems computes
-  // fresh candidates from whatever's currently typed) rather than a static
-  // list — preFiltered/selectOnFocus:false are the two opt-outs that make
-  // that fit; see attachCombobox's comments at each for why.
-  attachCombobox(input, () => searchSuggestionItems(input.value), { preFiltered: true, selectOnFocus: false });
+  // fresh candidates from whatever's currently typed, at the caret, so a token
+  // inside a bracket or a quote or after a `|` completes in place) rather than
+  // a static list — preFiltered/selectOnFocus:false are the two opt-outs that
+  // make that fit; see attachCombobox's comments at each for why. The whole
+  // board and its context go with it, the arguments a query is resolved with,
+  // so after `slice:` and after `..` the box suggests the slices a cut can name.
+  attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart, state.active.concat(state.archived), searchCtx()), { preFiltered: true, selectOnFocus: false });
 });
 
 // --- Map view wiring: top-bar toggle + the bits
@@ -3134,14 +3540,14 @@ window.addEventListener('DOMContentLoaded', () => {
     // through to card-el).
     const sectionBtn = e.target.closest('.map-section-toggle[data-section]');
     if (sectionBtn) {
-      keepPillFocus(sectionBtn, () => toggleMapSection(sectionBtn.dataset.section));
+      keepControlFocus(sectionBtn, () => toggleMapSection(sectionBtn.dataset.section));
       return;
     }
     // Status-filter pills — control-row buttons, checked first for
     // the same reason data-act buttons are (never fall through to card-el).
     const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
     if (filterBtn) {
-      keepPillFocus(filterBtn, () => toggleMapStatusFilter(filterBtn.dataset.col));
+      keepControlFocus(filterBtn, () => toggleMapStatusFilter(filterBtn.dataset.col));
       return;
     }
     const optionBtn = e.target.closest('.map-option-btn[data-key][data-val]');
@@ -3184,7 +3590,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    keepPillFocus(filterBtn, () => soloMapStatusFilter(filterBtn.dataset.col));
+    keepControlFocus(filterBtn, () => soloMapStatusFilter(filterBtn.dataset.col));
   });
   wireMapPanZoom();
 });
@@ -3217,7 +3623,7 @@ let mapPan = null; // { pointerId, startX, startY, startScrollLeft, startScrollT
 // pointerup even after real movement (mousedown/up land on the same
 // captured element regardless of distance moved), which would hit the
 // shared card-el grammar and open the card the drag started on, or the
-// Q0 clear-selection handler. One-shot: armed only by a MOVED pan's
+// click-away rule (onClickAway). One-shot: armed only by a MOVED pan's
 // pointerup, consumed by the very next click, self-disarms on a 0-timeout
 // in case no click follows. Own flag (not ganttClickSuppressed) — the two
 // gestures never overlap (different views), but sharing one would let a
@@ -3563,6 +3969,27 @@ function calendarChipEl(card, pos, time, isDue) {
 // The sub-view label set for the switcher + the nav buttons' spans.
 const CAL_SUBVIEW_LABELS = { month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
+// The three inputs a timeline view (the Calendar or the Gantt) composes before it draws
+// (see renderCalendarMonthGrid, renderCalendarTimeGrid and renderGanttView: the search
+// result, the status filter's visible ids and the Archive pill), as the jump to the nearest
+// match and the cards a selection can reach (viewCardIds) need them. `filter` is the view's
+// status filter and `searchIds` the box's match, null for no query. viewShownCards
+// (calendar-model.js) composes them the way the grids and rows do, and
+// calendar-gantt-jump-page.test.js pins that what it answers is what they hand to their layout.
+function timelineViewInput(filter, searchIds) {
+  return {
+    active: state.active,
+    archived: state.archived,
+    searchIds,
+    statusIds: ganttFilterVisibleIds(state.active, filter, boardStatuses()),
+    archiveOn: filter.archive === true,
+  };
+}
+
+function calendarViewInput(match = currentSearchMatch()) {
+  return timelineViewInput(loadCalendarStatusFilter(), match.ids);
+}
+
 function renderCalendarView() {
   const container = $('#calendar-view');
   const subview = loadCalendarSubview();
@@ -3576,16 +4003,16 @@ function renderCalendarView() {
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =
-    `<button type="button" id="cal-prev-btn" class="cal-nav" title="Previous ${spanNoun}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
-    `<button type="button" id="cal-today-btn" class="cal-nav" title="Jump back to today">Today</button>` +
-    `<button type="button" id="cal-next-btn" class="cal-nav" title="Next ${spanNoun}" aria-label="Next ${spanNoun}">&#8250;</button>` +
+    `<button type="button" id="cal-prev-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Previous ${spanNoun}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
+    `<button type="button" id="cal-today-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Jump back to today">Today</button>` +
+    `<button type="button" id="cal-next-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Next ${spanNoun}" aria-label="Next ${spanNoun}">&#8250;</button>` +
     `<span class="cal-title">${escapeHtml(subviewTitle(subview, currentCalendarAnchor()))}</span>` +
-    // The sub-view switcher. cal-nav class on purpose: it joins the
-    // focused-control poll guard AND the Q0 clear-selection exemption, same
-    // as prev/today/next (these buttons are rebuilt every render too).
+    // The sub-view switcher. Like prev/today/next (these buttons are rebuilt every
+    // render too) it wears data-holds-poll, the focused-control poll guard, and
+    // data-keeps-selection, so a click on it never reads as a click away.
     `<span class="cal-subview-switch" role="group" aria-label="Calendar span">` +
     CALENDAR_SUBVIEWS.map((sv) =>
-      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" ` +
+      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${CAL_SUBVIEW_LABELS[sv]}</button>`).join('') +
     `</span>`;
   container.appendChild(controls);
@@ -3605,16 +4032,15 @@ function renderCalendarView() {
 // function (the sub-view switcher branches between this and the time grid).
 function renderCalendarMonthGrid(container) {
   const { year, monthIndex } = currentCalendarMonth();
-  // Same search composition as the board and map: read the live input value
-  // each render (see currentSearchTerms), filter with the shared filterCards.
+  // Same search composition as the board and map: read the shared match
+  // result (see currentSearchMatch).
   // A card appears via its RANGE (cardSchedule) and/or its DUE
   // marker (dueMarker) — a due-only card has no schedule but still chips.
   // The search pool spans live + archived unconditionally, same as
   // the gantt — harmless while the Archive pill is off, since no archived
   // card is ever added to `cards` below regardless of whether its id lands
   // in searchIds.
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  const searchIds = currentSearchMatch().ids;
   // Status filter composes with search by INTERSECTION — same rule
   // as the map's and the gantt's composition. ganttFilterVisibleIds
   // (not mapFilterVisibleIds) is the right helper here too: the calendar
@@ -3747,8 +4173,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   // band AND the timed hour grid alike, not just the month view. Same
   // live+archived search pool and Archive-pill composition as the month
   // grid too, so the toggle applies to both grids alike.
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id)) : null;
+  const searchIds = currentSearchMatch().ids;
   const statusIds = ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses());
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
   const cards = visibleIds ? state.active.filter((c) => visibleIds.has(c.id)) : state.active;
@@ -4133,14 +4558,21 @@ function wireCalendarTimeDrag() {
   container.addEventListener('pointercancel', (e) => { if (calTimeDrag && e.pointerId === calTimeDrag.pointerId) finish(false); });
 }
 
+// The empty space a double click creates a card on: a day of the month grid, a cell
+// of the all-day band, and a day column of the time grid. The click-away rule reads
+// the same two lists, so the double click that opens the create modal never also
+// clears the selection (DOUBLE_CLICK_OWNED).
+const CALENDAR_CREATE_DAY_CELLS = '.cal-day, .cal-tg-allday-cell';
+const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
+
 // --- Calendar view wiring: header toggle + the
 // prev/today/next nav. #calendar-view is rebuilt by every renderCalendarView()
 // call, so clicks delegate to the stable parent — same pattern (and reason)
 // as #map-view's delegated listener above. Chip clicks (detail/selection/
 // context menu) are the shared card-el grammar's job now — nothing
-// chip-specific left here. Clicking an empty day cell matches no card-el, so
-// the document-level Q0 handler clears any selection, exactly like the
-// board's background.
+// chip-specific left here. A double click on an empty day cell makes a card
+// (CALENDAR_CREATE_DAY_CELLS), so the click-away rule (onClickAway) leaves the
+// selection there; a single click on one clears nothing.
 window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-toggle-btn').addEventListener('click', () => toggleView('calendar'));
   wireCalendarTimeDrag(); // delegated once on the stable #calendar-view
@@ -4149,7 +4581,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // the same reason the map's and the gantt's pills are (never fall
     // through to the sub-view switcher/nav/card-el handling below).
     const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
-    if (filterBtn) { keepPillFocus(filterBtn, () => toggleCalendarStatusFilter(filterBtn.dataset.col)); return; }
+    if (filterBtn) { keepControlFocus(filterBtn, () => toggleCalendarStatusFilter(filterBtn.dataset.col)); return; }
     // The sub-view switcher rides the same delegated listener as
     // prev/today/next — all four button sets are rebuilt every render.
     const sv = e.target.closest('.cal-subview-btn');
@@ -4158,11 +4590,11 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
     if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); }
   });
-  // Click-to-create. ADR 0006 pins plain-click-on-empty-cell to
-  // clearing the selection, so create rides double-click instead — a gesture
-  // no existing calendar interaction uses, on the SAME empty-cell-space
-  // Q0 relies on (a click landing on a chip never reaches here — see the
-  // .card-el guard below — so it can never fight the shared grammar).
+  // Click-to-create rides double-click on the empty cells, the one empty space
+  // where a double click already means something, so the click-away rule leaves
+  // the selection there (DOUBLE_CLICK_OWNED). A click landing on a chip never
+  // reaches here — see the .card-el guard below — so it can never fight the
+  // shared grammar.
   // Month/all-day cells only carry a day; time-grid columns also carry the
   // pointer's y, converted to a snapped minute the same way the retime drag
   // math does (CAL_PX_PER_MIN). Status is left at the modal's own default —
@@ -4170,9 +4602,9 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-view').addEventListener('dblclick', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the contextmenu listener below: never fire out from under a live drag
     if (e.target.closest('.card-el')) return; // a chip's dblclick is its own affair, not a create gesture
-    const dayCell = e.target.closest('.cal-day, .cal-tg-allday-cell');
+    const dayCell = e.target.closest(CALENDAR_CREATE_DAY_CELLS);
     if (dayCell) { openModal(null, null, calendarCreateStart(dayCell.dataset.day)); return; }
-    const col = e.target.closest('.cal-tg-col');
+    const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
     if (col) {
       const r = col.getBoundingClientRect();
       openModal(null, null, calendarCreateStart(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN));
@@ -4186,7 +4618,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    keepPillFocus(filterBtn, () => soloCalendarStatusFilter(filterBtn.dataset.col));
+    keepControlFocus(filterBtn, () => soloCalendarStatusFilter(filterBtn.dataset.col));
   });
 });
 
@@ -4213,9 +4645,10 @@ function shiftCalendarWindow(delta) {
 // mechanism. No dependency arrows on purpose — the map view owns the
 // waiting_for graph; here a waiting card just keeps the board's amber
 // left-accent cue. Header controls (prev/today/next + the sub-view switch)
-// reuse the calendar's own .cal-nav class verbatim, so they ride its
-// existing boardControlFocused/Q0-exemption guards (both match by class, not
-// by view) for free — no new entry needed there.
+// reuse the calendar's own .cal-nav class, and wear data-keeps-selection and
+// data-holds-poll as the calendar's do: the poll guard (boardControlFocused) and
+// the click-away rule (onClickAway) read those markers, not the class, so a
+// control built here must wear them.
 
 // The sub-view choice — own feature key ('gantt.subview'), same
 // memoize-once-mutate-in-place + defensive-merge discipline as
@@ -4266,6 +4699,47 @@ function shiftGanttWindow(delta) {
   renderGanttView();
 }
 
+// --- Jump to the nearest match -------------------------------------------------
+// When a change to the search box leaves no shown match inside the visible
+// range of the Calendar or the Gantt, the view moves to the match nearest it:
+// nearestMatchDay (calendar-model.js) decides for both, the Gantt reaching it
+// through ganttNearestMatchDay, whose all sub-view never jumps. Two triggers
+// and no others. A write to the box: a listener of writeSearch, registered
+// below without touching the writer, so Isolate and any later writer get the
+// jump for free. Entering the view: toggleView makes the check once. The 5s
+// poll, a plain re-render, paging with previous and next, Today and a sub-view
+// switch never make it, which is why the poll keeps a paged month and paging
+// after a jump works as usual. An empty box has no matches, so clearing it
+// moves nothing. Both triggers run right after a renderBoard, so the check
+// reads the match that repaint made (lastSearchMatch) and the box is matched
+// once per write; a write that repaints nothing (writeSearch's repaint false)
+// clears it, and the check matches the box itself. A view that moved repaints on its own.
+function jumpCalendarToMatch() {
+  const input = calendarViewInput(lastSearchMatch || currentSearchMatch());
+  const day = nearestMatchDay(input, calendarVisibleRange(loadCalendarSubview(), currentCalendarAnchor()));
+  if (!day) return false;
+  calendarAnchor = day;
+  return true;
+}
+
+function jumpGanttToMatch() {
+  const input = ganttViewInput(lastSearchMatch || currentSearchMatch());
+  const day = ganttNearestMatchDay(input, loadGanttSubview(), currentGanttAnchor());
+  if (!day) return false;
+  ganttAnchor = day;
+  return true;
+}
+
+// Moves the day the view in sight is paged to, if it is the Calendar or the Gantt, to the
+// nearest match, and repaints that view when it moved.
+function moveViewToNearestMatch() {
+  const mode = loadViewMode();
+  if (mode === 'calendar' && jumpCalendarToMatch()) renderCalendarView();
+  else if (mode === 'gantt' && jumpGanttToMatch()) renderGanttView();
+}
+
+onSearchWrite(moveViewToNearestMatch);
+
 const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
 // The controls row: same markup shape and CSS classes as the calendar's own
@@ -4287,13 +4761,13 @@ function buildGanttControls() {
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =
-    `<button type="button" id="gantt-prev-btn" class="cal-nav"${disabledAttr} title="${prevTitle}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
-    `<button type="button" id="gantt-today-btn" class="cal-nav"${disabledAttr} title="${todayTitle}">Today</button>` +
-    `<button type="button" id="gantt-next-btn" class="cal-nav"${disabledAttr} title="${nextTitle}" aria-label="Next ${spanNoun}">&#8250;</button>` +
+    `<button type="button" id="gantt-prev-btn" class="cal-nav" data-keeps-selection data-holds-poll${disabledAttr} title="${prevTitle}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
+    `<button type="button" id="gantt-today-btn" class="cal-nav" data-keeps-selection data-holds-poll${disabledAttr} title="${todayTitle}">Today</button>` +
+    `<button type="button" id="gantt-next-btn" class="cal-nav" data-keeps-selection data-holds-poll${disabledAttr} title="${nextTitle}" aria-label="Next ${spanNoun}">&#8250;</button>` +
     `<span class="cal-title">${escapeHtml(title)}</span>` +
     `<span class="cal-subview-switch" role="group" aria-label="Gantt span">` +
     GANTT_SUBVIEWS.map((sv) =>
-      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" ` +
+      `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${GANTT_SUBVIEW_LABELS[sv]}</button>`).join('') +
     `</span>`;
   return controls;
@@ -4375,6 +4849,12 @@ function ganttBarEl(bar, win, dayPx) {
   return el;
 }
 
+// What renderGanttView composes before it draws, as the jump needs it: the same shape as
+// calendarViewInput, over the Gantt's status filter (timelineViewInput).
+function ganttViewInput(match = currentSearchMatch()) {
+  return timelineViewInput(loadGanttStatusFilter(), match.ids);
+}
+
 function renderGanttView() {
   const container = $('#gantt-view');
   // The timeline is thousands of px wide — losing scroll on every 5s poll
@@ -4404,18 +4884,15 @@ function renderGanttView() {
   // wipe these rows straight back out).
   container.appendChild(buildGanttControls());
   container.appendChild(buildGanttFilterRow());
-  // Same search composition as board/map/calendar: live input value each
-  // render, shared filterCards. Status filter composes with search
-  // by INTERSECTION — a card is visible only if BOTH say so — same pure
-  // helper and same rule as the map's composition (never a union, never
-  // one side dropped). The search pool spans live + archived
+  // Same search composition as board/map/calendar: the shared match result.
+  // Status filter composes with search by INTERSECTION — a card is visible
+  // only if BOTH say so — same pure helper and same rule as the map's
+  // composition (never a union, never one side dropped). The search pool
+  // spans live + archived
   // unconditionally (same as the map's own search pool) — harmless while the
   // Archive pill is off, since no archived bar is ever added to groups below
   // regardless of whether its id lands in searchIds.
-  const searchTerms = currentSearchTerms();
-  const searchIds = searchTerms.length
-    ? new Set(filterCards(state.active.concat(state.archived), searchTerms, nestingCtx()).map((c) => c.id))
-    : null;
+  const searchIds = currentSearchMatch().ids;
   // NOT mapFilterVisibleIds — that folds an unlisted status
   // into the FIRST column's toggle, correct for the map/board but wrong here.
   // ganttGroups (below) buckets cards by their RAW status and gives an
@@ -4659,7 +5136,7 @@ async function onGanttDragEnd(drag) {
 // after pointerup (mousedown/up land on the captured element, so their common
 // ancestor is the bar — distance moved doesn't suppress it). Without this
 // guard that phantom click would hit the shared card-el grammar (opening the
-// detail popup after every drag) and the Q0 clear-selection handler. One-shot:
+// detail popup after every drag) and the click-away rule (onClickAway). One-shot:
 // armed only by a MOVED drag's pointerup, consumed by the very next click,
 // and self-disarms on a 0-timeout in case no click follows (the click, when
 // it comes, dispatches before any timer fires). pointercancel never fires a
@@ -4691,7 +5168,7 @@ function wireGanttPointerDrag() {
   // (never fall through to the pointer-drag/card-el handling below).
   container.addEventListener('click', (e) => {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (filterBtn) { keepPillFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
+    if (filterBtn) { keepControlFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setGanttSubview(sv.dataset.subview); return; }
     if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
@@ -4706,7 +5183,7 @@ function wireGanttPointerDrag() {
     const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
     if (!filterBtn) return;
     e.preventDefault();
-    keepPillFocus(filterBtn, () => soloGanttStatusFilter(filterBtn.dataset.col));
+    keepControlFocus(filterBtn, () => soloGanttStatusFilter(filterBtn.dataset.col));
   });
   container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || ganttDrag) return;
@@ -4765,7 +5242,7 @@ function wireGanttPointerDrag() {
   // A press without movement is a click — that click is
   // NOT handled here: the native click event that follows the unmoved
   // pointerup bubbles to the shared card-el grammar handlers, so bars get
-  // detail/selection/Q0 semantics identical to every other view. Only a
+  // detail/selection/click-away semantics identical to every other view. Only a
   // MOVED drag suppresses that following click (the >3px rule: a drag is not
   // a click).
   const finish = (commit) => {
@@ -4975,28 +5452,50 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#notif-list').addEventListener('keydown', (e) => { if (e.key === 'Enter') openMentionFromTray(e); });
 });
 
-// --- Multi-select + bulk actions, with view parity. Selection
-// lives as a Set of ids (toggleSelection/pruneSelection/contextSelection/
-// partitionByMovable/rangeSelection from selection.js — pure, unit-tested);
-// every view's renderer paints .selected from it on every render, so it
-// survives polls AND view switches by construction.
+// --- Multi-select + bulk actions, with view parity. The selection
+// is an anchor plus an ordered list of additions (cards, paths, trees, queries;
+// selection.js — pure, unit-tested), kept as parts and resolved to an id set for the
+// view being shown on every render; every view's renderer paints .selected from that
+// set, so it survives polls AND view switches by construction.
 // Board tiles, map nodes + No relations tiles, calendar
 // chips, and gantt bars + gutter labels all carry the card-el contract and
 // share one interaction grammar — click opens detail, ctrl/cmd+click toggles
 // one card in the selection, shift+click adds the whole range between the
-// anchor and the target (the file-manager grammar), right-click
-// selects + opens the context menu (whose actions were already view-agnostic:
-// they act on selectedIds, not on DOM). Only the map's ghost stubs opt out
+// range start and the target (the file-manager grammar), right-click
+// opens the card menu (for the card alone outside the selection, for the whole
+// selection inside it; its actions are view-agnostic: they act on the menu's
+// subject, not on DOM). Only the map's ghost stubs opt out
 // (see buildMapSvg).
+// The selection: the anchor and the additions that make it up, and the range
+// start — the last card a selection gesture landed on (ctrl+click or a
+// range-starting shift+click; a right-click leaves it alone). The
+// range start is not the selection's anchor: it only says where a Board range
+// begins. Written only by setSelection. Never persisted, and the range start is
+// never trusted blindly: shift+click re-validates it against the rendered order
+// and re-plants it when the card vanished (poll/delete) or left the active view
+// (filter/view switch).
+let selectionState = { selection: NO_SELECTION, rangeStart: null };
+// What every view paints from and every bulk edit reads: the ids the selection
+// stands for in the view being shown, derived by setSelection.
 let selectedIds = new Set();
-// The range anchor — the last card a selection gesture landed on
-// (ctrl+click, a range-starting shift+click, or a right-click that replaced
-// the selection). Never persisted, and never trusted blindly: shift+click
-// re-validates it against the rendered order and re-plants it when the card
-// vanished (poll/delete) or left the active view (filter/view switch).
-let selectionAnchor = null;
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
 let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
+
+// A poll that finds a picked card gone drops the parts built on it (archived cards
+// are in the domain too, so archiving a card is not leaving the board).
+function dropGoneCards() {
+  setSelection(pruneSelectionParts(selectionState.selection, [...state.active, ...state.archived].map((c) => c.id)));
+}
+
+// The one entry point for every write to the selection, and the one place the id
+// set is worked out. A write that names no range start keeps the one the
+// selection had. Writing the selection it already holds works the id set out
+// again, which is what every render does: the parts persist and the set is what
+// they reach among the cards the view shows.
+function setSelection(selection, rangeStart = selectionState.rangeStart) {
+  selectionState = { selection, rangeStart };
+  selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
+}
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
 // resting on any ONE piece of a card lights every piece sharing its id —
@@ -5040,15 +5539,12 @@ function hideContextMenu() {
   $('#context-menu').classList.add('hidden');
 }
 
-// The menu's subject is the card right-clicked: an unselected card becomes THE
-// selection in the same gesture, a selected one keeps the whole batch.
-function openCardContextMenu(e, id) {
-  const next = contextSelection(selectedIds, id);
-  if (next !== selectedIds) {
-    selectedIds = next;
-    selectionAnchor = id; // the gesture restarted the selection — ranges extend from here
-    renderBoard();
-  }
+// The menu's subject is decided by cardMenuFor (selection.js) and nothing is
+// written to the selection: a card outside it gets a menu for that card alone, a
+// card inside it a menu for the whole selection. `fromDetail` is the card details'
+// own menu, which has no Peek.
+function openCardContextMenu(e, id, { fromDetail = false } = {}) {
+  menuSubject = cardMenuFor(selectedIds, id, { fromDetail });
   e.preventDefault();
   showContextMenu(e.clientX, e.clientY);
 }
@@ -5061,21 +5557,161 @@ function onDetailContextMenu(e) {
   if (e.target && e.target.closest && e.target.closest('a, img')) return;
   const picked = window.getSelection();
   if (picked && !picked.isCollapsed) return;
-  openCardContextMenu(e, currentDetailId);
+  openCardContextMenu(e, currentDetailId, { fromDetail: true });
+}
+
+// An assignee cue or a tag is a search shortcut, not a way to open/select the
+// card underneath it. See addSearchTerm for the additive/no-op contract. ADR
+// 0009: the blocked/review pills join the same shortcut — always the bare
+// presence term, read from state, never the pill's own text (the reason itself
+// isn't a search key).
+function searchByCue(cue, id) {
+  const card = state.active.concat(state.archived).find((c) => c.id === id);
+  if (!card) return;
+  if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(searchTermText('assignee', card.assignee));
+  else if (cue.classList.contains('tag')) addSearchTerm(searchTermText('tags', cue.textContent));
+  else if (cue.classList.contains('blocked-pill')) addSearchTerm('blocked:');
+  else if (cue.classList.contains('review-pill')) addSearchTerm('review:');
+}
+
+// Writes what a click on a card does to the selection, as selectionAfterClick
+// (selection.js) works it out from the gesture cardClickAction named. No repaint:
+// the caller paints, the Graph in place and the shared grammar through
+// renderBoard(). A range reads the active view's rendered order; with no usable
+// range start (never set, card gone, or filtered out of this view) this click
+// starts the range.
+function selectByClick(action, id) {
+  const next = selectionAfterClick(action, id, {
+    selection: selectionState.selection,
+    resolved: selectedIds,
+    rangeStart: selectionState.rangeStart,
+    order: action === 'range' ? visibleCardIds() : [],
+    matchQuery: selectionMatchIds,
+  });
+  setSelection(next.selection, next.rangeStart);
+}
+
+// Carries out what cardClickAction (selection.js) decided about a click on a
+// card. File-manager selection grammar: Shift+click ADDS the whole range
+// between the range start and the target, in the active view's rendered order;
+// ctrl/cmd+click toggles one card and plants the range start; the first card
+// picked is the anchor and later ones are additions; a plain click breaks any
+// selection but for its pills, then opens the card (or, in a view whose plain click selects,
+// makes it the anchor of a new selection); the second click of a double click in
+// such a view is a peek, which opens the card and leaves the selection alone.
+// renderBoard() repaints whichever view is active — board columns always, plus
+// the active map/calendar/gantt. Opening a card changes no filter: a click that opens it
+// leaves every pill on and the box as they were, so the view behind the card details shows
+// the same cards, and drops only the other parts of the selection (selectionAfterClick). A
+// click that only selects a card drops the pills the selection held, and their queries leave
+// the box with them, as they do on Esc and on a double click on empty space, so the panel and
+// the box agree; any other text stays. A Ctrl-click that takes out a card a pill lit turns
+// the pill into its other cards and leaves the box, so the view does not widen under the
+// click. While isolated a click moves the anchor only: the box holds the isolate text, which
+// it never writes.
+function applyCardClick(action, id, cue) {
+  if (action === 'cue') { searchByCue(cue, id); return; }
+  if (action === 'peek') { openCard(id); return; }
+  const before = selectionState.selection;
+  const held = partsOf(before).length > 0;
+  selectByClick(action, id);
+  if (action === 'select' && held && !isolateNow()) moveSelectionTo(selectionState, before);
+  else if (action !== 'open' || selectionState.selection !== before) renderBoard();
+  if (action === 'open') openCard(id);
+}
+
+// Enter on a focused card opens it in a view whose plain click selects: the
+// Graph always, any other view when the preferences sheet says so.
+// cardOpenAction (selection.js) decides; the Graph keeps its own handler for the
+// key. It counts only on the card itself, since on a control inside it the key
+// belongs to the control. A double click is not here: it is the second click of
+// the card handler below, which carries the click count. A double click on a
+// card never reaches the Calendar's create gesture, which skips cards.
+function onCardOpenKey(e) {
+  if (e.key !== 'Enter' || e.repeat) return;
+  if (isDragging || ganttDrag || calTimeDrag) return;
+  const el = e.target.closest('.card-el');
+  if (!el || e.target.closest('.graph-node, button, select, input, a, .rollup')) return;
+  if (el !== e.target) return;
+  const action = cardOpenAction({
+    shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
+    plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click),
+  });
+  if (action !== 'open') return;
+  e.preventDefault();
+  openCard(Number(el.dataset.id));
+}
+
+// The click-away rule. A click on empty space can be an accident, so a single click
+// there leaves the selection, its anchor, the pills and the box as they were. A
+// double click clears it all: the additions, the anchor, and the anchor's text in the
+// box (a pill's query, a search typed in the Graph), which turns the chip off. Esc is
+// the step-by-step way back. A double click is the second click of a pair, told by
+// the count the browser puts on the click (detail 2), as the card handler above
+// tells a peek: the first click's repaint can replace the element under the pointer,
+// and a double click event aimed at the replaced element never reaches the document,
+// so the page listens for none there.
+//
+// Empty space is anywhere but on a card or a Graph dot, a caption of the tier fan (the ones
+// with a tip, which are tab stops), a control or a text field, a popup or the card menu, or a
+// control marked data-keeps-selection. Ctrl-, cmd- and
+// shift-clicks build a selection and never clear one. The marked controls are the
+// ones that must not wipe a building selection: the context menu and the bulk popups
+// (so they don't kill their own target batch), the view toggle buttons (the selection
+// must survive a view switch), the date-picker popover (it renders into document.body,
+// outside #modal), and the curate-the-view controls: month paging, the status pills,
+// the section collapse toggles, the map options and zoom toolbar, the roll-up bars and
+// the Graph's controls. A control built by a render path must wear the marker.
+// Where a double click on empty space already means something, that meaning stands
+// and the selection is left (DOUBLE_CLICK_OWNED).
+const NOT_EMPTY_SPACE = '.card-el, .graph-node, [data-tip], button, input, select, textarea, a, .modal-backdrop, .context-menu';
+const DOUBLE_CLICK_OWNED = `${CALENDAR_CREATE_DAY_CELLS}, ${CALENDAR_CREATE_COLUMNS}`;
+
+function onClickAway(e) {
+  if (e.detail !== 2) return;
+  if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+  if (e.target.closest('[data-keeps-selection]')) return;
+  if (e.target.closest(NOT_EMPTY_SPACE) || e.target.closest(DOUBLE_CLICK_OWNED)) return;
+  if (isolateNow()) return; // isolated, the empty canvas clears nothing: clicks move the anchor only
+  if (!selectionState.selection.anchor) return;
+  if (isTypedAnchor(selectionState.selection) && !e.target.closest('#graph-view')) return; // the box is the anchor: only the empty Graph drops it, not a double click on the header or the box
+  moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // a dead selection must not leave an invisible range start behind
+}
+
+// The canvas of the view on show, where a right-click on empty space opens the menu of Isolate
+// alone: the Graph's and the Map's. Empty is what the click-away rule calls empty space, and no
+// Map node either (a ghost stub opens a card), and no relation line: a link between two cards, the
+// Graph's line and its count and the Map's edge, belongs to the cards it joins. Every other view,
+// and a point of these views outside their canvas (a toolbar, a section header), keeps the
+// browser's own menu.
+const CANVAS_OF_VIEW = { graph: '#graph-view .graph-canvas', map: '#map-view .map-canvas' };
+const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node, .graph-link, .graph-link-count, .map-edge`;
+
+function openCanvasContextMenu(e) {
+  const canvas = CANVAS_OF_VIEW[loadViewMode()];
+  if (!canvas || !e.target.closest(canvas) || e.target.closest(NOT_CANVAS_SPACE)) return;
+  menuSubject = canvasMenuFor();
+  e.preventDefault();
+  showContextMenu(e.clientX, e.clientY);
 }
 
 function showContextMenu(x, y) {
   const menu = $('#context-menu');
-  // "Dependency tree"/"Dependency path" only make sense against a
-  // single card — hidden whenever the effective selection is more than one.
-  // The caller (the document contextmenu handler) has already resolved
-  // selectedIds via contextSelection() and reassigned it before calling here,
-  // so selectedIds.size is the "effective selection" at this point. First
-  // conditionally-hidden menu items — the other seven always render; mixed-
-  // selection handling for them lives inside each click handler instead.
-  const singleSelected = selectedIds.size <= 1;
-  $('#ctx-tree').classList.toggle('hidden', !singleSelected);
-  $('#ctx-path').classList.toggle('hidden', !singleSelected);
+  // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
+  // stylesheet makes of one entry; a card's menu has them all again.
+  menu.classList.toggle('canvas-menu', !!menuSubject.canvas);
+  $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
+  $('#ctx-isolate').textContent = isolateMenuLabel();
+  // Peek and Add to selection lead a menu for a card outside the selection; the
+  // card details' menu leaves Peek out. "Dependency tree"/"Dependency path" only
+  // make sense against a single card — hidden whenever the menu's subject is
+  // more than one. The caller has already decided menuSubject. These are the only
+  // conditionally-hidden items — the others always render; mixed-selection
+  // handling for them lives inside each click handler instead.
+  $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
+  $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
+  $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
+  $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
   menu.classList.remove('hidden');
   // Clamp to the viewport so the menu never opens half off-screen.
   const rect = menu.getBoundingClientRect();
@@ -5083,17 +5719,30 @@ function showContextMenu(x, y) {
   menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
 }
 
-// Writes "tree:<id>"/"path:<id>" into the search box (REPLACING its
-// content — not appended), closes the menu, and runs the normal search flow
-// via renderBoard() — same direct-call convention as clearSearch(), no
-// synthetic 'input' event, and no view switch. Single-card only; showContextMenu
-// already hides these items for a multi-card selection, but this guards the
-// no-selection edge case too (e.g. a stale/empty selectedIds).
-function focusOn(kind) {
+// Peek opens the card's details through the same path a plain open takes (so card
+// history takes its step) and leaves the selection and the range start alone.
+function peekCard() {
   hideContextMenu();
-  const id = [...selectedIds][0];
-  if (id == null) return;
-  $('#search-input').value = `${kind}:${id}`;
+  openCard(menuSubject.ids[0]);
+}
+
+// Add to selection: the card joins as an addition, or becomes the anchor of an
+// empty selection. The range start stays where it was.
+function addCardToSelection() {
+  hideContextMenu();
+  setSelection(addPart(selectionState.selection, cardPart(menuSubject.ids[0])));
+  renderBoard();
+}
+
+// Dependency tree / path: the card's tree or path joins the selection as one part,
+// resolved with the others on every render (selection.js); the search box is left
+// alone. One card only; showContextMenu already hides these items for a menu whose
+// subject is several, and this guards the empty subject too.
+function addDependencyToSelection(kind) {
+  hideContextMenu();
+  if (menuSubject.ids.length !== 1) return;
+  const part = kind === 'tree' ? treePart : pathPart;
+  setSelection(addPart(selectionState.selection, part(menuSubject.ids[0])));
   renderBoard();
 }
 
@@ -5105,8 +5754,10 @@ function focusOn(kind) {
 // — the drag-to-Archive and tile/detail Archive paths never ask at all.
 async function bulkArchive() {
   hideContextMenu();
-  const skipped = selectedCards().filter((c) => c.archived).length; // already archived (mixed selections)
-  const toArchive = selectedCards().filter((c) => !c.archived);
+  captureBulkTargets();
+  const targets = bulkTargets(bulkPopupIds);
+  const skipped = targets.filter((c) => c.archived).length; // already archived (mixed selections)
+  const toArchive = targets.filter((c) => !c.archived);
   const ids = toArchive.map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Everything selected is already archived.'); return; }
   // one speedbump for the batch, not one per card — skipped entirely
@@ -5122,22 +5773,23 @@ function openBulkArchive(count) {
   $('#bulk-archive-input').focus();
 }
 
-// The popup's Archive button. Re-derives the batch from the live selection
-// (the poll may have moved cards under the popup) and sends the package with
-// every POST — a blank box sends none, so the request is byte-identical to
-// the package-less archive paths.
+// The popup's Archive button. Archives the cards the popup captured when the
+// action started, read again (the poll may have moved cards under the popup),
+// and sends the package with every POST — a blank box sends none, so the
+// request is byte-identical to the package-less archive paths.
 async function applyBulkArchive() {
   const pkg = $('#bulk-archive-input').value.trim();
   $('#bulk-archive').classList.add('hidden');
-  const skipped = selectedCards().filter((c) => c.archived).length;
-  const ids = selectedCards().filter((c) => !c.archived).map((c) => c.id);
+  const targets = bulkTargets(bulkPopupIds);
+  const skipped = targets.filter((c) => c.archived).length;
+  const ids = targets.filter((c) => !c.archived).map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Everything selected is already archived.'); return; }
   const failed = [];
   for (const id of ids) {
     try { await api('POST', `/api/cards/${id}/archive`, pkg ? { package: pkg } : undefined); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  selectedIds = new Set();
+  if (bulkPopupInSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
   await loadBoard();
   const where = pkg ? ` into ${pkg}` : '';
   const skipNote = skipped ? `; skipped ${skipped} already archived` : '';
@@ -5149,8 +5801,9 @@ async function applyBulkArchive() {
 // destination, the menu doesn't). Live cards in a mixed selection skip.
 async function bulkRestore() {
   hideContextMenu();
-  const skipped = selectedCards().filter((c) => !c.archived).length;
-  const ids = selectedCards().filter((c) => c.archived).map((c) => c.id);
+  const targets = bulkTargets(menuSubject.ids);
+  const skipped = targets.filter((c) => !c.archived).length;
+  const ids = targets.filter((c) => c.archived).map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Nothing selected is archived.'); return; }
   const failed = [];
   for (const id of ids) {
@@ -5164,15 +5817,16 @@ async function bulkRestore() {
 
 async function bulkDelete() {
   hideContextMenu();
-  const ids = [...selectedIds];
+  const ids = bulkTargets(menuSubject.ids).map((c) => c.id);
   if (!ids.length) return;
+  const wasSelection = menuSubject.inSelection;
   if (!confirm(`Permanently delete ${ids.length} card(s)? This cannot be undone.`)) return;
   const failed = [];
   for (const id of ids) {
     try { await api('DELETE', `/api/cards/${id}`); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  selectedIds = new Set();
+  if (wasSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
   await loadBoard();
   toast(failed.length ? `Deleted ${ids.length - failed.length}; failed: ${failed.join(', ')}` : `Deleted ${ids.length} card(s).`);
 }
@@ -5189,7 +5843,7 @@ async function onBulkDrop(ids, status) {
   if (!movable.length && !refused.length) return;
   const prev = new Map(movable.map((c) => [c.id, c.status]));
   movable.forEach((c) => { c.status = status; }); // optimistic
-  selectedIds = new Set();
+  setSelection(NO_SELECTION);
   renderBoard();
   pendingDrops++; // same poll guard as single onDrop
   const failed = [];
@@ -5217,17 +5871,38 @@ async function onBulkDrop(ids, status) {
 // speedbump (edits are reversible, unlike archive/delete) — and the
 // selection survives so bulk actions chain on the same batch.
 let bulkSingleMode = null; // 'assignee' | 'priority'
+let bulkPopupIds = []; // the ids an open bulk popup captured when it opened; the next popup replaces them
+let bulkPopupInSelection = false; // whether the menu that opened that popup was for the selection; replaced with the ids
+// What the card menu the last right-click opened is for (cardMenuFor, selection.js):
+// the right-clicked card alone outside the selection, the resolved selection inside
+// it. Fixed when the menu opens, so the menu's entries and the popups they open act
+// on those cards whatever the selection and the poll do meanwhile.
+let menuSubject = { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: false, canvas: false };
 
-function selectedCards() {
-  return [...state.active, ...state.archived].filter((c) => selectedIds.has(c.id));
+// The one reader of the cards a bulk action acts on, live or archived, in the
+// order they were selected; an id with no card (deleted mid-selection) is
+// dropped. With no argument it reads the selection as it is now. A popup that
+// stays open while the poll and the user move on passes the ids it captured.
+function bulkTargets(ids = [...selectedIds]) {
+  const byId = new Map([...state.active, ...state.archived].map((c) => [c.id, c]));
+  return ids.map((id) => byId.get(id)).filter(Boolean);
+}
+
+// A popup's copy of its targets, taken when it opens, so it acts on the cards it
+// showed whatever happens to the selection while it is open. They are the menu's
+// subject: the right-clicked card alone when it was outside the selection.
+function captureBulkTargets() {
+  bulkPopupIds = bulkTargets(menuSubject.ids).map((c) => c.id);
+  bulkPopupInSelection = menuSubject.inSelection;
 }
 
 function openBulkSingle(mode) {
   hideContextMenu();
-  if (!selectedIds.size) return;
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
   bulkSingleMode = mode;
   $('#bulk-single-title').textContent = mode === 'assignee'
-    ? `Assign ${selectedIds.size} card(s)` : `Set priority on ${selectedIds.size} card(s)`;
+    ? `Assign ${bulkPopupIds.length} card(s)` : `Set priority on ${bulkPopupIds.length} card(s)`;
   $('#bulk-single-hint').textContent = mode === 'assignee' ? 'Leave empty to unassign.' : '';
   $('#bulk-single-input').value = '';
   $('#bulk-single-apply').disabled = mode === 'priority'; // priority requires a value
@@ -5242,7 +5917,7 @@ async function bulkPatch(ids, changesFor, summary) {
     try { await api('PATCH', `/api/cards/${id}`, changesFor(id)); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  await loadBoard(); // selection survives — pruneSelection only drops departed ids
+  await loadBoard(); // selection survives — dropGoneCards only drops departed ids
   toast(failed.length ? `${summary(ids.length - failed.length)}; failed: ${failed.join(', ')}` : `${summary(ids.length)}.`);
 }
 
@@ -5254,11 +5929,11 @@ async function applyBulkSingle() {
   const label = mode === 'assignee'
     ? (value ? `Assigned ${value} to` : 'Unassigned')
     : `Priority ${value} set on`;
-  await bulkPatch([...selectedIds], () => (mode === 'assignee' ? { assignee: value } : { priority: value }), (n) => `${label} ${n} card(s)`);
+  await bulkPatch(bulkTargets(bulkPopupIds).map((c) => c.id), () => (mode === 'assignee' ? { assignee: value } : { priority: value }), (n) => `${label} ${n} card(s)`);
 }
 
 function renderBulkTags() {
-  const cards = selectedCards();
+  const cards = bulkTargets(bulkPopupIds);
   $('#bulk-tags-title').textContent = `Edit tags on ${cards.length} card(s)`;
   const list = $('#bulk-tag-list');
   const union = tagUnion(cards);
@@ -5280,7 +5955,8 @@ function renderBulkTags() {
 
 function openBulkTags() {
   hideContextMenu();
-  if (!selectedIds.size) return;
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
   $('#bulk-tag-input').value = '';
   renderBulkTags();
   applyModalFullscreen('bulkTags'); // re-apply the persisted preference on every open
@@ -5292,7 +5968,7 @@ function openBulkTags() {
 async function bulkAddTag() {
   const tag = $('#bulk-tag-input').value.trim();
   if (!tag) return;
-  const changes = addTagChanges(selectedCards(), tag);
+  const changes = addTagChanges(bulkTargets(bulkPopupIds), tag);
   $('#bulk-tag-input').value = '';
   if (!changes.length) { toast(`All selected cards already have "${tag}".`); return; }
   const byId = new Map(changes.map((c) => [c.id, c.tags]));
@@ -5303,7 +5979,7 @@ async function bulkAddTag() {
 async function bulkRemoveTags() {
   const chosen = [...$('#bulk-tag-list').querySelectorAll('input:checked')].map((cb) => cb.value);
   if (!chosen.length) { toast('Tick the tags to remove first.'); return; }
-  const changes = removeTagsChanges(selectedCards(), chosen);
+  const changes = removeTagsChanges(bulkTargets(bulkPopupIds), chosen);
   const byId = new Map(changes.map((c) => [c.id, c.tags]));
   await bulkPatch([...byId.keys()], (id) => ({ tags: byId.get(id) }), (n) => `Removed ${chosen.join(', ')} from ${n} card(s)`);
   renderBulkTags();
@@ -5346,8 +6022,9 @@ function refreshScheduleControls() {
 
 function openBulkSchedule() {
   hideContextMenu();
-  if (!selectedIds.size) return;
-  $('#bulk-schedule-title').textContent = `Schedule ${selectedIds.size} card(s)`;
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
+  $('#bulk-schedule-title').textContent = `Schedule ${bulkPopupIds.length} card(s)`;
   for (const [, inputSel, clearSel] of SCHEDULE_ROWS) { // fresh slate on every open
     $(inputSel).value = '';
     $(clearSel).checked = false;
@@ -5362,7 +6039,7 @@ async function applyBulkSchedule() {
   const changes = scheduleChanges(readScheduleFields());
   $('#bulk-schedule').classList.add('hidden');
   if (!changes) return; // untouched — Apply is disabled then, but belt-and-braces: just close
-  await bulkPatch([...selectedIds], () => changes, (n) => `Scheduled ${n} card(s): ${scheduleSummary(changes)}`);
+  await bulkPatch(bulkTargets(bulkPopupIds).map((c) => c.id), () => changes, (n) => `Scheduled ${n} card(s): ${scheduleSummary(changes)}`);
 }
 
 // Esc must never be a true no-op on a fullscreen
@@ -5389,67 +6066,40 @@ window.addEventListener('DOMContentLoaded', () => {
   // click landing on a button/select inside or around a card-el (archive
   // tile's Restore/Delete, column sort controls, calendar nav) belongs to
   // that control, never to the card grammar. Registration order matters:
-  // this runs before the Q0 clear-selection handler below, so a plain click
-  // on a card empties the selection here and Q0 then no-ops.
+  // a card is not empty space, so the click-away rule (onClickAway) leaves what
+  // the click built.
   document.addEventListener('click', (e) => {
     if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
     if (!el) return;
     if (e.target.closest('button, select, input, a')) return;
-    const id = Number(el.dataset.id);
-    // An assignee cue or a tag is a search shortcut, not a
-    // way to open/select the card underneath it — handled here, ahead of the
-    // select/open logic below, an additive guard
-    // only. See addSearchTerm for the additive/no-op
-    // contract. ADR 0009: the blocked/review pills join the same
-    // shortcut — always the bare presence term, read from state, never the
-    // pill's own text (the reason itself isn't a search key).
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
-    if (cue) {
-      const card = state.active.concat(state.archived).find((c) => c.id === id);
-      if (card) {
-        if (cue.classList.contains('card-assignee') && card.assignee) addSearchTerm(`assignee:${card.assignee}`);
-        else if (cue.classList.contains('tag')) addSearchTerm(`tags:${cue.textContent}`);
-        else if (cue.classList.contains('blocked-pill')) addSearchTerm('blocked:');
-        else if (cue.classList.contains('review-pill')) addSearchTerm('review:');
-      }
-      return;
-    }
-    // File-manager selection grammar:
-    // Shift+click ADDS the whole range between the anchor and the target, in
-    // the active view's rendered order; ctrl/cmd+click toggles one card and
-    // plants the anchor. renderBoard() repaints whichever view is active —
-    // board columns always, plus the active map/calendar/gantt.
-    if (e.shiftKey) {
-      const order = visibleCardIds();
-      // no usable anchor (never set, card gone, or filtered out of this
-      // view) — this click starts the range: select the target, anchor here
-      if (!order.includes(selectionAnchor)) selectionAnchor = id;
-      selectedIds = rangeSelection(selectedIds, order, selectionAnchor, id);
-      renderBoard();
-      return;
-    }
-    if (e.ctrlKey || e.metaKey) {
-      selectedIds = toggleSelection(selectedIds, id);
-      selectionAnchor = id;
-      renderBoard();
-      return;
-    }
-    // Plain click breaks any selection, then just opens the card as always.
-    selectionAnchor = null;
-    if (selectedIds.size) { selectedIds = new Set(); renderBoard(); }
-    openCard(id);
+    const view = loadViewMode();
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
+    applyCardClick(action, Number(el.dataset.id), cue);
   });
-  // Right-click on any card-el opens the bulk menu; anywhere else keeps the
-  // browser's own context menu (don't hijack the whole page).
-  // contextSelection semantics: an unselected card becomes THE
-  // selection in the same gesture; a selected one keeps the whole batch.
+  // Right-click on any card-el opens the card menu; anywhere else keeps the
+  // browser's own context menu (don't hijack the whole page), except the empty
+  // canvas of the Graph and the Map, which opens a menu of Isolate alone
+  // (openCanvasContextMenu). A card outside the selection gets a menu for that
+  // card alone and the selection stays; a selected one gets a menu for the whole
+  // batch.
   document.addEventListener('contextmenu', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
-    if (!el) return;
+    if (!el) { openCanvasContextMenu(e); return; }
     openCardContextMenu(e, Number(el.dataset.id));
   });
+  document.addEventListener('keydown', onCardOpenKey);
+  // The preferences sheet: the gear opens it; its close button and a click on
+  // the backdrop close it, and so does Esc (its own line in the Esc handler).
+  $('#prefs-btn').addEventListener('click', openPrefsSheet);
+  $('#prefs-close').addEventListener('click', closePrefsSheet);
+  $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
+  $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
+  $('#prefs-slices-folded').addEventListener('change', (e) => setSlicesFolded(e.target.checked));
+  $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
+  $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
   // contextmenu grammar above) plus focusin/focusout so Tab reaches the
@@ -5482,9 +6132,11 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#ctx-tags').addEventListener('click', openBulkTags);
   // Schedule… popup
   $('#ctx-schedule').addEventListener('click', openBulkSchedule);
-  // Dependency tree / path search sugar
-  $('#ctx-tree').addEventListener('click', () => focusOn('tree'));
-  $('#ctx-path').addEventListener('click', () => focusOn('path'));
+  // Peek and Add to selection, then Dependency tree / path, which add to the selection
+  $('#ctx-peek').addEventListener('click', peekCard);
+  $('#ctx-add').addEventListener('click', addCardToSelection);
+  $('#ctx-tree').addEventListener('click', () => addDependencyToSelection('tree'));
+  $('#ctx-path').addEventListener('click', () => addDependencyToSelection('path'));
   $('#bulk-schedule-apply').addEventListener('click', applyBulkSchedule);
   $('#bulk-schedule-close').addEventListener('click', () => $('#bulk-schedule').classList.add('hidden'));
   $('#bulk-schedule-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('bulkSchedule'));
@@ -5527,20 +6179,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     if (!$('#context-menu').classList.contains('hidden') && !e.target.closest('#context-menu')) hideContextMenu();
   });
-  // Q0: any plain click that isn't inside the context menu or a
-  // bulk popup drops the multi-selection. Ctrl-, cmd- and shift-clicks build
-  // it; the menu and popups are exempt so they don't kill their
-  // own target batch. The view toggle buttons are exempt too: the
-  // selection must survive a view switch. The date-picker popover
-  // renders into document.body (outside #modal), so it and the schedule
-  // popup are exempt as well.
-  document.addEventListener('click', (e) => {
-    if (!selectedIds.size || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('#context-menu, #bulk-single, #bulk-tags, #bulk-schedule, #bulk-archive, .date-picker-pop, #map-toggle-btn, #calendar-toggle-btn, #gantt-toggle-btn, .cal-nav, .map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn, .map-option-btn, .rollup, #graph-toggle-btn, .graph-control')) return; // curate-the-view controls: month paging (.cal-nav), the map pills, the map options, the section collapse toggles, the gantt pills, the calendar pills, the map zoom toolbar and the roll-up bars must not wipe a building selection
-    selectedIds = new Set();
-    selectionAnchor = null; // a dead selection must not leave an invisible range anchor behind
-    renderBoard();
-  });
+  document.addEventListener('click', onClickAway);
   window.addEventListener('resize', hideContextMenu);
   // Backdrop click on the edit/new-card form goes through the dirty guard.
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') requestCloseModal(); });
@@ -5659,7 +6298,7 @@ function attachCombobox(input, getOptions, opts = {}) {
   input.addEventListener('input', (e) => { if (e.isTrusted) { typed = true; open(true); } });
   input.addEventListener('blur', close);
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !menu.hidden) { close(); e.stopPropagation(); return; }
+    if (e.key === 'Escape' && !menu.hidden) { close(); e.preventDefault(); e.stopPropagation(); return; } // preventDefault: a search field's own Esc would clear it too
     if (menu.hidden) return; // closed menu: Enter/Arrows are the form's or the browser's business, not ours
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault(); // don't let the browser hunt for another focusable element
@@ -5723,12 +6362,13 @@ function datePickerPop() {
   if (pop) return pop;
   pop = document.createElement('div');
   pop.className = 'date-picker-pop';
+  pop.dataset.keepsSelection = '';
   pop.hidden = true;
   // One delegated listener outlives every re-render (renderDatePicker swaps
   // the children on each nav click) — same discipline as #calendar-view's.
   pop.addEventListener('click', (e) => {
     // Everything inside the popover is popover business: stop here so the
-    // document outside-closer and Q0 never see these clicks. Critically, a
+    // document outside-closer and the click-away rule never see these clicks. Critically, a
     // nav click re-renders via replaceChildren, DETACHING the clicked button
     // mid-dispatch — a detached target makes closest('.date-picker-pop')
     // return null downstream, which closed the popover on every nav press.

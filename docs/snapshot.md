@@ -37,9 +37,44 @@ Gantt / Calendar, and the header carries search and a notifications bell. Cards
 show the same cues as the desktop board — here `#7` wears the amber **waiting**
 tag.
 
+## Search
+
+The search box under the header filters every view, in the same query grammar as kanban-web, because
+the page runs kanban-web's own search module: a query finds on the phone what it finds at the desk,
+and edits still queued in the tray count. Terms separated by spaces AND together
+(`tags:ui status:doing`), and five forms go further. `|` is or and a space binds tighter, so
+`tags:ui status:doing | #12` is ui and doing, or card 12; round brackets group
+(`tags:ui (status:doing | status:todo)`); a quoted value matches whole, ignoring case, or any one
+element of a list (`tags:"grill"` finds a card tagged grill and not one tagged grilling), and quoted
+text with no field is a phrase (`"two words"`); a bare `waiting:` finds the cards waiting for a card
+that is not done, as `blocked:` and `review:` find their stickers; and `slice:` cuts every view to a
+run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards
+with no tier: `slice:objective..2`, `slice:goal`, `slice:goal..`. A board with no hierarchy cuts by
+depth. After `slice:` and after `..` the box suggests the board's slices, the tiers in hierarchy
+order and then the depth numbers, and a tap writes the whole term. A `|` and a bracket count
+only at a token's edge, so `a|b` and `fix(auth)` stay literal text while `a |b` means `a | b`.
+
+## Search panel
+
+The search box has a panel of slices and pills under it, the web board's panel without its Isolate
+switch. Focusing the box opens it, and the arrow at the end of the box switches that off and on (so
+does the `p` key). The pill section lists blocked, review and waiting, then the board's own pills
+from `config.yaml`, a `field:*` entry giving one pill per value, eight shown and the rest behind
+**+N more**. Pills filter: a click turns one on, its query joining the box as one more alternative,
+a right-click keeps only that pill, and each shows how many cards it leaves. The slice section,
+folded to start, lists the tiers the board uses with their icons, then the depths, each with a count;
+a click grows or shrinks the run, a right-click keeps only that slice, and `[` `]` `{` `}` move the
+run's ends. The right-clicks need a mouse, a fine pointer that hovers: on a phone a long-press shows
+the browser's own menu, and a tap turns a pill on or off or grows, narrows or clears the run of
+slices. The context-menu key and Shift+F10 on a focused slice entry keep only that slice with any
+pointer. Counts are taken over the cards the status pills and Archive leave, before the box and
+the cut, so turning a pill on never changes the others. With the panel closed, a chip in the box
+counts what is on. There is no Isolate switch here, since the page has no selection to isolate.
+
 ## Nested cards
 
 A card with a `type` wears a chip in the color `config.yaml` gives that type.
+A type with an `icon:` there starts its chip with that glyph, in the chip's color.
 On a board where cards have a `rank` or a `parent`, each section lists its cards
 in outline order — parents before their children, siblings by rank — and a parent
 card shows how many layers sit below it (`▲2`) with a thin bar of how far along
@@ -73,7 +108,9 @@ cards nothing links; rows that read doing, todo, backlog, done from the left and
 centered; and cards that carry their type chip, `▲` badge and roll-up bar. The Map
 options row is kanban-web's: the snapshot always draws these defaults.
 
-The snapshot has no Graph view; that one is kanban-web only.
+The snapshot has no Graph view; that one is kanban-web only. Its Calendar and Gantt filter by the
+search box as kanban-web's do, but do not jump to the nearest match when the box leaves none on
+screen: page to it yourself.
 
 ![Snapshot gantt](images/snapshot-gantt.jpg)
 *Gantt — working-range bars and due diamonds, grouped by status, with an undated-cards row below.*

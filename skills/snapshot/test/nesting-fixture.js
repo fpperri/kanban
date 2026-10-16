@@ -11,6 +11,15 @@ const mapRelationsPath = path.join(__dirname, '..', '..', 'web', 'web', 'map-rel
 
 const lf = (text) => text.replace(/\r\n/g, '\n');
 
+// The script elements a built page holds: one for each module the builder embeds (its EMBEDDED
+// table, the one list of them), then the page's own script.
+const PAGE_SCRIPTS = Number(execFileSync('python', ['-B', '-c', [
+  'import sys',
+  `sys.path.insert(0, ${JSON.stringify(path.dirname(buildScript))})`,
+  'import build_editor',
+  'print(len(build_editor.EMBEDDED) + 1)',
+].join('\n')], { encoding: 'utf8' }));
+
 function card(id, status, title, extra) {
   const lines = ['---', `id: ${id}`, `status: ${status}`];
   for (const [k, v] of Object.entries(extra || {})) lines.push(`${k}: ${v}`);
@@ -70,4 +79,4 @@ function withSnapshot(board, fn) {
   }
 }
 
-module.exports = { BOARD, buildScript, card, lf, mapRelationsPath, nestingPath, withSnapshot, writeBoard };
+module.exports = { BOARD, PAGE_SCRIPTS, buildScript, card, lf, mapRelationsPath, nestingPath, withSnapshot, writeBoard };

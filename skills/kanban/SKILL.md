@@ -135,10 +135,16 @@ assignees:        # registry of who can own cards; suggests handles, never valid
 priorities: [High, Normal, Low]   # official list, ordered highest first
 tags: [skills, config]            # curated tag vocabulary
 statuses: [backlog, todo, doing, done]   # official COLUMN list, in board order
-types:                            # suggested card types; a color is optional
+types:                            # suggested card types; a color and an icon are optional
   - name: objective
     color: "#a371f7"
+    icon: diamond                 # circle | square | diamond | triangle | hexagon | star
   - story                         # a bare entry is a name with no color
+hierarchy: [goal, strategy, objective, initiative]   # the types that are the levels of the plan, top first
+pills:                            # one-click search queries, in block form
+  - next: 'tags:"next-up"'        # a label, then its query
+  - "assignee:@human"             # a query on its own is its own label
+  - "tags:*"                      # one pill per tag on the board, sorted
 ```
 
 **`name` — the board name.** The short token that opens a card mention
@@ -205,7 +211,17 @@ has no `assignees` registry, every surface suggests exactly this trio.
 
 Status values are **case-sensitive** — the `doing` entry gate (waiting + blocked) applies to the literal lowercase `doing` only; a column named `Doing` is just another custom column the gate ignores. Curate accordingly.
 
-**`types` — the card-type list.** Entries give a `type:` word a chip color; they suggest, they never validate, and a card may carry any `type:` text. Accepted forms: a block entry `- name: objective` with an optional indented `color:` (a hex like `"#a371f7"` or a color name, kept as an opaque string), a bare entry `- story` (name only), or an inline `types: [objective, story]`. Entries keep the order written, an entry with no name is skipped, and a type the list does not name (or names without a color) shows a neutral chip. Like `tags`, the list is human-curated: never add to it on your own.
+**`types` — the card-type list.** Entries give a `type:` word a chip color and, optionally, an icon (see `icon` below); they suggest, they never validate, and a card may carry any `type:` text. Accepted forms: a block entry `- name: objective` with an optional indented `color:` (a hex like `"#a371f7"` or a color name, kept as an opaque string), a bare entry `- story` (name only), or an inline `types: [objective, story]`. Entries keep the order written, an entry with no name is skipped, and a type the list does not name (or names without a color) shows a neutral chip. Like `tags`, the list is human-curated: never add to it on your own.
+
+**`hierarchy` — the levels of the plan.** An ordered list of type names, top level first, in the inline form `hierarchy: [goal, strategy, objective, initiative]` or as a block list. A card's `type:` word, compared without regard to case, gives it a tier: its place in this list. The hierarchy orders drawing and slicing and enforces nothing: a card of any type may sit under a card of any other type, and nothing warns when it does (ADR 0013). Names are read as written; a blank entry is skipped, a duplicate passes through for the page to drop, and a value that is not a list (`hierarchy: goal`) or an empty one means no hierarchy. A type outside the list has no tier, and the `types:` list's own order still means nothing.
+
+**`pills` — the board's own one-click searches.** Written in block form only. Each entry is either a search query, quoted or bare, or a one-key map from a label to a query, as in `- next: 'tags:"next-up"'`. A query on its own is its own label. A map's key ends at the first colon followed by a space (or by the end of the entry), as in YAML, so `- tags: grill` is the label `tags` with the query `grill`, not the query `tags:grill`; write `- "tags:grill"` for that query. A colon with no space after it stays inside the query (`- assignee:@human`, `- "tags:*"`). An entry that is blank, only a comment, or has an empty label or an empty query is skipped, and extra keys on a map are ignored. Labels and queries are free text and are never validated here. Unindented `- item` lists are skipped, as for every list in this file.
+
+A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's search panel (and the snapshot's) to one pill per distinct value the board's active cards hold in that field (`tags`, `assignee`, `status`, `priority` or `type`; `a:*` is `assignee:*`), sorted and labelled by the value, in the place the entry holds among the others. Each pill matches its value exactly, or any one element of a list field, so `grill` never catches `grilling`, and a value with a space stays one term. A label on such an entry names nothing: each pill is labelled by its value. The first eight values of a field show, and a "+N more" control reveals the rest and folds them back. A `field:*` entry on any other field, such as `title:*`, is skipped. Next up has no built-in pill: a board that wants one defines it, as in `- next: 'tags:"next-up"'`, and nothing in the plugin gives it a meaning.
+
+**`icon` — a type's shape.** An optional line on a block entry of `types:`, one of `circle`, `square`, `diamond`, `triangle`, `hexagon` or `star`, in any case, with an optional trailing comment. A type with no icon, or an unknown name, is drawn as it is today; an unknown name is kept as written and never an error. An icon is a shape, never a color: colors stay on `color:`.
+
+Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. They are not exceptions to "never invent a config key" and have no seed trigger. The id counter's write replaces its own `nextId:` line and leaves these lines, comments and every unknown key as they were.
 
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 

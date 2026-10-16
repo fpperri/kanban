@@ -26,8 +26,8 @@ function rowSandbox() {
 }
 
 const groupsOf = (html) => [...html.matchAll(/<span class="map-option" title="([^"]*)"><span class="map-option-label">([^<]*)<\/span>([\s\S]*?)<\/span><\/span>/g)]
-  .map((m) => ({ hint: m[1], label: m[2], buttons: [...m[3].matchAll(/<button type="button" class="map-option-btn( active)?" data-key="(\w+)" data-val="(\w+)" aria-pressed="(true|false)">([^<]*)<\/button>/g)]
-    .map((b) => ({ active: !!b[1], key: b[2], val: b[3], pressed: b[4] === 'true', text: b[5] })) }));
+  .map((m) => ({ hint: m[1], label: m[2], buttons: [...m[3].matchAll(/<button type="button" class="map-option-btn( active)?" data-key="(\w+)" data-val="(\w+)" aria-pressed="(true|false)"( data-keeps-selection data-holds-poll)?>([^<]*)<\/button>/g)]
+    .map((b) => ({ active: !!b[1], key: b[2], val: b[3], pressed: b[4] === 'true', marked: !!b[5], text: b[6] })) }));
 
 test('the row has one control per option, labelled as the docs name them', () => {
   const w = rowSandbox();
@@ -101,8 +101,8 @@ test('a click on an option button sets that option, checked ahead of the card an
 });
 
 test('a focused option button blocks the poll and keeps a selection, like every other rebuilt control', () => {
-  assert.match(fn('boardControlFocused'), /\.map-option-btn/);
-  assert.match(appSrc, /e\.target\.closest\('#context-menu,[^']*\.map-option-btn[^']*'\)\) return; \/\/ curate-the-view controls/);
+  assertHoldsPoll(['.map-option-btn'], 'an option button');
+  assertKeepsSelection(['.map-option-btn'], 'an option button');
 });
 
 test('the control row is styled with tokens, no hex outside the token blocks', () => {
@@ -117,7 +117,7 @@ test('the control row is styled with tokens, no hex outside the token blocks', (
 // --- the fold: the row starts folded behind an Options toggle ---------------------
 
 const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
-const { clickAwayExemptions, pollGuardSelectors } = require('./helpers/selector-list');
+const { assertKeepsSelection, assertHoldsPoll, assertLetsPollRun } = require('./helpers/markers');
 
 const SECTIONS_KEY = 'kanban.shop.map.sections.collapsed';
 const unfolded = (extra = {}) => ({ [SECTIONS_KEY]: JSON.stringify({ options: false, ...extra }) });
@@ -204,21 +204,18 @@ test('a click on the Options toggle goes through the section branch, ahead of th
   const handler = click[0];
   const section = handler.indexOf("closest('.map-section-toggle[data-section]')");
   assert.ok(section !== -1);
-  assert.match(handler, /keepPillFocus\(sectionBtn, \(\) => toggleMapSection\(sectionBtn\.dataset\.section\)\)/, 'focus follows the rebuilt toggle');
+  assert.match(handler, /keepControlFocus\(sectionBtn, \(\) => toggleMapSection\(sectionBtn\.dataset\.section\)\)/, 'focus follows the rebuilt toggle');
   assert.ok(section < handler.indexOf("closest('.map-option-btn[data-key][data-val]')"));
   assert.ok(section < handler.indexOf("closest('button[data-act]')"));
 });
 
 test('a click on the Options toggle does not wipe a building selection', () => {
-  const toggle = toggleIn(rowHtml().html);
-  const exempt = clickAwayExemptions(appSrc);
-  assert.ok(toggle.classList.some((cls) => exempt.includes('.' + cls)), `the toggle's classes (${toggle.classList.join(' ')}) are on the click-away exemption list`);
+  for (const stored of [{}, unfolded()]) assert.strictEqual(toggleIn(rowHtml({ stored }).html).keepsSelection, true, 'the toggle wears the keep-selection marker');
+  assertKeepsSelection(['.map-section-toggle'], 'a section toggle');
 });
 
-test('the Options toggle is not in the poll guard, so a focused one does not hold the 5s refresh', () => {
-  const toggle = toggleIn(rowHtml().html);
-  const guard = pollGuardSelectors(appSrc);
-  assert.deepStrictEqual(toggle.classList.filter((cls) => guard.includes('.' + cls)), []);
+test('the Options toggle does not hold the poll, so a focused one does not hold the 5s refresh', () => {
+  assertLetsPollRun(['.map-section-toggle'], 'a section toggle');
 });
 
 test('the Options toggle sits inline with the row and drops the section header\'s own bottom margin', () => {

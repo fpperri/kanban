@@ -6,7 +6,7 @@ const path = require('node:path');
 const http = require('node:http');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
-const { clickAwayExemptions, pollGuardSelectors, assertHasSelectors } = require('./helpers/selector-list');
+const { assertKeepsSelection, assertHoldsPoll, assertLetsPollRun } = require('./helpers/markers');
 const { createServer, start, resolvePort, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
 
 function tmpBoard() {
@@ -389,7 +389,7 @@ test('index html has a top-bar graph toggle button and a graph view container', 
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const html = await (await fetch(`${base}/`)).text();
-    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>'));
+    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>'));
     assert.ok(html.includes('<div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>'));
     assert.ok(html.indexOf('id="gantt-toggle-btn"') < html.indexOf('id="graph-toggle-btn"') && html.indexOf('id="graph-toggle-btn"') < html.indexOf('id="refresh-btn"'));
   });
@@ -414,9 +414,9 @@ test('graph wiring: the sixth view is registered, its toggle/control join the cl
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /graph: '#graph-view'/);
     assert.match(js, /if \(mode === 'graph'\) renderGraphView\(\);/);
-    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.rollup', '#graph-toggle-btn', '.graph-control'],
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.rollup', '#graph-toggle-btn', '.graph-control'],
       '#graph-toggle-btn, .graph-control are in the click-away exemption list');
-    assert.ok(pollGuardSelectors(js).includes('.graph-control:not(.graph-filter-toggle)'), 'graph buttons other than the pills are in the poll-guard list');
+    assertHoldsPoll(['.graph-button'], 'graph buttons other than the pills hold the poll');
   });
 });
 
@@ -1525,8 +1525,7 @@ test('column headers carry a + quick-create button — gated by showsColumnAdd, 
       'the global + New card button passes NO preset');
     // A focused + button must block the 5s poll like its header siblings —
     // renderBoardColumns wipes #board, silently dumping keyboard focus to <body>.
-    assert.match(js, /boardControlFocused[\s\S]{0,600}closest\('[^']*\.column-add/,
-      'the + button joins the focused-control poll guard');
+    assertHoldsPoll(['.column-add', '.column-add-ai'], 'the + button holds the poll like its header siblings');
     const css = await (await fetch(`${base}/app.css`)).text();
     assert.match(css, /\.column-add\s*\{/, 'the + button is styled');
   });
@@ -1831,13 +1830,13 @@ test('the map graph and No relations sections are each collapsible, state persis
   });
 });
 
-test('map section toggles join the Q0 clear-selection exemption and stay out of the poll guard, same as the map status-filter pills', async () => {
+test('map section toggles keep the selection and stay out of the poll guard, same as the map status-filter pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
-    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
-    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle'],
+    assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assertLetsPollRun(PILL_CLASSES, 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle'],
       'a section-toggle click must not wipe a building selection, same curate-the-view exemption as the #56 pills');
   });
 });
@@ -1866,22 +1865,22 @@ test('app.js applyBoardData applies the assignee registry and official lists BEF
 // guards, the search∩status composition rides a pinned pure helper, and the
 // sub-month all-day chips stop shadowing their drop cells.
 
-test('map status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard', async () => {
+test('map status-filter pills keep the selection and stay out of the poll guard', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    // Q0: the pill click bubbles past the #map-view delegated handler to the
-    // document-level clear-selection handler — without the exemption, toggling
-    // a status to declutter the map wipes the shift-click batch being built
+    // The pill click bubbles past the #map-view delegated handler to the
+    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
+    // click while toggling a status to declutter the map wipes the shift-click batch being built
     // (the same curate-before-acting class .cal-nav was exempted for).
-    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle'],
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle'],
       'pill clicks must not wipe a building selection');
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
     // innerHTML='' on every 5s tick. They stay out of the guard, because a
     // pressed pill keeps focus and would freeze the refresh; applyBoardData
     // refocuses the rebuilt pill instead. The rebuilt header buttons stay in.
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
-    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
+    assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assertLetsPollRun(PILL_CLASSES, 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
 });
 
@@ -2161,19 +2160,19 @@ test('a click on a gantt pill calls toggleGanttStatusFilter, checked before the 
   });
 });
 
-test('gantt status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard, same as the map pills', async () => {
+test('gantt status-filter pills keep the selection and stay out of the poll guard, same as the map pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    // Q0: a pill click bubbles past the #gantt-view delegated handler to the
-    // document-level clear-selection handler — without the exemption, toggling
-    // a status to declutter the timeline wipes the shift-click batch being built.
-    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
+    // A pill click bubbles past the #gantt-view delegated handler to the
+    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
+    // click while toggling a status to declutter the timeline wipes the shift-click batch being built.
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a gantt pill click must not wipe a building selection — this pin also names .calendar-filter-toggle (verify-fix: it previously stopped at .gantt-filter-toggle, an unanchored prefix match that no longer proved the #99 calendar pill\'s presence in this exemption list)');
     // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
     // via innerHTML='' on every 5s tick; they stay out of the guard, as the map's do.
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
-    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
+    assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assertLetsPollRun(PILL_CLASSES, 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
 });
 
@@ -2236,7 +2235,7 @@ test('the calendar month grid AND the sub-month time grid both append search-fil
     assert.ok(month, 'renderCalendarMonthGrid found in app.js');
     assert.match(month[0], /loadCalendarStatusFilter\(\)\.archive === true/, 'the Archive pill\'s OWN boolean gates inclusion — a missing/stale/false value must never render archived chips');
     assert.match(month[0], /state\.archived\.filter\(\(c\) => searchIds\.has\(c\.id\)\)/, 'archived cards still respect the live search box');
-    assert.match(month[0], /filterCards\(state\.active\.concat\(state\.archived\), searchTerms, nestingCtx\(\)\)/, 'the search pool spans live + archived unconditionally, same as the gantt');
+    assert.match(month[0], /const searchIds = currentSearchMatch\(\)\.ids;/, 'the search pool spans live + archived unconditionally, same as the gantt: the shared match result is made over the whole board');
     const timegrid = js.match(/function renderCalendarTimeGrid\([\s\S]*?\n\}/);
     assert.ok(timegrid, 'renderCalendarTimeGrid found in app.js');
     assert.match(timegrid[0], /loadCalendarStatusFilter\(\)\.archive === true/, 'the #58 sub-month grid gates archived inclusion the same way as the month grid');
@@ -2283,19 +2282,19 @@ test('a click on a calendar pill calls toggleCalendarStatusFilter, checked in th
   });
 });
 
-test('calendar status-filter pills join the Q0 clear-selection exemption and stay out of the poll guard, same as the map/gantt pills', async () => {
+test('calendar status-filter pills keep the selection and stay out of the poll guard, same as the map/gantt pills', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    // Q0: a pill click bubbles past the #calendar-view delegated handler to the
-    // document-level clear-selection handler — without the exemption, toggling
-    // a status to declutter the calendar wipes the shift-click batch being built.
-    assertHasSelectors(clickAwayExemptions(js), ['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
+    // A pill click bubbles past the #calendar-view delegated handler to the
+    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
+    // click while toggling a status to declutter the calendar wipes the shift-click batch being built.
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
       'a calendar pill click must not wipe a building selection');
     // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
     // via innerHTML='' on every 5s tick; they stay out of the guard, as the map's/gantt's do.
-    assertHasSelectors(pollGuardSelectors(js), ['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
-    assert.deepStrictEqual(pollGuardSelectors(js).filter((x) => PILL_CLASSES.includes(x)), [], 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
+    assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
+    assertLetsPollRun(PILL_CLASSES, 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
   });
 });
 
@@ -2635,10 +2634,12 @@ test('attachCombobox keydown grammar: Up/Down move a highlight, Enter picks it, 
   const fn = js.match(/function attachCombobox\([\s\S]*?\n\}/);
   assert.ok(fn, 'attachCombobox found in app.js');
   const body = fn[0];
-  // Esc: the contract survives untouched — closes the menu ONLY and
-  // stops propagation so the document-level popup-close handler never sees
-  // this keypress (the next Esc is the one that closes the popup/modal).
-  assert.match(body, /if \(e\.key === 'Escape' && !menu\.hidden\) \{ close\(\); e\.stopPropagation\(\); return; \}/);
+  // Esc: closes the menu ONLY and stops propagation so the document-level
+  // popup-close handler never sees this keypress (the next Esc is the one
+  // that closes the popup/modal). It also stops the browser's own default,
+  // which would clear a search field on this same Esc (search-panel.test.js
+  // drives that end to end).
+  assert.match(body, /if \(e\.key === 'Escape' && !menu\.hidden\) \{ close\(\); e\.preventDefault\(\); e\.stopPropagation\(\); return; \}/);
   // A closed menu hands every other key back — no Arrow/Enter handling runs,
   // so a bare Enter reaches the surrounding <form>'s native submit-on-Enter
   // (the minimal-create flow must not break).

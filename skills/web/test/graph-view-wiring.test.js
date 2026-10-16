@@ -79,6 +79,9 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     { id: 2, title: 'b', status: 'done', archived: true, parent: 1, waiting_for: [3], blocked: true, review: true },
     { id: 3, title: 'c', status: 'todo', archived: false, parent: 1, waiting_for: [], blocked: false, review: false },
     { id: 4, title: 'd', status: 'todo', archived: false, parent: 1, waiting_for: [3], blocked: false, review: false },
+    { id: 5, title: 'e', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
+    { id: 6, title: 'f', status: 'todo', archived: false, parent: 5, waiting_for: [], blocked: false, review: false },
+    { id: 7, title: 'g', status: 'done', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
   ];
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] } });
   const used = new Set();
@@ -86,7 +89,11 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     const plan = graphPlan(model, graphLayout(model, kind, { statuses: ['todo', 'doing', 'done'] }), {
       selectedIds: new Set([1]), hoveredId: 3, kind, statusClass: (s) => s, titleOf: (c) => c.title,
     });
-    for (const x of [...plan.nodes, ...plan.links, ...plan.rings]) {
+    // The fan's marks: guide arcs, captions, the loose caption, the block's frame, title and column captions.
+    const fan = [...plan.guides, ...plan.captions, ...(plan.looseCaption ? [plan.looseCaption] : []),
+      ...(plan.block ? [plan.block, plan.block.title, ...plan.block.columns.map((c) => c.caption)] : [])];
+    assert.strictEqual(fan.length > 0, kind === 'tiers', `${kind} draws the fan's marks, and the others do not`);
+    for (const x of [...plan.nodes, ...plan.links, ...plan.rings, ...fan]) {
       for (const c of x.cls.split(' ')) if (c.startsWith('graph-')) used.add(c);
     }
   }
@@ -142,19 +149,20 @@ test('filter handlers guard with hasOwnProperty; layout re-click and zoom button
   assert.match(fn('wireGraphView'), /zoomBtn\.blur\(\)/);
 });
 
-test('a plain click on a node is caught in the capture phase, selects in place and skips modifier clicks', () => {
+test('a click on a node is caught in the capture phase whatever the modifier, written to the selection and painted in place', () => {
   const body = fn('wireGraphView');
-  const m = body.match(/host\.addEventListener\('click', \(e\) => \{\n    if \(e\.ctrlKey[\s\S]*?\}, true\);/);
+  const m = body.match(/host\.addEventListener\('click', \(e\) => \{\n    if \(!graphCur\) return;[\s\S]*?\}, true\);/);
   assert.ok(m, 'capture-phase click listener on the host');
-  assert.match(m[0], /e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey \|\| !graphCur\) return/);
+  assert.doesNotMatch(m[0], /ctrlKey|metaKey|shiftKey/, 'no modifier lets a click fall through to the shared grammar');
   assert.match(m[0], /closest\('\.graph-node'\)/);
   assert.match(m[0], /e\.stopPropagation\(\)/);
-  assert.match(m[0], /graphSelectOnly\(/);
-  const sel = fn('graphSelectOnly');
-  assert.match(sel, /selectedIds = new Set\(\[id\]\)/);
-  assert.match(sel, /selectionAnchor = id/);
-  assert.match(sel, /classList\.toggle\('selected'/);
-  assert.ok(!/renderBoard|renderGraphView/.test(sel), 'painted in place, no rebuild');
+  assert.match(m[0], /graphClickNode\(Number\(node\.dataset\.id\), e\)/);
+  const click = fn('graphClickNode');
+  assert.match(click, /plainClick: plainClickBehaviour\('graph'\), ranges: shiftAddsRange\('graph'\)/, 'the Graph asks the lookups for its own answers');
+  assert.match(click, /selectByClick\(action, id\)/, 'the selection is written through the step the shared grammar uses');
+  const paint = fn('graphPaintSelection');
+  assert.match(paint, /classList\.toggle\('selected', selectedIds\.has\(nid\)\)/, 'every node is painted from the id set, so a card taken out loses its mark');
+  assert.ok(!/renderBoard|renderGraphView/.test(click + paint), 'painted in place, no rebuild');
 });
 
 test('a double click opens the card, Enter opens and Space selects', () => {
@@ -162,12 +170,13 @@ test('a double click opens the card, Enter opens and Space selects', () => {
   assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(Number\(node\.dataset\.id\)\)/);
   assert.match(body, /host\.addEventListener\('keydown'/);
   assert.match(body, /e\.key === 'Enter'\) \{ e\.preventDefault\(\); if \(!e\.repeat\) openCard\(/);
-  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphSelectOnly\(/);
+  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(Number\(node\.dataset\.id\), \{\}\); \}/, 'Space acts as a plain click');
 });
 
-test('a single selected card keeps its relations lit; hover is temporary and render re-applies the rest focus', () => {
-  assert.match(fn('graphRestFocus'), /selectedIds\.size === 1/);
-  assert.match(fn('graphRestFocus'), /graphSetFocus\(/);
+test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {
+  assert.match(fn('graphRestFocus'), /graphRestLit\(graphCur\.model, \{ selectedIds, loneCardId: graphLoneCardId\(\) \}, graphCur\.lines\)/, 'the lines it lights are the lines drawn');
+  assert.match(fn('graphRestFocus'), /graphLightCards\(/);
+  assert.match(fn('graphLoneCardId'), /loneCard\(selectionState\.selection\)/);
   assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);
   const render = fn('renderGraphView');
   assert.ok(render.trim().endsWith('graphSettleFocus();\n}'));
@@ -225,4 +234,115 @@ test('the force layout shows a grab cursor and a drag a grabbing one, from CSS a
 test('the key says the dashed arrow points at the card that waits', () => {
   assert.match(src, /const GRAPH_KEY = '[^']*dashed arrow: points at the card that waits[,']/);
   assert.ok(!src.includes('dashed arrow: waits for'));
+});
+
+// --- type icons: the dot is drawn in its type's outline ----------------------------------
+
+const vm = require('node:vm');
+
+function fakeDocument() {
+  const make = (tag) => ({
+    tag, attrs: {}, children: [], textContent: '', className: '',
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+    getAttribute(k) { return this.attrs[k]; },
+    appendChild(c) { this.children.push(c); return c; },
+  });
+  return { createElementNS: (ns, tag) => make(tag), createElement: (tag) => make(tag) };
+}
+
+function drawn(cards, types) {
+  const sandbox = { document: fakeDocument() };
+  vm.createContext(sandbox);
+  vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphTspan')}\n${fn('graphBuildTip')}\n${fn('graphCaptionEl')}\n${fn('graphDrawPlan')}`, sandbox);
+  const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] }, types });
+  const plan = graphPlan(model, graphLayout(model, 'tiers'), { statusClass: (s) => s, titleOf: (c) => c.title });
+  const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
+  const all = [];
+  const walk = (el) => { all.push(el); el.children.forEach(walk); };
+  walk(out.stage);
+  const nodeOf = (id) => out.nodeEls.get(id);
+  return { plan, all, nodeOf, node: (id) => plan.nodes.find((n) => n.id === id) };
+}
+
+const iconCard = (id, extra = {}) => ({ id, title: `t${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra });
+const kids = (el, cls) => el.children.filter((c) => c.attrs.class === cls);
+
+test('a node of a type with an icon draws its dot as a path in that outline, keeping the dot class', () => {
+  const view = drawn([iconCard(1, { type: 'goal' })], [{ name: 'goal', color: '', icon: 'star' }]);
+  const g = view.nodeOf(1);
+  const dots = kids(g, 'graph-dot');
+  assert.strictEqual(dots.length, 1);
+  assert.strictEqual(dots[0].tag, 'path');
+  assert.strictEqual(dots[0].attrs.d, view.node(1).d);
+  assert.match(dots[0].attrs.d, /^M.*Z$/);
+  assert.strictEqual(dots[0].attrs['vector-effect'], 'non-scaling-stroke');
+  assert.strictEqual(dots[0].attrs.r, undefined);
+});
+
+test('a node with no icon, or an unknown one, still draws the round dot', () => {
+  const view = drawn([iconCard(1, { type: 'bug' }), iconCard(2), iconCard(3, { type: 'story' })], [
+    { name: 'bug', color: '', icon: 'blob' }, { name: 'story', color: '', icon: 'circle' },
+  ]);
+  for (const id of [1, 2, 3]) {
+    const dots = kids(view.nodeOf(id), 'graph-dot');
+    assert.strictEqual(dots.length, 1, `card ${id}`);
+    assert.strictEqual(dots[0].tag, 'circle', `card ${id}`);
+    assert.strictEqual(dots[0].attrs.r, String(view.node(id).r), `card ${id}`);
+    assert.strictEqual(dots[0].attrs.d, undefined, `card ${id}`);
+  }
+});
+
+test('the child and flag rings and the id label are placed from the plan, so they clear the shape', () => {
+  const view = drawn([iconCard(1, { type: 'goal', blocked: true }), iconCard(2, { parent: 1 })], [{ name: 'goal', color: '', icon: 'star' }]);
+  const g = view.nodeOf(1);
+  const n = view.node(1);
+  assert.strictEqual(kids(g, 'graph-kids-ring')[0].attrs.r, String(n.kidsRing));
+  assert.strictEqual(kids(g, 'graph-flag-ring')[0].attrs.r, String(n.flagRing));
+  assert.strictEqual(kids(g, 'graph-node-id')[0].attrs.x, String(n.reach + 3));
+  assert.ok(n.kidsRing > n.r + 3, 'a star reaches past a round dot, so its rings sit further out');
+});
+
+test('a node with no icon draws the rings and the label where it always did', () => {
+  const view = drawn([iconCard(1, { blocked: true }), iconCard(2, { parent: 1 })], []);
+  const g = view.nodeOf(1);
+  const n = view.node(1);
+  assert.strictEqual(kids(g, 'graph-kids-ring')[0].attrs.r, String(n.r + 3));
+  assert.strictEqual(kids(g, 'graph-flag-ring')[0].attrs.r, String(n.r + 6));
+  assert.strictEqual(kids(g, 'graph-node-id')[0].attrs.x, String(n.r + 3));
+});
+
+test('drawing a typed board emits no style attribute and takes no colour from the icon', () => {
+  const view = drawn([iconCard(1, { type: 'goal' })], [{ name: 'goal', color: '#a371f7', icon: 'hexagon' }]);
+  for (const el of view.all) {
+    assert.strictEqual(el.attrs.style, undefined, el.tag);
+    assert.strictEqual(el.attrs.fill, undefined, el.tag);
+    assert.strictEqual(el.attrs.stroke, undefined, el.tag);
+  }
+});
+
+test('the render passes the board\'s types list to the model', () => {
+  assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\btypes: state\.types[^}]*\}\)/);
+});
+
+test('the render passes the board\'s hierarchy to the model, so a card is in the band of its tier', () => {
+  assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\bhierarchy: state\.hierarchy[^}]*\}\)/);
+});
+
+test('the Tiers button describes the fan: a band per tier, a ring per depth, a sector per tree and the Unnested block', () => {
+  const title = src.match(/tiers: '(Tiers: [^']*)'/);
+  assert.ok(title, 'the Tiers title is a plain string');
+  assert.match(title[1], /a band for each tier/);
+  assert.match(title[1], /tier 1 nearest the centre/);
+  assert.match(title[1], /a ring for each depth of the cards without a tier/);
+  assert.match(title[1], /a sector for each tree/);
+  assert.match(title[1], /Unnested block/);
+  assert.match(title[1], /its name \(hover or focus it for its count\)/);
+});
+
+test('the dot rule paints a path as well as a circle: filled in the status colour, round-cornered when stroked', () => {
+  const rule = css.match(/\.graph-dot \{[^}]*\}/);
+  assert.ok(rule, '.graph-dot rule');
+  assert.match(rule[0], /fill: currentColor/);
+  assert.match(rule[0], /stroke-linejoin: round/);
+  assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b/);
 });

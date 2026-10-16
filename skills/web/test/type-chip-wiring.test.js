@@ -98,3 +98,37 @@ test('app.css styles the chip with tokens only, and the configured color is neve
   assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b/, 'no hex literal outside the token blocks');
   assert.match(rule[0], /var\(--/);
 });
+
+// --- icons ---------------------------------------------------------------------
+
+test('the card detail shows a type: line with its icon glyph first, in the type\'s colour', () => {
+  const fm = loadFrontmatterValueHtml([{ name: 'objective', color: '#a371f7', icon: 'diamond' }]);
+  assert.strictEqual(fm('type', 'objective'),
+    '<span class="type-chip" title="objective" data-type-color="#a371f7"><span class="type-icon" aria-hidden="true">\u25c6</span>objective</span>');
+});
+
+test('in the detail a type with an unknown icon draws the plain chip', () => {
+  const fm = loadFrontmatterValueHtml([{ name: 'bug', color: '', icon: 'blob' }]);
+  assert.strictEqual(fm('type', 'bug'), '<span class="type-chip" title="bug">bug</span>');
+});
+
+test('board tiles, archive tiles and the Map\'s rich rows all draw the chip from the board\'s types, so the icon reaches each', () => {
+  for (const name of ['cardEl', 'archiveCardEl']) assert.match(fn(name), /\$\{typeBadge\(card, state\.types\)\}/, name);
+  assert.match(fn('mapRichHtml'), /typeBadge\(\{ type: rich\.type \}, state\.types\)/);
+});
+
+test('app.css gives the glyph a gap and no colour of its own, so it wears the chip\'s', () => {
+  const rule = css.match(/\.type-icon\s*\{[^}]*\}/);
+  assert.ok(rule, '.type-icon rule exists');
+  assert.doesNotMatch(rule[0], /(^|[;{\s])(color|border-color|background|fill|stroke)\s*:/, 'the glyph brings no colour');
+  assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b|rgb|hsl/, 'no literal colour');
+  assert.match(rule[0], /margin-right/);
+});
+
+test('app.css keeps a wider chip inside a tile\'s text column, so it cannot run under the date stack', () => {
+  const rule = css.match(/\.card-head \.type-chip\s*\{[^}]*\}/);
+  assert.ok(rule, '.card-head .type-chip rule exists');
+  assert.match(rule[0], /max-width:\s*100%/);
+  assert.match(rule[0], /overflow:\s*hidden/);
+  assert.match(rule[0], /text-overflow:\s*ellipsis/);
+});

@@ -36,6 +36,12 @@ const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar', 'graph']);
 //
 // An unrecognized/missing `view` resolves to null: no view switch, normal
 // load's persisted view stands.
+//
+// `isolate` says how the query is shown, not what the link opens: true for `isolate=1`
+// beside a usable query. The link carries isolate the way the address does
+// (nextSearchAddress, card-history.js), as a second parameter after `q`. Isolate is the box's
+// query shown on its own, so a blank or missing `q` opens with isolate off, and any value but 1
+// is no request. A link with the parameter alone is no deep link: the parameter opens nothing.
 function parseDeepLink(search) {
   if (typeof search !== 'string' || !search) return null;
   let params;
@@ -52,6 +58,7 @@ function parseDeepLink(search) {
     id: hasCard && Number.isInteger(id) && id > 0 ? id : null,
     q,
     view,
+    isolate: q !== null && params.get('isolate') === '1',
   };
 }
 

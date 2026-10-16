@@ -111,6 +111,50 @@ function depthOf(cards, id, ctx) {
   return depth;
 }
 
+// Parents above every card at once: Map id -> depth, a root is 0, by the rule
+// depthOf follows (only parents on this board count; a parent on another board
+// or missing from `cards` ends the count; a chain that loops stops at the card
+// it would repeat). Built once per board from one pass over its cards, so a
+// slice never costs a tree per card. Pass active and archived cards together: an
+// archived parent is still a parent, and a view that hides cards must not move
+// the cards it still shows to another depth. Iterative, so a very deep chain
+// cannot overflow the stack.
+function depthMap(cards, ctx) {
+  const byId = new Map();
+  for (const c of cards) if (!byId.has(c.id)) byId.set(c.id, c);
+  const parentOf = new Map();
+  for (const c of byId.values()) {
+    const pid = localParentId(c, ctx);
+    parentOf.set(c.id, pid !== null && byId.has(pid) ? pid : null);
+  }
+  const depths = new Map();
+  for (const start of byId.keys()) {
+    if (depths.has(start)) continue;
+    const path = [];
+    const at = new Map();
+    let cur = start;
+    while (cur !== null && !depths.has(cur) && !at.has(cur)) {
+      at.set(cur, path.length);
+      path.push(cur);
+      cur = parentOf.get(cur);
+    }
+    let end = path.length;
+    let next = -1;
+    if (cur !== null && depths.has(cur)) {
+      next = depths.get(cur);
+    } else if (cur !== null) {
+      end = at.get(cur);
+      next = path.length - end - 1;
+      for (let k = end; k < path.length; k++) depths.set(path[k], next);
+    }
+    for (let k = end - 1; k >= 0; k--) {
+      next++;
+      depths.set(path[k], next);
+    }
+  }
+  return depths;
+}
+
 // The chain of parents above a card, root first, the card itself left out.
 // Entries: { kind: 'card', id, card } for a parent found on this board;
 // terminal markers, always first: { kind: 'unresolved', id } for a parent id
@@ -357,21 +401,38 @@ function rollupIndex(cards, ctx) {
     return out;
   };
 
-  const climb = (id, path) => {
-    let best = 0;
-    for (const c of kids.get(id) || []) {
-      if (path.has(c.id)) continue;
-      path.add(c.id);
-      best = Math.max(best, 1 + climb(c.id, path));
-      path.delete(c.id);
+  // The longest chain of children below a card that repeats none. Iterative, so a very deep
+  // chain cannot overflow the stack. A subtree with no loop of parents has one height whatever
+  // path reached it, so that height is kept and every card of it is walked once, however many
+  // cards ask (the Graph asks for each of its cards).
+  const heights = new Map();
+  const climb = (start) => {
+    const path = new Set([start]);
+    const stack = [{ id: start, list: kids.get(start) || [], at: 0, best: 0, loop: false }];
+    for (;;) {
+      const top = stack[stack.length - 1];
+      if (top.at < top.list.length) {
+        const c = top.list[top.at++];
+        if (path.has(c.id)) { top.loop = true; continue; }
+        if (heights.has(c.id)) { top.best = Math.max(top.best, 1 + heights.get(c.id)); continue; }
+        path.add(c.id);
+        stack.push({ id: c.id, list: kids.get(c.id) || [], at: 0, best: 0, loop: false });
+        continue;
+      }
+      stack.pop();
+      if (!top.loop) heights.set(top.id, top.best);
+      if (!stack.length) return top.best;
+      path.delete(top.id);
+      const up = stack[stack.length - 1];
+      up.best = Math.max(up.best, 1 + top.best);
+      up.loop = up.loop || top.loop;
     }
-    return best;
   };
 
   const leavesBelow = (id) => below(id).filter((c) => !kids.has(c.id));
 
   return {
-    altitudeOf: (id) => (byId.has(id) ? climb(id, new Set([id])) : 0),
+    altitudeOf: (id) => (byId.has(id) ? climb(id) : 0),
     leavesBelow,
     // counts is keyed by the raw status string (free text, case-sensitive), so it
     // has no prototype: a status called "constructor" is just a key.
@@ -394,7 +455,7 @@ function rollupIndex(cards, ctx) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseParent, parseRank, localParentId, siblingsCompare, childrenOf, depthOf, threadOf, outlineOrder, hasNesting, rollupIndex, reorderPlan, reorderWrites, dropNeighbours, dropSlot };
+  module.exports = { parseParent, parseRank, localParentId, siblingsCompare, childrenOf, depthOf, depthMap, threadOf, outlineOrder, hasNesting, rollupIndex, reorderPlan, reorderWrites, dropNeighbours, dropSlot };
 } else {
   window.parseParent = parseParent;
   window.parseRank = parseRank;
@@ -402,6 +463,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.siblingsCompare = siblingsCompare;
   window.childrenOf = childrenOf;
   window.depthOf = depthOf;
+  window.depthMap = depthMap;
   window.threadOf = threadOf;
   window.outlineOrder = outlineOrder;
   window.hasNesting = hasNesting;

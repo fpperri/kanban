@@ -15,7 +15,8 @@
 // (re-opening it re-selects the prior term), so the muscle memory carries
 // over: keep typing to replace it, or arrow off to edit in place.
 //
-// Decision — suppressed while a modal/popup is open: yes. Every popup shares
+// Decision — suppressed while a surface is open (key-guard.js names them: a popup, the
+// card menu, the notifications panel, the preferences sheet): yes. Every popup shares
 // the .modal-backdrop convention (position:fixed, inset:0 — app.css), which
 // covers the whole viewport, so the search bar sits fully hidden behind it
 // whenever one is open. Unlike Ctrl+S, whose TARGET is the open
@@ -31,7 +32,7 @@ function searchHotkeyPrefill(chord, ctx) {
   if (key !== 'f') return null;
   if (!chord.ctrlKey && !chord.metaKey) return null;
   if (chord.altKey || chord.shiftKey) return null;
-  if (!ctx || ctx.modalOpen) return null;
+  if (!ctx || ctx.surfaceOpen) return null;
   const value = String(ctx.currentValue || '');
   if (!value) return { value: '#', selectionStart: 1, selectionEnd: 1 };
   return { value, selectionStart: 0, selectionEnd: value.length };
@@ -42,12 +43,15 @@ function searchHotkeyPrefill(chord, ctx) {
 // the box's current value — as long as everything after the "#" is digits
 // (or nothing yet), the "#" stays; the moment a non-numeric char shows up
 // in there, the id search is off the table, so drop the leading "#" and
-// let the rest read as a plain search term. Returns null (no change) rather
-// than echoing the input back unchanged, so callers can skip touching
-// value/selection when nothing needs to move.
+// let the rest read as a plain search term. Only while the box holds that one
+// token: a second token or a | after the id (`#12 | #14`, or the `#12 | path:40`
+// that isolate writes) means the "#" is part of a query, and stays. Returns
+// null (no change) rather than echoing the input back unchanged, so callers
+// can skip touching value/selection when nothing needs to move.
 function searchHashStrip(value) {
   if (typeof value !== 'string' || value[0] !== '#') return null;
-  if (/^\d*$/.test(value.slice(1))) return null;
+  const rest = value.slice(1).trimEnd();
+  if (/\s/.test(rest) || /^\d*$/.test(rest)) return null;
   return value.slice(1);
 }
 

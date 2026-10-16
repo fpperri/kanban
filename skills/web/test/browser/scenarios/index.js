@@ -1,0 +1,38 @@
+'use strict';
+// The scenarios the browser runner knows, in the order a plain run takes them.
+// A scenario is { name, board, alsoBoards?, timeoutMs?, run(page) }; it starts
+// from a cleared browser and its board's cards as they were, so the order does
+// not matter and any one can be run alone with --only.
+
+module.exports = [
+  require('./search-box'),
+  require('./search-address'),
+  require('./search-grammar'),
+  require('./graph'),
+  require('./key-guard'),
+  require('./card-click'),
+  require('./selection'),
+  require('./graph-lights'),
+  require('./preferences'),
+  require('./config-keys'),
+  require('./type-icons'),
+  require('./smoke'),
+  require('./calendar-jump'),
+  require('./card-menu'),
+  require('./slice-term'),
+  require('./tier-fan'),
+  require('./tier-fan-options'),
+  require('./fan-names'),
+  require('./tier-fan-unnested'),
+  require('./esc-steps'),
+  require('./search-panel'),
+  require('./empty-space'),
+  require('./board-pills'),
+  require('./slice-section'),
+  require('./pill-step'),
+  require('./isolate'),
+  require('./isolate-link'),
+  require('./hotkeys'),
+  require('./open-keeps-pills'),
+  require('./band-tint'),
+];

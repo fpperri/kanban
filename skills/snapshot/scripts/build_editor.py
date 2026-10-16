@@ -121,6 +121,18 @@ def read_assignees(kanban_dir):
     handles = [h for h in handles if h]
     return handles or DEFAULT_ASSIGNEES
 
+def _closing_quote(s):
+    """Index of the quote that closes the quoted text opening `s`, or -1."""
+    i = 1
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+            continue
+        if s[i] == s[0]:
+            return i
+        i += 1
+    return -1
+
 def _scalar(raw):
     """Same trailing-comment/quote contract as kanban-web's yaml-list.js
     scalar(): a quoted value keeps everything between the quotes verbatim
@@ -130,17 +142,15 @@ def _scalar(raw):
     uses would truncate it at that leading hash)."""
     s = raw.strip()
     if s[:1] in ('"', "'"):
-        i = 1
-        while i < len(s):
-            if s[i] == "\\":
-                i += 2
-                continue
-            if s[i] == s[0]:
-                return _unquote(s[:i + 1])
-            i += 1
-        return _unquote(s)
+        close = _closing_quote(s)
+        return _unquote(s[:close + 1] if close != -1 else s)
     m = re.search(r"\s#", s)
     return s[:m.start()].strip() if m else s
+
+def _value_or_comment(text):
+    """The scalar `text` holds, or '' when it holds only a comment."""
+    t = text.strip()
+    return "" if t[:1] == "#" else _scalar(t)
 
 def _unquote(s):
     if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
@@ -177,11 +187,13 @@ def _flow_list(raw):
     inner = s[1:] if close == -1 else s[1:close]
     return [v for v in (_scalar(i) for i in inner.split(",")) if v]
 
-def _config_list(kanban_dir, key):
+def _config_list(kanban_dir, key, inline_replaces=False):
     """The top-level `key:` list as (flow items, block lines): `key: [a, b]`
     gives the items, `key:` alone gives the indented lines under it. A comment
     after the key still opens the block, as the skill's sample config writes
-    it. One reader for every list, matching kanban-web's config-store."""
+    it. One reader for every list, matching kanban-web's config-store. With
+    `inline_replaces`, a later inline form of the key drops what an earlier
+    block gave, as the config-store does for the hierarchy."""
     flow, block, in_block = [], [], False
     for line in _config_text(kanban_dir).splitlines():
         top = re.match(r"^(\w+):\s*(.*)$", line)
@@ -193,6 +205,8 @@ def _config_list(kanban_dir, key):
                     in_block = True
                 else:
                     flow = _flow_list(rest)
+                    if inline_replaces:
+                        block = []
             continue
         if in_block:
             block.append(line)
@@ -203,8 +217,16 @@ def _config_scalars(kanban_dir, key):
     items = [_scalar(m.group(1)) for m in (re.match(r"^\s+-\s*(.*)$", line) for line in block) if m]
     return [v for v in flow + items if v]
 
+def _icon_name(raw):
+    """A type's `icon:` text as kanban-web's config-store iconName() reads it:
+    lowercased, a trailing comment stripped, '' (no icon) for a blank value or
+    one that is only a comment. Any name is kept; the page draws an unknown
+    one as no icon."""
+    return _value_or_comment(raw or "").lower()
+
 def read_types(kanban_dir):
-    """config.yaml's `types:` list as [{name, color}]."""
+    """config.yaml's `types:` list as [{name, color}], plus `icon` on a type
+    that sets one."""
     flow, block = _config_list(kanban_dir, "types")
     types, cur = [{"name": n, "color": ""} for n in flow], None
 
@@ -213,7 +235,11 @@ def read_types(kanban_dir):
         if cur is not None:
             name = _scalar(cur.get("name", ""))
             if name:
-                types.append({"name": name, "color": _scalar(cur.get("color", ""))})
+                entry = {"name": name, "color": _scalar(cur.get("color", ""))}
+                icon = _icon_name(cur.get("icon", ""))
+                if icon:
+                    entry["icon"] = icon
+                types.append(entry)
             cur = None
 
     for line in block:
@@ -232,6 +258,63 @@ def read_types(kanban_dir):
             cur[field.group(1)] = field.group(2)
     flush()
     return types
+
+def _split_pill_entry(text):
+    """One `pills:` entry (the text after its dash) as {label, query}, or None
+    when it is blank, only a comment, or has an empty label or query. The same
+    rules as splitPillEntry() in kanban-web's config-store.js: an entry is a
+    query on its own (the label is then the query text) or a one-key map from a
+    label to a query, and a map key ends at the first colon followed by a space
+    or the end of the entry, so `tags: grill` is the label tags with the query
+    grill while `tags:*` and `assignee:@human` stay whole queries. Anything
+    after the first pair is another key, which the caller ignores."""
+    t = text.strip()
+    if t == "" or t[0] == "#":
+        return None
+    label, value = None, t
+    close = _closing_quote(t) if t[0] in ('"', "'") else -1
+    if close != -1:
+        after = t[close + 1:]
+        sep = re.match(r"\s*:(?:\s|\Z)", after)
+        if sep:
+            label, value = _unquote(t[:close + 1]), after[sep.end():]
+    else:
+        colon = re.search(r":(?:\s|\Z)", t)
+        comment = re.search(r"\s#", t)
+        if colon and (not comment or colon.start() < comment.start()):
+            label, value = t[:colon.start()].strip(), t[colon.start() + 1:]
+    query = _value_or_comment(value)
+    if query == "":
+        return None
+    if label is None:
+        label = query
+    return None if label == "" else {"label": label, "query": query}
+
+def read_pills(kanban_dir):
+    """config.yaml's `pills:` block as [{label, query}] in the order written.
+    Block form only: a scalar or inline value answers none, as in kanban-web."""
+    _, block = _config_list(kanban_dir, "pills")
+    pills = []
+    for line in block:
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        pill = _split_pill_entry(item.group(1)) if item else None
+        if pill:
+            pills.append(pill)
+    return pills
+
+def read_hierarchy(kanban_dir):
+    """config.yaml's `hierarchy:` as the type names written, top tier first,
+    read as kanban-web's config-store reads it: blank and comment-only entries
+    skipped, a scalar value answering none. Names stay as written, duplicates
+    and letter case included: the embedded slices module folds them."""
+    flow, block = _config_list(kanban_dir, "hierarchy", inline_replaces=True)
+    names = list(flow)
+    for line in block:
+        item = re.match(r"^\s+-\s*(.*)$", line)
+        name = _value_or_comment(item.group(1)) if item else ""
+        if name:
+            names.append(name)
+    return names
 
 def read_priorities(kanban_dir):
     return _config_scalars(kanban_dir, "priorities")
@@ -265,14 +348,27 @@ def read_notifications(kanban_dir):
     return out
 
 WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web", "web")
-NESTING_JS = os.path.join(WEB_MODULES, "nesting.js")
-MAP_RELATIONS_JS = os.path.join(WEB_MODULES, "map-relations.js")
+# The web's modules the page carries as the same source kanban-web runs, in the order their
+# script elements load: the placeholder of the slot in TEMPLATE, the file in skills/web/web
+# and the name the build refuses the file by.
+EMBEDDED = [
+    ("__NESTING_JS__", "nesting.js", "the nesting module"),
+    ("__MAP_RELATIONS_JS__", "map-relations.js", "the map relations module"),
+    ("__SLICES_JS__", "slices.js", "the slices module"),
+    ("__WAITING_BLOCKED_JS__", "waiting-blocked.js", "the waiting rules"),
+    ("__SEARCH_JS__", "search.js", "the search module"),
+    ("__TYPE_ICONS_JS__", "type-icons.js", "the type icons module"),
+    ("__PILLS_JS__", "pills.js", "the pill list"),
+    ("__SLICE_RUN_JS__", "slice-run.js", "the run of slices"),
+    ("__KEY_GUARD_JS__", "key-guard.js", "the key guard"),
+    ("__COMBOBOX_JS__", "combobox.js", "the combobox rules"),
+]
 
 def embeddable(source, label="the nesting module"):
     if re.search(r"</script", source, re.I):
         sys.exit(f"{label} contains a closing script tag and cannot be embedded in the page")
     if re.search(r"__[A-Z_]+__", source):
-        sys.exit(f"{label} contains a template placeholder (__NAME__) the build would rewrite")
+        sys.exit(f"{label} contains a template placeholder (__NAME__) and cannot be embedded in the page")
     return source
 
 def read_embedded(path, label):
@@ -282,11 +378,17 @@ def read_embedded(path, label):
     except OSError:
         sys.exit(f"cannot read {label} at {os.path.normpath(path)}")
 
-def read_nesting():
-    return read_embedded(NESTING_JS, "the nesting module")
+def embedded_modules():
+    """Each EMBEDDED placeholder with the text of its module."""
+    return {placeholder: read_embedded(os.path.join(WEB_MODULES, name), label)
+            for placeholder, name, label in EMBEDDED}
 
-def read_map_relations():
-    return read_embedded(MAP_RELATIONS_JS, "the map relations module")
+def fill(template, values):
+    """Every placeholder in one pass, so text a value holds that looks like a
+    placeholder (a pill, a hierarchy name, a card) is data and is never filled in
+    again."""
+    names = sorted(values, key=len, reverse=True)
+    return re.sub("|".join(re.escape(n) for n in names), lambda m: values[m.group(0)], template)
 
 def main():
     p = argparse.ArgumentParser()
@@ -325,21 +427,23 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
-    # First, so a card that names a placeholder is never rewritten inside it.
-    html = (TEMPLATE.replace("__NESTING_JS__", read_nesting())
-                    .replace("__MAP_RELATIONS_JS__", read_map_relations())
-                    .replace("__ICON_URI__", quote(ICON_SVG, safe=""))
-                    .replace("__BASE_LABEL__", label)
-                    .replace("__BASE_ISO__", iso)
-                    .replace("__STATUSES__", emb(read_statuses(a.kanban_dir)))
-                    .replace("__ASSIGNEES__", emb([""] + read_assignees(a.kanban_dir)))
-                    .replace("__ASSIGNEE_COLORS__", emb(read_assignee_colors(a.kanban_dir)))
-                    .replace("__TYPES__", emb(read_types(a.kanban_dir)))
-                    .replace("__PRIORITIES__", emb(read_priorities(a.kanban_dir)))
-                    .replace("__NOTIFS__", emb(read_notifications(a.kanban_dir)))
-                    .replace("__DATA__", emb(cards))
-                    .replace("__BOARD_NAME_JSON__", emb(read_board_name(a.kanban_dir)))
-                    .replace("__BOARD_NAME__", esc(read_board_name(a.kanban_dir))))
+    html = fill(TEMPLATE, {
+        **embedded_modules(),
+        "__ICON_URI__": quote(ICON_SVG, safe=""),
+        "__BASE_LABEL__": label,
+        "__BASE_ISO__": iso,
+        "__STATUSES__": emb(read_statuses(a.kanban_dir)),
+        "__ASSIGNEES__": emb([""] + read_assignees(a.kanban_dir)),
+        "__ASSIGNEE_COLORS__": emb(read_assignee_colors(a.kanban_dir)),
+        "__TYPES__": emb(read_types(a.kanban_dir)),
+        "__PILLS__": emb(read_pills(a.kanban_dir)),
+        "__HIERARCHY__": emb(read_hierarchy(a.kanban_dir)),
+        "__PRIORITIES__": emb(read_priorities(a.kanban_dir)),
+        "__NOTIFS__": emb(read_notifications(a.kanban_dir)),
+        "__DATA__": emb(cards),
+        "__BOARD_NAME_JSON__": emb(read_board_name(a.kanban_dir)),
+        "__BOARD_NAME__": esc(read_board_name(a.kanban_dir)),
+    })
     open(a.out, "w", encoding="utf-8").write(html)
     print(f"wrote {a.out} ({len(html)} bytes; {len(cards)} cards, base {iso})")
 
@@ -394,8 +498,42 @@ body{font-family:ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI"
 button{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:7px 13px;color:var(--ink);font-size:13px;cursor:pointer}
 button:active{transform:scale(.98)}
 input[type=text],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:.15rem;padding:8px 10px;color:var(--ink);font-size:15px;width:100%}
-#searchrow{margin:0 0 8px}
+#searchrow{margin:0 0 8px;position:relative}
 #q{font-size:13px;padding:7px 10px}
+/* The search panel: a box round the input, the chip and the arrow, and under it a panel of the
+   slices and the pills. The panel hangs from the bar and adds nothing to the header's height; its
+   entries and pills wear their own classes, never the status pills'. Every colour is a token. */
+.hidden{display:none!important}
+.search-bar{position:relative}
+.search-box{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:.15rem}
+.search-box:focus-within{border-color:var(--accent)}
+.search-box #q{flex:1 1 60px;min-width:60px;width:auto;border:0;background:transparent}
+.search-box #q:focus-visible{outline:none}
+.search-chip{flex:none;margin-right:2px;padding:1px 8px;border:1px solid var(--accent);border-radius:.15rem;background:var(--accent-soft);color:var(--accent);font-size:11px;white-space:nowrap}
+.search-panel-toggle{flex:none;background:transparent;border:0;color:var(--mut);padding:6px 10px;font-size:13px}
+.search-panel-toggle[aria-expanded="true"]{color:var(--accent)}
+.search-panel-toggle[aria-pressed="false"]{text-decoration:line-through}
+.search-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:15;display:flex;flex-direction:column;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line-strong);border-radius:.2rem;box-shadow:var(--shadow-pop)}
+.search-section{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.search-fold{background:transparent;border-color:transparent;color:var(--mut);padding:2px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.search-fold::after{content:" ▾"}
+.search-fold[aria-expanded="false"]::after{content:" ▸"}
+.search-pills,.search-slices{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.query-pill,.slice-entry{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 10px;background:var(--paper);border:1px solid var(--line);border-radius:.15rem;color:var(--ink);font-size:12px;cursor:pointer;-webkit-user-select:none;user-select:none}
+.query-pill:hover,.slice-entry:hover{background:var(--btn-hover)}
+.query-pill.on,.slice-entry.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.query-pill-label,.slice-entry-label{min-width:0;overflow-wrap:anywhere;text-align:left}
+.query-pill-count,.slice-entry-count{color:var(--mut);font-variant-numeric:tabular-nums}
+.query-pill.on .query-pill-count,.slice-entry.on .slice-entry-count{color:var(--accent)}
+.slice-entry-icon:empty{display:none}
+.query-pill-more{padding:3px 10px;background:transparent;border:1px dashed var(--line);border-radius:.15rem;color:var(--mut);font-size:12px}
+.query-pill-more:hover{background:var(--btn-hover);color:var(--ink)}
+/* The search box's suggestions: a plain list under the box, over the page and under
+   the card sheet (40) and the right-click menu (45). Its rows are pressed, not
+   focused, so the box keeps the focus. */
+.qmenu{position:absolute;left:0;right:0;top:100%;z-index:35;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:.2rem;box-shadow:var(--shadow-pop);padding:3px}
+.qitem{padding:7px 10px;font-size:13px;color:var(--ink);border-radius:.15rem;cursor:pointer}
+.qitem.on,.qitem:hover{background:var(--paper)}
 /* Sticky at EVERY width (not gated behind a media query — the rework
    that replaced the floating tray applies here regardless of screen
    size): #scroll is the scroll container (overflow-y:auto) and .hdr is
@@ -480,6 +618,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
    family, distinct from --id-waiting (waiting) and --blocked-ink (blocked). */
 .rbadge{background:var(--review-bg);color:var(--review-ink)}
 .type-chip{display:inline-block;font-size:.7rem;margin-left:6px;padding:0 7px;border:1px solid var(--line-strong);border-radius:.15rem;background:var(--btn-bg);color:var(--mut);white-space:nowrap}
+.type-icon{margin-right:.35em;line-height:1}
 .alt-badge{display:inline-block;margin-left:6px;font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;font-size:.65rem;font-weight:600;color:var(--mut);border:1px solid var(--line-strong);border-radius:.15rem;padding:0 5px;white-space:nowrap}
 .rollup{margin-top:6px}
 .rollup-bar{display:flex;height:8px;border-radius:.15rem;overflow:hidden;background:var(--raised)}
@@ -715,7 +854,24 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 </style></head><body>
 <div id="scroll">
 <div class="hdr" id="hdr"><b>__BOARD_NAME__</b><span class="base">snapshot · base: __BASE_LABEL__</span><span class="pill" id="pill"></span><button id="bell" aria-label="Notifications">&#128276;<span id="bellcnt" style="display:none"></span></button></div>
-<div id="searchrow"><input type="search" id="q" data-stop="1" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)"></div>
+<div id="searchrow"><div class="search-bar">
+<div class="search-box">
+<input type="search" id="q" data-stop="1" aria-autocomplete="list" aria-controls="qmenu" placeholder="Search&#8230; (#id, title:, body:, status:, priority:, tags:, file:, type:)">
+<span id="search-chip" class="search-chip hidden" role="img"></span>
+<button type="button" id="search-panel-toggle" class="search-panel-toggle" aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
+</div>
+<div class="qmenu" id="qmenu" role="listbox" style="display:none"></div>
+<div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters">
+<section id="search-slices-section" class="search-section hidden" aria-labelledby="search-slices-fold">
+<button type="button" id="search-slices-fold" class="search-fold" aria-expanded="false" aria-controls="search-slices" aria-label="Slices" title="Fold or unfold the slices">Slices</button>
+<div id="search-slices" class="search-slices hidden" role="group" aria-labelledby="search-slices-fold"></div>
+</section>
+<section id="search-pills-section" class="search-section" aria-labelledby="search-pills-fold">
+<button type="button" id="search-pills-fold" class="search-fold" aria-expanded="true" aria-controls="search-pills" aria-label="Pills" title="Fold or unfold the pills">Pills</button>
+<div id="search-pills" class="search-pills" role="group" aria-labelledby="search-pills-fold"></div>
+</section>
+</div>
+</div></div>
 <div class="viewtabs" id="viewtabs">
 <button type="button" data-view="board" class="active">Board</button>
 <button type="button" data-view="map">Map</button>
@@ -751,6 +907,22 @@ __NESTING_JS__</script>
 <script>
 __MAP_RELATIONS_JS__</script>
 <script>
+__SLICES_JS__</script>
+<script>
+__WAITING_BLOCKED_JS__</script>
+<script>
+__SEARCH_JS__</script>
+<script>
+__TYPE_ICONS_JS__</script>
+<script>
+__PILLS_JS__</script>
+<script>
+__SLICE_RUN_JS__</script>
+<script>
+__KEY_GUARD_JS__</script>
+<script>
+__COMBOBOX_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -782,6 +954,10 @@ const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
 const TYPES=__TYPES__;
+// The board's own one-click queries from config.yaml, in the order written: [{label, query}].
+const PILLS=__PILLS__;
+// The board's hierarchy from config.yaml: type names as written, top tier first. The embedded slices module folds case and duplicates.
+const HIERARCHY=__HIERARCHY__;
 const PRIOS=__PRIORITIES__;
 // Assignee color: a reserved config.yaml `color:` wins (painted exactly as
 // given); else the handle hashes into the SAME --hash-a.."h" token family
@@ -1017,59 +1193,32 @@ return wrap}
 const find=id=>view.find(c=>String(c.id)===String(id));
 const isProv=id=>String(id).startsWith("n");
 const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()).filter(Boolean);
-// Search: ported from kanban-web's search.js — space-separated
-// terms AND; #id/id: exact; scoped substrings; bare terms hit title+body+tags;
-// an unrecognized foo:bar prefix searches as the literal string; a recognized
-// prefix with no value yet is dropped (mid-keystroke, matches nothing falsely).
+// Search: kanban-web's own search.js, embedded above with the waiting rules it
+// reads (waiting-blocked.js), so a query finds here what it finds at the desk.
+// This page only adapts its short-keyed cards to the module's card shape, hands in
+// its own dependency functions for tree: and path: (the resolver's graph) and the
+// board's hierarchy for slice: (the slices and nesting modules, embedded above,
+// cut over every card of the board, archived ones included), and resolves the
+// terms once per query change. The box's suggestions are the module's too
+// (searchSuggestionItems), asked with the same board and context, so after slice:
+// and after .. the box offers the slices the cut would read.
 let qTerms=[];
-const SFIELDS=["title","body","status","priority","tags","file","type"];
-// tree:/path: graph-focus terms, kept OUT of SFIELDS (numeric
-// id semantics, not a lowercased substring) — mirrors kanban-web's search.js
-// GRAPH_FIELDS split from KNOWN_FIELDS.
-const GFIELDS=["tree","path"];
-// ADR 0009: review:/blocked: sticker scopes — a bare value is
-// itself a complete "sticker present" term, UNLIKE every SFIELDS scope
-// above (mirrors kanban-web's search.js STICKER_FIELDS split).
-const STFIELDS=["review","blocked"];
-function parseTerm(tok){
-const m1=/^#(\\d+)$/.exec(tok);if(m1)return{f:"id",v:m1[1]};
-// <this board's name>#<id> finds the card like #<id>; split at the LAST # (names hold dots and hyphens)
-const hi=tok.lastIndexOf("#");
-if(BOARD&&hi>0&&/^\\d+$/.test(tok.slice(hi+1))&&tok.slice(0,hi).toLowerCase()===String(BOARD).toLowerCase())return{f:"id",v:tok.slice(hi+1)};
-const m2=/^([A-Za-z]+):(.*)$/.exec(tok);
-if(m2){const k=m2[1].toLowerCase();
-if(k==="id"){const v=m2[2].trim();return v?{f:"id",v:v}:null}
-if(GFIELDS.indexOf(k)!==-1){const v=m2[2].trim().replace(/^#/,"");return v?{f:k,v:v}:null}
-if(SFIELDS.indexOf(k)!==-1){const v=m2[2].trim().toLowerCase();return v?{f:k,v:v}:null}
-if(STFIELDS.indexOf(k)!==-1)return{f:k,v:m2[2].trim().toLowerCase()}}
-return{f:null,v:tok.toLowerCase()}}
-// tree:/path: terms need the full board's graph to resolve
-// (connected component / directed cone), which a single (term, card) pair
-// doesn't have — resolveGraphTerms (defined near buildDepGraph, below) pre-
-// resolves them into an {f:"ids"} term ONCE per query change, mirroring
-// kanban-web's search.js resolveGraphTerms. qMatch's own "tree"/"path" cases
-// are an unresolved-fallback safety net — in practice qTerms is always
-// resolved before qMatch runs.
-function qMatch(c){
-if(!qTerms.length)return true;
-return qTerms.every(t=>{
-const title=String(c.t||"").toLowerCase(),body=String(c.body||"").toLowerCase(),tags=c.tags||[];
-switch(t.f){
-case "id":return String(c.id)===t.v;
-case "title":return title.indexOf(t.v)!==-1;
-case "body":return body.indexOf(t.v)!==-1;
-case "status":return String(c.s||"").toLowerCase().indexOf(t.v)!==-1;
-case "priority":return String(c.p||"").toLowerCase().indexOf(t.v)!==-1;
-case "tags":return tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1);
-case "file":return String(c.fn||"").toLowerCase().indexOf(t.v)!==-1;
-case "type":return String((c.fm&&c.fm.type)||"").toLowerCase().indexOf(t.v)!==-1;
-// ADR 0009: bare (no value) = the shared presence predicate; a value =
-// case-insensitive substring on the sticker's own text.
-case "review":return t.v?String(rvReason(c)||"").toLowerCase().indexOf(t.v)!==-1:rvReason(c)!==null;
-case "blocked":return t.v?String(blkReason(c)||"").toLowerCase().indexOf(t.v)!==-1:blkReason(c)!==null;
-case "ids":return t.ids.has(Number(c.id));
-case "tree":case "path":return false;
-default:return title.indexOf(t.v)!==-1||body.indexOf(t.v)!==-1||tags.some(x=>String(x).toLowerCase().indexOf(t.v)!==-1)}})}
+const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
+const searchCtx={board:BOARD,hierarchy:HIERARCHY,graph:searchGraph};
+// A card queued with + New card has no number yet (n1, n2, ...), so the search reads it under a
+// number of its own, below zero, which no card of the board has.
+const searchId=c=>isProv(c.id)?-Number(String(c.id).slice(1)):c.id;
+function searchCard(c){return{id:searchId(c),title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
+// What a query resolves over. The slices, tree: and path: read the board as it was built plus the
+// cards queued to be created, which sit where a new card does (a root, or the tier its type
+// names), so a cut that holds depth 0 holds them and one that cuts nothing cuts them nothing; a
+// queued edit moves no card between slices until it is applied. waiting: reads the cards as the page
+// holds them, a queued edit counted, as a bare term does (unresolved, the page's own rule).
+const searchUniverse=()=>DATA.map(searchCard).concat(view.filter(c=>isProv(c.id)).map(searchCard));
+const waitingIds=()=>new Set(view.concat(gone).filter(c=>!isProv(c.id)&&unresolved(c).length).map(c=>Number(c.id)));
+const resolveQuery=(terms,universe,waiting)=>resolveTerms(universe,terms,searchCtx,{waiting});
+function setQuery(text){qTerms=resolveQuery(parseSearchQuery(text,BOARD),searchUniverse(),waitingIds())}
+const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
 // Waiting vs blocked/review (review is ADR 0009):
 // waiting is DERIVED — a waiting_for id whose card isn't done
 // (archived deps count as their status field; dangling ids are
@@ -1087,7 +1236,8 @@ const rvReason=c=>blkTxt(c.rv);
 // listed column) and stay visible in the date/graph views.
 let statusVis={archive:false};
 const isVis=k=>k==="archive"?statusVis.archive===true:statusVis[k]!==false;
-const visList=()=>DATA.filter(c=>qMatch(c)&&(c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true)));
+const statusVisible=c=>c.arch?isVis("archive"):(COLS.includes(c.s)?isVis(c.s):true);
+const visList=()=>DATA.filter(c=>inQuery(c)&&statusVisible(c));
 function opLabel(o){
 if(o.op==="move")return "Move #"+o.id+" \\u2192 "+o.to;
 if(o.op==="create")return "Create \\""+(o.title.length>34?o.title.slice(0,34)+"\\u2026":o.title)+"\\""+(o.status&&o.status!=="backlog"?" in "+o.status:"");
@@ -1138,8 +1288,11 @@ const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
 return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
 // Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
+// A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, draws the plain chip: its name alone.
 function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
-const s=el("span","type-chip",t);s.title=t;
+const g=typeIconGlyph(typeIconOf(t,TYPES));
+const s=el("span","type-chip",g?undefined:t);s.title=t;
+if(g){const i=el("span","type-icon",g);i.setAttribute("aria-hidden","true");s.appendChild(i);s.appendChild(document.createTextNode(t))}
 const col=typeColor(t);if(col){s.style.color=col;s.style.borderColor=col}
 return s}
 function altBadge(n){const b=el("span","alt-badge","\\u25b2"+n);b.title="altitude: layers below";return b}
@@ -1311,6 +1464,208 @@ if(!ro&&!descEd){const er=el("div","acts");er.appendChild(btn(c.body?"Edit descr
 if(c.body&&!descEd)d.appendChild(mdBodyNode(c.body,BOARD,c.bn));
 const kb=nid===null?null:childrenBlock(nid);if(kb)d.appendChild(kb)}
 return d}
+// The search panel: kanban-web's panel under the search box, of slices and pills, without its
+// Isolate switch, since this page has no selection to isolate. The pill list, the run of slices
+// and their arithmetic are kanban-web's own modules (pills.js, slice-run.js, embedded above);
+// the drawing and the gestures are this page's, and test/panel-pills.test.js and
+// test/panel-slices.test.js hold them to the web's counts and terms. Everything the panel does
+// goes through the one writer of the box (writeBox), so a pill, a slice and a typed search are
+// all the box's text and nothing else is kept: a pill is on while the box holds its query as one
+// of its alternatives, and the run is the slice: term the box holds. Counts are taken over the
+// cards the status pills and the Archive pill leave, before the box and the cut, so a pill turned
+// on never zeroes the others.
+let panelOpen=false,panelSwitchOn=true,pillsFolded=false,slicesFolded=true;
+const pillGroupsOpen=new Set();
+const PILL_HINT="click: turn it on or off, right-click: only this pill (again: every pill off)";
+const SLICE_HINT="click: grow the run to this slice, or drop it from an end (a run of one: every slice again), right-click: only this slice";
+const SWITCH_ON="Search panel: opens when the box is focused. Click, or press p, to switch it off.";
+const SWITCH_OFF="Search panel: off. Click, or press p, to switch it on and open it.";
+const panelCards=()=>view.filter(statusVisible);
+function setText(n,t){if(n.textContent!==t)n.textContent=t}
+function setAttr(n,k,v){if(n.getAttribute(k)!==v)n.setAttribute(k,v)}
+function writeBox(text){const q=$("q");if(q.value===text)return;q.value=text;queryChanged()}
+// Makes the buttons of `host` the items, in order. A button that is there is updated where it
+// stands, so focus on it survives a repaint; one is added or taken out only when the list
+// changes, the ones to go first so that a button that stays is never moved by them leaving.
+function syncList(host,items,prop,keyOf,make,update){
+const keys=new Set(items.map(keyOf));
+Array.from(host.children).forEach(n=>{if(!keys.has(n.dataset[prop]))n.remove()});
+const have=new Map(Array.from(host.children).map(n=>[n.dataset[prop],n]));
+items.forEach((item,i)=>{
+let b=have.get(keyOf(item));
+if(!b){b=make(item);b.dataset[prop]=keyOf(item)}
+update(b,item,i);
+if(host.children[i]!==b)host.insertBefore(b,host.children[i]||null)})}
+// --- the pills
+function panelBoard(){return{pills:PILLS,cards:view.filter(c=>!c.arch).map(searchCard),term:searchTermText}}
+const pillEntriesNow=()=>pillEntries(panelBoard());
+// The ids a pill's query matches among the cards the page holds. The query resolves as the box's
+// does (resolveQuery), over every card of the board, so waiting: and tree: see the cards the status
+// pills hide; an edit still queued counts, as it does under the box. Text that is no term yet
+// matches nothing.
+function pillMatcher(){
+const all=searchUniverse(),waiting=waitingIds();
+return text=>{
+const terms=parseSearchQuery(text,BOARD);
+if(!terms.length)return[];
+const resolved=resolveQuery(terms,all,waiting);
+return view.filter(c=>cardMatchesQuery(searchCard(c),resolved)).map(c=>c.id)}}
+const pillOn=pill=>searchHasAlt($("q").value,pill.query);
+// Two pills with one query (a board's pill for tags:"next-up" and that tag's own value pill) are one filter.
+const sameQuery=(a,b)=>searchHasAlt(a.query,b.query)&&searchHasAlt(b.query,a.query);
+function buildPillButton(pill){
+const b=el("button","query-pill");b.type="button";
+b.appendChild(el("span","query-pill-label"));b.appendChild(el("span","query-pill-count"));
+return b}
+function buildMoreButton(){const b=el("button","query-pill-more");b.type="button";return b}
+function updatePillButton(b,pill){
+setText(b.children[0],pill.label);
+setText(b.children[1],String(pill.count));
+const on=pillOn(pill);
+setAttr(b,"aria-pressed",String(on));
+setAttr(b,"aria-label",pill.label+", "+pill.count+(pill.count===1?" card":" cards"));
+b.classList.toggle("on",on);
+const title=pill.query+"  ("+PILL_HINT+")";
+if(b.title!==title)b.title=title}
+function updateMoreButton(b,row){
+setText(b,row.label);
+setAttr(b,"aria-expanded",String(row.expanded));
+const name=row.expanded?"Show only the first "+PILLS_SHOWN+" "+row.group+" pills":"Show the other "+row.hidden+" "+row.group+" pills";
+if(b.title!==name)b.title=name;
+setAttr(b,"aria-label",name)}
+// What a click ('toggle') or a right-click ('solo') on the pill with this key does to the box. A
+// click turns that pill on, as one more alternative of the box, or off, taking only its query out.
+// A right-click makes it the only pill on, the box holding its query alone, or, on the pill that is
+// already alone, turns it off. A run of slices in the box is not the pills' to change: it stays.
+function pillGesture(gesture,key){
+const entries=pillEntriesNow(),pill=entries.find(p=>p.key===key);
+if(!pill)return;
+const box=$("q").value,on=pillOn(pill);
+if(gesture==="solo"){
+const alone=on&&!entries.some(p=>!sameQuery(pill,p)&&pillOn(p));
+writeBox(alone?searchRemoveAlt(box,pill.query):searchJoinSlice(pill.query,searchSplitSlice(box).slices));
+return}
+writeBox(on?searchRemoveAlt(box,pill.query):searchAddAlt(box,pill.query))}
+function toggleGroup(group){
+if(pillGroupsOpen.has(group))pillGroupsOpen.delete(group);else pillGroupsOpen.add(group);
+renderSearchPanel()}
+// --- the slices
+function sliceNow(){
+const cards=DATA.map(searchCard);
+const sliced=searchSlices(cards,searchCtx,null);
+const list=sliceListOf(sliced,panelCards().map(c=>c.id));
+const values=parseSearchQuery($("q").value,BOARD).filter(t=>t.field==="slice").map(t=>t.value);
+return{list,values,run:sliceRunOf(sliced,list,values)}}
+// What the closed panel's chip counts for the run: one thing when the box holds a slice: term that
+// cuts, none when it holds none or one that cuts nothing.
+function sliceChipNames(){
+if(!parseSearchQuery($("q").value,BOARD).some(t=>t.field==="slice"))return[];
+const now=sliceNow();
+return sliceRunCuts(now.list,now.run)?["slice "+now.values.join(" ")]:[]}
+function buildSliceButton(){
+const b=el("button","slice-entry");b.type="button";
+const icon=el("span","slice-entry-icon");icon.setAttribute("aria-hidden","true");
+b.appendChild(icon);b.appendChild(el("span","slice-entry-label"));b.appendChild(el("span","slice-entry-count"));
+return b}
+// The glyph a tier's type wears, none for a depth, a type with no icon or an icon the table does not know.
+const sliceGlyph=entry=>entry.kind==="tier"?typeIconGlyph(typeIconOf(entry.name,TYPES)):"";
+function updateSliceButton(b,entry,at,run){
+const inRun=!!run&&at>=run.from&&at<=run.to;
+setText(b.children[0],sliceGlyph(entry));
+setText(b.children[1],entry.label);
+setText(b.children[2],String(entry.count));
+setAttr(b,"aria-pressed",String(inRun));
+setAttr(b,"aria-label",sliceEntryName(entry,inRun));
+b.classList.toggle("on",inRun);
+const title=entry.label+"  ("+SLICE_HINT+")";
+if(b.title!==title)b.title=title}
+const sameRun=(a,b)=>a===b||(!!a&&!!b&&a.from===b.from&&a.to===b.to);
+// Writes `run` to the box as the slice: term it is. A run the box already shows is left as typed.
+function setRun(now,run){
+if(sameRun(run,now.run))return;
+writeBox(searchSetSlice($("q").value,sliceRunValue(now.list,run)))}
+// What a click ('click') or a right-click ('keep') on the entry with this key does. The entry is
+// found again by its key, so a list that changed since the button was drawn never moves the click
+// to another slice.
+function sliceGesture(gesture,key){
+const now=sliceNow(),at=now.list.findIndex(e=>sliceEntryKey(e)===key);
+if(at<0)return;
+setRun(now,gesture==="keep"?sliceRunKeep(at):sliceRunClick(now.list,now.run,at))}
+// --- the panel
+function syncSwitch(){
+const t=$("search-panel-toggle");
+setAttr(t,"aria-pressed",String(panelSwitchOn));
+const title=panelSwitchOn?SWITCH_ON:SWITCH_OFF;
+if(t.title!==title)t.title=title}
+// Every repaint of the page comes here (render): the folds, the switch and the chip always, the
+// pills and the slices only while the panel is open, since a closed panel shows no count.
+function renderSearchPanel(){
+$("search-panel").classList.toggle("hidden",!panelOpen);
+setAttr($("search-panel-toggle"),"aria-expanded",String(panelOpen));
+syncSwitch();
+$("search-pills").classList.toggle("hidden",pillsFolded);
+setAttr($("search-pills-fold"),"aria-expanded",String(!pillsFolded));
+$("search-slices").classList.toggle("hidden",slicesFolded);
+setAttr($("search-slices-fold"),"aria-expanded",String(!slicesFolded));
+if(panelOpen){
+const rows=pillRows(pillList(panelCards(),pillMatcher(),panelBoard()),Array.from(pillGroupsOpen));
+syncList($("search-pills"),rows,"pillKey",r=>r.key,r=>r.kind==="more"?buildMoreButton():buildPillButton(r),(b,r)=>{if(r.kind==="more")updateMoreButton(b,r);else updatePillButton(b,r)});
+const now=sliceNow();
+syncList($("search-slices"),now.list,"sliceKey",sliceEntryKey,buildSliceButton,(b,e,at)=>updateSliceButton(b,e,at,now.run));
+$("search-slices-section").classList.toggle("hidden",!now.list.length)}
+const chip=$("search-chip");
+const made=panelChip(pillEntriesNow().filter(pillOn).map(p=>p.label).concat(sliceChipNames()));
+chip.classList.toggle("hidden",!made.count||panelOpen);
+setText(chip,made.count?String(made.count):"");
+setAttr(chip,"aria-label",made.name);
+if(chip.title!==made.name)chip.title=made.name}
+function setPanelOpen(open){panelOpen=!!open;renderSearchPanel()}
+// Esc's link in the chain: an open panel closes and answers true so the Esc stops there. Focus goes
+// back to the arrow, unless it is in the box: the box keeps it, and the text it holds.
+function closePanel(){
+if(!panelOpen)return false;
+const fromBox=document.activeElement===$("q");
+setPanelOpen(false);
+if(!fromBox)$("search-panel-toggle").focus();
+return true}
+// The arrow and the p key: switched off, the panel closes now and focusing the box no longer
+// opens it; switched on again, the panel opens now and opens on focus again.
+function flipSwitch(){
+panelSwitchOn=!panelSwitchOn;
+if(panelSwitchOn)setPanelOpen(true);else closePanel();
+renderSearchPanel()}
+// A click on one of the panel's controls: true when it was one.
+function panelClick(t){
+if(t.id==="search-panel-toggle"){flipSwitch();return true}
+if(t.id==="search-pills-fold"){pillsFolded=!pillsFolded;renderSearchPanel();return true}
+if(t.id==="search-slices-fold"){slicesFolded=!slicesFolded;renderSearchPanel();return true}
+if(t.classList.contains("query-pill-more")){toggleGroup(t.dataset.pillKey.replace("more:",""));return true}
+if(t.classList.contains("query-pill")){pillGesture("toggle",t.dataset.pillKey);return true}
+if(t.classList.contains("slice-entry")){sliceGesture("click",t.dataset.sliceKey);return true}
+return false}
+// The keys that type nothing but read a character ([ ] { } and p) stay off while a field has focus
+// (the web's own key guard, embedded above) and while a sheet or a card menu is up, the page's
+// counterparts of the web's dialogs. The change tray is no dialog: it sits in the page, and a field
+// of it is a field. What a chord is comes from the run of slices module.
+function keysOff(){
+return keyGuardTyping(document)||!!ctxMenuEl||modalOpen()}
+function panelKey(e){
+const k=e.key;
+if((k==="ContextMenu"||(k==="F10"&&e.shiftKey))&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+const b=e.target&&e.target.closest?e.target.closest(".slice-entry"):null;
+if(b){e.preventDefault();sliceGesture("keep",b.dataset.sliceKey)}
+return}
+if(SLICE_RUN_KEYS.includes(k)&&!sliceKeyIsChord(e)){
+if(keysOff())return;
+const now=sliceNow();
+if(!now.list.length)return;
+e.preventDefault();
+setRun(now,sliceRunStep(now.list,now.run,k));
+return}
+if(k&&k.toLowerCase()==="p"&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.repeat){
+if(keysOff())return;
+e.preventDefault();
+flipSwitch()}}
 function statusPills(){
 const row=el("div","pillrow");
 COLS.concat(["archive"]).forEach(k=>{
@@ -1324,6 +1679,7 @@ row.appendChild(b)});
 return row}
 function render(){
 buildNesting();
+renderSearchPanel();
 const board=$("board");board.replaceChildren();
 $("boardpills").replaceChildren(statusPills());
 // Each section (header + its cards) wraps in a .boardcol container at
@@ -1332,7 +1688,7 @@ $("boardpills").replaceChildren(statusPills());
 // query above). Collapsed sections skip .colcards entirely and render as
 // just the header, which the same media query narrows into a strip.
 COLS.filter(col=>isVis(col)).forEach(col=>{
-const cs=inOutline(view.filter(c=>qMatch(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s)))));
+const cs=inOutline(view.filter(c=>inQuery(c)&&!c.arch&&(c.s===col||(col===COLS[0]&&!COLS.includes(c.s)))));
 const open=!!colOpen[col];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 wrap.dataset.status=col;
@@ -1367,7 +1723,7 @@ else{const e=el("div",null,"no cards");e.style.cssText="font-size:12px;color:var
 wrap.appendChild(cc)}
 board.appendChild(wrap)});
 if(isVis("archive")){
-const acs=inOutline(view.filter(c=>c.arch&&qMatch(c)));
+const acs=inOutline(view.filter(c=>c.arch&&inQuery(c)));
 const open=!!colOpen["archive"];
 const wrap=el("div","boardcol"+(open?"":" collapsed"));
 const h=el("div","colh");
@@ -1699,15 +2055,6 @@ const visited=new Set([id]);
 walkFrom(id,forward,visited);
 walkFrom(id,backward,visited);
 return visited}
-// Pre-resolve tree:/path: terms into an already-resolved {f:"ids"}
-// term BEFORE qMatch's per-card pass — a single (term, card) pair has no
-// graph to resolve against. Mirrors kanban-web's search.js resolveGraphTerms.
-function resolveGraphTerms(terms){
-if(!terms.some(t=>t.f==="tree"||t.f==="path"))return terms;
-return terms.map(t=>{
-if(t.f==="tree")return{f:"ids",v:t.v,ids:treeIds(t.v)};
-if(t.f==="path")return{f:"ids",v:t.v,ids:pathIds(t.v)};
-return t})}
 // Kahn's algorithm, top-down layer per node; force-breaks a cycle by taking the
 // lowest remaining id so this always terminates (same approach as kanban-web's
 // layerNodes in dependency-graph.js).
@@ -2133,7 +2480,7 @@ function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=fa
 function graphFocus(gk,id){
 const term=gk+":"+id;
 $("q").value=term;
-qTerms=resolveGraphTerms(String(term).trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
+setQuery(term);
 focusRoot=id;
 closeCard();
 renderMap();renderGantt();renderCalendar()}
@@ -2190,6 +2537,8 @@ ids.forEach(i=>{statusVis[i]=soloed?true:i===k})}
 // v1 — the native menu still shows for them.
 document.body.addEventListener("contextmenu",e=>{
 if(!fineMQ.matches)return;
+const qp=e.target.closest(".query-pill,.slice-entry");
+if(qp){e.preventDefault();closeCtxMenu();if(qp.classList.contains("slice-entry"))sliceGesture("keep",qp.dataset.sliceKey);else pillGesture("solo",qp.dataset.pillKey);return}
 const sp=e.target.closest("[data-st]");
 const pillEl=sp&&sp.dataset.act==="spill"?sp:null;
 const card=e.target.closest("#board [data-card]");
@@ -2254,10 +2603,44 @@ sc.scrollTo({top:sc.scrollHeight,behavior:"smooth"});
 copyPayload(ok=>{const m="Copy blocked \\u2014 use the text box below to copy the payload";
 if(!ok)note=m;else if(note===m)note="";render()})});
 $("bell").addEventListener("click",()=>{const open=!notifView;sel=null;creating=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;notifView=open;render()});
-$("q").addEventListener("input",()=>{
+function queryChanged(){
 focusRoot=null;
-qTerms=resolveGraphTerms(String($("q").value||"").trim().split(/\\s+/).filter(Boolean).map(parseTerm).filter(Boolean));
-render();renderMap();renderGantt();renderCalendar()});
+setQuery($("q").value);
+render();renderMap();renderGantt();renderCalendar()}
+// The suggestions under the box: what the search module offers for the token under
+// the caret when that token is a slice: one, one row each. A bare word is offered scopes
+// by the module, and the page leaves them out: on a phone nine rows would open over the panel
+// on every word typed. A row is pressed (the press is kept from taking the focus
+// off the box) and writes its value whole, as the web's combobox does, so a pick is
+// the same as typing the term. Up and Down move a highlight and wrap, Enter picks
+// the row it is on, Escape shuts the menu and goes no further.
+let qItems=[],qOn=-1;
+function qClose(){qItems=[];qOn=-1;const m=$("qmenu");m.style.display="none";m.replaceChildren()}
+function qMark(){Array.from($("qmenu").children).forEach((r,i)=>r.classList.toggle("on",i===qOn))}
+function qPick(it){qClose();writeBox(it.value)}
+function qOpen(){
+const q=$("q");
+qItems=searchSuggestionItems(q.value,q.selectionStart,DATA.map(searchCard),searchCtx).filter(it=>it.label.startsWith("slice:"));
+qOn=-1;
+if(!qItems.length){qClose();return}
+const m=$("qmenu");
+m.replaceChildren(...qItems.map(it=>{const r=el("div","qitem",it.label);r.setAttribute("role","option");
+r.addEventListener("mousedown",e=>{e.preventDefault();qPick(it)});return r}));
+m.style.display=""}
+$("q").addEventListener("input",()=>{queryChanged();qOpen()});
+$("q").addEventListener("focus",qOpen);
+$("q").addEventListener("blur",qClose);
+$("q").addEventListener("keydown",e=>{
+if(!qItems.length||!["Escape","ArrowDown","ArrowUp","Enter"].includes(e.key))return;
+e.preventDefault();
+if(e.key==="Escape"){qClose();e.stopPropagation();return}
+if(e.key==="Enter"){if(qOn>=0)qPick(qItems[qOn]);else qClose();return}
+const d=e.key==="ArrowDown"?1:-1;
+qOn=nextHighlightIndex(qItems.length,qOn,d);qMark()});
+$("q").addEventListener("focus",()=>{if(panelSwitchOn&&!panelOpen)setPanelOpen(true)});
+// A press anywhere outside the search bar closes the panel, as it closes any popup.
+document.addEventListener("mousedown",e=>{if(panelOpen&&!e.target.closest(".search-bar"))setPanelOpen(false)});
+document.addEventListener("keydown",panelKey);
 sc.addEventListener("touchmove",e=>e.stopPropagation(),{passive:true});
 sc.addEventListener("scroll",()=>{if(ctxMenuEl)closeCtxMenu()},{passive:true});
 // Thin sticky header: toggle .hdr.thin only when crossing the threshold,
@@ -2285,6 +2668,7 @@ if(ctxMenuEl&&!e.target.closest("#ctxmenu"))closeCtxMenu();
 const t=e.target.closest("button,select,input,textarea,[data-card],[data-mapnode],[data-coltoggle],[data-tap],[data-caldaytoggle],[data-calhrtoggle]");
 if(!t)return;
 if(t.dataset&&t.dataset.view!==undefined){switchView(t.dataset.view);return}
+if(panelClick(t))return;
 if(t.dataset&&t.dataset.coltoggle!==undefined){colOpen[t.dataset.coltoggle]=!colOpen[t.dataset.coltoggle];render();return}
 if(t.dataset&&t.dataset.caldaytoggle!==undefined){calDayOpen[t.dataset.caldaytoggle]=!calDayOpen[t.dataset.caldaytoggle];renderCalendar();return}
 if(t.dataset&&t.dataset.calhrtoggle!==undefined){calHrOpen[t.dataset.calhrtoggle]=!calHrOpen[t.dataset.calhrtoggle];renderCalendar();return}
@@ -2342,7 +2726,8 @@ if(act==="desccancel"){descEd=false;render();return}
 if(!act){if(t.closest("#modal"))return;sel=String(sel)===String(id)?null:id;focusRoot=null;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;render()}});
 $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeCard()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(ctxMenuEl){closeCtxMenu();return}
-if(sel!==null||creating||notifView)closeCard()}});
+if(sel!==null||creating||notifView){closeCard();return}
+if(closePanel())e.preventDefault()}});
 // Close guard (kanban.proj #251): with ops queued, warn before the page
 // goes away so a human doesn't lose an uncopied payload by accident. An
 // empty tray never registers any of this -- each handler early-returns on

@@ -59,6 +59,7 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
     ROLLUP_BAR_OPEN: colState.ROLLUP_BAR_OPEN,
     nestingIndex: rollupIndex(cards, CTX),
     loadRollupBarMode: () => mode,
+    countArchivedLeaves: () => true,
     boardStatuses: () => STATUSES,
     paintRollupBars: () => {},
     paintTypeColors: () => {},
@@ -165,7 +166,7 @@ test('rich nodes show the type chip, the altitude badge and the roll-up bar of a
   const rich = draw(cards, { cards: 'rich' }, 10).html;
   assert.match(rich, /type-chip[^>]*>epic</);
   assert.match(rich, /alt-badge/);
-  assert.match(rich, /<div class="rollup">/);
+  assert.match(rich, /<div class="rollup" data-keeps-selection>/);
   const plain = draw(cards, { cards: 'plain' }, 10).html;
   assert.doesNotMatch(plain, /type-chip|alt-badge|class="rollup"/);
 });

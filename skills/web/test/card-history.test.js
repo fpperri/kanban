@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { cardIdFromSearch, nextCardHistorySearch } = require('../web/card-history');
+const { cardIdFromSearch, nextCardHistorySearch, nextSearchAddress } = require('../web/card-history');
+const { parseDeepLink } = require('../web/deep-link');
 
 // Pure decision logic for the card popup's browser-history wiring.
 // No DOM — app.js's click handlers and popstate listener
@@ -108,6 +109,64 @@ test('round trip: pushing a close step, then reading it back, yields null (close
   assert.strictEqual(cardIdFromSearch(search), null);
 });
 
+// --- nextSearchAddress: the address follows the search box ----------------
+//
+// Given the address (location.search) and the box's text, the one step that
+// puts the box's text in `q` and leaves every other parameter as it found it.
+// null when the address already matches, so the caller replaces nothing.
+
+const paramsOf = (search) => [...new URLSearchParams(search).entries()];
+
+test('nextSearchAddress: a box with text sets q on a bare address', () => {
+  assert.strictEqual(nextSearchAddress('', 'zephyr'), '?q=zephyr');
+  assert.strictEqual(nextSearchAddress('?', 'zephyr'), '?q=zephyr');
+});
+
+test('nextSearchAddress: changes only q — card and view ride along, in their place', () => {
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?card=42&view=graph', 'zephyr')),
+    [['card', '42'], ['view', 'graph'], ['q', 'zephyr']]);
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?view=map&q=old&card=7', 'new text')),
+    [['view', 'map'], ['q', 'new text'], ['card', '7']]);
+});
+
+test('nextSearchAddress: an empty box drops q and keeps the rest', () => {
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=zephyr&view=graph', '')), [['view', 'graph']]);
+  assert.strictEqual(nextSearchAddress('?q=zephyr', ''), '', 'nothing left is the empty string, not "?"');
+});
+
+test('nextSearchAddress: a blank box drops q like an empty one', () => {
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=zephyr&view=graph', '   ')), [['view', 'graph']]);
+  assert.strictEqual(nextSearchAddress('?q=zephyr', ' \t '), '');
+});
+
+test('nextSearchAddress: returns nothing when the address already matches', () => {
+  assert.strictEqual(nextSearchAddress('?q=zephyr', 'zephyr'), null);
+  assert.strictEqual(nextSearchAddress('?view=graph&q=zephyr&card=3', 'zephyr'), null);
+  assert.strictEqual(nextSearchAddress('', ''), null, 'no q and an empty box');
+  assert.strictEqual(nextSearchAddress('?view=graph', '   '), null, 'no q and a blank box');
+  assert.strictEqual(nextSearchAddress('?q=%2312+%7C+%28tags%3A%22next-up%22%29', '#12 | (tags:"next-up")'), null, 'an encoded q is compared decoded');
+});
+
+test('nextSearchAddress: a trailing space is part of the box text, so q equals the box', () => {
+  assert.strictEqual(new URLSearchParams(nextSearchAddress('?q=a', 'a ')).get('q'), 'a ');
+  assert.strictEqual(nextSearchAddress('?q=a+', 'a '), null);
+});
+
+test('nextSearchAddress: # | quotes and spaces are encoded, never a fragment, and the deep-link reader gets the text back', () => {
+  const text = '#12 | (tags:"next-up" status:doing)';
+  const search = nextSearchAddress('?view=graph', text);
+  assert.ok(search.startsWith('?'), search);
+  assert.doesNotMatch(search, /[# |"]/, 'no raw #, space, | or quote in the address');
+  assert.strictEqual(parseDeepLink(search).q, text);
+  assert.strictEqual(parseDeepLink(search).view, 'graph');
+});
+
+test('nextSearchAddress: non-string input never throws', () => {
+  assert.strictEqual(nextSearchAddress(null, 'zephyr'), '?q=zephyr');
+  assert.strictEqual(nextSearchAddress(undefined, undefined), null);
+  assert.strictEqual(nextSearchAddress('?q=zephyr', null), '');
+});
+
 // --- wiring smoke tests: pins app.js's use of this module, the same way
 // deep-link.test.js pins consumeDeepLink's wiring (no jsdom in this suite) --
 
@@ -144,8 +203,8 @@ test('every user-gesture call site opens through the openCard wrapper, not openD
     `expected exactly 5 raw openDetailModal( call sites (definition, openCard's own call, consumeDeepLink, popstate handler, refreshOpenDetail) — found ${rawCalls}; ` +
     'a new one should probably go through openCard() instead so Alt+Left/Alt+Right can see it');
   const wrapperCalls = [...APP.matchAll(/[^.\w]openCard\(/g)].length;
-  assert.strictEqual(wrapperCalls, 5,
-    `expected the openCard definition plus 4 call sites (mention, tray, map ghost, tile) — found ${wrapperCalls}`);
+  assert.strictEqual(wrapperCalls, 8,
+    `expected the openCard definition plus 7 call sites (mention, tray, map ghost, tile, the peek of a double click, the Enter handler, the card menu's Peek) — found ${wrapperCalls}`);
 });
 
 test('popstate bails out while any popup other than the detail popup itself is open', () => {
@@ -197,4 +256,38 @@ test('every user-gesture close goes through the closeCard wrapper, not closeDeta
   const rawCalls = [...APP.matchAll(/[^.\w]closeDetailModal\(/g)].length;
   assert.strictEqual(rawCalls, 6,
     `expected exactly 6 raw closeDetailModal( call sites — found ${rawCalls}`);
+});
+
+// --- nextSearchAddress with isolate: the second parameter beside q ------------
+//
+// While isolate is on, `isolate=1` stands beside q; it is gone when isolate is off or the box
+// holds no query.
+
+test('nextSearchAddress: isolate on puts isolate=1 after q, and off takes it out', () => {
+  assert.strictEqual(nextSearchAddress('', '#2 | #5', true), '?q=%232+%7C+%235&isolate=1');
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?view=graph&q=a&isolate=1', 'a', false)), [['view', 'graph'], ['q', 'a']]);
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a', false), '?q=a');
+});
+
+test('nextSearchAddress: a change of the flag alone is a new address, and the same flag with the same q is nothing', () => {
+  assert.strictEqual(nextSearchAddress('?q=a', 'a', true), '?q=a&isolate=1');
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a', true), null);
+  assert.strictEqual(nextSearchAddress('?q=a', 'a', false), null);
+});
+
+test('nextSearchAddress: isolate with no query is no isolate, so an empty or blank box drops both', () => {
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', '', true), '');
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', '   ', true), '');
+  assert.strictEqual(nextSearchAddress('?isolate=1&view=map', '', true), '?view=map');
+  assert.strictEqual(nextSearchAddress('', '', true), null);
+});
+
+test('nextSearchAddress: a caller that does not say reads as isolate off, and drops the parameter', () => {
+  assert.strictEqual(nextSearchAddress('?q=a&isolate=1', 'a'), '?q=a');
+  assert.deepStrictEqual(paramsOf(nextSearchAddress('?q=a&isolate=1', 'b')), [['q', 'b']]);
+});
+
+test('nextCardHistorySearch: opening and closing a card keep the isolate parameter, whatever order the address holds it in', () => {
+  assert.deepStrictEqual(paramsOf(nextCardHistorySearch('?q=%232&isolate=1', 2)), [['q', '#2'], ['isolate', '1'], ['card', '2']]);
+  assert.deepStrictEqual(paramsOf(nextCardHistorySearch('?q=%232&isolate=1&card=2', null)), [['q', '#2'], ['isolate', '1']]);
 });
