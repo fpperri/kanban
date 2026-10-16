@@ -485,7 +485,9 @@ function graphPaintSelection() {
 
 // A click on a card in the Graph, whatever the modifier: the shared decision
 // with the Graph's own answers (a plain click selects; Shift adds one card, as
-// Ctrl does), written to the selection and painted in place, no rebuild.
+// Ctrl does), written to the selection and painted in place, no rebuild. The search panel is
+// repainted too (its chip, and its pills while it is open), since a click that drops a pill
+// takes it off the chip as well as out of the box.
 function graphClickNode(id, mods) {
   const action = cardClickAction({
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
@@ -502,6 +504,7 @@ function graphClickNode(id, mods) {
   const text = boxAfterGraphClick(action, { boxText: box, cut: searchCutOnly(box), typedBefore, typedAfter: isTypedAnchor(selectionState.selection), isolated: isolateNow() !== null });
   if (text !== box) writeSearch(text, 'selection', false);
   graphPaintSelection();
+  renderSearchPanel();
 }
 
 // --- render --------------------------------------------------------------------
