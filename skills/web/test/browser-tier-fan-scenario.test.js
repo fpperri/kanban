@@ -163,6 +163,7 @@ function standIn(over = {}) {
   let switched = 0;
   let query = '';
   let shownFor = null;
+  let framePending = false;
   const points = new Map();
   const opened = [];
   const tables = new Set();
@@ -219,6 +220,7 @@ function standIn(over = {}) {
       if (k !== key) { archiveOn = false; extra = []; kind = 'tiers'; }
       key = k;
       zoomed = false;
+      framePending = false;
       query = '';
       shownFor = null;
       points.clear();
@@ -229,6 +231,7 @@ function standIn(over = {}) {
       const name = points.get(`${x},${y}`) || null;
       if (name === null && over.tipStuck) return true;
       shownFor = over.tipNever ? null : name;
+      if (framePending) { framePending = false; shownFor = null; }
       return true;
     },
     waitFor: async (expr) => {
@@ -311,7 +314,8 @@ function standIn(over = {}) {
         return over.shapes ? over.shapes(key, shapes) : shapes;
       }
       if (expr === scenario.ARCHIVE_PILL) { archiveOn = true; return true; }
-      if (expr === scenario.ZOOM_IN) { zoomed = true; return true; }
+      if (expr === scenario.ZOOM_IN) { zoomed = true; framePending = true; return true; }
+      if (expr === scenario.FRAMES) { if (!over.framesDoNothing) framePending = false; return true; }
       if (expr === scenario.FIT) { zoomed = !!over.fitDoesNothing; return true; }
       for (const name of ['tiers', 'force', 'status']) if (expr === scenario.pickLayout(name)) { kind = name; switched += name === 'tiers' ? 1 : 0; return true; }
       if (expr === scenario.addLoose(scenario.CASES.plan.extraLoose)) {
@@ -640,6 +644,18 @@ test('a tooltip with the wrong count, the wrong split or the wrong term fails th
   assert.ok(good.checks.some(([n, ok]) => ok && n === HOVER));
 });
 
+// A zoom press leaves the page a frame to draw, and a Fit draws at once without calling it
+// off, so the frame is still to come while the scenario measures and moves the pointer. The
+// pointer's input is handled first in the frame the page draws it in and the frame's own
+// transform, which takes a tooltip down, after: the tooltip of the first caption was lost.
+test('a frame the zoom presses left to draw takes down a tooltip shown before it, so the scenario lets the page draw it before the pointer moves', async () => {
+  const early = await run({ framesDoNothing: true });
+  assert.ok(failed(early).includes(HOVER), failed(early).join('; '));
+  const settled = await run();
+  assert.deepStrictEqual(failed(settled), []);
+  assert.ok(settled.checks.some(([n, ok]) => ok && n === HOVER));
+});
+
 test('a tooltip off the stage, or on top of the caption it describes, fails', async () => {
   const off = await run({ tip: (name, t) => (name === 'goal' ? { ...t, tip: { ...t.tip, r: t.stage.r + 40 } } : t) });
   assert.ok(failed(off).includes(HOVER), failed(off).join('; '));
@@ -745,7 +761,7 @@ test('the scenario waits on the page, never on a fixed sleep', () => {
 
 test('every scenario expression parses, so a typo does not wait for CI', () => {
   const exprs = [scenario.DOTS, scenario.BAND_EDGES, scenario.FAN_MARKS, scenario.SECTORS, scenario.SWEEP, scenario.CIRCLE, scenario.RECTS, scenario.TIERS_PRESSED, scenario.DRAWN,
-    scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.layoutIs('force'), scenario.pickLayout('status'),
+    scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.FRAMES, scenario.layoutIs('force'), scenario.pickLayout('status'),
     scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES,
     scenario.NO_COUNT, scenario.BLUR, scenario.TIP, scenario.TIP_HIDDEN, scenario.EMPTY_POINT, scenario.captionCentre('goal'), scenario.focusCaption('Unnested, with a tier'),
     scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.writeBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),

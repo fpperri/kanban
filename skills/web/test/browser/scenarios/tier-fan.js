@@ -167,6 +167,10 @@ const FIT = `document.querySelector('.graph-zoom-btn[data-graph-action=fit]').cl
 const ZOOM_IN = `document.querySelector('.graph-zoom-btn[data-graph-action=in]').click()`;
 const FITTED = `graphCur.view.touched===false`;
 const ZOOMED = `graphCur.view.touched===true`;
+// A zoom press only flags the view and queues a frame to draw it (a Fit draws at once and leaves the
+// frame queued); that frame hides a tooltip, so a pointer moved onto a caption before it has run loses
+// the tooltip it was just given. Two frames on, the queued one has run.
+const FRAMES = `new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`;
 const layoutIs = (name) => `(document.querySelector('.graph-layout-btn[aria-pressed=true]')||{dataset:{}}).dataset.layout==='${name}'&&document.querySelectorAll('#graph-view .graph-node').length>0`;
 const pickLayout = (name) => `document.querySelector('.graph-layout-btn[data-layout=${name}]').click()`;
 const addLoose = (card) => `fetch('/api/cards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(${JSON.stringify(card)})}).then((r)=>r.status)`;
@@ -255,6 +259,7 @@ module.exports = {
   ZOOM_IN,
   FITTED,
   ZOOMED,
+  FRAMES,
   layoutIs,
   pickLayout,
   addLoose,
@@ -388,6 +393,7 @@ module.exports = {
       await waitFor(ZOOMED);
       await ev(FIT);
       await waitFor(FITTED);
+      await ev(FRAMES);
       const fitted = await ev(RECTS);
       check('plan: after Fit every dot, every caption and the Unnested block lie inside the canvas', !!fitted && outsideStage(fitted).length === 0, fitted && outsideStage(fitted));
       check('plan: after Fit the whole circle lies inside the canvas', circleOutside(await ev(CIRCLE)).length === 0, await ev(CIRCLE));
