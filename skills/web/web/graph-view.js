@@ -561,9 +561,11 @@ function graphPaintNames() {
 }
 
 // A zoom places the names again once it settles: each step of it puts the placement off, and
-// a pan, which keeps the zoom, places nothing. O(1), so the transform stays one write a frame.
+// a pan, which keeps the zoom, places nothing; nor does a zoom with nothing named, which no zoom
+// moves. O(1), so the transform stays one write a frame.
 function graphQueueNames() {
-  if (!graphCur || graphCur.kind !== 'tiers' || !graphCur.names || graphCur.names.k === graphCur.view.k) return;
+  const names = graphCur && graphCur.kind === 'tiers' ? graphCur.names : null;
+  if (!names || names.k === graphCur.view.k || !(names.placed.size || names.unnamed.length)) return;
   clearTimeout(graphNamesTimer);
   graphNamesTimer = setTimeout(graphPaintNames, GRAPH_NAMES_SETTLE_MS);
 }

@@ -289,6 +289,23 @@ test('a zoom places the names again once it settles, and only then; a pan places
   assert.strictEqual(timers.length, 2, 'once placed at this zoom, a transform queues nothing');
 });
 
+test('with nothing named a zoom queues no placement, and names asked for after it are placed at the zoom shown', async () => {
+  const s = await open({ names: 'none' });
+  const before = s.fit();
+  assert.strictEqual(before.placed.size + before.unnamed.length, 0, 'nothing named');
+  const timers = [];
+  s.page.ctx.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+  s.run('graphCur.view.k *= 1.25; graphApplyTransform()');
+  assert.strictEqual(timers.length, 0, 'a zoom under none queues nothing');
+  assert.strictEqual(s.run('graphCur.names'), before);
+  s.run("graphSetOption('names', 'all')");
+  const names = s.run('graphCur.names');
+  assert.strictEqual(names.k, s.run('graphCur.view.k'), 'placed at the zoom shown');
+  assert.ok(names.placed.size > 0);
+  paintedAsPlaced(s);
+  assert.deepStrictEqual(s.errors, []);
+});
+
 test('a click names and places in place: no rebuild, and the card it names has its row and leader', async () => {
   const s = await open({ names: 'relevant' });
   s.fit();
