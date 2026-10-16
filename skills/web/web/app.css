@@ -1236,6 +1236,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-canvas.graph-dragging, .graph-canvas.graph-dragging .graph-node { cursor: grabbing; }
 
 .graph-ring { fill: none; stroke: var(--line-strong); stroke-width: 1px; stroke-dasharray: 4 4; opacity: 0.6; }
+.graph-tint { fill: var(--mut); fill-opacity: 0.13; fill-rule: evenodd; stroke: none; pointer-events: none; }
+.graph-tint[data-type-color] { fill: currentColor; }
 .graph-guide { fill: none; stroke: var(--line-strong); stroke-width: 1px; opacity: 0.55; pointer-events: none; }
 .graph-guide-sub { stroke-dasharray: 2 5; opacity: 0.4; }
 .graph-guide-empty { stroke-dasharray: 4 4; opacity: 0.35; }
