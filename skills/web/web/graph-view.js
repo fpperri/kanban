@@ -57,7 +57,7 @@ const GRAPH_FAN_OPTION_LABELS = {
   },
   names: {
     label: 'Names',
-    hint: `Which cards carry their title beside the dot. Relevant: the selection and the cards it lights, then parents from the highest altitude down, up to ${GRAPH_FAN_NAMES_CAP} names; every card on a fan of ${GRAPH_FAN_NAMES_SMALL} cards or fewer. All: every card. None: no card. Press n to step through them.`,
+    hint: `Which cards carry their title, a parent beside its ring and the others in rows outside the rim. Relevant: the selection and the cards it lights, then parents from the highest altitude down, up to ${GRAPH_FAN_NAMES_CAP} names; every card on a fan of ${GRAPH_FAN_NAMES_SMALL} cards or fewer. All: every card. None: no card. Press n to step through them.`,
   },
   unnested: {
     label: 'Unnested',

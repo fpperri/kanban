@@ -51,7 +51,7 @@ function mergeGraphLayout(saved) {
 //   order         how siblings are ordered within a sector, the way the Map orders
 //                 its rows: by status (doing, todo, backlog, ..., done, archived) or
 //                 by rank, the outline's own order.
-//   names         which cards carry their title beside the dot: relevant (the selection
+//   names         which cards carry their title: relevant (the selection
 //                 and what it lights, then parents from the highest altitude down, up to
 //                 a cap; every card on a small fan), all or none (graphFanNames).
 //   unnested      where the cards with no parent, no children and no tier are drawn:
@@ -330,14 +330,14 @@ function graphRestLit(model, { selectedIds, loneCardId }, lines) {
 }
 
 // --- the tier fan's names --------------------------------------------------------
-// Which cards carry their title beside the dot. A pure function of the model, so the
+// Which cards carry their title. A pure function of the model, so the
 // page and the tests ask the same question. Relevant names what is lit when the pointer
 // is on no card (graphRestLit): the selection, a typed query's or a pill's matches among
 // it, and a lone card's one-hop relations, always, however many. It then names parents
 // while the named set is under the cap, the highest altitude first (the glossary's: the
 // layers of cards below a card on the board, blind to type), ties by id. A fan of the small size
 // or fewer cards names every card. All names every card and none names none. Names are
-// plain labels; where one sits is the stylesheet's business, and the layout never reads
+// plain labels; where one sits is graph-names.js's business, and the layout never reads
 // the setting (it is in neither the signature nor the cache key). At most 24 names, except
 // for the selection's and its lit cards; a fan of 24 cards or fewer names every card.
 const GRAPH_FAN_NAMES_CAP = 24;

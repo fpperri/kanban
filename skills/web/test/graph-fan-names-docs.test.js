@@ -6,8 +6,9 @@ const path = require('node:path');
 // The web skill's Graph section and the web doc describe the tier fan's Names option and the n
 // key: the three values and the default, what relevant names and in what order, the small fan,
 // that a name is the title as text in place of the id, that the layout never reads the setting,
-// the key and the guard it reads, and where the choice is kept. The words are the glossary's:
-// altitude, selection, pill, tier.
+// the key and the guard it reads, and where the choice is kept. Where a name sits is the other
+// docs test's (graph-fan-name-rows-docs.test.js). The words are the glossary's: altitude,
+// selection, pill, tier.
 
 const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
 const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
@@ -27,7 +28,7 @@ const docGraph = () => {
 test('the Graph section says the row holds five options, and Names is the fourth', () => {
   const text = graph();
   assert.match(text, /It holds five options, the first value of each the default/);
-  assert.match(text, /\*\*Names\*\* says which cards carry their title beside the dot/);
+  assert.match(text, /\*\*Names\*\* says which cards carry their title: \*\*relevant\*\* \(the default\)/);
 });
 
 test('the Graph section says what each Names value names, relevant the default', () => {
@@ -42,10 +43,10 @@ test('the Graph section says what each Names value names, relevant the default',
 
 test('the Graph section says a name is the title as plain text in place of the id, painted in place, and the layout never reads it', () => {
   const text = graph();
-  assert.match(text, /A name is the card's title as plain text, cut to 38 characters, set in place of its id/);
+  assert.match(text, /A name is the card's title as plain text, cut to 38 characters, and shorter, with an ellipsis, when its place has less room; a named card that finds room shows it in place of its id label/);
   assert.match(text, /a click on a card names it and what it lights in place, with no redraw/);
   assert.match(text, /Names never run the layout again/);
-  assert.match(text, /a card the Tiers fan names prints its title there instead/);
+  assert.match(text, /a card the Tiers fan names and finds room for shows its title instead, beside its ring or in a row outside the rim/);
 });
 
 test('the Graph section says the n key steps the setting through the shared key guard, in Tiers only', () => {
@@ -59,6 +60,6 @@ test('the Graph section says the n key steps the setting through the shared key 
 test('the web doc says the same in short', () => {
   const text = docGraph();
   assert.match(text, /Names \(relevant, all, none\)/);
-  assert.match(text, /Names puts a card's title beside its dot/);
+  assert.match(text, /Names puts a card's title on the fan/);
   assert.match(text, /the n key steps through them/);
 });
