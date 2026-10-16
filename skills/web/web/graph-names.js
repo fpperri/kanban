@@ -605,8 +605,9 @@ function graphNamesPlace(input) {
   // (GRAPH_NAME_RAIL outside the rim) as the others allow; when there are more cards than
   // rows the least wanted go first (not lit at rest), then the one with the closest neighbour.
   // The leader runs from the dot's edge out along the card's own ray, round any mark in the
-  // way, to the rail, round the rail to the row's height, and out to GRAPH_NAME_GAP short of
-  // the name; the rows keep the order down the side, so leaders sharing the rail never cross.
+  // way, to the rail, round the rail to the ray through where it stops, GRAPH_NAME_GAP short of
+  // the name, and straight out along that ray; the rows keep the order down the side and each
+  // leader leaves the rail along a ray of its own, so leaders sharing the rail never cross.
   const last = Math.floor(-top / rowH);
   for (const side of ['L', 'R']) {
     const dir = side === 'L' ? -1 : 1;
@@ -663,7 +664,7 @@ function graphNamesPlace(input) {
       const out = n.reach + GRAPH_NAME_LEADER_OUT;
       const from = { x: n.x + Math.cos(ray) * out, y: n.y + Math.sin(ray) * out };
       const to = { x: dir * (row.a - gap), y: row.y };
-      let turn = Math.atan2(row.y, x);
+      let turn = Math.atan2(to.y, to.x);
       if (side === 'L' && turn < 0) turn += 2 * Math.PI;
       const local = (p) => `${graphNameRound(p.x - n.x)} ${graphNameRound(p.y - n.y)}`;
       const rail = { x: Math.cos(turn) * bend, y: Math.sin(turn) * bend };
@@ -745,6 +746,7 @@ function graphNameRun(ray, r0, r1, discs, own, local, stats) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_NAME_PX, GRAPH_NAME_ROW, GRAPH_NAME_PAD, GRAPH_NAME_MIN_W, GRAPH_NAME_RAIL, GRAPH_NAME_EDGE, GRAPH_NAME_GAP, GRAPH_NAME_BLOCK_UP, GRAPH_NAME_POLE, GRAPH_NAME_LEADER_OUT,
+    GRAPH_NAME_MARK_PAD, GRAPH_NAME_DETOUR,
     graphNamesRim, graphNamesKey, graphNamesPlace,
     graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets, graphNameIndex,
   };

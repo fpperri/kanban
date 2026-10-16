@@ -179,6 +179,106 @@ function pathPoints(d, step = 0.5) {
   return points;
 }
 
+// A leader in the world, read without the placement's own flattener: where it starts and its
+// pieces in order, each straight ({ a, b }) or round the apex ({ a, b, r, sweep }). The path is
+// drawn in its card's group, so every point is less the card's `at`. Every arc a leader draws
+// is round the apex, so one that is not throws, as does a command a leader never draws.
+function leaderPieces(d, at) {
+  const tokens = String(d).match(PATH_NUM) || [];
+  const pieces = [];
+  let i = 0;
+  let start = null;
+  let pen = null;
+  let cmd = null;
+  const point = () => ({ x: Number(tokens[i++]) + at.x, y: Number(tokens[i++]) + at.y });
+  while (i < tokens.length) {
+    if (/^[A-Za-z]$/.test(tokens[i])) cmd = tokens[i++].toUpperCase();
+    if (cmd === 'M' && !pen) {
+      start = point();
+      pen = start;
+      cmd = 'L';
+    } else if (cmd === 'L') {
+      const b = point();
+      pieces.push({ a: pen, b });
+      pen = b;
+    } else if (cmd === 'A') {
+      const r = Number(tokens[i++]);
+      i += 2;
+      const large = Number(tokens[i++]);
+      const sweep = Number(tokens[i++]);
+      const b = point();
+      // An arc to where it starts draws nothing, as in SVG.
+      if (b.x === pen.x && b.y === pen.y) continue;
+      if (Math.abs(Math.hypot(pen.x, pen.y) - r) > 0.05 || Math.abs(Math.hypot(b.x, b.y) - r) > 0.05) throw new Error(`a leader's arc not round the apex: ${d}`);
+      let turn = Math.atan2(b.y, b.x) - Math.atan2(pen.y, pen.x);
+      if (sweep) while (turn <= 0) turn += 2 * Math.PI;
+      else while (turn >= 0) turn -= 2 * Math.PI;
+      if ((Math.abs(turn) > Math.PI) !== (large === 1)) throw new Error(`a leader's arc whose flags disagree with its ends: ${d}`);
+      pieces.push({ a: pen, b, r, sweep });
+      pen = b;
+    } else {
+      throw new Error(`a path command a leader does not draw: ${tokens[i - 1]} in ${d}`);
+    }
+  }
+  return { start, pieces };
+}
+
+// The pairs of leaders, given as [id, pieces], whose paths cross: a straight piece of one
+// through a straight piece or an arc of the other, clear of both pieces' ends by `clear`. Arcs
+// round the apex never cross each other (they share the rail or lie one inside the other), and
+// two pieces along one line, or one that runs up to another's path and stops there, do not
+// cross either: so leaders that share the rail or a ray, or join it, are not counted.
+function leaderCrossings(leaders, clear = 0.05) {
+  const turnOf = (p) => {
+    const a0 = Math.atan2(p.a.y, p.a.x);
+    let t = Math.atan2(p.b.y, p.b.x) - a0;
+    if (p.sweep) while (t <= 0) t += 2 * Math.PI;
+    else while (t >= 0) t -= 2 * Math.PI;
+    return { a0, t };
+  };
+  const off = (q, a, b) => ((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x)) / Math.hypot(b.x - a.x, b.y - a.y);
+  const parts = (p, q, a, b) => {
+    const s = off(p, a, b);
+    const t = off(q, a, b);
+    return (s > clear && t < -clear) || (s < -clear && t > clear);
+  };
+  const lineLine = (s, o) => parts(o.a, o.b, s.a, s.b) && parts(s.a, s.b, o.a, o.b);
+  const lineArc = (s, arc) => {
+    const dx = s.b.x - s.a.x;
+    const dy = s.b.y - s.a.y;
+    const len = Math.hypot(dx, dy);
+    const A = dx * dx + dy * dy;
+    const B = 2 * (s.a.x * dx + s.a.y * dy);
+    const C = s.a.x * s.a.x + s.a.y * s.a.y - arc.r * arc.r;
+    const disc = B * B - 4 * A * C;
+    if (!A || disc <= 0) return false;
+    const { a0, t: turn } = turnOf(arc);
+    return [(-B - Math.sqrt(disc)) / (2 * A), (-B + Math.sqrt(disc)) / (2 * A)].some((t) => {
+      if (t * len <= clear || (1 - t) * len <= clear) return false;
+      let at = Math.atan2(s.a.y + dy * t, s.a.x + dx * t) - a0;
+      at -= 2 * Math.PI * Math.floor(at / (2 * Math.PI));
+      if (turn < 0 && at > 0) at -= 2 * Math.PI;
+      const m = clear / arc.r;
+      return turn > 0 ? at > m && at < turn - m : at < -m && at > turn + m;
+    });
+  };
+  const out = new Set();
+  for (let i = 0; i < leaders.length; i++) {
+    for (let j = i + 1; j < leaders.length; j++) {
+      const [ia, pa] = leaders[i];
+      const [ib, pb] = leaders[j];
+      const meets = pa.some((s) => pb.some((o) => {
+        if (s.r && o.r) return false;
+        if (s.r) return lineArc(o, s);
+        if (o.r) return lineArc(s, o);
+        return lineLine(s, o);
+      }));
+      if (meets) out.add(`${Math.min(ia, ib)}>${Math.max(ia, ib)}`);
+    }
+  }
+  return [...out];
+}
+
 // The names placed on `plan` once Fit has framed the fan on a `w` by `h` stage and the view is
 // zoomed by `zoom`, with `names` the Names setting and the widths measured as above. The id
 // labels all show on a fan of 60 cards or fewer, or zoomed in to 1.4, as on the page.
@@ -204,5 +304,5 @@ const within = (inner, outer, slack = 1e-9) => inner.x0 >= outer.x0 - slack && i
 
 module.exports = {
   STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
-  nameMeasure, pathPoints, placeOn, drawnBox, within,
+  nameMeasure, pathPoints, placeOn, drawnBox, within, leaderPieces, leaderCrossings,
 };

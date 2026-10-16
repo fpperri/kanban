@@ -5,7 +5,7 @@ const { performance } = require('node:perf_hooks');
 const { graphLayoutTiers, graphPlan, graphFanNames } = require('../web/graph-model');
 const { graphNamesPlace, graphNameMeets, graphNameDiscHits } = require('../web/graph-names');
 const {
-  STATUSES, buildOf, rootShapedCards, placeOn, pathPoints, drawnBox, within,
+  STATUSES, buildOf, rootShapedCards, placeOn, pathPoints, drawnBox, within, leaderPieces, leaderCrossings,
 } = require('./helpers/fan-boards');
 
 // A fan of 150 cards with names on all: the size of a real shop board's fan, which the
@@ -89,6 +89,15 @@ test('a 150-card fan with names on all places every card without overlap or leav
     }
   }
   assert.ok(lists > 0, 'the Unnested block lists names too');
+});
+
+test('on a 150-card fan no two leaders cross, though many share the rail and the rows over and under it', () => {
+  for (const c of cases()) {
+    for (const side of ['L', 'R']) {
+      const leaders = [...c.result.placed].filter(([, p]) => p.kind === 'row' && p.side === side).map(([id, p]) => [id, leaderPieces(p.leader.d, c.plan.nodes.find((n) => n.id === id)).pieces]);
+      assert.deepStrictEqual(leaderCrossings(leaders), [], `${c.where} ${side}`);
+    }
+  }
 });
 
 test('a 150-card fan is placed in well under the time of a frame', () => {

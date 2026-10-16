@@ -5,11 +5,11 @@ const path = require('node:path');
 
 const { graphLayoutTiers, graphPlan, graphFanNames } = require('../web/graph-model');
 const {
-  GRAPH_NAME_PAD, GRAPH_NAME_ROW, GRAPH_NAME_POLE,
+  GRAPH_NAME_PAD, GRAPH_NAME_ROW, GRAPH_NAME_POLE, GRAPH_NAME_RAIL, GRAPH_NAME_MARK_PAD, GRAPH_NAME_DETOUR,
   graphNamesPlace, graphNamesKey, graphNamesRim, graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets,
 } = require('../web/graph-names');
 const {
-  STATUSES, loadBoard, cleanUp, drawnModel, nameMeasure, placeOn, captionRects, pathPoints, drawnBox, within,
+  STATUSES, loadBoard, cleanUp, drawnModel, nameMeasure, placeOn, captionRects, pathPoints, drawnBox, within, leaderPieces, leaderCrossings,
 } = require('./helpers/fan-boards');
 
 // Where the tier fan's names sit. One pure function (graphNamesPlace) takes the plan the
@@ -330,7 +330,7 @@ test('every other named card\'s name sits outside the rim, its leader running fr
   assert.strictEqual(rows, ROWS_AT_FIT, 'at Fit on 1600x800 the plan board names its other cards in rows');
 });
 
-test('down each side, the rows keep their cards\' order, so no two leaders cross', () => {
+test('down each side, the rows keep their cards\' order', () => {
   for (const c of matrix()) {
     for (const side of ['L', 'R']) {
       const rows = [...c.result.placed].filter(([, p]) => p.kind === 'row' && p.side === side).map(([id, p]) => {
@@ -340,6 +340,118 @@ test('down each side, the rows keep their cards\' order, so no two leaders cross
       for (let i = 1; i < rows.length; i++) assert.ok(rows[i].y > rows[i - 1].y, `${c.where} ${side}: card ${rows[i].id} is named below card ${rows[i - 1].id}`);
     }
   }
+});
+
+// A mark as the placement keeps off it: its sticker ring, its children's ring or its dot.
+const markOf = (n) => (flaggedOf(n) ? n.flagRing : n.cls.includes(' has-kids') ? n.kidsRing : n.reach) + GRAPH_NAME_MARK_PAD;
+// How far a point is off the ray from the apex at angle `a`, and how far along it.
+const offRay = (q, a) => Math.abs(q.x * Math.sin(a) - q.y * Math.cos(a));
+const alongRay = (q, a) => q.x * Math.cos(a) + q.y * Math.sin(a);
+const radius = (q) => Math.hypot(q.x, q.y);
+const turnBetween = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+// Points every unit or closer along a piece of a leader, its ends included.
+const along = (p) => {
+  if (!p.r) {
+    const n = Math.max(1, Math.ceil(Math.hypot(p.b.x - p.a.x, p.b.y - p.a.y)));
+    return Array.from({ length: n + 1 }, (_, s) => ({ x: p.a.x + ((p.b.x - p.a.x) * s) / n, y: p.a.y + ((p.b.y - p.a.y) * s) / n }));
+  }
+  const a0 = Math.atan2(p.a.y, p.a.x);
+  let turn = Math.atan2(p.b.y, p.b.x) - a0;
+  if (p.sweep) while (turn <= 0) turn += 2 * Math.PI;
+  else while (turn >= 0) turn -= 2 * Math.PI;
+  const n = Math.max(1, Math.ceil(Math.abs(turn) * p.r));
+  return Array.from({ length: n + 1 }, (_, s) => ({ x: Math.cos(a0 + (turn * s) / n) * p.r, y: Math.sin(a0 + (turn * s) / n) * p.r }));
+};
+// A row's leader as its three stretches: the run out from the dot to the rail, the arc along the
+// rail (none when the leader leaves the rail just where it meets it) and the piece out to the name.
+const stretches = (p, n, rail) => {
+  const { start, pieces } = leaderPieces(p.leader.d, n);
+  const exit = pieces[pieces.length - 1];
+  const before = pieces[pieces.length - 2];
+  const onRail = before && before.r && Math.abs(before.r - rail) < 0.01 ? before : null;
+  return { start, run: pieces.slice(0, pieces.length - (onRail ? 2 : 1)), onRail, exit };
+};
+
+test('a row\'s leader runs out along its card\'s ray, round any dot in the way, along the rail just outside the rim, then straight out to its name', () => {
+  let detours = 0;
+  for (const c of matrix()) {
+    const rail = graphNamesRim(c.layout) + GRAPH_NAME_RAIL / c.k;
+    for (const [id, p] of c.result.placed) {
+      if (p.kind !== 'row') continue;
+      const where = `${c.where}: card ${id}`;
+      const n = nodeOf(c.plan, id);
+      const ray = Math.atan2(n.y, n.x);
+      const { start, run, onRail, exit } = stretches(p, n, rail);
+      assert.ok(Math.hypot(start.x - p.leader.from.x, start.y - p.leader.from.y) < 0.01, `${where}: from its dot`);
+      assert.ok(run.length && !exit.r, `${where}: a run out to the rail and a piece out to the name`);
+      for (const q of run) {
+        if (q.r) assert.ok(q.r < rail, `${where}: goes round a dot inside the rail`);
+        else {
+          assert.ok(offRay(q.a, Math.atan2(q.b.y, q.b.x)) < 0.02, `${where}: each straight piece of its run lies along a ray of the apex`);
+          assert.ok(radius(q.b) >= radius(q.a) - 0.02, `${where}: and runs outward`);
+        }
+        for (const v of along(q)) {
+          if (offRay(v, ray) > 0.02) {
+            const rounds = c.plan.nodes.some((m) => m.id !== id
+              && Math.abs(radius(v) - radius(m)) <= markOf(m) + GRAPH_NAME_DETOUR + 0.05
+              && Math.abs(turnBetween(Math.atan2(v.y, v.x), Math.atan2(m.y, m.x))) * radius(m) <= markOf(m) + GRAPH_NAME_DETOUR + 0.05);
+            assert.ok(rounds, `${where}: off its ray only to go round a dot on it`);
+          }
+          for (const m of c.plan.nodes) {
+            if (m.id !== id) assert.ok(Math.hypot(v.x - m.x, v.y - m.y) >= m.reach, `${where}: its leader runs over card ${m.id}`);
+          }
+        }
+      }
+      if (run.some((q) => q.r)) detours++;
+      const reached = run[run.length - 1].b;
+      assert.ok(Math.abs(radius(reached) - rail) < 0.02 && offRay(reached, ray) < 0.02 && alongRay(reached, ray) > 0, `${where}: back on its own ray at the rail`);
+      if (onRail) assert.ok(Math.abs(radius(onRail.b) - rail) < 0.02, where);
+      assert.ok(Math.abs(radius(exit.a) - rail) < 0.02, `${where}: leaves from the rail`);
+      assert.ok(offRay(exit.a, Math.atan2(exit.b.y, exit.b.x)) < 0.02 && radius(exit.b) > radius(exit.a), `${where}: straight out from the rail along a ray of the apex`);
+      assert.ok(Math.hypot(exit.b.x - p.leader.to.x, exit.b.y - p.leader.to.y) < 0.01, `${where}: to its name`);
+    }
+  }
+  assert.ok(detours > 0, 'some leader goes round a dot');
+});
+
+test('no two leaders cross: they share the rail and the rays, and each leaves the rail along a ray of its own', () => {
+  for (const c of matrix()) {
+    for (const side of ['L', 'R']) {
+      const leaders = [...c.result.placed].filter(([, p]) => p.kind === 'row' && p.side === side).map(([id, p]) => [id, leaderPieces(p.leader.d, nodeOf(c.plan, id)).pieces]);
+      assert.deepStrictEqual(leaderCrossings(leaders), [], `${c.where} ${side}`);
+    }
+  }
+});
+
+test('a leader goes round a dot on its ray, clear of its mark by GRAPH_NAME_DETOUR as it passes, on the side its ray lies, and back onto its ray beyond', () => {
+  const node = (id, x, y) => ({ id, x, y, reach: 4, kidsRing: 8, flagRing: 9, cls: 'graph-node', name: `Card ${id}` });
+  const n = node(1, 50, 0);
+  const m = node(2, 80, 2);
+  const rail = 100 + GRAPH_NAME_RAIL;
+  const leaderOf = (nodes) => {
+    const result = graphNamesPlace({
+      plan: { nodes, links: [], captions: [], looseCaption: null, block: null }, rim: 100, named: new Set([1]), keep: new Set(), k: 1, labelsAll: false, measure: nameMeasure, font: '',
+    });
+    return stretches(result.placed.get(1), n, rail);
+  };
+  const plain = leaderOf([n]);
+  assert.ok(plain.run.every((q) => !q.r && along(q).every((v) => Math.abs(v.y) < 0.01)), 'with nothing in the way, straight out along its ray');
+  const { run } = leaderOf([n, m]);
+  const points = run.flatMap(along);
+  const off = points.filter((v) => Math.abs(v.y) > 0.02);
+  assert.ok(off.length > 0, 'off its ray to go round card 2');
+  assert.ok(off.every((v) => v.y < 0), 'on the side of card 2 its ray lies');
+  const mark = m.reach + GRAPH_NAME_MARK_PAD;
+  const mr = radius(m);
+  const ma = Math.atan2(m.y, m.x);
+  for (const v of points) assert.ok(Math.hypot(v.x - m.x, v.y - m.y) > mark, 'never over card 2\'s mark');
+  // Where it passes card 2, at card 2's distance from the apex, it is as far round from card 2
+  // as card 2's mark and GRAPH_NAME_DETOUR.
+  const passing = run.filter((q) => !q.r && radius(q.a) < mr && radius(q.b) > mr);
+  assert.strictEqual(passing.length, 1);
+  assert.ok(Math.abs(turnBetween(Math.atan2(passing[0].a.y, passing[0].a.x), ma)) * mr >= mark + GRAPH_NAME_DETOUR - 0.02);
+  const last = run[run.length - 1].b;
+  assert.ok(Math.abs(last.y) < 0.01 && Math.abs(last.x - rail) < 0.01, 'back on its ray at the rail');
 });
 
 // --- the Unnested block's list -----------------------------------------------------------
