@@ -296,11 +296,20 @@ test('the chip shows the focus ring the arrow and the pills show, from the same 
   assert.ok(block.includes(`.slice-entry:focus-visible { ${ring} }`), 'the same ring as the arrow, the fold controls and the pills');
 });
 
-test('the chip draws as it did before it was a button: its own font, no hover wash of the button rule, and no pointer hand for a click that does nothing', () => {
+test('the chip draws as it did before it was a button: its own font and no hover wash of the button rule', () => {
   const chip = block.match(/\.search-chip \{([^}]*)\}/)[1];
   assert.match(chip, /font: inherit; font-size: 0\.75em/, 'the button\'s own font is reset, then the chip\'s size');
-  assert.match(chip, /cursor: default/);
   assert.match(block, /\.search-chip:hover \{[^}]*background: var\(--accent-soft\)/, 'the global button:hover rule would otherwise wash it');
+});
+
+test('the chip takes the pointer hand the other header buttons take, from the button rule, with no cursor of its own to undo it', () => {
+  const buttons = css.match(/^button \{([^}]*)\}/m)[1];
+  assert.match(buttons, /cursor: pointer/, 'the hand every button has');
+  assert.match(tagOf('search-chip'), /^<button\b/, 'the chip is a button, so the rule reaches it');
+  for (const selector of ['search-chip', 'search-panel-toggle']) {
+    const rule = block.match(new RegExp(`\\.${selector} \\{([^}]*)\\}`))[1];
+    assert.doesNotMatch(rule, /cursor/, `${selector} sets no cursor of its own`);
+  }
 });
 
 test('the pills use their own class, never a status pill\'s, so those rules, the poll\'s focus keeper and the click-away list never reach them', () => {

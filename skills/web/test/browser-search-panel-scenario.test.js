@@ -309,18 +309,19 @@ test('the scenario drives the switch in order: focus opens the panel, a click sw
   assert.strictEqual(sheet.split("clickOn('#prefs-panel-on-focus')").length - 1, 2, 'the checkbox is clicked off and on again');
 });
 
-test('the scenario drives the chip as a tab stop: Shift+Tab reaches it, Enter and Space open the panel from it, a mouse click does not, and Tab skips it while it is hidden', async () => {
+test('the scenario drives the chip as a tab stop: Shift+Tab reaches it, Enter, Space and a mouse click open the panel from it, and Tab skips it while it is hidden', async () => {
   const at = (name) => code.indexOf(`check('${name}'`);
   const names = [
     'with the panel closed and a pill on, the chip is a button in the Tab order, named for the pill and pointing at the panel',
     'Shift+Tab from the arrow passes the clear button and reaches the chip, so the chip is a tab stop in the order of the box',
     'the focused chip wears the focus ring of the other header controls: two pixels, solid, in the accent',
+    'the chip shows the pointer hand the arrow and the other header buttons show',
     'Enter on the focused chip opens the panel, the chip leaves with it, and focus goes to the arrow, not into the box',
     'opening the panel from the chip changes neither the box nor the selection',
     'Esc with focus on the arrow shuts the panel again and the chip comes back',
     'Shift+Tab twice from the arrow reaches the chip again',
     'Space on the focused chip opens the panel too, with focus on the arrow',
-    'a click with the mouse on the chip opens nothing, as before, and leaves the box and the selection alone',
+    'a click with the mouse on the chip opens the panel as Enter and Space do: the chip leaves with it, focus goes to the arrow, and the box and the selection are as they were',
     'with nothing on the chip is hidden',
     'Shift+Tab from the arrow skips the hidden chip and the hidden clear button and lands in the box, which opens the panel',
   ];

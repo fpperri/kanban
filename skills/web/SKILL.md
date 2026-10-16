@@ -810,8 +810,9 @@ to `127.0.0.1` only.
   hover text says it too; with nothing on there is no chip. The chip is a button: Tab
   reaches the chip while it is shown, between the box and the clear button, and it is no tab
   stop when it is hidden (the panel open, or nothing on); Enter and Space on it open the
-  panel, with focus on the arrow, and it shows the focus ring the arrow shows. A click with
-  the mouse does nothing, as before. A reload, or a link, carries the
+  panel, and so does a click with the mouse, with focus on the arrow either way, and it
+  shows the focus ring the arrow shows and the pointer hand the other header buttons show.
+  A reload, or a link, carries the
   box's text and not the selection, so a cut and isolate come back but a pill shows off, with
   its query in the box as typed text. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
