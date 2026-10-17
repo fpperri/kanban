@@ -395,6 +395,16 @@ test('index html has a top-bar graph toggle button and a graph view container', 
   });
 });
 
+test('index html header lists the views as Calendar, Gantt, Map view, Graph', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const html = await (await fetch(`${base}/`)).text();
+    const at = ['new-btn', 'calendar-toggle-btn', 'gantt-toggle-btn', 'map-toggle-btn', 'graph-toggle-btn', 'refresh-btn'].map((id) => html.indexOf(`id="${id}"`));
+    assert.ok(at.every((i) => i >= 0), JSON.stringify(at));
+    assert.deepStrictEqual([...at].sort((a, b) => a - b), at);
+  });
+});
+
 test('index html header carries no roll-up select or checkbox', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
