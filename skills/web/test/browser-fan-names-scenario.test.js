@@ -113,7 +113,7 @@ function standIn(over = {}) {
     return { kind: 'none' };
   };
   const pressN = (mods = {}) => {
-    if (focus === 'box') { box += 'n'; if (!over.typedNStepsToo) return; }
+    if (focus === 'box') { box += 'l'; if (!over.typedNStepsToo) return; }
     if (!over.chordSteps && (mods.ctrl || mods.alt)) return;
     if (surface !== null && !over.ignoresSurfaces) return;
     if (panel && over.panelBlocksN) return;
@@ -131,7 +131,7 @@ function standIn(over = {}) {
       })),
     };
   };
-  const keyLine = () => `solid line: parent · n steps the names: ${over.lineStale ? 'relevant' : st().names}`;
+  const keyLine = () => `solid line: parent · l steps the names: ${over.lineStale ? 'relevant' : st().names}`;
   const press = (target, extras = {}) => {
     if (target.kind === 'option') { st().names = target.v; focus = `names=${target.v}`; }
     if (target.kind === 'notifications') surface = 'notifications';
@@ -166,7 +166,7 @@ function standIn(over = {}) {
       if (type === 'mouseReleased') pressing = null;
     },
     key: async (name, mods = {}) => {
-      if (name === 'n') { pressN(mods); return; }
+      if (name === 'l') { pressN(mods); return; }
       if (name === 'Escape') { if (surface !== null) surface = null; }
     },
     rightClick: async () => { surface = 'menu'; },
@@ -201,11 +201,11 @@ function standIn(over = {}) {
       for (const v of GRAPH_FAN_OPTION_VALUES.names) {
         if (expr === options.pressedIs('names', v)) return st().names === v;
         if (expr === scenario.settingIs(v)) return st().names === v;
-        if (expr === scenario.keyLineSays(v)) return keyLine().endsWith(`n steps the names: ${v}`);
+        if (expr === scenario.keyLineSays(v)) return keyLine().endsWith(`l steps the names: ${v}`);
         if (expr === `${options.FOCUSED_OPTION}==='names=${v}'`) return focus === `names=${v}`;
         if (expr === `${SET}!==${JSON.stringify(v)}`) return st().names !== v;
       }
-      for (const text of ['', 'n']) if (expr === scenario.boxIs(text)) return box === text;
+      for (const text of ['', 'l']) if (expr === scenario.boxIs(text)) return box === text;
       const one = /^\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
       if (one) return selected.length === 1 && selected[0] === Number(one[1]);
       if (expr === `${options.SELECTED}.length===2`) return selected.length === 2;
@@ -283,16 +283,16 @@ test('each check listed here is in the scenario', async () => {
   has(/the row shows Names with relevant, all and none/);
   has(/relevant is on by default/);
   has(/each Names choice changes the number of drawn names/);
-  has(/n steps the names to all/);
-  has(/n steps the names to none/);
-  has(/n steps the names to relevant/);
-  has(/with focus in the search box, n is typed and the setting stays/);
-  has(/with a card menu open, n does nothing/);
-  has(/with the notifications panel open, n does nothing/);
-  has(/with the preferences sheet open, n does nothing/);
-  has(/with the search panel open and focus outside the box, n steps the setting/);
-  has(/in force, n does nothing/);
-  has(/in status, n does nothing/);
+  has(/l steps the names to all/);
+  has(/l steps the names to none/);
+  has(/l steps the names to relevant/);
+  has(/with focus in the search box, l is typed and the setting stays/);
+  has(/with a card menu open, l does nothing/);
+  has(/with the notifications panel open, l does nothing/);
+  has(/with the preferences sheet open, l does nothing/);
+  has(/with the search panel open and focus outside the box, l steps the setting/);
+  has(/in force, l does nothing/);
+  has(/in status, l does nothing/);
   has(/outside the Graph/i);
   has(/a reload keeps the Names choice/);
   has(/another board starts at relevant/);
@@ -310,27 +310,27 @@ const failsWith = async (over, re, why) => {
 
 test('a setting that changes nothing, or a key that never steps, fails', async () => {
   await failsWith({ ignoresSetting: true }, /each Names choice changes the number of drawn names|all is pressed and names every card/, 'every setting draws relevant');
-  await failsWith({ nDead: true }, /n steps the names to all/, 'n does nothing');
-  await failsWith({ stuck: true }, /n steps the names to none/, 'n sticks at all');
+  await failsWith({ nDead: true }, /l steps the names to all/, 'n does nothing');
+  await failsWith({ stuck: true }, /l steps the names to none/, 'n sticks at all');
 });
 
 test('a key that types and steps, steps behind a surface or with a chord, or steps outside Tiers, fails', async () => {
-  await failsWith({ typedNStepsToo: true }, /with focus in the search box, n is typed and the setting stays/, 'n steps while typing');
-  await failsWith({ ignoresSurfaces: true }, /with a card menu open, n does nothing/, 'n steps behind the menu');
-  await failsWith({ ignoresSurfaces: true }, /with the notifications panel open, n does nothing/, 'n steps behind the panel');
-  await failsWith({ ignoresSurfaces: true }, /with the preferences sheet open, n does nothing/, 'n steps behind the sheet');
-  await failsWith({ chordSteps: true }, /n with Ctrl or Alt held does nothing/, 'a chord steps');
-  await failsWith({ stepsEverywhere: true }, /in force, n does nothing/, 'n steps in Force');
+  await failsWith({ typedNStepsToo: true }, /with focus in the search box, l is typed and the setting stays/, 'n steps while typing');
+  await failsWith({ ignoresSurfaces: true }, /with a card menu open, l does nothing/, 'n steps behind the menu');
+  await failsWith({ ignoresSurfaces: true }, /with the notifications panel open, l does nothing/, 'n steps behind the panel');
+  await failsWith({ ignoresSurfaces: true }, /with the preferences sheet open, l does nothing/, 'n steps behind the sheet');
+  await failsWith({ chordSteps: true }, /l with Ctrl or Alt held does nothing/, 'a chord steps');
+  await failsWith({ stepsEverywhere: true }, /in force, l does nothing/, 'n steps in Force');
   await failsWith({ stepsEverywhere: true }, /on the Board|the Board is left alone/, 'n steps on the Board');
 });
 
 test('a search panel that eats the key fails: the key must work with the panel open', async () => {
-  await failsWith({ panelBlocksN: true }, /with the search panel open and focus outside the box, n steps the setting/, 'the panel blocks n');
+  await failsWith({ panelBlocksN: true }, /with the search panel open and focus outside the box, l steps the setting/, 'the panel blocks n');
 });
 
 test('a step that loses the focus of an option or moves it to the option the step reached, or a footer that goes stale, fails', async () => {
-  await failsWith({ focusLost: true }, /n with focus on an option steps the setting, and the option keeps focus/, 'focus lost');
-  await failsWith({ focusFollows: true }, /n with focus on an option steps the setting, and the option keeps focus/, 'focus moves to the option the step reached');
+  await failsWith({ focusLost: true }, /l with focus on an option steps the setting, and the option keeps focus/, 'focus lost');
+  await failsWith({ focusFollows: true }, /l with focus on an option steps the setting, and the option keeps focus/, 'focus moves to the option the step reached');
   await failsWith({ lineStale: true }, /footer line/, 'the footer line does not follow');
 });
 

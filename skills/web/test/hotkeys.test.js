@@ -13,7 +13,7 @@ const rowOf = (rows, id) => rows.find((row) => row.id === id);
 
 test('the list shows every key the page answers, each with what it does', () => {
   const rows = hotkeyRows(NOW);
-  const named = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
+  const named = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
   assert.deepStrictEqual(named.filter((key) => !labels(rows).includes(key)), []);
   for (const row of rows) {
     assert.ok(typeof row.what === 'string' && row.what.length > 8, `${row.id} says what it does`);

@@ -228,6 +228,8 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`prefixes`, `counters` and `idDigits` — how ids are made.** `prefixes:` is a block of `PREFIX: type` lines (a prefix is `_` and uppercase letters only; the type is compared without regard to case; a value containing a `/` is a folder, not a type, and no card takes it). A card takes the prefix its type declares when it is created and keeps it; prefixes are suggested, never enforced, so a card of any type may still be given any id by hand. `counters:` is one flow-map line, `counters: { G: 3, O: 5 }`: the next number of each prefix, and each is self-healing, `max(its counter, the highest number with that prefix + 1)`, exactly like `nextId`. The block form of `counters:` is not read. `idDigits:` is a whole number from 1 to 15 (anything else reads as 4) and only sets the width a file name pads to; the readers parse the number, so changing it orphans no file, and `scripts/migrate_card_names.sh` renames a board to the new width. Without `prefixes:` every id is a plain number, as before.
 
+**`logbook` — the folder of the board's notes.** `logbook: logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. A human writes the line; nothing that services the board invents it. See *The logbook: notes in day files* below.
+
 Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them. The id counters' writes (`nextId:` for a plain id, `counters:` for a prefixed one) replace their own one line, or insert it below `nextId:`, and leave these lines, comments and every unknown key as they were.
 
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
@@ -258,6 +260,33 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
 **Clear = archive:** clearing/removing entries from the tray MOVES them verbatim (append) to `<kanban-dir>/archived/notifications.md`, creating the file/dir if absent. Deletion never happens. No rotation or cap yet. That file lives at the `archived/` **root** — it is not a card, so archive packages (above) never hold or move it.
 
 Generated leftovers from retired skills (`board.md`, `dashboard.html`) may also sit in the folder — stale artifacts, not cards; ignore them.
+
+### The logbook: notes in day files
+
+A **note** is a short line, optionally timed, about one card, one group or nothing: the working log of who did what and when. It is not a narrative entry (the narrative stays the durable record of what happened to a card) and not a notification (that is addressed to the human). Notes live in the folder `logbook:` names, **one Markdown file per target per day**. The file name is the identity and nothing else carries the day or the target:
+
+- `2026.10.16.logbook.md` — notes about nothing, on 2026-10-16.
+- `2026.10.16.0007.logbook.md` — notes about card `#7` (the id padded to `idDigits` after its prefix: `2026.10.16.G0003.logbook.md` for `#G3`). The number is what is read, so any padding resolves; renaming a file moves its notes to another day or target.
+
+The notes are a list in the frontmatter, each with an optional time, an author and the text:
+
+```yaml
+---
+entries:
+  - at: "09:10"        # optional; absent = untimed; always quoted (YAML reads 10:30 as a number)
+    by: "@afk"         # an assignee handle; sign your notes with your own
+    note: two enum renames left
+  - by: "@human"
+    note: |-
+      a note of several lines
+      is a block scalar
+---
+free markdown, kept as written
+```
+
+**Writing a note (agents may).** Re-read the day file just before you write it (the web may have written it a moment ago), add an entry, keep the entries in time order with untimed last, and write the file back whole through a temporary file and a rename, creating it when absent. Never change another entry, another frontmatter key, a key an entry carries that you do not know, or the body below: they are the person's, and the web keeps them byte for byte too. Quote a note that would otherwise read as something other than a string (`note: "fixed #12 today"`, a leading `-`, `@` or `[`, a `: ` inside). A file with nothing left in it is deleted.
+
+The web reads the same files, shows a card's notes behind a small count on its tile, and lets a person edit, delete and **assign** a note: assign moves that one note into the other target's file for the same day. When the web and an agent write one file at once, the web re-reads and retries once, then reports a conflict, so a re-read before every write is what keeps both notes.
 
 ### Migrating `epic: true` to `type: epic`
 

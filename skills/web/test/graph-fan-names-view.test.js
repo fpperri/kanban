@@ -7,11 +7,11 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
 const { KEY_GUARD_SURFACES } = require('../web/key-guard');
 
-// The tier fan's Names option and the n key in the real page (helpers/page-vm.js runs every
+// The tier fan's Names option and the l key in the real page (helpers/page-vm.js runs every
 // script the page loads in one vm, with elements a test can read back). Names is a fourth
 // option of the row: relevant (the default), all or none, kept per board with the other
 // options. A named card shows its title as text, in a label placed where graph-names.js finds
-// it room (graph-fan-name-rows-view.test.js); the setting never reaches the layout. The n key steps through the
+// it room (graph-fan-name-rows-view.test.js); the setting never reaches the layout. The l key steps through the
 // values while the Graph shows Tiers, through the shared key guard. The browser runner
 // drives the same in Chrome (scenarios/fan-names.js).
 
@@ -190,12 +190,12 @@ test('a press leaves the selection as it is, and the names follow it', async () 
   assert.deepStrictEqual(s.named(), []);
 });
 
-test('the fan\'s footer line says the n key steps the names and which is on', async () => {
+test('the fan\'s footer line says the l key steps the names and which is on', async () => {
   const s = await open();
   const line = () => byClass(s.host, 'graph-key')[0].textContent;
-  assert.match(line(), /^solid line: parent, .* · n steps the names: relevant$/);
-  s.press('n');
-  assert.match(line(), /n steps the names: all$/);
+  assert.match(line(), /^solid line: parent, .* · l steps the names: relevant$/);
+  s.press('l');
+  assert.match(line(), /l steps the names: all$/);
   const force = await open({ layout: 'force' });
   assert.doesNotMatch(byClass(force.host, 'graph-key')[0].textContent, /names/, 'Force has no names');
 });
@@ -229,18 +229,18 @@ test('under all and none, painting a selection changes no name', async () => {
   assert.strictEqual(none.named().length, 0);
 });
 
-// --- the n key ------------------------------------------------------------------------------------------------
+// --- the l key ------------------------------------------------------------------------------------------------
 
 test('n steps relevant, all, none and back to relevant, and each step is kept for the board', async () => {
   const s = await open();
   const seen = [current(s)];
   for (let i = 0; i < 3; i++) {
-    const e = s.press('n');
+    const e = s.press('l');
     assert.strictEqual(e.defaultPrevented, true, 'the key is taken');
     seen.push(current(s));
   }
   assert.deepStrictEqual(seen, ['relevant', 'all', 'none', 'relevant']);
-  s.press('n');
+  s.press('l');
   assert.strictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]).names, 'all');
   assert.strictEqual(s.named().length, 34, 'the names drawn follow the key');
 });
@@ -248,7 +248,7 @@ test('n steps relevant, all, none and back to relevant, and each step is kept fo
 test('n steps the setting with the panel closed, and the row, once the panel is open, shows it', async () => {
   const s = await open({ stored: { 'kanban.kanban.viewpanel': '{"map":null,"graph":false}' } });
   assert.strictEqual(s.row(), null, 'closed: no option is built');
-  s.press('n');
+  s.press('l');
   assert.strictEqual(current(s), 'all');
   const reopened = await open({ stored: { ...s.stored, 'kanban.kanban.viewpanel': '{"map":null,"graph":true}' } });
   assert.deepStrictEqual(pressedNames(reopened), ['all']);
@@ -256,10 +256,10 @@ test('n steps the setting with the panel closed, and the row, once the panel is 
 
 test('a capital N with no Shift (Caps Lock) steps it; a chord, Shift on the key and a held key do not', async () => {
   const s = await open();
-  s.press('N');
+  s.press('L');
   assert.strictEqual(current(s), 'all');
   for (const mods of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { repeat: true }]) {
-    const e = s.press('n', mods);
+    const e = s.press('l', mods);
     assert.strictEqual(e.defaultPrevented, false, JSON.stringify(mods));
     assert.strictEqual(current(s), 'all', JSON.stringify(mods));
   }
@@ -269,54 +269,54 @@ test('a capital N with no Shift (Caps Lock) steps it; a chord, Shift on the key 
   }
 });
 
-test('with focus in the search box, or any field, n is typed and the setting stays', async () => {
+test('with focus in the search box, or any field, l is typed and the setting stays', async () => {
   for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) {
     const s = await open();
     s.page.ctx.document.activeElement = { tagName, isContentEditable: false };
-    const e = s.press('n');
+    const e = s.press('l');
     assert.strictEqual(e.defaultPrevented, false, tagName);
     assert.strictEqual(current(s), 'relevant', tagName);
   }
   const editable = await open();
   editable.page.ctx.document.activeElement = { tagName: 'DIV', isContentEditable: true };
-  editable.press('n');
+  editable.press('l');
   assert.strictEqual(current(editable), 'relevant');
 });
 
-test('with a card menu, a dialog, the notifications panel or the preferences sheet open, n does nothing', async () => {
+test('with a card menu, a dialog, the notifications panel or the preferences sheet open, l does nothing', async () => {
   for (const name of ['menu', 'dialog', 'notifications', 'preferences']) {
     const s = await open({ surfaces: { [SELECTOR[name]]: control() } });
-    const e = s.press('n');
+    const e = s.press('l');
     assert.strictEqual(e.defaultPrevented, false, name);
     assert.strictEqual(current(s), 'relevant', name);
     assert.strictEqual(s.stored[key('kanban', 'graph.options')], undefined, `${name}: nothing was stored`);
   }
 });
 
-test('with the search panel open and focus outside the box, n steps the setting: the guard does not read the panel', async () => {
+test('with the search panel open and focus outside the box, l steps the setting: the guard does not read the panel', async () => {
   const s = await open({ surfaces: { '.search-panel:not(.hidden)': control() } });
   s.run('searchPanelOpen = true');
   s.page.ctx.document.activeElement = { tagName: 'BUTTON', isContentEditable: false };
-  const e = s.press('n');
+  const e = s.press('l');
   assert.strictEqual(e.defaultPrevented, true);
   assert.strictEqual(current(s), 'all');
 });
 
-test('in Force and Status, and outside the Graph, n does nothing', async () => {
+test('in Force and Status, and outside the Graph, l does nothing', async () => {
   for (const layout of ['force', 'status']) {
     const s = await open({ layout });
-    const e = s.press('n');
+    const e = s.press('l');
     assert.strictEqual(e.defaultPrevented, false, layout);
     assert.strictEqual(current(s), 'relevant', layout);
     assert.strictEqual(s.stored[key('kanban', 'graph.options')], undefined, layout);
   }
   const board = await open({ view: 'board' });
-  const e = board.press('n');
+  const e = board.press('l');
   assert.strictEqual(e.defaultPrevented, false);
   assert.strictEqual(board.stored[key('kanban', 'graph.options')], undefined);
   for (const view of ['map', 'calendar', 'gantt']) {
     const other = await open({ view });
-    other.press('n');
+    other.press('l');
     assert.strictEqual(other.stored[key('kanban', 'graph.options')], undefined, view);
   }
 });
@@ -350,7 +350,7 @@ test('n with focus on an option hands focus back to that same option in the rebu
     found.focus = () => focused.push(found);
     return found;
   };
-  s.press('n');
+  s.press('l');
   assert.strictEqual(current(s), 'none', 'the key stepped the setting from all');
   assert.deepStrictEqual(pressedNames(s), ['none'], 'the rebuilt row shows the step');
   assert.strictEqual(focused.length, 1, 'focus was handed back once');
@@ -404,11 +404,11 @@ test('with names on all, a zoom, a pan and a poll leave exactly one name per car
 
 test('a poll after the setting changed draws the same names the setting says', async () => {
   const s = await open();
-  s.press('n');
+  s.press('l');
   await s.run('autoRefreshTick()');
   await s.page.settle();
   assert.strictEqual(s.named().length, 34, 'all, as the key left it');
-  s.press('n');
+  s.press('l');
   await s.run('autoRefreshTick()');
   await s.page.settle();
   assert.strictEqual(s.named().length, 0);

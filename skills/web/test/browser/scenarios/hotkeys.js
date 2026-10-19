@@ -26,7 +26,7 @@
 const { HOTKEYS } = require('../../../web/hotkeys');
 
 // The keys the page answers, as the list labels them.
-const KEYS = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
+const KEYS = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
 // The keys that have a state, by the id of their row, and what each reads before anything is changed.
 const DEFAULTS = {
   names: 'names: relevant',
@@ -167,8 +167,8 @@ module.exports = {
     check('the plan board is drawn for the Graph', await goto('/', BOARD_READY));
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     check('the Graph is drawn', await waitFor(`!document.getElementById('graph-view').classList.contains('hidden')&&document.querySelectorAll('#graph-view .graph-node').length>0`, 10000));
-    await key('n');
-    check('n steps the names in the Graph', await waitFor(`graphLoadOptions().names==='all'`, 2500));
+    await key('l');
+    check('l steps the names in the Graph', await waitFor(`graphLoadOptions().names==='all'`, 2500));
     check('the sheet shows the names the Graph now draws', await openSheetByKey() && await ev(STATE_OF('names')) === CASES.names, await ev(STATE_OF('names')));
     await closeWithEscape();
     check('the plan board is drawn after a reload', await goto('/', `document.querySelectorAll('#graph-view .graph-node').length>0`));

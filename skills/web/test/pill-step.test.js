@@ -194,7 +194,7 @@ test('m with Ctrl, Cmd or Alt held, or held down, does nothing, and neither does
     assert.strictEqual(press(s, 'm', init), 0, JSON.stringify(init));
     unchanged(s, JSON.stringify(init));
   }
-  for (const key of ['n', 'o', 'M ', 'mm']) {
+  for (const key of ['q', 'o', 'M ', 'mm']) {
     assert.strictEqual(press(s, key), 0, key);
     unchanged(s, key);
   }

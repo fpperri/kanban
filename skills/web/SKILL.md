@@ -984,7 +984,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1000,6 +1000,35 @@ to `127.0.0.1` only.
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
   the sheet), and a click inside it never clears a selection.
+- **Notes (logbook)** — with a `logbook:` line in `config.yaml` (the folder of the board's
+  day files, see the kanban skill's logbook section) the page keeps a **notes palette**, the
+  one surface for notes. Without the line nothing of it shows: no count, no menu entry, and
+  `n` only says the logbook is off. A card with notes wears a small count on its tile (live
+  and archived); a click on it opens the card's notes. `n` opens the palette on the hovered
+  card, else on the one selected card, else on the card last noted (kept per board in this
+  browser); the card menu's **Add note…** opens it on one card. Its rows, top down: the
+  subject row (a chip that says what the palette is about, a time field and an *untimed*
+  tick), the note box, the preview line that says exactly what Enter will write (`Note at
+  10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with room
+  beside it for the author switch) and the list of notes, grouped by day and card, newest day
+  first, each with its time and, when it is not the human's, its author. **Enter** writes the
+  note at the time field's time (now, to start with) and keeps the palette open for the next;
+  **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
+  a leading `-` or `untimed` (or the tick) makes it untimed, and a leading mention of a card
+  (`#22`, `plan#22`) aims that one note at it and is cut from the text; a mention anywhere
+  later is only text. A line that is only a mention, then Enter, moves the palette to that
+  card and writes nothing; **Backspace** on an empty box clears the chip. The filter field
+  narrows the list by every word typed (in the text or the card's name) and never touches the
+  note box. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
+  to another card or to no card (the note moves to that target's file for the same day, and
+  a file left empty is removed), **d** twice deletes it. **Esc** closes the palette; a press
+  outside it does too. Every key typed in the palette stays in it, so none reaches the
+  board's own shortcuts. The palette is no modal: the board keeps refreshing behind it, and
+  each refresh repaints the list unless a note is being edited. The notes are written by
+  `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/notes/assign`, which build the day
+  file's name from a day and an id and never from request text; a write re-reads the file
+  and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
+  a day file survive every write. The Graph's names step moved to `l` to free `n`.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the
@@ -1081,7 +1110,7 @@ to `127.0.0.1` only.
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
   does `p`, which flips the search panel's switch (see Search panel), and `?`, which opens the Hotkeys list (see Preferences sheet), and `m`, which
   steps through the pills, and `i`, which flips Isolate (see Isolate), and so do `[`, `]`, `{` and `}`, which move the run of slices
-  (see Slice section), and `n`, which steps the names of the tier fan (see Options); Ctrl+F
+  (see Slice section), and `l`, which steps the names of the tier fan (see Options), and `n`, which opens the notes palette (see Logbook); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the
@@ -1351,7 +1380,7 @@ to `127.0.0.1` only.
   no width and no sideways scroll), with a `.view-panel-close` button that hands focus back to the icon button.
   The panel and both buttons wear `data-keeps-selection`; the icon and close buttons are in `REFOCUS_SELECTOR`,
   so a poll's redraw gives them focus back. Every control keeps its class, label, title, data attributes and hotkey
-  (the `n` key still steps the Graph's names with the panel closed).
+  (the `l` key still steps the Graph's names with the panel closed).
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
   search terms, resolved over dependency-graph.js's dependency edge set (`waiting_for`
@@ -1707,10 +1736,10 @@ to `127.0.0.1` only.
   finds room shows it in place of its id label; a click on a card names it and what it lights in place, with no redraw.
   Names never run the layout
   again: the setting is in neither the layout's cache key nor what re-fits an untouched view, so only the named
-  set changes. **n** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
+  set changes. **l** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
   whether the panel is open or not; it reads the shared key guard, so it does nothing while a field has focus (the
-  search box types an n) or while a card menu, a dialog, the notifications panel or the preferences sheet is
-  open, and it works with the search panel open. The footer line under the Graph shows the setting (`n steps the
+  search box types an l) or while a card menu, a dialog, the notifications panel or the preferences sheet is
+  open, and it works with the search panel open. The footer line under the Graph shows the setting (`l steps the
   names: relevant`). Force and Status have no names.
   **Where names sit.** A name is never tilted and keeps its size on screen at any zoom. A parent, a card with children,
   which wears the outer ring, is named beside its ring, inside the rim. Every other named card is named in a row outside
@@ -1923,6 +1952,11 @@ handle a card carries.
   else 4) only sets the width of the number in a file name; cards are read by the number in
   their `id:` line, so a file padded to another width is still found. `prefixes:` and
   `idDigits:` are human-written; the page reads and the server writes only the counter lines.
+- **`logbook`** (a folder, relative to the board; absolute when written by hand) turns the
+  logbook on: the board payload then carries `logbook: { folder, notes }`, every note of the
+  day files in it, and the page shows the notes palette. Absent, the payload carries
+  `logbook: null` and nothing of it shows. The web never writes this key; a folder outside the
+  board works for reading and writing.
 - The assignees, priorities, tags and types lists all **suggest, never validate** (ADR 0004) — the
   form's comboboxes offer the registered values but free text still saves fine.
 - Not a card — only `*.card.md` files are cards.

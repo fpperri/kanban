@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -400,6 +400,16 @@ test('splitPillEntry splits an entry into a label and a query, or null', () => {
 test('ICON_NAMES is the six outline glyphs, and cannot be changed by a consumer', () => {
   assert.deepStrictEqual([...cfg.ICON_NAMES], ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star']);
   assert.ok(Object.isFrozen(cfg.ICON_NAMES));
+});
+
+// --- logbook (ADR 0016) --------------------------------------------------------------------------
+
+test('parseConfig reads the logbook folder: a scalar, quoted or not, comment stripped, empty when absent', () => {
+  assert.strictEqual(cfg.parseConfig('').logbook, '');
+  assert.strictEqual(cfg.parseConfig('logbook: logbook\n').logbook, 'logbook');
+  assert.strictEqual(cfg.parseConfig('logbook: "my notes"   # where\n').logbook, 'my notes');
+  assert.strictEqual(cfg.parseConfig('logbook:\nname: x\n').logbook, '');
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    logbook: nope\n').logbook, '', 'an indented logbook is not the key');
 });
 
 // --- prefixes, counters and idDigits (ADR 0014) --------------------------------------------------

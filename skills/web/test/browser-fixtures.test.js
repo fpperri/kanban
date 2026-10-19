@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig, ICON_NAMES } = require('../scripts/config-store');
+const { listNotes } = require('../scripts/logbook-store');
 const { BOARDS, materialize } = require('./browser/boards');
 
 // The browser runner drives three boards. The scenarios assert against what is
@@ -206,6 +207,27 @@ test('malformed board: the board readers load it and its views have cards to dra
   assert.ok(b.cards.length >= 4);
   assert.ok(b.cards.some((c) => c.parent !== null), 'no nested card');
   assert.ok(b.cards.some((c) => c.start_date || c.due_date), 'no dated card for the Calendar and Gantt');
+});
+
+test('notes board: the plan board with a logbook, day files for cards 3, 7 and 22 and for nothing', () => {
+  const b = load('notes');
+  const plan = load('plan');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), plan.cards.map((c) => c.id).sort(), 'the same cards as the plan board');
+  assert.strictEqual(b.config.logbook, 'logbook');
+  assert.strictEqual(plan.config.logbook, '', 'the plan board keeps no logbook');
+  const notes = listNotes(b.dir).map((n) => `${n.day} ${n.target || '-'} ${n.at || 'untimed'} ${n.by}`).sort();
+  assert.deepStrictEqual(notes, [
+    '2026-10-13 3 11:15 @afk',
+    '2026-10-14 7 untimed @human',
+    '2026-10-15 - 08:00 @human',
+    '2026-10-15 22 10:00 @human',
+    '2026-10-15 7 09:30 @human',
+    '2026-10-15 7 14:10 @afk',
+  ]);
+  const hand = fs.readFileSync(path.join(b.dir, 'logbook', '2026.10.13.0003.logbook.md'), 'utf8');
+  assert.match(hand, /^title: Monday$/m, 'a frontmatter key of its own');
+  assert.match(hand, /^ {4}run: build-12$/m, 'an entry key of its own');
+  assert.match(hand, /Hand-written text below/, 'a body');
 });
 
 test('materializing a board again puts it back as it was, and keeps the folder', () => {

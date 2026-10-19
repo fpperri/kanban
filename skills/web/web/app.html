@@ -250,6 +250,9 @@
   <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
   <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
   <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
+  <!-- Add note… opens the notes palette on one card; it shows only when the board keeps a
+       logbook and the menu is for a single card (toggled in showContextMenu, main script below). -->
+  <button type="button" id="ctx-note" role="menuitem" class="hidden">Add note…</button>
   <!-- Isolate leads nothing and trails the edits: it is offered inside the selection
        only, and alone in the small menu of the empty Graph or Map canvas (toggled in
        showContextMenu, main script below). It reads Turn isolate off while isolate is on. -->
@@ -497,6 +500,8 @@
 <script src="/isolate.js"></script>
 <script src="/hotkeys.js"></script>
 <script src="/hotkeys-sheet.js"></script>
+<script src="/notes.js"></script>
+<script src="/notes-palette.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>
 </body>

@@ -38,4 +38,5 @@ module.exports = [
   require('./band-tint'),
   require('./view-panel'),
   require('./ids'),
+  require('./notes'),
 ];

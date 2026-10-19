@@ -636,7 +636,7 @@ ports those models and does not embed them.
 **No Graph view.** kanban-web's Graph, which draws every card at once as a dot in the tier fan, Force
 or Status layout, with its option row, its lighting and its names, has no counterpart: the Map is this
 page's one picture of the relations, and the slices and pills of the panel cut every view without it.
-The `n` key that steps the fan's names goes with it.
+The `l` key that steps the fan's names goes with it.
 
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map

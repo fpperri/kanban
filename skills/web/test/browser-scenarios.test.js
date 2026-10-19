@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint and a view-panel scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint, a view-panel, an ids and a notes scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel', 'ids']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel', 'ids', 'notes']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 

@@ -159,7 +159,7 @@ and Unnested (outermost, off, depth 0, table). Folded, the default, draws a line
 end of each dependency chain and one counted line for a parent's other children on one
 ring. Names puts a card's title on the fan: relevant, the default, names the
 selection, what it lights and the highest parents, all names every card and none names
-no card; the n key steps through them. A parent's name sits beside its ring; every other
+no card; the l key steps through them. A parent's name sits beside its ring; every other
 name sits in a row outside the rim, joined to its dot by a leader, and the Unnested
 block's names in a list above it. Names stay upright and the same size at any zoom and
 keep off the lines, the dots and each other, though a leader may pass under one; a card
@@ -387,7 +387,7 @@ never written to the board's files.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -397,6 +397,16 @@ never written to the board's files.
 The sheet closes with Esc, a click outside it or its close button, and focus goes back to
 the gear. While it is open the board does not refresh under it, and `/`, `p` and Ctrl+F
 stand still.
+
+**Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
+selected card, a card with notes wears a small count that opens its notes, and the card menu
+has **Add note…**. Type a note and press Enter: it is written at the time field's time into
+the card's day file and the palette stays open for the next note; Shift+Enter starts a new
+line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
+`#22` aims it at another card; the line under the box says exactly what Enter will write. The
+list below groups the notes by day and card, newest first, with a filter field of its own.
+On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
+it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 ## Other surfaces
 

@@ -197,7 +197,7 @@ test('the named set is a new Set each time, the same for the same input, and the
   assert.ok(!graphFanNames(model, 'relevant', { selectedIds: picked, loneCardId: '52' }).has('7777'));
 });
 
-// --- the n key steps through the values --------------------------------------------------------------------
+// --- the l key steps through the values --------------------------------------------------------------------
 
 test('n steps relevant, all, none and back to relevant', () => {
   assert.strictEqual(graphFanNextNames('relevant'), 'all');
@@ -247,7 +247,7 @@ test('the plan names what the selection lights: the cards it is given and a lone
   assert.deepStrictEqual(namedIn(several), ids(new Set([5, 6, ...PLAN_PARENTS])));
 });
 
-test('a named node carries its title as the name, text only, and an unnamed one carries it too so a press of n can name it in place', () => {
+test('a named node carries its title as the name, text only, and an unnamed one carries it too so a press of l can name it in place', () => {
   const model = buildOf([card(1, { title: 'Ship <b>the</b> beta' }), card(2, { title: '  spaced \n  out  ', parent: 1 })]);
   const plan = planOf(model, { names: 'all' });
   assert.deepStrictEqual(plan.nodes.map((n) => n.name), ['Ship <b>the</b> beta', 'spaced out']);

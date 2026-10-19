@@ -24,6 +24,7 @@ const PAGE_GLOBALS = [
   'selectedIds',
   'selectionState',
   'state',
+  'toast',
   'writeSearch',
 ];
 
