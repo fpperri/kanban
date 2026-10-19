@@ -25,7 +25,7 @@
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
   filter: null, bySlot: null, body: null, foot: null,
-  sub: null, hi: -1, written: [], editing: 0, opener: null, lastFor: null, last: '',
+  sub: null, hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
 let notesCountsOf = null;
@@ -307,6 +307,7 @@ function notesPaintBody() {
   const u = notesUi;
   if (!u.sub) return;
   const scroll = u.body.scrollTop;
+  u.editing = 0; // the rows are built anew: none is being edited
   u.body.replaceChildren(notesList());
   u.body.scrollTop = scroll;
 }
@@ -480,16 +481,20 @@ async function notesDo(method, path, body, row) {
 
 async function notesWrite() {
   const u = notesUi;
+  if (u.writing) return; // a second Enter while the first is on its way would write the note twice
   const plan = notesPlan();
   if (plan.bad) { toast(plan.bad); return; }
   if (!plan.text) { toast('Write the note first.'); return; }
   const body = { day: plan.day, target: plan.target, at: plan.at || '', note: plan.text };
   let made;
+  u.writing = true;
   try {
     made = await api('POST', '/api/notes', body);
   } catch (e) {
     toast(e.message);
     return;
+  } finally {
+    u.writing = false;
   }
   if (plan.target && notesCard(plan.target)) {
     u.last = plan.target;
