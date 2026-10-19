@@ -68,7 +68,7 @@ test('a type and a parent saved for a card queue one edit that applies cleanly',
     assert.deepStrictEqual(ops(page), [{ op: 'edit', id: '8', fm: { type: 'story', parent: '2' } }]);
     const read = readBack('0008.loose.card.md', ops(page)[0].fm);
     assert.strictEqual(read.type, 'story');
-    assert.strictEqual(read.parent, 2);
+    assert.strictEqual(read.parent, '2');
     assert.strictEqual(read.title, 'Loose');
   });
 });

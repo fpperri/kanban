@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
@@ -23,8 +23,8 @@ const fixtureBoard = () => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize('fixture', dir);
-  const live = listActive(dir);
-  return { live, all: live.concat(listArchived(dir)), byId: new Map(live.map((c) => [c.id, c])) };
+  const live = listActive(dir).map(toJSON);
+  return { live, all: live.concat(listArchived(dir).map(toJSON)), byId: new Map(live.map((c) => [c.id, c])) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
