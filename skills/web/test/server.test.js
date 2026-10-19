@@ -558,10 +558,10 @@ test('popup header control icons still ride order:-1 (the mechanism the shared p
     assert.match(css, /\.modal-header-actions\s*\{[^}]*order:\s*-1/);
     assert.match(css, /\.detail-actions\s*\{[^}]*order:\s*-1/);
     // every popup's header controls ride one of the two moved classes —
-    // edit form + the three bulk popups + the archive popup vs. detail popup
-    // + notifications
+    // edit form + the three bulk popups + the archive popup + the group dialog
+    // vs. detail popup + notifications
     const html = await (await fetch(`${base}/`)).text();
-    assert.strictEqual((html.match(/class="modal-header-actions"/g) || []).length, 5);
+    assert.strictEqual((html.match(/class="modal-header-actions"/g) || []).length, 6);
     assert.strictEqual((html.match(/class="detail-actions"/g) || []).length, 2);
   });
 });
@@ -590,13 +590,13 @@ test('every popup header is its OWN two rows — icons alone on row 1, title/con
     // only while every match above stayed green.
     assert.ok(!/\.modal\.fullscreen[^{]*(popup-header|modal-header|detail-header|-actions)/.test(css),
       'a .modal.fullscreen-scoped header/popup-header/actions rule would silently undo the two-row layout in fullscreen only');
-    // one shared class, not per-popup one-offs: all seven header containers —
+    // one shared class, not per-popup one-offs: all eight header containers —
     // the edit/create form, the three bulk popups (single/tags/schedule), the
-    // archive popup, the detail popup, and notifications — carry
+    // archive popup, the group dialog, the detail popup, and notifications — carry
     // .popup-header. The right-click context menu has no header controls and
     // carries neither this class nor an action group ("stays as-is").
     const html = await (await fetch(`${base}/`)).text();
-    assert.strictEqual((html.match(/class="[^"]*\bpopup-header\b[^"]*"/g) || []).length, 7);
+    assert.strictEqual((html.match(/class="[^"]*\bpopup-header\b[^"]*"/g) || []).length, 8);
     assert.doesNotMatch(html, /<div id="context-menu"[^>]*class="[^"]*popup-header/);
     // position only: DOM stays title/content-before-actions everywhere (the
     // order:-1 CSS flip is what visually leads with the icons) — the same

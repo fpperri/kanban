@@ -253,6 +253,10 @@
   <!-- Add note… opens the notes palette on one card; it shows only when the board keeps a
        logbook and the menu is for a single card (toggled in showContextMenu, main script below). -->
   <button type="button" id="ctx-note" role="menuitem" class="hidden">Add note…</button>
+  <!-- Add to group… adds the menu's cards to a group; Make a group from them… needs two or more.
+       Both show only when the board keeps groups (toggled in showContextMenu, main script below). -->
+  <button type="button" id="ctx-group-add" role="menuitem" class="hidden">Add to group…</button>
+  <button type="button" id="ctx-group-make" role="menuitem" class="hidden">Make a group from them…</button>
   <!-- Isolate leads nothing and trails the edits: it is offered inside the selection
        only, and alone in the small menu of the empty Graph or Map canvas (toggled in
        showContextMenu, main script below). It reads Turn isolate off while isolate is on. -->
@@ -327,6 +331,20 @@
     <div class="bulk-actions">
       <button type="button" id="bulk-archive-apply">Archive</button>
     </div>
+  </div>
+</div>
+
+<!-- The group dialogs (groups-ui.js fills the body): the group form, the group to add cards to, and
+     the question a note on several cards asks. One backdrop, one at a time. -->
+<div id="group-dialog" class="modal-backdrop hidden" data-keeps-selection>
+  <div class="modal group-modal" role="dialog" aria-modal="true" aria-labelledby="group-dialog-title">
+    <div class="modal-header popup-header">
+      <h2 id="group-dialog-title"></h2>
+      <div class="modal-header-actions">
+        <button type="button" id="group-dialog-close" class="icon-btn" title="Close" aria-label="Close">&#10005;</button>
+      </div>
+    </div>
+    <div id="group-dialog-body" class="group-dialog-body"></div>
   </div>
 </div>
 
@@ -500,8 +518,10 @@
 <script src="/isolate.js"></script>
 <script src="/hotkeys.js"></script>
 <script src="/hotkeys-sheet.js"></script>
+<script src="/groups.js"></script>
 <script src="/notes.js"></script>
 <script src="/notes-palette.js"></script>
+<script src="/groups-ui.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>
 </body>

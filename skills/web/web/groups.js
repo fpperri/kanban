@@ -97,8 +97,13 @@ function groupFormBody(form) {
   };
 }
 
+// A group as the page last drew it, to tell whether a refresh changed it.
+function groupSignature(group) {
+  return group ? JSON.stringify(group) : '';
+}
+
 const GROUPS_EXPORTS = {
-  groupLabel, groupTypePath, groupTip, groupById, groupsOfCard, groupBadgeModel, groupsHoldingAll,
+  groupSignature, groupLabel, groupTypePath, groupTip, groupById, groupsOfCard, groupBadgeModel, groupsHoldingAll,
   groupRunning, groupFolderChoices, groupPrefixFor, groupFormProblem, groupFormBody,
 };
 

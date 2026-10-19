@@ -408,6 +408,18 @@ list below groups the notes by day and card, newest first, with a filter field o
 On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
 it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
+**Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges
+(`#I2 zephyr-2`, then `+N`) below its title, with the group's dates and type path as a tooltip.
+A badge opens the notes palette on that group's **Group** tab, which edits its name, dates,
+`auto_join` and extra keys, takes members out, and has **Show this group's cards**, which fills
+the search box with `group:I2`. A note written on a group goes in that group's day file. The
+card menu has **Add to group…** and, on two or more cards, **Make a group from them…**, which
+opens a form for the short name, the folder (the group's type), the dates and `auto_join`.
+**Add note…** on several cards asks for a group they all share, or offers to make one, or to
+write the note on each card. `group:I2` and `group:zephyr-2` find a group's cards, a bare
+`group:` every card that is in a group and `-group:` the cards that are in none. Without a
+`groups:` line nothing of this shows.
+
 ## Other surfaces
 
 The **[mobile snapshot](snapshot.md)** is the tap-through board for a phone or

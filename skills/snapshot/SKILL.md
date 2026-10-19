@@ -85,7 +85,9 @@ a quoted `title:` or `body:` matches the whole field, and quoted text with no sc
 `slice:goal..` and `slice:..objective` leave an end open, a reversed pair is swapped, an end the
 board does not have is left open, and a single unknown name, `slice:..` and a half-typed name
 cut nothing. A board with no hierarchy cuts by depth (`slice:1` keeps the depth-1 cards), and
-`slice:` combines like any term (`tags:ui (slice:goal | #12)`). Slices are counted over every
+`slice:` combines like any term (`tags:ui (slice:goal | #12)`). The snapshot reads `group:<id or
+name>`, `group:` and `-group:` too, but it draws no groups, so a `group:` term finds no card here and
+`-group:` finds every card. Slices are counted over every
 card of the board, archived ones included, as the page was built: a queued edit does not move a
 card to another slice until it is applied, and a card queued with + New card sits where a new card
 does, a root at depth 0 or the tier its type names, so a cut that holds depth 0 shows it and one that

@@ -1029,6 +1029,38 @@ to `127.0.0.1` only.
   file's name from a day and an id and never from request text; a write re-reads the file
   and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
   a day file survive every write. The Graph's names step moved to `l` to free `n`.
+- **Groups** — with a `groups:` line in `config.yaml` (the folder of the board's group
+  files, see the kanban skill's groups section) a card shows **badges** below its title: up to
+  two small buttons (`#I2 zephyr-2`) and `+N` for the rest, the dates and the type path (the
+  folders the group sits in; `(no type)` at the root) in the tooltip. Without the line nothing
+  of it shows. A badge opens the **notes palette** on that group, on its **Group tab** (the
+  palette then has a tab row, Notes and Group; with the logbook off a group still opens, on
+  its Group tab alone). The Group tab edits the group's name, dates, `auto_join` (on offer only
+  with both dates) and extra keys, with a Save button, lists its members each with an x that
+  takes it out (the card is never touched), and has **+ Note** (back to the Notes tab, on the
+  group) and **Show this group's cards**, which fills the search box with `group:<id>` and
+  closes the palette. A note written on a group lands in `<day>.<padded group id>.logbook.md`,
+  and a group lists its own notes and its members'; a mention of a group's id (`#I2 mid check`)
+  aims a note at it. The card menu has **Add to group…** (a dialog of the board's groups by
+  type path; a click adds the menu's cards) and, on two or more cards, **Make a group from
+  them…**, which opens the group form (short name, a folder from the board's folders, optional
+  start and end dates, `auto_join`, the cards) and creates it. **Add note…** on several cards
+  asks which group all of them share (the groups that list every one), or offers **Make a
+  group from them…** (then note on it) and **Add the note to each card** (the palette's chip
+  reads `each of N cards` and Enter writes one note on every card). The server's
+  `POST /api/groups` makes a group (`name`, `folder` of at most two plain names, optional
+  dates, `auto_join` kept only with both, `cards` that must be cards of the board; the id is
+  allocated from the folder's prefix and its counter, and a refused group burns no id),
+  `PATCH /api/groups/<id>` changes the name, dates, `auto_join` and `extra` keys (null or empty
+  removes one), and `POST /api/groups/<id>/members` takes `add` and `remove` lists of card
+  ids; each rewrites only the lines it changes, keeping every other line, comment and the
+  body, and a group is found by the id in its frontmatter, never by file name or request
+  text. A group file that cannot be read (no id, a repeated id, no frontmatter) or that sits
+  more than two folders deep is skipped, named with its reason in the payload and a server
+  warning, and never fatal. `group:<id or name>` (any letter case; a quoted name may hold a
+  space), a bare `group:` (every card in a group) and `-group:` or `-group:<id or name>` (the
+  cards in none, or not in that group) are search terms. Deleting a group, auto-join on card
+  creation and the iteration dropdown are separate features.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the
@@ -1843,8 +1875,11 @@ nextId: 28                # monotonic id counter; ids stay unique even when the
                           # max card is deleted or two writers race a max+1 scan
 idDigits: 4               # the width an id's number is padded to in a file name (default 4)
 prefixes:                 # a prefix for a card type; a new card of that type takes it
-  G: goal                 # a value with a `/` is a folder, not a type
+  G: goal                 # a value that names a groups folder is a folder, not a type
+  _: .groups              # the groups: folder itself is the root (a group with no type)
+  I: .groups/iteration    # a group in iteration/ is I1, I2...
 counters: { G: 3 }        # one line, one counter per prefix (the web writes it)
+groups: .groups           # the folder of the board's groups (absent = no groups)
 assignees:                # who can own cards; feeds the form's assignee combobox
   - handle: "@human"
     name: "Human"
@@ -1952,6 +1987,14 @@ handle a card carries.
   else 4) only sets the width of the number in a file name; cards are read by the number in
   their `id:` line, so a file padded to another width is still found. `prefixes:` and
   `idDigits:` are human-written; the page reads and the server writes only the counter lines.
+- **`groups`** (a folder, relative to the board; absolute when written by hand) turns groups
+  on: the board payload then carries `groups: { folder, list, skipped, folders, prefixes }`,
+  every group file under it (see the Groups bullet) and the files it skipped and why. Absent,
+  the payload carries `groups: null` and nothing of it shows. A `prefixes:` value names a
+  groups folder when it is that `groups:` folder itself (the root, `_: .groups`, which has no
+  slash) or a path under it (`I: .groups/iteration`), or any path with a slash read relative
+  to the groups folder (`W: workflow/`); a bare word is a card type. A group in exactly the
+  folder a prefix names takes it, else `_`. The web never writes this key.
 - **`logbook`** (a folder, relative to the board; absolute when written by hand) turns the
   logbook on: the board payload then carries `logbook: { folder, notes }`, every note of the
   day files in it, and the page shows the notes palette. Absent, the payload carries
