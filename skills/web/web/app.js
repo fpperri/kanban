@@ -2668,7 +2668,7 @@ async function submitModal(e) {
   try {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
-    else joined = groupJoinedNote((await api('POST', '/api/cards', payload)).joined);
+    else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
     closeModal();
     await loadBoard();
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
