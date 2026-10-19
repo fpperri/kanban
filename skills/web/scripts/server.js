@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
+const lb = require('./logbook-store');
 const cfg = require('./config-store');
 const nesting = require('../web/nesting');
 const ids = require('../web/ids');
@@ -279,6 +280,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           hierarchy: config.hierarchy, // type names, top tier first, as written; [] = none declared
           pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
+          logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
@@ -296,6 +298,21 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         return sendJSON(res, 200, {
           notifications: nm[1] ? ns.removeNotification(dir, Number(nm[1])) : ns.clearNotifications(dir),
         });
+      }
+
+      // the logbook: a store error carries its own status (400 a bad day or id, 404 no logbook,
+      // 409 a note that changed or a file that kept changing)
+      if (p === '/api/notes' || p === '/api/notes/assign') {
+        const body = await readBody(req);
+        try {
+          if (req.method === 'POST' && p === '/api/notes') return sendJSON(res, 201, { note: lb.addNote(dir, body) });
+          if (req.method === 'PATCH' && p === '/api/notes') return sendJSON(res, 200, { note: lb.editNote(dir, body.ref, body) });
+          if (req.method === 'DELETE' && p === '/api/notes') return sendJSON(res, 200, lb.deleteNote(dir, body.ref));
+          if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
+        } catch (e) {
+          if (e.name === 'LogbookError') return sendJSON(res, e.status, { error: e.message });
+          throw e;
+        }
       }
 
       // mutations
