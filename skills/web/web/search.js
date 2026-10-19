@@ -67,6 +67,13 @@
 //                 open too, and a reversed pair is swapped. A single unknown name,
 //                 `slice:..` and a name half typed cut nothing, so typing never hides
 //                 every card; a bare `slice:` is dropped like `status:`.
+//   group:I2 / group:zephyr-2   the cards a group lists (docs/adr/0015), found by the group's
+//                 id or its name in any letter case (`#` optional). Like review:/blocked:, a
+//                 bare `group:` is a complete term: every card that is in any group. A leading
+//                 hyphen negates it: `-group:` the cards in no group, `-group:I2` the cards that
+//                 group does not list. The groups come in with the query's context (`ctx.groups`,
+//                 each { id, name, cards }); a page that gives none finds no group, so every card
+//                 is ungrouped there.
 //   bare text     substring on title OR body OR any tag — the "don't remember
 //                 which field" fallback. An unrecognized `foo:bar` prefix also
 //                 lands here (searched as the literal string "foo:bar") rather
@@ -119,7 +126,7 @@ const FIELD_ALIASES = { a: 'assignee' };
 function searchScope(prefix) {
   const low = prefix.toLowerCase();
   const key = FIELD_ALIASES[low] || low;
-  return key === 'id' || key === 'slice' || KNOWN_FIELDS.includes(key) || GRAPH_FIELDS.includes(key) || STICKER_FIELDS.includes(key) ? key : null;
+  return key === 'id' || key === 'slice' || key === 'group' || KNOWN_FIELDS.includes(key) || GRAPH_FIELDS.includes(key) || STICKER_FIELDS.includes(key) ? key : null;
 }
 
 // A quoted token: `"two words"` or `title:"two words"`, closed or still open
@@ -133,12 +140,18 @@ function parseQuotedTerm(scope, rest) {
   if (!inner) return null;
   if (!scope) return { field: null, value: inner.toLowerCase() };
   if (scope === 'id' || scope === 'slice') return { field: scope, value: inner };
+  if (scope === 'group') return { field: 'group', value: inner.replace(/^#/, '') };
   if (GRAPH_FIELDS.includes(scope)) return { field: scope, value: inner.replace(/^#/, '') };
   return { field: scope, value: inner.toLowerCase(), exact: true };
 }
 
 function parseTerm(token, board) {
-  const quoted = /^(?:([A-Za-z]+):)?"([\s\S]*)$/.exec(token);
+  const notGroup = /^-group:"([\s\S]*)$/i.exec(token);
+  if (notGroup) {
+    const term = parseQuotedTerm('group', notGroup[1]);
+    return term && Object.assign(term, { not: true });
+  }
+  const quoted =/^(?:([A-Za-z]+):)?"([\s\S]*)$/.exec(token);
   if (quoted) {
     const scope = quoted[1] ? searchScope(quoted[1]) : null;
     if (!quoted[1] || scope) return parseQuotedTerm(scope, quoted[2]);
@@ -155,6 +168,13 @@ function parseTerm(token, board) {
   const boardId = board && hash > 0 ? SEARCH_IDS.idKey(token.slice(hash + 1)) : null;
   if (boardId !== null && token.slice(0, hash).toLowerCase() === String(board).toLowerCase()) {
     return { field: 'id', value: boardId };
+  }
+
+  // group: and its negation are one complete term each, a bare one included (every card in a group, or in none).
+  const group = /^(-?)group:(.*)$/i.exec(token);
+  if (group) {
+    const term = { field: 'group', value: group[2].trim().replace(/^#/, '') };
+    return group[1] ? Object.assign(term, { not: true }) : term;
   }
 
   const prefixed = token.match(/^([A-Za-z]+):(.*)$/);
@@ -206,10 +226,10 @@ function searchClosers(body) {
 // character, or the character after a recognized scope's colon. -1 for none.
 function searchQuoteAt(s, start) {
   if (s[start] === '"') return start;
-  const scoped = /([A-Za-z]+):"/y;
+  const scoped = /(-?)([A-Za-z]+):"/y;
   scoped.lastIndex = start;
   const m = scoped.exec(s);
-  return m && searchScope(m[1]) ? start + m[0].length - 1 : -1;
+  return m && searchScope(m[2]) && (m[1] === '' || m[2].toLowerCase() === 'group') ? start + m[0].length - 1 : -1;
 }
 
 // The lexer: the query as tokens with their place in the text. A token is
@@ -635,7 +655,7 @@ function termMatchesCard(term, card) {
     // unresolved 'tree'/'path'/'waiting'/'slice' term has no graph to resolve against
     // here (a single (term, card) pair isn't enough), so it matches nothing
     // rather than throwing. Always goes through filterCards in practice.
-    case 'tree': case 'path': case 'waiting': case 'slice': return false;
+    case 'tree': case 'path': case 'waiting': case 'slice': case 'group': return false;
     case 'ids': return term.ids.has(searchKey(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: { // bare term: title + body + tags; a phrase reads across a line break
@@ -691,6 +711,7 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     if (term.field === 'tree') next = { field: 'ids', value: term.value, ids: graph.treeIds(cards, term.value, ctx) };
     else if (term.field === 'path') next = { field: 'ids', value: term.value, ids: graph.pathIds(cards, term.value, ctx) };
     else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
+    else if (term.field === 'group') next = { field: 'ids', value: term.value, ids: groupIds(cards, term, ctx) };
     else if (term.field === 'waiting') {
       if (!memo.waiting) {
         // Only a real card resolves a waiting_for entry: a queued card (`n1`) is not one.
@@ -706,6 +727,17 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     return next;
   });
   return changed ? resolved : terms;
+}
+
+// The ids a group: term allows. The groups it names are those of the context whose id or
+// name is the value, ignoring case (a bare value names every group); the ids are the cards
+// they list, or with a hyphen (`not`) every other card of the board.
+function groupIds(cards, term, ctx) {
+  const groups = (ctx && Array.isArray(ctx.groups)) ? ctx.groups : [];
+  const want = term.value.toLowerCase();
+  const named = want === '' ? groups : groups.filter((g) => String(g.id).toLowerCase() === want || String(g.name || '').toLowerCase() === want);
+  const members = new Set(named.flatMap((g) => g.cards || []).map(searchKey));
+  return term.not ? new Set(cards.map((c) => searchKey(c.id)).filter((id) => !members.has(id))) : members;
 }
 
 // The slices of the whole board, { axis, byId } (the slices module's), built once
