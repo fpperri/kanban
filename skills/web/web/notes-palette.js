@@ -600,6 +600,16 @@ function onNotesKey(e) {
   openNotes(aimed === null ? {} : { kind: 'card-notes', id: aimed });
 }
 
+// Esc with focus outside the palette (a click on its empty space took it) closes it, unless a menu or a
+// popup is up: those take the Esc first. In the palette Esc is read by the palette itself.
+function onNotesEscape(e) {
+  if (e.key !== 'Escape' || !notesUi.sub || notesUi.el.contains(e.target)) return;
+  if (document.querySelector('#context-menu:not(.hidden), .modal-backdrop:not(.hidden)')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  notesClose();
+}
+
 // A mouse press outside the palette closes it, but not on what opens it.
 function onNotesPointer(e) {
   const u = notesUi;
@@ -625,6 +635,7 @@ function notesOnBoard() {
 
 window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
+  document.addEventListener('keydown', onNotesEscape, true);
   document.addEventListener('mousedown', onNotesPointer, true);
   document.addEventListener('click', (e) => {
     const count = e.target.closest && e.target.closest('.card-notes');

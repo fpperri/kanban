@@ -14,7 +14,7 @@
 // why. Each step waits on the page, never on a fixed sleep.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// state, selectedIds, hoveredId.
+// state, selectedIds, hoveredId, toast (the page's #toast element, by its id).
 
 const PAL = `document.getElementById('notes-palette')`;
 const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
@@ -35,7 +35,7 @@ module.exports = {
   alsoBoards: ['plan'],
   timeoutMs: 100000,
   async run(page) {
-    const { ev, open, waitFor, centre, click, mouse, key, rightClick, check } = page;
+    const { ev, open, waitFor, centre, click, mouse, key, rightClick, check, shot } = page;
     const boardReady = (ms) => waitFor(`document.querySelectorAll('#board .card-el').length>20`, ms || 10000);
     const palUp = (ms) => waitFor(PAL_UP, ms || 3000);
     const setBox = (text) => ev(`(()=>{const i=${q('.np-input')};i.value=${JSON.stringify(text)};i.dispatchEvent(new Event('input',{bubbles:true}));i.focus();return true})()`);
@@ -71,6 +71,7 @@ module.exports = {
     await click(count.x, count.y);
     check('notes: a click on the count opens the palette aimed at that card', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
     check('notes: its notes are listed newest day first', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|7|2', '2026-10-14|7|1']), await ev(SECTIONS));
+    await shot('palette-on-card');
     check('notes: each note shows its time, and an agent\'s its author', await ev(`${q('.np-ngroup .np-note')}.textContent.startsWith('09:30')&&[...document.querySelectorAll('#notes-palette .np-note-by')].map((b)=>b.textContent).filter(Boolean).join()==='@afk'&&document.querySelector('#notes-palette .np-note-time.untimed').textContent==='untimed'`));
     check('notes: with no time given the time field starts at now', await ev(`/^\\d\\d:\\d\\d$/.test(${q('.np-time')}.value)`));
 
@@ -169,6 +170,7 @@ module.exports = {
     await setBox('');
     await ev(`[...document.querySelectorAll('#notes-palette .np-note')].find((r)=>r.querySelector('.np-note-text').textContent==='line time wins').focus()`);
     await key('e');
+    await shot('before-edit');
     check('notes: e opens the note for editing, text and time', await waitFor(`!!${q('.np-edit-text')}&&${q('.np-edit-text')}.value==='line time wins'&&${q('.np-edit-time')}.value==='10:30'`, 2500));
     await ev(`(()=>{const x=${q('.np-edit-text')};x.value='line time lost';const t=${q('.np-edit-time')};t.value='11:05';x.focus()})()`);
     await key('Enter');
@@ -176,6 +178,7 @@ module.exports = {
     check('notes: the list shows the edited note and no form is left open', await waitFor(`${ROW_TEXTS}.includes('line time lost')&&!${q('.np-edit-text')}`, 3000));
     await ev(`[...document.querySelectorAll('#notes-palette .np-note')].find((r)=>r.querySelector('.np-note-text').textContent==='line time lost').focus()`);
     await key('a');
+    await shot('assign-picker');
     check('notes: a opens the picker to move the note', await waitFor(`!!${q('.np-assign-input')}`, 2500));
     await ev(`(()=>{const i=${q('.np-assign-input')};i.value='cut over';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()})()`);
     check('notes: the picker offers the cards that match what is typed', await waitFor(`[...document.querySelectorAll('#notes-palette .np-assign-item')].some((o)=>o.textContent==='#22 Cut over the data layer')`, 2500));
@@ -197,7 +200,8 @@ module.exports = {
     check('notes: the card menu has an Add note entry for one card', await waitFor(`!document.getElementById('context-menu').classList.contains('hidden')&&!document.getElementById('ctx-note').classList.contains('hidden')`, 2500));
     await ev(`document.getElementById('ctx-note').click()`);
     check('notes: Add note opens the palette on that card and closes the menu', await palUp() && await chip() === '#3 Write the cutover plan' && await ev(`document.getElementById('context-menu').classList.contains('hidden')`), await chip());
-    await closePalette();
+    await ev(`document.activeElement.blur()`);
+    check('notes: Esc closes the palette with focus outside it, and leaves the selection alone', await closePalette() && await ev(`[...selectedIds].join()==='3'`));
 
     // --- with nothing aimed at it, the palette starts on the card last noted, and remembers it across a reload --
     await open('/?view=board');

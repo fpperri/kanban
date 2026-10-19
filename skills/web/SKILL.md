@@ -1000,6 +1000,35 @@ to `127.0.0.1` only.
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
   the sheet), and a click inside it never clears a selection.
+- **Notes (logbook)** — with a `logbook:` line in `config.yaml` (the folder of the board's
+  day files, see the kanban skill's logbook section) the page keeps a **notes palette**, the
+  one surface for notes. Without the line nothing of it shows: no count, no menu entry, and
+  `n` only says the logbook is off. A card with notes wears a small count on its tile (live
+  and archived); a click on it opens the card's notes. `n` opens the palette on the hovered
+  card, else on the one selected card, else on the card last noted (kept per board in this
+  browser); the card menu's **Add note…** opens it on one card. Its rows, top down: the
+  subject row (a chip that says what the palette is about, a time field and an *untimed*
+  tick), the note box, the preview line that says exactly what Enter will write (`Note at
+  10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with room
+  beside it for the author switch) and the list of notes, grouped by day and card, newest day
+  first, each with its time and, when it is not the human's, its author. **Enter** writes the
+  note at the time field's time (now, to start with) and keeps the palette open for the next;
+  **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
+  a leading `-` or `untimed` (or the tick) makes it untimed, and a leading mention of a card
+  (`#22`, `plan#22`) aims that one note at it and is cut from the text; a mention anywhere
+  later is only text. A line that is only a mention, then Enter, moves the palette to that
+  card and writes nothing; **Backspace** on an empty box clears the chip. The filter field
+  narrows the list by every word typed (in the text or the card's name) and never touches the
+  note box. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
+  to another card or to no card (the note moves to that target's file for the same day, and
+  a file left empty is removed), **d** twice deletes it. **Esc** closes the palette; a press
+  outside it does too. Every key typed in the palette stays in it, so none reaches the
+  board's own shortcuts. The palette is no modal: the board keeps refreshing behind it, and
+  each refresh repaints the list unless a note is being edited. The notes are written by
+  `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/notes/assign`, which build the day
+  file's name from a day and an id and never from request text; a write re-reads the file
+  and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
+  a day file survive every write. The Graph's names step moved to `l` to free `n`.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the
@@ -1923,6 +1952,11 @@ handle a card carries.
   else 4) only sets the width of the number in a file name; cards are read by the number in
   their `id:` line, so a file padded to another width is still found. `prefixes:` and
   `idDigits:` are human-written; the page reads and the server writes only the counter lines.
+- **`logbook`** (a folder, relative to the board; absolute when written by hand) turns the
+  logbook on: the board payload then carries `logbook: { folder, notes }`, every note of the
+  day files in it, and the page shows the notes palette. Absent, the payload carries
+  `logbook: null` and nothing of it shows. The web never writes this key; a folder outside the
+  board works for reading and writing.
 - The assignees, priorities, tags and types lists all **suggest, never validate** (ADR 0004) — the
   form's comboboxes offer the registered values but free text still saves fine.
 - Not a card — only `*.card.md` files are cards.

@@ -398,6 +398,16 @@ The sheet closes with Esc, a click outside it or its close button, and focus goe
 the gear. While it is open the board does not refresh under it, and `/`, `p` and Ctrl+F
 stand still.
 
+**Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
+selected card, a card with notes wears a small count that opens its notes, and the card menu
+has **Add note…**. Type a note and press Enter: it is written at the time field's time into
+the card's day file and the palette stays open for the next note; Shift+Enter starts a new
+line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
+`#22` aims it at another card; the line under the box says exactly what Enter will write. The
+list below groups the notes by day and card, newest first, with a filter field of its own.
+On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
+it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
+
 ## Other surfaces
 
 The **[mobile snapshot](snapshot.md)** is the tap-through board for a phone or
