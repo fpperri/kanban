@@ -28,9 +28,9 @@ test('rank reads as a number; absent, blank or non-numeric reads as null; toJSON
     '0006.f.card.md': card(6, 'rank: 12.5\n'),
   });
   const byId = new Map(cs.listActive(dir).map((c) => [c.id, c]));
-  assert.deepStrictEqual([1, 2, 3, 4, 5, 6].map((id) => byId.get(id).rank), [20, null, null, null, 30, 12.5]);
-  assert.strictEqual(cs.toJSON(byId.get(1)).rank, 20);
-  assert.strictEqual(cs.toJSON(byId.get(2)).rank, null);
+  assert.deepStrictEqual(['1', '2', '3', '4', '5', '6'].map((id) => byId.get(id).rank), [20, null, null, null, 30, 12.5]);
+  assert.strictEqual(cs.toJSON(byId.get('1')).rank, 20);
+  assert.strictEqual(cs.toJSON(byId.get('2')).rank, null);
 });
 
 test('parent reads as an id on this board or as board#id, quotes stripped; junk reads as null', () => {
@@ -43,8 +43,8 @@ test('parent reads as an id on this board or as board#id, quotes stripped; junk 
     '0006.f.card.md': card(6, 'parent: shop.proj#9\n'),
   });
   const byId = new Map(cs.listActive(dir).map((c) => [c.id, c]));
-  assert.deepStrictEqual([1, 2, 3, 4, 5, 6].map((id) => byId.get(id).parent), ['42', 'fpp#4', 'fpp#4', '42', null, 'shop.proj#9']);
-  assert.strictEqual(cs.toJSON(byId.get(2)).parent, 'fpp#4');
+  assert.deepStrictEqual(['1', '2', '3', '4', '5', '6'].map((id) => byId.get(id).parent), ['42', 'fpp#4', 'fpp#4', '42', null, 'shop.proj#9']);
+  assert.strictEqual(cs.toJSON(byId.get('2')).parent, 'fpp#4');
 });
 
 // --- writing through the form ----------------------------------------

@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { parseConfig } = require('../scripts/config-store');
 const { materialize } = require('./browser/boards');
 const { parseSearchQuery, filterCards, searchTermText } = require('../web/search');
@@ -25,8 +25,8 @@ const boardOf = (key) => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize(key, dir);
-  const live = listActive(dir);
-  const all = live.concat(listArchived(dir));
+  const live = listActive(dir).map(toJSON);
+  const all = live.concat(listArchived(dir).map(toJSON));
   const config = parseConfig(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'));
   const matchIds = (query) => new Set(filterCards(all, parseSearchQuery(query, key), { board: key }).map((c) => c.id));
   const list = pillList(live, matchIds, { pills: config.pills, cards: live, term: searchTermText });

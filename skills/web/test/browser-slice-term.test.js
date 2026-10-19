@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../web/search');
 const { buildRelationsGraph } = require('../web/dependency-graph');
@@ -26,8 +26,8 @@ const load = (key) => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize(key, dir);
-  const live = listActive(dir);
-  return { live, all: live.concat(listArchived(dir)), config: readConfig(dir) };
+  const live = listActive(dir).map(toJSON);
+  return { live, all: live.concat(listArchived(dir).map(toJSON)), config: readConfig(dir) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 

@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const scenario = require('./browser/scenarios/type-icons');
 const scenarios = require('./browser/scenarios');
 const { materialize } = require('./browser/boards');
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { graphBuild, graphLayout, graphPlan } = require('../web/graph-model');
 const { typeBadge } = require('../web/type-badge');
@@ -29,7 +29,7 @@ function loadBoard(key) {
   const dir = path.join(root, 'board');
   materialize(key, dir);
   const config = readConfig(dir);
-  const cards = [...listActive(dir), ...listArchived(dir)];
+  const cards = [...listActive(dir).map(toJSON), ...listArchived(dir).map(toJSON)];
   return { config, cards, byId: new Map(cards.map((c) => [String(c.id), c])) };
 }
 const BOARDS = { plan: loadBoard('plan'), malformed: loadBoard('malformed') };

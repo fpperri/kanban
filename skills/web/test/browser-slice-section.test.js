@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards, searchSetSlice } = require('../web/search');
 const { sliceCards } = require('../web/slices');
@@ -29,9 +29,9 @@ const load = (key) => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize(key, dir);
-  const live = listActive(dir);
+  const live = listActive(dir).map(toJSON);
   const config = readConfig(dir);
-  const all = live.concat(listArchived(dir));
+  const all = live.concat(listArchived(dir).map(toJSON));
   const ctx = { board: config.name || key, hierarchy: config.hierarchy, priorities: config.priorities };
   const sliced = sliceCards(all, config.hierarchy, depthMap(all, ctx));
   return { live, all, config, ctx, sliced, list: sliceListOf(sliced, live.map((c) => c.id)) };

@@ -107,13 +107,13 @@ test('listActive reads only *.card.md and parses typed fields', () => {
   const dir = tmpBoard();
   const cards = cs.listActive(dir).sort((a, b) => a.id - b.id);
   assert.strictEqual(cards.length, 2);
-  assert.strictEqual(cards[0].id, 1);
+  assert.strictEqual(cards[0].id, '1');
   assert.strictEqual(cards[0].title, 'Build the kanban browse skill');
   assert.strictEqual(cards[0].status, 'done');
   assert.deepStrictEqual(cards[0].tags, ['skill', 'browse', 'feature']);
   assert.strictEqual(cards[0].assignee, '@alex'); // quotes stripped
   assert.strictEqual(cards[1].priority, 'High');
-  assert.deepStrictEqual(cards[1].waiting_for, [1]);
+  assert.deepStrictEqual(cards[1].waiting_for, ['1']);
 });
 
 test('findCardFile locates by id; nextId is max+1', () => {
@@ -182,7 +182,7 @@ test('readCardFile flags a malformed card (no closing fence) as unparseable', ()
 test('createCard assigns next id, slug filename, canonical frontmatter', () => {
   const dir = tmpBoard();
   const card = cs.createCard(dir, { title: 'New Thing', status: 'todo', tags: ['x'], body: 'desc here' });
-  assert.strictEqual(card.id, 3);
+  assert.strictEqual(card.id, '3');
   assert.strictEqual(card.status, 'todo');
   assert.deepStrictEqual(card.tags, ['x']);
   assert.ok(fs.existsSync(path.join(dir, '0003.new-thing.card.md')));
@@ -197,7 +197,7 @@ test('createCard assigns next id, slug filename, canonical frontmatter', () => {
 test('createCard filename is <0000-id>.<slug>.card.md, 4-digit zero-padded', () => {
   const dir = tmpBoard();
   const card = cs.createCard(dir, { title: 'Small Id', status: 'todo' });
-  assert.strictEqual(card.id, 3);
+  assert.strictEqual(card.id, '3');
   assert.ok(fs.existsSync(path.join(dir, '0003.small-id.card.md')));
 });
 
@@ -206,7 +206,7 @@ test('createCard past id 9999 skips the numeric prefix (avoids breaking lexicogr
   fs.writeFileSync(path.join(dir, '9999.big-id.card.md'),
     `---\nid: 9999\nstatus: todo\npriority: Normal\nwaiting_for: []\ntags: []\n---\n\n# Big Id\n\nbody\n`);
   const card = cs.createCard(dir, { title: 'Over The Line', status: 'todo' });
-  assert.strictEqual(card.id, 10000);
+  assert.strictEqual(card.id, '10000');
   assert.ok(fs.existsSync(path.join(dir, 'over-the-line.card.md')));
   assert.ok(!fs.existsSync(path.join(dir, '10000.over-the-line.card.md')));
 });
@@ -380,7 +380,7 @@ test('updateCard edits title via targeted H1 + body, keeps frontmatter', () => {
   const c = cs.readCardFile(path.join(dir, 'two.card.md'));
   assert.strictEqual(c.title, 'Renamed');
   assert.strictEqual(c.body.trim(), 'fresh desc');
-  assert.strictEqual(c.id, 2);
+  assert.strictEqual(c.id, '2');
   assert.strictEqual(c.priority, 'High');
 });
 
@@ -444,7 +444,7 @@ test('archiveCard on an already-archived card is a no-op (idempotency guard)', (
   const before = fs.readFileSync(path.join(dir, 'archived', '1.card.md'), 'utf8');
   const c = cs.archiveCard(dir, 1); // second archive call on the same id
   assert.strictEqual(c.archived, true);
-  assert.strictEqual(c.id, 1);
+  assert.strictEqual(c.id, '1');
   // must NOT have renamed to a -2 duplicate
   assert.ok(fs.existsSync(path.join(dir, 'archived', '1.card.md')));
   assert.ok(!fs.existsSync(path.join(dir, 'archived', '1-2.card.md')));
@@ -520,7 +520,7 @@ test('listArchived walks archived/ recursively — a card inside a package folde
   fs.writeFileSync(path.join(pkg, '0009.packaged.card.md'),
     `---\nid: 9\nstatus: done\npriority: Normal\n---\n\n# Packaged\n\nbody\n`);
   const archived = cs.listArchived(dir);
-  assert.deepStrictEqual(archived.map((c) => c.id), [9]);
+  assert.deepStrictEqual(archived.map((c) => c.id), ['9']);
   assert.strictEqual(archived[0].archived, true);
   assert.strictEqual(cs.nextId(dir), 10); // id allocation sees into packages too
   assert.ok(cs.findCardFile(dir, 9), 'findCardFile reaches into the package folder');
@@ -964,7 +964,7 @@ test('createCard still writes tags/waiting_for when they hold data', () => {
   assert.match(raw, /^tags: \[x, y\]$/m);
   assert.match(raw, /^waiting_for: \[1\]$/m);
   assert.deepStrictEqual(card.tags, ['x', 'y']);
-  assert.deepStrictEqual(card.waiting_for, [1]);
+  assert.deepStrictEqual(card.waiting_for, ['1']);
 });
 
 test('updateCard clearing tags/waiting_for to [] removes their lines; unmanaged keys survive', () => {
@@ -1028,7 +1028,7 @@ test('readCardFile defaults a card missing tags/waiting_for/priority/assignee en
   fs.writeFileSync(path.join(dir, '0001.min.card.md'),
     `---\nid: 1\nstatus: todo\nupdated: 2026-07-10T00:00:00\n---\n\n# Minimal\n\nbody\n`);
   const c = cs.readCardFile(path.join(dir, '0001.min.card.md'));
-  assert.strictEqual(c.id, 1);
+  assert.strictEqual(c.id, '1');
   assert.strictEqual(c.status, 'todo');
   assert.strictEqual(c.priority, 'Normal');
   assert.deepStrictEqual(c.tags, []);
@@ -1299,9 +1299,9 @@ test('readCardFile parses the blocked sticker verbatim (quotes stripped) and def
   fs.writeFileSync(path.join(dir, '0003.c.card.md'),
     `---\nid: 3\nstatus: todo\nblocked: false\n---\n\n# C\n\nbody\n`);
   const byId = new Map(cs.listActive(dir).map((c) => [c.id, c]));
-  assert.strictEqual(byId.get(1).blocked, 'legal sign-off pending');
-  assert.strictEqual(byId.get(2).blocked, null, 'no line = null, never an empty string');
-  assert.strictEqual(byId.get(3).blocked, 'false', 'a hand-written false round-trips for display; the predicate says not blocked');
+  assert.strictEqual(byId.get('1').blocked, 'legal sign-off pending');
+  assert.strictEqual(byId.get('2').blocked, null, 'no line = null, never an empty string');
+  assert.strictEqual(byId.get('3').blocked, 'false', 'a hand-written false round-trips for display; the predicate says not blocked');
 });
 
 test('updateCard writes a valid blocked reason and strips an invalid/clear one — the lean rule via the predicate', () => {
@@ -1383,7 +1383,7 @@ test('no eviction: blocking (or adding a dep to) a card already in doing goes th
   // adding a not-done dep to a doing card is not entry either
   const waiting = cs.updateCard(dir, 1, { status: 'doing', waiting_for: [2] });
   assert.strictEqual(waiting.status, 'doing');
-  assert.deepStrictEqual(waiting.waiting_for, [2]);
+  assert.deepStrictEqual(waiting.waiting_for, ['2']);
 });
 
 test('the gate uses the EFFECTIVE blocked value — clearing the sticker in the same PATCH allows doing', () => {
@@ -1404,7 +1404,7 @@ test('hard cutover: a legacy blocked_by line carries no edges but survives verba
     `---\nid: 1\nstatus: todo\nblocked_by: [2]\n---\n\n# A\n\nbody\n`);
   fs.writeFileSync(path.join(dir, '0002.b.card.md'),
     `---\nid: 2\nstatus: todo\n---\n\n# B\n\nbody\n`);
-  const card = cs.listActive(dir).find((c) => c.id === 1);
+  const card = cs.listActive(dir).find((c) => c.id === '1');
   assert.deepStrictEqual(card.waiting_for, [], 'no reader honors the old name');
   assert.strictEqual(cs.updateCard(dir, 1, { status: 'doing' }).status, 'doing', 'legacy edges never gate');
   assert.match(fs.readFileSync(path.join(dir, '0001.a.card.md'), 'utf8'), /^blocked_by: \[2\]$/m,
@@ -1422,9 +1422,9 @@ test('readCardFile parses the review sticker verbatim (quotes stripped) and defa
   fs.writeFileSync(path.join(dir, '0003.c.card.md'),
     `---\nid: 3\nstatus: todo\nreview: false\n---\n\n# C\n\nbody\n`);
   const byId = new Map(cs.listActive(dir).map((c) => [c.id, c]));
-  assert.strictEqual(byId.get(1).review, 'PR #6');
-  assert.strictEqual(byId.get(2).review, null, 'no line = null, never an empty string');
-  assert.strictEqual(byId.get(3).review, 'false', 'a hand-written false round-trips for display; the predicate says not in review');
+  assert.strictEqual(byId.get('1').review, 'PR #6');
+  assert.strictEqual(byId.get('2').review, null, 'no line = null, never an empty string');
+  assert.strictEqual(byId.get('3').review, 'false', 'a hand-written false round-trips for display; the predicate says not in review');
 });
 
 test('updateCard writes a valid review value and strips an invalid/clear one — same lean rule as blocked (ADR 0009)', () => {
@@ -1487,8 +1487,8 @@ test('readCardFile parses a quoted prompt (quotes+escapes undone) and defaults i
     `---\nid: 1\nstatus: todo\nprompt: "say \\"hi\\" — see #6: ok?"\n---\n\n# A\n\nbody\n`);
   fs.writeFileSync(path.join(dir, '0002.b.card.md'), `---\nid: 2\nstatus: todo\n---\n\n# B\n\nbody\n`);
   const byId = new Map(cs.listActive(dir).map((c) => [c.id, c]));
-  assert.strictEqual(byId.get(1).prompt, 'say "hi" — see #6: ok?', 'quotes stripped, escapes undone');
-  assert.strictEqual(byId.get(2).prompt, null, 'no line = null, never an empty string');
+  assert.strictEqual(byId.get('1').prompt, 'say "hi" — see #6: ok?', 'quotes stripped, escapes undone');
+  assert.strictEqual(byId.get('2').prompt, null, 'no line = null, never an empty string');
 });
 
 test('readCardFile tolerates a hand-typed unquoted prompt line (never validated)', () => {
@@ -1555,18 +1555,18 @@ test('toJSON carries prompt in the public card shape', () => {
 
 // --- `parent` — the card this one sits under -------------------------------
 
-test('readCardFile parses parent as a whole-id string, null when absent or no id; toJSON carries it', () => {
+test('readCardFile parses parent as a number, null when absent or non-numeric; toJSON carries it', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-'));
   fs.writeFileSync(path.join(dir, '0001.child.card.md'), '---\nid: 1\nstatus: todo\nparent: 42\n---\n\n# Child\n');
   fs.writeFileSync(path.join(dir, '0002.plain.card.md'), '---\nid: 2\nstatus: todo\n---\n\n# Plain\n');
   fs.writeFileSync(path.join(dir, '0003.junk.card.md'), '---\nid: 3\nstatus: todo\nparent: soon\n---\n\n# Junk parent\n');
   const cards = cs.listActive(dir);
   const byId = new Map(cards.map((c) => [c.id, c]));
-  assert.strictEqual(byId.get(1).parent, '42');
-  assert.strictEqual(byId.get(2).parent, null);
-  assert.strictEqual(byId.get(3).parent, null, 'tolerant read: non-numeric parent is no membership, never fatal');
-  assert.strictEqual(cs.toJSON(byId.get(1)).parent, '42');
-  assert.strictEqual(cs.toJSON(byId.get(2)).parent, null);
+  assert.strictEqual(byId.get('1').parent, '42');
+  assert.strictEqual(byId.get('2').parent, null);
+  assert.strictEqual(byId.get('3').parent, null, 'tolerant read: non-numeric parent is no membership, never fatal');
+  assert.strictEqual(cs.toJSON(byId.get('1')).parent, 42);
+  assert.strictEqual(cs.toJSON(byId.get('2')).parent, null);
 });
 
 test('updateCard preserves a parent line verbatim — form-unmanaged frontmatter, lean rule untouched', () => {
