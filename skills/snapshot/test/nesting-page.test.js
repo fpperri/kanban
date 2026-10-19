@@ -241,7 +241,7 @@ describe('roll-ups on parent cards', () => {
       const webCards = cardStore.listActive(dir).concat(cardStore.listArchived(dir)).map(cardStore.toJSON);
       const web = rollupIndex(webCards, { board: 'fixture', priorities: [] });
       const parents = web.parents();
-      assert.deepStrictEqual(parents.slice().sort(), [1, 2, 3]);
+      assert.deepStrictEqual(parents.slice().sort(), ['1', '2', '3']);
       for (const id of parents) {
         const expected = web.rollup(id);
         const root = tile(page, id);
@@ -381,7 +381,7 @@ describe('the map and a parent written as the board\'s own name', () => {
 
   test('tree: follows the own-name edge', () => {
     const rows = board('', [[1, 'todo', 'A'], [2, 'todo', 'B', { parent: 'order#1' }]]);
-    open(rows, (page) => assert.deepStrictEqual([...JSON.parse(page.run('JSON.stringify([...treeIds(1)])'))].sort(), [1, 2]));
+    open(rows, (page) => assert.deepStrictEqual([...JSON.parse(page.run('JSON.stringify([...treeIds(1)])'))].sort(), ['1', '2']));
   });
 });
 

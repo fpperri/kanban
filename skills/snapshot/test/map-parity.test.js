@@ -72,9 +72,9 @@ function bothSides(fn) {
 }
 
 function compare(page, cards, visible) {
-  const ids = visible ? `new Set(${JSON.stringify(visible)})` : 'new Set(DATA.map(c=>Number(c.id)))';
+  const ids = visible ? `new Set(${JSON.stringify(visible.map(String))})` : 'new Set(DATA.map(c=>c.id))';
   const mine = summarize(page.plain(page.run(`mapShape(${ids})`)));
-  const set = visible ? new Set(visible) : null;
+  const set = visible ? new Set(visible.map(String)) : null;
   const web = summarize(mapShapeRelations(buildRelationsGraph(cards, set, CTX), MAP_OPTION_DEFAULTS));
   assert.deepStrictEqual(mine, web);
   return mine;
@@ -85,7 +85,7 @@ test('the map shows the same graphs as kanban-web when every card is visible', (
     const shape = compare(page, cards, null);
     assert.ok(shape.graphs.length >= 4, 'the board has several trees');
     assert.ok(shape.graphs.some((g) => g.stubs.some((s) => s.endsWith(':fpp#4'))), 'a parent on another board is a stub');
-    assert.ok(shape.noRelations.includes(46) && shape.noRelations.includes(9), 'a self-parent and a loose card are in No relations');
+    assert.ok(shape.noRelations.includes('46') && shape.noRelations.includes('9'), 'a self-parent and a loose card are in No relations');
   });
 });
 
