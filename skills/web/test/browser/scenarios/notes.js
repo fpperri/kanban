@@ -112,6 +112,32 @@ module.exports = {
     check('notes: the palette stays open, the box is empty and the new note is listed first', await ev(`${PAL_UP}&&${BOX}===''`) && await waitFor(`${ROW_TEXTS}[0]==='renamed order_state'`, 3000), await ev(ROW_TEXTS));
     check('notes: the card\'s count went up', await waitFor(`document.querySelector('#board .card-el[data-id="7"] .card-notes').textContent==='4'`, 3000));
 
+    // --- the author switch and by:@handle narrow the list; a note written here stays ---------------------------
+    const BY_BTNS = `[...document.querySelectorAll('#notes-palette .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
+    const setFilter = (text) => ev(`(()=>{const f=${q('.np-filter')};f.value=${JSON.stringify(text)};f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    const pickBy = async (by) => { const p = await centre(`#notes-palette .np-by-btn[data-by="${by}"]`); await click(p.x, p.y); };
+    const isRows = (texts, ms) => waitFor(`JSON.stringify(${ROW_TEXTS}.slice().sort())===${JSON.stringify(JSON.stringify(texts.slice().sort()))}`, ms || 2500);
+    check('notes: the filter row holds an All, Human and AI switch, All pressed', JSON.stringify(await ev(BY_BTNS)) === JSON.stringify(['All*', 'Human', 'AI']), await ev(BY_BTNS));
+    await pickBy('ai');
+    check('notes: AI lists the notes of the other authors, and the note written here stays', await isRows(['schema diff reviewed, two enum renames left', 'renamed order_state']), await ev(ROW_TEXTS));
+    await shot('palette-author-switch');
+    check('notes: the pressed button follows', JSON.stringify(await ev(BY_BTNS)) === JSON.stringify(['All', 'Human', 'AI*']), await ev(BY_BTNS));
+    await pickBy('human');
+    check('notes: Human lists only the human authors\' notes', await waitFor(`${ROW_TEXTS}.length===3&&!${ROW_TEXTS}.some((t)=>t.includes('enum renames'))`, 2500), await ev(ROW_TEXTS));
+    await pickBy('all');
+    check('notes: All lists every note again', await waitFor(`${ROW_TEXTS}.length===4`, 2500));
+    await setFilter('by:@afk');
+    check('notes: by:@afk narrows to that handle, and the note written here stays', await isRows(['schema diff reviewed, two enum renames left', 'renamed order_state']), await ev(ROW_TEXTS));
+    await setFilter('by:@afk nomatchword');
+    check('notes: by:@afk with another filter word narrows by both, the fresh note still listed', await isRows(['renamed order_state']), await ev(ROW_TEXTS));
+    await pickBy('human');
+    await setFilter('by:@afk');
+    check('notes: by:@afk with the Human switch lists no matching note, only the fresh one', await isRows(['renamed order_state']), await ev(ROW_TEXTS));
+    await pickBy('all');
+    await setFilter('');
+    check('notes: the switch back on All with an empty filter lists every note', await waitFor(`${ROW_TEXTS}.length===4`, 2500));
+    await ev(`${q('.np-input')}.focus()`);
+
     // --- Shift+Enter starts a new line -----------------------------------------------------------------------
     await setBox('first line');
     await key('Enter', { shift: true });
