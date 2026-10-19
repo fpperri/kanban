@@ -70,3 +70,19 @@ test('the search examples the docs give do what they say', () => {
 test('the snapshot skill says it reads group terms and draws no groups', () => {
   assert.ok(flat(snapshot).includes('`group:<id or name>`, `group:` and `-group:` too, but it draws no groups'));
 });
+
+test('the kanban skill card-creation steps tell agents to join the running auto-join groups, and the web docs say the same', () => {
+  const creating = flat(kanban.slice(kanban.indexOf('## Creating a Card'), kanban.indexOf('## Moving a Card')));
+  for (const part of ['Join the running groups', '`auto_join: true`', 'both days included', 'cards:` line of each such group', 'a dated group without `auto_join` never takes a new card']) {
+    assert.ok(creating.includes(part), part);
+  }
+  for (const part of ['**Auto-join.**', 'both dates and `auto_join: true`', 'written into its `cards:` at creation', 'a temporary file and a rename', 'an edit or a move later never joins one']) {
+    assert.ok(groupsSection.includes(part), part);
+  }
+  for (const part of ['running from its start to its end, both days included', 'same request', '`joined`', 'Joined #I2 zephyr-2.', 'never takes a new card']) {
+    assert.ok(webBullet.includes(part), part);
+  }
+  for (const part of ['`auto_join` on is running', 'Joined #I2 zephyr-2.', 'never takes a new card']) {
+    assert.ok(docsGroups.includes(part), part);
+  }
+});

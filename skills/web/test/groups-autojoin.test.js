@@ -100,6 +100,15 @@ test('a dated group without auto_join never takes a new card, and a card with no
   });
 });
 
+test('editing a card joins nothing: only creation takes a card into a running group', async () => {
+  const dir = tmpBoard({ '.groups/_0001.now.md': group('_1', 'now', { start: local(-1), end: local(1), auto: true }) });
+  await withServer(dir, async (base) => {
+    const res = await fetch(`${base}/api/cards/3`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ priority: 'High' }) });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(members(dir, '_0001.now.md'), '[]');
+  });
+});
+
 test('a board with no groups: line creates cards as before', async () => {
   const dir = tmpBoard({}, 'name: t\n');
   await withServer(dir, async (base) => {
