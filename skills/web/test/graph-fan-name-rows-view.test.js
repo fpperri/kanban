@@ -217,7 +217,7 @@ test('a named card with no room keeps its id label: no graph-placed, no leader, 
     const got = drawnOf(node);
     assert.ok(got.named && !got.placed && !got.called, `card ${id}`);
     assert.strictEqual(got.d, '', `card ${id} has no leader`);
-    assert.strictEqual(got.x, String(s.run(`graphCur.plan.nodes.find((n) => n.id === ${id}).reach`) + 3), `card ${id}: beside its dot`);
+    assert.strictEqual(got.x, String(s.run(`graphCur.plan.nodes.find((n) => n.id === ${JSON.stringify(String(id))}).reach`) + 3), `card ${id}: beside its dot`);
   }
   s.fit(0.3);
   const thin = s.run('graphCur.names');

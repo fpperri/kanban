@@ -36,6 +36,11 @@ function depKey(id) {
   return key === null ? String(id) : key;
 }
 
+// The ids the search let through, in the same form.
+function depSet(ids) {
+  return ids ? new Set([...ids].map(depKey)) : ids;
+}
+
 function depCards(cards) {
   const canonical = (c) => c.id === depKey(c.id) && (c.waiting_for || []).every((w) => w === depKey(w));
   if (cards.every(canonical)) return cards;
@@ -95,8 +100,9 @@ function isCardWaiting(c, byId) {
 // sequencing: a parent edge gets the same ghost-stub courtesy but never makes
 // anyone `waiting`. A self-parent is nonsense and adds no edge; a dangling parent
 // id ghosts as missing, same as a dangling dep.
-function buildDependencyGraph(cardList, visibleIds, ctx) {
+function buildDependencyGraph(cardList, visibleList, ctx) {
   const cards = depCards(cardList);
+  const visibleIds = depSet(visibleList);
   const byId = new Map(cards.map((c) => [c.id, c]));
   // A ghost placeholder from a dangling reference has no card behind it, so
   // "visible" must require actual existence — not just query-membership —
@@ -301,8 +307,9 @@ function pathIds(cardList, rawId, ctx) {
 // on another board is one stub per mention, with an id that is no id and no card
 // can have (`ext:board#id`, which is no id). `ends` (see mapParentLineEnds) is read on the whole board, so a filter
 // never moves a line; a pair into a stub has none.
-function buildRelationsGraph(cardList, visibleIds, ctx) {
+function buildRelationsGraph(cardList, visibleList, ctx) {
   const cards = depCards(cardList);
+  const visibleIds = depSet(visibleList);
   const base = buildDependencyGraph(cards, visibleIds, ctx);
   const byId = new Map(cards.map((c) => [c.id, c]));
   const isVisible = (id) => byId.has(id) && (!visibleIds || visibleIds.has(id));

@@ -211,7 +211,7 @@ test('graph-names.js is pure: no page, no measuring in a browser, no clock, no c
   const tail = src.indexOf("if (typeof module !== 'undefined' && module.exports)");
   assert.ok(tail > 0, 'the module ends in the dual-environment tail');
   const body = src.slice(0, tail);
-  for (const banned of [/\bdocument\b/, /\bwindow\./, /getBBox/, /getTotalLength/, /getComputedStyle/, /\bDate\b/, /Math\.random/, /\bperformance\b/, /innerHTML/, /style=/]) {
+  for (const banned of [/\bdocument\b/, /\bwindow\.(?!kanbanIds\b)/, /getBBox/, /getTotalLength/, /getComputedStyle/, /\bDate\b/, /Math\.random/, /\bperformance\b/, /innerHTML/, /style=/]) {
     assert.ok(!banned.test(body), `graph-names.js reads ${banned}`);
   }
   assert.ok(!/style=/.test(src));

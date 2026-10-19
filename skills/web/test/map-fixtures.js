@@ -3,7 +3,7 @@
 // sibling chain ends in one child, and a tree with archived and backlog children.
 
 const card = (id, status, extra = {}) => ({
-  id, title: `card ${id}`, status, archived: false, priority: 'Normal', waiting_for: [], ...extra,
+  id: String(id), title: `card ${id}`, status, archived: false, priority: 'Normal', waiting_for: [], ...extra,
 });
 
 // A nine-child family whose sibling chain ends in one child (19) and starts in

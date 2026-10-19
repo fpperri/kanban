@@ -17,12 +17,12 @@ after(cleanUp);
 const planModel = (opts) => drawnModel(loadBoard('plan'), opts);
 const fanOf = (m) => graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
 const places = (m) => graphFanPlace(m, { statuses: STATUSES }).places;
-const radius = (l, id) => Math.hypot(l.pos.get(id).x, l.pos.get(id).y);
+const radius = (l, id) => Math.hypot(l.pos.get(String(id)).x, l.pos.get(String(id)).y);
 const turnOf = (l, p) => {
   const a = Math.atan2(p.y, p.x);
   return a < l.fan.to - 1e-9 ? a + 2 * Math.PI : a;
 };
-const angleOf = (l, id) => turnOf(l, l.pos.get(id));
+const angleOf = (l, id) => turnOf(l, l.pos.get(String(id)));
 const finiteLayout = (l) => [...l.pos.values()].every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
   && Object.values(l.bounds).every(Number.isFinite);
 const kidsOf = (root, n, first) => Array.from({ length: n }, (_, i) => card(first + i, { parent: root }));
@@ -87,8 +87,8 @@ test('fan: without a hierarchy the bands are the depth rings in depth order, and
   const radii = ['1', '2', '4'].map((id) => radius(l, id));
   assert.deepStrictEqual(radii, [...radii].sort((a, b) => a - b));
   assert.ok(Math.abs(radius(l, 2) - radius(l, 3)) < 1e-9, 'siblings share a ring');
-  for (const id of [5, 6]) assert.ok(radius(l, id) > l.bands[2].r1, `loose card ${id} is outside the rings`);
-  assert.deepStrictEqual(l.block.columns.map((c) => c.ids), [[5, 6]]);
+  for (const id of ['5', '6']) assert.ok(radius(l, id) > l.bands[2].r1, `loose card ${id} is outside the rings`);
+  assert.deepStrictEqual(l.block.columns.map((c) => c.ids), [['5', '6']]);
 });
 
 // --- sectors ---------------------------------------------------------------------------
@@ -198,12 +198,12 @@ test('fan: an archived card stays out of the fan until the Archive status pill s
     return { m, l: fanOf(m) };
   };
   const hidden = fanWith(false);
-  for (const id of [19, 20, 21]) assert.ok(!hidden.l.pos.has(id), `archived card ${id} is not drawn`);
+  for (const id of ['19', '20', '21']) assert.ok(!hidden.l.pos.has(id), `archived card ${id} is not drawn`);
   const shown = fanWith(true);
   for (const id of ['19', '20', '21']) assert.ok(shown.l.pos.has(id), `archived card ${id} is drawn`);
   assert.ok(Math.abs(radius(shown.l, 19) - radius(shown.l, 8)) < 1e-6, 'archived 19 is at depth 2, on the ring of card 8');
   assert.deepStrictEqual(shown.l.block.columns.map((c) => c.label), ['backlog', 'todo', 'doing', 'done', 'archived']);
-  assert.deepStrictEqual(shown.l.block.columns[4].ids, [20, 21]);
+  assert.deepStrictEqual(shown.l.block.columns[4].ids, ['20', '21']);
 });
 
 // --- the Unnested block ------------------------------------------------------------------
@@ -267,7 +267,7 @@ test('fan: 150 siblings under one root keep neighbours on their ring apart', () 
   const m = buildOf([card(1), ...kidsOf(1, 150, 2)], []);
   const l = fanOf(m);
   assert.ok(finiteLayout(l));
-  const kids = m.nodes.filter((n) => n.parentId === 1).map((n) => l.pos.get(n.id));
+  const kids = m.nodes.filter((n) => n.parentId === '1').map((n) => l.pos.get(n.id));
   kids.sort((p, q) => turnOf(l, q) - turnOf(l, p));
   for (let i = 0; i + 1 < kids.length; i++) assert.ok(Math.hypot(kids[i].x - kids[i + 1].x, kids[i].y - kids[i + 1].y) >= 14, `gap ${i}`);
 });
@@ -335,7 +335,7 @@ test('fan: the icon a type draws with moves no dot, so editing it does not redra
   const round = layout([{ name: 'goal', color: '' }, { name: 'epic', color: '' }]);
   assert.deepStrictEqual([...star.pos], [...round.pos]);
   const m = graphBuild(cards, { ctx: CTX, hierarchy: HIERARCHY });
-  const kids = m.nodes.filter((n) => n.parentId === 1).map((n) => star.pos.get(n.id));
+  const kids = m.nodes.filter((n) => n.parentId === '1').map((n) => star.pos.get(n.id));
   kids.sort((p, q) => turnOf(star, q) - turnOf(star, p));
   const starReach = 1.4 * graphRadius(m.byId.get('2'));
   for (let i = 0; i + 1 < kids.length; i++) assert.ok(Math.hypot(kids[i].x - kids[i + 1].x, kids[i].y - kids[i + 1].y) >= 2 * starReach, `stars ${i} and ${i + 1} do not touch`);

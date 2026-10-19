@@ -154,7 +154,7 @@ test('drawing: a divider stops short of a mark that stands on it, and carries on
   const spoke = l.spokes[0];
   const middle = (l.bands[0].r0 + l.bands[0].r1) / 2;
   const pos = new Map(l.pos);
-  pos.set(2, { x: Math.cos(spoke.angle) * middle, y: Math.sin(spoke.angle) * middle });
+  pos.set('2', { x: Math.cos(spoke.angle) * middle, y: Math.sin(spoke.angle) * middle });
   const moved = { ...l, pos };
   const plan = graphPlan(m, moved, OPTS);
   assert.strictEqual(plan.dividers.length, 2, 'the divider is in two pieces');
@@ -201,7 +201,7 @@ test('drawing: the Unnested block\'s box lies wholly outside the fan\'s rim, wit
 test('drawing: the block has a column for each status, in the board\'s order, and each holds exactly the loose cards without a tier in that status', () => {
   const plan = planOf(planModel());
   const want = unnested(planBoard);
-  assert.deepStrictEqual(want.map((c) => c.id).sort((a, b) => a - b), PLAN.block, 'the fixture\'s own list');
+  assert.deepStrictEqual(want.map((c) => Number(c.id)).sort((a, b) => a - b), PLAN.block, 'the fixture\'s own list');
   assert.deepStrictEqual(plan.block.columns.map((c) => c.label), STATUSES);
   for (const col of plan.block.columns) {
     assert.deepStrictEqual(col.ids.slice().sort((a, b) => a - b), want.filter((c) => c.status === col.label).map((c) => c.id).sort((a, b) => a - b), col.label);

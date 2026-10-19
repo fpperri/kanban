@@ -56,7 +56,7 @@ test('a parent id with no card is a "not found" stub, and each child keeps its o
   const rel = buildRelationsGraph([card(2, 'todo', { parent: 99 }), card(3, 'todo', { parent: 99 })], null, CTX);
   assert.deepStrictEqual(pairKeys(rel), ['2>99', '3>99']);
   assert.strictEqual(rel.ghosts.length, 1);
-  assert.strictEqual(rel.ghosts[0].id, 99);
+  assert.strictEqual(rel.ghosts[0].id, '99');
   assert.strictEqual(rel.ghosts[0].missing, true);
   assert.strictEqual(rel.pairs[0].ends, null);
 });
@@ -69,8 +69,8 @@ test('a parent on another board is one stub named by its mention, shared by ever
   ], null, CTX);
   assert.deepStrictEqual(rel.ghosts.map((g) => g.external).sort(), ['shop#7', 'shop#8']);
   const stub = (ref) => rel.ghosts.find((g) => g.external === ref);
-  assert.ok(stub('shop#7').id < 0, 'a stub has an id no card can have');
-  assert.deepStrictEqual(rel.pairs.filter((p) => p.parent === stub('shop#7').id).map((p) => p.child), [2, 3]);
+  assert.strictEqual(stub('shop#7').id, 'ext:shop#7', 'a stub has an id no card can have: it is no id');
+  assert.deepStrictEqual(rel.pairs.filter((p) => p.parent === stub('shop#7').id).map((p) => p.child), ['2', '3']);
   assert.ok(rel.pairs.every((p) => p.ends === null));
 });
 
@@ -86,7 +86,7 @@ test('which children end a family is read on the whole board, so hiding a siblin
   const rel = buildRelationsGraph(cards, visible, CTX);
   const end = rel.pairs.filter((p) => p.ends.below).map((p) => p.child);
   assert.deepStrictEqual(end, ['19'], 'the one child that ends the chain is a stub here, and still the one');
-  assert.deepStrictEqual(ids(rel.ghosts).includes(19), true);
+  assert.deepStrictEqual(ids(rel.ghosts).includes('19'), true);
 });
 
 test('a dependency between a child and its parent is an edge and still a pair', () => {

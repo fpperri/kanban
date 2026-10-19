@@ -52,7 +52,7 @@ test('relevant, with Unnested on the outermost ring, depth 0 or the table: the f
   for (const unnested of ['outermost', 'depth 0', 'table']) {
     const { model, plan } = fanOf({ names: 'relevant', unnested });
     assert.strictEqual(model.nodes.length, 26, unnested);
-    assert.deepStrictEqual(named(plan), [1, 2, 7, 22, 23], unnested);
+    assert.deepStrictEqual(named(plan), ['1', '2', '7', '22', '23'], unnested);
   }
 });
 

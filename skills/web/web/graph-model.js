@@ -163,7 +163,7 @@ function graphUnnestedIds(cards, opts) {
 // unnested (no parent, no children) and have no tier are not drawn, and neither is
 // any relation that joined one to a drawn card. Any other value draws them.
 function graphBuild(cards, opts) {
-  const visibleIds = (opts && opts.visibleIds) || null;
+  const visibleIds = opts && opts.visibleIds ? new Set([...opts.visibleIds].map(graphKey)) : null;
   const types = (opts && opts.types) || null;
   const { ctx, pool, whole, slices, nesting } = graphBoardOf(cards, opts);
   const { nested, siblings, parentIn } = nesting;

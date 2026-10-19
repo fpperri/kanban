@@ -144,7 +144,7 @@ test('folded gives an end in a real chain its own line, and the other children o
   const lines = linesOf(model, { lines: 'folded' });
   assert.deepStrictEqual(parentLines(lines), ['1*[5,6]', '1>2', '1>4', '2*[7,8]']);
   const counted = lines.filter((l) => l.kids);
-  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.link]), [[2, 2, 2, null], [1, 1, 2, null]], 'both ends the parent, and the number of children it carries');
+  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.link]), [['2', '2', 2, null], ['1', '1', 2, null]], 'both ends the parent, and the number of children it carries');
 });
 
 test('folded keeps a card that is alone on its ring on its own line: only children on one ring share', () => {
@@ -160,7 +160,7 @@ test('folded gives each parent its own counted line, and counts the children it 
     card(3, { parent: 1 }), card(4, { parent: 1 }), card(5, { parent: 1 }), card(6, { parent: 2 }), card(7, { parent: 2 }),
   ]);
   const counted = linesOf(model, { lines: 'folded' }).filter((l) => l.kids);
-  assert.deepStrictEqual(counted.map((l) => [l.from, l.kids, l.count]), [[1, [3, 4, 5], 3], [2, [6, 7], 2]]);
+  assert.deepStrictEqual(counted.map((l) => [l.from, l.kids, l.count]), [['1', ['3', '4', '5'], 3], ['2', ['6', '7'], 2]]);
 });
 
 test('folded never gives a line to a child that is not a chain end, and the lines of chain are the most it ever draws', () => {
@@ -184,7 +184,7 @@ test('the lines come in the order of the model\'s relations, and the same option
   const lines = linesOf(model, { lines: 'folded' });
   assert.deepStrictEqual(lines, linesOf(model, { lines: 'folded' }));
   assert.deepStrictEqual(lines.map((l) => [l.kind, l.from, l.to]), [
-    ['parent', 1, 2], ['parent', 2, 2], ['wait', 5, 8], ['parent', 1, 4], ['wait', 3, 4], ['parent', 1, 1],
+    ['parent', '1', '2'], ['parent', '2', '2'], ['wait', '5', '8'], ['parent', '1', '4'], ['wait', '3', '4'], ['parent', '1', '1'],
   ]);
   const own = lines.filter((l) => l.link !== null);
   assert.ok(own.every((l, i) => i === 0 || l.link > own[i - 1].link));
@@ -245,7 +245,7 @@ test('order rank seats siblings in the outline\'s own order, by rank', () => {
 
 test('the two orders differ, each is deterministic, and each matches the Map\'s row order for the same cards', () => {
   const model = siblings();
-  const groups = [[2, 3, 4, 5, 6], [7, 8], [20, 21, 22]];
+  const groups = [['2', '3', '4', '5', '6'], ['7', '8'], ['20', '21', '22']];
   for (const ids of groups) {
     const status = seats(model, 'status', ids);
     const rank = seats(model, 'rank', ids);
@@ -258,13 +258,13 @@ test('the two orders differ, each is deterministic, and each matches the Map\'s 
 
 test('order status is the default, and an unknown order reads as it', () => {
   const model = siblings();
-  const ids = [2, 3, 4, 5, 6];
+  const ids = ['2', '3', '4', '5', '6'];
   const by = (opts) => {
     const layout = graphLayout(model, 'tiers', opts);
     return ids.slice().sort((a, b) => layout.polar.get(b).a - layout.polar.get(a).a);
   };
-  assert.deepStrictEqual(by({ statuses: STATUSES }), [4, 6, 5, 3, 2]);
-  assert.deepStrictEqual(by({ statuses: STATUSES, order: 'layout' }), [4, 6, 5, 3, 2]);
+  assert.deepStrictEqual(by({ statuses: STATUSES }), ['4', '6', '5', '3', '2']);
+  assert.deepStrictEqual(by({ statuses: STATUSES, order: 'layout' }), ['4', '6', '5', '3', '2']);
 });
 
 test('the order moves siblings within their own stretch and nothing else: every card keeps its band, ring and sector', () => {

@@ -9,7 +9,7 @@ const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 function shape(cards, options = {}, visible = null) {
   return mapShapeRelations(buildRelationsGraph(cards, visible, CTX), { ...MAP_OPTION_DEFAULTS, ...options });
 }
-const idsOf = (graph) => [...graph.ids].sort((a, b) => a - b);
+const idsOf = (graph) => [...graph.ids].map(Number).sort((a, b) => a - b);
 
 // Two real trees and a loose chain, as one board holds them side by side.
 const board = () => [
@@ -30,7 +30,7 @@ test('one graph per tree, the biggest first', () => {
 
 test('trees of the same size come in order of their lowest card', () => {
   const view = shape([card(9, 'todo'), card(10, 'todo', { parent: 9 }), card(3, 'todo'), card(4, 'todo', { parent: 3 })]);
-  assert.deepStrictEqual(view.graphs.map(idsOf), [['3', '4'], ['9', '10']]);
+  assert.deepStrictEqual(view.graphs.map(idsOf), [[3, 4], [9, 10]]);
 });
 
 test('the one-graph choice holds every related card in a single graph', () => {
@@ -41,9 +41,9 @@ test('the one-graph choice holds every related card in a single graph', () => {
 
 test('a graph carries only its own edges, lines and layout edges', () => {
   const view = shape(board());
-  const family = view.graphs.find((g) => g.ids.includes(10));
+  const family = view.graphs.find((g) => g.ids.includes('10'));
   assert.ok(family.edges.every((e) => family.ids.includes(e.from) && family.ids.includes(e.to)));
-  assert.deepStrictEqual(family.lines.map((l) => l.child), [19]);
+  assert.deepStrictEqual(family.lines.map((l) => l.child), ['19']);
   assert.ok(family.layoutEdges.every((e) => family.ids.includes(e.from) && family.ids.includes(e.to)));
   assert.strictEqual(view.graphs.flatMap((g) => g.edges).length, 12 + 8 + 1);
 });

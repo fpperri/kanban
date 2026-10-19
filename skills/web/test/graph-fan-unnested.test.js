@@ -37,17 +37,17 @@ const cards = () => [
   card(10, { status: 'todo', parent: 11 }),
 ];
 const build = (extra = {}) => graphBuild(cards(), { ctx: CTX, hierarchy: HIERARCHY, ...extra });
-const ids = (m) => m.nodes.map((n) => n.id).sort((a, b) => a - b);
+const ids = (m) => m.nodes.map((n) => Number(n.id)).sort((a, b) => a - b);
 const rel = (m) => m.links.map((l) => `${l.from}${l.kind === 'wait' ? '~' : '>'}${l.to}`).sort();
 
 // --- off ------------------------------------------------------------------------------------------
 
 test('off: the model leaves out every card with no relative and no tier, archived or not, and the relations that joined them to a drawn card', () => {
   const all = build();
-  assert.deepStrictEqual(ids(all), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], 'asked for nothing, the model draws every card');
+  assert.deepStrictEqual(ids(all), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 'asked for nothing, the model draws every card');
   assert.deepStrictEqual(rel(all), ['1>2', '2>3', '2~6', '5~3']);
   const off = build({ unnested: 'off' });
-  assert.deepStrictEqual(ids(off), ['1', '2', '3', '4'], 'the tree and the loose card with a tier stay');
+  assert.deepStrictEqual(ids(off), [1, 2, 3, 4], 'the tree and the loose card with a tier stay');
   assert.deepStrictEqual(rel(off), ['1>2', '2>3'], 'no relation to a card that is not drawn');
 });
 
@@ -67,19 +67,19 @@ test('off: what a card is does not change with its neighbours leaving: it stays 
 
 test('off: any other mode, or none, draws the cards: only off hides them', () => {
   for (const unnested of ['outermost', 'depth 0', 'table', undefined, 'every']) {
-    assert.deepStrictEqual(ids(build({ unnested })), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], String(unnested));
+    assert.deepStrictEqual(ids(build({ unnested })), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], String(unnested));
   }
 });
 
 test('off: a card the search or a status pill hides is not drawn either way, and one that is drawn but unnested leaves', () => {
   const off = build({ unnested: 'off', visibleIds: new Set(['1', '2', '3', '5', '6']) });
-  assert.deepStrictEqual(ids(off), ['1', '2', '3']);
+  assert.deepStrictEqual(ids(off), [1, 2, 3]);
   assert.deepStrictEqual(rel(off), ['1>2', '2>3']);
 });
 
 test('off: a card whose only relative is hidden is still nested, so hiding the relative never moves it into the cards that off leaves out', () => {
   const m = build({ unnested: 'off', visibleIds: new Set(['1', '3', '4', '5']) });
-  assert.deepStrictEqual(ids(m), ['1', '3', '4'], 'card 2 is hidden by the search, card 3 keeps its place in the tree and card 5 goes');
+  assert.deepStrictEqual(ids(m), [1, 3, 4], 'card 2 is hidden by the search, card 3 keeps its place in the tree and card 5 goes');
 });
 
 test('graphUnnestedIds: the cards with no parent, no children and no tier on the whole board, whatever is drawn', () => {
@@ -107,7 +107,7 @@ test('graphUnnestedIds is what off leaves out, on the plan board and a board wit
 const place = (m, unnested) => graphFanPlace(m, { statuses: STATUSES, unnested });
 const bandName = (b) => (b.slice.kind === 'tier' ? b.slice.name : `depth ${b.slice.depth}`);
 const bandNames = (p) => p.bands.map(bandName);
-const radius = (l, id) => Math.hypot(l.pos.get(id).x, l.pos.get(id).y);
+const radius = (l, id) => Math.hypot(l.pos.get(String(id)).x, l.pos.get(String(id)).y);
 const turnOf = (l, p) => {
   const a = Math.atan2(p.y, p.x);
   return a < l.fan.to - 1e-9 ? a + 2 * Math.PI : a;
@@ -120,7 +120,7 @@ test('depth 0: the cards go on the depth 0 ring, which the axis puts after the t
   assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1', 'depth 2']);
   assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 0, 0, 1, 6, 1, 1], 'the six cards are the depth 0 ring\'s own');
   const ring = there.bands.find((b) => b.slice.kind === 'depth' && b.slice.depth === 0);
-  for (const id of [5, 6, 7, 8, 9, 10]) {
+  for (const id of ['5', '6', '7', '8', '9', '10']) {
     const at = there.places.get(id);
     assert.strictEqual(at.block, null, `card ${id} is in no block`);
     assert.strictEqual(at.band, ring.index, `card ${id} is in the depth 0 band`);
@@ -294,7 +294,7 @@ const clearOfCaption = (m, l) => {
 test('outermost leaves the room for its caption: no dot of the ring is under the text, however many cards crowd the ring', () => {
   const plan = drawnModel(loadBoard('plan'));
   assert.deepStrictEqual(clearOfCaption(plan, outermost(plan)), []);
-  for (const n of [1, 3, 8, 40, 150, 600]) {
+  for (const n of ['1', '3', '8', '40', '150', '600']) {
     const crowd = Array.from({ length: n }, (_, i) => card(i + 1, { status: STATUSES[i % STATUSES.length] }));
     const m = graphBuild(crowd, { ctx: CTX, hierarchy: [] });
     assert.deepStrictEqual(clearOfCaption(m, outermost(m)), [], `${n} cards`);

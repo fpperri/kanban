@@ -36,7 +36,7 @@ test('with layout keep, no line toggle moves a card', () => {
 test('with layout reflow, only the lines drawn place the cards', () => {
   const cards = familyChainingToOneEnd();
   const layers = layersOf(shape(cards, { relayout: 'reflow', parentLines: 'off', depLines: 'off' }));
-  assert.deepStrictEqual(new Set(Object.values(layers)), new Set(['0']), 'with nothing drawn every card sits in the first row');
+  assert.deepStrictEqual(new Set(Object.values(layers)), new Set([0]), 'with nothing drawn every card sits in the first row');
   const chainOnly = layersOf(shape(cards, { relayout: 'reflow', parentLines: 'chain', depLines: 'off' }));
   assert.deepStrictEqual(chainOnly[10], 1);
   assert.deepStrictEqual(chainOnly[19], 0);

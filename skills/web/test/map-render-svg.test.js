@@ -45,6 +45,7 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
         return el;
       },
     },
+    kanbanIds: require('../web/ids'),
     escapeHtml: badges.escapeHtml,
     cardTitleDisplay: cardTitle.cardTitleDisplay,
     priorityBadge: priority.priorityBadge,

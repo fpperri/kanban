@@ -28,7 +28,7 @@ test('place: each card sits in the band of its slice, the slice function of the 
   const { places } = graphFanPlace(m, { statuses: STATUSES });
   assert.ok(m.nodes.length > 20);
   for (const n of m.nodes) assert.strictEqual(places.get(n.id).band, slices.byId.get(n.id).index, `card ${n.id}`);
-  assert.deepStrictEqual([1, 2, 7, 22].map((id) => places.get(id).band), [0, 1, 2, 3], 'one band per tier, tier 1 first');
+  assert.deepStrictEqual(['1', '2', '7', '22'].map((id) => places.get(id).band), [0, 1, 2, 3], 'one band per tier, tier 1 first');
 });
 
 test('place: a hidden or an archived parent never moves a card to another band', () => {
@@ -78,7 +78,7 @@ test('place: a card whose type is outside the hierarchy sits in the ring of its 
   const m = planModel();
   const { places } = graphFanPlace(m, { statuses: STATUSES });
   const axis = m.axis;
-  assert.deepStrictEqual([23, 24].map((id) => axis[places.get(id).band].depth), [4, 5], 'a story and a task, by depth');
+  assert.deepStrictEqual(['23', '24'].map((id) => axis[places.get(id).band].depth), [4, 5], 'a story and a task, by depth');
   assert.strictEqual(axis[places.get('23').band].kind, 'depth');
   assert.strictEqual(places.get('23').block, null, 'a nested card is never in the Unnested block');
 });
@@ -86,7 +86,7 @@ test('place: a card whose type is outside the hierarchy sits in the ring of its 
 test('place: a card of the same tier nested under its own tier takes the next ring of that band, so the two never share a ring', () => {
   const m = buildOf([card(1, { type: 'epic' }), card(2, { type: 'epic', parent: 1 }), card(3, { type: 'epic', parent: 2 }), card(4, { type: 'epic', parent: 1 })], ['epic']);
   const { places, bands } = graphFanPlace(m, { statuses: STATUSES });
-  assert.deepStrictEqual([1, 2, 3, 4].map((id) => places.get(id).sub), [0, 1, 2, 1]);
+  assert.deepStrictEqual(['1', '2', '3', '4'].map((id) => places.get(id).sub), [0, 1, 2, 1]);
   assert.deepStrictEqual(bands.map((b) => [b.count, b.subs]), [[4, 3]]);
 });
 
@@ -97,31 +97,31 @@ test('place: each root with the cards nested under it takes its own sector, in o
     card(1), card(2, { parent: 1 }), card(3, { parent: 2 }), card(4), card(5, { parent: 4 }), card(6, { parent: 4 }), card(7, { parent: 99 }),
   ], []);
   const { places, sectors } = graphFanPlace(m, { statuses: STATUSES });
-  assert.deepStrictEqual(sectors.map((s) => [s.kind, s.rootId, s.leaves]), [['tree', 1, 1], ['tree', 4, 2]]);
-  assert.deepStrictEqual([1, 2, 3, 4, 5, 6].map((id) => places.get(id).sector), [0, 0, 0, 1, 1, 1]);
+  assert.deepStrictEqual(sectors.map((s) => [s.kind, s.rootId, s.leaves]), [['tree', '1', 1], ['tree', '4', 2]]);
+  assert.deepStrictEqual(['1', '2', '3', '4', '5', '6'].map((id) => places.get(id).sector), [0, 0, 0, 1, 1, 1]);
   assert.strictEqual(places.get('7').sector, null, 'a card with a parent that is not on the board and no children is loose');
   assert.strictEqual(places.get('7').block, 'todo');
 });
 
 test('place: loose cards with a tier share one sector of their own, after the trees', () => {
   const { places, sectors } = graphFanPlace(planModel(), { statuses: STATUSES });
-  assert.deepStrictEqual(sectors.map((s) => [s.kind, s.rootId]), [['tree', 1], ['loose', null]]);
-  assert.deepStrictEqual(sectors[1].tops, [26]);
+  assert.deepStrictEqual(sectors.map((s) => [s.kind, s.rootId]), [['tree', '1'], ['loose', null]]);
+  assert.deepStrictEqual(sectors[1].tops, ['26']);
   assert.strictEqual(places.get('26').sector, 1);
   assert.strictEqual(places.get('26').block, null);
   const two = graphFanPlace(buildOf([card(1, { type: 'goal' }), card(2, { type: 'epic' }), card(3, { type: 'goal' }), card(4, { parent: 3 })], HIERARCHY), { statuses: STATUSES });
-  assert.deepStrictEqual(two.sectors.map((s) => [s.kind, s.tops]), [['tree', [3]], ['loose', [1, 2]]]);
+  assert.deepStrictEqual(two.sectors.map((s) => [s.kind, s.tops]), [['tree', ['3']], ['loose', ['1', '2']]]);
   assert.strictEqual(two.places.get('1').sector, two.places.get('2').sector);
 });
 
 test('place: a card that is nested on the board stays in its tree, not the loose sector or the block, when its relatives are hidden', () => {
   const board = load('plan');
-  const m = drawnModel(board, { visible: board.live.map((c) => c.id).filter((id) => ![2, 3, 4, 5, 6].includes(id)) });
+  const m = drawnModel(board, { visible: board.live.map((c) => c.id).filter((id) => !['2', '3', '4', '5', '6'].includes(id)) });
   const { places, sectors } = graphFanPlace(m, { statuses: STATUSES });
   assert.strictEqual(m.byId.get('1').kids, 0, 'no child of card 1 is drawn');
   assert.strictEqual(sectors[places.get('1').sector].kind, 'tree', 'card 1 still has children on the board');
   assert.strictEqual(places.get('1').block, null);
-  const bare = buildOf([card(1), card(2, { parent: 1 }), card(3), card(4, { parent: 5 })], [], [1, 3, 4]);
+  const bare = buildOf([card(1), card(2, { parent: 1 }), card(3), card(4, { parent: 5 })], [], ['1', '3', '4']);
   const bare1 = graphFanPlace(bare, { statuses: STATUSES });
   assert.strictEqual(bare1.places.get('1').block, null, 'a parent whose only child is hidden is not in the Unnested block');
   assert.strictEqual(bare1.sectors[bare1.places.get('1').sector].kind, 'tree');
@@ -132,7 +132,7 @@ test('place: a card that is nested on the board stays in its tree, not the loose
 test('place: loose cards with no tier fall in the Unnested block, grouped by status in the board\'s order', () => {
   const { places, columns } = graphFanPlace(planModel(), { statuses: STATUSES });
   assert.deepStrictEqual(columns.map((c) => [c.label, c.ids]), [
-    ['backlog', [11, 14, 18, 28]], ['todo', [10, 13, 17, 27]], ['doing', [9, 15]], ['done', [12, 16, 29]],
+    ['backlog', ['11', '14', '18', '28']], ['todo', ['10', '13', '17', '27']], ['doing', ['9', '15']], ['done', ['12', '16', '29']],
   ]);
   for (const c of columns) for (const id of c.ids) {
     assert.strictEqual(places.get(id).block, c.label, `card ${id}`);

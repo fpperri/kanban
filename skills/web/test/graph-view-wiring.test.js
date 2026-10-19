@@ -75,19 +75,19 @@ test('every focusable control carries graph-control', () => {
 
 test('app.css defines every .graph-* class the plan, the view and the key emit', () => {
   const cards = [
-    { id: '1', title: 'a', status: 'doing', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
-    { id: '2', title: 'b', status: 'done', archived: true, parent: 1, waiting_for: ['3'], blocked: true, review: true },
-    { id: '3', title: 'c', status: 'todo', archived: false, parent: 1, waiting_for: [], blocked: false, review: false },
-    { id: '4', title: 'd', status: 'todo', archived: false, parent: 1, waiting_for: ['3'], blocked: false, review: false },
-    { id: '5', title: 'e', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
-    { id: '6', title: 'f', status: 'todo', archived: false, parent: 5, waiting_for: [], blocked: false, review: false },
-    { id: '7', title: 'g', status: 'done', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
+    { id: 1, title: 'a', status: 'doing', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
+    { id: 2, title: 'b', status: 'done', archived: true, parent: 1, waiting_for: [3], blocked: true, review: true },
+    { id: 3, title: 'c', status: 'todo', archived: false, parent: 1, waiting_for: [], blocked: false, review: false },
+    { id: 4, title: 'd', status: 'todo', archived: false, parent: 1, waiting_for: [3], blocked: false, review: false },
+    { id: 5, title: 'e', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
+    { id: 6, title: 'f', status: 'todo', archived: false, parent: 5, waiting_for: [], blocked: false, review: false },
+    { id: 7, title: 'g', status: 'done', archived: false, parent: null, waiting_for: [], blocked: false, review: false },
   ];
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] } });
   const used = new Set();
   for (const kind of GRAPH_LAYOUTS) {
     const plan = graphPlan(model, graphLayout(model, kind, { statuses: ['todo', 'doing', 'done'] }), {
-      selectedIds: new Set(['1']), hoveredId: 3, kind, statusClass: (s) => s, titleOf: (c) => c.title,
+      selectedIds: new Set([1]), hoveredId: 3, kind, statusClass: (s) => s, titleOf: (c) => c.title,
     });
     // The fan's marks: guide arcs, captions, the loose caption, the block's frame, title and column captions.
     const fan = [...plan.guides, ...plan.captions, ...(plan.looseCaption ? [plan.looseCaption] : []),
@@ -156,7 +156,7 @@ test('a click on a node is caught in the capture phase whatever the modifier, wr
   assert.doesNotMatch(m[0], /ctrlKey|metaKey|shiftKey/, 'no modifier lets a click fall through to the shared grammar');
   assert.match(m[0], /closest\('\.graph-node'\)/);
   assert.match(m[0], /e\.stopPropagation\(\)/);
-  assert.match(m[0], /graphClickNode\(Number\(node\.dataset\.id\), e\)/);
+  assert.match(m[0], /graphClickNode\(node\.dataset\.id, e\)/);
   const click = fn('graphClickNode');
   assert.match(click, /plainClick: plainClickBehaviour\('graph'\), ranges: shiftAddsRange\('graph'\)/, 'the Graph asks the lookups for its own answers');
   assert.match(click, /selectByClick\(action, id\)/, 'the selection is written through the step the shared grammar uses');
@@ -167,10 +167,10 @@ test('a click on a node is caught in the capture phase whatever the modifier, wr
 
 test('a double click opens the card, Enter opens and Space selects', () => {
   const body = fn('wireGraphView');
-  assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(Number\(node\.dataset\.id\)\)/);
+  assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(node\.dataset\.id\)/);
   assert.match(body, /host\.addEventListener\('keydown'/);
   assert.match(body, /e\.key === 'Enter'\) \{ e\.preventDefault\(\); if \(!e\.repeat\) openCard\(/);
-  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(Number\(node\.dataset\.id\), \{\}\); \}/, 'Space acts as a plain click');
+  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(node\.dataset\.id, \{\}\); \}/, 'Space acts as a plain click');
 });
 
 test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {
@@ -260,11 +260,11 @@ function drawn(cards, types) {
   const all = [];
   const walk = (el) => { all.push(el); el.children.forEach(walk); };
   walk(out.stage);
-  const nodeOf = (id) => out.nodeEls.get(id);
-  return { plan, all, nodeOf, node: (id) => plan.nodes.find((n) => n.id === id) };
+  const nodeOf = (id) => out.nodeEls.get(String(id));
+  return { plan, all, nodeOf, node: (id) => plan.nodes.find((n) => n.id === String(id)) };
 }
 
-const iconCard = (id, extra = {}) => ({ id, title: `t${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra });
+const iconCard = (id, extra = {}) => ({ id: String(id), title: `t${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra });
 const kids = (el, cls) => el.children.filter((c) => c.attrs.class === cls);
 
 test('a node of a type with an icon draws its dot as a path in that outline, keeping the dot class', () => {
