@@ -693,7 +693,8 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'waiting') {
       if (!memo.waiting) {
-        const byId = new Map(cards.map((c) => [searchKey(c.id), c]));
+        // Only a real card resolves a waiting_for entry: a queued card (`n1`) is not one.
+        const byId = new Map(cards.filter((c) => SEARCH_IDS.idKey(c.id) !== null).map((c) => [SEARCH_IDS.idKey(c.id), c]));
         memo.waiting = new Set(cards.filter((c) => WBS.unresolvedWaits(c.waiting_for, byId).length > 0).map((c) => searchKey(c.id)));
       }
       next = { field: 'ids', value: term.value, ids: memo.waiting };

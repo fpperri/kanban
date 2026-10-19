@@ -153,14 +153,14 @@ function pollSandbox(unseenStep) {
     return c && c.attached && sel === `.${c.classList[0]}[data-${key}="${c.dataset[key]}"]` ? c : null;
   };
   const sandbox = {
-    document: doc, state: {}, selectedIds: new Set(), hoveredId: null,
+    document: doc, kanbanIds: require('../web/ids'), state: {}, selectedIds: new Set(), hoveredId: null,
     applyProjectName() {}, applyHomeUrl() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
     setHoveredId: (id) => id, renderBoard() {},
     shouldSkipAutoRefresh: policy.shouldSkipAutoRefresh, isDragging: false, pendingDrops: 0,
     fetchBoard: async () => ({ active: [], archived: [] }), setStale() {},
   };
   vm.createContext(sandbox);
-  const names = ['boardControlFocused', 'refocusSelector', 'keepControlFocus', 'focusedRebuiltControl', 'applyBoardData', 'anyModalOpen', 'autoRefreshSkipState', 'autoRefreshTick'];
+  const names = ['pageId', 'pageCard', 'boardControlFocused', 'refocusSelector', 'keepControlFocus', 'focusedRebuiltControl', 'applyBoardData', 'anyModalOpen', 'autoRefreshSkipState', 'autoRefreshTick'];
   const pillConst = appSrc.match(/const REFOCUS_SELECTOR = [^\n]*\n/);
   let code = (pillConst ? pillConst[0] : '') + names.map((n) => (appSrc.includes('function ' + n + '(') ? (appSrc.includes('async function ' + n + '(') ? 'async ' : '') + fn(n) : '')).join('\n');
   if (unseenStep) {

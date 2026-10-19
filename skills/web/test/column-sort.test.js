@@ -164,10 +164,10 @@ test('Outline sort: desc flips the order', () => {
 
 test('Outline sort: a card the index does not know sorts last in both directions; without an index it is id order', () => {
   const cards = [card({ id: '5' }), card({ id: '2' }), card({ id: '9' })];
-  const index = new Map([[9, 0]]);
-  assert.deepStrictEqual(sortCards(cards, OUTLINE_ASC, [], [], index).map((c) => c.id), [9, 2, 5]);
-  assert.deepStrictEqual(sortCards(cards, OUTLINE_DESC, [], [], index).map((c) => c.id), [9, 2, 5]);
-  assert.deepStrictEqual(sortCards(cards, OUTLINE_ASC, [], []).map((c) => c.id), [2, 5, 9]);
+  const index = new Map([['9', 0]]);
+  assert.deepStrictEqual(sortCards(cards, OUTLINE_ASC, [], [], index).map((c) => c.id), ['9', '2', '5']);
+  assert.deepStrictEqual(sortCards(cards, OUTLINE_DESC, [], [], index).map((c) => c.id), ['9', '2', '5']);
+  assert.deepStrictEqual(sortCards(cards, OUTLINE_ASC, [], []).map((c) => c.id), ['2', '5', '9']);
 });
 
 test('Outline is the default only on a nested board; other boards keep priority-desc and Archive id-asc', () => {

@@ -1555,17 +1555,17 @@ test('toJSON carries prompt in the public card shape', () => {
 
 // --- `parent` — the card this one sits under -------------------------------
 
-test('readCardFile parses parent as a number, null when absent or non-numeric; toJSON carries it', () => {
+test('readCardFile parses parent as a whole-id string, null when absent or no id; toJSON carries it', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-'));
   fs.writeFileSync(path.join(dir, '0001.child.card.md'), '---\nid: 1\nstatus: todo\nparent: 42\n---\n\n# Child\n');
   fs.writeFileSync(path.join(dir, '0002.plain.card.md'), '---\nid: 2\nstatus: todo\n---\n\n# Plain\n');
   fs.writeFileSync(path.join(dir, '0003.junk.card.md'), '---\nid: 3\nstatus: todo\nparent: soon\n---\n\n# Junk parent\n');
   const cards = cs.listActive(dir);
   const byId = new Map(cards.map((c) => [c.id, c]));
-  assert.strictEqual(byId.get(1).parent, 42);
+  assert.strictEqual(byId.get(1).parent, '42');
   assert.strictEqual(byId.get(2).parent, null);
   assert.strictEqual(byId.get(3).parent, null, 'tolerant read: non-numeric parent is no membership, never fatal');
-  assert.strictEqual(cs.toJSON(byId.get(1)).parent, 42);
+  assert.strictEqual(cs.toJSON(byId.get(1)).parent, '42');
   assert.strictEqual(cs.toJSON(byId.get(2)).parent, null);
 });
 

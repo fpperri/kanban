@@ -105,7 +105,7 @@ test('a switch between two views that are not the Graph changes nothing', () => 
 // --- the lone card --------------------------------------------------------------------
 
 test('a lone card is a selection that is one card part: the anchor with no additions', () => {
-  assert.strictEqual(loneCard(selectionOf(cardPart(7))), 7);
+  assert.strictEqual(loneCard(selectionOf(cardPart(7))), '7');
   assert.strictEqual(loneCard(NO_SELECTION), null);
   assert.strictEqual(loneCard(selectionOf(cardPart(7), cardPart(8))), null);
 });

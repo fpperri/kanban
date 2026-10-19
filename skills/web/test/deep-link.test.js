@@ -59,10 +59,10 @@ test('missing/unrecognized "view" resolves to view: null — id still parses', (
   assert.deepStrictEqual(parseDeepLink('?card=194&view='), { hasCard: true, id: '194', q: null, view: null, isolate: false });
 });
 
-test('a non-numeric or non-positive-integer "card" value resolves to id: null, not a dropped link', () => {
+test('a "card" value that is no id resolves to id: null, not a dropped link', () => {
   assert.deepStrictEqual(parseDeepLink('?card=abc&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?card=&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?card=0&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=g7&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?card=-3&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?card=3.5&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
 });
@@ -121,6 +121,7 @@ test('the shop status page URL shapes parse', () => {
 
 test('leading zeros / extra params / order do not matter', () => {
   assert.deepStrictEqual(parseDeepLink('?card=007&view=board'), { hasCard: true, id: '7', q: null, view: 'board', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=G7&view=board'), { hasCard: true, id: 'G7', q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?view=board&card=194&extra=1'), { hasCard: true, id: '194', q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?extra=1&q=type%3Aepic&card=5'), { hasCard: true, id: '5', q: 'type:epic', view: null, isolate: false });
 });

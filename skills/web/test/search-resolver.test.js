@@ -36,10 +36,10 @@ test('a context that carries graph functions resolves path: through them and not
   const ctx = {
     graph: {
       treeIds: () => { throw new Error('tree: was not asked for'); },
-      pathIds: (cards, id) => new Set([3, Number(id)]),
+      pathIds: (cards, id) => new Set(['3', String(id)]),
     },
   };
-  assert.deepStrictEqual(ids('path:2', ctx), [2, 3], 'the default graph would have said 1 and 2');
+  assert.deepStrictEqual(ids('path:2', ctx), ['2', '3'], 'the default graph would have said 1 and 2');
 });
 
 test('the graph functions of a context serve tree: and path: in one query, each term on its own function', () => {
