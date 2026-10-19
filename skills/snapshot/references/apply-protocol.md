@@ -25,7 +25,14 @@ file adds the payload-specific rules.
 | archive | `{"op":"archive","id":<id>}` | move file to `archived/` |
 | delete | `{"op":"delete","id":<id>}` | permanent removal (see write mechanics) |
 
-Notes: ids may arrive as strings. `assignee:""` removes the field. `body`
+Notes: an id arrives as a string and is the **whole id**: `{"op":"archive","id":"G3"}`,
+`"id":"7"`, `"id":"_12"`.
+The prefix is part of the identity, so `#7` and `#G7` are two cards; match the
+op's id to the `id:` line of a card file as a whole (a padded `0003` and a plain
+`3` are the same number, `G3` is not `3`), never by its digits alone. Card files
+are named for their id, `0007.<slug>.card.md`, `G0003.<slug>.card.md`,
+`_0012.<slug>.card.md`, but the `id:` line is the source of truth. The editor only
+creates cards without a prefix. `assignee:""` removes the field. `body`
 replaces the card's full markdown body below the `# title` H1 (frontmatter and
 H1 untouched; `""` clears). `create.body` becomes the markdown under the new H1.
 The editor merges duplicate ops (last-wins) before sending, but don't rely on it.
