@@ -62,6 +62,8 @@ test('the form offers no type first, then the folders the board has, and says wh
     { value: '', label: '(no type)' }, { value: 'iteration', label: 'iteration' }, { value: 'workflow', label: 'workflow' }, { value: 'workflow/dynamic', label: 'workflow/dynamic' },
   ]);
   assert.deepStrictEqual(g.groupFolderChoices(null), [{ value: '', label: '(no type)' }]);
+  assert.deepStrictEqual(g.groupFolderChoices({ folders: [''] }, 'iteration'), [{ value: '', label: '(no type)' }, { value: 'iteration', label: 'iteration' }], 'a folder the draft asks for is offered before it exists');
+  assert.deepStrictEqual(g.groupFolderChoices(payload, 'iteration').map((c) => c.value), ['', 'iteration', 'workflow', 'workflow/dynamic'], 'and not twice');
   assert.strictEqual(g.groupPrefixFor(payload, 'iteration'), 'I');
   assert.strictEqual(g.groupPrefixFor(payload, ''), '_');
   assert.strictEqual(g.groupPrefixFor(payload, 'workflow/dynamic'), '_', 'a folder no prefix names takes _');

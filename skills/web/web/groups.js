@@ -64,10 +64,12 @@ function groupRunning(group, day) {
 }
 
 // The folders the form offers: none first (the root), then the rest in order. `payload` is
-// the board's groups ({ folders }).
-function groupFolderChoices(payload) {
-  const folders = (payload && payload.folders) || [];
-  return [{ value: '', label: '(no type)' }].concat(folders.filter((f) => f !== '').map((f) => ({ value: f, label: f })));
+// the board's groups ({ folders }); `also` is a folder the form was asked to start in, offered
+// even when the board has no such folder yet (a first iteration).
+function groupFolderChoices(payload, also = '') {
+  const folders = ((payload && payload.folders) || []).filter((f) => f !== '');
+  if (also && !folders.includes(also)) folders.push(also);
+  return [{ value: '', label: '(no type)' }].concat(folders.map((f) => ({ value: f, label: f })));
 }
 
 // What the form says an id will start with: the prefix the exact folder is mapped to, else `_`.

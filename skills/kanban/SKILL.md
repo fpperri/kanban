@@ -233,6 +233,8 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`groups` — the folder of the board's groups.** `groups: .groups` (relative to the board, or an absolute path written by hand) turns groups on; without the line the board keeps none and you write none. A human writes the line; nothing that services the board invents it. See *Groups: files that list their cards* below.
 
+**`iterations` — the web's iteration dropdown.** `iterations: true` adds a dropdown to the web header over the groups in the `iteration/` folder (a group sitting in exactly that folder, no subtype). It needs the `groups:` line and does nothing without it; it only adds a picker to the web, and an iteration is otherwise an ordinary group. A human writes the line; nothing that services the board invents it.
+
 **`logbook` — the folder of the board's notes.** `logbook: logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. A human writes the line; nothing that services the board invents it. See *The logbook: notes in day files* below.
 
 Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them. The id counters' writes (`nextId:` for a plain id, `counters:` for a prefixed one) replace their own one line, or insert it below `nextId:`, and leave these lines, comments and every unknown key as they were.

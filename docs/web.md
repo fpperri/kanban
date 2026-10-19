@@ -421,6 +421,15 @@ write the note on each card. `group:I2` and `group:zephyr-2` find a group's card
 `group:` every card that is in a group and `-group:` the cards that are in none. Without a
 `groups:` line nothing of this shows.
 
+**Iterations** — with `iterations: true` in `config.yaml` over a `groups:` line, the header has a
+dropdown of the groups in the `iteration/` folder: All cards, the iterations newest first with
+their dates, and New iteration…. It opens on the running iteration, or on All cards when none
+runs. A pick narrows the Board, Calendar, Gantt, Map and Graph to its cards on top of the search
+box, without writing the box or changing any group, and is kept in this browser only. The
+Calendar shades the picked iteration's days and opens on its first day. New iteration… opens the
+group form with the name bumped (`zephyr-2` becomes `zephyr-3`), the dates continuing at the same
+length and `auto_join` on.
+
 ## Other surfaces
 
 The **[mobile snapshot](snapshot.md)** is the tap-through board for a phone or

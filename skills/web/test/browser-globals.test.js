@@ -21,6 +21,8 @@ const PAGE_GLOBALS = [
   'graphSetOption',
   'hoveredId',
   'isDragging',
+  'localTodayStr',
+  'renderBoard',
   'renderCalendarView',
   'renderGraphView',
   'selectedIds',
