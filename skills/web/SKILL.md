@@ -1328,6 +1328,24 @@ to `127.0.0.1` only.
   collapse), sharing one header builder. State persists per board in `localStorage`
   (`map.sections.collapsed`, merged defensively) and survives the poll; collapsing
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
+  **Option panel** — the Map's zoom toolbar and options row, and the Graph's layout buttons, zoom
+  buttons and option row (Tiers), stand in an `<aside class="view-panel">` on the right of the view, built
+  by `buildViewPanel` in app.js, which `graphBuildPanel` and `buildMapPanel` fill. One icon button
+  (`.view-panel-toggle`, a rectangle with a bar on its right, `aria-label="Options panel"`, `aria-expanded`)
+  opens and closes it: it leads the Map's status pills in the top row (`.view-bar`) and the Graph's
+  card count in its top row. The status pills, the Graph's key and its card count stay in the view. The
+  Map's graphs scroll in `.map-main` beside the panel, and the pan, the zoom and Fit read and move that
+  element (`mapMain`). Closed, the panel is not built at all, so the view has its width back and no
+  control of it can take focus; the Graph then frames an untouched view again in the new width
+  (`graphRefitNext`), and a view the person moved stays where it is. view-panel.js keeps whether it is open:
+  per board in `localStorage` under `viewpanel` as `{ map, graph }` (a boolean for a view the person has
+  chosen for, null for one they have not, validated on every read like prefs.js), else the screen decides:
+  open from 760 px wide, closed below, and a window that crosses the line draws the view again. Under
+  760 px the panel is a sheet over the view (`position: absolute` against `.map-view` / `.graph-view`, so it adds
+  no width and no sideways scroll), with a `.view-panel-close` button that hands focus back to the icon button.
+  The panel and both buttons wear `data-keeps-selection`; the icon and close buttons are in `REFOCUS_SELECTOR`,
+  so a poll's redraw gives them focus back. Every control keeps its class, label, title, data attributes and hotkey
+  (the `n` key still steps the Graph's names with the panel closed).
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
   search terms, resolved over dependency-graph.js's dependency edge set (`waiting_for`
@@ -1359,7 +1377,7 @@ to `127.0.0.1` only.
   Ctrl-click on a node entirely. The pill row, options row,
   section header, graph headings and the No relations row are outside the drag surface, so filter clicks, the
   collapse chevron and text selection there are untouched. A zoom toolbar
-  (−/percentage/+/Fit) rides right after the filter row: the buttons step the zoom by one
+  (−/percentage/+/Fit) is the first thing in the option panel (see **Option panel**): the buttons step the zoom by one
   rung of a 1.25^n ladder (10%–200%) around the panel's center, rounding the current zoom
   to its nearest rung before each step so true size (100%) stays reachable even after a
   clamp at either edge; Ctrl+wheel (what a trackpad pinch sends) zooms continuously from

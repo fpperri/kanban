@@ -93,6 +93,15 @@ per tree or one graph, which side the parent sits, alignment, row order, whether
 toggled line moves the cards, and how much detail a card shows (type, altitude and the
 roll-up bar). Each choice is remembered per board in your browser. The row starts folded
 behind an **Options** toggle; open or folded, it is remembered too.
+The options and the zoom (`−`, the percentage, `+` and **Fit**) sit in a panel on the
+right of the view, which the panel icon at the top left, level with the status pills,
+opens and closes. The Graph keeps its layouts, its zoom and its Options section in a
+panel the same way, while its status pills, key and card count stay in the view. The
+panel is open from 760 px wide and closed below it, where it opens over the view as a
+sheet with a close button of its own and adds no sideways scroll. The choice is
+remembered per board in your browser, for the Map and for the Graph apart. Closed, the
+view has the panel's width back, and the Graph frames its cards again in it unless you
+have moved the view.
 A status-filter pill row (left-click to toggle, right-click to solo) and the
 search box both prune the graph.
 
@@ -176,7 +185,7 @@ cuts every view; under `|` it lights. Empty the box, press Esc or double-click t
 click a card to start a new selection and clear the box but for its cut. Switch to another view and
 the box goes on filtering there, while nothing is selected by it. In Force, drag a dot and the cards related to it follow, like pulling on
 a thread; the arrangement stays until the cards change or the page reloads.
-Drag the background to pan, scroll or use `−`, `+` and **Fit** to zoom.
+Drag the background to pan, scroll or use `−`, `+` and **Fit**, in the options panel, to zoom.
 The status pills work as on the Gantt, Archive off by default. A card
 whose parent is hidden (archived, or filtered out by a status pill)
 is drawn as a root, and Archive starts off here, unlike the Map.
