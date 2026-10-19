@@ -1062,8 +1062,13 @@ to `127.0.0.1` only.
   more than two folders deep is skipped, named with its reason in the payload and a server
   warning, and never fatal. `group:<id or name>` (any letter case; a quoted name may hold a
   space), a bare `group:` (every card in a group) and `-group:` or `-group:<id or name>` (the
-  cards in none, or not in that group) are search terms. Deleting a group and auto-join on
-  card creation are separate features.
+  cards in none, or not in that group) are search terms. A group with both dates and
+  `auto_join: true` is running from its start to its end, both days included, by the local
+  date of the board's server; a card made in the New card form (`POST /api/cards`) is written
+  into the `cards:` of every running auto-join group in that same request, and no other, and
+  the reply carries `joined` (`[{id, name}]`) so the page's flash can say `Joined #I2
+  zephyr-2.` A dated group without `auto_join` never takes a new card, a card edited later
+  joins nothing, and a card the doing-gate refuses joins nothing. Deleting a group is a separate feature.
 - **Iterations** — with `iterations: true` in `config.yaml` over a `groups:` line, the header
   beside the board name has a dropdown of the groups in the `iteration/` folder (no
   subtype): **All cards**, the iterations newest first, each with its id, name, dates and

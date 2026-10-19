@@ -86,3 +86,10 @@ test('groupById finds a group by its whole id', () => {
   assert.strictEqual(g.groupById(ALL, '1'), null);
   assert.strictEqual(g.groupById(ALL, 'bad'), null);
 });
+
+test('the flash after a card is created names the running groups it joined, and says nothing when it joined none', () => {
+  assert.strictEqual(g.groupJoinedNote([{ id: 'I2', name: 'zephyr-2' }]), 'Joined #I2 zephyr-2.');
+  assert.strictEqual(g.groupJoinedNote([{ id: 'I2', name: 'zephyr-2' }, { id: '_3', name: '' }]), 'Joined #I2 zephyr-2, #_3.');
+  assert.strictEqual(g.groupJoinedNote([]), '');
+  assert.strictEqual(g.groupJoinedNote(undefined), '');
+});

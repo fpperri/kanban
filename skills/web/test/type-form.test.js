@@ -83,6 +83,7 @@ function loadSubmitModal(form) {
     loadBoard: async () => {},
     toast() {},
     gate422Text: () => '',
+    groupJoinedNote: () => '',
   };
   vm.createContext(sandbox);
   vm.runInContext(fn('submitModal'), sandbox);

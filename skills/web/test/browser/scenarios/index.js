@@ -41,5 +41,6 @@ module.exports = [
   require('./notes'),
   require('./notes-calendar'),
   require('./groups'),
+  require('./groups-autojoin'),
   require('./iterations'),
 ];

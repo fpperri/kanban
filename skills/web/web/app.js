@@ -2673,12 +2673,14 @@ async function submitModal(e) {
     body: $('#f-body').value,
   };
   try {
+    let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
-    else await api('POST', '/api/cards', payload);
+    else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
     closeModal();
     await loadBoard();
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
+    else if (joined) toast(joined);
   } catch (e2) {
     if (e2.status === 422) {
       toast(`Can't set doing — ${gate422Text(e2.data)}.`);
