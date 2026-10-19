@@ -43,7 +43,7 @@ test('parent reads as an id on this board or as board#id, quotes stripped; junk 
     '0006.f.card.md': card(6, 'parent: shop.proj#9\n'),
   });
   const byId = new Map(cs.listActive(dir).map((c) => [c.id, c]));
-  assert.deepStrictEqual([1, 2, 3, 4, 5, 6].map((id) => byId.get(id).parent), [42, 'fpp#4', 'fpp#4', 42, null, 'shop.proj#9']);
+  assert.deepStrictEqual([1, 2, 3, 4, 5, 6].map((id) => byId.get(id).parent), ['42', 'fpp#4', 'fpp#4', '42', null, 'shop.proj#9']);
   assert.strictEqual(cs.toJSON(byId.get(2)).parent, 'fpp#4');
 });
 
@@ -136,7 +136,7 @@ test('createCard writes parent and rank lines when given, ahead of the updated s
   const fm = lines(raw).slice(1, lines(raw).indexOf('---', 1));
   assert.ok(fm.indexOf('parent: 3') > -1 && fm.indexOf('rank: 10') > -1);
   assert.ok(fm.indexOf('rank: 10') < fm.findIndex((l) => /^updated:/.test(l)), 'written before the updated stamp');
-  assert.strictEqual(withBoth.parent, 3);
+  assert.strictEqual(withBoth.parent, '3');
   assert.strictEqual(withBoth.rank, 10);
 
   const cross = cs.createCard(dir, { title: 'Cross', parent: 'fpp#4' });

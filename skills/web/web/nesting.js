@@ -1,32 +1,46 @@
 'use strict';
 // Pure nesting rules: which card sits under which, and in what order a board
-// reads as an outline. No DOM, no storage, and no other module on purpose: the
-// snapshot embeds this file's source verbatim, where nothing else is loaded.
+// reads as an outline. No DOM, no storage, and one other module, the id module:
+// the snapshot embeds this file's source verbatim, ids.js ahead of it.
 // Same dual-environment pattern as search.js / column-sort.js.
 //
 // A card here is { id, parent, rank, priority, board? }. `parent` and `rank`
 // may be the card store's parsed values or the raw frontmatter strings. ctx is
-// { board: <this board's name>, priorities: [<highest first>] }.
+// { board: <this board's name>, priorities: [<highest first>] }. An id is the
+// whole id (`7`, `G7`) as a string; a plain number names the same card, and
+// every map here is keyed on the id module's string.
+
+const NEST_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
+// The map key of a card id: the id module's whole-id string.
+function nestKey(id) {
+  const key = NEST_IDS.idKey(id);
+  return key === null ? String(id) : key;
+}
 
 function nestUnquote(raw) {
   return String(raw).trim().replace(/^(["'])(.*)\1$/, '$2').trim();
 }
 
-// null | { board: string|null, id, local }. A number or digit string names a
-// card on this board; `board#id` names another board's card, except that this
-// board's own name in that form is this board. Anything else is no parent.
+// null | { board: string|null, id, local }, the id a whole-id string. An id (or
+// a plain number) names a card on this board; `board#id` names another board's
+// card, except that this board's own name in that form is this board. Anything
+// else is no parent.
 function parseParent(raw, boardName) {
   if (typeof raw === 'number') {
-    return Number.isInteger(raw) && raw >= 0 ? { board: null, id: raw, local: true } : null;
+    const key = NEST_IDS.idKey(raw);
+    return key === null ? null : { board: null, id: key, local: true };
   }
   if (typeof raw !== 'string') return null;
   const text = nestUnquote(raw);
-  if (/^\d+$/.test(text)) return { board: null, id: parseInt(text, 10), local: true };
-  const m = /^([^#]+)#(\d+)$/.exec(text);
-  if (!m) return null;
-  const board = m[1].trim();
-  if (!board) return null;
-  const id = parseInt(m[2], 10);
+  const own = NEST_IDS.idKey(text);
+  if (own !== null) return { board: null, id: own, local: true };
+  const hash = text.lastIndexOf('#');
+  if (hash < 1) return null;
+  const id = NEST_IDS.idKey(text.slice(hash + 1));
+  if (id === null) return null;
+  const board = text.slice(0, hash).trim();
+  if (!board || board.includes('#')) return null;
   return board === boardName ? { board: null, id, local: true } : { board, id, local: false };
 }
 
@@ -59,11 +73,11 @@ function siblingsCompare(a, b, ctx) {
     const ba = String(a.board || '');
     const bb = String(b.board || '');
     if (ba !== bb) return ba < bb ? -1 : 1;
-    return a.id - b.id;
+    return NEST_IDS.compareIds(a.id, b.id);
   }
   const pa = nestPriorityPosition(a, ctx);
   const pb = nestPriorityPosition(b, ctx);
-  return pa !== pb ? pa - pb : a.id - b.id;
+  return pa !== pb ? pa - pb : NEST_IDS.compareIds(a.id, b.id);
 }
 
 function localParentId(card, ctx) {
@@ -75,7 +89,7 @@ function localParentId(card, ctx) {
 // the cards given.
 function nestTree(cards, ctx) {
   const byId = new Map();
-  for (const c of cards) if (!byId.has(c.id)) byId.set(c.id, c);
+  for (const c of cards) if (!byId.has(nestKey(c.id))) byId.set(nestKey(c.id), c);
   const kids = new Map();
   const roots = [];
   for (const c of byId.values()) {
@@ -91,16 +105,16 @@ function nestTree(cards, ctx) {
 }
 
 function childrenOf(cards, id, ctx) {
-  return nestTree(cards, ctx).kids.get(id) || [];
+  return nestTree(cards, ctx).kids.get(nestKey(id)) || [];
 }
 
 // Parents above a card; a root is 0. A chain that loops stops at the card it
 // would repeat.
 function depthOf(cards, id, ctx) {
   const { byId } = nestTree(cards, ctx);
-  const seen = new Set([id]);
+  const seen = new Set([nestKey(id)]);
   let depth = 0;
-  let cur = byId.get(id);
+  let cur = byId.get(nestKey(id));
   while (cur) {
     const pid = localParentId(cur, ctx);
     if (pid === null || !byId.has(pid) || seen.has(pid)) break;
@@ -121,11 +135,11 @@ function depthOf(cards, id, ctx) {
 // cannot overflow the stack.
 function depthMap(cards, ctx) {
   const byId = new Map();
-  for (const c of cards) if (!byId.has(c.id)) byId.set(c.id, c);
+  for (const c of cards) if (!byId.has(nestKey(c.id))) byId.set(nestKey(c.id), c);
   const parentOf = new Map();
-  for (const c of byId.values()) {
+  for (const [key, c] of byId) {
     const pid = localParentId(c, ctx);
-    parentOf.set(c.id, pid !== null && byId.has(pid) ? pid : null);
+    parentOf.set(key, pid !== null && byId.has(pid) ? pid : null);
   }
   const depths = new Map();
   for (const start of byId.keys()) {
@@ -164,9 +178,9 @@ function depthMap(cards, ctx) {
 function threadOf(cards, id, ctx) {
   const { byId } = nestTree(cards, ctx);
   const board = ctx && ctx.board;
-  const seen = new Set([id]);
+  const seen = new Set([nestKey(id)]);
   const chain = [];
-  let cur = byId.get(id);
+  let cur = byId.get(nestKey(id));
   while (cur) {
     const p = parseParent(cur.parent, board);
     if (!p) break;
@@ -203,27 +217,28 @@ function outlineOrder(cards, ctx) {
     const stack = [start];
     while (stack.length) {
       const c = stack.pop();
-      if (seen.has(c.id)) continue;
-      seen.add(c.id);
-      ids.push(c.id);
-      const list = kids.get(c.id);
+      const key = nestKey(c.id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ids.push(key);
+      const list = kids.get(key);
       if (list) for (let i = list.length - 1; i >= 0; i--) stack.push(list[i]);
     }
   };
   for (const root of roots) walk(root);
-  const rest = [...byId.values()].filter((c) => !seen.has(c.id)).sort((a, b) => a.id - b.id);
+  const rest = [...byId.values()].filter((c) => !seen.has(nestKey(c.id))).sort((a, b) => NEST_IDS.compareIds(a.id, b.id));
   for (const c of rest) {
-    if (seen.has(c.id)) continue;
+    if (seen.has(nestKey(c.id))) continue;
     const path = [];
     const at = new Map();
     let cur = c;
-    while (!at.has(cur.id)) {
-      at.set(cur.id, path.length);
+    while (!at.has(nestKey(cur.id))) {
+      at.set(nestKey(cur.id), path.length);
       path.push(cur);
       cur = byId.get(localParentId(cur, ctx));
     }
-    const loop = path.slice(at.get(cur.id));
-    walk(loop.reduce((low, x) => (x.id < low.id ? x : low)));
+    const loop = path.slice(at.get(nestKey(cur.id)));
+    walk(loop.reduce((low, x) => (NEST_IDS.compareIds(x.id, low.id) < 0 ? x : low)));
   }
   const index = new Map();
   ids.forEach((id, i) => index.set(id, i));
@@ -267,9 +282,9 @@ function reorderGroup(tree, card, ctx) {
 function reorderSibling(tree, group, tile, ctx) {
   const seen = new Set();
   let cur = tile;
-  while (cur && !seen.has(cur.id)) {
+  while (cur && !seen.has(nestKey(cur.id))) {
     if (group.includes(cur)) return cur;
-    seen.add(cur.id);
+    seen.add(nestKey(cur.id));
     const pid = localParentId(cur, ctx);
     cur = pid === null ? null : tree.byId.get(pid);
   }
@@ -299,7 +314,7 @@ function reorderSlot(rest, at) {
 // { prev, next } card ids, null where there is none, in outline order.
 function reorderPlan(cards, id, drop, ctx) {
   const tree = nestTree(cards, ctx);
-  const dragged = tree.byId.get(id);
+  const dragged = tree.byId.get(nestKey(id));
   if (!dragged) return { error: `no card ${id}` };
   const group = reorderGroup(tree, dragged, ctx);
   const rest = group.filter((c) => c !== dragged);
@@ -307,18 +322,18 @@ function reorderPlan(cards, id, drop, ctx) {
   const outline = outlineOrder(cards, ctx).index;
   const side = (tileId, isAbove) => {
     if (tileId === null || tileId === undefined) return {};
-    if (tileId === id) return { error: 'a card cannot be its own neighbour' };
-    const tile = tree.byId.get(tileId);
+    if (nestKey(tileId) === nestKey(id)) return { error: 'a card cannot be its own neighbour' };
+    const tile = tree.byId.get(nestKey(tileId));
     if (!tile) return { error: `no card ${tileId}` };
     const sibling = reorderSibling(tree, group, tile, ctx);
     if (sibling) return { sibling };
-    const at = outline.get(tileId);
-    if (at > outline.get(group[0].id) && at < outline.get(group[group.length - 1].id)) {
+    const at = outline.get(nestKey(tileId));
+    if (at > outline.get(nestKey(group[0].id)) && at < outline.get(nestKey(group[group.length - 1].id))) {
       // Between two siblings but under neither: a card of another parent shown among them.
-      const near = isAbove ? group.filter((c) => outline.get(c.id) < at).pop() : group.find((c) => outline.get(c.id) > at);
+      const near = isAbove ? group.filter((c) => outline.get(nestKey(c.id)) < at).pop() : group.find((c) => outline.get(nestKey(c.id)) > at);
       return { sibling: near };
     }
-    const before = at < outline.get(group[0].id);
+    const before = at < outline.get(nestKey(group[0].id));
     return before === isAbove ? {} : { error: `card ${tileId} is not among the siblings of card ${id}` };
   };
   const above = side(drop.prev, true);
@@ -387,15 +402,15 @@ function rollupIndex(cards, ctx) {
   const board = (ctx && ctx.board) || '';
 
   const below = (id) => {
-    const seen = new Set([id]);
+    const seen = new Set([nestKey(id)]);
     const out = [];
-    const stack = [id];
+    const stack = [nestKey(id)];
     while (stack.length) {
       const list = kids.get(stack.pop());
       if (!list) continue;
-      const fresh = list.filter((c) => !seen.has(c.id));
-      fresh.forEach((c) => seen.add(c.id));
-      for (let i = fresh.length - 1; i >= 0; i--) stack.push(fresh[i].id);
+      const fresh = list.filter((c) => !seen.has(nestKey(c.id)));
+      fresh.forEach((c) => seen.add(nestKey(c.id)));
+      for (let i = fresh.length - 1; i >= 0; i--) stack.push(nestKey(fresh[i].id));
       out.push(...fresh);
     }
     return out;
@@ -413,10 +428,11 @@ function rollupIndex(cards, ctx) {
       const top = stack[stack.length - 1];
       if (top.at < top.list.length) {
         const c = top.list[top.at++];
-        if (path.has(c.id)) { top.loop = true; continue; }
-        if (heights.has(c.id)) { top.best = Math.max(top.best, 1 + heights.get(c.id)); continue; }
-        path.add(c.id);
-        stack.push({ id: c.id, list: kids.get(c.id) || [], at: 0, best: 0, loop: false });
+        const key = nestKey(c.id);
+        if (path.has(key)) { top.loop = true; continue; }
+        if (heights.has(key)) { top.best = Math.max(top.best, 1 + heights.get(key)); continue; }
+        path.add(key);
+        stack.push({ id: key, list: kids.get(key) || [], at: 0, best: 0, loop: false });
         continue;
       }
       stack.pop();
@@ -429,10 +445,10 @@ function rollupIndex(cards, ctx) {
     }
   };
 
-  const leavesBelow = (id) => below(id).filter((c) => !kids.has(c.id));
+  const leavesBelow = (id) => below(id).filter((c) => !kids.has(nestKey(c.id)));
 
   return {
-    altitudeOf: (id) => (byId.has(id) ? climb(id) : 0),
+    altitudeOf: (id) => (byId.has(nestKey(id)) ? climb(nestKey(id)) : 0),
     leavesBelow,
     // counts is keyed by the raw status string (free text, case-sensitive), so it
     // has no prototype: a status called "constructor" is just a key.

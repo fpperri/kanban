@@ -9,22 +9,22 @@ const order = (cards, ctx = CTX) => outlineOrder(cards, ctx).ids;
 // --- reading parent and rank ------------------------------------------
 
 test('parseParent: a number or digit string names a card on this board', () => {
-  assert.deepStrictEqual(parseParent(12, 'kanban'), { board: null, id: 12, local: true });
-  assert.deepStrictEqual(parseParent('12', 'kanban'), { board: null, id: 12, local: true });
-  assert.deepStrictEqual(parseParent(' 12 ', 'kanban'), { board: null, id: 12, local: true });
+  assert.deepStrictEqual(parseParent(12, 'kanban'), { board: null, id: '12', local: true });
+  assert.deepStrictEqual(parseParent('12', 'kanban'), { board: null, id: '12', local: true });
+  assert.deepStrictEqual(parseParent(' 12 ', 'kanban'), { board: null, id: '12', local: true });
 });
 
 test('parseParent: board#id names a card on another board', () => {
-  assert.deepStrictEqual(parseParent('fpp#4', 'kanban'), { board: 'fpp', id: 4, local: false });
+  assert.deepStrictEqual(parseParent('fpp#4', 'kanban'), { board: 'fpp', id: '4', local: false });
 });
 
 test('parseParent: the own board name in board#id counts as this board', () => {
-  assert.deepStrictEqual(parseParent('shop.proj#12', 'shop.proj'), { board: null, id: 12, local: true });
+  assert.deepStrictEqual(parseParent('shop.proj#12', 'shop.proj'), { board: null, id: '12', local: true });
 });
 
 test('parseParent: surrounding quotes are ignored, as the snapshot writes board#id quoted', () => {
-  assert.deepStrictEqual(parseParent('"fpp#4"', 'kanban'), { board: 'fpp', id: 4, local: false });
-  assert.deepStrictEqual(parseParent('"7"', 'kanban'), { board: null, id: 7, local: true });
+  assert.deepStrictEqual(parseParent('"fpp#4"', 'kanban'), { board: 'fpp', id: '4', local: false });
+  assert.deepStrictEqual(parseParent('"7"', 'kanban'), { board: null, id: '7', local: true });
 });
 
 test('parseParent: anything else is no parent', () => {
@@ -58,7 +58,7 @@ test('outline order: the parent comes first, then its children in rank order', (
     card(1),
     card(3, { parent: 1, rank: 10 }),
   ];
-  assert.deepStrictEqual(order(cards), [1, 3, 2, 4]);
+  assert.deepStrictEqual(order(cards), ['1', '3', '2', '4']);
 });
 
 test('outline order: an unranked sibling follows the ranked ones; unranked siblings follow priority, then id', () => {
@@ -69,7 +69,7 @@ test('outline order: an unranked sibling follows the ranked ones; unranked sibli
     card(3, { parent: 1, priority: 'High' }),
     card(2, { parent: 1, rank: 90 }),
   ];
-  assert.deepStrictEqual(order(cards), [1, 2, 3, 4, 5]);
+  assert.deepStrictEqual(order(cards), ['1', '2', '3', '4', '5']);
 });
 
 test('outline order: priority follows the board list, and an unknown priority comes after every known one', () => {
@@ -79,8 +79,8 @@ test('outline order: priority follows the board list, and an unknown priority co
     card(3, { parent: 1, priority: 'Low' }),
     card(4, { parent: 1, priority: 'Urgent' }),
   ];
-  assert.deepStrictEqual(order(cards, { board: 'kanban', priorities: ['Urgent', 'Low'] }), [1, 4, 3, 2]);
-  assert.deepStrictEqual(order(cards, { board: 'kanban' }), [1, 3, 2, 4], 'no list falls back to High, Normal, Low');
+  assert.deepStrictEqual(order(cards, { board: 'kanban', priorities: ['Urgent', 'Low'] }), ['1', '4', '3', '2']);
+  assert.deepStrictEqual(order(cards, { board: 'kanban' }), ['1', '3', '2', '4'], 'no list falls back to High, Normal, Low');
 });
 
 test('outline order: equal ranks fall back to board name, then id', () => {
@@ -90,12 +90,12 @@ test('outline order: equal ranks fall back to board name, then id', () => {
     card(3, { parent: 1, rank: 10, board: 'a' }),
     card(4, { parent: 1, rank: 10, board: 'a' }),
   ];
-  assert.deepStrictEqual(order(cards), [1, 3, 4, 2]);
+  assert.deepStrictEqual(order(cards), ['1', '3', '4', '2']);
 });
 
 test('outline order: a rank of 0 is a rank, and a negative rank sorts before it', () => {
   const cards = [card(1), card(2, { parent: 1, rank: 0 }), card(3, { parent: 1 }), card(4, { parent: 1, rank: -10 })];
-  assert.deepStrictEqual(order(cards), [1, 4, 2, 3]);
+  assert.deepStrictEqual(order(cards), ['1', '4', '2', '3']);
 });
 
 test('outline order: a tree reads depth first, each level in rank order', () => {
@@ -107,7 +107,7 @@ test('outline order: a tree reads depth first, each level in rank order', () => 
     card(5, { parent: 2, rank: 10 }),
     card(6, { parent: 5 }),
   ];
-  assert.deepStrictEqual(order(cards), [2, 5, 6, 4, 1, 3]);
+  assert.deepStrictEqual(order(cards), ['2', '5', '6', '4', '1', '3']);
 });
 
 test('outline order: ranks and parents arrive as raw frontmatter strings too', () => {
@@ -116,7 +116,7 @@ test('outline order: ranks and parents arrive as raw frontmatter strings too', (
     card(2, { parent: '1', rank: ' 10 ' }),
     card(1),
   ];
-  assert.deepStrictEqual(order(cards), [1, 2, 3]);
+  assert.deepStrictEqual(order(cards), ['1', '2', '3']);
 });
 
 test('outline order: a parent on another board or a missing parent makes a root; the own board name is this board', () => {
@@ -126,19 +126,19 @@ test('outline order: a parent on another board or a missing parent makes a root;
     card(3, { parent: 99, rank: 20 }),
     card(4, { parent: 'kanban#1' }),
   ];
-  assert.deepStrictEqual(order(cards), [2, 3, 1, 4]);
+  assert.deepStrictEqual(order(cards), ['2', '3', '1', '4']);
 });
 
 test('outline order: the index maps each id to its position in the order', () => {
   const cards = [card(2, { parent: 1 }), card(1), card(3)];
   const { ids, index } = outlineOrder(cards, CTX);
-  assert.deepStrictEqual(ids, [1, 2, 3]);
-  assert.deepStrictEqual([...index.entries()], [[1, 0], [2, 1], [3, 2]]);
+  assert.deepStrictEqual(ids, ['1', '2', '3']);
+  assert.deepStrictEqual([...index.entries()], [['1', 0], ['2', 1], ['3', 2]]);
 });
 
 test('outline order: archived parents and children take part like any card', () => {
   const cards = [card(2, { parent: 1, archived: true }), card(1, { archived: true }), card(3, { parent: 1 })];
-  assert.deepStrictEqual(order(cards), [1, 2, 3]);
+  assert.deepStrictEqual(order(cards), ['1', '2', '3']);
 });
 
 test('outline order: a parent loop never loses or repeats a card, and the lowest id of the loop is its entry', () => {
@@ -150,12 +150,12 @@ test('outline order: a parent loop never loses or repeats a card, and the lowest
     card(7, { parent: 7 }),
     card(8, { parent: 7 }),
   ];
-  assert.deepStrictEqual(order(cards), [9, 1, 2, 3, 7, 8]);
+  assert.deepStrictEqual(order(cards), ['9', '1', '2', '3', '7', '8']);
 });
 
 test('outline order: a branch hanging under a loop does not jump ahead of the loop it hangs from', () => {
   const cards = [card(5, { parent: 6 }), card(6, { parent: 5 }), card(3, { parent: 6 })];
-  assert.deepStrictEqual(order(cards), [5, 6, 3]);
+  assert.deepStrictEqual(order(cards), ['5', '6', '3']);
 });
 
 test('outline order does not reorder the array it is given', () => {
