@@ -274,7 +274,7 @@ The notes are a list in the frontmatter, each with an optional time, an author a
 ---
 entries:
   - at: "09:10"        # optional; absent = untimed; always quoted (YAML reads 10:30 as a number)
-    by: "@claude-afk"  # an assignee handle; sign your notes with your own
+    by: "@afk"         # an assignee handle; sign your notes with your own
     note: two enum renames left
   - by: "@human"
     note: |-
