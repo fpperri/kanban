@@ -9,6 +9,7 @@
 // nothing here holds state, so there's nothing that could re-fire on the 5s
 // poll or fight the localStorage-persisted view mode.
 
+const DL_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar', 'graph']);
 
 // `search` is location.search ("?card=194&view=board"), a plain string so
@@ -23,7 +24,7 @@ const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar', 'graph']);
 // id null: a link that never asked for a card, and a link that asked with an
 // unusable value. Only the second owes the user a toast — the first is just a
 // q-and/or-view link, and toasting it would fire on every status-page link.
-// A `card` value that isn't a positive integer still resolves the REST of the
+// A `card` value that isn't an id still resolves the REST of the
 // link rather than discarding it: one bad key is not a reason to drop a query
 // and a view that both parsed fine.
 //
@@ -52,10 +53,9 @@ function parseDeepLink(search) {
   const rawView = params.get('view');
   const view = DEEP_LINK_VIEWS.has(rawView) ? rawView : null;
   if (!hasCard && q === null && view === null) return null;
-  const id = Number(params.get('card'));
   return {
     hasCard,
-    id: hasCard && Number.isInteger(id) && id > 0 ? id : null,
+    id: hasCard ? DL_IDS.idKey(params.get('card')) : null,
     q,
     view,
     isolate: q !== null && params.get('isolate') === '1',

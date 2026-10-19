@@ -19,20 +19,23 @@ test('cardIdFromSearch: no card key at all — null', () => {
   assert.strictEqual(cardIdFromSearch('?q=status%3Adoing'), null);
 });
 
-test('cardIdFromSearch: a valid positive integer card id parses', () => {
-  assert.strictEqual(cardIdFromSearch('?card=194'), 194);
-  assert.strictEqual(cardIdFromSearch('?card=7&view=board'), 7);
-  assert.strictEqual(cardIdFromSearch('?view=board&card=7'), 7);
+test('cardIdFromSearch: a card id parses to its whole-id string', () => {
+  assert.strictEqual(cardIdFromSearch('?card=194'), '194');
+  assert.strictEqual(cardIdFromSearch('?card=7&view=board'), '7');
+  assert.strictEqual(cardIdFromSearch('?view=board&card=7'), '7');
 });
 
-test('cardIdFromSearch: leading zeros are still the same integer', () => {
-  assert.strictEqual(cardIdFromSearch('?card=007'), 7);
+test('cardIdFromSearch: leading zeros are still the same id, and a prefix belongs to the id', () => {
+  assert.strictEqual(cardIdFromSearch('?card=007'), '7');
+  assert.strictEqual(cardIdFromSearch('?card=G7'), 'G7');
+  assert.strictEqual(cardIdFromSearch('?card=G07'), 'G7');
+  assert.notStrictEqual(cardIdFromSearch('?card=G7'), cardIdFromSearch('?card=7'));
 });
 
-test('cardIdFromSearch: non-numeric, empty, zero, negative, or fractional values all resolve to null (present but unusable)', () => {
+test('cardIdFromSearch: non-id, empty, lower-case-prefixed, negative, or fractional values all resolve to null (present but unusable)', () => {
   assert.strictEqual(cardIdFromSearch('?card=abc'), null);
   assert.strictEqual(cardIdFromSearch('?card='), null);
-  assert.strictEqual(cardIdFromSearch('?card=0'), null);
+  assert.strictEqual(cardIdFromSearch('?card=g7'), null);
   assert.strictEqual(cardIdFromSearch('?card=-3'), null);
   assert.strictEqual(cardIdFromSearch('?card=3.5'), null);
 });
@@ -101,7 +104,7 @@ test('closing when the current card param is unusable is also a no-op', () => {
 
 test('round trip: pushing an open step, then reading the id back off it, yields the same id', () => {
   const search = nextCardHistorySearch('?view=board', 194);
-  assert.strictEqual(cardIdFromSearch(search), 194);
+  assert.strictEqual(cardIdFromSearch(search), '194');
 });
 
 test('round trip: pushing a close step, then reading it back, yields null (close)', () => {

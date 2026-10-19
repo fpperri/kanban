@@ -32,11 +32,11 @@ const fakeBox = () => {
 };
 
 const cards = () => [
-  { id: 1, parent: null, status: 'doing', archived: false },
-  { id: 2, parent: 1, status: 'done', archived: false },
-  { id: 3, parent: 1, status: 'todo', archived: false },
-  { id: 4, parent: 1, status: 'todo', archived: false },
-  { id: 9, parent: null, status: 'todo', archived: false },
+  { id: '1', parent: null, status: 'doing', archived: false },
+  { id: '2', parent: 1, status: 'done', archived: false },
+  { id: '3', parent: 1, status: 'todo', archived: false },
+  { id: '4', parent: 1, status: 'todo', archived: false },
+  { id: '9', parent: null, status: 'todo', archived: false },
 ];
 
 // Every roll-up memo and pref loader/saver app.js defines, whatever it is
@@ -105,7 +105,7 @@ test('with nothing saved the detail is collapsed, the same default as a tile', (
 });
 
 test('archived leaves count as done in the detail, and its scope line says so, whatever an older visit stored', () => {
-  const archivedLeaves = [{ id: 5, parent: 1, status: 'done', archived: true }];
+  const archivedLeaves = [{ id: '5', parent: 1, status: 'done', archived: true }];
   for (const archivedKey of [undefined, 'false', 'true']) {
     const s = detailSandbox({ mode: 'open', archivedKey, archivedLeaves });
     s.renderDetailRollup(1);
@@ -117,7 +117,7 @@ test('archived leaves count as done in the detail, and its scope line says so, w
 });
 
 test('with archived leaves counted as done switched off in the preferences, the detail leaves them out, and its scope line says so', () => {
-  const archivedLeaves = [{ id: 5, parent: 1, status: 'done', archived: true }];
+  const archivedLeaves = [{ id: '5', parent: 1, status: 'done', archived: true }];
   const s = detailSandbox({ mode: 'open', archivedDone: false, archivedLeaves });
   s.renderDetailRollup(1);
   assert.match(s.box.innerHTML, /<b class="rollup-total">3<\/b>/);
@@ -127,7 +127,7 @@ test('with archived leaves counted as done switched off in the preferences, the 
 });
 
 test('switched back on, the detail counts archived leaves again and its scope line says so', () => {
-  const archivedLeaves = [{ id: 5, parent: 1, status: 'done', archived: true }];
+  const archivedLeaves = [{ id: '5', parent: 1, status: 'done', archived: true }];
   const s = detailSandbox({ mode: 'open', archivedDone: true, archivedLeaves });
   s.renderDetailRollup(1);
   assert.match(s.box.innerHTML, /<b class="rollup-total">4<\/b>/);
@@ -234,7 +234,7 @@ test('clicking the rest of the card still opens it', () => {
   const { click, sandbox } = clickHarness();
   click(clickOn({ '.card-el': { dataset: { id: '1' } } }));
   assert.strictEqual(sandbox.calls.toggle, 0);
-  assert.deepStrictEqual(sandbox.calls.open, [1]);
+  assert.deepStrictEqual(sandbox.calls.open, ['1']);
 });
 
 test('a click on a roll-up bar keeps a building multi-selection', () => {

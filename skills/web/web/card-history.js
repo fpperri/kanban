@@ -28,20 +28,21 @@
 // box's text. `isolate=1` rides beside `q` the same way: it is never a step either.
 
 // The `card` param out of a querystring, applying the same hasCard/id rules
-// as deep-link.js's parseDeepLink (a missing, non-numeric, or
-// non-positive-integer value all read as "no card") — reimplemented narrowly
+// as deep-link.js's parseDeepLink (a missing value, or one that is no id, reads
+// as "no card"; the id is the whole id, `7` or `G7`) — reimplemented narrowly
 // here (card only, not q/view) since neither a pushed step nor a popstate
 // landing ever needs to touch the search query or the view mode. Also what a
 // popstate handler reads off the browser-updated location.search to decide
 // between opening the named card and closing the popup.
+const CH_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
 function cardIdFromSearch(search) {
   const params = new URLSearchParams(search || '');
   if (!params.has('card')) return null;
-  const id = Number(params.get('card'));
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return CH_IDS.idKey(params.get('card'));
 }
 
-// What opening (targetId a positive integer) or closing (targetId null)
+// What opening (targetId a card id) or closing (targetId null)
 // should do to CURRENT_SEARCH (location.search, as a plain string so this
 // stays testable without a DOM). Returns the new search string to push
 // (leading "?", or "" for none of the params survive), preserving every
@@ -50,9 +51,10 @@ function cardIdFromSearch(search) {
 // open or closed alike: the caller must not push a duplicate step.
 function nextCardHistorySearch(currentSearch, targetId) {
   const params = new URLSearchParams(currentSearch || '');
-  if (cardIdFromSearch(currentSearch) === targetId) return null;
-  if (targetId == null) params.delete('card');
-  else params.set('card', String(targetId));
+  const target = targetId == null ? null : CH_IDS.idKey(targetId);
+  if (cardIdFromSearch(currentSearch) === target) return null;
+  if (target === null) params.delete('card');
+  else params.set('card', target);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

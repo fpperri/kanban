@@ -2,9 +2,13 @@
 // Shapes of real boards, trimmed to the fields the map reads: a family whose
 // sibling chain ends in one child, and a tree with archived and backlog children.
 
-const card = (id, status, extra = {}) => ({
-  id, title: `card ${id}`, status, archived: false, priority: 'Normal', waiting_for: [], ...extra,
-});
+// A card as the page holds it: its id, its parent and its waiting_for entries are whole-id strings.
+const card = (id, status, extra = {}) => {
+  const made = { id: String(id), title: `card ${id}`, status, archived: false, priority: 'Normal', waiting_for: [], ...extra };
+  if (typeof made.parent === 'number') made.parent = String(made.parent);
+  made.waiting_for = made.waiting_for.map(String);
+  return made;
+};
 
 // A nine-child family whose sibling chain ends in one child (19) and starts in
 // two (11 and 12); the parent is done, one child is still doing.

@@ -7,7 +7,7 @@ const { depthOf, depthMap } = require('../web/nesting');
 const { sliceCards } = require('../web/slices');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
-const card = (id, extra) => Object.assign({ id, parent: null, rank: null, priority: 'Normal', status: 'todo', archived: false }, extra);
+const card = (id, extra) => Object.assign({ id: String(id), parent: null, rank: null, priority: 'Normal', status: 'todo', archived: false }, extra);
 
 // One board that holds every case a slice has to settle: a full tier chain, a
 // goal under an epic, loose tiered and untiered cards, a parent cycle, a parent
@@ -91,22 +91,22 @@ test('depth map: a 6000-deep chain, and one far deeper, get their depths without
     cards.reverse();
     const map = depthMap(cards, CTX);
     assert.strictEqual(map.size, size);
-    assert.strictEqual(map.get(1), 0);
-    assert.strictEqual(map.get(size / 2), size / 2 - 1);
-    assert.strictEqual(map.get(size), size - 1);
+    assert.strictEqual(map.get('1'), 0);
+    assert.strictEqual(map.get(String(size / 2)), size / 2 - 1);
+    assert.strictEqual(map.get(String(size)), size - 1);
   }
 });
 
 test('depth map: built once per board, so it reads each card once however many cards there are', () => {
   let reads = 0;
   const counted = (id, parent) => ({
-    id, rank: null, priority: 'Normal', archived: false,
+    id: String(id), rank: null, priority: 'Normal', archived: false,
     get parent() { reads++; return parent; },
   });
   const cards = [];
   for (let id = 1; id <= 400; id++) cards.push(counted(id, id === 1 ? null : id - 1));
   const map = depthMap(cards, CTX);
-  assert.strictEqual(map.get(400), 399);
+  assert.strictEqual(map.get('400'), 399);
   assert.strictEqual(reads, 400);
 });
 
@@ -118,7 +118,7 @@ const slicesOf = (shown, hierarchy, board = shown) => sliceCards(shown, hierarch
 const withTiers = (shown, board) => slicesOf(shown, HIERARCHY, board);
 // A slice as a test reads it: a tier by its name, a depth by its number.
 const placeOf = (model, id) => {
-  const s = model.byId.get(id);
+  const s = model.byId.get(String(id));
   return s.kind === 'tier' ? s.name : s.depth;
 };
 const placesOf = (model) => Object.fromEntries([...model.byId.keys()].sort((a, b) => a - b).map((id) => [id, placeOf(model, id)]));
@@ -190,7 +190,7 @@ test('without a hierarchy the axis is the depths alone', () => {
 
 test('the axis counts the cards it is given, the depths still board-wide', () => {
   const board = fixture();
-  const shown = board.filter((c) => !c.archived && c.id !== 3);
+  const shown = board.filter((c) => !c.archived && c.id !== '3');
   assert.deepStrictEqual(axisOf(withTiers(shown, board)), [
     ['goal', 3], ['strategy', 1], ['objective', 0], ['epic', 2],
     [0, 4], [1, 2], [2, 2], [3, 0], [4, 1], [5, 1],
@@ -223,8 +223,8 @@ test('over the unit fixture every card is in exactly one slice, and the counts a
 test('each slice knows its place on the axis, and a card is in the very slice the axis lists', () => {
   const m = withTiers(fixture());
   assert.deepStrictEqual(m.axis.map((s) => s.index), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-  assert.strictEqual(m.byId.get(7), m.axis[0]);
-  assert.strictEqual(m.byId.get(6), m.axis[9]);
+  assert.strictEqual(m.byId.get('7'), m.axis[0]);
+  assert.strictEqual(m.byId.get('6'), m.axis[9]);
   assert.strictEqual(m.axis[0].key, 'goal');
   assert.strictEqual(m.axis[4].key, undefined);
 });
@@ -234,7 +234,7 @@ test('slicing never reads a card\'s parent: the depth map is built once per boar
   const cards = [];
   for (let id = 1; id <= 300; id++) {
     const parent = id === 1 ? null : id - 1;
-    cards.push({ id, type: id % 50 === 0 ? 'epic' : 'story', rank: null, priority: 'Normal', get parent() { reads++; return parent; } });
+    cards.push({ id: String(id), type: id % 50 === 0 ? 'epic' : 'story', rank: null, priority: 'Normal', get parent() { reads++; return parent; } });
   }
   const depths = depthMap(cards, CTX);
   assert.strictEqual(reads, 300);
@@ -242,12 +242,12 @@ test('slicing never reads a card\'s parent: the depth map is built once per boar
   const m = sliceCards(cards, HIERARCHY, depths);
   assert.strictEqual(reads, 0);
   assert.strictEqual(m.axis.length, 4 + 299, 'four tiers, then depths 0 to 298: card 299 is the deepest without a tier');
-  assert.strictEqual(m.byId.get(300).kind, 'tier');
-  assert.strictEqual(m.byId.get(299).depth, 298);
+  assert.strictEqual(m.byId.get('300').kind, 'tier');
+  assert.strictEqual(m.byId.get('299').depth, 298);
 });
 
 test('a card the depth map does not know is read as a root, and a damaged depth is read as a root', () => {
-  const m = sliceCards([card(1), card(2), card(3), card(4)], HIERARCHY, new Map([[2, -3], [3, 1.5], [4, 'deep']]));
+  const m = sliceCards([card(1), card(2), card(3), card(4)], HIERARCHY, new Map([['2', -3], ['3', 1.5], ['4', 'deep']]));
   assert.deepStrictEqual(placesOf(m), { 1: 0, 2: 0, 3: 0, 4: 0 });
   assert.deepStrictEqual(axisOf(m).slice(4), [[0, 4]]);
 });
@@ -259,9 +259,9 @@ test('a card the depth map does not know is read as a root, and a damaged depth 
 const WEB = path.join(__dirname, '..', 'web');
 const sourceOf = (file) => fs.readFileSync(path.join(WEB, file), 'utf8').split('\r\n').join('\n');
 
-test('the slice module needs no other module, cannot close the script element it is embedded in, and holds no build placeholder', () => {
+test('the slice module needs no module but the id module, cannot close the script element it is embedded in, and holds no build placeholder', () => {
   const source = sourceOf('slices.js');
-  assert.doesNotMatch(source, /\brequire\(/);
+  assert.doesNotMatch(source, /\brequire\((?!'\.\/ids'\))/);
   assert.doesNotMatch(source, /\bimport\b/);
   assert.doesNotMatch(source, /<\/script/i);
   assert.doesNotMatch(source, /__[A-Z_]+__/);
@@ -270,6 +270,7 @@ test('the slice module needs no other module, cannot close the script element it
 test('loaded as plain scripts into one page scope, the nesting and slice modules slice a board from window', () => {
   const window = {};
   const page = vm.createContext({ window });
+  vm.runInContext(sourceOf('ids.js'), page);
   vm.runInContext(sourceOf('nesting.js'), page);
   vm.runInContext(sourceOf('slices.js'), page);
   assert.strictEqual(typeof window.depthMap, 'function');
@@ -277,6 +278,6 @@ test('loaded as plain scripts into one page scope, the nesting and slice modules
   const cards = fixture();
   const m = window.sliceCards(cards, HIERARCHY, window.depthMap(cards, CTX));
   assert.strictEqual(m.axis.length, 10);
-  assert.strictEqual(m.byId.get(7).name, 'goal');
-  assert.strictEqual(m.byId.get(6).depth, 5);
+  assert.strictEqual(m.byId.get('7').name, 'goal');
+  assert.strictEqual(m.byId.get('6').depth, 5);
 });

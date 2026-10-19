@@ -201,6 +201,6 @@ test('the parent\'s own status never counts toward its open leaves', () => {
 // --- the index ----------------------------------------------------------
 
 test('parents lists the cards that have children, so a board with none can hide its roll-up controls', () => {
-  assert.deepStrictEqual(rollupIndex(roadmap(), CTX).parents().sort((a, b) => a - b), [1, 2, 3]);
+  assert.deepStrictEqual(rollupIndex(roadmap(), CTX).parents().sort(), ['1', '2', '3']);
   assert.deepStrictEqual(rollupIndex([card(1), card(2)], CTX).parents(), []);
 });

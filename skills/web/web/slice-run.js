@@ -1,8 +1,8 @@
 'use strict';
 // Pure run of slices for the search panel's slice section: which slices the section
 // lists, which of them are in the run, and what a click or a key does to the run.
-// No DOM, no storage, and no other module on purpose: the snapshot embeds this
-// file's source verbatim, where nothing else is loaded. Same dual-environment
+// No DOM, no storage, and one other module, the id module: the snapshot embeds this
+// file's source verbatim, ids.js ahead of it. Same dual-environment
 // pattern as slices.js and pills.js.
 //
 // The run is the slice: term the search box holds at the top level of its query, so
@@ -43,6 +43,8 @@ function sliceRunBounds(axis, value) {
   return { from: from < 0 ? 0 : from, to: to < 0 ? axis.length - 1 : to };
 }
 
+const SRUN_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
 // The entries the section lists, top first: { index, kind, name, depth, label, count }.
 // `index` is the slice's place on the full axis. A tier is listed only when some card
 // of the board is in it; every depth the axis has is listed. A card is counted in the
@@ -50,7 +52,8 @@ function sliceRunBounds(axis, value) {
 function sliceListOf(sliced, viewIds) {
   const counts = new Map();
   for (const id of viewIds) {
-    const slice = sliced.byId.get(id);
+    const key = SRUN_IDS.idKey(id);
+    const slice = sliced.byId.get(key === null ? String(id) : key);
     if (slice) counts.set(slice.index, (counts.get(slice.index) || 0) + 1);
   }
   return sliced.axis

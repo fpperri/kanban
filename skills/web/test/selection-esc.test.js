@@ -12,7 +12,7 @@ const { parseSearchQuery, filterCards } = require('../web/search');
 // in selection-plumbing.test.js.
 
 const grown = (...parts) => parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
-const idsOf = (set) => [...set].sort((a, b) => a - b);
+const idsOf = (set) => [...set].map(Number).sort((a, b) => a - b);
 
 // --- the Esc step ------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ test('a lone anchor goes on the first Esc', () => {
 
 test('the range start follows: after the additions go it is the anchor card, so a Shift range cannot start from a card that is no longer picked', () => {
   const next = selectionAfterEscape({ selection: grown(cardPart(3), cardPart(5), cardPart(8)), rangeStart: 8 });
-  assert.strictEqual(next.rangeStart, 3);
+  assert.strictEqual(next.rangeStart, '3');
 });
 
 test('the range start is dropped when the anchor is not a card, and when the anchor goes', () => {
@@ -76,15 +76,15 @@ function boardOf(cards) {
 }
 
 test('a target list taken from a selection that holds a query part keeps every card that matched when it was taken, even after those cards stop matching', () => {
-  const cards = [1, 2, 3, 4].map((id) => ({ id, title: `card ${id}`, status: 'todo', tags: [], assignee: id === 4 ? '@human' : '@afk' }));
+  const cards = [1, 2, 3, 4].map((id) => ({ id: String(id), title: `card ${id}`, status: 'todo', tags: [], assignee: id === 4 ? '@human' : '@afk' }));
   const { matchQuery } = boardOf(cards);
   const selection = setAnchor(NO_SELECTION, queryPart('assignee:@afk'));
 
   const targets = [...resolveSelection(selection, matchQuery, null)];
-  assert.deepStrictEqual(targets, [1, 2, 3]);
+  assert.deepStrictEqual(targets, ['1', '2', '3']);
 
   for (const card of cards) if (card.assignee === '@afk') card.assignee = '@human';
-  assert.deepStrictEqual(targets, [1, 2, 3], 'the list taken does not move with the cards');
+  assert.deepStrictEqual(targets, ['1', '2', '3'], 'the list taken does not move with the cards');
   assert.deepStrictEqual(idsOf(resolveSelection(selection, matchQuery, null)), [], 'while the selection itself, worked out again, has lost them');
 });
 
@@ -99,9 +99,9 @@ test('a card that comes to match after the list was taken is not in it', () => {
 });
 
 test('the target list is in the order the parts were added, a card once, and limited to the cards the view shows', () => {
-  const cards = [1, 2, 3, 4].map((id) => ({ id, title: `card ${id}`, status: 'todo', tags: [], assignee: id === 1 || id === 3 ? '@afk' : '' }));
+  const cards = [1, 2, 3, 4].map((id) => ({ id: String(id), title: `card ${id}`, status: 'todo', tags: [], assignee: id === 1 || id === 3 ? '@afk' : '' }));
   const { matchQuery } = boardOf(cards);
   const selection = grown(cardPart(4), queryPart('assignee:@afk'), cardPart(3));
-  assert.deepStrictEqual([...resolveSelection(selection, matchQuery, null)], [4, 1, 3]);
-  assert.deepStrictEqual([...resolveSelection(selection, matchQuery, new Set([1, 4]))], [4, 1], 'a card the view hides never joins');
+  assert.deepStrictEqual([...resolveSelection(selection, matchQuery, null)], ['4', '1', '3']);
+  assert.deepStrictEqual([...resolveSelection(selection, matchQuery, new Set(['1', '4']))], ['4', '1'], 'a card the view hides never joins');
 });

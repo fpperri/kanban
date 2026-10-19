@@ -112,7 +112,11 @@ test('unresolvedWaits: a dangling id (no matching card) is non-blocking — codi
   assert.deepStrictEqual(unresolvedWaits([1, 999], byId), [], 'the dangling 999 never makes the card waiting');
 });
 
-test('unresolvedWaits: string ids resolve against numeric card ids (frontmatter lists arrive parsed, API bodies may not)', () => {
-  const byId = byIdOf([{ id: 7, status: 'todo' }]);
-  assert.deepStrictEqual(unresolvedWaits(['7'], byId).map((c) => c.id), [7]);
+test('unresolvedWaits: a list entry is read through the id module: a number and its string name one card, and #G7 is not #7', () => {
+  const byId = new Map([['7', { id: '7', status: 'todo' }], ['G7', { id: 'G7', status: 'todo' }]]);
+  assert.deepStrictEqual(unresolvedWaits(['7'], byId).map((c) => c.id), ['7']);
+  assert.deepStrictEqual(unresolvedWaits([7], byId).map((c) => c.id), ['7']);
+  assert.deepStrictEqual(unresolvedWaits(['0007'], byId).map((c) => c.id), ['7']);
+  assert.deepStrictEqual(unresolvedWaits(['G7'], byId).map((c) => c.id), ['G7']);
+  assert.deepStrictEqual(unresolvedWaits(['G8'], byId), []);
 });

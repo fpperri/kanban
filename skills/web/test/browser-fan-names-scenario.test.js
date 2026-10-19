@@ -21,7 +21,7 @@ after(cleanUp);
 
 const BOARDS = { plan: loadBoard('plan'), fixture: loadBoard('fixture'), malformed: loadBoard('malformed') };
 const CASE = scenario.CASES;
-const sorted = (ids) => ids.slice().sort((a, b) => a - b);
+const sorted = (ids) => ids.map(Number).sort((a, b) => a - b);
 
 const modelOf = (key, extra = []) => {
   const board = BOARDS[key];
@@ -53,14 +53,14 @@ test('the cards each board draws are the scenario\'s lists, and the parents are 
 test('the cards the scenario picks light the cards it says, and the extras are drawn', () => {
   const model = modelOf('plan');
   for (const pick of CASE.plan.picks) {
-    assert.deepStrictEqual(sorted([...graphNeighbours(model, pick.id)].filter((id) => id !== pick.id)), sorted(pick.related), `card ${pick.id}`);
+    assert.deepStrictEqual(sorted([...graphNeighbours(model, String(pick.id))].filter((id) => id !== String(pick.id))), sorted(pick.related), `card ${pick.id}`);
     assert.ok(!CASE.plan.parents.includes(pick.id), 'a leaf, so a click on it shows what the selection adds');
   }
-  for (const id of CASE.plan.extras) assert.ok(model.byId.has(id), `card ${id} is drawn`);
+  for (const id of CASE.plan.extras) assert.ok(model.byId.has(String(id)), `card ${id} is drawn`);
 });
 
 test('the title, the added card and the steps are the board\'s and the model\'s', () => {
-  const one = BOARDS.plan.live.find((c) => c.id === CASE.plan.title.id);
+  const one = BOARDS.plan.live.find((c) => c.id === String(CASE.plan.title.id));
   assert.strictEqual(graphFanNameText(one.title, one.id), CASE.plan.title.text);
   assert.strictEqual(BOARDS.plan.config.nextId, CASE.plan.addedId, 'the first card the scenario adds');
   assert.deepStrictEqual(CASE.plan.values, JSON.parse(JSON.stringify(GRAPH_FAN_OPTION_VALUES.names)));
@@ -95,7 +95,7 @@ function standIn(over = {}) {
   const cardsExtra = () => (extraOf[key] || []).map((c) => ({ ...c }));
   const model = () => modelOf(key, cardsExtra());
   const lone = () => (selected.length === 1 ? selected[0] : null);
-  const namedFor = (mode, ids, loneId) => sorted([...graphFanNames(model(), mode, { selectedIds: new Set(ids), loneCardId: loneId })]);
+  const namedFor = (mode, ids, loneId) => sorted([...graphFanNames(model(), mode, { selectedIds: new Set(ids.map(String)), loneCardId: loneId === null ? null : String(loneId) })]);
   const named = () => {
     if (view !== 'graph' || layout !== 'tiers') return [];
     const mode = over.ignoresSetting ? 'relevant' : st().names;
@@ -206,11 +206,11 @@ function standIn(over = {}) {
         if (expr === `${SET}!==${JSON.stringify(v)}`) return st().names !== v;
       }
       for (const text of ['', 'n']) if (expr === scenario.boxIs(text)) return box === text;
-      const one = /^\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
+      const one = /^\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
       if (one) return selected.length === 1 && selected[0] === Number(one[1]);
       if (expr === `${options.SELECTED}.length===2`) return selected.length === 2;
       const dot = /^!!document\.querySelector\('#graph-view \.graph-node\[data-id="(\d+)"\]'\)$/.exec(expr);
-      if (dot) return model().nodes.some((n) => n.id === Number(dot[1]));
+      if (dot) return model().nodes.some((n) => n.id === dot[1]);
       const ids = /^JSON\.stringify\(.*\)===("\[[\d,]*\]")$/.exec(expr);
       if (ids && expr.startsWith(`JSON.stringify(${scenario.NAMED})===`)) return JSON.stringify(named()) === JSON.parse(ids[1]);
       if (expr === scenario.NAMED) return named();
@@ -228,7 +228,7 @@ function standIn(over = {}) {
       }
       const title = /\[data-id="(\d+)"\] \.graph-node-name'\);return t\?t\.textContent:null\}\)\(\)$/.exec(expr);
       if (title) {
-        const card = model().byId.get(Number(title[1]));
+        const card = model().byId.get(title[1]);
         return card ? (over.nameText ? over.nameText(card) : graphFanNameText(card.card.title, card.id)) : null;
       }
       if (expr === `document.getElementById('search-input').value`) return box;
@@ -249,12 +249,12 @@ function standIn(over = {}) {
       if (/requestAnimationFrame/.test(expr)) return true;
       for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.pickLayout(name)) { layout = name; st().layout = name; return true; }
       const dotAt = /^\(\(\)=>\{const dot=document\.querySelector\('\.graph-node\[data-id="(\d+)"\] \.graph-dot'\)/.exec(expr);
-      if (dotAt) return model().nodes.some((n) => n.id === Number(dotAt[1])) ? { x: 10000 + Number(dotAt[1]), y: 1 } : null;
+      if (dotAt) return model().nodes.some((n) => n.id === dotAt[1]) ? { x: 10000 + Number(dotAt[1]), y: 1 } : null;
       const created = /^fetch\('\/api\/cards',\{method:'POST',headers:\{'content-type':'application\/json'\},body:JSON\.stringify\((.*)\)\}\)\.then\(\(r\)=>r\.status\)$/.exec(expr);
       if (created) {
         const card = JSON.parse(created[1]);
         (pendingOf[key] = pendingOf[key] || []).push({
-          id: nextId++, title: card.title, status: card.status || 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false,
+          id: String(nextId++), title: card.title, status: card.status || 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false,
         });
         return 201;
       }

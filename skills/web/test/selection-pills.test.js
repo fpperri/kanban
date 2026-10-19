@@ -200,7 +200,7 @@ const CARDS = [
   { id: 4, title: 'four', status: 'todo', blocked: null, review: null, waiting_for: [1], tags: [] },
 ];
 const matchQuery = (text) => new Set(filterCards(CARDS, parseSearchQuery(text), {}).map((c) => c.id));
-const reached = (selection, shown = null) => [...resolveSelection(selection, matchQuery, shown)].sort((a, b) => a - b);
+const reached = (selection, shown = null) => [...resolveSelection(selection, matchQuery, shown)].map(Number).sort((a, b) => a - b);
 
 test('outside the Graph a pill\'s matches are the selection, and so are the bulk targets; the second pill adds its own', () => {
   const one = gesture('toggle', REVIEW, NO_SELECTION, '');
@@ -262,7 +262,7 @@ test('a pill dropped from among cards leaves the cards, and when the anchor goes
   const mixed = selectionOf(queryPart(REVIEW), cardPart(5), cardPart(6));
   const next = afterEdit(mixed, 'nothing', null);
   assert.deepStrictEqual(shape(next.selection), { anchor: cardPart(5), additions: [cardPart(6)] });
-  assert.strictEqual(next.rangeStart, 5, 'the new anchor is a card, so a Shift range may begin there');
+  assert.strictEqual(next.rangeStart, '5', 'the new anchor is a card, so a Shift range may begin there');
 });
 
 test('the box held whole by a pill with spaces in its query counts as held, spacing aside', () => {

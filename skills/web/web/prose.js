@@ -5,12 +5,16 @@
 // required directly by node --test.
 
 // A card mention is one code span opening with `board#id` (GLOSSARY.md, Card
-// mention); the board token never holds whitespace or '#'.
-const MENTION_RE = /^([^\s#`]+)#(\d+)(?:\s|$)/;
+// mention); the board token never holds whitespace or '#', and the id module reads
+// the id, so `board#G7` is a mention too. The id comes back as its whole-id string.
+const PROSE_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
 function cardMention(codeText) {
-  const m = MENTION_RE.exec(String(codeText == null ? '' : codeText));
-  return m ? { board: m[1], id: Number(m[2]) } : null;
+  const token = /^[^\s`]+/.exec(String(codeText == null ? '' : codeText));
+  const hash = token ? token[0].lastIndexOf('#') : -1;
+  if (hash < 1 || token[0].slice(0, hash).includes('#')) return null;
+  const id = PROSE_IDS.idKey(token[0].slice(hash + 1));
+  return id === null ? null : { board: token[0].slice(0, hash), id };
 }
 
 const ABBREVIATION_RE = /^(e\.g|i\.e|vs|etc|cf)$/i;
@@ -77,7 +81,7 @@ function inlineTokens(text) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MENTION_RE, cardMention, firstSentenceEnd, splitClauses, inlineTokens };
+  module.exports = { cardMention, firstSentenceEnd, splitClauses, inlineTokens };
 } else {
   window.cardMention = cardMention;
   window.firstSentenceEnd = firstSentenceEnd;

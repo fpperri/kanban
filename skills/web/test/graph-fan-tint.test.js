@@ -59,7 +59,7 @@ test('tint: a wash is a whole ring from the inner edge of its band to the outer 
     assert.ok(Math.abs(outer - band.r1) < 0.01 && Math.abs(inner - band.r0) < 0.01, `${t.tier}: ${inner} to ${outer}, the band is ${band.r0} to ${band.r1}`);
     assert.ok(inner < outer);
     for (const id of tiers[i]) {
-      const at = Math.hypot(l.pos.get(id).x, l.pos.get(id).y);
+      const at = Math.hypot(l.pos.get(String(id)).x, l.pos.get(String(id)).y);
       assert.ok(at > inner && at < outer, `card ${id} of ${t.tier} is in its wash`);
     }
     assert.strictEqual(t.cls, 'graph-tint');

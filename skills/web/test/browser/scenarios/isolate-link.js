@@ -61,7 +61,7 @@ module.exports = {
     const nowShown = (selector) => ev(idsOf(selector));
     const boxText = () => ev(`document.getElementById('search-input').value`);
     const boxIs = (text) => waitFor(`document.getElementById('search-input').value===${JSON.stringify(text)}`);
-    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
+    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].map(Number).sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
     const goto = async (target, ready) => {
       await ev(`window.__stale=true`);
       await open(target);

@@ -51,12 +51,12 @@ async function open({ view = 'board' } = {}) {
   page.run('confirm = (m) => { __asked.confirms.push(m); return __asked.answer; }');
   Object.assign(page.ctx, { __asked: asked });
   asked.answer = false;
-  page.ctx.openCard = (id) => { asked.opened.push(id); };
+  page.ctx.openCard = (id) => { asked.opened.push(Number(id)); };
   const realFetch = page.ctx.fetch;
   page.ctx.fetch = (url, opts = {}) => { asked.requests.push([opts.method || 'GET', String(url)]); return realFetch(url, opts); };
-  const ids = () => [...page.run('selectedIds')].sort((a, b) => a - b);
+  const ids = () => [...page.run('selectedIds')].map(Number).sort((a, b) => a - b);
   const selection = () => JSON.parse(JSON.stringify(page.run('selectionState.selection')));
-  const rangeStart = () => page.run('selectionState.rangeStart');
+  const rangeStart = () => { const v = page.run('selectionState.rangeStart'); return v === null ? null : Number(v); };
   const select = (rangeStartId, ...parts) => page.run(`setSelection(${parts.reduce((s, p) => `addPart(${s}, ${p})`, 'NO_SELECTION')}, ${rangeStartId})`);
   const menuOpen = () => !elements['#context-menu'].classList.contains('hidden');
   const shown = (sel) => !(sel === '#ctx-path' ? page.menu.path : sel === '#ctx-tree' ? page.menu.tree : elements[sel]).classList.contains('hidden');
@@ -71,7 +71,7 @@ function cardTarget(id) {
   return new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.card-el' ? el : null) : harmless(String(key))) });
 }
 
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 const settle = (s) => s.page.settle();
 
 // --- the menu's subject ---------------------------------------------------------------
@@ -108,7 +108,7 @@ test('the menu leads with Peek and Add to selection in the markup, ahead of Assi
 test('the card details\' own menu has no Peek, and a right-click there leaves the selection alone', async () => {
   const s = await open();
   s.select(2, 'cardPart(1)', 'cardPart(2)');
-  s.page.run('currentDetailId = 3');
+  s.page.run("currentDetailId = '3'");
   s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
   assert.strictEqual(s.menuOpen(), true);
   assert.strictEqual(s.shown('#ctx-peek'), false);
@@ -157,7 +157,7 @@ test('with nothing selected Add to selection makes the card the anchor', async (
 test('Add to selection from the card details\' menu adds the card shown', async () => {
   const s = await open();
   s.select(null, 'cardPart(1)');
-  s.page.run('currentDetailId = 4');
+  s.page.run("currentDetailId = '4'");
   s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
   s.click('#ctx-add');
   assert.deepStrictEqual(s.ids(), [1, 4]);
@@ -256,7 +256,7 @@ test('Path adds the card\'s dependency path to the selection as one part and lea
   s.rightClick(2);
   assert.strictEqual(s.shown('#ctx-path'), true);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [{ kind: 'path', id: 2 }] });
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [{ kind: 'path', id: '2' }] });
   assert.deepStrictEqual(s.ids(), [1, 2, 3, 5], 'the path is 1, 2 and 3; card 6 waits for 1 but is not on this path');
   assert.strictEqual(s.page.input.value, 'a');
   assert.strictEqual(s.page.input.writes.length, writes, 'nothing was written to the box');
@@ -268,7 +268,7 @@ test('Tree adds the card\'s dependency tree to the selection as one part and lea
   const writes = s.page.input.writes.length;
   s.rightClick(2);
   s.click('#ctx-tree');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'tree', id: 2 }, additions: [] }, 'with nothing selected the tree is the anchor');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'tree', id: '2' }, additions: [] }, 'with nothing selected the tree is the anchor');
   assert.deepStrictEqual(s.ids(), [1, 2, 3, 6], 'the tree reaches card 6 too; the Board with its Archive column closed does not show archived card 7');
   assert.strictEqual(s.page.input.value, '');
   assert.strictEqual(s.page.input.writes.length, writes);
@@ -280,7 +280,7 @@ test('a part added by Path stays a path part: the selection holds one path part,
   s.click('#ctx-path');
   s.rightClick(2);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: 2 }, additions: [] }, 'the same path twice is one part');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] }, 'the same path twice is one part');
 });
 
 test('Path and Tree are in the menu when its subject is one card and absent when it is several', async () => {
@@ -302,7 +302,7 @@ test('Path from a menu inside a selection of one adds to that selection, and the
   s.select(null, 'cardPart(2)');
   s.rightClick(2);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [{ kind: 'path', id: 2 }] });
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [{ kind: 'path', id: '2' }] });
   assert.deepStrictEqual(s.ids(), [1, 2, 3]);
 });
 
@@ -312,7 +312,7 @@ test('a card the view hides does not join through a path (the selection covers o
   s.page.run("toggleMapStatusFilter('doing')");
   s.rightClick(2);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: 2 }, additions: [] });
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] });
   assert.deepStrictEqual(s.ids(), [2, 3], 'card 1 is Doing and its pill is off in the Map');
   s.page.run("toggleMapStatusFilter('doing')");
   assert.deepStrictEqual(s.ids(), [1, 2, 3], 'with the pill on again the other card of the path is back');

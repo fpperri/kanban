@@ -126,7 +126,7 @@ test('findCardFile locates by id; nextId is max+1', () => {
 test('cardDetail returns the raw frontmatter block, absolute path, title, and body', () => {
   const dir = tmpBoard();
   const d = cs.cardDetail(dir, 1);
-  assert.strictEqual(d.id, 1);
+  assert.strictEqual(d.id, '1');
   assert.strictEqual(d.title, 'Build the kanban browse skill');
   assert.ok(path.isAbsolute(d.path));
   assert.ok(d.path.endsWith('1.card.md'));
@@ -389,7 +389,7 @@ test('updateCard to doing is refused while WAITING (a waiting_for dep not done)'
   cs.updateCard(dir, 1, { status: 'todo' }); // card 2 waits on card 1; now not done
   assert.throws(() => cs.updateCard(dir, 2, { status: 'doing' }), (e) => {
     assert.strictEqual(e.name, 'WaitingError');
-    assert.deepStrictEqual(e.waiting.map((w) => w.id), [1]);
+    assert.deepStrictEqual(e.waiting.map((w) => w.id), ['1']);
     assert.match(e.message, /^waiting on #1 \(todo\)$/, 'the refusal names which — "waiting on #id (status)"');
     return true;
   });
@@ -1555,7 +1555,7 @@ test('toJSON carries prompt in the public card shape', () => {
 
 // --- `parent` — the card this one sits under -------------------------------
 
-test('readCardFile parses parent as a number, null when absent or non-numeric; toJSON carries it', () => {
+test('readCardFile parses parent as an id string, null when absent or not an id; toJSON carries it', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-'));
   fs.writeFileSync(path.join(dir, '0001.child.card.md'), '---\nid: 1\nstatus: todo\nparent: 42\n---\n\n# Child\n');
   fs.writeFileSync(path.join(dir, '0002.plain.card.md'), '---\nid: 2\nstatus: todo\n---\n\n# Plain\n');
@@ -1565,7 +1565,7 @@ test('readCardFile parses parent as a number, null when absent or non-numeric; t
   assert.strictEqual(byId.get('1').parent, '42');
   assert.strictEqual(byId.get('2').parent, null);
   assert.strictEqual(byId.get('3').parent, null, 'tolerant read: non-numeric parent is no membership, never fatal');
-  assert.strictEqual(cs.toJSON(byId.get('1')).parent, 42);
+  assert.strictEqual(cs.toJSON(byId.get('1')).parent, '42');
   assert.strictEqual(cs.toJSON(byId.get('2')).parent, null);
 });
 

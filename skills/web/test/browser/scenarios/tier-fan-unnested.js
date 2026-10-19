@@ -60,7 +60,7 @@ const CASES = {
 };
 
 // The lines the page draws that have one of `ids` at an end.
-const linesTouching = (ids) => `graphCur.lines.filter((l)=>${JSON.stringify(ids)}.some((id)=>id===l.from||id===l.to)).length`;
+const linesTouching = (ids) => `graphCur.lines.filter((l)=>${JSON.stringify(ids.map(String))}.some((id)=>id===l.from||id===l.to)).length`;
 // The Unnested row of the option row, with its buttons.
 const UNNESTED_ROW = `(()=>{const s=${ROW_STATE};return s&&s.groups.find((g)=>g.label==='Unnested')||null})()`;
 

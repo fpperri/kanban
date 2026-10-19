@@ -10,7 +10,7 @@ const childrenOf = (cards) => cards
 
 const endsOf = (children, side) => {
   const ends = mapParentLineEnds(children);
-  return [...ends].filter(([, e]) => e[side]).map(([id]) => id).sort((a, b) => a - b);
+  return [...ends].filter(([, e]) => e[side]).map(([id]) => Number(id)).sort((a, b) => a - b);
 };
 
 test('a parent below its children is joined by the one child nobody waits on', () => {
@@ -24,7 +24,7 @@ test('a parent above its children is joined by the two children that wait on no 
 test('children with no dependency to or from a sibling always end a line, whichever side the parent sits', () => {
   const children = childrenOf(treeWithArchivedAndBacklogChildren());
   for (const loose of [47, 48, 49, 51]) {
-    assert.deepStrictEqual({ ...mapParentLineEnds(children).get(loose) }, { below: true, above: true }, `#${loose}`);
+    assert.deepStrictEqual({ ...mapParentLineEnds(children).get(String(loose)) }, { below: true, above: true }, `#${loose}`);
   }
 });
 

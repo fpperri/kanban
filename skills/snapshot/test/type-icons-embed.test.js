@@ -90,6 +90,7 @@ function buildWithAltered(file, alter) {
     const script = path.join(root, 'snapshot', 'scripts', 'build_editor.py');
     fs.mkdirSync(path.dirname(script), { recursive: true });
     fs.copyFileSync(buildScript, script);
+    fs.copyFileSync(path.join(path.dirname(buildScript), 'ids.py'), path.join(path.dirname(script), 'ids.py'));
     fs.cpSync(webDir, path.join(root, 'web', 'web'), { recursive: true });
     const target = path.join(root, 'web', 'web', file);
     const altered = alter(fs.readFileSync(target, 'utf8'));

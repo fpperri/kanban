@@ -71,7 +71,7 @@ test('while isolated, a plain card click sets the anchor to that card and drops 
   const selection = grown(cardPart(3), cardPart(5), pathPart(7));
   const next = selectionAfterClick('select', 9, { selection, resolved: new Set([3, 5, 7]), rangeStart: 5, order: [], matchQuery });
   assert.deepStrictEqual(next.selection, setAnchor(NO_SELECTION, cardPart(9)));
-  assert.strictEqual(next.rangeStart, 9);
+  assert.strictEqual(next.rangeStart, '9');
 });
 
 const ISOLATE_TEXT = '#3 | #5 | path:7';

@@ -24,14 +24,14 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', tags: ['infra'] }),
-    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
     card(6, { title: 'Renew the domain', status: 'done', tags: ['ops'] }),
   ],
   archived: [
-    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] }),
+    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: ['1'] }),
     card(8, { title: 'Close out the audit', status: 'done', archived: true, tags: ['ui'] }),
   ],
 });
@@ -46,7 +46,7 @@ async function open({ view = 'graph', stored = {}, board = makeBoard(), search =
   const page = await loadPage({ board, search, stored: { 'kanban.kanban.view.mode': view, ...stored }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const calls = [];
-  const sortedIds = (set) => [...set].sort((a, b) => a - b);
+  const sortedIds = (set) => [...set].map(Number).sort((a, b) => a - b);
   const realLightCards = page.ctx.graphLightCards;
   page.ctx.graphLightCards = (lit) => { calls.push(lit ? { nodes: sortedIds(lit.nodes), links: lit.links.size } : null); };
   const s = {
@@ -56,7 +56,7 @@ async function open({ view = 'graph', stored = {}, board = makeBoard(), search =
     box: () => page.input.value,
     type: (text) => page.input.typed(text),
     lit: () => calls[calls.length - 1],
-    drawn: () => [...page.run('graphCur.model.nodes.map((n) => n.id)')].sort((x, y) => x - y),
+    drawn: () => [...page.run('graphCur.model.nodes.map((n) => Number(n.id))')].sort((x, y) => x - y),
     view: () => page.run('loadViewMode()'),
     click(id, m) { const e = nodeEvent(id, m); graphHost.fire('click', e); return e; },
     canvasClick(inside = true, m = {}) {
@@ -84,7 +84,7 @@ function nodeEvent(id, m = {}) {
 }
 
 const typed = (text) => ({ kind: 'query', text, source: 'typing' });
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 
 // --- typing in the Graph --------------------------------------------------------------
 
@@ -238,7 +238,7 @@ test('the cut keeps cutting with the Archive pill on, and a card outside it is n
 
 test('the typed anchor lights what the Graph\'s query decision says the query lights', async () => {
   const s = await open();
-  s.page.ctx.graphQueryEffect = () => ({ visibleIds: null, litIds: new Set([2, 4]) });
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: null, litIds: new Set(['2', '4']) });
   s.type('zephyr');
   assert.deepStrictEqual(s.ids(), [2, 4]);
   assert.deepStrictEqual(s.lit().nodes, [2, 4]);
@@ -246,11 +246,11 @@ test('the typed anchor lights what the Graph\'s query decision says the query li
 
 test('the Graph draws the cards the decision leaves visible', async () => {
   const s = await open();
-  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set([1, 2]), litIds: new Set([1]) });
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set(['1', '2']), litIds: new Set(['1']) });
   s.type('zephyr');
   assert.deepStrictEqual(s.drawn(), [1, 2]);
   assert.deepStrictEqual(s.ids(), [1]);
-  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set([2]), litIds: new Set([1]) });
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set(['2']), litIds: new Set(['1']) });
   s.type('zephyr!');
   assert.deepStrictEqual(s.ids(), [], 'a card the Graph does not draw is not selected');
 });
@@ -495,7 +495,7 @@ test('a query typed in the Graph stops being the anchor on the Board: it still f
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.deepStrictEqual(s.ids(), []);
   assert.deepStrictEqual([...s.page.run('bulkTargets().map((c) => c.id)')], []);
-  assert.deepStrictEqual([...s.page.run('currentSearchMatch().ids')].sort((x, y) => x - y), [2, 5, 8], 'the Board hides the other cards');
+  assert.deepStrictEqual([...s.page.run('currentSearchMatch().ids')].map(Number).sort((x, y) => x - y), [2, 5, 8], 'the Board hides the other cards');
 });
 
 test('the same on every view the Graph can be left for', async () => {
@@ -572,7 +572,7 @@ function fakeGraph(page) {
     const names = new Set();
     return { names, classList: { add: (c) => names.add(c), remove: (c) => names.delete(c), contains: (c) => names.has(c), toggle: (c, force) => { if (force) names.add(c); else names.delete(c); } } };
   };
-  const nodes = new Map([1, 2, 3, 4, 5, 6].map((id) => [id, el()]));
+  const nodes = new Map(['1', '2', '3', '4', '5', '6'].map((id) => [id, el()]));
   const model = page.run('graphBuild(state.active, { ctx: nestingCtx() })');
   const links = model.links.map(() => el());
   const svg = el();
@@ -586,13 +586,13 @@ test('a lighting dims the canvas and marks exactly its cards and the lines betwe
   const s = await open();
   s.page.ctx.graphLightCards = s.realLightCards;
   const f = fakeGraph(s.page);
-  const lit = () => [...f.nodes].filter(([, e]) => e.names.has('graph-near')).map(([id]) => id);
-  s.page.ctx.__lit = s.page.run('graphLit(__fake.model, new Set([1, 2]))');
+  const lit = () => [...f.nodes].filter(([, e]) => e.names.has('graph-near')).map(([id]) => Number(id));
+  s.page.ctx.__lit = s.page.run("graphLit(__fake.model, new Set(['1', '2']))");
   s.page.run('graphLightCards(__lit)');
   assert.strictEqual(f.svg.names.has('graph-dim'), true);
   assert.deepStrictEqual(lit(), [1, 2]);
   assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 1, 'the one line between 1 and 2');
-  s.page.ctx.__lit = s.page.run('graphLit(__fake.model, new Set([5]))');
+  s.page.ctx.__lit = s.page.run("graphLit(__fake.model, new Set(['5']))");
   s.page.run('graphLightCards(__lit)');
   assert.deepStrictEqual(lit(), [5], 'the first set is gone');
   assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 0);

@@ -12,12 +12,16 @@ const { readConfig } = require('../../scripts/config-store');
 const { materialize } = require('../browser/boards');
 const { graphBuild, graphFit, graphFanNames } = require('../../web/graph-model');
 const { GRAPH_NAME_ROW, graphNamesPlace, graphNamesRim } = require('../../web/graph-names');
+const { idKey } = require('../../web/ids');
 
 const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 const HIERARCHY = ['goal', 'strategy', 'objective', 'epic'];
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 
 const roots = [];
+
+// A card as the page holds it: its id and its waiting_for entries are whole-id strings, whatever the store wrote.
+const pageCard = (c) => Object.assign({}, c, { id: idKey(c.id), waiting_for: (c.waiting_for || []).map(idKey), parent: typeof c.parent === 'number' ? idKey(c.parent) : c.parent });
 
 // A fixture board: its live and archived cards and its config, with the context
 // the page builds the Graph in.
@@ -26,16 +30,17 @@ function loadBoard(key) {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize(key, dir);
-  const live = listActive(dir).map(toJSON);
+  const live = listActive(dir).map((c) => pageCard(toJSON(c)));
   const config = readConfig(dir);
-  return { name: config.name, config, live, all: live.concat(listArchived(dir).map(toJSON)), ctx: { board: config.name, priorities: config.priorities } };
+  return { name: config.name, config, live, all: live.concat(listArchived(dir).map((c) => pageCard(toJSON(c)))), ctx: { board: config.name, priorities: config.priorities } };
+
 }
 
 function cleanUp() {
   for (const r of roots.splice(0)) fs.rmSync(r, { recursive: true, force: true });
 }
 
-const card = (id, extra = {}) => ({
+const card = (id, extra = {}) => pageCard({
   id, title: `card ${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra,
 });
 
@@ -303,6 +308,6 @@ const within = (inner, outer, slack = 1e-9) => inner.x0 >= outer.x0 - slack && i
   && inner.y0 >= outer.y0 - slack && inner.y1 <= outer.y1 + slack;
 
 module.exports = {
-  STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
+  pageCard, STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
   nameMeasure, pathPoints, placeOn, drawnBox, within, leaderPieces, leaderCrossings,
 };

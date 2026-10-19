@@ -42,14 +42,14 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
     elements: { '#graph-view': graphHost },
   }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
-  const ids = () => [...page.run('selectedIds')].sort((a, b) => a - b);
+  const ids = () => [...page.run('selectedIds')].map(Number).sort((a, b) => a - b);
   const selection = () => JSON.parse(JSON.stringify(page.run('selectionState.selection')));
-  const rangeStart = () => page.run('selectionState.rangeStart');
+  const rangeStart = () => { const v = page.run('selectionState.rangeStart'); return v === null ? null : Number(v); };
   const select = (...parts) => page.run(`setSelection(${parts.reduce((s, p) => `addPart(${s}, ${p})`, 'NO_SELECTION')}, null)`);
   return { page, board, graphHost, ids, selection, rangeStart, select };
 }
 
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 const parts = (sel) => [sel.anchor, ...sel.additions];
 
 // --- the id set is the parts, resolved in the view being shown ----------------------
@@ -130,7 +130,7 @@ for (const view of ['gantt', 'calendar']) {
     board.active[4].start_date = null;
     board.active[4].due_date = '2031-06-12';
     const s = await open({ view, board });
-    assert.deepStrictEqual([...s.page.run('shownCardIds()')].sort((x, y) => x - y), [1, 3, 4, 5, 6], 'card 2 has no date, and card 5 has a due date alone');
+    assert.deepStrictEqual([...s.page.run('shownCardIds()')].map(Number).sort((x, y) => x - y), [1, 3, 4, 5, 6], 'card 2 has no date, and card 5 has a due date alone');
     s.select('cardPart(1)', 'cardPart(2)');
     assert.deepStrictEqual(s.ids(), [1]);
     s.select(`queryPart('tags:ui')`);
@@ -233,7 +233,7 @@ test('Board: Ctrl click picks the first card as the anchor and later cards as ad
 
 test('Board: Shift click adds the range from the range start as additions, in the order the view shows', async () => {
   const s = await open();
-  s.page.ctx.visibleCardIds = () => [6, 5, 4, 3, 2, 1];
+  s.page.ctx.visibleCardIds = () => ['6', '5', '4', '3', '2', '1'];
   s.page.fireDocument('click', { target: cardTarget(4), ...mods({ ctrlKey: true }) });
   s.page.fireDocument('click', { target: cardTarget(2), ...mods({ shiftKey: true }) });
   assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [a(3), a(2)] });
@@ -253,7 +253,7 @@ test('Board: a plain click opens the card and empties the selection', async () =
   const s = await open();
   s.select('cardPart(1)', 'cardPart(2)');
   const opened = [];
-  s.page.ctx.openCard = (id) => { opened.push(id); };
+  s.page.ctx.openCard = (id) => { opened.push(Number(id)); };
   s.page.fireDocument('click', { target: cardTarget(4), ...mods() });
   assert.deepStrictEqual(opened, [4]);
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
@@ -288,7 +288,7 @@ test('a click on empty space leaves the selection and its range start, and a dou
 test('bulk edits read the cards of the id set: cards added by a query are targets as the cards picked by hand are', async () => {
   const s = await open();
   s.select('cardPart(1)', "queryPart('tags:ui')");
-  assert.deepStrictEqual([...s.page.run('bulkTargets().map((c) => c.id)')], [1, 2, 5]);
+  assert.deepStrictEqual([...s.page.run('bulkTargets().map((c) => Number(c.id))')], [1, 2, 5]);
 });
 
 // --- gestures through the Graph's own listener --------------------------------------
@@ -369,7 +369,7 @@ test('Graph: Space on a focused card acts as a plain click, and Enter opens the 
   g.graphHost.fire('keydown', nodeEvent(4, { key: ' ' }));
   assert.deepStrictEqual(g.selection(), { anchor: a(4), additions: [] });
   const opened = [];
-  g.page.ctx.openCard = (id) => { opened.push(id); };
+  g.page.ctx.openCard = (id) => { opened.push(Number(id)); };
   g.graphHost.fire('keydown', nodeEvent(2, { key: 'Enter' }));
   assert.deepStrictEqual(opened, [2]);
   assert.deepStrictEqual(g.selection(), { anchor: a(4), additions: [] });
@@ -378,7 +378,7 @@ test('Graph: Space on a focused card acts as a plain click, and Enter opens the 
 test('Graph: a double click opens the card', async () => {
   const g = await inGraph();
   const opened = [];
-  g.page.ctx.openCard = (id) => { opened.push(id); };
+  g.page.ctx.openCard = (id) => { opened.push(Number(id)); };
   g.graphHost.fire('dblclick', nodeEvent(3));
   assert.deepStrictEqual(opened, [3]);
 });

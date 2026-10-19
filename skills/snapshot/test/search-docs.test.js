@@ -73,21 +73,21 @@ test('the skill says what a quoted title: or body: matches, and what the slices 
 });
 
 test('the documented examples cut as the skill says', () => {
-  const card = (id, over = {}) => ({ id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], parent: null, ...over });
+  const card = (id, over = {}) => ({ id: String(id), title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], parent: null, ...over });
   const cards = [
     card(1, { type: 'goal', tags: ['ui'], status: 'doing' }),
-    card(2, { type: 'strategy', parent: 1 }),
-    card(3, { type: 'objective', parent: 2 }),
-    card(4, { parent: 3 }),
-    card(5, { parent: 4 }),
-    card(6, { parent: 5, title: 'two words', tags: ['grill'] }),
+    card(2, { type: 'strategy', parent: '1' }),
+    card(3, { type: 'objective', parent: '2' }),
+    card(4, { parent: '3' }),
+    card(5, { parent: '4' }),
+    card(6, { parent: '5', title: 'two words', tags: ['grill'] }),
     card(7),
-    card(8, { parent: 7 }),
+    card(8, { parent: '7' }),
     card(12, { tags: ['ui'] }),
     card(13, { tags: ['grilling'] }),
   ];
   const ctx = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
-  const ids = (q) => filterCards(cards, parseSearchQuery(q, 'kanban'), ctx).map((c) => c.id);
+  const ids = (q) => filterCards(cards, parseSearchQuery(q, 'kanban'), ctx).map((c) => Number(c.id));
   assert.deepStrictEqual(ids(EXAMPLES.or), [1, 12]);
   assert.deepStrictEqual(ids(EXAMPLES.bracket), [1, 12]);
   assert.deepStrictEqual(ids(EXAMPLES.quote), [6]);

@@ -56,7 +56,7 @@ module.exports = {
     const litIs = (ids) => waitFor(`${DIMMED}&&${idsOf(LIT)}===${JSON.stringify(JSON.stringify(ids))}`);
     const undimmed = () => waitFor(`!${DIMMED}&&document.querySelectorAll('.graph-node.graph-near').length===0`);
     const restIsDim = () => ev(`(()=>{const off=[...document.querySelectorAll('.graph-node')].filter((n)=>!n.classList.contains('graph-near'));return off.length>0&&off.every((n)=>getComputedStyle(n).opacity==='0.15')})()`);
-    const pickedIs = (ids) => waitFor(`${idsOf(`[...selectedIds].sort((a,b)=>a-b)`)}===${JSON.stringify(JSON.stringify(ids))}`);
+    const pickedIs = (ids) => waitFor(`${idsOf(`[...selectedIds].map(Number).sort((a,b)=>a-b)`)}===${JSON.stringify(JSON.stringify(ids))}`);
     const dotCount = () => ev(`document.querySelectorAll('.graph-node').length`);
     const litLinks = () => ev(`document.querySelectorAll('.graph-link.graph-near').length`);
     const boxText = () => ev(`document.getElementById('search-input').value`);

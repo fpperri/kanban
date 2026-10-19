@@ -189,7 +189,7 @@ test('pressing an option stores the options whole for the board and redraws the 
 
 test('pressing an order moves siblings in the layout, and the layout is not the same layout as before', async () => {
   const s = await open();
-  const angle = (id) => s.run(`graphCur.layout.polar.get(${id}).a`);
+  const angle = (id) => s.run(`graphCur.layout.polar.get(${JSON.stringify(String(id))}).a`);
   const seat = () => [2, 3, 4, 5, 6].sort((a, b) => angle(b) - angle(a));
   assert.deepStrictEqual(seat(), [4, 3, 6, 5, 2], 'by status, the default: doing, todo, todo, backlog, done');
   s.click(groups(s.row()).flatMap((x) => x.buttons).find((b) => b.key === 'order' && b.val === 'rank').el);
@@ -299,7 +299,7 @@ test('a press leaves the selection as it is', async () => {
   const before = JSON.stringify(s.run('selectionState.selection'));
   for (const b of groups(s.row()).flatMap((x) => x.buttons)) s.click(b.el);
   assert.strictEqual(JSON.stringify(s.run('selectionState.selection')), before);
-  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [2, 5]);
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [2, 5]);
 });
 
 test('a focused option does not hold the poll, and a poll tick that finds it focused refreshes the board', async () => {
@@ -392,10 +392,10 @@ test('every option the model offers has a label and a hint in the row, so the ro
 // Card 7 of the board above has no parent, no children and no tier (it waits for card 1): the
 // card the option is about. Its mode is one browser choice for the board, like the others.
 
-const ringRadius = (s) => s.run('(()=>{const p=graphCur.layout.pos.get(7);return Math.hypot(p.x,p.y)})()');
+const ringRadius = (s) => s.run('(()=>{const p=graphCur.layout.pos.get("7");return Math.hypot(p.x,p.y)})()');
 const lastRing = (s) => s.run('(()=>{const b=graphCur.layout.bands;return b[b.length-1].rings[0]})()');
-const drawnIds = (s) => JSON.parse(s.run('JSON.stringify(graphCur.model.nodes.map((n)=>n.id).sort((a,b)=>a-b))'));
-const shownIds = (s) => JSON.parse(s.run('JSON.stringify([...shownCardIds()].sort((a,b)=>a-b))'));
+const drawnIds = (s) => JSON.parse(s.run('JSON.stringify(graphCur.model.nodes.map((n)=>Number(n.id)).sort((a,b)=>a-b))'));
+const shownIds = (s) => JSON.parse(s.run('JSON.stringify([...shownCardIds()].map(Number).sort((a,b)=>a-b))'));
 const UNFOLDED = {};
 
 test('unnested outermost is what the Graph opens with: card 7 is on a ring outside the other bands, and there is no block', async () => {
@@ -414,7 +414,7 @@ test('pressing table draws the block, depth 0 the ring and sector, and each pres
   pressOption(s, 'unnested', 'depth 0');
   assert.strictEqual(s.run('graphCur.layout.block'), null);
   assert.strictEqual(s.run("graphCur.layout.sectors.map((x)=>x.kind).join()"), 'tree,unnested');
-  assert.strictEqual(s.run('graphCur.layout.places.get(7).block'), null, 'card 7 is on a ring of the depth 0 band');
+  assert.strictEqual(s.run('graphCur.layout.places.get("7").block'), null, 'card 7 is on a ring of the depth 0 band');
   assert.strictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]).unnested, 'depth 0');
   pressOption(s, 'unnested', 'outermost');
   assert.ok(Math.abs(ringRadius(s) - lastRing(s)) < 1e-6);
@@ -445,13 +445,13 @@ test('off is only the Tiers layout\'s: Force and Status draw every card, whateve
 test('a card off leaves the selection too: a selection reaches only cards the Graph draws', async () => {
   const s = await open({ stored: UNFOLDED });
   s.run('setSelection(addPart(addPart(NO_SELECTION, cardPart(3)), cardPart(7)), 3)');
-  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7]);
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7]);
   assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6, 7]);
   pressOption(s, 'unnested', 'off');
   assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6], 'the view shows six cards');
-  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3], 'and the selection no longer holds the seventh, so no bulk edit can reach it');
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3], 'and the selection no longer holds the seventh, so no bulk edit can reach it');
   pressOption(s, 'unnested', 'depth 0');
-  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'it comes back with the card');
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7], 'it comes back with the card');
 });
 
 test('what a selection can reach is what the Graph draws, with a status pill hiding a status under off too', async () => {
@@ -513,19 +513,19 @@ test('switching from Force to Tiers with Unnested off takes the unnested card ou
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
   const s = await open({ stored, layout: 'force' });
   s.run('setSelection(addPart(addPart(NO_SELECTION, cardPart(3)), cardPart(7)), 3)');
-  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'Force draws every card');
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7], 'Force draws every card');
   assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6, 7]);
   s.click(layoutButton(s, 'tiers'));
   assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6], 'Tiers with Unnested off leaves card 7 out');
-  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3], 'so the selection does not hold it: no bulk edit can reach a card the view does not draw');
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3], 'so the selection does not hold it: no bulk edit can reach a card the view does not draw');
   s.click(layoutButton(s, 'force'));
-  assert.deepStrictEqual([...s.run('selectedIds')].sort(), [3, 7], 'Force draws it again');
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7], 'Force draws it again');
 });
 
 test('the pill counts follow the layout switch the same way', async () => {
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
   const s = await open({ stored, layout: 'force' });
-  const counted = () => JSON.parse(s.run('JSON.stringify(cardsBeforeSearch().map((c) => c.id).sort((a, b) => a - b))'));
+  const counted = () => JSON.parse(s.run('JSON.stringify(cardsBeforeSearch().map((c) => Number(c.id)).sort((a, b) => a - b))'));
   assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6, 7]);
   s.click(layoutButton(s, 'tiers'));
   assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6]);

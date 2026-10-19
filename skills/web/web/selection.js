@@ -178,9 +178,13 @@ function cardOpenAction({ shiftKey, ctrlKey, metaKey, plainClick }) {
 
 const NO_SELECTION = Object.freeze({ anchor: null, additions: Object.freeze([]) });
 
-function cardPart(id) { return { kind: 'card', id: Number(id) }; }
-function pathPart(id) { return { kind: 'path', id: Number(id) }; }
-function treePart(id) { return { kind: 'tree', id: Number(id) }; }
+const SEL_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
+// A part holds its card's whole id as a string, so `#7` and `#G7` are two cards.
+function partId(id) { const key = SEL_IDS.idKey(id); return key === null ? String(id) : key; }
+function cardPart(id) { return { kind: 'card', id: partId(id) }; }
+function pathPart(id) { return { kind: 'path', id: partId(id) }; }
+function treePart(id) { return { kind: 'tree', id: partId(id) }; }
 function queryPart(text) { return { kind: 'query', text: String(text) }; }
 
 function samePart(a, b) {
@@ -291,13 +295,13 @@ function selectionWithoutCard(selection, id, matchQuery) {
   const kept = [];
   for (const part of partsOf(selection)) {
     if (part.kind === 'card') {
-      if (part.id === Number(id)) touched = true; else kept.push(part);
+      if (part.id === partId(id)) touched = true; else kept.push(part);
       continue;
     }
     const cards = partCards(part, matchQuery);
-    if (!cards.includes(Number(id))) { kept.push(part); continue; }
+    if (!cards.includes(partId(id))) { kept.push(part); continue; }
     touched = true;
-    for (const card of cards) if (card !== Number(id)) kept.push(cardPart(card));
+    for (const card of cards) if (card !== partId(id)) kept.push(cardPart(card));
   }
   return touched ? selectionFromParts(kept) : selection;
 }
@@ -313,7 +317,8 @@ function selectionWithoutCard(selection, id, matchQuery) {
 // pill that is on stays on, in its order (the first is the anchor), and every other part
 // goes. The first card picked becomes the anchor, because adding to an empty selection
 // does that. A cue is the caller's search shortcut.
-function selectionAfterClick(action, id, { selection, resolved, rangeStart, order, matchQuery }) {
+function selectionAfterClick(action, clicked, { selection, resolved, rangeStart, order, matchQuery }) {
+  const id = partId(clicked);
   if (action === 'select') return { selection: setAnchor(selection, cardPart(id)), rangeStart: id };
   if (action === 'toggle') {
     const next = resolved.has(id) ? selectionWithoutCard(selection, id, matchQuery) : addPart(selection, cardPart(id));

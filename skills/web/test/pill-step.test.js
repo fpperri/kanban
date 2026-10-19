@@ -77,7 +77,7 @@ test('each m turns on the next pill alone and the box holds its query alone, the
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.selection(), NONE);
   assert.deepStrictEqual(s.pressed(), []);
-  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6], 'every card is back on the Board');
+  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6'], 'every card is back on the Board');
   m(s);
   assert.strictEqual(s.box(), 'blocked:', 'the cycle starts over');
 });
@@ -90,8 +90,8 @@ test('the pill is a solo: it alone is on, its cards are the selection, and what 
   m(s);
   assert.strictEqual(s.box(), 'blocked:', 'the first pill, since two were on');
   assert.deepStrictEqual(s.pressed(), ['blocked']);
-  assert.deepStrictEqual(s.ids(), [4]);
-  assert.deepStrictEqual(s.shown(), [4]);
+  assert.deepStrictEqual(s.ids(), ['4']);
+  assert.deepStrictEqual(s.shown(), ['4']);
 });
 
 test('m steps on from the pill a click or a right-click turned on alone', async () => {

@@ -69,7 +69,7 @@ async function open({ view = 'board', board = makeBoard() } = {}) {
   page.ctx.renderBoard = (...args) => { renders++; return real(...args); };
   const created = [];
   page.ctx.openModal = (...args) => { created.push(args); };
-  const sortedIds = (set) => [...set].sort((a, b) => a - b);
+  const sortedIds = (set) => [...set].map(Number).sort((a, b) => a - b);
   return {
     page, view, created, calendarHost: elements['#calendar-view'], chip: elements['#search-chip'],
     renders: () => renders,
@@ -113,7 +113,7 @@ const cardIn = (view) => el('div', { classes: ['card-el'], dataset: { id: '3' } 
 const click = (s, target, detail = 1, extra = {}) => s.page.fireDocument('click', { target, detail, shiftKey: false, ctrlKey: false, metaKey: false, ...extra });
 const doubleClick = (s, target, extra = {}) => { click(s, target, 1, extra); click(s, target, 2, extra); };
 
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 const pillQuery = (text) => ({ kind: 'query', text });
 const typedQuery = (text) => ({ kind: 'query', text, source: 'typing' });
 const NOTHING = { anchor: null, additions: [] };

@@ -26,6 +26,8 @@
 // "no reachable target, no-op, browser default stands" contract as
 // save-hotkey's, just the mirror condition: that one fires only INSIDE a
 // popup, this one only fires OUTSIDE one.
+const SHK_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
 function searchHotkeyPrefill(chord, ctx) {
   if (!chord) return null;
   const key = typeof chord.key === 'string' ? chord.key.toLowerCase() : '';
@@ -39,9 +41,9 @@ function searchHotkeyPrefill(chord, ctx) {
 }
 
 // The "#" prefill above is only meant to stick while the
-// user is still typing an id (digits). Called on every 'input' event with
-// the box's current value — as long as everything after the "#" is digits
-// (or nothing yet), the "#" stays; the moment a non-numeric char shows up
+// user is still typing an id (a prefix, then digits: `G7`). Called on every 'input' event with
+// the box's current value — as long as everything after the "#" reads as an id
+// or the start of one (nothing yet, or a prefix), the "#" stays; the moment any other char shows up
 // in there, the id search is off the table, so drop the leading "#" and
 // let the rest read as a plain search term. Only while the box holds that one
 // token: a second token or a | after the id (`#12 | #14`, or the `#12 | path:40`
@@ -51,7 +53,7 @@ function searchHotkeyPrefill(chord, ctx) {
 function searchHashStrip(value) {
   if (typeof value !== 'string' || value[0] !== '#') return null;
   const rest = value.slice(1).trimEnd();
-  if (/\s/.test(rest) || /^\d*$/.test(rest)) return null;
+  if (/\s/.test(rest) || rest === '' || SHK_IDS.parseId(rest) !== null || /^_?[A-Z]*$/.test(rest)) return null;
   return value.slice(1);
 }
 

@@ -57,16 +57,19 @@ test('a selection built from parts takes the first as the anchor and counts a re
 });
 
 test('the range start a selection implies is its anchor card, and none for any other anchor', () => {
-  assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, cardPart(7))), 7);
-  assert.strictEqual(rangeStartOf(addPart(setAnchor(NO_SELECTION, cardPart(7)), cardPart(8))), 7, 'the additions do not move it');
+  assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, cardPart(7))), '7');
+  assert.strictEqual(rangeStartOf(addPart(setAnchor(NO_SELECTION, cardPart(7)), cardPart(8))), '7', 'the additions do not move it');
   for (const part of [pathPart(7), treePart(7), queryPart('tags:ui')]) assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, part)), null, part.kind);
   assert.strictEqual(rangeStartOf(NO_SELECTION), null);
 });
 
-test('the part builders keep ids as numbers, so a card read from a data attribute and one read from a card are the same part', () => {
+test('the part builders keep ids as whole-id strings, so a card read from a data attribute and one read from a card are the same part, and #7 is not #G7', () => {
   assert.deepStrictEqual(cardPart('12'), cardPart(12));
-  assert.deepStrictEqual(pathPart('12'), { kind: 'path', id: 12 });
-  assert.deepStrictEqual(treePart('12'), { kind: 'tree', id: 12 });
+  assert.deepStrictEqual(cardPart('012'), cardPart(12));
+  assert.deepStrictEqual(pathPart('12'), { kind: 'path', id: '12' });
+  assert.deepStrictEqual(treePart('12'), { kind: 'tree', id: '12' });
+  assert.deepStrictEqual(cardPart('G7'), { kind: 'card', id: 'G7' });
+  assert.notDeepStrictEqual(cardPart('G7'), cardPart(7));
   assert.deepStrictEqual(queryPart('tags:ui'), { kind: 'query', text: 'tags:ui' });
 });
 
@@ -81,11 +84,12 @@ const CARDS = [
   { id: 5, title: 'five', body: '', status: 'done', priority: 'Normal', tags: ['ui'] },
   { id: 6, title: 'six', body: '', status: 'done', priority: 'Normal', tags: [], archived: true, waiting_for: [1] },
 ];
-const ALL = new Set(CARDS.map((c) => c.id));
+const ALL = new Set(CARDS.map((c) => String(c.id)));
 
 // The matcher the page hands in: the search module over the whole board.
-const match = (text) => new Set(filterCards(CARDS, parseSearchQuery(text), {}).map((c) => c.id));
-const resolve = (selection, shown = ALL) => [...resolveSelection(selection, match, shown)];
+const match = (text) => new Set(filterCards(CARDS.map((c) => ({ ...c, id: String(c.id) })), parseSearchQuery(text), {}).map((c) => c.id));
+const shownAs = (shown) => (shown === null || shown === ALL ? shown : typeof shown === 'function' ? () => new Set([...shown()].map(String)) : new Set([...shown].map(String)));
+const resolve = (selection, shown = ALL) => [...resolveSelection(selection, match, shownAs(shown))].map(Number);
 const selectionOf = (...list) => list.reduce((s, part) => addPart(s, part), NO_SELECTION);
 
 test('a card part resolves to that card', () => {
@@ -93,9 +97,9 @@ test('a card part resolves to that card', () => {
 });
 
 test('a path part resolves to the cards the path: term matches, and a tree part to those of tree:', () => {
-  assert.deepStrictEqual([...match('path:2')], [1, 2, 3], 'the board: upstream 1, card 2, downstream 3, and not the sibling branch 6');
+  assert.deepStrictEqual([...match('path:2')].map(Number), [1, 2, 3], 'the board: upstream 1, card 2, downstream 3, and not the sibling branch 6');
   assert.deepStrictEqual(resolve(selectionOf(pathPart(2))), [1, 2, 3]);
-  assert.deepStrictEqual([...match('tree:2')], [1, 2, 3, 6]);
+  assert.deepStrictEqual([...match('tree:2')].map(Number), [1, 2, 3, 6]);
   assert.deepStrictEqual(resolve(selectionOf(treePart(2))), [1, 2, 3, 6]);
   assert.deepStrictEqual(resolve(selectionOf(treePart(4))), [4], 'a card with no relations is its own tree');
 });
@@ -265,20 +269,20 @@ test('step back does not change the selection handed in', () => {
 
 test('a poll that finds a card gone drops the card, path and tree parts built on it, and keeps the queries', () => {
   const s = selectionOf(cardPart(1), cardPart(2), pathPart(3), treePart(4), queryPart('tags:ui'));
-  const next = pruneSelectionParts(s, [1, 3, 4, 5]);
+  const next = pruneSelectionParts(s, ['1', '3', '4', '5']);
   assert.deepStrictEqual(parts(next), [cardPart(1), pathPart(3), treePart(4), queryPart('tags:ui')]);
-  assert.deepStrictEqual(parts(pruneSelectionParts(s, [2])), [cardPart(2), queryPart('tags:ui')]);
+  assert.deepStrictEqual(parts(pruneSelectionParts(s, ['2'])), [cardPart(2), queryPart('tags:ui')]);
 });
 
 test('when the anchor card is gone the first part that is left becomes the anchor', () => {
   const s = selectionOf(cardPart(1), cardPart(2), cardPart(3));
-  assert.deepStrictEqual(pruneSelectionParts(s, [2, 3]), { anchor: cardPart(2), additions: [cardPart(3)] });
+  assert.deepStrictEqual(pruneSelectionParts(s, ['2', '3']), { anchor: cardPart(2), additions: [cardPart(3)] });
   assert.deepStrictEqual(pruneSelectionParts(s, []), NO_SELECTION);
 });
 
 test('when every part is still on the board the same selection comes back', () => {
   const s = selectionOf(cardPart(1), queryPart('tags:ui'));
-  assert.strictEqual(pruneSelectionParts(s, [1, 2]), s);
+  assert.strictEqual(pruneSelectionParts(s, ['1', '2']), s);
   assert.strictEqual(pruneSelectionParts(NO_SELECTION, []), NO_SELECTION);
 });
 
@@ -288,7 +292,7 @@ test('when every part is still on the board the same selection comes back', () =
 // becomes. `view` is where the click landed; the Board, Map, Gantt and Calendar
 // have a reading order to range over and the Graph has not.
 
-const ORDER = [1, 2, 3, 4, 5, 6];
+const ORDER = ['1', '2', '3', '4', '5', '6'];
 const gesture = (view, mods = {}) => cardClickAction({
   cue: false, shiftKey: false, ctrlKey: false, metaKey: false, plainClick: view === 'graph' ? 'selects' : 'opens', ranges: shiftAddsRange(view), ...mods,
 });
@@ -296,13 +300,14 @@ const gesture = (view, mods = {}) => cardClickAction({
 const start = (selection = NO_SELECTION, rangeStart = null) => ({ selection, rangeStart });
 function clickOn(state, view, id, mods) {
   const action = gesture(view, mods);
-  return selectionAfterClick(action, id, {
+  const next = selectionAfterClick(action, id, {
     selection: state.selection,
     resolved: resolveSelection(state.selection, match, ALL),
-    rangeStart: state.rangeStart,
+    rangeStart: state.rangeStart === null ? null : String(state.rangeStart),
     order: ORDER,
     matchQuery: match,
   });
+  return { ...next, rangeStart: next.rangeStart === null ? null : Number(next.rangeStart) };
 }
 const plainViews = ['board', 'map', 'gantt', 'calendar'];
 

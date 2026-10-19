@@ -1,5 +1,5 @@
 'use strict';
-// config.yaml: board-level configuration — currently four concerns:
+// config.yaml: board-level configuration — currently five concerns:
 //
 //   name: webapp          # BOARD NAME — the token that opens a card mention
 //                         # (`webapp#28 Card title`) and titles every surface.
@@ -20,6 +20,14 @@
 //                         # so the one consumer can WARN instead of drifting.
 //   nextId: 28            # monotonic id counter — ids stay unique even when
 //                         # the max card is deleted or two writers race a scan
+//   idDigits: 4           # the width an id's number is padded to in a file name
+//                         # (default 4); readers parse the number, so changing it
+//                         # orphans no file. A whole number from 1 to 15.
+//   prefixes:             # a prefix for a card type, fixed when the card is made:
+//     G: goal             #   a new goal is #G1, #G2 ... A value with a `/` is a
+//     W: workflow/        #   folder (a groups folder), not a type. Block form only.
+//   counters: { G: 3 }    # one line, one counter per prefix; the next id of a prefix
+//                         # is max(its counter, its highest id + 1), like nextId
 //   assignees:            # who can own cards; feeds the form's combobox
 //     - handle: "@alex"
 //       name: "Alex"
@@ -47,6 +55,7 @@
 const fs = require('fs');
 const path = require('path');
 const { unquote, quote, scalar } = require('./yaml-list');
+const ids = require('../web/ids');
 
 const FILE = 'config.yaml';
 
@@ -59,6 +68,32 @@ function parseFlowList(raw) {
   const close = s.indexOf(']');
   const inner = close === -1 ? s.slice(1) : s.slice(1, close);
   return inner.split(',').map((item) => scalar(item)).filter((v) => v !== '');
+}
+
+// Inline flow map (`{ G: 4, O: 6 }   # comment`) → array of [key, value] scalar pairs.
+// As tolerant as the flow list: no closing brace = take what is there, an item
+// without a colon is skipped.
+function parseFlowMap(raw) {
+  const s = String(raw).trim();
+  if (s[0] !== '{') return [];
+  const close = s.indexOf('}');
+  const inner = close === -1 ? s.slice(1) : s.slice(1, close);
+  return inner.split(',').map((item) => {
+    const colon = item.indexOf(':');
+    return colon === -1 ? null : [scalar(item.slice(0, colon)), scalar(item.slice(colon + 1))];
+  }).filter((pair) => pair !== null);
+}
+
+// A prefix is what an id carries before its number, as the id module reads it; a
+// board's prefix is never empty (a plain id has none). A counter is a whole number
+// from 1 up that an id can hold.
+function isPrefix(text) {
+  return text !== '' && ids.parseId({ prefix: text, number: 1 }) !== null;
+}
+
+function counterValue(text) {
+  const n = /^[0-9]+$/.test(text) ? Number(text) : 0;
+  return n >= 1 && ids.parseId(n) !== null ? n : null;
 }
 
 // A list key whose value is blank or only a comment (`types:   # note`) starts
@@ -130,8 +165,10 @@ function closingQuote(s) {
 // text and a hierarchy entry names a type.
 const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 
+const DEFAULT_ID_DIGITS = 4;
+
 function parseConfig(text) {
-  const config = { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -178,6 +215,18 @@ function parseConfig(text) {
         const n = Number(scalar(top[2]));
         config.nextId = Number.isInteger(n) && n > 0 ? n : null;
         section = null;
+      } else if (top[1] === 'idDigits') {
+        const n = Number(scalar(top[2]));
+        config.idDigits = Number.isInteger(n) && n >= 1 && n <= 15 ? n : DEFAULT_ID_DIGITS;
+        section = null;
+      } else if (top[1] === 'counters') {
+        for (const [prefix, text] of parseFlowMap(top[2])) {
+          const n = counterValue(text);
+          if (isPrefix(prefix) && n !== null && !(prefix in config.counters)) config.counters[prefix] = n;
+        }
+        section = null;
+      } else if (top[1] === 'prefixes') {
+        section = opensBlock(top[2]) ? 'prefixes' : null; // block form only; a scalar or inline value answers none
       } else if (top[1] === 'port') {
         // Pinned serving port (web skill, kanban.proj #254). Same
         // top-level-only rule as `name:` — an assignee's own indented
@@ -219,6 +268,13 @@ function parseConfig(text) {
       } else {
         section = null; // unknown top-level key — ignored, ends any section
       }
+      continue;
+    }
+    if (section === 'prefixes') {
+      const entry = line.match(/^\s+("[^"]*"|'[^']*'|[^\s:]+)\s*:(?:\s+(.*))?$/);
+      const prefix = entry && scalar(entry[1]);
+      const target = entry && entry[2] !== undefined && entry[2].trim()[0] !== '#' ? scalar(entry[2]) : '';
+      if (prefix && isPrefix(prefix) && target !== '' && !(prefix in config.prefixes)) config.prefixes[prefix] = target;
       continue;
     }
     if (section === 'pills') {
@@ -298,31 +354,86 @@ function readAssignees(dir) {
   return readConfig(dir).assignees;
 }
 
-// Surgical counter advance: config.yaml is human-edited, so the write must
-// preserve comments and unknown keys byte-for-byte — only the nextId line is
-// replaced (or inserted at the top when absent). Same content-preservation
-// discipline as card-store's unmanaged-frontmatter rule; tmp+rename as ever.
-function advanceCounter(dir, newNext) {
+// The surgical config write (ADR 0017): config.yaml is human-edited, so a write
+// preserves comments and unknown keys byte-for-byte — only one top-level line is
+// replaced, inserted or (value null) removed. `key` is a plain word, so an
+// indented key of an assignee entry is never the line. A key that opens a block
+// (nothing after its colon) takes the indented lines under it with it. An
+// inserted line goes below the `after` key's line when that exists, else at the
+// top, in the file's own line ending. Same content-preservation discipline as
+// card-store's unmanaged-frontmatter rule; tmp+rename as ever.
+function writeConfigLine(dir, key, value, after = null) {
+  if (!/^\w+$/.test(key)) throw new Error(`config key must be a plain word: ${key}`);
+  if (value !== null && /[\r\n]/.test(String(value))) throw new Error(`config value must be one line: ${key}`);
   const file = configFile(dir);
-  const raw = fs.readFileSync(file, 'utf8');
-  const out = /^nextId:.*$/m.test(raw)
-    ? raw.replace(/^nextId:.*$/m, `nextId: ${newNext}`)
-    : `nextId: ${newNext}\n${raw}`;
+  const raw = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  const eol = raw.includes('\r\n') ? '\r\n' : '\n';
+  const lineEnd = (header) => {
+    let end = header.index + header[0].length;
+    const tail = header[0].slice(header[0].indexOf(':') + 1).trim();
+    if (tail === '' || tail[0] === '#') {
+      const block = /^(?:\r?\n[ \t][^\r\n]*)+/.exec(raw.slice(end));
+      if (block) end += block[0].length;
+    }
+    return end;
+  };
+  const find = (name) => new RegExp(`^${name}:[^\\r\\n]*`, 'm').exec(raw);
+  const header = find(key);
+  let out;
+  if (header && value !== null) {
+    out = raw.slice(0, header.index) + `${key}: ${value}` + raw.slice(lineEnd(header));
+  } else if (header) {
+    let stop = lineEnd(header);
+    if (raw.startsWith('\r\n', stop)) stop += 2;
+    else if (raw[stop] === '\n') stop += 1;
+    out = raw.slice(0, header.index) + raw.slice(stop);
+  } else if (value === null) {
+    return;
+  } else {
+    const anchor = after && find(after);
+    out = anchor
+      ? raw.slice(0, lineEnd(anchor)) + `${eol}${key}: ${value}` + raw.slice(lineEnd(anchor))
+      : `${key}: ${value}${eol}${raw}`;
+  }
   const tmp = `${file}.tmp`;
   fs.writeFileSync(tmp, out);
   fs.renameSync(tmp, file);
 }
 
-// Allocate the next card id. `fromScan` is the caller's scan-based candidate
-// (max existing id + 1). The counter is opt-in: without a config.yaml the
-// board keeps its scan-only behavior and no file is conjured up. With one, the
-// id is max(counter, fromScan) — a stale/lagging counter self-heals instead
-// of ever re-issuing a taken id — and the advanced counter is persisted.
-function allocateId(dir, fromScan) {
+function renderCounters(counters) {
+  return `{ ${Object.entries(counters).map(([prefix, n]) => `${prefix}: ${n}`).join(', ')} }`;
+}
+
+// Allocate the next card id of a prefix ('' = the plain numbers). `fromScan`
+// is the caller's scan-based candidate (max existing number of that prefix +
+// 1). The counter is opt-in: without a config.yaml the board keeps its
+// scan-only behavior and no file is conjured up. With one, the id's number is
+// max(counter, fromScan) — a stale/lagging counter self-heals instead of ever
+// re-issuing a taken id — and the advanced counter is persisted: `nextId` for
+// plain numbers, the prefix's entry of the one `counters:` line for a prefix.
+function allocateId(dir, fromScan, prefix = '') {
   if (!fs.existsSync(configFile(dir))) return fromScan;
-  const id = Math.max(readConfig(dir).nextId || 0, fromScan);
-  advanceCounter(dir, id + 1);
+  const config = readConfig(dir);
+  if (prefix === '') {
+    const id = Math.max(config.nextId || 0, fromScan);
+    writeConfigLine(dir, 'nextId', String(id + 1));
+    return id;
+  }
+  const id = Math.max(config.counters[prefix] || 0, fromScan);
+  writeConfigLine(dir, 'counters', renderCounters({ ...config.counters, [prefix]: id + 1 }), 'nextId');
   return id;
 }
 
-module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, splitPillEntry, ICON_NAMES };
+// The prefix a card type declares in `prefixes:`, '' when it declares none. A
+// type is compared without regard to case, as the hierarchy's tiers are; a value
+// with a slash is a folder and never a type.
+function prefixForType(config, type) {
+  const want = String(type || '').trim().toLowerCase();
+  if (want === '') return '';
+  for (const [prefix, target] of Object.entries(config.prefixes || {})) {
+    if (!/[\\/]/.test(target) && target.toLowerCase() === want) return prefix;
+  }
+  return '';
+}
+
+module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, writeConfigLine, prefixForType, splitPillEntry, ICON_NAMES };

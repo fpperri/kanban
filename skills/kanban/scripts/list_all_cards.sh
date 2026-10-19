@@ -8,6 +8,18 @@
 
 KANBAN_DIR="${1:-.}"
 
+# Sort lines that start with a card id (up to the first `|`) by the id rule
+# (docs/adr/0014): plain numbers first, then by prefix, then by number, so
+# `9` < `10` < `G3` < `G10`. The sort key is `prefix<TAB>number`; what is no id sorts last.
+sort_by_id() {
+    awk -F'|' '{
+        id = $1
+        if (id ~ /^_?[A-Z]*[0-9]+$/) { match(id, /[0-9]+$/); p = substr(id, 1, RSTART - 1); n = substr(id, RSTART) }
+        else { p = "~"; n = 0 }
+        printf "%s\t%.0f\t%s\n", p, n, $0
+    }' | LC_ALL=C sort -t "$(printf '\t')" -k1,1 -k2,2n | cut -f3-
+}
+
 field() {
     awk -v f="$2" '/^---$/{fm++;next} fm==1 && $0 ~ "^"f":"{sub("^"f":[ \t]*","");print;exit}' "$1"
 }
@@ -39,4 +51,4 @@ for f in "$KANBAN_DIR"/*.card.md; do
   blocked=$(blocked_reason "$(field "$f" blocked)")
   title=$(awk '/^---$/{fm++;next} fm==2 && /^# /{sub("^# ","");print;exit}' "$f")
   echo "$id|$status|$waiting|$blocked|$title"
-done | sort -n
+done | sort_by_id

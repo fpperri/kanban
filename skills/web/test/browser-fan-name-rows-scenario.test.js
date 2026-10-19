@@ -24,7 +24,7 @@ after(cleanUp);
 
 const BOARDS = { plan: loadBoard('plan'), malformed: loadBoard('malformed') };
 const CASE = scenario.CASES;
-const sorted = (ids) => ids.slice().sort((a, b) => a - b);
+const sorted = (ids) => ids.map(Number).sort((a, b) => a - b);
 const STAGE = { w: 1500, h: 780, l: 0, t: 120 };
 const ZOOM_STEP = 1.25;
 
@@ -49,7 +49,7 @@ test('the cards each board draws are the scenario\'s lists, the parents are the 
   const model = modelOf('plan');
   assert.deepStrictEqual(sorted(model.nodes.filter((n) => n.kids > 0).map((n) => n.id)), CASE.plan.parents);
   assert.strictEqual(BOARDS.plan.config.nextId, CASE.plan.addedId);
-  for (const id of CASE.plan.picks) assert.ok(model.byId.has(id), `card ${id} is drawn`);
+  for (const id of CASE.plan.picks) assert.ok(model.byId.has(String(id)), `card ${id} is drawn`);
 });
 
 // --- the stand-in page ---------------------------------------------------------------------------------
@@ -120,12 +120,12 @@ function standIn(over = {}) {
   const screen = (x, y) => ({ x: STAGE.l + view.x + x * view.k, y: STAGE.t + view.y + y * view.k });
   const placedIds = () => sorted([...names.placed.keys()]);
   const shownIds = () => {
-    if (over.shownNotPlaced) return sorted([...graphFanNames(cur.model, opts().names, { selectedIds: new Set(selected) })]);
+    if (over.shownNotPlaced) return sorted([...graphFanNames(cur.model, opts().names, { selectedIds: new Set(selected.map(String)) })]);
     return placedIds();
   };
   const rects = () => {
-    const out = shownIds().filter((id) => names.placed.has(id)).map((id) => {
-      const p = names.placed.get(id);
+    const out = shownIds().filter((id) => names.placed.has(String(id))).map((id) => {
+      const p = names.placed.get(String(id));
       const a = screen(p.box.x0, p.box.y0);
       const b = screen(p.box.x1, p.box.y1);
       const mid = (a.y + b.y) / 2;
@@ -225,11 +225,11 @@ function standIn(over = {}) {
     if (expr === scenario.REDRAWN) return drawnGen !== markedGen;
     if (expr === tierFan.TABLE_DRAWN) return opts().unnested === 'table' && cur.plan.nodes.length > 0;
     if (expr === tierFan.FITTED) return view.touched === false;
-    if (expr === tierFan.hasDot(CASE.plan.addedId)) return cur.model.byId.has(CASE.plan.addedId);
-    if (expr === scenario.PLACED_OR_UNNAMED(CASE.plan.addedId)) return names.placed.has(CASE.plan.addedId) || names.unnamed.includes(CASE.plan.addedId);
+    if (expr === tierFan.hasDot(CASE.plan.addedId)) return cur.model.byId.has(String(CASE.plan.addedId));
+    if (expr === scenario.PLACED_OR_UNNAMED(CASE.plan.addedId)) return names.placed.has(String(CASE.plan.addedId)) || names.unnamed.includes(String(CASE.plan.addedId));
     if (expr === `${scenario.PLACED}.length+graphCur.names.unnamed.length`) return names.placed.size + names.unnamed.length;
     if (expr === options.SELECTED) return sorted(selected);
-    const one = /^\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
+    const one = /^\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
     if (one) return selected.length === 1 && selected[0] === Number(one[1]);
     return undefined;
   }
@@ -248,12 +248,12 @@ function standIn(over = {}) {
     if (created) {
       const c = JSON.parse(created[1]);
       (pendingOf[key] = pendingOf[key] || []).push({
-        id: nextId++, title: c.title, status: c.status || 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false,
+        id: String(nextId++), title: c.title, status: c.status || 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false,
       });
       return 201;
     }
     const dotAt = /^\(\(\)=>\{const dot=document\.querySelector\('\.graph-node\[data-id="(\d+)"\] \.graph-dot'\)/.exec(expr);
-    if (dotAt) return cur.model.byId.has(Number(dotAt[1])) ? { x: 10000 + Number(dotAt[1]), y: 1 } : null;
+    if (dotAt) return cur.model.byId.has(dotAt[1]) ? { x: 10000 + Number(dotAt[1]), y: 1 } : null;
     throw new Error(`the stand-in page was asked something it does not know: ${expr.slice(0, 160)}`);
   }
   return page;

@@ -41,6 +41,6 @@ test('build_editor.py loads exactly the same cards whether or not the launcher\'
   const without = buildBoard(false);
   const withFiles = buildBoard(true);
   const ids = (arr) => arr.map((c) => c.id).sort();
-  assert.deepStrictEqual(ids(withFiles), [1, 2], 'exactly the two real cards, nothing derived from the launcher\'s own files');
+  assert.deepStrictEqual(ids(withFiles), ['1', '2'], 'exactly the two real cards, nothing derived from the launcher\'s own files');
   assert.deepStrictEqual(ids(withFiles), ids(without), 'identical to a build with no launcher files present at all');
 });

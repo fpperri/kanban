@@ -77,7 +77,7 @@ module.exports = {
     const boxText = () => ev(`document.getElementById('search-input').value`);
     const boxIs = (text) => waitFor(`document.getElementById('search-input').value===${JSON.stringify(text)}`);
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
-    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
+    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].map(Number).sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
     const pickedSize = (n) => waitFor(`selectedIds.size===${n}`);
     const parts = () => ev(`(()=>{const s=selectionState.selection;const name=(p)=>p.kind==='query'?'query:'+p.text:p.kind+':'+p.id;return {anchor:s.anchor&&name(s.anchor),additions:s.additions.map(name)}})()`);
     const goto = async (target, ready) => {

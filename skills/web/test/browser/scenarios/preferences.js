@@ -157,13 +157,13 @@ module.exports = {
     await showBoard();
     const three = await pointOn(tile(3));
     await click(three.x, three.y, { modifiers: 2 });
-    check('a Ctrl+click selects card 3', await waitFor(`selectedIds.size===1&&selectedIds.has(3)`));
+    check('a Ctrl+click selects card 3', await waitFor(`selectedIds.size===1&&selectedIds.has('3')`));
     await openSheet();
-    check('opening the sheet from the gear leaves the selection', await ev(`selectedIds.size===1&&selectedIds.has(3)`));
+    check('opening the sheet from the gear leaves the selection', await ev(`selectedIds.size===1&&selectedIds.has('3')`));
     await clickOn('#prefs-title');
     await clickOn('#prefs-sheet .prefs-hint');
     await clickOn(opt('click', 'opens', 'board'));
-    check('a click inside the sheet leaves the card selection as it was', await ev(`selectedIds.size===1&&selectedIds.has(3)`), await ev('[...selectedIds]'));
+    check('a click inside the sheet leaves the card selection as it was', await ev(`selectedIds.size===1&&selectedIds.has('3')`), await ev('[...selectedIds]'));
     await closeWithEscape();
 
     // --- the Board set to selects ---------------------------------------------------------------
@@ -171,11 +171,11 @@ module.exports = {
     await showBoard();
     const plain = await pointOn(tile(3));
     await click(plain.x, plain.y);
-    check('in a Board set to selects a plain click selects a card without opening it', await waitFor(`selectedIds.size===1&&selectedIds.has(3)`) && await ev(noCard), await ev('location.search'));
+    check('in a Board set to selects a plain click selects a card without opening it', await waitFor(`selectedIds.size===1&&selectedIds.has('3')`) && await ev(noCard), await ev('location.search'));
     const again = await pointOn(tile(3));
     await doubleClick(again.x, again.y);
     check('and a double click opens it', await waitFor(hasCard(3), 3000), await ev('location.search'));
-    check('and opening it leaves the card selected', await ev(`selectedIds.size===1&&selectedIds.has(3)`), await ev('[...selectedIds]'));
+    check('and opening it leaves the card selected', await ev(`selectedIds.size===1&&selectedIds.has('3')`), await ev('[...selectedIds]'));
     await key('Escape');
     await waitFor(noCard, 2500);
 
@@ -184,7 +184,7 @@ module.exports = {
     await closeWithEscape();
     const afterReload = await pointOn(tile(3));
     await click(afterReload.x, afterReload.y);
-    check('and a plain click still selects without opening', await waitFor(`selectedIds.size===1&&selectedIds.has(3)`) && await ev(noCard));
+    check('and a plain click still selects without opening', await waitFor(`selectedIds.size===1&&selectedIds.has('3')`) && await ev(noCard));
     check('the choice is kept in the browser, under the board\'s own entry', await ev(`JSON.parse(localStorage.getItem('kanban.fixture.prefs')).click.board==='selects'`));
     const filesAfter = snapshot(boardDir);
     check('no file in the board\'s directory changes', changed(filesBefore, filesAfter).length === 0, changed(filesBefore, filesAfter));

@@ -102,8 +102,11 @@ listed in its skill. See `GLOSSARY.md` for the full parity table.
   remains supported as a fallback for existing boards. Every surface discovers
   `.kanban/` first, then falls back to `kanban/`.
 - **Cards** — one file per card: `<0000-id>.<kebab-case-slug>.card.md`. The
-  4-digit-padded id prefix is cosmetic (sorting/visibility only); the
-  frontmatter `id` field is the actual source of truth for identity.
+  padded id prefix (the number padded to `idDigits`, 4 by default, after any
+  letter prefix: `G0003.…`) is cosmetic (sorting/visibility only); the
+  frontmatter `id` field is the actual source of truth for identity. An id is
+  an optional prefix and a number (`7`, `G3`), and a card of a type that
+  `config.yaml`'s `prefixes:` names takes that prefix for life.
   Frontmatter holds fields like `status`, `priority`, `assignee`, `tags`,
   dates, and dependency links; the Markdown body (including a `## Narrative`
   section) is free text. Only `*.card.md` files are treated as cards —
@@ -137,6 +140,10 @@ Optional, human-edited, one per board:
 
 ```yaml
 nextId: 29 # monotonic id counter
+idDigits: 4 # the width an id's number is padded to in a file name
+prefixes: # a card type's id prefix: a new goal is G1, G2...
+  G: goal
+counters: { G: 3 } # one counter per prefix
 assignees: # role-trio registry
   - handle: "@human"
     name: "Human"

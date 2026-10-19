@@ -159,7 +159,7 @@ module.exports = {
     const selectPoint = await cardPoint('#board', REVIEW_CARD);
     check('the review card has a point to click in the Board set to selects', !!selectPoint, selectPoint);
     await click(selectPoint.x, selectPoint.y);
-    check('a plain click in a Board set to selects selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===${REVIEW_CARD}`) && await ev(noCard), await anchor());
+    check('a plain click in a Board set to selects selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===String(${REVIEW_CARD})`) && await ev(noCard), await anchor());
     check('and it takes the pill\'s query out of the box', await boxIs(''), await boxText());
     check('and the pill is off in the Board', await noPillOn());
     await ev(`localStorage.removeItem('kanban.plan.prefs')`);
@@ -181,7 +181,7 @@ module.exports = {
     const dot = await dotPoint(REVIEW_CARD);
     check('the review card\'s dot has a point to click', !!dot, dot);
     await click(dot.x, dot.y);
-    check('a plain click on the dot selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===${REVIEW_CARD}`) && await ev(noCard), await anchor());
+    check('a plain click on the dot selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===String(${REVIEW_CARD})`) && await ev(noCard), await anchor());
     check('and takes the pill\'s query out of the box', await boxIs(''), await boxText());
     check('and the pill is off in the Graph', await noPillOn());
   },

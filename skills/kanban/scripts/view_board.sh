@@ -91,7 +91,15 @@ review_text() {
     return 1
 }
 
-# id -> status map across live + archived, so waiting flags are done-aware.
+# The id rule's key for a `waiting_for` entry: the prefix and the number without
+# its zero padding, so `G0003` and `G3` name the same card.
+dep_key() {
+    local d="$1" p n
+    p="${d%%[0-9]*}"; n="${d#"$p"}"; n="${n#"${n%%[!0]*}"}"
+    REPLY="$p${n:-0}"
+}
+
+# id -> status map (keyed by the id rule) across live + archived, so waiting flags are done-aware.
 declare -A dep_status
 # globstar: archived/ is scanned RECURSIVELY (ADR 0010) — cards sit at its
 # root or inside optional archived/<package>/ grouping folders.
@@ -102,8 +110,9 @@ if [ "${#all_cards[@]}" -gt 0 ]; then
     while read -r cid cst; do
         [ -n "$cid" ] && dep_status[$cid]="$cst"
     done < <(awk '
+        function key(s,   p, n) { if (!match(s, /[0-9]+$/)) return s; p = substr(s, 1, RSTART - 1); n = substr(s, RSTART); sub(/^0+/, "", n); return p (n == "" ? "0" : n) }
         FNR==1{fm=0; id=""; st=""}
-        /^---$/{fm++; if(fm==2 && id!="") print id, st; next}
+        /^---$/{fm++; if(fm==2 && id!="") print key(id), st; next}
         fm==1 && /^id:/{sub(/^id:[ \t]*/,""); gsub(/[ \t\r]/,""); id=$0}
         fm==1 && /^status:/{sub(/^status:[ \t]*/,""); gsub(/[ \t\r]/,""); st=$0}
     ' "${all_cards[@]}")
@@ -154,7 +163,7 @@ for f in "$KANBAN_DIR"/*.card.md; do
     # Waiting: list unresolved deps only (done deps and dangling ids drop out).
     unresolved=""
     for dep in $(printf '%s' "$waiting_raw" | tr '[],' '   '); do
-        depst="${dep_status[$dep]:-}"
+        dep_key "$dep"; depst="${dep_status[$REPLY]:-}"
         [ -n "$depst" ] && [ "$depst" != "done" ] && unresolved="$unresolved #$dep"
     done
     [ -n "$unresolved" ] && line="$line [waiting:$unresolved]"

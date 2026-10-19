@@ -186,7 +186,7 @@ test('a press leaves the selection as it is, and the names follow it', async () 
   s.run('renderGraphView()');
   assert.deepStrictEqual(s.named(), [1, 2, 3, 4, 100, 101], 'the two picked cards and the parents');
   s.click(button(s, 'names', 'none').el);
-  assert.deepStrictEqual([...s.run('selectedIds')].sort((a, b) => a - b), [100, 101]);
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort((a, b) => a - b), [100, 101]);
   assert.deepStrictEqual(s.named(), []);
 });
 

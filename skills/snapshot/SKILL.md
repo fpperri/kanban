@@ -313,7 +313,7 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
   archived like an archived child, and a loop of parents is flagged where it repeats.
 - **Changing type and parent.** The sheet's type pill picks from the declared types
   (plus the card's own and none), and the All fields grid always offers `type` and
-  `parent` (a number, or `board#id` for another board's card). Both queue as an
+  `parent` (an id such as `7` or `G3`, or `board#id` for another board's card). Both queue as an
   `edit` op's `fm`, like any other field, and a queued change shows at once in the
   chips, the order, the roll-ups and the thread.
 - **Rank is not editable here.** The grid hides `rank` even on a card that has one,

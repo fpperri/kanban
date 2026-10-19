@@ -156,7 +156,7 @@ test('a click on a node is caught in the capture phase whatever the modifier, wr
   assert.doesNotMatch(m[0], /ctrlKey|metaKey|shiftKey/, 'no modifier lets a click fall through to the shared grammar');
   assert.match(m[0], /closest\('\.graph-node'\)/);
   assert.match(m[0], /e\.stopPropagation\(\)/);
-  assert.match(m[0], /graphClickNode\(Number\(node\.dataset\.id\), e\)/);
+  assert.match(m[0], /graphClickNode\(node\.dataset\.id, e\)/);
   const click = fn('graphClickNode');
   assert.match(click, /plainClick: plainClickBehaviour\('graph'\), ranges: shiftAddsRange\('graph'\)/, 'the Graph asks the lookups for its own answers');
   assert.match(click, /selectByClick\(action, id\)/, 'the selection is written through the step the shared grammar uses');
@@ -167,10 +167,10 @@ test('a click on a node is caught in the capture phase whatever the modifier, wr
 
 test('a double click opens the card, Enter opens and Space selects', () => {
   const body = fn('wireGraphView');
-  assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(Number\(node\.dataset\.id\)\)/);
+  assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(node\.dataset\.id\)/);
   assert.match(body, /host\.addEventListener\('keydown'/);
   assert.match(body, /e\.key === 'Enter'\) \{ e\.preventDefault\(\); if \(!e\.repeat\) openCard\(/);
-  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(Number\(node\.dataset\.id\), \{\}\); \}/, 'Space acts as a plain click');
+  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(node\.dataset\.id, \{\}\); \}/, 'Space acts as a plain click');
 });
 
 test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {
@@ -260,11 +260,11 @@ function drawn(cards, types) {
   const all = [];
   const walk = (el) => { all.push(el); el.children.forEach(walk); };
   walk(out.stage);
-  const nodeOf = (id) => out.nodeEls.get(id);
-  return { plan, all, nodeOf, node: (id) => plan.nodes.find((n) => n.id === id) };
+  const nodeOf = (id) => out.nodeEls.get(String(id));
+  return { plan, all, nodeOf, node: (id) => plan.nodes.find((n) => n.id === String(id)) };
 }
 
-const iconCard = (id, extra = {}) => ({ id, title: `t${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra });
+const iconCard = (id, extra = {}) => ({ id: String(id), title: `t${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra });
 const kids = (el, cls) => el.children.filter((c) => c.attrs.class === cls);
 
 test('a node of a type with an icon draws its dot as a path in that outline, keeping the dot class', () => {

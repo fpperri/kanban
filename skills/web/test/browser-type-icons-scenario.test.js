@@ -145,7 +145,7 @@ test('a page that draws every dot round fails each shape check and no other dot 
 });
 
 test('a page that draws the unknown-icon type\'s dot as a shape fails that card\'s round-dot check', async () => {
-  const page = standIn({ dots: (n, read) => (n.id === 14 ? 'hexagon' : (n.d ? read(n.d) : 'circle')) });
+  const page = standIn({ dots: (n, read) => (Number(n.id) === 14 ? 'hexagon' : (n.d ? read(n.d) : 'circle')) });
   await scenario.run(page);
   assert.deepStrictEqual(failed(page), ["plan: card 14's Graph dot is round"]);
 });

@@ -7,6 +7,7 @@ const path = require('node:path');
 const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { parseSearchQuery, filterCards, searchAddTerm } = require('../web/search');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');
 const grammar = require('./browser/scenarios/search-grammar');
 
@@ -28,7 +29,7 @@ after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true
 
 const shownBy = (board, query) => {
   const found = new Set(filterCards(board.all, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id));
-  return board.live.filter((c) => found.has(c.id)).map((c) => c.id).sort((a, b) => a - b);
+  return board.live.filter((c) => found.has(c.id)).map((c) => Number(c.id)).sort((a, b) => a - b);
 };
 
 test('the scenario is in the runner on the plan board', () => {
@@ -38,7 +39,7 @@ test('the scenario is in the runner on the plan board', () => {
 
 test('the live cards the scenario expects are the plan board\'s live cards', () => {
   const board = planBoard();
-  assert.deepStrictEqual(board.live.map((c) => c.id).sort((a, b) => a - b), grammar.LIVE_IDS);
+  assert.deepStrictEqual(board.live.map((c) => Number(c.id)).sort((a, b) => a - b), grammar.LIVE_IDS);
 });
 
 test('each query the scenario types shows, on the Board, the cards the scenario says it shows', () => {
@@ -58,7 +59,7 @@ test('the cases separate the grammar from the old forms: each would show other c
 test('the tag cue case is the term interface\'s answer, and the cards are on the board for the click to find', () => {
   const board = planBoard();
   assert.strictEqual(searchAddTerm(grammar.CASES.stickers.query, { field: 'tags', value: 'docs' }), grammar.CASES.stickersWithTag.query);
-  const byId = new Map(board.live.map((c) => [c.id, c]));
+  const byId = idMap(board.live);
   assert.deepStrictEqual(byId.get(10).tags, ['docs'], 'the review card carries the tag the cue click uses');
   assert.deepStrictEqual(byId.get(9).tags, [], 'and the blocked card does not, so the second alternative matters');
   assert.ok(byId.get(18).waiting_for.every((id) => !byId.has(id)), 'card 18 waits only for a card the board does not have');

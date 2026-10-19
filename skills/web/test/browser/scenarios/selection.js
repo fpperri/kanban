@@ -17,9 +17,9 @@ module.exports = {
   async run(page) {
     const { ev, open, waitFor, mouse, click, check } = page;
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
-    const picked = () => ev(`[...selectedIds].sort((a,b)=>a-b)`);
+    const picked = () => ev(`[...selectedIds].map(Number).sort((a,b)=>a-b)`);
     const lit = () => ev(`[...document.querySelectorAll('.graph-node.selected')].map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b)`);
-    const parts = () => ev(`(()=>{const s=selectionState.selection;return {anchor:s.anchor&&s.anchor.id,additions:s.additions.map((p)=>p.id)}})()`);
+    const parts = () => ev(`(()=>{const s=selectionState.selection;return {anchor:s.anchor&&Number(s.anchor.id),additions:s.additions.map((p)=>Number(p.id))}})()`);
     const sameIds = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const sorted = (...ids) => ids.slice().sort((a, b) => a - b);
     const hasSelection = (n) => waitFor(`selectedIds.size===${n}`);
