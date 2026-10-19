@@ -24,7 +24,7 @@ const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar', 'graph']);
 // id null: a link that never asked for a card, and a link that asked with an
 // unusable value. Only the second owes the user a toast — the first is just a
 // q-and/or-view link, and toasting it would fire on every status-page link.
-// A `card` value that isn't a positive integer still resolves the REST of the
+// A `card` value that isn't an id still resolves the REST of the
 // link rather than discarding it: one bad key is not a reason to drop a query
 // and a view that both parsed fine.
 //

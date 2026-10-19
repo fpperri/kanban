@@ -10,6 +10,9 @@ const { escapeHtml } = require('../web/assignee-badge.js');
 test('cardMention reads the board and id a mention code span opens with', () => {
   assert.deepStrictEqual(cardMention('kanban.proj#267 EPIC: one design system every surface inlines'), { board: 'kanban.proj', id: '267' });
   assert.deepStrictEqual(cardMention('webapp#12'), { board: 'webapp', id: '12' });
+  assert.deepStrictEqual(cardMention('webapp#G7 The group'), { board: 'webapp', id: 'G7' });
+  assert.deepStrictEqual(cardMention('webapp#007'), { board: 'webapp', id: '7' });
+  assert.strictEqual(cardMention('webapp#g7'), null, 'a prefix is upper case');
 });
 
 test('cardMention ignores code that is not a mention', () => {

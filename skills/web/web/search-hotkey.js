@@ -41,9 +41,9 @@ function searchHotkeyPrefill(chord, ctx) {
 }
 
 // The "#" prefill above is only meant to stick while the
-// user is still typing an id (digits). Called on every 'input' event with
-// the box's current value — as long as everything after the "#" is digits
-// (or nothing yet), the "#" stays; the moment a non-numeric char shows up
+// user is still typing an id (a prefix, then digits: `G7`). Called on every 'input' event with
+// the box's current value — as long as everything after the "#" reads as an id
+// or the start of one (nothing yet, or a prefix), the "#" stays; the moment any other char shows up
 // in there, the id search is off the table, so drop the leading "#" and
 // let the rest read as a plain search term. Only while the box holds that one
 // token: a second token or a | after the id (`#12 | #14`, or the `#12 | path:40`

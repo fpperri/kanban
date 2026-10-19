@@ -28,8 +28,8 @@
 // box's text. `isolate=1` rides beside `q` the same way: it is never a step either.
 
 // The `card` param out of a querystring, applying the same hasCard/id rules
-// as deep-link.js's parseDeepLink (a missing, non-numeric, or
-// non-positive-integer value all read as "no card") — reimplemented narrowly
+// as deep-link.js's parseDeepLink (a missing value, or one that is no id, reads
+// as "no card"; the id is the whole id, `7` or `G7`) — reimplemented narrowly
 // here (card only, not q/view) since neither a pushed step nor a popstate
 // landing ever needs to touch the search query or the view mode. Also what a
 // popstate handler reads off the browser-updated location.search to decide
@@ -42,7 +42,7 @@ function cardIdFromSearch(search) {
   return CH_IDS.idKey(params.get('card'));
 }
 
-// What opening (targetId a positive integer) or closing (targetId null)
+// What opening (targetId a card id) or closing (targetId null)
 // should do to CURRENT_SEARCH (location.search, as a plain string so this
 // stays testable without a DOM). Returns the new search string to push
 // (leading "?", or "" for none of the params survive), preserving every
