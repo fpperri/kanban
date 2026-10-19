@@ -174,12 +174,40 @@ function notePreview(plan, o) {
   return `${when}${dayBit} on ${o.label(plan.target)}${last}${plan.text ? '' : ' · type the note'}`;
 }
 
+const noteHandleKey = (by) => String(by == null ? '' : by).trim().replace(/^@/, '').toLowerCase();
+
+// Whether a note's author is 'human' or 'ai': human is the registry's kind human; any other
+// kind, and a handle the registry does not list, is AI. `assignees` is the board's registry
+// ([{ handle, kind }]).
+function noteAuthorKind(by, assignees) {
+  const key = noteHandleKey(by);
+  const entry = key === '' ? null : (assignees || []).find((a) => noteHandleKey(a.handle) === key);
+  return entry && entry.kind === 'human' ? 'human' : 'ai';
+}
+
+// The filter field's text -> { words, by }: `by:@handle` words name an author (several: any
+// of them), the rest are search words. A `by:` with no handle yet is nothing.
+function noteParseFilter(text) {
+  const words = [];
+  const by = [];
+  for (const w of String(text == null ? '' : text).toLowerCase().split(/\s+/).filter(Boolean)) {
+    if (!w.startsWith('by:')) { words.push(w); continue; }
+    const handle = noteHandleKey(w.slice(3));
+    if (handle) by.push(handle);
+  }
+  return { words, by };
+}
+
 // The notes, narrowed by the filter field: every word in the note's text or in the label
-// of the card or group it is about.
-function noteFilter(notes, text, label) {
-  const words = String(text == null ? '' : text).toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return notes;
+// of the card or group it is about, and its `by:@handle` words and the author switch
+// `o.by` ('all', 'human' or 'ai'; read against the registry `o.assignees`).
+function noteFilter(notes, text, label, o = {}) {
+  const { words, by } = noteParseFilter(text);
+  const kind = o.by === 'human' || o.by === 'ai' ? o.by : null;
+  if (!words.length && !by.length && !kind) return notes;
   return notes.filter((n) => {
+    if (kind && noteAuthorKind(n.by, o.assignees) !== kind) return false;
+    if (by.length && !by.includes(noteHandleKey(n.by))) return false;
     const hay = `${n.note} ${label(n.target)}`.toLowerCase();
     return words.every((w) => hay.includes(w));
   });
@@ -241,7 +269,7 @@ function noteLastSave(storage, projectName, id) {
 
 const NOTES_EXPORTS = {
   noteFieldTime, noteParseLine, noteSubjectFrom, noteSubjectAimed, noteSubjectCleared, noteSubjectNotes,
-  noteWritePlan, notePreview, noteFilter, noteGroups, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave,
+  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

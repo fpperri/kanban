@@ -203,6 +203,54 @@ test('a note\'s ref carries what the server needs to find it again', () => {
   assert.deepStrictEqual(n.noteRef(note), { day: '2026-10-16', target: '7', index: 2, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'a' } });
 });
 
+// --- the author switch ---------------------------------------------------------------------------
+
+// The registry as the board has it; a handle it does not list counts as AI.
+const REGISTRY = [
+  { handle: '@human', kind: 'human' }, { handle: '@hitl', kind: 'ai-hitl' }, { handle: '@afk', kind: 'ai-afk' },
+  { handle: '@ana', kind: 'human' }, { handle: '@odd' },
+];
+const byNote = (by, text) => ({ day: '2026-10-16', target: '7', at: '09:00', by, note: text, index: 0, file: 'f' });
+const BY_ALL = [byNote('@human', 'one'), byNote('@afk', 'two'), byNote('@hitl', 'three'), byNote('@ana', 'four'), byNote('@stranger', 'five'), byNote('@odd', 'six'), byNote('', 'seven')];
+const EVERY = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+const byFind = (text, by) => n.noteFilter(BY_ALL, text, () => '#7 Port', { by, assignees: REGISTRY }).map((x) => x.note);
+
+test('an author is human when the registry says kind human, and AI otherwise, a handle it lacks included', () => {
+  const kind = (by) => n.noteAuthorKind(by, REGISTRY);
+  assert.deepStrictEqual(['@human', '@ana', '@afk', '@hitl', '@odd', '@stranger', '', undefined].map(kind), ['human', 'human', 'ai', 'ai', 'ai', 'ai', 'ai', 'ai']);
+  assert.strictEqual(n.noteAuthorKind('@HUMAN', REGISTRY), 'human');
+  assert.strictEqual(n.noteAuthorKind('@human', []), 'ai');
+});
+
+test('the author switch: All keeps every note, Human the human authors, AI the rest', () => {
+  assert.deepStrictEqual(byFind('', 'all'), EVERY);
+  assert.deepStrictEqual(byFind('', undefined), EVERY);
+  assert.deepStrictEqual(byFind('', 'human'), ['one', 'four']);
+  assert.deepStrictEqual(byFind('', 'ai'), ['two', 'three', 'five', 'six', 'seven']);
+});
+
+test('by:@handle in the filter field narrows to that author and is no search word', () => {
+  assert.deepStrictEqual(byFind('by:@afk', 'all'), ['two']);
+  assert.deepStrictEqual(byFind('BY:@AFK', 'all'), ['two']);
+  assert.deepStrictEqual(byFind('by:afk', 'all'), ['two']);
+  assert.deepStrictEqual(byFind('by:@stranger', 'all'), ['five']);
+  assert.deepStrictEqual(byFind('by:@afk by:@hitl', 'all'), ['two', 'three']);
+});
+
+test('by:@handle works together with the switch and the other filter words', () => {
+  assert.deepStrictEqual(byFind('by:@afk', 'human'), []);
+  assert.deepStrictEqual(byFind('by:@afk', 'ai'), ['two']);
+  assert.deepStrictEqual(byFind('by:@ana', 'human'), ['four']);
+  assert.deepStrictEqual(byFind('by:@afk tw', 'all'), ['two']);
+  assert.deepStrictEqual(byFind('by:@afk thr', 'all'), []);
+  assert.deepStrictEqual(byFind('port by:@human', 'all'), ['one']);
+});
+
+test('a by: with no handle yet filters nothing', () => {
+  assert.deepStrictEqual(byFind('by:', 'all'), EVERY);
+  assert.deepStrictEqual(byFind('by:@', 'human'), ['one', 'four']);
+});
+
 // --- small things --------------------------------------------------------------------------------
 
 test('the time now reads HH:MM and a day reads as the weekday and the date', () => {
