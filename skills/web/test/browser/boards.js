@@ -9,6 +9,7 @@
 //   malformed  broken hierarchy, pill and icon entries, to prove a view never breaks
 //   ids        plain, prefixed and loose ids (3, 7, G3, _12, DW845) with their prefixes, counters and idDigits
 //   notes      the plan board with a logbook: day files for cards 3, 7 and 22 and for nothing
+//   calnotes   the notes board with two more notes, so one half hour holds two and one day holds two untimed
 //
 // skills/web/test/browser-fixtures.test.js pins what is on each board.
 
@@ -21,6 +22,7 @@ const BOARDS = {
   malformed: { name: 'malformed', layers: ['fixture-malformed'] },
   ids: { name: 'ids', layers: ['fixture-ids'] },
   notes: { name: 'notes', layers: ['fixture', 'fixture-plan', 'fixture-notes'] },
+  calnotes: { name: 'notes', layers: ['fixture', 'fixture-plan', 'fixture-notes', 'fixture-notes-calendar'] },
 };
 
 // Writes board `key` into `dest`, whose contents are cleared first (the folder
