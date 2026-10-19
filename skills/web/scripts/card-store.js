@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { allocateId } = require('./config-store');
+const { allocateId, readConfig, prefixForType } = require('./config-store');
 // The ONE home of both `doing`-gate predicates: waiting (derived
 // from waiting_for) and blocked (the manual sticker) — plus review (ADR
 // 0009), blocked's sibling sticker that does NOT gate `doing`.
@@ -527,9 +527,14 @@ function quoteAssignee(v) {
 }
 
 function createCard(dir, input) {
-  // config.yaml's nextId counter when present (ids stay unique across deletes
-  // and racing writers); scan-only max+1 behavior when the board has no config.
-  const id = String(allocateId(dir, nextId(dir)));
+  // The prefix the card's type declares (config.yaml's `prefixes:`) is the card's
+  // for life: it is taken here, once, and no later change of type moves it. The
+  // number comes from that prefix's counter (`nextId` for plain cards) when the
+  // board has a config (ids stay unique across deletes and racing writers);
+  // scan-only max+1 behavior when the board has no config.
+  const config = readConfig(dir);
+  const prefix = prefixForType(config, oneLine(input.type));
+  const id = `${prefix}${allocateId(dir, nextId(dir, prefix), prefix)}`;
   // Birth directly into the literal `doing` counts as entry — both gates
   // apply, same refusals as updateCard.
   if ((input.status || 'backlog') === 'doing') {
@@ -589,24 +594,25 @@ function createCard(dir, input) {
   const rawTitle = input.title || '';
   const title = (rawTitle.trim() || promptVal) ? rawTitle : 'Untitled';
   const body = joinTitleBody(title, input.body || '');
-  // <0000-id>.<slug>.card.md — the id's number zero-padded to 4 digits so files sort by
-  // card id; frontmatter id stays the source of truth, this prefix is
-  // cosmetic. Ids past 9999 skip the prefix entirely (mirrors
-  // migrate_card_names.sh's own "id > 9999 exceeds 4-digit prefix" guard):
-  // padStart alone can't widen past 4 digits without breaking lexicographic
-  // sort against already-4-digit-prefixed files (e.g. "10000." would sort
+  // <0000-id>.<slug>.card.md — the id (its prefix, then its number zero-padded to the
+  // board's idDigits, 4 by default) so files sort by card id; frontmatter id stays the
+  // source of truth, this prefix is cosmetic, and a file padded to another width
+  // still reads by its number. A number wider than idDigits skips the prefix
+  // entirely (mirrors migrate_card_names.sh's own "id > 9999 exceeds 4-digit
+  // prefix" guard): padStart alone can't widen past the width without breaking
+  // lexicographic sort against already-padded files (e.g. "10000." would sort
   // before "9999."), and fixing that would require reflowing every existing
   // filename, which is out of scope here.
   // capSlug: keep the slug component under the NTFS 255 limit —
-  // covers both branches below (prefixed and prefix-less past id 9999).
-  // An empty title yields an empty slug, so the id<=9999
+  // covers both branches below (prefixed and prefix-less past the width).
+  // An empty title yields an empty slug, so the in-width
   // branch degrades to the bare zero-padded id prefix (no dangling `.` and
-  // no fake "card-N" title landing in the filename); past id 9999 there IS
+  // no fake "card-N" title landing in the filename); past the width there IS
   // no id prefix to fall back to, so `card-${id}` keeps that branch's
   // filename non-empty.
   const slug = capSlug(slugify(title));
-  const idPrefix = ids.formatId(id, 4);
-  const file = ids.parseId(id).number <= 9999
+  const idPrefix = ids.formatId(id, config.idDigits);
+  const file = ids.parseId(id).number < 10 ** config.idDigits
     ? uniqueFilePath(dir, slug ? `${idPrefix}.${slug}` : idPrefix)
     : uniqueFilePath(dir, slug || `card-${id}`);
   writeAtomic(file, serializeCard({ order, values }, body));
