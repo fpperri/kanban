@@ -1391,7 +1391,7 @@ function buildMapFilterRow() {
 }
 
 // The option panel on the right of the Map and of the Graph (view-panel.js keeps whether it is
-// open). One icon button at the top left of the view's area opens and closes it. Open, the
+// open). One icon button at the top right of the view's area, the side the panel comes out of, opens and closes it. Open, the
 // panel stands beside the view's area; under 760 px it lies over the view as a sheet, with a
 // close button of its own that the stylesheet shows there. Closed, it is not built at all:
 // the view has the width back and none of its controls can take focus. The panel and both
@@ -1458,12 +1458,12 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// The Map's top row: the panel button, then the status pills.
+// The Map's top row: the status pills, then the panel button on the right, the side the panel comes out of.
 function buildMapBar(open) {
   const bar = document.createElement('div');
   bar.className = 'view-bar';
-  bar.appendChild(buildViewPanelToggle('map', 'Show or hide the zoom and the options', open));
   bar.appendChild(buildMapFilterRow());
+  bar.appendChild(buildViewPanelToggle('map', 'Show or hide the zoom and the options', open));
   return bar;
 }
 
@@ -1569,14 +1569,11 @@ function mapOptionsRowHtml(options) {
   }).join('');
 }
 
-// The row folds behind an Options toggle at its start, the same section toggle
-// the graphs and No relations use; the controls are only built while it is open.
+// The row is always shown: the option panel it stands in is what hides it.
 function buildMapOptionsRow() {
-  const collapsed = loadMapSectionsCollapsed().options;
   const row = document.createElement('div');
   row.className = 'map-options';
-  row.appendChild(buildMapSectionHeader('options', 'Options', collapsed));
-  if (!collapsed) row.insertAdjacentHTML('beforeend', mapOptionsRowHtml(loadMapOptions()));
+  row.insertAdjacentHTML('beforeend', mapOptionsRowHtml(loadMapOptions()));
   return row;
 }
 
@@ -1610,7 +1607,7 @@ function buildCalendarFilterRow() {
       : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the calendar`);
 }
 
-// The map's fold toggles (the graphs, No relations, the options row) share
+// The map's fold toggles (the graphs, No relations) share
 // this header shape — a chevron toggle (same CHEVRON_LEFT/RIGHT_ICON +
 // .column-toggle look as the board's per-column collapse) plus a label.
 // data-section names which entry of loadMapSectionsCollapsed() the click flips; the

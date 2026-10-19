@@ -7,8 +7,8 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
 
 // The tier fan's option row in the real page (helpers/page-vm.js runs every script the
-// page loads in one vm, with elements a test can read back): folded by default behind
-// a toggle, shown with Tiers only, five options of segmented buttons, kept per board in
+// page loads in one vm, with elements a test can read back): shown in the option panel
+// with no toggle of its own, with Tiers only, five options of segmented buttons, kept per board in
 // the browser. The row never starts a pan, never clears the selection and never holds
 // the poll. The browser runner drives the same row in Chrome (scenarios/tier-fan-options.js).
 
@@ -97,37 +97,23 @@ const groups = (row) => byClass(row, 'graph-option').map((g) => ({
     el: b, key: b.dataset.key, val: b.dataset.val, text: b.textContent, pressed: b.getAttribute('aria-pressed'), active: b.classes.includes('active'),
   })),
 }));
-const toggleOf = (row) => row.children.find((c) => c.classes.includes('map-section-header'));
 
 const key = (name, feature) => `kanban.${name}.${feature}`;
 
-// The fold toggle as a click on it reaches the Graph's listeners.
-function toggleButton() {
-  const toggle = recordingElement('button');
-  toggle.className = 'map-section-toggle';
-  toggle.dataset.section = 'graph-options';
-  return matcher(toggle);
-}
+// --- shown in the panel, with Tiers only -----------------------------------------------
 
-// --- folded behind a toggle, with Tiers only -----------------------------------------------
-
-test('the Graph opens in Tiers with the row folded: a toggle and no option', async () => {
+test('the Graph opens in Tiers with the row shown: no toggle ahead of it, the five options under it', async () => {
   const s = await open();
   const row = s.row();
   assert.ok(row, 'the row is there');
-  assert.deepStrictEqual(groups(row), [], 'no option is built while the row is folded');
-  const header = toggleOf(row);
-  assert.match(header.innerHTML, /data-section="graph-options"/);
-  assert.match(header.innerHTML, /aria-expanded="false"/);
-  assert.match(header.innerHTML, /aria-label="Expand Options"/);
-  assert.match(header.innerHTML, /Options/);
+  assert.strictEqual(groups(row).length, 5, 'every option is built, with nothing to unfold');
+  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-option', 'graph-option', 'graph-option', 'graph-option', 'graph-option'], 'no section header leads the row');
+  assert.strictEqual(byClass(row, 'map-section-toggle').length, 0);
 });
 
-test('unfolded, the row holds Lines, Dependencies, Order, Names and Unnested, each with every value it takes, in words', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+test('the row holds Lines, Dependencies, Order, Names and Unnested, each with every value it takes, in words', async () => {
+  const s = await open();
   const row = s.row();
-  assert.match(toggleOf(row).innerHTML, /aria-expanded="true"/);
-  assert.match(toggleOf(row).innerHTML, /aria-label="Collapse Options"/);
   const g = groups(row);
   assert.deepStrictEqual(g.map((x) => x.label), ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested']);
   assert.deepStrictEqual(g.map((x) => x.buttons.map((b) => b.text)), [['folded', 'chain', 'all', 'off'], ['on', 'off'], ['status', 'rank'], ['relevant', 'all', 'none'], ['outermost', 'off', 'depth 0', 'table']]);
@@ -139,9 +125,9 @@ test('unfolded, the row holds Lines, Dependencies, Order, Names and Unnested, ea
 });
 
 test('exactly one button of each option is pressed: the default at first, the stored choice after', async () => {
-  const fresh = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const fresh = await open();
   assert.deepStrictEqual(groups(fresh.row()).map((x) => x.buttons.filter((b) => b.pressed === 'true').map((b) => b.val)), [['folded'], ['on'], ['status'], ['relevant'], ['outermost']]);
-  const chosen = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false', [key('kanban', 'graph.options')]: JSON.stringify({ lines: 'all', order: 'rank', names: 'none', unnested: 'depth 0' }) } });
+  const chosen = await open({ stored: { [key('kanban', 'graph.options')]: JSON.stringify({ lines: 'all', order: 'rank', names: 'none', unnested: 'depth 0' }) } });
   const g = groups(chosen.row());
   assert.deepStrictEqual(g.map((x) => x.buttons.filter((b) => b.pressed === 'true').map((b) => b.val)), [['all'], ['on'], ['rank'], ['none'], ['depth 0']]);
   for (const x of g) assert.deepStrictEqual(x.buttons.filter((b) => b.active).map((b) => b.val), x.buttons.filter((b) => b.pressed === 'true').map((b) => b.val), 'the active class follows aria-pressed');
@@ -157,7 +143,7 @@ test('the row is there with Tiers and nowhere else', async () => {
 });
 
 test('every control of the row keeps the selection and holds no poll, and writes no style or handler', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open();
   const row = s.row();
   const buttons = byClass(row, 'graph-option-btn');
   assert.strictEqual(buttons.length, 15);
@@ -168,25 +154,21 @@ test('every control of the row keeps the selection and holds no poll, and writes
     assert.strictEqual(b.getAttribute('style'), null);
   }
   assert.strictEqual(row.dataset.keepsSelection, '', 'the row\'s own space keeps the selection too');
-  assert.match(toggleOf(row).innerHTML, /data-keeps-selection/);
-  assert.doesNotMatch(toggleOf(row).innerHTML, /data-holds-poll|style=|onclick/);
 });
 
 // --- pressing ---------------------------------------------------------------------------------
 
-test('the toggle unfolds the row, and the next press folds it; the fold is kept for the board', async () => {
-  const s = await open();
-  const toggle = toggleButton();
-  s.click(toggle);
-  assert.deepStrictEqual(groups(s.row()).map((x) => x.label), ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested'], 'unfolded');
-  assert.strictEqual(s.stored[key('kanban', 'graph.optionsFolded')], 'false');
-  s.click(toggle);
-  assert.deepStrictEqual(groups(s.row()), [], 'folded again');
-  assert.strictEqual(s.stored[key('kanban', 'graph.optionsFolded')], 'true');
+test('a fold saved for the row before the panel existed is ignored: the row is shown, and nothing is written for it', async () => {
+  for (const old of ['true', 'false', '"open"', '{not json']) {
+    const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: old } });
+    assert.strictEqual(groups(s.row()).length, 5, old);
+    assert.deepStrictEqual(s.run('JSON.stringify(Object.keys(graphLoadOptions()))'), '["lines","dependencies","order","names","unnested"]');
+    assert.strictEqual(s.stored[key('kanban', 'graph.optionsFolded')], old, 'the old value is left alone, and never read');
+  }
 });
 
 test('pressing an option stores the options whole for the board and redraws the fan with the lines it asks for', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open();
   const count = (kind) => s.drawn(kind).length;
   assert.deepStrictEqual([count('parent'), count('wait')], [2, 2], 'folded, on');
   const press = (k, v) => s.click(groups(s.row()).flatMap((x) => x.buttons).find((b) => b.key === k && b.val === v).el);
@@ -206,7 +188,7 @@ test('pressing an option stores the options whole for the board and redraws the 
 });
 
 test('pressing an order moves siblings in the layout, and the layout is not the same layout as before', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open();
   const angle = (id) => s.run(`graphCur.layout.polar.get(${id}).a`);
   const seat = () => [2, 3, 4, 5, 6].sort((a, b) => angle(b) - angle(a));
   assert.deepStrictEqual(seat(), [4, 3, 6, 5, 2], 'by status, the default: doing, todo, todo, backlog, done');
@@ -227,16 +209,14 @@ test('a value or an option the row does not offer is ignored: nothing is stored 
 
 // --- kept per board ---------------------------------------------------------------------------
 
-test('a reload keeps the options and the fold, and another board keeps its own', async () => {
-  const first = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+test('a reload keeps the options, and another board keeps its own', async () => {
+  const first = await open();
   first.click(groups(first.row()).flatMap((x) => x.buttons).find((b) => b.key === 'lines' && b.val === 'off').el);
   first.click(groups(first.row()).flatMap((x) => x.buttons).find((b) => b.key === 'order' && b.val === 'rank').el);
   const reloaded = await open({ stored: first.stored });
   assert.deepStrictEqual(groups(reloaded.row()).map((x) => x.buttons.filter((b) => b.pressed === 'true').map((b) => b.val)), [['off'], ['on'], ['rank'], ['relevant'], ['outermost']]);
   assert.deepStrictEqual(reloaded.drawn('parent').length, 0);
-  assert.match(toggleOf(reloaded.row()).innerHTML, /aria-expanded="true"/, 'unfolded, as it was left');
   const other = await open({ stored: { ...first.stored, [key('shop', 'graph.options')]: JSON.stringify({ lines: 'all' }) }, name: 'shop' });
-  assert.match(toggleOf(other.row()).innerHTML, /aria-expanded="false"/, 'the other board starts folded');
   assert.strictEqual(other.run('graphLoadOptions().lines'), 'all');
   assert.strictEqual(other.run('graphLoadOptions().order'), 'status');
   assert.strictEqual(first.run('graphLoadOptions().lines'), 'off');
@@ -248,11 +228,8 @@ test('storage that refuses reads and writes leaves the defaults, and a press sti
   s.page.ctx.localStorage.setItem = () => { throw new Error('blocked'); };
   s.run('resetGraphViewState()');
   assert.deepStrictEqual(JSON.parse(JSON.stringify(s.run('graphLoadOptions()'))), { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' });
-  assert.strictEqual(s.run('graphLoadOptionsFolded()'), true);
   assert.doesNotThrow(() => s.run("graphSetOption('lines', 'all')"));
   assert.strictEqual(s.run('graphLoadOptions().lines'), 'all');
-  assert.doesNotThrow(() => s.run('graphToggleOptions()'));
-  assert.strictEqual(s.run('graphLoadOptionsFolded()'), false);
 });
 
 test('a board rename or change clears the memos, so the next board reads its own', async () => {
@@ -266,7 +243,7 @@ test('a board rename or change clears the memos, so the next board reads its own
 // --- the row and the page ---------------------------------------------------------------------
 
 test('a press does not start a pan: the row is not on the canvas, and a press on it is not a pan', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open();
   const button = groups(s.row()).flatMap((x) => x.buttons)[0].el;
   const target = new Proxy({}, { get: (t, k) => (k === 'closest' ? (sel) => (sel === '.graph-canvas' || sel === '.card-el' || sel === '.graph-node' ? null : (button.matches(sel) ? button : null)) : harmless(String(k))) });
   s.host.fire('pointerdown', { button: 0, pointerId: 1, clientX: 5, clientY: 5, target });
@@ -277,31 +254,7 @@ test('a press does not start a pan: the row is not on the canvas, and a press on
   assert.notStrictEqual(s.run('graphPan'), null, 'the same press on the canvas does start a pan, so the check above can fail');
 });
 
-// The row takes room from the stage (the Graph's panel has a fixed height and the stage
-// fills what the controls leave), so a press on the toggle is a draw on a stage of another
-// height. The Graph does not move for it: the view is the person's, and Fit frames the
-// cards again.
 const viewOf = (s) => s.run('({ x: graphCur.view.x, y: graphCur.view.y, k: graphCur.view.k, touched: graphCur.view.touched })');
-
-test('an untouched view stays where it is when the toggle gives the stage another height: the fan is not re-fitted or rescaled', async () => {
-  const size = { w: 900, h: 600 };
-  const s = await open({ size });
-  const first = viewOf(s);
-  assert.ok([first.x, first.y, first.k].every(Number.isFinite) && first.k > 0, 'the first draw fitted the fan to the stage');
-  assert.strictEqual(first.touched, false);
-  assert.strictEqual(s.run('graphCur.h'), 600);
-
-  size.h = 570;
-  s.click(toggleButton());
-  assert.strictEqual(s.run('graphCur.h'), 570, 'the stage was drawn at its new height, so the check below can fail');
-  assert.match(toggleOf(s.row()).innerHTML, /aria-expanded="true"/);
-  assert.deepStrictEqual(viewOf(s), first, 'one press, the row unfolded and the stage shorter: x, y and k as they were');
-
-  size.h = 600;
-  s.click(toggleButton());
-  assert.strictEqual(s.run('graphCur.h'), 600);
-  assert.deepStrictEqual(viewOf(s), first, 'and folded again');
-});
 
 // The order is in the layout's cache key, not in what the view compares to decide a
 // re-fit: pressing it moves siblings along their own stretch of a sector, so it is the
@@ -314,21 +267,15 @@ const pressOption = (s, optionKey, val) => {
   assert.strictEqual(s.run('graphLoadOptions()')[optionKey], val, `${optionKey}=${val} is pressed`);
 };
 
-test('an untouched view stays where it is when Order is pressed after the toggle gave the stage another height', async () => {
+test('an untouched view stays where it is when Order, Lines or Dependencies is pressed: the fan is not re-fitted or rescaled', async () => {
   const size = { w: 900, h: 600 };
   const s = await open({ size });
   const first = viewOf(s);
+  assert.ok([first.x, first.y, first.k].every(Number.isFinite) && first.k > 0, 'the first draw fitted the fan to the stage');
   assert.strictEqual(first.touched, false);
 
-  size.h = 570;
-  s.click(toggleButton());
-  assert.strictEqual(s.run('graphCur.h'), 570, 'the row unfolded and the stage is shorter');
-  assert.deepStrictEqual(viewOf(s), first, 'the toggle left the view where it was');
-
   pressOption(s, 'order', 'rank');
-  assert.strictEqual(s.run('graphCur.h'), 570, 'the press drew on the shorter stage, so the check below can fail');
   assert.deepStrictEqual(viewOf(s), first, 'Order rank: x, y and k as the first fit left them');
-
   pressOption(s, 'order', 'status');
   assert.deepStrictEqual(viewOf(s), first, 'Order status: and as they were');
   pressOption(s, 'lines', 'all');
@@ -338,7 +285,7 @@ test('an untouched view stays where it is when Order is pressed after the toggle
 
 test('a view the person zoomed keeps its pan and zoom when Order is pressed', async () => {
   const size = { w: 900, h: 600 };
-  const s = await open({ size, stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open({ size });
   s.run('graphZoomBy(1.5, 100, 100)');
   const zoomed = viewOf(s);
   assert.strictEqual(zoomed.touched, true);
@@ -346,31 +293,17 @@ test('a view the person zoomed keeps its pan and zoom when Order is pressed', as
   assert.deepStrictEqual(viewOf(s), zoomed);
 });
 
-test('a view the person zoomed keeps its pan and zoom when the toggle gives the stage another height', async () => {
-  const size = { w: 900, h: 600 };
-  const s = await open({ size, stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
-  s.run('graphZoomBy(1.5, 100, 100)');
-  const zoomed = viewOf(s);
-  assert.strictEqual(zoomed.touched, true);
-  size.h = 640;
-  s.click(toggleButton());
-  assert.strictEqual(s.run('graphCur.h'), 640, 'the stage was drawn at its new height');
-  assert.deepStrictEqual(groups(s.row()), [], 'the row folded');
-  assert.deepStrictEqual(viewOf(s), zoomed);
-});
-
 test('a press leaves the selection as it is', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open();
   s.run('setSelection(addPart(addPart(NO_SELECTION, cardPart(2)), cardPart(5)), 5)');
   const before = JSON.stringify(s.run('selectionState.selection'));
   for (const b of groups(s.row()).flatMap((x) => x.buttons)) s.click(b.el);
-  s.click(toggleButton());
   assert.strictEqual(JSON.stringify(s.run('selectionState.selection')), before);
   assert.deepStrictEqual([...s.run('selectedIds')].sort(), [2, 5]);
 });
 
 test('a focused option does not hold the poll, and a poll tick that finds it focused refreshes the board', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open();
   const button = groups(s.row()).flatMap((x) => x.buttons)[0].el;
   s.page.ctx.document.activeElement = button;
   assert.strictEqual(s.run('boardControlFocused()'), false);
@@ -384,13 +317,12 @@ test('a focused option does not hold the poll, and a poll tick that finds it foc
 });
 
 test('a poll hands focus back to the option that had it, found again by its option and value', async () => {
-  const s = await open({ stored: { [key('kanban', 'graph.optionsFolded')]: 'false' } });
+  const s = await open();
   const button = groups(s.row()).flatMap((x) => x.buttons).find((b) => b.key === 'lines' && b.val === 'all').el;
   s.page.ctx.__button = button;
   assert.ok(s.run('REFOCUS_SELECTOR').split(', ').includes('.graph-option-btn'), 'it is one of the controls that get focus back after a render');
   assert.strictEqual(s.run('refocusSelector(__button)'), '.graph-option-btn[data-key="lines"][data-val="all"]');
-  s.page.ctx.__toggle = toggleButton();
-  assert.strictEqual(s.run('refocusSelector(__toggle)'), '.map-section-toggle[data-section="graph-options"]', 'the toggle has a selector of its own, not the Map\'s');
+  assert.ok(s.run('REFOCUS_SELECTOR').split(', ').includes('.view-panel-toggle'), 'and so is the panel\'s button, which the row no longer has a toggle beside');
 });
 
 test('the Graph lights the lines it draws: a counted line lights with its parent', async () => {
@@ -464,7 +396,7 @@ const ringRadius = (s) => s.run('(()=>{const p=graphCur.layout.pos.get(7);return
 const lastRing = (s) => s.run('(()=>{const b=graphCur.layout.bands;return b[b.length-1].rings[0]})()');
 const drawnIds = (s) => JSON.parse(s.run('JSON.stringify(graphCur.model.nodes.map((n)=>n.id).sort((a,b)=>a-b))'));
 const shownIds = (s) => JSON.parse(s.run('JSON.stringify([...shownCardIds()].sort((a,b)=>a-b))'));
-const UNFOLDED = { [key('kanban', 'graph.optionsFolded')]: 'false' };
+const UNFOLDED = {};
 
 test('unnested outermost is what the Graph opens with: card 7 is on a ring outside the other bands, and there is no block', async () => {
   const s = await open();

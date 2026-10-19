@@ -83,6 +83,12 @@ test('Graph, wide with nothing chosen: the layouts, the zoom and the Options sec
   assert.deepStrictEqual(s.host.children.map((c) => c.classes[0]), ['graph-main', 'view-panel'], 'the panel stands after the view, on its right');
 });
 
+test('Graph: the card count and then the button make the top row, the button on the right', async () => {
+  const s = await open('graph');
+  const row = byClass(s.main(), 'graph-controls')[0];
+  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-count', 'view-panel-toggle']);
+});
+
 test('Graph: the layout buttons and the zoom buttons keep their labels, titles and data', async () => {
   const s = await open('graph');
   const layouts = inside(s.panel(), 'graph-layout-btn');
@@ -175,10 +181,10 @@ test('Map, wide with nothing chosen: the zoom and the Options section are in the
   assert.deepStrictEqual(inside(panel, 'map-zoom-btn').map((b) => [b.textContent, b.title, b.dataset.zoomAction]), [['−', 'Zoom out', 'out'], ['+', 'Zoom in', 'in'], ['Fit', 'Fit the whole graph in the panel', 'fit']]);
 });
 
-test('Map: the button leads the status pills in the top row, and a press on it flips the Map\'s choice alone', async () => {
+test('Map: the status pills lead the top row and the button ends it, on the right; a press on it flips the Map\'s choice alone', async () => {
   const s = await open('map', { stored: { [KEY]: '{"map":null,"graph":false}' } });
   const bar = byClass(s.main(), 'view-bar')[0];
-  assert.deepStrictEqual(bar.children.map((c) => c.classes[0]), ['view-panel-toggle', 'map-filter-row']);
+  assert.deepStrictEqual(bar.children.map((c) => c.classes[0]), ['map-filter-row', 'view-panel-toggle']);
   assert.ok(s.panel(), 'the Graph\'s closed choice is not the Map\'s');
   s.press(s.toggle());
   assert.strictEqual(s.stored[KEY], '{"map":false,"graph":false}');
@@ -196,6 +202,12 @@ test('Map, closed by a kept choice or a narrow screen: no panel is built, and a 
 });
 
 // --- the page ----------------------------------------------------------------------------------------------
+
+test('the panel\'s two buttons keep the selection and leave the poll alone, so a poll\'s redraw gives them focus back', () => {
+  const { assertKeepsSelection, assertLetsPollRun } = require('./helpers/markers');
+  assertKeepsSelection(['.view-panel-toggle', '.view-panel-close'], 'a panel button');
+  assertLetsPollRun(['.view-panel-toggle', '.view-panel-close'], 'a panel button');
+});
 
 test('the panel button and the sheet\'s close button are refocused after a redraw, so a poll does not drop focus', async () => {
   const s = await open('graph');

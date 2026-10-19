@@ -149,7 +149,8 @@ function pollSandbox(unseenStep) {
   });
   doc.querySelector = (sel) => {
     const c = doc.current;
-    return c && c.attached && sel === `.${c.classList[0]}[data-${c.dataset.col !== undefined ? 'col' : 'section'}="${c.dataset.col !== undefined ? c.dataset.col : c.dataset.section}"]` ? c : null;
+    const key = c && (c.dataset.col !== undefined ? 'col' : c.dataset.panel !== undefined ? 'panel' : 'section');
+    return c && c.attached && sel === `.${c.classList[0]}[data-${key}="${c.dataset[key]}"]` ? c : null;
   };
   const sandbox = {
     document: doc, state: {}, selectedIds: new Set(), hoveredId: null,
@@ -286,50 +287,43 @@ test('a real poll tick with the pointer resting on a card and a pill focused kee
   assert.strictEqual(sandbox.hoveredId, 7);
 });
 
-// The Map's Options toggle, read back from the row the app builds, run through the same poll
-// and refocus rules the other fold toggles live under.
-function optionsToggleEl(makeEl) {
-  const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
-  const html = optionsRowSandbox().buildMapOptionsRow().outerHTML;
-  const toggle = optionsToggleOf(html);
-  assert.ok(toggle, 'the Options toggle is in the row');
-  return makeEl(toggle.classList.join(' '), { section: 'options' });
+// The panel's icon button and the sheet's close button, run through the same poll and refocus
+// rules the other rebuilt controls live under.
+const panelButtonEl = (makeEl, cls = 'view-panel-toggle') => makeEl(cls, { panel: 'map', keepsSelection: '' });
+
+for (const cls of ['view-panel-toggle', 'view-panel-close']) {
+  test(`a focused ${cls} does not freeze the 5s poll`, () => {
+    const { sandbox, doc, makeEl, shouldSkip } = pollSandbox();
+    doc.activeElement = panelButtonEl(makeEl, cls);
+    assert.strictEqual(sandbox.boardControlFocused(), false);
+    assert.strictEqual(shouldSkip({ modalOpen: false, dragging: false, hidden: false, boardControlFocused: sandbox.boardControlFocused() }), false);
+  });
+
+  test(`a poll render hands focus back to the rebuilt ${cls}, without scrolling`, () => {
+    const { sandbox, doc, makeEl } = pollSandbox();
+    const button = panelButtonEl(makeEl, cls);
+    doc.current = button;
+    doc.activeElement = button;
+    let opts;
+    sandbox.renderBoard = () => {
+      button.attached = false;
+      const next = panelButtonEl(makeEl, cls);
+      next.focus = function (o) { opts = o; doc.activeElement = this; };
+      doc.current = next;
+      doc.activeElement = { closest: () => null };
+    };
+    sandbox.applyBoardData({ active: [], archived: [] });
+    assert.strictEqual(doc.activeElement, doc.current, 'focus is on the rebuilt button');
+    assert.strictEqual(opts && opts.preventScroll, true);
+  });
+
+  test(`the ${cls} maps to a refocus selector that names its view`, () => {
+    const s = focusSandbox();
+    s.wanted.set(`.${cls}[data-panel="map"]`, true);
+    s.keepControlFocus({ classList: [cls], dataset: { panel: 'map' } }, () => {});
+    assert.deepStrictEqual(s.focused, [`.${cls}[data-panel="map"]`]);
+  });
 }
-
-test('a focused Options toggle does not freeze the 5s poll', () => {
-  const { sandbox, doc, makeEl, shouldSkip } = pollSandbox();
-  doc.activeElement = optionsToggleEl(makeEl);
-  assert.strictEqual(sandbox.boardControlFocused(), false);
-  assert.strictEqual(shouldSkip({ modalOpen: false, dragging: false, hidden: false, boardControlFocused: sandbox.boardControlFocused() }), false);
-});
-
-test('a poll render hands focus back to the rebuilt Options toggle, without scrolling', () => {
-  const { sandbox, doc, makeEl } = pollSandbox();
-  const toggle = optionsToggleEl(makeEl);
-  doc.current = toggle;
-  doc.activeElement = toggle;
-  let opts;
-  sandbox.renderBoard = () => {
-    toggle.attached = false;
-    const next = optionsToggleEl(makeEl);
-    next.focus = function (o) { opts = o; doc.activeElement = this; };
-    doc.current = next;
-    doc.activeElement = { closest: () => null };
-  };
-  sandbox.applyBoardData({ active: [], archived: [] });
-  assert.strictEqual(doc.activeElement, doc.current, 'focus is on the rebuilt toggle');
-  assert.strictEqual(opts && opts.preventScroll, true);
-});
-
-test('the Options toggle maps to a refocus selector that names it', () => {
-  const s = focusSandbox();
-  const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
-  const toggle = optionsToggleOf(optionsRowSandbox().buildMapOptionsRow().outerHTML);
-  assert.ok(toggle, 'the Options toggle is in the row');
-  s.wanted.set(`.${toggle.classList[0]}[data-section="options"]`, true);
-  s.keepControlFocus({ classList: toggle.classList, dataset: toggle.dataset }, () => {});
-  assert.deepStrictEqual(s.focused, ['.map-section-toggle[data-section="options"]']);
-});
 
 // A caption of the tier fan is a tab stop the Graph's render rebuilds, and it sits in no poll
 // guard: the poll finds a focused one again by its key and focuses it, which shows its tip.
