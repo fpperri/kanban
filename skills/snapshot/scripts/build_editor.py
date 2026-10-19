@@ -1206,6 +1206,7 @@ const trueLen=(bl==null)?shownLen:bl;
 if(trueLen>shownLen)wrap.appendChild(el("div","cut","Cut at "+thousands(shownLen)+" of "+thousands(trueLen)+" characters. Open the card on the desk board for the rest."));
 return wrap}
 const find=id=>view.find(c=>String(c.id)===String(id));
+// A queued new card is n1, n2, ...: an id's prefix is only capitals and an underscore, so no real id starts with "n".
 const isProv=id=>String(id).startsWith("n");
 const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()).filter(Boolean);
 // Search: kanban-web's own search.js, embedded above with the waiting rules it
