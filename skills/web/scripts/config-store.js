@@ -28,6 +28,9 @@
 //     W: workflow/        #   folder (a groups folder), not a type. Block form only.
 //   counters: { G: 3 }    # one line, one counter per prefix; the next id of a prefix
 //                         # is max(its counter, its highest id + 1), like nextId
+//   logbook: logbook      # the folder of the board's notes (docs/adr/0016), relative to
+//                         # the board, or absolute when written by hand; absent = no
+//                         # logbook and nothing of it shows
 //   assignees:            # who can own cards; feeds the form's combobox
 //     - handle: "@alex"
 //       name: "Alex"
@@ -168,7 +171,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -218,6 +221,9 @@ function parseConfig(text) {
       } else if (top[1] === 'idDigits') {
         const n = Number(scalar(top[2]));
         config.idDigits = Number.isInteger(n) && n >= 1 && n <= 15 ? n : DEFAULT_ID_DIGITS;
+        section = null;
+      } else if (top[1] === 'logbook') {
+        config.logbook = scalar(top[2]);
         section = null;
       } else if (top[1] === 'counters') {
         for (const [prefix, text] of parseFlowMap(top[2])) {
