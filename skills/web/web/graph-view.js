@@ -872,7 +872,7 @@ function graphReleaseDrag(e) {
   graphSwallowNextClick();
   const under = e && e.type === 'pointerup' && document.elementFromPoint(e.clientX, e.clientY);
   const node = under && under.closest && under.closest('.graph-node');
-  if (node) graphSetFocus(Number(node.dataset.id));
+  if (node) graphSetFocus(node.dataset.id);
   else graphRestFocus();
   graphDragKick(d);
 }
@@ -950,7 +950,7 @@ function wireGraphView(host) {
     const node = e.target.closest('.graph-node');
     if (node) {
       if (graphCur.kind !== 'force' || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-      const id = Number(node.dataset.id);
+      const id = node.dataset.id;
       const model = graphCur.model.byId.get(id);
       if (!model || model.deg === 0) return;
       graphDrag = { pointerId: e.pointerId, id, sx: e.clientX, sy: e.clientY, moved: false, released: false, raf: 0, sim: null, pin: null };
@@ -992,31 +992,31 @@ function wireGraphView(host) {
     if (!node) return;
     e.stopPropagation();
     hideContextMenu();
-    graphClickNode(Number(node.dataset.id), e);
+    graphClickNode(node.dataset.id, e);
   }, true);
   host.addEventListener('dblclick', (e) => {
     if (e.ctrlKey || e.metaKey || e.shiftKey) return;
     const node = e.target.closest('.graph-node');
-    if (node) openCard(Number(node.dataset.id));
+    if (node) openCard(node.dataset.id);
   });
   host.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     const node = e.target.closest('.graph-node');
     if (!node) return;
-    if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(Number(node.dataset.id)); }
-    else if (e.key === ' ') { e.preventDefault(); graphClickNode(Number(node.dataset.id), {}); }
+    if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(node.dataset.id); }
+    else if (e.key === ' ') { e.preventDefault(); graphClickNode(node.dataset.id, {}); }
   });
 
   const enter = (e) => {
     const el = e.target.closest('.graph-node');
-    if (el) graphSetFocus(Number(el.dataset.id));
+    if (el) graphSetFocus(el.dataset.id);
   };
   const leave = (e) => {
     const from = e.target.closest('.graph-node');
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');
     if (to === from) return;
-    if (to) graphSetFocus(Number(to.dataset.id));
+    if (to) graphSetFocus(to.dataset.id);
     else graphRestFocus();
   };
   host.addEventListener('mouseover', enter);

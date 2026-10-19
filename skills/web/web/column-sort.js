@@ -12,6 +12,8 @@
 // The old 'date' field was ambiguous (deadline? recency?) and split
 // into 'due' (the triad-aware schedule sort) and 'modified' (the
 // machine-maintained `updated` stamp); mergeSortState still migrates a saved 'date'.
+const SORT_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
 const SORT_FIELDS = ['id', 'priority', 'due', 'modified', 'assignee', 'outline'];
 const SORT_FIELD_LABELS = { id: 'ID', priority: 'Priority', due: 'Due date', modified: 'Last modified', assignee: 'Assignee', outline: 'Outline' };
 // Natural starting direction when a column is switched to a field for the
@@ -215,13 +217,13 @@ function compareCards(a, b, sort, priorities, assignees, outlineIndex) {
   const dir = sort.direction === 'desc' ? -1 : 1;
   switch (sort.field) {
     case 'id':
-      return dir * (a.id - b.id);
+      return dir * SORT_IDS.compareIds(a.id, b.id);
     case 'priority': {
       const ra = priorityRank(a, priorities);
       const rb = priorityRank(b, priorities);
       if ((ra > 0) !== (rb > 0)) return ra > 0 ? -1 : 1; // unknown priority sorts last, regardless of direction — same rule as missing due_date
       const diff = dir * (ra - rb);
-      return diff !== 0 ? diff : a.id - b.id;
+      return diff !== 0 ? diff : SORT_IDS.compareIds(a.id, b.id);
     }
     case 'due': {
       // triad-aware key — the deadline wins, else the range's end,
@@ -231,9 +233,9 @@ function compareCards(a, b, sort, priorities, assignees, outlineIndex) {
       const ka = scheduleKey(a);
       const kb = scheduleKey(b);
       if (!!ka !== !!kb) return ka ? -1 : 1; // truly dateless sorts last, regardless of direction
-      if (!ka) return a.id - b.id; // both dateless: stable by id
+      if (!ka) return SORT_IDS.compareIds(a.id, b.id); // both dateless: stable by id
       const diff = dir * (ka < kb ? -1 : ka > kb ? 1 : 0);
-      return diff !== 0 ? diff : a.id - b.id;
+      return diff !== 0 ? diff : SORT_IDS.compareIds(a.id, b.id);
     }
     case 'modified': {
       // keys on the machine-maintained `updated` stamp
@@ -243,9 +245,9 @@ function compareCards(a, b, sort, priorities, assignees, outlineIndex) {
       const ka = a.updated || null;
       const kb = b.updated || null;
       if (!!ka !== !!kb) return ka ? -1 : 1;
-      if (!ka) return a.id - b.id;
+      if (!ka) return SORT_IDS.compareIds(a.id, b.id);
       const diff = dir * (ka < kb ? -1 : ka > kb ? 1 : 0);
-      return diff !== 0 ? diff : a.id - b.id;
+      return diff !== 0 ? diff : SORT_IDS.compareIds(a.id, b.id);
     }
     case 'assignee': {
       // group by owner handle. Registered handles rank by the
@@ -260,7 +262,7 @@ function compareCards(a, b, sort, priorities, assignees, outlineIndex) {
       const ka = a.assignee || null;
       const kb = b.assignee || null;
       if (!!ka !== !!kb) return ka ? -1 : 1; // unassigned sorts last, regardless of direction
-      if (!ka) return a.id - b.id; // both unassigned: stable by id
+      if (!ka) return SORT_IDS.compareIds(a.id, b.id); // both unassigned: stable by id
       const list = assignees || [];
       const ia = list.indexOf(ka);
       const ib = list.indexOf(kb);
@@ -268,15 +270,15 @@ function compareCards(a, b, sort, priorities, assignees, outlineIndex) {
         : ia !== -1 || ib !== -1 ? (ia !== -1 ? -1 : 1)
         : ka < kb ? -1 : ka > kb ? 1 : 0;
       const diff = dir * cmp;
-      return diff !== 0 ? diff : a.id - b.id;
+      return diff !== 0 ? diff : SORT_IDS.compareIds(a.id, b.id);
     }
     case 'outline': {
       const ia = outlineIndex ? outlineIndex.get(a.id) : undefined;
       const ib = outlineIndex ? outlineIndex.get(b.id) : undefined;
       if ((ia === undefined) !== (ib === undefined)) return ia === undefined ? 1 : -1; // a card outside the index sorts last in both directions
-      if (ia === undefined) return a.id - b.id;
+      if (ia === undefined) return SORT_IDS.compareIds(a.id, b.id);
       const diff = dir * (ia - ib);
-      return diff !== 0 ? diff : a.id - b.id;
+      return diff !== 0 ? diff : SORT_IDS.compareIds(a.id, b.id);
     }
     default:
       return 0;

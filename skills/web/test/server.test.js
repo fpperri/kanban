@@ -2148,7 +2148,7 @@ test('wireGanttPointerDrag blocks the drag gesture at pointerdown for an archive
     assert.ok(fn, 'wireGanttPointerDrag found in app.js');
     const down = fn[0].match(/container\.addEventListener\('pointerdown', \(e\) => \{[\s\S]*?\n {2}\}\);/);
     assert.ok(down, 'the gantt pointerdown handler found in app.js');
-    const cardIdx = down[0].indexOf("state.active.find((c) => c.id === Number(barEl.dataset.id))");
+    const cardIdx = down[0].indexOf("state.active.find((c) => c.id === barEl.dataset.id)");
     assert.ok(cardIdx > -1, 'the live-card lookup is still there');
     const guardMatch = down[0].match(/if\s*\(!card\)\s*\{[\s\S]*?toast\([^)]*\)[\s\S]*?return;\s*\}/);
     assert.ok(guardMatch, 'a !card guard blocks the gesture with user feedback before ganttDrag is ever built');

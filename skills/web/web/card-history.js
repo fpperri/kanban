@@ -34,11 +34,12 @@
 // landing ever needs to touch the search query or the view mode. Also what a
 // popstate handler reads off the browser-updated location.search to decide
 // between opening the named card and closing the popup.
+const CH_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
 function cardIdFromSearch(search) {
   const params = new URLSearchParams(search || '');
   if (!params.has('card')) return null;
-  const id = Number(params.get('card'));
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return CH_IDS.idKey(params.get('card'));
 }
 
 // What opening (targetId a positive integer) or closing (targetId null)
@@ -50,9 +51,10 @@ function cardIdFromSearch(search) {
 // open or closed alike: the caller must not push a duplicate step.
 function nextCardHistorySearch(currentSearch, targetId) {
   const params = new URLSearchParams(currentSearch || '');
-  if (cardIdFromSearch(currentSearch) === targetId) return null;
-  if (targetId == null) params.delete('card');
-  else params.set('card', String(targetId));
+  const target = targetId == null ? null : CH_IDS.idKey(targetId);
+  if (cardIdFromSearch(currentSearch) === target) return null;
+  if (target === null) params.delete('card');
+  else params.set('card', target);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

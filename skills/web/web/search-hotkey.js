@@ -26,6 +26,8 @@
 // "no reachable target, no-op, browser default stands" contract as
 // save-hotkey's, just the mirror condition: that one fires only INSIDE a
 // popup, this one only fires OUTSIDE one.
+const SHK_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
 function searchHotkeyPrefill(chord, ctx) {
   if (!chord) return null;
   const key = typeof chord.key === 'string' ? chord.key.toLowerCase() : '';
@@ -51,7 +53,7 @@ function searchHotkeyPrefill(chord, ctx) {
 function searchHashStrip(value) {
   if (typeof value !== 'string' || value[0] !== '#') return null;
   const rest = value.slice(1).trimEnd();
-  if (/\s/.test(rest) || /^\d*$/.test(rest)) return null;
+  if (/\s/.test(rest) || rest === '' || SHK_IDS.parseId(rest) !== null || /^_?[A-Z]*$/.test(rest)) return null;
   return value.slice(1);
 }
 

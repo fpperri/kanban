@@ -1767,7 +1767,7 @@ function buildMapSvg(graph, layer, draw) {
     layers.get(l).push(id);
   }
   for (const [l, ids] of layers) {
-    ids.sort((a, b) => a - b); // the layout's own order is the tie-break for the status order
+    ids.sort(kanbanIds.compareIds); // the layout's own order is the tie-break for the status order (a stub's id is no id and sorts last)
     layers.set(l, mapOrderRow(ids, graph, draw.order, draw.statuses));
   }
   const sizes = new Map();
@@ -2003,9 +2003,22 @@ function applyHomeUrl(url) {
   }
 }
 
+// The page keys every card on the id module's whole-id string (`7`, `G7`), whether the
+// server sent the id as a number or as a string; a waiting_for entry is held the same way.
+function pageId(id) {
+  const key = kanbanIds.idKey(id);
+  return key === null ? String(id) : key;
+}
+
+function pageCard(card) {
+  card.id = pageId(card.id);
+  if (Array.isArray(card.waiting_for)) card.waiting_for = card.waiting_for.map(pageId);
+  return card;
+}
+
 function applyBoardData(data) {
-  state.active = data.active;
-  state.archived = data.archived;
+  state.active = data.active.map(pageCard);
+  state.archived = data.archived.map(pageCard);
   state.boardDir = data.boardDir || ''; // absolute board path for the header copy button (defensive ||: an old server without the field degrades to the honest empty-path toast)
   applyHomeUrl(data.homeUrl);
   applyProjectName(data.projectName); // must run before renderBoard: collapse state's storage key is namespaced by projectName
@@ -2154,8 +2167,8 @@ function wireDrag() {
       // decides at drop time, so a poll pruning the set mid-drag can't flip
       // a bulk drag into a single-card one halfway through.
       const dragged = bulkTargets();
-      bulkDragIds = (dragged.length > 1 && dragged.some((c) => c.id === Number(el.dataset.id))) ? dragged.map((c) => c.id) : null;
-      dragCardId = Number(el.dataset.id);
+      bulkDragIds = (dragged.length > 1 && dragged.some((c) => c.id === el.dataset.id)) ? dragged.map((c) => c.id) : null;
+      dragCardId = el.dataset.id;
     });
     el.addEventListener('dragend', () => {
       el.classList.remove('dragging');
@@ -2188,7 +2201,7 @@ function wireDrag() {
       e.preventDefault();
       col.classList.remove('drag-over');
       clearDropMarks();
-      const id = Number(e.dataTransfer.getData('text/plain'));
+      const id = e.dataTransfer.getData('text/plain');
       const ids = bulkDragIds || [id];
       bulkDragIds = null;
       const dest = col.dataset.col;
@@ -2286,7 +2299,7 @@ function isReorderDrop(ids, dest) {
 }
 
 function dropPoint(col, dragId, clientY) {
-  const tiles = [...col.querySelectorAll('.column-cards > .card')].filter((el) => Number(el.dataset.id) !== dragId);
+  const tiles = [...col.querySelectorAll('.column-cards > .card')].filter((el) => el.dataset.id !== dragId);
   const mids = tiles.map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
   return { tiles, at: dropSlot(mids, clientY) };
 }
@@ -2303,7 +2316,7 @@ function markDropPoint(tiles, at) {
 }
 
 function dropAmong(col, point) {
-  return dropNeighbours(point.tiles.map((el) => Number(el.dataset.id)), point.at, loadColumnSort()[col.dataset.col].direction);
+  return dropNeighbours(point.tiles.map((el) => el.dataset.id), point.at, loadColumnSort()[col.dataset.col].direction);
 }
 
 // The drop line is drawn only where reorderCard would take the drop. dragover
@@ -2591,7 +2604,7 @@ function requestCloseModal() {
 }
 
 function parseIds(s) {
-  return s.split(',').map((x) => x.trim()).filter(Boolean).map(Number).filter((n) => Number.isInteger(n));
+  return s.split(',').map((x) => kanbanIds.idKey(x.trim())).filter((id) => id !== null);
 }
 function parseTags(s) {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
@@ -2705,7 +2718,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const actBtn = e.target.closest('button[data-act]');
     if (actBtn) {
-      const id = Number(actBtn.dataset.id);
+      const id = actBtn.dataset.id;
       if (actBtn.dataset.act === 'restore') doRestore(id);
       if (actBtn.dataset.act === 'delete-arch') doDelete(id);
     }
@@ -3138,6 +3151,7 @@ async function openDetailModal(id, { quiet } = {}) {
     return false;
   }
   if (reqId !== detailRequestId) return false; // a newer openDetailModal call superseded this one
+  data.id = pageId(data.id);
   currentDetailId = data.id;
   currentDetailArchived = !!data.archived;
   // Same empty-title-shows-the-prompt fallback every other
@@ -3291,7 +3305,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const m = e.target.closest('code.mention.same');
     if (!m || (e.type === 'keydown' && e.key !== 'Enter')) return;
     e.preventDefault();
-    await openCard(Number(m.dataset.cardId));
+    await openCard(m.dataset.cardId);
     $('#detail-modal .modal').scrollTop = 0; // the new card opens at its top, not at the old card's scroll
   };
   $('#detail-modal').addEventListener('click', openMentionedCard);
@@ -3663,13 +3677,13 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const actBtn = e.target.closest('button[data-act]');
     if (actBtn) {
-      const id = Number(actBtn.dataset.id);
+      const id = actBtn.dataset.id;
       if (actBtn.dataset.act === 'restore') doRestore(id);
       if (actBtn.dataset.act === 'delete-arch') doDelete(id);
       return;
     }
     const stub = e.target.closest('.map-node.ghost[data-id]');
-    if (stub) openCard(Number(stub.dataset.id));
+    if (stub) openCard(stub.dataset.id);
   });
   // Right-click a status-filter pill SOLOs it (every other pill
   // off); right-click the already-soloed pill again restores all ON. Own
@@ -4440,7 +4454,7 @@ function wireCalendarDrag() {
       // never get its dragend — a stuck cal-dragging would leave every chip
       // click-dead (pointer-events:none) until the next drag.
       container.classList.remove('cal-dragging');
-      const id = Number(e.dataTransfer.getData('text/plain'));
+      const id = e.dataTransfer.getData('text/plain');
       onCalendarDrop(id, cell.dataset.day, calDragDue);
     });
   });
@@ -4576,7 +4590,7 @@ function wireCalendarTimeDrag() {
     const mode = handleEl
       ? (handleEl.classList.contains('top') ? 'resize-start' : 'resize-end')
       : (blockEl.dataset.due === '1' ? 'due' : 'shift');
-    const id = Number(blockEl.dataset.id);
+    const id = blockEl.dataset.id;
     // Archived guard, BEFORE any capture/state (same as the gantt): an archived
     // card only lives in state.archived, so this find returns undefined.
     const card = state.active.find((c) => c.id === id);
@@ -5288,7 +5302,7 @@ function wireGanttPointerDrag() {
     if (!barEl) return;
     const handle = diamondEl ? null : e.target.closest('.gantt-handle');
     const mode = diamondEl ? 'due' : handle ? (handle.classList.contains('start') ? 'start' : 'end') : 'shift';
-    const card = state.active.find((c) => c.id === Number(barEl.dataset.id));
+    const card = state.active.find((c) => c.id === barEl.dataset.id);
     // An archived bar/diamond's id only ever lives in
     // state.archived, so `card` is undefined here — without this guard the
     // gesture would start identically to a live drag (pointer capture claimed,
@@ -5303,7 +5317,7 @@ function wireGanttPointerDrag() {
     }
     const rf = rangeFields(card); // triad-aware shape
     ganttDrag = {
-      id: Number(barEl.dataset.id),
+      id: barEl.dataset.id,
       mode,
       // end-drag on an end-only or reversed card relocates its 1-day bar
       // instead of stretching (see barResizeChanges) — the preview must match
@@ -5461,7 +5475,7 @@ async function openMentionFromTray(e) {
   const m = e.target.closest('code.mention.same');
   if (!m) return;
   e.preventDefault();
-  await openCard(Number(m.dataset.cardId));
+  await openCard(m.dataset.cardId);
   if (!$('#detail-modal').classList.contains('hidden')) closeNotifModal();
 }
 
@@ -5623,7 +5637,7 @@ function setHoveredId(id) {
 // toggles .hidden — so the query must scope to the active container, not the
 // whole document.
 function visibleCardIds() {
-  const ids = [...$(VIEW_CONTAINERS[loadViewMode()]).querySelectorAll('.card-el')].map((el) => Number(el.dataset.id));
+  const ids = [...$(VIEW_CONTAINERS[loadViewMode()]).querySelectorAll('.card-el')].map((el) => el.dataset.id);
   return [...new Set(ids)];
 }
 
@@ -5731,7 +5745,7 @@ function onCardOpenKey(e) {
   });
   if (action !== 'open') return;
   e.preventDefault();
-  openCard(Number(el.dataset.id));
+  openCard(el.dataset.id);
 }
 
 // The click-away rule. A click on empty space can be an accident, so a single click
@@ -6168,7 +6182,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
     const view = loadViewMode();
     const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
-    applyCardClick(action, Number(el.dataset.id), cue);
+    applyCardClick(action, el.dataset.id, cue);
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page), except the empty
@@ -6180,7 +6194,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
     if (!el) { openCanvasContextMenu(e); return; }
-    openCardContextMenu(e, Number(el.dataset.id));
+    openCardContextMenu(e, el.dataset.id);
   });
   document.addEventListener('keydown', onCardOpenKey);
   // The preferences sheet: the gear opens it; its close button and a click on
@@ -6202,14 +6216,14 @@ window.addEventListener('DOMContentLoaded', () => {
   // card-el's own edge.
   const enterHover = (e) => {
     const el = e.target.closest('.card-el');
-    setHoveredId(el ? Number(el.dataset.id) : null);
+    setHoveredId(el ? el.dataset.id : null);
   };
   const leaveHover = (e) => {
     const from = e.target.closest('.card-el');
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card-el');
     if (to === from) return;
-    setHoveredId(to ? Number(to.dataset.id) : null);
+    setHoveredId(to ? to.dataset.id : null);
   };
   document.addEventListener('mouseover', enterHover);
   document.addEventListener('mouseout', leaveHover);

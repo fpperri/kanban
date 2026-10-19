@@ -15,7 +15,9 @@
 // A name keeps off every dot, caption, id label, the Unnested block and every other
 // name, and never crosses a line the plan draws: a parent line, a dependency line or a
 // divider between sectors. Same dual-environment pattern as graph-model.js; it needs
-// nothing from it, since every input comes in the plan.
+// nothing from it, since every input comes in the plan, but the id module, which orders ids.
+
+const GNAMES_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
 const GRAPH_NAME_PX = 11;
 const GRAPH_NAME_ROW = 13;
@@ -299,7 +301,7 @@ function graphNameFlags(cls) {
 function graphNamesKey(input) {
   const o = input || {};
   const plan = o.plan || {};
-  const ids = (s) => [...(s || [])].sort((a, b) => a - b);
+  const ids = (s) => [...(s || [])].sort(GNAMES_IDS.compareIds);
   const text = (c) => (c ? [c.name, c.x, c.y, c.dy || '', c.anchor || ''] : null);
   const nodes = (plan.nodes || []).map((n) => {
     const f = graphNameFlags(n.cls);
@@ -342,7 +344,7 @@ function graphNamesPlace(input) {
   };
   const placed = new Map();
   const done = () => ({
-    k, rim, placed, unnamed: [...named].filter((id) => !placed.has(id)).sort((a, b) => a - b), stats,
+    k, rim, placed, unnamed: [...named].filter((id) => !placed.has(id)).sort(GNAMES_IDS.compareIds), stats,
   });
   const plan = o.plan;
   if (!(k > 0 && Number.isFinite(k)) || !named.size || !plan || !Array.isArray(plan.nodes)) return done();
@@ -461,7 +463,7 @@ function graphNamesPlace(input) {
     const fy = Math.max(Math.abs(b.y0), Math.abs(b.y1));
     return fx * fx + fy * fy <= rim * rim;
   };
-  parents.sort((p, q) => Math.hypot(p.x, p.y) - Math.hypot(q.x, q.y) || p.id - q.id);
+  parents.sort((p, q) => Math.hypot(p.x, p.y) - Math.hypot(q.x, q.y) || GNAMES_IDS.compareIds(p.id, q.id));
   for (const n of parents) {
     const h = rowH;
     const off = (n.flagged ? n.flagRing : n.kidsRing) + GRAPH_NAME_BESIDE;
@@ -627,7 +629,7 @@ function graphNamesPlace(input) {
       let ray = Math.atan2(n.y, n.x);
       if (side === 'L' && ray < 0) ray += 2 * Math.PI;
       return { n, ray, yd: bend * Math.sin(ray), w: px(n.name) / k + pad };
-    }).sort((p, q) => p.yd - q.yd || p.n.id - q.n.id);
+    }).sort((p, q) => p.yd - q.yd || GNAMES_IDS.compareIds(p.n.id, q.n.id));
     if (!cards.length) continue;
     const reach = Math.max(...cards.map((c) => c.w));
     const rows = [];

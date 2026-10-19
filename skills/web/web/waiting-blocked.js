@@ -61,15 +61,19 @@ function reviewLabel(value) {
   return reason ? `review: ${reason}` : 'review';
 }
 
+const WB_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
 // The waiting predicate's working half: the cards a `waiting_for` list is
 // still waiting ON — every listed id whose card exists and is not `done`,
 // in list order. Dangling ids drop out (non-blocking by contract). `byId` is
 // the caller's full active+archived lookup (waiting is
 // location-independent). Returns the card objects so callers can
 // format "#3 (todo)" refusals and unresolved-only tooltips.
+// `byId` is keyed by the id module's string; a map keyed by the ids as the cards
+// carry them answers too.
 function unresolvedWaits(waitingFor, byId) {
   return (waitingFor || [])
-    .map((id) => byId.get(typeof id === 'number' ? id : Number(id)))
+    .map((id) => byId.get(WB_IDS.idKey(id)) || byId.get(id))
     .filter((c) => c && c.status !== 'done');
 }
 

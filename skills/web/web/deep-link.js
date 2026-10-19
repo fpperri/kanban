@@ -9,6 +9,7 @@
 // nothing here holds state, so there's nothing that could re-fire on the 5s
 // poll or fight the localStorage-persisted view mode.
 
+const DL_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 const DEEP_LINK_VIEWS = new Set(['board', 'map', 'gantt', 'calendar', 'graph']);
 
 // `search` is location.search ("?card=194&view=board"), a plain string so
@@ -52,10 +53,9 @@ function parseDeepLink(search) {
   const rawView = params.get('view');
   const view = DEEP_LINK_VIEWS.has(rawView) ? rawView : null;
   if (!hasCard && q === null && view === null) return null;
-  const id = Number(params.get('card'));
   return {
     hasCard,
-    id: hasCard && Number.isInteger(id) && id > 0 ? id : null,
+    id: hasCard ? DL_IDS.idKey(params.get('card')) : null,
     q,
     view,
     isolate: q !== null && params.get('isolate') === '1',
