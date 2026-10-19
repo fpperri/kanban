@@ -7,7 +7,7 @@ const { allocateId } = require('./config-store');
 // 0009), blocked's sibling sticker that does NOT gate `doing`.
 // Dual-environment — the browser loads the same file as a plain <script>, so
 // store and UI can never drift on what "waiting"/"blocked"/"review" means.
-const { isBlockedValue, blockedReason, isReviewValue } = require('../web/waiting-blocked');
+const { isBlockedValue, blockedReason, isReviewValue, unresolvedWaits } = require('../web/waiting-blocked');
 const { parseRank } = require('../web/nesting');
 // Ids are the id module's whole strings (`7`, `G3`): the store keeps them as
 // strings, compares them with idKey and never turns one into a number.
@@ -140,19 +140,6 @@ function readParent(raw) {
   const board = m && m[1].trim();
   const id = m && ids.idKey(m[2]);
   return board && id ? `${board}#${id}` : null;
-}
-
-// The id as the card JSON sends it. A plain id is still a JSON number, which is
-// what the page compares against until it reads strings; a prefixed id has no
-// number form and goes as its string. The one place to switch plain ids to
-// strings once the page is migrated.
-function wireId(id) {
-  const parsed = ids.parseId(id);
-  if (!parsed) return id;
-  return parsed.prefix === '' ? parsed.number : ids.idKey(id);
-}
-function wireParent(parent) {
-  return typeof parent === 'string' && ids.parseId(parent) ? wireId(parent) : parent;
 }
 
 // A type is written bare unless that would not read back as typed (`x: y`, a
@@ -345,10 +332,7 @@ class BlockedError extends Error {
 // ids) — the shared predicate over this board's full active+archived lookup.
 function waitsFor(dir, waitingIds) {
   const byId = new Map([...listActive(dir), ...listArchived(dir)].map((c) => [c.id, c]));
-  return (waitingIds || [])
-    .map((id) => byId.get(ids.idKey(id)))
-    .filter((c) => c && c.status !== 'done')
-    .map((b) => ({ id: wireId(b.id), status: b.status }));
+  return unresolvedWaits(waitingIds, byId).map((b) => ({ id: b.id, status: b.status }));
 }
 
 function setField(order, values, key, rawValue) {
@@ -642,7 +626,7 @@ function cardDetail(dir, id) {
   const card = readCardFile(file, archived);
   const frontmatter = card._order.map((k) => `${k}:${card._values[k]}`).join('\n');
   return {
-    id: wireId(card.id), title: card.title, path: path.resolve(file), frontmatter, body: card.body,
+    id: card.id, title: card.title, path: path.resolve(file), frontmatter, body: card.body,
     archived: card.archived, updated: card.updated,
     prompt: card.prompt, // lets the popup title fall back to the queued prompt, same as every other view
   };
@@ -654,7 +638,7 @@ function cardDetail(dir, id) {
 // board's on-disk location to every client of this JSON.
 function toJSON(card) {
   const { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, parent, rank, updated, title, body, archived, file } = card;
-  return { id: wireId(id), status, priority, waiting_for: waiting_for.map(wireId), blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, parent: wireParent(parent), rank, updated, title, body, archived, file: path.basename(file) };
+  return { id, status, priority, waiting_for, blocked, review, prompt, tags, assignee, type, start_date, end_date, due_date, parent, rank, updated, title, body, archived, file: path.basename(file) };
 }
 
 // `pkg` (optional) names an archived/<package>/ grouping folder, created on
@@ -706,5 +690,5 @@ module.exports = {
   readCardFile, listActive, listArchived, findCardFile, nextId,
   listArchivePackages, archivePackageDir, isArchivedFile,
   createCard, updateCard, archiveCard, restoreCard, deleteCard,
-  WaitingError, BlockedError, PackageError, toJSON, cardDetail, wireId,
+  WaitingError, BlockedError, PackageError, toJSON, cardDetail,
 };

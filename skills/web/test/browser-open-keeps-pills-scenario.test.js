@@ -8,6 +8,7 @@ const vm = require('node:vm');
 const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/open-keeps-pills');
 
@@ -23,14 +24,14 @@ const planBoard = () => {
   const dir = path.join(root, 'board');
   materialize('plan', dir);
   const live = listActive(dir).map(toJSON);
-  return { live, all: live.concat(listArchived(dir).map(toJSON)), byId: new Map(live.map((c) => [c.id, c])) };
+  return { live, all: live.concat(listArchived(dir).map(toJSON)), byId: idMap(live) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
 const WEB = path.join(__dirname, '..', 'web');
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'open-keeps-pills.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
-const shownBy = (b, query) => filterCards(b.all, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => b.byId.has(id)).sort((a, c) => a - c);
+const shownBy = (b, query) => filterCards(b.all, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => b.byId.has(id)).map(Number).sort((a, c) => a - c);
 
 test('the scenario is in the runner, on the plan board, with time for its drives', () => {
   assert.strictEqual(scenarios.find((s) => s.name === 'open-keeps-pills'), scenario);

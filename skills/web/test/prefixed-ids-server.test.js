@@ -7,8 +7,7 @@ const cs = require('../scripts/card-store');
 const { createServer } = require('../scripts/server');
 
 // An id is the whole string (`3` and `G3` are two cards). The store keeps ids as
-// strings and the routes take them whole. On the wire a plain id is still a JSON
-// number until the page reads strings; a prefixed id is already a string.
+// strings, the routes take them whole and the card JSON sends them as strings.
 
 function put(dir, id, extra, title, sub) {
   const folder = sub ? path.join(dir, sub) : dir;
@@ -102,16 +101,16 @@ test('the doing gate resolves a waiting_for G3 to card G3 and not to card 3', ()
   assert.strictEqual(cs.updateCard(dir, '7', { status: 'doing', waiting_for: ['3'] }).status, 'doing');
 });
 
-test('toJSON: a prefixed id and its references are strings, plain ones stay numbers', () => {
+test('toJSON: every id and its references are whole-id strings, plain ones too', () => {
   const dir = tmpBoard();
   put(dir, '9', 'waiting_for: [G3, 3]\nparent: G3\n');
   put(dir, '10', 'parent: 7\n');
   const json = Object.fromEntries(cs.listActive(dir).map((c) => [String(c.id), cs.toJSON(c)]));
   assert.strictEqual(json.G3.id, 'G3');
-  assert.strictEqual(json['3'].id, 3);
-  assert.deepStrictEqual(json['9'].waiting_for, ['G3', 3]);
+  assert.strictEqual(json['3'].id, '3');
+  assert.deepStrictEqual(json['9'].waiting_for, ['G3', '3']);
   assert.strictEqual(json['9'].parent, 'G3');
-  assert.strictEqual(json['10'].parent, 7);
+  assert.strictEqual(json['10'].parent, '7');
 });
 
 test('GET /api/board lists a card whose id is G3', async () => {
@@ -119,7 +118,7 @@ test('GET /api/board lists a card whose id is G3', async () => {
   await withServer(dir, async (base) => {
     const res = await req(base, 'GET', '/api/board');
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(res.json.active.map((c) => c.id).sort((a, b) => String(a).localeCompare(String(b))), [3, 7, 'G3']);
+    assert.deepStrictEqual(res.json.active.map((c) => c.id).sort((a, b) => String(a).localeCompare(String(b))), ['3', '7', 'G3']);
   });
 });
 
@@ -135,7 +134,7 @@ test('detail, edit, archive, restore and delete reach card G3 by its route', asy
     assert.strictEqual(patched.status, 200);
     assert.strictEqual(patched.json.id, 'G3');
     assert.strictEqual(patched.json.priority, 'High');
-    assert.deepStrictEqual(patched.json.waiting_for, ['G4', 7]);
+    assert.deepStrictEqual(patched.json.waiting_for, ['G4', '7']);
     assert.match(fs.readFileSync(path.join(dir, 'G0003.card.md'), 'utf8'), /^waiting_for: \[G4, 7\]$/m);
     assert.match(fs.readFileSync(path.join(dir, '0003.card.md'), 'utf8'), /^status_note: x$/m, 'card 3 untouched');
     assert.doesNotMatch(fs.readFileSync(path.join(dir, '0003.card.md'), 'utf8'), /High/);
@@ -212,13 +211,15 @@ test('a parent naming G3 reaches the page as G3 and is not read as card 3', asyn
     const board = await req(base, 'GET', '/api/board');
     const parents = Object.fromEntries(board.json.active.map((c) => [c.id, c.parent]));
     assert.strictEqual(parents[20], 'G3');
-    assert.strictEqual(parents[23], 3);
+    assert.strictEqual(parents[23], '3');
   });
 });
 
-// The reorder plan reads parents through nesting.js, which still reads a parent as digits;
-// this holds the whole path once that module takes ids whole.
-test('a reorder among the children of G3 stays under G3', { todo: 'nesting.js reads parents as digits until its batch lands' }, async () => {
+// The reorder plan runs on the store's cards through the nesting module, whole ids and all.
+// A tile outside the siblings' stretch of the outline only marks that end of it, so card 23
+// above the children of G3 is the start of their stretch and not an error; what the module
+// refuses is a tile named on the wrong side of the stretch.
+test('a reorder among the children of G3 stays under G3', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-ids-'));
   put(dir, '3', '');
   put(dir, 'G3', '');
@@ -227,12 +228,18 @@ test('a reorder among the children of G3 stays under G3', { todo: 'nesting.js re
   put(dir, '22', 'parent: G3\nrank: 30\n');
   put(dir, '23', 'parent: 3\nrank: 10\n');
   await withServer(dir, async (base) => {
-    const res = await req(base, 'POST', '/api/cards/22/reorder', { prev: 20, next: 21 });
+    const res = await req(base, 'POST', '/api/cards/22/reorder', { prev: '20', next: '21' });
     assert.strictEqual(res.status, 200, JSON.stringify(res.json));
     assert.strictEqual(res.json.card.rank, 15);
-    const cross = await req(base, 'POST', '/api/cards/22/reorder', { prev: 23, next: null });
-    assert.strictEqual(cross.status, 400, 'card 23 is a child of 3, not a sibling under G3');
+    assert.strictEqual(res.json.card.parent, 'G3');
+    const first = await req(base, 'POST', '/api/cards/21/reorder', { prev: '23', next: '20' });
+    assert.strictEqual(first.status, 200, JSON.stringify(first.json));
+    assert.strictEqual(first.json.card.rank, 0, 'card 23 lies above the children of G3, so it marks the top of their stretch');
+    assert.strictEqual(first.json.card.parent, 'G3');
+    const wrongSide = await req(base, 'POST', '/api/cards/22/reorder', { prev: null, next: '23' });
+    assert.strictEqual(wrongSide.status, 400, 'card 23 is above the stretch, so it cannot be the tile below the drop');
   });
+  assert.match(fs.readFileSync(path.join(dir, '0023.card.md'), 'utf8'), /^parent: 3$/m, 'the child of card 3 is untouched');
 });
 
 test('creating a card still gives the next plain number, whatever prefixed cards exist', async () => {
@@ -241,7 +248,7 @@ test('creating a card still gives the next plain number, whatever prefixed cards
   await withServer(dir, async (base) => {
     const res = await req(base, 'POST', '/api/cards', { title: 'New', parent: 'G3', waiting_for: ['G40'] });
     assert.strictEqual(res.status, 201);
-    assert.strictEqual(res.json.id, 8);
+    assert.strictEqual(res.json.id, '8');
     assert.strictEqual(res.json.parent, 'G3');
     assert.deepStrictEqual(res.json.waiting_for, ['G40']);
     assert.ok(fs.existsSync(path.join(dir, '0008.new.card.md')));

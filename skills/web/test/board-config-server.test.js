@@ -59,7 +59,7 @@ test('POST /api/cards uses the config.yaml id counter and advances it', async ()
     });
     assert.strictEqual(res.status, 201);
     const card = await res.json();
-    assert.strictEqual(card.id, 40); // counter (40) beats scanMax+1 (2)
+    assert.strictEqual(card.id, '40'); // counter (40) beats scanMax+1 (2)
     assert.match(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'), /nextId: 41/);
     assert.match(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'), /@alex/); // assignees preserved
   });
@@ -72,7 +72,7 @@ test('POST /api/cards without config.yaml keeps scan behavior and creates no con
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ title: 'Scan test' }),
     });
-    assert.strictEqual((await res.json()).id, 2);
+    assert.strictEqual((await res.json()).id, '2');
     assert.ok(!fs.existsSync(path.join(dir, 'config.yaml')));
   });
 });

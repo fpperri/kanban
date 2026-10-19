@@ -1029,7 +1029,7 @@ test('POST /api/cards creates; PATCH moves; DELETE removes', async () => {
   await withServer(dir, async (base) => {
     const created = await req(base, 'POST', '/api/cards', { title: 'Fresh', status: 'todo' });
     assert.strictEqual(created.status, 201);
-    assert.strictEqual(created.json.id, 3);
+    assert.strictEqual(created.json.id, '3');
 
     const moved = await req(base, 'PATCH', '/api/cards/3', { status: 'doing' });
     assert.strictEqual(moved.status, 200);
@@ -1047,7 +1047,7 @@ test('PATCH to doing on a waiting card returns 422 naming the unresolved deps', 
     await req(base, 'PATCH', '/api/cards/1', { status: 'todo' }); // card 1 no longer done
     const r = await req(base, 'PATCH', '/api/cards/2', { status: 'doing' });
     assert.strictEqual(r.status, 422);
-    assert.deepStrictEqual(r.json.waiting.map((w) => w.id), [1]);
+    assert.deepStrictEqual(r.json.waiting.map((w) => w.id), ['1']);
     assert.match(r.json.error, /^waiting on #1 \(todo\)$/, 'the payload names which gate — waiting, with id + live status');
   });
 });
@@ -1090,7 +1090,7 @@ test('POST archive twice on the same id is idempotent — no duplicate-suffixed 
     assert.strictEqual((await req(base, 'POST', '/api/cards/1/archive')).status, 200);
     const second = await req(base, 'POST', '/api/cards/1/archive'); // simulates a stale second tab/popup
     assert.strictEqual(second.status, 200);
-    assert.strictEqual(second.json.id, 1);
+    assert.strictEqual(second.json.id, '1');
     assert.strictEqual(second.json.archived, true);
     assert.ok(fs.existsSync(path.join(dir, 'archived', '1.card.md')));
     assert.ok(!fs.existsSync(path.join(dir, 'archived', '1-2.card.md')), 'no renamed duplicate on re-archive');
@@ -1111,7 +1111,7 @@ test('POST archive with a package files the card in archived/<package>/ and the 
     assert.ok(fs.existsSync(path.join(dir, 'archived', '2026-q2', '1.card.md')));
     assert.ok(!fs.existsSync(path.join(dir, 'archived', '1.card.md')));
     const board = await req(base, 'GET', '/api/board');
-    assert.deepStrictEqual(board.json.archived.map((c) => c.id), [1], 'the recursive walk finds the packaged card');
+    assert.deepStrictEqual(board.json.archived.map((c) => c.id), ['1'], 'the recursive walk finds the packaged card');
     assert.deepStrictEqual(board.json.archivePackages, ['2026-q2']);
     // restore reaches into the package, same as before packages existed
     assert.strictEqual((await req(base, 'POST', '/api/cards/1/restore')).status, 200);
@@ -1188,7 +1188,7 @@ test('POST /api/cards waiting on an unfinished card returns 422 with the unresol
     await req(base, 'PATCH', '/api/cards/1', { status: 'todo' }); // card 1 now unfinished
     const r = await req(base, 'POST', '/api/cards', { title: 'Waiting', status: 'doing', waiting_for: [1] });
     assert.strictEqual(r.status, 422);
-    assert.strictEqual(r.json.waiting[0].id, 1);
+    assert.strictEqual(r.json.waiting[0].id, '1');
   });
 });
 
@@ -1295,7 +1295,7 @@ test('GET /api/cards/1/detail returns raw frontmatter, absolute path, and body',
   await withServer(dir, async (base) => {
     const r = await req(base, 'GET', '/api/cards/1/detail');
     assert.strictEqual(r.status, 200);
-    assert.strictEqual(r.json.id, 1);
+    assert.strictEqual(r.json.id, '1');
     assert.strictEqual(r.json.title, 'One');
     assert.match(r.json.frontmatter, /^status: done$/m);
     assert.ok(path.isAbsolute(r.json.path));
@@ -1328,7 +1328,7 @@ test('GET /api/cards/:id/detail for an archived card 200s with archived: true (a
     assert.strictEqual((await req(base, 'POST', '/api/cards/1/archive')).status, 200);
     const r = await req(base, 'GET', '/api/cards/1/detail');
     assert.strictEqual(r.status, 200);
-    assert.strictEqual(r.json.id, 1);
+    assert.strictEqual(r.json.id, '1');
     assert.strictEqual(r.json.archived, true);
   });
 });

@@ -214,10 +214,6 @@ function readNeighbour(v) {
   return key === null ? undefined : key;
 }
 
-function wireNeighbour(id) {
-  return id === null ? null : cs.wireId(id);
-}
-
 function boardName(dir, config) {
   return config.name || cs.projectName(dir);
 }
@@ -360,15 +356,12 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           if (prev === undefined || next === undefined) return sendJSON(res, 400, { error: 'prev and next must be card ids' });
           const config = cfg.readConfig(dir);
           const cards = cs.listActive(dir).concat(cs.listArchived(dir)).filter((c) => !c.unparseable);
-          // nesting.js still reads ids as the page gets them (plain ids as numbers), so the
-          // plan runs on the wire form of the cards; updateCard takes either form.
-          const wired = cards.map(cs.toJSON);
-          const plan = nesting.reorderPlan(wired, cs.wireId(id), { prev: wireNeighbour(prev), next: wireNeighbour(next) }, { board: boardName(dir, config), priorities: config.priorities });
+          const plan = nesting.reorderPlan(cards, id, { prev, next }, { board: boardName(dir, config), priorities: config.priorities });
           if (plan.error) return sendJSON(res, 400, { error: plan.error });
-          const written = nesting.reorderWrites(cs.wireId(id), plan).map((w) => cs.toJSON(cs.updateCard(dir, w.id, { rank: w.rank })));
+          const written = nesting.reorderWrites(id, plan).map((w) => cs.toJSON(cs.updateCard(dir, w.id, { rank: w.rank })));
           return sendJSON(res, 200, {
-            card: written.find((c) => c.id === cs.wireId(id)) || cs.toJSON(cards.find((c) => c.id === id)),
-            renumbered: written.filter((c) => c.id !== cs.wireId(id)),
+            card: written.find((c) => c.id === id) || cs.toJSON(cards.find((c) => c.id === id)),
+            renumbered: written.filter((c) => c.id !== id),
           });
         }
         if (req.method === 'DELETE' && !m[2]) { cs.deleteCard(dir, id); return sendJSON(res, 200, { ok: true }); }

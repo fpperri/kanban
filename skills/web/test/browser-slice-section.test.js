@@ -38,7 +38,7 @@ const load = (key) => {
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const sorted = (list) => [...list].sort((a, b) => a - b);
+const sorted = (list) => [...list].map(Number).sort((a, b) => a - b);
 const idsOf = (b, query) => sorted(filterCards(b.all, parseSearchQuery(query, b.ctx.board), b.ctx).map((c) => c.id).filter((id) => b.live.some((c) => c.id === id)));
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'slice-section.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
@@ -148,8 +148,8 @@ test('the keys move the ends of the run objective..epic as the scenario says, on
   run = sliceRunStep(b.list, run, '{');
   assert.strictEqual(`slice:${sliceRunValue(b.list, run)}`, sweep.afterOpen.term);
   assert.deepStrictEqual(idsOf(b, sweep.afterOpen.term), sweep.afterOpen.shows);
-  const dated = (id) => { const c = b.live.find((x) => x.id === id); return !!(c.start_date || c.end_date || c.due_date); };
-  assert.deepStrictEqual(b.live.filter((c) => dated(c.id)).map((c) => c.id).sort((x, y) => x - y), sweep.dated, 'two dated cards on the board');
+  const dated = (id) => { const c = b.live.find((x) => x.id === String(id)); return !!(c.start_date || c.end_date || c.due_date); };
+  assert.deepStrictEqual(b.live.filter((c) => dated(c.id)).map((c) => Number(c.id)).sort((x, y) => x - y), sweep.dated, 'two dated cards on the board');
   assert.ok(sweep.dated.every((id) => idsOf(b, sweep.afterClose.term).includes(id)), 'both are in the run after ]');
   assert.ok(sweep.dated.every((id) => !idsOf(b, sweep.start).includes(id)), 'neither is in it before');
   assert.strictEqual(run.to - run.from + 1, 4, 'four entries are pressed after both keys, as the scenario counts');

@@ -37,7 +37,7 @@ test('POST and PATCH take parent and rank, and the board lists them', async () =
   await withServer(dir, async (base) => {
     const created = await req(base, 'POST', '/api/cards', { title: 'Child', parent: '1', rank: '20' });
     assert.strictEqual(created.status, 201);
-    assert.strictEqual(created.json.parent, 1);
+    assert.strictEqual(created.json.parent, '1');
     assert.strictEqual(created.json.rank, 20);
 
     const edited = await req(base, 'PATCH', '/api/cards/1', { parent: 'fpp#4', rank: 30 });
@@ -47,11 +47,11 @@ test('POST and PATCH take parent and rank, and the board lists them', async () =
 
     const board = await req(base, 'GET', '/api/board');
     const byId = new Map(board.json.active.map((c) => [c.id, c]));
-    assert.strictEqual(byId.get(1).parent, 'fpp#4');
-    assert.strictEqual(byId.get(1).rank, 30);
-    assert.strictEqual(byId.get(2).parent, 'fpp#4');
-    assert.strictEqual(byId.get(2).rank, 10);
-    assert.strictEqual(byId.get(created.json.id).parent, 1);
+    assert.strictEqual(byId.get('1').parent, 'fpp#4');
+    assert.strictEqual(byId.get('1').rank, 30);
+    assert.strictEqual(byId.get('2').parent, 'fpp#4');
+    assert.strictEqual(byId.get('2').rank, 10);
+    assert.strictEqual(byId.get(created.json.id).parent, '1');
 
     const cleared = await req(base, 'PATCH', '/api/cards/1', { parent: '', rank: '' });
     assert.strictEqual(cleared.json.parent, null);
@@ -69,7 +69,7 @@ test('a cross-board parent survives every edit the form can make', async () => {
     assert.strictEqual(saved.json.parent, 'fpp#4');
     assert.match(fs.readFileSync(path.join(dir, '0002.two.card.md'), 'utf8'), /^parent: "fpp#4"\nrank:   10$/m, 'the hand-written lines are not rewritten');
     await req(base, 'PATCH', '/api/cards/2', { status: 'done' });
-    assert.strictEqual((await req(base, 'GET', '/api/board')).json.active.find((c) => c.id === 2).parent, 'fpp#4');
+    assert.strictEqual((await req(base, 'GET', '/api/board')).json.active.find((c) => c.id === '2').parent, 'fpp#4');
   });
 });
 

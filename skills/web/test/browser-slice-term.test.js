@@ -37,11 +37,11 @@ const found = (board, name, query) => {
 };
 const shownBy = (board, name, query) => {
   const hit = found(board, name, query);
-  return board.live.filter((c) => hit.has(c.id)).map((c) => c.id).sort((a, b) => a - b);
+  return board.live.filter((c) => hit.has(c.id)).map((c) => Number(c.id)).sort((a, b) => a - b);
 };
 const datedShownBy = (board, name, query) => {
   const hit = found(board, name, query);
-  return board.live.filter((c) => hit.has(c.id) && (c.start_date || c.end_date || c.due_date)).map((c) => c.id).sort((a, b) => a - b);
+  return board.live.filter((c) => hit.has(c.id) && (c.start_date || c.end_date || c.due_date)).map((c) => Number(c.id)).sort((a, b) => a - b);
 };
 
 test('the scenario is in the runner, on the plan board, and also drives the fixture and malformed boards', () => {
@@ -56,7 +56,7 @@ test('on the plan board, slice:goal..objective keeps the goal, strategy and obje
   assert.deepStrictEqual(shownBy(board, 'plan', cut.query), cut.shows);
   assert.deepStrictEqual(datedShownBy(board, 'plan', cut.query), [], 'no dated card is in the cut, so the Gantt and the Calendar have nothing to draw');
   assert.deepStrictEqual(datedShownBy(board, 'plan', depthZero.query), depthZero.datedShows);
-  const types = new Map(board.live.map((c) => [c.id, c.type]));
+  const types = new Map(board.live.map((c) => [Number(c.id), c.type]));
   assert.deepStrictEqual(cut.shows.map((id) => types.get(id)), ['goal', 'strategy', 'objective', 'goal', 'strategy']);
   assert.deepStrictEqual(depthZero.datedShows.map((id) => types.get(id)), ['task', 'task']);
 });
@@ -77,7 +77,7 @@ test('the lists the scenario waits for are the ones the search module offers on 
 });
 
 test('the live cards each case starts from are the boards\' live cards, and the cuts hide some of them', () => {
-  const ids = (board) => board.live.map((c) => c.id).sort((a, b) => a - b);
+  const ids = (board) => board.live.map((c) => Number(c.id)).sort((a, b) => a - b);
   const plan = load('plan');
   assert.deepStrictEqual(ids(plan), sliceTerm.CASES.plan.live);
   assert.deepStrictEqual(ids(load('fixture')), sliceTerm.CASES.fixture.live);
@@ -93,9 +93,9 @@ test('on today\'s fixture board, which has no hierarchy, slice:1 keeps exactly t
   assert.deepStrictEqual(board.config.hierarchy, []);
   const { query, shows } = sliceTerm.CASES.fixture;
   assert.deepStrictEqual(shownBy(board, 'fixture', query), shows);
-  const root = board.live.find((c) => c.id === 1);
+  const root = board.live.find((c) => c.id === '1');
   assert.strictEqual(root.parent, null, 'card 1 is a root');
-  assert.deepStrictEqual(shows, board.live.filter((c) => c.parent === 1).map((c) => c.id).sort((a, b) => a - b), 'the cards directly under it');
+  assert.deepStrictEqual(shows, board.live.filter((c) => c.parent === '1').map((c) => Number(c.id)).sort((a, b) => a - b), 'the cards directly under it');
 });
 
 test('on the malformed board a cut naming a tier written twice in mixed case keeps that tier\'s cards', () => {
@@ -105,7 +105,7 @@ test('on the malformed board a cut naming a tier written twice in mixed case kee
     assert.deepStrictEqual(shownBy(board, 'malformed', query), shows, query);
   }
   assert.deepStrictEqual(board.config.hierarchy, ['Goal', 'goal', 'Epic', 'EPIC'], 'each tier is listed twice in mixed case');
-  const types = new Map(board.live.map((c) => [c.id, c.type]));
+  const types = new Map(board.live.map((c) => [Number(c.id), c.type]));
   assert.strictEqual(types.get(tier.shows[0]), 'Goal');
   assert.strictEqual(types.get(other.shows[0]), 'epic', 'the card writes the tier in a third case than the board\'s first listing');
 });

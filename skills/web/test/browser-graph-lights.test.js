@@ -9,6 +9,7 @@ const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { graphBuild, graphNeighbours, graphQueryEffect } = require('../web/graph-model');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');
 const lights = require('./browser/scenarios/graph-lights');
 const graph = require('./browser/scenarios/graph');
@@ -29,7 +30,7 @@ const board = (key) => {
   const all = live.concat(listArchived(dir).map(toJSON));
   const ctx = { board: key, hierarchy: readConfig(dir).hierarchy };
   const model = graphBuild(all, { ctx, visibleIds: new Set(live.map((c) => c.id)) });
-  return { key, live, all, ctx, model, byId: new Map(all.map((c) => [c.id, c])) };
+  return { key, live, all, ctx, model, byId: idMap(all) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
