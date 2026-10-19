@@ -337,7 +337,10 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       if (req.method === 'POST' && p === '/api/cards') {
         const body = await readBody(req);
         try {
-          return sendJSON(res, 201, cs.toJSON(cs.createCard(dir, body)));
+          const created = cs.toJSON(cs.createCard(dir, body));
+          // Auto-join in the same request: the groups running on the creator's local date
+          // with auto_join take the card, and the reply names them for the flash.
+          return sendJSON(res, 201, { ...created, joined: gs.joinRunning(dir, created.id, cs.todayLocalDate()) });
         } catch (e) {
           // the 422 names WHICH gate refused — waiting carries the
           // unresolved deps, blocked carries the sticker's reason.
