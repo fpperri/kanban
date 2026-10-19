@@ -143,8 +143,8 @@ test('tree: and path: resolve through the page\'s own dependency functions, hand
     assert.ok(!html.includes(source('dependency-graph.js')), 'the web\'s dependency-graph module is not embedded');
     const declared = page.scripts.flatMap((s) => topLevelDeclarations(s));
     assert.ok(!declared.includes('buildDependencyGraph'), 'nor ported under its name: the search has no graph of its own to default to');
-    page.run('globalThis.asked = []; treeIds = (id) => { asked.push(["tree", id]); return new Set([3, 4]); }; '
-      + 'pathIds = (id) => { asked.push(["path", id]); return new Set([5]); };');
+    page.run('globalThis.asked = []; treeIds = (id) => { asked.push(["tree", id]); return new Set(["3", "4"]); }; '
+      + 'pathIds = (id) => { asked.push(["path", id]); return new Set(["5"]); };');
     assert.deepStrictEqual(search(page, 'tree:#12'), [3, 4], 'the page\'s treeIds answers, whatever the real graph says');
     assert.deepStrictEqual(search(page, 'path:12'), [5]);
     assert.deepStrictEqual(page.plain(page.run('asked')), [['tree', '12'], ['path', '12']], 'each asked with the card id as typed, without its #');

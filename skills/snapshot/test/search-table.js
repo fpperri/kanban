@@ -85,8 +85,13 @@ function webContext(dir) {
 // The ids the web search module finds for a query typed on a board: the plan
 // board unless the board's own context (webContext) is given.
 function webIds(cards, q, ctx = { board: BOARD_NAME }) {
-  return filterCards(cards, parseSearchQuery(q, ctx.board), ctx)
-    .map((c) => Number(c.id)).sort((a, b) => a - b);
+  return webMatchIds(cards, q, ctx).map(Number).sort((a, b) => a - b);
+}
+
+// The same cards as the ids the web card JSON holds them under, to hand back to the web's
+// own helpers (the pill list, the slice list) that match them against those cards.
+function webMatchIds(cards, q, ctx = { board: BOARD_NAME }) {
+  return filterCards(cards, parseSearchQuery(q, ctx.board), ctx).map((c) => c.id);
 }
 
 // The card ids drawn on the board, archived ones included once shown.
@@ -133,5 +138,5 @@ function withBoardPage(key, fn, load = {}) {
 const withPlanPage = (fn) => withBoardPage('plan', fn);
 
 module.exports = {
-  BOARD_NAME, PLAN_QUERIES, planCards, search, shownIds, showArchive, webContext, webIds, withBoardPage, withBuiltBoard, withPlanPage,
+  BOARD_NAME, PLAN_QUERIES, planCards, search, shownIds, showArchive, webContext, webIds, webMatchIds, withBoardPage, withBuiltBoard, withPlanPage,
 };

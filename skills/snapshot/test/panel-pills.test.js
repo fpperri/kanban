@@ -5,7 +5,7 @@ const { searchTermText } = require('../../web/web/search');
 const { readConfig } = require('../../web/scripts/config-store');
 const { byClass } = require('./page-harness');
 const { board: smallBoard, open } = require('./nesting-view');
-const { planCards, shownIds, webContext, webIds, withBuiltBoard } = require('./search-table');
+const { planCards, shownIds, webContext, webIds, webMatchIds, withBuiltBoard } = require('./search-table');
 const { boxText, moreButton, openPanel, pill, pills } = require('./panel-table');
 
 // The search panel's pill section on the snapshot page: the pills it lists (the three
@@ -31,7 +31,7 @@ function webCounts(dir, { archive = false, hide = [] } = {}) {
   const ctx = webContext(dir);
   const shown = all.filter((c) => (c.archived ? archive : !hide.includes(c.status)));
   const board = { pills: readConfig(dir).pills, cards: all.filter((c) => !c.archived), term: searchTermText };
-  return Object.fromEntries(pillList(shown, (q) => webIds(all, q, ctx), board).map((p) => [p.label, p.count]));
+  return Object.fromEntries(pillList(shown, (q) => webMatchIds(all, q, ctx), board).map((p) => [p.label, p.count]));
 }
 
 describe('the pill section lists what the web lists', () => {
