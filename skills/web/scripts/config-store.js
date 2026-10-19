@@ -34,6 +34,8 @@
 //                         # logbook and nothing of it shows
 //   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
 //                         # way; absent = no groups and nothing of them shows
+//   iterations: true      # the iteration dropdown in the header (groups in the groups
+//                         # folder's iteration/ folder); needs groups; absent = off
 //   assignees:           # who can own cards; feeds the form's combobox
 //     - handle: "@alex"
 //       name: "Alex"
@@ -174,7 +176,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', groups: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', groups: '', iterations: false, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -230,6 +232,9 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'groups') {
         config.groups = top[2].trim()[0] === '#' ? '' : scalar(top[2]);
+        section = null;
+      } else if (top[1] === 'iterations') {
+        config.iterations = scalar(top[2]) === 'true';
         section = null;
       } else if (top[1] === 'counters') {
         for (const [prefix, text] of parseFlowMap(top[2])) {
