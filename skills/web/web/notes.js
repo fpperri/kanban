@@ -83,10 +83,20 @@ function noteParseLine(raw, known) {
 
 // What the palette is about. `req` is what opened it:
 //   { kind: 'card-notes', id } | { kind: 'group', gid } | { kind: 'slot', day, fromMin, toMin }
-//   | { kind: 'untimed', day } | { target, day?, at? } | {}   (target '' or none: nothing)
-// -> { kind: 'none' | 'card' | 'group' | 'slot' | 'untimed', id?, day, at?, ... }
+//   | { kind: 'untimed', day } | { target, day?, at? } | { targets: [id, ...] } | {}
+//   (target '' or none: nothing; targets: several cards, one note on each)
+// -> { kind: 'none' | 'card' | 'group' | 'each' | 'slot' | 'untimed', id?, ids?, day, at?, ... }
 function noteSubjectFrom(req, o) {
   const day = req.day || o.today;
+  if (Array.isArray(req.targets)) {
+    const many = [];
+    for (const t of req.targets) {
+      const id = NOTE_IDS.idKey(t);
+      if (id !== null && !many.includes(id)) many.push(id);
+    }
+    if (many.length > 1) return { kind: 'each', ids: NOTE_IDS.sortIds(many), day };
+    return noteSubjectFrom(many.length ? { target: many[0], day } : { day }, o);
+  }
   if (req.kind === 'card-notes') return { kind: 'card', id: NOTE_IDS.idKey(req.id), day };
   if (req.kind === 'group') return { kind: 'group', id: NOTE_IDS.idKey(req.gid), day };
   if (req.kind === 'slot') return { kind: 'slot', day, fromMin: req.fromMin, toMin: req.toMin, at: noteHhmm(Math.max(0, req.fromMin)) };
@@ -124,6 +134,7 @@ function noteSubjectCleared(subject, today) {
 // list holds its members' notes too); none for a card.
 function noteSubjectNotes(notes, subject, o = {}) {
   if (subject.kind === 'card') return notes.filter((n) => n.target === subject.id);
+  if (subject.kind === 'each') return notes.filter((n) => subject.ids.includes(n.target));
   if (subject.kind === 'group') {
     const own = new Set([subject.id, ...((o.members && o.members(subject.id)) || [])]);
     return notes.filter((n) => own.has(n.target));
@@ -141,9 +152,11 @@ function noteSubjectNotes(notes, subject, o = {}) {
   return today;
 }
 
-// What Enter will write: { text, at, day, target, from, bad, scopeTo }. `parsed` is
+// What Enter will write: { text, at, day, target, targets, from, bad, scopeTo }. `parsed` is
 // noteParseLine's, `field` the time field { value, untimed }, `o` { today, now, lastNoted }.
-// `from` says where the target came from: 'line', 'chip' or 'last'.
+// `from` says where the target came from: 'line', 'chip', 'each' or 'last'. On several cards
+// (the subject 'each') `targets` lists them, one note is written on each and `target` is
+// empty, unless the line names one card, which takes that one note alone.
 function noteWritePlan(parsed, subject, field, o) {
   let at = null;
   let bad = parsed.bad;
@@ -156,11 +169,19 @@ function noteWritePlan(parsed, subject, field, o) {
     if (at === null) bad = bad || noteBadTime(value);
   }
   let target;
+  let targets = null;
   let from;
   if (parsed.mention !== null) { target = parsed.mention; from = 'line'; }
   else if (subject.kind === 'card' || subject.kind === 'group') { target = subject.id; from = 'chip'; }
+  else if (subject.kind === 'each') { target = ''; targets = subject.ids; from = 'each'; }
   else { target = o.lastNoted || ''; from = 'last'; }
-  return { text: parsed.text, at, day: subject.day || o.today, target, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
+  return { text: parsed.text, at, day: subject.day || o.today, target, targets, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
+}
+
+// Several cards as the preview names them: how many, then the first six.
+function noteEachLabel(ids) {
+  const shown = ids.slice(0, 6).map((id) => `#${id}`).join(', ');
+  return `each of ${ids.length} cards (${shown}${ids.length > 6 ? ', …' : ''})`;
 }
 
 // The preview line: exactly what Enter will do. `o` { label(id) -> the card or group as
@@ -171,7 +192,8 @@ function notePreview(plan, o) {
   const when = plan.at ? `Note at ${plan.at}` : 'Untimed note';
   const dayBit = plan.day !== o.today ? `, ${o.dayName(plan.day)},` : '';
   const last = plan.from === 'last' && plan.target ? ' (last noted)' : '';
-  return `${when}${dayBit} on ${o.label(plan.target)}${last}${plan.text ? '' : ' · type the note'}`;
+  const on = plan.targets ? noteEachLabel(plan.targets) : `${o.label(plan.target)}${last}`;
+  return `${when}${dayBit} on ${on}${plan.text ? '' : ' · type the note'}`;
 }
 
 // The notes, narrowed by the filter field: every word in the note's text or in the label
