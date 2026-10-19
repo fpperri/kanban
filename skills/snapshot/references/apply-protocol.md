@@ -110,15 +110,20 @@ successfully — `fm` changes nothing about that order.
    - edit priority/assignee: update or insert; lean frontmatter —
      drop a field rather than write an empty value.
    - edit body: replace everything below the H1.
-   - create: id = `nextId` from `config.yaml`. Filename
-     `<0000-padded-id>.<slug>.card.md`, slug lowercased/hyphenated, capped ~60
-     chars. Frontmatter: id, status, priority, assignee?, updated
+   - create: id = `nextId` from `config.yaml`; when the op's `fm.type` names a
+     type that `config.yaml`'s `prefixes:` gives a prefix (kanban skill, `id`
+     field), the id is that prefix and the next number of its entry on the
+     `counters:` line instead. The editor itself only queues plain `n1`-style
+     cards and never draws or allocates a prefixed id. Filename
+     `<0000-padded-id>.<slug>.card.md` (the number padded to `idDigits`, 4 by
+     default), slug lowercased/hyphenated, capped ~60 chars. Frontmatter: id, status, priority, assignee?, updated
      (+ start_date if landing on todo), plus any `fm` keys folded in (same
      value/quoting rules as `edit.fm`; `id`/`status`/`updated` and top-level
      collisions resolve per the `create.fm` note above).
      Body: `# <title>` then `body` if given.
-     **Write order: card file first, bump `nextId` only after the
-     write succeeds — a failed create must never burn an id.**
+     **Write order: card file first, bump `nextId` (or the prefix's
+     counter) only after the write succeeds — a failed create must never
+     burn an id.**
 4. **Write mechanics:**
    - Local session (board directly on disk): ordinary file writes; archive =
      move into the board directory's `archived/` subfolder; delete = actual

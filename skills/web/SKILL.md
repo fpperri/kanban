@@ -298,7 +298,7 @@ to `127.0.0.1` only.
   where a typed search lights its matches and hides nothing but a `slice:` cut (see the Graph
   view entry); the
   query survives view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
-  exact card id, and a pasted `webapp#42` is the same when `webapp` is this board's name (any
+  exact card id, whole (`#G3` is the card `G3`, not card 3; a lowercase `#a371f7` is no id), and a pasted `webapp#42` is the same when `webapp` is this board's name (any
   case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
   scope with nothing after the colon yet — `status:` mid-keystroke — is dropped as
@@ -386,7 +386,10 @@ to `127.0.0.1` only.
   control and appends it to the value (default 09:00), OFF strips it back to a bare date;
   disabled until a date exists to attach a time to. Compat: a card with start + due but
   no end still ranges start→due. The server assigns the next id and writes a new
-  `<0000-id>.<slug>.card.md` (id zero-padded to 4 digits, e.g. `0009.new-thing.card.md`).
+  `<0000-id>.<slug>.card.md` (the id's number zero-padded to the board's `idDigits`, 4 by
+  default, e.g. `0009.new-thing.card.md`). A card whose `type` has a prefix in the config's
+  `prefixes:` takes that prefix and its own counter (`G0001.new-goal.card.md` is card `G1`),
+  and keeps it when its type changes later; any other card takes the next plain number.
 - **Edit** — click a card's "Edit" to change its fields, title, and description. The body
   (incl. `## Narrative`) and any frontmatter keys the form doesn't manage are preserved
   verbatim; the form-managed fields (status, priority, type, parent, rank, tags, waiting_for, blocked,
@@ -455,8 +458,8 @@ to `127.0.0.1` only.
   caller bypasses the form entirely — without the floor a permanently blank tile could
   persist); a title-less card WITH a prompt saves title empty. The filename slug
   degrades with it: `<0000-id>.<slug>.card.md` collapses to the bare zero-padded id
-  prefix (`0212.card.md`, no dangling `.`); past id 9999 the filename uses `card-<id>`
-  to stay non-empty.
+  prefix (`0212.card.md`, no dangling `.`); a number wider than `idDigits` (past 9999 by
+  default) gets no id prefix and the filename uses `card-<id>` to stay non-empty.
 - **Epic flag (retired)** — the app no longer reads or writes `epic`: no form checkbox,
   no `epic:` search term, no "Epics" chip on the map, no fixed orange and no wash on any
   surface. An epic is a card typed `epic`, which shows the Type chip like any other type:
@@ -1061,9 +1064,10 @@ to `127.0.0.1` only.
   remove), so Ctrl+S there stays a no-op rather than guessing. The chord is strict —
   exactly Ctrl+S or Cmd+S; Alt or Shift chords never match (save-hotkey.js).
   **Ctrl+F / Cmd+F** focuses the search box instead of the browser's find bar
-  (`preventDefault`) and pre-fills `#` with the caret right after it, so typing digits
-  immediately forms the `#<id>` exact-match term (erase the `#` by hand for any other
-  query — cheap). A box already holding a query gets select-all instead of the `#`
+  (`preventDefault`) and pre-fills `#` with the caret right after it, so typing an id
+  immediately forms the `#<id>` exact-match term, digits (`#42`) or a prefix and digits
+  (`#G3`; the `#` stays while the box holds a prefix such as `G`, and goes the moment
+  anything else is typed — erase it by hand for any other query — cheap). A box already holding a query gets select-all instead of the `#`
   prefill — typing overwrites it, same as any focused input — so the chord can never
   silently clobber a typed query (search-hotkey.js owns this decision). Suppressed while
   a popup is up — the mirror of Ctrl+S, which only fires *inside* an open popup: every
@@ -1100,7 +1104,9 @@ to `127.0.0.1` only.
   `/kanban`, hand edits, or another tool; the header Refresh button forces a re-read
   immediately. View mode, query, filters, selection, and collapse/sort state all survive
   the poll.
-- **Deep links** — loading the app with `?card=<id>`, `?q=<search>` and/or
+- **Deep links** — loading the app with `?card=<id>` (an id is a plain number or a prefix
+  and a number, `?card=G3`; `?card=0` opens card 0, which the page used to read as no card),
+  `?q=<search>` and/or
   `?view=<board|map|gantt|calendar|graph>` in the URL switches to the named view, filters the
   board by the query (and, with `isolate=1` beside a query, shows it as an isolate, see
   Isolate), opens that card's detail popup, and scrolls its representation
@@ -1122,7 +1128,7 @@ to `127.0.0.1` only.
     cards (`kanban.proj#264`).
   - **One unusable key never discards the others.** An unrecognized `view` value (or
     none) leaves the persisted/default view untouched; an id that doesn't resolve to any
-    active or archived card (missing, non-numeric, or just unknown) shows a toast, no
+    active or archived card (missing, not an id, or just unknown) shows a toast, no
     popup — but a `q` and a `view` that parsed fine are still applied. Only a link that
     actually carried a `card` key can produce that toast, so the status page's
     card-less links never fire one.
@@ -1806,6 +1812,10 @@ name: webapp              # BOARD NAME — heading, tab title, and the qualifier
                           # `name:`, and only a top-level key is the board name.
 nextId: 28                # monotonic id counter; ids stay unique even when the
                           # max card is deleted or two writers race a max+1 scan
+idDigits: 4               # the width an id's number is padded to in a file name (default 4)
+prefixes:                 # a prefix for a card type; a new card of that type takes it
+  G: goal                 # a value with a `/` is a folder, not a type
+counters: { G: 3 }        # one line, one counter per prefix (the web writes it)
 assignees:                # who can own cards; feeds the form's assignee combobox
   - handle: "@human"
     name: "Human"
@@ -1904,6 +1914,15 @@ handle a card carries.
 - With a counter, new-card ids come from `max(nextId, scanMax+1)` (a stale counter
   self-heals rather than re-issuing a taken id) and the advanced counter is written back
   atomically. Agents creating cards by hand should use and advance it too.
+- **Prefixes** (ADR 0014): a card takes, when it is created, the prefix `prefixes:` gives its
+  `type` (compared without regard to case), and its number comes from that prefix's entry on
+  the one `counters:` line, `max(counter, highest number with that prefix + 1)`, written back
+  by replacing that line alone (inserted below `nextId:` when absent). A plain card never
+  moves a prefix's counter and a prefix never moves `nextId`. The id never changes
+  afterwards, so changing a card's type leaves it. `idDigits` (a whole number from 1 to 15,
+  else 4) only sets the width of the number in a file name; cards are read by the number in
+  their `id:` line, so a file padded to another width is still found. `prefixes:` and
+  `idDigits:` are human-written; the page reads and the server writes only the counter lines.
 - The assignees, priorities, tags and types lists all **suggest, never validate** (ADR 0004) — the
   form's comboboxes offer the registered values but free text still saves fine.
 - Not a card — only `*.card.md` files are cards.

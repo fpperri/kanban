@@ -16,7 +16,7 @@ The short name that qualifies a card mention: the `name:` value in the board's `
 _Avoid_: project name, repo name, parent folder (they usually coincide; the rule is the declared value).
 
 **Card**:
-One work item, stored as a single `<0000-id>.<slug>.card.md` file (frontmatter + Markdown body; the 4-digit-padded id prefix makes files sort by card id — the frontmatter `id` stays the source of truth, and unprefixed legacy names still work). The card file is the unit of identity, source of truth, and persistence.
+One work item, stored as a single `<0000-id>.<slug>.card.md` file (frontmatter + Markdown body; the padded id prefix (the number padded to `idDigits`, 4 by default) makes files sort by card id — the frontmatter `id` stays the source of truth, and unprefixed legacy names still work). The card file is the unit of identity, source of truth, and persistence.
 _Avoid_: task, ticket, item, issue.
 
 **Card mention**:
