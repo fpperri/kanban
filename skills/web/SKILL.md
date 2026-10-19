@@ -1009,8 +1009,8 @@ to `127.0.0.1` only.
   browser); the card menu's **Add note…** opens it on one card. Its rows, top down: the
   subject row (a chip that says what the palette is about, a time field and an *untimed*
   tick), the note box, the preview line that says exactly what Enter will write (`Note at
-  10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with room
-  beside it for the author switch) and the list of notes, grouped by day and card, newest day
+  10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
+  All, Human and AI switch beside it) and the list of notes, grouped by day and card, newest day
   first, each with its time and, when it is not the human's, its author. **Enter** writes the
   note at the time field's time (now, to start with) and keeps the palette open for the next;
   **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
@@ -1019,7 +1019,10 @@ to `127.0.0.1` only.
   later is only text. A line that is only a mention, then Enter, moves the palette to that
   card and writes nothing; **Backspace** on an empty box clears the chip. The filter field
   narrows the list by every word typed (in the text or the card's name) and never touches the
-  note box. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
+  note box; `by:@afk` in it keeps one author's notes. The switch keeps the notes of human
+  authors (the assignee registry's kind `human`, or no author at all) or of every other
+  author, a handle the registry does not list included. A note written in the palette stays listed whatever the filter and the
+  switch say. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
   to another card or to no card (the note moves to that target's file for the same day, and
   a file left empty is removed), **d** twice deletes it. **Esc** closes the palette; a press
   outside it does too. Every key typed in the palette stays in it, so none reaches the

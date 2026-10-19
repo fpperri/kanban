@@ -404,8 +404,9 @@ has **Add note…**. Type a note and press Enter: it is written at the time fiel
 the card's day file and the palette stays open for the next note; Shift+Enter starts a new
 line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
 `#22` aims it at another card; the line under the box says exactly what Enter will write. The
-list below groups the notes by day and card, newest first, with a filter field of its own.
-On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
+list below groups the notes by day and card, newest first, with a filter field of its own
+(`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a
+note written in the palette stays listed whatever they say. On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
 it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 **Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges

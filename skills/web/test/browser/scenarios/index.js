@@ -39,5 +39,6 @@ module.exports = [
   require('./view-panel'),
   require('./ids'),
   require('./notes'),
+  require('./notes-calendar'),
   require('./groups'),
 ];

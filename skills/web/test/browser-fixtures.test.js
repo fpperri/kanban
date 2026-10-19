@@ -263,6 +263,17 @@ test('groupsonly board: the groups board with the logbook line taken out', () =>
   assert.deepStrictEqual(readGroups(b.dir).list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
 });
 
+test('calnotes board: the notes board and two more notes, one half hour with two notes and a day with two untimed', () => {
+  const b = load('calnotes');
+  const notes = new Map();
+  for (const n of listNotes(b.dir)) notes.set(`${n.day} ${n.target || '-'} ${n.at || 'untimed'}`, n);
+  const base = load('notes');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), base.cards.map((c) => c.id).sort(), 'the same cards as the notes board');
+  assert.strictEqual(listNotes(b.dir).length, listNotes(base.dir).length + 2);
+  assert.ok(notes.has('2026-10-15 22 10:00') && notes.has('2026-10-15 3 10:10'), 'two notes in the half hour from 10:00 on the 15th');
+  assert.ok(notes.has('2026-10-14 7 untimed') && notes.has('2026-10-14 3 untimed'), 'two untimed notes on the 14th');
+});
+
 test('materializing a board again puts it back as it was, and keeps the folder', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-fixture-again-'));
   tmpRoots.push(root);

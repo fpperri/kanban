@@ -12,6 +12,7 @@
 //   groups     the plan board with groups (two iterations, a workflow and its subtype, a loose group, a file
 //              nested too deep), prefixes for them, and a logbook with one note on a group
 //   groupsonly the groups board without its logbook: line (groups on, notes off)
+//   calnotes   the notes board with two more notes, so one half hour holds two and one day holds two untimed
 //
 // skills/web/test/browser-fixtures.test.js pins what is on each board.
 
@@ -26,6 +27,7 @@ const BOARDS = {
   notes: { name: 'notes', layers: ['fixture', 'fixture-plan', 'fixture-notes'] },
   groups: { name: 'groups', layers: ['fixture', 'fixture-plan', 'fixture-groups'] },
   groupsonly: { name: 'groupsonly', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-groups-nolog'] },
+  calnotes: { name: 'notes', layers: ['fixture', 'fixture-plan', 'fixture-notes', 'fixture-notes-calendar'] },
 };
 
 // Writes board `key` into `dest`, whose contents are cleared first (the folder

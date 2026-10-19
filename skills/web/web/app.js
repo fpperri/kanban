@@ -1986,6 +1986,7 @@ function applyProjectName(name) {
     prefsMemo = null; // the preferences entry too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
+    calendarNotes = null; // calendar.notes too
     ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
     mapZoom = null; // map.zoom too
@@ -4019,6 +4020,29 @@ function setCalendarSubview(subview) {
   renderCalendarView();
 }
 
+// The Notes switch (feature key 'calendar.notes'): whether the week, 3-day and day views draw the
+// logbook's notes beside the cards. On unless this browser saved off for the board; the switch
+// and the layer exist only on a board that keeps a logbook.
+let calendarNotes = null;
+
+function calendarNotesOn() {
+  if (!notesOn()) return false;
+  if (calendarNotes === null) {
+    let saved = null;
+    try { saved = localStorage.getItem(storageKey(state.projectName, 'calendar.notes')); }
+    catch (e) { saved = null; }
+    calendarNotes = saved !== 'off';
+  }
+  return calendarNotes;
+}
+
+function setCalendarNotes(on) {
+  calendarNotes = !!on;
+  try { localStorage.setItem(storageKey(state.projectName, 'calendar.notes'), calendarNotes ? 'on' : 'off'); }
+  catch (e) { /* storage unavailable/full: the choice just won't persist this session */ }
+  renderCalendarView();
+}
+
 // Local time on purpose (matches the user's wall clock, same as
 // formatLocalDateTime) — the grid itself is built with UTC math but its "is
 // this cell today" check must agree with the calendar on the user's wall.
@@ -4133,7 +4157,11 @@ function renderCalendarView() {
     CALENDAR_SUBVIEWS.map((sv) =>
       `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${CAL_SUBVIEW_LABELS[sv]}</button>`).join('') +
-    `</span>`;
+    `</span>` +
+    // The Notes switch: only where notes are drawn (the time grids of a board with a logbook).
+    (subview !== 'month' && notesOn()
+      ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>`
+      : '');
   container.appendChild(controls);
   // The status-filter row renders first and UNCONDITIONALLY — same
   // reasoning as the map's row and the gantt's row: if it vanished on
@@ -4332,7 +4360,9 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   band.appendChild(bandLabel);
   const bandGrid = document.createElement('div');
   bandGrid.className = 'cal-tg-allday-grid';
-  const bandRows = Math.max(1, layout.allDayRows); // at least one row of drop surface, even empty
+  const notesByDay = new Map(days.map((day) => [day, calendarNotesOn() ? noteCalendarDay(notesAll(), day) : null]));
+  const untimedRow = layout.allDayRows + 1; // a day with untimed notes gets one more row in the band, under the cards
+  const bandRows = Math.max(1, layout.allDayRows + ([...notesByDay.values()].some((d) => d && d.untimed.length) ? 1 : 0)); // at least one row of drop surface, even empty
   days.forEach((day, i) => {
     const cell = document.createElement('div');
     cell.className = 'cal-tg-allday-cell cal-drop' + (day === today ? ' today' : '');
@@ -4352,6 +4382,14 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
     chip.style.gridRow = `${entry.row + 1}`;
     bandGrid.appendChild(chip);
   }
+  days.forEach((day, i) => {
+    const dayNotes = notesByDay.get(day);
+    if (!dayNotes || !dayNotes.untimed.length) return;
+    const box = notesCalendarUntimed(day, dayNotes.untimed);
+    box.style.gridColumn = `${i + 1}`;
+    box.style.gridRow = `${untimedRow}`;
+    bandGrid.appendChild(box);
+  });
   band.appendChild(bandGrid);
   grid.appendChild(band);
 
@@ -4378,6 +4416,9 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
     col.className = 'cal-tg-col cal-drop' + (day === today ? ' today' : '');
     col.dataset.day = day;
     col.style.height = `${24 * CAL_HOUR_PX}px`;
+    const dayNotes = notesByDay.get(day);
+    const strip = dayNotes && dayNotes.slots.length; // a day with timed notes keeps a strip right of the card blocks for them
+    if (strip) col.classList.add('has-notes');
     for (const block of layout.timed[day]) {
       const el = calendarChipEl(block.card, 'single', block.time, block.due);
       el.classList.add('cal-timeblock');
@@ -4390,8 +4431,8 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       el.draggable = false;
       el.style.top = `${(block.startMin / 60) * CAL_HOUR_PX}px`;
       el.style.height = `${Math.max(18, ((block.endMin - block.startMin) / 60) * CAL_HOUR_PX - 2)}px`;
-      el.style.left = `calc(${block.lane} * 100% / ${block.lanes})`;
-      el.style.width = `calc(100% / ${block.lanes} - 4px)`;
+      el.style.left = strip ? `calc(${block.lane} * (100% - var(--cal-note-strip)) / ${block.lanes})` : `calc(${block.lane} * 100% / ${block.lanes})`;
+      el.style.width = strip ? `calc((100% - var(--cal-note-strip)) / ${block.lanes} - 4px)` : `calc(100% / ${block.lanes} - 4px)`;
       // Only a REAL same-day duration (not a point/due placeholder,
       // whose height is a synthetic 60-min marker) gets resize handles — the
       // point/due block's own `point`/`due` flags answer "resizable?" with no
@@ -4406,6 +4447,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       }
       col.appendChild(el);
     }
+    if (strip) for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
     body.appendChild(col);
   }
   scroll.appendChild(body);
@@ -4684,6 +4726,11 @@ function wireCalendarTimeDrag() {
 const CALENDAR_CREATE_DAY_CELLS = '.cal-day, .cal-tg-allday-cell';
 const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
 
+// A single click on an empty hour opens the notes palette once the double click that would make
+// a card there can no longer follow it.
+const CAL_DOUBLE_CLICK_MS = 300;
+let calHourClickTimer = 0;
+
 // --- Calendar view wiring: header toggle + the
 // prev/today/next nav. #calendar-view is rebuilt by every renderCalendarView()
 // call, so clicks delegate to the stable parent — same pattern (and reason)
@@ -4707,7 +4754,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (sv) { setCalendarSubview(sv.dataset.subview); return; }
     if (e.target.closest('#cal-prev-btn')) { shiftCalendarWindow(-1); return; }
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
-    if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); }
+    if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); return; }
+    if (e.target.closest('#cal-notes-btn')) { setCalendarNotes(!calendarNotesOn()); return; }
+    // A click on an empty part of a day's column opens the palette on that hour. A double click
+    // there makes a card, so the palette waits out the double click's window.
+    const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
+    if (!col || e.target.closest('.card-el, .cal-note') || isDragging || ganttDrag || calTimeDrag || !calendarNotesOn()) return;
+    const r = col.getBoundingClientRect();
+    const req = noteHourRequest(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN);
+    clearTimeout(calHourClickTimer);
+    calHourClickTimer = setTimeout(() => { if (calendarNotesOn()) openNotes(req); }, CAL_DOUBLE_CLICK_MS);
   });
   // Click-to-create rides double-click on the empty cells, the one empty space
   // where a double click already means something, so the click-away rule leaves
@@ -4720,7 +4776,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // unlike the column "+", a calendar cell doesn't imply a status.
   $('#calendar-view').addEventListener('dblclick', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the contextmenu listener below: never fire out from under a live drag
+    clearTimeout(calHourClickTimer); // the click that began this double click wanted the palette; the double click wants a card
     if (e.target.closest('.card-el')) return; // a chip's dblclick is its own affair, not a create gesture
+    if (e.target.closest('.cal-note')) return; // so is a note's
     const dayCell = e.target.closest(CALENDAR_CREATE_DAY_CELLS);
     if (dayCell) { openModal(null, null, calendarCreateStart(dayCell.dataset.day)); return; }
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);

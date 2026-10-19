@@ -4,8 +4,9 @@
 // aimed at a card; with nothing aimed at it opens on the card last noted. Rows, top down:
 // the subject row (the chip that says what it is about, the time field, the untimed tick),
 // the note box, the preview line that says what Enter will write, the filter row (the
-// filter field, and a slot beside it for the author switch), then the notes list, grouped
-// by day and card, newest day first.
+// filter field, and beside it the All, Human and AI switch on a note's author), then the
+// notes list, grouped by day and card, newest day first. The filter field reads `by:@handle`
+// too; a note written in this palette stays listed whatever the filter and the switch say.
 //
 // A group is a subject too (docs/adr/0015): a badge on a card, a mention of a group's id and the
 // right-click Add note... on a selection aim the palette at it. A group's palette has a tab row, Notes
@@ -30,7 +31,7 @@
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
-  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, body: null, foot: null,
+  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', body: null, foot: null,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
@@ -76,6 +77,7 @@ function notesLastNoted() {
 
 const notesCtx = () => ({ today: localTodayStr(), now: noteClock(new Date()), lastNoted: notesLastNoted() });
 const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked });
+const NOTES_BY = [['all', 'All', 'Every note'], ['human', 'Human', 'Notes by a human'], ['ai', 'AI', 'Notes by an AI, or by a handle the board does not list']];
 const notesKey = (n) => `${n.day}|${n.target}|${n.at || ''}|${n.note}|${n.by}`;
 
 function notesEl(tag, className, text) {
@@ -140,6 +142,61 @@ function noteCountButton(id) {
   return b;
 }
 
+// ---------- the Calendar's notes ----------
+
+const NOTES_SVG_NS = 'http://www.w3.org/2000/svg';
+
+function notesGlyph() {
+  const svg = document.createElementNS(NOTES_SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NOTES_SVG_NS, 'path');
+  path.setAttribute('d', 'M3 2.5h7l3 3v8H3z M5.5 7h5 M5.5 9.5h5 M5.5 12h3');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.4');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.append(path);
+  return svg;
+}
+
+// A button the Calendar draws for notes: it opens the palette on `req` and, like the count on a
+// card, is no click away from the palette (np-trigger) and none from the board's selection.
+function notesCalendarButton(className, title, req) {
+  const b = notesButton(`cal-note np-trigger ${className}`, undefined, title, () => openNotes(req));
+  b.setAttribute('aria-label', title.replace(/\n/g, '; '));
+  b.setAttribute('data-keeps-selection', '');
+  return b;
+}
+
+// One half hour's notes in a day's column: a chip for one note (the card's id and the first
+// words), a count bubble for two or more. `top` is the half hour's offset in pixels.
+function notesCalendarSlot(day, slot, top) {
+  const req = noteSlotRequest(day, slot);
+  let el;
+  if (slot.notes.length === 1) {
+    const note = slot.notes[0];
+    el = notesCalendarButton('cal-note-chip', noteTip(note, notesLabel), req);
+    if (note.target) el.append(notesEl('span', 'cal-note-id', `#${note.target}`));
+    else el.append(notesGlyph());
+    el.append(document.createTextNode(noteFirstWords(note.note, 12)));
+  } else {
+    el = notesCalendarButton('cal-note-bubble', noteSlotTip(slot), req);
+    el.append(notesEl('b', 'cal-note-count', String(slot.notes.length)), notesEl('span', 'cal-note-ids', noteSlotTargets(slot.notes).join(' ')));
+  }
+  el.dataset.slot = `${day}|${slot.fromMin}`;
+  el.style.top = `${top}px`;
+  return el;
+}
+
+// The "N untimed" box in a day's all-day cell.
+function notesCalendarUntimed(day, untimed) {
+  const el = notesCalendarButton('cal-note-untimed', noteUntimedTip(untimed), noteUntimedRequest(day));
+  el.append(notesEl('b', 'cal-note-count', String(untimed.length)), document.createTextNode(' untimed'));
+  el.dataset.untimed = day;
+  return el;
+}
+
 // ---------- building ----------
 
 function notesBuild() {
@@ -176,9 +233,17 @@ function notesBuild() {
   u.prev = notesEl('div', 'np-prev');
   u.prev.setAttribute('aria-live', 'polite');
   u.filter = notesEl('input', 'np-filter');
-  Object.assign(u.filter, { type: 'search', autocomplete: 'off', placeholder: 'Filter these notes' });
+  Object.assign(u.filter, { type: 'search', autocomplete: 'off', placeholder: 'Filter these notes; by:@handle' });
   u.filter.setAttribute('aria-label', 'Filter the notes below');
   u.bySlot = notesEl('span', 'np-by-slot');
+  u.bySlot.setAttribute('role', 'group');
+  u.bySlot.setAttribute('aria-label', 'Notes by');
+  u.byBtns = NOTES_BY.map(([by, text, title]) => {
+    const b = notesButton('np-by-btn', text, title, () => notesSetBy(by));
+    b.dataset.by = by;
+    return b;
+  });
+  u.bySlot.append(...u.byBtns);
   const filterRow = notesEl('div', 'np-filter-row');
   filterRow.append(u.filter, u.bySlot);
   u.filterRow = filterRow;
@@ -241,6 +306,7 @@ function openNotes(req) {
     u.written = [];
     u.input.value = '';
     u.filter.value = '';
+    u.by = 'all';
     notesGrow();
     notesResetTime();
   }
@@ -285,6 +351,7 @@ function notesClose() {
   u.body.replaceChildren();
   u.input.value = '';
   u.filter.value = '';
+  u.by = 'all';
   const back = u.opener;
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
@@ -375,9 +442,17 @@ function notesPaintTabs() {
   }));
 }
 
+function notesSetBy(by) {
+  const u = notesUi;
+  u.by = by;
+  u.hi = -1;
+  notesPaintBody();
+}
+
 function notesPaintBody() {
   const u = notesUi;
   if (!u.sub) return;
+  for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
   const scroll = u.body.scrollTop;
   u.editing = 0; // the rows are built anew: none is being edited
   if (u.tab === 'group') {
@@ -396,11 +471,12 @@ function notesList() {
   const all = notesAll();
   const group = sub.kind === 'group' ? notesGroup(sub.id) : null;
   const mine = noteSubjectNotes(all, sub, { members: () => (group ? group.cards : []) });
-  const shown = new Set(noteFilter(mine, u.filter.value, notesLabel));
+  const shown = new Set(noteFilter(mine, u.filter.value, notesLabel, { by: u.by, assignees: state.assignees }));
   const notes = mine.filter((n) => shown.has(n) || fresh.has(notesKey(n)));
   for (const n of all) if (fresh.has(notesKey(n)) && !notes.includes(n)) notes.push(n);
   if (!notes.length) {
-    const text = mine.length ? `No note here matches “${u.filter.value.trim()}”.` : sub.kind === 'none' ? 'No notes today yet.' : 'No notes here yet. Enter writes the first one.';
+    const typed = u.filter.value.trim();
+    const text = mine.length ? (typed ? `No note here matches “${typed}”${u.by === 'all' ? '' : ` by ${u.by === 'human' ? 'a human' : 'an AI'}`}.` : `No note here is by ${u.by === 'human' ? 'a human' : 'an AI'}.`) : sub.kind === 'none' ? 'No notes today yet.' : 'No notes here yet. Enter writes the first one.';
     return notesEl('p', 'np-empty', text);
   }
   const today = localTodayStr();
