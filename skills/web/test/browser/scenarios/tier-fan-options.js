@@ -1,19 +1,18 @@
 'use strict';
-// The tier fan's option row, on the plan board. In Tiers an option row stands above the
-// fan, folded on the first open behind an Options toggle and absent in Force and Status.
-// Unfolded it holds Lines (folded, chain, all, off), Dependencies (on, off), Order
+// The tier fan's option row, on the plan board. In Tiers an option row stands in the option panel
+// beside the fan, shown with every option built and no toggle of its own (the panel is what hides it;
+// view-panel's), and absent in Force and Status.
+// It holds Lines (folded, chain, all, off), Dependencies (on, off), Order
 // (status, rank), Names (relevant, all, none; fan-names's) and Unnested (outermost, off, depth 0,
 // table; tier-fan-unnested's), one button of each pressed. Each lines mode and the dependencies switch
 // redraw the fan with the number of lines the model predicts (graphFanLines, read from
 // the page) and the number worked out by hand for the board; the order seats the
 // siblings of a sector another way and moves no card to another ring. A reload keeps the
-// options and the fold, and another board keeps its own. A press on the row, or a drag
+// options, and another board keeps its own. A press on the row, or a drag
 // that starts on it, does not pan the canvas, does not clear a selection (nor does a
-// double click on the row's own space). The toggle is a press that changes the height of
-// the stage, and a view the person has not moved stays where it was after each press of it,
-// folding and unfolding, the fan neither re-fitted nor rescaled; nor does a press of an option
-// move it, Order included, on a view framed while the row was folded and met by a shorter
-// stage once the row is unfolded. The next poll still refreshes the board,
+// double click on the row's own space). A view the person has not moved stays where it was
+// after a press of an option, Order included, the fan neither re-fitted nor rescaled.
+// The next poll still refreshes the board,
 // with the pressed option still focused after it. A poll is one call of the page's own
 // tick, the way the Graph scenario makes it, after a check that the focused option does
 // not hold it.
@@ -61,19 +60,17 @@ const CASES = {
   },
 };
 
-const FOLD_TOGGLE = '#graph-view .graph-options .map-section-toggle';
 const OPTION_LABEL = '#graph-view .graph-options .graph-option-label';
 const ROW = '#graph-view .graph-options';
 const optionButton = (key, val) => `#graph-view .graph-option-btn[data-key="${key}"][data-val="${val}"]`;
 
-// The row as the page has it: whether it is unfolded, the toggle's label, whether it keeps
-// the selection, and each option with its buttons. null when the row is not there.
-const ROW_STATE = `(()=>{const row=document.querySelector('${ROW}');if(!row)return null;const t=row.querySelector('.map-section-toggle');`
+// The row as the page has it: whether it keeps the selection, how many fold toggles it holds (none),
+// and each option with its buttons. null when the row is not there.
+const ROW_STATE = `(()=>{const row=document.querySelector('${ROW}');if(!row)return null;`
   + `const groups=[...row.querySelectorAll('.graph-option')].map((g)=>({label:g.querySelector('.graph-option-label').textContent,title:g.title,`
   + `buttons:[...g.querySelectorAll('.graph-option-btn')].map((b)=>({key:b.dataset.key,val:b.dataset.val,text:b.textContent,pressed:b.getAttribute('aria-pressed')==='true',active:b.classList.contains('active'),`
   + `keeps:b.hasAttribute('data-keeps-selection'),holds:b.hasAttribute('data-holds-poll')}))}));`
-  + `return {expanded:t.getAttribute('aria-expanded')==='true',label:t.getAttribute('aria-label'),keeps:row.hasAttribute('data-keeps-selection'),`
-  + `toggleKeeps:t.hasAttribute('data-keeps-selection'),toggleHolds:t.hasAttribute('data-holds-poll'),groups}})()`;
+  + `return {keeps:row.hasAttribute('data-keeps-selection'),toggles:row.querySelectorAll('.map-section-toggle').length,inPanel:!!row.closest('.view-panel'),groups}})()`;
 
 // The lines on the stage, by kind, and the labels of the counted ones; and the same as the
 // model predicts for the options the page holds.
@@ -86,14 +83,12 @@ const DRAWN_LINES = `graphCur.lines.length===document.querySelectorAll('#graph-v
 
 const ROW_PRESENT = `!!document.querySelector('${ROW}')`;
 const ROW_ABSENT = `!document.querySelector('${ROW}')&&document.querySelectorAll('#graph-view .graph-node').length>0`;
-const ROW_EXPANDED = `(()=>{const t=document.querySelector('${FOLD_TOGGLE}');return !!t&&t.getAttribute('aria-expanded')==='true'&&document.querySelectorAll('#graph-view .graph-option-btn').length>0})()`;
-const ROW_FOLDED = `(()=>{const t=document.querySelector('${FOLD_TOGGLE}');return !!t&&t.getAttribute('aria-expanded')==='false'&&document.querySelectorAll('#graph-view .graph-option-btn').length===0})()`;
+const ROW_SHOWN = `document.querySelectorAll('#graph-view .graph-option-btn').length>0`;
 const pressedIs = (key, val) => `(()=>{const b=document.querySelector('${optionButton(key, val)}');return !!b&&b.getAttribute('aria-pressed')==='true'})()`;
 // Whether a focused control holds the poll, and one poll tick as the timer makes it.
 const HOLDS_POLL = `boardControlFocused()`;
 const TICK = `autoRefreshTick()`;
 const FOCUSED_OPTION = `(()=>{const e=document.activeElement;return e&&e.classList&&e.classList.contains('graph-option-btn')?e.dataset.key+'='+e.dataset.val:null})()`;
-const FOCUSED_TOGGLE = `(()=>{const e=document.activeElement;return !!e&&e.classList&&e.classList.contains('map-section-toggle')&&e.dataset.section==='graph-options'})()`;
 
 // The Graph's view as the page holds it, and the classes that say a pan is under way.
 const VIEW = `(()=>{const v=graphCur.view;return {x:v.x,y:v.y,k:v.k,touched:v.touched,panning:!!document.querySelector('#graph-view .graph-panning'),dragging:isDragging}})()`;
@@ -117,7 +112,6 @@ module.exports = {
   alsoBoards: ['fixture'],
   timeoutMs: 120000,
   CASES,
-  FOLD_TOGGLE,
   OPTION_LABEL,
   optionButton,
   ROW_STATE,
@@ -126,13 +120,11 @@ module.exports = {
   DRAWN_LINES,
   ROW_PRESENT,
   ROW_ABSENT,
-  ROW_EXPANDED,
-  ROW_FOLDED,
+  ROW_SHOWN,
   pressedIs,
   HOLDS_POLL,
   TICK,
   FOCUSED_OPTION,
-  FOCUSED_TOGGLE,
   VIEW,
   SELECTED,
   ROW_SPACE,
@@ -173,14 +165,13 @@ module.exports = {
     const settledOn = async (parent, wait) => waitFor(`(()=>{const q=(s)=>document.querySelectorAll('#graph-view '+s).length;return q('.graph-link-parent')===${parent}&&q('.graph-link-wait')===${wait}})()`, 6000);
     const seatOrder = (dots, sweep, ids) => ids.slice().sort((a, b) => turned(dots[b], sweep) - turned(dots[a], sweep));
 
-    // --- the row: only in Tiers, folded on the first open ------------------------------------
+    // --- the row: only in Tiers, shown on the first open -------------------------------------
     check('plan: the Graph draws in Tiers', await load('plan'));
-    check('plan: the option row stands above the fan, with Tiers', await waitFor(ROW_PRESENT, 6000));
+    check('plan: the option row stands in the option panel, with Tiers', await waitFor(ROW_PRESENT, 6000));
     let state = await rowState();
-    check('plan: the row is folded on the first open: its toggle says it can be expanded and no option is built',
-      !!state && state.expanded === false && state.label === 'Expand Options' && state.groups.length === 0 && await ev(ROW_FOLDED), state);
-    check('plan: the row and its toggle keep the selection and the toggle holds no poll',
-      !!state && state.keeps === true && state.toggleKeeps === true && state.toggleHolds === false, state);
+    check('plan: the row is shown on the first open: every option is built, in the panel, with no toggle of its own',
+      !!state && state.groups.length === 5 && state.toggles === 0 && state.inPanel === true && await ev(ROW_SHOWN), state);
+    check('plan: the row keeps the selection', !!state && state.keeps === true, state);
     for (const other of ['force', 'status']) {
       await ev(pickLayout(other));
       await waitFor(layoutIs(other), 10000);
@@ -188,17 +179,15 @@ module.exports = {
     }
     await ev(pickLayout('tiers'));
     await waitFor(layoutIs('tiers'), 10000);
-    check('plan: back in Tiers the row is back, still folded', await waitFor(ROW_FOLDED, 6000), await rowState());
+    check('plan: back in Tiers the row is back', await waitFor(ROW_SHOWN, 6000), await rowState());
 
-    // --- unfolding it ------------------------------------------------------------------------
-    await pressOn(FOLD_TOGGLE);
-    check('plan: the toggle unfolds the row', await waitFor(ROW_EXPANDED, 6000), await rowState());
+    // --- what it holds -------------------------------------------------------------------------
     state = await rowState();
-    check('plan: unfolded the row holds Lines, Dependencies, Order, Names and Unnested, each with its values in words, the first of each pressed',
+    check('plan: the row holds Lines, Dependencies, Order, Names and Unnested, each with its values in words, the first of each pressed',
       !!state && sameList(state.groups.map((g) => g.label), plan.labels)
       && state.groups.every((g, i) => sameList(g.buttons.map((b) => b.val), plan.values[Object.keys(plan.values)[i]]) && sameList(g.buttons.map((b) => b.text), g.buttons.map((b) => b.val)))
       && sameList(state.groups.map((g) => g.buttons.filter((b) => b.pressed).map((b) => b.val).join()), Object.values(plan.defaults))
-      && state.groups.every((g) => g.buttons.every((b) => b.active === b.pressed)) && state.label === 'Collapse Options', state);
+      && state.groups.every((g) => g.buttons.every((b) => b.active === b.pressed)), state);
     check('plan: every button of the row keeps the selection and none holds the poll',
       !!state && state.groups.every((g) => g.title.length > 20 && g.buttons.every((b) => b.keeps === true && b.holds === false)), state);
     check('plan: the lines drawn are the lines the model predicts for the defaults, and the page lights the lines it drew',
@@ -264,23 +253,21 @@ module.exports = {
       counted.counted === 1 && sameList(counted.labels, ['2']), counted);
     await shot('tier-fan-options-counted');
 
-    // --- the options and the fold are kept ---------------------------------------------------------
+    // --- the options are kept ---------------------------------------------------------
     await setOption('lines', 'chain');
     await setOption('order', 'rank');
     await load('plan');
-    await waitFor(ROW_EXPANDED, 6000);
+    await waitFor(ROW_SHOWN, 6000);
     state = await rowState();
-    check('plan: a reload keeps the options and the fold: chain, on, rank, relevant, outermost, unfolded',
-      !!state && state.expanded === true && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
+    check('plan: a reload keeps the options: chain, on, rank, relevant, outermost',
+      !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
     await settledOn(plan.withAdded.chain, plan.waits);
     check('plan: and draws what they say', (await counts()).parent === plan.withAdded.chain, await counts());
-    check('fixture: another board starts folded with the defaults, whatever the plan board chose', await load('fixture') && await waitFor(ROW_FOLDED, 6000), await rowState());
-    await pressOn(FOLD_TOGGLE);
-    await waitFor(ROW_EXPANDED, 6000);
+    check('fixture: another board starts with the defaults, whatever the plan board chose', await load('fixture') && await waitFor(ROW_SHOWN, 6000), await rowState());
     state = await rowState();
     check('fixture: and its own choices are the defaults', !!state && sameList(pressed(state).map((p) => p.join()), Object.values(plan.defaults)), state);
     await load('plan');
-    await waitFor(ROW_EXPANDED, 6000);
+    await waitFor(ROW_SHOWN, 6000);
     state = await rowState();
     check('plan: back on the plan board its choices are as they were left', !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
 
@@ -297,15 +284,8 @@ module.exports = {
       check('plan: a click on a dot selects it', await waitFor(`${SELECTED}.length===1&&${SELECTED}[0]===${target}`, 4000), await ev(SELECTED));
       const view = await ev(VIEW);
       for (const [key, val] of [['lines', 'all'], ['dependencies', 'off'], ['lines', 'folded'], ['dependencies', 'on'], ['order', 'status'], ['order', 'rank']]) await setOption(key, val);
-      await pressOn(FOLD_TOGGLE);
-      await waitFor(ROW_FOLDED, 6000);
       await ev(frames);
-      const folded = await ev(VIEW);
-      check('plan: one press of the toggle, which changes the height of the stage, leaves an untouched view where it was', view.touched === false && folded.x === view.x && folded.y === view.y && folded.k === view.k && folded.touched === false, { view, folded });
-      await pressOn(FOLD_TOGGLE);
-      await waitFor(ROW_EXPANDED, 6000);
-      await ev(frames);
-      check('plan: pressing options and the toggle leaves the selection as it was', sameList(await ev(SELECTED), [target]), await ev(SELECTED));
+      check('plan: pressing options leaves the selection as it was', sameList(await ev(SELECTED), [target]), await ev(SELECTED));
       const after = await ev(VIEW);
       check('plan: and does not pan or zoom the canvas', after.x === view.x && after.y === view.y && after.k === view.k && after.touched === view.touched && after.panning === false && after.dragging === false, { view, after });
 
@@ -343,22 +323,14 @@ module.exports = {
       }
     }
 
-    // --- Order on a view framed with the row folded ---------------------------------------------------
-    // The toggle changes the height of the stage, so a view framed while the row was folded meets a
-    // shorter stage once the row is unfolded. Order seats the siblings of a sector another way, the
-    // same cards on the same rings, and does not frame the fan again.
-    await pressOn(FOLD_TOGGLE);
-    await waitFor(ROW_FOLDED, 6000);
+    // --- Order on a view framed on the first draw ---------------------------------------------------
+    // Order seats the siblings of a sector another way, the same cards on the same rings, and does not
+    // frame the fan again.
     await load('plan');
-    await waitFor(ROW_FOLDED, 6000);
+    await waitFor(ROW_SHOWN, 6000);
     await ev(frames);
     const framed = await ev(VIEW);
-    check('plan: the page reloaded with the row folded frames the fan untouched', framed.touched === false, framed);
-    await pressOn(FOLD_TOGGLE);
-    await waitFor(ROW_EXPANDED, 6000);
-    await ev(frames);
-    const unfolded = await ev(VIEW);
-    check('plan: unfolding the row leaves that view where the fit put it', unfolded.x === framed.x && unfolded.y === framed.y && unfolded.k === framed.k && unfolded.touched === false, { framed, unfolded });
+    check('plan: the page reloaded frames the fan untouched', framed.touched === false, framed);
     for (const val of ['status', 'rank']) {
       await setOption('order', val);
       await ev(frames);
@@ -375,11 +347,5 @@ module.exports = {
     await ev(TICK);
     check('plan: the next poll draws it, with no reload and nothing pressed since', await waitFor(hasDot(plan.pollId), 8000), await ev(DOTS));
     check('plan: and the option is still focused after the poll', (await ev(FOCUSED_OPTION)) === 'lines=all', await ev(FOCUSED_OPTION));
-    await pressOn(FOLD_TOGGLE);
-    await waitFor(ROW_FOLDED, 6000);
-    check('plan: after the toggle is pressed it keeps focus too, and holds no poll', await waitFor(FOCUSED_TOGGLE, 4000) && (await ev(HOLDS_POLL)) === false, await ev(HOLDS_POLL));
-    const second = await ev(createCard({ title: 'Check the poll after the toggle', status: 'todo' }));
-    await ev(TICK);
-    check('plan: and the poll after it refreshes the board', second === 201 && await waitFor(hasDot(plan.pollId + 1), 8000), second);
   },
 };

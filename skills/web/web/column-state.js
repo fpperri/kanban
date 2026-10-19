@@ -214,17 +214,17 @@ function mergeCollapsedState(saved, ids) {
 }
 
 // --- map view section collapse (the graphs, the "No relations"
-// list, the options row) ---------------------------------------------------
+// list) -------------------------------------------------------------------
 // A fixed small key set — not a dynamic column set like the collapse/
 // status-filter state above — so the merge needs no `ids` param. Same
 // defensive shape as modal-fullscreen.js's mergeFullscreenState: unknown keys
 // dropped, missing keys fall back to the default, only real booleans trusted.
 // The graphs and the "No relations" list default expanded — collapsing them is
-// opt-in, a fresh board hides no card. The options row defaults folded: it is
-// controls, not content.
+// opt-in, a fresh board hides no card. The options row had a section of its own once; the
+// option panel hides it now, so a saved `options` value is a stale key and dropped.
 
-const MAP_SECTIONS = ['graph', 'isolated', 'options'];
-const DEFAULT_MAP_SECTIONS_COLLAPSED = { graph: false, isolated: false, options: true };
+const MAP_SECTIONS = ['graph', 'isolated'];
+const DEFAULT_MAP_SECTIONS_COLLAPSED = { graph: false, isolated: false };
 
 function mergeMapSectionsCollapsed(saved) {
   const result = Object.assign({}, DEFAULT_MAP_SECTIONS_COLLAPSED);

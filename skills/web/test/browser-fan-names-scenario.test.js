@@ -69,7 +69,7 @@ test('the title, the added card and the steps are the board\'s and the model\'s'
 
 // --- the stand-in page -------------------------------------------------------------------------------------
 
-const HANDLES = { toggle: 2, notifications: 3, preferences: 4, canvas: 5, names: 100 };
+const HANDLES = { notifications: 3, preferences: 4, canvas: 5, names: 100 };
 function standIn(over = {}) {
   const checks = [];
   const saved = {};
@@ -89,7 +89,7 @@ function standIn(over = {}) {
   let pressing = null;
   const st = () => {
     const id = over.sharedStore ? 'one' : key;
-    if (!saved[id]) saved[id] = { names: 'relevant', folded: true, layout: 'tiers' };
+    if (!saved[id]) saved[id] = { names: 'relevant', layout: 'tiers' };
     return saved[id];
   };
   const cardsExtra = () => (extraOf[key] || []).map((c) => ({ ...c }));
@@ -105,7 +105,6 @@ function standIn(over = {}) {
   const nextName = (v) => GRAPH_FAN_OPTION_VALUES.names[(GRAPH_FAN_OPTION_VALUES.names.indexOf(v) + 1) % 3];
   const optionHandle = (v) => HANDLES.names + GRAPH_FAN_OPTION_VALUES.names.indexOf(v);
   const handleKind = (x) => {
-    if (x === HANDLES.toggle) return { kind: 'toggle' };
     if (x === HANDLES.notifications) return { kind: 'notifications' };
     if (x === HANDLES.preferences) return { kind: 'preferences' };
     if (x === HANDLES.canvas) return { kind: 'canvas' };
@@ -125,7 +124,6 @@ function standIn(over = {}) {
   };
   const labels = () => (view === 'graph' && layout === 'tiers' ? model().nodes.length + (doubled ? 1 : 0) : 0);
   const group = () => {
-    if (st().folded) return null;
     return {
       title: 'Names explains itself in a tooltip',
       buttons: GRAPH_FAN_OPTION_VALUES.names.map((v) => ({
@@ -135,7 +133,6 @@ function standIn(over = {}) {
   };
   const keyLine = () => `solid line: parent · n steps the names: ${over.lineStale ? 'relevant' : st().names}`;
   const press = (target, extras = {}) => {
-    if (target.kind === 'toggle') { st().folded = !st().folded; focus = 'toggle'; }
     if (target.kind === 'option') { st().names = target.v; focus = `names=${target.v}`; }
     if (target.kind === 'notifications') surface = 'notifications';
     if (target.kind === 'preferences') surface = 'preferences';
@@ -157,7 +154,6 @@ function standIn(over = {}) {
       reveal();
     },
     centre: async (sel) => {
-      if (sel === options.FOLD_TOGGLE) return { x: HANDLES.toggle, y: 1 };
       if (sel === '#notif-btn') return { x: HANDLES.notifications, y: 1 };
       if (sel === '#prefs-btn') return { x: HANDLES.preferences, y: 1 };
       for (const v of GRAPH_FAN_OPTION_VALUES.names) if (sel === options.optionButton('names', v)) return { x: optionHandle(v), y: 1 };
@@ -193,7 +189,7 @@ function standIn(over = {}) {
       if (expr === `${tierFan.DRAWN}&&${tierFan.TIERS_PRESSED}`) return view === 'graph' && layout === 'tiers';
       if (expr === scenario.BOARD_READY) return view === 'board';
       for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.layoutIs(name)) return view === 'graph' && layout === name;
-      if (expr === options.ROW_EXPANDED) return !st().folded;
+      if (expr === options.ROW_SHOWN) return view === 'graph' && layout === 'tiers';
       if (expr === scenario.PANEL_OPEN) return panel;
       if (expr === scenario.MENU_UP) return surface === 'menu';
       if (expr === scenario.MENU_SHUT) return surface !== 'menu';
@@ -203,7 +199,7 @@ function standIn(over = {}) {
       if (expr === scenario.SHEET_SHUT) return surface !== 'preferences';
       if (expr === scenario.CANVAS_DRAGGED || expr === 'graphCur.view.touched===true') return touched;
       for (const v of GRAPH_FAN_OPTION_VALUES.names) {
-        if (expr === options.pressedIs('names', v)) return !st().folded && st().names === v;
+        if (expr === options.pressedIs('names', v)) return st().names === v;
         if (expr === scenario.settingIs(v)) return st().names === v;
         if (expr === scenario.keyLineSays(v)) return keyLine().endsWith(`n steps the names: ${v}`);
         if (expr === `${options.FOCUSED_OPTION}==='names=${v}'`) return focus === `names=${v}`;

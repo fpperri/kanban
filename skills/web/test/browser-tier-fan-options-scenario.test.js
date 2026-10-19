@@ -123,19 +123,18 @@ function standIn(over = {}) {
   let nextId = 30;
   const state = (k) => {
     const id = over.sharedStore ? 'one' : k;
-    if (!saved[id]) saved[id] = { options: { ...GRAPH_FAN_OPTION_DEFAULTS }, folded: over.startsOpen ? false : true };
+    if (!saved[id]) saved[id] = { options: { ...GRAPH_FAN_OPTION_DEFAULTS } };
     return saved[id];
   };
   const st = () => state(key);
   const now = () => drawn(key, over.ignoreOrder ? { ...st().options, order: 'status' } : st().options, extra);
   const handles = {
-    label: { x: 1, y: 1 }, toggle: { x: 2, y: 1 }, rowSpace: { x: 3, y: 1 }, canvas: { x: 4, y: 1 },
+    label: { x: 1, y: 1 }, rowSpace: { x: 3, y: 1 }, canvas: { x: 4, y: 1 },
   };
   const optionKeys = Object.entries(GRAPH_FAN_OPTION_VALUES).flatMap(([k, vs]) => vs.map((v) => [k, v]));
   const handleOf = (k, v) => ({ x: 100 + optionKeys.findIndex(([a, b]) => a === k && b === v), y: 1 });
   const what = (x) => {
     if (x === 1) return { kind: 'label' };
-    if (x === 2) return { kind: 'toggle' };
     if (x === 3) return { kind: 'rowSpace' };
     if (x === 4) return { kind: 'canvas' };
     if (x >= 100 && x < 200) { const [k, v] = optionKeys[x - 100]; return { kind: 'option', k, v }; }
@@ -148,12 +147,10 @@ function standIn(over = {}) {
     const s = st();
     const text = { lines: 'Lines', dependencies: 'Dependencies', order: 'Order', names: 'Names', unnested: 'Unnested' };
     return {
-      expanded: !s.folded,
-      label: s.folded ? 'Expand Options' : 'Collapse Options',
       keeps: over.rowLosesSelection ? false : true,
-      toggleKeeps: true,
-      toggleHolds: !!over.toggleHoldsPoll,
-      groups: s.folded ? [] : Object.entries(GRAPH_FAN_OPTION_VALUES).map(([k, vs]) => ({
+      toggles: over.rowHasToggle ? 1 : 0,
+      inPanel: !over.rowOutsidePanel,
+      groups: Object.entries(GRAPH_FAN_OPTION_VALUES).map(([k, vs]) => ({
         label: text[k],
         title: `${text[k]} explains itself in a tooltip`,
         buttons: vs.map((v) => ({
@@ -175,10 +172,6 @@ function standIn(over = {}) {
   };
   const select = (ids) => { selected = ids.slice(); };
   const press = (target) => {
-    if (target.kind === 'toggle') {
-      st().folded = !st().folded; focus = over.focusLost ? null : 'toggle'; if (over.pressClears) select([]);
-      if (over.toggleRefits && !view.touched) view = { ...view, y: view.y - 14, k: view.k * 0.95 };
-    }
     if (target.kind === 'option') {
       st().options[target.k] = target.v;
       if (over.orderRefits && target.k === 'order' && !view.touched) view = { ...view, y: view.y - 9, k: view.k * 0.97 };
@@ -199,7 +192,6 @@ function standIn(over = {}) {
       view = { x: 10, y: 20, k: 1, touched: false };
     },
     centre: async (sel) => {
-      if (sel === scenario.FOLD_TOGGLE) return handles.toggle;
       if (sel === scenario.OPTION_LABEL) return handles.label;
       for (const [k, v] of optionKeys) if (sel === scenario.optionButton(k, v)) return handleOf(k, v);
       throw new Error(`the stand-in page was asked for the centre of something it does not know: ${sel}`);
@@ -226,15 +218,13 @@ function standIn(over = {}) {
       for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.layoutIs(name)) return kind === name;
       if (expr === scenario.ROW_PRESENT) return kind === 'tiers';
       if (expr === scenario.ROW_ABSENT) return over.rowEverywhere ? false : kind !== 'tiers';
-      if (expr === scenario.ROW_FOLDED) return kind === 'tiers' && st().folded;
-      if (expr === scenario.ROW_EXPANDED) return kind === 'tiers' && !st().folded;
+      if (expr === scenario.ROW_SHOWN) return kind === 'tiers';
       const pressed = [...GRAPH_FAN_OPTION_VALUES.lines.map((v) => ['lines', v]), ...optionKeys].find(([k, v]) => expr === scenario.pressedIs(k, v));
-      if (pressed) return !st().folded && st().options[pressed[0]] === pressed[1];
+      if (pressed) return st().options[pressed[0]] === pressed[1];
       const settled = /^\(\(\)=>\{const q=.*return q\('\.graph-link-parent'\)===(\d+)&&q\('\.graph-link-wait'\)===(\d+)\}\)\(\)$/.exec(expr);
       if (settled) { const c = lineCounts(); return c.parent === Number(settled[1]) && c.wait === Number(settled[2]); }
       const one = /^\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
       if (one) return selected.length === 1 && selected[0] === Number(one[1]);
-      if (expr === scenario.FOCUSED_TOGGLE) return focus === 'toggle';
       const focused = /^\(\(\)=>\{const e=document\.activeElement.*\}\)\(\)==='(\w+=\w+)'$/.exec(expr);
       if (focused) return focus === focused[1];
       const ids = [...expr.matchAll(/data-id="(\d+)"/g)].map((m) => Number(m[1]));
@@ -248,7 +238,7 @@ function standIn(over = {}) {
         const r = rows();
         return over.rows ? over.rows(r) : r;
       }
-      if (expr === scenario.ROW_FOLDED) return kind === 'tiers' && st().folded;
+      if (expr === scenario.ROW_SHOWN) return kind === 'tiers';
       if (expr === scenario.LINE_COUNTS) return lineCounts();
       if (expr === scenario.PREDICTED) return counted(now().lines);
       if (expr === scenario.DRAWN_LINES) return true;
@@ -258,8 +248,8 @@ function standIn(over = {}) {
       if (expr === tierFan.SWEEP) return { from: now().layout.fan.from, to: now().layout.fan.to };
       if (expr === scenario.ROW_SPACE) return { ...handles.rowSpace };
       if (expr === scenario.CANVAS_SPACE) return { ...handles.canvas };
-      if (expr === scenario.FOCUSED_OPTION) return focus && focus !== 'toggle' ? focus : null;
-      if (expr === scenario.HOLDS_POLL) return !!over.holdsPoll && focus !== null && focus !== 'toggle';
+      if (expr === scenario.FOCUSED_OPTION) return focus;
+      if (expr === scenario.HOLDS_POLL) return !!over.holdsPoll && focus !== null;
       if (expr === scenario.TICK) { if (!over.pollDead) reveal(); return true; }
       if (/requestAnimationFrame/.test(expr)) return true;
       const dot = /^\(\(\)=>\{const dot=document\.querySelector\('\.graph-node\[data-id="(\d+)"\] \.graph-dot'\)/.exec(expr);
@@ -293,10 +283,10 @@ test('against the real model every check passes', async () => {
 test('each check listed here is in the scenario', async () => {
   const names = (await run()).checks.map(([n]) => n);
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `no check matches ${re}`);
-  has(/the row is folded on the first open/);
+  has(/the row is shown on the first open/);
   has(/force has no option row/);
   has(/status has no option row/);
-  has(/the toggle unfolds the row/);
+  has(/the row holds Lines, Dependencies, Order, Names and Unnested/);
   has(/lines all draws 11 parent lines, the number the model predicts/);
   has(/lines chain draws 7 parent lines/);
   has(/lines off draws 0 parent lines/);
@@ -305,10 +295,9 @@ test('each check listed here is in the scenario', async () => {
   has(/order status, the default, seats the children of card 1/);
   has(/order rank seats them in the outline's own order/);
   has(/folded draws the two children on one counted line, whose label reads 2/);
-  has(/a reload keeps the options and the fold/);
-  has(/fixture: another board starts folded with the defaults/);
-  has(/pressing options and the toggle leaves the selection as it was/);
-  has(/one press of the toggle, which changes the height of the stage, leaves an untouched view where it was/);
+  has(/a reload keeps the options: chain/);
+  has(/fixture: another board starts with the defaults/);
+  has(/pressing options leaves the selection as it was/);
   has(/and does not pan or zoom the canvas/);
   has(/a drag that starts on the row does not pan the canvas/);
   has(/a double click on the space of the row leaves the selection/);
@@ -316,7 +305,7 @@ test('each check listed here is in the scenario', async () => {
   has(/a focused option does not hold the poll/);
   has(/the next poll draws it, with no reload and nothing pressed since/);
   has(/and the option is still focused after the poll/);
-  has(/and the poll after it refreshes the board/);
+  has(/pressing Order rank leaves the view where the fit put it/);
 });
 
 const failsWith = async (over, re, why) => {
@@ -324,10 +313,11 @@ const failsWith = async (over, re, why) => {
   assert.ok(failed(page).some((n) => re.test(n)), `${why}: ${failed(page).join('; ') || 'nothing failed'}`);
 };
 
-test('a row that starts open, in every layout, or shared by every board fails', async () => {
-  await failsWith({ startsOpen: true }, /the row is folded on the first open/, 'open on the first draw');
+test('a row with a toggle, outside the panel, in every layout, or shared by every board fails', async () => {
+  await failsWith({ rowHasToggle: true }, /the row is shown on the first open/, 'a fold toggle is back');
+  await failsWith({ rowOutsidePanel: true }, /the row is shown on the first open/, 'the row is not in the panel');
   await failsWith({ rowEverywhere: true }, /force has no option row/, 'a row in Force');
-  await failsWith({ sharedStore: true }, /fixture: another board starts folded with the defaults/, 'one store for all boards');
+  await failsWith({ sharedStore: true }, /fixture: and its own choices are the defaults/, 'one store for all boards');
 });
 
 test('a line count that is off by one fails the mode it is off in, and the model\'s own count', async () => {
@@ -342,24 +332,19 @@ test('an order that moves no sibling, or a row that changes the rings, fails', a
 });
 
 test('options that are lost on a reload fail', async () => {
-  await failsWith({ forgets: true }, /a reload keeps the options and the fold/, 'forgotten');
+  await failsWith({ forgets: true }, /a reload keeps the options: chain/, 'forgotten');
 });
 
 test('a press that clears the selection, a row that does not keep it, or a double click on the row that clears it fail', async () => {
-  await failsWith({ pressClears: true }, /pressing options and the toggle leaves the selection as it was/, 'a press clears');
+  await failsWith({ pressClears: true }, /pressing options leaves the selection as it was/, 'a press clears');
   await failsWith({ rowClears: true }, /a double click on the space of the row leaves the selection/, 'a double click clears');
-  await failsWith({ rowLosesSelection: true }, /the row and its toggle keep the selection/, 'the row does not keep the selection');
+  await failsWith({ rowLosesSelection: true }, /the row keeps the selection/, 'the row does not keep the selection');
   await failsWith({ optionLosesSelection: true }, /every button of the row keeps the selection/, 'a button does not keep the selection');
 });
 
-test('a toggle that re-fits or rescales an untouched view when the stage changes height fails, folding or unfolding', async () => {
-  await failsWith({ toggleRefits: true }, /one press of the toggle, which changes the height of the stage, leaves an untouched view where it was/, 'the first press re-fits');
-  await failsWith({ toggleRefits: true }, /and does not pan or zoom the canvas/, 'the round trip still ends elsewhere');
-});
-
-test('an Order press that re-fits or rescales an untouched view fails, in the press loop and on a view framed with the row folded', async () => {
+test('an Order press that re-fits or rescales an untouched view fails, in the press loop and on a view framed on the first draw', async () => {
   await failsWith({ orderRefits: true }, /and does not pan or zoom the canvas/, 'the loop presses Order');
-  await failsWith({ orderRefits: true }, /pressing Order status leaves the view where the fit put it/, 'the view framed folded moves');
+  await failsWith({ orderRefits: true }, /pressing Order status leaves the view where the fit put it/, 'the view framed on the first draw moves');
   await failsWith({ orderRefits: true }, /pressing Order rank leaves the view where the fit put it/, 'and again');
 });
 
@@ -373,7 +358,6 @@ test('a focused option that holds the poll, a dead poll, and a focus lost to the
   await failsWith({ holdsPoll: true }, /every button of the row keeps the selection and none holds the poll/, 'the buttons wear the hold');
   await failsWith({ pollDead: true }, /the next poll draws it/, 'the poll is dead');
   await failsWith({ focusLost: true }, /after a press the option keeps focus/, 'focus is lost');
-  await failsWith({ toggleHoldsPoll: true }, /the row and its toggle keep the selection and the toggle holds no poll/, 'the toggle holds the poll');
 });
 
 test('the scenario reads page globals the globals list declares, and waits on the page and never on a fixed sleep', () => {

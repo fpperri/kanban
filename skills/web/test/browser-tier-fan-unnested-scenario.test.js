@@ -88,7 +88,7 @@ test('the page globals and the helpers the scenario takes from the others are th
   for (const name of ['DOTS', 'FAN_MARKS', 'SECTORS', 'SWEEP', 'RECTS', 'CIRCLE', 'BAND_EDGES', 'dotsAre', 'hasDot', 'turned', 'overlapping', 'outsideStage', 'circleOutside', 'layoutIs', 'pickLayout']) {
     assert.ok(tierFan[name] !== undefined, `tier-fan exports ${name}`);
   }
-  for (const name of ['FOLD_TOGGLE', 'optionButton', 'ROW_STATE', 'ROW_EXPANDED', 'ROW_FOLDED', 'pressedIs', 'SELECTED', 'dotPoint']) {
+  for (const name of ['optionButton', 'ROW_STATE', 'ROW_SHOWN', 'pressedIs', 'SELECTED', 'dotPoint']) {
     assert.ok(options[name] !== undefined, `tier-fan-options exports ${name}`);
   }
 });
@@ -126,7 +126,6 @@ function screenCircle(v, fit) {
 }
 
 const MODE_HANDLES = Object.fromEntries(GRAPH_FAN_OPTION_VALUES.unnested.map((m, i) => [m, { x: 300 + i, y: 1 }]));
-const TOGGLE = { x: 2, y: 1 };
 const dotHandle = (id) => ({ x: 10000 + id, y: 1 });
 
 // `over` changes what the page does: ringSpread (a function that moves dots), ungrouped, offKeepsLines,
@@ -139,7 +138,6 @@ function standIn(over = {}) {
   let zoomed = false;
   let parts = [];
   const modes = {};
-  const folded = {};
   const mode = () => (over.ignoresMode ? 'outermost' : modes[key] || 'outermost');
   const view = () => drawn(key, mode(), archiveOn, kind);
   const drawnIds = () => view().plan.nodes.map((n) => n.id);
@@ -185,12 +183,10 @@ function standIn(over = {}) {
     return v.plan.links.filter((l) => ids.some((id) => id === l.from || id === l.to)).length + (keeps ? 1 : 0);
   };
   const press = (point) => {
-    if (point.x === TOGGLE.x) { folded[key] = !(folded[key] === undefined ? true : folded[key]); return; }
     const m = Object.entries(MODE_HANDLES).find(([, h]) => h.x === point.x);
     if (m) { modes[key] = m[1] && m[0]; return; }
     if (point.x >= 10000) parts = [point.x - 10000];
   };
-  const isFolded = () => (folded[key] === undefined ? true : folded[key]);
   return {
     checks,
     check: (name, ok) => checks.push([name, !!ok]),
@@ -200,10 +196,8 @@ function standIn(over = {}) {
       key = k;
       zoomed = false;
       if (over.forgets) delete modes[k];
-      if (folded[k] === undefined) folded[k] = true;
     },
     centre: async (sel) => {
-      if (sel === options.FOLD_TOGGLE) return TOGGLE;
       for (const v of GRAPH_FAN_OPTION_VALUES.unnested) if (sel === options.optionButton('unnested', v)) return MODE_HANDLES[v];
       throw new Error(`the stand-in page was asked for the centre of something it does not know: ${sel}`);
     },
@@ -212,9 +206,8 @@ function standIn(over = {}) {
       if (expr === '!window.__stale') return true;
       if (expr === `${tierFan.DRAWN}&&${tierFan.TIERS_PRESSED}`) return kind === 'tiers';
       for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.layoutIs(name)) return kind === name;
-      if (expr === options.ROW_EXPANDED) return kind === 'tiers' && !isFolded();
-      if (expr === options.ROW_FOLDED) return kind === 'tiers' && isFolded();
-      for (const v of GRAPH_FAN_OPTION_VALUES.unnested) if (expr === options.pressedIs('unnested', v)) return !isFolded() && mode() === v;
+      if (expr === options.ROW_SHOWN) return kind === 'tiers';
+      for (const v of GRAPH_FAN_OPTION_VALUES.unnested) if (expr === options.pressedIs('unnested', v)) return mode() === v;
       if (expr === tierFan.ZOOMED) return zoomed;
       if (expr === tierFan.FITTED) return !zoomed;
       const dotted = /\.sort\(\(a,b\)=>a-b\)\)===("\[[\d,]*\]")$/.exec(expr);
@@ -230,7 +223,6 @@ function standIn(over = {}) {
     },
     ev: async (expr) => {
       if (expr === 'window.__stale=true') return true;
-      if (expr === options.ROW_FOLDED) return kind === 'tiers' && isFolded();
       if (expr === scenario.UNNESTED_ROW) return rowOf();
       if (expr === tierFan.DOTS) return dotsOf();
       if (expr === tierFan.SWEEP) { const { fan } = view().layout; return { from: fan.from, to: fan.to }; }

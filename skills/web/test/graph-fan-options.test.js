@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions, mergeGraphOptionsFolded,
+  GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions,
 } = require('../web/graph-model');
 
 // The tier fan's option row holds five settings: how the parent lines are drawn
@@ -80,16 +80,6 @@ test('merging gives a new object: the stored one is not changed and the defaults
   assert.deepStrictEqual(stored, { lines: 'all' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions(undefined)), DEFAULTS);
   assert.ok(Object.isFrozen(GRAPH_FAN_OPTION_DEFAULTS));
-});
-
-test('the row starts folded: only a stored true or false changes that', () => {
-  assert.strictEqual(mergeGraphOptionsFolded(undefined), true);
-  assert.strictEqual(mergeGraphOptionsFolded(null), true);
-  assert.strictEqual(mergeGraphOptionsFolded('false'), true);
-  assert.strictEqual(mergeGraphOptionsFolded(0), true);
-  assert.strictEqual(mergeGraphOptionsFolded({}), true);
-  assert.strictEqual(mergeGraphOptionsFolded(true), true);
-  assert.strictEqual(mergeGraphOptionsFolded(false), false);
 });
 
 // --- which lines the fan draws ------------------------------------------------------
