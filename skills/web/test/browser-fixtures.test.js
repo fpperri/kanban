@@ -24,7 +24,7 @@ const load = (key) => {
   materialize(key, dir);
   const cards = [...listActive(dir), ...listArchived(dir)];
   const text = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
-  return { dir, cards, text, config: readConfig(dir), byId: new Map(cards.map((c) => [c.id, c])) };
+  return { dir, cards, text, config: readConfig(dir), byId: new Map(cards.map((c) => [String(c.id), c])) };
 };
 after(() => { for (const r of tmpRoots) fs.rmSync(r, { recursive: true, force: true }); });
 
@@ -44,7 +44,7 @@ function rawEntries(text, key) {
   return out;
 }
 
-const childrenOf = (cards, id) => cards.filter((c) => c.parent === id);
+const childrenOf = (cards, id) => cards.filter((c) => c.parent === String(id));
 const isLoose = (cards, c) => c.parent === null && childrenOf(cards, c.id).length === 0;
 const yearOf = (c) => [c.start_date, c.end_date, c.due_date].filter(Boolean).map((d) => d.slice(0, 4));
 
@@ -166,8 +166,8 @@ test('plan board fields: a done card that others wait for, and a dangling waitin
   const b = load('plan');
   const waited = b.cards.filter((c) => c.status === 'done' && b.cards.filter((o) => o.waiting_for.includes(c.id)).length >= 2);
   assert.ok(waited.length >= 1, 'no done card with two cards waiting for it');
-  assert.ok(b.cards.some((c) => c.waiting_for.some((id) => !b.byId.has(id))), 'no dangling waiting id');
-  assert.ok(b.cards.some((c) => c.waiting_for.length && c.waiting_for.every((id) => b.byId.has(id) && b.byId.get(id).status === 'done')), 'no card that waits only for done cards');
+  assert.ok(b.cards.some((c) => c.waiting_for.some((id) => !b.byId.has(String(id)))), 'no dangling waiting id');
+  assert.ok(b.cards.some((c) => c.waiting_for.length && c.waiting_for.every((id) => b.byId.has(String(id)) && b.byId.get(String(id)).status === 'done')), 'no card that waits only for done cards');
 });
 
 test('plan board fields: cards dated in 2020 and 2031, the 2031 one alone', () => {
