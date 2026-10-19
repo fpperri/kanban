@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { graphBuild, graphNeighbours, graphQueryEffect } = require('../web/graph-model');
@@ -25,8 +25,8 @@ const board = (key) => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize(key, dir);
-  const live = listActive(dir);
-  const all = live.concat(listArchived(dir));
+  const live = listActive(dir).map(toJSON);
+  const all = live.concat(listArchived(dir).map(toJSON));
   const ctx = { board: key, hierarchy: readConfig(dir).hierarchy };
   const model = graphBuild(all, { ctx, visibleIds: new Set(live.map((c) => c.id)) });
   return { key, live, all, ctx, model, byId: new Map(all.map((c) => [c.id, c])) };
