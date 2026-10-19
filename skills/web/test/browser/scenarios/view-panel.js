@@ -1,8 +1,9 @@
 'use strict';
 // The option panel of the Map and of the Graph, on the plan board. One icon button at the
-// top left of each view opens and closes a panel on its right: the Graph's layouts, zoom and
-// Options section, the Map's zoom and Options section. The status pills, the Graph's card count
-// and its key stay in the view. The button says whether the panel is open (aria-expanded) and
+// top right of each view, the side the panel comes out of, opens and closes a panel on its right:
+// the Graph's layouts, zoom and Options section, the Map's zoom and Options section. The Options
+// section is always expanded, with no toggle of its own: the panel is what hides it. The status
+// pills, the Graph's card count and its key stay in the view. The button says whether the panel is open (aria-expanded) and
 // has a label. Open, a control in the panel works as it did in the row it came from (Fit, a
 // layout, the zoom); closed, the panel is gone and the view has its width back, the Graph framed
 // again in it. The choice is kept per view in the browser: a reload keeps it, and one view's
@@ -21,6 +22,7 @@ const NARROW = 400;
 const WIDE = 1800;
 const PANEL_WIDTH_MIN = 200;
 
+const corner = (view) => `(()=>{const t=document.querySelector('#${view}-view .view-panel-toggle');const m=document.querySelector('#${view}-view .${view}-main');const v=document.querySelector('#${view}-view').getBoundingClientRect();const r=t.getBoundingClientRect();const mr=m.getBoundingClientRect();return {fromRight:mr.right-r.right,fromTop:r.top-v.top}})()`;
 const rect = (sel) => `(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return null;const r=e.getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom,w:r.width}})()`;
 
 module.exports = {
@@ -68,6 +70,10 @@ module.exports = {
     const layoutsIn = await inPanel('#graph-view .graph-layout-btn');
     const zoomIn = await inPanel('#graph-view .graph-zoom-btn');
     const optionsIn = await inPanel('#graph-view .graph-options');
+    const graphCorner = await ev(corner('graph'));
+    check('the icon button is at the top right of the view, beside the panel', graphCorner.fromRight >= 0 && graphCorner.fromRight < 40 && graphCorner.fromTop < 50, graphCorner);
+    const graphOptions = await ev(`({buttons:document.querySelectorAll('#graph-view .view-panel .graph-option-btn').length,toggles:document.querySelectorAll('#graph-view .view-panel .map-section-toggle').length})`);
+    check('the Options section is always expanded: all its buttons are built, with no toggle', graphOptions.buttons === 15 && graphOptions.toggles === 0, graphOptions);
     check('the layout buttons, the zoom buttons and the Options section are in the panel', layoutsIn.length === 3 && zoomIn.length === 3 && optionsIn.length === 1 && [...layoutsIn, ...zoomIn, ...optionsIn].every(Boolean), { layoutsIn, zoomIn, optionsIn });
     const staying = await ev(`['.graph-filter-toggle','.graph-count','.graph-key'].map((s)=>{const e=document.querySelector('#graph-view '+s);return !!e&&!e.closest('.view-panel')})`);
     check('the status pills, the card count and the key stay in the view', staying.every(Boolean), staying);
@@ -109,6 +115,10 @@ module.exports = {
     const mapZoomIn = await inPanel('#map-view .map-zoom-btn');
     const mapOptionsIn = await inPanel('#map-view .map-options');
     const pillsIn = await inPanel('#map-view .map-filter-toggle');
+    const mapCorner = await ev(corner('map'));
+    check('the Map\'s icon button is at the top right of its area, beside the panel', mapCorner.fromRight >= 0 && mapCorner.fromRight < 40 && mapCorner.fromTop < 50, mapCorner);
+    const mapOptions = await ev(`({groups:document.querySelectorAll('#map-view .view-panel .map-option').length,toggles:document.querySelectorAll('#map-view .view-panel .map-section-toggle').length})`);
+    check('the Map\'s Options section is always expanded: its eight controls are built, with no toggle', mapOptions.groups === 8 && mapOptions.toggles === 0, mapOptions);
     check('the Map\'s zoom and Options section are in the panel, and its status pills are not', mapZoomIn.length === 3 && mapZoomIn.every(Boolean) && mapOptionsIn.length === 1 && mapOptionsIn[0] && pillsIn.length > 0 && !pillsIn.some(Boolean), { mapZoomIn, mapOptionsIn, pillsIn });
     const pct = () => ev(`document.querySelector('#map-view .map-zoom-pct').textContent`);
     const pctBefore = await pct();
