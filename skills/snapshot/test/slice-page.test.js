@@ -42,7 +42,7 @@ describe('every card of the plan board is in the same slice on the page as in th
       const named = (s) => (s.kind === 'tier' ? s.key : String(s.depth));
       assert.deepStrictEqual(axis.map(named), PLAN_AXIS.map((s) => s.term), 'the axis the web builds from the board');
       for (const s of axis) {
-        const web = cards.filter((c) => byId.get(c.id) === s).map((c) => Number(c.id)).sort((a, b) => a - b);
+        const web = cards.filter((c) => byId.get(String(c.id)) === s).map((c) => Number(c.id)).sort((a, b) => a - b);
         assert.deepStrictEqual(web, PLAN_AXIS[s.index].ids, `the web's slice ${named(s)} against the board`);
         assert.deepStrictEqual(search(page, `slice:${named(s)}`), web, `slice:${named(s)} on the page`);
       }
@@ -58,8 +58,8 @@ describe('every card of the plan board is in the same slice on the page as in th
       const ctx = webContext(dir);
       const { byId } = sliceCards(cards, ctx.hierarchy, depthMap(cards, ctx));
       assert.deepStrictEqual(page.plain(page.run('HIERARCHY')), ctx.hierarchy);
-      const onPage = page.plain(page.run('(() => { const cards = DATA.map(searchCard); const { byId } = sliceCards(cards, HIERARCHY, depthMap(cards, { board: BOARD })); return cards.map((c) => [c.id, byId.get(c.id).index]); })()'));
-      assert.deepStrictEqual(onPage.sort((a, b) => a[0] - b[0]), cards.map((c) => [c.id, byId.get(c.id).index]).sort((a, b) => a[0] - b[0]));
+      const onPage = page.plain(page.run('(() => { const cards = DATA.map(searchCard); const { byId } = sliceCards(cards, HIERARCHY, depthMap(cards, { board: BOARD })); return cards.map((c) => [String(c.id), byId.get(String(c.id)).index]); })()'));
+      assert.deepStrictEqual(onPage.sort((a, b) => a[0] - b[0]), cards.map((c) => [String(c.id), byId.get(String(c.id)).index]).sort((a, b) => a[0] - b[0]));
     });
   });
 });
