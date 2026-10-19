@@ -1020,8 +1020,8 @@ to `127.0.0.1` only.
   card and writes nothing; **Backspace** on an empty box clears the chip. The filter field
   narrows the list by every word typed (in the text or the card's name) and never touches the
   note box; `by:@afk` in it keeps one author's notes. The switch keeps the notes of human
-  authors (the assignee registry's kind `human`) or of every other author, a handle the registry
-  does not list included. A note written in the palette stays listed whatever the filter and the
+  authors (the assignee registry's kind `human`, or no author at all) or of every other
+  author, a handle the registry does not list included. A note written in the palette stays listed whatever the filter and the
   switch say. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
   to another card or to no card (the note moves to that target's file for the same day, and
   a file left empty is removed), **d** twice deletes it. **Esc** closes the palette; a press

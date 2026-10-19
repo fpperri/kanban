@@ -176,12 +176,13 @@ function notePreview(plan, o) {
 
 const noteHandleKey = (by) => String(by == null ? '' : by).trim().replace(/^@/, '').toLowerCase();
 
-// Whether a note's author is 'human' or 'ai': human is the registry's kind human; any other
-// kind, and a handle the registry does not list, is AI. `assignees` is the board's registry
-// ([{ handle, kind }]).
+// Whether a note's author is 'human' or 'ai': a note with no author (written by hand in a day
+// file) and a handle the registry marks kind human are human; any other kind, and a handle
+// the registry does not list, is AI. `assignees` is the board's registry ([{ handle, kind }]).
 function noteAuthorKind(by, assignees) {
   const key = noteHandleKey(by);
-  const entry = key === '' ? null : (assignees || []).find((a) => noteHandleKey(a.handle) === key);
+  if (key === '') return 'human';
+  const entry = (assignees || []).find((a) => noteHandleKey(a.handle) === key);
   return entry && entry.kind === 'human' ? 'human' : 'ai';
 }
 

@@ -215,9 +215,9 @@ const BY_ALL = [byNote('@human', 'one'), byNote('@afk', 'two'), byNote('@hitl', 
 const EVERY = ['one', 'two', 'three', 'four', 'five', 'six', 'seven'];
 const byFind = (text, by) => n.noteFilter(BY_ALL, text, () => '#7 Port', { by, assignees: REGISTRY }).map((x) => x.note);
 
-test('an author is human when the registry says kind human, and AI otherwise, a handle it lacks included', () => {
+test('an author is human when the registry says kind human or the note has none, and AI otherwise, a handle it lacks included', () => {
   const kind = (by) => n.noteAuthorKind(by, REGISTRY);
-  assert.deepStrictEqual(['@human', '@ana', '@afk', '@hitl', '@odd', '@stranger', '', undefined].map(kind), ['human', 'human', 'ai', 'ai', 'ai', 'ai', 'ai', 'ai']);
+  assert.deepStrictEqual(['@human', '@ana', '@afk', '@hitl', '@odd', '@stranger', '', undefined].map(kind), ['human', 'human', 'ai', 'ai', 'ai', 'ai', 'human', 'human']);
   assert.strictEqual(n.noteAuthorKind('@HUMAN', REGISTRY), 'human');
   assert.strictEqual(n.noteAuthorKind('@human', []), 'ai');
 });
@@ -225,8 +225,8 @@ test('an author is human when the registry says kind human, and AI otherwise, a 
 test('the author switch: All keeps every note, Human the human authors, AI the rest', () => {
   assert.deepStrictEqual(byFind('', 'all'), EVERY);
   assert.deepStrictEqual(byFind('', undefined), EVERY);
-  assert.deepStrictEqual(byFind('', 'human'), ['one', 'four']);
-  assert.deepStrictEqual(byFind('', 'ai'), ['two', 'three', 'five', 'six', 'seven']);
+  assert.deepStrictEqual(byFind('', 'human'), ['one', 'four', 'seven']);
+  assert.deepStrictEqual(byFind('', 'ai'), ['two', 'three', 'five', 'six']);
 });
 
 test('by:@handle in the filter field narrows to that author and is no search word', () => {
@@ -248,7 +248,7 @@ test('by:@handle works together with the switch and the other filter words', () 
 
 test('a by: with no handle yet filters nothing', () => {
   assert.deepStrictEqual(byFind('by:', 'all'), EVERY);
-  assert.deepStrictEqual(byFind('by:@', 'human'), ['one', 'four']);
+  assert.deepStrictEqual(byFind('by:@', 'human'), ['one', 'four', 'seven']);
 });
 
 // --- small things --------------------------------------------------------------------------------
