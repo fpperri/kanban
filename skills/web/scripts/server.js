@@ -5,6 +5,7 @@ const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
 const lb = require('./logbook-store');
+const gs = require('./group-store');
 const cfg = require('./config-store');
 const nesting = require('../web/nesting');
 const ids = require('../web/ids');
@@ -257,6 +258,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         const bad = [...active, ...archived].filter((c) => c.unparseable);
         if (bad.length) console.warn(`[kanban-app] skipping ${bad.length} unparseable card(s): ${bad.map((c) => path.basename(c.file)).join(', ')}`);
         const config = cfg.readConfig(dir); // one read carries the board name, assignees + official lists
+        const groups = gs.readGroups(dir);
+        if (groups && groups.skipped.length) console.warn(`[kanban-app] skipping ${groups.skipped.length} group file(s): ${groups.skipped.map((s) => `${s.file} (${s.reason})`).join(', ')}`);
         return sendJSON(res, 200, {
           // The BOARD NAME: config.yaml's human-declared `name:` when present,
           // else the parent-folder derivation. Wire name kept as projectName —
@@ -281,6 +284,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
           logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
+          groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
@@ -311,6 +315,20 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
         } catch (e) {
           if (e.name === 'LogbookError') return sendJSON(res, e.status, { error: e.message });
+          throw e;
+        }
+      }
+
+      // groups: a store error carries its own status (400 a bad value, 404 no groups or no such group)
+      const gm = p.match(/^\/api\/groups(?:\/(_?[A-Z]*\d+)(\/members)?)?$/);
+      if (gm) {
+        const body = req.method === 'GET' ? {} : await readBody(req);
+        try {
+          if (!gm[1] && req.method === 'POST') return sendJSON(res, 201, { group: gs.createGroup(dir, body) });
+          if (gm[1] && !gm[2] && req.method === 'PATCH') return sendJSON(res, 200, { group: gs.updateGroup(dir, gm[1], body) });
+          if (gm[1] && gm[2] && req.method === 'POST') return sendJSON(res, 200, { group: gs.changeMembers(dir, gm[1], body) });
+        } catch (e) {
+          if (e.name === 'GroupError') return sendJSON(res, e.status, { error: e.message });
           throw e;
         }
       }

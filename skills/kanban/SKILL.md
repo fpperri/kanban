@@ -121,9 +121,12 @@ port: 7781        # pins kanban-web's serving port; human-set (never AI-invented
 nextId: 29        # monotonic id counter — use max(nextId, scan-max + 1), then write the advanced counter back
 idDigits: 4       # the width an id's number is padded to in a file name (default 4)
 prefixes:         # a prefix for a card type: a new card of that type takes it, for life
-  G: goal         # a value with a `/` is a folder (a groups folder), not a type
+  G: goal         # a value that names a groups folder is a folder, not a type
   O: objective
-counters: { G: 3, O: 5 }   # one line, one counter per prefix: the next number of each
+  _: .groups      # a group with no type is `_`; the groups: folder itself is the root
+  I: .groups/iteration   # a group in iteration/ is I1, I2...
+counters: { G: 3, O: 5, I: 2 }   # one line, one counter per prefix: the next number of each
+groups: .groups   # the folder of the board's groups; absent = no groups (a human writes it)
 assignees:        # registry of who can own cards; suggests handles, never validates
   - handle: "@human"
     name: "Human"
@@ -226,7 +229,9 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`icon` — a type's shape.** An optional line on a block entry of `types:`, one of `circle`, `square`, `diamond`, `triangle`, `hexagon` or `star`, in any case, with an optional trailing comment. A type with no icon, or an unknown name, is drawn as it is today; an unknown name is kept as written and never an error. An icon is a shape, never a color: colors stay on `color:`.
 
-**`prefixes`, `counters` and `idDigits` — how ids are made.** `prefixes:` is a block of `PREFIX: type` lines (a prefix is `_` and uppercase letters only; the type is compared without regard to case; a value containing a `/` is a folder, not a type, and no card takes it). A card takes the prefix its type declares when it is created and keeps it; prefixes are suggested, never enforced, so a card of any type may still be given any id by hand. `counters:` is one flow-map line, `counters: { G: 3, O: 5 }`: the next number of each prefix, and each is self-healing, `max(its counter, the highest number with that prefix + 1)`, exactly like `nextId`. The block form of `counters:` is not read. `idDigits:` is a whole number from 1 to 15 (anything else reads as 4) and only sets the width a file name pads to; the readers parse the number, so changing it orphans no file, and `scripts/migrate_card_names.sh` renames a board to the new width. Without `prefixes:` every id is a plain number, as before.
+**`prefixes`, `counters` and `idDigits` — how ids are made.** `prefixes:` is a block of `PREFIX: type` lines (a prefix is `_` and uppercase letters only; the type is compared without regard to case; a value that names a groups folder, a path such as `.groups/iteration` or `workflow/`, or the `groups:` folder itself (`_: .groups`, the root, which has no slash), is a folder, not a type, and no card takes it: a group in exactly that folder takes the prefix, see *Groups* below). A card takes the prefix its type declares when it is created and keeps it; prefixes are suggested, never enforced, so a card of any type may still be given any id by hand. `counters:` is one flow-map line, `counters: { G: 3, O: 5 }`: the next number of each prefix, and each is self-healing, `max(its counter, the highest number with that prefix + 1)`, exactly like `nextId`. The block form of `counters:` is not read. `idDigits:` is a whole number from 1 to 15 (anything else reads as 4) and only sets the width a file name pads to; the readers parse the number, so changing it orphans no file, and `scripts/migrate_card_names.sh` renames a board to the new width. Without `prefixes:` every id is a plain number, as before.
+
+**`groups` — the folder of the board's groups.** `groups: .groups` (relative to the board, or an absolute path written by hand) turns groups on; without the line the board keeps none and you write none. A human writes the line; nothing that services the board invents it. See *Groups: files that list their cards* below.
 
 **`logbook` — the folder of the board's notes.** `logbook: logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. A human writes the line; nothing that services the board invents it. See *The logbook: notes in day files* below.
 
@@ -287,6 +292,29 @@ free markdown, kept as written
 **Writing a note (agents may).** Re-read the day file just before you write it (the web may have written it a moment ago), add an entry, keep the entries in time order with untimed last, and write the file back whole through a temporary file and a rename, creating it when absent. Never change another entry, another frontmatter key, a key an entry carries that you do not know, or the body below: they are the person's, and the web keeps them byte for byte too. Quote a note that would otherwise read as something other than a string (`note: "fixed #12 today"`, a leading `-`, `@` or `[`, a `: ` inside). A file with nothing left in it is deleted.
 
 The web reads the same files, shows a card's notes behind a small count on its tile, and lets a person edit, delete and **assign** a note: assign moves that one note into the other target's file for the same day. When the web and an agent write one file at once, the web re-reads and retries once, then reports a conflict, so a re-read before every write is what keeps both notes.
+
+### Groups: files that list their cards
+
+A **group** is a named set of this board's cards, kept in a file of its own in the folder `groups:` names; the cards never know their groups. The file is `<padded id>.<slug>.md`, and **the folders it sits in are its type and subtype**, at most two levels: `.groups/_0001.offsite-prep.md` (no type), `.groups/iteration/I0002.zephyr-2.md` (type `iteration`), `.groups/workflow/dynamic/DW0001.schema-diff-review.md` (type `workflow`, subtype `dynamic`). A file nested deeper than two folders is skipped and reported, never an error. The frontmatter never repeats the folders.
+
+```yaml
+---
+id: I2                    # the truth, whole and never changed; the file name is only a label
+name: zephyr-2            # a short name
+start_date: 2026-10-12    # optional; a group with both dates is running between them, both days included
+end_date: 2026-10-23
+auto_join: true           # optional; only with both dates
+owner: "@human"           # any other key is kept as written
+cards: [3, 7, 15]         # the ids of the member cards of this board (never other groups)
+---
+free markdown, kept as written
+```
+
+**The id.** A group's prefix comes from the exact folder `prefixes:` maps it to (`I: .groups/iteration`, `W: workflow/`, `DW: .groups/workflow/dynamic`), and is `_` when none does or the group sits in no folder. The number is allocated like a card's: `max(counters[prefix], the highest number of that prefix among the cards and groups + 1)`, then the advanced counter is written back on the one `counters:` line. A group's id is written bare and padded to `idDigits` in the file name, and mentioned `#I2`.
+
+**Writing a group (agents may).** Make a group by writing its file in its folder with an `id` allocated as above; change one by editing only the line you mean (`cards: [...]` to add or remove a member, a date, the name), keeping the id, every other key, every comment and the body as they were; write through a temporary file and a rename. Only a card of this board belongs in `cards:`; a group never lists a group. Membership lives only in the group's list, so a card's file is never edited to join or leave a group. Deleting a card takes its id out of every group's list.
+
+The web reads the same files: a card wears up to two small badges (`#I2 zephyr-2`) with "+N" for the rest, a badge opens the group in the notes palette (its Group tab edits the name, the dates, `auto_join` and the extra keys and takes members out), the card menu has **Add to group…** and **Make a group from them…**, and `group:<id or name>`, `group:` and `-group:` search by membership. A note on a group is a day file named with its id (`2026.10.16.I0002.logbook.md`).
 
 ### Migrating `epic: true` to `type: epic`
 

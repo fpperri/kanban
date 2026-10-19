@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', groups: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -478,6 +478,39 @@ test('allocateId with a prefix uses that prefix counter, advances it and leaves 
   const c = cfg.readConfig(dir);
   assert.deepStrictEqual(c.counters, { G: 9 });
   assert.strictEqual(c.nextId, 40);
+});
+
+test('parseConfig reads the groups folder and a missing or blank line is none', () => {
+  assert.strictEqual(cfg.parseConfig('groups: .groups\n').groups, '.groups');
+  assert.strictEqual(cfg.parseConfig('groups: "my groups"   # where\n').groups, 'my groups');
+  assert.strictEqual(cfg.parseConfig('groups:\nname: x\n').groups, '');
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    groups: nope\n').groups, '', 'an indented groups is not the key');
+});
+
+test('groupFolderOf reads a prefixes value as a groups folder: a path, or the groups folder itself, the root included', () => {
+  const c = cfg.parseConfig('groups: .groups\nprefixes:\n  _: .groups\n  I: .groups/iteration\n  W: workflow/\n  DW: workflow/dynamic\n  G: goal\n  X: .groups/\n');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes._), '', 'the groups folder itself is the root, which has no slash');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.I), 'iteration');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.W), 'workflow', 'a path with a slash is a folder, relative to the groups folder');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.DW), 'workflow/dynamic');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.G), null, 'a bare word is a card type');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.X), '');
+  assert.strictEqual(cfg.groupFolderOf(cfg.parseConfig('prefixes:\n  _: .groups\n'), '.groups'), null, 'with no groups: line a bare word is still a type');
+  assert.strictEqual(cfg.groupFolderOf(cfg.parseConfig('groups: groups\n'), 'GROUPS'), null, 'the folder is matched exactly');
+});
+
+test('prefixForType leaves a type alone when its name is the groups folder, and prefixForGroupFolder gives the exact folder its prefix or _', () => {
+  const c = cfg.parseConfig('groups: .groups\nprefixes:\n  G: goal\n  _: .groups\n  I: .groups/iteration\n  W: workflow/\n  DW: workflow/dynamic\n');
+  assert.strictEqual(cfg.prefixForType(c, '.groups'), '', 'the groups folder is a folder, not a type');
+  assert.strictEqual(cfg.prefixForType(c, 'goal'), 'G');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'iteration'), 'I');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow'), 'W');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow/dynamic'), 'DW', 'the exact folder, not its parent');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow/other'), '_', 'a folder no prefix names takes the loose prefix');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, ''), '_', 'the root maps to the prefix naming the groups folder, here _');
+  assert.strictEqual(cfg.prefixForGroupFolder(cfg.parseConfig('groups: g\nprefixes:\n  Q: .groups\n'), ''), '_', 'no prefix names the root');
+  assert.strictEqual(cfg.prefixForGroupFolder(cfg.parseConfig('groups: g\nprefixes:\n  Q: g\n'), ''), 'Q');
+  assert.strictEqual(cfg.prefixForGroupFolder(cfg.parseConfig('groups: g\n'), 'iteration'), '_');
 });
 
 test('allocateId with a prefix self-heals a counter that lags the scan, and starts a prefix at the scan candidate', () => {

@@ -40,4 +40,5 @@ module.exports = [
   require('./ids'),
   require('./notes'),
   require('./notes-calendar'),
+  require('./groups'),
 ];

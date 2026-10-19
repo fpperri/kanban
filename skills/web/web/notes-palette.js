@@ -8,6 +8,12 @@
 // notes list, grouped by day and card, newest day first. The filter field reads `by:@handle`
 // too; a note written in this palette stays listed whatever the filter and the switch say.
 //
+// A group is a subject too (docs/adr/0015): a badge on a card, a mention of a group's id and the
+// right-click Add note... on a selection aim the palette at it. A group's palette has a tab row, Notes
+// and Group; the Group tab (groups-ui.js groupPanel) edits the group and lists its members and,
+// like the notes list, belongs to the same surface. With the logbook off a group still opens, on its
+// Group tab alone. Several cards at once are the subject "each": one note is written on every card.
+//
 // Keys. In the box: Enter writes the note and keeps the palette open for the next, Shift+Enter
 // starts a new line, a bare mention (#22) then Enter aims the palette at that card, Backspace
 // on an empty box clears the chip, the down arrow moves into the list. On a listed note:
@@ -21,12 +27,12 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds,
-// prefsStorage, keyGuardOff, and notes.js's functions.
+// prefsStorage, keyGuardOff, and notes.js's and groups.js's functions.
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
-  filter: null, bySlot: null, byBtns: [], by: 'all', body: null, foot: null,
-  sub: null, hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
+  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', body: null, foot: null,
+  sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
 let notesCountsOf = null;
@@ -44,14 +50,20 @@ function notesCard(id) {
   return state.active.find((c) => c.id === id) || state.archived.find((c) => c.id === id) || null;
 }
 
-// A card as the chip and the list read it; '' is a note about nothing.
+function notesGroup(id) {
+  return state.groups ? groupById(state.groups.list, id) : null;
+}
+
+// A card or a group as the chip and the list read it; '' is a note about nothing.
 function notesLabel(id) {
   if (id === '') return 'no card';
   const card = notesCard(id);
-  return card ? `#${id} ${card.title}` : `#${id}`;
+  if (card) return `#${id} ${card.title}`;
+  const group = notesGroup(id);
+  return group ? groupLabel(group) : `#${id}`;
 }
 
-const notesKnown = () => ({ board: state.projectName, isTarget: (id) => notesCard(id) !== null });
+const notesKnown = () => ({ board: state.projectName, isTarget: (id) => notesCard(id) !== null || notesGroup(id) !== null });
 
 // The card last noted, kept in this browser; a card that is gone is no card.
 function notesLastNoted() {
@@ -92,7 +104,8 @@ function notesTextNodes(text) {
     if (id === null || (m.board !== null && m.board !== state.projectName)) continue;
     if (m.start > at) nodes.push(document.createTextNode(text.slice(at, m.start)));
     const chip = notesEl('code', 'mention same', m.match);
-    chip.dataset.cardId = id;
+    if (notesCard(id) === null && notesGroup(id) !== null) chip.dataset.groupId = id;
+    else chip.dataset.cardId = id;
     chip.tabIndex = 0;
     chip.setAttribute('role', 'link');
     nodes.push(chip);
@@ -205,8 +218,12 @@ function notesBuild() {
   untimedLabel.append(u.untimed, document.createTextNode(' untimed'));
   const when = notesEl('span', 'np-when');
   when.append(notesEl('span', '', 'at'), u.time, untimedLabel);
+  u.when = when;
   const subjectRow = notesEl('div', 'np-subject-row');
   subjectRow.append(u.chip, when);
+  u.tabsEl = notesEl('div', 'np-tabs');
+  u.tabsEl.setAttribute('role', 'tablist');
+  u.tabsEl.hidden = true;
   u.input = notesEl('textarea', 'np-input');
   u.input.rows = 2;
   u.input.spellcheck = true;
@@ -229,6 +246,7 @@ function notesBuild() {
   u.bySlot.append(...u.byBtns);
   const filterRow = notesEl('div', 'np-filter-row');
   filterRow.append(u.filter, u.bySlot);
+  u.filterRow = filterRow;
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
   u.el = notesEl('section', 'notes-palette hidden');
@@ -236,7 +254,7 @@ function notesBuild() {
   u.el.setAttribute('role', 'dialog');
   u.el.setAttribute('aria-label', 'Notes');
   u.el.dataset.keepsSelection = '';
-  u.el.append(bar, u.prev, filterRow, u.body, u.foot);
+  u.el.append(u.tabsEl, bar, u.prev, filterRow, u.body, u.foot);
   document.body.append(u.el);
 
   u.input.addEventListener('input', () => { notesGrow(); notesPaintPreview(); });
@@ -253,7 +271,8 @@ function notesBuild() {
   });
   u.body.addEventListener('click', (e) => {
     const chip = e.target.closest && e.target.closest('code.mention.same');
-    if (chip) { notesClose(); openCard(chip.dataset.cardId); }
+    if (chip && chip.dataset.groupId) openNotes({ kind: 'group', gid: chip.dataset.groupId });
+    else if (chip) { notesClose(); openCard(chip.dataset.cardId); }
   });
   u.el.addEventListener('keydown', notesOnPaletteKey);
 }
@@ -270,15 +289,19 @@ function notesGrow() {
 // ({ kind: 'card-notes', id }), a day's slot or untimed box, a card or group to write on
 // ({ target }), or nothing ({}) to start on the card last noted.
 function openNotes(req) {
-  if (!notesOn()) return;
+  if (!notesOn() && !state.groups) return;
   notesBuild();
   const u = notesUi;
   const ctx = notesCtx();
-  const sub = noteSubjectFrom(req || {}, { today: ctx.today, isGroup: () => false });
-  if ((sub.kind === 'card' || sub.kind === 'group') && !notesCard(sub.id)) return;
+  const sub = noteSubjectFrom(req || {}, { today: ctx.today, isGroup: (id) => notesGroup(id) !== null });
+  if (sub.kind === 'card' && !notesCard(sub.id)) return;
+  if (sub.kind === 'group' && !notesGroup(sub.id)) return;
+  if (!notesOn() && sub.kind !== 'group') return;
   const same = u.sub && JSON.stringify(u.sub) === JSON.stringify(sub);
   if (!u.sub && document.activeElement && !u.el.contains(document.activeElement)) u.opener = document.activeElement;
   u.sub = sub;
+  u.tab = req && req.kind === 'group' ? 'group' : same ? u.tab : 'notes';
+  if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (!same) {
     u.written = [];
     u.input.value = '';
@@ -290,13 +313,37 @@ function openNotes(req) {
   u.hi = -1;
   u.el.classList.remove('hidden');
   notesPaint();
-  u.input.focus();
+  if (u.tab === 'group') notesFocusGroupPanel(); else u.input.focus();
+}
+
+// The tabs a subject has: Notes (when the board keeps a logbook), and for a group its Group tab.
+function notesTabs() {
+  const sub = notesUi.sub;
+  if (sub && sub.kind === 'group') return notesOn() ? ['notes', 'group'] : ['group'];
+  return ['notes'];
+}
+
+function notesSetTab(tab) {
+  const u = notesUi;
+  if (!u.sub || !notesTabs().includes(tab)) return;
+  u.tab = tab;
+  u.hi = -1;
+  u.groupSig = '';
+  notesPaint();
+  if (tab === 'group') notesFocusGroupPanel(); else u.input.focus();
+}
+
+function notesFocusGroupPanel() {
+  const first = notesUi.body.querySelector('input, button');
+  if (first) first.focus({ preventScroll: true });
 }
 
 function notesClose() {
   const u = notesUi;
   if (!u.sub) return false;
   u.sub = null;
+  u.tab = 'notes';
+  u.groupSig = '';
   u.written = [];
   u.hi = -1;
   u.editing = 0;
@@ -324,6 +371,7 @@ function notesClearChip() {
   const u = notesUi;
   if (!u.sub || u.sub.kind === 'none') return;
   u.sub = noteSubjectCleared(u.sub, localTodayStr());
+  u.tab = 'notes';
   u.written = [];
   u.hi = -1;
   notesResetTime();
@@ -339,6 +387,7 @@ function notesChipText() {
   if (sub.kind === 'card' || sub.kind === 'group') {
     return notesLabel(sub.id) + (sub.at ? ` · ${day} ${sub.at}` : sub.untimed ? ` · ${day} untimed` : '');
   }
+  if (sub.kind === 'each') return `each of ${sub.ids.length} cards`;
   if (sub.kind === 'slot') return `${day} ${sub.at}`;
   if (sub.kind === 'untimed') return `${day} untimed`;
   return '';
@@ -364,10 +413,33 @@ function notesPaint() {
   u.chipText.textContent = text;
   u.chipText.title = text;
   u.input.placeholder = u.sub.kind === 'card' || u.sub.kind === 'group' ? 'Write a note' : 'Write a note; #7 picks the card';
+  notesPaintTabs();
+  const group = u.tab === 'group';
+  for (const el of [u.when, u.input, u.prev, u.filterRow]) el.hidden = group;
+  const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
+  if (group) {
+    notesPaintBody();
+    u.foot.replaceChildren(hint('Esc', 'close'));
+    return;
+  }
   notesPaintPreview();
   notesPaintBody();
-  const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
   u.foot.replaceChildren(hint('↵', 'write'), hint('↓', 'notes'), hint('e', 'edit'), hint('a', 'assign'), hint('d d', 'delete'), ...(text ? [hint('⌫', 'clear the chip')] : []), hint('Esc', 'close'));
+}
+
+// The tab row: shown only when the subject has more than one tab.
+function notesPaintTabs() {
+  const u = notesUi;
+  const tabs = notesTabs();
+  u.tabsEl.hidden = tabs.length < 2;
+  const names = { notes: 'Notes', group: 'Group' };
+  u.tabsEl.replaceChildren(...tabs.map((t) => {
+    const b = notesButton(`np-tab${t === u.tab ? ' on' : ''}`, names[t], '', () => notesSetTab(t));
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(t === u.tab));
+    b.dataset.tab = t;
+    return b;
+  }));
 }
 
 function notesSetBy(by) {
@@ -383,7 +455,12 @@ function notesPaintBody() {
   for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
   const scroll = u.body.scrollTop;
   u.editing = 0; // the rows are built anew: none is being edited
-  u.body.replaceChildren(notesList());
+  if (u.tab === 'group') {
+    u.groupSig = groupSignature(notesGroup(u.sub.id));
+    u.body.replaceChildren(groupPanel(u.sub.id));
+  } else {
+    u.body.replaceChildren(notesList());
+  }
   u.body.scrollTop = scroll;
 }
 
@@ -392,7 +469,8 @@ function notesList() {
   const sub = u.sub;
   const fresh = new Set(u.written);
   const all = notesAll();
-  const mine = noteSubjectNotes(all, sub);
+  const group = sub.kind === 'group' ? notesGroup(sub.id) : null;
+  const mine = noteSubjectNotes(all, sub, { members: () => (group ? group.cards : []) });
   const shown = new Set(noteFilter(mine, u.filter.value, notesLabel, { by: u.by, assignees: state.assignees }));
   const notes = mine.filter((n) => shown.has(n) || fresh.has(notesKey(n)));
   for (const n of all) if (fresh.has(notesKey(n)) && !notes.includes(n)) notes.push(n);
@@ -406,9 +484,11 @@ function notesList() {
   const wrap = notesEl('div', 'np-notes');
   for (const section of noteGroups(notes, { first: sub.kind === 'card' || sub.kind === 'group' ? sub.id : null })) {
     const head = notesEl('div', 'np-nhead');
-    head.append(section.target === '' || !notesCard(section.target)
+    head.append(!notesCard(section.target) && !notesGroup(section.target)
       ? notesEl('span', 'np-nhead-label', notesLabel(section.target))
-      : notesButton('np-nhead-label', notesLabel(section.target), notesLabel(section.target), () => { notesClose(); openCard(section.target); }));
+      : notesButton('np-nhead-label', notesLabel(section.target), notesLabel(section.target), () => {
+        if (notesCard(section.target)) { notesClose(); openCard(section.target); } else openNotes({ kind: 'group', gid: section.target });
+      }));
     if (multiDay || section.day !== today) head.append(notesEl('span', 'np-nday', `${noteDayName(section.day)}${section.day === today ? ' · today' : ''}`));
     head.append(notesEl('span', 'np-nhead-count', String(section.notes.length)));
     const block = notesEl('section', 'np-ngroup');
@@ -501,6 +581,7 @@ function notesRow(note) {
       const q = input.value.trim().toLowerCase().replace(/^#/, '');
       options = [{ id: '', label: 'No card' }]
         .concat(state.active.concat(state.archived).map((c) => ({ id: c.id, label: `#${c.id} ${c.title}` })))
+        .concat(state.groups ? state.groups.list.map((g) => ({ id: g.id, label: groupLabel(g) })) : [])
         .filter((o) => o.id !== note.target && (q === '' || o.label.toLowerCase().replace(/^#/, '').includes(q)))
         .slice(0, 8);
       at = Math.min(at, Math.max(0, options.length - 1));
@@ -561,34 +642,35 @@ async function notesWrite() {
   const plan = notesPlan();
   if (plan.bad) { toast(plan.bad); return; }
   if (!plan.text) { toast('Write the note first.'); return; }
-  const body = { day: plan.day, target: plan.target, at: plan.at || '', note: plan.text };
-  let made;
+  const targets = plan.targets || [plan.target];
+  const made = [];
   u.writing = true;
   try {
-    made = await api('POST', '/api/notes', body);
+    for (const target of targets) made.push(await api('POST', '/api/notes', { day: plan.day, target, at: plan.at || '', note: plan.text }));
   } catch (e) {
-    toast(e.message);
-    return;
+    toast(made.length ? `${e.message} (${made.length} of ${targets.length} notes written)` : e.message);
+    if (!made.length) return;
   } finally {
     u.writing = false;
   }
-  if (plan.target && notesCard(plan.target)) {
+  if (!plan.targets && plan.target && notesCard(plan.target)) {
     u.last = plan.target;
     u.lastFor = state.projectName;
     const storage = prefsStorage();
     if (storage) noteLastSave(storage, state.projectName, plan.target);
   }
-  u.written.push(notesKey(made.note));
+  for (const m of made) u.written.push(notesKey(m.note));
   u.input.value = '';
   notesGrow();
   try { await loadBoard(); } catch (e) { toast(e.message); }
   if (u.sub) { notesPaint(); u.input.focus(); }
 }
 
-// Enter on a line that is only a mention: the palette moves to that card.
+// Enter on a line that is only a mention: the palette moves to that card or group.
 function notesAim(id) {
   const u = notesUi;
-  u.sub = noteSubjectAimed(u.sub, id);
+  u.sub = noteSubjectAimed(u.sub, id, notesCard(id) === null && notesGroup(id) !== null ? 'group' : 'card');
+  u.tab = 'notes';
   u.written = [];
   u.hi = -1;
   u.input.value = '';
@@ -706,7 +788,16 @@ function onNotesPointer(e) {
 function notesOnBoard() {
   const u = notesUi;
   if (!u.sub) return;
-  if (!notesOn() || ((u.sub.kind === 'card' || u.sub.kind === 'group') && !notesCard(u.sub.id))) { notesClose(); return; }
+  const sub = u.sub;
+  const missing = (sub.kind === 'card' && !notesCard(sub.id)) || (sub.kind === 'group' && !notesGroup(sub.id));
+  if (missing || (!notesOn() && sub.kind !== 'group')) { notesClose(); return; }
+  if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
+  if (u.tab === 'group') {
+    if (groupSignature(notesGroup(sub.id)) === u.groupSig) return;
+    const typing = document.activeElement && u.body.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (!typing) notesPaint(); // a field being typed in keeps its text until the poll finds it free
+    return;
+  }
   if (u.editing > 0) return;
   const row = document.activeElement && document.activeElement.closest && document.activeElement.closest('.np-note');
   const at = row ? notesRows().indexOf(row) : -1;
@@ -726,6 +817,8 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   $('#ctx-note').addEventListener('click', () => {
     hideContextMenu();
-    openNotes({ kind: 'card-notes', id: menuSubject.ids[0] });
+    const ids = menuSubject.ids.slice();
+    if (ids.length === 1) openNotes({ kind: 'card-notes', id: ids[0] });
+    else groupsAskNote(ids);
   });
 });

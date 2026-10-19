@@ -24,14 +24,17 @@
 //                         # (default 4); readers parse the number, so changing it
 //                         # orphans no file. A whole number from 1 to 15.
 //   prefixes:             # a prefix for a card type, fixed when the card is made:
-//     G: goal             #   a new goal is #G1, #G2 ... A value with a `/` is a
-//     W: workflow/        #   folder (a groups folder), not a type. Block form only.
+//     G: goal             #   a new goal is #G1, #G2 ... A value that names a groups
+//     W: workflow/        #   folder is a folder, not a type: a path (with a `/`), or the
+//     _: .groups          #   groups: folder itself (the root). Block form only.
 //   counters: { G: 3 }    # one line, one counter per prefix; the next id of a prefix
 //                         # is max(its counter, its highest id + 1), like nextId
 //   logbook: logbook      # the folder of the board's notes (docs/adr/0016), relative to
 //                         # the board, or absolute when written by hand; absent = no
 //                         # logbook and nothing of it shows
-//   assignees:            # who can own cards; feeds the form's combobox
+//   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
+//                         # way; absent = no groups and nothing of them shows
+//   assignees:           # who can own cards; feeds the form's combobox
 //     - handle: "@alex"
 //       name: "Alex"
 //       kind: human       # suggested: human | ai-hitl | ai-afk (free string)
@@ -171,7 +174,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', groups: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -224,6 +227,9 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'logbook') {
         config.logbook = scalar(top[2]);
+        section = null;
+      } else if (top[1] === 'groups') {
+        config.groups = top[2].trim()[0] === '#' ? '' : scalar(top[2]);
         section = null;
       } else if (top[1] === 'counters') {
         for (const [prefix, text] of parseFlowMap(top[2])) {
@@ -430,16 +436,44 @@ function allocateId(dir, fromScan, prefix = '') {
   return id;
 }
 
+const slashed = (path) => String(path).trim().replace(/\\/g, '/');
+const bare = (path) => slashed(path).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '');
+
+// The groups folder a `prefixes:` value names, as the path under the groups folder
+// ('' = the root, a group with no type), or null when the value names none and is a
+// card type. A value names one when it is the `groups:` folder itself (`.groups`,
+// which has no slash), a path under it (`.groups/iteration`), or any other path with a
+// slash (`workflow/`), which reads relative to the groups folder. Matched exactly.
+function groupFolderOf(config, value) {
+  const text = slashed(value);
+  if (text === '') return null;
+  const root = config && config.groups ? bare(config.groups) : '';
+  const path = bare(text);
+  if (root !== '' && path === root) return '';
+  if (root !== '' && path.startsWith(`${root}/`)) return path.slice(root.length + 1);
+  return text.includes('/') ? path : null;
+}
+
 // The prefix a card type declares in `prefixes:`, '' when it declares none. A
 // type is compared without regard to case, as the hierarchy's tiers are; a value
-// with a slash is a folder and never a type.
+// that names a groups folder is a folder and never a type.
 function prefixForType(config, type) {
   const want = String(type || '').trim().toLowerCase();
   if (want === '') return '';
   for (const [prefix, target] of Object.entries(config.prefixes || {})) {
-    if (!/[\\/]/.test(target) && target.toLowerCase() === want) return prefix;
+    if (groupFolderOf(config, target) === null && target.toLowerCase() === want) return prefix;
   }
   return '';
 }
 
-module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, writeConfigLine, prefixForType, splitPillEntry, ICON_NAMES };
+// The prefix a group takes from the folder it sits in ('' = the root, 'iteration',
+// 'workflow/dynamic'): the one `prefixes:` maps to exactly that folder, else `_`.
+function prefixForGroupFolder(config, folder) {
+  const want = bare(folder || '');
+  for (const [prefix, target] of Object.entries(config.prefixes || {})) {
+    if (groupFolderOf(config, target) === want) return prefix;
+  }
+  return '_';
+}
+
+module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, writeConfigLine, prefixForType, groupFolderOf, prefixForGroupFolder, splitPillEntry, ICON_NAMES };

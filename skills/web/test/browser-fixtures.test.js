@@ -7,6 +7,7 @@ const path = require('node:path');
 const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig, ICON_NAMES } = require('../scripts/config-store');
 const { listNotes } = require('../scripts/logbook-store');
+const { readGroups } = require('../scripts/group-store');
 const { BOARDS, materialize } = require('./browser/boards');
 
 // The browser runner drives three boards. The scenarios assert against what is
@@ -228,6 +229,38 @@ test('notes board: the plan board with a logbook, day files for cards 3, 7 and 2
   assert.match(hand, /^title: Monday$/m, 'a frontmatter key of its own');
   assert.match(hand, /^ {4}run: build-12$/m, 'an entry key of its own');
   assert.match(hand, /Hand-written text below/, 'a body');
+});
+
+test('groups board: the plan board with groups in folders, prefixes for them, and a logbook note on a group', () => {
+  const b = load('groups');
+  const plan = load('plan');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), plan.cards.map((c) => c.id).sort(), 'the same cards as the plan board');
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.strictEqual(plan.config.groups, '', 'the plan board keeps no groups');
+  assert.deepStrictEqual(b.config.prefixes, { G: 'goal', _: '.groups', I: '.groups/iteration', W: '.groups/workflow', DW: '.groups/workflow/dynamic' });
+  const read = readGroups(b.dir);
+  const by = Object.fromEntries(read.list.map((g) => [g.id, g]));
+  assert.deepStrictEqual(Object.keys(by).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
+  assert.deepStrictEqual([by._1.folder, by.I2.folder, by.W1.folder, by.DW1.folder], ['', 'iteration', 'workflow', 'workflow/dynamic']);
+  assert.deepStrictEqual(by.I2.cards, ['3', '7', '15', '22', '23', '24']);
+  assert.deepStrictEqual(by.I2.extra, { owner: '@human' });
+  assert.ok(by.I2.auto_join && by.I2.start_date && by.I2.end_date, 'a running iteration shape');
+  assert.ok(!by.W1.auto_join && !by.W1.start_date, 'an undated workflow');
+  const holders = (id) => read.list.filter((g) => g.cards.includes(id)).map((g) => g.id);
+  assert.deepStrictEqual(holders('7'), ['DW1', 'I2', 'W1'], 'one card in three groups: two badges and +1');
+  assert.deepStrictEqual(holders('3'), ['I2'], 'one badge');
+  assert.deepStrictEqual(holders('1'), [], 'no badge');
+  assert.deepStrictEqual(read.skipped.map((s) => s.file), ['.groups/a/b/c/X0001.too-deep.md'], 'a file nested too deep is reported');
+  assert.deepStrictEqual(listNotes(b.dir).map((n) => `${n.day} ${n.target}`), ['2026-10-15 I2']);
+});
+
+test('groupsonly board: the groups board with the logbook line taken out', () => {
+  const b = load('groupsonly');
+  const groups = load('groups');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.strictEqual(b.config.logbook, '', 'no logbook line');
+  assert.deepStrictEqual(readGroups(b.dir).list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
 });
 
 test('calnotes board: the notes board and two more notes, one half hour with two notes and a day with two untimed', () => {

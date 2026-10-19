@@ -66,6 +66,12 @@ const GRAMMAR = [
   { q: 'slice:goal | slice:epic', ids: [1, 22, 25] },
   { q: '(slice:goal | slice:epic) status:todo', ids: [] },
   { q: 'slice:goal..epic tags:ui | #12', ids: [12] },
+
+  { q: 'group:', ids: [] },
+  { q: 'group:I2', ids: [] },
+  { q: '-group:', ids: ALL },
+  { q: '-group:zephyr-2', ids: ALL },
+  { q: 'group:I2 | #12', ids: [12] },
 ];
 
 test('every grammar and slice row shows the same card ids on the snapshot page as through the web search module, and the ids written here', () => {
@@ -94,4 +100,10 @@ test('the table covers every slice: form: one tier, a tier to a depth, both open
   [/^slice:[a-z]+$/, /^slice:[a-z]+\.\.\d$/i, /^slice:[a-z]+\.\.$/, /^slice:\.\.[a-z]+$/, /^slice:\.\.\d$/, /^slice:\d\.\.[a-z]+$/,
     /^slice:[a-z]+\.\.nowhere$/, /^slice:nowhere$/, /^slice:\d\.\.\d$/, /^slice:\d$/, /^slice:\.\.$/, /^slice:$/,
     /slice:0 type:task/, /slice:goal \| slice:epic/].forEach(has);
+});
+
+test('the table covers the group: forms the snapshot reads without drawing groups: bare, an id, a name, negated, and beside an or', () => {
+  const typed = GRAMMAR.map((r) => r.q);
+  const has = (re) => assert.ok(typed.some((q) => re.test(q)), `no row for ${re}`);
+  [/^group:$/, /^group:I2$/, /^-group:$/, /^-group:[a-z]/, /^group:I2 \| /].forEach(has);
 });

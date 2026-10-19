@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -656,6 +656,8 @@ function cardEl(card) {
   }
   const noteCount = noteCountButton(card.id); // the small note count, only when the card has notes
   if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
+  const badges = groupBadges(card.id); // up to two group badges, only when the board keeps groups and the card is in one
+  if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
 }
 
@@ -703,6 +705,8 @@ function archiveCardEl(card) {
   paintRollupBars(el);
   const noteCount = noteCountButton(card.id);
   if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
+  const badges = groupBadges(card.id);
+  if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
 }
 
@@ -735,9 +739,9 @@ let searchMatchMemo = null;
 // match, which runs right after a repaint, reads it instead of matching again.
 let lastSearchMatch = null;
 
-// What a query resolves against: the nesting context, and the board's hierarchy for slice:.
+// What a query resolves against: the nesting context, the board's hierarchy for slice: and its groups for group:.
 function searchCtx() {
-  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy });
+  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy, groups: state.groups ? state.groups.list : [] });
 }
 
 function matchedIds(terms) {
@@ -2045,6 +2049,7 @@ function applyBoardData(data) {
   state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
   state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
+  state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
   state.logbook = data.logbook || null; // { folder, notes } when config.yaml has a logbook: line, else null and nothing of it shows (notes.js, notes-palette.js); read by the card tiles, so before renderBoard
   dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -5883,7 +5888,9 @@ function showContextMenu(x, y) {
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
-  $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
+  $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
+  $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
+  $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
   menu.classList.remove('hidden');
   // Clamp to the viewport so the menu never opens half off-screen.
