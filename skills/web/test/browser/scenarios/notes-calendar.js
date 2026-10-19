@@ -1,0 +1,135 @@
+'use strict';
+// The notes on the Calendar, on the calnotes board (the notes board with two more notes) in its week
+// view of 12 to 18 October 2026, and on the plan board, which keeps no logbook. A note shows as a chip
+// at its half hour, right of the card blocks: the card's id and the first words, and the full text as
+// its tooltip. Two or more notes in a half hour show as one count bubble, and a day's untimed notes
+// as one "N untimed" box in its all-day row. Each opens the notes palette, on that half hour or on
+// that day's untimed notes. A click on an empty hour opens it set to that hour, a bare #22 then
+// Enter keeps the hour's time, and a double click there still makes a card and opens no palette. The
+// Notes switch in the toolbar hides and shows the layer, and its choice is kept across a reload. The
+// plan board draws no switch and no note. Each step waits on the page; the one fixed pause proves
+// that the palette did NOT open.
+//
+// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// state, calendarAnchor, renderCalendarView.
+
+const PAL = `document.getElementById('notes-palette')`;
+const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
+const PAL_GONE = `!${PAL}||${PAL}.classList.contains('hidden')`;
+const q = (sel) => `document.querySelector(${JSON.stringify(`#notes-palette ${sel}`)})`;
+const CHIP = `(()=>{const c=${q('.np-chip')};return c&&!c.hidden?${q('.np-chip-text')}.textContent:''})()`;
+const SECTIONS = `[...document.querySelectorAll('#notes-palette .np-ngroup')].map((g)=>[g.dataset.day,g.dataset.target,g.querySelectorAll('.np-note').length].join('|')).sort()`;
+const slotEl = (day, fromMin) => `#calendar-view .cal-note[data-slot="${day}|${fromMin}"]`;
+const layerCount = `document.querySelectorAll('#calendar-view .cal-note').length`;
+
+module.exports = {
+  name: 'notes-calendar',
+  board: 'calnotes',
+  alsoBoards: ['plan'],
+  timeoutMs: 100000,
+  async run(page) {
+    const { ev, open, waitFor, centre, click, mouse, key, check, shot, sleep } = page;
+    const palUp = (ms) => waitFor(PAL_UP, ms || 3000);
+    const closePalette = async () => { await key('Escape'); return waitFor(PAL_GONE, 2500); };
+    const weekDrawn = (ms) => waitFor(`document.querySelectorAll('#calendar-view .cal-tg-col').length===7`, ms || 10000);
+    const showWeek = async () => {
+      await open('/?view=calendar');
+      await waitFor(`document.querySelectorAll('#calendar-view .cal-subview-btn').length===4`, 10000);
+      await ev(`document.querySelector('#calendar-view [data-subview="week"]').click()`);
+      await weekDrawn();
+      await ev(`(()=>{calendarAnchor='2026-10-15';renderCalendarView()})()`);
+      return waitFor(`document.querySelector('#calendar-view .cal-title').textContent.includes('2026')&&document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-15"]')`, 5000);
+    };
+    const press = async (selector) => {
+      const p = await centre(selector);
+      if (!p) return false;
+      await click(p.x, p.y);
+      return true;
+    };
+    // The page point of an hour in a day's column, scrolled into the grid's view first.
+    const hourPoint = async (day, hour, minute = 30) => ev(`(()=>{const col=document.querySelector('#calendar-view .cal-tg-col[data-day="${day}"]');const sc=document.querySelector('#calendar-view .cal-tg-scroll');const want=${hour}*40+${minute}*40/60;sc.scrollTop=Math.max(0,want-120);const r=col.getBoundingClientRect();return {x:r.left+r.width*0.25,y:r.top+want}})()`);
+
+    // --- the plan board keeps no logbook: no switch, no note -------------------------------------------------
+    await open('/?view=calendar', 'plan');
+    await waitFor(`document.querySelectorAll('#calendar-view .cal-subview-btn').length===4`, 10000);
+    await ev(`document.querySelector('#calendar-view [data-subview="week"]').click()`);
+    check('plan: the week view is drawn', await weekDrawn());
+    check('plan: it has no Notes switch and draws no note', await ev(`!document.getElementById('cal-notes-btn')&&${layerCount}===0`));
+
+    // --- the week of 12 to 18 October on the board that keeps a logbook ---------------------------------------
+    check('calnotes: the week is drawn', await showWeek());
+    check('calnotes: the Notes switch is on and says so', await ev(`(()=>{const b=document.getElementById('cal-notes-btn');return !!b&&b.getAttribute('aria-pressed')==='true'&&b.textContent==='Notes'})()`));
+    check('calnotes: a lone note is a chip at its half hour, in the day it was written', await ev(`!!document.querySelector(${JSON.stringify(slotEl('2026-10-13', 660))}+'.cal-note-chip')&&!!document.querySelector(${JSON.stringify(slotEl('2026-10-15', 570))}+'.cal-note-chip')&&!!document.querySelector(${JSON.stringify(slotEl('2026-10-15', 840))}+'.cal-note-chip')`));
+    const chip = (day, from) => ev(`(()=>{const c=document.querySelector(${JSON.stringify(slotEl(day, from))});return c?{text:c.textContent,title:c.title}:null})()`);
+    const lone = await chip('2026-10-15', 840);
+    check('calnotes: the chip shows the card\'s id and the first words', !!lone && lone.text === '#7schema diff reviewed, two enum renames left', JSON.stringify(lone));
+    check('calnotes: its tooltip is the time, the card and the full text', !!lone && lone.title === '14:10 · #7 Port the zephyr schema\nschema diff reviewed, two enum renames left', JSON.stringify(lone));
+    check('calnotes: a note with no card shows a note glyph in place of an id', await ev(`(()=>{const c=document.querySelector(${JSON.stringify(slotEl('2026-10-15', 480))});return !!c&&!!c.querySelector('svg')&&!c.querySelector('.cal-note-id')&&c.textContent==='standup ran long'})()`));
+    const bubble = await chip('2026-10-15', 600);
+    check('calnotes: two notes in one half hour are one count bubble with the cards they are about', !!bubble && bubble.text === '2#22 #3' && await ev(`document.querySelector(${JSON.stringify(slotEl('2026-10-15', 600))}).classList.contains('cal-note-bubble')`), JSON.stringify(bubble));
+    check('calnotes: and its tooltip counts them and lists each', !!bubble && bubble.title.startsWith('2 notes, 10:00–10:30: #22, #3\n') && bubble.title.includes('10:00 #22 cutover window agreed') && bubble.title.includes('10:10 #3 cutover window needs a second look'), JSON.stringify(bubble));
+    check('calnotes: a day with untimed notes has one box saying how many, in its all-day row', await ev(`(()=>{const boxes=[...document.querySelectorAll('#calendar-view .cal-tg-allday .cal-note-untimed')];return boxes.length===1&&boxes[0].dataset.untimed==='2026-10-14'&&boxes[0].textContent==='2 untimed'})()`));
+    check('calnotes: a day without them has none, and the timed notes sit in the hour grid, not the all-day row', await ev(`document.querySelectorAll('#calendar-view .cal-tg-allday .cal-note-chip,#calendar-view .cal-tg-allday .cal-note-bubble').length===0&&document.querySelectorAll('#calendar-view .cal-tg-col .cal-note-untimed').length===0`));
+    check('calnotes: a day with timed notes keeps a strip for them, so the card blocks leave it free', await ev(`(()=>{const col=document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-15"]');const other=document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-16"]');return col.classList.contains('has-notes')&&!other.classList.contains('has-notes')})()`));
+    const dated = await ev(`fetch('/api/cards/3',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({start_date:'2026-10-15T09:00',end_date:'2026-10-15T11:00'})}).then((r)=>r.status)`);
+    check('calnotes: card 3 is given a two-hour block on Thursday', dated === 200, String(dated));
+    check('calnotes: the week is drawn again with it', await showWeek() && await waitFor(`!!document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-15"] .cal-timeblock[data-id="3"]')`, 5000));
+    check('calnotes: a card block ends where the notes strip begins, on a day with notes', await ev(`(()=>{const col=document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-15"]');const block=col.querySelector('.cal-timeblock[data-id="3"]').getBoundingClientRect();const note=col.querySelector('.cal-note').getBoundingClientRect();return block.width>20&&block.right<=note.left+1})()`));
+    await ev(`document.querySelector('#calendar-view .cal-tg-scroll').scrollTop=${9 * 40}`);
+    await shot('week-with-notes');
+
+    // --- each one opens the palette ---------------------------------------------------------------------------
+    await press(slotEl('2026-10-15', 570));
+    check('calnotes: a chip opens the palette on its half hour', await palUp() && await ev(CHIP) === 'Thu 15 09:30', await ev(CHIP));
+    check('calnotes: with the notes of that half hour, headed by card', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|7|1']), await ev(SECTIONS));
+    check('calnotes: and the time field starts at the half hour', await ev(`${q('.np-time')}.value`) === '09:30');
+    check('calnotes: Esc closes the palette, which would cover the next one', await closePalette());
+    await press(slotEl('2026-10-15', 600));
+    check('calnotes: a count bubble opens it on that half hour', await waitFor(`${CHIP}==='Thu 15 10:00'`, 3000), await ev(CHIP));
+    check('calnotes: with both notes, headed by their cards', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|22|1', '2026-10-15|3|1']), await ev(SECTIONS));
+    check('calnotes: Esc closes it again', await closePalette());
+    await press('#calendar-view .cal-note-untimed');
+    check('calnotes: the untimed box opens it on that day\'s untimed notes', await waitFor(`${CHIP}==='Wed 14 untimed'`, 3000) && await ev(`${q('.np-untimed')}.checked`), await ev(CHIP));
+    check('calnotes: with both of them', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-14|3|1', '2026-10-14|7|1']), await ev(SECTIONS));
+    check('calnotes: Esc closes the palette', await closePalette());
+
+    // --- an empty hour opens the palette set to that time -------------------------------------------------------
+    const spot = await hourPoint('2026-10-16', 10);
+    check('calnotes: the point is on the empty part of Friday\'s column', await ev(`(()=>{const e=document.elementFromPoint(${spot.x},${spot.y});return !!e&&e.classList.contains('cal-tg-col')&&e.dataset.day==='2026-10-16'})()`), JSON.stringify(spot));
+    await click(spot.x, spot.y);
+    check('calnotes: a click on an empty hour opens the palette on that hour', await palUp(2500) && await ev(CHIP) === 'Fri 16 10:00', await ev(CHIP));
+    check('calnotes: with the time field set to the hour', await ev(`${q('.np-time')}.value`) === '10:00');
+    await ev(`(()=>{const i=${q('.np-input')};i.value='#22';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()})()`);
+    await key('Enter');
+    check('calnotes: #22 then Enter aims the palette at card 22 and keeps that time', await waitFor(`${CHIP}==='#22 Cut over the data layer · Fri 16 10:00'`, 2500) && await ev(`${q('.np-time')}.value`) === '10:00', await ev(CHIP));
+    await ev(`(()=>{const i=${q('.np-input')};i.value='checked the window';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()})()`);
+    await key('Enter');
+    check('calnotes: the note is written on card 22 on Friday at 10:00', await waitFor(`state.logbook.notes.some((n)=>n.day==='2026-10-16'&&n.at==='10:00'&&n.target==='22'&&n.note==='checked the window')`, 4000));
+    check('calnotes: and the Calendar draws it as a chip at that half hour', await waitFor(`!!document.querySelector(${JSON.stringify(slotEl('2026-10-16', 600) + '.cal-note-chip')})`, 4000));
+    check('calnotes: Esc closes the palette again', await closePalette());
+
+    // --- a double click on an empty hour still makes a card, and opens no palette -----------------------------------
+    const dbl = await hourPoint('2026-10-17', 15);
+    await click(dbl.x, dbl.y, { clickCount: 2 });
+    check('calnotes: a double click on an empty hour opens the new card form', await waitFor(`!document.getElementById('modal').classList.contains('hidden')`, 3000));
+    await sleep(600);
+    check('calnotes: and no palette follows it', await ev(PAL_GONE));
+    await key('Escape');
+    check('calnotes: Esc closes the form', await waitFor(`document.getElementById('modal').classList.contains('hidden')`, 3000));
+
+    // --- the Notes switch ------------------------------------------------------------------------------------------
+    await press('#cal-notes-btn');
+    check('calnotes: the Notes switch hides every chip, bubble and box', await waitFor(`${layerCount}===0`, 3000) && await ev(`document.getElementById('cal-notes-btn').getAttribute('aria-pressed')==='false'`));
+    check('calnotes: and the card blocks have the whole column again', await ev(`document.querySelectorAll('#calendar-view .cal-tg-col.has-notes').length===0`));
+    const quiet = await hourPoint('2026-10-16', 10);
+    await click(quiet.x, quiet.y);
+    await sleep(600);
+    check('calnotes: with the layer hidden a click on an empty hour opens no palette', await ev(PAL_GONE));
+    check('calnotes: a reload keeps the switch off', await showWeek() && await ev(`document.getElementById('cal-notes-btn').getAttribute('aria-pressed')==='false'&&${layerCount}===0`));
+    await press('#cal-notes-btn');
+    check('calnotes: pressed again it shows the layer', await waitFor(`${layerCount}>=6`, 3000) && await ev(`document.getElementById('cal-notes-btn').getAttribute('aria-pressed')==='true'`));
+    await press('[data-subview="month"]');
+    check('calnotes: the month view has no Notes switch and no note', await waitFor(`document.querySelectorAll('#calendar-view .cal-day').length>=28`, 5000) && await ev(`!document.getElementById('cal-notes-btn')&&${layerCount}===0`));
+    await mouse('mouseMoved', 5, 5, { button: 'none', clickCount: 0 });
+  },
+};
