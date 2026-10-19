@@ -20,7 +20,7 @@ One work item, stored as a single `<0000-id>.<slug>.card.md` file (frontmatter +
 _Avoid_: task, ticket, item, issue.
 
 **Card mention**:
-How a card is referred to in prose written for a human: one code span holding the board qualifier, the id and the card's title verbatim — `` `board#id title` `` — every time. The span draws the boundary: a reader sees where the title ends and the sentence resumes. Inside the span the title drops any backticks of its own (nested code does not render); its words never change. The title may be dropped only on a repeat within the same paragraph or bullet, leaving `` `board#id` ``; the board qualifier is never dropped, even on the card's own board. Nothing else is written as a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The title is never paraphrased in place of itself.
+How a card is referred to in prose written for a human: one code span holding the board qualifier, the id (its prefix included, `board#G3`) and the card's title verbatim — `` `board#id title` `` — every time. A group is mentioned the same way, with its name in place of a title. The span draws the boundary: a reader sees where the title ends and the sentence resumes. Inside the span the title drops any backticks of its own (nested code does not render); its words never change. The title may be dropped only on a repeat within the same paragraph or bullet, leaving `` `board#id` ``; the board qualifier is never dropped, even on the card's own board. Nothing else is written as a bare `#N`: pull requests are `PR #34 (repo)`, notifications are `notification 17`. The title is never paraphrased in place of itself.
 _Avoid_: the title outside the span (`` `board#id` `` Title), bare `#N`, a paraphrase where the title belongs, `#N` for anything that is not a card.
 
 **Title**:
@@ -168,6 +168,52 @@ _Avoid_: network, node-link diagram, the Map (that is a different view).
 **Unnested**:
 A card with no parent and no children. It may still wait for a card or be waited for.
 _Avoid_: orphan, isolated (that is what an isolate does to a view).
+
+## Ids, groups and the logbook
+
+**Id**:
+What a card or a group is called: an optional prefix and a number, `656`, `G3`, `_12`. The whole pair is the identity, so `#7` and `#G7` are two things, and it never changes once given. Written `#G3` in prose, `fpp#G3` with its board.
+_Avoid_: number (alone), key, ticket number.
+
+**Prefix** (via **prefixes:**):
+The letters before an id's number, each with a counter of its own, declared by the board for a card type or a group folder and taken when the card or group is created. `_` is the prefix of a group whose folder declares none. Suggested, never required.
+_Avoid_: code, tag, type letter (a prefix does not follow a later type change).
+
+**Group**:
+A named set of cards kept in a file of its own, which lists its members; its type and subtype are the folders it sits in, and it may have neither. The cards never know their groups.
+_Avoid_: package (an archive folder), parent (nesting), collection, set, sprint.
+
+**Member**:
+A card a group lists. A card may be a member of any number of groups, and only cards are members.
+_Avoid_: child (that is nesting), item.
+
+**Running** (derived):
+A group with dates is running from its start to its end, both days included.
+_Avoid_: active, current, open.
+
+**Auto-join** (via **auto_join**):
+A group's choice to take every card created while it is running. The join is written into the group when the card is made, so it can be taken back.
+_Avoid_: auto-membership, default group.
+
+**Iteration**:
+A group in the board's iteration folder: a stretch of work between two dates, usually auto-joining. The only group the web gives a picker; otherwise an ordinary group.
+_Avoid_: sprint, cycle, timebox.
+
+**Logbook** (via **logbook:**):
+The board's folder of notes, kept as one file per target per day, so a day's or a target's notes are found by file name alone.
+_Avoid_: journal, log, diary.
+
+**Note**:
+One entry in the logbook: a line of text written at a moment of a day (or untimed), about a card, a group or nothing, signed by its author, human or AI. Kept out of the card, unlike a narrative entry.
+_Avoid_: log entry, logbook entry, comment, narrative entry (that lives in the card), notification (that is addressed to the human).
+
+**Target**:
+What a note or a scratchpad is about: one card, one group, or nothing.
+_Avoid_: subject, owner, link.
+
+**Scratchpad** (via **scratchpad:**):
+A disposable working page for one card or group, free text that may point at notes, files and folders. The kanban never throws it away on its own.
+_Avoid_: scratchbook, notes, draft.
 
 ## Selecting and isolating
 
