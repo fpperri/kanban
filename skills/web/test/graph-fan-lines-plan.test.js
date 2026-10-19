@@ -19,8 +19,8 @@ const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status' };
 // 7 and 8, so folded carries each pair on one counted line.
 const tree = () => buildOf([
   card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { parent: 1 }),
-  card(4, { parent: 1, waiting_for: [3] }), card(5, { parent: 1 }), card(6, { parent: 1 }),
-  card(7, { parent: 2 }), card(8, { parent: 2, waiting_for: [5] }), card(9),
+  card(4, { parent: 1, waiting_for: ['3'] }), card(5, { parent: 1 }), card(6, { parent: 1 }),
+  card(7, { parent: 2 }), card(8, { parent: 2, waiting_for: ['5'] }), card(9),
 ]);
 
 const planOf = (model, fan, kind = 'tiers') => {
@@ -80,7 +80,7 @@ test('the counted line runs from its parent along one arc to a tick on each chil
   const at = (id) => layout.pos.get(id);
   const round = (v) => Math.round(v * 100) / 100;
   const radiusOf = (id) => Math.hypot(at(id).x, at(id).y);
-  const counted = plan.links.find((l) => l.count !== undefined && l.from === 1);
+  const counted = plan.links.find((l) => l.count !== undefined && l.from === '1');
   const numbers = counted.d.match(new RegExp(NUM, 'g')).map(Number);
   assert.ok(numbers.every(Number.isFinite));
   assert.match(counted.d, /^M/);
@@ -139,23 +139,23 @@ test('a counted line lights whenever its parent does, a line to one child only w
   const model = tree();
   const { plan } = planOf(model, { lines: 'folded' });
   const lines = (ids) => ends(plan, graphLit(model, ids, plan.links).links);
-  assert.deepStrictEqual(lines([2]), ['2>2']);
-  assert.deepStrictEqual(lines([1, 2]), ['1>1', '1>2', '2>2']);
-  assert.deepStrictEqual(lines([4]), []);
-  assert.deepStrictEqual(lines([1, 4]), ['1>1', '1>4']);
+  assert.deepStrictEqual(lines(['2']), ['2>2']);
+  assert.deepStrictEqual(lines(['1', '2']), ['1>1', '1>2', '2>2']);
+  assert.deepStrictEqual(lines(['4']), []);
+  assert.deepStrictEqual(lines(['1', '4']), ['1>1', '1>4']);
   assert.deepStrictEqual(lines([3, 4]), ['3>4']);
 });
 
 test('lighting with no list of lines reads the model\'s relations, as before', () => {
   const model = tree();
-  assert.deepStrictEqual([...graphLit(model, [1, 2]).links].map((i) => model.links[i].kind), ['parent']);
-  const rest = graphRestLit(model, { selectedIds: new Set([1, 2]), loneCardId: null });
+  assert.deepStrictEqual([...graphLit(model, ['1', '2']).links].map((i) => model.links[i].kind), ['parent']);
+  const rest = graphRestLit(model, { selectedIds: new Set(['1', '2']), loneCardId: null });
   assert.deepStrictEqual([...rest.links].map((i) => model.links[i].kind), ['parent']);
 });
 
 test('a lone card lights the lines drawn to its neighbours: card 4 with chain lines lights its two', () => {
   const model = tree();
   const { plan } = planOf(model, { lines: 'chain' });
-  const rest = graphRestLit(model, { selectedIds: new Set([4]), loneCardId: 4 }, plan.links);
+  const rest = graphRestLit(model, { selectedIds: new Set(['4']), loneCardId: 4 }, plan.links);
   assert.deepStrictEqual(ends(plan, rest.links), ['1>4', '3>4']);
 });

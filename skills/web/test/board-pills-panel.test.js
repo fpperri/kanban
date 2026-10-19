@@ -111,8 +111,8 @@ test('a click on the grill pill puts tags:"grill" in the box and shows the grill
   const s = await openPanelPage({ board: makeBoard() });
   s.click(s.byLabel('grill'));
   assert.strictEqual(s.box(), 'tags:"grill"');
-  assert.deepStrictEqual(s.shown(), [1, 3]);
-  assert.deepStrictEqual(s.ids(), [1, 3], 'its matches are the selection, so the bulk targets');
+  assert.deepStrictEqual(s.shown(), ['1', '3']);
+  assert.deepStrictEqual(s.ids(), ['1', '3'], 'its matches are the selection, so the bulk targets');
   assert.deepStrictEqual(s.selection(), { anchor: q('tags:"grill"'), additions: [] });
   assert.deepStrictEqual(s.pressed(), ['grill']);
 });
@@ -122,7 +122,7 @@ test('a click on a board pill makes its query the anchor, and a second click on 
   s.click(s.byLabel('assignee:@human'));
   assert.deepStrictEqual(s.selection(), { anchor: q('assignee:@human'), additions: [] });
   assert.strictEqual(s.box(), 'assignee:@human');
-  assert.deepStrictEqual(s.shown(), [1, 3]);
+  assert.deepStrictEqual(s.shown(), ['1', '3']);
   s.click(s.byLabel('assignee:@human'));
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
@@ -135,7 +135,7 @@ test('Shift+click on a second pill grows the box to "anchor | pill", as a click 
     s.click(s.byLabel('next'), { shiftKey });
     assert.strictEqual(s.box(), 'tags:"grilling" | tags:"next-up"', `shift ${shiftKey}`);
     assert.deepStrictEqual(s.selection(), { anchor: q('tags:"grilling"'), additions: [q('tags:"next-up"')] });
-    assert.deepStrictEqual(s.shown(), [2, 3, 6]);
+    assert.deepStrictEqual(s.shown(), ['2', '3', '6']);
     assert.deepStrictEqual(s.pressed().sort(), ['next', 'next-up', 'grilling'].sort(), 'the board pill and the value pill with that query are on together');
     s.click(s.byLabel('next'), { shiftKey });
     assert.strictEqual(s.box(), 'tags:"grilling"');
@@ -150,7 +150,7 @@ test('a right-click on a value pill solos it, and on the soloed pill turns every
   assert.strictEqual(s.rightClick(s.byLabel('two words')), 1, 'the browser\'s own menu is stopped');
   assert.strictEqual(s.box(), 'tags:"two words"');
   assert.deepStrictEqual(s.pressed(), ['two words']);
-  assert.deepStrictEqual(s.shown(), [4]);
+  assert.deepStrictEqual(s.shown(), ['4']);
   s.rightClick(s.byLabel('two words'));
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.pressed(), []);
@@ -162,7 +162,7 @@ test('a value with a space is one exact term: its pill finds the card whose tag 
   const s = await openPanelPage({ board });
   s.click(s.byLabel('two words'));
   assert.strictEqual(s.box(), 'tags:"two words"');
-  assert.deepStrictEqual(s.shown(), [4]);
+  assert.deepStrictEqual(s.shown(), ['4']);
 });
 
 test('turning one board pill on leaves every other pill\'s count as it was', async () => {

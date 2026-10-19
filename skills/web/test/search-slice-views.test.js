@@ -148,13 +148,13 @@ test('a board answer with no hierarchy cuts by depth, and a hierarchy the page w
     page.input.typed(query);
     return tiles.slice().sort((a, b) => a - b);
   };
-  assert.deepStrictEqual(shownFor('slice:1'), [2, 7], 'depth 1 holds the strategy and the archived story');
-  assert.deepStrictEqual(shownFor('slice:goal'), [1, 2, 3, 4, 5, 6, 7, 8], 'no hierarchy, so goal names no slice and cuts nothing');
+  assert.deepStrictEqual(shownFor('slice:1'), ['2', '7'], 'depth 1 holds the strategy and the archived story');
+  assert.deepStrictEqual(shownFor('slice:goal'), ['1', '2', '3', '4', '5', '6', '7', '8'], 'no hierarchy, so goal names no slice and cuts nothing');
 });
 
 test('the page hands the module the whole board, so an archived parent hidden by its Archive pill still sets the depth below it', async () => {
   const { page, seen } = await openView('gantt', { archive: false });
   page.input.typed('slice:2');
-  assert.deepStrictEqual(shown('gantt', seen, false), [8], 'card 8 sits under the archived card 7 and is at depth 2');
+  assert.deepStrictEqual(shown('gantt', seen, false), ['8'], 'card 8 sits under the archived card 7 and is at depth 2');
   assert.deepStrictEqual(ARCHIVED, [7]);
 });

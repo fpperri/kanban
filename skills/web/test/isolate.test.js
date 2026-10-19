@@ -26,14 +26,14 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', tags: ['infra'] }),
-    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
     card(6, { title: 'Renew the domain', status: 'done', tags: ['ops'], start_date: '2031-06-02', end_date: '2031-06-20' }),
   ],
   archived: [
-    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] }),
+    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: ['1'] }),
     card(8, { title: 'Close out the audit', status: 'done', archived: true, tags: ['ui'] }),
   ],
 });
@@ -133,10 +133,10 @@ test('the switch writes the selection into the box as a query, and the Board sho
   const s = await open();
   s.ctrlClick(2);
   s.ctrlClick(5);
-  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6']);
   s.flip();
   assert.strictEqual(s.box(), '#2 | #5');
-  assert.deepStrictEqual(s.shown(), [2, 5]);
+  assert.deepStrictEqual(s.shown(), ['2', '5']);
   assert.deepStrictEqual(s.isolate(), { previous: '' });
 });
 
@@ -145,15 +145,15 @@ test('a path, a tree and a query are written as their criterion, not as a list o
   s.pick('cardPart(4)', 'pathPart(1)', "queryPart('tags:ui')");
   s.flip();
   assert.strictEqual(s.box(), '#4 | path:1 | tags:ui');
-  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5], 'the card, the path through 1, and the tag; card 8 is archived');
+  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5'], 'the card, the path through 1, and the tag; card 8 is archived');
 });
 
 test('a card that comes to match a query part joins on the next poll', async () => {
   const s = await open();
   s.pick('cardPart(4)', "queryPart('tags:ui')");
   s.flip();
-  assert.deepStrictEqual(s.shown(), [2, 4, 5]);
-  s.board.active.find((c) => c.id === 6).tags.push('ui');
+  assert.deepStrictEqual(s.shown(), ['2', '4', '5']);
+  s.board.active.find((c) => c.id === '6').tags.push('ui');
   await s.poll();
   assert.deepStrictEqual(s.shown(), [2, 4, 5, 6]);
   assert.strictEqual(s.box(), '#4 | tags:ui', 'the box was not rewritten: its criterion did the work');
@@ -341,13 +341,13 @@ test('with nothing selected, Esc turns isolate off all the same', async () => {
 test('in the Graph only the matches are drawn, with the selection lit', async () => {
   const s = await open({ view: 'graph' });
   const before = s.drawn();
-  assert.deepStrictEqual(before, [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(before, ['1', '2', '3', '4', '5', '6']);
   s.nodeClick(2);
   s.nodeClick(5, { shiftKey: true });
   s.pick('cardPart(2)', 'cardPart(5)', 'pathPart(4)');
   s.flip();
   assert.strictEqual(s.box(), '#2 | #5 | path:4');
-  assert.deepStrictEqual(s.drawn(), [2, 4, 5]);
+  assert.deepStrictEqual(s.drawn(), ['2', '4', '5']);
   s.flip();
   assert.deepStrictEqual(s.drawn(), before, 'the Graph draws all of them again');
 });
@@ -406,7 +406,7 @@ test('isolating a search typed in the Graph makes it a bracketed query part, and
   s.nodeClick(5, { shiftKey: true });
   s.flip();
   assert.strictEqual(s.box(), '(move the) | #5');
-  assert.deepStrictEqual(s.drawn(), [2, 5]);
+  assert.deepStrictEqual(s.drawn(), ['2', '5']);
   s.flip();
   assert.strictEqual(s.box(), 'move the');
   assert.deepStrictEqual(s.selection(), { anchor: typed('move the'), additions: [a(5)] });
@@ -457,7 +457,7 @@ test('isolate stays on across a view switch, and the box and the shown cards sta
     assert.strictEqual(s.box(), '#2 | #5', view);
     assert.notStrictEqual(s.isolate(), null, view);
   }
-  assert.deepStrictEqual(s.shown(), [2, 5]);
+  assert.deepStrictEqual(s.shown(), ['2', '5']);
 });
 
 test('entering the Graph while isolated with nothing selected does not make the isolate text the anchor', async () => {
@@ -531,13 +531,13 @@ test('the poll never makes the jump: a paged month stays where it was put', asyn
 test('outside the Graph the text the box held goes on hiding what it hid: a path picked under tags:ui isolates only its ui cards', async () => {
   const s = await open();
   s.type('tags:ui');
-  assert.deepStrictEqual(s.shown(), [2, 5]);
+  assert.deepStrictEqual(s.shown(), ['2', '5']);
   s.pick('pathPart(1)');
-  assert.deepStrictEqual(s.ids(), [2], 'the path through 1 holds 1, 2 and 3, and the box shows only card 2 of them');
+  assert.deepStrictEqual(s.ids(), ['2'], 'the path through 1 holds 1, 2 and 3, and the box shows only card 2 of them');
   s.flip();
   assert.strictEqual(s.box(), 'path:1 tags:ui');
-  assert.deepStrictEqual(s.shown(), [2], 'cards 1 and 3 are not ui and stay hidden');
-  assert.deepStrictEqual(s.ids(), [2]);
+  assert.deepStrictEqual(s.shown(), ['2'], 'cards 1 and 3 are not ui and stay hidden');
+  assert.deepStrictEqual(s.ids(), ['2']);
   s.flip();
   assert.strictEqual(s.box(), 'tags:ui', 'turned off, the box has the text it held');
 });
@@ -546,12 +546,12 @@ test('a card picked by hand and then hidden by the box does not come back when i
   const s = await open();
   s.ctrlClick(4);
   s.ctrlClick(5);
-  assert.deepStrictEqual(s.ids(), [4, 5]);
+  assert.deepStrictEqual(s.ids(), ['4', '5']);
   s.type('tags:ui');
-  assert.deepStrictEqual(s.ids(), [5], 'card 4 is hidden by the box, so it is out of the selection');
+  assert.deepStrictEqual(s.ids(), ['5'], 'card 4 is hidden by the box, so it is out of the selection');
   s.flip();
   assert.strictEqual(s.box(), '(#4 | #5) tags:ui');
-  assert.deepStrictEqual(s.shown(), [5]);
+  assert.deepStrictEqual(s.shown(), ['5']);
 });
 
 test('a pill is an alternative of the box and the text isolate writes is just the pill', async () => {
@@ -589,7 +589,7 @@ test('a plain click that opens a card keeps the pill on and its query in the box
   s.pillClick('review');
   assert.strictEqual(s.box(), 'zephyr | review:');
   s.click(1);
-  assert.deepStrictEqual(spy.calls, [1], 'the card opens');
+  assert.deepStrictEqual(spy.calls, ['1'], 'the card opens');
   assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] });
   assert.strictEqual(s.box(), 'zephyr | review:', 'the pill is still on and its query is still in the box');
 });
@@ -600,11 +600,11 @@ test('a pill that is the only text in the box stays with the selection, so the v
   spy.wrap(s.page);
   s.pillClick('review');
   assert.strictEqual(s.box(), 'review:');
-  assert.deepStrictEqual(s.shown(), [5]);
+  assert.deepStrictEqual(s.shown(), ['5']);
   s.click(5);
   assert.strictEqual(s.box(), 'review:');
-  assert.deepStrictEqual(s.shown(), [5]);
-  assert.deepStrictEqual(spy.calls, [5]);
+  assert.deepStrictEqual(s.shown(), ['5']);
+  assert.deepStrictEqual(spy.calls, ['5']);
 });
 
 test('a plain click in a view that selects drops a pill from the box too', async () => {
@@ -620,7 +620,7 @@ test('a Ctrl-click that takes out a card the pill lit leaves the box as it was: 
   board.active[5].review = 'second';
   const s = await open({ board });
   s.pillClick('review');
-  assert.deepStrictEqual(s.ids(), [5, 6]);
+  assert.deepStrictEqual(s.ids(), ['5', '6']);
   s.ctrlClick(5);
   assert.deepStrictEqual(s.selection(), { anchor: a(6), additions: [] }, 'the pill is its other card now');
   assert.strictEqual(s.box(), 'review:');
@@ -643,11 +643,11 @@ test('while isolated a click that opens a card leaves the isolate text and the p
   s.flip();
   assert.strictEqual(s.box(), 'review:');
   s.click(2);
-  assert.deepStrictEqual(spy.calls, [2], 'the card opens');
+  assert.deepStrictEqual(spy.calls, ['2'], 'the card opens');
   assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] });
   assert.strictEqual(s.box(), 'review:', 'the pill query is the isolate text now, and the shown set does not shrink');
   assert.notStrictEqual(s.isolate(), null);
-  assert.deepStrictEqual(s.shown(), [5]);
+  assert.deepStrictEqual(s.shown(), ['5']);
 });
 
 test('while isolated a click that selects another card moves the anchor and leaves the isolate text', async () => {
@@ -707,7 +707,7 @@ test('a cue click grows the pill\'s alternative, the pill stays on, and a click 
   s.pillClick('review');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.strictEqual(s.box(), '', 'the cue term went with the alternative it grew in');
-  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6']);
 });
 
 test('text typed beside the pill stays when its grown alternative goes, grown by the cue as every alternative is', async () => {
@@ -758,12 +758,12 @@ test('a pill whose query is a slice: term cuts the views to it, and turning the 
   s.page.run('setSearchPanelOpen(true)');
   s.pillClick('pill:slice:epic');
   assert.strictEqual(s.box(), 'slice:epic');
-  assert.deepStrictEqual(s.shown(), [1, 2], 'the epics');
+  assert.deepStrictEqual(s.shown(), ['1', '2'], 'the epics');
   assert.deepStrictEqual(s.selection(), { anchor: q('slice:epic'), additions: [] });
   s.pillClick('pill:slice:epic');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.strictEqual(s.box(), '', 'the pill is off and so is its cut');
-  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6']);
 });
 
 test('turning such a pill off leaves a cut of the slice section, and the text typed beside it, where they were', async () => {
@@ -781,10 +781,10 @@ test('a cut the box held before such a pill goes on stays when the pill goes off
   s.type('slice:epic');
   s.pillClick('pill:slice:epic');
   assert.strictEqual(s.box(), 'slice:epic slice:epic', 'the box holds the cut twice while the pill is on: the one it held and the one the pill wrote');
-  assert.deepStrictEqual(s.shown(), [1, 2], 'the pill is on over the cut the box held');
+  assert.deepStrictEqual(s.shown(), ['1', '2'], 'the pill is on over the cut the box held');
   s.pillClick('pill:slice:epic');
   assert.strictEqual(s.box(), 'slice:epic', 'only the copy of the cut that came with the pill went with it');
-  assert.deepStrictEqual(s.shown(), [1, 2], 'the cut the box held still cuts the views');
+  assert.deepStrictEqual(s.shown(), ['1', '2'], 'the cut the box held still cuts the views');
 });
 
 test('Esc takes the cut of such a pill out of the box with the pill', async () => {

@@ -29,13 +29,13 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing' }),
-    card(2, { title: 'Move the data layer', status: 'todo', waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo' }),
     card(5, { title: 'Draft the release notes', status: 'doing' }),
-    card(6, { title: 'Renew the domain', status: 'done', waiting_for: [1] }),
+    card(6, { title: 'Renew the domain', status: 'done', waiting_for: ['1'] }),
   ],
-  archived: [card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] })],
+  archived: [card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: ['1'] })],
 });
 
 const MENU_ELEMENTS = ['#context-menu', '#ctx-peek', '#ctx-add', '#ctx-assign', '#ctx-priority', '#ctx-tags', '#ctx-schedule', '#ctx-archive', '#ctx-restore', '#ctx-delete',
@@ -128,7 +128,7 @@ test('Peek opens the card\'s details through the plain open path and leaves the 
   s.select(2, 'cardPart(1)', 'cardPart(2)');
   s.rightClick(3);
   s.click('#ctx-peek');
-  assert.deepStrictEqual(s.asked.opened, [3]);
+  assert.deepStrictEqual(s.asked.opened, ['3']);
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
   assert.strictEqual(s.rangeStart(), 2);
   assert.strictEqual(s.menuOpen(), false, 'the menu closes');
@@ -160,7 +160,7 @@ test('Add to selection from the card details\' menu adds the card shown', async 
   s.page.run('currentDetailId = 4');
   s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
   s.click('#ctx-add');
-  assert.deepStrictEqual(s.ids(), [1, 4]);
+  assert.deepStrictEqual(s.ids(), ['1', '4']);
 });
 
 // --- the bulk entries act on the menu's subject ---------------------------------------
@@ -212,7 +212,7 @@ test('the bulk entries include cards added by a path: a selection holding a path
 test('Archive and Delete name the count they act on: the right-clicked card alone outside the selection, the resolved selection inside it', async () => {
   const s = await open();
   s.select(null, 'cardPart(1)', 'pathPart(2)', 'cardPart(5)');
-  assert.deepStrictEqual(s.ids(), [1, 2, 3, 5]);
+  assert.deepStrictEqual(s.ids(), ['1', '2', '3', '5']);
   s.rightClick(4);
   s.click('#ctx-archive');
   s.click('#ctx-delete');
@@ -256,7 +256,7 @@ test('Path adds the card\'s dependency path to the selection as one part and lea
   s.rightClick(2);
   assert.strictEqual(s.shown('#ctx-path'), true);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [{ kind: 'path', id: 2 }] });
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [{ kind: 'path', id: '2' }] });
   assert.deepStrictEqual(s.ids(), [1, 2, 3, 5], 'the path is 1, 2 and 3; card 6 waits for 1 but is not on this path');
   assert.strictEqual(s.page.input.value, 'a');
   assert.strictEqual(s.page.input.writes.length, writes, 'nothing was written to the box');
@@ -268,8 +268,8 @@ test('Tree adds the card\'s dependency tree to the selection as one part and lea
   const writes = s.page.input.writes.length;
   s.rightClick(2);
   s.click('#ctx-tree');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'tree', id: 2 }, additions: [] }, 'with nothing selected the tree is the anchor');
-  assert.deepStrictEqual(s.ids(), [1, 2, 3, 6], 'the tree reaches card 6 too; the Board with its Archive column closed does not show archived card 7');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'tree', id: '2' }, additions: [] }, 'with nothing selected the tree is the anchor');
+  assert.deepStrictEqual(s.ids(), ['1', '2', '3', '6'], 'the tree reaches card 6 too; the Board with its Archive column closed does not show archived card 7');
   assert.strictEqual(s.page.input.value, '');
   assert.strictEqual(s.page.input.writes.length, writes);
 });
@@ -280,7 +280,7 @@ test('a part added by Path stays a path part: the selection holds one path part,
   s.click('#ctx-path');
   s.rightClick(2);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: 2 }, additions: [] }, 'the same path twice is one part');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] }, 'the same path twice is one part');
 });
 
 test('Path and Tree are in the menu when its subject is one card and absent when it is several', async () => {
@@ -302,7 +302,7 @@ test('Path from a menu inside a selection of one adds to that selection, and the
   s.select(null, 'cardPart(2)');
   s.rightClick(2);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [{ kind: 'path', id: 2 }] });
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [{ kind: 'path', id: '2' }] });
   assert.deepStrictEqual(s.ids(), [1, 2, 3]);
 });
 
@@ -312,8 +312,8 @@ test('a card the view hides does not join through a path (the selection covers o
   s.page.run("toggleMapStatusFilter('doing')");
   s.rightClick(2);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: 2 }, additions: [] });
-  assert.deepStrictEqual(s.ids(), [2, 3], 'card 1 is Doing and its pill is off in the Map');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] });
+  assert.deepStrictEqual(s.ids(), ['2', '3'], 'card 1 is Doing and its pill is off in the Map');
   s.page.run("toggleMapStatusFilter('doing')");
-  assert.deepStrictEqual(s.ids(), [1, 2, 3], 'with the pill on again the other card of the path is back');
+  assert.deepStrictEqual(s.ids(), ['1', '2', '3'], 'with the pill on again the other card of the path is back');
 });

@@ -22,7 +22,7 @@ const BOARD = {
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', assignee: '@human' }),
-    card(2, { title: 'Move the data layer', assignee: '@afk', tags: ['ui'], waiting_for: [1], blocked: 'vendor', review: 'copy' }),
+    card(2, { title: 'Move the data layer', assignee: '@afk', tags: ['ui'], waiting_for: ['1'], blocked: 'vendor', review: 'copy' }),
   ],
   archived: [],
 };
@@ -136,7 +136,7 @@ test('Path and Tree from a card\'s menu are not writes: they add to the selectio
   page.menu.tree.fire('click');
   assert.deepStrictEqual(told, []);
   assert.strictEqual(page.input.value, 'zephyr');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(page.run('selectionState.selection'))), { anchor: { kind: 'path', id: 1 }, additions: [{ kind: 'tree', id: 1 }] });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(page.run('selectionState.selection'))), { anchor: { kind: 'path', id: '1' }, additions: [{ kind: 'tree', id: '1' }] });
 });
 
 test('a ?q= link is a write with the reason link, told once the link\'s view is showing', async () => {

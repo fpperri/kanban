@@ -93,9 +93,9 @@ test('on today\'s fixture board, which has no hierarchy, slice:1 keeps exactly t
   assert.deepStrictEqual(board.config.hierarchy, []);
   const { query, shows } = sliceTerm.CASES.fixture;
   assert.deepStrictEqual(shownBy(board, 'fixture', query), shows);
-  const root = board.live.find((c) => c.id === 1);
+  const root = board.live.find((c) => c.id === '1');
   assert.strictEqual(root.parent, null, 'card 1 is a root');
-  assert.deepStrictEqual(shows, board.live.filter((c) => c.parent === 1).map((c) => c.id).sort((a, b) => a - b), 'the cards directly under it');
+  assert.deepStrictEqual(shows, board.live.filter((c) => c.parent === '1').map((c) => c.id).sort((a, b) => a - b), 'the cards directly under it');
 });
 
 test('on the malformed board a cut naming a tier written twice in mixed case keeps that tier\'s cards', () => {

@@ -22,14 +22,14 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', tags: ['infra'] }),
-    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
     card(6, { title: 'Renew the domain', status: 'done', tags: ['ops'] }),
   ],
   archived: [
-    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] }),
+    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: ['1'] }),
     card(8, { title: 'Close out the audit', status: 'done', archived: true, tags: ['ui'] }),
   ],
 });
@@ -57,7 +57,7 @@ const parts = (sel) => [sel.anchor, ...sel.additions];
 test('the id set is what the parts stand for: a card part is that card, a query part is the cards the search module matches', async () => {
   const s = await open();
   s.select('cardPart(1)', "queryPart('tags:ui')");
-  assert.deepStrictEqual(s.ids(), [1, 2, 5], 'card 8 also has tags:ui, but it is archived and the Archive column is collapsed');
+  assert.deepStrictEqual(s.ids(), ['1', '2', '5'], 'card 8 also has tags:ui, but it is archived and the Archive column is collapsed');
 });
 
 test('a part with no cards behind it leaves the id set empty without an error', async () => {
@@ -69,20 +69,20 @@ test('a part with no cards behind it leaves the id set empty without an error', 
 test('the Board shows the cards in its expanded columns: the Archive column when open, and not a collapsed one', async () => {
   const open1 = await open({ stored: { 'kanban.kanban.columns.collapsed': JSON.stringify({ archive: false }) } });
   open1.select("queryPart('tags:ui')");
-  assert.deepStrictEqual(open1.ids(), [2, 5, 8]);
+  assert.deepStrictEqual(open1.ids(), ['2', '5', '8']);
   const closed = await open({ stored: { 'kanban.kanban.columns.collapsed': JSON.stringify({ archive: false, doing: true }) } });
   closed.select("queryPart('tags:ui')");
-  assert.deepStrictEqual(closed.ids(), [2, 8], 'card 5 is in the collapsed Doing column');
+  assert.deepStrictEqual(closed.ids(), ['2', '8'], 'card 5 is in the collapsed Doing column');
 });
 
 test('a view switch keeps the parts and the id set follows the view: the Map shows archived cards, the Board with its Archive column closed does not', async () => {
   const s = await open();
   s.select('cardPart(1)', "queryPart('tags:ui')");
-  assert.deepStrictEqual(s.ids(), [1, 2, 5]);
+  assert.deepStrictEqual(s.ids(), ['1', '2', '5']);
   s.page.run("toggleView('map')");
-  assert.deepStrictEqual(s.ids(), [1, 2, 5, 8]);
+  assert.deepStrictEqual(s.ids(), ['1', '2', '5', '8']);
   s.page.run("toggleView('map')");
-  assert.deepStrictEqual(s.ids(), [1, 2, 5]);
+  assert.deepStrictEqual(s.ids(), ['1', '2', '5']);
   assert.deepStrictEqual(parts(s.selection()), [a(1), { kind: 'query', text: 'tags:ui' }], 'the parts were never touched');
 });
 
@@ -91,7 +91,7 @@ test('a view switch keeps the same cards picked in the Graph on the Board', asyn
   s.select('cardPart(2)', 'cardPart(5)');
   s.page.run("toggleView('graph')");
   assert.strictEqual(s.page.run('loadViewMode()'), 'board');
-  assert.deepStrictEqual(s.ids(), [2, 5]);
+  assert.deepStrictEqual(s.ids(), ['2', '5']);
 });
 
 // --- a status pill, the Archive pill or the search box takes a card out of the id set
@@ -107,19 +107,19 @@ for (const [view, f] of Object.entries(FILTERS)) {
   test(`${view}: a status pill that hides a card takes it out of the id set, and turning the pill back on brings it back`, async () => {
     const s = await open({ view });
     s.select('cardPart(1)', 'cardPart(2)', 'cardPart(5)');
-    assert.deepStrictEqual(s.ids(), [1, 2, 5]);
+    assert.deepStrictEqual(s.ids(), ['1', '2', '5']);
     s.page.run(f.toggle('doing'));
-    assert.deepStrictEqual(s.ids(), [2], 'cards 1 and 5 are Doing');
+    assert.deepStrictEqual(s.ids(), ['2'], 'cards 1 and 5 are Doing');
     s.page.run(f.toggle('doing'));
-    assert.deepStrictEqual(s.ids(), [1, 2, 5]);
+    assert.deepStrictEqual(s.ids(), ['1', '2', '5']);
   });
 
   test(`${view}: the Archive pill decides whether an archived card can be in the id set`, async () => {
     const s = await open({ view });
     s.select('cardPart(1)', 'cardPart(8)');
-    assert.deepStrictEqual(s.ids(), f.archiveOnByDefault ? [1, 8] : [1]);
+    assert.deepStrictEqual(s.ids(), f.archiveOnByDefault ? ['1', '8'] : ['1']);
     s.page.run(f.toggle('archive'));
-    assert.deepStrictEqual(s.ids(), f.archiveOnByDefault ? [1] : [1, 8]);
+    assert.deepStrictEqual(s.ids(), f.archiveOnByDefault ? ['1'] : ['1', '8']);
   });
 }
 
@@ -130,13 +130,13 @@ for (const view of ['gantt', 'calendar']) {
     board.active[4].start_date = null;
     board.active[4].due_date = '2031-06-12';
     const s = await open({ view, board });
-    assert.deepStrictEqual([...s.page.run('shownCardIds()')].sort((x, y) => x - y), [1, 3, 4, 5, 6], 'card 2 has no date, and card 5 has a due date alone');
+    assert.deepStrictEqual([...s.page.run('shownCardIds()')].sort((x, y) => x - y), ['1', '3', '4', '5', '6'], 'card 2 has no date, and card 5 has a due date alone');
     s.select('cardPart(1)', 'cardPart(2)');
-    assert.deepStrictEqual(s.ids(), [1]);
+    assert.deepStrictEqual(s.ids(), ['1']);
     s.select(`queryPart('tags:ui')`);
-    assert.deepStrictEqual(s.ids(), [5], 'card 2 is tagged ui as well, and is not drawn');
+    assert.deepStrictEqual(s.ids(), ['5'], 'card 2 is tagged ui as well, and is not drawn');
     s.select('pathPart(1)');
-    assert.deepStrictEqual(s.ids(), [1, 3], 'the path of card 1 holds its child 3 and card 2, which waits for it, and card 2 is not drawn');
+    assert.deepStrictEqual(s.ids(), ['1', '3'], 'the path of card 1 holds its child 3 and card 2, which waits for it, and card 2 is not drawn');
   });
 }
 
@@ -147,10 +147,10 @@ for (const view of ['gantt', 'calendar']) {
     board.active[2].start_date = null;
     const s = await open({ board });
     s.select('cardPart(1)', 'cardPart(2)', 'cardPart(3)');
-    assert.deepStrictEqual(s.ids(), [1, 2, 3]);
+    assert.deepStrictEqual(s.ids(), ['1', '2', '3']);
     s.page.run(`toggleView('${view}')`);
     assert.strictEqual(s.page.run('loadViewMode()'), view);
-    assert.deepStrictEqual(s.ids(), [1], 'cards 2 and 3 have no date');
+    assert.deepStrictEqual(s.ids(), ['1'], 'cards 2 and 3 have no date');
     assert.deepStrictEqual(parts(s.selection()), [a(1), a(2), a(3)], 'the parts are what they were');
     s.page.run(`toggleView('${view}')`);
     assert.deepStrictEqual(s.ids(), [1, 2, 3]);
@@ -165,11 +165,11 @@ for (const view of ['board', 'map', 'calendar', 'gantt']) {
   test(`${view}: a search that hides a card takes it out of the id set, and clearing the box brings it back`, async () => {
     const s = await open({ view });
     s.select('cardPart(1)', 'cardPart(2)', 'cardPart(5)');
-    assert.deepStrictEqual(s.ids(), [1, 2, 5]);
+    assert.deepStrictEqual(s.ids(), ['1', '2', '5']);
     s.page.input.typed('status:todo');
-    assert.deepStrictEqual(s.ids(), [2], 'the box leaves cards 2 and 4; the selection reaches 1, 2, 5');
+    assert.deepStrictEqual(s.ids(), ['2'], 'the box leaves cards 2 and 4; the selection reaches 1, 2, 5');
     s.page.input.typed('');
-    assert.deepStrictEqual(s.ids(), [1, 2, 5]);
+    assert.deepStrictEqual(s.ids(), ['1', '2', '5']);
   });
 }
 
@@ -198,7 +198,7 @@ test('text that is not a term yet matches nothing as a part, where the box shows
 test('a poll that finds a picked card gone drops its part, and the next card becomes the anchor', async () => {
   const s = await open();
   s.select('cardPart(2)', 'cardPart(5)', "queryPart('tags:ui')");
-  s.board.active = s.board.active.filter((c) => c.id !== 2);
+  s.board.active = s.board.active.filter((c) => c.id !== '2');
   await s.page.run('autoRefreshTick()');
   assert.deepStrictEqual(parts(s.selection()), [a(5), { kind: 'query', text: 'tags:ui' }]);
   assert.deepStrictEqual(s.ids(), [5]);
@@ -209,7 +209,7 @@ test('a poll keeps the selection and works the id set out again', async () => {
   s.select('cardPart(1)', "queryPart('tags:ui')");
   s.board.active.push(card(9, { title: 'New', tags: ['ui'] }));
   await s.page.run('autoRefreshTick()');
-  assert.deepStrictEqual(s.ids(), [1, 2, 5, 9], 'a card that comes to match the query joins on the poll');
+  assert.deepStrictEqual(s.ids(), ['1', '2', '5', '9'], 'a card that comes to match the query joins on the poll');
 });
 
 // --- gestures through the shared click handler --------------------------------------
@@ -245,7 +245,7 @@ test('a click on a card while the Graph is showing never ranges, even through th
   s.page.ctx.visibleCardIds = () => { throw new Error('the Graph has no reading order to range over'); };
   s.page.fireDocument('click', { target: cardTarget(1), ...mods({ ctrlKey: true }) });
   s.page.fireDocument('click', { target: cardTarget(5), ...mods({ shiftKey: true }) });
-  assert.deepStrictEqual(s.ids(), [1, 5]);
+  assert.deepStrictEqual(s.ids(), ['1', '5']);
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(5)] });
 });
 
@@ -255,7 +255,7 @@ test('Board: a plain click opens the card and empties the selection', async () =
   const opened = [];
   s.page.ctx.openCard = (id) => { opened.push(id); };
   s.page.fireDocument('click', { target: cardTarget(4), ...mods() });
-  assert.deepStrictEqual(opened, [4]);
+  assert.deepStrictEqual(opened, ['4']);
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.strictEqual(s.rangeStart(), null);
 });
@@ -288,7 +288,7 @@ test('a click on empty space leaves the selection and its range start, and a dou
 test('bulk edits read the cards of the id set: cards added by a query are targets as the cards picked by hand are', async () => {
   const s = await open();
   s.select('cardPart(1)', "queryPart('tags:ui')");
-  assert.deepStrictEqual([...s.page.run('bulkTargets().map((c) => c.id)')], [1, 2, 5]);
+  assert.deepStrictEqual([...s.page.run('bulkTargets().map((c) => c.id)')], ['1', '2', '5']);
 });
 
 // --- gestures through the Graph's own listener --------------------------------------
@@ -326,9 +326,9 @@ test('Graph: Shift click on a second card adds exactly that card, and Shift clic
   g.page.ctx.visibleCardIds = () => { throw new Error('the Graph has no reading order to range over'); };
   g.click(1);
   g.click(5, { shiftKey: true });
-  assert.deepStrictEqual(g.ids(), [1, 5], 'not 2, 3 and 4 between them');
+  assert.deepStrictEqual(g.ids(), ['1', '5'], 'not 2, 3 and 4 between them');
   g.click(5, { shiftKey: true });
-  assert.deepStrictEqual(g.ids(), [1]);
+  assert.deepStrictEqual(g.ids(), ['1']);
   assert.deepStrictEqual(g.selection(), { anchor: a(1), additions: [] });
 });
 
@@ -337,9 +337,9 @@ test('Graph: Ctrl click and Cmd click do the same as Shift click', async () => {
     const g = await inGraph();
     g.click(1);
     g.click(5, { [key]: true });
-    assert.deepStrictEqual(g.ids(), [1, 5], key);
+    assert.deepStrictEqual(g.ids(), ['1', '5'], key);
     g.click(5, { [key]: true });
-    assert.deepStrictEqual(g.ids(), [1], `${key} again`);
+    assert.deepStrictEqual(g.ids(), ['1'], `${key} again`);
   }
 });
 
@@ -359,7 +359,7 @@ test('Graph: a click that is not on a node is left alone', async () => {
   e.target = new Proxy({}, { get: (t, key) => (key === 'closest' ? () => null : harmless(String(key))) });
   g.graphHost.fire('click', e);
   assert.strictEqual(e.log.stopped, 0);
-  assert.deepStrictEqual(g.ids(), [1]);
+  assert.deepStrictEqual(g.ids(), ['1']);
 });
 
 test('Graph: Space on a focused card acts as a plain click, and Enter opens the card without touching the selection', async () => {
@@ -380,5 +380,5 @@ test('Graph: a double click opens the card', async () => {
   const opened = [];
   g.page.ctx.openCard = (id) => { opened.push(id); };
   g.graphHost.fire('dblclick', nodeEvent(3));
-  assert.deepStrictEqual(opened, [3]);
+  assert.deepStrictEqual(opened, ['3']);
 });

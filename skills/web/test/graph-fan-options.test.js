@@ -99,11 +99,11 @@ const tree = () => buildOf([
   card(1, { type: 'goal' }),
   card(2, { type: 'strategy', parent: 1 }),
   card(3, { parent: 1 }),
-  card(4, { parent: 1, waiting_for: [3] }),
+  card(4, { parent: 1, waiting_for: ['3'] }),
   card(5, { parent: 1 }),
   card(6, { parent: 1 }),
   card(7, { parent: 2 }),
-  card(8, { parent: 2, waiting_for: [5] }),
+  card(8, { parent: 2, waiting_for: ['5'] }),
   card(9),
 ]);
 
@@ -126,7 +126,7 @@ test('chain gives a line to every chain end and none to the other children', () 
 
 test('the chain ends are read on the whole board: hiding a card never moves a line', () => {
   const cards = [
-    card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1, waiting_for: [2] }), card(4, { parent: 1, waiting_for: [3] }),
+    card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1, waiting_for: ['2'] }), card(4, { parent: 1, waiting_for: ['3'] }),
   ];
   const all = buildOf(cards);
   const hidden = buildOf(cards, undefined, [1, 2, 3]);
@@ -135,7 +135,7 @@ test('the chain ends are read on the whole board: hiding a card never moves a li
 });
 
 test('a chain that loops has no end, so all of it takes a line', () => {
-  const model = buildOf([card(1, { type: 'goal' }), card(2, { parent: 1, waiting_for: [3] }), card(3, { parent: 1, waiting_for: [2] })]);
+  const model = buildOf([card(1, { type: 'goal' }), card(2, { parent: 1, waiting_for: ['3'] }), card(3, { parent: 1, waiting_for: ['2'] })]);
   assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'chain' })), ['1>2', '1>3']);
 });
 
@@ -227,20 +227,20 @@ const mapRow = (model, ids, order) => mapOrderRow(ids, { nodes: model.nodes }, o
 
 test('order status seats siblings doing, todo, backlog, done, the way the Map orders its rows; ties keep the outline\'s order', () => {
   const model = siblings();
-  assert.deepStrictEqual(seats(model, 'status', [2, 3, 4, 5, 6]), [4, 6, 5, 3, 2]);
-  assert.deepStrictEqual(seats(model, 'status', [7, 8]), [8, 7], 'the children of a card are ordered as well');
-  assert.deepStrictEqual(seats(model, 'status', [20, 21, 22]), [21, 22, 20], 'and so are the loose cards with a tier, which share a sector');
+  assert.deepStrictEqual(seats(model, 'status', ['2', '3', '4', '5', '6']), ['4', '6', '5', '3', '2']);
+  assert.deepStrictEqual(seats(model, 'status', ['7', '8']), ['8', '7'], 'the children of a card are ordered as well');
+  assert.deepStrictEqual(seats(model, 'status', ['20', '21', '22']), ['21', '22', '20'], 'and so are the loose cards with a tier, which share a sector');
 });
 
 test('order rank seats siblings in the outline\'s own order, by rank', () => {
   const model = siblings();
-  assert.deepStrictEqual(seats(model, 'rank', [2, 3, 4, 5, 6]), [2, 3, 4, 5, 6]);
-  assert.deepStrictEqual(seats(model, 'rank', [7, 8]), [7, 8]);
-  assert.deepStrictEqual(seats(model, 'rank', [20, 21, 22]), [20, 21, 22]);
+  assert.deepStrictEqual(seats(model, 'rank', ['2', '3', '4', '5', '6']), ['2', '3', '4', '5', '6']);
+  assert.deepStrictEqual(seats(model, 'rank', ['7', '8']), ['7', '8']);
+  assert.deepStrictEqual(seats(model, 'rank', ['20', '21', '22']), ['20', '21', '22']);
   const ranked = buildOf([
     card(1, { type: 'goal' }), card(2, { parent: 1, rank: 30 }), card(3, { parent: 1, rank: 10 }), card(4, { parent: 1, rank: 20 }),
   ]);
-  assert.deepStrictEqual(seats(ranked, 'rank', [2, 3, 4]), [3, 4, 2]);
+  assert.deepStrictEqual(seats(ranked, 'rank', ['2', '3', '4']), ['3', '4', '2']);
 });
 
 test('the two orders differ, each is deterministic, and each matches the Map\'s row order for the same cards', () => {
@@ -274,9 +274,9 @@ test('the order moves siblings within their own stretch and nothing else: every 
   assert.deepStrictEqual([...status.places], [...rank.places]);
   assert.deepStrictEqual(status.sectors.map((s) => [s.kind, s.rootId, s.from, s.to]), rank.sectors.map((s) => [s.kind, s.rootId, s.from, s.to]));
   for (const n of model.nodes) assert.strictEqual(status.polar.get(n.id).r, rank.polar.get(n.id).r, `card ${n.id} stays on its ring`);
-  assert.ok(Math.abs(status.polar.get(1).a - rank.polar.get(1).a) < 1e-9, 'a root with no sibling stays in the middle of its sector');
-  const [kid7, kid8] = [7, 8].map((id) => status.polar.get(id).a);
-  assert.ok(Math.abs((kid7 + kid8) / 2 - status.polar.get(4).a) < 1e-9, 'a parent stays between its two children, whichever way they are ordered');
+  assert.ok(Math.abs(status.polar.get('1').a - rank.polar.get('1').a) < 1e-9, 'a root with no sibling stays in the middle of its sector');
+  const [kid7, kid8] = ['7', '8'].map((id) => status.polar.get(id).a);
+  assert.ok(Math.abs((kid7 + kid8) / 2 - status.polar.get('4').a) < 1e-9, 'a parent stays between its two children, whichever way they are ordered');
 });
 
 test('the order is in the layout\'s cache key: another order is another layout, the same order the same one', () => {

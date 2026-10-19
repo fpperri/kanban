@@ -24,14 +24,14 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', tags: ['infra'] }),
-    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
     card(6, { title: 'Renew the domain', status: 'done', tags: ['ops'] }),
   ],
   archived: [
-    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] }),
+    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: ['1'] }),
     card(8, { title: 'Close out the audit', status: 'done', archived: true, tags: ['ui'] }),
   ],
 });
@@ -238,7 +238,7 @@ test('the cut keeps cutting with the Archive pill on, and a card outside it is n
 
 test('the typed anchor lights what the Graph\'s query decision says the query lights', async () => {
   const s = await open();
-  s.page.ctx.graphQueryEffect = () => ({ visibleIds: null, litIds: new Set([2, 4]) });
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: null, litIds: new Set(['2', '4']) });
   s.type('zephyr');
   assert.deepStrictEqual(s.ids(), [2, 4]);
   assert.deepStrictEqual(s.lit().nodes, [2, 4]);
@@ -246,11 +246,11 @@ test('the typed anchor lights what the Graph\'s query decision says the query li
 
 test('the Graph draws the cards the decision leaves visible', async () => {
   const s = await open();
-  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set([1, 2]), litIds: new Set([1]) });
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set(['1', '2']), litIds: new Set(['1']) });
   s.type('zephyr');
   assert.deepStrictEqual(s.drawn(), [1, 2]);
   assert.deepStrictEqual(s.ids(), [1]);
-  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set([2]), litIds: new Set([1]) });
+  s.page.ctx.graphQueryEffect = () => ({ visibleIds: new Set(['2']), litIds: new Set(['1']) });
   s.type('zephyr!');
   assert.deepStrictEqual(s.ids(), [], 'a card the Graph does not draw is not selected');
 });
@@ -587,12 +587,12 @@ test('a lighting dims the canvas and marks exactly its cards and the lines betwe
   s.page.ctx.graphLightCards = s.realLightCards;
   const f = fakeGraph(s.page);
   const lit = () => [...f.nodes].filter(([, e]) => e.names.has('graph-near')).map(([id]) => id);
-  s.page.ctx.__lit = s.page.run('graphLit(__fake.model, new Set([1, 2]))');
+  s.page.ctx.__lit = s.page.run("graphLit(__fake.model, new Set(['1', '2']))");
   s.page.run('graphLightCards(__lit)');
   assert.strictEqual(f.svg.names.has('graph-dim'), true);
   assert.deepStrictEqual(lit(), [1, 2]);
   assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 1, 'the one line between 1 and 2');
-  s.page.ctx.__lit = s.page.run('graphLit(__fake.model, new Set([5]))');
+  s.page.ctx.__lit = s.page.run("graphLit(__fake.model, new Set(['5']))");
   s.page.run('graphLightCards(__lit)');
   assert.deepStrictEqual(lit(), [5], 'the first set is gone');
   assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 0);

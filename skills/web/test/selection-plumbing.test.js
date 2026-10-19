@@ -68,13 +68,13 @@ test('the id set the views paint and the bulk edits read is derived from the sel
   assert.deepStrictEqual(ids(vm.runInContext('selectedIds', s)), [3, 4]);
   vm.runInContext('setSelection(cardsSelection([9]))', s);
   assert.deepStrictEqual(ids(vm.runInContext('selectedIds', s)), [9], 'the old ids are gone, not merged');
-  assert.strictEqual(vm.runInContext('selectedIds.has(3)', s), false);
+  assert.strictEqual(vm.runInContext("selectedIds.has('3')", s), false);
 });
 
 test('the derived set keeps the interface the renderers and the bulk edits use: has, size and spread', () => {
   const s = entrySandbox();
   vm.runInContext('setSelection(cardsSelection([7, 8]), 8)', s);
-  assert.strictEqual(vm.runInContext('selectedIds.has(7)', s), true);
+  assert.strictEqual(vm.runInContext("selectedIds.has('7')", s), true);
   assert.strictEqual(vm.runInContext('selectedIds.size', s), 2);
   assert.deepStrictEqual(ids(vm.runInContext('selectedIds', s)), [7, 8]);
 });
@@ -130,9 +130,9 @@ function clickHandler() {
 }
 
 const CARDS = [
-  { id: 1, assignee: '@afk', status: 'todo' },
-  { id: 2, assignee: '', status: 'todo' },
-  { id: 3, assignee: '@human', status: 'doing' },
+  { id: '1', assignee: '@afk', status: 'todo' },
+  { id: '2', assignee: '', status: 'todo' },
+  { id: '3', assignee: '@human', status: 'doing' },
 ];
 
 function clickSandbox({ view = 'board', selected = [], rangeStart = null, order = [1, 2, 3], click = {} } = {}) {
@@ -478,7 +478,7 @@ test('with focus in the search box, the Esc step clears the box and repaints, an
   s.escapeStep();
   assert.strictEqual(s.input.value, '');
   assert.strictEqual(s.calls.render, 1);
-  assert.deepStrictEqual(s.state(), { ids: [1, 2, 3], anchor: { kind: 'card', id: 1 }, additions: 2, rangeStart: 3 });
+  assert.deepStrictEqual(s.state(), { ids: [1, 2, 3], anchor: { kind: 'card', id: '1' }, additions: 2, rangeStart: 3 });
 });
 
 test('with focus in an empty search box, the Esc step does nothing', () => {
@@ -492,7 +492,7 @@ test('with focus outside the search box, the Esc step leaves the box text as it 
   const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'button', rangeStart: 3 });
   s.escapeStep();
   assert.strictEqual(s.input.value, 'tags:next-up', 'Esc away from the box no longer clears it');
-  assert.deepStrictEqual(s.state(), { ids: [1], anchor: { kind: 'card', id: 1 }, additions: 0, rangeStart: 1 }, 'the additions drop all at once and the anchor stays; the range start is the anchor card');
+  assert.deepStrictEqual(s.state(), { ids: [1], anchor: { kind: 'card', id: '1' }, additions: 0, rangeStart: 1 }, 'the additions drop all at once and the anchor stays; the range start is the anchor card');
   assert.strictEqual(s.calls.render, 1);
 });
 
@@ -539,10 +539,10 @@ test('a selection built from a query part steps back like any other: the additio
 // --- every bulk action reads its target cards through one reader --------------------
 
 const BULK_CARDS = [
-  { id: 1, title: 'one', status: 'todo', archived: false, tags: ['a'], assignee: '@afk' },
-  { id: 2, title: 'two', status: 'done', archived: false, tags: ['a', 'b'], assignee: '' },
-  { id: 3, title: 'three', status: 'todo', archived: false, tags: [], assignee: '' },
-  { id: 4, title: 'four', status: 'done', archived: true, tags: ['b'], assignee: '' },
+  { id: '1', title: 'one', status: 'todo', archived: false, tags: ['a'], assignee: '@afk' },
+  { id: '2', title: 'two', status: 'done', archived: false, tags: ['a', 'b'], assignee: '' },
+  { id: '3', title: 'three', status: 'todo', archived: false, tags: [], assignee: '' },
+  { id: '4', title: 'four', status: 'done', archived: true, tags: ['b'], assignee: '' },
 ];
 
 function fakeBox() {

@@ -227,7 +227,7 @@ function graphBuild(cards, opts) {
     const card = drawn.get(id);
     const parentId = parentOf.has(id) ? parentOf.get(id) : null;
     const parent = parentId === null ? null : byId.get(parentId);
-    const waits = (card.waiting_for || []).map(Number);
+    const waits = card.waiting_for || [];
     const node = {
       id,
       card,

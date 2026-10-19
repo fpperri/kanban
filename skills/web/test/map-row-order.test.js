@@ -13,7 +13,7 @@ const n = (id, status, extra = {}) => ({ id, status, archived: false, ...extra }
 test('a row reads doing, todo, backlog, the other live statuses in column order, done, archived, then stubs', () => {
   const graph = graphOf(
     [n(1, 'done'), n(2, 'qa'), n(3, 'backlog'), n(4, 'done', { archived: true }), n(5, 'doing'), n(6, 'review'), n(7, 'todo')],
-    [{ id: 8, status: 'doing' }],
+    [{ id: '8', status: 'doing' }],
   );
   assert.deepStrictEqual(mapOrderRow([1, 2, 3, 4, 5, 6, 7, 8], graph, 'status', STATUSES), [5, 7, 3, 6, 2, 1, 4, 8]);
 });
@@ -44,7 +44,7 @@ test('a status the board does not list reads as another live status, after the l
 });
 
 test('every kind of stub is last: a hidden card, an id with no card, a parent on another board', () => {
-  const graph = graphOf([n(1, 'done', { archived: true })], [{ id: 2, status: 'doing' }, { id: 3, status: null, missing: true }, { id: -1, status: null, missing: true, external: 'shop#7' }]);
+  const graph = graphOf([n(1, 'done', { archived: true })], [{ id: '2', status: 'doing' }, { id: '3', status: null, missing: true }, { id: -1, status: null, missing: true, external: 'shop#7' }]);
   assert.deepStrictEqual(mapOrderRow([-1, 3, 2, 1], graph, 'status', STATUSES), [1, -1, 3, 2]);
 });
 
@@ -58,6 +58,6 @@ test('the first row of the archived-and-backlog tree starts with the two backlog
   const [tree] = mapShapeRelations(buildRelationsGraph(treeWithArchivedAndBacklogChildren(), null, CTX), MAP_OPTION_DEFAULTS).graphs;
   const layer = layerNodes(tree.ids, tree.layoutEdges);
   const top = tree.ids.filter((id) => layer.get(id) === 0);
-  assert.deepStrictEqual(top, [41, 47, 48, 49, 50, 51], 'the layout alone puts the oldest first');
-  assert.deepStrictEqual(mapOrderRow(top, tree, 'status', ['backlog', 'todo', 'doing', 'done']), [47, 48, 41, 49, 50, 51]);
+  assert.deepStrictEqual(top, ['41', '47', '48', '49', '50', '51'], 'the layout alone puts the oldest first');
+  assert.deepStrictEqual(mapOrderRow(top, tree, 'status', ['backlog', 'todo', 'doing', 'done']), ['47', '48', '41', '49', '50', '51']);
 });

@@ -160,8 +160,8 @@ test('drawing: a divider stops short of a mark that stands on it, and carries on
   assert.strictEqual(plan.dividers.length, 2, 'the divider is in two pieces');
   const at = (d) => [Math.hypot(d.x1, d.y1), Math.hypot(d.x2, d.y2)];
   const [first, second] = plan.dividers.map(at).sort((p, q) => p[0] - q[0]);
-  assert.ok(first[1] < middle - graphRadius(m.byId.get(2)), 'the first piece ends before the mark');
-  assert.ok(second[0] > middle + graphRadius(m.byId.get(2)), 'the second starts after it');
+  assert.ok(first[1] < middle - graphRadius(m.byId.get('2')), 'the first piece ends before the mark');
+  assert.ok(second[0] > middle + graphRadius(m.byId.get('2')), 'the second starts after it');
   assert.strictEqual(planOf(m).dividers.length, 1, 'and with no mark on it, a whole line');
 });
 

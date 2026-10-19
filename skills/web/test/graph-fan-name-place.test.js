@@ -24,14 +24,14 @@ after(cleanUp);
 
 const BOARD = loadBoard('plan');
 const MODEL = drawnModel(BOARD);
-const PLAN_PARENTS = [1, 2, 7, 22, 23];
+const PLAN_PARENTS = ['1', '2', '7', '22', '23'];
 // The plan board's other cards named in a row at Fit on 1600x800, the Unnested cards on the
 // outermost ring: measured, and pinned so a change that loses one shows.
 const ROWS_AT_FIT = 21;
 // The plan board's block cards left unnamed under table at Fit on each stage: measured, and
 // pinned so the loss shows. The backlog column's line runs up the block's left edge, which is
 // inside the rim's reach at every row a name could take, so its four cards are never listed.
-const BACKLOG = [11, 14, 18, 28];
+const BACKLOG = ['11', '14', '18', '28'];
 const BLOCK_UNNAMED_AT_FIT = { '1600x800': BACKLOG, '1280x720': BACKLOG, '1000x700': BACKLOG };
 const STAGES = [[1600, 800], [1280, 720], [1000, 700]];
 const ZOOMS = [1, 2, 0.6];

@@ -149,7 +149,7 @@ test('with row order by layout the same row is in id order', () => {
 });
 
 test('one per tree draws one canvas per tree; one graph draws a single canvas', () => {
-  const cards = [...familyChainingToOneEnd(), ...treeWithArchivedAndBacklogChildren(), card(500, 'todo'), card(501, 'todo', { waiting_for: [500] })];
+  const cards = [...familyChainingToOneEnd(), ...treeWithArchivedAndBacklogChildren(), card(500, 'todo'), card(501, 'todo', { waiting_for: ['500'] })];
   assert.strictEqual(draw(cards).svgs.length, 3);
   assert.strictEqual(draw(cards, { group: 'one' }).svgs.length, 1);
 });
@@ -162,7 +162,7 @@ test('align left starts the first column at the edge in every row; center moves 
 });
 
 test('rich nodes show the type chip, the altitude badge and the roll-up bar of a parent; plain nodes show none', () => {
-  const cards = familyChainingToOneEnd().map((c) => (c.id === 10 ? { ...c, type: 'epic' } : c));
+  const cards = familyChainingToOneEnd().map((c) => (c.id === '10' ? { ...c, type: 'epic' } : c));
   const rich = draw(cards, { cards: 'rich' }, 10).html;
   assert.match(rich, /type-chip[^>]*>epic</);
   assert.match(rich, /alt-badge/);
@@ -172,7 +172,7 @@ test('rich nodes show the type chip, the altitude badge and the roll-up bar of a
 });
 
 test('a rich node is as tall as its content: the parent with a bar is the tallest, and the rect says so', () => {
-  const cards = familyChainingToOneEnd().map((c) => (c.id === 10 ? { ...c, type: 'epic' } : c));
+  const cards = familyChainingToOneEnd().map((c) => (c.id === '10' ? { ...c, type: 'epic' } : c));
   const { html } = draw(cards, {}, 10);
   const heightOf = (id) => Number(nodeOf(html, id)[0].match(/<rect width="176" height="(\d+)"/)[1]);
   assert.ok(heightOf(10) > heightOf(11));

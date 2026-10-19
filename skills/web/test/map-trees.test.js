@@ -16,7 +16,7 @@ const board = () => [
   ...familyChainingToOneEnd(),
   ...treeWithArchivedAndBacklogChildren(),
   card(500, 'todo'),
-  card(501, 'todo', { waiting_for: [500] }),
+  card(501, 'todo', { waiting_for: ['500'] }),
 ];
 
 test('one graph per tree, the biggest first', () => {
@@ -30,7 +30,7 @@ test('one graph per tree, the biggest first', () => {
 
 test('trees of the same size come in order of their lowest card', () => {
   const view = shape([card(9, 'todo'), card(10, 'todo', { parent: 9 }), card(3, 'todo'), card(4, 'todo', { parent: 3 })]);
-  assert.deepStrictEqual(view.graphs.map(idsOf), [[3, 4], [9, 10]]);
+  assert.deepStrictEqual(view.graphs.map(idsOf), [['3', '4'], ['9', '10']]);
 });
 
 test('the one-graph choice holds every related card in a single graph', () => {
@@ -62,41 +62,41 @@ test('cards linked only through the same parent on another board share a tree; a
     card(4, 'todo', { parent: 'shop#8' }),
   ]);
   assert.strictEqual(view.graphs.length, 2);
-  assert.deepStrictEqual(view.graphs[0].nodes.map((n) => n.id).sort(), [2, 3]);
-  assert.deepStrictEqual(view.graphs[1].nodes.map((n) => n.id), [4]);
+  assert.deepStrictEqual(view.graphs['0'].nodes.map((n) => n.id).sort(), ['2', '3']);
+  assert.deepStrictEqual(view.graphs['1'].nodes.map((n) => n.id), ['4']);
 });
 
 test('a stub is part of the tree it joins and counts for the size order', () => {
   const view = shape([card(1, 'todo'), card(2, 'todo', { parent: 1 }), card(3, 'todo', { parent: 1 }), card(7, 'todo', { parent: 99 })],
-    {}, new Set([1, 2, 7]));
+    {}, new Set(['1', '2', '7']));
   assert.deepStrictEqual(view.graphs.map((g) => g.nodes.length), [2, 1]);
-  assert.deepStrictEqual(view.graphs[0].ghosts.map((g) => g.id), [3]);
-  assert.deepStrictEqual(view.graphs[1].ghosts.map((g) => g.id), [99]);
+  assert.deepStrictEqual(view.graphs['0'].ghosts.map((g) => g.id), ['3']);
+  assert.deepStrictEqual(view.graphs['1'].ghosts.map((g) => g.id), ['99']);
 });
 
 // --- the roots a graph's heading names ---------------------------------------
 
 test('the heading of a family names its root', () => {
   const [family] = shape(familyChainingToOneEnd()).graphs;
-  assert.deepStrictEqual(family.roots, [10]);
+  assert.deepStrictEqual(family.roots, ['10']);
 });
 
 test('a tree with two roots names both, lowest first', () => {
-  const [tree] = shape([card(5, 'todo'), card(2, 'todo'), card(6, 'todo', { parent: 5, waiting_for: [3] }), card(3, 'todo', { parent: 2, waiting_for: [6] })]).graphs;
-  assert.deepStrictEqual(tree.roots, [2, 5]);
+  const [tree] = shape([card(5, 'todo'), card(2, 'todo'), card(6, 'todo', { parent: 5, waiting_for: ['3'] }), card(3, 'todo', { parent: 2, waiting_for: ['6'] })]).graphs;
+  assert.deepStrictEqual(tree.roots, ['2', '5']);
 });
 
 test('a chain with no parent names the card that waits on none', () => {
-  const [chain] = shape([card(2, 'todo', { waiting_for: [1] }), card(1, 'todo'), card(3, 'todo', { waiting_for: [2] })]).graphs;
-  assert.deepStrictEqual(chain.roots, [1]);
+  const [chain] = shape([card(2, 'todo', { waiting_for: ['1'] }), card(1, 'todo'), card(3, 'todo', { waiting_for: ['2'] })]).graphs;
+  assert.deepStrictEqual(chain.roots, ['1']);
 });
 
 test('a child whose parent is a stub is the root of what is shown', () => {
-  const [tree] = shape([card(1, 'todo'), card(2, 'todo', { parent: 1 })], {}, new Set([2])).graphs;
-  assert.deepStrictEqual(tree.roots, [2]);
+  const [tree] = shape([card(1, 'todo'), card(2, 'todo', { parent: 1 })], {}, new Set(['2'])).graphs;
+  assert.deepStrictEqual(tree.roots, ['2']);
 });
 
 test('a loop of parents still names a root', () => {
   const [loop] = shape([card(1, 'todo', { parent: 2 }), card(2, 'todo', { parent: 1 })]).graphs;
-  assert.deepStrictEqual(loop.roots, [1]);
+  assert.deepStrictEqual(loop.roots, ['1']);
 });

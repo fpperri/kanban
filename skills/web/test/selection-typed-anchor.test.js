@@ -119,7 +119,7 @@ test('a query is never a lone card, however few cards it matches; nor is a path 
 // --- the rest of the model carries the source -----------------------------------------
 
 test('the parts keep their source through a poll that prunes gone cards and through taking a card out', () => {
-  const board = [{ id: 1, title: 'zephyr one', body: '', status: 'todo', tags: [] }, { id: 2, title: 'zephyr two', body: '', status: 'todo', tags: [] }, { id: 3, title: 'other', body: '', status: 'todo', tags: [] }];
+  const board = [{ id: '1', title: 'zephyr one', body: '', status: 'todo', tags: [] }, { id: '2', title: 'zephyr two', body: '', status: 'todo', tags: [] }, { id: '3', title: 'other', body: '', status: 'todo', tags: [] }];
   const match = (text) => new Set(filterCards(board, parseSearchQuery(text), {}).map((c) => c.id));
   const typed = selectionOf(typedQueryPart('zephyr'), cardPart(3));
   assert.strictEqual(isTypedAnchor(pruneSelectionParts(typed, [1, 2, 3])), true);
@@ -133,7 +133,7 @@ test('the parts keep their source through a poll that prunes gone cards and thro
 test('a plain click on a card sets a card anchor, so the typed anchor is gone; Shift or Ctrl adds the card and keeps the typed anchor', () => {
   const typed = selectionOf(typedQueryPart('zephyr'));
   const match = () => new Set();
-  const resolved = new Set([1]);
+  const resolved = new Set(['1']);
   const click = (action, id) => selectionAfterClick(action, id, { selection: typed, resolved, rangeStart: null, order: [], matchQuery: match }).selection;
   assert.deepStrictEqual(click('select', 9), { anchor: cardPart(9), additions: [] });
   assert.deepStrictEqual(click('toggle', 9), { anchor: typedQueryPart('zephyr'), additions: [cardPart(9)] });

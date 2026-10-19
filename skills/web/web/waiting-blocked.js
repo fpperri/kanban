@@ -73,7 +73,7 @@ const WB_IDS = (typeof module !== 'undefined' && module.exports) ? require('./id
 // carry them answers too.
 function unresolvedWaits(waitingFor, byId) {
   return (waitingFor || [])
-    .map((id) => byId.get(WB_IDS.idKey(id)) || byId.get(id))
+    .map((id) => byId.get(WB_IDS.idKey(id)) || byId.get(String(id)) || byId.get(id))
     .filter((c) => c && c.status !== 'done');
 }
 

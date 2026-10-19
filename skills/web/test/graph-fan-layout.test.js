@@ -84,7 +84,7 @@ test('fan: without a hierarchy the bands are the depth rings in depth order, and
   const l = fanOf(m);
   assert.deepStrictEqual(l.bands.map((b) => b.slice.depth), [0, 1, 2]);
   assert.deepStrictEqual(l.rings.map((r) => r.label), ['depth 0', 'depth 1', 'depth 2']);
-  const radii = [1, 2, 4].map((id) => radius(l, id));
+  const radii = ['1', '2', '4'].map((id) => radius(l, id));
   assert.deepStrictEqual(radii, [...radii].sort((a, b) => a - b));
   assert.ok(Math.abs(radius(l, 2) - radius(l, 3)) < 1e-9, 'siblings share a ring');
   for (const id of [5, 6]) assert.ok(radius(l, id) > l.bands[2].r1, `loose card ${id} is outside the rings`);
@@ -104,8 +104,8 @@ test('fan: each tree sits in its own stretch of the fan, in order, and a card si
   assert.ok(a.from > a.to && b.from > b.to, 'a sector runs from its left edge round to its right edge');
   assert.ok(a.to > b.from, 'the first tree is left of the second, with a gap between');
   const within = (id, s) => angleOf(l, id) <= s.from + 1e-9 && angleOf(l, id) >= s.to - 1e-9;
-  for (const id of [1, 2, 3, 4, 5]) assert.ok(within(id, a), `card ${id} is in the first sector`);
-  for (const id of [6, 7, 8]) assert.ok(within(id, b), `card ${id} is in the second sector`);
+  for (const id of ['1', '2', '3', '4', '5']) assert.ok(within(id, a), `card ${id} is in the first sector`);
+  for (const id of ['6', '7', '8']) assert.ok(within(id, b), `card ${id} is in the second sector`);
   assert.ok(angleOf(l, 2) < angleOf(l, 4) && angleOf(l, 2) > angleOf(l, 5), 'a parent is between its children');
   assert.ok(angleOf(l, 4) > angleOf(l, 5), 'siblings follow the outline, left to right');
   assert.ok(angleOf(l, 2) > angleOf(l, 3), 'and so do the children of one parent and its sibling');
@@ -147,8 +147,8 @@ test('fan: a tier band, a depth ring, the sector of a tree and the sector of loo
 test('fan: a lone tree sits opposite the seam, its root at the bottom and its children either side, the outline running left to right along the bottom', () => {
   const m = buildOf([card(1), card(2, { parent: 1 }), card(3, { parent: 1 })], []);
   const l = fanOf(m);
-  assert.ok(Math.abs(l.pos.get(1).x) < 1e-6 && l.pos.get(1).y > 0, 'the root is straight down');
-  assert.ok(l.pos.get(2).x < 0 && l.pos.get(3).x > 0);
+  assert.ok(Math.abs(l.pos.get('1').x) < 1e-6 && l.pos.get('1').y > 0, 'the root is straight down');
+  assert.ok(l.pos.get('2').x < 0 && l.pos.get('3').x > 0);
 });
 
 test('fan: a sector\'s share of the fan follows the arc its leaves need, which is their count while they sit on one ring', () => {
@@ -200,7 +200,7 @@ test('fan: an archived card stays out of the fan until the Archive status pill s
   const hidden = fanWith(false);
   for (const id of [19, 20, 21]) assert.ok(!hidden.l.pos.has(id), `archived card ${id} is not drawn`);
   const shown = fanWith(true);
-  for (const id of [19, 20, 21]) assert.ok(shown.l.pos.has(id), `archived card ${id} is drawn`);
+  for (const id of ['19', '20', '21']) assert.ok(shown.l.pos.has(id), `archived card ${id} is drawn`);
   assert.ok(Math.abs(radius(shown.l, 19) - radius(shown.l, 8)) < 1e-6, 'archived 19 is at depth 2, on the ring of card 8');
   assert.deepStrictEqual(shown.l.block.columns.map((c) => c.label), ['backlog', 'todo', 'doing', 'done', 'archived']);
   assert.deepStrictEqual(shown.l.block.columns[4].ids, [20, 21]);
@@ -337,7 +337,7 @@ test('fan: the icon a type draws with moves no dot, so editing it does not redra
   const m = graphBuild(cards, { ctx: CTX, hierarchy: HIERARCHY });
   const kids = m.nodes.filter((n) => n.parentId === 1).map((n) => star.pos.get(n.id));
   kids.sort((p, q) => turnOf(star, q) - turnOf(star, p));
-  const starReach = 1.4 * graphRadius(m.byId.get(2));
+  const starReach = 1.4 * graphRadius(m.byId.get('2'));
   for (let i = 0; i + 1 < kids.length; i++) assert.ok(Math.hypot(kids[i].x - kids[i + 1].x, kids[i].y - kids[i + 1].y) >= 2 * starReach, `stars ${i} and ${i + 1} do not touch`);
 });
 

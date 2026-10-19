@@ -25,7 +25,7 @@ const ids = (set) => [...set].sort((a, b) => a - b);
 // (altitude 5); 2 holds 7, 8 and what 7 holds (4); 7 holds 22 and its children (3); 22
 // holds 23 and 25 and 24 below 23 (2); 23 holds 24 (1). Cards 2 to 6 are waited for or wait
 // as written in the board's own files; card 5 has the relations 1 (its parent), 6 and 27.
-const PLAN_PARENTS = [1, 2, 7, 22, 23];
+const PLAN_PARENTS = ['1', '2', '7', '22', '23'];
 
 // 26 parents with one child each (parent 2k-1, child 2k, altitude 1 every one), and one
 // tall chain 101 > 102 > 103 > 104 (altitudes 3, 2, 1). 56 cards, 29 parents: more than the
@@ -58,7 +58,7 @@ test('plan fixture, nothing selected, on a fan above the small size: relevant na
 
 test('plan fixture: the parents are named from the highest altitude down, 1 (5 layers below), 2 (4), 7 (3), 22 (2), 23 (1)', () => {
   const model = drawnModel(BOARDS.plan);
-  assert.deepStrictEqual([...graphFanNames(model, 'relevant')], [1, 2, 7, 22, 23], 'in the order they are named, which the cap cuts from the end');
+  assert.deepStrictEqual([...graphFanNames(model, 'relevant')], ['1', '2', '7', '22', '23'], 'in the order they are named, which the cap cuts from the end');
 });
 
 test('relevant names the parents from the highest altitude down and stops at the cap', () => {
@@ -67,8 +67,8 @@ test('relevant names the parents from the highest altitude down and stops at the
   assert.strictEqual(named.size, GRAPH_FAN_NAMES_CAP);
   assert.deepStrictEqual(ids(named), ids([101, 102, ...ODD_UNDER_THE_CAP]), 'altitude 3 and 2 first, then altitude 1 by id');
   for (const leaf of [2, 4, 104]) assert.ok(!named.has(leaf), `leaf ${leaf} is not named`);
-  assert.ok(!named.has(103), 'card 103 is a parent of altitude 1 with a higher id than the cap reaches');
-  assert.ok(!named.has(51), 'and so is card 51');
+  assert.ok(!named.has('103'), 'card 103 is a parent of altitude 1 with a higher id than the cap reaches');
+  assert.ok(!named.has('51'), 'and so is card 51');
 });
 
 test('altitude is blind to type: a story with sub-steps and an epic with stories both stand at 1, and one more layer stands higher', () => {
@@ -78,17 +78,17 @@ test('altitude is blind to type: a story with sub-steps and an epic with stories
     ...Array.from({ length: 30 }, (_, k) => card(10 + k)),
   ]);
   assert.ok(model.nodes.length > GRAPH_FAN_NAMES_SMALL);
-  assert.deepStrictEqual(ids(graphFanNames(model, 'relevant')), [1, 2, 4], 'parents: 1 at 2, 2 at 1, 4 at 1');
+  assert.deepStrictEqual(ids(graphFanNames(model, 'relevant')), ['1', '2', '4'], 'parents: 1 at 2, 2 at 1, 4 at 1');
 });
 
 test('a parent whose children are not drawn still stands as high as the board makes it: altitude is the layers of cards below, drawn or not', () => {
   const cards = [card(1), card(2, { parent: 1 }), card(3, { parent: 2 }), ...Array.from({ length: 30 }, (_, k) => card(10 + k))];
   const hidden = buildOf(cards, undefined, cards.map((c) => c.id).filter((id) => id !== 2 && id !== 3));
   assert.ok(hidden.nodes.length > GRAPH_FAN_NAMES_SMALL);
-  assert.ok(!hidden.byId.has(2) && !hidden.byId.has(3), 'the children are not drawn');
+  assert.ok(!hidden.byId.has('2') && !hidden.byId.has('3'), 'the children are not drawn');
   assert.deepStrictEqual(ids(graphFanNames(hidden, 'relevant')), [1], 'card 1 has two layers below it on the board, as its badge says');
-  assert.strictEqual(hidden.altitude.get(1), 2);
-  assert.strictEqual(hidden.altitude.get(10), 0);
+  assert.strictEqual(hidden.altitude.get('1'), 2);
+  assert.strictEqual(hidden.altitude.get('10'), 0);
 });
 
 test('the altitude the Names option reads is the nesting module\'s, the one the tiles\' badge shows, whatever is drawn', () => {
@@ -105,24 +105,24 @@ test('the altitude the Names option reads is the nesting module\'s, the one the 
 
 test('relevant names the selected cards, and the cards a lone card lights: its one-hop relations', () => {
   const model = staircase();
-  const named = graphFanNames(model, 'relevant', { selectedIds: new Set([52]), loneCardId: 52 });
-  assert.ok(named.has(52), 'the selected leaf');
-  assert.ok(named.has(51), 'its parent, a relation of the lone card that the cap would not have reached');
+  const named = graphFanNames(model, 'relevant', { selectedIds: new Set(['52']), loneCardId: 52 });
+  assert.ok(named.has('52'), 'the selected leaf');
+  assert.ok(named.has('51'), 'its parent, a relation of the lone card that the cap would not have reached');
   assert.strictEqual(named.size, GRAPH_FAN_NAMES_CAP, 'the cap counts the lit cards, and the parents fill what is left of it');
-  assert.ok(named.has(101) && named.has(102), 'the tallest parents come next');
+  assert.ok(named.has('101') && named.has('102'), 'the tallest parents come next');
 });
 
 test('a lone card on the plan board lights card 1, 6 and 27 with it, and they are named with the parents', () => {
   const model = drawnModel(BOARDS.plan);
-  const named = graphFanNames(model, 'relevant', { selectedIds: new Set([5]), loneCardId: 5 });
+  const named = graphFanNames(model, 'relevant', { selectedIds: new Set(['5']), loneCardId: 5 });
   assert.deepStrictEqual(ids(named), ids(new Set([5, 1, 6, 27, ...PLAN_PARENTS])));
 });
 
 test('a selection of several cards lights exactly its cards, so it names those and not their relations', () => {
   const model = staircase();
-  const named = graphFanNames(model, 'relevant', { selectedIds: new Set([52, 50]), loneCardId: null });
-  assert.ok(named.has(52) && named.has(50));
-  assert.ok(!named.has(51) && !named.has(49), 'the parents of the two are not lit, and are past the cap');
+  const named = graphFanNames(model, 'relevant', { selectedIds: new Set(['52', '50']), loneCardId: null });
+  assert.ok(named.has('52') && named.has('50'));
+  assert.ok(!named.has('51') && !named.has('49'), 'the parents of the two are not lit, and are past the cap');
   assert.strictEqual(named.size, GRAPH_FAN_NAMES_CAP);
 });
 
@@ -137,7 +137,7 @@ test('a selection or a pill\'s matches are always named, past the cap', () => {
 
 test('a selected card the fan does not draw names nothing, and a card that is not on the board is no name', () => {
   const model = drawnModel(BOARDS.plan);
-  const named = graphFanNames(model, 'relevant', { selectedIds: new Set([999, 5000]), loneCardId: 999 });
+  const named = graphFanNames(model, 'relevant', { selectedIds: new Set(['999', '5000']), loneCardId: 999 });
   assert.deepStrictEqual(ids(named), PLAN_PARENTS);
 });
 
@@ -148,7 +148,7 @@ test('on a fan at or below the small size, relevant names every card', () => {
   assert.strictEqual(at.nodes.length, GRAPH_FAN_NAMES_SMALL);
   assert.deepStrictEqual(ids(graphFanNames(at, 'relevant')), at.nodes.map((n) => n.id).sort((a, b) => a - b));
   const one = buildOf([card(1)]);
-  assert.deepStrictEqual(ids(graphFanNames(one, 'relevant')), [1]);
+  assert.deepStrictEqual(ids(graphFanNames(one, 'relevant')), ['1']);
   const over = buildOf(Array.from({ length: GRAPH_FAN_NAMES_SMALL + 1 }, (_, k) => card(k + 1)));
   assert.deepStrictEqual(ids(graphFanNames(over, 'relevant')), [], 'one more card and relevant is back to the parents: here there are none');
 });
@@ -156,7 +156,7 @@ test('on a fan at or below the small size, relevant names every card', () => {
 test('the small size counts the cards drawn, not the cards on the board', () => {
   const cards = Array.from({ length: 30 }, (_, k) => card(k + 1));
   const shown = buildOf(cards, undefined, cards.slice(0, 5).map((c) => c.id));
-  assert.deepStrictEqual(ids(graphFanNames(shown, 'relevant')), [1, 2, 3, 4, 5]);
+  assert.deepStrictEqual(ids(graphFanNames(shown, 'relevant')), ['1', '2', '3', '4', '5']);
 });
 
 test('an empty fan names nothing, whatever the setting', () => {
@@ -187,14 +187,14 @@ test('a setting the row does not offer reads as relevant', () => {
 
 test('the named set is a new Set each time, the same for the same input, and the inputs are left as they were', () => {
   const model = staircase();
-  const picked = new Set([52]);
+  const picked = new Set(['52']);
   const a = graphFanNames(model, 'relevant', { selectedIds: picked, loneCardId: 52 });
   const b = graphFanNames(model, 'relevant', { selectedIds: picked, loneCardId: 52 });
   assert.notStrictEqual(a, b);
   assert.deepStrictEqual(ids(a), ids(b));
-  assert.deepStrictEqual([...picked], [52]);
-  a.add(7777);
-  assert.ok(!graphFanNames(model, 'relevant', { selectedIds: picked, loneCardId: 52 }).has(7777));
+  assert.deepStrictEqual([...picked], ['52']);
+  a.add('7777');
+  assert.ok(!graphFanNames(model, 'relevant', { selectedIds: picked, loneCardId: 52 }).has('7777'));
 });
 
 // --- the n key steps through the values --------------------------------------------------------------------
@@ -241,9 +241,9 @@ test('the plan marks the named cards: relevant, all and none each name the numbe
 
 test('the plan names what the selection lights: the cards it is given and a lone card\'s relations', () => {
   const model = drawnModel(BOARDS.plan);
-  const lone = planOf(model, { names: 'relevant' }, { selectedIds: new Set([5]), loneCardId: 5 });
+  const lone = planOf(model, { names: 'relevant' }, { selectedIds: new Set(['5']), loneCardId: 5 });
   assert.deepStrictEqual(namedIn(lone), ids(new Set([5, 1, 6, 27, ...PLAN_PARENTS])));
-  const several = planOf(model, { names: 'relevant' }, { selectedIds: new Set([5, 6]), loneCardId: null });
+  const several = planOf(model, { names: 'relevant' }, { selectedIds: new Set(['5', '6']), loneCardId: null });
   assert.deepStrictEqual(namedIn(several), ids(new Set([5, 6, ...PLAN_PARENTS])));
 });
 

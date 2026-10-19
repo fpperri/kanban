@@ -313,14 +313,14 @@ test('quoted id:, tree: and path: values are the same as unquoted ones, and a qu
 // lives. Card 28 is itself done and still waits for card 20.
 const WAITS = [
   card(20, { title: 'The thing waited for', status: 'doing' }),
-  card(21, { title: 'Waits for a doing card', waiting_for: [20] }),
-  card(22, { title: 'Waits for a done card', waiting_for: [23] }),
+  card(21, { title: 'Waits for a doing card', waiting_for: ['20'] }),
+  card(22, { title: 'Waits for a done card', waiting_for: ['23'] }),
   card(23, { title: 'A done card', status: 'done' }),
-  card(24, { title: 'Waits for a dangling id', waiting_for: [99] }),
-  card(25, { title: 'Waits for both', waiting_for: [23, 20] }),
+  card(24, { title: 'Waits for a dangling id', waiting_for: ['99'] }),
+  card(25, { title: 'Waits for both', waiting_for: ['23', '20'] }),
   card(26, { title: 'Archived and not done', status: 'backlog', archived: true }),
-  card(27, { title: 'Waits for an archived card', waiting_for: [26] }),
-  card(28, { title: 'Done and waiting', status: 'done', waiting_for: [20] }),
+  card(27, { title: 'Waits for an archived card', waiting_for: ['26'] }),
+  card(28, { title: 'Done and waiting', status: 'done', waiting_for: ['20'] }),
   card(29, { title: 'Waits for nothing' }),
 ];
 
@@ -344,7 +344,7 @@ test('waiting: is a complete term of its own and not a value, so waiting:3 stays
   assert.deepStrictEqual(parseSearchQuery('waiting:'), [{ field: 'waiting', value: '' }]);
   assert.deepStrictEqual(parseSearchQuery('WAITING:'), [{ field: 'waiting', value: '' }]);
   assert.deepStrictEqual(parseSearchQuery('waiting:3'), [{ field: null, value: 'waiting:3' }]);
-  const literal = [card(7, { title: 'See waiting:3 for details' }), card(8, { waiting_for: [20] }), card(20, { status: 'doing' })];
+  const literal = [card(7, { title: 'See waiting:3 for details' }), card(8, { waiting_for: ['20'] }), card(20, { status: 'doing' })];
   assert.deepStrictEqual(ids('waiting:3', literal), [7]);
 });
 
@@ -361,7 +361,7 @@ test('the resolver turns waiting: into an id term over the whole board, once, an
   const [resolved] = resolveTerms(WAITS, terms, {});
   assert.strictEqual(resolved.field, 'or');
   assert.strictEqual(resolved.alts[0][0].field, 'ids');
-  assert.deepStrictEqual([...resolved.alts[0][0].ids].sort((a, b) => a - b), [21, 25, 27, 28]);
+  assert.deepStrictEqual([...resolved.alts['0']['0'].ids].sort((a, b) => a - b), ['21', '25', '27', '28']);
   assert.strictEqual(terms[0].alts[0][0].field, 'waiting', 'the parsed terms are not rewritten in place');
 });
 

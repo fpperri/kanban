@@ -59,7 +59,7 @@ test('right-clicking the card detail opens the card menu for the card shown, wit
 test('the card shown outside a hand-built selection leaves it as it was, and the menu is for the card shown alone', () => {
   const s = menuSandbox({ detailId: 7, selected: [1, 2] });
   s.onDetailContextMenu(rightClick());
-  assert.deepStrictEqual(s.selected(), [1, 2]);
+  assert.deepStrictEqual(s.selected(), ['1', '2']);
   assert.deepStrictEqual(s.subject().ids, [7]);
   assert.strictEqual(s.subject().peek, false);
 });
@@ -67,7 +67,7 @@ test('the card shown outside a hand-built selection leaves it as it was, and the
 test('a card already in a batch keeps the whole batch as the menu\'s subject', () => {
   const s = menuSandbox({ detailId: 7, selected: [7, 8] });
   s.onDetailContextMenu(rightClick());
-  assert.deepStrictEqual(s.selected(), [7, 8]);
+  assert.deepStrictEqual(s.selected(), ['7', '8']);
   assert.deepStrictEqual(s.subject().ids, [7, 8]);
   assert.strictEqual(s.calls.renderBoard, 0);
   assert.strictEqual(s.calls.menu.length, 1);
@@ -125,7 +125,7 @@ function refreshSandbox({ detailId, cards }) {
 }
 
 test('after the board reloads, the open popup is read again so it shows what the menu changed', () => {
-  const s = refreshSandbox({ detailId: 7, cards: [{ id: 7 }] });
+  const s = refreshSandbox({ detailId: 7, cards: [{ id: '7' }] });
   s.refreshOpenDetail();
   assert.strictEqual(s.calls.open.length, 1);
   assert.strictEqual(s.calls.open[0][0], 7);
@@ -134,14 +134,14 @@ test('after the board reloads, the open popup is read again so it shows what the
 });
 
 test('a card the menu deleted closes its popup', () => {
-  const s = refreshSandbox({ detailId: 7, cards: [{ id: 8 }] });
+  const s = refreshSandbox({ detailId: 7, cards: [{ id: '8' }] });
   s.refreshOpenDetail();
   assert.deepStrictEqual(s.calls.open, []);
   assert.strictEqual(s.calls.closed, 1);
 });
 
 test('with no popup open a reload leaves it alone', () => {
-  const s = refreshSandbox({ detailId: null, cards: [{ id: 7 }] });
+  const s = refreshSandbox({ detailId: null, cards: [{ id: '7' }] });
   s.refreshOpenDetail();
   assert.deepStrictEqual(s.calls.open, []);
   assert.strictEqual(s.calls.closed, 0);

@@ -259,9 +259,9 @@ test('a card the depth map does not know is read as a root, and a damaged depth 
 const WEB = path.join(__dirname, '..', 'web');
 const sourceOf = (file) => fs.readFileSync(path.join(WEB, file), 'utf8').split('\r\n').join('\n');
 
-test('the slice module needs no other module, cannot close the script element it is embedded in, and holds no build placeholder', () => {
+test('the slice module needs no module but the id module, cannot close the script element it is embedded in, and holds no build placeholder', () => {
   const source = sourceOf('slices.js');
-  assert.doesNotMatch(source, /\brequire\(/);
+  assert.doesNotMatch(source, /\brequire\((?!'\.\/ids'\))/);
   assert.doesNotMatch(source, /\bimport\b/);
   assert.doesNotMatch(source, /<\/script/i);
   assert.doesNotMatch(source, /__[A-Z_]+__/);

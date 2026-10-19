@@ -23,8 +23,8 @@ const card = (id, extra = {}) => ({
 const POOL = [
   card(1, { title: 'Zephyr migration', status: 'doing' }),
   card(2, { title: 'Move the data layer', parent: 1 }),
-  card(3, { title: 'Zephyr cutover plan', parent: 1, waiting_for: [2] }),
-  card(4, { title: 'Retire the scheduler', waiting_for: [1] }),
+  card(3, { title: 'Zephyr cutover plan', parent: 1, waiting_for: ['2'] }),
+  card(4, { title: 'Retire the scheduler', waiting_for: ['1'] }),
   card(5, { title: 'Zephyr release notes', status: 'done' }),
   card(6, { title: 'Zephyr spike', status: 'done', archived: true }),
   card(7, { title: 'Book the venue' }),
@@ -100,7 +100,7 @@ const slicedMatch = (query) => {
 };
 const effectOf = (query) => graphQueryEffect(slicedMatch(query), TIERED, SLICE_CTX);
 const shape = (effect) => ({ visibleIds: effect.visibleIds && sorted(effect.visibleIds), litIds: effect.litIds && sorted(effect.litIds) });
-const ALL_TIERED = [1, 2, 3, 4, 5, 6];
+const ALL_TIERED = ['1', '2', '3', '4', '5', '6'];
 
 test('a slice: term on its own hides the cards outside its cut and lights nothing, since the rest of the query is empty', () => {
   assert.deepStrictEqual(shape(effectOf('slice:goal..objective')), { visibleIds: [1, 2, 3], litIds: null });
@@ -191,7 +191,7 @@ const model = () => graphBuild(POOL, { ctx: CTX, visibleIds: drawn(matchOf('')) 
 
 test('a lighting is the cards asked for that the Graph draws, and the relations that run between two of them', () => {
   const m = model();
-  const lit = graphLit(m, new Set([1, 3, 5, 6, 99]));
+  const lit = graphLit(m, new Set(['1', '3', '5', '6', '99']));
   assert.deepStrictEqual(sorted(lit.nodes), [1, 3, 5], 'card 6 is archived and not drawn, card 99 is not on the board');
   assert.deepStrictEqual([...lit.links].map((i) => `${m.links[i].from}>${m.links[i].to}`), ['1>3']);
 });
@@ -199,7 +199,7 @@ test('a lighting is the cards asked for that the Graph draws, and the relations 
 test('a lighting of nothing is none at all, so nothing dims', () => {
   const m = model();
   assert.strictEqual(graphLit(m, new Set()), null);
-  assert.strictEqual(graphLit(m, new Set([99])), null);
+  assert.strictEqual(graphLit(m, new Set(['99'])), null);
   assert.strictEqual(graphLit(m, null), null);
 });
 
@@ -214,21 +214,21 @@ test('hovering a card lights it with its one-hop relations and the lines among t
 
 test('a lone card picked by a click lights with its one-hop relations', () => {
   const m = model();
-  const lit = graphRestLit(m, { selectedIds: new Set([1]), loneCardId: 1 });
+  const lit = graphRestLit(m, { selectedIds: new Set(['1']), loneCardId: 1 });
   assert.deepStrictEqual(sorted(lit.nodes), [1, 2, 3, 4]);
-  assert.deepStrictEqual(sorted(graphRestLit(m, { selectedIds: new Set([7]), loneCardId: 7 }).nodes), [7], 'a card with no relations lights alone');
+  assert.deepStrictEqual(sorted(graphRestLit(m, { selectedIds: new Set(['7']), loneCardId: 7 }).nodes), [7], 'a card with no relations lights alone');
 });
 
 test('a query that matches one card lights that card alone, without its relations', () => {
   const m = model();
-  const lit = graphRestLit(m, { selectedIds: new Set([1]), loneCardId: null });
+  const lit = graphRestLit(m, { selectedIds: new Set(['1']), loneCardId: null });
   assert.deepStrictEqual(sorted(lit.nodes), [1]);
   assert.strictEqual(lit.links.size, 0);
 });
 
 test('a selection of several cards lights exactly those cards and the lines between them, not their relations', () => {
   const m = model();
-  const lit = graphRestLit(m, { selectedIds: new Set([1, 3, 7]), loneCardId: null });
+  const lit = graphRestLit(m, { selectedIds: new Set(['1', '3', '7']), loneCardId: null });
   assert.deepStrictEqual(sorted(lit.nodes), [1, 3, 7]);
   assert.deepStrictEqual([...lit.links].map((i) => `${m.links[i].from}>${m.links[i].to}`), ['1>3']);
 });
@@ -247,5 +247,5 @@ test('with nothing selected nothing rests lit', () => {
 
 test('a lone card the Graph does not draw lights nothing', () => {
   const m = model();
-  assert.strictEqual(graphRestLit(m, { selectedIds: new Set([6]), loneCardId: 6 }), null);
+  assert.strictEqual(graphRestLit(m, { selectedIds: new Set(['6']), loneCardId: 6 }), null);
 });

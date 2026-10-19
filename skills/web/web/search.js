@@ -94,6 +94,13 @@ const NSM = (typeof module !== 'undefined' && module.exports) ? require('./nesti
 // Ids are read and compared through the id module (a card is `#7` or `#G7`, never a number).
 const SEARCH_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
+// The key of a card in an id set: its whole-id string. A value that is no id (the
+// snapshot's queued cards are `n1`, `n2`) keys as its own text, so two of them never meet.
+function searchKey(id) {
+  const key = SEARCH_IDS.idKey(id);
+  return key === null ? String(id) : key;
+}
+
 const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
 // tree:/path: are deliberately NOT in KNOWN_FIELDS — that array drives the
 // lowercased-substring value semantics, which don't apply to a numeric id.
@@ -609,7 +616,7 @@ function termMatchesCard(term, card) {
   const body = (card.body || '').toLowerCase();
   const tags = card.tags || [];
   switch (term.field) {
-    case 'id': return SEARCH_IDS.idKey(card.id) !== null && SEARCH_IDS.idKey(card.id) === SEARCH_IDS.idKey(term.value);
+    case 'id': return searchKey(card.id) === searchKey(term.value);
     case 'title': return searchFieldHit(title, term);
     case 'body': return searchFieldHit(body, term);
     case 'status': return searchFieldHit(card.status, term);
@@ -629,7 +636,7 @@ function termMatchesCard(term, card) {
     // here (a single (term, card) pair isn't enough), so it matches nothing
     // rather than throwing. Always goes through filterCards in practice.
     case 'tree': case 'path': case 'waiting': case 'slice': return false;
-    case 'ids': return term.ids.has(SEARCH_IDS.idKey(card.id));
+    case 'ids': return term.ids.has(searchKey(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: { // bare term: title + body + tags; a phrase reads across a line break
       const flat = term.value.includes(' ') ? searchFlat : (text) => text;
@@ -686,8 +693,8 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'waiting') {
       if (!memo.waiting) {
-        const byId = new Map(cards.map((c) => [SEARCH_IDS.idKey(c.id), c]));
-        memo.waiting = new Set(cards.filter((c) => WBS.unresolvedWaits(c.waiting_for, byId).length > 0).map((c) => SEARCH_IDS.idKey(c.id)));
+        const byId = new Map(cards.map((c) => [searchKey(c.id), c]));
+        memo.waiting = new Set(cards.filter((c) => WBS.unresolvedWaits(c.waiting_for, byId).length > 0).map((c) => searchKey(c.id)));
       }
       next = { field: 'ids', value: term.value, ids: memo.waiting };
     } else if (Array.isArray(term.alts)) {
@@ -725,7 +732,7 @@ function sliceEndIndex(axis, text) {
 // and nesting.js cuts nothing.
 function sliceIds(cards, value, ctx, memo) {
   const slices = searchSlices(cards, ctx, memo);
-  if (!slices) return new Set(cards.map((c) => SEARCH_IDS.idKey(c.id)));
+  if (!slices) return new Set(cards.map((c) => searchKey(c.id)));
   const { axis, byId } = slices;
   const dots = value.indexOf('..');
   let from = sliceEndIndex(axis, dots < 0 ? value : value.slice(0, dots));
@@ -733,7 +740,7 @@ function sliceIds(cards, value, ctx, memo) {
   if (from >= 0 && to >= 0 && from > to) [from, to] = [to, from];
   const first = from < 0 ? 0 : from;
   const last = to < 0 ? axis.length - 1 : to;
-  return new Set(cards.filter((c) => { const at = byId.get(c.id).index; return at >= first && at <= last; }).map((c) => SEARCH_IDS.idKey(c.id)));
+  return new Set(cards.filter((c) => { const at = byId.get(searchKey(c.id)).index; return at >= first && at <= last; }).map((c) => searchKey(c.id)));
 }
 
 // Convenience: empty terms means "no active query" — everything matches. `ctx`

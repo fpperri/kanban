@@ -13,7 +13,7 @@ const { sliceCards } = require('../web/slices');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra = {}) => ({
-  id, title: `card ${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra,
+  id: String(id), title: `card ${id}`, status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra,
 });
 const build = (cards, visibleIds = null) => graphBuild(cards, { ctx: CTX, visibleIds });
 const plain = (layout) => JSON.parse(JSON.stringify({ ...layout, pos: [...layout.pos] }));
@@ -24,74 +24,74 @@ const ang = (p) => Math.atan2(p.y, p.x);
 // --- build -----------------------------------------------------------------------
 
 test('build: parent links run parent to child, wait links run waited-for to waiter (the head sits on the card that waits)', () => {
-  const m = build([card(1), card(2, { parent: 1 }), card(3, { waiting_for: [2] })]);
+  const m = build([card(1), card(2, { parent: 1 }), card(3, { waiting_for: ['2'] })]);
   assert.deepStrictEqual(m.links, [
-    { from: 1, to: 2, kind: 'parent' },
-    { from: 2, to: 3, kind: 'wait' },
+    { from: '1', to: '2', kind: 'parent' },
+    { from: '2', to: '3', kind: 'wait' },
   ]);
-  const n1 = m.byId.get(1);
+  const n1 = m.byId.get('1');
   assert.strictEqual(n1.kids, 1);
   assert.strictEqual(n1.deg, 1);
-  assert.strictEqual(m.byId.get(2).deg, 2);
-  assert.strictEqual(m.byId.get(2).parentId, 1);
-  assert.strictEqual(m.byId.get(2).depth, 1);
-  assert.strictEqual(m.byId.get(2).rootId, 1);
+  assert.strictEqual(m.byId.get('2').deg, 2);
+  assert.strictEqual(m.byId.get('2').parentId, '1');
+  assert.strictEqual(m.byId.get('2').depth, 1);
+  assert.strictEqual(m.byId.get('2').rootId, '1');
 });
 
 test('build: an archived parent that is not drawn makes the child a root', () => {
   const pool = [card(1, { archived: true, status: 'done' }), card(2, { parent: 1 })];
-  const m = build(pool, new Set([2]));
+  const m = build(pool, new Set(['2']));
   assert.strictEqual(m.links.length, 0);
-  assert.strictEqual(m.byId.get(2).parentId, null);
-  assert.strictEqual(m.byId.get(2).rootId, 2);
-  assert.strictEqual(m.byId.get(2).depth, 0);
+  assert.strictEqual(m.byId.get('2').parentId, null);
+  assert.strictEqual(m.byId.get('2').rootId, '2');
+  assert.strictEqual(m.byId.get('2').depth, 0);
 });
 
 test('build: a parent on another board leaves the card a root', () => {
   const m = build([card(2, { parent: 'other#1' }), card(1)]);
   assert.strictEqual(m.links.length, 0);
-  assert.strictEqual(m.byId.get(2).parentId, null);
+  assert.strictEqual(m.byId.get('2').parentId, null);
   const own = build([card(1), card(2, { parent: 'kanban#1' })]);
-  assert.strictEqual(own.byId.get(2).parentId, 1);
+  assert.strictEqual(own.byId.get('2').parentId, '1');
 });
 
 test('build: a parent cycle loses the smallest id parent link', () => {
   const m = build([card(3, { parent: 2 }), card(2, { parent: 1 }), card(1, { parent: 3 }), card(9, { parent: 9 })]);
-  assert.strictEqual(m.byId.get(1).parentId, null);
-  assert.strictEqual(m.byId.get(2).parentId, 1);
-  assert.strictEqual(m.byId.get(3).parentId, 2);
-  assert.strictEqual(m.byId.get(9).parentId, null);
+  assert.strictEqual(m.byId.get('1').parentId, null);
+  assert.strictEqual(m.byId.get('2').parentId, '1');
+  assert.strictEqual(m.byId.get('3').parentId, '2');
+  assert.strictEqual(m.byId.get('9').parentId, null);
   assert.strictEqual(m.nodes.length, 4);
-  assert.deepStrictEqual(m.nodes.filter((n) => n.rootId === 1).map((n) => n.id), [1, 2, 3]);
+  assert.deepStrictEqual(m.nodes.filter((n) => n.rootId === '1').map((n) => n.id), ['1', '2', '3']);
 });
 
 test('build: dangling, self and duplicate waits are dropped', () => {
-  const m = build([card(1, { waiting_for: [1, 99, 2, 2] }), card(2)]);
-  assert.deepStrictEqual(m.links, [{ from: 2, to: 1, kind: 'wait' }]);
+  const m = build([card(1, { waiting_for: ['1', '99', '2', '2'] }), card(2)]);
+  assert.deepStrictEqual(m.links, [{ from: '2', to: '1', kind: 'wait' }]);
 });
 
 test('build: a card waiting on a hidden card still reads waiting; done waits do not', () => {
-  const pool = [card(1, { waiting_for: [2] }), card(2), card(3, { waiting_for: [4] }), card(4, { status: 'done' })];
-  const m = build(pool, new Set([1, 3]));
-  assert.strictEqual(m.byId.get(1).waiting, true);
-  assert.strictEqual(m.byId.get(3).waiting, false);
+  const pool = [card(1, { waiting_for: ['2'] }), card(2), card(3, { waiting_for: ['4'] }), card(4, { status: 'done' })];
+  const m = build(pool, new Set(['1', '3']));
+  assert.strictEqual(m.byId.get('1').waiting, true);
+  assert.strictEqual(m.byId.get('3').waiting, false);
   assert.strictEqual(m.links.length, 0);
 });
 
 test('build: blocked and review flags follow the sticker values', () => {
   const m = build([card(1, { blocked: 'no reply' }), card(2, { review: true }), card(3, { blocked: false, review: 'false' })]);
-  assert.strictEqual(m.byId.get(1).blocked, true);
-  assert.strictEqual(m.byId.get(1).review, false);
-  assert.strictEqual(m.byId.get(2).review, true);
-  assert.strictEqual(m.byId.get(3).blocked, false);
-  assert.strictEqual(m.byId.get(3).review, false);
+  assert.strictEqual(m.byId.get('1').blocked, true);
+  assert.strictEqual(m.byId.get('1').review, false);
+  assert.strictEqual(m.byId.get('2').review, true);
+  assert.strictEqual(m.byId.get('3').blocked, false);
+  assert.strictEqual(m.byId.get('3').review, false);
 });
 
 test('build: nodes come in outline order, parents before children, siblings by rank', () => {
   const m = build([
     card(5), card(4, { parent: 1, rank: 2 }), card(3, { parent: 1, rank: 1 }), card(2, { parent: 3 }), card(1),
   ]);
-  assert.deepStrictEqual(m.nodes.map((n) => n.id), [1, 3, 2, 4, 5]);
+  assert.deepStrictEqual(m.nodes.map((n) => n.id), ['1', '3', '2', '4', '5']);
 });
 
 test('build: visibleIds null draws every card; empty pool is fine', () => {
@@ -151,11 +151,11 @@ test('tiers: children sit inside the sector of their root, and a parent sits bet
     return turn < l.fan.to - 1e-9 ? turn + 2 * Math.PI : turn;
   };
   const [first, second] = l.sectors;
-  assert.deepStrictEqual([first.rootId, first.leaves, second.rootId, second.leaves], [1, 3, 6, 1]);
-  for (const id of [1, 2, 3, 4, 5]) assert.ok(a(id) <= first.from + 1e-9 && a(id) >= first.to - 1e-9, `card ${id} outside sector of 1`);
-  for (const id of [6, 7]) assert.ok(a(id) <= second.from + 1e-9 && a(id) >= second.to - 1e-9, `card ${id} outside sector of 6`);
-  assert.ok(a(4) > a(2) && a(2) > a(5) && a(5) > a(3), 'the children of 2 are left of 3, and 2 is between its own');
-  assert.ok(a(2) > a(1) && a(1) > a(3), 'and 1 is between its children 2 and 3');
+  assert.deepStrictEqual([first.rootId, first.leaves, second.rootId, second.leaves], ['1', 3, '6', 1]);
+  for (const id of ['1', '2', '3', '4', '5']) assert.ok(a(id) <= first.from + 1e-9 && a(id) >= first.to - 1e-9, `card ${id} outside sector of 1`);
+  for (const id of ['6', '7']) assert.ok(a(id) <= second.from + 1e-9 && a(id) >= second.to - 1e-9, `card ${id} outside sector of 6`);
+  assert.ok(a('4') > a('2') && a('2') > a('5') && a('5') > a('3'), 'the children of 2 are left of 3, and 2 is between its own');
+  assert.ok(a('2') > a('1') && a('1') > a('3'), 'and 1 is between its children 2 and 3');
 });
 
 test('tiers: unnested cards go to the Unnested block outside the rings, in a column for their status, when the option is the table', () => {
@@ -163,8 +163,8 @@ test('tiers: unnested cards go to the Unnested block outside the rings, in a col
   const l = graphLayoutTiers(m, { unnested: 'table' });
   const outer = 88 + 56 * 2 + 28;
   assert.strictEqual(l.bands[l.bands.length - 1].r1, outer);
-  for (const id of [8, 9]) assert.ok(Math.hypot(l.pos.get(id).x, l.pos.get(id).y) > outer + 20, `card ${id}`);
-  assert.deepStrictEqual(l.block.columns.map((c) => [c.label, c.ids]), [['todo', [8, 9]]]);
+  for (const id of ['8', '9']) assert.ok(Math.hypot(l.pos.get(id).x, l.pos.get(id).y) > outer + 20, `card ${id}`);
+  assert.deepStrictEqual(l.block.columns.map((c) => [c.label, c.ids]), [['todo', ['8', '9']]]);
 });
 
 test('tiers: deterministic, finite, and safe on 0 and 1 node', () => {
@@ -199,7 +199,7 @@ test('status: rings run done, doing, todo, backlog from the centre', () => {
   const radii = l.rings.map((r) => r.r);
   assert.deepStrictEqual(radii, [...radii].sort((a, b) => a - b));
   assert.strictEqual(radii[0], 48);
-  assert.ok(ringOfNode(l, 4) < ringOfNode(l, 3) && ringOfNode(l, 3) < ringOfNode(l, 2) && ringOfNode(l, 2) < ringOfNode(l, 1));
+  assert.ok(ringOfNode(l, '4') < ringOfNode(l, '3') && ringOfNode(l, '3') < ringOfNode(l, '2') && ringOfNode(l, '2') < ringOfNode(l, '1'));
   assert.strictEqual(l.titles.length, 0);
 });
 
@@ -212,7 +212,7 @@ test('status: custom statuses reverse correctly', () => {
   const m = build([card(1, { status: 'a' }), card(2, { status: 'b' }), card(3, { status: 'c' })]);
   const l = graphLayoutStatus(m, { statuses: ['a', 'b', 'c'] });
   assert.deepStrictEqual(l.rings.map((r) => r.status), ['c', 'b', 'a']);
-  assert.ok(ringOfNode(l, 3) < ringOfNode(l, 2) && ringOfNode(l, 2) < ringOfNode(l, 1));
+  assert.ok(ringOfNode(l, '3') < ringOfNode(l, '2') && ringOfNode(l, '2') < ringOfNode(l, '1'));
 });
 
 test('status: an unlisted status folds into the first column ring', () => {
@@ -220,7 +220,7 @@ test('status: an unlisted status folds into the first column ring', () => {
   const l = graphLayoutStatus(m, { statuses: ['backlog', 'todo', 'doing', 'done'] });
   const backlog = l.rings.find((r) => r.status === 'backlog');
   assert.strictEqual(backlog.count, 2);
-  assert.ok(Math.abs(ringOfNode(l, 2) - backlog.r) < 1e-6);
+  assert.ok(Math.abs(ringOfNode(l, '2') - backlog.r) < 1e-6);
 });
 
 test('status: archived cards form a second clump to the right with the same ring labels', () => {
@@ -232,8 +232,8 @@ test('status: archived cards form a second clump to the right with the same ring
     'done (0)', 'doing (0)', 'todo (1)', 'backlog (0)', 'done (1)', 'doing (0)', 'todo (0)', 'backlog (0)',
   ]);
   assert.ok(l.rings[4].cx > l.rings[0].cx);
-  assert.ok(l.pos.get(2).x > l.pos.get(1).x);
-  assert.ok(Math.abs(ringOfNode(l, 2, l.rings[4].cx) - l.rings[4].r) < 1e-6);
+  assert.ok(l.pos.get('2').x > l.pos.get('1').x);
+  assert.ok(Math.abs(ringOfNode(l, '2', l.rings[4].cx) - l.rings[4].r) < 1e-6);
   assert.deepStrictEqual(l.titles.map((t) => t.text), ['live', 'archive']);
   assert.ok(finite(l));
 });
@@ -242,8 +242,8 @@ test('plan: a card with no relation is marked loose so the view can skip the gra
   const m = build([card(1), card(2, { parent: 1 }), card(3)]);
   const plan = graphPlan(m, graphLayout(m, 'force'), planOpts());
   const cls = (id) => plan.nodes.find((n) => n.id === id).cls.split(' ');
-  assert.ok(cls(3).includes('is-loose'));
-  assert.ok(!cls(1).includes('is-loose') && !cls(2).includes('is-loose'));
+  assert.ok(cls('3').includes('is-loose'));
+  assert.ok(!cls('1').includes('is-loose') && !cls('2').includes('is-loose'));
 });
 
 test('status: the group titles sit inside the bounds the view fits to', () => {
@@ -286,20 +286,20 @@ test('status: deterministic and safe on 0 and 1 node', () => {
 
 test('force: deterministic and finite; deg-0 cards sit beyond the connected radius', () => {
   const m = build([
-    card(1), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { waiting_for: [3] }), card(5), card(6),
+    card(1), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { waiting_for: ['3'] }), card(5), card(6),
   ]);
   const a = graphLayoutForce(m);
   assert.deepStrictEqual(plain(a), plain(graphLayoutForce(m)));
   assert.ok(finite(a));
-  const far = Math.max(...[1, 2, 3, 4].map((id) => Math.hypot(a.pos.get(id).x, a.pos.get(id).y)));
-  for (const id of [5, 6]) assert.ok(Math.hypot(a.pos.get(id).x, a.pos.get(id).y) > far + 59);
+  const far = Math.max(...['1', '2', '3', '4'].map((id) => Math.hypot(a.pos.get(id).x, a.pos.get(id).y)));
+  for (const id of ['5', '6']) assert.ok(Math.hypot(a.pos.get(id).x, a.pos.get(id).y) > far + 59);
 });
 
 test('force: many isolated cards use two alternating radii', () => {
   const cards = [card(1), card(2, { parent: 1 })];
   for (let i = 3; i < 30; i++) cards.push(card(i));
   const l = graphLayoutForce(build(cards));
-  const radii = new Set([3, 4, 5, 6].map((id) => Math.round(Math.hypot(l.pos.get(id).x, l.pos.get(id).y))));
+  const radii = new Set(['3', '4', '5', '6'].map((id) => Math.round(Math.hypot(l.pos.get(id).x, l.pos.get(id).y))));
   assert.strictEqual(radii.size, 2);
 });
 
@@ -334,10 +334,10 @@ test('fit: degenerate bounds and tiny viewports stay finite and positive', () =>
 // --- neighbours ------------------------------------------------------------------
 
 test('neighbours: the id plus everything it shares a link with', () => {
-  const m = build([card(1), card(2, { parent: 1 }), card(3, { waiting_for: [1] }), card(4)]);
-  assert.deepStrictEqual([...graphNeighbours(m, 1)].sort(), [1, 2, 3]);
-  assert.deepStrictEqual([...graphNeighbours(m, 4)], [4]);
-  assert.deepStrictEqual([...graphNeighbours(m, 99)], [99]);
+  const m = build([card(1), card(2, { parent: 1 }), card(3, { waiting_for: ['1'] }), card(4)]);
+  assert.deepStrictEqual([...graphNeighbours(m, '1')].sort(), ['1', '2', '3']);
+  assert.deepStrictEqual([...graphNeighbours(m, '4')], ['4']);
+  assert.deepStrictEqual([...graphNeighbours(m, '99')], ['99']);
 });
 
 // --- layout names ----------------------------------------------------------------
@@ -388,26 +388,26 @@ const sampleCards = () => [
   card(1, { status: 'doing' }),
   card(2, { parent: 1, status: 'done' }),
   card(3, { parent: 1, blocked: true }),
-  card(4, { parent: 1, waiting_for: [2, 3], review: true }),
-  card(5, { waiting_for: [9] }),
+  card(4, { parent: 1, waiting_for: ['2', '3'], review: true }),
+  card(5, { waiting_for: ['9'] }),
   card(6, { archived: true, status: 'done' }),
 ];
 
 test('plan: node classes, order and title', () => {
   const m = build(sampleCards());
-  const plan = graphPlan(m, graphLayout(m, 'tiers'), planOpts({ selectedIds: new Set([3]), hoveredId: 2 }));
+  const plan = graphPlan(m, graphLayout(m, 'tiers'), planOpts({ selectedIds: new Set(['3']), hoveredId: '2' }));
   assert.deepStrictEqual(plan.nodes.map((n) => n.id), m.nodes.map((n) => n.id));
   const by = (id) => plan.nodes.find((n) => n.id === id);
-  assert.match(by(1).cls, /^graph-node card-el status-doing/);
-  assert.ok(by(1).cls.includes('has-kids'));
-  assert.ok(by(1).cls.includes('graph-hub'));
-  assert.ok(by(2).cls.includes('is-done') && by(2).cls.includes('hover-highlight'));
-  assert.ok(by(3).cls.includes('selected') && by(3).cls.includes('is-blocked'));
-  assert.ok(by(4).cls.includes('is-waiting') && by(4).cls.includes('is-review'));
-  assert.ok(by(6).cls.includes('archived'));
-  assert.strictEqual(by(6).title, '#6 card 6 (done, archived)');
-  assert.strictEqual(by(3).title, '#3 card 3 (todo)');
-  assert.ok(!by(5).cls.includes('graph-hub'));
+  assert.match(by('1').cls, /^graph-node card-el status-doing/);
+  assert.ok(by('1').cls.includes('has-kids'));
+  assert.ok(by('1').cls.includes('graph-hub'));
+  assert.ok(by('2').cls.includes('is-done') && by('2').cls.includes('hover-highlight'));
+  assert.ok(by('3').cls.includes('selected') && by('3').cls.includes('is-blocked'));
+  assert.ok(by('4').cls.includes('is-waiting') && by('4').cls.includes('is-review'));
+  assert.ok(by('6').cls.includes('archived'));
+  assert.strictEqual(by('6').title, '#6 card 6 (done, archived)');
+  assert.strictEqual(by('3').title, '#3 card 3 (todo)');
+  assert.ok(!by('5').cls.includes('graph-hub'));
 });
 
 test('plan: the default status class cannot smuggle a second class', () => {
@@ -429,12 +429,12 @@ test('plan: parent links curve in tiers and status, straight in force; waits end
   assert.match(force.links.find((l) => l.kind === 'parent').d, /^M[-\d.]+ [-\d.]+L/);
   const lay = graphLayout(m, 'tiers');
   const plan = graphPlan(m, lay, planOpts());
-  const wait = plan.links.find((l) => l.kind === 'wait' && l.from === 2 && l.to === 4);
+  const wait = plan.links.find((l) => l.kind === 'wait' && l.from === '2' && l.to === '4');
   assert.strictEqual(wait.arrow, true);
   assert.match(wait.cls, /graph-link-wait/);
   const [ex, ey] = wait.d.split('L')[1].split(' ').map(Number);
-  const t = lay.pos.get(4);
-  assert.ok(Math.abs(Math.hypot(ex - t.x, ey - t.y) - (graphRadius(m.byId.get(4)) + 2)) < 0.05);
+  const t = lay.pos.get('4');
+  assert.ok(Math.abs(Math.hypot(ex - t.x, ey - t.y) - (graphRadius(m.byId.get('4')) + 2)) < 0.05);
 });
 
 test('plan: status layout marks cross-clump links', () => {
@@ -474,10 +474,10 @@ test('visibleIds: filter composes with search by intersection, null when nothing
   const pool = [card(1), card(2, { status: 'done' }), card(3, { archived: true })];
   const statuses = ['todo', 'done'];
   const filter = { todo: true, done: true, archive: false };
-  assert.deepStrictEqual([...graphVisibleIds(pool, null, filter, statuses)].sort(), [1, 2]);
-  assert.deepStrictEqual([...graphVisibleIds(pool, new Set([2, 3]), filter, statuses)], [2]);
+  assert.deepStrictEqual([...graphVisibleIds(pool, null, filter, statuses)].sort(), ['1', '2']);
+  assert.deepStrictEqual([...graphVisibleIds(pool, new Set(['2', '3']), filter, statuses)], ['2']);
   assert.strictEqual(graphVisibleIds(pool, null, { todo: true, done: true, archive: true }, statuses), null);
-  assert.deepStrictEqual([...graphVisibleIds(pool, new Set([3]), { todo: true, done: true, archive: true }, statuses)], [3]);
+  assert.deepStrictEqual([...graphVisibleIds(pool, new Set(['3']), { todo: true, done: true, archive: true }, statuses)], ['3']);
 });
 
 test('zoomAt: the world point under the pointer stays put and k clamps', () => {
@@ -497,7 +497,7 @@ test('tiers: one root with 150 children keeps neighbours on the ring apart', () 
   const m = build(cards);
   const l = graphLayoutTiers(m);
   assert.ok(finite(l));
-  const kids = m.nodes.filter((n) => n.parentId === 1).map((n) => l.pos.get(n.id));
+  const kids = m.nodes.filter((n) => n.parentId === '1').map((n) => l.pos.get(n.id));
   kids.sort((p, q) => ang(p) - ang(q));
   for (let i = 0; i < kids.length; i++) {
     const a = kids[i];
@@ -535,9 +535,9 @@ test('force stepper: deterministic, finite, and a seed starts the nodes where th
   const run = () => { const s = graphForceSim(m); for (let i = 0; i < 20; i++) graphForceStep(s, 0.5, null); return [...graphForcePositions(s)]; };
   assert.deepStrictEqual(run(), run());
   for (const [, p] of run()) assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
-  const seed = new Map([[1, { x: 500, y: -40 }]]);
+  const seed = new Map([['1', { x: 500, y: -40 }]]);
   const s = graphForceSim(m, seed);
-  assert.deepStrictEqual(graphForcePositions(s).get(1), { x: 500, y: -40 });
+  assert.deepStrictEqual(graphForcePositions(s).get('1'), { x: 500, y: -40 });
 });
 
 test('force stepper: a pinned node stays exactly at its pin and pulls its neighbours along', () => {
@@ -545,20 +545,20 @@ test('force stepper: a pinned node stays exactly at its pin and pulls its neighb
   const layout = graphLayoutForce(m);
   const sim = graphForceSim(m, layout.pos);
   const start = graphForcePositions(sim);
-  const home = start.get(1);
-  const pin = { id: 1, x: home.x + 200, y: home.y };
+  const home = start.get('1');
+  const pin = { id: '1', x: home.x + 200, y: home.y };
   for (let i = 0; i < 40; i++) graphForceStep(sim, 0.3, pin);
   const end = graphForcePositions(sim);
-  assert.deepStrictEqual(end.get(1), { x: pin.x, y: pin.y });
+  assert.deepStrictEqual(end.get('1'), { x: pin.x, y: pin.y });
   const d = (p) => Math.hypot(p.x - pin.x, p.y - pin.y);
   const gain = (id) => d(start.get(id)) - d(end.get(id));
-  assert.ok(gain(2) > 0 && gain(3) > 0 && gain(4) > 0 && gain(5) > 0);
-  assert.ok(gain(2) > gain(7), 'a direct neighbour follows more than an unrelated card');
+  assert.ok(gain('2') > 0 && gain('3') > 0 && gain('4') > 0 && gain('5') > 0);
+  assert.ok(gain('2') > gain('7'), 'a direct neighbour follows more than an unrelated card');
   assert.ok([...end.values()].every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)));
 });
 
 test('graphLinkPaths matches the d strings graphPlan emits, in every layout', () => {
-  const m = build([card(1), card(2, { parent: 1 }), card(3, { parent: 1, waiting_for: [2] }), card(4, { status: 'done', archived: true, waiting_for: [1] })]);
+  const m = build([card(1), card(2, { parent: 1 }), card(3, { parent: 1, waiting_for: ['2'] }), card(4, { status: 'done', archived: true, waiting_for: ['1'] })]);
   for (const kind of GRAPH_LAYOUTS) {
     const layout = graphLayout(m, kind, { statuses: ['todo', 'done'] });
     const plan = graphPlan(m, layout, { kind });
@@ -571,13 +571,13 @@ test('graphWithPositions returns a new layout, moves only the named cards and re
   const m = build(starCards());
   const layout = graphLayoutForce(m);
   const before = JSON.stringify({ pos: [...layout.pos], bounds: layout.bounds });
-  const next = graphWithPositions(layout, m, new Map([[1, { x: 5000, y: 0 }], [99, { x: 1, y: 1 }]]));
+  const next = graphWithPositions(layout, m, new Map([['1', { x: 5000, y: 0 }], ['99', { x: 1, y: 1 }]]));
   assert.notStrictEqual(next, layout);
   assert.notStrictEqual(next.pos, layout.pos);
   assert.strictEqual(JSON.stringify({ pos: [...layout.pos], bounds: layout.bounds }), before);
-  assert.deepStrictEqual(next.pos.get(1), { x: 5000, y: 0 });
-  assert.deepStrictEqual(next.pos.get(2), layout.pos.get(2));
-  assert.ok(!next.pos.has(99));
+  assert.deepStrictEqual(next.pos.get('1'), { x: 5000, y: 0 });
+  assert.deepStrictEqual(next.pos.get('2'), layout.pos.get('2'));
+  assert.ok(!next.pos.has('99'));
   assert.ok(next.bounds.x1 >= 5000);
 });
 
@@ -597,16 +597,16 @@ const SHAPES = ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star'];
 
 test('build: a node whose type has an icon carries that shape', () => {
   const m = buildTyped([card(1, { type: 'goal' }), card(2, { type: 'epic' }), card(3, { type: 'Goal ' })]);
-  assert.strictEqual(m.byId.get(1).shape, 'star');
-  assert.strictEqual(m.byId.get(2).shape, 'square');
-  assert.strictEqual(m.byId.get(3).shape, 'star', 'the type matches without regard to case or space, as the chip does');
+  assert.strictEqual(m.byId.get('1').shape, 'star');
+  assert.strictEqual(m.byId.get('2').shape, 'square');
+  assert.strictEqual(m.byId.get('3').shape, 'star', 'the type matches without regard to case or space, as the chip does');
 });
 
 test('build: a node with no icon, an unknown icon, no type or an unlisted type gets the circle', () => {
   const m = buildTyped([
     card(1, { type: 'task' }), card(2, { type: 'bug' }), card(3), card(4, { type: 'spike' }), card(5, { type: 'story' }), card(6, { type: '' }),
   ]);
-  for (const id of [1, 2, 3, 4, 5, 6]) assert.strictEqual(m.byId.get(id).shape, 'circle', `card ${id}`);
+  for (const id of ['1', '2', '3', '4', '5', '6']) assert.strictEqual(m.byId.get(id).shape, 'circle', `card ${id}`);
 });
 
 test('build: an icon name that is hostile text, not one of the six, gives the circle', () => {
@@ -617,18 +617,18 @@ test('build: an icon name that is hostile text, not one of the six, gives the ci
 
 test('build: with no types list at all (an old server, no config) every node is a circle', () => {
   const m = graphBuild([card(1, { type: 'goal' })], { ctx: CTX });
-  assert.strictEqual(m.byId.get(1).shape, 'circle');
-  assert.strictEqual(graphBuild([card(1, { type: 'goal' })], { ctx: CTX, types: null }).byId.get(1).shape, 'circle');
+  assert.strictEqual(m.byId.get('1').shape, 'circle');
+  assert.strictEqual(graphBuild([card(1, { type: 'goal' })], { ctx: CTX, types: null }).byId.get('1').shape, 'circle');
 });
 
 test('plan: a node of a type with an icon is drawn in that outline, and a circle node has none', () => {
   const m = buildTyped([card(1, { type: 'goal' }), card(2, { type: 'epic' }), card(3, { type: 'bug' }), card(4, { type: 'story' }), card(5)]);
   const by = (id) => planOf(m).nodes.find((n) => n.id === id);
-  assert.strictEqual(by(1).shape, 'star');
-  assert.match(by(1).d, /^M.*Z$/);
-  assert.strictEqual(cornerPoints(by(1).d).length, 10, 'a star has ten corners');
-  assert.strictEqual(cornerPoints(by(2).d).length, 4, 'a square has four');
-  for (const id of [3, 4, 5]) {
+  assert.strictEqual(by('1').shape, 'star');
+  assert.match(by('1').d, /^M.*Z$/);
+  assert.strictEqual(cornerPoints(by('1').d).length, 10, 'a star has ten corners');
+  assert.strictEqual(cornerPoints(by('2').d).length, 4, 'a square has four');
+  for (const id of ['3', '4', '5']) {
     assert.strictEqual(by(id).shape, 'circle', `card ${id}`);
     assert.strictEqual(by(id).d, '', `card ${id} draws the round dot`);
   }
@@ -637,8 +637,8 @@ test('plan: a node of a type with an icon is drawn in that outline, and a circle
 test('plan: the outline is drawn for the node radius, so it grows with the degree', () => {
   const m = buildTyped([card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { type: 'goal' })]);
   const plan = planOf(m);
-  const hub = plan.nodes.find((n) => n.id === 1);
-  const loose = plan.nodes.find((n) => n.id === 4);
+  const hub = plan.nodes.find((n) => n.id === '1');
+  const loose = plan.nodes.find((n) => n.id === '4');
   assert.ok(hub.r > loose.r);
   assert.ok(Math.max(...cornerPoints(hub.d)) > Math.max(...cornerPoints(loose.d)));
   assert.ok(Math.abs(Math.max(...cornerPoints(loose.d)) - loose.r * 1.4) < 0.02, 'a star reaches 1.4 times the dot radius');
@@ -648,7 +648,7 @@ test('plan: the child ring and the flag ring clear every shape, the star include
   for (const shape of SHAPES) {
     const types = [{ name: 't', color: '', icon: shape }];
     const kids = buildTyped([card(1, { type: 't', blocked: true }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { parent: 1 })], types);
-    const withKids = planOf(kids).nodes.find((n) => n.id === 1);
+    const withKids = planOf(kids).nodes.find((n) => n.id === '1');
     const farthest = shape === 'circle' ? withKids.r : Math.max(...cornerPoints(withKids.d));
     assert.ok(withKids.kidsRing > farthest + 2, `${shape}: the child ring ${withKids.kidsRing} clears a corner at ${farthest}`);
     assert.ok(withKids.flagRing > withKids.kidsRing + 2, `${shape}: the flag ring sits outside the child ring`);
@@ -663,19 +663,19 @@ test('plan: the child ring and the flag ring clear every shape, the star include
 test('plan: a node with no icon keeps the rings and label it had, 3 and 6 beyond its radius', () => {
   const m = buildTyped([card(1, { blocked: true }), card(2, { parent: 1 }), card(3, { review: true })]);
   const plan = planOf(m);
-  const parent = plan.nodes.find((n) => n.id === 1);
+  const parent = plan.nodes.find((n) => n.id === '1');
   assert.strictEqual(parent.kidsRing, parent.r + 3);
   assert.strictEqual(parent.flagRing, parent.r + 6);
   assert.strictEqual(parent.reach, parent.r);
-  const single = plan.nodes.find((n) => n.id === 3);
+  const single = plan.nodes.find((n) => n.id === '3');
   assert.strictEqual(single.flagRing, single.r + 3);
 });
 
 test('plan: the id label starts beyond the shape, not inside it', () => {
   const m = buildTyped([card(1, { type: 'goal' }), card(2, { type: 'task' })]);
   const plan = planOf(m);
-  assert.ok(plan.nodes.find((n) => n.id === 1).reach > plan.nodes.find((n) => n.id === 1).r);
-  assert.strictEqual(plan.nodes.find((n) => n.id === 2).reach, plan.nodes.find((n) => n.id === 2).r);
+  assert.ok(plan.nodes.find((n) => n.id === '1').reach > plan.nodes.find((n) => n.id === '1').r);
+  assert.strictEqual(plan.nodes.find((n) => n.id === '2').reach, plan.nodes.find((n) => n.id === '2').r);
 });
 
 test('plan: a type with an icon changes no position, whatever layout draws it', () => {

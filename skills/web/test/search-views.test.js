@@ -20,14 +20,14 @@ const BOARD = {
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', assignee: '@human', tags: ['infra'] }),
-    card(2, { title: 'Move the data layer', status: 'todo', assignee: '@afk', tags: ['ui'], waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', assignee: '@afk', tags: ['ui'], waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', assignee: '@human', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
     card(6, { title: 'Renew the domain', status: 'done', tags: ['ops'] }),
   ],
   archived: [
-    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] }),
+    card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: ['1'] }),
     card(8, { title: 'Close out the audit', status: 'done', archived: true, tags: ['ui'] }),
   ],
 };

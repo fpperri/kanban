@@ -30,9 +30,9 @@ const makeBoard = (name = 'kanban') => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { type: 'goal', status: 'doing' }),
-    card(2, { parent: 1, status: 'done' }), card(3, { parent: 1 }), card(4, { parent: 1, waiting_for: [3], status: 'doing' }),
+    card(2, { parent: 1, status: 'done' }), card(3, { parent: 1 }), card(4, { parent: 1, waiting_for: ['3'], status: 'doing' }),
     card(5, { parent: 1, status: 'backlog' }), card(6, { parent: 1 }),
-    card(7, { waiting_for: [1] }),
+    card(7, { waiting_for: ['1'] }),
   ],
   archived: [],
 });
@@ -392,7 +392,7 @@ test('every option the model offers has a label and a hint in the row, so the ro
 // Card 7 of the board above has no parent, no children and no tier (it waits for card 1): the
 // card the option is about. Its mode is one browser choice for the board, like the others.
 
-const ringRadius = (s) => s.run('(()=>{const p=graphCur.layout.pos.get(7);return Math.hypot(p.x,p.y)})()');
+const ringRadius = (s) => s.run("(()=>{const p=graphCur.layout.pos.get('7');return Math.hypot(p.x,p.y)})()");
 const lastRing = (s) => s.run('(()=>{const b=graphCur.layout.bands;return b[b.length-1].rings[0]})()');
 const drawnIds = (s) => JSON.parse(s.run('JSON.stringify(graphCur.model.nodes.map((n)=>n.id).sort((a,b)=>a-b))'));
 const shownIds = (s) => JSON.parse(s.run('JSON.stringify([...shownCardIds()].sort((a,b)=>a-b))'));
@@ -414,7 +414,7 @@ test('pressing table draws the block, depth 0 the ring and sector, and each pres
   pressOption(s, 'unnested', 'depth 0');
   assert.strictEqual(s.run('graphCur.layout.block'), null);
   assert.strictEqual(s.run("graphCur.layout.sectors.map((x)=>x.kind).join()"), 'tree,unnested');
-  assert.strictEqual(s.run('graphCur.layout.places.get(7).block'), null, 'card 7 is on a ring of the depth 0 band');
+  assert.strictEqual(s.run("graphCur.layout.places.get('7').block"), null, 'card 7 is on a ring of the depth 0 band');
   assert.strictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]).unnested, 'depth 0');
   pressOption(s, 'unnested', 'outermost');
   assert.ok(Math.abs(ringRadius(s) - lastRing(s)) < 1e-6);
@@ -428,7 +428,7 @@ test('pressing off takes card 7 and its arrow out of the Graph: no dot, no line,
   assert.strictEqual(byClass(s.host, 'graph-count')[0].textContent, '7 cards, 7 relations');
   pressOption(s, 'unnested', 'off');
   assert.deepStrictEqual(drawnIds(s), [1, 2, 3, 4, 5, 6]);
-  assert.strictEqual(s.run('graphCur.nodeEls.has(7)'), false, 'no dot');
+  assert.strictEqual(s.run("graphCur.nodeEls.has('7')"), false, 'no dot');
   assert.strictEqual(s.drawn('wait').length, 1, 'the arrow of card 3 to card 4 stays; card 1 to card 7 is gone');
   assert.strictEqual(byClass(s.host, 'graph-count')[0].textContent, '6 cards, 6 relations');
   pressOption(s, 'unnested', 'table');

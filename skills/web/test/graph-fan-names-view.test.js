@@ -38,7 +38,7 @@ const makeBoard = (name = 'kanban') => ({
   ],
   archived: [],
 });
-const PARENTS = [1, 2, 3, 4];
+const PARENTS = ['1', '2', '3', '4'];
 
 const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
 const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
@@ -186,7 +186,7 @@ test('a press leaves the selection as it is, and the names follow it', async () 
   s.run('renderGraphView()');
   assert.deepStrictEqual(s.named(), [1, 2, 3, 4, 100, 101], 'the two picked cards and the parents');
   s.click(button(s, 'names', 'none').el);
-  assert.deepStrictEqual([...s.run('selectedIds')].sort((a, b) => a - b), [100, 101]);
+  assert.deepStrictEqual([...s.run('selectedIds')].sort((a, b) => a - b), ['100', '101']);
   assert.deepStrictEqual(s.named(), []);
 });
 

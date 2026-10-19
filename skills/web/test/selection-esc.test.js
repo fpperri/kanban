@@ -103,5 +103,5 @@ test('the target list is in the order the parts were added, a card once, and lim
   const { matchQuery } = boardOf(cards);
   const selection = grown(cardPart(4), queryPart('assignee:@afk'), cardPart(3));
   assert.deepStrictEqual([...resolveSelection(selection, matchQuery, null)], [4, 1, 3]);
-  assert.deepStrictEqual([...resolveSelection(selection, matchQuery, new Set([1, 4]))], [4, 1], 'a card the view hides never joins');
+  assert.deepStrictEqual([...resolveSelection(selection, matchQuery, new Set(['1', '4']))], [4, 1], 'a card the view hides never joins');
 });

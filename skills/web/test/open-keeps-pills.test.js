@@ -26,7 +26,7 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', tags: ['infra'] }),
-    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
@@ -129,9 +129,9 @@ test('a plain click that opens a card leaves the pill on, the box as it was and 
 test('on the Board the cards behind the open card are the ones the pill left, not every card', async () => {
   const s = await open();
   s.pillClick('review');
-  assert.deepStrictEqual(s.shown(), [5]);
+  assert.deepStrictEqual(s.shown(), ['5']);
   await s.click(5);
-  assert.deepStrictEqual(s.shown(), [5]);
+  assert.deepStrictEqual(s.shown(), ['5']);
 });
 
 test('every pill that is on stays on, and the text typed beside them stays in the box', async () => {
@@ -234,7 +234,7 @@ test('a poll while the card is closed again keeps the pill, which the selection 
   await s.page.settle();
   assert.strictEqual(s.box(), 'review:');
   assert.deepStrictEqual(s.on(), ['review']);
-  assert.deepStrictEqual(s.shown(), [5]);
+  assert.deepStrictEqual(s.shown(), ['5']);
 });
 
 // --- a click that only selects ----------------------------------------------------------------
