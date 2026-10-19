@@ -16,7 +16,7 @@ const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 const FILTER = { backlog: true, todo: true, doing: true, done: true, archive: false };
 const card = (id, extra = {}) => ({
-  id, title: `card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra,
+  id: String(id), title: `card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], archived: false, parent: null, waiting_for: [], blocked: false, review: false, ...extra,
 });
 
 // 1 is a parent of 2 and 3, 3 waits for 2, 4 waits for 1; 5 is done and so is 6, which is archived.
@@ -37,7 +37,7 @@ const matchOf = (query) => {
   return { terms, ids: terms.length ? new Set(filterCards(POOL, terms, CTX).map((c) => c.id)) : null };
 };
 const drawn = (match) => graphVisibleIds(POOL, graphQueryEffect(match).visibleIds, FILTER, STATUSES);
-const sorted = (set) => [...set].sort((a, b) => a - b);
+const sorted = (set) => [...set].map(Number).sort((a, b) => a - b);
 
 // --- the decision ---------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ test('a typed query with no slice term keeps every card visible and lights exact
 });
 
 test('the cards the Graph draws are the same with and without a query', () => {
-  const without = [...graphVisibleIds(POOL, null, FILTER, STATUSES)].sort((a, b) => a - b);
+  const without = [...graphVisibleIds(POOL, null, FILTER, STATUSES)].map(Number).sort((a, b) => a - b);
   for (const query of ['zephyr', 'status:done', 'zephyr | venue', 'nothing-matches-this', 'blocked:']) {
     assert.deepStrictEqual(sorted(drawn(matchOf(query))), without, query);
   }
@@ -100,7 +100,7 @@ const slicedMatch = (query) => {
 };
 const effectOf = (query) => graphQueryEffect(slicedMatch(query), TIERED, SLICE_CTX);
 const shape = (effect) => ({ visibleIds: effect.visibleIds && sorted(effect.visibleIds), litIds: effect.litIds && sorted(effect.litIds) });
-const ALL_TIERED = ['1', '2', '3', '4', '5', '6'];
+const ALL_TIERED = [1, 2, 3, 4, 5, 6];
 
 test('a slice: term on its own hides the cards outside its cut and lights nothing, since the rest of the query is empty', () => {
   assert.deepStrictEqual(shape(effectOf('slice:goal..objective')), { visibleIds: [1, 2, 3], litIds: null });
@@ -109,7 +109,7 @@ test('a slice: term on its own hides the cards outside its cut and lights nothin
 
 test('the cut is the cards the search module cuts to, over the whole board', () => {
   for (const query of ['slice:goal..objective', 'slice:strategy..', 'slice:..objective', 'slice:0', 'slice:objective..epic']) {
-    const cut = filterCards(TIERED, parseSearchQuery(query, 'kanban'), SLICE_CTX).map((c) => c.id).sort((x, y) => x - y);
+    const cut = filterCards(TIERED, parseSearchQuery(query, 'kanban'), SLICE_CTX).map((c) => Number(c.id)).sort((x, y) => x - y);
     assert.deepStrictEqual(sorted(effectOf(query).visibleIds), cut, query);
   }
 });
@@ -205,7 +205,7 @@ test('a lighting of nothing is none at all, so nothing dims', () => {
 
 test('hovering a card lights it with its one-hop relations and the lines among them, as it does on main', () => {
   const m = model();
-  const lit = graphLit(m, graphNeighbours(m, 1));
+  const lit = graphLit(m, graphNeighbours(m, '1'));
   assert.deepStrictEqual(sorted(lit.nodes), [1, 2, 3, 4]);
   assert.deepStrictEqual([...lit.links].map((i) => `${m.links[i].from}>${m.links[i].to}`).sort(), ['1>2', '1>3', '1>4', '2>3']);
 });
@@ -214,9 +214,9 @@ test('hovering a card lights it with its one-hop relations and the lines among t
 
 test('a lone card picked by a click lights with its one-hop relations', () => {
   const m = model();
-  const lit = graphRestLit(m, { selectedIds: new Set(['1']), loneCardId: 1 });
+  const lit = graphRestLit(m, { selectedIds: new Set(['1']), loneCardId: '1' });
   assert.deepStrictEqual(sorted(lit.nodes), [1, 2, 3, 4]);
-  assert.deepStrictEqual(sorted(graphRestLit(m, { selectedIds: new Set(['7']), loneCardId: 7 }).nodes), [7], 'a card with no relations lights alone');
+  assert.deepStrictEqual(sorted(graphRestLit(m, { selectedIds: new Set(['7']), loneCardId: '7' }).nodes), [7], 'a card with no relations lights alone');
 });
 
 test('a query that matches one card lights that card alone, without its relations', () => {
@@ -247,5 +247,5 @@ test('with nothing selected nothing rests lit', () => {
 
 test('a lone card the Graph does not draw lights nothing', () => {
   const m = model();
-  assert.strictEqual(graphRestLit(m, { selectedIds: new Set(['6']), loneCardId: 6 }), null);
+  assert.strictEqual(graphRestLit(m, { selectedIds: new Set(['6']), loneCardId: '6' }), null);
 });

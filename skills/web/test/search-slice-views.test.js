@@ -95,15 +95,15 @@ async function openView(name, { archive = false } = {}) {
     assert.strictEqual(typeof real, 'function', `${fnName} is a function in the page`);
     page.ctx[fnName] = (...args) => { record(...args); return real(...args); };
   };
-  const ids = (cards) => Array.from(cards, (c) => c.id).sort((a, b) => a - b);
-  wrap('cardEl', (c) => seen.tiles.push(c.id));
-  wrap('archiveCardEl', (c) => seen.tiles.push(c.id));
-  wrap('buildRelationsGraph', (cards, visibleIds) => { seen.relations = visibleIds ? [...visibleIds].sort((a, b) => a - b) : null; });
+  const ids = (cards) => Array.from(cards, (c) => Number(c.id)).sort((a, b) => a - b);
+  wrap('cardEl', (c) => seen.tiles.push(Number(c.id)));
+  wrap('archiveCardEl', (c) => seen.tiles.push(Number(c.id)));
+  wrap('buildRelationsGraph', (cards, visibleIds) => { seen.relations = visibleIds ? [...visibleIds].map(Number).sort((a, b) => a - b) : null; });
   wrap('monthChipLayout', (cards) => { seen.month = ids(cards); });
   wrap('timeGridLayout', (cards) => { seen.grid = ids(cards); });
   wrap('ganttGroups', (cards) => { if (seen.gantt === undefined) seen.gantt = ids(cards); });
   wrap('ganttArchiveGroup', (cards) => { if (seen.ganttArchive === undefined) seen.ganttArchive = ids(cards); });
-  wrap('graphBuild', (cards, opts) => { seen.graph = opts.visibleIds ? [...opts.visibleIds].sort((a, b) => a - b) : null; });
+  wrap('graphBuild', (cards, opts) => { seen.graph = opts.visibleIds ? [...opts.visibleIds].map(Number).sort((a, b) => a - b) : null; });
   return { page, seen };
 }
 
@@ -155,6 +155,6 @@ test('a board answer with no hierarchy cuts by depth, and a hierarchy the page w
 test('the page hands the module the whole board, so an archived parent hidden by its Archive pill still sets the depth below it', async () => {
   const { page, seen } = await openView('gantt', { archive: false });
   page.input.typed('slice:2');
-  assert.deepStrictEqual(shown('gantt', seen, false), ['8'], 'card 8 sits under the archived card 7 and is at depth 2');
+  assert.deepStrictEqual(shown('gantt', seen, false), [8], 'card 8 sits under the archived card 7 and is at depth 2');
   assert.deepStrictEqual(ARCHIVED, [7]);
 });

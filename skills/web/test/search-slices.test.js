@@ -81,7 +81,7 @@ async function open({ view = 'board', stored = UNFOLDED, board = makeBoard(), se
   const page = await loadPage({ board, search, stored: storage, elements, documentExtras: { createElement: () => control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const slices = elements['#search-slices'];
-  const sorted = (set) => [...set].sort((a, b) => a - b);
+  const sorted = (set) => [...set].map(Number).sort((a, b) => a - b);
   let prevented = 0;
   const s = {
     page, board, elements, stored: storage, slices,
@@ -318,13 +318,13 @@ test('Shift with a click is a plain click', async () => {
 test('the Board hides the cards outside the run, and a click on a run of one shows them again', async () => {
   const s = await open();
   s.openPanel();
-  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6']);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
   s.click('goal');
-  assert.deepStrictEqual(s.shown(), ['3', '4', '5', '6'], 'the two goals are outside the run');
+  assert.deepStrictEqual(s.shown(), [3, 4, 5, 6], 'the two goals are outside the run');
   s.rightClick('goal');
-  assert.deepStrictEqual(s.shown(), ['1', '2']);
+  assert.deepStrictEqual(s.shown(), [1, 2]);
   s.click('goal');
-  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6']);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
 });
 
 // --- keep only --------------------------------------------------------------------------------------
@@ -338,7 +338,7 @@ test('a right-click keeps only that slice, and stops the browser\'s own menu', a
   assert.strictEqual(s.prevented(), 1);
   s.rightClick('goal');
   assert.strictEqual(s.box(), 'slice:goal');
-  assert.deepStrictEqual(s.shown(), ['1', '2']);
+  assert.deepStrictEqual(s.shown(), [1, 2]);
 });
 
 test('a right-click on the one slice of a run of one writes the same run again, and every slice stays one click away', async () => {
@@ -378,7 +378,7 @@ test('a run set on a box that holds | brackets the query, and the Board shows th
   s.type('tags:ui | #4');
   s.click('goal');
   assert.strictEqual(s.box(), '(tags:ui | #4) slice:epic..');
-  assert.deepStrictEqual(s.shown(), ['3', '4']);
+  assert.deepStrictEqual(s.shown(), [3, 4]);
   s.click('epic');
   s.click('depth 0');
   s.click('depth 1');
@@ -463,7 +463,7 @@ test('a card selection is kept by a click on an entry, and a run changes none of
   s.openPanel();
   s.page.run('setSelection({ anchor: cardPart(3), additions: [] }, 3)');
   const before = s.selection();
-  assert.strictEqual(before.anchor.id, 3);
+  assert.strictEqual(before.anchor.id, '3');
   s.click('goal');
   s.click('depth 2');
   assert.strictEqual(s.box(), 'slice:epic..1');
@@ -759,7 +759,7 @@ test('a tier that appears joins the list in its place, a tier that is gone is ta
   assert.deepStrictEqual(s.labels(), ['goal', 'strategy', 'epic', 'depth 0', 'depth 1', 'depth 2']);
   assert.strictEqual(s.slices.children[0], goal);
   assert.strictEqual(s.slices.children[2], epic);
-  s.board.active = s.board.active.filter((c) => c.id !== '8');
+  s.board.active = s.board.active.filter((c) => c.id !== 8);
   await s.page.run('autoRefreshTick()');
   assert.deepStrictEqual(s.labels(), ['goal', 'epic', 'depth 0', 'depth 1', 'depth 2']);
   assert.strictEqual(s.slices.children[1], epic);
@@ -794,7 +794,7 @@ test('an entry that stays keeps focus when an earlier entry leaves the list, and
   };
   const epic = s.entry('epic');
   s.focusOn(epic);
-  s.board.active = s.board.active.filter((c) => c.id !== '8');
+  s.board.active = s.board.active.filter((c) => c.id !== 8);
   await s.page.run('autoRefreshTick()');
   assert.deepStrictEqual(s.labels(), ['goal', 'epic', 'depth 0', 'depth 1', 'depth 2']);
   assert.deepStrictEqual(moved, [], 'an entry that stays was moved');

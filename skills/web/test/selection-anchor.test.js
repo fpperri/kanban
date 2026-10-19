@@ -57,16 +57,19 @@ test('a selection built from parts takes the first as the anchor and counts a re
 });
 
 test('the range start a selection implies is its anchor card, and none for any other anchor', () => {
-  assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, cardPart(7))), 7);
-  assert.strictEqual(rangeStartOf(addPart(setAnchor(NO_SELECTION, cardPart(7)), cardPart(8))), 7, 'the additions do not move it');
+  assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, cardPart(7))), '7');
+  assert.strictEqual(rangeStartOf(addPart(setAnchor(NO_SELECTION, cardPart(7)), cardPart(8))), '7', 'the additions do not move it');
   for (const part of [pathPart(7), treePart(7), queryPart('tags:ui')]) assert.strictEqual(rangeStartOf(setAnchor(NO_SELECTION, part)), null, part.kind);
   assert.strictEqual(rangeStartOf(NO_SELECTION), null);
 });
 
-test('the part builders keep ids as numbers, so a card read from a data attribute and one read from a card are the same part', () => {
+test('the part builders keep ids as whole-id strings, so a card read from a data attribute and one read from a card are the same part, and #7 is not #G7', () => {
   assert.deepStrictEqual(cardPart('12'), cardPart(12));
+  assert.deepStrictEqual(cardPart('012'), cardPart(12));
   assert.deepStrictEqual(pathPart('12'), { kind: 'path', id: '12' });
   assert.deepStrictEqual(treePart('12'), { kind: 'tree', id: '12' });
+  assert.deepStrictEqual(cardPart('G7'), { kind: 'card', id: 'G7' });
+  assert.notDeepStrictEqual(cardPart('G7'), cardPart(7));
   assert.deepStrictEqual(queryPart('tags:ui'), { kind: 'query', text: 'tags:ui' });
 });
 
@@ -74,64 +77,65 @@ test('the part builders keep ids as numbers, so a card read from a data attribut
 // The cards of a small board, with one waiting chain (2 waits for 1, 3 waits for 2),
 // one stranger (4), a done card (5) and an archived card (6) that waits for 1.
 const CARDS = [
-  { id: '1', title: 'one', body: '', status: 'doing', priority: 'Normal', tags: ['ui'], assignee: '@human' },
-  { id: '2', title: 'two', body: '', status: 'todo', priority: 'Normal', tags: ['ui', 'grill'], waiting_for: ['1'] },
-  { id: '3', title: 'three', body: '', status: 'todo', priority: 'Normal', tags: [], waiting_for: ['2'] },
-  { id: '4', title: 'four', body: '', status: 'todo', priority: 'Normal', tags: ['grill'], blocked: 'vendor' },
-  { id: '5', title: 'five', body: '', status: 'done', priority: 'Normal', tags: ['ui'] },
-  { id: '6', title: 'six', body: '', status: 'done', priority: 'Normal', tags: [], archived: true, waiting_for: ['1'] },
+  { id: 1, title: 'one', body: '', status: 'doing', priority: 'Normal', tags: ['ui'], assignee: '@human' },
+  { id: 2, title: 'two', body: '', status: 'todo', priority: 'Normal', tags: ['ui', 'grill'], waiting_for: [1] },
+  { id: 3, title: 'three', body: '', status: 'todo', priority: 'Normal', tags: [], waiting_for: [2] },
+  { id: 4, title: 'four', body: '', status: 'todo', priority: 'Normal', tags: ['grill'], blocked: 'vendor' },
+  { id: 5, title: 'five', body: '', status: 'done', priority: 'Normal', tags: ['ui'] },
+  { id: 6, title: 'six', body: '', status: 'done', priority: 'Normal', tags: [], archived: true, waiting_for: [1] },
 ];
-const ALL = new Set(CARDS.map((c) => c.id));
+const ALL = new Set(CARDS.map((c) => String(c.id)));
 
 // The matcher the page hands in: the search module over the whole board.
-const match = (text) => new Set(filterCards(CARDS, parseSearchQuery(text), {}).map((c) => c.id));
-const resolve = (selection, shown = ALL) => [...resolveSelection(selection, match, shown)];
+const match = (text) => new Set(filterCards(CARDS.map((c) => ({ ...c, id: String(c.id) })), parseSearchQuery(text), {}).map((c) => c.id));
+const shownAs = (shown) => (shown === null || shown === ALL ? shown : typeof shown === 'function' ? () => new Set([...shown()].map(String)) : new Set([...shown].map(String)));
+const resolve = (selection, shown = ALL) => [...resolveSelection(selection, match, shownAs(shown))].map(Number);
 const selectionOf = (...list) => list.reduce((s, part) => addPart(s, part), NO_SELECTION);
 
 test('a card part resolves to that card', () => {
-  assert.deepStrictEqual(resolve(selectionOf(cardPart(3))), ['3']);
+  assert.deepStrictEqual(resolve(selectionOf(cardPart(3))), [3]);
 });
 
 test('a path part resolves to the cards the path: term matches, and a tree part to those of tree:', () => {
-  assert.deepStrictEqual([...match('path:2')], ['1', '2', '3'], 'the board: upstream 1, card 2, downstream 3, and not the sibling branch 6');
-  assert.deepStrictEqual(resolve(selectionOf(pathPart(2))), ['1', '2', '3']);
-  assert.deepStrictEqual([...match('tree:2')], ['1', '2', '3', '6']);
-  assert.deepStrictEqual(resolve(selectionOf(treePart(2))), ['1', '2', '3', '6']);
-  assert.deepStrictEqual(resolve(selectionOf(treePart(4))), ['4'], 'a card with no relations is its own tree');
+  assert.deepStrictEqual([...match('path:2')].map(Number), [1, 2, 3], 'the board: upstream 1, card 2, downstream 3, and not the sibling branch 6');
+  assert.deepStrictEqual(resolve(selectionOf(pathPart(2))), [1, 2, 3]);
+  assert.deepStrictEqual([...match('tree:2')].map(Number), [1, 2, 3, 6]);
+  assert.deepStrictEqual(resolve(selectionOf(treePart(2))), [1, 2, 3, 6]);
+  assert.deepStrictEqual(resolve(selectionOf(treePart(4))), [4], 'a card with no relations is its own tree');
 });
 
 test('a query part resolves to the cards the search module matches for that text', () => {
-  assert.deepStrictEqual(resolve(selectionOf(queryPart('tags:ui'))), ['1', '2', '5']);
-  assert.deepStrictEqual(resolve(selectionOf(queryPart('blocked:'))), ['4']);
-  assert.deepStrictEqual(resolve(selectionOf(queryPart('status:todo tags:grill'))), ['2', '4']);
+  assert.deepStrictEqual(resolve(selectionOf(queryPart('tags:ui'))), [1, 2, 5]);
+  assert.deepStrictEqual(resolve(selectionOf(queryPart('blocked:'))), [4]);
+  assert.deepStrictEqual(resolve(selectionOf(queryPart('status:todo tags:grill'))), [2, 4]);
 });
 
 test('the selection is the union of its parts, each card once, in the order the parts were added', () => {
   const s = selectionOf(queryPart('tags:grill'), cardPart(5), pathPart(2), cardPart(4));
-  assert.deepStrictEqual(resolve(s), ['2', '4', '5', '1', '3'], 'the query (2, 4), the card (5), the new cards of the path (1, 3); card 2 and 4 come back and count once');
+  assert.deepStrictEqual(resolve(s), [2, 4, 5, 1, 3], 'the query (2, 4), the card (5), the new cards of the path (1, 3); card 2 and 4 come back and count once');
 });
 
 test('a card the view hides never joins: a status pill, the Archive pill or the search box can take it out of the shown set', () => {
   const s = selectionOf(cardPart(1), queryPart('tags:ui'), pathPart(2), treePart(1));
-  const withoutStatusPill = new Set(['1', '2', '3', '4', '6']);
-  assert.deepStrictEqual(resolve(s, withoutStatusPill), ['1', '2', '3', '6'], 'card 5 is a done card the Done pill hides');
-  const withoutArchive = new Set(['1', '2', '3', '4', '5']);
-  assert.deepStrictEqual(resolve(selectionOf(treePart(1)), withoutArchive), ['1', '2', '3'], 'card 6 is archived and the Archive pill is off');
-  const boxMatches = new Set(['2', '3']);
-  assert.deepStrictEqual(resolve(selectionOf(cardPart(1), cardPart(2), queryPart('status:todo')), boxMatches), ['2', '3'], 'the box matches 2 and 3 only');
+  const withoutStatusPill = new Set([1, 2, 3, 4, 6]);
+  assert.deepStrictEqual(resolve(s, withoutStatusPill), [1, 2, 3, 6], 'card 5 is a done card the Done pill hides');
+  const withoutArchive = new Set([1, 2, 3, 4, 5]);
+  assert.deepStrictEqual(resolve(selectionOf(treePart(1)), withoutArchive), [1, 2, 3], 'card 6 is archived and the Archive pill is off');
+  const boxMatches = new Set([2, 3]);
+  assert.deepStrictEqual(resolve(selectionOf(cardPart(1), cardPart(2), queryPart('status:todo')), boxMatches), [2, 3], 'the box matches 2 and 3 only');
 });
 
 test('the parts persist: a card the view stops hiding joins again without being picked again', () => {
   const s = selectionOf(cardPart(5), queryPart('tags:grill'));
-  assert.deepStrictEqual(resolve(s, new Set(['2', '4'])), ['2', '4']);
-  assert.deepStrictEqual(resolve(s), ['5', '2', '4']);
+  assert.deepStrictEqual(resolve(s, new Set([2, 4])), [2, 4]);
+  assert.deepStrictEqual(resolve(s), [5, 2, 4]);
 });
 
 test('a limit of null shows everything, and the limit may be given as a function', () => {
   const s = selectionOf(cardPart(6));
-  assert.deepStrictEqual(resolve(s, null), ['6']);
-  assert.deepStrictEqual(resolve(s, () => new Set(['6'])), ['6']);
-  assert.deepStrictEqual(resolve(s, () => new Set(['1'])), []);
+  assert.deepStrictEqual(resolve(s, null), [6]);
+  assert.deepStrictEqual(resolve(s, () => new Set([6])), [6]);
+  assert.deepStrictEqual(resolve(s, () => new Set([1])), []);
 });
 
 test('the shown ids are asked for once, and not at all when there is nothing to resolve', () => {
@@ -147,12 +151,12 @@ test('a part whose card is gone resolves to nothing, without error', () => {
   assert.deepStrictEqual(resolve(selectionOf(cardPart(99))), []);
   assert.deepStrictEqual(resolve(selectionOf(pathPart(99))), []);
   assert.deepStrictEqual(resolve(selectionOf(treePart(99))), []);
-  assert.deepStrictEqual(resolve(selectionOf(cardPart(99), cardPart(3))), ['3'], 'and it does not take the other parts with it');
+  assert.deepStrictEqual(resolve(selectionOf(cardPart(99), cardPart(3))), [3], 'and it does not take the other parts with it');
 });
 
 test('a query that matches nothing resolves to nothing, without error', () => {
   assert.deepStrictEqual(resolve(selectionOf(queryPart('tags:nothing-has-this'))), []);
-  assert.deepStrictEqual(resolve(selectionOf(queryPart('tags:nothing-has-this'), cardPart(1))), ['1']);
+  assert.deepStrictEqual(resolve(selectionOf(queryPart('tags:nothing-has-this'), cardPart(1))), [1]);
 });
 
 test('a query with no text resolves to nothing, never to every card, and never asks the matcher', () => {
@@ -167,7 +171,7 @@ test('a query with no text resolves to nothing, never to every card, and never a
 test('the selection handed in is not changed by resolving it', () => {
   const s = selectionOf(cardPart(1), queryPart('tags:ui'));
   const before = JSON.stringify(s);
-  resolve(s, new Set(['1']));
+  resolve(s, new Set([1]));
   assert.strictEqual(JSON.stringify(s), before);
 });
 
@@ -185,7 +189,7 @@ test('taking one card out of a query part turns that part into its other cards',
   const s = selectionOf(cardPart(5), queryPart('tags:ui'));
   const next = without(s, 2);
   assert.deepStrictEqual(parts(next), [cardPart(5), cardPart(1)], 'tags:ui is 1, 2 and 5; 5 is already a part, so it is not added twice');
-  assert.deepStrictEqual(resolve(next), ['5', '1']);
+  assert.deepStrictEqual(resolve(next), [5, 1]);
 });
 
 test('taking one card out of a path part or a tree part turns that part into its other cards, in the matcher\'s order', () => {
@@ -196,8 +200,8 @@ test('taking one card out of a path part or a tree part turns that part into its
 test('the other cards of a part are the ones it reaches on the whole board, not only the ones the view shows', () => {
   const next = without(selectionOf(queryPart('tags:ui')), 1);
   assert.deepStrictEqual(parts(next), [cardPart(2), cardPart(5)]);
-  assert.deepStrictEqual(resolve(next, new Set(['2'])), ['2'], 'card 5 stays a part and stays hidden');
-  assert.deepStrictEqual(resolve(next), ['2', '5'], 'and it joins when the view shows it again');
+  assert.deepStrictEqual(resolve(next, new Set([2])), [2], 'card 5 stays a part and stays hidden');
+  assert.deepStrictEqual(resolve(next), [2, 5], 'and it joins when the view shows it again');
 });
 
 test('a card that sits in several parts comes out of all of them', () => {
@@ -265,9 +269,9 @@ test('step back does not change the selection handed in', () => {
 
 test('a poll that finds a card gone drops the card, path and tree parts built on it, and keeps the queries', () => {
   const s = selectionOf(cardPart(1), cardPart(2), pathPart(3), treePart(4), queryPart('tags:ui'));
-  const next = pruneSelectionParts(s, [1, 3, 4, 5]);
+  const next = pruneSelectionParts(s, ['1', '3', '4', '5']);
   assert.deepStrictEqual(parts(next), [cardPart(1), pathPart(3), treePart(4), queryPart('tags:ui')]);
-  assert.deepStrictEqual(parts(pruneSelectionParts(s, [2])), [cardPart(2), queryPart('tags:ui')]);
+  assert.deepStrictEqual(parts(pruneSelectionParts(s, ['2'])), [cardPart(2), queryPart('tags:ui')]);
 });
 
 test('when the anchor card is gone the first part that is left becomes the anchor', () => {
@@ -288,7 +292,7 @@ test('when every part is still on the board the same selection comes back', () =
 // becomes. `view` is where the click landed; the Board, Map, Gantt and Calendar
 // have a reading order to range over and the Graph has not.
 
-const ORDER = [1, 2, 3, 4, 5, 6];
+const ORDER = ['1', '2', '3', '4', '5', '6'];
 const gesture = (view, mods = {}) => cardClickAction({
   cue: false, shiftKey: false, ctrlKey: false, metaKey: false, plainClick: view === 'graph' ? 'selects' : 'opens', ranges: shiftAddsRange(view), ...mods,
 });
@@ -296,13 +300,14 @@ const gesture = (view, mods = {}) => cardClickAction({
 const start = (selection = NO_SELECTION, rangeStart = null) => ({ selection, rangeStart });
 function clickOn(state, view, id, mods) {
   const action = gesture(view, mods);
-  return selectionAfterClick(action, id, {
+  const next = selectionAfterClick(action, id, {
     selection: state.selection,
     resolved: resolveSelection(state.selection, match, ALL),
-    rangeStart: state.rangeStart,
+    rangeStart: state.rangeStart === null ? null : String(state.rangeStart),
     order: ORDER,
     matchQuery: match,
   });
+  return { ...next, rangeStart: next.rangeStart === null ? null : Number(next.rangeStart) };
 }
 const plainViews = ['board', 'map', 'gantt', 'calendar'];
 
@@ -365,7 +370,7 @@ test('a Shift range counts the cards a query part already reaches as selected', 
 
 test('a Shift click on a card that is not in the view\'s order changes nothing', () => {
   const state = start(selectionOf(cardPart(1)), 1);
-  const out = selectionAfterClick('range', 42, { selection: state.selection, resolved: new Set(['1']), rangeStart: 1, order: ORDER, matchQuery: match });
+  const out = selectionAfterClick('range', 42, { selection: state.selection, resolved: new Set([1]), rangeStart: 1, order: ORDER, matchQuery: match });
   assert.strictEqual(out.selection, state.selection);
 });
 
@@ -422,6 +427,6 @@ test('the lookup says which views range: every view but the Graph, and a view it
 
 test('a click on a cue is the caller\'s search shortcut and leaves the selection as it is', () => {
   const state = start(selectionOf(cardPart(1)), 1);
-  const out = selectionAfterClick('cue', 2, { selection: state.selection, resolved: new Set(['1']), rangeStart: 1, order: ORDER, matchQuery: match });
+  const out = selectionAfterClick('cue', 2, { selection: state.selection, resolved: new Set([1]), rangeStart: 1, order: ORDER, matchQuery: match });
   assert.deepStrictEqual(out, { selection: state.selection, rangeStart: 1 });
 });

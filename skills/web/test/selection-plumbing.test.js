@@ -27,9 +27,10 @@ const declaration = (name, kind = 'let') => {
   return m[0];
 };
 
-const ids = (set) => [...set].sort((a, b) => a - b);
+const ids = (set) => [...set].map(Number).sort((a, b) => a - b);
+const asNumber = (value) => (value === null ? null : Number(value));
 const asData = (value) => JSON.parse(JSON.stringify(value));
-const card = (id) => ({ kind: 'card', id });
+const card = (id) => ({ kind: 'card', id: String(id) });
 
 // --- every write to the selection goes through one entry point ---------------------
 
@@ -146,8 +147,8 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
-    visibleCardIds: () => order,
-    openCard: (id) => { calls.open.push(id); },
+    visibleCardIds: () => order.map(String),
+    openCard: (id) => { calls.open.push(Number(id)); },
     renderBoard: () => { calls.render++; },
     addSearchTerm: (term) => { calls.terms.push(term); },
     searchTermText: require('../web/search').searchTermText,
@@ -156,9 +157,9 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
   };
   vm.createContext(sandbox);
   vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
-  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
+  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   assert.strictEqual(listeners.length, 1);
-  const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
+  const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
   return { click: listeners[0][1], state, calls };
 }
 
@@ -341,8 +342,8 @@ function clickAwaySandbox({ selected = [1, 2], rangeStart = 1, isolated = false 
     declaration('CALENDAR_CREATE_DAY_CELLS', 'const'), declaration('CALENDAR_CREATE_COLUMNS', 'const'), declaration('NOT_EMPTY_SPACE', 'const'), declaration('DOUBLE_CLICK_OWNED', 'const'),
     fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('onClickAway'),
   ].join('\n'), sandbox);
-  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
-  const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
+  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
+  const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
   return { onClickAway: sandbox.onClickAway, state, calls };
 }
 
@@ -468,8 +469,8 @@ function escapeSandbox({ value = '', selected = [], active = 'body', open = [], 
     declaration('searchWriteListeners', 'const'), declaration('selectionState'), declaration('selectedIds'),
     fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('stepSelectionBack'), fn('escapeStep'),
   ].join('\n'), sandbox);
-  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`, sandbox);
-  sandbox.state = () => asData({ ids: ids(vm.runInContext('selectedIds', sandbox)), anchor: vm.runInContext('selectionState.selection.anchor', sandbox), additions: vm.runInContext('selectionState.selection.additions.length', sandbox), rangeStart: vm.runInContext('selectionState.rangeStart', sandbox) });
+  vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
+  sandbox.state = () => asData({ ids: ids(vm.runInContext('selectedIds', sandbox)), anchor: vm.runInContext('selectionState.selection.anchor', sandbox), additions: vm.runInContext('selectionState.selection.additions.length', sandbox), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
   return sandbox;
 }
 
@@ -582,7 +583,7 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
   ].join('\n'), sandbox);
   const run = (code) => vm.runInContext(code, sandbox);
   run(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${rangeStart})`);
-  run(`menuSubject = cardMenuFor(selectedIds, ${JSON.stringify(selected[0] === undefined ? 0 : selected[0])})`); // a right-click on a selected card: the menu is for the whole selection
+  run(`menuSubject = cardMenuFor(selectedIds, ${JSON.stringify(selected[0] === undefined ? '0' : String(selected[0]))})`); // a right-click on a selected card: the menu is for the whole selection
   return {
     boxes, calls, run,
     set: (name, value) => { sandbox[name] = value; },
@@ -593,12 +594,12 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
 
 test('the reader returns the selection\'s cards in the order they were selected, live and archived, and drops an id with no card', () => {
   const s = bulkSandbox({ selected: [4, 1, 99, 2] });
-  assert.deepStrictEqual([...s.run('bulkTargets().map((c) => c.id)')], [4, 1, 2]);
+  assert.deepStrictEqual([...s.run('bulkTargets().map((c) => c.id)')], ['4', '1', '2']);
 });
 
 test('given the ids a popup captured, the reader returns those cards whatever the selection is now', () => {
   const s = bulkSandbox({ selected: [1] });
-  assert.deepStrictEqual([...s.run('bulkTargets([3, 2]).map((c) => c.id)')], [3, 2]);
+  assert.deepStrictEqual([...s.run("bulkTargets(['3', '2']).map((c) => c.id)")], ['3', '2']);
 });
 
 test('assign: the popup applies to the cards it captured when it opened, even if the selection changes while it is open', async () => {
@@ -687,7 +688,7 @@ test('drag: dragging a selected card carries the whole selection, and an unselec
     handlers.dragstart({ dataTransfer: { setData() {} } });
     return s.run('bulkDragIds');
   };
-  assert.deepStrictEqual([...dragstart(2)], [1, 2]);
+  assert.deepStrictEqual([...dragstart(2)], ['1', '2']);
   assert.strictEqual(dragstart(3), null, 'a card outside the selection drags alone');
   s.select(1);
   assert.strictEqual(dragstart(1), null, 'a selection of one is a single-card drag');

@@ -30,7 +30,7 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing' }),
-    card(2, { title: 'Move the data layer', waiting_for: ['1'], tags: ['ui'] }),
+    card(2, { title: 'Move the data layer', waiting_for: [1], tags: ['ui'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
@@ -69,7 +69,7 @@ async function open({ view = 'board', board = makeBoard() } = {}) {
   page.ctx.renderBoard = (...args) => { renders++; return real(...args); };
   const created = [];
   page.ctx.openModal = (...args) => { created.push(args); };
-  const sortedIds = (set) => [...set].sort((a, b) => a - b);
+  const sortedIds = (set) => [...set].map(Number).sort((a, b) => a - b);
   return {
     page, view, created, calendarHost: elements['#calendar-view'], chip: elements['#search-chip'],
     renders: () => renders,
@@ -113,7 +113,7 @@ const cardIn = (view) => el('div', { classes: ['card-el'], dataset: { id: '3' } 
 const click = (s, target, detail = 1, extra = {}) => s.page.fireDocument('click', { target, detail, shiftKey: false, ctrlKey: false, metaKey: false, ...extra });
 const doubleClick = (s, target, extra = {}) => { click(s, target, 1, extra); click(s, target, 2, extra); };
 
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 const pillQuery = (text) => ({ kind: 'query', text });
 const typedQuery = (text) => ({ kind: 'query', text, source: 'typing' });
 const NOTHING = { anchor: null, additions: [] };
@@ -137,7 +137,7 @@ for (const view of Object.keys(CONTAINERS)) {
     const s = await open({ view });
     s.pick(1, 2);
     click(s, emptyIn(view), 1);
-    assert.deepStrictEqual(s.ids(), ['1', '2'], 'the first click of the pair changed nothing');
+    assert.deepStrictEqual(s.ids(), [1, 2], 'the first click of the pair changed nothing');
     s.mark();
     click(s, emptyIn(view), 2);
     assert.deepStrictEqual(s.selection(), NOTHING);
@@ -169,7 +169,7 @@ test('the third click of a triple click, and a click with a count that is not tw
   click(s, emptyIn('board'), 1);
   click(s, emptyIn('board'), 3);
   click(s, emptyIn('board'), 0);
-  assert.deepStrictEqual(s.ids(), ['1']);
+  assert.deepStrictEqual(s.ids(), [1]);
 });
 
 // --- a pill's query is an anchor ------------------------------------------------------------
@@ -240,18 +240,18 @@ test('a pill anchor under hand-picked additions: the double click drops the card
 test('Graph: a single click on the empty canvas leaves a typed search, its matches and the anchor where they are', async () => {
   const s = await open({ view: 'graph' });
   s.typeBox('tags:ui');
-  assert.deepStrictEqual(s.ids(), ['2', '5']);
+  assert.deepStrictEqual(s.ids(), [2, 5]);
   click(s, emptyIn('graph'), 1);
   assert.strictEqual(s.box(), 'tags:ui');
   assert.deepStrictEqual(s.selection(), { anchor: typedQuery('tags:ui'), additions: [] });
-  assert.deepStrictEqual(s.ids(), ['2', '5']);
+  assert.deepStrictEqual(s.ids(), [2, 5]);
 });
 
 test('Graph: a double click on the empty canvas clears the typed search, the anchor and its additions', async () => {
   const s = await open({ view: 'graph' });
   s.typeBox('tags:ui');
   s.page.run('setSelection(addPart(selectionState.selection, cardPart(4)), null)');
-  assert.deepStrictEqual(s.ids(), ['2', '4', '5']);
+  assert.deepStrictEqual(s.ids(), [2, 4, 5]);
   doubleClick(s, emptyIn('graph'));
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.selection(), NOTHING);
@@ -307,7 +307,7 @@ for (const [name, make] of Object.entries(NOT_EMPTY)) {
       s.pick(1, 2);
       s.mark();
       doubleClick(s, make(view));
-      assert.deepStrictEqual(s.ids(), ['1', '2'], view);
+      assert.deepStrictEqual(s.ids(), [1, 2], view);
       assert.strictEqual(s.renders(), 0, view);
     }
   });
@@ -339,7 +339,7 @@ test('a double click with Shift, Ctrl or Cmd held builds a selection, so it neve
     const s = await open();
     s.pick(1, 2);
     doubleClick(s, emptyIn('board'), { [mod]: true });
-    assert.deepStrictEqual(s.ids(), ['1', '2'], mod);
+    assert.deepStrictEqual(s.ids(), [1, 2], mod);
   }
 });
 
@@ -364,7 +364,7 @@ for (const [name, spec, start] of CALENDAR_CREATES) {
     doubleClick(s, target);
     s.calendarHost.fire('dblclick', { target, clientY: 0, detail: 2 });
     assert.deepStrictEqual(s.created, [[null, null, start]]);
-    assert.deepStrictEqual(s.ids(), ['1', '2']);
+    assert.deepStrictEqual(s.ids(), [1, 2]);
     assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
     assert.strictEqual(s.rangeStart(), 2);
     assert.strictEqual(s.renders(), 0);
@@ -380,7 +380,7 @@ test('Calendar: a double click on a time-grid column opens a new card aimed at t
   s.calendarHost.fire('dblclick', { target, clientY: 100 + 60 * 9, detail: 2 });
   assert.strictEqual(s.created.length, 1);
   assert.match(s.created[0][2], /^2026-10-15T\d\d:\d\d$/);
-  assert.deepStrictEqual(s.ids(), ['1', '2']);
+  assert.deepStrictEqual(s.ids(), [1, 2]);
 });
 
 test('Calendar: a double click on the rest of the Calendar clears the selection, since it creates nothing there', async () => {

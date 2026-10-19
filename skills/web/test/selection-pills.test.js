@@ -194,27 +194,27 @@ test('a pill gesture changes none of the selections it is given', () => {
 // --- the cards the selection reaches ------------------------------------------------
 
 const CARDS = [
-  { id: '1', title: 'one', status: 'todo', blocked: 'vendor', review: null, waiting_for: [], tags: [] },
-  { id: '2', title: 'two', status: 'todo', blocked: null, review: 'copy', waiting_for: [], tags: [] },
-  { id: '3', title: 'three', status: 'done', blocked: null, review: 'PR', waiting_for: [], tags: [] },
-  { id: '4', title: 'four', status: 'todo', blocked: null, review: null, waiting_for: ['1'], tags: [] },
+  { id: 1, title: 'one', status: 'todo', blocked: 'vendor', review: null, waiting_for: [], tags: [] },
+  { id: 2, title: 'two', status: 'todo', blocked: null, review: 'copy', waiting_for: [], tags: [] },
+  { id: 3, title: 'three', status: 'done', blocked: null, review: 'PR', waiting_for: [], tags: [] },
+  { id: 4, title: 'four', status: 'todo', blocked: null, review: null, waiting_for: [1], tags: [] },
 ];
 const matchQuery = (text) => new Set(filterCards(CARDS, parseSearchQuery(text), {}).map((c) => c.id));
-const reached = (selection, shown = null) => [...resolveSelection(selection, matchQuery, shown)].sort((a, b) => a - b);
+const reached = (selection, shown = null) => [...resolveSelection(selection, matchQuery, shown)].map(Number).sort((a, b) => a - b);
 
 test('outside the Graph a pill\'s matches are the selection, and so are the bulk targets; the second pill adds its own', () => {
   const one = gesture('toggle', REVIEW, NO_SELECTION, '');
-  assert.deepStrictEqual(reached(one.selection), ['2', '3'], 'the done review card is selected too');
+  assert.deepStrictEqual(reached(one.selection), [2, 3], 'the done review card is selected too');
   const two = gesture('toggle', BLOCKED, one.selection, one.boxText);
-  assert.deepStrictEqual(reached(two.selection), ['1', '2', '3']);
+  assert.deepStrictEqual(reached(two.selection), [1, 2, 3]);
   const three = gesture('toggle', BLOCKED, two.selection, two.boxText);
-  assert.deepStrictEqual(reached(three.selection), ['2', '3']);
+  assert.deepStrictEqual(reached(three.selection), [2, 3]);
 });
 
 test('the selection only reaches cards the view shows: with the box on the pill\'s query the matches are all shown', () => {
   const one = gesture('toggle', REVIEW, NO_SELECTION, '');
-  assert.deepStrictEqual(reached(one.selection, new Set(['2', '3', '4'])), ['2', '3']);
-  assert.deepStrictEqual(reached(one.selection, new Set(['4'])), []);
+  assert.deepStrictEqual(reached(one.selection, new Set([2, 3, 4])), [2, 3]);
+  assert.deepStrictEqual(reached(one.selection, new Set([4])), []);
 });
 
 test('step back from a grown pill selection drops the added pill and leaves the first, then the anchor', () => {
@@ -262,7 +262,7 @@ test('a pill dropped from among cards leaves the cards, and when the anchor goes
   const mixed = selectionOf(queryPart(REVIEW), cardPart(5), cardPart(6));
   const next = afterEdit(mixed, 'nothing', null);
   assert.deepStrictEqual(shape(next.selection), { anchor: cardPart(5), additions: [cardPart(6)] });
-  assert.strictEqual(next.rangeStart, 5, 'the new anchor is a card, so a Shift range may begin there');
+  assert.strictEqual(next.rangeStart, '5', 'the new anchor is a card, so a Shift range may begin there');
 });
 
 test('the box held whole by a pill with spaces in its query counts as held, spacing aside', () => {

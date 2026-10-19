@@ -226,7 +226,7 @@ test('the address replaces the entry on which the box changed: earlier entries a
 // the query rides in them; Back and Forward never write the box ------------
 
 const closeCard = (session) => session.close.fire('click');
-const shownCard = (page) => page.run('currentDetailId');
+const shownCard = (page) => { const v = page.run('currentDetailId'); return v === null ? null : Number(v); };
 
 test('with a query in the box, opening a card adds one history step carrying both card and q; Back closes the card, Forward reopens it, and the box keeps the query throughout', async () => {
   const { page, session } = await openAt();

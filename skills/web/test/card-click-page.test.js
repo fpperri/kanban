@@ -32,7 +32,7 @@ async function open({ view = 'board', prefs = SELECTS } = {}) {
   const page = await loadPage({ board: makeBoard(), stored, elements: { '#graph-view': control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const opened = [];
-  page.ctx.openCard = (id) => { opened.push(id); };
+  page.ctx.openCard = (id) => { opened.push(Number(id)); };
   const selection = () => JSON.parse(JSON.stringify(page.run('selectionState.selection')));
   return { page, opened, selection };
 }
@@ -46,7 +46,7 @@ function cardTarget(id) {
 const empty = () => new Proxy({}, { get: (t, key) => (key === 'closest' ? () => null : harmless(String(key))) });
 const click = (s, target, extra = {}) => s.page.fireDocument('click', { target, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false, ...extra });
 
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 
 test('a plain click in a view set to selects leaves the card selected: the click-away rule does not drop what the click built', async () => {
   for (const view of ['board', 'map', 'gantt', 'calendar']) {
@@ -62,7 +62,7 @@ test('the second click of a double click opens the card and leaves the selection
     const s = await open({ view });
     click(s, cardTarget(2), { detail: 1 });
     click(s, cardTarget(2), { detail: 2 });
-    assert.deepStrictEqual(s.opened, ['2'], view);
+    assert.deepStrictEqual(s.opened, [2], view);
     assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] }, `${view}: opening it left the selection alone`);
   }
 });
@@ -73,7 +73,7 @@ test('a double click opens the card even when the first click had a selection of
   click(s, cardTarget(3), { ctrlKey: true });
   click(s, cardTarget(2), { detail: 1 });
   click(s, cardTarget(2), { detail: 2 });
-  assert.deepStrictEqual(s.opened, ['2']);
+  assert.deepStrictEqual(s.opened, [2]);
   assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] });
 });
 
@@ -82,7 +82,7 @@ test('a single click opens nothing, and a third click of a triple click selects 
   click(s, cardTarget(2), { detail: 1 });
   click(s, cardTarget(2), { detail: 2 });
   click(s, cardTarget(2), { detail: 3 });
-  assert.deepStrictEqual(s.opened, ['2']);
+  assert.deepStrictEqual(s.opened, [2]);
 });
 
 test('a click on empty space keeps the card a plain click selected, and a double click on empty space drops it', async () => {
@@ -108,7 +108,7 @@ test('a view whose plain click opens the card opens it on the first click and em
   const s = await open({ prefs: null });
   click(s, cardTarget(1), { ctrlKey: true });
   click(s, cardTarget(2), { detail: 1 });
-  assert.deepStrictEqual(s.opened, ['2']);
+  assert.deepStrictEqual(s.opened, [2]);
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
 });
 
@@ -131,6 +131,6 @@ test('Enter on a focused card opens it in a view set to selects, and leaves the 
   click(s, cardTarget(2));
   const focused = { dataset: { id: '2' }, closest: (sel) => (sel === '.card-el' ? focused : null) };
   s.page.fireDocument('keydown', { key: 'Enter', repeat: false, target: focused, shiftKey: false, ctrlKey: false, metaKey: false });
-  assert.deepStrictEqual(s.opened, ['2']);
+  assert.deepStrictEqual(s.opened, [2]);
   assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] });
 });

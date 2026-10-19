@@ -52,7 +52,7 @@ const frozenSelection = (parts) => {
   const selection = parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
   return Object.freeze({ anchor: Object.freeze(selection.anchor), additions: Object.freeze(selection.additions.map((p) => Object.freeze(p))) });
 };
-const pathOfFive = (text) => new Set(text === 'path:5' ? [4, 5, 6] : []);
+const pathOfFive = (text) => new Set(text === 'path:5' ? ['4', '5', '6'] : []);
 
 test('a right-click on a card outside the selection makes that card alone the menu\'s subject and writes nothing to the selection', () => {
   const selection = frozenSelection([cardPart(1), cardPart(2)]);
@@ -60,8 +60,8 @@ test('a right-click on a card outside the selection makes that card alone the me
   const menu = cardMenuFor(resolved, 3);
   assert.deepStrictEqual(menu.ids, [3]);
   assert.strictEqual(menu.inSelection, false);
-  assert.deepStrictEqual([...resolved], [1, 2], 'the resolved set is untouched');
-  assert.deepStrictEqual(selection, { anchor: { kind: 'card', id: 1 }, additions: [{ kind: 'card', id: 2 }] }, 'and so is the selection it came from');
+  assert.deepStrictEqual([...resolved], ['1', '2'], 'the resolved set is untouched');
+  assert.deepStrictEqual(selection, { anchor: { kind: 'card', id: '1' }, additions: [{ kind: 'card', id: '2' }] }, 'and so is the selection it came from');
 });
 
 test('a right-click on a card outside an empty selection also has that card alone as its subject', () => {
@@ -71,8 +71,8 @@ test('a right-click on a card outside an empty selection also has that card alon
 test('a right-click on a card inside the selection makes the whole resolved selection the subject, a path\'s cards included, in the order they were picked', () => {
   const selection = frozenSelection([cardPart(1), pathPart(5), cardPart(9)]);
   const resolved = resolveSelection(selection, pathOfFive, null);
-  const menu = cardMenuFor(resolved, 6);
-  assert.deepStrictEqual(menu.ids, [1, 4, 5, 6, 9]);
+  const menu = cardMenuFor(resolved, '6');
+  assert.deepStrictEqual(menu.ids, ['1', '4', '5', '6', '9']);
   assert.strictEqual(menu.inSelection, true);
 });
 

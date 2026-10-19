@@ -317,7 +317,8 @@ function selectionWithoutCard(selection, id, matchQuery) {
 // pill that is on stays on, in its order (the first is the anchor), and every other part
 // goes. The first card picked becomes the anchor, because adding to an empty selection
 // does that. A cue is the caller's search shortcut.
-function selectionAfterClick(action, id, { selection, resolved, rangeStart, order, matchQuery }) {
+function selectionAfterClick(action, clicked, { selection, resolved, rangeStart, order, matchQuery }) {
+  const id = partId(clicked);
   if (action === 'select') return { selection: setAnchor(selection, cardPart(id)), rangeStart: id };
   if (action === 'toggle') {
     const next = resolved.has(id) ? selectionWithoutCard(selection, id, matchQuery) : addPart(selection, cardPart(id));
