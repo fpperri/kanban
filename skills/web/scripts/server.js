@@ -6,6 +6,7 @@ const cs = require('./card-store');
 const ns = require('./notifications-store');
 const cfg = require('./config-store');
 const nesting = require('../web/nesting');
+const ids = require('../web/ids');
 
 const WEB = path.join(__dirname, '..', 'web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -205,13 +206,16 @@ function readBody(req) {
   });
 }
 
-// A neighbour in a reorder body: a card id, null when absent, undefined when
-// it is neither.
+// A neighbour in a reorder body: a card id as its whole string (`7`, `G3`),
+// null when absent, undefined when it is neither.
 function readNeighbour(v) {
   if (v === undefined || v === null) return null;
-  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return v;
-  if (typeof v === 'string' && /^\d+$/.test(v.trim())) return Number(v);
-  return undefined;
+  const key = ids.idKey(typeof v === 'string' ? v.trim() : v);
+  return key === null ? undefined : key;
+}
+
+function wireNeighbour(id) {
+  return id === null ? null : cs.wireId(id);
 }
 
 function boardName(dir, config) {
@@ -311,10 +315,10 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           throw e;
         }
       }
-      const m = p.match(/^\/api\/cards\/(\d+)(\/archive|\/restore|\/detail|\/reorder)?$/);
+      const m = p.match(/^\/api\/cards\/(_?[A-Z]*\d+)(\/archive|\/restore|\/detail|\/reorder)?$/);
       if (m) {
-        const id = Number(m[1]);
-        if (!cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${id}` });
+        const id = ids.idKey(m[1]); // the whole id; null when the digits run past what an id holds
+        if (id === null || !cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${m[1]}` });
         if (req.method === 'GET' && m[2] === '/detail') {
           const detail = cs.cardDetail(dir, id);
           // file mtime for the popup's "Last modified" fallback when
@@ -356,12 +360,15 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           if (prev === undefined || next === undefined) return sendJSON(res, 400, { error: 'prev and next must be card ids' });
           const config = cfg.readConfig(dir);
           const cards = cs.listActive(dir).concat(cs.listArchived(dir)).filter((c) => !c.unparseable);
-          const plan = nesting.reorderPlan(cards, id, { prev, next }, { board: boardName(dir, config), priorities: config.priorities });
+          // nesting.js still reads ids as the page gets them (plain ids as numbers), so the
+          // plan runs on the wire form of the cards; updateCard takes either form.
+          const wired = cards.map(cs.toJSON);
+          const plan = nesting.reorderPlan(wired, cs.wireId(id), { prev: wireNeighbour(prev), next: wireNeighbour(next) }, { board: boardName(dir, config), priorities: config.priorities });
           if (plan.error) return sendJSON(res, 400, { error: plan.error });
-          const written = nesting.reorderWrites(id, plan).map((w) => cs.toJSON(cs.updateCard(dir, w.id, { rank: w.rank })));
+          const written = nesting.reorderWrites(cs.wireId(id), plan).map((w) => cs.toJSON(cs.updateCard(dir, w.id, { rank: w.rank })));
           return sendJSON(res, 200, {
-            card: written.find((c) => c.id === id) || cs.toJSON(cards.find((c) => c.id === id)),
-            renumbered: written.filter((c) => c.id !== id),
+            card: written.find((c) => c.id === cs.wireId(id)) || cs.toJSON(cards.find((c) => c.id === id)),
+            renumbered: written.filter((c) => c.id !== cs.wireId(id)),
           });
         }
         if (req.method === 'DELETE' && !m[2]) { cs.deleteCard(dir, id); return sendJSON(res, 200, { ok: true }); }
