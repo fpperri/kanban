@@ -23,7 +23,7 @@ test('the gaps section names Isolate, the selection and the Graph, each as web-o
   assert.match(gaps, /\*\*No Graph view\.\*\*/);
   assert.match(gaps, /Graph[^.]*(three layouts|tier fan)/);
   assert.match(gaps, /Graph[^.]*option row[^.]*lighting[^.]*names[^.]*no counterpart/);
-  assert.match(gaps, /The `n` key that steps the fan's names goes with it/);
+  assert.match(gaps, /The `l` key that steps the fan's names goes with it/);
   assert.match(gaps, /kanban-web only|only in kanban-web|kanban-web's/);
 });
 

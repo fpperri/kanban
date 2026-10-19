@@ -1,13 +1,13 @@
 'use strict';
-// The tier fan's Names option and the n key, on the plan board. The option row's Names holds
+// The tier fan's Names option and the l key, on the plan board. The option row's Names holds
 // relevant, all and none, relevant pressed by default. A name is a plain label of a card:
 // every card of the fan has exactly one, and the page names the ones the setting names
 // (graphFanNames). On the plan board relevant names the five parents from the highest
 // altitude down (the fan is above the small size), all names every card and none names none,
 // each the number the model predicts, so each choice changes the number drawn. A card named
-// shows its title as text. The n key steps relevant, all, none and back to relevant while the
+// shows its title as text. The l key steps relevant, all, none and back to relevant while the
 // Graph shows Tiers, and shows the setting in the footer line of the Graph. It goes through the
-// shared key guard: with focus in the search box n is typed and the setting stays, with a card
+// shared key guard: with focus in the search box l is typed and the setting stays, with a card
 // menu, the notifications panel or the preferences sheet up it does nothing, and with the search
 // panel open and focus outside the box it steps the setting. In Force, in Status and outside the
 // Graph it does nothing. An option that has focus keeps it through a step. A reload keeps the
@@ -73,7 +73,7 @@ const predicted = (mode) => `[...graphFanNames(graphCur.model,${JSON.stringify(m
 const NAMED_ARE_PREDICTED = (mode) => `JSON.stringify(${NAMED})===JSON.stringify(${predicted(mode)})`;
 const nameOf = (id) => `(()=>{const t=document.querySelector('#graph-view .graph-node[data-id="${id}"] .graph-node-name');return t?t.textContent:null})()`;
 const KEY_LINE = `(()=>{const k=document.querySelector('#graph-view .graph-key');return k?k.textContent:null})()`;
-const keyLineSays = (value) => `(()=>{const k=document.querySelector('#graph-view .graph-key');return !!k&&k.textContent.endsWith(${JSON.stringify(`n steps the names: ${value}`)})})()`;
+const keyLineSays = (value) => `(()=>{const k=document.querySelector('#graph-view .graph-key');return !!k&&k.textContent.endsWith(${JSON.stringify(`l steps the names: ${value}`)})})()`;
 // The Names group of the row as the page has it, null while the row is not there or has none.
 const NAMES_GROUP = `(()=>{const g=[...document.querySelectorAll('#graph-view .graph-options .graph-option')].find((x)=>x.querySelector('.graph-option-label').textContent==='Names');`
   + `if(!g)return null;return {title:g.title,buttons:[...g.querySelectorAll('.graph-option-btn')].map((b)=>({key:b.dataset.key,val:b.dataset.val,text:b.textContent,pressed:b.getAttribute('aria-pressed')==='true',active:b.classList.contains('active'),`
@@ -155,19 +155,19 @@ module.exports = {
       await pressOn(optionButton('names', value));
       return waitFor(pressedIs('names', value), 6000);
     };
-    // The key n pressed with nothing focused, and the setting it should arrive at.
+    // The key l pressed with nothing focused, and the setting it should arrive at.
     const step = async (to) => {
       await blur();
-      await key('n');
+      await key('l');
       return waitFor(settingIs(to), 4000);
     };
     const settles = async (ids) => waitFor(namedAre(ids), 6000);
-    // The key walked to a setting that is not the next one: n pressed until the setting is there.
+    // The key walked to a setting that is not the next one: l pressed until the setting is there.
     const walkTo = async (to) => {
       await blur();
       for (let i = 0; i < plan.values.length && (await setting()) !== to; i++) {
         const before = await setting();
-        await key('n');
+        await key('l');
         await waitFor(`${SETTING}!==${JSON.stringify(before)}`, 4000);
       }
       return (await setting()) === to;
@@ -183,7 +183,7 @@ module.exports = {
     check('plan: the row shows Names with relevant, all and none, in words', !!group && same(group.buttons.map((b) => [b.key, b.val, b.text]), plan.values.map((v) => ['names', v, v])), group);
     check('plan: relevant is on by default, and only relevant', !!group && same(group.buttons.filter((b) => b.pressed).map((b) => b.val), ['relevant']) && group.buttons.every((b) => b.active === b.pressed), group);
     check('plan: every Names button keeps the selection and none holds the poll', !!group && group.title.length > 20 && group.buttons.every((b) => b.keeps === true && b.holds === false), group);
-    check('plan: the footer line of the Graph says the n key steps the names, and which is on', await waitFor(keyLineSays('relevant'), 4000), await ev(KEY_LINE));
+    check('plan: the footer line of the Graph says the l key steps the names, and which is on', await waitFor(keyLineSays('relevant'), 4000), await ev(KEY_LINE));
 
     // --- each choice changes the number of names drawn --------------------------------------------
     check('plan: relevant, the default, names the five parents and no leaf', await settles(plan.parents), await named());
@@ -201,95 +201,95 @@ module.exports = {
     check('plan: each Names choice changes the number of drawn names', counts.relevant === plan.parents.length && counts.all === plan.live.length && counts.none === 0, counts);
     check('plan: relevant is pressed again and names the parents again', await choose('relevant') && await settles(plan.parents), await named());
 
-    // --- the n key ---------------------------------------------------------------------------------------
+    // --- the l key ---------------------------------------------------------------------------------------
     await blur();
     const walked = [];
     for (const to of plan.steps) {
       const reached = await step(to);
       walked.push(to);
       const shown = to === 'all' ? plan.live : to === 'none' ? [] : plan.parents;
-      check(`plan: n steps the names to ${to}, and the row, the labels and the footer line agree`,
+      check(`plan: l steps the names to ${to}, and the row, the labels and the footer line agree`,
         reached && await settles(shown) && await waitFor(pressedIs('names', to), 4000) && await waitFor(keyLineSays(to), 4000), { setting: await setting(), named: await named() });
     }
-    check('plan: three presses of n walked all, none and back to relevant', same(walked, ['all', 'none', 'relevant']) && (await setting()) === 'relevant', walked);
+    check('plan: three presses of l walked all, none and back to relevant', same(walked, ['all', 'none', 'relevant']) && (await setting()) === 'relevant', walked);
 
     // An option that has focus is rebuilt by the step and gets focus back, as after a press: the
     // same option, found again by its key and value, so focus stays on all while the setting moves
     // on to none and the row shows none pressed.
     await pressOn(optionButton('names', 'all'));
     check('plan: after a press the option keeps focus', await waitFor(`${FOCUSED_OPTION}==='names=all'`, 4000), await ev(FOCUSED_OPTION));
-    await key('n');
-    check('plan: n with focus on an option steps the setting, and the option keeps focus',
+    await key('l');
+    check('plan: l with focus on an option steps the setting, and the option keeps focus',
       await waitFor(settingIs('none'), 4000) && await waitFor(pressedIs('names', 'none'), 4000) && await waitFor(`${FOCUSED_OPTION}==='names=all'`, 4000),
       { setting: await setting(), focused: await ev(FOCUSED_OPTION) });
-    await key('n');
+    await key('l');
     await waitFor(settingIs('relevant'), 4000);
-    check('plan: and n goes on from there: none is followed by relevant', (await setting()) === 'relevant' && await settles(plan.parents), await setting());
+    check('plan: and l goes on from there: none is followed by relevant', (await setting()) === 'relevant' && await settles(plan.parents), await setting());
 
-    // --- where n does nothing --------------------------------------------------------------------------------
+    // --- where l does nothing --------------------------------------------------------------------------------
     await blur();
     await ev(FOCUS_BOX);
     const typedOver = await setting();
-    await key('n');
-    check('plan: with focus in the search box, n is typed and the setting stays', await waitFor(boxIs('n'), 4000) && (await setting()) === typedOver, { box: await ev(`${BOX}.value`), setting: await setting() });
+    await key('l');
+    check('plan: with focus in the search box, l is typed and the setting stays', await waitFor(boxIs('l'), 4000) && (await setting()) === typedOver, { box: await ev(`${BOX}.value`), setting: await setting() });
     await ev(CLEAR_BOX);
     await waitFor(boxIs(''), 4000);
     await blur();
     check('plan: the search panel is open with focus outside the box', await waitFor(PANEL_OPEN, 4000));
-    await key('n');
-    check('plan: with the search panel open and focus outside the box, n steps the setting', await waitFor(settingIs('all'), 4000), await setting());
-    await key('n');
-    await key('n');
+    await key('l');
+    check('plan: with the search panel open and focus outside the box, l steps the setting', await waitFor(settingIs('all'), 4000), await setting());
+    await key('l');
+    await key('l');
     await waitFor(settingIs('relevant'), 4000);
     check('plan: and goes on round to relevant', (await setting()) === 'relevant', await setting());
     await ev(`document.getElementById('search-panel-toggle').click()`);
     await frame();
 
-    // A press of n that must change nothing: the setting is read before and after, so a key that
+    // A press of l that must change nothing: the setting is read before and after, so a key that
     // stepped three times behind three surfaces and came round to where it began is still caught.
     const nothingHappens = async (stillThere) => {
       const before = await setting();
-      await key('n');
+      await key('l');
       await frame();
       return (await setting()) === before && (!stillThere || await ev(stillThere));
     };
     await rightClick('#graph-view .graph-node');
     check('plan: a right-click on a card opens its menu', await waitFor(MENU_UP, 4000));
-    check('plan: with a card menu open, n does nothing', await nothingHappens(MENU_UP), await setting());
+    check('plan: with a card menu open, l does nothing', await nothingHappens(MENU_UP), await setting());
     await key('Escape');
     check('plan: Esc closes the card menu', await waitFor(MENU_SHUT, 4000));
 
     await pressOn('#notif-btn');
     check('plan: the notifications panel opens', await waitFor(NOTIFICATIONS_UP, 4000));
-    check('plan: with the notifications panel open, n does nothing', await nothingHappens(NOTIFICATIONS_UP), await setting());
+    check('plan: with the notifications panel open, l does nothing', await nothingHappens(NOTIFICATIONS_UP), await setting());
     await key('Escape');
     check('plan: Esc closes the notifications panel', await waitFor(NOTIFICATIONS_SHUT, 4000));
 
     await pressOn('#prefs-btn');
     check('plan: the preferences sheet opens', await waitFor(SHEET_UP, 4000));
-    check('plan: with the preferences sheet open, n does nothing', await nothingHappens(SHEET_UP), await setting());
+    check('plan: with the preferences sheet open, l does nothing', await nothingHappens(SHEET_UP), await setting());
     await key('Escape');
     check('plan: Esc closes the preferences sheet', await waitFor(SHEET_SHUT, 4000));
 
     await blur();
     const held = await setting();
-    await key('n', { ctrl: true });
-    await key('n', { alt: true });
+    await key('l', { ctrl: true });
+    await key('l', { alt: true });
     await frame();
-    check('plan: n with Ctrl or Alt held does nothing', (await setting()) === held, await setting());
+    check('plan: l with Ctrl or Alt held does nothing', (await setting()) === held, await setting());
 
     for (const other of ['force', 'status']) {
       await ev(pickLayout(other));
       await waitFor(layoutIs(other), 10000);
       await blur();
-      check(`plan: in ${other}, n does nothing`, await nothingHappens(), await setting());
+      check(`plan: in ${other}, l does nothing`, await nothingHappens(), await setting());
     }
     await ev(pickLayout('tiers'));
     await waitFor(layoutIs('tiers'), 10000);
     check('plan: back in Tiers the names are the parents, as they were', await settles(plan.parents), await named());
     check('plan: the Board draws the plan board', await load('plan', '/?view=board'));
     await blur();
-    check('plan: outside the Graph, on the Board, n does nothing and the setting stays', await nothingHappens(), await setting());
+    check('plan: outside the Graph, on the Board, l does nothing and the setting stays', await nothingHappens(), await setting());
 
     // --- kept for the board ------------------------------------------------------------------------------------
     await load('plan');

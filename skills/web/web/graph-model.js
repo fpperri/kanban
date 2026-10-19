@@ -385,7 +385,7 @@ function graphFanNames(model, names, { selectedIds, loneCardId } = {}) {
   return named;
 }
 
-// The value the n key sets next: relevant, all, none, and round to relevant. A value the
+// The value the l key sets next: relevant, all, none, and round to relevant. A value the
 // row does not offer steps from the default.
 function graphFanNextNames(current) {
   const values = GRAPH_FAN_OPTION_VALUES.names;

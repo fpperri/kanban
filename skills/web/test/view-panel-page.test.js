@@ -239,10 +239,10 @@ test('the panel\'s rules use tokens and no hex, and the sheet adds no width of i
   assert.match(sheet, /width: min\(18rem, 100%\)/);
 });
 
-test('the n key still steps the Graph\'s names with the panel closed, since the choice is not read from the row', async () => {
+test('the l key still steps the Graph\'s names with the panel closed, since the choice is not read from the row', async () => {
   const s = await open('graph', { stored: { [KEY]: '{"map":null,"graph":false}' } });
   assert.strictEqual(s.page.run('graphLoadOptions().names'), 'relevant');
-  s.page.run('onGraphNamesKey({ key: "n", preventDefault() {} })');
+  s.page.run('onGraphNamesKey({ key: "l", preventDefault() {} })');
   assert.strictEqual(s.page.run('graphLoadOptions().names'), 'all');
   assert.strictEqual(s.panel(), null, 'and the panel stays closed');
 });

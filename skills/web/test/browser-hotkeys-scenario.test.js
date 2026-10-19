@@ -25,7 +25,7 @@ test('the scenario is in the runner, on the plan board, with time for its steps'
 });
 
 test('the keys the scenario looks for are the keys the page answers, and each is a label in the list', () => {
-  assert.deepStrictEqual(CASES.keys, ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?']);
+  assert.deepStrictEqual(CASES.keys, ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?']);
   const labels = HOTKEYS.flatMap((h) => h.keys);
   assert.deepStrictEqual(CASES.keys.filter((k) => !labels.includes(k)), []);
 });
@@ -36,7 +36,7 @@ test('the defaults the scenario expects are what the list reads for a page nothi
   assert.deepStrictEqual(Object.keys(CASES.defaults).sort(), HOTKEYS.filter((h) => h.state).map((h) => h.id).sort(), 'every key with a state has a default here');
 });
 
-test('the states it expects after the keys are what the list reads for those states, and names all is the n key\'s first step', () => {
+test('the states it expects after the keys are what the list reads for those states, and names all is the l key\'s first step', () => {
   const rows = hotkeyRows({ pills: ['blocked'], isolate: true, panelOnFocus: false });
   for (const [id, text] of Object.entries(CASES.afterKeys)) assert.strictEqual(stateOf(rows, id), text, id);
   assert.strictEqual(stateOf(hotkeyRows({ names: 'all' }), 'names'), CASES.names);

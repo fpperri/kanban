@@ -159,7 +159,7 @@ and Unnested (outermost, off, depth 0, table). Folded, the default, draws a line
 end of each dependency chain and one counted line for a parent's other children on one
 ring. Names puts a card's title on the fan: relevant, the default, names the
 selection, what it lights and the highest parents, all names every card and none names
-no card; the n key steps through them. A parent's name sits beside its ring; every other
+no card; the l key steps through them. A parent's name sits beside its ring; every other
 name sits in a row outside the rim, joined to its dot by a leader, and the Unnested
 block's names in a list above it. Names stay upright and the same size at any zoom and
 keep off the lines, the dots and each other, though a leader may pass under one; a card
@@ -387,7 +387,7 @@ never written to the board's files.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has

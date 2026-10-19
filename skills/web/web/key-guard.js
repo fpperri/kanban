@@ -1,6 +1,6 @@
 'use strict';
 // The one guard behind the single-key shortcuts: every key hotkeys.js lists that types
-// nothing but reads a character (`/`, `p`, `m`, `i`, `n`, `?` and the slice keys) reads it,
+// nothing but reads a character (`/`, `p`, `m`, `i`, `l`, `n`, `?` and the slice keys) reads it,
 // and so does Esc, through keyGuardEscape.
 // It has two parts. The typing check is for a key that would insert a
 // character: it stays off while focus is in a field. The surface check is for

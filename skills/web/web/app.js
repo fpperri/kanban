@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -654,6 +654,8 @@ function cardEl(card) {
     pill.title = reviewLabel(card.review);
     el.querySelector('.card-head').appendChild(pill);
   }
+  const noteCount = noteCountButton(card.id); // the small note count, only when the card has notes
+  if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
   return el;
 }
 
@@ -699,6 +701,8 @@ function archiveCardEl(card) {
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors(el);
   paintRollupBars(el);
+  const noteCount = noteCountButton(card.id);
+  if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
   return el;
 }
 
@@ -2040,6 +2044,7 @@ function applyBoardData(data) {
   state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
   state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
+  state.logbook = data.logbook || null; // { folder, notes } when config.yaml has a logbook: line, else null and nothing of it shows (notes.js, notes-palette.js); read by the card tiles, so before renderBoard
   dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
   // them, so an unattended poll would drop a Tab-navigating user's focus to
@@ -2072,6 +2077,7 @@ function applyBoardData(data) {
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   }
+  notesOnBoard(); // the notes palette, when open, follows the payload
   applyNotifications(data.notifications || []); // the board poll carries them — no separate timer
 }
 
@@ -5819,6 +5825,7 @@ function showContextMenu(x, y) {
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
+  $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
   menu.classList.remove('hidden');
   // Clamp to the viewport so the menu never opens half off-screen.

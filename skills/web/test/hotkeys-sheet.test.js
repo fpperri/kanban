@@ -131,7 +131,7 @@ test('every key the page answers has a row on the page, so the list on the page 
   const s = await open();
   s.clickGear();
   const shown = s.rows().flatMap((row) => s.keysOf(row));
-  for (const key of ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?']) {
+  for (const key of ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?']) {
     assert.ok(shown.includes(key), key);
   }
 });

@@ -20,6 +20,7 @@ const NOT_HOTKEYS = {
   ArrowDown: 'moves the highlight in the search box\'s list of suggestions',
   ArrowUp: 'moves the highlight in the search box\'s list of suggestions',
   Shift: 'noted as held, so a card shows what a Shift click would add',
+  Backspace: 'clears the notes palette\'s subject chip when its note box is empty',
 };
 
 // --- the scan reads the forms the page's handlers are written in ----------------------------------
@@ -62,7 +63,9 @@ test('every key a page script reads is in the Hotkeys list, but the keys that ar
 test('a key the page reads and the list lacks is reported: drop an entry from the list, or add a handler', () => {
   const without = (id) => HOTKEYS.filter((entry) => entry.id !== id);
   const texts = sources.map((s) => s.text);
-  assert.deepStrictEqual(keysMissing(texts, without('names'), NOT_HOTKEYS), ['n']);
+  assert.deepStrictEqual(keysMissing(texts, without('names'), NOT_HOTKEYS), ['l']);
+  assert.deepStrictEqual(keysMissing(texts, without('note'), NOT_HOTKEYS), ['n']);
+  assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), ['a', 'd', 'e']);
   assert.deepStrictEqual(keysMissing(texts, without('slice'), NOT_HOTKEYS), ['[', ']', '{', '}'].sort());
   assert.deepStrictEqual(keysMissing(texts, without('find'), NOT_HOTKEYS), ['f']);
   assert.deepStrictEqual(keysMissing(texts, without('hotkeys'), NOT_HOTKEYS), ['?']);
