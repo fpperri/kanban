@@ -1450,7 +1450,7 @@ test('card-store readers ignore kanban_web.cmd/.pid/.lock/.lock.*.tmp sitting in
 
     const cards = cs.listActive(dir);
     assert.strictEqual(cards.length, 2, 'exactly the two real cards, nothing derived from the launcher\'s own files');
-    assert.deepStrictEqual(cards.map((c) => c.id).sort(), [1, 2]);
+    assert.deepStrictEqual(cards.map((c) => c.id).sort(), ['1', '2']);
     assert.strictEqual(cs.nextId(dir), 3, 'id allocation is unaffected by the launcher\'s files');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
