@@ -34,7 +34,7 @@
 
 const { DRAWN, TIERS_PRESSED, BLUR, ZOOM_IN, pickLayout, layoutIs, hasDot } = require('./tier-fan');
 const {
-  FOLD_TOGGLE, ROW_EXPANDED, optionButton, pressedIs, TICK, FOCUSED_OPTION, CANVAS_SPACE, SELECTED, createCard, dotPoint,
+  ROW_SHOWN, optionButton, pressedIs, TICK, FOCUSED_OPTION, CANVAS_SPACE, SELECTED, createCard, dotPoint,
 } = require('./tier-fan-options');
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
@@ -74,7 +74,7 @@ const NAMED_ARE_PREDICTED = (mode) => `JSON.stringify(${NAMED})===JSON.stringify
 const nameOf = (id) => `(()=>{const t=document.querySelector('#graph-view .graph-node[data-id="${id}"] .graph-node-name');return t?t.textContent:null})()`;
 const KEY_LINE = `(()=>{const k=document.querySelector('#graph-view .graph-key');return k?k.textContent:null})()`;
 const keyLineSays = (value) => `(()=>{const k=document.querySelector('#graph-view .graph-key');return !!k&&k.textContent.endsWith(${JSON.stringify(`n steps the names: ${value}`)})})()`;
-// The Names group of the row as the page has it, null while the row is folded or has none.
+// The Names group of the row as the page has it, null while the row is not there or has none.
 const NAMES_GROUP = `(()=>{const g=[...document.querySelectorAll('#graph-view .graph-options .graph-option')].find((x)=>x.querySelector('.graph-option-label').textContent==='Names');`
   + `if(!g)return null;return {title:g.title,buttons:[...g.querySelectorAll('.graph-option-btn')].map((b)=>({key:b.dataset.key,val:b.dataset.val,text:b.textContent,pressed:b.getAttribute('aria-pressed')==='true',active:b.classList.contains('active'),`
   + `keeps:b.hasAttribute('data-keeps-selection'),holds:b.hasAttribute('data-holds-poll')}))}})()`;
@@ -178,8 +178,7 @@ module.exports = {
     check('plan: the Graph draws in Tiers', await load('plan'));
     check('plan: every card of the fan has exactly one name label, text only', await ev(LABELS_ONE), { labels: await ev(LABEL_COUNT), nodes: await ev(NODE_COUNT) });
     check('plan: the plan board draws its 26 live cards', (await ev(NODE_COUNT)) === plan.live.length, await ev(NODE_COUNT));
-    await pressOn(FOLD_TOGGLE);
-    check('plan: the toggle unfolds the row', await waitFor(ROW_EXPANDED, 6000));
+    check('plan: the row is shown in the panel', await waitFor(ROW_SHOWN, 6000));
     const group = await ev(NAMES_GROUP);
     check('plan: the row shows Names with relevant, all and none, in words', !!group && same(group.buttons.map((b) => [b.key, b.val, b.text]), plan.values.map((v) => ['names', v, v])), group);
     check('plan: relevant is on by default, and only relevant', !!group && same(group.buttons.filter((b) => b.pressed).map((b) => b.val), ['relevant']) && group.buttons.every((b) => b.active === b.pressed), group);
@@ -297,7 +296,7 @@ module.exports = {
     await step('all');
     await step('none');
     await load('plan');
-    await waitFor(ROW_EXPANDED, 6000);
+    await waitFor(ROW_SHOWN, 6000);
     check('plan: a reload keeps the Names choice: none, in the row and in the labels', await waitFor(pressedIs('names', 'none'), 6000) && await settles([]), { setting: await setting(), named: await named() });
     check('fixture: the Graph draws in Tiers', await load('fixture'));
     check('fixture: another board starts at relevant, whatever the plan board chose', (await setting()) === 'relevant', await setting());

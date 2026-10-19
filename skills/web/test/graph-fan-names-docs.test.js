@@ -51,7 +51,7 @@ test('the Graph section says a name is the title as plain text in place of the i
 
 test('the Graph section says the n key steps the setting through the shared key guard, in Tiers only', () => {
   const text = graph();
-  assert.match(text, /\*\*n\*\* steps the setting relevant, all, none and round to relevant while the Graph shows Tiers, whether the row is folded or not/);
+  assert.match(text, /\*\*n\*\* steps the setting relevant, all, none and round to relevant while the Graph shows Tiers, whether the panel is open or not/);
   assert.match(text, /it reads the shared key guard, so it does nothing while a field has focus \(the search box types an n\) or while a card menu, a dialog, the notifications panel or the preferences sheet is open, and it works with the search panel open/);
   assert.match(text, /The footer line under the Graph shows the setting \(`n steps the names: relevant`\)/);
   assert.match(text, /Force and Status have no names/);

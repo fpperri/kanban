@@ -1270,9 +1270,9 @@ to `127.0.0.1` only.
   poll and a reload, and are not URL parameters. The rules behind them (which parent
   lines, which trees, the row order, the No relations set, where cards and lines fall) are map-relations.js, pure and
   unit-tested, with no other module behind it so a page without the web app's scripts can
-  embed it as is, like nesting.js. The options row folds behind an **Options** toggle and
-  starts folded; open or folded, it is remembered per board (the `options` entry of
-  `map.sections.collapsed`).
+  embed it as is, like nesting.js. The options row is always shown in the option panel,
+  with no toggle of its own; an `options` value left in `map.sections.collapsed` by an older
+  version is dropped when that entry is read.
   **Node treatments:** the border is one neutral weight for every node — status never
   strokes it. A small dot in the node's corner carries the status color (same palette as
   the column headers), its own tooltip naming the **raw on-disk status**; status dots
@@ -1324,10 +1324,28 @@ to `127.0.0.1` only.
   detail, ctrl/shift-select, right-click menu); ghost stubs stay click-through only.
   View mode, query, and status filter all persist across the poll's re-render.
   **Collapsible sections** — the graphs (one section for all of them), the No
-  relations row and the options row (folded by default, see Map options) each get their own collapse/expand toggle (same chevron + look as the board's per-column
+  relations row each get their own collapse/expand toggle (same chevron + look as the board's per-column
   collapse), sharing one header builder. State persists per board in `localStorage`
   (`map.sections.collapsed`, merged defensively) and survives the poll; collapsing
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
+  **Option panel** — the Map's zoom toolbar and options row, and the Graph's layout buttons, zoom
+  buttons and option row (Tiers), stand in an `<aside class="view-panel">` on the right of the view, built
+  by `buildViewPanel` in app.js, which `graphBuildPanel` and `buildMapPanel` fill. One icon button
+  (`.view-panel-toggle`, a rectangle with a bar on its right, `aria-label="Options panel"`, `aria-expanded`)
+  opens and closes it, at the top right, the side the panel comes out of: it ends the Map's top row
+  (`.view-bar`, after the status pills) and the Graph's top row (after the card count). The status pills, the Graph's key and its card count stay in the view. The
+  Map's graphs scroll in `.map-main` beside the panel, and the pan, the zoom and Fit read and move that
+  element (`mapMain`). Closed, the panel is not built at all, so the view has its width back and no
+  control of it can take focus; the Graph then frames an untouched view again in the new width
+  (`graphRefitNext`), and a view the person moved stays where it is. view-panel.js keeps whether it is open:
+  per board in `localStorage` under `viewpanel` as `{ map, graph }` (a boolean for a view the person has
+  chosen for, null for one they have not, validated on every read like prefs.js), else the screen decides:
+  open from 760 px wide, closed below, and a window that crosses the line draws the view again. Under
+  760 px the panel is a sheet over the view (`position: absolute` against `.map-view` / `.graph-view`, so it adds
+  no width and no sideways scroll), with a `.view-panel-close` button that hands focus back to the icon button.
+  The panel and both buttons wear `data-keeps-selection`; the icon and close buttons are in `REFOCUS_SELECTOR`,
+  so a poll's redraw gives them focus back. Every control keeps its class, label, title, data attributes and hotkey
+  (the `n` key still steps the Graph's names with the panel closed).
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
   search terms, resolved over dependency-graph.js's dependency edge set (`waiting_for`
@@ -1359,7 +1377,7 @@ to `127.0.0.1` only.
   Ctrl-click on a node entirely. The pill row, options row,
   section header, graph headings and the No relations row are outside the drag surface, so filter clicks, the
   collapse chevron and text selection there are untouched. A zoom toolbar
-  (−/percentage/+/Fit) rides right after the filter row: the buttons step the zoom by one
+  (−/percentage/+/Fit) is the first thing in the option panel (see **Option panel**): the buttons step the zoom by one
   rung of a 1.25^n ladder (10%–200%) around the panel's center, rounding the current zoom
   to its nearest rung before each step so true size (100%) stays reachable even after a
   clamp at either edge; Ctrl+wheel (what a trackpad pinch sends) zooms continuously from
@@ -1684,7 +1702,7 @@ to `127.0.0.1` only.
   Names never run the layout
   again: the setting is in neither the layout's cache key nor what re-fits an untouched view, so only the named
   set changes. **n** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
-  whether the row is folded or not; it reads the shared key guard, so it does nothing while a field has focus (the
+  whether the panel is open or not; it reads the shared key guard, so it does nothing while a field has focus (the
   search box types an n) or while a card menu, a dialog, the notifications panel or the preferences sheet is
   open, and it works with the search panel open. The footer line under the Graph shows the setting (`n steps the
   names: relevant`). Force and Status have no names.
@@ -1717,10 +1735,10 @@ to `127.0.0.1` only.
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
   sector, and no card changes its band, its ring or its sector; the Unnested option moves the cards with no relative and no tier to
   another ring, a sector or out of the Graph. The choices are kept per board in `localStorage` under
-  `graph.options`, and whether the row is folded under `graph.optionsFolded`; a press on the row never starts a pan,
-  never clears the selection and never pauses the 5-second poll. The row takes its room from the
-  stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or
-  re-fits the view, and nor does pressing Lines, Dependencies or Order, so a fan framed with the row folded keeps its place and **Fit** frames every card again.
+  `graph.options`; the row is always shown in the option panel, with no fold, and a `graph.optionsFolded` value left by an
+  older version is never read. A press on the row never starts a pan,
+  never clears the selection and never pauses the 5-second poll. Pressing Lines, Dependencies or Order never pans, zooms or
+  re-fits the view, so a fan framed once keeps its place and **Fit** frames every card again.
   Pressing Unnested, which changes what the fan draws and what Fit frames, frames an untouched view again; a view the person has panned or zoomed stays where it is.
   The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
@@ -1769,8 +1787,8 @@ to `127.0.0.1` only.
   that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
   Per board in `localStorage`: the layout under `graph.layout` and the pill row under
   `graph.statusFilter` (same defensive merge as the Gantt's: a saved value with no
-  `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options` and its
-  fold under `graph.optionsFolded`. The 5-second poll rebuilds the view and keeps the
+  `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options`.
+  The 5-second poll rebuilds the view and keeps the
   layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
   Graph view.
 

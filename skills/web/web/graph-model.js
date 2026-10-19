@@ -83,11 +83,6 @@ function mergeGraphFanOptions(saved) {
   return merged;
 }
 
-// The option row starts folded, like the Map's: it is controls, not content.
-function mergeGraphOptionsFolded(saved) {
-  return typeof saved === 'boolean' ? saved : true;
-}
-
 // --- model ---------------------------------------------------------------------
 // Which cards have a parent or children on the board, and the rows of siblings, read
 // on the whole pool.
@@ -1552,7 +1547,7 @@ function graphPlan(model, layout, opts) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_LAYOUTS, mergeGraphLayout,
-    GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions, mergeGraphOptionsFolded,
+    GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions,
     GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL,
     graphBuild, graphUnnestedIds, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphFanNames, graphFanNextNames, graphFanNameText,
@@ -1567,7 +1562,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.GRAPH_FAN_OPTION_VALUES = GRAPH_FAN_OPTION_VALUES;
   window.GRAPH_FAN_OPTION_DEFAULTS = GRAPH_FAN_OPTION_DEFAULTS;
   window.mergeGraphFanOptions = mergeGraphFanOptions;
-  window.mergeGraphOptionsFolded = mergeGraphOptionsFolded;
   window.graphBuild = graphBuild;
   window.graphUnnestedIds = graphUnnestedIds;
   window.graphRadius = graphRadius;

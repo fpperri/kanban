@@ -53,9 +53,8 @@ async function open({ stored = {}, name = 'kanban', layout = null, view = 'graph
   if (layout) all[`kanban.${name}.graph.layout`] = layout;
   const page = await loadPage({ board, stored: all, elements, documentExtras: recordingDocument() }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
-  const unfolded = { ...all };
   return {
-    page, host, stored: all, name, unfolded,
+    page, host, stored: all, name,
     run: (code) => page.run(code),
     nodes: () => byClass(host, 'graph-node'),
     names: () => byClass(host, 'graph-node-name'),
@@ -83,7 +82,6 @@ function matcher(el) {
   return el;
 }
 
-const UNFOLDED = (name = 'kanban') => ({ [key(name, 'graph.optionsFolded')]: 'false' });
 const groups = (row) => byClass(row, 'graph-option').map((g) => ({
   label: byClass(g, 'graph-option-label')[0].textContent,
   title: g.title,
@@ -97,8 +95,8 @@ const current = (s) => s.run('graphLoadOptions().names');
 
 // --- the row --------------------------------------------------------------------------------------
 
-test('the unfolded row holds Names, with relevant, all and none, and relevant pressed by default', async () => {
-  const s = await open({ stored: UNFOLDED() });
+test('the row holds Names, with relevant, all and none, and relevant pressed by default', async () => {
+  const s = await open({});
   const names = groups(s.row()).find((g) => g.label === 'Names');
   assert.ok(names, 'a Names group');
   assert.deepStrictEqual(names.buttons.map((b) => [b.key, b.val, b.text]), [['names', 'relevant', 'relevant'], ['names', 'all', 'all'], ['names', 'none', 'none']]);
@@ -113,16 +111,16 @@ test('the unfolded row holds Names, with relevant, all and none, and relevant pr
 });
 
 test('a stored choice is the one pressed, and a value the row does not offer reads as relevant', async () => {
-  const chosen = await open({ stored: { ...UNFOLDED(), [key('kanban', 'graph.options')]: JSON.stringify({ names: 'all', lines: 'off' }) } });
+  const chosen = await open({ stored: { [key('kanban', 'graph.options')]: JSON.stringify({ names: 'all', lines: 'off' }) } });
   assert.deepStrictEqual(pressedNames(chosen), ['all']);
-  const stale = await open({ stored: { ...UNFOLDED(), [key('kanban', 'graph.options')]: JSON.stringify({ names: 'everything' }) } });
+  const stale = await open({ stored: { [key('kanban', 'graph.options')]: JSON.stringify({ names: 'everything' }) } });
   assert.deepStrictEqual(pressedNames(stale), ['relevant']);
-  const before = await open({ stored: { ...UNFOLDED(), [key('kanban', 'graph.options')]: JSON.stringify({ lines: 'chain' }) } });
+  const before = await open({ stored: { [key('kanban', 'graph.options')]: JSON.stringify({ lines: 'chain' }) } });
   assert.deepStrictEqual(pressedNames(before), ['relevant'], 'options stored before Names existed');
 });
 
 test('the Names press is one of the controls that get focus back after a render, found again by its option and value', async () => {
-  const s = await open({ stored: UNFOLDED() });
+  const s = await open({});
   s.page.ctx.__button = button(s, 'names', 'all').el;
   assert.strictEqual(s.run('refocusSelector(__button)'), '.graph-option-btn[data-key="names"][data-val="all"]');
 });
@@ -151,7 +149,7 @@ test('a title reaches the page as text: markup in it is shown, never built', asy
 });
 
 test('each Names press changes the number of names drawn: relevant 4, all 34, none 0', async () => {
-  const s = await open({ stored: UNFOLDED() });
+  const s = await open({});
   assert.strictEqual(s.named().length, PARENTS.length);
   s.click(button(s, 'names', 'all').el);
   assert.strictEqual(s.named().length, 34);
@@ -165,14 +163,14 @@ test('each Names press changes the number of names drawn: relevant 4, all 34, no
 });
 
 test('the options are stored whole under the one key, Names with them', async () => {
-  const s = await open({ stored: UNFOLDED() });
+  const s = await open({});
   s.click(button(s, 'names', 'none').el);
   assert.deepStrictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]), { lines: 'folded', dependencies: 'on', order: 'status', names: 'none', unnested: 'outermost' });
   assert.deepStrictEqual(Object.keys(s.stored).filter((k) => /names/i.test(k)), [], 'no second storage key');
 });
 
 test('pressing Names runs no layout: the layout object is the one the page had, and the view does not move', async () => {
-  const s = await open({ stored: UNFOLDED() });
+  const s = await open({});
   const layout = s.run('graphCur.layout');
   const view = JSON.stringify(s.run('graphCur.view'));
   s.click(button(s, 'names', 'all').el);
@@ -183,7 +181,7 @@ test('pressing Names runs no layout: the layout object is the one the page had, 
 });
 
 test('a press leaves the selection as it is, and the names follow it', async () => {
-  const s = await open({ stored: UNFOLDED() });
+  const s = await open({});
   s.run('setSelection(addPart(addPart(NO_SELECTION, cardPart(100)), cardPart(101)), 101)');
   s.run('renderGraphView()');
   assert.deepStrictEqual(s.named(), [1, 2, 3, 4, 100, 101], 'the two picked cards and the parents');
@@ -247,12 +245,13 @@ test('n steps relevant, all, none and back to relevant, and each step is kept fo
   assert.strictEqual(s.named().length, 34, 'the names drawn follow the key');
 });
 
-test('n steps the setting with the row folded, and the row, once unfolded, shows it', async () => {
-  const s = await open();
-  assert.deepStrictEqual(groups(s.row()), [], 'folded: no option is built');
+test('n steps the setting with the panel closed, and the row, once the panel is open, shows it', async () => {
+  const s = await open({ stored: { 'kanban.kanban.viewpanel': '{"map":null,"graph":false}' } });
+  assert.strictEqual(s.row(), null, 'closed: no option is built');
   s.press('n');
-  s.click(Object.assign(matcher(recordingElement('button')), { className: 'map-section-toggle', dataset: { section: 'graph-options' } }));
-  assert.deepStrictEqual(pressedNames(s), ['all']);
+  assert.strictEqual(current(s), 'all');
+  const reopened = await open({ stored: { ...s.stored, 'kanban.kanban.viewpanel': '{"map":null,"graph":true}' } });
+  assert.deepStrictEqual(pressedNames(reopened), ['all']);
 });
 
 test('a capital N with no Shift (Caps Lock) steps it; a chord, Shift on the key and a held key do not', async () => {
@@ -338,7 +337,7 @@ test('n keeps focus on an option that had it: the step is made through keepContr
 });
 
 test('n with focus on an option hands focus back to that same option in the rebuilt row, not to the option the step reached', async () => {
-  const s = await open({ stored: { ...UNFOLDED(), [key('kanban', 'graph.options')]: JSON.stringify({ names: 'all' }) } });
+  const s = await open({ stored: { [key('kanban', 'graph.options')]: JSON.stringify({ names: 'all' }) } });
   const doc = s.page.ctx.document;
   const had = button(s, 'names', 'all').el;
   const refocusSelector = s.run('REFOCUS_SELECTOR');
@@ -435,7 +434,7 @@ test('a board with a card whose parent is missing, a loop of parents and a title
 });
 
 test('another board keeps its own Names choice, and a reload keeps this board\'s', async () => {
-  const first = await open({ stored: UNFOLDED() });
+  const first = await open({});
   first.click(button(first, 'names', 'none').el);
   const reloaded = await open({ stored: first.stored });
   assert.strictEqual(current(reloaded), 'none');

@@ -37,7 +37,7 @@ const {
   layoutIs, pickLayout, dotsAre, hasDot, turned, overlapping, outsideStage, circleOutside,
 } = require('./tier-fan');
 const {
-  FOLD_TOGGLE, optionButton, ROW_STATE, ROW_EXPANDED, ROW_FOLDED, pressedIs, SELECTED, dotPoint,
+  optionButton, ROW_STATE, ROW_SHOWN, pressedIs, SELECTED, dotPoint,
 } = require('./tier-fan-options');
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
@@ -90,10 +90,7 @@ module.exports = {
       if (!p) throw new Error(`nothing matches ${sel}`);
       await click(p.x, p.y);
     };
-    const unfold = async () => {
-      if (await ev(ROW_FOLDED)) await pressOn(FOLD_TOGGLE);
-      return waitFor(ROW_EXPANDED, 6000);
-    };
+    const shown = () => waitFor(ROW_SHOWN, 6000);
     const press = async (mode) => {
       await pressOn(optionButton('unnested', mode));
       return waitFor(pressedIs('unnested', mode), 6000);
@@ -134,10 +131,8 @@ module.exports = {
     const others = (all, ids) => Object.keys(all).map(Number).filter((id) => !ids.includes(id));
 
     // --- the row offers the four modes, outermost marked at first ----------------------------------
-    // (Unfolding the row gives the fan a shorter stage and leaves the view where it was, so Fit
-    // frames it again before anything is measured.)
     check('plan: the Graph draws in Tiers', await load('plan'));
-    check('plan: the option row unfolds', await unfold());
+    check('plan: the option row is shown', await shown());
     await ev(FIT);
     const row = await ev(UNNESTED_ROW);
     check('plan: the option row offers Unnested with off, outermost, depth 0 and table, outermost marked at first',
@@ -238,7 +233,7 @@ module.exports = {
     // --- the mode is kept for the board; Force and Status draw every card -------------------------------------
     await press('off');
     await load('plan');
-    await waitFor(ROW_EXPANDED, 6000);
+    await waitFor(ROW_SHOWN, 6000);
     check('plan: a reload keeps the mode: off is pressed and the unnested cards are not drawn', await waitFor(pressedIs('unnested', 'off'), 6000) && await waitFor(live(kept), 6000), await ev(UNNESTED_ROW));
     await ev(pickLayout('force'));
     await waitFor(layoutIs('force'), 10000);
@@ -251,8 +246,7 @@ module.exports = {
     // --- the fixture board has no hierarchy: its rings follow depth and the unnested ring is outside them ----
     const fixture = CASES.fixture;
     check('fixture: the Graph draws in Tiers', await load('fixture'));
-    check('fixture: another board has chosen nothing: its row is folded and offers outermost', await waitFor(ROW_FOLDED, 6000));
-    await unfold();
+    check('fixture: another board has chosen nothing: its row is shown and offers outermost', await shown());
     const fixtureRow = await ev(UNNESTED_ROW);
     check('fixture: and outermost is the mode pressed', !!fixtureRow && sameList(fixtureRow.buttons.filter((b) => b.pressed).map((b) => b.val), ['outermost']), fixtureRow);
     all = await ev(DOTS);

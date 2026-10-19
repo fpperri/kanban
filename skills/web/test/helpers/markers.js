@@ -79,10 +79,25 @@ function zoomTags() {
   return sandbox.buildMapZoomControls().children.filter((c) => c.tag === 'button').map((b) => b.tagText);
 }
 
-function optionsRowHtml(folded) {
+function optionsRowHtml() {
   const { optionsRowSandbox } = require('./options-row');
-  const stored = folded ? {} : { 'kanban.shop.map.sections.collapsed': JSON.stringify({ options: false }) };
-  return optionsRowSandbox({ stored }).buildMapOptionsRow().outerHTML;
+  return optionsRowSandbox().buildMapOptionsRow().outerHTML;
+}
+
+// The fold toggle of each of the Map's collapsible sections, folded and open.
+function sectionToggleTags() {
+  const { escapeHtml } = require('../../web/assignee-badge');
+  const sandbox = { document: { createElement: fakeNode }, escapeHtml, CHEVRON_LEFT_ICON: '<svg></svg>', CHEVRON_RIGHT_ICON: '<svg></svg>' };
+  vm.runInNewContext(fn('buildMapSectionHeader'), sandbox);
+  return ['graph', 'isolated'].flatMap((section) => [true, false].flatMap((folded) => tagsIn(sandbox.buildMapSectionHeader(section, 'Label', folded).innerHTML, 'map-section-toggle')));
+}
+
+// The panel's icon button and its close button, as the page builds them.
+function panelButtonTags() {
+  const sandbox = { document: { createElement: fakeNode }, VIEW_PANEL_ICON: '<svg></svg>' };
+  vm.runInNewContext([fn('buildViewPanelToggle'), fn('buildViewPanel')].join('\n'), sandbox);
+  const panel = sandbox.buildViewPanel('map', 'label');
+  return [sandbox.buildViewPanelToggle('map', 'title', true).tagText, ...panel.children.filter((c) => c.tag === 'button').map((b) => b.tagText)];
 }
 
 const tagsIn = (markup, cls) => (markup.match(new RegExp(`<[a-z]+[^>]*class="[^"]*${classToken(cls)}[^"]*"[^>]*>`, 'g')) || []);
@@ -129,9 +144,11 @@ const CONTROLS = {
   '.gantt-filter-toggle': () => pillTags('gantt-filter-toggle'),
   '.calendar-filter-toggle': () => pillTags('calendar-filter-toggle'),
   '.graph-filter-toggle': () => pillTags('graph-filter-toggle graph-control'),
-  '.map-section-toggle': () => [...tagsIn(optionsRowHtml(true), 'map-section-toggle'), ...tagsIn(optionsRowHtml(false), 'map-section-toggle')],
+  '.map-section-toggle': sectionToggleTags,
+  '.view-panel-toggle': () => panelButtonTags().slice(0, 1),
+  '.view-panel-close': () => panelButtonTags().slice(1),
   '.map-zoom-btn': zoomTags,
-  '.map-option-btn': () => tagsIn(optionsRowHtml(false), 'map-option-btn'),
+  '.map-option-btn': () => tagsIn(optionsRowHtml(), 'map-option-btn'),
   '.rollup': rollupTags,
   '.graph-control': () => [...graphButtonTags(), ...pillTags('graph-filter-toggle graph-control')],
   '.graph-button': graphButtonTags,
