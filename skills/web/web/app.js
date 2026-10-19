@@ -1256,24 +1256,33 @@ function truncateLabel(s, max) {
   return str.length > max ? `${str.slice(0, max - 1)}…` : str;
 }
 
+// The Map's scrolling area, rebuilt by every renderMapView(): #map-view holds it and, beside
+// it, the option panel, which does not scroll with the graphs. The pan, the zoom and Fit
+// all read and move this element.
+let mapMain = null;
+
 function renderMapView() {
   const container = $('#map-view');
   // Selection toggles re-render — don't dump the user's scroll position
   // (same fix class as the gantt timeline's keepScrollLeft).
-  const keepLeft = container.scrollLeft, keepTop = container.scrollTop;
+  const keepLeft = mapMain ? mapMain.scrollLeft : 0, keepTop = mapMain ? mapMain.scrollTop : 0;
   container.innerHTML = '';
+  const main = document.createElement('div');
+  main.className = 'map-main';
+  mapMain = main;
+  container.appendChild(main);
+  const panelOpen = viewPanelIsOpen('map');
+  if (panelOpen) container.appendChild(buildMapPanel());
   const allCards = state.active.concat(state.archived);
   const options = loadMapOptions();
   container.classList.toggle('map-align-center', options.align === 'center');
   // The status-filter row renders first and UNCONDITIONALLY — if it
   // vanished with the graph on the everything-filtered-out state, there'd be
-  // no control left to toggle a status back ON. The zoom toolbar rides right
-  // after it, same unconditional treatment (a corner case, but a zoomed-out
-  // board that then filters everything away shouldn't strand the human with
-  // no way to zoom back before turning a pill back on).
-  container.appendChild(buildMapFilterRow());
-  container.appendChild(buildMapOptionsRow());
-  container.appendChild(buildMapZoomControls());
+  // no control left to toggle a status back ON. The panel's button sits in front of it, and
+  // the panel with the zoom toolbar stands beside it, same unconditional treatment (a corner
+  // case, but a zoomed-out board that then filters everything away shouldn't strand the
+  // human with no way to zoom back before turning a pill back on).
+  main.appendChild(buildMapBar(panelOpen));
   const searchIds = currentSearchMatch().ids;
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildRelationsGraph sees one combined
@@ -1288,7 +1297,7 @@ function renderMapView() {
     const empty = document.createElement('div');
     empty.className = 'map-empty';
     empty.textContent = 'No cards match the current search/status filters.';
-    container.appendChild(empty);
+    main.appendChild(empty);
     return;
   }
 
@@ -1298,10 +1307,10 @@ function renderMapView() {
   const sections = loadMapSectionsCollapsed();
   const view = mapShapeRelations(rel, options);
   const draw = Object.assign({}, options, { statuses: boardStatuses(), byId: new Map(allCards.map((c) => [c.id, c])) });
-  if (view.graphs.length) container.appendChild(buildMapGraphSection(view.graphs, draw, sections.graph));
-  if (view.noRelations.length) container.appendChild(buildIsolatedRow(view.noRelations, allCards, sections.isolated));
-  container.scrollLeft = keepLeft;
-  container.scrollTop = keepTop;
+  if (view.graphs.length) main.appendChild(buildMapGraphSection(view.graphs, draw, sections.graph));
+  if (view.noRelations.length) main.appendChild(buildIsolatedRow(view.noRelations, allCards, sections.isolated));
+  main.scrollLeft = keepLeft;
+  main.scrollTop = keepTop;
 }
 
 // The status-filter pill row MECHANISM — one toggle per column,
@@ -1341,15 +1350,16 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
   return row;
 }
 
-const REFOCUS_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn';
+const REFOCUS_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn, .view-panel-toggle, .view-panel-close';
 
 // What finds a rebuilt control again after a render: its class and what names it, a status
-// pill's column or a fold toggle's section, or for a button of the Graph's option row its
-// option and its value.
+// pill's column or a fold toggle's section, a panel button its view, or for a button of the
+// Graph's option row its option and its value.
 function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
   if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
+  if (el.dataset.panel !== undefined) return `.${el.classList[0]}${named('panel')}`;
   if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
   return `.${el.classList[0]}${named('section')}`;
 }
@@ -1380,8 +1390,92 @@ function buildMapFilterRow() {
   return row;
 }
 
-// Zoom toolbar — its own row after the filter row (buildFilterPillRow's own
-// flex-wrap keeps growing that row for every board status; a wide status list
+// The option panel on the right of the Map and of the Graph (view-panel.js keeps whether it is
+// open). One icon button at the top left of the view's area opens and closes it. Open, the
+// panel stands beside the view's area; under 760 px it lies over the view as a sheet, with a
+// close button of its own that the stylesheet shows there. Closed, it is not built at all:
+// the view has the width back and none of its controls can take focus. The panel and both
+// buttons keep the selection, as the rows they replaced did.
+const VIEW_PANEL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="15" y1="4" x2="15" y2="20"></line></svg>';
+
+function viewPanelIsOpen(view) {
+  return viewPanelOpen(loadViewPanel(prefsStorage(), state.projectName), view, window.innerWidth);
+}
+
+function viewPanelSet(view, open) {
+  const storage = prefsStorage();
+  saveViewPanel(storage, state.projectName, viewPanelWith(loadViewPanel(storage, state.projectName), view, open));
+}
+
+function buildViewPanelToggle(view, title, open) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'view-panel-toggle';
+  b.dataset.panel = view;
+  b.dataset.keepsSelection = '';
+  b.title = title;
+  b.setAttribute('aria-label', 'Options panel');
+  b.setAttribute('aria-expanded', String(open));
+  b.innerHTML = VIEW_PANEL_ICON;
+  return b;
+}
+
+function buildViewPanel(view, label) {
+  const panel = document.createElement('aside');
+  panel.className = 'view-panel';
+  panel.dataset.panel = view;
+  panel.dataset.keepsSelection = '';
+  panel.setAttribute('aria-label', label);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'view-panel-close';
+  close.dataset.panel = view;
+  close.dataset.keepsSelection = '';
+  close.title = 'Close the options panel';
+  close.setAttribute('aria-label', 'Close the options panel');
+  close.textContent = '×';
+  panel.appendChild(close);
+  return panel;
+}
+
+// A press on the icon button or on the sheet's close button: the choice flips and the view
+// is drawn again. The close button is gone once the panel is, so the icon button takes focus.
+function pressViewPanelButton(btn, redraw) {
+  const view = btn.dataset.panel;
+  viewPanelSet(view, !viewPanelIsOpen(view));
+  redraw();
+  const toggle = document.querySelector(`.view-panel-toggle[data-panel="${view}"]`);
+  if (toggle) toggle.focus({ preventScroll: true });
+}
+
+// Until the person chooses, the panel follows the screen, so crossing 760 px draws the view again.
+window.addEventListener('DOMContentLoaded', () => {
+  if (!window.matchMedia) return;
+  window.matchMedia(`(min-width: ${VIEW_PANEL_WIDE_PX}px)`).addEventListener('change', () => {
+    const mode = loadViewMode();
+    if (mode === 'map') renderMapView();
+    if (mode === 'graph') graphRedrawForPanel();
+  });
+});
+
+// The Map's top row: the panel button, then the status pills.
+function buildMapBar(open) {
+  const bar = document.createElement('div');
+  bar.className = 'view-bar';
+  bar.appendChild(buildViewPanelToggle('map', 'Show or hide the zoom and the options', open));
+  bar.appendChild(buildMapFilterRow());
+  return bar;
+}
+
+function buildMapPanel() {
+  const panel = buildViewPanel('map', 'Map options');
+  panel.appendChild(buildMapZoomControls());
+  panel.appendChild(buildMapOptionsRow());
+  return panel;
+}
+
+// Zoom toolbar — the first thing in the option panel (buildFilterPillRow's own
+// flex-wrap keeps growing the pill row for every board status; a wide status list
 // would push these off-screen or wrap them awkwardly into the status pills
 // if they shared one row). Rebuilt by every renderMapView() call like the
 // rest of #map-view, so the percentage readout never drifts from
@@ -3535,6 +3629,8 @@ window.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('DOMContentLoaded', () => {
   $('#map-toggle-btn').addEventListener('click', () => toggleView('map'));
   $('#map-view').addEventListener('click', (e) => {
+    const panelBtn = e.target.closest('.view-panel-toggle[data-panel], .view-panel-close[data-panel]');
+    if (panelBtn) { pressViewPanelButton(panelBtn, renderMapView); return; }
     // Section collapse toggles — control-row buttons, checked first
     // for the same reason the status pills and data-act buttons are (never fall
     // through to card-el).
@@ -3672,10 +3768,10 @@ function zoomMapAt(newZoom, anchorX, anchorY) {
   const oldZoom = loadMapZoom();
   const clamped = clampMapZoom(newZoom);
   if (clamped === oldZoom) return;
-  const origin = svg ? mapSvgOrigin(container, svg) : { originX: 0, originY: 0 };
+  const origin = svg ? mapSvgOrigin(mapMain, svg) : { originX: 0, originY: 0 };
   const offset = mapZoomPanOffset({
-    scrollLeft: container.scrollLeft,
-    scrollTop: container.scrollTop,
+    scrollLeft: mapMain.scrollLeft,
+    scrollTop: mapMain.scrollTop,
     pointerX: anchorX,
     pointerY: anchorY,
     oldZoom,
@@ -3685,16 +3781,15 @@ function zoomMapAt(newZoom, anchorX, anchorY) {
   });
   setMapZoom(clamped);
   renderMapView();
-  container.scrollLeft = offset.scrollLeft;
-  container.scrollTop = offset.scrollTop;
+  mapMain.scrollLeft = offset.scrollLeft;
+  mapMain.scrollTop = offset.scrollTop;
 }
 
 // The +/- toolbar buttons: no pointer to anchor on, so they zoom around the
 // panel's own center — the point that stays visually stillest for a button
 // press, same convention most map apps use for their +/- controls.
 function zoomMapStep(direction) {
-  const container = $('#map-view');
-  zoomMapAt(stepMapZoom(loadMapZoom(), direction), container.clientWidth / 2, container.clientHeight / 2);
+  zoomMapAt(stepMapZoom(loadMapZoom(), direction), mapMain.clientWidth / 2, mapMain.clientHeight / 2);
 }
 
 // Fit: largest zoom (capped at 100%) that shows the whole graph, computed
@@ -3704,8 +3799,8 @@ function zoomMapStep(direction) {
 // so this sets the zoom directly and resets scroll to the top-left corner
 // rather than reusing zoomMapAt's pointer-preserving offset.
 //
-// container.clientWidth/clientHeight is the panel's PADDING box — it
-// includes #map-view's own 14px padding on every side, AND clientHeight
+// The scrolling area's clientWidth/clientHeight is its PADDING box — it
+// includes its own 14px padding on every side, AND clientHeight
 // includes the filter row/zoom row/section header space above the SVG,
 // none of which the graph can actually draw into. Passing those raw to
 // fitMapZoom measured against space the graph doesn't have, so Fit
@@ -3725,18 +3820,18 @@ function zoomMapFit() {
     fitW = Math.max(fitW, Number(s.dataset.logicalWidth));
     fitH = Math.max(fitH, Number(s.dataset.logicalHeight));
   });
-  const style = getComputedStyle(container);
+  const style = getComputedStyle(mapMain);
   const padLeft = parseFloat(style.paddingLeft) || 0;
   const padRight = parseFloat(style.paddingRight) || 0;
   const padBottom = parseFloat(style.paddingBottom) || 0;
-  const { originY } = mapSvgOrigin(container, svg);
-  const availableWidth = container.clientWidth - padLeft - padRight;
-  const availableHeight = container.clientHeight - originY - padBottom;
+  const { originY } = mapSvgOrigin(mapMain, svg);
+  const availableWidth = mapMain.clientWidth - padLeft - padRight;
+  const availableHeight = mapMain.clientHeight - originY - padBottom;
   const fit = fitMapZoom(fitW, fitH, availableWidth, availableHeight);
   setMapZoom(fit);
   renderMapView();
-  container.scrollLeft = 0;
-  container.scrollTop = 0;
+  mapMain.scrollLeft = 0;
+  mapMain.scrollTop = 0;
 }
 
 function wireMapPanZoom() {
@@ -3759,8 +3854,8 @@ function wireMapPanZoom() {
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      startScrollLeft: container.scrollLeft,
-      startScrollTop: container.scrollTop,
+      startScrollLeft: mapMain.scrollLeft,
+      startScrollTop: mapMain.scrollTop,
       moved: false,
     };
     // No setPointerCapture here — deferred to pointermove, once the drag
@@ -3796,8 +3891,8 @@ function wireMapPanZoom() {
     // Moving the pointer right/down should reveal content to the right/down
     // (the graph moves WITH the pointer, like a map app's drag-to-pan) —
     // the panel scrolls the OPPOSITE direction of the pointer delta.
-    container.scrollLeft = mapPan.startScrollLeft - dx;
-    container.scrollTop = mapPan.startScrollTop - dy;
+    mapMain.scrollLeft = mapPan.startScrollLeft - dx;
+    mapMain.scrollTop = mapPan.startScrollTop - dy;
   });
   const finish = () => {
     if (!mapPan) return;
@@ -3836,7 +3931,7 @@ function wireMapPanZoom() {
     if (!e.ctrlKey) return;
     if (!e.target.closest || !e.target.closest('.map-canvas')) return;
     e.preventDefault();
-    const rect = container.getBoundingClientRect();
+    const rect = mapMain.getBoundingClientRect();
     // Continuous (stepMapZoomByWheel), not the buttons' fixed-rung
     // stepMapZoom — a trackpad pinch fires a burst of these with small
     // deltaY each, and one full rung per event used to reach the zoom

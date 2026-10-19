@@ -82,12 +82,16 @@ test('every option the options module offers has a label here, so the row cannot
 
 // --- where the row sits and what it triggers -------------------------------------
 
-test('the options row sits between the status pills and the zoom controls', () => {
+test('the options row sits in the option panel, below the zoom controls, and the status pills stay in the view', () => {
+  const panel = fn('buildMapPanel');
+  const zoom = panel.indexOf('buildMapZoomControls()');
+  const options = panel.indexOf('buildMapOptionsRow()');
+  assert.ok(zoom !== -1 && options > zoom);
+  const bar = fn('buildMapBar');
+  assert.ok(bar.indexOf('buildViewPanelToggle(') !== -1 && bar.indexOf('buildViewPanelToggle(') < bar.indexOf('buildMapFilterRow()'), 'the panel button leads the pills');
   const body = fn('renderMapView');
-  const pills = body.indexOf('buildMapFilterRow()');
-  const options = body.indexOf('buildMapOptionsRow()');
-  const zoom = body.indexOf('buildMapZoomControls()');
-  assert.ok(pills !== -1 && options > pills && zoom > options);
+  assert.match(body, /main\.appendChild\(buildMapBar\(panelOpen\)\)/);
+  assert.doesNotMatch(body, /buildMapOptionsRow\(\)|buildMapZoomControls\(\)/, 'the view draws neither itself');
 });
 
 test('a click on an option button sets that option, checked ahead of the card and button handlers', () => {

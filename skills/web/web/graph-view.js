@@ -70,6 +70,9 @@ let graphLayoutKind = null;
 let graphStatusFilter = null;
 let graphFanOptions = null;
 let graphOptionsFolded = null;
+// Set when the option panel opened or closed: the next draw frames the cards again in the
+// width it left, unless the person has moved the view.
+let graphRefitNext = false;
 const graphViews = new Map();
 let graphCur = null;
 let graphPan = null;
@@ -208,6 +211,7 @@ function resetGraphViewState() {
   graphStatusFilter = null;
   graphFanOptions = null;
   graphOptionsFolded = null;
+  graphRefitNext = false;
   graphViews.clear();
   graphStopDrag(false);
   graphArrangements.clear();
@@ -322,10 +326,10 @@ function graphBuildOptionsRow(options, folded) {
   return row;
 }
 
-function graphBuildControls(kind, filter, cardCount, relationCount, fan) {
-  const frag = document.createDocumentFragment();
-  const row = document.createElement('div');
-  row.className = 'graph-controls';
+// The option panel's contents (app.js builds the panel itself): the layouts, the zoom, and
+// for Tiers the option row. These stood in the top row of the view before.
+function graphBuildPanel(kind, fan) {
+  const panel = buildViewPanel('graph', 'Graph options');
   const layouts = document.createElement('div');
   layouts.className = 'graph-layouts';
   for (const k of GRAPH_LAYOUTS) {
@@ -333,19 +337,28 @@ function graphBuildControls(kind, filter, cardCount, relationCount, fan) {
     b.setAttribute('aria-pressed', String(k === kind));
     layouts.appendChild(b);
   }
-  row.appendChild(layouts);
+  panel.appendChild(layouts);
   const zoom = document.createElement('div');
   zoom.className = 'graph-zoom';
   zoom.appendChild(graphButton('graph-zoom-btn', '−', 'Zoom out', { graphAction: 'out' }));
   zoom.appendChild(graphButton('graph-zoom-btn', '+', 'Zoom in', { graphAction: 'in' }));
   zoom.appendChild(graphButton('graph-zoom-btn', 'Fit', 'Fit every card in the panel', { graphAction: 'fit' }));
-  row.appendChild(zoom);
+  panel.appendChild(zoom);
+  if (fan) panel.appendChild(graphBuildOptionsRow(fan.options, fan.folded));
+  return panel;
+}
+
+// The view's own top: the panel's button and the card count, then the status pills and the key.
+function graphBuildControls(filter, cardCount, relationCount, fan, panelOpen) {
+  const frag = document.createDocumentFragment();
+  const row = document.createElement('div');
+  row.className = 'graph-controls';
+  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
   const count = document.createElement('span');
   count.className = 'graph-count';
   count.textContent = `${graphPlural(cardCount, 'card')}, ${graphPlural(relationCount, 'relation')}`;
   row.appendChild(count);
   frag.appendChild(row);
-  if (fan) frag.appendChild(graphBuildOptionsRow(fan.options, fan.folded));
   frag.appendChild(buildFilterPillRow(filter, boardColumnIds(), 'graph-filter-row', 'graph-filter-toggle graph-control',
     (col, on) => col === 'archive'
       ? `${on ? 'Hide' : 'Show'} archived cards on the graph`
@@ -707,6 +720,8 @@ function renderGraphView() {
   const host = document.getElementById('graph-view');
   graphStopDrag(true);
   let kind, filter, fanOptions, model, layout, layoutOpts, plan, sig;
+  const panelMoved = graphRefitNext;
+  graphRefitNext = false;
   try {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
@@ -734,23 +749,29 @@ function renderGraphView() {
   host.textContent = '';
   graphCur = null;
 
-  host.appendChild(graphBuildControls(kind, filter, model.nodes.length, model.links.length, fanOptions && { options: fanOptions, folded: graphLoadOptionsFolded() }));
+  const panelOpen = viewPanelIsOpen('graph');
+  const fan = fanOptions && { options: fanOptions, folded: graphLoadOptionsFolded() };
+  const main = document.createElement('div');
+  main.className = 'graph-main';
+  host.appendChild(main);
+  if (panelOpen) host.appendChild(graphBuildPanel(kind, fan));
+  main.appendChild(graphBuildControls(filter, model.nodes.length, model.links.length, fan, panelOpen));
   if (!plan.nodes.length) {
     const p = document.createElement('p');
     p.className = 'graph-empty';
     p.textContent = 'No cards to show';
-    host.appendChild(p);
+    main.appendChild(p);
     return;
   }
 
   const drawn = graphDrawPlan(plan);
-  host.appendChild(drawn.stage);
+  main.appendChild(drawn.stage);
   paintTypeColors(drawn.svg);
   const w = drawn.stage.clientWidth || 800;
   const h = drawn.stage.clientHeight || 600;
   drawn.svg.classList.add(`graph-kind-${kind}`);
   let view = graphViews.get(kind);
-  const refit = !view || (view.sig !== sig && !view.touched);
+  const refit = !view || ((view.sig !== sig || panelMoved) && !view.touched);
   if (!view) {
     view = { x: 0, y: 0, k: 1, sig, touched: false };
     graphViews.set(kind, view);
@@ -900,8 +921,16 @@ function graphStopDrag(commit) {
   if (graphCur) graphCur.svg.classList.remove('graph-dragging');
 }
 
+// The panel opened or closed: the stage has another width, so the cards are framed again.
+function graphRedrawForPanel() {
+  graphRefitNext = true;
+  renderGraphView();
+}
+
 function wireGraphView(host) {
   host.addEventListener('click', (e) => {
+    const panelBtn = e.target.closest('.view-panel-toggle[data-panel], .view-panel-close[data-panel]');
+    if (panelBtn) { pressViewPanelButton(panelBtn, graphRedrawForPanel); return; }
     const pill = e.target.closest('.graph-filter-toggle[data-col]');
     if (pill) { keepControlFocus(pill, () => graphToggleFilter(pill.dataset.col)); return; }
     const fold = e.target.closest('.map-section-toggle[data-section="graph-options"]');
