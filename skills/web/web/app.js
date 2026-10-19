@@ -2004,7 +2004,8 @@ function applyHomeUrl(url) {
 }
 
 // The page keys every card on the id module's whole-id string (`7`, `G7`), whether the
-// server sent the id as a number or as a string; a waiting_for entry is held the same way.
+// server sent the id as a number or as a string; a waiting_for entry and a plain parent
+// are held the same way.
 function pageId(id) {
   const key = kanbanIds.idKey(id);
   return key === null ? String(id) : key;
@@ -2013,6 +2014,7 @@ function pageId(id) {
 function pageCard(card) {
   card.id = pageId(card.id);
   if (Array.isArray(card.waiting_for)) card.waiting_for = card.waiting_for.map(pageId);
+  if (typeof card.parent === 'number') card.parent = pageId(card.parent);
   return card;
 }
 

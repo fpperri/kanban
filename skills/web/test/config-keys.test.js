@@ -276,7 +276,7 @@ test('creating a goal under an epic, against the hierarchy, succeeds and the ans
   await withBoard(HIERARCHY_BOARD, async (call) => {
     const created = await call('POST', '/api/cards', { title: 'A goal under an epic', type: 'goal', parent: '2' });
     assert.strictEqual(created.status, 201);
-    assert.strictEqual(created.json.parent, '2');
+    assert.strictEqual(created.json.parent, 2);
     assert.strictEqual(created.json.type, 'goal');
     assert.deepStrictEqual(Object.keys(created.json).filter((k) => /warn|error|hierarchy/i.test(k)), []);
   });
@@ -286,10 +286,10 @@ test('moving a goal under an epic, against the hierarchy, succeeds and the answe
   await withBoard(HIERARCHY_BOARD, async (call) => {
     const moved = await call('PATCH', '/api/cards/3', { parent: '2' });
     assert.strictEqual(moved.status, 200);
-    assert.strictEqual(moved.json.parent, '2');
+    assert.strictEqual(moved.json.parent, 2);
     assert.deepStrictEqual(Object.keys(moved.json).filter((k) => /warn|error|hierarchy/i.test(k)), []);
     const board = await call('GET', '/api/board');
-    assert.strictEqual(board.json.active.find((c) => c.id === 3).parent, '2');
+    assert.strictEqual(board.json.active.find((c) => c.id === 3).parent, 2);
     assert.deepStrictEqual(board.json.hierarchy, ['goal', 'strategy', 'objective', 'epic']);
   });
 });

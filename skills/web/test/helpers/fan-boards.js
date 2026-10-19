@@ -21,7 +21,7 @@ const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const roots = [];
 
 // A card as the page holds it: its id and its waiting_for entries are whole-id strings, whatever the store wrote.
-const pageCard = (c) => Object.assign({}, c, { id: idKey(c.id), waiting_for: (c.waiting_for || []).map(idKey) });
+const pageCard = (c) => Object.assign({}, c, { id: idKey(c.id), waiting_for: (c.waiting_for || []).map(idKey), parent: typeof c.parent === 'number' ? idKey(c.parent) : c.parent });
 
 // A fixture board: its live and archived cards and its config, with the context
 // the page builds the Graph in.

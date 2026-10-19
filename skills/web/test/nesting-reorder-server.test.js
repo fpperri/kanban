@@ -136,7 +136,7 @@ test('the board lists the new order after a drop', async () => {
   await withServer(dir, async (base) => {
     await req(base, 'POST', '/api/cards/5/reorder', { prev: null, next: 2 });
     const board = await req(base, 'GET', '/api/board');
-    const ranks = board.json.active.filter((c) => c.parent === '1').sort((a, b) => a.rank - b.rank).map((c) => c.id);
+    const ranks = board.json.active.filter((c) => c.parent === 1).sort((a, b) => a.rank - b.rank).map((c) => c.id);
     assert.deepStrictEqual(ranks, [5, 2, 3, 4]);
   });
 });

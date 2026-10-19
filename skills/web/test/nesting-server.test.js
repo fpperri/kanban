@@ -37,7 +37,7 @@ test('POST and PATCH take parent and rank, and the board lists them', async () =
   await withServer(dir, async (base) => {
     const created = await req(base, 'POST', '/api/cards', { title: 'Child', parent: '1', rank: '20' });
     assert.strictEqual(created.status, 201);
-    assert.strictEqual(created.json.parent, '1');
+    assert.strictEqual(created.json.parent, 1);
     assert.strictEqual(created.json.rank, 20);
 
     const edited = await req(base, 'PATCH', '/api/cards/1', { parent: 'fpp#4', rank: 30 });
@@ -51,7 +51,7 @@ test('POST and PATCH take parent and rank, and the board lists them', async () =
     assert.strictEqual(byId.get(1).rank, 30);
     assert.strictEqual(byId.get(2).parent, 'fpp#4');
     assert.strictEqual(byId.get(2).rank, 10);
-    assert.strictEqual(byId.get(created.json.id).parent, '1');
+    assert.strictEqual(byId.get(created.json.id).parent, 1);
 
     const cleared = await req(base, 'PATCH', '/api/cards/1', { parent: '', rank: '' });
     assert.strictEqual(cleared.json.parent, null);
