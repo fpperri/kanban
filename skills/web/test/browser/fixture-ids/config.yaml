@@ -1,0 +1,14 @@
+name: ids
+nextId: 13
+idDigits: 4
+prefixes:
+  G: goal
+  DW: deep-work
+counters: { G: 11, DW: 846 }
+statuses: [backlog, todo, doing, done]
+priorities: [High, Normal, Low]
+types:
+  - name: goal
+    icon: star
+  - name: deep-work
+    icon: hexagon

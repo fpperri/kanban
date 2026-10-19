@@ -48,14 +48,15 @@ const childrenOf = (cards, id) => cards.filter((c) => c.parent === String(id));
 const isLoose = (cards, c) => c.parent === null && childrenOf(cards, c.id).length === 0;
 const yearOf = (c) => [c.start_date, c.end_date, c.due_date].filter(Boolean).map((d) => d.slice(0, 4));
 
-test('every board answers to its own name, with unique card ids and a counter past the last one', () => {
+test('every board answers to its own name, with unique card ids and a counter past the last plain one', () => {
   for (const key of Object.keys(BOARDS)) {
     const b = load(key);
     assert.strictEqual(b.config.name, BOARDS[key].name, `${key}: config name`);
     const ids = b.cards.map((c) => c.id);
     assert.strictEqual(new Set(ids).size, ids.length, `${key}: duplicate card id`);
     assert.ok(b.cards.every((c) => !c.unparseable), `${key}: a card file did not parse`);
-    assert.ok(b.config.nextId > Math.max(...ids), `${key}: nextId ${b.config.nextId} is not past ${Math.max(...ids)}`);
+    const plain = ids.filter((id) => /^\d+$/.test(id)).map(Number);
+    assert.ok(b.config.nextId > Math.max(...plain), `${key}: nextId ${b.config.nextId} is not past ${Math.max(...plain)}`);
   }
 });
 

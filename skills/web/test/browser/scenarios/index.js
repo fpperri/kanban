@@ -37,4 +37,5 @@ module.exports = [
   require('./open-keeps-pills'),
   require('./band-tint'),
   require('./view-panel'),
+  require('./ids'),
 ];
