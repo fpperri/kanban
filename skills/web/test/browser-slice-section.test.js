@@ -62,7 +62,7 @@ test('on the plan board the section lists the four tiers in hierarchy order, the
   assert.deepStrictEqual(b.list.map(sliceEntryKey), plan.keys);
   assert.deepStrictEqual(b.list.map((e) => (e.kind === 'tier' ? typeIconGlyph(typeIconOf(e.name, b.config.types)) : '')), plan.icons);
   for (const entry of b.list) {
-    assert.deepStrictEqual(sorted(b.live.filter((c) => b.sliced.byId.get(c.id).index === entry.index).map((c) => c.id)), plan.cards[entry.label], entry.label);
+    assert.deepStrictEqual(sorted(b.live.filter((c) => b.sliced.byId.get(String(c.id)).index === entry.index).map((c) => c.id)), plan.cards[entry.label], entry.label);
     assert.strictEqual(plan.cards[entry.label].length, entry.count, `${entry.label}: the count is the number of cards the Board shows for it`);
   }
 });

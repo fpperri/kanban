@@ -22,7 +22,7 @@ after(cleanUp);
 
 const BOARDS = { plan: loadBoard('plan'), fixture: loadBoard('fixture'), malformed: loadBoard('malformed') };
 const CASE = scenario.CASES;
-const sorted = (ids) => ids.slice().sort((a, b) => a - b);
+const sorted = (ids) => ids.map(Number).sort((a, b) => a - b);
 
 // What the page draws on `key` in `mode`, with the Archive pill on or off.
 function drawn(key, mode, archiveOn = false, kind = 'tiers') {
@@ -65,20 +65,21 @@ test('the unnested cards of each board are the model\'s: the plan board\'s thirt
 test('the plan board\'s ring is seated by status as the scenario lists it, and its relations are the ones it names', () => {
   const { layout, model } = drawn('plan', 'outermost');
   const turnOf = (id) => {
-    const a = Math.atan2(layout.pos.get(id).y, layout.pos.get(id).x);
+    const a = Math.atan2(layout.pos.get(String(id)).y, layout.pos.get(String(id)).x);
     return a < layout.fan.to - 1e-9 ? a + 2 * Math.PI : a;
   };
   assert.deepStrictEqual(CASE.plan.ring.slice().sort((a, b) => turnOf(b) - turnOf(a)), CASE.plan.ring);
-  const statusOf = (id) => model.byId.get(id).status;
+  const statusOf = (id) => model.byId.get(String(id)).status;
   const groups = [];
   for (const id of CASE.plan.ring) if (!groups.length || groups[groups.length - 1][0] !== statusOf(id)) groups.push([statusOf(id), 1]); else groups[groups.length - 1][1]++;
   assert.deepStrictEqual(groups.map(([s, n]) => `${s} ${n}`), CASE.plan.split);
-  const touching = model.links.filter((l) => CASE.plan.ring.includes(l.from) || CASE.plan.ring.includes(l.to));
-  assert.deepStrictEqual(touching.map((l) => [l.from, l.to, l.kind]), [[CASE.plan.wait.from, CASE.plan.wait.to, 'wait']]);
-  assert.deepStrictEqual(CASE.plan.depthOne.map((id) => model.byId.get(id).depth), [1, 1, 1, 1]);
+  const ringKeys = CASE.plan.ring.map(String);
+  const touching = model.links.filter((l) => ringKeys.includes(l.from) || ringKeys.includes(l.to));
+  assert.deepStrictEqual(touching.map((l) => [l.from, l.to, l.kind]), [[String(CASE.plan.wait.from), String(CASE.plan.wait.to), 'wait']]);
+  assert.deepStrictEqual(CASE.plan.depthOne.map((id) => model.byId.get(String(id)).depth), [1, 1, 1, 1]);
   const withArchive = drawn('plan', 'outermost', true);
   const seats = CASE.plan.ring.concat(CASE.plan.archived);
-  const turned = (id) => { const a = Math.atan2(withArchive.layout.pos.get(id).y, withArchive.layout.pos.get(id).x); return a < withArchive.layout.fan.to - 1e-9 ? a + 2 * Math.PI : a; };
+  const turned = (id) => { const a = Math.atan2(withArchive.layout.pos.get(String(id)).y, withArchive.layout.pos.get(String(id)).x); return a < withArchive.layout.fan.to - 1e-9 ? a + 2 * Math.PI : a; };
   assert.deepStrictEqual(seats.slice().sort((a, b) => turned(b) - turned(a)), seats, 'archived cards last');
   assert.strictEqual(CASE.plan.picked, 27);
   assert.ok(CASE.plan.ring.includes(CASE.plan.picked));
@@ -140,9 +141,9 @@ function standIn(over = {}) {
   const modes = {};
   const mode = () => (over.ignoresMode ? 'outermost' : modes[key] || 'outermost');
   const view = () => drawn(key, mode(), archiveOn, kind);
-  const drawnIds = () => view().plan.nodes.map((n) => n.id);
+  const drawnIds = () => view().plan.nodes.map((n) => Number(n.id));
   const selected = () => {
-    const shown = new Set(over.offKeepsSelection ? view().model.nodes.map((n) => n.id).concat(BOARDS[key].all.map((c) => c.id)) : drawnIds());
+    const shown = new Set(over.offKeepsSelection ? view().model.nodes.map((n) => Number(n.id)).concat(BOARDS[key].all.map((c) => Number(c.id))) : drawnIds());
     return parts.filter((id) => shown.has(id));
   };
   const rowOf = () => {
@@ -180,7 +181,7 @@ function standIn(over = {}) {
   const touching = (ids) => {
     const keeps = over.offKeepsLines && mode() === 'off' && ids.includes(CASE.plan.wait.to);
     const v = view();
-    return v.plan.links.filter((l) => ids.some((id) => id === l.from || id === l.to)).length + (keeps ? 1 : 0);
+    return v.plan.links.filter((l) => ids.some((id) => String(id) === l.from || String(id) === l.to)).length + (keeps ? 1 : 0);
   };
   const press = (point) => {
     const m = Object.entries(MODE_HANDLES).find(([, h]) => h.x === point.x);
@@ -212,7 +213,7 @@ function standIn(over = {}) {
       if (expr === tierFan.FITTED) return !zoomed;
       const dotted = /\.sort\(\(a,b\)=>a-b\)\)===("\[[\d,]*\]")$/.exec(expr);
       if (dotted) return JSON.stringify(sorted([...new Set(drawnIds())])) === JSON.parse(dotted[1]);
-      const picked = /^\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\.length===(\d+)(?:&&\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+))?$/.exec(expr);
+      const picked = /^\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\.length===(\d+)(?:&&\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+))?$/.exec(expr);
       if (picked) {
         const now = selected();
         return now.length === Number(picked[1]) && (picked[2] === undefined || now[0] === Number(picked[2]));
@@ -227,7 +228,7 @@ function standIn(over = {}) {
       if (expr === tierFan.DOTS) return dotsOf();
       if (expr === tierFan.SWEEP) { const { fan } = view().layout; return { from: fan.from, to: fan.to }; }
       if (expr === tierFan.FAN_MARKS) return marksOf();
-      if (expr === tierFan.SECTORS) return view().layout.sectors.map((s) => ({ kind: s.kind, tops: s.tops.slice(), from: s.from, to: s.to }));
+      if (expr === tierFan.SECTORS) return view().layout.sectors.map((s) => ({ kind: s.kind, tops: s.tops.map(Number), from: s.from, to: s.to }));
       if (expr === tierFan.BAND_EDGES) {
         const bands = view().layout.bands;
         return { tiers: bands.filter((b) => !!b.slice && b.slice.kind === 'tier').map((b) => b.r1), outer: bands.length ? bands[bands.length - 1].r1 : 0 };

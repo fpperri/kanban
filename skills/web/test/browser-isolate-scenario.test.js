@@ -33,7 +33,7 @@ const planBoard = () => {
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const sorted = (list) => [...new Set(list)].sort((a, b) => a - b);
+const sorted = (list) => [...new Set([...list].map(Number))].sort((a, b) => a - b);
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'isolate.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
 const { CASES } = scenario;

@@ -39,8 +39,8 @@ module.exports = {
     const { ev, send, open, waitFor, centre, click, key, check } = page;
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const sorted = (...ids) => ids.slice().sort((a, b) => a - b);
-    const picked = () => ev(`[...selectedIds].sort((a,b)=>a-b)`);
-    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
+    const picked = () => ev(`[...selectedIds].map(Number).sort((a,b)=>a-b)`);
+    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].map(Number).sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
     const boxText = () => ev(`document.getElementById('search-input').value`);
     const boxIs = (text) => waitFor(`document.getElementById('search-input').value===${JSON.stringify(text)}`);

@@ -35,7 +35,7 @@ function drawn(key, options, extra = []) {
   return { model, layout, plan, lines };
 }
 const added = () => CASE.added.map((c, i) => ({
-  id: CASE.addedIds[i], title: c.title, status: c.status, archived: false, parent: c.parent, waiting_for: [], blocked: false, review: false,
+  id: String(CASE.addedIds[i]), title: c.title, status: c.status, archived: false, parent: c.parent, waiting_for: [], blocked: false, review: false,
 }));
 const counted = (lines) => ({
   all: lines.length,
@@ -69,7 +69,7 @@ test('the numbers with the two added children are the model\'s, and folded carri
   }
   const lines = drawn('plan', GRAPH_FAN_OPTION_DEFAULTS, added()).lines;
   const [one] = lines.filter((l) => l.kids);
-  assert.deepStrictEqual([one.from, one.kids, one.count], [7, CASE.addedIds, 2]);
+  assert.deepStrictEqual([one.from, one.kids.map(Number), one.count], ['7', CASE.addedIds, 2]);
   assert.strictEqual(BOARDS.plan.config.nextId, 30, 'the first card the scenario adds is card 30');
   assert.deepStrictEqual(CASE.addedIds, [30, 31]);
   assert.strictEqual(CASE.pollId, 32);
@@ -81,12 +81,12 @@ test('the board\'s parents, waits and order are what the scenario says they are'
   assert.deepStrictEqual(parents, ['1>2', '1>3', '1>4', '1>5', '1>6', '2>7', '2>8', '22>23', '22>25', '23>24', '7>22'].sort());
   assert.deepStrictEqual(model.links.filter((l) => l.kind === 'wait').map((l) => `${l.from}>${l.to}`).sort(), ['2>6', '3>4', '3>6', '5>27', '5>6', '7>8']);
   const kids = CASE.siblings;
-  assert.deepStrictEqual(kids, model.links.filter((l) => l.from === 1 && l.kind === 'parent').map((l) => l.to));
-  const status = mapOrderRow(kids, { nodes: model.nodes }, 'status', BOARDS.plan.config.statuses);
+  assert.deepStrictEqual(kids, model.links.filter((l) => l.from === '1' && l.kind === 'parent').map((l) => Number(l.to)));
+  const status = mapOrderRow(kids.map(String), { nodes: model.nodes }, 'status', BOARDS.plan.config.statuses).map(Number);
   assert.deepStrictEqual(status, CASE.seats.status);
   assert.deepStrictEqual(kids, CASE.seats.rank);
-  assert.deepStrictEqual(kids.map((id) => BOARDS.plan.live.find((c) => c.id === id).status), ['doing', 'todo', 'backlog', 'done', 'todo']);
-  for (const id of CASE.candidates) assert.ok(model.byId.has(id), `card ${id} is drawn`);
+  assert.deepStrictEqual(kids.map((id) => BOARDS.plan.live.find((c) => c.id === String(id)).status), ['doing', 'todo', 'backlog', 'done', 'todo']);
+  for (const id of CASE.candidates) assert.ok(model.byId.has(String(id)), `card ${id} is drawn`);
 });
 
 test('the option values and defaults the scenario names are the model\'s', () => {
@@ -98,7 +98,7 @@ test('the option values and defaults the scenario names are the model\'s', () =>
 test('the order really seats the children of card 1 as the scenario says, on the real layout', () => {
   const { layout } = drawn('plan', { ...GRAPH_FAN_OPTION_DEFAULTS, order: 'status' });
   const rank = drawn('plan', { ...GRAPH_FAN_OPTION_DEFAULTS, order: 'rank' }).layout;
-  const seats = (l) => CASE.siblings.slice().sort((a, b) => l.polar.get(b).a - l.polar.get(a).a);
+  const seats = (l) => CASE.siblings.slice().sort((a, b) => l.polar.get(String(b)).a - l.polar.get(String(a)).a);
   assert.deepStrictEqual(seats(layout), CASE.seats.status);
   assert.deepStrictEqual(seats(rank), CASE.seats.rank);
 });
@@ -223,12 +223,12 @@ function standIn(over = {}) {
       if (pressed) return st().options[pressed[0]] === pressed[1];
       const settled = /^\(\(\)=>\{const q=.*return q\('\.graph-link-parent'\)===(\d+)&&q\('\.graph-link-wait'\)===(\d+)\}\)\(\)$/.exec(expr);
       if (settled) { const c = lineCounts(); return c.parent === Number(settled[1]) && c.wait === Number(settled[2]); }
-      const one = /^\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
+      const one = /^\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
       if (one) return selected.length === 1 && selected[0] === Number(one[1]);
       const focused = /^\(\(\)=>\{const e=document\.activeElement.*\}\)\(\)==='(\w+=\w+)'$/.exec(expr);
       if (focused) return focus === focused[1];
       const ids = [...expr.matchAll(/data-id="(\d+)"/g)].map((m) => Number(m[1]));
-      if (ids.length) return ids.every((id) => now().model.byId.has(id));
+      if (ids.length) return ids.every((id) => now().model.byId.has(String(id)));
       throw new Error(`the stand-in page was asked to wait on something it does not know: ${expr.slice(0, 100)}`);
     },
     ev: async (expr) => {
@@ -253,12 +253,12 @@ function standIn(over = {}) {
       if (expr === scenario.TICK) { if (!over.pollDead) reveal(); return true; }
       if (/requestAnimationFrame/.test(expr)) return true;
       const dot = /^\(\(\)=>\{const dot=document\.querySelector\('\.graph-node\[data-id="(\d+)"\] \.graph-dot'\)/.exec(expr);
-      if (dot) { const id = Number(dot[1]); return now().model.byId.has(id) ? { x: 10000 + id, y: 1 } : null; }
+      if (dot) { const id = Number(dot[1]); return now().model.byId.has(String(id)) ? { x: 10000 + id, y: 1 } : null; }
       const created = /^fetch\('\/api\/cards',\{method:'POST',headers:\{'content-type':'application\/json'\},body:JSON\.stringify\((.*)\)\}\)\.then\(\(r\)=>r\.status\)$/.exec(expr);
       if (created) {
         const card = JSON.parse(created[1]);
         pending.push({
-          id: nextId++, title: card.title, status: card.status || 'todo', archived: false, parent: card.parent === undefined ? null : card.parent, waiting_for: [], blocked: false, review: false,
+          id: String(nextId++), title: card.title, status: card.status || 'todo', archived: false, parent: card.parent === undefined ? null : card.parent, waiting_for: [], blocked: false, review: false,
         });
         return 201;
       }

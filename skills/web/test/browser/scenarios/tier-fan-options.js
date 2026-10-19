@@ -92,7 +92,7 @@ const FOCUSED_OPTION = `(()=>{const e=document.activeElement;return e&&e.classLi
 
 // The Graph's view as the page holds it, and the classes that say a pan is under way.
 const VIEW = `(()=>{const v=graphCur.view;return {x:v.x,y:v.y,k:v.k,touched:v.touched,panning:!!document.querySelector('#graph-view .graph-panning'),dragging:isDragging}})()`;
-const SELECTED = `[...selectedIds].sort((a,b)=>a-b)`;
+const SELECTED = `[...selectedIds].map(Number).sort((a,b)=>a-b)`;
 const frames = `new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`;
 const createCard = (card) => `fetch('/api/cards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(${JSON.stringify(card)})}).then((r)=>r.status)`;
 

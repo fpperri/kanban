@@ -20,7 +20,7 @@ const { loadBoard, cleanUp, captionRects } = require('./helpers/fan-boards');
 after(cleanUp);
 
 const BOARDS = { plan: loadBoard('plan'), fixture: loadBoard('fixture'), malformed: loadBoard('malformed') };
-const sorted = (ids) => ids.slice().sort((a, b) => a - b);
+const sorted = (ids) => ids.map(Number).sort((a, b) => a - b);
 
 // What the page draws on `key`: the model of the cards it shows, the layout and the plan.
 // `unnested` is the board's Unnested option (the page opens with the outermost ring; the
@@ -63,7 +63,7 @@ test('the plan board\'s lists are the tiers, depth rings, Unnested cards and arc
   assert.deepStrictEqual(sorted(BOARDS.plan.all.filter((c) => c.archived).map((c) => c.id)), want.archived);
   assert.deepStrictEqual(sorted(model.nodes.map((n) => n.id)), sorted(want.tiers.flat().concat(want.depths.flat(), want.block)));
   const types = new Map(BOARDS.plan.live.map((c) => [c.id, c.type]));
-  assert.deepStrictEqual(want.tiers.map((ids) => [...new Set(ids.map((id) => types.get(id)))]), [['goal'], ['strategy'], ['objective'], ['epic']]);
+  assert.deepStrictEqual(want.tiers.map((ids) => [...new Set(ids.map((id) => types.get(String(id))))]), [['goal'], ['strategy'], ['objective'], ['epic']]);
 });
 
 test('the plan board\'s names, columns, loose card and icon cards are the real board\'s', () => {
@@ -79,11 +79,11 @@ test('the plan board\'s names, columns, loose card and icon cards are the real b
   const archived = drawn('plan', true);
   assert.deepStrictEqual(sorted(archived.place.columns.find((c) => c.label === 'archived').ids), want.archivedBlock);
   const types = new Map(BOARDS.plan.all.map((c) => [c.id, c.type]));
-  assert.strictEqual(types.get(want.starCard), 'goal');
+  assert.strictEqual(types.get(String(want.starCard)), 'goal');
   assert.strictEqual(BOARDS.plan.config.types.find((t) => t.name === 'goal').icon, 'star');
-  assert.strictEqual(types.get(want.unknownIconCard), 'bug');
+  assert.strictEqual(types.get(String(want.unknownIconCard)), 'bug');
   assert.strictEqual(BOARDS.plan.config.types.find((t) => t.name === 'bug').icon, 'blob');
-  assert.ok(model.byId.has(want.starCard) && model.byId.has(want.unknownIconCard));
+  assert.ok(model.byId.has(String(want.starCard)) && model.byId.has(String(want.unknownIconCard)));
   assert.strictEqual(BOARDS.plan.config.nextId, 30, 'the card the scenario adds is card 30');
 });
 
@@ -108,9 +108,9 @@ test('the malformed board names two tiers, each twice, a depth ring and a loose 
   const want = scenario.CASES.malformed;
   assert.deepStrictEqual(BOARDS.malformed.config.hierarchy, ['Goal', 'goal', 'Epic', 'EPIC']);
   assert.deepStrictEqual(layout.bands.filter((b) => b.slice.kind === 'tier').map((b) => b.count), [1, 1]);
-  assert.deepStrictEqual(want.tiers.map((ids) => ids.map((id) => model.axis[place.places.get(id).band].kind)), [['tier'], ['tier']]);
-  assert.strictEqual(model.axis[place.places.get(3).band].depth, 2);
-  assert.strictEqual(place.places.get(4).block, 'done');
+  assert.deepStrictEqual(want.tiers.map((ids) => ids.map((id) => model.axis[place.places.get(String(id)).band].kind)), [['tier'], ['tier']]);
+  assert.strictEqual(model.axis[place.places.get('3').band].depth, 2);
+  assert.strictEqual(place.places.get('4').block, 'done');
 });
 
 // A stand-in for the page: each expression the scenario evaluates is answered
@@ -250,11 +250,11 @@ function standIn(over = {}) {
         return !!t && JSON.stringify(t.lines) === JSON.parse(lined[1]);
       }
       const dotted = /\.sort\(\(a,b\)=>a-b\)\)===("\[[\d,]*\]")$/.exec(expr);
-      if (dotted) return JSON.stringify([...new Set(view().plan.nodes.map((n) => n.id))].sort((a, b) => a - b)) === JSON.parse(dotted[1]);
+      if (dotted) return JSON.stringify([...new Set(view().plan.nodes.map((n) => Number(n.id)))].sort((a, b) => a - b)) === JSON.parse(dotted[1]);
       const counted = /^document\.querySelectorAll\('#graph-view \.graph-node'\)\.length===(\d+)$/.exec(expr);
       if (counted) return view().plan.nodes.length === Number(counted[1]);
       const ids = [...expr.matchAll(/data-id="(\d+)"/g)].map((m) => Number(m[1]));
-      if (ids.length) return over.archiveDraws === false ? false : archiveOn && ids.every((id) => view().model.byId.has(id));
+      if (ids.length) return over.archiveDraws === false ? false : archiveOn && ids.every((id) => view().model.byId.has(String(id)));
       throw new Error(`the stand-in page was asked to wait on something it does not know: ${expr.slice(0, 80)}`);
     },
     ev: async (expr) => {
@@ -289,7 +289,7 @@ function standIn(over = {}) {
       const typed = /^\(\(\)=>\{const i=document\.getElementById\('search-input'\);i\.value=("(?:[^"\\]|\\.)*");/.exec(expr);
       if (typed) { query = over.ignoreQuery ? '' : JSON.parse(typed[1]); return true; }
       if (expr === scenario.SECTORS) {
-        const sectors = view().layout.sectors.map((s) => ({ kind: s.kind, tops: s.tops.slice(), from: s.from, to: s.to }));
+        const sectors = view().layout.sectors.map((s) => ({ kind: s.kind, tops: s.tops.map(Number), from: s.from, to: s.to }));
         return over.sectors ? over.sectors(key, sectors, { extra }) : sectors;
       }
       if (expr === scenario.RECTS) {
@@ -320,7 +320,7 @@ function standIn(over = {}) {
       for (const name of ['tiers', 'force', 'status']) if (expr === scenario.pickLayout(name)) { kind = name; switched += name === 'tiers' ? 1 : 0; return true; }
       if (expr === scenario.addLoose(scenario.CASES.plan.extraLoose)) {
         extra = extra.concat([{
-          id: 30, title: 'new', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, type: 'objective',
+          id: '30', title: 'new', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, type: 'objective',
         }]);
         return 201;
       }

@@ -69,7 +69,7 @@ const SETTING = `graphLoadOptions().names`;
 const namedAre = (ids) => `JSON.stringify(${NAMED})===${JSON.stringify(JSON.stringify(ids.slice().sort((a, b) => a - b)))}`;
 const settingIs = (value) => `${SETTING}===${JSON.stringify(value)}`;
 // What the model names on the cards drawn when nothing is selected, for a setting.
-const predicted = (mode) => `[...graphFanNames(graphCur.model,${JSON.stringify(mode)},{selectedIds:new Set(),loneCardId:null})].sort((a,b)=>a-b)`;
+const predicted = (mode) => `[...graphFanNames(graphCur.model,${JSON.stringify(mode)},{selectedIds:new Set(),loneCardId:null})].map(Number).sort((a,b)=>a-b)`;
 const NAMED_ARE_PREDICTED = (mode) => `JSON.stringify(${NAMED})===JSON.stringify(${predicted(mode)})`;
 const nameOf = (id) => `(()=>{const t=document.querySelector('#graph-view .graph-node[data-id="${id}"] .graph-node-name');return t?t.textContent:null})()`;
 const KEY_LINE = `(()=>{const k=document.querySelector('#graph-view .graph-key');return k?k.textContent:null})()`;

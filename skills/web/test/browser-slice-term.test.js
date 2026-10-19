@@ -93,7 +93,7 @@ test('on today\'s fixture board, which has no hierarchy, slice:1 keeps exactly t
   assert.deepStrictEqual(board.config.hierarchy, []);
   const { query, shows } = sliceTerm.CASES.fixture;
   assert.deepStrictEqual(shownBy(board, 'fixture', query), shows);
-  const root = board.live.find((c) => c.id === '1');
+  const root = board.live.find((c) => c.id === 1);
   assert.strictEqual(root.parent, null, 'card 1 is a root');
   assert.deepStrictEqual(shows, board.live.filter((c) => c.parent === '1').map((c) => c.id).sort((a, b) => a - b), 'the cards directly under it');
 });
@@ -146,7 +146,7 @@ const selectorMatches = (selector, element) => {
     && parts.every((p) => (p[0] === '.' ? element.classes.includes(p.slice(1)) : element.attrs.includes(p.slice(1, -1))));
 };
 
-const readBy = (selector, drawn) => [...new Set(drawn.filter(({ element }) => selectorMatches(selector, element)).map(({ id }) => id))].sort((a, b) => a - b);
+const readBy = (selector, drawn) => [...new Set(drawn.filter(({ element }) => selectorMatches(selector, element)).map(({ id }) => Number(id)))].sort((a, b) => a - b);
 
 test('the classes the Map and the Gantt draw their elements with come from the page code', () => {
   const web = path.join(__dirname, '..', 'web');
@@ -185,7 +185,7 @@ test('the Gantt selector reaches the rows of both dated cards under slice:0, tho
   const { depthZero } = sliceTerm.CASES.plan;
   const hit = found(board, 'plan', depthZero.query);
   const rows = ganttGroups(board.live.filter((c) => hit.has(c.id)), board.config.statuses).flatMap((g) => g.bars);
-  assert.deepStrictEqual(rows.map((r) => r.card.id).sort((a, b) => a - b), depthZero.datedShows, 'the Gantt lists both dated cards');
+  assert.deepStrictEqual(rows.map((r) => Number(r.card.id)).sort((a, b) => a - b), depthZero.datedShows, 'the Gantt lists both dated cards');
   const win = ganttWindow(rowWindowSpans(rows), '2026-10-15');
   assert.strictEqual(win.clamped, true, 'the two cards are years apart, so the window is cut to its cap');
   assert.ok(win.days <= GANTT_MAX_DAYS);

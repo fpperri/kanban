@@ -307,6 +307,6 @@ const within = (inner, outer, slack = 1e-9) => inner.x0 >= outer.x0 - slack && i
   && inner.y0 >= outer.y0 - slack && inner.y1 <= outer.y1 + slack;
 
 module.exports = {
-  STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
+  pageCard, STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf, rootShapedCards, captionRects, clashes,
   nameMeasure, pathPoints, placeOn, drawnBox, within, leaderPieces, leaderCrossings,
 };

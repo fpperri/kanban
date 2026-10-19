@@ -325,7 +325,7 @@ function graphQueryEffect(match, pool, ctx, { isolated = false } = {}) {
   const slices = terms.filter((t) => t && t.field === 'slice');
   if (!ids || !slices.length) return { visibleIds: null, litIds: ids };
   if (!pool) throw new Error('graphQueryEffect: a slice: term needs the board to cut');
-  const cut = new Set(GRAPH_SEARCH.filterCards(pool, slices, ctx).map((c) => c.id));
+  const cut = new Set(GRAPH_SEARCH.filterCards(pool, slices, ctx).map((c) => graphKey(c.id)));
   return { visibleIds: cut, litIds: slices.length < terms.length ? ids : null };
 }
 

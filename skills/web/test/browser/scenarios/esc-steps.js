@@ -20,8 +20,8 @@ module.exports = {
   board: 'plan',
   async run(page) {
     const { ev, send, open, waitFor, click, key, check } = page;
-    const picked = () => ev(`[...selectedIds].sort((a,b)=>a-b)`);
-    const parts = () => ev(`(()=>{const s=selectionState.selection;return {anchor:s.anchor&&s.anchor.id,additions:s.additions.map((p)=>p.id)}})()`);
+    const picked = () => ev(`[...selectedIds].map(Number).sort((a,b)=>a-b)`);
+    const parts = () => ev(`(()=>{const s=selectionState.selection;return {anchor:s.anchor&&Number(s.anchor.id),additions:s.additions.map((p)=>Number(p.id))}})()`);
     const sameIds = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const sorted = (...ids) => ids.slice().sort((a, b) => a - b);
     const hasSelection = (n) => waitFor(`selectedIds.size===${n}`);
