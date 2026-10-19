@@ -254,9 +254,9 @@ test('mdInline: [text](url) keeps the url only for http/https/mailto/#//-prefixe
 // --- the "bl" field (goal 5): Python records the UNCAPPED length ------------
 
 test('parse_card records "bn" as the uncapped body length, independent of either 4000/1500 truncation', () => {
-  const long = data.find((c) => c.id === 1);
-  const short = data.find((c) => c.id === 2);
-  const archLong = data.find((c) => c.id === 3);
+  const long = data.find((c) => c.id === '1');
+  const short = data.find((c) => c.id === '2');
+  const archLong = data.find((c) => c.id === '3');
   assert.strictEqual(long.bn, 5000);
   assert.strictEqual(long.body.length, 4000, 'live cards cap at 4000');
   assert.strictEqual(short.bn, short.body.length, 'an uncapped body reports bn === body.length');
@@ -348,7 +348,7 @@ function domHarness(fnNames) {
   const elSrc = extractConst('el');
   const parts = fnNames.map((n) => extractFunction(n));
   const body = [elSrc, ...parts, `module.exports = { ${fnNames.join(', ')}, el };`].join('\n');
-  return new Function('document', 'module', 'exports', body + '\nreturn module.exports;')(fakeDocument, { exports: {} }, {});
+  return new Function('document', 'module', 'exports', 'kanbanIds', body + '\nreturn module.exports;')(fakeDocument, { exports: {} }, {}, require('../../web/web/ids'));
 }
 
 // The mention regex's board-name capture (`[^\s#\x60]+`) is whitespace-free
@@ -363,6 +363,18 @@ test('codeSegNode: a same-board mention gets class="mention same" and a data-map
   assert.ok(node.classList.contains('mention'));
   assert.ok(node.classList.contains('same'));
   assert.strictEqual(node.getAttribute('data-mapnode'), '42');
+});
+
+test('codeSegNode: a mention of a group or a note carries the whole id, prefix and all, and a padded one the plain number', () => {
+  const dom = domHarness(['codeSegNode']);
+  for (const [text, want] of [['MyBoard#G3 a group', 'G3'], ['MyBoard#_12', '_12'], ['MyBoard#0042 padded', '42']]) {
+    const node = dom.codeSegNode(text, 'MyBoard');
+    assert.ok(node.classList.contains('same'), text);
+    assert.strictEqual(node.getAttribute('data-mapnode'), want, text);
+  }
+  for (const text of ['MyBoard#a371f7', 'MyBoard#g3', 'MyBoard#G3x']) {
+    assert.ok(!dom.codeSegNode(text, 'MyBoard').classList.contains('mention'), text);
+  }
 });
 
 test('codeSegNode: a DIFFERENT board\'s mention gets class="mention" but not "same", and no data-mapnode (nothing to open on this board)', () => {
@@ -430,8 +442,8 @@ test('mdBodyNode: a cut mid-table still renders a table wrapped in .md-table wit
 // "bl" is the blocked sticker's text and always has been; the body length has
 // its own key. Sharing one key once flagged every card on the board as blocked.
 test('parse_card keeps the blocked sticker text in "bl", apart from the body length', () => {
-  const blocked = data.find((c) => c.id === 2);
-  const clear = data.find((c) => c.id === 1);
+  const blocked = data.find((c) => c.id === '2');
+  const clear = data.find((c) => c.id === '1');
   assert.strictEqual(blocked.bl, 'waiting on infra ticket');
   assert.strictEqual(clear.bl, '', 'a card without the sticker carries an empty bl');
   assert.strictEqual(typeof clear.bn, 'number');
