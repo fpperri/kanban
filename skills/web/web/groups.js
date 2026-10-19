@@ -63,6 +63,11 @@ function groupRunning(group, day) {
   return !!(group.start_date && group.end_date && group.start_date <= day && day <= group.end_date);
 }
 
+// The flash after a card is created: the running groups the server put it into, or ''.
+function groupJoinedNote(joined) {
+  return joined && joined.length ? `Joined ${joined.map(groupLabel).join(', ')}.` : '';
+}
+
 // The folders the form offers: none first (the root), then the rest in order. `payload` is
 // the board's groups ({ folders }).
 function groupFolderChoices(payload) {
@@ -104,7 +109,7 @@ function groupSignature(group) {
 
 const GROUPS_EXPORTS = {
   groupSignature, groupLabel, groupTypePath, groupTip, groupById, groupsOfCard, groupBadgeModel, groupsHoldingAll,
-  groupRunning, groupFolderChoices, groupPrefixFor, groupFormProblem, groupFormBody,
+  groupRunning, groupJoinedNote, groupFolderChoices, groupPrefixFor, groupFormProblem, groupFormBody,
 };
 
 if (typeof module !== 'undefined' && module.exports) {
