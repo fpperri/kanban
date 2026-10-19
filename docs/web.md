@@ -421,6 +421,13 @@ write the note on each card. `group:I2` and `group:zephyr-2` find a group's card
 `group:` every card that is in a group and `-group:` the cards that are in none. Without a
 `groups:` line nothing of this shows.
 
+**Delete.** Deleting a card, or a selection of cards, opens one popup that says what goes and which
+groups lose the card: its id always leaves every group's list. **Its logbook** (the count of its
+notes) is a box left unticked; unticked, the day files stay and read as dangling. The Group tab's
+**Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
+cards it would delete and names the ones another group holds, which it skips. Archiving asks
+nothing.
+
 ## Other surfaces
 
 The **[mobile snapshot](snapshot.md)** is the tap-through board for a phone or

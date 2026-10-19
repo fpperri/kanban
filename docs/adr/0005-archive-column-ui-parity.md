@@ -12,7 +12,7 @@ cards couldn't be selected, right-clicked, or dragged.
 
 On disk nothing changes — archive remains the `archived/` folder, never a
 status value. In the UI the column is a first-class citizen: drag in
-(= archive, confirmed), drag out to a live column (= restore with that
+(= archive, no confirm: archiving is a location move), drag out to a live column (= restore with that
 column's status, confirmed when the batch holds archived cards — an explicit
 override of the restore-is-exempt rule for the drag gesture only), one
 selection domain across live+archived with per-card skips.

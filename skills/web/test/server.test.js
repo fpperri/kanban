@@ -2687,29 +2687,16 @@ test("combobox Up/Down highlight reuses the existing hover treatment, not a new 
   assert.match(css, /\.combobox-item:hover, \.combobox-item\.active \{ background: var\(--accent-wash\); \}/);
 });
 
-// --- the "one rule, three callers" is only pinned for
-// drag-to-Archive (via dragPlan/selection.test.js) — doArchive (tile/detail
-// Archive button) and bulkArchive (bulk menu's Archive selected) call
-// archiveNeedsConfirm too, but nothing asserted that wiring, so a regression
-// dropping/inverting the gate on either of those two surfaces would pass the
-// whole suite silently.
+// --- archiving asks nothing: the tile and detail Archive button (doArchive) and the bulk menu's
+// Archive selected (bulkArchive) never call confirm(), so no surface keeps a stale speedbump.
 
-test('doArchive gates its confirm on archiveNeedsConfirm — the tile/detail Archive button surface (regression)', () => {
+test('doArchive and bulkArchive never call confirm() — archiving asks nothing (regression)', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-  const fn = js.match(/async function doArchive\([\s\S]*?\n\}/);
-  assert.ok(fn, 'doArchive found in app.js');
-  assert.match(fn[0], /archiveNeedsConfirm\(\[card\]\)/,
-    'a missing lookup falls back to confirming (the safe default) — archiveNeedsConfirm only runs when the card is found');
-  assert.match(fn[0], /if \(\(!card \|\| archiveNeedsConfirm\(\[card\]\)\) && !confirm\(/,
-    'confirm is skipped entirely when the found card is done — same rule dragPlan/bulkArchive use');
-});
-
-test('bulkArchive gates its confirm on archiveNeedsConfirm — the bulk menu\'s Archive selected surface (regression)', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-  const fn = js.match(/async function bulkArchive\([\s\S]*?\n\}/);
-  assert.ok(fn, 'bulkArchive found in app.js');
-  assert.match(fn[0], /if \(archiveNeedsConfirm\(toArchive\) && !confirm\(/,
-    'the batch confirm is skipped when every card actually being archived (toArchive, not the whole selection) is already done');
+  for (const name of ['doArchive', 'bulkArchive', 'applyBulkArchive']) {
+    const fn = js.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n\\}`));
+    assert.ok(fn, `${name} found in app.js`);
+    assert.doesNotMatch(fn[0], /confirm\(/, `${name} asks nothing`);
+  }
 });
 
 // =====================================================================

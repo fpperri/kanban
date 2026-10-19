@@ -2759,13 +2759,8 @@ function cardLabel(id) {
   return titleDisplay.text ? `#${id} "${titleDisplay.text}"` : `#${id}`;
 }
 
-// A done card archiving is completion, not a destructive act — skip
-// the confirm when the card is already done (shared archiveNeedsConfirm rule,
-// selection.js). A missing lookup (shouldn't happen — the button is only
-// wired for live cards) falls back to confirming, the safe default.
+// Archiving asks nothing: it is a location move a drop or a Restore undoes, so it stays cheap.
 async function doArchive(id, { onSuccess } = {}) {
-  const card = state.active.find((c) => c.id === id);
-  if ((!card || archiveNeedsConfirm([card])) && !confirm(`Archive ${cardLabel(id)}? (moves the file to archived/)`)) return;
   try { await api('POST', `/api/cards/${id}/archive`); if (onSuccess) onSuccess(); await loadBoard(); }
   catch (e) { toast('Archive failed: ' + e.message); }
 }
@@ -2777,10 +2772,9 @@ async function doRestore(id) {
   catch (e) { toast('Restore failed: ' + e.message); }
 }
 
-async function doDelete(id, { onSuccess } = {}) {
-  if (!confirm(`Permanently delete ${cardLabel(id)}? This cannot be undone.`)) return;
-  try { await api('DELETE', `/api/cards/${id}`); if (onSuccess) onSuccess(); await loadBoard(); }
-  catch (e) { toast('Delete failed: ' + e.message); }
+// Deleting opens the delete popup (delete-ui.js): what goes, and the extras to tick.
+function doDelete(id, { onSuccess } = {}) {
+  openDelete('card', [id], { onDone: onSuccess });
 }
 
 // --- Card detail popup: rendered markdown body, frontmatter table, copy-path. ---
@@ -5926,12 +5920,11 @@ function addDependencyToSelection(kind) {
   renderBoard();
 }
 
-// Bulk archive asks WHERE before it moves anything (ADR 0010): the
-// confirm speedbump first (unchanged rule — skipped when every card being
-// archived is already done), then the Archive popup, whose package box
-// completes against the board's existing archived/<package>/ folders. Left
-// empty it archives to the archived/ root, exactly as before packages existed
-// — the drag-to-Archive and tile/detail Archive paths never ask at all.
+// Bulk archive asks WHERE before it moves anything (ADR 0010): the Archive
+// popup, whose package box completes against the board's existing
+// archived/<package>/ folders. Left empty it archives to the archived/ root,
+// exactly as before packages existed — the drag-to-Archive and tile/detail
+// Archive paths never ask at all.
 async function bulkArchive() {
   hideContextMenu();
   captureBulkTargets();
@@ -5940,9 +5933,6 @@ async function bulkArchive() {
   const toArchive = targets.filter((c) => !c.archived);
   const ids = toArchive.map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Everything selected is already archived.'); return; }
-  // one speedbump for the batch, not one per card — skipped entirely
-  // when every card being archived is already done
-  if (archiveNeedsConfirm(toArchive) && !confirm(`Archive ${ids.length} card(s)? (moves their files to archived/)`)) return;
   openBulkArchive(ids.length);
 }
 
@@ -5995,20 +5985,15 @@ async function bulkRestore() {
   toast(failed.length ? `Restored ${ids.length - failed.length}${skipNote}; failed: ${failed.join(', ')}` : `Restored ${ids.length} card(s)${skipNote}.`);
 }
 
-async function bulkDelete() {
+// One popup for the whole selection (delete-ui.js): it asks once, whatever the count.
+function bulkDelete() {
   hideContextMenu();
   const ids = bulkTargets(menuSubject.ids).map((c) => c.id);
   if (!ids.length) return;
   const wasSelection = menuSubject.inSelection;
-  if (!confirm(`Permanently delete ${ids.length} card(s)? This cannot be undone.`)) return;
-  const failed = [];
-  for (const id of ids) {
-    try { await api('DELETE', `/api/cards/${id}`); }
-    catch (e) { failed.push(`#${id} (${e.message})`); }
-  }
-  if (wasSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
-  await loadBoard();
-  toast(failed.length ? `Deleted ${ids.length - failed.length}; failed: ${failed.join(', ')}` : `Deleted ${ids.length} card(s).`);
+  openDelete('card', ids, {
+    onDone: () => { if (wasSelection) setSelection(NO_SELECTION); }, // a menu opened outside the selection leaves the hand-built selection as it was
+  });
 }
 
 // Bulk move (drag): the doing entry gate (waiting + blocked)

@@ -70,3 +70,15 @@ test('the search examples the docs give do what they say', () => {
 test('the snapshot skill says it reads group terms and draws no groups', () => {
   assert.ok(flat(snapshot).includes('`group:<id or name>`, `group:` and `-group:` too, but it draws no groups'));
 });
+
+test('the web skill and the docs describe the delete popup: the id leaves every group, the extras are unticked, a group skips members another group holds, archiving asks nothing', () => {
+  const skillDelete = flat(web.slice(web.indexOf('- **Delete** —'), web.indexOf('- **Multi-select**')));
+  for (const part of ['delete popup', 'its id always leaves every group\'s list', '**Its logbook**', '**unticked**', 'dangling', '**Its member cards**', 'skipped',
+    'DELETE /api/cards/<id>', 'DELETE /api/groups/<id>', 'Archiving never opens it and asks nothing']) {
+    assert.ok(skillDelete.includes(part), part);
+  }
+  const docsDelete = flat(docs.slice(docs.indexOf('**Delete.**'), docs.indexOf('## Other surfaces')));
+  for (const part of ['its id always leaves every group\'s list', '**Its logbook**', 'unticked', '**Delete group…**', '**Its member cards**', 'Archiving asks nothing']) {
+    assert.ok(docsDelete.includes(part), part);
+  }
+});

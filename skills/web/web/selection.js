@@ -75,23 +75,14 @@ function partitionByMovable(ids, byId, targetStatus, refusesDoingFn) {
   return { movable, refused, unchanged };
 }
 
-// Archiving a fully-done batch is the natural completion flow, not
-// a destructive act, so the confirm is skipped — but only when EVERY card
-// in the batch is done; one non-done card keeps today's single confirm.
-// Shared by the tile Archive button, drag-to-Archive (via dragPlan below),
-// and the bulk menu's Archive selected — one rule, three callers.
-function archiveNeedsConfirm(cards) {
-  return cards.some((c) => c.status !== 'done');
-}
-
 // One plan for any drag batch (archive column parity). Cards carry
 // `archived`; dest is 'archive' or a live column. The doing entry gate
 // (waiting OR blocked via `refusesDoingFn`) stays per card and
 // only guards entering 'doing' — applied to archived cards too, since a
 // drop names their destination status. Speedbump matrix: a batch
-// -> archive confirms unless every card in it is already done; a
-// batch containing archived cards -> live column confirms naming the
-// restore count; pure live -> live stays confirm-free.
+// -> archive asks nothing; a batch containing archived cards -> live
+// column confirms naming the restore count; pure live -> live stays
+// confirm-free.
 function dragPlan(ids, byId, dest, refusesDoingFn) {
   const toArchive = [], toRestore = [], toMove = [], refused = [], unchanged = [];
   for (const id of ids) {
@@ -108,9 +99,7 @@ function dragPlan(ids, byId, dest, refusesDoingFn) {
     else toMove.push(card);
   }
   let confirmMessage = null;
-  if (dest === 'archive' && toArchive.length && archiveNeedsConfirm(toArchive)) {
-    confirmMessage = `Archive ${toArchive.length} card(s)? (moves their files to archived/)`;
-  } else if (toRestore.length) {
+  if (toRestore.length) {
     const n = toRestore.length + toMove.length;
     confirmMessage = `Move ${n} card(s) to ${dest} — ${toRestore.length} of them ${toRestore.length === 1 ? 'is' : 'are'} archived and will be restored. Proceed?`;
   }
@@ -521,7 +510,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -555,7 +544,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;
   window.dragPlan = dragPlan;
-  window.archiveNeedsConfirm = archiveNeedsConfirm;
   window.rangeSelection = rangeSelection;
   window.isHoverHighlighted = isHoverHighlighted;
   window.plainClickBehaviour = plainClickBehaviour;

@@ -152,7 +152,7 @@ test('detail, edit, archive, restore and delete reach card G3 by its route', asy
     assert.ok(fs.existsSync(path.join(dir, 'G0003.card.md')));
 
     const gone = await req(base, 'DELETE', '/api/cards/G3');
-    assert.deepStrictEqual(gone.json, { ok: true });
+    assert.deepStrictEqual(gone.json, { ok: true, groups: [], swept: {} });
     assert.ok(!fs.existsSync(path.join(dir, 'G0003.card.md')));
     assert.ok(fs.existsSync(path.join(dir, '0003.card.md')));
     const missing = await req(base, 'GET', '/api/cards/G3/detail');
