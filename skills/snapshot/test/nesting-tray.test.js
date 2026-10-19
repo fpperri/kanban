@@ -159,7 +159,7 @@ test('the map keeps reading a parent edited in the tray', () => {
   open(BOARD, (page) => {
     sheet(page, 8);
     saveField(page, 'parent', '2');
-    assert.strictEqual(page.run('find("8").pt'), 2);
+    assert.strictEqual(page.run('find("8").pt'), '2');
     saveField(page, 'parent', 'fpp#4');
     assert.strictEqual(page.run('find("8").pt'), null);
     saveField(page, 'parent', '');
