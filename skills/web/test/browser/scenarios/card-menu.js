@@ -6,7 +6,7 @@
 // entries act on the menu's subject (Set priority); Dependency path and
 // Dependency tree add to the selection and leave the search box alone, and are
 // absent when the subject is several cards; Archive and Delete name the count of
-// a selection that holds a path part. The fixture's own sets: card 4's
+// a selection that holds a path part (Archive in its popup, which asks where; Delete in the delete popup). The fixture's own sets: card 4's
 // dependency path is 1, 3, 4 and its tree is 1 to 8. Cards 1, 3 and 4 are dated
 // today so the Calendar and the Gantt draw them (the runner puts the board's
 // cards back before the next scenario). Each step waits on the page, never on a
@@ -153,7 +153,8 @@ module.exports = {
     check('Dependency path and Dependency tree are absent from the menu when its subject is several cards', !(await entryShown('ctx-path')) && !(await entryShown('ctx-tree')) && (await entryShown('ctx-assign')));
     await closeMenu();
 
-    // Archive and Delete name the resolved count of a selection that holds a path part. The confirmations answer no, so nothing is archived or deleted.
+    // Archive and Delete name the resolved count of a selection that holds a path part. Archiving asks nothing and opens its popup;
+    // Delete opens the delete popup. Both are closed unanswered, so nothing is archived or deleted.
     await openBoard();
     await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
     await rightClickOnBoard(4);
@@ -161,10 +162,13 @@ module.exports = {
     await waitFor(`selectedIds.size===3`);
     await rightClickOnBoard(4);
     await press('ctx-archive');
+    check('archiving a selection that holds a path part names the resolved count in its popup and asks nothing', await waitFor(`!document.getElementById('bulk-archive').classList.contains('hidden')&&/Archive 3 card/.test(document.getElementById('bulk-archive-title').textContent)`, 3000) && await ev('window.__asked.length===0'), await ev('window.__asked'));
+    await key('Escape');
+    await waitFor(`document.getElementById('bulk-archive').classList.contains('hidden')`, 2500);
     await rightClickOnBoard(4);
     await press('ctx-delete');
-    const asked = await ev('window.__asked');
-    check('archiving a selection that holds a path part names the resolved count', asked[0] === 'Archive 3 card(s)? (moves their files to archived/)', asked);
-    check('deleting a selection that holds a path part names the resolved count', asked[1] === 'Permanently delete 3 card(s)? This cannot be undone.', asked);
+    check('deleting a selection that holds a path part names the resolved count in the delete popup', await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 3 cards?'`, 3000) && await ev('window.__asked.length===0'), await ev('window.__asked'));
+    await key('Escape');
+    await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
   },
 };
