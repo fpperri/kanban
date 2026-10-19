@@ -82,12 +82,16 @@ test('every option the options module offers has a label here, so the row cannot
 
 // --- where the row sits and what it triggers -------------------------------------
 
-test('the options row sits between the status pills and the zoom controls', () => {
+test('the options row sits in the option panel, below the zoom controls, and the status pills stay in the view', () => {
+  const panel = fn('buildMapPanel');
+  const zoom = panel.indexOf('buildMapZoomControls()');
+  const options = panel.indexOf('buildMapOptionsRow()');
+  assert.ok(zoom !== -1 && options > zoom);
+  const bar = fn('buildMapBar');
+  assert.ok(bar.indexOf('buildViewPanelToggle(') > bar.indexOf('buildMapFilterRow()'), 'the panel button follows the pills, at the right, the side the panel comes out of');
   const body = fn('renderMapView');
-  const pills = body.indexOf('buildMapFilterRow()');
-  const options = body.indexOf('buildMapOptionsRow()');
-  const zoom = body.indexOf('buildMapZoomControls()');
-  assert.ok(pills !== -1 && options > pills && zoom > options);
+  assert.match(body, /main\.appendChild\(buildMapBar\(panelOpen\)\)/);
+  assert.doesNotMatch(body, /buildMapOptionsRow\(\)|buildMapZoomControls\(\)/, 'the view draws neither itself');
 });
 
 test('a click on an option button sets that option, checked ahead of the card and button handlers', () => {
@@ -114,91 +118,45 @@ test('the control row is styled with tokens, no hex outside the token blocks', (
   for (const line of rules) assert.doesNotMatch(line, /#[0-9a-fA-F]{3,8}\b/, line);
 });
 
-// --- the fold: the row starts folded behind an Options toggle ---------------------
+// --- the row has no fold: the panel it stands in hides it ---------------------------
 
-const { optionsRowSandbox, optionsToggleOf } = require('./helpers/options-row');
+const { optionsRowSandbox } = require('./helpers/options-row');
 const { assertKeepsSelection, assertHoldsPoll, assertLetsPollRun } = require('./helpers/markers');
 
 const SECTIONS_KEY = 'kanban.shop.map.sections.collapsed';
-const unfolded = (extra = {}) => ({ [SECTIONS_KEY]: JSON.stringify({ options: false, ...extra }) });
 const rowHtml = (opts) => { const w = optionsRowSandbox(opts); return { w, html: w.buildMapOptionsRow().outerHTML }; };
-const controlsIn = (html) => groupsOf(html);
-const toggleIn = (html) => { const t = optionsToggleOf(html); assert.ok(t, 'the Options toggle is in the row'); return t; };
 
-test('a board with no stored choice shows the Options toggle and hides the row', () => {
+test('a board with no stored choice shows all eight controls and no toggle', () => {
   const { w, html } = rowHtml();
-  const toggle = toggleIn(html);
-  assert.strictEqual(toggle.expanded, false);
-  assert.strictEqual(toggle.label, 'Expand Options');
-  assert.strictEqual(toggle.icon, w.CHEVRON_RIGHT_ICON, 'folded wears the same chevron the folded sections wear');
-  assert.match(html, /<span>Options<\/span>/);
-  assert.deepStrictEqual(controlsIn(html), [], 'no control is drawn while folded');
-  assert.doesNotMatch(html, /map-option-btn/);
-});
-
-test('unfolded, the row holds the same eight controls the always-shown row held', () => {
-  const { w, html } = rowHtml({ stored: unfolded() });
-  const toggle = toggleIn(html);
-  assert.strictEqual(toggle.expanded, true);
-  assert.strictEqual(toggle.label, 'Collapse Options');
-  assert.strictEqual(toggle.icon, w.CHEVRON_LEFT_ICON, 'unfolded wears the chevron the open sections wear');
-  assert.deepStrictEqual(controlsIn(html).map((g) => g.label), [
+  assert.deepStrictEqual(groupsOf(html).map((g) => g.label), [
     'Parent lines', 'Dependency lines', 'Graphs', 'Parent sits', 'Align', 'Row order', 'Layout', 'Cards',
   ]);
+  assert.ok(html.startsWith('<div class="map-options"><span class="map-option"'), 'the controls are the row itself, with no header ahead of them');
   assert.ok(html.endsWith(w.mapOptionsRowHtml(w.loadMapOptions()) + '</div>'), 'the controls are exactly what mapOptionsRowHtml draws');
+  assert.doesNotMatch(html, /map-section|data-section|aria-expanded|<span>Options<\/span>/);
 });
 
-test('unfolded, the controls show the options the board holds', () => {
-  const stored = { ...unfolded(), 'kanban.shop.map.options': JSON.stringify({ parent: 'above', cards: 'plain' }) };
-  const { html } = rowHtml({ stored });
-  assert.strictEqual(toggleIn(html).expanded, true);
-  const pressed = Object.fromEntries(controlsIn(html).map((g) => [g.buttons[0].key, g.buttons.find((b) => b.pressed).val]));
+test('the controls show the options the board holds', () => {
+  const stored = { 'kanban.shop.map.options': JSON.stringify({ parent: 'above', cards: 'plain' }) };
+  const pressed = Object.fromEntries(groupsOf(rowHtml({ stored }).html).map((g) => [g.buttons[0].key, g.buttons.find((b) => b.pressed).val]));
   assert.strictEqual(pressed.parent, 'above');
   assert.strictEqual(pressed.cards, 'plain');
   assert.strictEqual(pressed.group, 'tree');
 });
 
-test('the toggle sits where the row starts, ahead of every control, in the one .map-options row', () => {
-  for (const stored of [{}, unfolded()]) {
-    const { html } = rowHtml({ stored });
-    assert.match(html, /^<div class="map-options"><div class="map-section-header">/);
-    const toggleAt = html.indexOf('data-section="options"');
-    assert.ok(toggleAt !== -1);
-    if (html.includes('class="map-option"')) assert.ok(toggleAt < html.indexOf('class="map-option"'));
+test('a fold saved for the row before the panel existed, or storage that is corrupt or blocked, changes nothing', () => {
+  for (const raw of [JSON.stringify({ options: true }), JSON.stringify({ options: false }), '{not json', 'null', '"open"', '[]']) {
+    assert.strictEqual(groupsOf(rowHtml({ stored: { [SECTIONS_KEY]: raw } }).html).length, 8, raw);
   }
+  assert.strictEqual(groupsOf(rowHtml({ throws: true }).html).length, 8);
 });
 
-test('the toggle is a section toggle: its own button, labelled Options, named for its section, with no inline style', () => {
-  for (const stored of [{}, unfolded()]) {
-    const { html } = rowHtml({ stored });
-    const toggle = toggleIn(html);
-    assert.deepStrictEqual(toggle.classList, ['map-section-toggle'], 'the same class the Map\'s other fold toggles carry');
-    assert.match(html, /<button type="button" class="map-section-toggle" data-section="options"/, 'a real button: Tab reaches it, Enter and Space press it');
-    assert.doesNotMatch(html, /\sstyle=/);
-    assert.doesNotMatch(html, /tabindex/);
-  }
+test('the Map\'s graphs and No relations sections keep their toggles, which keep the selection and leave the poll alone', () => {
+  assertKeepsSelection(['.map-section-toggle'], 'a section toggle');
+  assertLetsPollRun(['.map-section-toggle'], 'a section toggle');
 });
 
-test('storage that is corrupt, wrong-shaped or blocked leaves the row folded', () => {
-  for (const raw of ['{not json', 'null', '"open"', '42', '{"options":"no"}', '{"options":null}', '[]']) {
-    const { html } = rowHtml({ stored: { [SECTIONS_KEY]: raw } });
-    assert.strictEqual(toggleIn(html).expanded, false, raw);
-    assert.deepStrictEqual(controlsIn(html), [], raw);
-  }
-  const blocked = rowHtml({ throws: true }).html;
-  assert.strictEqual(toggleIn(blocked).expanded, false);
-  assert.deepStrictEqual(controlsIn(blocked), []);
-});
-
-test('a board that only ever folded its graphs or No relations row still opens with the options folded', () => {
-  const { html } = rowHtml({ stored: { [SECTIONS_KEY]: JSON.stringify({ graph: true, isolated: false }) } });
-  assert.strictEqual(toggleIn(html).expanded, false);
-  assert.deepStrictEqual(controlsIn(html), []);
-});
-
-test('a click on the Options toggle goes through the section branch, ahead of the option buttons and the card handlers', () => {
-  const toggle = toggleIn(rowHtml().html);
-  assert.ok(toggle.classList.includes('map-section-toggle') && toggle.dataset.section === 'options', 'the toggle matches .map-section-toggle[data-section]');
+test('the click listener handles the section toggles ahead of the option buttons and the card handlers', () => {
   const click = appSrc.match(/\$\('#map-view'\)\.addEventListener\('click', \(e\) => \{[\s\S]*?\n  \}\);/);
   assert.ok(click, 'the #map-view click listener is found');
   const handler = click[0];
@@ -209,18 +167,6 @@ test('a click on the Options toggle goes through the section branch, ahead of th
   assert.ok(section < handler.indexOf("closest('button[data-act]')"));
 });
 
-test('a click on the Options toggle does not wipe a building selection', () => {
-  for (const stored of [{}, unfolded()]) assert.strictEqual(toggleIn(rowHtml({ stored }).html).keepsSelection, true, 'the toggle wears the keep-selection marker');
-  assertKeepsSelection(['.map-section-toggle'], 'a section toggle');
-});
-
-test('the Options toggle does not hold the poll, so a focused one does not hold the 5s refresh', () => {
-  assertLetsPollRun(['.map-section-toggle'], 'a section toggle');
-});
-
-test('the Options toggle sits inline with the row and drops the section header\'s own bottom margin', () => {
-  const rule = cssSrc.split('\n').find((l) => l.startsWith('.map-options > .map-section-header'));
-  assert.ok(rule, 'a rule for the header inside the options row');
-  assert.match(rule, /margin-bottom: 0/);
-  assert.doesNotMatch(rule, /#[0-9a-fA-F]{3,8}\b/);
+test('the stylesheet has no header rule left for the options row', () => {
+  assert.ok(!cssSrc.split('\n').some((l) => l.startsWith('.map-options > .map-section-header')));
 });

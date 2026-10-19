@@ -36,4 +36,5 @@ module.exports = [
   require('./hotkeys'),
   require('./open-keeps-pills'),
   require('./band-tint'),
+  require('./view-panel'),
 ];

@@ -242,21 +242,21 @@ test('intersectVisibleIds intersects two real sets — a card is visible only wh
     'disjoint sets yield the empty set, not a union');
 });
 
-// --- map view section collapse (graph, no-dependencies list, options row) -------
+// --- map view section collapse (graph, no-dependencies list) -----------------------
 // A fixed small key set (not a dynamic column set, unlike collapse/status-filter
 // above), same shape/merge discipline as modal-fullscreen.js's per-modal-type
 // state — no `ids` param needed.
 
-test('MAP_SECTIONS names exactly the three collapsible map sections', () => {
-  assert.deepStrictEqual(MAP_SECTIONS, ['graph', 'isolated', 'options']);
+test('MAP_SECTIONS names exactly the two collapsible map sections', () => {
+  assert.deepStrictEqual(MAP_SECTIONS, ['graph', 'isolated']);
 });
 
-test('DEFAULT_MAP_SECTIONS_COLLAPSED starts the graphs and No relations expanded and the options row folded', () => {
-  assert.deepStrictEqual(DEFAULT_MAP_SECTIONS_COLLAPSED, { graph: false, isolated: false, options: true });
+test('DEFAULT_MAP_SECTIONS_COLLAPSED starts the graphs and No relations expanded', () => {
+  assert.deepStrictEqual(DEFAULT_MAP_SECTIONS_COLLAPSED, { graph: false, isolated: false });
 });
 
 test('mergeMapSectionsCollapsed returns the defaults for missing/corrupt saved values', () => {
-  const defaults = { graph: false, isolated: false, options: true };
+  const defaults = { graph: false, isolated: false };
   assert.deepStrictEqual(mergeMapSectionsCollapsed(undefined), defaults);
   assert.deepStrictEqual(mergeMapSectionsCollapsed(null), defaults);
   assert.deepStrictEqual(mergeMapSectionsCollapsed('corrupt'), defaults);
@@ -264,19 +264,16 @@ test('mergeMapSectionsCollapsed returns the defaults for missing/corrupt saved v
 });
 
 test('mergeMapSectionsCollapsed honors saved booleans, ignores junk values, drops stale keys', () => {
-  assert.deepStrictEqual(mergeMapSectionsCollapsed({ graph: true }), { graph: true, isolated: false, options: true });
-  assert.deepStrictEqual(mergeMapSectionsCollapsed({ isolated: true, graph: 'yes' }), { graph: false, isolated: true, options: true });
+  assert.deepStrictEqual(mergeMapSectionsCollapsed({ graph: true }), { graph: true, isolated: false });
+  assert.deepStrictEqual(mergeMapSectionsCollapsed({ isolated: true, graph: 'yes' }), { graph: false, isolated: true });
   assert.deepStrictEqual(mergeMapSectionsCollapsed({ graph: true, isolated: true, bogus: true }),
-    { graph: true, isolated: true, options: true });
+    { graph: true, isolated: true });
 });
 
-test('mergeMapSectionsCollapsed reads the options row as folded unless a saved boolean says it is open', () => {
-  assert.strictEqual(mergeMapSectionsCollapsed({ options: false }).options, false);
-  assert.strictEqual(mergeMapSectionsCollapsed({ options: true }).options, true);
-  for (const junk of ['no', 0, 1, null, undefined, {}, []]) {
-    assert.strictEqual(mergeMapSectionsCollapsed({ options: junk }).options, true, JSON.stringify(junk));
+test('the options row has no section any more: a value saved for it from before is dropped, whatever it is', () => {
+  for (const old of [true, false, 'no', 0, null, {}]) {
+    assert.deepStrictEqual(mergeMapSectionsCollapsed({ options: old, graph: true }), { graph: true, isolated: false }, JSON.stringify(old));
   }
-  assert.deepStrictEqual(mergeMapSectionsCollapsed({ options: false, graph: true }), { graph: true, isolated: false, options: false });
 });
 
 // --- the gantt's Archive pill — every LIVE status pill defaults ON;

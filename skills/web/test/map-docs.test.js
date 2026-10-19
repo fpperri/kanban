@@ -73,8 +73,8 @@ test('the human guide says what the map draws now, and drops what it no longer d
   assert.doesNotMatch(map, /no dependencies drop into/);
 });
 
-test('the web skill and the guide say the options row folds, starts folded and is remembered per board', () => {
-  assert.match(section, /The options row folds behind an \*\*Options\*\* toggle and starts folded; open or folded, it is remembered per board/);
+test('the web skill and the guide say the options row is always shown in the option panel, and an old fold is ignored', () => {
+  assert.match(section, /The options row is always shown in the option panel, with no toggle of its own; an `options` value left in `map\.sections\.collapsed` by an older\s+version is dropped when that entry is read/);
   const map = guide.slice(guide.indexOf('## Dependency map'), guide.indexOf('## Gantt'));
-  assert.match(map, /The row starts folded behind an \*\*Options\*\* toggle/);
+  assert.match(map, /The options are always shown in it; the panel is what hides them, and\s+a fold remembered from before the panel is ignored/);
 });
