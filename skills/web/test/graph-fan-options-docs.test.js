@@ -54,13 +54,14 @@ test('the Graph section says the counted line lights with its parent, the chain 
 
 test('the Graph section says where the choices are kept and that a press leaves the pan, the selection and the poll alone', () => {
   const text = graph();
-  assert.match(text, /choices are kept per board in `localStorage` under `graph\.options`, and whether the row is folded under `graph\.optionsFolded`/);
-  assert.match(text, /a press on the row never starts a pan, never clears the selection and never pauses the 5-second poll/);
+  assert.match(text, /choices are kept per board in `localStorage` under `graph\.options`/);
+  assert.match(text, /the row is always shown in the option panel, with no fold, and a `graph\.optionsFolded` value left by an older version is never read/);
+  assert.match(text, /A press on the row never starts a pan, never clears the selection and never pauses the 5-second poll/);
 });
 
-test('the Graph section says the row takes room from the stage and the view does not move for it, so Fit frames every card again', () => {
+test('the Graph section says a press of an option does not move the view, so Fit frames every card again', () => {
   const text = graph();
-  assert.match(text, /The row takes its room from the stage, and the Graph does not move for it: unfolding or folding the row never pans, zooms or re-fits the view, and nor does pressing Lines, Dependencies or Order/);
+  assert.match(text, /Pressing Lines, Dependencies or Order never pans, zooms or re-fits the view, so a fan framed once keeps its place/);
   assert.match(text, /\*\*Fit\*\* frames every card again/);
   assert.match(text, /Picking a layout re-fits the view; after that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes/);
 });
@@ -73,7 +74,7 @@ test('the Graph section no longer says every relation is drawn in Tiers', () => 
 
 test('the web doc says the same in short', () => {
   const text = docGraph();
-  assert.match(text, /an option row above the fan, folded until opened/);
+  assert.match(text, /an option row in the option panel beside the fan/);
   assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /kept per board/);
 });

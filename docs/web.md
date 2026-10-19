@@ -91,11 +91,11 @@ backlog, then done and archived.
 A **Map options** row sets which parent lines are drawn, the dependency lines, one graph
 per tree or one graph, which side the parent sits, alignment, row order, whether a
 toggled line moves the cards, and how much detail a card shows (type, altitude and the
-roll-up bar). Each choice is remembered per board in your browser. The row starts folded
-behind an **Options** toggle; open or folded, it is remembered too.
+roll-up bar). Each choice is remembered per board in your browser.
 The options and the zoom (`−`, the percentage, `+` and **Fit**) sit in a panel on the
-right of the view, which the panel icon at the top left, level with the status pills,
-opens and closes. The Graph keeps its layouts, its zoom and its Options section in a
+right of the view, which the panel icon at the top right, level with the status pills,
+opens and closes. The options are always shown in it; the panel is what hides them, and
+a fold remembered from before the panel is ignored. The Graph keeps its layouts, its zoom and its Options section in a
 panel the same way, while its status pills, key and card count stay in the view. The
 panel is open from 760 px wide and closed below it, where it opens over the view as a
 sheet with a close button of its own and adds no sideways scroll. The choice is
@@ -153,7 +153,7 @@ per board, with **Tiers** first:
   doing, todo, backlog from the centre out). Archived cards form a second group
   when the Archive pill is on.
 
-Tiers has an option row above the fan, folded until opened: Lines (folded, chain,
+Tiers has an option row in the option panel beside the fan: Lines (folded, chain,
 all, off), Dependencies (on, off), Order (status, rank), Names (relevant, all, none)
 and Unnested (outermost, off, depth 0, table). Folded, the default, draws a line to the
 end of each dependency chain and one counted line for a parent's other children on one
