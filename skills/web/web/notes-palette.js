@@ -127,6 +127,61 @@ function noteCountButton(id) {
   return b;
 }
 
+// ---------- the Calendar's notes ----------
+
+const NOTES_SVG_NS = 'http://www.w3.org/2000/svg';
+
+function notesGlyph() {
+  const svg = document.createElementNS(NOTES_SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NOTES_SVG_NS, 'path');
+  path.setAttribute('d', 'M3 2.5h7l3 3v8H3z M5.5 7h5 M5.5 9.5h5 M5.5 12h3');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.4');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.append(path);
+  return svg;
+}
+
+// A button the Calendar draws for notes: it opens the palette on `req` and, like the count on a
+// card, is no click away from the palette (np-trigger) and none from the board's selection.
+function notesCalendarButton(className, title, req) {
+  const b = notesButton(`cal-note np-trigger ${className}`, undefined, title, () => openNotes(req));
+  b.setAttribute('aria-label', title.replace(/\n/g, '; '));
+  b.setAttribute('data-keeps-selection', '');
+  return b;
+}
+
+// One half hour's notes in a day's column: a chip for one note (the card's id and the first
+// words), a count bubble for two or more. `top` is the half hour's offset in pixels.
+function notesCalendarSlot(day, slot, top) {
+  const req = noteSlotRequest(day, slot);
+  let el;
+  if (slot.notes.length === 1) {
+    const note = slot.notes[0];
+    el = notesCalendarButton('cal-note-chip', noteTip(note, notesLabel), req);
+    if (note.target) el.append(notesEl('span', 'cal-note-id', `#${note.target}`));
+    else el.append(notesGlyph());
+    el.append(document.createTextNode(noteFirstWords(note.note, 12)));
+  } else {
+    el = notesCalendarButton('cal-note-bubble', noteSlotTip(slot), req);
+    el.append(notesEl('b', 'cal-note-count', String(slot.notes.length)), notesEl('span', 'cal-note-ids', noteSlotTargets(slot.notes).join(' ')));
+  }
+  el.dataset.slot = `${day}|${slot.fromMin}`;
+  el.style.top = `${top}px`;
+  return el;
+}
+
+// The "N untimed" box in a day's all-day cell.
+function notesCalendarUntimed(day, untimed) {
+  const el = notesCalendarButton('cal-note-untimed', noteUntimedTip(untimed), noteUntimedRequest(day));
+  el.append(notesEl('b', 'cal-note-count', String(untimed.length)), document.createTextNode(' untimed'));
+  el.dataset.untimed = day;
+  return el;
+}
+
 // ---------- building ----------
 
 function notesBuild() {

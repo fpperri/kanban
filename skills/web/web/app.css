@@ -1185,6 +1185,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    separate pointer-drag time grid (wireCalendarTimeDrag), which this rule
    never touches. */
 #calendar-view.cal-dragging .cal-chip:not(.dragging) { pointer-events: none; }
+#calendar-view.cal-dragging .cal-note { pointer-events: none; } /* a note's chip, bubble and untimed box yield to the cell under them the same way */
 /* Timed blocks: absolutely positioned by minutes (app.js), side-by-side within
    an overlap cluster via lane math. white-space wraps here (unlike the month
    chips) — a tall block has room for two lines of title. */
@@ -1208,6 +1209,30 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-resize-handle.top { top: 0; }
 .cal-resize-handle.bottom { bottom: 0; }
 .cal-timeblock:hover .cal-resize-handle { background: var(--handle-wash); }
+
+/* --- The Calendar's notes layer: the week, 3-day and day views, on a board with a logbook. ---
+   A day with timed notes keeps a strip (--cal-note-strip) at the right of its column, and the
+   card blocks (app.js) shrink to the rest of the width. A note is a chip at its half hour (a
+   half hour is 20px of the 40px hour); two or more in a half hour are one count bubble. The
+   day's untimed notes are one box in its all-day cell. The Notes switch is the toolbar button
+   that hides the lot. */
+.cal-notes-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.cal-notes-switch { margin-left: 6px; }
+.cal-tg-col.has-notes { --cal-note-strip: clamp(44px, 34%, 170px); }
+.cal-note { box-sizing: border-box; margin: 0; padding: 0 4px; font-size: 10.5px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left; }
+.cal-note-chip, .cal-note-bubble { position: absolute; right: 2px; width: calc(var(--cal-note-strip) - 4px); height: 18px; z-index: 2; }
+.cal-note-chip { background: var(--surface); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }
+.cal-note-chip:hover, .cal-note-chip:focus-visible { background: var(--hover-wash); border-color: var(--line-strong); }
+.cal-note-id { margin-right: 3px; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
+.cal-note-chip svg { width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px; color: var(--mut); }
+.cal-note-bubble { padding: 0 5px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--accent); }
+.cal-note-bubble:hover, .cal-note-bubble:focus-visible { background: var(--accent); color: var(--on-fill); }
+.cal-note-count { font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-weight: 700; }
+.cal-note-ids { margin-left: 6px; color: var(--ink); font-weight: 400; }
+.cal-note-bubble:hover .cal-note-ids, .cal-note-bubble:focus-visible .cal-note-ids { color: var(--on-fill); }
+.cal-note-untimed { display: block; width: calc(100% - 6px); margin: 1px 3px; z-index: 1; border: 1px dashed var(--line-strong); border-radius: .15rem; background: var(--surface); color: var(--mut); }
+.cal-note-untimed:hover, .cal-note-untimed:focus-visible { background: var(--hover-wash); color: var(--ink); }
+.cal-note-untimed .cal-note-count { color: var(--accent); }
 
 /* --- Graph view ---
    Every card as a dot, joined by its relations. #graph-view sits alongside
