@@ -4,8 +4,9 @@
 // aimed at a card; with nothing aimed at it opens on the card last noted. Rows, top down:
 // the subject row (the chip that says what it is about, the time field, the untimed tick),
 // the note box, the preview line that says what Enter will write, the filter row (the
-// filter field, and a slot beside it for the author switch), then the notes list, grouped
-// by day and card, newest day first.
+// filter field, and beside it the All, Human and AI switch on a note's author), then the
+// notes list, grouped by day and card, newest day first. The filter field reads `by:@handle`
+// too; a note written in this palette stays listed whatever the filter and the switch say.
 //
 // Keys. In the box: Enter writes the note and keeps the palette open for the next, Shift+Enter
 // starts a new line, a bare mention (#22) then Enter aims the palette at that card, Backspace
@@ -24,7 +25,7 @@
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
-  filter: null, bySlot: null, body: null, foot: null,
+  filter: null, bySlot: null, byBtns: [], by: 'all', body: null, foot: null,
   sub: null, hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
@@ -64,6 +65,7 @@ function notesLastNoted() {
 
 const notesCtx = () => ({ today: localTodayStr(), now: noteClock(new Date()), lastNoted: notesLastNoted() });
 const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked });
+const NOTES_BY = [['all', 'All', 'Every note'], ['human', 'Human', 'Notes by a human'], ['ai', 'AI', 'Notes by an AI, or by a handle the board does not list']];
 const notesKey = (n) => `${n.day}|${n.target}|${n.at || ''}|${n.note}|${n.by}`;
 
 function notesEl(tag, className, text) {
@@ -159,9 +161,17 @@ function notesBuild() {
   u.prev = notesEl('div', 'np-prev');
   u.prev.setAttribute('aria-live', 'polite');
   u.filter = notesEl('input', 'np-filter');
-  Object.assign(u.filter, { type: 'search', autocomplete: 'off', placeholder: 'Filter these notes' });
+  Object.assign(u.filter, { type: 'search', autocomplete: 'off', placeholder: 'Filter these notes; by:@handle' });
   u.filter.setAttribute('aria-label', 'Filter the notes below');
   u.bySlot = notesEl('span', 'np-by-slot');
+  u.bySlot.setAttribute('role', 'group');
+  u.bySlot.setAttribute('aria-label', 'Notes by');
+  u.byBtns = NOTES_BY.map(([by, text, title]) => {
+    const b = notesButton('np-by-btn', text, title, () => notesSetBy(by));
+    b.dataset.by = by;
+    return b;
+  });
+  u.bySlot.append(...u.byBtns);
   const filterRow = notesEl('div', 'np-filter-row');
   filterRow.append(u.filter, u.bySlot);
   u.body = notesEl('div', 'np-body');
@@ -218,6 +228,7 @@ function openNotes(req) {
     u.written = [];
     u.input.value = '';
     u.filter.value = '';
+    u.by = 'all';
     notesGrow();
     notesResetTime();
   }
@@ -238,6 +249,7 @@ function notesClose() {
   u.body.replaceChildren();
   u.input.value = '';
   u.filter.value = '';
+  u.by = 'all';
   const back = u.opener;
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
@@ -303,9 +315,17 @@ function notesPaint() {
   u.foot.replaceChildren(hint('↵', 'write'), hint('↓', 'notes'), hint('e', 'edit'), hint('a', 'assign'), hint('d d', 'delete'), ...(text ? [hint('⌫', 'clear the chip')] : []), hint('Esc', 'close'));
 }
 
+function notesSetBy(by) {
+  const u = notesUi;
+  u.by = by;
+  u.hi = -1;
+  notesPaintBody();
+}
+
 function notesPaintBody() {
   const u = notesUi;
   if (!u.sub) return;
+  for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
   const scroll = u.body.scrollTop;
   u.editing = 0; // the rows are built anew: none is being edited
   u.body.replaceChildren(notesList());
@@ -318,11 +338,12 @@ function notesList() {
   const fresh = new Set(u.written);
   const all = notesAll();
   const mine = noteSubjectNotes(all, sub);
-  const shown = new Set(noteFilter(mine, u.filter.value, notesLabel));
+  const shown = new Set(noteFilter(mine, u.filter.value, notesLabel, { by: u.by, assignees: state.assignees }));
   const notes = mine.filter((n) => shown.has(n) || fresh.has(notesKey(n)));
   for (const n of all) if (fresh.has(notesKey(n)) && !notes.includes(n)) notes.push(n);
   if (!notes.length) {
-    const text = mine.length ? `No note here matches “${u.filter.value.trim()}”.` : sub.kind === 'none' ? 'No notes today yet.' : 'No notes here yet. Enter writes the first one.';
+    const typed = u.filter.value.trim();
+    const text = mine.length ? (typed ? `No note here matches “${typed}”${u.by === 'all' ? '' : ` by ${u.by === 'human' ? 'a human' : 'an AI'}`}.` : `No note here is by ${u.by === 'human' ? 'a human' : 'an AI'}.`) : sub.kind === 'none' ? 'No notes today yet.' : 'No notes here yet. Enter writes the first one.';
     return notesEl('p', 'np-empty', text);
   }
   const today = localTodayStr();
