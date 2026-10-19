@@ -22,8 +22,8 @@ test('a card id present twice is one node and one No relations entry, in the sna
     const cards = cardStore.listActive(dir).concat(cardStore.listArchived(dir)).map(cardStore.toJSON);
     const ctx = { board: 'dup', priorities: ['High', 'Normal', 'Low'] };
     const web = mapShapeRelations(buildRelationsGraph(cards, null, ctx), MAP_OPTION_DEFAULTS);
-    const mine = page.plain(page.run('mapShape(new Set(DATA.map(c=>Number(c.id))))'));
-    assert.deepStrictEqual(web.noRelations, [5]);
-    assert.deepStrictEqual(mine.noRelations, [5]);
+    const mine = page.plain(page.run('mapShape(new Set(DATA.map(c=>c.id)))'));
+    assert.deepStrictEqual(web.noRelations, ['5']);
+    assert.deepStrictEqual(mine.noRelations, ['5']);
   });
 });

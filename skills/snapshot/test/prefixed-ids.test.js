@@ -187,3 +187,17 @@ test('tree:, path: and waiting: follow prefixed ids', () => {
   assert.deepStrictEqual(search(LINKED, 'path:#_12'), ['7', 'G3', '_12']);
   assert.deepStrictEqual(search(LINKED, 'waiting:'), ['7', 'G3']);
 });
+
+test('the page carries the web\'s id module as shipped, first, ahead of every module that reads an id', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'web', 'ids.js'), 'utf8').replace(/\r\n/g, '\n');
+  withSnapshot(MIXED, (html) => {
+    const at = html.indexOf(source);
+    assert.ok(at !== -1, 'the module source is in the page verbatim');
+    assert.strictEqual(html.indexOf(source, at + 1), -1, 'and only once');
+    const page = loadPage(html);
+    assert.ok(page.scripts[0].includes(source), 'in the first script element');
+    assert.strictEqual(page.run('kanbanIds.idKey("G0003")'), 'G3');
+  });
+});

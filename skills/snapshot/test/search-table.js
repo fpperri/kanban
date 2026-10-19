@@ -86,7 +86,7 @@ function webContext(dir) {
 // board unless the board's own context (webContext) is given.
 function webIds(cards, q, ctx = { board: BOARD_NAME }) {
   return filterCards(cards, parseSearchQuery(q, ctx.board), ctx)
-    .map((c) => c.id).sort((a, b) => a - b);
+    .map((c) => Number(c.id)).sort((a, b) => a - b);
 }
 
 // The card ids drawn on the board, archived ones included once shown.

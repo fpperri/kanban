@@ -28,7 +28,7 @@ describe('the shared table of queries on the plan board', () => {
 
   test('a:@human and assignee:@human find the plan board\'s @human cards', () => {
     withPlanPage((page, dir) => {
-      const human = planCards(dir).filter((c) => c.assignee === '@human').map((c) => c.id).sort((a, b) => a - b);
+      const human = planCards(dir).filter((c) => c.assignee === '@human').map((c) => Number(c.id)).sort((a, b) => a - b);
       assert.ok(human.length > 10, 'sanity: the plan board has many @human cards');
       assert.deepStrictEqual(search(page, 'a:@human'), human);
       assert.deepStrictEqual(search(page, 'assignee:@human'), human);
