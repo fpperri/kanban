@@ -72,9 +72,9 @@ test('the board payload carries the config the gear shows', async () => {
     assert.strictEqual(settings.nextId, 30);
     assert.deepStrictEqual(settings.counters, { I: 3 });
     assert.deepStrictEqual(settings.prefixes, [
-      { prefix: '_', kind: 'folder', target: '.groups' },
-      { prefix: 'I', kind: 'folder', target: '.groups/iteration' },
-      { prefix: 'W', kind: 'folder', target: 'workflow/' },
+      { prefix: '_', kind: 'folder', target: '.groups', folder: '' },
+      { prefix: 'I', kind: 'folder', target: '.groups/iteration', folder: 'iteration' },
+      { prefix: 'W', kind: 'folder', target: 'workflow/', folder: 'workflow' },
       { prefix: 'G', kind: 'type', target: 'goal' },
     ]);
   });

@@ -80,11 +80,12 @@ function folderState(dir, config, key) {
   return { on, folder: value, locked: outside, reason: outside ? LOCKED_REASON : '' };
 }
 
-// One `prefixes:` entry as the page shows it: a card type, or a folder of the groups folder.
+// One `prefixes:` entry as the page shows it: a card type, or a folder under the groups folder ('' = the root).
 function prefixRows(config) {
-  return Object.entries(config.prefixes).map(([prefix, target]) => (
-    { prefix, kind: cfg.groupFolderOf(config, target) === null ? 'type' : 'folder', target }
-  ));
+  return Object.entries(config.prefixes).map(([prefix, target]) => {
+    const folder = cfg.groupFolderOf(config, target);
+    return folder === null ? { prefix, kind: 'type', target } : { prefix, kind: 'folder', target, folder };
+  });
 }
 
 function readSettings(dir) {
