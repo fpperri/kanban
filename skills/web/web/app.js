@@ -2794,10 +2794,9 @@ async function doRestore(id) {
   catch (e) { toast('Restore failed: ' + e.message); }
 }
 
-async function doDelete(id, { onSuccess } = {}) {
-  if (!confirm(`Permanently delete ${cardLabel(id)}? This cannot be undone.`)) return;
-  try { await api('DELETE', `/api/cards/${id}`); if (onSuccess) onSuccess(); await loadBoard(); }
-  catch (e) { toast('Delete failed: ' + e.message); }
+// Deleting opens the delete popup (delete-ui.js): what goes, and the extras to tick.
+function doDelete(id, { onSuccess } = {}) {
+  openDelete('card', [id], { onDone: onSuccess });
 }
 
 // --- Card detail popup: rendered markdown body, frontmatter table, copy-path. ---
@@ -6019,20 +6018,15 @@ async function bulkRestore() {
   toast(failed.length ? `Restored ${ids.length - failed.length}${skipNote}; failed: ${failed.join(', ')}` : `Restored ${ids.length} card(s)${skipNote}.`);
 }
 
-async function bulkDelete() {
+// One popup for the whole selection (delete-ui.js): it asks once, whatever the count.
+function bulkDelete() {
   hideContextMenu();
   const ids = bulkTargets(menuSubject.ids).map((c) => c.id);
   if (!ids.length) return;
   const wasSelection = menuSubject.inSelection;
-  if (!confirm(`Permanently delete ${ids.length} card(s)? This cannot be undone.`)) return;
-  const failed = [];
-  for (const id of ids) {
-    try { await api('DELETE', `/api/cards/${id}`); }
-    catch (e) { failed.push(`#${id} (${e.message})`); }
-  }
-  if (wasSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
-  await loadBoard();
-  toast(failed.length ? `Deleted ${ids.length - failed.length}; failed: ${failed.join(', ')}` : `Deleted ${ids.length} card(s).`);
+  openDelete('card', ids, {
+    onDone: () => { if (wasSelection) setSelection(NO_SELECTION); }, // a menu opened outside the selection leaves the hand-built selection as it was
+  });
 }
 
 // Bulk move (drag): the doing entry gate (waiting + blocked)

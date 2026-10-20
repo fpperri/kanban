@@ -47,8 +47,9 @@ async function open({ view = 'board' } = {}) {
   elements['#graph-view'] = graphHost;
   const page = await loadPage({ board: makeBoard(), stored: { 'kanban.kanban.view.mode': view }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
-  const asked = { confirms: [], opened: [], requests: [] };
+  const asked = { confirms: [], opened: [], requests: [], deletes: [] };
   page.run('confirm = (m) => { __asked.confirms.push(m); return __asked.answer; }');
+  page.run('openDelete = (kind, targets, opts) => { __asked.deletes.push({ kind, targets, opts }); }');
   Object.assign(page.ctx, { __asked: asked });
   asked.answer = false;
   page.ctx.openCard = (id) => { asked.opened.push(Number(id)); };
@@ -209,39 +210,38 @@ test('the bulk entries include cards added by a path: a selection holding a path
   assert.deepStrictEqual(s.cardRequests(), ['PATCH /api/cards/5', 'PATCH /api/cards/1', 'PATCH /api/cards/2', 'PATCH /api/cards/3']);
 });
 
-test('Archive and Delete name the count they act on: the right-clicked card alone outside the selection, the resolved selection inside it', async () => {
+test('Delete opens one popup for the cards it acts on: the right-clicked card alone outside the selection, the resolved selection inside it; Archive names the count in its confirmation', async () => {
   const s = await open();
   s.select(null, 'cardPart(1)', 'pathPart(2)', 'cardPart(5)');
   assert.deepStrictEqual(s.ids(), [1, 2, 3, 5]);
   s.rightClick(4);
   s.click('#ctx-archive');
   s.click('#ctx-delete');
-  assert.deepStrictEqual(s.asked.confirms, [
-    'Archive 1 card(s)? (moves their files to archived/)',
-    'Permanently delete 1 card(s)? This cannot be undone.',
-  ]);
-  s.asked.confirms.length = 0;
+  assert.deepStrictEqual(s.asked.deletes.map((d) => [d.kind, [...d.targets].map(String)]), [['card', ['4']]]);
   s.rightClick(5);
   s.click('#ctx-archive');
   s.click('#ctx-delete');
-  assert.deepStrictEqual(s.asked.confirms, [
-    'Archive 4 card(s)? (moves their files to archived/)',
-    'Permanently delete 4 card(s)? This cannot be undone.',
-  ]);
+  assert.deepStrictEqual(s.asked.deletes.map((d) => [d.kind, [...d.targets].map(String)]), [['card', ['4']], ['card', ['1', '2', '3', '5']]]);
+  assert.deepStrictEqual(s.asked.confirms, ['Archive 1 card(s)? (moves their files to archived/)', 'Archive 4 card(s)? (moves their files to archived/)'], 'Delete asks in its popup, not through confirm()');
 });
 
 test('deleting the card a menu outside the selection was opened on leaves the hand-built selection as it was; deleting a selection clears it', async () => {
   const s = await open();
-  s.asked.answer = true;
+  const confirmDelete = async () => {
+    const d = s.asked.deletes[s.asked.deletes.length - 1];
+    assert.strictEqual(await s.page.ctx.performDelete(d.kind, d.targets, {}, d.opts), '');
+    await settle(s);
+  };
   s.select(2, 'cardPart(1)', 'cardPart(2)');
   s.rightClick(4);
   s.click('#ctx-delete');
-  await settle(s);
+  await confirmDelete();
   assert.deepStrictEqual(s.cardRequests(), ['DELETE /api/cards/4']);
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] });
   s.rightClick(2);
   s.click('#ctx-delete');
-  await settle(s);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] }, 'the selection stays while the popup is open');
+  await confirmDelete();
   assert.deepStrictEqual(s.cardRequests().slice(1), ['DELETE /api/cards/1', 'DELETE /api/cards/2']);
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
 });

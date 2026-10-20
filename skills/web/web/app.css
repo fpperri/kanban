@@ -1776,6 +1776,15 @@ button.np-nhead-label:hover { color: var(--accent); }
 .gp-member-rm:hover { border-color: var(--crit); color: var(--crit); }
 .gp-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .group-modal { max-width: 460px; }
+.del-popup { display: flex; flex-direction: column; gap: 8px; }
+.del-popup .bulk-hint { margin: 0; }
+.del-list { list-style: none; margin: 0 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; }
+.del-list.off li { color: var(--mut); }
+.del-list li.skip { color: var(--mut); font-style: italic; }
+.del-confirm { border: 1px solid var(--crit); background: var(--raised); color: var(--crit); border-radius: .15rem; padding: 3px 12px; cursor: pointer; }
+.del-confirm:hover, .del-confirm:focus-visible { background: var(--crit-soft); }
+.gp-delete { justify-self: start; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; }
+.gp-delete:hover { border-color: var(--crit); color: var(--crit); }
 .group-form { display: flex; flex-direction: column; gap: 10px; }
 .group-row { display: flex; gap: 10px; }
 .group-row label { flex: 1; }

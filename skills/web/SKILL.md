@@ -630,7 +630,19 @@ to `127.0.0.1` only.
   X, or a backdrop click (all three cancel the archive — nothing has moved yet), and it
   carries no fullscreen toggle: one field has nothing to expand. A package name must be
   one plain path component; a nested path or a `.`/`..` hop is refused with a 400.
-- **Delete** — permanently removes the card file (after a confirm).
+- **Delete** — permanently removes the card file, after the **delete popup** (the tile's and
+  the detail's Delete…, and the right-click menu's Delete on one card or on a selection: one
+  popup for the whole selection, so it asks once). The popup says what goes, and says which
+  groups lose the card: its id always leaves every group's list, so no group points at a gone
+  card. Its extras are boxes, each **unticked**: **Its logbook** (with the count of its notes)
+  deletes the card's day files; left unticked they stay and read as dangling. A group's popup
+  (the Group tab's **Delete group…**) deletes the group file and offers the same logbook box,
+  plus **Its member cards**: the list shows each member it would delete and names the members
+  another group holds as skipped, with the groups that hold them, and only the others are
+  deleted (their logbooks stay). The server's `DELETE /api/cards/<id>` and
+  `DELETE /api/groups/<id>` take `{ logbook, members }` in the body, each only when `true`,
+  and answer what went (`groups`, `deleted`, `kept`, `swept`). Archiving never opens it and
+  gets none of its questions.
 
 - **Multi-select** — one interaction grammar, uniform across **all five views**
   (ADR 0006), with file-manager gestures: click a card's representation to open its
@@ -682,7 +694,7 @@ to `127.0.0.1` only.
   with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
   card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
-  names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
+  names the resolved count (Delete's is the delete popup, once for the whole selection). The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
   show only when the subject is one card, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling
@@ -1092,7 +1104,8 @@ to `127.0.0.1` only.
   into the `cards:` of every running auto-join group in that same request, and no other, and
   the reply carries `joined` (`[{id, name}]`) so the page's flash can say `Joined #I2
   zephyr-2.` A dated group without `auto_join` never takes a new card, a card edited later
-  joins nothing, and a card the doing-gate refuses joins nothing. Deleting a group is a separate feature.
+  joins nothing, and a card the doing-gate refuses joins nothing. The Group tab's **Delete group…**
+  and the card's Delete share one **delete popup** (below).
 - **Iterations** — with `iterations: true` in `config.yaml` over a `groups:` line, the header
   beside the board name has a dropdown of the groups in the `iteration/` folder (no
   subtype): **All cards**, the iterations newest first, each with its id, name, dates and
@@ -1140,7 +1153,8 @@ to `127.0.0.1` only.
   the highlight the way a naive `:hover`-only or event-only approach would.
 - **Speedbumps** — every destructive action confirms first, naming its object: archive,
   delete, bulk archive/delete (one confirm per batch, with the count), notification
-  delete and clear-all. Restore is exempt (it's the reversible direction). Clicking the
+  delete and clear-all; Delete's confirmation is the delete popup, which also says what goes
+  with the card. Restore is exempt (it's the reversible direction). Clicking the
   backdrop closes any popup; the create/edit form interposes a confirm only when it has
   unsaved changes. Archiving skips the confirm when EVERY card in the action is already
   `done` — the tile's Archive button, drag-to-Archive (single or batch), and the bulk

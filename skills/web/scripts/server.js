@@ -6,6 +6,7 @@ const cs = require('./card-store');
 const ns = require('./notifications-store');
 const lb = require('./logbook-store');
 const gs = require('./group-store');
+const del = require('./delete-store');
 const cfg = require('./config-store');
 const settings = require('./settings-store');
 const nesting = require('../web/nesting');
@@ -341,6 +342,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           if (!gm[1] && req.method === 'POST') return sendJSON(res, 201, { group: gs.createGroup(dir, body) });
           if (gm[1] && !gm[2] && req.method === 'PATCH') return sendJSON(res, 200, { group: gs.updateGroup(dir, gm[1], body) });
           if (gm[1] && gm[2] && req.method === 'POST') return sendJSON(res, 200, { group: gs.changeMembers(dir, gm[1], body) });
+          // the extras to delete with it ride in the body, each only when true (delete-store.js)
+          if (gm[1] && !gm[2] && req.method === 'DELETE') return sendJSON(res, 200, { ok: true, ...del.deleteGroup(dir, gm[1], body) });
         } catch (e) {
           if (e.name === 'GroupError') return sendJSON(res, e.status, { error: e.message });
           throw e;
@@ -416,7 +419,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
             renumbered: written.filter((c) => c.id !== id),
           });
         }
-        if (req.method === 'DELETE' && !m[2]) { cs.deleteCard(dir, id); return sendJSON(res, 200, { ok: true }); }
+        // Its id always leaves every group's list; the body names the extras to delete with it (delete-store.js).
+        if (req.method === 'DELETE' && !m[2]) return sendJSON(res, 200, { ok: true, ...del.deleteCard(dir, id, await readBody(req)) });
       }
 
       res.writeHead(404); res.end('not found');

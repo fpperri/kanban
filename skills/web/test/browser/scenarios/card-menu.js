@@ -153,7 +153,7 @@ module.exports = {
     check('Dependency path and Dependency tree are absent from the menu when its subject is several cards', !(await entryShown('ctx-path')) && !(await entryShown('ctx-tree')) && (await entryShown('ctx-assign')));
     await closeMenu();
 
-    // Archive and Delete name the resolved count of a selection that holds a path part. The confirmations answer no, so nothing is archived or deleted.
+    // Archive and Delete name the resolved count of a selection that holds a path part. The archive confirmation answers no and Delete opens its popup, closed unanswered, so nothing is archived or deleted.
     await openBoard();
     await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
     await rightClickOnBoard(4);
@@ -165,6 +165,8 @@ module.exports = {
     await press('ctx-delete');
     const asked = await ev('window.__asked');
     check('archiving a selection that holds a path part names the resolved count', asked[0] === 'Archive 3 card(s)? (moves their files to archived/)', asked);
-    check('deleting a selection that holds a path part names the resolved count', asked[1] === 'Permanently delete 3 card(s)? This cannot be undone.', asked);
+    check('deleting a selection that holds a path part names the resolved count in the delete popup', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 3 cards?'`, 3000), asked);
+    await key('Escape');
+    await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
   },
 };

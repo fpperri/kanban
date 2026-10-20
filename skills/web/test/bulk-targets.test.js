@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { selectionGlobals } = require('./helpers/selection-globals');
 const { parseSearchQuery, filterCards } = require('../web/search');
+const { installDelete } = require('./helpers/delete-popup');
 
 // A bulk action takes its list of target cards once, when it starts, from the
 // resolved selection. Writes, re-renders and polls during the action never
@@ -91,6 +92,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   };
   sandbox.loadBoard = async () => { poll(); };
   vm.createContext(sandbox);
+  installDelete(sandbox, calls);
   const scheduleRows = appSrc.match(/const SCHEDULE_ROWS = \[[\s\S]*?\n\];/);
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   run([
@@ -209,10 +211,12 @@ test('archive leaves a hand-built selection as it was when the menu that opened 
   assert.deepStrictEqual(s.picked(), [1, 2, 3, 5], 'the selection was not what the popup opened on, so it stays');
 });
 
-test('delete on a selection holding a query part confirms the count taken at the start and deletes exactly those cards, though each delete takes a card off the query', async () => {
+test('delete on a selection holding a query part asks once for the count taken at the start and deletes exactly those cards, though each delete takes a card off the query', async () => {
   const s = bulkSandbox({ query: 'tags:a' });
   await s.run('bulkDelete()');
-  assert.deepStrictEqual(s.calls.confirms, ['Permanently delete 4 card(s)? This cannot be undone.']);
+  await s.calls.pending;
+  assert.deepStrictEqual(s.calls.deletes, [{ kind: 'card', targets: ['1', '2', '3', '5'] }], 'one popup for the whole selection');
+  assert.deepStrictEqual(s.calls.confirms, []);
   assert.deepStrictEqual(s.deleted(), [1, 2, 3, 5]);
   assert.match(s.calls.toasts[0], /Deleted 4 card/);
 });

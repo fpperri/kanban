@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { selectionGlobals } = require('./helpers/selection-globals');
+const { installDelete } = require('./helpers/delete-popup');
 
 // The selection's plumbing in the page: one entry point every write goes
 // through, one reader every bulk action takes its target cards from, a
@@ -571,6 +572,7 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
     ...selectionGlobals(), ...require('../web/bulk-edit'),
   };
   vm.createContext(sandbox);
+  installDelete(sandbox, calls);
   const scheduleRows = appSrc.match(/const SCHEDULE_ROWS = \[[\s\S]*?\n\];/);
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   vm.runInContext([
@@ -666,10 +668,12 @@ test('restore: restores the archived cards of the selection and skips the live o
   assert.match(s.calls.toasts[0], /Restored 1 card\(s\); skipped 1 not archived/);
 });
 
-test('delete: the confirmation names the count, and the selection\'s cards are deleted', async () => {
+test('delete: one popup asks for the whole selection, and the cards it names are deleted', async () => {
   const s = bulkSandbox({ selected: [3, 1] });
   await s.run('bulkDelete()');
-  assert.deepStrictEqual(s.calls.confirms, ['Permanently delete 2 card(s)? This cannot be undone.']);
+  await s.calls.pending;
+  assert.deepStrictEqual(s.calls.deletes, [{ kind: 'card', targets: ['3', '1'] }]);
+  assert.deepStrictEqual(s.calls.confirms, []);
   assert.deepStrictEqual(s.calls.api.map(([m, url]) => [m, url]), [['DELETE', '/api/cards/3'], ['DELETE', '/api/cards/1']]);
   assert.strictEqual(s.run('selectedIds.size'), 0);
 });

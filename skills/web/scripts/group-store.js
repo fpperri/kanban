@@ -422,6 +422,32 @@ function changeMembers(dir, id, change) {
   return findGroup(dir, id).group;
 }
 
+// Every group file that lists the card, as { group, abs }, in id order. Empty when the board keeps
+// no groups.
+function groupsHolding(dir, cardId) {
+  const config = cfg.readConfig(dir);
+  const key = ids.idKey(cardId);
+  if (!config.groups || key === null) return [];
+  return scan(dir, path.resolve(dir, config.groups)).found
+    .filter((f) => f.group.cards.includes(key))
+    .sort((a, b) => ids.compareIds(a.group.id, b.group.id));
+}
+
+// A deleted card's id leaves every group's list; the ids of the groups it left. A group that did
+// not list it is not rewritten.
+function dropCard(dir, cardId) {
+  const left = groupsHolding(dir, cardId).map((f) => f.group.id);
+  for (const gid of left) changeMembers(dir, gid, { remove: [cardId] });
+  return left;
+}
+
+// Delete the group's file and nothing else; the group as it was.
+function deleteGroup(dir, id) {
+  const { group, abs } = findGroup(dir, id);
+  fs.unlinkSync(abs);
+  return group;
+}
+
 // A new card joins every group that is running on `day` (the creator's local date) with
 // `auto_join` on, and no other. Returns the groups it newly joined as { id, name }, in id
 // order. The card is already written, so one group that cannot take it is warned about and
@@ -444,4 +470,4 @@ function joinRunning(dir, cardId, day) {
   return joined;
 }
 
-module.exports = { GroupError, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, joinRunning };
+module.exports = { GroupError, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, joinRunning, groupsHolding, dropCard, deleteGroup };

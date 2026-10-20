@@ -71,6 +71,18 @@ test('the snapshot skill says it reads group terms and draws no groups', () => {
   assert.ok(flat(snapshot).includes('`group:<id or name>`, `group:` and `-group:` too, but it draws no groups'));
 });
 
+test('the web skill and the docs describe the delete popup: the id leaves every group, the extras are unticked, a group skips members another group holds, archiving asks nothing', () => {
+  const skillDelete = flat(web.slice(web.indexOf('- **Delete** —'), web.indexOf('- **Multi-select**')));
+  for (const part of ['delete popup', 'its id always leaves every group\'s list', '**Its logbook**', '**unticked**', 'dangling', '**Its member cards**', 'skipped',
+    'DELETE /api/cards/<id>', 'DELETE /api/groups/<id>', 'Archiving never opens it and gets none of its questions']) {
+    assert.ok(skillDelete.includes(part), part);
+  }
+  const docsDelete = flat(docs.slice(docs.indexOf('**Delete.**'), docs.indexOf('## Other surfaces')));
+  for (const part of ['its id always leaves every group\'s list', '**Its logbook**', 'unticked', '**Delete group…**', '**Its member cards**', 'Archiving never opens it']) {
+    assert.ok(docsDelete.includes(part), part);
+  }
+});
+
 test('the kanban skill card-creation steps tell agents to join the running auto-join groups, and the web docs say the same', () => {
   const creating = flat(kanban.slice(kanban.indexOf('## Creating a Card'), kanban.indexOf('## Moving a Card')));
   for (const part of ['Join the running groups', '`auto_join: true`', 'both days included', 'cards:` line of each such group', 'a dated group without `auto_join` never takes a new card']) {

@@ -495,4 +495,18 @@ function assignNote(dir, ref, to, hooks) {
   return made;
 }
 
-module.exports = { LogbookError, logbookDir, listNotes, addNote, editNote, deleteNote, assignNote, canonicalName };
+// Delete every day file of one target (a card or a group), whatever its padding; how many went.
+// A board with no logbook has none to delete.
+function deleteTargetFiles(dir, target) {
+  const folder = logbookDir(dir);
+  const key = ids.idKey(target);
+  if (folder === null || key === null) return 0;
+  let gone = 0;
+  for (const f of dayFiles(folder)) {
+    if (f.target !== key) continue;
+    try { fs.unlinkSync(path.join(folder, f.name)); gone++; } catch (_) { /* already gone */ }
+  }
+  return gone;
+}
+
+module.exports = { LogbookError, logbookDir, listNotes, addNote, editNote, deleteNote, assignNote, canonicalName, deleteTargetFiles };
