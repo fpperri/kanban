@@ -18,3 +18,27 @@ statuses: [backlog, todo, doing, done]
 types:
   - name: epic
     color: "#f0883e"
+  - name: goal
+    color: "#e3b341"
+    icon: star
+  - name: strategy
+    color: "#f0883e"
+    icon: hexagon
+  - name: objective
+    color: "#a371f7"
+    icon: diamond
+  - name: story
+    color: "#3fb950"
+    icon: circle
+  - name: task
+    icon: triangle
+  - bug
+hierarchy: [goal, strategy, objective, epic]
+prefixes:
+  G: goal
+  S: strategy
+  O: objective
+  _: .groups
+  I: .groups/iteration
+  W: .groups/workflow
+  DW: .groups/workflow/dynamic

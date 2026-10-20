@@ -151,7 +151,7 @@ types:                            # suggested card types; a color and an icon ar
     color: "#a371f7"
     icon: diamond                 # circle | square | diamond | triangle | hexagon | star
   - story                         # a bare entry is a name with no color
-hierarchy: [goal, strategy, objective, initiative]   # the types that are the levels of the plan, top first
+hierarchy: [goal, strategy, objective, epic]   # the types that are the levels of the plan, top first
 pills:                            # one-click search queries, in block form
   - next: 'tags:"next-up"'        # a label, then its query
   - "assignee:@human"             # a query on its own is its own label
@@ -172,7 +172,8 @@ folder that holds the board's home, then files a notification saying it did so
 the human can rename it. Write `name:` on **line 1**, above any `assignees:`
 block — each assignee entry has its own *indented* `name:`, so the top-level key
 has to come first to stay unambiguous. Creating a `config.yaml` that holds only
-`name:` is allowed; inventing any other key or list is not.
+`name:` and the starter config (*The starter config*, below) is allowed;
+inventing any other key or list is not.
 
 **Seeding `artifact:` is the second named exception to "never invent a config
 key".** It holds the board's **Board artifact** URL (GLOSSARY.md) — the one
@@ -196,6 +197,40 @@ board), so an AI never invents or auto-writes a value for it; only a human,
 or a session explicitly directed to set specific values, writes the line. The
 `kanban-snapshot` skill ignores the key entirely — it's a
 serving fact for kanban-web, not board content it renders.
+
+**The starter config.** `starter-config.yaml`, next to this file, is the one
+source of what a board begins with, and its comments say what each line is and
+that every line can be changed or deleted. It holds the plan `types` `goal`,
+`strategy`, `objective`, `epic`, `story`, `task` and `bug` (a colour and an
+icon each, except `task`, which has an icon only, and `bug`, which is bare),
+the `hierarchy` `[goal, strategy, objective, epic]`, and the `prefixes`
+`G: goal`, `S: strategy`, `O: objective`, `_: .groups`, `I: .groups/iteration`,
+`W: .groups/workflow` and `DW: .groups/workflow/dynamic`. A card made before a
+prefix is declared keeps its plain number. The logbook, scratchpad, groups and
+iterations are not lines of it: each stays off until its own line (`logbook:`,
+`scratchpad:`, `groups:`, `iterations: true`) is added by a human or from the
+web's gear sheet, and the starter lists the four as comments.
+
+- **A new board.** When you create a board's `config.yaml` (the `name:` seed
+  above), write `name:` on line 1 and the starter file's content under it, as it
+  is, comments included. The starter is a file the plugin ships, not a key you
+  invent, so this is no exception to the rule against inventing keys.
+- **An existing board.** Bring it up to the starter with the script, dry first,
+  and only when a human asks:
+
+```bash
+node <SCRIPTS_DIR>/apply-starter.js <kanban-dir>... --dry-run   # per board, the lines it would add; writes nothing
+node <SCRIPTS_DIR>/apply-starter.js <kanban-dir>...             # adds them
+```
+
+  It adds only what a board lacks: a missing `types:` block, or the types
+  missing from one (a type the board has is never recoloured or given another
+  icon); `hierarchy:` only when the board has none (a different one is
+  reported, never changed); `prefixes:` when missing, or the entries missing
+  from it (an entry the board has is never changed, and a prefix that means
+  something else is reported). It keeps every other byte and the file's line
+  ending, creates `config.yaml` from the starter when a board has none, and
+  takes several board directories in one run, one summary line each.
 
 **Grab semantics for AI writers:** the registry's `kind` tells *you*, the
 AI, how to treat a card based on its `assignee` handle:
@@ -224,7 +259,7 @@ Status values are **case-sensitive** — the `doing` entry gate (waiting + block
 
 **`types` — the card-type list.** Entries give a `type:` word a chip color and, optionally, an icon (see `icon` below); they suggest, they never validate, and a card may carry any `type:` text. Accepted forms: a block entry `- name: objective` with an optional indented `color:` (a hex like `"#a371f7"` or a color name, kept as an opaque string), a bare entry `- story` (name only), or an inline `types: [objective, story]`. Entries keep the order written, an entry with no name is skipped, and a type the list does not name (or names without a color) shows a neutral chip. Like `tags`, the list is human-curated: never add to it on your own.
 
-**`hierarchy` — the levels of the plan.** An ordered list of type names, top level first, in the inline form `hierarchy: [goal, strategy, objective, initiative]` or as a block list. A card's `type:` word, compared without regard to case, gives it a tier: its place in this list. The hierarchy orders drawing and slicing and enforces nothing: a card of any type may sit under a card of any other type, and nothing warns when it does (ADR 0013). Names are read as written; a blank entry is skipped, a duplicate passes through for the page to drop, and a value that is not a list (`hierarchy: goal`) or an empty one means no hierarchy. A type outside the list has no tier, and the `types:` list's own order still means nothing.
+**`hierarchy` — the levels of the plan.** An ordered list of type names, top level first, in the inline form `hierarchy: [goal, strategy, objective, epic]` or as a block list. A card's `type:` word, compared without regard to case, gives it a tier: its place in this list. The hierarchy orders drawing and slicing and enforces nothing: a card of any type may sit under a card of any other type, and nothing warns when it does (ADR 0013). Names are read as written; a blank entry is skipped, a duplicate passes through for the page to drop, and a value that is not a list (`hierarchy: goal`) or an empty one means no hierarchy. A type outside the list has no tier, and the `types:` list's own order still means nothing.
 
 **`pills` — the board's own one-click searches.** Written in block form only. Each entry is either a search query, quoted or bare, or a one-key map from a label to a query, as in `- next: 'tags:"next-up"'`. A query on its own is its own label. A map's key ends at the first colon followed by a space (or by the end of the entry), as in YAML, so `- tags: grill` is the label `tags` with the query `grill`, not the query `tags:grill`; write `- "tags:grill"` for that query. A colon with no space after it stays inside the query (`- assignee:@human`, `- "tags:*"`). An entry that is blank, only a comment, or has an empty label or an empty query is skipped, and extra keys on a map are ignored. Labels and queries are free text and are never validated here. Unindented `- item` lists are skipped, as for every list in this file.
 
@@ -242,7 +277,7 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`scratchpad` — the folder of the board's scratchpads.** `scratchpad: .scratchpad` (relative to the board, or an absolute path written by hand) turns scratchpads on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Scratchpad), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The scratchpad: a disposable page per card or group* below.
 
-Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them (the web's gear sheet writes `idDigits:` for the human, one line, and shows `prefixes:` and `counters:` read only). The id counters' writes (`nextId:` for a plain id, `counters:` for a prefixed one) replace their own one line, or insert it below `nextId:`, and leave these lines, comments and every unknown key as they were.
+Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. The starter config (above) is the one source that writes `hierarchy:`, `prefixes:` and `icon:` for a new board, and `apply-starter.js` copies it to an existing one when a human asks. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them (the web's gear sheet writes `idDigits:` for the human, one line, and shows `prefixes:` and `counters:` read only). The id counters' writes (`nextId:` for a plain id, `counters:` for a prefixed one) replace their own one line, or insert it below `nextId:`, and leave these lines, comments and every unknown key as they were.
 
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 

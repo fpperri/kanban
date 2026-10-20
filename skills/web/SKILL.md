@@ -1992,7 +1992,7 @@ types:                    # suggested card types; color and icon are OPTIONAL
     color: "#a371f7"
     icon: diamond         # circle | square | diamond | triangle | hexagon | star
   - story                 # bare entry = name only, neutral chip
-hierarchy: [goal, strategy, objective, initiative]   # the types that are the levels of the plan, top first
+hierarchy: [goal, strategy, objective, epic]   # the types that are the levels of the plan, top first
 pills:                    # the board's own one-click search queries, in block form
   - next: 'tags:"next-up"'   # label: query
   - "assignee:@human"        # a query on its own is its own label
@@ -2038,7 +2038,7 @@ handle a card carries.
   through for the page to normalise, and a scalar value or an empty list answers `[]`
   (as does an absent key, even on a board that declares `types:`). It orders drawing and
   slicing and **enforces nothing**: saving a card nested against it (a goal under an
-  initiative) succeeds and the answer carries no warning (ADR 0013).
+  epic) succeeds and the answer carries no warning (ADR 0013).
 - **`pills`** (block form only) lists the board's own one-click search queries, each a
   query or a one-key map from a label to a query. `GET /api/board` carries them as
   `pills: [{label, query}]` in config order; a query on its own is its own label,

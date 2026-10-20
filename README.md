@@ -165,7 +165,7 @@ types: # card types: name plus an optional chip color and icon
     color: "#a371f7"
     icon: diamond # circle | square | diamond | triangle | hexagon | star
   - story
-hierarchy: [goal, strategy, objective, initiative] # the types that are the levels of the plan, top first
+hierarchy: [goal, strategy, objective, epic] # the types that are the levels of the plan, top first
 pills: # the board's own one-click search queries, in block form
   - next: 'tags:"next-up"' # label: query
   - "assignee:@human" # a query on its own is its own label
@@ -182,6 +182,48 @@ may sit under any other. `kanban-web`'s board answer (`GET /api/board`) carries
 `hierarchy`, `pills` and each type's `icon` to the page alongside the lists
 above; a board without those keys answers an empty hierarchy, no pills and the
 same types as before.
+
+## Starter config
+
+A new board's `config.yaml` begins with the starter in
+[`skills/kanban/starter-config.yaml`](skills/kanban/starter-config.yaml), so it
+is set up for goals, strategies, objectives and epics before it has a card. Its
+comments say what each line is, and every line can be changed or deleted.
+
+| Type | Colour | Icon |
+| --- | --- | --- |
+| `goal` | `#e3b341` | `star` |
+| `strategy` | `#f0883e` | `hexagon` |
+| `objective` | `#a371f7` | `diamond` |
+| `epic` | `#58a6ff` | `square` |
+| `story` | `#3fb950` | `circle` |
+| `task` | none | `triangle` |
+| `bug` | none | none |
+
+- **Hierarchy:** `[goal, strategy, objective, epic]`, top first. It orders
+  drawing and slicing and enforces nothing.
+- **Prefixes:** a new goal is `G1`, a strategy `S1`, an objective `O1`, from
+  `G: goal`, `S: strategy` and `O: objective`. Groups take theirs from the
+  folder they sit in: `_: .groups`, `I: .groups/iteration`,
+  `W: .groups/workflow` and `DW: .groups/workflow/dynamic`. A card made before
+  its prefix was declared keeps its plain number; a prefix applies to cards made
+  after it.
+- **Changing it:** edit the lines, drop the ones you do not want, or remove the
+  whole block. The lists suggest and never validate, so a card with any `type:`
+  still saves and renders.
+- **Off until you switch them on:** the logbook (`logbook: logbook`), the
+  scratchpad (`scratchpad: .scratchpad`), groups (`groups: .groups`) and
+  iterations (`iterations: true`) are not in the config. Add a line, or switch
+  them on from the web's gear sheet (This board), and they exist.
+
+An existing board gets the same with a script that adds only what the board
+lacks, never recolours a type it has, reports a hierarchy that differs and
+changes no other byte. Run it dry first:
+
+```bash
+node skills/kanban/scripts/apply-starter.js .kanban --dry-run
+node skills/kanban/scripts/apply-starter.js .kanban
+```
 
 ## More docs
 
