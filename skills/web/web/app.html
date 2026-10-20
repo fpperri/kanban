@@ -39,6 +39,10 @@
       <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
     </div>
     <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters" data-keeps-selection>
+      <section id="search-statuses-section" class="search-section" aria-labelledby="search-statuses-fold">
+        <button type="button" id="search-statuses-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-statuses" aria-label="Statuses" title="Fold or unfold the statuses">Statuses</button>
+        <div id="search-statuses" class="search-statuses" role="group" aria-labelledby="search-statuses-fold" data-keeps-selection></div>
+      </section>
       <section id="search-slices-section" class="search-section hidden" aria-labelledby="search-slices-fold">
         <button type="button" id="search-slices-fold" class="search-fold" data-keeps-selection aria-expanded="false" aria-controls="search-slices" aria-label="Slices" title="Fold or unfold the slices">Slices</button>
         <div id="search-slices" class="search-slices hidden" role="group" aria-labelledby="search-slices-fold"></div>
@@ -565,6 +569,7 @@
 <script src="/card-history.js"></script>
 <script src="/search-panel.js"></script>
 <script src="/status-filters.js"></script>
+<script src="/search-statuses.js"></script>
 <script src="/search-slices.js"></script>
 <script src="/isolate.js"></script>
 <script src="/hotkeys.js"></script>

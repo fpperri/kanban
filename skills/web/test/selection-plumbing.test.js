@@ -329,7 +329,7 @@ test('every element that the click-away list exempted before the marker carries 
 });
 
 test('the page builds the controls the marker tests look at in the numbers the render code writes them', () => {
-  const counts = { '.cal-nav': 9, '.map-section-toggle': 4, '.map-zoom-btn': 3, '.rollup': 2, '.column-sort-field': 1, '.column-sort-dir': 1, '.column-add': 1, '.column-add-ai': 1 };
+  const counts = { '.cal-nav': 11, '.map-section-toggle': 4, '.map-zoom-btn': 3, '.rollup': 2, '.column-sort-field': 1, '.column-sort-dir': 1, '.column-add': 1, '.column-add-ai': 1 };
   for (const [selector, n] of Object.entries(counts)) assert.strictEqual(tagsOf(selector).length, n, selector);
 });
 
