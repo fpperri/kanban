@@ -219,7 +219,9 @@ to `127.0.0.1` only.
   The form's status dropdown offers the list's values (an unlisted status on the card
   being edited is appended as "(unlisted)" so saving never silently rewrites it), and new
   cards default to the first column (a column header's **+** pre-selects its own column
-  instead).
+  instead). In the phone layout the status tabs replace the column header below 760 px: the Board shows one
+  status at a time, chosen by the tab strip, and the column header's controls below are the desktop's.
+- **Left out on a phone** — the phone layout leaves out sorting (no sort dropdown), collapsing (a collapsed status shows its cards), the AI-prompt add (no sparkle button) and selection gestures (no Shift or Ctrl click, no box); they stay on the desktop layout.
 - **Collapsible columns** — every column header has a collapse/expand toggle. Collapsed =
   a narrow strip showing just the toggle icon and the card count; hovering it tooltips
   the full column name. Live columns default expanded, Archive defaults collapsed.
