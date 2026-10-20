@@ -640,6 +640,19 @@ or Status layout, with its option row, its lighting and its names, has no counte
 page's one picture of the relations, and the slices and pills of the panel cut every view without it.
 The `l` key that steps the fan's names goes with it.
 
+**No logbook.** kanban-web's notes palette (the `n` key, the card menu's note entry, the count a
+card wears), the notes on the Calendar as chips and the author switch have no counterpart: the
+snapshot reads no `logbook:` folder and shows no note. Web-only in this release.
+
+**No groups beyond the search term.** kanban-web's group badges on a card, the palette's Group tab,
+the group form, the delete popup and the iteration dropdown have no counterpart: the snapshot reads
+`group:` in the box (see above) but draws no group, so nothing here lists a group's members or
+narrows the views to an iteration. Web-only in this release.
+
+**No scratchpad.** kanban-web's Scratchpad tab, the page for one card or group, and the gear's
+Scratchpad page have no counterpart: the snapshot reads no `scratchpad:` folder. The scratchpad is
+only in kanban-web, web-only in this release.
+
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map
 always draws the defaults in "The Map", and with no bar mode to flip, a click on a

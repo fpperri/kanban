@@ -301,6 +301,30 @@ test('scratchonly board: the groups board with scratchpads on and the logbook of
   assert.strictEqual(b.config.name, 'scratchonly');
 });
 
+test('feature board: every part of the notes and groups feature on one board, with a prefixed card in a running iteration', () => {
+  const b = load('feature');
+  const groups = load('groups');
+  const cfg = b.config;
+  assert.strictEqual(cfg.name, 'feature');
+  assert.strictEqual(cfg.logbook, 'logbook');
+  assert.strictEqual(cfg.scratchpad, '.scratchpad');
+  assert.strictEqual(cfg.groups, '.groups');
+  assert.strictEqual(cfg.iterations, true);
+  assert.deepStrictEqual(cfg.prefixes, { G: 'goal', _: '.groups', I: '.groups/iteration', W: '.groups/workflow', DW: '.groups/workflow/dynamic' });
+  assert.deepStrictEqual(cfg.prefixClashes, [], 'no prefix declared twice');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), [...groups.cards.map((c) => c.id), 'G11'].sort(), 'the groups board and one goal with a prefixed id');
+  assert.ok(b.byId.has('11') && b.byId.has('G11'), '#11 and #G11 are two cards');
+  assert.strictEqual(b.byId.get('G11').type, 'goal');
+  assert.ok(cfg.counters.G > 11, 'the goal counter is past the goal on the board');
+  const read = readGroups(b.dir);
+  assert.deepStrictEqual(read.list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1'], 'typed groups, an untyped one and two iterations');
+  const i2 = read.list.find((g) => g.id === 'I2');
+  assert.ok(i2.auto_join && i2.start_date && i2.end_date, 'an iteration that auto-joins');
+  assert.deepStrictEqual(i2.cards, ['3', '7', '15', '22', '23', '24', 'G11'], 'the prefixed card is in the iteration');
+  assert.deepStrictEqual(listNotes(b.dir).map((n) => `${n.day} ${n.target}`), ['2026-10-15 I2'], 'a logbook with one note, on a group');
+  assert.deepStrictEqual(listTargets(b.dir), ['7', 'I2'], 'a scratchpad with a page for a card and one for a group');
+});
+
 test('calnotes board: the notes board and two more notes, one half hour with two notes and a day with two untimed', () => {
   const b = load('calnotes');
   const notes = new Map();

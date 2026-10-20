@@ -522,6 +522,15 @@ function resolvePort(dir, arg) {
   return { port: DEFAULT_PORT, pinned: false };
 }
 
+// What the config says that the server cannot use as written, said once at startup on stderr and
+// never fatal: a prefix declared for a card type and again for a groups folder (or twice for
+// anything) keeps its first declaration and ignores the rest.
+function warnConfig(dir) {
+  for (const { prefix, kept, ignored } of cfg.readConfig(dir).prefixClashes) {
+    console.error(`Kanban app: config.yaml declares prefix \`${prefix}\` twice; keeping \`${kept}\`, \`${ignored}\` is ignored.`);
+  }
+}
+
 // Board-directory discovery for a missing CLI arg: `.kanban/` is the
 // preferred convention, `kanban/` a supported legacy fallback — checked
 // relative to `baseDir` (default: cwd). Neither present: fall back to the
@@ -543,6 +552,7 @@ if (require.main === module) {
   const dir = rest[0] || resolveDefaultBoardDir();
   if (!fs.existsSync(dir)) { console.error(`Board dir not found: ${dir}`); process.exit(1); }
   const { port, pinned } = resolvePort(dir, rest[1]);
+  warnConfig(dir);
   let extraOrigins;
   try {
     extraOrigins = parseAllowedOrigins(cliOrigins, process.env.KANBAN_WEB_ALLOWED_ORIGINS);
@@ -552,5 +562,5 @@ if (require.main === module) {
 
 module.exports = {
   createServer, start, originAllowed, resolveDefaultBoardDir, pageFiles,
-  parseAllowedOrigins, extractAllowOriginArgs, resolvePort, parseHomeUrl, extractHomeUrlArg,
+  parseAllowedOrigins, extractAllowOriginArgs, resolvePort, warnConfig, parseHomeUrl, extractHomeUrlArg,
 };

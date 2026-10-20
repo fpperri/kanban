@@ -7,7 +7,7 @@ const http = require('node:http');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 const { assertKeepsSelection, assertHoldsPoll, assertLetsPollRun } = require('./helpers/markers');
-const { createServer, start, resolvePort, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
+const { createServer, start, resolvePort, warnConfig, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
 
 function tmpBoard() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-srv-'));
@@ -3353,6 +3353,23 @@ test('resolvePort: pin honored — config.yaml\'s port: wins over the 7777 defau
   const dir = tmpBoard();
   fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 47811\n');
   assert.deepStrictEqual(resolvePort(dir, undefined), { port: 47811, pinned: true });
+});
+
+test('warnConfig: names a prefix declared twice, keeping the first, and says nothing for a clean config', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'groups: .groups\nprefixes:\n  G: goal\n  G: .groups/iteration\n');
+  const seen = [];
+  const real = console.error;
+  console.error = (m) => seen.push(m);
+  try { warnConfig(dir); } finally { console.error = real; }
+  assert.strictEqual(seen.length, 1, seen.join('|'));
+  assert.match(seen[0], /prefix `G`.*`goal`.*`\.groups\/iteration`.*ignored/);
+  const clean = tmpBoard();
+  fs.writeFileSync(path.join(clean, 'config.yaml'), 'groups: .groups\nprefixes:\n  G: goal\n  I: .groups/iteration\n');
+  const quiet = [];
+  console.error = (m) => quiet.push(m);
+  try { warnConfig(clean); } finally { console.error = real; }
+  assert.deepStrictEqual(quiet, []);
 });
 
 test('resolvePort: a CLI argument beats the pin', () => {
