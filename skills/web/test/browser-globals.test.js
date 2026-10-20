@@ -38,10 +38,10 @@ const PAGE_GLOBALS = [
 const webDir = path.join(__dirname, '..', 'web');
 const browserDir = path.join(__dirname, 'browser');
 
-// Every runner file: the entry, the harness modules, the scenarios, the checks.
+// Every runner file: the entry, the harness modules, the scenarios, the step files of the phone scenarios, the checks.
 function runnerFiles() {
   const out = [];
-  for (const dir of [browserDir, path.join(browserDir, 'scenarios')]) {
+  for (const dir of [browserDir, path.join(browserDir, 'scenarios'), path.join(browserDir, 'scenarios', 'phone-steps'), path.join(browserDir, 'scenarios', 'phone-flip-steps')]) {
     for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js'))) out.push(path.join(dir, f));
   }
   return out.sort();

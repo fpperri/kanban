@@ -117,7 +117,7 @@ function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenar
   };
 
   return {
-    base, baseOf, scope, check, send, ev, sleep: pause, waitFor, waitUntil, centre, mouse, click, key, rightClick, shot,
+    base, baseOf, bases, scope, check, send, ev, sleep: pause, waitFor, waitUntil, centre, mouse, click, key, rightClick, shot,
     shotsOn: !!shotsDir,
     open: (pathAndQuery, boardKey) => send('Page.navigate', { url: `${boardKey ? baseOf(boardKey) : base}${pathAndQuery}` }),
   };
@@ -177,6 +177,8 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
       // and the names outside its rim, which the fit leaves no room for.
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+      // The phone scenario turns touch on; no other scenario starts with it.
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
       // A tab nobody has clicked in is not focused, and a focus() on one of its elements fires no focus event. Focus
       // emulation makes it fire them, which the search panel opens on.
       await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
@@ -193,4 +195,4 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
   };
 }
 
-module.exports = { connectCdp, makePage, createBrowserEnv, consoleErrorsFrom };
+module.exports = { connectCdp, makePage, createBrowserEnv, consoleErrorsFrom, resetHistory };

@@ -250,6 +250,17 @@ test('a scenario begins with the page emulated as focused, so a focus() fires it
   assert.strictEqual(cdp.calls.filter((c) => c[0] === 'Emulation.setFocusEmulationEnabled').length, 2, 'every scenario starts with it, not only the first');
 });
 
+test('a scenario begins with touch emulation off, so one that turned it on does not leak it into the next, and the page names its boards', async () => {
+  const { env, cdp, order } = envFixture();
+  const ctx = { check() {}, scope: { aborted: false } };
+  const page = await env.begin({ name: 'smoke', board: 'plan' }, ctx);
+  assert.deepStrictEqual(cdp.calls.filter((c) => c[0] === 'Emulation.setTouchEmulationEnabled'), [['Emulation.setTouchEmulationEnabled', { enabled: false }]]);
+  assert.ok(order.indexOf('send:Emulation.setTouchEmulationEnabled') < order.indexOf('takeEvents'), order.join(' '));
+  assert.deepStrictEqual(page.bases, { plan: 'http://127.0.0.1:7002' });
+  await env.begin({ name: 'graph', board: 'fixture' }, ctx);
+  assert.strictEqual(cdp.calls.filter((c) => c[0] === 'Emulation.setTouchEmulationEnabled').length, 2, 'every scenario starts with it');
+});
+
 test('a history reset Chrome refuses while it swaps the page in is tried again until it takes', async () => {
   const { env, order } = envFixture({ refuseReset: 2 });
   await env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } });
