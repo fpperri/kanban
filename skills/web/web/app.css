@@ -1420,6 +1420,14 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* Same italic/muted read as .card-title--prompt-fallback
    (board tile, card-title.js) for the two gantt surfaces. */
 .gantt-label-title--prompt-fallback, .gantt-bar-text--prompt-fallback { font-style: italic; opacity: 0.75; }
+/* On a phone the label column keeps each card's id and status dot and gives the width to the timeline: the
+   gutter is as wide as its widest id (64 to 96 px), the bars keep the titles, and a status heading is a
+   zero-width row whose text runs on over the timeline (the gutter rides over the bar rows, under the popovers). */
+@media (max-width: 759.98px) {
+  .gantt-gutter { flex: 0 0 auto; width: max-content; min-width: 64px; max-width: 96px; position: relative; z-index: 3; }
+  .gantt-label-title { display: none; }
+  .gantt-gutter .gantt-group-row { width: 0; overflow: visible; white-space: nowrap; }
+}
 .gantt-bar-row { position: relative; z-index: 2; }
 .gantt-bar { position: absolute; top: 3px; height: 20px; display: flex; align-items: stretch; background: var(--paper); border: 1px solid var(--line); border-left-width: 3px; border-radius: .15rem; font-size: 0.7em; color: var(--ink); cursor: grab; user-select: none; touch-action: none; overflow: hidden; }
 .gantt-bar-text { flex: 1; min-width: 0; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; pointer-events: none; }
