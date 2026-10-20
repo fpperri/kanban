@@ -1030,8 +1030,8 @@ to `127.0.0.1` only.
   hand outside the board still works for reading and writing notes and groups, shows
   **locked** with the reason, and every change to it is refused (409). Changing a folder
   changes the line only: the files stay where they are. **Groups** adds the **Iterations**
-  switch (`iterations: true`): turning groups off removes `iterations:` too, and turning
-  iterations on without groups is refused (409). It also lists the groups found, by type path,
+  switch (`iterations: true`): turning groups off removes only the `groups:` line (`iterations:` stays and is ignored
+  without groups), and turning iterations on without groups is refused (409). It also lists the groups found, by type path,
   each opening its group in the palette, and **New group…**. **Prefixes** shows the `prefixes:` block as a read only
   table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
   new card files. **Counters** shows `nextId:` and the `counters:` line, read only. The

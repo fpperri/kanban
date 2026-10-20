@@ -4,8 +4,8 @@
 // sit side by side, below that the menu drills down to a page with a back button, and Esc steps back
 // before it closes. The board's pages write config.yaml one line at a time: the Logbook switch
 // removes and writes back its line and every other line is as it was, a folder inside the board saves
-// and one outside is refused with its text still in the field, Groups off turns Iterations off and
-// Iterations on needs Groups, idDigits is saved and shown in the example file name, and a folder
+// and one outside is refused with its text still in the field, Groups off leaves the iterations line
+// (ignored without groups) and Iterations on needs Groups, idDigits is saved and shown in the example file name, and a folder
 // written by hand outside the board shows locked with its controls standing still. Each step waits
 // on the page or on the file, never on a fixed sleep.
 //
@@ -125,12 +125,12 @@ module.exports = {
     check('Iterations on writes iterations: true below the groups line', await waitConfig((c) => /\ngroups: \.groups\niterations: true\n/.test(c)));
     check('the page shows Iterations on', await waitFor(switchOn('iterations'), 3000));
     await clickOn('.prefs-opt[data-switch="groups"][data-value="off"]');
-    check('Groups off removes the groups line and turns Iterations off', await waitConfig((c) => !c.includes('groups:') && !c.includes('iterations:')));
+    check('Groups off removes the groups line and leaves the iterations line', await waitConfig((c) => !c.includes('groups:') && c.includes('iterations: true')));
     check('the page says groups are off and Iterations cannot be switched on', await waitFor(`${switchOff('groups')}&&${switchDisabled('iterations')}`, 3000) && await ev(`state.groups===null`));
     check('the prefixes block and the counters were not touched by it', has('prefixes:') && has('  _: .groups') && has('counters: { I: 3, W: 2, DW: 2 }'));
     await clickOn('.prefs-opt[data-switch="groups"][data-value="on"]');
     check('Groups on writes the line back and the groups are found again', await waitConfig((c) => c.includes('groups: .groups\n')) && await waitFor(`state.groups!==null&&state.groups.list.length>0`, 3000));
-    check('Iterations stays off', !config().includes('iterations:') && await waitFor(switchOff('iterations'), 3000));
+    check('Iterations is on again, as its line says', config().includes('iterations: true') && await waitFor(switchOn('iterations'), 3000));
 
     // --- the groups found open the group ---------------------------------------------------------
     const firstGroup = await ev(`document.querySelector('#prefs-board-page .pick-btn').dataset.groupId`);

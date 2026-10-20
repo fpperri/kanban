@@ -128,7 +128,6 @@ function writeSetting(dir, body) {
     if (before[key].locked) throw new SettingsError(`${before[key].reason} (${key}: ${before[key].folder})`, 409);
     if (value === null) {
       writeLine(dir, key, null);
-      if (key === 'groups') writeLine(dir, 'iterations', null);
     } else {
       writeLine(dir, key, checkFolder(dir, value, FOLDER_KEYS[key].label));
     }

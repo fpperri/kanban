@@ -410,8 +410,8 @@ other byte as it was, comments included.
   locked with the reason, and the page leaves it alone. Changing a folder changes the line
   only: the files stay where they are, for you to move.
 - *Groups* also has the *Iterations* switch, which gives the header its iteration dropdown.
-  Turning groups off turns iterations off, and iterations cannot be turned on without
-  groups. The page lists the groups it found, by type, and opens one in the palette.
+  Turning groups off leaves the iterations line, which is ignored until groups are back,
+  and iterations cannot be turned on without groups. The page lists the groups it found, by type, and opens one in the palette.
 - *Prefixes* shows the `prefixes:` block, read only, and lets you change `idDigits`, the
   width card file names are padded to. Only new files take the new width.
 - *Counters* shows `nextId` and the `counters:` line, read only.
