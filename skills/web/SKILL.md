@@ -642,9 +642,11 @@ to `127.0.0.1` only.
   (the Group tab's **Delete group…**) deletes the group file and offers the same logbook and scratchpad boxes,
   plus **Its member cards**: the list shows each member it would delete and names the members
   another group holds as skipped, with the groups that hold them, and only the others are
-  deleted (their logbooks stay). The server's `DELETE /api/cards/<id>` and
-  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, members }` in the body, each only when `true`,
-  and answer what went (`groups`, `deleted`, `kept`, `swept`). Archiving never opens it and
+  deleted. Ticking it offers, each unticked, **Their logbooks** and **Their scratchpads**, counted
+  over the members it would delete; unticked, those files stay. The server's `DELETE /api/cards/<id>` and
+  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, members, memberLogbook, memberScratchpad }` in the body,
+  each only when `true` (the member boxes count only with `members`), and answer what went (`groups`, `deleted`,
+  `kept`, `swept`, `membersSwept`). Archiving never opens it and
   gets none of its questions.
 
 - **Multi-select** — one interaction grammar, uniform across **all five views**

@@ -469,8 +469,8 @@ groups lose the card: its id always leaves every group's list. **Its logbook** (
 notes) is a box left unticked; unticked, the day files stay and read as dangling. **Its
 scratchpad** is another, for a card or a group that has a page. The Group tab's
 **Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
-cards it would delete and names the ones another group holds, which it skips. Archiving never
-opens it.
+cards it would delete and names the ones another group holds, which it skips; ticking it
+offers, unticked, those members' logbooks and scratchpads too. Archiving never opens it.
 
 ## Other surfaces
 

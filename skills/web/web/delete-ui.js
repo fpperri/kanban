@@ -69,13 +69,19 @@ function openDelete(kind, targets, opts = {}) {
   for (const option of plan.options) body.append(box(option));
   if (plan.members) {
     body.append(box(plan.members));
+    const extras = delEl('div', 'del-member-extras off');
+    for (const option of plan.members.extras) extras.append(box(option));
+    body.append(extras);
     const list = delEl('ul', 'del-list off');
     for (const row of plan.members.rows) {
       const li = delEl('li', row.skip ? 'skip' : '', row.text);
       li.dataset.member = row.id;
       list.append(li);
     }
-    boxes.members.addEventListener('change', () => list.classList.toggle('off', !boxes.members.checked));
+    boxes.members.addEventListener('change', () => {
+      list.classList.toggle('off', !boxes.members.checked);
+      extras.classList.toggle('off', !boxes.members.checked);
+    });
     body.append(list);
   }
   body.append(delEl('p', 'bulk-hint', plan.hint));
@@ -94,7 +100,7 @@ function openDelete(kind, targets, opts = {}) {
     if (sending) return;
     sending = true;
     const ticked = {};
-    for (const [key, input] of Object.entries(boxes)) ticked[key] = input.checked;
+    for (const [key, input] of Object.entries(boxes)) ticked[key] = input.checked && (!/^member[A-Z]/.test(key) || boxes.members.checked);
     const problem = await performDelete(kind, live, ticked, opts);
     sending = false;
     if (problem) { error.textContent = problem; error.hidden = false; }

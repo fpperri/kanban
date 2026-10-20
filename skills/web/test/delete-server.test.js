@@ -135,6 +135,31 @@ test('members: true deletes the members no other group holds and names the ones 
   assert.ok(exists(dir, 'logbook/2026.10.16.0003.logbook.md'), 'the member logbook stays: the group box does not reach it');
 });
 
+test('memberLogbook and memberScratchpad, with members, take the files of the deleted members and nothing of the kept ones or the group', async () => {
+  const dir = tmpBoard({ '.groups/iteration/0001.zephyr-1.md': I1, '.groups/iteration/0002.zephyr-2.md': I2, ...LOGS, '.scratchpad/0003.scratchpad.md': 'three', '.scratchpad/0007.scratchpad.md': 'seven', '.scratchpad/I0001.scratchpad.md': 'group' });
+  fs.writeFileSync(path.join(dir, 'config.yaml'), `${CONFIG}scratchpad: .scratchpad\n`);
+  await withServer(dir, async (base) => {
+    const r = await req(base, 'DELETE', '/api/groups/I1', { members: true, memberLogbook: true, memberScratchpad: true });
+    assert.deepStrictEqual(r.json.deleted, ['3']);
+    assert.deepStrictEqual(r.json.swept, {});
+    assert.deepStrictEqual(r.json.membersSwept, { logbook: 1, scratchpad: 1 });
+  });
+  assert.ok(!exists(dir, 'logbook/2026.10.16.0003.logbook.md') && !exists(dir, '.scratchpad/0003.scratchpad.md'));
+  assert.ok(exists(dir, 'logbook/2026.10.16.0007.logbook.md') && exists(dir, '.scratchpad/0007.scratchpad.md'), 'a member another group holds keeps its files');
+  assert.ok(exists(dir, 'logbook/2026.10.16.I1.logbook.md') && exists(dir, '.scratchpad/I0001.scratchpad.md'), 'the files of the group itself wait for its own boxes');
+});
+
+test('memberLogbook and memberScratchpad without members, or unticked, are nothing', async () => {
+  const dir = tmpBoard({ '.groups/iteration/0001.zephyr-1.md': I1, ...LOGS });
+  await withServer(dir, async (base) => {
+    const r = await req(base, 'DELETE', '/api/groups/I1', { memberLogbook: true, memberScratchpad: true });
+    assert.deepStrictEqual([r.json.deleted, r.json.membersSwept], [[], {}]);
+    assert.ok(exists(dir, '0003.three.card.md') && exists(dir, 'logbook/2026.10.16.0003.logbook.md'));
+    await req(base, 'DELETE', '/api/groups/I1', { members: true });
+  });
+  assert.ok(exists(dir, 'logbook/2026.10.16.0003.logbook.md'), 'members alone keeps the member logbook');
+});
+
 test('members: true skips a listed id that is no card, and archived members go too', async () => {
   const dir = tmpBoard({ '.groups/iteration/0001.zephyr-1.md': '---\nid: I1\nname: a\ncards: [2, 15, 99]\n---\n' });
   await withServer(dir, async (base) => {
