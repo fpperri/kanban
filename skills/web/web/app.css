@@ -261,6 +261,9 @@ h1 { color: var(--ink); font-size: 1.4em; font-weight: 700; line-height: 1.1; le
 button { background: var(--btn-bg); border: 1px solid var(--line); color: var(--ink); padding: 6px 12px; border-radius: .15rem; cursor: pointer; font-size: 0.85em; }
 button:hover { background: var(--btn-hover); }
 #new-btn { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
+.actions > button:has(.btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
+.btn-icon { display: inline-flex; flex: none; }
+.btn-icon svg { width: 15px; height: 15px; }
 #stale-indicator { align-self: center; color: var(--warn); font-size: 0.78em; }
 /* The iteration dropdown rides beside the board name and wraps with it on a narrow screen. */
 .iter-select { min-width: 0; max-width: min(22em, calc(100vw - 32px)); background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 4px 6px; border-radius: .15rem; font: inherit; font-size: 0.85em; }

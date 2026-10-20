@@ -543,6 +543,13 @@ to `127.0.0.1` only.
   an unknown icon name, draws the plain chip: its name alone. The six glyphs live in their own
   module, `type-icons.js`, which has no dependencies and loads before the type chip and the
   Graph.
+- **Header icons** — the header's New card, Calendar, Gantt, Map view, Graph and Refresh
+  buttons each hold an icon slot and a label span; the active view's button reads
+  "Board view" and wears the Board icon. The line icons (a 24 px box, stroked with the
+  current colour, so they read in light and dark) live in `view-icons.js`, which loads right
+  after `type-icons.js`. A views table in `app.js`, beside `VIEW_CONTAINERS`, lists each
+  view's id, label and icon and drives the painter, which writes a label or `aria-pressed`
+  only when it changes and puts `aria-pressed` on every element marked `data-view`.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -1375,7 +1382,7 @@ to `127.0.0.1` only.
   `id` or a non-empty `message` are skipped by the reader (never fatal); the next
   managed rewrite (mark-read / remove / clear-all) moves their raw blocks verbatim to
   the archive too — deletion never happens, malformed writes included.
-- **Dependency map** — a top-bar "🕸 Map view" button swaps the board for a hand-rolled
+- **Dependency map** — a top-bar "Map view" button (a line icon, then the words) swaps the board for a hand-rolled
   layered SVG graph: nodes are cards (id + title), solid edges are `waiting_for` (arrow from
   the depended-on card to the card waiting on it), dashed lines are parents (below).
   Nodes come from both live and archived cards — blocking is location-independent.
@@ -1561,7 +1568,7 @@ to `127.0.0.1` only.
   the same way it already skips for every other pointer-capture drag (`isDragging`), with
   a document-level pointerup/pointercancel/lostpointercapture net so a release that lands
   outside `#map-view` before capture is even claimed can't leave that guard stuck forever.
-- **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
+- **Calendar view** — a top-bar "Calendar" button (a line icon, then the word) swaps the board for a month grid
   (weeks start Monday; prev/next/Today controls; outside-month days on the raised ground, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
   Archive pill below. The **working range** (start→end inclusive; compat: start→due when
@@ -1681,7 +1688,7 @@ to `127.0.0.1` only.
   double-click landing on a chip is the chip's own affair (the shared card grammar),
   excluded before the cell/column lookup ever runs. The snapshot's own calendar has no
   click-to-create — a deliberate, unbuilt gap.
-- **Gantt view** — a top-bar "📊 Gantt" button swaps the board for a day-granular
+- **Gantt view** — a top-bar "Gantt" button (a line icon, then the word) swaps the board for a day-granular
   timeline: each dated live card gets a row (dated ARCHIVED cards join too, opt-in via
   the Archive pill below) — the **working range** as a bar (start→end inclusive; compat
   start→due; one-date and reversed ranges collapse to a 1-day bar — same shapes as the
@@ -1780,7 +1787,7 @@ to `127.0.0.1` only.
   re-derives from the cards on each poll (a sized sub-view's window instead re-derives
   from its own anchor day + span, not from the cards) while the timeline's horizontal
   scroll position is carried across re-renders.
-- **Graph view** — a top-bar "◉ Graph" button (`aria-pressed`; it reads "☰ Board view"
+- **Graph view** — a top-bar "Graph" button (a line icon, then the word; `aria-pressed`; it reads "Board view" with the Board icon
   while the graph is up) swaps the board for the **Graph**: every card at once as a dot,
   joined by its relations, in one of three **layouts** picked from a button row in the
   graph's own header (`aria-pressed` marks the active one). **Tiers** opens first and is
