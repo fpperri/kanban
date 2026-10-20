@@ -4,6 +4,7 @@ const {
   MAP_ZOOM_MIN, MAP_ZOOM_MAX, MAP_ZOOM_DEFAULT, MAP_ZOOM_STEP, MAP_DRAG_THRESHOLD,
   clampMapZoom, stepMapZoom, mapZoomPanOffset, fitMapZoom, mapDragExceededThreshold,
   normalizeWheelDeltaY, wheelZoomFactor, stepMapZoomByWheel,
+  pinchDistance, pinchMidpoint, pinchFactor, pinchZoom, pinchFactorIsChange,
 } = require('../web/map-zoom');
 
 // --- clampMapZoom ---------------------------------------------------------
@@ -286,4 +287,44 @@ test('stepMapZoomByWheel starts from an out-of-range/invalid current zoom by cla
 test('stepMapZoomByWheel clamps at MAP_ZOOM_MAX/MIN rather than overshooting', () => {
   assert.strictEqual(stepMapZoomByWheel(MAP_ZOOM_MAX, -1000, 0), MAP_ZOOM_MAX);
   assert.strictEqual(stepMapZoomByWheel(MAP_ZOOM_MIN, 1000, 0), MAP_ZOOM_MIN);
+});
+
+// --- pinch math (shared by the Graph pinch and the Map pinch) -------------
+
+test('pinchDistance is the straight-line distance between two touch points', () => {
+  assert.strictEqual(pinchDistance({ x: 0, y: 0 }, { x: 3, y: 4 }), 5);
+  assert.strictEqual(pinchDistance({ x: 10, y: 10 }, { x: 10, y: 10 }), 0);
+});
+
+test('pinchMidpoint is the point halfway between two touch points', () => {
+  assert.deepStrictEqual(pinchMidpoint({ x: 0, y: 0 }, { x: 10, y: 20 }), { x: 5, y: 10 });
+  assert.deepStrictEqual(pinchMidpoint({ x: -4, y: 6 }, { x: 4, y: 2 }), { x: 0, y: 4 });
+});
+
+test('pinchFactor is the current distance over the start distance, across several moves', () => {
+  assert.strictEqual(pinchFactor(100, 100), 1);
+  assert.strictEqual(pinchFactor(100, 150), 1.5);
+  assert.strictEqual(pinchFactor(100, 200), 2);
+  assert.strictEqual(pinchFactor(100, 50), 0.5);
+});
+
+test('pinchFactor is 1 when the start distance is not a positive finite number', () => {
+  assert.strictEqual(pinchFactor(0, 80), 1);
+  assert.strictEqual(pinchFactor(NaN, 80), 1);
+});
+
+test('pinchZoom is the start zoom times the factor, clamped at both ends of the Map range', () => {
+  assert.strictEqual(pinchZoom(1, 1.5), 1.5);
+  assert.strictEqual(pinchZoom(1, 5), MAP_ZOOM_MAX);
+  assert.strictEqual(pinchZoom(1, 0.01), MAP_ZOOM_MIN);
+  assert.strictEqual(pinchZoom(MAP_ZOOM_MAX, 1.2), MAP_ZOOM_MAX);
+  assert.strictEqual(pinchZoom(MAP_ZOOM_MIN, 0.5), MAP_ZOOM_MIN);
+});
+
+test('a pinch factor within 1% of 1 is no change; 1.011 is a change', () => {
+  assert.strictEqual(pinchFactorIsChange(1), false);
+  assert.strictEqual(pinchFactorIsChange(1.009), false);
+  assert.strictEqual(pinchFactorIsChange(0.991), false);
+  assert.strictEqual(pinchFactorIsChange(1.011), true);
+  assert.strictEqual(pinchFactorIsChange(0.989), true);
 });
