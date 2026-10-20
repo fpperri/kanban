@@ -43,7 +43,7 @@ test('the Graph section says what each Names value names, relevant the default',
 
 test('the Graph section says a name is the title as plain text in place of the id, painted in place, and the layout never reads it', () => {
   const text = graph();
-  assert.match(text, /A name is the card's title as plain text, cut to 38 characters, and shorter, with an ellipsis, when its place has less room; a named card that finds room shows it in place of its id label/);
+  assert.match(text, /A name is the card's id and title as plain text \(`#12 The title`\), cut to 38 characters, and shorter, with an ellipsis, when its place has less room, the id never cut; a named card that finds room shows it in place of its id label/);
   assert.match(text, /a click on a card names it and what it lights in place, with no redraw/);
   assert.match(text, /Names never run the layout again/);
   assert.match(text, /a card the Tiers fan names and finds room for shows its title instead, beside its ring or in a row outside the rim/);

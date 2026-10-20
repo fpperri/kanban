@@ -204,6 +204,17 @@ test('a name is fitted to its room: whole when it fits, else its longest start w
   assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(emoji));
 });
 
+test('a name that leads with its id keeps the id whole: the title is cut after it, and when no title fits the bare id stays', () => {
+  const m = (t) => Array.from(t).length * 10;
+  const name = '#379 ids: one module parses';
+  assert.strictEqual(graphNameFit(name, 270, m, 5), name);
+  assert.strictEqual(graphNameFit(name, 100, m, 5), '#379 ids:…');
+  assert.strictEqual(graphNameFit(name, 60, m, 5), '#379', 'no title fits: the id alone');
+  assert.strictEqual(graphNameFit(name, 40, m, 5), '#379');
+  assert.strictEqual(graphNameFit(name, 39, m, 5), '', 'not even the id fits: no name');
+  assert.strictEqual(graphNameFit('#7', 20, m, 2), '#7');
+});
+
 // --- one pure module ----------------------------------------------------------------------
 
 test('graph-names.js is pure: no page, no measuring in a browser, no clock, no chance', () => {

@@ -378,13 +378,16 @@ function graphFanNextNames(current) {
   return values[(values.indexOf(from) + 1) % values.length];
 }
 
-// The text a name shows: the card's title on one line, cut with an ellipsis past the room a
-// name has, or the card's number when it has no title. Text only: the page sets it as text.
+// The text a name shows: the card's number, then its title on one line, the title cut with an
+// ellipsis so the whole stays within the room a name has (the number is never cut), or the
+// number alone when the card has no title. Text only: the page sets it as text.
 function graphFanNameText(title, id) {
+  const lead = `#${id}`;
   const text = String(title === null || title === undefined ? '' : title).replace(/\s+/g, ' ').trim();
-  if (!text) return `#${id}`;
+  if (!text) return lead;
   const chars = Array.from(text);
-  return chars.length > GRAPH_FAN_NAME_CHARS ? `${chars.slice(0, GRAPH_FAN_NAME_CHARS - 1).join('').trimEnd()}…` : text;
+  const room = Math.max(2, GRAPH_FAN_NAME_CHARS - Array.from(lead).length - 1);
+  return `${lead} ${chars.length > room ? `${chars.slice(0, room - 1).join('').trimEnd()}…` : text}`;
 }
 
 // --- layout plumbing -----------------------------------------------------------

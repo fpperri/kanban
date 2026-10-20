@@ -247,10 +247,10 @@ test('the plan names what the selection lights: the cards it is given and a lone
   assert.deepStrictEqual(namedIn(several), ids(new Set([5, 6, ...PLAN_PARENTS])));
 });
 
-test('a named node carries its title as the name, text only, and an unnamed one carries it too so a press of n can name it in place', () => {
+test('a named node carries its id then its title as the name, text only, and an unnamed one carries it too so a press of n can name it in place', () => {
   const model = buildOf([card(1, { title: 'Ship <b>the</b> beta' }), card(2, { title: '  spaced \n  out  ', parent: 1 })]);
   const plan = planOf(model, { names: 'all' });
-  assert.deepStrictEqual(plan.nodes.map((n) => n.name), ['Ship <b>the</b> beta', 'spaced out']);
+  assert.deepStrictEqual(plan.nodes.map((n) => n.name), ['#1 Ship <b>the</b> beta', '#2 spaced out']);
 });
 
 test('a title longer than the name\'s room is cut with an ellipsis, and an empty one reads as the card\'s number', () => {
@@ -258,7 +258,8 @@ test('a title longer than the name\'s room is cut with an ellipsis, and an empty
   const model = buildOf([card(1, { title: long }), card(2, { title: '' }), card(3, { title: '   ' })]);
   const plan = planOf(model, { names: 'all' });
   assert.ok(plan.nodes[0].name.length <= 38 && plan.nodes[0].name.endsWith('…'), plan.nodes[0].name);
-  assert.ok(long.startsWith(plan.nodes[0].name.slice(0, -1)));
+  assert.ok(plan.nodes[0].name.startsWith('#1 Port'), plan.nodes[0].name);
+  assert.ok(long.startsWith(plan.nodes[0].name.slice('#1 '.length, -1)));
   assert.deepStrictEqual(plan.nodes.slice(1).map((n) => n.name), ['#2', '#3']);
 });
 
