@@ -3329,6 +3329,7 @@ function editFromDetail() {
 
 window.addEventListener('DOMContentLoaded', () => {
   $('#detail-close').addEventListener('click', closeCard);
+  $('#detail-back-btn').addEventListener('click', closeCard);
   $('#detail-copy-btn').addEventListener('click', copyDetailPath);
   // A mention of a card on this board opens that card, in the body and in the
   // frontmatter's parent field alike.
