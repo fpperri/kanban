@@ -12,6 +12,7 @@ const cfg = require('./config-store');
 const settings = require('./settings-store');
 const nesting = require('../web/nesting');
 const ids = require('../web/ids');
+const { StatusError } = require('./store-common');
 
 const WEB = path.join(__dirname, '..', 'web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -310,60 +311,40 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         });
       }
 
-      // the logbook: a store error carries its own status (400 a bad day or id, 404 no logbook,
-      // 409 a note that changed or a file that kept changing)
+      // The logbook, the scratchpad, the gear's settings and the groups: a store refusal is a
+      // StatusError, which the catch at the end of this handler answers with its own status
+      // (400 a bad value, 404 nothing there, 409 a change that clashed, 413 too long).
       if (p === '/api/notes' || p === '/api/notes/assign') {
         const body = await readBody(req);
-        try {
-          if (req.method === 'POST' && p === '/api/notes') return sendJSON(res, 201, { note: lb.addNote(dir, body) });
-          if (req.method === 'PATCH' && p === '/api/notes') return sendJSON(res, 200, { note: lb.editNote(dir, body.ref, body) });
-          if (req.method === 'DELETE' && p === '/api/notes') return sendJSON(res, 200, lb.deleteNote(dir, body.ref));
-          if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
-        } catch (e) {
-          if (e.name === 'LogbookError') return sendJSON(res, e.status, { error: e.message });
-          throw e;
-        }
+        if (req.method === 'POST' && p === '/api/notes') return sendJSON(res, 201, { note: lb.addNote(dir, body) });
+        if (req.method === 'PATCH' && p === '/api/notes') return sendJSON(res, 200, { note: lb.editNote(dir, body.ref, body) });
+        if (req.method === 'DELETE' && p === '/api/notes') return sendJSON(res, 200, lb.deleteNote(dir, body.ref));
+        if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
       }
 
       // the scratchpad: GET reads a page, PUT writes its body; there is no delete route (only the
-      // delete flow takes a page, when asked). A store error carries its own status (400 a bad body,
-      // 404 no scratchpad, 413 too long)
+      // delete flow takes a page, when asked)
       const pm = p.match(new RegExp(`^/api/scratchpad/(${ids.ID_SOURCE})$`));
       if (pm && (req.method === 'GET' || req.method === 'PUT')) {
         const body = req.method === 'GET' ? {} : await readBody(req);
-        try {
-          return sendJSON(res, 200, { pad: req.method === 'GET' ? sp.readPad(dir, pm[1]) : sp.writePad(dir, pm[1], body.body) });
-        } catch (e) {
-          if (e.name === 'ScratchpadError') return sendJSON(res, e.status, { error: e.message });
-          throw e;
-        }
+        return sendJSON(res, 200, { pad: req.method === 'GET' ? sp.readPad(dir, pm[1]) : sp.writePad(dir, pm[1], body.body) });
       }
 
-      // the gear's This board pages: one config.yaml line per request (ADR 0017); a refusal carries its own status
+      // the gear's This board pages: one config.yaml line per request (ADR 0017)
       if (req.method === 'POST' && p === '/api/config') {
         const body = await readBody(req);
-        try {
-          return sendJSON(res, 200, { settings: settings.writeSetting(dir, body) });
-        } catch (e) {
-          if (e.name === 'SettingsError') return sendJSON(res, e.status, { error: e.message });
-          throw e;
-        }
+        return sendJSON(res, 200, { settings: settings.writeSetting(dir, body) });
       }
 
-      // groups: a store error carries its own status (400 a bad value, 404 no groups or no such group)
+      // groups
       const gm = p.match(new RegExp(`^/api/groups(?:/(${ids.ID_SOURCE})(/members)?)?$`));
       if (gm) {
         const body = req.method === 'GET' ? {} : await readBody(req);
-        try {
-          if (!gm[1] && req.method === 'POST') return sendJSON(res, 201, { group: gs.createGroup(dir, body) });
-          if (gm[1] && !gm[2] && req.method === 'PATCH') return sendJSON(res, 200, { group: gs.updateGroup(dir, gm[1], body) });
-          if (gm[1] && gm[2] && req.method === 'POST') return sendJSON(res, 200, { group: gs.changeMembers(dir, gm[1], body) });
-          // the extras to delete with it ride in the body, each only when true (delete-store.js)
-          if (gm[1] && !gm[2] && req.method === 'DELETE') return sendJSON(res, 200, { ok: true, ...del.deleteGroup(dir, gm[1], body) });
-        } catch (e) {
-          if (e.name === 'GroupError') return sendJSON(res, e.status, { error: e.message });
-          throw e;
-        }
+        if (!gm[1] && req.method === 'POST') return sendJSON(res, 201, { group: gs.createGroup(dir, body) });
+        if (gm[1] && !gm[2] && req.method === 'PATCH') return sendJSON(res, 200, { group: gs.updateGroup(dir, gm[1], body) });
+        if (gm[1] && gm[2] && req.method === 'POST') return sendJSON(res, 200, { group: gs.changeMembers(dir, gm[1], body) });
+        // the extras to delete with it ride in the body, each only when true (delete-store.js)
+        if (gm[1] && !gm[2] && req.method === 'DELETE') return sendJSON(res, 200, { ok: true, ...del.deleteGroup(dir, gm[1], body) });
       }
 
       // mutations
@@ -441,6 +422,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
 
       res.writeHead(404); res.end('not found');
     } catch (err) {
+      if (err instanceof StatusError) return sendJSON(res, err.status, { error: err.message });
       sendJSON(res, 500, { error: String((err && err.message) || err) });
     }
   });

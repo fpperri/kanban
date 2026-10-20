@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const sp = require('../scripts/scratchpad-store');
+const { StatusError } = require('../scripts/store-common');
 
 // The scratchpad store (docs/adr/0016): one `<padded id>.scratchpad.md` per card or group in the
 // folder `scratchpad:` names, optional `refs:` in the frontmatter and a free body. Reading is
@@ -21,7 +22,7 @@ function tmpBoard(config = 'name: t\nscratchpad: .scratchpad\n', files = {}) {
 }
 
 const read = (dir, rel) => fs.readFileSync(path.join(dir, rel), 'utf8');
-const refused = (fn, status) => assert.throws(fn, (e) => e instanceof sp.ScratchpadError && e.status === status);
+const refused = (fn, status) => assert.throws(fn, (e) => e instanceof StatusError && e.status === status);
 
 test('the folder is the one scratchpad: names, relative to the board; null when the line is absent', () => {
   const dir = tmpBoard();

@@ -15,14 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const cfg = require('./config-store');
-
-class SettingsError extends Error {
-  constructor(message, status) {
-    super(message);
-    this.name = 'SettingsError';
-    this.status = status;
-  }
-}
+const { StatusError, posix } = require('./store-common');
 
 // Where a line is inserted when its key is not in the file yet: below the first of these keys the
 // file has, else at the top. The keys the gear writes follow the id lines, in the order the config
@@ -42,8 +35,6 @@ const MAX_ID_DIGITS = 15;
 
 const LOCKED_REASON = 'This folder is outside the board. It was set by hand in config.yaml, and only a hand edit changes it.';
 
-const posix = (p) => p.split(path.sep).join('/');
-
 // A folder in config.yaml as the path from the board to it, or null when it leaves the board. The
 // board itself is '' (a folder that is not inside it).
 function relativeToBoard(dir, value) {
@@ -62,13 +53,13 @@ function insideBoard(dir, value) {
 // The folder a request may write: inside the board, one plain name per segment, and none that would
 // need quoting in the file. Returns the text to write, relative to the board.
 function checkFolder(dir, value, what) {
-  if (typeof value !== 'string') throw new SettingsError(`The ${what} folder is text.`, 400);
-  if (/[\u0000-\u001f]/.test(value)) throw new SettingsError('A folder is one line of plain text.', 400);
+  if (typeof value !== 'string') throw new StatusError(`The ${what} folder is text.`, 400);
+  if (/[\u0000-\u001f]/.test(value)) throw new StatusError('A folder is one line of plain text.', 400);
   const rel = insideBoard(dir, value);
-  if (rel === null) throw new SettingsError('A folder from the page sits inside the board: write a path under it, like .logbook. A folder outside is set by hand in config.yaml.', 400);
+  if (rel === null) throw new StatusError('A folder from the page sits inside the board: write a path under it, like .logbook. A folder outside is set by hand in config.yaml.', 400);
   for (const part of rel.split('/')) {
     if (!/^[\p{L}\p{N}_.][\p{L}\p{N}_ .()+,@-]*$/u.test(part) || /[. ]$/.test(part)) {
-      throw new SettingsError(`${part} is not a plain folder name: use letters, digits, spaces and _ . - ( ) + , @.`, 400);
+      throw new StatusError(`${part} is not a plain folder name: use letters, digits, spaces and _ . - ( ) + , @.`, 400);
     }
   }
   return rel;
@@ -122,25 +113,25 @@ function writeLine(dir, key, value) {
 // (off); iterations true or false; idDigits a whole number. Returns the settings after the write.
 function writeSetting(dir, body) {
   const { key, value } = body && typeof body === 'object' ? body : {};
-  if (typeof key !== 'string' || !WRITABLE.includes(key)) throw new SettingsError(`The gear does not write ${JSON.stringify(key)}.`, 400);
+  if (typeof key !== 'string' || !WRITABLE.includes(key)) throw new StatusError(`The gear does not write ${JSON.stringify(key)}.`, 400);
   const before = readSettings(dir);
   if (FOLDER_KEYS[key]) {
-    if (before[key].locked) throw new SettingsError(`${before[key].reason} (${key}: ${before[key].folder})`, 409);
+    if (before[key].locked) throw new StatusError(`${before[key].reason} (${key}: ${before[key].folder})`, 409);
     if (value === null) {
       writeLine(dir, key, null);
     } else {
       writeLine(dir, key, checkFolder(dir, value, FOLDER_KEYS[key].label));
     }
   } else if (key === 'iterations') {
-    if (value !== true && value !== false && value !== null) throw new SettingsError('Iterations are on or off.', 400);
-    if (value === true && !before.groups.on) throw new SettingsError('Turn groups on first: iterations are groups.', 409);
+    if (value !== true && value !== false && value !== null) throw new StatusError('Iterations are on or off.', 400);
+    if (value === true && !before.groups.on) throw new StatusError('Turn groups on first: iterations are groups.', 409);
     writeLine(dir, 'iterations', value === true ? 'true' : null);
   } else {
     const n = typeof value === 'string' && /^[0-9]+$/.test(value.trim()) ? Number(value) : value;
-    if (!Number.isInteger(n) || n < 1 || n > MAX_ID_DIGITS) throw new SettingsError(`idDigits is a whole number from 1 to ${MAX_ID_DIGITS}.`, 400);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_ID_DIGITS) throw new StatusError(`idDigits is a whole number from 1 to ${MAX_ID_DIGITS}.`, 400);
     writeLine(dir, 'idDigits', String(n));
   }
   return readSettings(dir);
 }
 
-module.exports = { readSettings, writeSetting, insideBoard, SettingsError, FOLDER_KEYS };
+module.exports = { readSettings, writeSetting, insideBoard, FOLDER_KEYS };

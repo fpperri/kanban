@@ -13,6 +13,7 @@
 
 const ITER_GROUPS = (typeof module !== 'undefined' && module.exports) ? require('./groups') : window;
 const ITER_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+const ITER_DAYS = (typeof module !== 'undefined' && module.exports) ? require('./days') : window.kanbanDays;
 
 const ITERATION_FOLDER = 'iteration';
 const ITERATION_DAY_MS = 24 * 60 * 60 * 1000;
@@ -81,8 +82,8 @@ function iterationCut(groups, pick) {
 }
 
 function iterationDayNumber(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
-  return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / ITERATION_DAY_MS : null;
+  const day = ITER_DAYS.parseDay(iso);
+  return day ? day.number : null;
 }
 
 function iterationDayText(number) {
