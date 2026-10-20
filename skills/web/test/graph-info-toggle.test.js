@@ -108,7 +108,7 @@ test('the (i) is in REFOCUS_SELECTOR and refocusSelector finds it again', async 
 
 test('app.css floats the Graph\'s controls and the Map\'s bar top-right on an opaque --paper ground, with top padding on .map-main', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
-  const rule = (sel) => { const m = css.match(new RegExp(`^${sel.replace(/[.]/g, '\.')} \{([^}]*)\}`, 'm')); assert.ok(m, `${sel} has a rule`); return m[1]; };
+  const rule = (sel) => { const m = css.match(new RegExp(`^${sel.replace(/[.]/g, '\\.')} \{([^}]*)\}`, 'm')); assert.ok(m, `${sel} has a rule`); return m[1]; };
   const controls = rule('.graph-controls');
   assert.match(controls, /position: absolute/);
   assert.match(controls, /top: \d+px/);

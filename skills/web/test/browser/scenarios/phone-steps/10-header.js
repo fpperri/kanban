@@ -7,7 +7,7 @@
 
 const ROW = `(()=>{
   const r = (el) => el.getBoundingClientRect();
-  const top = [document.querySelector('h1'), document.getElementById('new-btn'), ...document.querySelectorAll('.actions [data-view-toggle]'), document.getElementById('notif-btn'), document.getElementById('more-btn')];
+  const top = [document.querySelector('h1'), document.getElementById('new-btn'), document.getElementById('notif-btn'), document.getElementById('more-btn')];
   const boxes = top.map(r);
   const mid = boxes.map((b) => (b.top + b.bottom) / 2);
   const h1 = getComputedStyle(document.querySelector('h1'));
@@ -43,7 +43,7 @@ module.exports = {
       await open('/', board);
       check(`${name}: the Board draws`, await waitFor(`document.querySelectorAll('#board .column').length===1&&document.querySelectorAll('#board-tabs .board-tab').length>0`, 10000));
       const row = await ev(ROW);
-      check(`${name}: the name, New card, the view buttons, the bell and More share one row inside the window`, row.count === 8 && row.sameRow && row.inside, JSON.stringify(row));
+      check(`${name}: the name, New card, the bell and More share one row inside the window`, row.count === 4 && row.sameRow && row.inside, JSON.stringify(row));
       check(`${name}: the name ellipsises without wrapping and the page does not scroll sideways`, row.ellipsis && row.noWrap, JSON.stringify(row));
       check(`${name}: the search bar is on its own full-width row under the top row`, row.below && row.wide, JSON.stringify(row));
 
