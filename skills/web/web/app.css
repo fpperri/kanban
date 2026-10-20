@@ -1269,7 +1269,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-stage { position: relative; flex: 1; min-height: 0; }
 
 /* The option panel of the Map and of the Graph: the zoom, the Graph's layouts and the Options
-   section, one control above the next. Beside the view from 760 px; under it, a sheet over the
+   section, one control above the next. Beside the view from 760 px; under it, a bottom sheet over the
    view, which is positioned against .map-view / .graph-view and so adds no width to the page. */
 .view-bar { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
 .view-bar > .map-filter-row { flex: 1; margin-bottom: 0; }
@@ -1288,7 +1288,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .view-panel .map-option-seg, .view-panel .graph-option-seg { flex-wrap: wrap; gap: 4px; border: none; overflow: visible; }
 .view-panel .map-option-btn, .view-panel .graph-option-btn { border: 1px solid var(--line); border-radius: .15rem; }
 @media (max-width: 759.98px) {
-  .view-panel { position: absolute; top: 0; right: 0; bottom: 0; z-index: 4; width: min(18rem, 100%); padding-top: 44px; box-shadow: var(--shadow-pop); }
+  .view-panel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; width: 100%; max-height: 50%; padding-top: 44px; border-left: none; border-top: 1px solid var(--line); box-shadow: var(--shadow-pop); }
   .view-panel-close { display: block; }
 }
 .graph-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; user-select: none; touch-action: none; }
