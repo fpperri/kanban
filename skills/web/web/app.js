@@ -1468,10 +1468,10 @@ function pressViewPanelButton(btn, redraw) {
   if (toggle) toggle.focus({ preventScroll: true });
 }
 
-// Until the person chooses, the panel follows the screen, so crossing 760 px draws the view again.
+// Until the person chooses, the panel follows the screen, so crossing the phone width line (phone-width.js) draws the view again.
 window.addEventListener('DOMContentLoaded', () => {
   if (!window.matchMedia) return;
-  window.matchMedia(`(min-width: ${VIEW_PANEL_WIDE_PX}px)`).addEventListener('change', () => {
+  window.matchMedia(PHONE_WIDTH_QUERY).addEventListener('change', () => {
     const mode = loadViewMode();
     if (mode === 'map') renderMapView();
     if (mode === 'graph') graphRedrawForPanel();
