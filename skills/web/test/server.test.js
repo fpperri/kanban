@@ -2205,8 +2205,7 @@ test('renderCalendarView holds no status pill row', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    const render = js.match(/function renderCalendarView\([\s\S]*?
-\}/);
+    const render = js.match(/function renderCalendarView\([\s\S]*?\n\}/);
     assert.ok(render, 'renderCalendarView found in app.js');
     assert.doesNotMatch(render[0], /FilterRow/);
     assert.ok(render[0].indexOf("subview === 'month'") > -1, 'the month and sub-month branch is still there');
@@ -2290,7 +2289,7 @@ test('no view wires a pill contextmenu branch: the Map, the Calendar and the Gan
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.doesNotMatch(js, /soloMapStatusFilter\(filterBtn|soloCalendarStatusFilter\(filterBtn|soloGanttStatusFilter\(filterBtn/);
-    assert.doesNotMatch(js, /\$\('#map-view'\)\.addEventListener\('contextmenu'/, 'the Map's contextmenu listener existed only for its pills');
+    assert.doesNotMatch(js, /\$\('#map-view'\)\.addEventListener\('contextmenu'/, 'that listener existed only for the Map pills');
   });
 });
 
@@ -2400,7 +2399,7 @@ test('the document-level contextmenu guard also skips a calendar time-drag', asy
     const withCal = (js.match(/if \(isDragging \|\| ganttDrag \|\| calTimeDrag\) return;/g) || []).length;
     const withoutCal = (js.match(/if \(isDragging \|\| ganttDrag\) return;/g) || []).length;
     assert.strictEqual(withoutCal, 0, 'no guard left on the pre-#109 two-term form');
-    assert.ok(withCal >= 4, 'all four guards (map/calendar/gantt/document #39) include calTimeDrag');
+    assert.ok(withCal >= 1, 'the document guard includes calTimeDrag');
   });
 });
 
