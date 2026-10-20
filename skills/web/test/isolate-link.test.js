@@ -26,7 +26,7 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing', tags: ['infra'] }),
-    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', tags: ['ui'], waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo', blocked: 'vendor has not shipped' }),
     card(5, { title: 'Draft the release notes', status: 'doing', review: 'copy needs eyes', tags: ['ui'] }),
@@ -139,7 +139,7 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
   assert.strictEqual(second.session.search, address, 'the address is as the link had it');
   assert.strictEqual(second.session.replaces, 0, 'and was not rewritten on load');
   assert.strictEqual(second.elements['#search-chip'].textContent, 'isolated', 'the closed box says isolated');
-  assert.deepStrictEqual(second.shown(), [2, 5], 'the Board shows only the isolated cards');
+  assert.deepStrictEqual(second.shown(), ['2', '5'], 'the Board shows only the isolated cards');
 });
 
 test('after a reload, turning isolate off gives the box the text it held before isolating, and takes the isolate parameter out of the address', async () => {
@@ -155,7 +155,7 @@ test('after a reload, turning isolate off gives the box the text it held before 
   assert.strictEqual(second.box(), 'tags:ui', 'the text from before isolating, kept in the browser, is back');
   assert.strictEqual(second.isolate(), null);
   assert.deepStrictEqual(second.params(), { q: 'tags:ui' });
-  assert.deepStrictEqual(second.shown(), [2, 5], 'and the Board filters by it again');
+  assert.deepStrictEqual(second.shown(), ['2', '5'], 'and the Board filters by it again');
 });
 
 test('the text kept for a reload follows the box while isolated: a hand edit of the isolate text is still isolated after a reload, and still gives the earlier text back', async () => {
@@ -191,20 +191,20 @@ test('the link opened in a browser with nothing stored shows only the isolated c
   const s = await openAt('?q=%232+%7C+%235&isolate=1');
   assert.deepStrictEqual(s.isolate(), { previous: '' });
   assert.strictEqual(s.box(), '#2 | #5');
-  assert.deepStrictEqual(s.shown(), [2, 5]);
+  assert.deepStrictEqual(s.shown(), ['2', '5']);
   assert.strictEqual(s.elements['#isolate-switch'].getAttribute('aria-checked'), 'true');
   assert.strictEqual(s.elements['#search-chip'].textContent, 'isolated');
   s.flip();
   assert.strictEqual(s.box(), '', 'the text before isolating is unknown here');
   assert.strictEqual(s.isolate(), null);
   assert.strictEqual(s.session.search, '', 'both parameters are gone');
-  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6']);
 });
 
 test('the link opens isolated in the Graph too, with only the isolated cards drawn and none dimmed', async () => {
   const s = await openAt('?q=%232+%7C+%235&isolate=1&view=graph');
   const drawn = JSON.parse(s.page.run('JSON.stringify(graphCur.model.nodes.map((n) => n.id))'));
-  assert.deepStrictEqual(drawn.sort((a, b) => a - b), [2, 5]);
+  assert.deepStrictEqual(drawn.sort((a, b) => a - b), ['2', '5']);
   const effect = JSON.parse(s.page.run('JSON.stringify((() => { const e = currentGraphQueryEffect(); return { visible: [...e.visibleIds], lit: [...e.litIds] }; })())'));
   assert.deepStrictEqual(effect.visible.sort(), effect.lit.sort(), 'everything shown is lit');
   assert.strictEqual(s.page.run('selectionState.selection.anchor'), null, 'the box is not taken for a typed search');
@@ -215,7 +215,7 @@ test('a link with the isolate parameter and no query opens with isolate off, and
     const s = await openAt(search);
     assert.strictEqual(s.isolate(), null, `${search}: isolate is off`);
     assert.strictEqual(s.box(), '');
-    assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+    assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6']);
     assert.strictEqual(s.elements['#isolate-switch'].getAttribute('aria-checked'), 'false');
   }
 });

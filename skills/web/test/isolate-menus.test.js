@@ -30,7 +30,7 @@ const makeBoard = () => ({
   assignees: [], tags: [], types: [], notifications: [],
   active: [
     card(1, { title: 'Zephyr migration', status: 'doing' }),
-    card(2, { title: 'Move the data layer', status: 'todo', waiting_for: [1] }),
+    card(2, { title: 'Move the data layer', status: 'todo', waiting_for: ['1'] }),
     card(3, { title: 'Write the cutover plan', status: 'backlog', parent: 1 }),
     card(4, { title: 'Port the schema', status: 'todo' }),
     card(5, { title: 'Draft the release notes', status: 'doing' }),
@@ -113,7 +113,7 @@ test('a right-click on a card inside a selection of two offers Isolate, and choo
   assert.strictEqual(s.box(), '#2 | #5', 'the selection is written into the box, as the switch writes it');
   assert.deepStrictEqual(s.isolate(), { previous: '' });
   assert.strictEqual(s.menuOpen(), false, 'the menu closes');
-  assert.deepStrictEqual(s.ids(), [2, 5], 'and the selection is as it was');
+  assert.deepStrictEqual(s.ids(), ['2', '5'], 'and the selection is as it was');
   assert.strictEqual(s.elements['#isolate-switch'].getAttribute('aria-checked'), 'true', 'the switch agrees');
 });
 

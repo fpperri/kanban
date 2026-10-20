@@ -38,10 +38,10 @@ When a card is moved to `done`, add enough narrative detail that a future reader
 
 Each card's frontmatter supports the following fields:
 
-- `id` — Unique numeric identifier. If the board has a `config.yaml` with a `nextId` counter, use `max(nextId, scan-max + 1)` and write the advanced counter back — this keeps ids unique across deletions and concurrent writers. Otherwise scan existing `*.card.md` files in `<kanban-dir>` (including `<kanban-dir>/archived/`, recursively — package folders count) and take max + 1, starting at `1` if empty. Reference cards by this number.
+- `id` — Unique identifier: an optional **prefix** and a number, `656`, `G3`, `DW845`, `_12` (ADR 0014). The prefix is uppercase letters, optionally led by `_`, and the whole pair is the identity: `#7` and `#G7` are two cards, `waiting_for`, `parent` and every mention name the whole id, and an id never changes once given. Each prefix has its own counter. **A new card takes the prefix its type declares** in `config.yaml`'s `prefixes:` (with `G: goal`, a card of type `goal` is `G1`, then `G2`); a card with no type, a type with no prefix, or a board with no `prefixes:` takes a plain number. Changing a card's type later never changes its id. To allocate a plain number: if the board has a `config.yaml` with a `nextId` counter, use `max(nextId, scan-max + 1)` and write the advanced counter back — this keeps ids unique across deletions and concurrent writers. Otherwise scan existing `*.card.md` files in `<kanban-dir>` (including `<kanban-dir>/archived/`, recursively — package folders count) and take max + 1, starting at `1` if empty. To allocate a prefixed one the same way, use the prefix's counter on the `counters:` line (`counters: { G: 3, O: 5 }`) and the highest number among the ids that carry that prefix: `max(counters[prefix], scan-max-of-that-prefix + 1)`, starting at `1`, then write the advanced counter back on that one line, changing only that prefix's entry. A `G40` never moves the plain counter, and a plain `40` never moves the `G` counter. Reference cards by the whole id (`#G3`).
 - `status` — Column. The board's official column list is `config.yaml`'s `statuses` (ordered = column order); absent, the built-in four apply: `backlog`, `todo`, `doing`, `done`. Free text is legal on disk — a value not in the list renders in the list's **first** column (the catch-all) with its raw value shown, and is **never rewritten**; promotion = the human adds the value to the list. `archive` is a location, not a status. Prefer listed values when creating cards.
 - `priority` — one of the board's official `priorities` list in `config.yaml` (built-in default: `High`, `Normal`, `Low` — ordered highest first). Free text is allowed but sorts after all official values. Defaults to `Normal` if omitted.
-- `waiting_for` — List of card IDs this card depends on (dependency edges). Example: `[3, 7]`. Replaces `blocked_by` — hard cutover, no reader honors the old name. **Waiting is derived at read time, never stored:** the card is *waiting* while any listed card is not `done`; when every dep lands, the waiting state disappears on its own. A listed id with no matching card (dangling) is **non-blocking** — it never makes the card waiting. A dependency is sequencing, not an impediment; don't call it "blocked". Omit if empty — an empty `[]` stays legal on read, but it's no-data boilerplate the `kanban-web` app strips on its next managed write, so don't write it.
+- `waiting_for` — List of card IDs this card depends on (dependency edges). Example: `[3, G7]` (the whole id, prefix included; zero padding is not part of the id, so `G0007` names `G7`). Replaces `blocked_by` — hard cutover, no reader honors the old name. **Waiting is derived at read time, never stored:** the card is *waiting* while any listed card is not `done`; when every dep lands, the waiting state disappears on its own. A listed id with no matching card (dangling) is **non-blocking** — it never makes the card waiting. A dependency is sequencing, not an impediment; don't call it "blocked". Omit if empty — an empty `[]` stays legal on read, but it's no-data boilerplate the `kanban-web` app strips on its next managed write, so don't write it.
 - `blocked` — (optional) Manual impediment sticker, human stop sign; the value is the **reason** as free text. Example: `blocked: legal sign-off pending`. The card is *blocked* iff the trimmed value contains ≥ 1 alphanumeric character; YAML boolean special-case: `false`/`no` → not blocked, `true` → blocked with reason unspecified. Lean rule: omit the field entirely when the card is clear — never write `blocked: false`. **No eviction:** blocking a card already in `doing` leaves it there; the gate below is entry-only. **Agents never grab a blocked card, in any column** — clearing the sticker is the human's call.
 - `review` — (optional) "Finished — approve me" sticker, `blocked`'s sibling (ADR 0009): the value is the **text** describing what to check, free text. Example: `review: PR #6`. Same predicate as `blocked` (trimmed value ≥ 1 alphanumeric character; YAML `false`/`no` → not present, `true` → present, text unspecified) and the same lean rule — omit the field entirely when clear, never write `review: false`. Where `blocked` is "stuck, act so I can proceed," `review` is "done, approve me" — it overlays any status exactly like `blocked` and does **NOT** gate `doing` entry (the gate below stays `waiting` + `blocked` only). A machine-shaped value (see the AFK dispatcher's contract for the exact shape) is polled by the dispatcher each tick; free text is cleared by the human on approval. **Agents never grab a review-stickered card, in any column** — it awaits human approval; clearing the sticker is the human's (or, for a merged PR, the dispatcher's) call. See `docs/adr/0009-review-and-attention-are-stickers.md`.
 - `prompt` — (optional) A queued grooming instruction FROM a human TO the next AI that services the card: free text, always written **quoted** (same quoting contract as `notifications.md`'s `message`; an embedded newline collapses to a space). Not a sticker — no presence predicate, no `doing`-gate involvement, and it never excludes the card from pickup. The card **body** stays the only work spec: servicing a prompt means formalizing or editing the card, never executing the prompt as a work instruction, and clearing the field; a prompt can never escalate a card to autonomous work — only the trusted card body may pre-authorize `@afk`. Clear = remove the line (lean rule).
@@ -50,7 +50,7 @@ Each card's frontmatter supports the following fields:
 - `end_date` — (optional) The working range's **to**: same date/datetime forms. Alone = a 1-day range at end. Nothing validates ordering — a reversed range (start after end) is tolerated (date-aware views treat it as a 1-day event at the range end). **Compat fallback:** when `end_date` is absent but `start_date` AND `due_date` are both present, the range is start→due, so pre-triad cards keep reading as ranges. The `kanban-web` app auto-stamps it with today's local date when a card lands in the literal status `done` and the field is empty — mirror that stamp when moving a card into `done` by hand; never overwrite an existing value.
 - `due_date` — (optional) The **deadline**: same date/datetime forms. Independent of the working range (date-aware views draw it as its own marker, even inside the range) — it only stands in as the range end via the compat fallback above. Write the triad in `start_date`, `end_date`, `due_date` order so ranges read naturally.
 - `tags` — (optional) List of labels.
-- `parent` — (optional) The card this one sits under: `42` for a card on this board, or `board#42` for a card on another board (this board's own name in that form counts as this board). Any card may be a parent, whatever its type. Tolerant read, never validated: anything else is no parent, a missing id leaves the card a root, and a self-id or a loop is tolerated, never fatal. Nesting is not sequencing: a parent never makes its children *waiting* and the `doing` gate ignores it; use `waiting_for` for ordering. A parent never lists its children: they are found by reading who points up at it. Lean rule: omit the line when there is no parent.
+- `parent` — (optional) The card this one sits under: `42` (or `G3`, any whole id) for a card on this board, or `board#42` (`board#G3`) for a card on another board (this board's own name in that form counts as this board). Any card may be a parent, whatever its type. Tolerant read, never validated: anything else is no parent, a missing id leaves the card a root, and a self-id or a loop is tolerated, never fatal. Nesting is not sequencing: a parent never makes its children *waiting* and the `doing` gate ignores it; use `waiting_for` for ordering. A parent never lists its children: they are found by reading who points up at it. Lean rule: omit the line when there is no parent.
 - `type` — (optional) What the card is: free text, usually a word from the board's `types:` list in `config.yaml` (see below), though any word reads and nothing validates it. Example: `type: objective`. Lean rule: write the line only when the card has a type, omit it otherwise. The kanban renders the word as a chip on the card (in the type's configured color, or neutral when the list gives none) and finds it with the `type:` search term; it attaches no meaning to the word, so rules about types belong to whoever uses the board. A type that would not read back bare (it holds `: ` or ` #`, or opens with a quote, a bracket or `#`) is written in double quotes. Every managed write leaves the line alone unless the edit changes the type itself.
 - `rank` — (optional) Where this card sits among its siblings (the cards with the same `parent`): a number, stepped by 10 (`10`, `20`, `30`) so a card can be slotted between two others without renumbering. Separate from `priority`: priority is how much a card matters, rank is where it sits in the list, so a High card can sit third. Siblings read in rank order; **unranked** siblings come after the ranked ones, by priority then id, so a board with no ranks reads as it always did. A value that is not a number reads as no rank. Lean rule: omit the line when there is no rank, never write a blank `rank:`. The edit form's Rank field writes it; a value that reads the same as the card's own is left as written. To slot a card between two siblings, see Ordering a Card Among Its Siblings below.
 - `updated` — (optional, machine-maintained) ISO local datetime, `YYYY-MM-DDTHH:MM:SS` (no timezone suffix — same shape as `notifications.md`'s `at` field). The `kanban-web` app stamps it on card creation and bumps it on every content write (single edits, drag-driven status changes, bulk edits); it does NOT change on archive/restore (those only move the file, they don't touch its content). AI writers editing a card's frontmatter by hand should bump `updated` to the current local datetime too, so the timestamp stays meaningful regardless of which tool made the change. Read that datetime from the clock at the moment of the write (`date '+%Y-%m-%dT%H:%M:%S'`); a stamp typed from memory drifts hours from the truth and breaks the order of the record.
@@ -59,7 +59,9 @@ Each card's frontmatter supports the following fields:
 
 ## Creating a Card
 
-Create a new card file in `<kanban-dir>` named `<0000-id>.<kebab-case-name>.card.md` — the card's `id` zero-padded to 4 digits, so filenames sort by card id (e.g. `0008.card-filename-id-prefix.card.md`). The frontmatter `id` field is the source of truth; the filename prefix is cosmetic (visibility + sorting) and scripts never parse identity from it. **Only `*.card.md` files are treated as cards** — any other `.md` (a generated `board.md`, a `README.md`, `CLAUDE.md`, `AGENTS.md`, etc.) is ignored by the board scripts, so meta files can live alongside cards safely.
+Create a new card file in `<kanban-dir>` named `<0000-id>.<kebab-case-name>.card.md` — the card's `id` with its number zero-padded to the board's `idDigits` (4 unless `config.yaml` says otherwise), the prefix first, so filenames sort by card id (e.g. `0008.card-filename-id-prefix.card.md`, `G0003.ship-the-parser.card.md`). A number wider than `idDigits` gets no id prefix in its file name. The frontmatter `id` field is the source of truth; the filename prefix is cosmetic (visibility + sorting), a file padded to another width still reads by its number, and scripts never parse identity from it. **Only `*.card.md` files are treated as cards** — any other `.md` (a generated `board.md`, a `README.md`, `CLAUDE.md`, `AGENTS.md`, etc.) is ignored by the board scripts, so meta files can live alongside cards safely.
+
+**Join the running groups.** When the board keeps groups (`config.yaml` has a `groups:` line), a new card also belongs to every group that is running today with `auto_join: true`: a group with both `start_date` and `end_date` is running from its start to its end, both days included, by your local date. Right after the card file exists, add the card's id to the `cards:` line of each such group (see *Groups: files that list their cards*, "Auto-join"), and to no other group: a dated group without `auto_join` never takes a new card. The web does the same in the request that creates the card, so a card you create by hand follows the same rule.
 
 Older boards may still contain unprefixed `<kebab-case-name>.card.md` files — readers treat both identically (everything globs `*.card.md`); `scripts/migrate_card_names.sh` renames a board to the prefixed format in place.
 
@@ -119,6 +121,15 @@ name: webapp      # the BOARD NAME opening every card mention (`webapp#29 Card t
 artifact: https://claude.ai/code/artifact/<id>   # the board's Board artifact URL; seeded by the first session that publishes the snapshot (see the kanban-snapshot skill)
 port: 7781        # pins kanban-web's serving port; human-set (never AI-invented) — see the kanban-web skill
 nextId: 29        # monotonic id counter — use max(nextId, scan-max + 1), then write the advanced counter back
+idDigits: 4       # the width an id's number is padded to in a file name (default 4)
+prefixes:         # a prefix for a card type: a new card of that type takes it, for life
+  G: goal         # a value that names a groups folder is a folder, not a type
+  O: objective
+  _: .groups      # a group with no type is `_`; the groups: folder itself is the root
+  I: .groups/iteration   # a group in iteration/ is I1, I2...
+counters: { G: 3, O: 5, I: 2 }   # one line, one counter per prefix: the next number of each
+groups: .groups   # the folder of the board's groups; absent = no groups (a human writes it)
+iterations: true  # the web's iteration dropdown; needs groups; absent = off (a human writes it)
 assignees:        # registry of who can own cards; suggests handles, never validates
   - handle: "@human"
     name: "Human"
@@ -221,7 +232,17 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`icon` — a type's shape.** An optional line on a block entry of `types:`, one of `circle`, `square`, `diamond`, `triangle`, `hexagon` or `star`, in any case, with an optional trailing comment. A type with no icon, or an unknown name, is drawn as it is today; an unknown name is kept as written and never an error. An icon is a shape, never a color: colors stay on `color:`.
 
-Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. They are not exceptions to "never invent a config key" and have no seed trigger. The id counter's write replaces its own `nextId:` line and leaves these lines, comments and every unknown key as they were.
+**`prefixes`, `counters` and `idDigits` — how ids are made.** `prefixes:` is a block of `PREFIX: type` lines (a prefix is `_` and uppercase letters only; the type is compared without regard to case; a value that names a groups folder, a path such as `.groups/iteration` or `workflow/`, or the `groups:` folder itself (`_: .groups`, the root, which has no slash), is a folder, not a type, and no card takes it: a group in exactly that folder takes the prefix, see *Groups* below). A prefix is declared once, for a card type or for a groups folder, never both: when a prefix appears twice with different values the first stands, and the web names the ignored one on stderr at startup, never fatal. A card takes the prefix its type declares when it is created and keeps it; prefixes are suggested, never enforced, so a card of any type may still be given any id by hand. `counters:` is one flow-map line, `counters: { G: 3, O: 5 }`: the next number of each prefix, and each is self-healing, `max(its counter, the highest number with that prefix + 1)`, exactly like `nextId`. The block form of `counters:` is not read. `idDigits:` is a whole number from 1 to 15 (anything else reads as 4) and only sets the width a file name pads to; the readers parse the number, so changing it orphans no file, and `scripts/migrate_card_names.sh` renames a board to the new width. Without `prefixes:` every id is a plain number, as before.
+
+**`groups` — the folder of the board's groups.** `groups: .groups` (relative to the board, or an absolute path written by hand) turns groups on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Groups), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *Groups: files that list their cards* below.
+
+**`iterations` — the web's iteration dropdown.** `iterations: true` adds a dropdown to the web header over the groups in the `iteration/` folder (a group sitting in exactly that folder, no subtype). It needs the `groups:` line and does nothing without it; it only adds a picker to the web, and an iteration is otherwise an ordinary group. A human writes the line, or switches it on in the web's gear sheet (This board, Groups, Iterations), which writes that one line (turning groups off leaves it, ignored, until groups are back); nothing that services the board invents it.
+
+**`logbook` — the folder of the board's notes.** `logbook: logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Logbook), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The logbook: notes in day files* below.
+
+**`scratchpad` — the folder of the board's scratchpads.** `scratchpad: .scratchpad` (relative to the board, or an absolute path written by hand) turns scratchpads on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Scratchpad), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The scratchpad: a disposable page per card or group* below.
+
+Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them (the web's gear sheet writes `idDigits:` for the human, one line, and shows `prefixes:` and `counters:` read only). The id counters' writes (`nextId:` for a plain id, `counters:` for a prefixed one) replace their own one line, or insert it below `nextId:`, and leave these lines, comments and every unknown key as they were.
 
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
 
@@ -251,6 +272,81 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
 **Clear = archive:** clearing/removing entries from the tray MOVES them verbatim (append) to `<kanban-dir>/archived/notifications.md`, creating the file/dir if absent. Deletion never happens. No rotation or cap yet. That file lives at the `archived/` **root** — it is not a card, so archive packages (above) never hold or move it.
 
 Generated leftovers from retired skills (`board.md`, `dashboard.html`) may also sit in the folder — stale artifacts, not cards; ignore them.
+
+### The logbook: notes in day files
+
+A **note** is a short line, optionally timed, about one card, one group or nothing: the working log of who did what and when. It is not a narrative entry (the narrative stays the durable record of what happened to a card) and not a notification (that is addressed to the human). Notes live in the folder `logbook:` names, **one Markdown file per target per day**. The file name is the identity and nothing else carries the day or the target:
+
+- `2026.10.16.logbook.md` — notes about nothing, on 2026-10-16.
+- `2026.10.16.0007.logbook.md` — notes about card `#7` (the id padded to `idDigits` after its prefix: `2026.10.16.G0003.logbook.md` for `#G3`). The number is what is read, so any padding resolves; renaming a file moves its notes to another day or target.
+
+The notes are a list in the frontmatter, each with an optional time, an author and the text:
+
+```yaml
+---
+entries:
+  - at: "09:10"        # optional; absent = untimed; always quoted (YAML reads 10:30 as a number)
+    by: "@afk"         # an assignee handle; sign your notes with your own
+    note: two enum renames left
+  - by: "@human"
+    note: |-
+      a note of several lines
+      is a block scalar
+---
+free markdown, kept as written
+```
+
+**Writing a note (agents may).** Re-read the day file just before you write it (the web may have written it a moment ago), add an entry, keep the entries in time order with untimed last, and write the file back whole through a temporary file and a rename, creating it when absent. Never change another entry, another frontmatter key, a key an entry carries that you do not know, or the body below: they are the person's, and the web keeps them byte for byte too. Quote a note that would otherwise read as something other than a string (`note: "fixed #12 today"`, a leading `-`, `@` or `[`, a `: ` inside). A file with nothing left in it is deleted.
+
+The web reads the same files, shows a card's notes behind a small count on its tile, and lets a person edit, delete and **assign** a note: assign moves that one note into the other target's file for the same day. When the web and an agent write one file at once, the web re-reads and retries once, then reports a conflict, so a re-read before every write is what keeps both notes.
+
+### The scratchpad: a disposable page per card or group
+
+A **scratchpad** is a working page for one card or one group: a checklist, a paste, a half-formed plan, anything that does not belong in the card or in a note. It is meant to be thrown away. Scratchpads live in the folder `scratchpad:` names, **one Markdown file per target**, named `<padded id>.scratchpad.md`: `0007.scratchpad.md` for card `#7`, `I0002.scratchpad.md` for group `#I2` (the id padded to `idDigits` after its prefix; the number is what is read, so any padding resolves). A target has at most one page.
+
+```yaml
+---
+refs:                       # optional; what the page points at: notes, files, folders, mentions
+  - src/orders/schema.js
+  - 2026.10.16.0007.logbook.md
+  - "#3"
+---
+
+anything at all, kept as written
+```
+
+The frontmatter is optional and holds only `refs:` (a block list or `refs: [a, b]`); every other key in it is kept. Below it the body is free Markdown with no structure the board reads. A file with no frontmatter is all body.
+
+**Writing a page (agents may).** Re-read the file just before you write it (the web may have saved it a moment ago), change only the body or the refs you mean, keep every other frontmatter key and the line ending, and write it back through a temporary file and a rename, creating the folder and the file when absent. The page is the person's scratch space: write one only when asked or when you need somewhere to put working text for that target, and say in the card's narrative or a note when a decision depends on what it holds.
+
+**The kanban never deletes one.** Deleting a card or a group leaves its page where it is (and it reads as dangling) unless the person ticks **Its scratchpad** in the web's delete popup; archiving never touches it. An agent that deletes a card does not delete its page unless it was told to.
+
+The web shows a page on the **Scratchpad** tab of the notes palette (a card's, or a group's after its Group tab): the file, its refs, and a multi-line box that Ctrl+Enter or Save writes. A page is read when its tab opens and saved whole; the web writes the body and leaves the frontmatter.
+
+### Groups: files that list their cards
+
+A **group** is a named set of this board's cards, kept in a file of its own in the folder `groups:` names; the cards never know their groups. The file is `<padded id>.<slug>.md`, and **the folders it sits in are its type and subtype**, at most two levels: `.groups/_0001.offsite-prep.md` (no type), `.groups/iteration/I0002.zephyr-2.md` (type `iteration`), `.groups/workflow/dynamic/DW0001.schema-diff-review.md` (type `workflow`, subtype `dynamic`). A file nested deeper than two folders is skipped and reported, never an error. The frontmatter never repeats the folders.
+
+```yaml
+---
+id: I2                    # the truth, whole and never changed; the file name is only a label
+name: zephyr-2            # a short name
+start_date: 2026-10-12    # optional; a group with both dates is running between them, both days included
+end_date: 2026-10-23
+auto_join: true           # optional; only with both dates
+owner: "@human"           # any other key is kept as written
+cards: [3, 7, 15]         # the ids of the member cards of this board (never other groups)
+---
+free markdown, kept as written
+```
+
+**The id.** A group's prefix comes from the exact folder `prefixes:` maps it to (`I: .groups/iteration`, `W: workflow/`, `DW: .groups/workflow/dynamic`), and is `_` when none does or the group sits in no folder. The number is allocated like a card's: `max(counters[prefix], the highest number of that prefix among the cards and groups + 1)`, then the advanced counter is written back on the one `counters:` line. A group's id is written bare and padded to `idDigits` in the file name, and mentioned `#I2`.
+
+**Writing a group (agents may).** Make a group by writing its file in its folder with an `id` allocated as above; change one by editing only the line you mean (`cards: [...]` to add or remove a member, a date, the name), keeping the id, every other key, every comment and the body as they were; write through a temporary file and a rename. Only a card of this board belongs in `cards:`; a group never lists a group.
+
+**Auto-join.** A group with both dates and `auto_join: true` is running from its start to its end, both days included, by the local date of whoever creates the card (`date +%F`). A card created while it runs is written into its `cards:` at creation: after writing the new card's file, re-read each such group file, add the id to the one `cards:` line (kept in id order, once), and write the file back through a temporary file and a rename, changing nothing else. A group with dates but no `auto_join`, an undated group and a group that has not started or has ended never take the card; an edit or a move later never joins one. Membership lives only in the group's list, so a card's file is never edited to join or leave a group. Deleting a card takes its id out of every group's list.
+
+The web reads the same files: a card wears up to two small badges (`#I2 zephyr-2`) with "+N" for the rest, a badge opens the group in the notes palette (its Group tab edits the name, the dates, `auto_join` and the extra keys and takes members out), the card menu has **Add to group…** and **Make a group from them…**, and `group:<id or name>`, `group:` and `-group:` search by membership. A note on a group is a day file named with its id (`2026.10.16.I0002.logbook.md`).
 
 ### Migrating `epic: true` to `type: epic`
 
@@ -325,12 +421,12 @@ Output: All tags sorted by usage count (most used first)
 ```bash
 bash <SCRIPTS_DIR>/list_all_cards.sh <kanban-dir>
 ```
-Output: All cards in pipe-delimited format (id|status|waiting_for|blocked|title), sorted by ID. Useful for parsing, debugging dependencies, or exporting board state.
+Output: All cards in pipe-delimited format (id|status|waiting_for|blocked|title), sorted by id: plain numbers first, then each prefix by its number (`9`, `10`, `G3`, `G10`). Useful for parsing, debugging dependencies, or exporting board state.
 
 ### Eligible Cards (agent pickup)
 ```bash
 bash <SCRIPTS_DIR>/eligible_cards.sh <kanban-dir> [assignee]
 ```
-Output: `todo` cards (literal status) that are doing-gate clear — not waiting (`show_waiting.sh` semantics: dangling `waiting_for` ids and all-`done` deps don't count), not blocked (`show_blocked.sh` predicate), and not review-stickered (`show_review.sh` predicate — ADR 0009: agents skip a card awaiting human approval, same as blocked, even though `review` doesn't gate `doing`) — as `id|priority|assignee|title`, sorted by ID. The optional `assignee` arg filters the result and is quote-normalized, so `@afk` and `"@afk"` both match the on-disk `assignee: "@afk"`; omitted returns every assignee. The one-call answer to "what can an agent pick up right now" — no re-deriving the gate from raw card files.
+Output: `todo` cards (literal status) that are doing-gate clear — not waiting (`show_waiting.sh` semantics: dangling `waiting_for` ids and all-`done` deps don't count), not blocked (`show_blocked.sh` predicate), and not review-stickered (`show_review.sh` predicate — ADR 0009: agents skip a card awaiting human approval, same as blocked, even though `review` doesn't gate `doing`) — as `id|priority|assignee|title`, sorted by id (plain numbers first, then each prefix by its number). The optional `assignee` arg filters the result and is quote-normalized, so `@afk` and `"@afk"` both match the on-disk `assignee: "@afk"`; omitted returns every assignee. The one-call answer to "what can an agent pick up right now" — no re-deriving the gate from raw card files.
 
 **Note:** `<SCRIPTS_DIR>` refers to the `scripts/` directory next to this SKILL.md file. All scripts take the kanban directory as the first argument. If omitted, they default to the current directory.

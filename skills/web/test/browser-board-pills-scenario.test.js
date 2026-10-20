@@ -5,9 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { parseConfig } = require('../scripts/config-store');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards, searchTermText } = require('../web/search');
 const { pillList, pillRows } = require('../web/pills');
 const scenarios = require('./browser/scenarios');
@@ -25,16 +26,16 @@ const boardOf = (key) => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize(key, dir);
-  const live = listActive(dir);
-  const all = live.concat(listArchived(dir));
+  const live = listActive(dir).map(toJSON);
+  const all = live.concat(listArchived(dir).map(toJSON));
   const config = parseConfig(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'));
   const matchIds = (query) => new Set(filterCards(all, parseSearchQuery(query, key), { board: key }).map((c) => c.id));
   const list = pillList(live, matchIds, { pills: config.pills, cards: live, term: searchTermText });
-  return { key, live, all, config, matchIds, list, byId: new Map(live.map((c) => [c.id, c])) };
+  return { key, live, all, config, matchIds, list, byId: idMap(live) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const sorted = (list) => [...list].sort((a, b) => a - b);
+const sorted = (list) => [...list].map(Number).sort((a, b) => a - b);
 const describe = (rows) => rows.map((r) => (r.kind === 'more' ? `[${r.label}]` : r.label));
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'board-pills.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');

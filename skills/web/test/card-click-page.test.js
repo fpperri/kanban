@@ -32,7 +32,7 @@ async function open({ view = 'board', prefs = SELECTS } = {}) {
   const page = await loadPage({ board: makeBoard(), stored, elements: { '#graph-view': control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const opened = [];
-  page.ctx.openCard = (id) => { opened.push(id); };
+  page.ctx.openCard = (id) => { opened.push(Number(id)); };
   const selection = () => JSON.parse(JSON.stringify(page.run('selectionState.selection')));
   return { page, opened, selection };
 }
@@ -46,7 +46,7 @@ function cardTarget(id) {
 const empty = () => new Proxy({}, { get: (t, key) => (key === 'closest' ? () => null : harmless(String(key))) });
 const click = (s, target, extra = {}) => s.page.fireDocument('click', { target, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false, ...extra });
 
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 
 test('a plain click in a view set to selects leaves the card selected: the click-away rule does not drop what the click built', async () => {
   for (const view of ['board', 'map', 'gantt', 'calendar']) {

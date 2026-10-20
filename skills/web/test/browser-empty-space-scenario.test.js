@@ -5,9 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');
 const empty = require('./browser/scenarios/empty-space');
 
@@ -23,8 +24,8 @@ const fixtureBoard = () => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize('fixture', dir);
-  const live = listActive(dir);
-  return { live, all: live.concat(listArchived(dir)), byId: new Map(live.map((c) => [c.id, c])) };
+  const live = listActive(dir).map(toJSON);
+  return { live, all: live.concat(listArchived(dir).map(toJSON)), byId: idMap(live) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
@@ -90,7 +91,7 @@ test('on the fixture board, the cards it dates are live and undated, card 10 awa
     assert.ok(c, `card ${id} is live`);
     assert.ok(!c.start_date && !c.end_date && !c.due_date, `card ${id} has no date yet`);
   }
-  const review = filterCards(b.all, parseSearchQuery('review:', 'fixture'), { board: 'fixture' }).map((c) => c.id).filter((id) => b.byId.has(id));
+  const review = filterCards(b.all, parseSearchQuery('review:', 'fixture'), { board: 'fixture' }).map((c) => Number(c.id)).filter((id) => b.byId.has(id));
   assert.deepStrictEqual(review, [10]);
   assert.ok(review.length < b.live.length);
 });

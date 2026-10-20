@@ -11,7 +11,7 @@ const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8').re
 const section = /\nA search box under the header[\s\S]*?\n\n/.exec(skill);
 const flat = section && section[0].replace(/\s+/g, ' ');
 
-const card = (id, over = {}) => ({ id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], parent: null, ...over });
+const card = (id, over = {}) => ({ id: String(id), title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], parent: null, ...over });
 
 test('the skill says the box suggests slices after slice: and after .., what they are, what a pick writes, and that it is the web module\'s', () => {
   assert.ok(flat, 'a search section');
@@ -24,9 +24,9 @@ test('the skill says the box suggests slices after slice: and after .., what the
 });
 
 test('the documented suggestions are what the module offers', () => {
-  const cards = [card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { type: 'objective', parent: 2 }), card(4, { parent: 3 })];
+  const cards = [card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: '1' }), card(3, { type: 'objective', parent: '2' }), card(4, { parent: '3' })];
   const ctx = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
   assert.ok(searchSuggestionItems('slice:goal..', 12, cards, ctx).some((i) => i.value === 'slice:goal..objective'));
-  const spaced = [card(1, { type: 'big goal' }), card(2, { parent: 1 }), card(3, { parent: 2 })];
+  const spaced = [card(1, { type: 'big goal' }), card(2, { parent: '1' }), card(3, { parent: '2' })];
   assert.ok(searchSuggestionItems('slice:"big goal..', undefined, spaced, { board: 'kanban', hierarchy: ['big goal'] }).some((i) => i.value === 'slice:"big goal..2"'));
 });

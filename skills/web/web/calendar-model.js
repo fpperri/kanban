@@ -13,6 +13,16 @@
 // back to 'board', same defensive stance as mergeSortState.
 const VIEW_MODES = ['board', 'map', 'calendar', 'gantt', 'graph'];
 
+const CALM_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
+// Chips that tie on time sit in id order; a chip with no card sorts first.
+function calendarIdOrder(a, b) {
+  const x = a.card ? a.card.id : null;
+  const y = b.card ? b.card.id : null;
+  if (x == null || y == null) return (x == null ? 0 : 1) - (y == null ? 0 : 1);
+  return CALM_IDS.compareIds(x, y);
+}
+
 function mergeViewMode(saved) {
   return VIEW_MODES.includes(saved) ? saved : 'board';
 }
@@ -343,7 +353,7 @@ const CALENDAR_DRAG_SNAP_MIN = 15;
 
 function assignLanes(blocks) {
   const sorted = blocks.map((b) => Object.assign({}, b)).sort((a, b) =>
-    a.startMin - b.startMin || a.endMin - b.endMin || ((a.card && a.card.id) || 0) - ((b.card && b.card.id) || 0));
+    a.startMin - b.startMin || a.endMin - b.endMin || calendarIdOrder(a, b));
   const out = [];
   let cluster = [];
   let laneEnds = []; // per-lane end minute within the current cluster
@@ -441,7 +451,7 @@ function timeGridLayout(cards, days) {
   // Pack the band: longest span first at equal starts (it anchors the low
   // rows), then greedy first-free-row — same shape as assignLanes but over
   // column indices, and row count is global (the band is one shared strip).
-  allDay.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx || a.card.id - b.card.id);
+  allDay.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx || CALM_IDS.compareIds(a.card.id, b.card.id));
   const rowEnds = []; // per-row last occupied column index
   for (const entry of allDay) {
     let row = rowEnds.findIndex((end) => end < entry.startIdx);
@@ -500,7 +510,7 @@ function monthChipLayout(cards, days) {
     // Same packing shape as timeGridLayout's allDay band: longest span first
     // at equal starts (it anchors the low rows, same reasoning as there),
     // then greedy first-free-row.
-    entries.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx || a.card.id - b.card.id);
+    entries.sort((a, b) => a.startIdx - b.startIdx || b.endIdx - a.endIdx || CALM_IDS.compareIds(a.card.id, b.card.id));
     const rowEnds = []; // per-row last occupied column index, THIS WEEK only
     for (const entry of entries) {
       let row = rowEnds.findIndex((end) => end < entry.startIdx);

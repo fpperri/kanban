@@ -50,7 +50,7 @@ test('the web skill says the page draws the hierarchy and the pills the board an
 
 test('the key guard paragraph names every single key the guard covers, n included', () => {
   const guard = between(skill, 'Both read one **key guard**', '- **Comboboxes**');
-  for (const key of ['/', 'p', '?', 'm', 'i', 'n']) assert.ok(guard.includes(`\`${key}\``), `the guard paragraph names ${key}`);
+  for (const key of ['/', 'p', '?', 'm', 'i', 'l', 'n']) assert.ok(guard.includes(`\`${key}\``), `the guard paragraph names ${key}`);
   assert.match(guard, /`\[`, `\]`, `\{` and `\}`/);
 });
 

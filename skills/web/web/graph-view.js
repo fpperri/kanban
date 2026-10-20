@@ -20,7 +20,7 @@
 // title (graphFanNames, graph-model.js) and graph-names.js where each sits: every card of the
 // fan has one label and one leader, set from the placement with attributes and classes, so a
 // selection paints names in place, and a zoom places them again once it settles; the
-// n key steps the setting through the shared key guard while the Graph shows Tiers.
+// l key steps the setting through the shared key guard while the Graph shows Tiers.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
@@ -339,7 +339,7 @@ function graphBuildControls(filter, cardCount, relationCount, fan, panelOpen) {
       : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the graph`));
   const key = document.createElement('p');
   key.className = 'graph-key';
-  key.textContent = fan ? `${GRAPH_KEY} · n steps the names: ${fan.options.names}` : GRAPH_KEY;
+  key.textContent = fan ? `${GRAPH_KEY} · l steps the names: ${fan.options.names}` : GRAPH_KEY;
   frag.appendChild(key);
   return frag;
 }
@@ -872,7 +872,7 @@ function graphReleaseDrag(e) {
   graphSwallowNextClick();
   const under = e && e.type === 'pointerup' && document.elementFromPoint(e.clientX, e.clientY);
   const node = under && under.closest && under.closest('.graph-node');
-  if (node) graphSetFocus(Number(node.dataset.id));
+  if (node) graphSetFocus(node.dataset.id);
   else graphRestFocus();
   graphDragKick(d);
 }
@@ -950,7 +950,7 @@ function wireGraphView(host) {
     const node = e.target.closest('.graph-node');
     if (node) {
       if (graphCur.kind !== 'force' || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-      const id = Number(node.dataset.id);
+      const id = node.dataset.id;
       const model = graphCur.model.byId.get(id);
       if (!model || model.deg === 0) return;
       graphDrag = { pointerId: e.pointerId, id, sx: e.clientX, sy: e.clientY, moved: false, released: false, raf: 0, sim: null, pin: null };
@@ -992,31 +992,31 @@ function wireGraphView(host) {
     if (!node) return;
     e.stopPropagation();
     hideContextMenu();
-    graphClickNode(Number(node.dataset.id), e);
+    graphClickNode(node.dataset.id, e);
   }, true);
   host.addEventListener('dblclick', (e) => {
     if (e.ctrlKey || e.metaKey || e.shiftKey) return;
     const node = e.target.closest('.graph-node');
-    if (node) openCard(Number(node.dataset.id));
+    if (node) openCard(node.dataset.id);
   });
   host.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     const node = e.target.closest('.graph-node');
     if (!node) return;
-    if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(Number(node.dataset.id)); }
-    else if (e.key === ' ') { e.preventDefault(); graphClickNode(Number(node.dataset.id), {}); }
+    if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(node.dataset.id); }
+    else if (e.key === ' ') { e.preventDefault(); graphClickNode(node.dataset.id, {}); }
   });
 
   const enter = (e) => {
     const el = e.target.closest('.graph-node');
-    if (el) graphSetFocus(Number(el.dataset.id));
+    if (el) graphSetFocus(el.dataset.id);
   };
   const leave = (e) => {
     const from = e.target.closest('.graph-node');
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');
     if (to === from) return;
-    if (to) graphSetFocus(Number(to.dataset.id));
+    if (to) graphSetFocus(to.dataset.id);
     else graphRestFocus();
   };
   host.addEventListener('mouseover', enter);
@@ -1041,7 +1041,7 @@ function wireGraphView(host) {
   host.addEventListener('focusout', tipOff);
 }
 
-// The n key steps the fan's names: relevant, all, none. A key that types nothing but reads a
+// The l key steps the fan's names: relevant, all, none. A key that types nothing but reads a
 // letter, so it reads the whole key guard unchanged, as p, m and i do: off while a field has
 // focus and while a menu, a dialog, the notifications panel or the preferences sheet is up;
 // the search panel is not one of those. It acts only while the Graph shows Tiers, the one
@@ -1049,7 +1049,7 @@ function wireGraphView(host) {
 // Caps Lock gives a capital N with no Shift, and counts. An option that has focus is
 // rebuilt by the redraw, so it gets focus back, as after a press.
 function onGraphNamesKey(e) {
-  if (!e.key || e.key.toLowerCase() !== 'n' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (!e.key || e.key.toLowerCase() !== 'l' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (keyGuardOff(document)) return;
   if (loadViewMode() !== 'graph' || graphLoadLayout() !== 'tiers') return;
   e.preventDefault();

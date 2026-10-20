@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint and a view-panel scenario, with unique names', () => {
+test('the runner knows a search-box, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint, a view-panel, an ids, a notes, a notes-calendar, a groups, a groups-autojoin, an iterations, a settings, a scratchpad, a delete and a feature scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel']);
+  assert.deepStrictEqual(names, ['search-box', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel', 'ids', 'notes', 'notes-calendar', 'groups', 'groups-autojoin', 'iterations', 'settings', 'scratchpad', 'delete', 'feature']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -244,7 +244,7 @@ const CARD_CLICK_CHECKS = [
   'Shift+click adds the range from the last toggled card', 'none of those clicks opened a card',
   'a right-click on a card outside the selection opens its menu and leaves the selection as it was', 'Escape closes that menu and keeps the selection',
   'a click on empty space leaves the selection', 'a double click on empty space clears the selection', 'two cards are selected for the bulk confirmations',
-  'the archive confirmation names the count', 'the delete confirmation names the count',
+  'the archive confirmation names the count', 'Delete opens one popup that names the count, and asks through no confirm()',
   'in the Graph, Enter on a focused card opens it',
 ];
 
@@ -452,7 +452,7 @@ const CARD_MENU_CHECKS = [
   'Dependency tree on a card adds its tree, marked on the Board', 'and the tree is one part of the selection',
   'and the search box is unchanged after Dependency tree', 'and the tree is lit in the Graph',
   'Dependency path and Dependency tree are absent from the menu when its subject is several cards',
-  'archiving a selection that holds a path part names the resolved count', 'deleting a selection that holds a path part names the resolved count',
+  'archiving a selection that holds a path part names the resolved count', 'deleting a selection that holds a path part names the resolved count in the delete popup',
 ];
 
 test('the card-menu scenario runs on the fixture board and makes every check the card menu owes', () => {

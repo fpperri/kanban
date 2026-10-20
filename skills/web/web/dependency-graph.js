@@ -23,6 +23,29 @@ const NEST = (typeof module !== 'undefined' && module.exports)
 const MAPREL = (typeof module !== 'undefined' && module.exports)
   ? require('./map-relations')
   : window;
+const DEP_IDS = (typeof module !== 'undefined' && module.exports)
+  ? require('./ids')
+  : window.kanbanIds;
+
+// The graph keys every card on the id module's whole-id string, so `#7` and `#G7`
+// are two cards whatever the payload sent (a number or a string). Cards already in
+// that form pass through untouched. A stub for a card on another board takes an id
+// that is no id (`ext:board#4`), so it can collide with no card.
+function depKey(id) {
+  const key = DEP_IDS.idKey(id);
+  return key === null ? String(id) : key;
+}
+
+// The ids the search let through, in the same form.
+function depSet(ids) {
+  return ids ? new Set([...ids].map(depKey)) : ids;
+}
+
+function depCards(cards) {
+  const canonical = (c) => c.id === depKey(c.id) && (c.waiting_for || []).every((w) => w === depKey(w));
+  if (cards.every(canonical)) return cards;
+  return cards.map((c) => (canonical(c) ? c : Object.assign({}, c, { id: depKey(c.id), waiting_for: (c.waiting_for || []).map(depKey) })));
+}
 
 // The node carries precomputed gate flags:
 // `waiting` (some waiting_for dep not done — the amber stroke) and `blocked`
@@ -77,7 +100,9 @@ function isCardWaiting(c, byId) {
 // sequencing: a parent edge gets the same ghost-stub courtesy but never makes
 // anyone `waiting`. A self-parent is nonsense and adds no edge; a dangling parent
 // id ghosts as missing, same as a dangling dep.
-function buildDependencyGraph(cards, visibleIds, ctx) {
+function buildDependencyGraph(cardList, visibleList, ctx) {
+  const cards = depCards(cardList);
+  const visibleIds = depSet(visibleList);
   const byId = new Map(cards.map((c) => [c.id, c]));
   // A ghost placeholder from a dangling reference has no card behind it, so
   // "visible" must require actual existence — not just query-membership —
@@ -158,7 +183,7 @@ function buildDependencyGraph(cards, visibleIds, ctx) {
   }
 
   const ghosts = [...ghostIds].filter((id) => !nodeIds.has(id))
-    .sort((a, b) => a - b)
+    .sort(DEP_IDS.compareIds)
     .map((id) => (byId.has(id) ? cardToNode(byId.get(id), isCardWaiting(byId.get(id), byId))
       : missingNode(id)));
 
@@ -189,8 +214,8 @@ function layerNodes(nodeIds, edges) {
   let current = 0;
   while (remaining.size) {
     let ready = [...remaining].filter((id) => inDegree.get(id) === 0);
-    if (!ready.length) ready = [Math.min(...remaining)]; // break a cycle deterministically (lowest id)
-    ready.sort((a, b) => a - b);
+    if (!ready.length) ready = [DEP_IDS.sortIds([...remaining])[0]]; // break a cycle deterministically (lowest id)
+    ready.sort(DEP_IDS.compareIds);
     for (const id of ready) { layer.set(id, current); remaining.delete(id); }
     for (const id of ready) {
       for (const succ of successors.get(id)) {
@@ -245,8 +270,9 @@ function walkFrom(start, adjacency, visited) {
   }
 }
 
-function treeIds(cards, rawId, ctx) {
-  const id = Number(rawId);
+function treeIds(cardList, rawId, ctx) {
+  const cards = depCards(cardList);
+  const id = depKey(rawId);
   if (!cards.some((c) => c.id === id)) return new Set();
   const { forward, backward } = buildAdjacency(cards, ctx);
   const visited = new Set([id]);
@@ -263,8 +289,9 @@ function treeIds(cards, rawId, ctx) {
   return visited;
 }
 
-function pathIds(cards, rawId, ctx) {
-  const id = Number(rawId);
+function pathIds(cardList, rawId, ctx) {
+  const cards = depCards(cardList);
+  const id = depKey(rawId);
   if (!cards.some((c) => c.id === id)) return new Set();
   const { forward, backward } = buildAdjacency(cards, ctx);
   const visited = new Set([id]);
@@ -277,10 +304,12 @@ function pathIds(cards, rawId, ctx) {
 // the dependency edges of buildDependencyGraph plus one pair per immediate parent
 // and child, never a grandparent and grandchild. A pair is not an edge:
 // map-relations.js decides which become lines and how they place cards. A parent
-// on another board is one stub per mention, with an id below zero that no card
-// can have. `ends` (see mapParentLineEnds) is read on the whole board, so a filter
+// on another board is one stub per mention, with an id that is no id and no card
+// can have (`ext:board#id`, which is no id). `ends` (see mapParentLineEnds) is read on the whole board, so a filter
 // never moves a line; a pair into a stub has none.
-function buildRelationsGraph(cards, visibleIds, ctx) {
+function buildRelationsGraph(cardList, visibleList, ctx) {
+  const cards = depCards(cardList);
+  const visibleIds = depSet(visibleList);
   const base = buildDependencyGraph(cards, visibleIds, ctx);
   const byId = new Map(cards.map((c) => [c.id, c]));
   const isVisible = (id) => byId.has(id) && (!visibleIds || visibleIds.has(id));
@@ -302,7 +331,7 @@ function buildRelationsGraph(cards, visibleIds, ctx) {
   const external = new Map();
   const externalStub = (ref) => {
     if (!external.has(ref)) {
-      const id = -(external.size + 1);
+      const id = `ext:${ref}`;
       external.set(ref, id);
       ghosts.push(Object.assign(missingNode(id), { external: ref }));
     }

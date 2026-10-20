@@ -21,7 +21,7 @@ const crowd = () => {
   const all = rootShapedCards();
   const cards = all.filter((c) => c.id <= 110 || (c.id >= 186 && c.id <= 225)).map((c) => ({ ...c, waiting_for: [] }));
   for (const c of cards) if (c.id <= 110 && c.id % 7 === 0) c.waiting_for = [c.id - 3];
-  [186, 194, 202, 210, 218].forEach((id, i) => { cards.find((c) => c.id === id).waiting_for = [10 + 20 * i]; });
+  [186, 194, 202, 210, 218].forEach((id, i) => { cards.find((c) => c.id === String(id)).waiting_for = [10 + 20 * i]; });
   return cards;
 };
 const MODEL = buildOf(crowd());

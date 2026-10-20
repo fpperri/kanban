@@ -24,7 +24,7 @@ module.exports = {
     const menu = `document.getElementById('context-menu')`;
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const cardIn = (container, id) => `${container} .card-el[data-id="${id}"]`;
-    const picked = () => ev(`[...selectedIds].sort((a,b)=>a-b)`);
+    const picked = () => ev(`[...selectedIds].map(Number).sort((a,b)=>a-b)`);
     const menuOpen = () => waitFor(`!${menu}.classList.contains('hidden')`);
     const closeMenu = async () => { await key('Escape'); return waitFor(`${menu}.classList.contains('hidden')`, 2500); };
     const lead = () => ev(`[...${menu}.querySelectorAll('button')].filter((b)=>!b.classList.contains('hidden')).slice(0,2).map((b)=>b.textContent.trim())`);
@@ -36,7 +36,7 @@ module.exports = {
     const anchorAndAdditions = () => ev(`(()=>{const s=selectionState.selection;return {anchor:s.anchor&&[s.anchor.kind,s.anchor.id].join(':'),additions:s.additions.map((p)=>[p.kind,p.id].join(':'))}})()`);
     const boardMarks = () => ev(`[...new Set([...document.querySelectorAll('#board .card-el.selected')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b)`);
     const graphMarks = () => ev(`[...document.querySelectorAll('#graph-view .graph-node.selected')].map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b)`);
-    const priorities = () => ev(`Object.fromEntries(state.active.filter((c)=>[1,3,4].includes(c.id)).map((c)=>[c.id,c.priority]))`);
+    const priorities = () => ev(`Object.fromEntries(state.active.filter((c)=>[1,3,4].includes(Number(c.id))).map((c)=>[c.id,c.priority]))`);
 
     // A point on the card that is not a cue, a button or a roll-up bar, so the click is a click on the card itself.
     const cardPoint = (sel) => ev(`(()=>{const el=document.querySelector(${JSON.stringify(sel)});if(!el)return null;el.scrollIntoView({block:'center',inline:'center'});const r=el.getBoundingClientRect();const skip='.card-assignee, .tag, .blocked-pill, .review-pill, .rollup, button, a, input, select';for(const fy of [0.5,0.35,0.65,0.25,0.75])for(let fx=0.1;fx<0.95;fx+=0.1){const x=r.left+r.width*fx,y=r.top+r.height*fy;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest('.card-el')===el&&!hit.closest(skip))return {x,y}}return null})()`);
@@ -122,11 +122,11 @@ module.exports = {
     await selectPair();
     await rightClickOnBoard(4);
     await setPriority('High');
-    check('Board: after a right-click outside a two-card selection, Set priority changes only the right-clicked card', await waitFor(`state.active.find((c)=>c.id===4).priority==='High'`) && same(await priorities(), { 1: 'Normal', 3: 'Normal', 4: 'High' }), await priorities());
+    check('Board: after a right-click outside a two-card selection, Set priority changes only the right-clicked card', await waitFor(`state.active.find((c)=>c.id==='4').priority==='High'`) && same(await priorities(), { 1: 'Normal', 3: 'Normal', 4: 'High' }), await priorities());
     check('and the two cards are still selected', same(await picked(), [1, 3]), await picked());
     await rightClickOnBoard(3);
     await setPriority('Low');
-    check('Board: after a right-click inside a two-card selection, Set priority changes both cards', await waitFor(`state.active.find((c)=>c.id===1).priority==='Low'`) && same(await priorities(), { 1: 'Low', 3: 'Low', 4: 'High' }), await priorities());
+    check('Board: after a right-click inside a two-card selection, Set priority changes both cards', await waitFor(`state.active.find((c)=>c.id==='1').priority==='Low'`) && same(await priorities(), { 1: 'Low', 3: 'Low', 4: 'High' }), await priorities());
 
     // Dependency path and tree add to the selection and leave the box alone.
     await openBoard();
@@ -153,7 +153,7 @@ module.exports = {
     check('Dependency path and Dependency tree are absent from the menu when its subject is several cards', !(await entryShown('ctx-path')) && !(await entryShown('ctx-tree')) && (await entryShown('ctx-assign')));
     await closeMenu();
 
-    // Archive and Delete name the resolved count of a selection that holds a path part. The confirmations answer no, so nothing is archived or deleted.
+    // Archive and Delete name the resolved count of a selection that holds a path part. The archive confirmation answers no and Delete opens its popup, closed unanswered, so nothing is archived or deleted.
     await openBoard();
     await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
     await rightClickOnBoard(4);
@@ -165,6 +165,8 @@ module.exports = {
     await press('ctx-delete');
     const asked = await ev('window.__asked');
     check('archiving a selection that holds a path part names the resolved count', asked[0] === 'Archive 3 card(s)? (moves their files to archived/)', asked);
-    check('deleting a selection that holds a path part names the resolved count', asked[1] === 'Permanently delete 3 card(s)? This cannot be undone.', asked);
+    check('deleting a selection that holds a path part names the resolved count in the delete popup', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 3 cards?'`, 3000), asked);
+    await key('Escape');
+    await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
   },
 };

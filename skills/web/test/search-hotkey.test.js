@@ -108,6 +108,16 @@ test('"#" followed by digits is left alone (still forming an id)', () => {
   assert.strictEqual(searchHashStrip('#42'), null);
 });
 
+test('"#" followed by a prefix and digits is left alone too: #G7 is an id', () => {
+  assert.strictEqual(searchHashStrip('#G'), null);
+  assert.strictEqual(searchHashStrip('#G7'), null);
+  assert.strictEqual(searchHashStrip('#_12'), null);
+});
+
+test('a lower-case letter after a prefix is no id, so the "#" goes', () => {
+  assert.strictEqual(searchHashStrip('#Gx'), 'Gx');
+});
+
 test('a non-numeric char right after "#" strips the "#"', () => {
   assert.strictEqual(searchHashStrip('#a'), 'a');
 });

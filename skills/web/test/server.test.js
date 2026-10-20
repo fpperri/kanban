@@ -7,7 +7,7 @@ const http = require('node:http');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 const { assertKeepsSelection, assertHoldsPoll, assertLetsPollRun } = require('./helpers/markers');
-const { createServer, start, resolvePort, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
+const { createServer, start, resolvePort, warnConfig, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
 
 function tmpBoard() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-srv-'));
@@ -558,10 +558,10 @@ test('popup header control icons still ride order:-1 (the mechanism the shared p
     assert.match(css, /\.modal-header-actions\s*\{[^}]*order:\s*-1/);
     assert.match(css, /\.detail-actions\s*\{[^}]*order:\s*-1/);
     // every popup's header controls ride one of the two moved classes —
-    // edit form + the three bulk popups + the archive popup vs. detail popup
-    // + notifications
+    // edit form + the three bulk popups + the archive popup + the group dialog
+    // vs. detail popup + notifications
     const html = await (await fetch(`${base}/`)).text();
-    assert.strictEqual((html.match(/class="modal-header-actions"/g) || []).length, 5);
+    assert.strictEqual((html.match(/class="modal-header-actions"/g) || []).length, 6);
     assert.strictEqual((html.match(/class="detail-actions"/g) || []).length, 2);
   });
 });
@@ -590,13 +590,13 @@ test('every popup header is its OWN two rows — icons alone on row 1, title/con
     // only while every match above stayed green.
     assert.ok(!/\.modal\.fullscreen[^{]*(popup-header|modal-header|detail-header|-actions)/.test(css),
       'a .modal.fullscreen-scoped header/popup-header/actions rule would silently undo the two-row layout in fullscreen only');
-    // one shared class, not per-popup one-offs: all seven header containers —
+    // one shared class, not per-popup one-offs: all eight header containers —
     // the edit/create form, the three bulk popups (single/tags/schedule), the
-    // archive popup, the detail popup, and notifications — carry
+    // archive popup, the group dialog, the detail popup, and notifications — carry
     // .popup-header. The right-click context menu has no header controls and
     // carries neither this class nor an action group ("stays as-is").
     const html = await (await fetch(`${base}/`)).text();
-    assert.strictEqual((html.match(/class="[^"]*\bpopup-header\b[^"]*"/g) || []).length, 7);
+    assert.strictEqual((html.match(/class="[^"]*\bpopup-header\b[^"]*"/g) || []).length, 8);
     assert.doesNotMatch(html, /<div id="context-menu"[^>]*class="[^"]*popup-header/);
     // position only: DOM stays title/content-before-actions everywhere (the
     // order:-1 CSS flip is what visually leads with the icons) — the same
@@ -1029,7 +1029,7 @@ test('POST /api/cards creates; PATCH moves; DELETE removes', async () => {
   await withServer(dir, async (base) => {
     const created = await req(base, 'POST', '/api/cards', { title: 'Fresh', status: 'todo' });
     assert.strictEqual(created.status, 201);
-    assert.strictEqual(created.json.id, 3);
+    assert.strictEqual(created.json.id, '3');
 
     const moved = await req(base, 'PATCH', '/api/cards/3', { status: 'doing' });
     assert.strictEqual(moved.status, 200);
@@ -1047,7 +1047,7 @@ test('PATCH to doing on a waiting card returns 422 naming the unresolved deps', 
     await req(base, 'PATCH', '/api/cards/1', { status: 'todo' }); // card 1 no longer done
     const r = await req(base, 'PATCH', '/api/cards/2', { status: 'doing' });
     assert.strictEqual(r.status, 422);
-    assert.deepStrictEqual(r.json.waiting.map((w) => w.id), [1]);
+    assert.deepStrictEqual(r.json.waiting.map((w) => w.id), ['1']);
     assert.match(r.json.error, /^waiting on #1 \(todo\)$/, 'the payload names which gate — waiting, with id + live status');
   });
 });
@@ -1090,7 +1090,7 @@ test('POST archive twice on the same id is idempotent — no duplicate-suffixed 
     assert.strictEqual((await req(base, 'POST', '/api/cards/1/archive')).status, 200);
     const second = await req(base, 'POST', '/api/cards/1/archive'); // simulates a stale second tab/popup
     assert.strictEqual(second.status, 200);
-    assert.strictEqual(second.json.id, 1);
+    assert.strictEqual(second.json.id, '1');
     assert.strictEqual(second.json.archived, true);
     assert.ok(fs.existsSync(path.join(dir, 'archived', '1.card.md')));
     assert.ok(!fs.existsSync(path.join(dir, 'archived', '1-2.card.md')), 'no renamed duplicate on re-archive');
@@ -1111,7 +1111,7 @@ test('POST archive with a package files the card in archived/<package>/ and the 
     assert.ok(fs.existsSync(path.join(dir, 'archived', '2026-q2', '1.card.md')));
     assert.ok(!fs.existsSync(path.join(dir, 'archived', '1.card.md')));
     const board = await req(base, 'GET', '/api/board');
-    assert.deepStrictEqual(board.json.archived.map((c) => c.id), [1], 'the recursive walk finds the packaged card');
+    assert.deepStrictEqual(board.json.archived.map((c) => c.id), ['1'], 'the recursive walk finds the packaged card');
     assert.deepStrictEqual(board.json.archivePackages, ['2026-q2']);
     // restore reaches into the package, same as before packages existed
     assert.strictEqual((await req(base, 'POST', '/api/cards/1/restore')).status, 200);
@@ -1188,7 +1188,7 @@ test('POST /api/cards waiting on an unfinished card returns 422 with the unresol
     await req(base, 'PATCH', '/api/cards/1', { status: 'todo' }); // card 1 now unfinished
     const r = await req(base, 'POST', '/api/cards', { title: 'Waiting', status: 'doing', waiting_for: [1] });
     assert.strictEqual(r.status, 422);
-    assert.strictEqual(r.json.waiting[0].id, 1);
+    assert.strictEqual(r.json.waiting[0].id, '1');
   });
 });
 
@@ -1295,7 +1295,7 @@ test('GET /api/cards/1/detail returns raw frontmatter, absolute path, and body',
   await withServer(dir, async (base) => {
     const r = await req(base, 'GET', '/api/cards/1/detail');
     assert.strictEqual(r.status, 200);
-    assert.strictEqual(r.json.id, 1);
+    assert.strictEqual(r.json.id, '1');
     assert.strictEqual(r.json.title, 'One');
     assert.match(r.json.frontmatter, /^status: done$/m);
     assert.ok(path.isAbsolute(r.json.path));
@@ -1328,7 +1328,7 @@ test('GET /api/cards/:id/detail for an archived card 200s with archived: true (a
     assert.strictEqual((await req(base, 'POST', '/api/cards/1/archive')).status, 200);
     const r = await req(base, 'GET', '/api/cards/1/detail');
     assert.strictEqual(r.status, 200);
-    assert.strictEqual(r.json.id, 1);
+    assert.strictEqual(r.json.id, '1');
     assert.strictEqual(r.json.archived, true);
   });
 });
@@ -2148,7 +2148,7 @@ test('wireGanttPointerDrag blocks the drag gesture at pointerdown for an archive
     assert.ok(fn, 'wireGanttPointerDrag found in app.js');
     const down = fn[0].match(/container\.addEventListener\('pointerdown', \(e\) => \{[\s\S]*?\n {2}\}\);/);
     assert.ok(down, 'the gantt pointerdown handler found in app.js');
-    const cardIdx = down[0].indexOf("state.active.find((c) => c.id === Number(barEl.dataset.id))");
+    const cardIdx = down[0].indexOf("state.active.find((c) => c.id === barEl.dataset.id)");
     assert.ok(cardIdx > -1, 'the live-card lookup is still there');
     const guardMatch = down[0].match(/if\s*\(!card\)\s*\{[\s\S]*?toast\([^)]*\)[\s\S]*?return;\s*\}/);
     assert.ok(guardMatch, 'a !card guard blocks the gesture with user feedback before ganttDrag is ever built');
@@ -2245,7 +2245,7 @@ test('the calendar month grid AND the sub-month time grid both append search-fil
     assert.ok(month, 'renderCalendarMonthGrid found in app.js');
     assert.match(month[0], /loadCalendarStatusFilter\(\)\.archive === true/, 'the Archive pill\'s OWN boolean gates inclusion — a missing/stale/false value must never render archived chips');
     assert.match(month[0], /state\.archived\.filter\(\(c\) => searchIds\.has\(c\.id\)\)/, 'archived cards still respect the live search box');
-    assert.match(month[0], /const searchIds = currentSearchMatch\(\)\.ids;/, 'the search pool spans live + archived unconditionally, same as the gantt: the shared match result is made over the whole board');
+    assert.match(month[0], /const searchIds = withIterationCut\(currentSearchMatch\(\)\.ids\);/, 'the search pool spans live + archived unconditionally, same as the gantt: the shared match result is made over the whole board, cut to the picked iteration');
     const timegrid = js.match(/function renderCalendarTimeGrid\([\s\S]*?\n\}/);
     assert.ok(timegrid, 'renderCalendarTimeGrid found in app.js');
     assert.match(timegrid[0], /loadCalendarStatusFilter\(\)\.archive === true/, 'the #58 sub-month grid gates archived inclusion the same way as the month grid');
@@ -3353,6 +3353,23 @@ test('resolvePort: pin honored — config.yaml\'s port: wins over the 7777 defau
   const dir = tmpBoard();
   fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 47811\n');
   assert.deepStrictEqual(resolvePort(dir, undefined), { port: 47811, pinned: true });
+});
+
+test('warnConfig: names a prefix declared twice, keeping the first, and says nothing for a clean config', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'groups: .groups\nprefixes:\n  G: goal\n  G: .groups/iteration\n');
+  const seen = [];
+  const real = console.error;
+  console.error = (m) => seen.push(m);
+  try { warnConfig(dir); } finally { console.error = real; }
+  assert.strictEqual(seen.length, 1, seen.join('|'));
+  assert.match(seen[0], /prefix `G`.*`goal`.*`\.groups\/iteration`.*ignored/);
+  const clean = tmpBoard();
+  fs.writeFileSync(path.join(clean, 'config.yaml'), 'groups: .groups\nprefixes:\n  G: goal\n  I: .groups/iteration\n');
+  const quiet = [];
+  console.error = (m) => quiet.push(m);
+  try { warnConfig(clean); } finally { console.error = real; }
+  assert.deepStrictEqual(quiet, []);
 });
 
 test('resolvePort: a CLI argument beats the pin', () => {

@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const scenario = require('./browser/scenarios/type-icons');
 const scenarios = require('./browser/scenarios');
 const { materialize } = require('./browser/boards');
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { graphBuild, graphLayout, graphPlan } = require('../web/graph-model');
 const { typeBadge } = require('../web/type-badge');
@@ -29,7 +29,7 @@ function loadBoard(key) {
   const dir = path.join(root, 'board');
   materialize(key, dir);
   const config = readConfig(dir);
-  const cards = [...listActive(dir), ...listArchived(dir)];
+  const cards = [...listActive(dir).map(toJSON), ...listArchived(dir).map(toJSON)];
   return { config, cards, byId: new Map(cards.map((c) => [String(c.id), c])) };
 }
 const BOARDS = { plan: loadBoard('plan'), malformed: loadBoard('malformed') };
@@ -145,7 +145,7 @@ test('a page that draws every dot round fails each shape check and no other dot 
 });
 
 test('a page that draws the unknown-icon type\'s dot as a shape fails that card\'s round-dot check', async () => {
-  const page = standIn({ dots: (n, read) => (n.id === 14 ? 'hexagon' : (n.d ? read(n.d) : 'circle')) });
+  const page = standIn({ dots: (n, read) => (Number(n.id) === 14 ? 'hexagon' : (n.d ? read(n.d) : 'circle')) });
   await scenario.run(page);
   assert.deepStrictEqual(failed(page), ["plan: card 14's Graph dot is round"]);
 });

@@ -85,7 +85,9 @@ a quoted `title:` or `body:` matches the whole field, and quoted text with no sc
 `slice:goal..` and `slice:..objective` leave an end open, a reversed pair is swapped, an end the
 board does not have is left open, and a single unknown name, `slice:..` and a half-typed name
 cut nothing. A board with no hierarchy cuts by depth (`slice:1` keeps the depth-1 cards), and
-`slice:` combines like any term (`tags:ui (slice:goal | #12)`). Slices are counted over every
+`slice:` combines like any term (`tags:ui (slice:goal | #12)`). The snapshot reads `group:<id or
+name>`, `group:` and `-group:` too, but it draws no groups, so a `group:` term finds no card here and
+`-group:` finds every card. Slices are counted over every
 card of the board, archived ones included, as the page was built: a queued edit does not move a
 card to another slice until it is applied, and a card queued with + New card sits where a new card
 does, a root at depth 0 or the tier its type names, so a cut that holds depth 0 shows it and one that
@@ -313,7 +315,7 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
   archived like an archived child, and a loop of parents is flagged where it repeats.
 - **Changing type and parent.** The sheet's type pill picks from the declared types
   (plus the card's own and none), and the All fields grid always offers `type` and
-  `parent` (a number, or `board#id` for another board's card). Both queue as an
+  `parent` (an id such as `7` or `G3`, or `board#id` for another board's card). Both queue as an
   `edit` op's `fm`, like any other field, and a queued change shows at once in the
   chips, the order, the roll-ups and the thread.
 - **Rank is not editable here.** The grid hides `rank` even on a card that has one,
@@ -636,7 +638,20 @@ ports those models and does not embed them.
 **No Graph view.** kanban-web's Graph, which draws every card at once as a dot in the tier fan, Force
 or Status layout, with its option row, its lighting and its names, has no counterpart: the Map is this
 page's one picture of the relations, and the slices and pills of the panel cut every view without it.
-The `n` key that steps the fan's names goes with it.
+The `l` key that steps the fan's names goes with it.
+
+**No logbook.** kanban-web's notes palette (the `n` key, the card menu's note entry, the count a
+card wears), the notes on the Calendar as chips and the author switch have no counterpart: the
+snapshot reads no `logbook:` folder and shows no note. Web-only in this release.
+
+**No groups beyond the search term.** kanban-web's group badges on a card, the palette's Group tab,
+the group form, the delete popup and the iteration dropdown have no counterpart: the snapshot reads
+`group:` in the box (see above) but draws no group, so nothing here lists a group's members or
+narrows the views to an iteration. Web-only in this release.
+
+**No scratchpad.** kanban-web's Scratchpad tab, the page for one card or group, and the gear's
+Scratchpad page have no counterpart: the snapshot reads no `scratchpad:` folder. The scratchpad is
+only in kanban-web, web-only in this release.
 
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map

@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { selectionGlobals } = require('./helpers/selection-globals');
 const { parseSearchQuery, filterCards } = require('../web/search');
+const { installDelete } = require('./helpers/delete-popup');
 
 // A bulk action takes its list of target cards once, when it starts, from the
 // resolved selection. Writes, re-renders and polls during the action never
@@ -56,7 +57,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   const { searchMatchIds, selectionMatchIds, ...pageless } = selectionGlobals(); // the page's own matchers run here, over the real search module
   const boxes = new Map();
   const $ = (sel) => { if (!boxes.has(sel)) boxes.set(sel, fakeBox()); return boxes.get(sel); };
-  const live = cards.map((c) => ({ ...c, tags: [...c.tags] }));
+  const live = cards.map((c) => ({ ...c, id: String(c.id), tags: [...c.tags] }));
   const sandbox = {
     $, boxes, calls,
     state: { projectName: 'board', active: live.filter((c) => !c.archived), archived: live.filter((c) => c.archived) },
@@ -70,12 +71,12 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
     ...require('../web/bulk-edit'),
   };
   const run = (code) => vm.runInContext(code, sandbox);
-  const find = (id) => sandbox.state.active.concat(sandbox.state.archived).find((c) => c.id === id);
+  const find = (id) => sandbox.state.active.concat(sandbox.state.archived).find((c) => c.id === String(id));
   // A poll: the page paints again, and every paint works the selection out again.
   const poll = () => { calls.polls++; run('setSelection(selectionState.selection)'); };
   sandbox.afterWrite = () => {};
   sandbox.serve = (method, url, body) => {
-    const id = Number(url.split('/')[3]);
+    const id = url.split('/')[3];
     const card = find(id);
     if (method === 'PATCH') Object.assign(card, body);
     else if (method === 'POST' && url.endsWith('/archive')) { card.archived = true; sandbox.state.active = sandbox.state.active.filter((c) => c !== card); sandbox.state.archived.push(card); }
@@ -91,6 +92,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   };
   sandbox.loadBoard = async () => { poll(); };
   vm.createContext(sandbox);
+  installDelete(sandbox, calls);
   const scheduleRows = appSrc.match(/const SCHEDULE_ROWS = \[[\s\S]*?\n\];/);
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   run([
@@ -106,7 +108,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   run('menuSubject = cardMenuFor(selectedIds, [...selectedIds][0])'); // a right-click on a selected card: the menu is for the whole selection
   return {
     boxes, calls, run, find, poll, sandbox,
-    picked: () => [...run('selectedIds')].sort((a, b) => a - b),
+    picked: () => [...run('selectedIds')].map(Number).sort((a, b) => a - b),
     patched: () => calls.api.filter(([m]) => m === 'PATCH').map(([, url, body]) => [url, body]),
     posted: (suffix) => calls.api.filter(([m, url]) => m === 'POST' && url.endsWith(suffix)).map(([, url]) => Number(url.split('/')[3])),
     deleted: () => calls.api.filter(([m]) => m === 'DELETE').map(([, url]) => Number(url.split('/')[3])),
@@ -193,7 +195,7 @@ test('archive on a selection holding a query part confirms the count taken at th
 test('archive clears the selection when the menu that opened the popup was inside it, whatever menu the page holds by the time the popup is applied', async () => {
   const s = bulkSandbox({ query: 'tags:a' });
   await s.run('bulkArchive()');
-  s.run('menuSubject = cardMenuFor(selectedIds, 4)'); // another right-click, outside the selection, while the popup is open
+  s.run("menuSubject = cardMenuFor(selectedIds, '4')"); // another right-click, outside the selection, while the popup is open
   await s.run('applyBulkArchive()');
   assert.deepStrictEqual(s.posted('/archive'), [1, 2, 3], 'the popup archived the cards it opened on');
   assert.deepStrictEqual(s.picked(), [], 'the menu it opened from was for the selection, so the selection is cleared');
@@ -201,7 +203,7 @@ test('archive clears the selection when the menu that opened the popup was insid
 
 test('archive leaves a hand-built selection as it was when the menu that opened the popup was outside it, whatever menu the page holds by the time the popup is applied', async () => {
   const s = bulkSandbox({ query: 'tags:a' });
-  s.run('menuSubject = cardMenuFor(selectedIds, 4)'); // a right-click on a card outside the selection
+  s.run("menuSubject = cardMenuFor(selectedIds, '4')"); // a right-click on a card outside the selection
   await s.run('bulkArchive()');
   s.run('menuSubject = cardMenuFor(selectedIds, [...selectedIds][0])'); // another right-click, inside it, while the popup is open
   await s.run('applyBulkArchive()');
@@ -209,10 +211,12 @@ test('archive leaves a hand-built selection as it was when the menu that opened 
   assert.deepStrictEqual(s.picked(), [1, 2, 3, 5], 'the selection was not what the popup opened on, so it stays');
 });
 
-test('delete on a selection holding a query part confirms the count taken at the start and deletes exactly those cards, though each delete takes a card off the query', async () => {
+test('delete on a selection holding a query part asks once for the count taken at the start and deletes exactly those cards, though each delete takes a card off the query', async () => {
   const s = bulkSandbox({ query: 'tags:a' });
   await s.run('bulkDelete()');
-  assert.deepStrictEqual(s.calls.confirms, ['Permanently delete 4 card(s)? This cannot be undone.']);
+  await s.calls.pending;
+  assert.deepStrictEqual(s.calls.deletes, [{ kind: 'card', targets: ['1', '2', '3', '5'] }], 'one popup for the whole selection');
+  assert.deepStrictEqual(s.calls.confirms, []);
   assert.deepStrictEqual(s.deleted(), [1, 2, 3, 5]);
   assert.match(s.calls.toasts[0], /Deleted 4 card/);
 });
@@ -232,12 +236,12 @@ test('drag: a drag of a card in the selection carries the cards the query matche
   s.sandbox.$ = (sel) => (sel === '#board' ? { querySelectorAll: () => [tile] } : fakeBox());
   s.run('wireDrag()');
   handlers.dragstart({ dataTransfer: { setData() {} } });
-  assert.deepStrictEqual([...s.run('bulkDragIds')], [1, 2, 3, 5]);
+  assert.deepStrictEqual([...s.run('bulkDragIds')].map(Number), [1, 2, 3, 5]);
   s.find(1).assignee = '@human';
   s.find(4).assignee = '@afk';
   s.poll();
   assert.deepStrictEqual(s.picked(), [2, 3, 4, 5]);
-  assert.deepStrictEqual([...s.run('bulkDragIds')], [1, 2, 3, 5], 'the poll did not change the cards the drag carries');
+  assert.deepStrictEqual([...s.run('bulkDragIds')].map(Number), [1, 2, 3, 5], 'the poll did not change the cards the drag carries');
 });
 
 // What the tests above prove can fail: a mutation that makes an apply step read the

@@ -21,7 +21,7 @@ after(cleanUp);
 
 const BOARDS = { plan: loadBoard('plan'), fixture: loadBoard('fixture'), malformed: loadBoard('malformed') };
 const CASE = scenario.CASES;
-const sorted = (ids) => ids.slice().sort((a, b) => a - b);
+const sorted = (ids) => ids.map(Number).sort((a, b) => a - b);
 
 const modelOf = (key, extra = []) => {
   const board = BOARDS[key];
@@ -53,14 +53,14 @@ test('the cards each board draws are the scenario\'s lists, and the parents are 
 test('the cards the scenario picks light the cards it says, and the extras are drawn', () => {
   const model = modelOf('plan');
   for (const pick of CASE.plan.picks) {
-    assert.deepStrictEqual(sorted([...graphNeighbours(model, pick.id)].filter((id) => id !== pick.id)), sorted(pick.related), `card ${pick.id}`);
+    assert.deepStrictEqual(sorted([...graphNeighbours(model, String(pick.id))].filter((id) => id !== String(pick.id))), sorted(pick.related), `card ${pick.id}`);
     assert.ok(!CASE.plan.parents.includes(pick.id), 'a leaf, so a click on it shows what the selection adds');
   }
-  for (const id of CASE.plan.extras) assert.ok(model.byId.has(id), `card ${id} is drawn`);
+  for (const id of CASE.plan.extras) assert.ok(model.byId.has(String(id)), `card ${id} is drawn`);
 });
 
 test('the title, the added card and the steps are the board\'s and the model\'s', () => {
-  const one = BOARDS.plan.live.find((c) => c.id === CASE.plan.title.id);
+  const one = BOARDS.plan.live.find((c) => c.id === String(CASE.plan.title.id));
   assert.strictEqual(graphFanNameText(one.title, one.id), CASE.plan.title.text);
   assert.strictEqual(BOARDS.plan.config.nextId, CASE.plan.addedId, 'the first card the scenario adds');
   assert.deepStrictEqual(CASE.plan.values, JSON.parse(JSON.stringify(GRAPH_FAN_OPTION_VALUES.names)));
@@ -95,7 +95,7 @@ function standIn(over = {}) {
   const cardsExtra = () => (extraOf[key] || []).map((c) => ({ ...c }));
   const model = () => modelOf(key, cardsExtra());
   const lone = () => (selected.length === 1 ? selected[0] : null);
-  const namedFor = (mode, ids, loneId) => sorted([...graphFanNames(model(), mode, { selectedIds: new Set(ids), loneCardId: loneId })]);
+  const namedFor = (mode, ids, loneId) => sorted([...graphFanNames(model(), mode, { selectedIds: new Set(ids.map(String)), loneCardId: loneId === null ? null : String(loneId) })]);
   const named = () => {
     if (view !== 'graph' || layout !== 'tiers') return [];
     const mode = over.ignoresSetting ? 'relevant' : st().names;
@@ -113,7 +113,7 @@ function standIn(over = {}) {
     return { kind: 'none' };
   };
   const pressN = (mods = {}) => {
-    if (focus === 'box') { box += 'n'; if (!over.typedNStepsToo) return; }
+    if (focus === 'box') { box += 'l'; if (!over.typedNStepsToo) return; }
     if (!over.chordSteps && (mods.ctrl || mods.alt)) return;
     if (surface !== null && !over.ignoresSurfaces) return;
     if (panel && over.panelBlocksN) return;
@@ -131,7 +131,7 @@ function standIn(over = {}) {
       })),
     };
   };
-  const keyLine = () => `solid line: parent · n steps the names: ${over.lineStale ? 'relevant' : st().names}`;
+  const keyLine = () => `solid line: parent · l steps the names: ${over.lineStale ? 'relevant' : st().names}`;
   const press = (target, extras = {}) => {
     if (target.kind === 'option') { st().names = target.v; focus = `names=${target.v}`; }
     if (target.kind === 'notifications') surface = 'notifications';
@@ -166,7 +166,7 @@ function standIn(over = {}) {
       if (type === 'mouseReleased') pressing = null;
     },
     key: async (name, mods = {}) => {
-      if (name === 'n') { pressN(mods); return; }
+      if (name === 'l') { pressN(mods); return; }
       if (name === 'Escape') { if (surface !== null) surface = null; }
     },
     rightClick: async () => { surface = 'menu'; },
@@ -201,16 +201,16 @@ function standIn(over = {}) {
       for (const v of GRAPH_FAN_OPTION_VALUES.names) {
         if (expr === options.pressedIs('names', v)) return st().names === v;
         if (expr === scenario.settingIs(v)) return st().names === v;
-        if (expr === scenario.keyLineSays(v)) return keyLine().endsWith(`n steps the names: ${v}`);
+        if (expr === scenario.keyLineSays(v)) return keyLine().endsWith(`l steps the names: ${v}`);
         if (expr === `${options.FOCUSED_OPTION}==='names=${v}'`) return focus === `names=${v}`;
         if (expr === `${SET}!==${JSON.stringify(v)}`) return st().names !== v;
       }
-      for (const text of ['', 'n']) if (expr === scenario.boxIs(text)) return box === text;
-      const one = /^\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
+      for (const text of ['', 'l']) if (expr === scenario.boxIs(text)) return box === text;
+      const one = /^\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\.length===1&&\[\.\.\.selectedIds\]\.map\(Number\)\.sort\(\(a,b\)=>a-b\)\[0\]===(\d+)$/.exec(expr);
       if (one) return selected.length === 1 && selected[0] === Number(one[1]);
       if (expr === `${options.SELECTED}.length===2`) return selected.length === 2;
       const dot = /^!!document\.querySelector\('#graph-view \.graph-node\[data-id="(\d+)"\]'\)$/.exec(expr);
-      if (dot) return model().nodes.some((n) => n.id === Number(dot[1]));
+      if (dot) return model().nodes.some((n) => n.id === dot[1]);
       const ids = /^JSON\.stringify\(.*\)===("\[[\d,]*\]")$/.exec(expr);
       if (ids && expr.startsWith(`JSON.stringify(${scenario.NAMED})===`)) return JSON.stringify(named()) === JSON.parse(ids[1]);
       if (expr === scenario.NAMED) return named();
@@ -228,7 +228,7 @@ function standIn(over = {}) {
       }
       const title = /\[data-id="(\d+)"\] \.graph-node-name'\);return t\?t\.textContent:null\}\)\(\)$/.exec(expr);
       if (title) {
-        const card = model().byId.get(Number(title[1]));
+        const card = model().byId.get(title[1]);
         return card ? (over.nameText ? over.nameText(card) : graphFanNameText(card.card.title, card.id)) : null;
       }
       if (expr === `document.getElementById('search-input').value`) return box;
@@ -249,12 +249,12 @@ function standIn(over = {}) {
       if (/requestAnimationFrame/.test(expr)) return true;
       for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.pickLayout(name)) { layout = name; st().layout = name; return true; }
       const dotAt = /^\(\(\)=>\{const dot=document\.querySelector\('\.graph-node\[data-id="(\d+)"\] \.graph-dot'\)/.exec(expr);
-      if (dotAt) return model().nodes.some((n) => n.id === Number(dotAt[1])) ? { x: 10000 + Number(dotAt[1]), y: 1 } : null;
+      if (dotAt) return model().nodes.some((n) => n.id === dotAt[1]) ? { x: 10000 + Number(dotAt[1]), y: 1 } : null;
       const created = /^fetch\('\/api\/cards',\{method:'POST',headers:\{'content-type':'application\/json'\},body:JSON\.stringify\((.*)\)\}\)\.then\(\(r\)=>r\.status\)$/.exec(expr);
       if (created) {
         const card = JSON.parse(created[1]);
         (pendingOf[key] = pendingOf[key] || []).push({
-          id: nextId++, title: card.title, status: card.status || 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false,
+          id: String(nextId++), title: card.title, status: card.status || 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false,
         });
         return 201;
       }
@@ -283,16 +283,16 @@ test('each check listed here is in the scenario', async () => {
   has(/the row shows Names with relevant, all and none/);
   has(/relevant is on by default/);
   has(/each Names choice changes the number of drawn names/);
-  has(/n steps the names to all/);
-  has(/n steps the names to none/);
-  has(/n steps the names to relevant/);
-  has(/with focus in the search box, n is typed and the setting stays/);
-  has(/with a card menu open, n does nothing/);
-  has(/with the notifications panel open, n does nothing/);
-  has(/with the preferences sheet open, n does nothing/);
-  has(/with the search panel open and focus outside the box, n steps the setting/);
-  has(/in force, n does nothing/);
-  has(/in status, n does nothing/);
+  has(/l steps the names to all/);
+  has(/l steps the names to none/);
+  has(/l steps the names to relevant/);
+  has(/with focus in the search box, l is typed and the setting stays/);
+  has(/with a card menu open, l does nothing/);
+  has(/with the notifications panel open, l does nothing/);
+  has(/with the preferences sheet open, l does nothing/);
+  has(/with the search panel open and focus outside the box, l steps the setting/);
+  has(/in force, l does nothing/);
+  has(/in status, l does nothing/);
   has(/outside the Graph/i);
   has(/a reload keeps the Names choice/);
   has(/another board starts at relevant/);
@@ -310,27 +310,27 @@ const failsWith = async (over, re, why) => {
 
 test('a setting that changes nothing, or a key that never steps, fails', async () => {
   await failsWith({ ignoresSetting: true }, /each Names choice changes the number of drawn names|all is pressed and names every card/, 'every setting draws relevant');
-  await failsWith({ nDead: true }, /n steps the names to all/, 'n does nothing');
-  await failsWith({ stuck: true }, /n steps the names to none/, 'n sticks at all');
+  await failsWith({ nDead: true }, /l steps the names to all/, 'n does nothing');
+  await failsWith({ stuck: true }, /l steps the names to none/, 'n sticks at all');
 });
 
 test('a key that types and steps, steps behind a surface or with a chord, or steps outside Tiers, fails', async () => {
-  await failsWith({ typedNStepsToo: true }, /with focus in the search box, n is typed and the setting stays/, 'n steps while typing');
-  await failsWith({ ignoresSurfaces: true }, /with a card menu open, n does nothing/, 'n steps behind the menu');
-  await failsWith({ ignoresSurfaces: true }, /with the notifications panel open, n does nothing/, 'n steps behind the panel');
-  await failsWith({ ignoresSurfaces: true }, /with the preferences sheet open, n does nothing/, 'n steps behind the sheet');
-  await failsWith({ chordSteps: true }, /n with Ctrl or Alt held does nothing/, 'a chord steps');
-  await failsWith({ stepsEverywhere: true }, /in force, n does nothing/, 'n steps in Force');
+  await failsWith({ typedNStepsToo: true }, /with focus in the search box, l is typed and the setting stays/, 'n steps while typing');
+  await failsWith({ ignoresSurfaces: true }, /with a card menu open, l does nothing/, 'n steps behind the menu');
+  await failsWith({ ignoresSurfaces: true }, /with the notifications panel open, l does nothing/, 'n steps behind the panel');
+  await failsWith({ ignoresSurfaces: true }, /with the preferences sheet open, l does nothing/, 'n steps behind the sheet');
+  await failsWith({ chordSteps: true }, /l with Ctrl or Alt held does nothing/, 'a chord steps');
+  await failsWith({ stepsEverywhere: true }, /in force, l does nothing/, 'n steps in Force');
   await failsWith({ stepsEverywhere: true }, /on the Board|the Board is left alone/, 'n steps on the Board');
 });
 
 test('a search panel that eats the key fails: the key must work with the panel open', async () => {
-  await failsWith({ panelBlocksN: true }, /with the search panel open and focus outside the box, n steps the setting/, 'the panel blocks n');
+  await failsWith({ panelBlocksN: true }, /with the search panel open and focus outside the box, l steps the setting/, 'the panel blocks n');
 });
 
 test('a step that loses the focus of an option or moves it to the option the step reached, or a footer that goes stale, fails', async () => {
-  await failsWith({ focusLost: true }, /n with focus on an option steps the setting, and the option keeps focus/, 'focus lost');
-  await failsWith({ focusFollows: true }, /n with focus on an option steps the setting, and the option keeps focus/, 'focus moves to the option the step reached');
+  await failsWith({ focusLost: true }, /l with focus on an option steps the setting, and the option keeps focus/, 'focus lost');
+  await failsWith({ focusFollows: true }, /l with focus on an option steps the setting, and the option keeps focus/, 'focus moves to the option the step reached');
   await failsWith({ lineStale: true }, /footer line/, 'the footer line does not follow');
 });
 

@@ -4,11 +4,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { graphBuild, graphNeighbours, graphQueryEffect } = require('../web/graph-model');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');
 const lights = require('./browser/scenarios/graph-lights');
 const graph = require('./browser/scenarios/graph');
@@ -25,18 +26,18 @@ const board = (key) => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize(key, dir);
-  const live = listActive(dir);
-  const all = live.concat(listArchived(dir));
+  const live = listActive(dir).map(toJSON);
+  const all = live.concat(listArchived(dir).map(toJSON));
   const ctx = { board: key, hierarchy: readConfig(dir).hierarchy };
   const model = graphBuild(all, { ctx, visibleIds: new Set(live.map((c) => c.id)) });
-  return { key, live, all, ctx, model, byId: new Map(all.map((c) => [c.id, c])) };
+  return { key, live, all, ctx, model, byId: idMap(all) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const sorted = (list) => [...list].sort((a, b) => a - b);
+const sorted = (list) => [...list].map(Number).sort((a, b) => a - b);
 const matches = (b, query) => sorted(filterCards(b.all, parseSearchQuery(query, b.key), b.ctx).map((c) => c.id));
-const drawn = (b, ids) => ids.filter((id) => b.model.byId.has(id));
-const near = (b, id) => sorted(graphNeighbours(b.model, id));
+const drawn = (b, ids) => ids.filter((id) => b.model.byId.has(String(id)));
+const near = (b, id) => sorted(graphNeighbours(b.model, String(id)));
 
 test('the scenarios are in the runner, the new one on the plan board', () => {
   assert.strictEqual(scenarios.find((s) => s.name === 'graph-lights'), lights);
@@ -56,9 +57,9 @@ test('the cut query draws the cards the scenario says and lights the one inside 
   const b = board('plan');
   const { query, draws, lit } = lights.CASES.cut;
   const terms = parseSearchQuery(query, b.key);
-  const match = { terms, ids: new Set(filterCards(b.all, terms, b.ctx).map((c) => c.id)) };
+  const match = { terms, ids: new Set(filterCards(b.all, terms, b.ctx).map((c) => String(c.id))) };
   const effect = graphQueryEffect(match, b.all, b.ctx);
-  const live = new Set(b.live.map((c) => c.id));
+  const live = new Set(b.live.map((c) => String(c.id)));
   assert.deepStrictEqual(sorted([...effect.visibleIds].filter((id) => live.has(id))), draws);
   assert.deepStrictEqual(sorted([...effect.litIds].filter((id) => live.has(id))), lit);
   assert.ok(draws.length < b.live.length, 'the cut hides dots');

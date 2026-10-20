@@ -23,7 +23,7 @@ test('the gaps section names Isolate, the selection and the Graph, each as web-o
   assert.match(gaps, /\*\*No Graph view\.\*\*/);
   assert.match(gaps, /Graph[^.]*(three layouts|tier fan)/);
   assert.match(gaps, /Graph[^.]*option row[^.]*lighting[^.]*names[^.]*no counterpart/);
-  assert.match(gaps, /The `n` key that steps the fan's names goes with it/);
+  assert.match(gaps, /The `l` key that steps the fan's names goes with it/);
   assert.match(gaps, /kanban-web only|only in kanban-web|kanban-web's/);
 });
 
@@ -57,4 +57,19 @@ test('the snapshot doc says what the page leaves to kanban-web: Isolate, the sel
   assert.match(text, /no Isolate switch/);
   assert.match(text, /no selection/);
   assert.match(text, /no Graph view/);
+});
+
+test('the gaps section names the logbook, groups and the scratchpad, each as web-only in this release', () => {
+  assert.match(gaps, /\*\*No logbook\.\*\*/);
+  assert.match(gaps, /notes palette[^.]*Calendar[^.]*no counterpart/);
+  assert.match(gaps, /\*\*No groups beyond the search term\.\*\*/);
+  assert.match(gaps, /badges[^.]*Group tab[^.]*iteration dropdown[^.]*no counterpart/);
+  assert.match(gaps, /\*\*No scratchpad\.\*\*/);
+  assert.match(gaps, /scratchpad[^.]*(web-only|only in kanban-web|kanban-web only)/);
+  assert.match(gaps, /web-only in this release/);
+});
+
+test('the snapshot doc says the logbook, groups and the scratchpad are kanban-web only', () => {
+  const text = flat(docs);
+  assert.match(text, /no logbook, no group badges, Group tab or iteration dropdown, and no scratchpad/);
 });

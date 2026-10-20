@@ -13,6 +13,7 @@
 const CAL = (typeof module !== 'undefined' && module.exports)
   ? require('./calendar-model')
   : window;
+const GANTT_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
 // The four live board columns, in board order — gantt rows group by these.
 // Archive is a location, not a status (ADR 0002), and the gantt shows LIVE
@@ -91,7 +92,7 @@ function ganttGroups(cards, statuses) {
   const unknown = [...buckets.keys()].filter((s) => !order.includes(s)).sort();
   return known.concat(unknown).map((status) => ({
     status,
-    bars: buckets.get(status).sort((a, b) => a.card.id - b.card.id),
+    bars: buckets.get(status).sort((a, b) => GANTT_IDS.compareIds(a.card.id, b.card.id)),
   }));
 }
 
@@ -118,7 +119,7 @@ function ganttArchiveGroup(cards) {
     if (row) bars.push(row);
   }
   if (!bars.length) return null;
-  bars.sort((a, b) => a.card.id - b.card.id);
+  bars.sort((a, b) => GANTT_IDS.compareIds(a.card.id, b.card.id));
   return { status: 'archive', bars };
 }
 
@@ -144,7 +145,7 @@ function appendArchiveGroup(groups, archiveGroup) {
   if (!archiveGroup) return groups;
   const existing = groups.find((g) => g.status === 'archive');
   if (existing) {
-    existing.bars = existing.bars.concat(archiveGroup.bars).sort((a, b) => a.card.id - b.card.id);
+    existing.bars = existing.bars.concat(archiveGroup.bars).sort((a, b) => GANTT_IDS.compareIds(a.card.id, b.card.id));
   } else {
     groups.push(archiveGroup);
   }

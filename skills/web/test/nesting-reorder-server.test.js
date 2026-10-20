@@ -75,9 +75,9 @@ test('dropping between ranks 10 and 20 writes rank 15 to that card and touches n
   const dir = tmpBoard([10, 20, 30, 40]);
   const before = snapshotFiles(dir);
   await withServer(dir, async (base) => {
-    const res = await req(base, 'POST', '/api/cards/5/reorder', { prev: 2, next: 3 });
+    const res = await req(base, 'POST', '/api/cards/5/reorder', { prev: '2', next: '3' });
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.json.card.id, 5);
+    assert.strictEqual(res.json.card.id, '5');
     assert.strictEqual(res.json.card.rank, 15);
     assert.deepStrictEqual(res.json.renumbered, []);
   });
@@ -94,7 +94,7 @@ test('dropping between ranks 10 and 11 renumbers that parent\'s children in tens
     const res = await req(base, 'POST', '/api/cards/5/reorder', { prev: 2, next: 3 });
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.json.card.rank, 20);
-    assert.deepStrictEqual(res.json.renumbered.map((c) => [c.id, c.rank]), [[3, 30], [4, 40]]);
+    assert.deepStrictEqual(res.json.renumbered.map((c) => [c.id, c.rank]), [['3', 30], ['4', 40]]);
   });
   const after = snapshotFiles(dir);
   assert.deepStrictEqual(changedFiles(before, after), ['0003', '0004', '0005']);
@@ -110,7 +110,7 @@ test('an archived sibling is renumbered in its own file when the gap is full', a
   await withServer(dir, async (base) => {
     const res = await req(base, 'POST', '/api/cards/4/reorder', { prev: 2, next: 3 });
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(res.json.renumbered.map((c) => [c.id, c.rank, c.archived]), [[3, 30, true]]);
+    assert.deepStrictEqual(res.json.renumbered.map((c) => [c.id, c.rank, c.archived]), [['3', 30, true]]);
   });
   const after = snapshotFiles(dir);
   assert.deepStrictEqual(changedFiles(before, after), ['0003', '0004']);
@@ -124,7 +124,7 @@ test('dropping where the card already stands writes no file at all', async () =>
   await withServer(dir, async (base) => {
     const res = await req(base, 'POST', '/api/cards/3/reorder', { prev: 2, next: 4 });
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.json.card.id, 3);
+    assert.strictEqual(res.json.card.id, '3');
     assert.strictEqual(res.json.card.rank, 20);
     assert.deepStrictEqual(res.json.renumbered, []);
   });
@@ -136,8 +136,8 @@ test('the board lists the new order after a drop', async () => {
   await withServer(dir, async (base) => {
     await req(base, 'POST', '/api/cards/5/reorder', { prev: null, next: 2 });
     const board = await req(base, 'GET', '/api/board');
-    const ranks = board.json.active.filter((c) => c.parent === 1).sort((a, b) => a.rank - b.rank).map((c) => c.id);
-    assert.deepStrictEqual(ranks, [5, 2, 3, 4]);
+    const ranks = board.json.active.filter((c) => c.parent === '1').sort((a, b) => a.rank - b.rank).map((c) => c.id);
+    assert.deepStrictEqual(ranks, ['5', '2', '3', '4']);
   });
 });
 

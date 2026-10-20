@@ -1,9 +1,11 @@
 'use strict';
 // Pure rules for what the map draws from a board's relations: which parent
 // lines, which cards share a graph, in what order a row reads, where cards and
-// lines fall, and the words over a graph. No DOM, no storage and no other module
-// on purpose: the snapshot embeds this file's source verbatim, where nothing
-// else is loaded. Same dual-environment pattern as nesting.js / search.js.
+// lines fall, and the words over a graph. No DOM, no storage and one other
+// module, the id module: the snapshot embeds this file's source verbatim, ids.js
+// ahead of it. Same dual-environment pattern as nesting.js / search.js.
+
+const MR_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
 // Every Map option and what it may be set to, the default first.
 const MAP_OPTION_VALUES = Object.freeze({
@@ -135,10 +137,10 @@ function mapShapeRelations(rel, options) {
   const touched = new Set();
   for (const e of rel.edges) { touched.add(e.from); touched.add(e.to); }
   for (const p of rel.pairs) { touched.add(p.child); touched.add(p.parent); }
-  const byId = (a, b) => a.id - b.id;
+  const byId = (a, b) => MR_IDS.compareIds(a.id, b.id);
   const nodes = rel.nodes.filter((n) => touched.has(n.id)).sort(byId);
   const ghosts = rel.ghosts.filter((g) => touched.has(g.id)).sort(byId);
-  const everyId = nodes.concat(ghosts).map((n) => n.id).sort((a, b) => a - b);
+  const everyId = nodes.concat(ghosts).map((n) => n.id).sort(MR_IDS.compareIds);
 
   const joined = o.group === 'tree'
     ? mapRelJoin(everyId, rel.edges.map((e) => [e.from, e.to]).concat(rel.pairs.map((p) => [p.child, p.parent])))
@@ -148,7 +150,7 @@ function mapShapeRelations(rel, options) {
     const own = (list, end) => list.filter((x) => inGraph.has(x[end]));
     const gNodes = nodes.filter((n) => inGraph.has(n.id));
     return {
-      ids: ids.slice().sort((a, b) => a - b),
+      ids: ids.slice().sort(MR_IDS.compareIds),
       nodes: gNodes,
       ghosts: ghosts.filter((g) => inGraph.has(g.id)),
       roots: mapGraphRoots(gNodes, own(rel.pairs, 'child'), own(rel.edges, 'from')),
@@ -158,7 +160,7 @@ function mapShapeRelations(rel, options) {
     };
   });
   graphs.sort((a, b) => (b.nodes.length - a.nodes.length) || (b.ghosts.length - a.ghosts.length)
-    || (a.ids[0] - b.ids[0]));
+    || MR_IDS.compareIds(a.ids[0], b.ids[0]));
   return { graphs, noRelations: rel.nodes.filter((n) => !touched.has(n.id)).map((n) => n.id) };
 }
 

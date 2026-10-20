@@ -11,8 +11,8 @@ const source = lf(fs.readFileSync(path.join(WEB, 'map-relations.js'), 'utf8'));
 // The snapshot embeds this file as is, into a page where no other module is
 // loaded and a build step rewrites __NAME__ tokens.
 
-test('the module needs no other module, so a page with nothing else loaded can run it', () => {
-  assert.doesNotMatch(source, /\brequire\(/);
+test('the module needs no module but the id module, so a page with only that loaded can run it', () => {
+  assert.doesNotMatch(source, /\brequire\((?!'\.\/ids'\))/);
   assert.doesNotMatch(source, /\bimport\b/);
 });
 

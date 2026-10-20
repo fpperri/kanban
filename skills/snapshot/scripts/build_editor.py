@@ -19,6 +19,14 @@ import argparse, json, os, re, sys
 from datetime import datetime, timezone
 from urllib.parse import quote
 
+from functools import cmp_to_key
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ids import compare_ids, id_key, ID_SOURCE
+
+# The leading id of a card file name: `0007.slug.card.md`, `G0003.slug.card.md`, `_0012.slug.card.md`.
+FILE_ID_RE = re.compile(r"^(%s)\." % ID_SOURCE)
+
 def parse_card(path):
     text = open(path, encoding="utf-8", errors="replace").read()
     m = re.match(r"^---\s*\n(.*?)\n---\s*\n?(.*)$", text, re.S)
@@ -35,14 +43,14 @@ def parse_card(path):
             title = ln[2:].strip(); continue
         rest.append(ln)
     name = os.path.basename(path)
-    idm = re.match(r"^(\d+)", name)
+    idm = re.match(r"^(%s)" % ID_SOURCE, name)
     def lst(v):
         if not v or v == "[]": return []
         return [t.strip().strip('"').strip("'") for t in v.strip("[]").split(",") if t.strip()]
     full_body = "\n".join(rest).strip()
     return {
-        "id": int(fm["id"]) if fm.get("id", "").isdigit() else (int(idm.group(1)) if idm else 0),
-        "t": title or re.sub(r"^\d+\.", "", name).replace(".card.md", "").replace("-", " "),
+        "id": id_key(fm.get("id")) or (id_key(idm.group(1)) if idm else None) or "0",
+        "t": title or FILE_ID_RE.sub("", name).replace(".card.md", "").replace("-", " "),
         "s": (fm.get("status") or "backlog").lower(),
         "p": fm.get("priority") or "Normal",
         "a": fm.get("assignee", ""),
@@ -51,7 +59,7 @@ def parse_card(path):
         "end": fm.get("end_date", ""),
         "upd": fm.get("updated", ""),
         "tags": lst(fm.get("tags", "")),
-        "w": lst(fm.get("waiting_for", "")),
+        "w": [id_key(t) or t for t in lst(fm.get("waiting_for", ""))],
         "bl": fm.get("blocked", ""),
         # ADR 0009: review is blocked's sibling sticker —
         # "finished, approve me" rather than "stuck, act so I can proceed" —
@@ -352,6 +360,7 @@ WEB_MODULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..
 # script elements load: the placeholder of the slot in TEMPLATE, the file in skills/web/web
 # and the name the build refuses the file by.
 EMBEDDED = [
+    ("__IDS_JS__", "ids.js", "the id module"),
     ("__NESTING_JS__", "nesting.js", "the nesting module"),
     ("__MAP_RELATIONS_JS__", "map-relations.js", "the map relations module"),
     ("__SLICES_JS__", "slices.js", "the slices module"),
@@ -403,6 +412,8 @@ def main():
     cards = [parse_card(os.path.join(a.kanban_dir, f))
              for f in sorted(os.listdir(a.kanban_dir))
              if f.endswith(".card.md") and os.path.isfile(os.path.join(a.kanban_dir, f))]
+    # By id, whatever the file names say: an unpadded `9.x.card.md` is before `0010.y.card.md`.
+    cards.sort(key=cmp_to_key(lambda a, b: compare_ids(a["id"], b["id"])))
     if not cards:
         sys.exit(f"no *.card.md files found in {a.kanban_dir}")
     # Archived cards ride along read-only: flagged
@@ -903,6 +914,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 <button id="smore" aria-label="More scroll buttons">&#8943;</button>
 </div>
 <script>
+__IDS_JS__</script>
+<script>
 __NESTING_JS__</script>
 <script>
 __MAP_RELATIONS_JS__</script>
@@ -968,7 +981,9 @@ function acol(a){const t=(a||"").trim();if(!t)return null;if(ASGCOL[t])return AS
 const DATA=__DATA__;
 const NOTIFS=__NOTIFS__;
 // The parent on this board, read by the embedded nesting module like the outline does: a plain id, or this board's own name in `board#id` form.
-function localParent(raw){const p=parseParent(raw,BOARD);return p&&p.local?p.id:null}
+// Its id is the whole id string like every id the page holds, whether the module hands it as a string or a number.
+function parentRef(raw){const p=parseParent(raw,BOARD);return p&&p.local?Object.assign({},p,{id:kanbanIds.idKey(p.id)}):p}
+function localParent(raw){const p=parentRef(raw);return p&&p.local?p.id:null}
 DATA.forEach(c=>{c.pt=localParent(c.fm&&c.fm.parent)});
 let view=JSON.parse(JSON.stringify(DATA)),ops=[],gone=[],sel=null,ren=false,descEd=false,delArm=null,nseq=0,note="",copied=false,nfMore=false,activeView="board",colOpen={},creating=false,pillEd=null,fmOpen=false,calDayOpen={},calHrOpen={},notifView=false,ctxMenuEl=null,ncStatus=null,nfPromptOpen=false;
 // Wide screens open live sections by default (Archive stays collapsed) —
@@ -1024,10 +1039,10 @@ return segs}
 // bottom of this file) already opens on tap — no new wiring needed.
 function codeSegNode(v,boardName){
 const c=el("code",null,v);
-const mm=/^([^\\s#\\x60]+)#(\\d+)(?:\\s|$)/.exec(v);
-if(mm){
+const mm=kanbanIds.parseMention(/^\\S*/.exec(v)[0]);
+if(mm&&mm.board!==null){
 c.classList.add("mention");
-if(mm[1]===boardName){c.classList.add("same");c.setAttribute("data-mapnode",mm[2])}}
+if(mm.board===boardName){c.classList.add("same");c.setAttribute("data-mapnode",kanbanIds.idKey(mm))}}
 return c}
 // Full inline parser for card-body markdown: the same
 // scan-left-to-right, opener-needs-a-later-closer technique fmtBodySegs
@@ -1191,6 +1206,7 @@ const trueLen=(bl==null)?shownLen:bl;
 if(trueLen>shownLen)wrap.appendChild(el("div","cut","Cut at "+thousands(shownLen)+" of "+thousands(trueLen)+" characters. Open the card on the desk board for the rest."));
 return wrap}
 const find=id=>view.find(c=>String(c.id)===String(id));
+// A queued new card is n1, n2, ...: an id's prefix is only capitals and an underscore, so no real id starts with "n".
 const isProv=id=>String(id).startsWith("n");
 const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()).filter(Boolean);
 // Search: kanban-web's own search.js, embedded above with the waiting rules it
@@ -1205,17 +1221,16 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 let qTerms=[];
 const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
 const searchCtx={board:BOARD,hierarchy:HIERARCHY,graph:searchGraph};
-// A card queued with + New card has no number yet (n1, n2, ...), so the search reads it under a
-// number of its own, below zero, which no card of the board has.
-const searchId=c=>isProv(c.id)?-Number(String(c.id).slice(1)):c.id;
-function searchCard(c){return{id:searchId(c),title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
+// A card queued with + New card has no id yet (n1, n2, ...), which the search reads as it is: a
+// real id is never lowercase, so no card of the board has that id.
+function searchCard(c){return{id:c.id,title:c.t,body:c.body,status:c.s,priority:c.p,tags:c.tags,file:c.fn,assignee:c.a,type:c.fm&&c.fm.type,parent:c.fm&&c.fm.parent,review:c.rv,blocked:c.bl,waiting_for:c.w}}
 // What a query resolves over. The slices, tree: and path: read the board as it was built plus the
 // cards queued to be created, which sit where a new card does (a root, or the tier its type
 // names), so a cut that holds depth 0 holds them and one that cuts nothing cuts them nothing; a
 // queued edit moves no card between slices until it is applied. waiting: reads the cards as the page
 // holds them, a queued edit counted, as a bare term does (unresolved, the page's own rule).
 const searchUniverse=()=>DATA.map(searchCard).concat(view.filter(c=>isProv(c.id)).map(searchCard));
-const waitingIds=()=>new Set(view.concat(gone).filter(c=>!isProv(c.id)&&unresolved(c).length).map(c=>Number(c.id)));
+const waitingIds=()=>new Set(view.concat(gone).filter(c=>!isProv(c.id)&&unresolved(c).length).map(c=>c.id));
 const resolveQuery=(terms,universe,waiting)=>resolveTerms(universe,terms,searchCtx,{waiting});
 function setQuery(text){qTerms=resolveQuery(parseSearchQuery(text,BOARD),searchUniverse(),waitingIds())}
 const inQuery=c=>cardMatchesQuery(searchCard(c),qTerms);
@@ -1275,7 +1290,7 @@ return}
 if(o.op==="create"){nseq++;const pid="n"+nseq;const cr={op:"create",title:o.title,priority:o.priority||"Normal",status:o.status||"backlog",_pid:pid};if(o.assignee)cr.assignee=o.assignee;if(o.body)cr.body=o.body;if(o.fm)cr.fm=o.fm;ops.push(cr);view.push({id:pid,t:o.title,s:cr.status,p:cr.priority,a:o.assignee||"",due:"",start:"",upd:"",tags:[],w:[],bl:"",rv:"",body:o.body||"",fm:o.fm||{}});return}}
 let nesting=null;
 // The status as written (kanban-web counts it so), unless the tray moved the card.
-const nestNode=(c,archived)=>({id:Number(c.id),parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.fm&&c.fm.status&&c.fm.status.toLowerCase()===c.s?c.fm.status:c.s,archived:archived||!!c.arch});
+const nestNode=(c,archived)=>({id:c.id,parent:c.fm&&c.fm.parent,rank:c.fm&&c.fm.rank,priority:c.p,status:c.fm&&c.fm.status&&c.fm.status.toLowerCase()===c.s?c.fm.status:c.s,archived:archived||!!c.arch});
 function buildNesting(){
 const cards=view.filter(c=>!isProv(c.id)).map(c=>nestNode(c));
 // A queued archive has left view, but applied the card still counts as done and still holds its children's thread, with the edits queued before it.
@@ -1284,7 +1299,7 @@ const ctx={board:BOARD,priorities:PRIOS};
 nesting={cards,ctx,nested:hasNesting(cards),order:outlineOrder(cards,ctx).index,roll:rollupIndex(cards,ctx)}}
 function inOutline(list){
 if(!nesting.nested)return list;
-const pos=c=>isProv(c.id)?Infinity:nesting.order.get(Number(c.id));
+const pos=c=>isProv(c.id)?Infinity:nesting.order.get(c.id);
 return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1})}
 // Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
@@ -1343,7 +1358,7 @@ box.appendChild(el("div","relatives-label","Children"));
 kids.forEach(k=>{const li=el("li","child-item"+(k.archived?" child-item--archived":""));li.appendChild(relMention(k.id));if(k.archived)li.appendChild(el("span","rel-mark","archived"));ul.appendChild(li)});
 box.appendChild(ul);return box}
 // The card's id as a number, null for a card not yet created (the nesting module knows nothing of it).
-function realId(c){return isProv(c.id)?null:Number(c.id)}
+function realId(c){return isProv(c.id)?null:c.id}
 function cardNode(c,detail){
 const nid=realId(c);
 const selc=String(sel)===String(c.id)||(focusRoot!=null&&String(focusRoot)===String(c.id));
@@ -1959,12 +1974,12 @@ function parentOfIn(byIdMap,id){
 const c=byIdMap.get(id);
 return (c&&c.pt!=null&&c.pt!==c.id)?c.pt:null}
 function fullEdgeSets(){
-const byIdFull=new Map(DATA.map(c=>[Number(c.id),c]));
+const byIdFull=new Map(DATA.map(c=>[c.id,c]));
 const seenDep=new Set(),nonTerminal=new Set();
-DATA.forEach(c=>{const cid=Number(c.id);(c.w||[]).forEach(raw=>seenDep.add(Number(raw)+">"+cid))});
-DATA.forEach(c=>{const cid=Number(c.id),p=parentOfIn(byIdFull,cid);
+DATA.forEach(c=>{(c.w||[]).forEach(raw=>seenDep.add(raw+">"+c.id))});
+DATA.forEach(c=>{const cid=c.id,p=parentOfIn(byIdFull,cid);
 if(p==null)return;
-(c.w||[]).forEach(raw=>{const depId=Number(raw);if(parentOfIn(byIdFull,depId)===p)nonTerminal.add(p+":"+depId)})});
+(c.w||[]).forEach(depId=>{if(parentOfIn(byIdFull,depId)===p)nonTerminal.add(p+":"+depId)})});
 return {byIdFull:byIdFull,seenDep:seenDep,nonTerminal:nonTerminal}}
 function buildDepGraph(cards){
 const edges=[],seen=new Set();
@@ -1972,10 +1987,10 @@ const addEdge=(from,to,kind)=>{
 const key=from+">"+to+":"+kind;
 if(seen.has(key))return;seen.add(key);
 edges.push({from:from,to:to,kind:kind})};
-cards.forEach(c=>{(c.w||[]).forEach(raw=>addEdge(Number(raw),Number(c.id),"dep"))});
+cards.forEach(c=>{(c.w||[]).forEach(raw=>addEdge(raw,c.id,"dep"))});
 const full=fullEdgeSets();
 cards.forEach(c=>{
-const cid=Number(c.id),p=parentOfIn(full.byIdFull,cid);
+const cid=c.id,p=parentOfIn(full.byIdFull,cid);
 if(p==null)return;
 if(full.nonTerminal.has(p+":"+cid))return;
 if(full.seenDep.has(cid+">"+p)||full.seenDep.has(p+">"+cid))return;
@@ -1984,32 +1999,34 @@ return {edges:edges}}
 // The shape kanban-web's buildRelationsGraph hands map-relations.js, read from the
 // board as embedded: the map never shows queued edits.
 function buildRelGraph(visibleIds){
-const byId=new Map(DATA.map(c=>[Number(c.id),c]));
+const byId=new Map(DATA.map(c=>[c.id,c]));
 const isVisible=id=>byId.has(id)&&visibleIds.has(id);
-const nodeOf=c=>({id:Number(c.id),title:c.t,status:c.s,archived:!!c.arch,waiting:unresolved(c),blk:blkReason(c),card:c});
+const nodeOf=c=>({id:c.id,title:c.t,status:c.s,archived:!!c.arch,waiting:unresolved(c),blk:blkReason(c),card:c});
 const stubs=new Map();
 const stubNode=(id,more)=>Object.assign({id:id,title:null,status:null,archived:false,ghost:true,missing:true},more);
 const addStub=id=>{
 if(isVisible(id)||stubs.has(id))return;
 const c=byId.get(id);
 stubs.set(id,c?Object.assign(nodeOf(c),{ghost:true}):stubNode(id))};
-const nodes=DATA.filter(c=>byId.get(Number(c.id))===c&&isVisible(Number(c.id))).map(nodeOf);
+const nodes=DATA.filter(c=>byId.get(c.id)===c&&isVisible(c.id)).map(nodeOf);
 const edges=[],seen=new Set();
-DATA.forEach(c=>{const to=Number(c.id);(c.w||[]).forEach(raw=>{
-const from=Number(raw),key=from+">"+to;
+DATA.forEach(c=>{const to=c.id;(c.w||[]).forEach(from=>{
+const key=from+">"+to;
 if(seen.has(key)||(!isVisible(from)&&!isVisible(to)))return;
 seen.add(key);addStub(from);addStub(to);
 edges.push({from:from,to:to,kind:"dep"})})});
 const children=[];
-DATA.forEach(c=>{const id=Number(c.id),p=parseParent(c.fm&&c.fm.parent,BOARD);
-if(p&&p.local&&p.id!==id&&byId.has(p.id))children.push({id:id,parent:p.id,waitsOn:(c.w||[]).map(Number)})});
+DATA.forEach(c=>{const id=c.id,p=parentRef(c.fm&&c.fm.parent);
+if(p&&p.local&&p.id!==id&&byId.has(p.id))children.push({id:id,parent:p.id,waitsOn:(c.w||[]).slice()})});
 const ends=mapParentLineEnds(children);
-const outside=new Map();
+// A parent on another board is drawn as a stub whose id is "ext:" and the mention, which no
+// card of the board can have: a real id is a prefix of capitals and digits and never holds a colon.
 const outsideStub=ref=>{
-if(!outside.has(ref)){const id=-(outside.size+1);outside.set(ref,id);stubs.set(id,stubNode(id,{external:ref}))}
-return outside.get(ref)};
+const id="ext:"+ref;
+if(!stubs.has(id))stubs.set(id,stubNode(id,{external:ref}));
+return id};
 const pairs=[];
-DATA.forEach(c=>{const id=Number(c.id),p=parseParent(c.fm&&c.fm.parent,BOARD);
+DATA.forEach(c=>{const id=c.id,p=parentRef(c.fm&&c.fm.parent);
 if(!p||(p.local&&p.id===id))return;
 if(!p.local){if(isVisible(id))pairs.push({child:id,parent:outsideStub(p.board+"#"+p.id),ends:null});return}
 if(!isVisible(id)&&!isVisible(p.id))return;
@@ -2038,8 +2055,8 @@ const queue=[start];
 while(queue.length){const cur=queue.shift();
 (adjacency.get(cur)||new Set()).forEach(next=>{if(!visited.has(next)){visited.add(next);queue.push(next)}})}}
 function treeIds(rawId){
-const id=Number(rawId);
-if(!DATA.some(c=>Number(c.id)===id))return new Set();
+const id=kanbanIds.idKey(rawId);
+if(id===null||!DATA.some(c=>c.id===id))return new Set();
 const {forward,backward}=buildAdjacency();
 const visited=new Set([id]);
 const queue=[id];
@@ -2048,8 +2065,8 @@ const neighbors=new Set([...(forward.get(cur)||[]),...(backward.get(cur)||[])]);
 neighbors.forEach(next=>{if(!visited.has(next)){visited.add(next);queue.push(next)}})}
 return visited}
 function pathIds(rawId){
-const id=Number(rawId);
-if(!DATA.some(c=>Number(c.id)===id))return new Set();
+const id=kanbanIds.idKey(rawId);
+if(id===null||!DATA.some(c=>c.id===id))return new Set();
 const {forward,backward}=buildAdjacency();
 const visited=new Set([id]);
 walkFrom(id,forward,visited);
@@ -2070,8 +2087,8 @@ indeg.set(e.to,indeg.get(e.to)+1)});
 const layer=new Map();let cur=0;
 while(remaining.size){
 let ready=[...remaining].filter(id=>indeg.get(id)===0);
-if(!ready.length)ready=[Math.min(...remaining)];
-ready.sort((a,b)=>a-b);
+if(!ready.length)ready=[[...remaining].sort(kanbanIds.compareIds)[0]];
+ready.sort(kanbanIds.compareIds);
 ready.forEach(id=>{layer.set(id,cur);remaining.delete(id)});
 ready.forEach(id=>{(succ.get(id)||[]).forEach(s=>{if(remaining.has(s))indeg.set(s,indeg.get(s)-1)})});
 cur++}
@@ -2121,7 +2138,7 @@ const byId=new Map(graph.nodes.concat(graph.ghosts).map(n=>[n.id,n]));
 const layer=layerNodes(graph.ids,graph.layoutEdges);
 const rows=new Map();
 layer.forEach((l,id)=>{if(!rows.has(l))rows.set(l,[]);rows.get(l).push(id)});
-rows.forEach((ids,l)=>{ids.sort((a,b)=>a-b);rows.set(l,mapOrderRow(ids,graph,MAPOPT.order,COLS))});
+rows.forEach((ids,l)=>{ids.sort(kanbanIds.compareIds);rows.set(l,mapOrderRow(ids,graph,MAPOPT.order,COLS))});
 const rich=new Map(),heights=new Map();
 layer.forEach((l,id)=>{const r=richOf(byId.get(id),roll);rich.set(id,r);heights.set(id,r?r.h:MH)});
 const placed=mapRowPositions(rows,heights,MAPOPT.align,MDIMS),pos=placed.pos;
@@ -2176,7 +2193,7 @@ function renderMap(){
 const mv=$("mapview");mv.replaceChildren();
 mv.classList.toggle("map-align-center",MAPOPT.align==="center");
 mv.appendChild(statusPills());
-const view=mapShape(new Set(visList().map(c=>Number(c.id))));
+const view=mapShape(new Set(visList().map(c=>c.id)));
 if(!view.graphs.length&&!view.noRelations.length){mv.appendChild(el("div","map-empty","No cards to show."));return}
 const legend=el("div","map-legend");
 const swatch=(cls,label)=>{const s=el("span");s.appendChild(el("span","map-swatch"+(cls?" "+cls:"")));s.appendChild(document.createTextNode(label));return s};
@@ -2196,7 +2213,7 @@ mv.appendChild(hscrollNav(wrap));
 mv.appendChild(wrap)})}
 if(view.noRelations.length){
 mv.appendChild(el("div","map-title","No relations ("+view.noRelations.length+")"));
-const titles=new Map(DATA.map(c=>[Number(c.id),c.t]));
+const titles=new Map(DATA.map(c=>[c.id,c.t]));
 const row=el("div","map-iso-row");
 view.noRelations.forEach(id=>row.appendChild(isoChip({id:id,title:titles.get(id)})));
 mv.appendChild(row)}}
@@ -2249,8 +2266,8 @@ buckets.get(st).push(row)});
 const known=COLS.filter(s=>buckets.has(s));
 const unknown=[...buckets.keys()].filter(s=>!COLS.includes(s)).sort();
 // label, not status: archive is a location, never a status value (ADR 0002).
-const groups=known.concat(unknown).map(s=>({label:s,rows:buckets.get(s).sort((a,b)=>a.c.id-b.c.id)}));
-if(archRows.length)groups.push({label:"Archive",rows:archRows.sort((a,b)=>a.c.id-b.c.id)});
+const groups=known.concat(unknown).map(s=>({label:s,rows:buckets.get(s).sort((a,b)=>kanbanIds.compareIds(a.c.id,b.c.id))}));
+if(archRows.length)groups.push({label:"Archive",rows:archRows.sort((a,b)=>kanbanIds.compareIds(a.c.id,b.c.id))});
 return{groups:groups,undated:undated}}
 function ganttWindow(rows,today){
 const spans=rows.map(r=>{let lo=r.startDay||r.dueDay,hi=r.endDay||r.dueDay;

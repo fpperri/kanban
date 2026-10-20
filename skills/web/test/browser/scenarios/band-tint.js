@@ -121,8 +121,8 @@ module.exports = {
     };
     const washes = () => ev(WASHES);
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
-    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids.slice().sort((a, b) => a - b)))}`);
-    const picked = () => ev(`[...selectedIds].sort((a,b)=>a-b)`);
+    const pickedIs = (ids) => waitFor(`JSON.stringify([...selectedIds].map(Number).sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids.slice().sort((a, b) => a - b)))}`);
+    const picked = () => ev(`[...selectedIds].map(Number).sort((a,b)=>a-b)`);
     const colourOf = (w) => TIERS.find((t) => t.name === w.tier) || { color: null, fill: null };
 
     // --- the plan board: a wash for each tier band that holds a card ---------------------------

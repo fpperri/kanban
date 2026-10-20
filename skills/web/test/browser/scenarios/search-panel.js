@@ -80,8 +80,8 @@ module.exports = {
     const idsExpr = (expr) => `JSON.stringify(${expr})`;
     const boxText = () => ev(`document.getElementById('search-input').value`);
     const boxIs = (text) => waitFor(`document.getElementById('search-input').value===${JSON.stringify(text)}`);
-    const picked = () => ev(`[...selectedIds].sort((a,b)=>a-b)`);
-    const pickedIs = (ids) => waitFor(`${idsExpr(`[...selectedIds].sort((a,b)=>a-b)`)}===${JSON.stringify(JSON.stringify(ids))}`);
+    const picked = () => ev(`[...selectedIds].map(Number).sort((a,b)=>a-b)`);
+    const pickedIs = (ids) => waitFor(`${idsExpr(`[...selectedIds].map(Number).sort((a,b)=>a-b)`)}===${JSON.stringify(JSON.stringify(ids))}`);
     const SHOWN = `[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b)`;
     const shown = () => ev(SHOWN);
     const shownIs = (ids) => waitFor(`${idsExpr(SHOWN)}===${JSON.stringify(JSON.stringify(ids))}`);

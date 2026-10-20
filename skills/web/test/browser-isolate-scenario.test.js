@@ -5,9 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive } = require('../scripts/card-store');
+const { listActive, toJSON } = require('../scripts/card-store');
 const { parseConfig } = require('../scripts/config-store');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards, searchTermText, searchIsolateText } = require('../web/search');
 const { pillList, pillRows } = require('../web/pills');
 const { NO_SELECTION, cardPart, pathPart, queryPart, addPart, resolveSelection } = require('../web/selection');
@@ -25,15 +26,15 @@ const planBoard = () => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize('plan', dir);
-  const live = listActive(dir);
+  const live = listActive(dir).map(toJSON);
   const config = parseConfig(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'));
   const matchIds = (query) => new Set(filterCards(live, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id));
   const list = pillList(live, matchIds, { pills: config.pills, cards: live, term: searchTermText });
-  return { live, config, matchIds, list, byId: new Map(live.map((c) => [c.id, c])) };
+  return { live, config, matchIds, list, byId: idMap(live) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const sorted = (list) => [...new Set(list)].sort((a, b) => a - b);
+const sorted = (list) => [...new Set([...list].map(Number))].sort((a, b) => a - b);
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'isolate.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
 const { CASES } = scenario;
@@ -68,7 +69,7 @@ test('the loose cards the Graph part may click are live cards with no parent, ch
     assert.ok(!used.has(id), `card ${id} is in the path or the pill`);
     assert.strictEqual(c.parent, null, `card ${id} has a parent`);
     assert.deepStrictEqual(c.waiting_for || [], [], `card ${id} waits`);
-    assert.ok(!b.live.some((o) => o.parent === id || (o.waiting_for || []).includes(id)), `card ${id} has a child or a dependent`);
+    assert.ok(!b.live.some((o) => o.parent === String(id) || (o.waiting_for || []).includes(String(id))), `card ${id} has a child or a dependent`);
   }
   assert.ok(CASES.loose.length >= 6, 'there are enough to find two with a clear dot');
 });
@@ -116,7 +117,7 @@ test('the card tagged through the API is live, carries no tag yet and joins the 
   const c = b.byId.get(CASES.tagged);
   assert.ok(c);
   assert.deepStrictEqual(c.tags, []);
-  const tagged = b.live.map((x) => (x.id === CASES.tagged ? { ...x, tags: [CASES.pill.label] } : x));
+  const tagged = b.live.map((x) => (x.id === String(CASES.tagged) ? { ...x, tags: [CASES.pill.label] } : x));
   const after = filterCards(tagged, parseSearchQuery(CASES.pill.query, 'plan'), { board: 'plan' }).map((x) => x.id);
   assert.deepStrictEqual(sorted(after), sorted([...CASES.pill.cards, CASES.tagged]));
 });

@@ -46,7 +46,7 @@ const nameIn = (n) => `${n}.querySelector('.graph-node-name')`;
 const shownIn = (n) => `(()=>{const t=${nameIn(n)};return !!t&&getComputedStyle(t).display!=='none'})()`;
 // The page placed the names at the zoom it shows: none queued, none stale.
 const SETTLED = `!!graphCur&&!!graphCur.names&&graphCur.names.k===graphCur.view.k`;
-const PLACED = `[...graphCur.names.placed.keys()].sort((a,b)=>a-b)`;
+const PLACED = `[...graphCur.names.placed.keys()].map(Number).sort((a,b)=>a-b)`;
 const KINDS = `(()=>{const out={};for(const p of graphCur.names.placed.values())out[p.kind]=(out[p.kind]||0)+1;return out})()`;
 // The cards whose name shows, as a person sees it, in order.
 const SHOWN = `${NODES}.filter((n)=>${shownIn('n')}).map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b)`;
@@ -73,10 +73,10 @@ const UPRIGHT = `[...document.querySelectorAll('#graph-view .graph-node-name')].
 const LEADERS_DRAWN = `[...document.querySelectorAll('#graph-view .graph-node-leader')].filter((l)=>(l.getAttribute('d')||'')!==''||getComputedStyle(l).display!=='none').length`;
 // The cards whose leader shows are the cards placed in a row or a list.
 const LEADERS_ARE_CALLED = `JSON.stringify(${NODES}.filter((n)=>{const l=n.querySelector('.graph-node-leader');return !!l&&getComputedStyle(l).display!=='none'&&(l.getAttribute('d')||'')!==''})`
-  + `.map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b))===JSON.stringify([...graphCur.names.placed].filter(([,p])=>!!p.leader).map(([id])=>id).sort((a,b)=>a-b))`;
+  + `.map((n)=>Number(n.dataset.id)).sort((a,b)=>a-b))===JSON.stringify([...graphCur.names.placed].filter(([,p])=>!!p.leader).map(([id])=>Number(id)).sort((a,b)=>a-b))`;
 // Every shown name of an Unnested block card sits above the block's frame, and there is one.
 const BLOCK_ABOVE = `(()=>{const f=document.querySelector('#graph-view .graph-block-frame');if(!f||!graphCur.plan.block)return false;const top=f.getBoundingClientRect().top;`
-  + `const ids=new Set(graphCur.plan.block.columns.flatMap((c)=>c.ids));const own=${NODES}.filter((n)=>ids.has(Number(n.dataset.id))&&${shownIn('n')});`
+  + `const ids=new Set(graphCur.plan.block.columns.flatMap((c)=>c.ids));const own=${NODES}.filter((n)=>ids.has(n.dataset.id)&&${shownIn('n')});`
   + `return own.length>0&&own.every((n)=>${nameIn('n')}.getBoundingClientRect().bottom<=top+0.5)})()`;
 // The placement as it is now, kept to compare with the next one, and the drawn fan likewise.
 const KEEP = `(window.__names=graphCur.names,true)`;
@@ -88,7 +88,7 @@ const VIEW_AT = `({x:graphCur.view.x,y:graphCur.view.y,k:graphCur.view.k})`;
 const namesAre = (value) => `graphLoadOptions().names===${JSON.stringify(value)}`;
 const useNames = (value) => `graphSetOption('names',${JSON.stringify(value)})`;
 const USE_TABLE = `graphSetOption('unnested','table')`;
-const PLACED_OR_UNNAMED = (id) => `graphCur.names.placed.has(${id})||graphCur.names.unnamed.includes(${id})`;
+const PLACED_OR_UNNAMED = (id) => `graphCur.names.placed.has('${id}')||graphCur.names.unnamed.includes('${id}')`;
 const frames = `new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`;
 
 // Over the cards shown at both zoom levels: the most a name's height on screen moved, and every

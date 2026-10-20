@@ -34,7 +34,7 @@ test('the modules and the page script load together without a name clash, and th
   withSnapshot(BOARD, (html) => {
     const page = loadPage(html);
     assert.strictEqual(page.scripts.length, PAGE_SCRIPTS, 'one script element for each embedded module, then the page');
-    assert.ok(page.scripts[0].includes(nestingSource) && page.scripts[1].includes(mapSource));
+    assert.ok(page.scripts[1].includes(nestingSource) && page.scripts[2].includes(mapSource));
     assert.strictEqual(page.run('typeof mapShapeRelations + typeof mapOrderRow + typeof mapParentLineEnds'), 'functionfunctionfunction');
     assert.strictEqual(page.run('MAP_OPTION_DEFAULTS.parentLines'), 'chain');
   });

@@ -15,7 +15,7 @@ const {
 
 // 10 and 11 and 12 carry the grill tag. 40 waits for 41, which waits for 42; 43 waits for 41
 // too, so the tree of 40 is 40 to 43 and its path (the cone through it) is 40, 41 and 42.
-const card = (id, over = {}) => ({ id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], waiting_for: [], ...over });
+const card = (id, over = {}) => ({ id: String(id), title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], waiting_for: [], ...over });
 const CARDS = [
   card(10, { tags: ['grill'] }),
   card(11, { tags: ['grill', 'ui'], status: 'doing' }),
@@ -31,7 +31,7 @@ const CTX = { board: 'kanban' };
 const matchQuery = (text) => new Set(filterCards(CARDS, parseSearchQuery(text, 'kanban'), CTX).map((c) => c.id));
 const grown = (...parts) => parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
 const partsOf = (selection) => (selection.anchor ? [selection.anchor].concat(selection.additions) : []);
-const idsOf = (set) => [...set].sort((a, b) => a - b);
+const idsOf = (set) => [...set].map(Number).sort((a, b) => a - b);
 
 // What the isolate text matches, over the whole board, against what the selection resolves to.
 const matched = (selection) => idsOf(matchQuery(searchIsolateText(partsOf(selection))));
@@ -112,11 +112,11 @@ test('a query part keeps its criterion: a card that comes to match joins the sho
   const text = searchIsolateText(partsOf(selection));
   const shown = () => idsOf(new Set(filterCards(CARDS, parseSearchQuery(text, 'kanban'), CTX).map((c) => c.id)));
   assert.deepStrictEqual(shown(), [10, 11, 12, 99]);
-  CARDS.find((c) => c.id === 13).tags.push('grill');
+  CARDS.find((c) => c.id === '13').tags.push('grill');
   try {
     assert.deepStrictEqual(shown(), [10, 11, 12, 13, 99], 'card 13 was tagged after the text was written');
   } finally {
-    CARDS.find((c) => c.id === 13).tags.pop();
+    CARDS.find((c) => c.id === '13').tags.pop();
   }
 });
 

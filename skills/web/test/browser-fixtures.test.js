@@ -6,6 +6,9 @@ const path = require('node:path');
 
 const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig, ICON_NAMES } = require('../scripts/config-store');
+const { listNotes } = require('../scripts/logbook-store');
+const { readPad, listTargets } = require('../scripts/scratchpad-store');
+const { readGroups } = require('../scripts/group-store');
 const { BOARDS, materialize } = require('./browser/boards');
 
 // The browser runner drives three boards. The scenarios assert against what is
@@ -24,7 +27,7 @@ const load = (key) => {
   materialize(key, dir);
   const cards = [...listActive(dir), ...listArchived(dir)];
   const text = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
-  return { dir, cards, text, config: readConfig(dir), byId: new Map(cards.map((c) => [c.id, c])) };
+  return { dir, cards, text, config: readConfig(dir), byId: new Map(cards.map((c) => [String(c.id), c])) };
 };
 after(() => { for (const r of tmpRoots) fs.rmSync(r, { recursive: true, force: true }); });
 
@@ -44,18 +47,19 @@ function rawEntries(text, key) {
   return out;
 }
 
-const childrenOf = (cards, id) => cards.filter((c) => c.parent === id);
+const childrenOf = (cards, id) => cards.filter((c) => c.parent === String(id));
 const isLoose = (cards, c) => c.parent === null && childrenOf(cards, c.id).length === 0;
 const yearOf = (c) => [c.start_date, c.end_date, c.due_date].filter(Boolean).map((d) => d.slice(0, 4));
 
-test('every board answers to its own name, with unique card ids and a counter past the last one', () => {
+test('every board answers to its own name, with unique card ids and a counter past the last plain one', () => {
   for (const key of Object.keys(BOARDS)) {
     const b = load(key);
     assert.strictEqual(b.config.name, BOARDS[key].name, `${key}: config name`);
     const ids = b.cards.map((c) => c.id);
     assert.strictEqual(new Set(ids).size, ids.length, `${key}: duplicate card id`);
     assert.ok(b.cards.every((c) => !c.unparseable), `${key}: a card file did not parse`);
-    assert.ok(b.config.nextId > Math.max(...ids), `${key}: nextId ${b.config.nextId} is not past ${Math.max(...ids)}`);
+    const plain = ids.filter((id) => /^\d+$/.test(id)).map(Number);
+    assert.ok(b.config.nextId > Math.max(...plain), `${key}: nextId ${b.config.nextId} is not past ${Math.max(...plain)}`);
   }
 });
 
@@ -166,8 +170,8 @@ test('plan board fields: a done card that others wait for, and a dangling waitin
   const b = load('plan');
   const waited = b.cards.filter((c) => c.status === 'done' && b.cards.filter((o) => o.waiting_for.includes(c.id)).length >= 2);
   assert.ok(waited.length >= 1, 'no done card with two cards waiting for it');
-  assert.ok(b.cards.some((c) => c.waiting_for.some((id) => !b.byId.has(id))), 'no dangling waiting id');
-  assert.ok(b.cards.some((c) => c.waiting_for.length && c.waiting_for.every((id) => b.byId.has(id) && b.byId.get(id).status === 'done')), 'no card that waits only for done cards');
+  assert.ok(b.cards.some((c) => c.waiting_for.some((id) => !b.byId.has(String(id)))), 'no dangling waiting id');
+  assert.ok(b.cards.some((c) => c.waiting_for.length && c.waiting_for.every((id) => b.byId.has(String(id)) && b.byId.get(String(id)).status === 'done')), 'no card that waits only for done cards');
 });
 
 test('plan board fields: cards dated in 2020 and 2031, the 2031 one alone', () => {
@@ -205,6 +209,131 @@ test('malformed board: the board readers load it and its views have cards to dra
   assert.ok(b.cards.length >= 4);
   assert.ok(b.cards.some((c) => c.parent !== null), 'no nested card');
   assert.ok(b.cards.some((c) => c.start_date || c.due_date), 'no dated card for the Calendar and Gantt');
+});
+
+test('notes board: the plan board with a logbook, day files for cards 3, 7 and 22 and for nothing', () => {
+  const b = load('notes');
+  const plan = load('plan');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), plan.cards.map((c) => c.id).sort(), 'the same cards as the plan board');
+  assert.strictEqual(b.config.logbook, 'logbook');
+  assert.strictEqual(plan.config.logbook, '', 'the plan board keeps no logbook');
+  const notes = listNotes(b.dir).map((n) => `${n.day} ${n.target || '-'} ${n.at || 'untimed'} ${n.by}`).sort();
+  assert.deepStrictEqual(notes, [
+    '2026-10-13 3 11:15 @afk',
+    '2026-10-14 7 untimed @human',
+    '2026-10-15 - 08:00 @human',
+    '2026-10-15 22 10:00 @human',
+    '2026-10-15 7 09:30 @human',
+    '2026-10-15 7 14:10 @afk',
+  ]);
+  const hand = fs.readFileSync(path.join(b.dir, 'logbook', '2026.10.13.0003.logbook.md'), 'utf8');
+  assert.match(hand, /^title: Monday$/m, 'a frontmatter key of its own');
+  assert.match(hand, /^ {4}run: build-12$/m, 'an entry key of its own');
+  assert.match(hand, /Hand-written text below/, 'a body');
+});
+
+test('groups board: the plan board with groups in folders, prefixes for them, and a logbook note on a group', () => {
+  const b = load('groups');
+  const plan = load('plan');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), plan.cards.map((c) => c.id).sort(), 'the same cards as the plan board');
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.strictEqual(plan.config.groups, '', 'the plan board keeps no groups');
+  assert.deepStrictEqual(b.config.prefixes, { G: 'goal', _: '.groups', I: '.groups/iteration', W: '.groups/workflow', DW: '.groups/workflow/dynamic' });
+  const read = readGroups(b.dir);
+  const by = Object.fromEntries(read.list.map((g) => [g.id, g]));
+  assert.deepStrictEqual(Object.keys(by).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
+  assert.deepStrictEqual([by._1.folder, by.I2.folder, by.W1.folder, by.DW1.folder], ['', 'iteration', 'workflow', 'workflow/dynamic']);
+  assert.deepStrictEqual(by.I2.cards, ['3', '7', '15', '22', '23', '24']);
+  assert.deepStrictEqual(by.I2.extra, { owner: '@human' });
+  assert.ok(by.I2.auto_join && by.I2.start_date && by.I2.end_date, 'a running iteration shape');
+  assert.ok(!by.W1.auto_join && !by.W1.start_date, 'an undated workflow');
+  const holders = (id) => read.list.filter((g) => g.cards.includes(id)).map((g) => g.id);
+  assert.deepStrictEqual(holders('7'), ['DW1', 'I2', 'W1'], 'one card in three groups: two badges and +1');
+  assert.deepStrictEqual(holders('3'), ['I2'], 'one badge');
+  assert.deepStrictEqual(holders('1'), [], 'no badge');
+  assert.deepStrictEqual(read.skipped.map((s) => s.file), ['.groups/a/b/c/X0001.too-deep.md'], 'a file nested too deep is reported');
+  assert.deepStrictEqual(listNotes(b.dir).map((n) => `${n.day} ${n.target}`), ['2026-10-15 I2']);
+});
+
+test('groupsonly board: the groups board with the logbook line taken out', () => {
+  const b = load('groupsonly');
+  const groups = load('groups');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.strictEqual(b.config.logbook, '', 'no logbook line');
+  assert.deepStrictEqual(readGroups(b.dir).list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
+});
+
+test('iterations board: the groups board with iterations: true, which is the only difference', () => {
+  const b = load('iterations');
+  const groups = load('groups');
+  assert.strictEqual(b.config.iterations, true);
+  assert.strictEqual(groups.config.iterations, false, 'the groups board has no iterations line');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.deepStrictEqual(readGroups(b.dir).list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.strictEqual(b.config.name, 'iterations', 'its own name, so its saved choices have their own keys');
+});
+
+test('scratchpad board: the groups board with a scratchpad: line, a page for card 7 with three refs and one for group I2', () => {
+  const b = load('scratchpad');
+  const groups = load('groups');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.strictEqual(b.config.scratchpad, '.scratchpad');
+  assert.strictEqual(b.config.logbook, 'logbook', 'the logbook stays on');
+  assert.strictEqual(groups.config.scratchpad, '', 'the groups board has no scratchpad line');
+  assert.deepStrictEqual(listTargets(b.dir), ['7', 'I2']);
+  const pad = readPad(b.dir, '7');
+  assert.deepStrictEqual(pad.refs, ['src/orders/schema.js', '2026.10.15.I0002.logbook.md', '#3']);
+  assert.match(pad.body, /^check the enum renames\n- orders\.status/);
+  assert.strictEqual(readPad(b.dir, 'I2').body, 'ask ops about the freeze window\n');
+  assert.strictEqual(b.config.name, 'scratchpad');
+});
+
+test('scratchonly board: the groups board with scratchpads on and the logbook off, and no page written yet', () => {
+  const b = load('scratchonly');
+  const groups = load('groups');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.strictEqual(b.config.scratchpad, '.scratchpad');
+  assert.strictEqual(b.config.logbook, '');
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.deepStrictEqual(listTargets(b.dir), []);
+  assert.strictEqual(b.config.name, 'scratchonly');
+});
+
+test('feature board: every part of the notes and groups feature on one board, with a prefixed card in a running iteration', () => {
+  const b = load('feature');
+  const groups = load('groups');
+  const cfg = b.config;
+  assert.strictEqual(cfg.name, 'feature');
+  assert.strictEqual(cfg.logbook, 'logbook');
+  assert.strictEqual(cfg.scratchpad, '.scratchpad');
+  assert.strictEqual(cfg.groups, '.groups');
+  assert.strictEqual(cfg.iterations, true);
+  assert.deepStrictEqual(cfg.prefixes, { G: 'goal', _: '.groups', I: '.groups/iteration', W: '.groups/workflow', DW: '.groups/workflow/dynamic' });
+  assert.deepStrictEqual(cfg.prefixClashes, [], 'no prefix declared twice');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), [...groups.cards.map((c) => c.id), 'G11'].sort(), 'the groups board and one goal with a prefixed id');
+  assert.ok(b.byId.has('11') && b.byId.has('G11'), '#11 and #G11 are two cards');
+  assert.strictEqual(b.byId.get('G11').type, 'goal');
+  assert.ok(cfg.counters.G > 11, 'the goal counter is past the goal on the board');
+  const read = readGroups(b.dir);
+  assert.deepStrictEqual(read.list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1'], 'typed groups, an untyped one and two iterations');
+  const i2 = read.list.find((g) => g.id === 'I2');
+  assert.ok(i2.auto_join && i2.start_date && i2.end_date, 'an iteration that auto-joins');
+  assert.deepStrictEqual(i2.cards, ['3', '7', '15', '22', '23', '24', 'G11'], 'the prefixed card is in the iteration');
+  assert.deepStrictEqual(listNotes(b.dir).map((n) => `${n.day} ${n.target}`), ['2026-10-15 I2'], 'a logbook with one note, on a group');
+  assert.deepStrictEqual(listTargets(b.dir), ['7', 'I2'], 'a scratchpad with a page for a card and one for a group');
+});
+
+test('calnotes board: the notes board and two more notes, one half hour with two notes and a day with two untimed', () => {
+  const b = load('calnotes');
+  const notes = new Map();
+  for (const n of listNotes(b.dir)) notes.set(`${n.day} ${n.target || '-'} ${n.at || 'untimed'}`, n);
+  const base = load('notes');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), base.cards.map((c) => c.id).sort(), 'the same cards as the notes board');
+  assert.strictEqual(listNotes(b.dir).length, listNotes(base.dir).length + 2);
+  assert.ok(notes.has('2026-10-15 22 10:00') && notes.has('2026-10-15 3 10:10'), 'two notes in the half hour from 10:00 on the 15th');
+  assert.ok(notes.has('2026-10-14 7 untimed') && notes.has('2026-10-14 3 untimed'), 'two untimed notes on the 14th');
 });
 
 test('materializing a board again puts it back as it was, and keeps the folder', () => {

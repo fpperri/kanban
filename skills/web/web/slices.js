@@ -1,8 +1,8 @@
 'use strict';
 // Pure slicing: which slice each card is in, on one top-to-bottom axis. A slice
 // is a tier of the board's hierarchy, or, for a card whose type is not in it, a
-// depth. No DOM, no storage, and no other module on purpose: the snapshot embeds
-// this file's source verbatim, where nothing else is loaded. Same
+// depth. No DOM, no storage, and one other module, the id module: the snapshot
+// embeds this file's source verbatim, ids.js ahead of it. Same
 // dual-environment pattern as nesting.js.
 //
 // A card here is { id, type }. `hierarchy` is the names as the board wrote them,
@@ -10,6 +10,15 @@
 // blank and non-text entries are skipped. `depths` is the board's depth map
 // (depthMap in nesting.js), built once from every card of the board, so a view
 // that shows only some cards never moves one to another slice.
+
+const SLICES_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+
+// A card's key in the depth map and in byId: its whole-id string. A value that is no id
+// (the snapshot's queued cards are `n1`, `n2`) keys as its own text.
+function sliceKey(id) {
+  const key = SLICES_IDS.idKey(id);
+  return key === null ? String(id) : key;
+}
 
 // The hierarchy's tiers top first: { name, key }, name as first written and key
 // folded to lower case.
@@ -33,7 +42,7 @@ function sliceTiers(hierarchy) {
 //     not, then depths 0 to the deepest card without a tier, a depth no card
 //     has included. Each count is over the cards given, so the caller picks the
 //     basis: the whole board, or what a view shows.
-//   byId: Map card id -> the axis entry the card is in. Every card given is in
+//   byId: Map card id (as sliceKey writes it) -> the axis entry the card is in. Every card given is in
 //     exactly one, so the counts add up to the number of cards.
 // A card whose type is in the hierarchy is in its tier, whatever its parent is.
 // Any other card, with no type or a type outside the hierarchy, is in the slice
@@ -50,7 +59,7 @@ function sliceCards(cards, hierarchy, depths) {
       placed.push([c, tier]);
       continue;
     }
-    const depth = depths.get(c.id);
+    const depth = depths.get(sliceKey(c.id));
     const at = Number.isInteger(depth) && depth > 0 ? depth : 0;
     placed.push([c, at]);
     if (at > deepest) deepest = at;
@@ -60,7 +69,7 @@ function sliceCards(cards, hierarchy, depths) {
   for (const [c, where] of placed) {
     const slice = typeof where === 'number' ? axis[tiers.length + where] : where;
     slice.count++;
-    byId.set(c.id, slice);
+    byId.set(sliceKey(c.id), slice);
   }
   return { axis, byId };
 }

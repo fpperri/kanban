@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -400,4 +400,223 @@ test('splitPillEntry splits an entry into a label and a query, or null', () => {
 test('ICON_NAMES is the six outline glyphs, and cannot be changed by a consumer', () => {
   assert.deepStrictEqual([...cfg.ICON_NAMES], ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star']);
   assert.ok(Object.isFrozen(cfg.ICON_NAMES));
+});
+
+// --- logbook (ADR 0016) --------------------------------------------------------------------------
+
+test('parseConfig reads the logbook folder: a scalar, quoted or not, comment stripped, empty when absent', () => {
+  assert.strictEqual(cfg.parseConfig('').logbook, '');
+  assert.strictEqual(cfg.parseConfig('logbook: logbook\n').logbook, 'logbook');
+  assert.strictEqual(cfg.parseConfig('logbook: "my notes"   # where\n').logbook, 'my notes');
+  assert.strictEqual(cfg.parseConfig('logbook:\nname: x\n').logbook, '');
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    logbook: nope\n').logbook, '', 'an indented logbook is not the key');
+});
+
+test('parseConfig reads the scratchpad folder like the logbook: a scalar, comment stripped, empty when absent or blank', () => {
+  assert.strictEqual(cfg.parseConfig('').scratchpad, '');
+  assert.strictEqual(cfg.parseConfig('scratchpad: .scratchpad\n').scratchpad, '.scratchpad');
+  assert.strictEqual(cfg.parseConfig('scratchpad: "my pads"   # where\n').scratchpad, 'my pads');
+  assert.strictEqual(cfg.parseConfig('scratchpad:   # off\nname: x\n').scratchpad, '');
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    scratchpad: nope\n').scratchpad, '', 'an indented scratchpad is not the key');
+});
+
+// --- prefixes, counters and idDigits (ADR 0014) --------------------------------------------------
+
+test('parseConfig reads idDigits as a width from 1 to 15 and defaults to 4', () => {
+  assert.strictEqual(cfg.parseConfig('').idDigits, 4);
+  assert.strictEqual(cfg.parseConfig('idDigits: 6   # wide\n').idDigits, 6);
+  assert.strictEqual(cfg.parseConfig('idDigits: "3"\n').idDigits, 3);
+  for (const bad of ['0', '-2', '16', 'wide', '4.5', '']) assert.strictEqual(cfg.parseConfig(`idDigits: ${bad}\n`).idDigits, 4, bad);
+});
+
+test('parseConfig reads a prefixes block of prefix to card type or folder, in config order', () => {
+  const c = cfg.parseConfig([
+    'prefixes:',
+    '  G: goal',
+    '  O: "objective"   # the layer under it',
+    "  'DW': deep work",
+    '  W: workflow/',
+    '  _: loose/',
+    'nextId: 5',
+  ].join('\n'));
+  assert.deepStrictEqual(c.prefixes, { G: 'goal', O: 'objective', DW: 'deep work', W: 'workflow/', _: 'loose/' });
+  assert.deepStrictEqual(Object.keys(c.prefixes), ['G', 'O', 'DW', 'W', '_']);
+  assert.strictEqual(c.nextId, 5, 'the next top-level key ends the block');
+});
+
+test('parseConfig skips a prefixes entry whose key is no prefix or whose value is blank, and the first of a repeated prefix wins', () => {
+  const c = cfg.parseConfig('prefixes:\n  g: lower\n  G1: digit\n  H:\n  I: # nothing\n  J: ok\n  J: second\n  K-L: dash\n');
+  assert.deepStrictEqual(c.prefixes, { J: 'ok' });
+});
+
+test('a prefix declared for a card type and again for a groups folder keeps the first and reports the second, never fatal', () => {
+  const c = cfg.parseConfig('groups: .groups\nprefixes:\n  G: goal\n  I: .groups/iteration\n  G: .groups/workflow\n  I: .groups/iteration\n  W: workflow/\n  W: task\n');
+  assert.deepStrictEqual(c.prefixes, { G: 'goal', I: '.groups/iteration', W: 'workflow/' }, 'the first declaration of each prefix stands');
+  assert.deepStrictEqual(c.prefixClashes, [
+    { prefix: 'G', kept: 'goal', ignored: '.groups/workflow' },
+    { prefix: 'W', kept: 'workflow/', ignored: 'task' },
+  ], 'a repeat that names the same target is harmless and not reported');
+  assert.strictEqual(cfg.prefixForType(c, 'goal'), 'G');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow'), 'W');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'iteration'), 'I');
+  assert.deepStrictEqual(cfg.parseConfig('prefixes:\n  G: goal\n  I: .groups/iteration\n').prefixClashes, []);
+});
+
+test('parseConfig answers no prefixes for a scalar or a list, and an indented prefix of an assignee is not one', () => {
+  assert.deepStrictEqual(cfg.parseConfig('prefixes: G\n').prefixes, {});
+  assert.deepStrictEqual(cfg.parseConfig('prefixes: [G, O]\n').prefixes, {});
+  assert.deepStrictEqual(cfg.parseConfig('assignees:\n  - handle: "@a"\n    G: goal\n').prefixes, {});
+});
+
+test('parseConfig reads counters from one flow-map line, skipping what is no counter', () => {
+  assert.deepStrictEqual(cfg.parseConfig('counters: { G: 4, O: 6 }\n').counters, { G: 4, O: 6 });
+  assert.deepStrictEqual(cfg.parseConfig('counters: {G: 4,O: 6}   # one line\n').counters, { G: 4, O: 6 });
+  assert.deepStrictEqual(cfg.parseConfig('counters: {"G": "4", DW: 12}\n').counters, { G: 4, DW: 12 });
+  assert.deepStrictEqual(cfg.parseConfig('counters: { G: 0, H: -1, I: x, j: 3, K: 2.5, L: 7 }\n').counters, { L: 7 });
+  assert.deepStrictEqual(cfg.parseConfig('counters: { G: 4\n').counters, { G: 4 }, 'no closing brace: take what is there');
+  assert.deepStrictEqual(cfg.parseConfig('counters: G\n').counters, {});
+  assert.deepStrictEqual(cfg.parseConfig('counters:\n  G: 4\n').counters, {}, 'the block form is not read');
+  assert.deepStrictEqual(cfg.parseConfig('').counters, {});
+});
+
+test('prefixForType gives the prefix a card type declares, ignoring case and folder entries', () => {
+  const c = cfg.parseConfig('prefixes:\n  G: goal\n  O: Objective\n  W: workflow/\n  X: goal\n');
+  assert.strictEqual(cfg.prefixForType(c, 'goal'), 'G');
+  assert.strictEqual(cfg.prefixForType(c, 'GOAL'), 'G', 'the first prefix naming a type wins');
+  assert.strictEqual(cfg.prefixForType(c, 'objective'), 'O');
+  assert.strictEqual(cfg.prefixForType(c, 'workflow'), '', 'a path is a folder, not a type');
+  assert.strictEqual(cfg.prefixForType(c, 'epic'), '');
+  assert.strictEqual(cfg.prefixForType(c, null), '');
+  assert.strictEqual(cfg.prefixForType(c, ''), '');
+  assert.strictEqual(cfg.prefixForType(cfg.parseConfig(''), 'goal'), '');
+});
+
+test('allocateId with a prefix uses that prefix counter, advances it and leaves nextId alone', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'nextId: 40\ncounters: { G: 7 }\n');
+  assert.strictEqual(cfg.allocateId(dir, 1, 'G'), 7);
+  assert.strictEqual(cfg.allocateId(dir, 1, 'G'), 8);
+  const c = cfg.readConfig(dir);
+  assert.deepStrictEqual(c.counters, { G: 9 });
+  assert.strictEqual(c.nextId, 40);
+});
+
+test('parseConfig reads the groups folder and a missing or blank line is none', () => {
+  assert.strictEqual(cfg.parseConfig('groups: .groups\n').groups, '.groups');
+  assert.strictEqual(cfg.parseConfig('groups: "my groups"   # where\n').groups, 'my groups');
+  assert.strictEqual(cfg.parseConfig('groups:\nname: x\n').groups, '');
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    groups: nope\n').groups, '', 'an indented groups is not the key');
+});
+
+test('parseConfig reads iterations: true as on, and any other value or a missing line as off', () => {
+  assert.strictEqual(cfg.parseConfig('iterations: true\n').iterations, true);
+  assert.strictEqual(cfg.parseConfig('iterations: true   # the dropdown\n').iterations, true);
+  assert.strictEqual(cfg.parseConfig('iterations: "true"\n').iterations, true);
+  for (const off of ['iterations: false\n', 'iterations:\n', 'iterations: yes\n', 'iterations: 1\n', 'name: x\n']) assert.strictEqual(cfg.parseConfig(off).iterations, false, off);
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    iterations: true\n').iterations, false, 'an indented iterations is not the key');
+});
+
+test('groupFolderOf reads a prefixes value as a groups folder: a path, or the groups folder itself, the root included', () => {
+  const c = cfg.parseConfig('groups: .groups\nprefixes:\n  _: .groups\n  I: .groups/iteration\n  W: workflow/\n  DW: workflow/dynamic\n  G: goal\n  X: .groups/\n');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes._), '', 'the groups folder itself is the root, which has no slash');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.I), 'iteration');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.W), 'workflow', 'a path with a slash is a folder, relative to the groups folder');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.DW), 'workflow/dynamic');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.G), null, 'a bare word is a card type');
+  assert.strictEqual(cfg.groupFolderOf(c, c.prefixes.X), '');
+  assert.strictEqual(cfg.groupFolderOf(cfg.parseConfig('prefixes:\n  _: .groups\n'), '.groups'), null, 'with no groups: line a bare word is still a type');
+  assert.strictEqual(cfg.groupFolderOf(cfg.parseConfig('groups: groups\n'), 'GROUPS'), null, 'the folder is matched exactly');
+});
+
+test('prefixForType leaves a type alone when its name is the groups folder, and prefixForGroupFolder gives the exact folder its prefix or _', () => {
+  const c = cfg.parseConfig('groups: .groups\nprefixes:\n  G: goal\n  _: .groups\n  I: .groups/iteration\n  W: workflow/\n  DW: workflow/dynamic\n');
+  assert.strictEqual(cfg.prefixForType(c, '.groups'), '', 'the groups folder is a folder, not a type');
+  assert.strictEqual(cfg.prefixForType(c, 'goal'), 'G');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'iteration'), 'I');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow'), 'W');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow/dynamic'), 'DW', 'the exact folder, not its parent');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow/other'), '_', 'a folder no prefix names takes the loose prefix');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, ''), '_', 'the root maps to the prefix naming the groups folder, here _');
+  assert.strictEqual(cfg.prefixForGroupFolder(cfg.parseConfig('groups: g\nprefixes:\n  Q: .groups\n'), ''), '_', 'no prefix names the root');
+  assert.strictEqual(cfg.prefixForGroupFolder(cfg.parseConfig('groups: g\nprefixes:\n  Q: g\n'), ''), 'Q');
+  assert.strictEqual(cfg.prefixForGroupFolder(cfg.parseConfig('groups: g\n'), 'iteration'), '_');
+});
+
+test('allocateId with a prefix self-heals a counter that lags the scan, and starts a prefix at the scan candidate', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'nextId: 40\ncounters: { G: 2 }\n');
+  assert.strictEqual(cfg.allocateId(dir, 12, 'G'), 12);
+  assert.strictEqual(cfg.allocateId(dir, 1, 'O'), 1);
+  assert.deepStrictEqual(cfg.readConfig(dir).counters, { G: 13, O: 2 });
+});
+
+test('allocateId without a prefix never touches counters', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'nextId: 40\ncounters: {   G: 7 }  # keep\n');
+  assert.strictEqual(cfg.allocateId(dir, 2), 40);
+  assert.strictEqual(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'), 'nextId: 41\ncounters: {   G: 7 }  # keep\n');
+});
+
+test('allocateId without config.yaml gives the scan candidate for a prefix too and creates no file', () => {
+  const dir = tmpBoard();
+  assert.strictEqual(cfg.allocateId(dir, 3, 'G'), 3);
+  assert.ok(!fs.existsSync(path.join(dir, 'config.yaml')));
+});
+
+for (const [label, eol] of [['LF', '\n'], ['CRLF', '\r\n']]) {
+  test(`a prefix's first counter is inserted below nextId and every other line stays byte for byte (${label})`, () => {
+    const dir = tmpBoard();
+    const before = KEYED.join(eol);
+    fs.writeFileSync(path.join(dir, 'config.yaml'), before);
+    assert.strictEqual(cfg.allocateId(dir, 1, 'G'), 1);
+    const after = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+    assert.strictEqual(after, before.replace(`nextId: 30${eol}`, `nextId: 30${eol}counters: { G: 2 }${eol}`));
+  });
+
+  test(`a counters line is replaced in place, keeping its neighbours byte for byte (${label})`, () => {
+    const dir = tmpBoard();
+    const before = ['name: plan', 'counters: { G: 3, O: 5 }   # per prefix', 'nextId: 30', 'unknown: kept  ', ''].join(eol);
+    fs.writeFileSync(path.join(dir, 'config.yaml'), before);
+    assert.strictEqual(cfg.allocateId(dir, 1, 'O'), 5);
+    const after = fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+    assert.strictEqual(after, before.replace('counters: { G: 3, O: 5 }   # per prefix', 'counters: { G: 3, O: 6 }'));
+  });
+
+  test(`a counters line is inserted at the top when nextId is absent (${label})`, () => {
+    const dir = tmpBoard();
+    const before = ['assignees:', '  - handle: "@x"', ''].join(eol);
+    fs.writeFileSync(path.join(dir, 'config.yaml'), before);
+    assert.strictEqual(cfg.allocateId(dir, 1, 'G'), 1);
+    assert.strictEqual(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'), `counters: { G: 2 }${eol}${before}`);
+  });
+}
+
+test('writeConfigLine replaces, inserts or removes one top-level line and nothing else', () => {
+  const dir = tmpBoard();
+  const raw = '# hand edited\nname: plan\nidDigits: 4   # width\nassignees:\n  - handle: "@x"\n    idDigits: 9\n';
+  fs.writeFileSync(path.join(dir, 'config.yaml'), raw);
+  const read = () => fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+  cfg.writeConfigLine(dir, 'idDigits', '6');
+  assert.strictEqual(read(), raw.replace('idDigits: 4   # width', 'idDigits: 6'), 'the indented idDigits of an assignee is not the line');
+  cfg.writeConfigLine(dir, 'logbook', 'notes');
+  assert.match(read(), /^logbook: notes\n# hand edited\n/);
+  cfg.writeConfigLine(dir, 'logbook', null);
+  cfg.writeConfigLine(dir, 'idDigits', null);
+  assert.strictEqual(read(), '# hand edited\nname: plan\nassignees:\n  - handle: "@x"\n    idDigits: 9\n');
+  cfg.writeConfigLine(dir, 'absent', null);
+  assert.strictEqual(read(), '# hand edited\nname: plan\nassignees:\n  - handle: "@x"\n    idDigits: 9\n', 'removing what is not there writes nothing');
+});
+
+test('writeConfigLine takes the indented lines of a block it replaces or removes along with its key', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: plan\ncounters:\n  G: 4\n  O: 6\nnextId: 9\n');
+  cfg.writeConfigLine(dir, 'counters', '{ G: 5 }');
+  assert.strictEqual(fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8'), 'name: plan\ncounters: { G: 5 }\nnextId: 9\n');
+});
+
+test('writeConfigLine refuses a key that is not a plain word and a value that breaks the line', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: plan\n');
+  assert.throws(() => cfg.writeConfigLine(dir, 'a.b', '1'), /key/);
+  assert.throws(() => cfg.writeConfigLine(dir, 'name', 'a\nb'), /value/);
 });

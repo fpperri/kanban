@@ -298,7 +298,7 @@ to `127.0.0.1` only.
   where a typed search lights its matches and hides nothing but a `slice:` cut (see the Graph
   view entry); the
   query survives view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
-  exact card id, and a pasted `webapp#42` is the same when `webapp` is this board's name (any
+  exact card id, whole (`#G3` is the card `G3`, not card 3; a lowercase `#a371f7` is no id), and a pasted `webapp#42` is the same when `webapp` is this board's name (any
   case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
   scope with nothing after the colon yet — `status:` mid-keystroke — is dropped as
@@ -386,7 +386,10 @@ to `127.0.0.1` only.
   control and appends it to the value (default 09:00), OFF strips it back to a bare date;
   disabled until a date exists to attach a time to. Compat: a card with start + due but
   no end still ranges start→due. The server assigns the next id and writes a new
-  `<0000-id>.<slug>.card.md` (id zero-padded to 4 digits, e.g. `0009.new-thing.card.md`).
+  `<0000-id>.<slug>.card.md` (the id's number zero-padded to the board's `idDigits`, 4 by
+  default, e.g. `0009.new-thing.card.md`). A card whose `type` has a prefix in the config's
+  `prefixes:` takes that prefix and its own counter (`G0001.new-goal.card.md` is card `G1`),
+  and keeps it when its type changes later; any other card takes the next plain number.
 - **Edit** — click a card's "Edit" to change its fields, title, and description. The body
   (incl. `## Narrative`) and any frontmatter keys the form doesn't manage are preserved
   verbatim; the form-managed fields (status, priority, type, parent, rank, tags, waiting_for, blocked,
@@ -455,8 +458,8 @@ to `127.0.0.1` only.
   caller bypasses the form entirely — without the floor a permanently blank tile could
   persist); a title-less card WITH a prompt saves title empty. The filename slug
   degrades with it: `<0000-id>.<slug>.card.md` collapses to the bare zero-padded id
-  prefix (`0212.card.md`, no dangling `.`); past id 9999 the filename uses `card-<id>`
-  to stay non-empty.
+  prefix (`0212.card.md`, no dangling `.`); a number wider than `idDigits` (past 9999 by
+  default) gets no id prefix and the filename uses `card-<id>` to stay non-empty.
 - **Epic flag (retired)** — the app no longer reads or writes `epic`: no form checkbox,
   no `epic:` search term, no "Epics" chip on the map, no fixed orange and no wash on any
   surface. An epic is a card typed `epic`, which shows the Type chip like any other type:
@@ -627,7 +630,24 @@ to `127.0.0.1` only.
   X, or a backdrop click (all three cancel the archive — nothing has moved yet), and it
   carries no fullscreen toggle: one field has nothing to expand. A package name must be
   one plain path component; a nested path or a `.`/`..` hop is refused with a 400.
-- **Delete** — permanently removes the card file (after a confirm).
+- **Delete** — permanently removes the card file, after the **delete popup** (the tile's and
+  the detail's Delete…, and the right-click menu's Delete on one card or on a selection: one
+  popup for the whole selection, so it asks once). The popup says what goes, and says which
+  groups lose the card: its id always leaves every group's list, so no group points at a gone
+  card. Its extras are boxes, each **unticked**: **Its logbook** (with the count of its notes)
+  deletes the card's day files; left unticked they stay and read as dangling. **Its scratchpad**
+  (only when the board keeps scratchpads and the card has a page, or **Their scratchpads** with
+  the count over a selection) deletes its page, and unticked the page stays: the kanban never
+  deletes one otherwise. A group's popup
+  (the Group tab's **Delete group…**) deletes the group file and offers the same logbook and scratchpad boxes,
+  plus **Its member cards**: the list shows each member it would delete and names the members
+  another group holds as skipped, with the groups that hold them, and only the others are
+  deleted. Ticking it offers, each unticked, **Their logbooks** and **Their scratchpads**, counted
+  over the members it would delete; unticked, those files stay. The server's `DELETE /api/cards/<id>` and
+  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, members, memberLogbook, memberScratchpad }` in the body,
+  each only when `true` (the member boxes count only with `members`), and answer what went (`groups`, `deleted`,
+  `kept`, `swept`, `membersSwept`). Archiving never opens it and
+  gets none of its questions.
 
 - **Multi-select** — one interaction grammar, uniform across **all five views**
   (ADR 0006), with file-manager gestures: click a card's representation to open its
@@ -679,7 +699,7 @@ to `127.0.0.1` only.
   with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
   card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
-  names the resolved count. The conditionally-hidden items: Peek and Add to selection show only
+  names the resolved count (Delete's is the delete popup, once for the whole selection). The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
   show only when the subject is one card, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling
@@ -954,7 +974,11 @@ to `127.0.0.1` only.
   A link with `isolate=1` and no usable `q` opens with isolate off and loses the parameter from the
   address on load, and any value but `1` is no request.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
-  from the right that holds the settings which rarely change. Each is kept in the browser per
+  from the right with two sections. **This browser** holds the settings which rarely change
+  (the Preferences and Hotkeys pages, below) and **This board** holds the pages that write
+  `config.yaml` (the last item of this bullet). A sheet 760 px wide or more shows the menu and
+  one page side by side; a narrower one shows the menu, then the page with a back button, and
+  Esc steps back to the menu before it closes the sheet. Each setting of This browser is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
   choices), never written to the board, and applies the moment it is chosen. **A plain click
   on a card** opens it or selects it, chosen separately for the Board, the Map, the Gantt and
@@ -981,7 +1005,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -996,7 +1020,135 @@ to `127.0.0.1` only.
   back to the gear; like the other popups it
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
-  the sheet), and a click inside it never clears a selection.
+  the sheet), and a click inside it never clears a selection. `?` opens the sheet on its Hotkeys page.
+  **This board** has the pages Logbook, Scratchpad, Groups, Prefixes and Counters, each written to
+  `config.yaml` one top-level line at a time (the line replaced, inserted or removed, every
+  other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with
+  `{ key, value }`, which answers `{ settings }` as the file now reads. **Logbook**,
+  **Scratchpad** and **Groups** each have an on/off switch (off removes the line, on writes the folder) and a
+  folder field (saving a folder turns the feature on). The page takes a folder inside the
+  board only, saved relative to it, and the server refuses a folder that leaves the board,
+  the board itself, or a name that would need quoting in the file (400); a folder written by
+  hand outside the board still works for reading and writing notes and groups, shows
+  **locked** with the reason, and every change to it is refused (409). Changing a folder
+  changes the line only: the files stay where they are. **Groups** adds the **Iterations**
+  switch (`iterations: true`): turning groups off removes only the `groups:` line (`iterations:` stays and is ignored
+  without groups), and turning iterations on without groups is refused (409). It also lists the groups found, by type path,
+  each opening its group in the palette, and **New group…**. **Prefixes** shows the `prefixes:` block as a read only
+  table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
+  new card files. **Counters** shows `nextId:` and the `counters:` line, read only. The
+  `/api/board` payload carries `settings`: `logbook`, `scratchpad` and `groups` as `{ on, folder, locked,
+  reason }`, `idDigits`, `nextId`, `prefixes` and `counters` (the Iterations switch shows the
+  payload's own top-level `iterations`). Another page of
+  This board is added with `settingsAddBoardPage` in `settings-ui.js`.
+- **Notes (logbook)** — with a `logbook:` line in `config.yaml` (the folder of the board's
+  day files, see the kanban skill's logbook section) the page keeps a **notes palette**, the
+  one surface for notes. Without the line nothing of it shows: no count, no menu entry, and
+  `n` only says the logbook is off. A card with notes wears a small count on its tile (live
+  and archived); a click on it opens the card's notes. `n` opens the palette on the hovered
+  card, else on the one selected card, else on the card last noted (kept per board in this
+  browser); the card menu's **Add note…** opens it on one card. Its rows, top down: the
+  subject row (a chip that says what the palette is about, a time field and an *untimed*
+  tick), the note box, the preview line that says exactly what Enter will write (`Note at
+  10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
+  All, Human and AI switch beside it) and the list of notes, grouped by day and card, newest day
+  first, each with its time and its author, the human's included. **Enter** writes the
+  note at the time field's time (now, to start with) and keeps the palette open for the next;
+  the field then goes back to now (or to the slot's time, when the palette was opened on a
+  slot) unless a time was typed into it;
+  **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
+  a leading `-` or `untimed` (or the tick) makes it untimed, and a leading mention of a card
+  (`#22`, `plan#22`) aims that one note at it and is cut from the text; a mention anywhere
+  later is only text. A line that is only a mention, then Enter, moves the palette to that
+  card and writes nothing; **Backspace** on an empty box clears the chip. The filter field
+  narrows the list by every word typed (in the text or the card's name) and never touches the
+  note box; `by:@afk` in it keeps one author's notes. The switch keeps the notes of human
+  authors (the assignee registry's kind `human`, or no author at all) or of every other
+  author, a handle the registry does not list included. A note written in the palette stays listed whatever the filter and the
+  switch say. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
+  to another card or to no card (the note moves to that target's file for the same day, and
+  a file left empty is removed), **d** twice deletes it. **Esc** closes the palette; a press
+  outside it does too. Every key typed in the palette stays in it, so none reaches the
+  board's own shortcuts. The palette is no modal: the board keeps refreshing behind it, and
+  each refresh repaints the list unless a note is being edited. The notes are written by
+  `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/notes/assign`, which build the day
+  file's name from a day and an id and never from request text; a write re-reads the file
+  and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
+  a day file survive every write. A note's `by` is kept as written (one trimmed line, any
+  text; a blank one is `@human`), never refused for not being a handle. The Graph's names step moved to `l` to free `n`.
+- **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
+  pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
+  `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.
+  Without the line nothing of it shows. The notes palette gains a **Scratchpad** tab, after
+  Notes (and after a group's Group tab); a card opens on it alone when the logbook is off, and
+  opens on it from the card menu's **Scratchpad…** (one card) or the Group tab's
+  **Scratchpad** button. The tab shows the page's file (`(not written yet)` until the first
+  save), its refs (a mention among them is a chip that opens the card) and a multi-line box;
+  **Ctrl+Enter** or **Save** writes the body, and the frontmatter stays as written. The page is
+  read when the tab opens, so a refresh does not redraw it under the person's hands, and text
+  not yet saved is kept in the page until it is reloaded. The server's
+  `GET /api/scratchpad/<id>` answers `{ pad: { target, exists, file, refs, body } }` and
+  `PUT /api/scratchpad/<id>` with `{ body }` writes the body (404 with the scratchpad off, 400 for
+  an id or a body that is wrong, 413 for a page over 300000 characters); there is no delete
+  route, only the delete popup's **Its scratchpad** takes a page. The `/api/board` payload
+  carries `scratchpad: { folder, targets }`, the ids that have a page, or `null`.
+- **Groups** — with a `groups:` line in `config.yaml` (the folder of the board's group
+  files, see the kanban skill's groups section) a card shows **badges** below its title: up to
+  two small buttons (`#I2 zephyr-2`) and `+N` for the rest, the dates and the type path (the
+  folders the group sits in; `(no type)` at the root) in the tooltip. Without the line nothing
+  of it shows. A badge opens the **notes palette** on that group, on its **Group tab** (the
+  palette then has a tab row, Notes and Group; with the logbook off a group still opens, on
+  its Group tab alone). The Group tab edits the group's name, dates, `auto_join` (on offer only
+  with both dates) and one-line extra keys (a cleared field keeps the key with an empty value;
+  a separate x takes the key out; a key whose value is a list or several lines is shown as
+  written, read only, and never rewritten), with a Save button, lists its members each with an x that
+  takes it out (the card is never touched), and has **+ Note** (back to the Notes tab, on the
+  group) and **Show this group's cards**, which fills the search box with `group:<id>` and
+  closes the palette. A note written on a group lands in `<day>.<padded group id>.logbook.md`,
+  and a group lists its own notes and its members'; a mention of a group's id (`#I2 mid check`)
+  aims a note at it. The card menu has **Add to group…** (a dialog of the board's groups by
+  type path; a click adds the menu's cards) and, on two or more cards, **Make a group from
+  them…**, which opens the group form (short name, a folder from the board's folders, optional
+  start and end dates, `auto_join`, the cards) and creates it. **Add note…** on several cards
+  asks which group all of them share (the groups that list every one), or offers **Make a
+  group from them…** (then note on it) and **Add the note to each card** (the palette's chip
+  reads `each of N cards` and Enter writes one note on every card). The server's
+  `POST /api/groups` makes a group (`name`, `folder` of at most two plain names, optional
+  dates, `auto_join` kept only with both, `cards` that must be cards of the board; the id is
+  allocated from the folder's prefix and its counter, and a refused group burns no id),
+  `PATCH /api/groups/<id>` changes the name, dates, `auto_join` and `extra` keys (null takes one
+  out, an empty string empties its value; a key holding a list or several lines is refused, 409), and `POST /api/groups/<id>/members` takes `add` and `remove` lists of card
+  ids; each rewrites only the lines it changes, keeping every other line, comment and the
+  body, and a group is found by the id in its frontmatter, never by file name or request
+  text. A group file that cannot be read (no id, a repeated id, no frontmatter) or that sits
+  more than two folders deep is skipped, named with its reason in the payload and a server
+  warning, and never fatal. `group:<id or name>` (any letter case; a quoted name may hold a
+  space), a bare `group:` (every card in a group) and `-group:` or `-group:<id or name>` (the
+  cards in none, or not in that group) are search terms. A group with both dates and
+  `auto_join: true` is running from its start to its end, both days included, by the local
+  date of the board's server; a card made in the New card form (`POST /api/cards`) is written
+  into the `cards:` of every running auto-join group in that same request, and no other, and
+  the reply carries `joined` (`[{id, name}]`) so the page's flash can say `Joined #I2
+  zephyr-2.` A dated group without `auto_join` never takes a new card, a card edited later
+  joins nothing, and a card the doing-gate refuses joins nothing. The Group tab's **Delete group…**
+  and the card's Delete share one **delete popup** (below).
+- **Iterations** — with `iterations: true` in `config.yaml` over a `groups:` line, the header
+  beside the board name has a dropdown of the groups in the `iteration/` folder (no
+  subtype): **All cards**, the iterations newest first, each with its id, name, dates and
+  `running` when it is, and **New iteration…**. It opens on the running iteration (the
+  newest one whose dates include today, both days), or on All cards when none runs. A pick
+  narrows the Board, Calendar, Gantt, Map and Graph to the iteration's cards on top of the
+  search box: both must say yes, the pick never writes the box, and it never changes a group
+  or its membership. The pick is kept in this browser only (`localStorage`, not the board),
+  with the iteration that was running when it was made; a kept pick, All cards included,
+  beats the running iteration until that one has ended, and one whose iteration is gone
+  falls back to the running one. The Calendar shades the picked iteration's days (an
+  iteration with both dates) and moves to its first day when the person picks it, never on
+  page load. **New iteration…** opens the
+  group form in the `iteration` folder with the newest iteration's name bumped (`zephyr-2`
+  becomes `zephyr-3`; a name with no trailing number is left blank), the dates continuing the
+  day after its end at the same length, and `auto_join` on; the pick stays where it was. The
+  server adds `iterations` (true only with the key and a groups folder) to the board payload.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the
@@ -1029,7 +1181,8 @@ to `127.0.0.1` only.
   the highlight the way a naive `:hover`-only or event-only approach would.
 - **Speedbumps** — every destructive action confirms first, naming its object: archive,
   delete, bulk archive/delete (one confirm per batch, with the count), notification
-  delete and clear-all. Restore is exempt (it's the reversible direction). Clicking the
+  delete and clear-all; Delete's confirmation is the delete popup, which also says what goes
+  with the card. Restore is exempt (it's the reversible direction). Clicking the
   backdrop closes any popup; the create/edit form interposes a confirm only when it has
   unsaved changes. Archiving skips the confirm when EVERY card in the action is already
   `done` — the tile's Archive button, drag-to-Archive (single or batch), and the bulk
@@ -1061,9 +1214,10 @@ to `127.0.0.1` only.
   remove), so Ctrl+S there stays a no-op rather than guessing. The chord is strict —
   exactly Ctrl+S or Cmd+S; Alt or Shift chords never match (save-hotkey.js).
   **Ctrl+F / Cmd+F** focuses the search box instead of the browser's find bar
-  (`preventDefault`) and pre-fills `#` with the caret right after it, so typing digits
-  immediately forms the `#<id>` exact-match term (erase the `#` by hand for any other
-  query — cheap). A box already holding a query gets select-all instead of the `#`
+  (`preventDefault`) and pre-fills `#` with the caret right after it, so typing an id
+  immediately forms the `#<id>` exact-match term, digits (`#42`) or a prefix and digits
+  (`#G3`; the `#` stays while the box holds a prefix such as `G`, and goes the moment
+  anything else is typed — erase it by hand for any other query — cheap). A box already holding a query gets select-all instead of the `#`
   prefill — typing overwrites it, same as any focused input — so the chord can never
   silently clobber a typed query (search-hotkey.js owns this decision). Suppressed while
   a popup is up — the mirror of Ctrl+S, which only fires *inside* an open popup: every
@@ -1077,7 +1231,7 @@ to `127.0.0.1` only.
   open dialog, the notifications panel or the preferences sheet). `/` reads both, and so
   does `p`, which flips the search panel's switch (see Search panel), and `?`, which opens the Hotkeys list (see Preferences sheet), and `m`, which
   steps through the pills, and `i`, which flips Isolate (see Isolate), and so do `[`, `]`, `{` and `}`, which move the run of slices
-  (see Slice section), and `n`, which steps the names of the tier fan (see Options); Ctrl+F
+  (see Slice section), and `l`, which steps the names of the tier fan (see Options), and `n`, which opens the notes palette (see Logbook); Ctrl+F
   reads only the surface check. Esc's selection step reads the same guard, with the search
   box as the one text field it is for: it asks `keyGuardEscape`, which answers clear the
   box, step back, or leave Esc alone. The search panel is deliberately not a surface, so the
@@ -1100,7 +1254,9 @@ to `127.0.0.1` only.
   `/kanban`, hand edits, or another tool; the header Refresh button forces a re-read
   immediately. View mode, query, filters, selection, and collapse/sort state all survive
   the poll.
-- **Deep links** — loading the app with `?card=<id>`, `?q=<search>` and/or
+- **Deep links** — loading the app with `?card=<id>` (an id is a plain number or a prefix
+  and a number, `?card=G3`; `?card=0` opens card 0, which the page used to read as no card),
+  `?q=<search>` and/or
   `?view=<board|map|gantt|calendar|graph>` in the URL switches to the named view, filters the
   board by the query (and, with `isolate=1` beside a query, shows it as an isolate, see
   Isolate), opens that card's detail popup, and scrolls its representation
@@ -1122,7 +1278,7 @@ to `127.0.0.1` only.
     cards (`kanban.proj#264`).
   - **One unusable key never discards the others.** An unrecognized `view` value (or
     none) leaves the persisted/default view untouched; an id that doesn't resolve to any
-    active or archived card (missing, non-numeric, or just unknown) shows a toast, no
+    active or archived card (missing, not an id, or just unknown) shows a toast, no
     popup — but a `q` and a `view` that parsed fine are still applied. Only a link that
     actually carried a `card` key can produce that toast, so the status page's
     card-less links never fire one.
@@ -1345,7 +1501,7 @@ to `127.0.0.1` only.
   no width and no sideways scroll), with a `.view-panel-close` button that hands focus back to the icon button.
   The panel and both buttons wear `data-keeps-selection`; the icon and close buttons are in `REFOCUS_SELECTOR`,
   so a poll's redraw gives them focus back. Every control keeps its class, label, title, data attributes and hotkey
-  (the `n` key still steps the Graph's names with the panel closed).
+  (the `l` key still steps the Graph's names with the panel closed).
   **Dependency tree / Dependency path** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
   search terms, resolved over dependency-graph.js's dependency edge set (`waiting_for`
@@ -1702,10 +1858,10 @@ to `127.0.0.1` only.
   finds room shows it in place of its id label; a click on a card names it and what it lights in place, with no redraw.
   Names never run the layout
   again: the setting is in neither the layout's cache key nor what re-fits an untouched view, so only the named
-  set changes. **n** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
+  set changes. **l** steps the setting relevant, all, none and round to relevant while the Graph shows Tiers,
   whether the panel is open or not; it reads the shared key guard, so it does nothing while a field has focus (the
-  search box types an n) or while a card menu, a dialog, the notifications panel or the preferences sheet is
-  open, and it works with the search panel open. The footer line under the Graph shows the setting (`n steps the
+  search box types an l) or while a card menu, a dialog, the notifications panel or the preferences sheet is
+  open, and it works with the search panel open. The footer line under the Graph shows the setting (`l steps the
   names: relevant`). Force and Status have no names.
   **Where names sit.** A name is never tilted and keeps its size on screen at any zoom. A parent, a card with children,
   which wears the outer ring, is named beside its ring, inside the rim. Every other named card is named in a row outside
@@ -1807,6 +1963,13 @@ name: webapp              # BOARD NAME — heading, tab title, and the qualifier
                           # `name:`, and only a top-level key is the board name.
 nextId: 28                # monotonic id counter; ids stay unique even when the
                           # max card is deleted or two writers race a max+1 scan
+idDigits: 4               # the width an id's number is padded to in a file name (default 4)
+prefixes:                 # a prefix for a card type; a new card of that type takes it
+  G: goal                 # a value that names a groups folder is a folder, not a type
+  _: .groups              # the groups: folder itself is the root (a group with no type)
+  I: .groups/iteration    # a group in iteration/ is I1, I2...
+counters: { G: 3 }        # one line, one counter per prefix (the web writes it)
+groups: .groups           # the folder of the board's groups (absent = no groups)
 assignees:                # who can own cards; feeds the form's assignee combobox
   - handle: "@human"
     name: "Human"
@@ -1905,6 +2068,33 @@ handle a card carries.
 - With a counter, new-card ids come from `max(nextId, scanMax+1)` (a stale counter
   self-heals rather than re-issuing a taken id) and the advanced counter is written back
   atomically. Agents creating cards by hand should use and advance it too.
+- **Prefixes** (ADR 0014): a card takes, when it is created, the prefix `prefixes:` gives its
+  `type` (compared without regard to case), and its number comes from that prefix's entry on
+  the one `counters:` line, `max(counter, highest number with that prefix + 1)`, written back
+  by replacing that line alone (inserted below `nextId:` when absent). A plain card never
+  moves a prefix's counter and a prefix never moves `nextId`. The id never changes
+  afterwards, so changing a card's type leaves it. `idDigits` (a whole number from 1 to 15,
+  else 4) only sets the width of the number in a file name; cards are read by the number in
+  their `id:` line, so a file padded to another width is still found. `prefixes:` and
+  `idDigits:` are human-written; the page reads and the server writes only the counter lines.
+- **`groups`** (a folder, relative to the board; absolute when written by hand) turns groups
+  on: the board payload then carries `groups: { folder, list, skipped, folders, prefixes }`,
+  every group file under it (see the Groups bullet) and the files it skipped and why. Absent,
+  the payload carries `groups: null` and nothing of it shows. A `prefixes:` value names a
+  groups folder when it is that `groups:` folder itself (the root, `_: .groups`, which has no
+  slash) or a path under it (`I: .groups/iteration`), or any path with a slash read relative
+  to the groups folder (`W: workflow/`); a bare word is a card type. A group in exactly the
+  folder a prefix names takes it, else `_`. The web never writes this key.
+- **`scratchpad`** (a folder, relative to the board; absolute when written by hand) turns
+  scratchpads on: the board payload then carries `scratchpad: { folder, targets }` and the
+  page shows the palette's Scratchpad tab. Absent, the payload carries `scratchpad: null` and
+  nothing of it shows. The gear's Scratchpad page writes this one line; a folder outside the
+  board works for reading and writing.
+- **`logbook`** (a folder, relative to the board; absolute when written by hand) turns the
+  logbook on: the board payload then carries `logbook: { folder, notes }`, every note of the
+  day files in it, and the page shows the notes palette. Absent, the payload carries
+  `logbook: null` and nothing of it shows. The web never writes this key; a folder outside the
+  board works for reading and writing.
 - The assignees, priorities, tags and types lists all **suggest, never validate** (ADR 0004) — the
   form's comboboxes offer the registered values but free text still saves fine.
 - Not a card — only `*.card.md` files are cards.

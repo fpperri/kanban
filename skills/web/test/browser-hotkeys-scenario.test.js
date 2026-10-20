@@ -25,7 +25,7 @@ test('the scenario is in the runner, on the plan board, with time for its steps'
 });
 
 test('the keys the scenario looks for are the keys the page answers, and each is a label in the list', () => {
-  assert.deepStrictEqual(CASES.keys, ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', '[', ']', '{', '}', 'm', 'i', 'p', '?']);
+  assert.deepStrictEqual(CASES.keys, ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?']);
   const labels = HOTKEYS.flatMap((h) => h.keys);
   assert.deepStrictEqual(CASES.keys.filter((k) => !labels.includes(k)), []);
 });
@@ -36,7 +36,7 @@ test('the defaults the scenario expects are what the list reads for a page nothi
   assert.deepStrictEqual(Object.keys(CASES.defaults).sort(), HOTKEYS.filter((h) => h.state).map((h) => h.id).sort(), 'every key with a state has a default here');
 });
 
-test('the states it expects after the keys are what the list reads for those states, and names all is the n key\'s first step', () => {
+test('the states it expects after the keys are what the list reads for those states, and names all is the l key\'s first step', () => {
   const rows = hotkeyRows({ pills: ['blocked'], isolate: true, panelOnFocus: false });
   for (const [id, text] of Object.entries(CASES.afterKeys)) assert.strictEqual(stateOf(rows, id), text, id);
   assert.strictEqual(stateOf(hotkeyRows({ names: 'all' }), 'names'), CASES.names);
@@ -106,12 +106,12 @@ test('it presses ? as Shift with the slash key, as a US keyboard does, and never
   for (const [, mods] of questions) assert.deepStrictEqual(mods, { shift: true });
 });
 
-test('it makes these checks: the sheet opens at the section, the list, the states, and the places ? does nothing', async () => {
+test('it makes these checks: the sheet opens on its Hotkeys page, the list, the states, and the places ? does nothing', async () => {
   const page = standIn();
   await scenario.run(page);
   const names = page.log.checks.map(([n]) => n);
   for (const part of [
-    'opens the preferences sheet', 'Hotkeys heading is inside the sheet', 'a key element for every key the page answers',
+    'opens the preferences sheet', 'heading inside the sheet', 'a key element for every key the page answers',
     'one row for each entry of the list', 'shows its default', 'with the sheet up, ? does nothing', 'with focus in the search box, ? is typed',
     'with a dialog up, ? does nothing', 'with a card menu up, ? does nothing', 'with the notifications panel up, ? does nothing',
     'the sheet shows the names the Graph now draws', 'still shows the names the board kept',

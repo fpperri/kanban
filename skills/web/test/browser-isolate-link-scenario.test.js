@@ -5,8 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive } = require('../scripts/card-store');
+const { listActive, toJSON } = require('../scripts/card-store');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards, searchIsolateText } = require('../web/search');
 const { cardPart } = require('../web/selection');
 const scenarios = require('./browser/scenarios');
@@ -23,13 +24,13 @@ const planBoard = () => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize('plan', dir);
-  const live = listActive(dir);
+  const live = listActive(dir).map(toJSON);
   const matchIds = (query) => new Set(filterCards(live, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id));
-  return { live, matchIds, byId: new Map(live.map((c) => [c.id, c])) };
+  return { live, matchIds, byId: idMap(live) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const sorted = (list) => [...new Set(list)].sort((a, b) => a - b);
+const sorted = (list) => [...new Set([...list].map(Number))].sort((a, b) => a - b);
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'isolate-link.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
 const { CASES } = scenario;
@@ -49,7 +50,7 @@ test('the cards it picks and the card it right-clicks outside them are live, loo
     assert.ok(c, `card ${id} is live`);
     assert.strictEqual(c.parent, null, `card ${id} has a parent`);
     assert.deepStrictEqual(c.waiting_for || [], [], `card ${id} waits`);
-    assert.ok(!b.live.some((o) => o.parent === id || (o.waiting_for || []).includes(id)), `card ${id} has a child or a dependent`);
+    assert.ok(!b.live.some((o) => o.parent === String(id) || (o.waiting_for || []).includes(String(id))), `card ${id} has a child or a dependent`);
   }
 });
 

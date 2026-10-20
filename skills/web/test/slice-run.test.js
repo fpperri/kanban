@@ -127,7 +127,7 @@ test('the run the list gives for a value is the cards the search module cuts to'
   for (const value of values) {
     const found = new Set(filterCards(cards, parseSearchQuery(`slice:${value}`, 'b'), { board: 'b', hierarchy: HIERARCHY }).map((c) => c.id));
     const r = sliceRunOf(s, entries, [value]);
-    const inRun = new Set(entries.filter((e, at) => r && at >= r.from && at <= r.to).flatMap((e) => CARDS.filter((c) => s.byId.get(c.id).index === e.index).map((c) => c.id)));
+    const inRun = new Set(entries.filter((e, at) => r && at >= r.from && at <= r.to).flatMap((e) => CARDS.filter((c) => s.byId.get(String(c.id)).index === e.index).map((c) => c.id)));
     assert.deepStrictEqual([...inRun].sort((a, b) => a - b), [...found].sort((a, b) => a - b), `slice:${value}`);
   }
 });
@@ -271,9 +271,9 @@ test('an entry\'s key is its own whatever the list holds, and the same after the
 
 // --- the module -----------------------------------------------------------------------------------
 
-test('the module stands alone: it requires nothing, so the snapshot can embed its source, and in a page it adds only its own names', () => {
+test('the module requires only the id module, so the snapshot can embed its source, and in a page it adds only its own names', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'web', 'slice-run.js'), 'utf8');
-  assert.doesNotMatch(source, /\brequire\(/);
+  assert.doesNotMatch(source, /\brequire\((?!'\.\/ids'\))/);
   const page = { window: {} };
   page.window = page;
   vm.createContext(page);

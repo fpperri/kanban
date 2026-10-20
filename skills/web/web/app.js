@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [] }; // hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null, scratchpad: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -654,6 +654,10 @@ function cardEl(card) {
     pill.title = reviewLabel(card.review);
     el.querySelector('.card-head').appendChild(pill);
   }
+  const noteCount = noteCountButton(card.id); // the small note count, only when the card has notes
+  if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
+  const badges = groupBadges(card.id); // up to two group badges, only when the board keeps groups and the card is in one
+  if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
 }
 
@@ -699,6 +703,10 @@ function archiveCardEl(card) {
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors(el);
   paintRollupBars(el);
+  const noteCount = noteCountButton(card.id);
+  if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
+  const badges = groupBadges(card.id);
+  if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
 }
 
@@ -731,9 +739,9 @@ let searchMatchMemo = null;
 // match, which runs right after a repaint, reads it instead of matching again.
 let lastSearchMatch = null;
 
-// What a query resolves against: the nesting context, and the board's hierarchy for slice:.
+// What a query resolves against: the nesting context, the board's hierarchy for slice: and its groups for group:.
 function searchCtx() {
-  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy });
+  return Object.assign(nestingCtx(), { hierarchy: state.hierarchy, groups: state.groups ? state.groups.list : [] });
 }
 
 function matchedIds(terms) {
@@ -754,7 +762,8 @@ function currentSearchMatch() {
 // about a query, read by what is drawn, what is lit and what a selection can reach.
 // While isolate is on the whole query is a cut, as it is in every other view.
 function currentGraphQueryEffect() {
-  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx(), { isolated: isolateNow() !== null });
+  const effect = graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx(), { isolated: isolateNow() !== null });
+  return { visibleIds: withIterationCut(effect.visibleIds), litIds: effect.litIds }; // the picked iteration hides the cards outside it, on top of a slice: cut
 }
 
 // The cards one piece of search text matches, over the whole board like the box.
@@ -797,6 +806,7 @@ function cardIsScheduled(card) {
 function viewCardIds(withSearch) {
   const pool = state.active.concat(state.archived);
   const searchIds = withSearch ? currentSearchMatch().ids : null;
+  const cut = iterationCutIds();
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
@@ -811,7 +821,8 @@ function viewCardIds(withSearch) {
     const open = pool.filter((c) => !collapsed[mapFilterColumn(c, boardStatuses())]);
     visible = intersectVisibleIds(searchIds, new Set(open.map((c) => c.id)));
   }
-  return visible || new Set(pool.map((c) => c.id));
+  const shownIds = visible || new Set(pool.map((c) => c.id));
+  return cut ? intersectVisibleIds(shownIds, cut) : shownIds; // the iteration's cut counts with or without the box: it is not a search
 }
 
 function shownCardIds() {
@@ -963,15 +974,16 @@ function prefOptionOn(opt) {
 }
 
 function syncPrefsSheet() {
-  $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
+  $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => { if (opt.dataset.pref) opt.setAttribute('aria-pressed', String(prefOptionOn(opt))); }); // the choices of This browser; the switches of This board are drawn by settings-ui.js
   $('#prefs-archived-done').checked = countArchivedLeaves();
   $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
 
-function openPrefsSheet() {
+function openPrefsSheet(page) {
   syncPrefsSheet();
+  settingsShow(typeof page === 'string' ? page : null);
   $('#prefs-sheet').classList.remove('hidden');
   $('#prefs-btn').setAttribute('aria-expanded', 'true');
   $('#prefs-close').focus();
@@ -983,14 +995,20 @@ function closePrefsSheet() {
   $('#prefs-btn').focus();
 }
 
-// A click on the backdrop outside the sheet closes it; one on a choice makes it.
+// A click on the backdrop outside the sheet closes it; one on a choice makes it, one on a menu item
+// shows that page. The switches of This board's pages answer to settings-ui.js, not here.
 function onPrefsSheetClick(e) {
   if (e.target.id === 'prefs-sheet') { closePrefsSheet(); return; }
   const opt = e.target.closest('.prefs-opt');
-  if (!opt || opt.disabled) return;
-  if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
-  else setClickPref(opt.dataset.view, opt.dataset.value);
-  syncPrefsSheet();
+  if (opt) {
+    if (opt.disabled || !opt.dataset.pref) return;
+    if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
+    else setClickPref(opt.dataset.view, opt.dataset.value);
+    syncPrefsSheet();
+    return;
+  }
+  const item = e.target.closest('.prefs-menu-item');
+  if (item) settingsGo(item.dataset.page);
 }
 
 // Cards are edited in place (optimistic drops), so the nesting index is rebuilt
@@ -1071,6 +1089,7 @@ function applyViewMode() {
 
 function renderBoard() {
   nestingIndex = buildNestingIndex();
+  renderIterations(); // the dropdown, before the views read the cut it makes
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
   try {
@@ -1124,8 +1143,9 @@ function renderBoardColumns() {
   board.innerHTML = '';
   const collapsed = loadCollapsedColumns();
   const colSort = loadColumnSort();
-  const searchIds = currentSearchMatch().ids;
-  const searchActive = searchIds !== null;
+  const searchActive = currentSearchMatch().ids !== null;
+  const searchIds = withIterationCut(currentSearchMatch().ids); // the picked iteration cuts the columns on top of the box, which it never writes
+  const narrowed = searchIds !== null;
   const clearBtn = $('#search-clear-btn');
   if (clearBtn) clearBtn.classList.toggle('hidden', !searchActive);
   // tree:/path: terms need the FULL active+archived graph to
@@ -1146,13 +1166,13 @@ function renderBoardColumns() {
     // The Assignee sort ranks by registry order, so the comparator
     // gets the config.yaml handles — plumbed exactly like priorities above.
     const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
-    const cards = searchActive ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
+    const cards = narrowed ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
     const isCollapsed = !!collapsed[col];
     const label = columnLabel(col);
     // Counts stay truthful whether or not the column is collapsed — column-count
     // renders in both states, so a collapsed column with hits signals them on its
     // strip with no extra branching.
-    const countLabel = searchActive ? `${cards.length}/${allCards.length}` : `${allCards.length}`;
+    const countLabel = narrowed ? `${cards.length}/${allCards.length}` : `${allCards.length}`;
     const colEl = document.createElement('div');
     // col-<name> only for css-safe names (the built-in five have color rules;
     // a custom name's rule wouldn't exist anyway — its color is inline below).
@@ -1283,7 +1303,7 @@ function renderMapView() {
   // case, but a zoomed-out board that then filters everything away shouldn't strand the
   // human with no way to zoom back before turning a pill back on).
   main.appendChild(buildMapBar(panelOpen));
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildRelationsGraph sees one combined
   // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
@@ -1767,7 +1787,7 @@ function buildMapSvg(graph, layer, draw) {
     layers.get(l).push(id);
   }
   for (const [l, ids] of layers) {
-    ids.sort((a, b) => a - b); // the layout's own order is the tie-break for the status order
+    ids.sort(kanbanIds.compareIds); // the layout's own order is the tie-break for the status order (a stub's id is no id and sorts last)
     layers.set(l, mapOrderRow(ids, graph, draw.order, draw.statuses));
   }
   const sizes = new Map();
@@ -1976,8 +1996,10 @@ function applyProjectName(name) {
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
     prefsMemo = null; // the preferences entry too
+    iterationUi.choice = undefined; // the iteration pick too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
+    calendarNotes = null; // calendar.notes too
     ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
     mapZoom = null; // map.zoom too
@@ -2003,9 +2025,24 @@ function applyHomeUrl(url) {
   }
 }
 
+// The page keys every card on the id module's whole-id string (`7`, `G7`), whether the
+// server sent the id as a number or as a string; a waiting_for entry and a plain parent
+// are held the same way.
+function pageId(id) {
+  const key = kanbanIds.idKey(id);
+  return key === null ? String(id) : key;
+}
+
+function pageCard(card) {
+  card.id = pageId(card.id);
+  if (Array.isArray(card.waiting_for)) card.waiting_for = card.waiting_for.map(pageId);
+  if (typeof card.parent === 'number') card.parent = pageId(card.parent);
+  return card;
+}
+
 function applyBoardData(data) {
-  state.active = data.active;
-  state.archived = data.archived;
+  state.active = data.active.map(pageCard);
+  state.archived = data.archived.map(pageCard);
   state.boardDir = data.boardDir || ''; // absolute board path for the header copy button (defensive ||: an old server without the field degrades to the honest empty-path toast)
   applyHomeUrl(data.homeUrl);
   applyProjectName(data.projectName); // must run before renderBoard: collapse state's storage key is namespaced by projectName
@@ -2025,6 +2062,11 @@ function applyBoardData(data) {
   state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
   state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
+  state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
+  state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
+  state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
+  state.scratchpad = data.scratchpad || null; // { folder, targets } when config.yaml has a scratchpad: line, else null and nothing of it shows (scratchpad-ui.js); targets are the ids that have a page
+  state.logbook = data.logbook || null; // { folder, notes } when config.yaml has a logbook: line, else null and nothing of it shows (notes.js, notes-palette.js); read by the card tiles, so before renderBoard
   dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
   // them, so an unattended poll would drop a Tab-navigating user's focus to
@@ -2057,6 +2099,7 @@ function applyBoardData(data) {
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   }
+  notesOnBoard(); // the notes palette, when open, follows the payload
   applyNotifications(data.notifications || []); // the board poll carries them — no separate timer
 }
 
@@ -2154,8 +2197,8 @@ function wireDrag() {
       // decides at drop time, so a poll pruning the set mid-drag can't flip
       // a bulk drag into a single-card one halfway through.
       const dragged = bulkTargets();
-      bulkDragIds = (dragged.length > 1 && dragged.some((c) => c.id === Number(el.dataset.id))) ? dragged.map((c) => c.id) : null;
-      dragCardId = Number(el.dataset.id);
+      bulkDragIds = (dragged.length > 1 && dragged.some((c) => c.id === el.dataset.id)) ? dragged.map((c) => c.id) : null;
+      dragCardId = el.dataset.id;
     });
     el.addEventListener('dragend', () => {
       el.classList.remove('dragging');
@@ -2188,7 +2231,7 @@ function wireDrag() {
       e.preventDefault();
       col.classList.remove('drag-over');
       clearDropMarks();
-      const id = Number(e.dataTransfer.getData('text/plain'));
+      const id = e.dataTransfer.getData('text/plain');
       const ids = bulkDragIds || [id];
       bulkDragIds = null;
       const dest = col.dataset.col;
@@ -2286,7 +2329,7 @@ function isReorderDrop(ids, dest) {
 }
 
 function dropPoint(col, dragId, clientY) {
-  const tiles = [...col.querySelectorAll('.column-cards > .card')].filter((el) => Number(el.dataset.id) !== dragId);
+  const tiles = [...col.querySelectorAll('.column-cards > .card')].filter((el) => el.dataset.id !== dragId);
   const mids = tiles.map((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; });
   return { tiles, at: dropSlot(mids, clientY) };
 }
@@ -2303,7 +2346,7 @@ function markDropPoint(tiles, at) {
 }
 
 function dropAmong(col, point) {
-  return dropNeighbours(point.tiles.map((el) => Number(el.dataset.id)), point.at, loadColumnSort()[col.dataset.col].direction);
+  return dropNeighbours(point.tiles.map((el) => el.dataset.id), point.at, loadColumnSort()[col.dataset.col].direction);
 }
 
 // The drop line is drawn only where reorderCard would take the drop. dragover
@@ -2591,7 +2634,7 @@ function requestCloseModal() {
 }
 
 function parseIds(s) {
-  return s.split(',').map((x) => x.trim()).filter(Boolean).map(Number).filter((n) => Number.isInteger(n));
+  return s.split(',').map((x) => kanbanIds.idKey(x.trim())).filter((id) => id !== null);
 }
 function parseTags(s) {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
@@ -2639,12 +2682,14 @@ async function submitModal(e) {
     body: $('#f-body').value,
   };
   try {
+    let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
-    else await api('POST', '/api/cards', payload);
+    else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
     closeModal();
     await loadBoard();
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
+    else if (joined) toast(joined);
   } catch (e2) {
     if (e2.status === 422) {
       toast(`Can't set doing — ${gate422Text(e2.data)}.`);
@@ -2705,7 +2750,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const actBtn = e.target.closest('button[data-act]');
     if (actBtn) {
-      const id = Number(actBtn.dataset.id);
+      const id = actBtn.dataset.id;
       if (actBtn.dataset.act === 'restore') doRestore(id);
       if (actBtn.dataset.act === 'delete-arch') doDelete(id);
     }
@@ -2750,10 +2795,9 @@ async function doRestore(id) {
   catch (e) { toast('Restore failed: ' + e.message); }
 }
 
-async function doDelete(id, { onSuccess } = {}) {
-  if (!confirm(`Permanently delete ${cardLabel(id)}? This cannot be undone.`)) return;
-  try { await api('DELETE', `/api/cards/${id}`); if (onSuccess) onSuccess(); await loadBoard(); }
-  catch (e) { toast('Delete failed: ' + e.message); }
+// Deleting opens the delete popup (delete-ui.js): what goes, and the extras to tick.
+function doDelete(id, { onSuccess } = {}) {
+  openDelete('card', [id], { onDone: onSuccess });
 }
 
 // --- Card detail popup: rendered markdown body, frontmatter table, copy-path. ---
@@ -3138,6 +3182,7 @@ async function openDetailModal(id, { quiet } = {}) {
     return false;
   }
   if (reqId !== detailRequestId) return false; // a newer openDetailModal call superseded this one
+  data.id = pageId(data.id);
   currentDetailId = data.id;
   currentDetailArchived = !!data.archived;
   // Same empty-title-shows-the-prompt fallback every other
@@ -3291,7 +3336,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const m = e.target.closest('code.mention.same');
     if (!m || (e.type === 'keydown' && e.key !== 'Enter')) return;
     e.preventDefault();
-    await openCard(Number(m.dataset.cardId));
+    await openCard(m.dataset.cardId);
     $('#detail-modal .modal').scrollTop = 0; // the new card opens at its top, not at the old card's scroll
   };
   $('#detail-modal').addEventListener('click', openMentionedCard);
@@ -3330,7 +3375,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
-    if (!$('#prefs-sheet').classList.contains('hidden')) { closePrefsSheet(); return; }
+    if (!$('#prefs-sheet').classList.contains('hidden')) { settingsStepBack(); return; }
     if (!$('#detail-modal').classList.contains('hidden')) { closeCard(); return; }
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
@@ -3663,13 +3708,13 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const actBtn = e.target.closest('button[data-act]');
     if (actBtn) {
-      const id = Number(actBtn.dataset.id);
+      const id = actBtn.dataset.id;
       if (actBtn.dataset.act === 'restore') doRestore(id);
       if (actBtn.dataset.act === 'delete-arch') doDelete(id);
       return;
     }
     const stub = e.target.closest('.map-node.ghost[data-id]');
-    if (stub) openCard(Number(stub.dataset.id));
+    if (stub) openCard(stub.dataset.id);
   });
   // Right-click a status-filter pill SOLOs it (every other pill
   // off); right-click the already-soloed pill again restores all ON. Own
@@ -3960,6 +4005,11 @@ function currentCalendarAnchor() {
   return calendarAnchor;
 }
 
+// The Calendar opens on a day: the picked iteration's first one (iterations-ui.js).
+function calendarAnchorTo(day) {
+  calendarAnchor = day;
+}
+
 function currentCalendarMonth() {
   const [y, m] = currentCalendarAnchor().split('-').map(Number);
   return { year: y, monthIndex: m - 1 };
@@ -3989,6 +4039,29 @@ function setCalendarSubview(subview) {
   if (!CALENDAR_SUBVIEWS.includes(subview) || subview === loadCalendarSubview()) return;
   calendarSubview = subview;
   saveCalendarSubview();
+  renderCalendarView();
+}
+
+// The Notes switch (feature key 'calendar.notes'): whether the week, 3-day and day views draw the
+// logbook's notes beside the cards. On unless this browser saved off for the board; the switch
+// and the layer exist only on a board that keeps a logbook.
+let calendarNotes = null;
+
+function calendarNotesOn() {
+  if (!notesOn()) return false;
+  if (calendarNotes === null) {
+    let saved = null;
+    try { saved = localStorage.getItem(storageKey(state.projectName, 'calendar.notes')); }
+    catch (e) { saved = null; }
+    calendarNotes = saved !== 'off';
+  }
+  return calendarNotes;
+}
+
+function setCalendarNotes(on) {
+  calendarNotes = !!on;
+  try { localStorage.setItem(storageKey(state.projectName, 'calendar.notes'), calendarNotes ? 'on' : 'off'); }
+  catch (e) { /* storage unavailable/full: the choice just won't persist this session */ }
   renderCalendarView();
 }
 
@@ -4079,7 +4152,7 @@ function timelineViewInput(filter, searchIds) {
 }
 
 function calendarViewInput(match = currentSearchMatch()) {
-  return timelineViewInput(loadCalendarStatusFilter(), match.ids);
+  return timelineViewInput(loadCalendarStatusFilter(), withIterationCut(match.ids));
 }
 
 function renderCalendarView() {
@@ -4106,7 +4179,11 @@ function renderCalendarView() {
     CALENDAR_SUBVIEWS.map((sv) =>
       `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${CAL_SUBVIEW_LABELS[sv]}</button>`).join('') +
-    `</span>`;
+    `</span>` +
+    // The Notes switch: only where notes are drawn (the time grids of a board with a logbook).
+    (subview !== 'month' && notesOn()
+      ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>`
+      : '');
   container.appendChild(controls);
   // The status-filter row renders first and UNCONDITIONALLY — same
   // reasoning as the map's row and the gantt's row: if it vanished on
@@ -4132,7 +4209,7 @@ function renderCalendarMonthGrid(container) {
   // the gantt — harmless while the Archive pill is off, since no archived
   // card is ever added to `cards` below regardless of whether its id lands
   // in searchIds.
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   // Status filter composes with search by INTERSECTION — same rule
   // as the map's and the gantt's composition. ganttFilterVisibleIds
   // (not mapFilterVisibleIds) is the right helper here too: the calendar
@@ -4165,6 +4242,7 @@ function renderCalendarMonthGrid(container) {
   grid.appendChild(dowRow);
 
   const today = localTodayStr();
+  const shaded = iterationDayShader();
   const cells = monthGrid(year, monthIndex);
   // monthChipLayout packs runs PER WEEK ROW (a week is the most a single DOM
   // element can span — a run crossing into the next week is a squared-off
@@ -4189,7 +4267,7 @@ function renderCalendarMonthGrid(container) {
 
     cells.slice(w * 7, w * 7 + 7).forEach((cell, i) => {
       const dayEl = document.createElement('div');
-      dayEl.className = 'cal-day' + (cell.inMonth ? '' : ' outside') + (cell.date === today ? ' today' : '');
+      dayEl.className = 'cal-day' + (cell.inMonth ? '' : ' outside') + (cell.date === today ? ' today' : '') + (shaded(cell.date) ? ' in-iteration' : '');
       dayEl.dataset.day = cell.date;
       const num = document.createElement('div');
       num.className = 'cal-day-num';
@@ -4265,7 +4343,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   // band AND the timed hour grid alike, not just the month view. Same
   // live+archived search pool and Archive-pill composition as the month
   // grid too, so the toggle applies to both grids alike.
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   const statusIds = ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses());
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
   const cards = visibleIds ? state.active.filter((c) => visibleIds.has(c.id)) : state.active;
@@ -4275,6 +4353,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
     : cards;
   const layout = timeGridLayout(allCards, days);
   const today = localTodayStr();
+  const shaded = iterationDayShader();
 
   const grid = document.createElement('div');
   grid.className = 'cal-timegrid';
@@ -4287,7 +4366,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   head.appendChild(document.createElement('div')); // spacer over the hour gutter
   for (const day of days) {
     const h = document.createElement('div');
-    h.className = 'cal-tg-dayhead' + (day === today ? ' today' : '');
+    h.className = 'cal-tg-dayhead' + (day === today ? ' today' : '') + (shaded(day) ? ' in-iteration' : '');
     const dt = new Date(dayToUtc(day));
     h.textContent = `${CAL_DOW_SHORT[dt.getUTCDay()]} ${dt.getUTCDate()}`;
     head.appendChild(h);
@@ -4305,10 +4384,12 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   band.appendChild(bandLabel);
   const bandGrid = document.createElement('div');
   bandGrid.className = 'cal-tg-allday-grid';
-  const bandRows = Math.max(1, layout.allDayRows); // at least one row of drop surface, even empty
+  const notesByDay = new Map(days.map((day) => [day, calendarNotesOn() ? noteCalendarDay(notesAll(), day) : null]));
+  const untimedRow = layout.allDayRows + 1; // a day with untimed notes gets one more row in the band, under the cards
+  const bandRows = Math.max(1, layout.allDayRows + ([...notesByDay.values()].some((d) => d && d.untimed.length) ? 1 : 0)); // at least one row of drop surface, even empty
   days.forEach((day, i) => {
     const cell = document.createElement('div');
-    cell.className = 'cal-tg-allday-cell cal-drop' + (day === today ? ' today' : '');
+    cell.className = 'cal-tg-allday-cell cal-drop' + (day === today ? ' today' : '') + (shaded(day) ? ' in-iteration' : '');
     cell.dataset.day = day;
     cell.style.gridColumn = `${i + 1}`;
     cell.style.gridRow = `1 / ${bandRows + 1}`;
@@ -4325,6 +4406,14 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
     chip.style.gridRow = `${entry.row + 1}`;
     bandGrid.appendChild(chip);
   }
+  days.forEach((day, i) => {
+    const dayNotes = notesByDay.get(day);
+    if (!dayNotes || !dayNotes.untimed.length) return;
+    const box = notesCalendarUntimed(day, dayNotes.untimed);
+    box.style.gridColumn = `${i + 1}`;
+    box.style.gridRow = `${untimedRow}`;
+    bandGrid.appendChild(box);
+  });
   band.appendChild(bandGrid);
   grid.appendChild(band);
 
@@ -4348,9 +4437,12 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   body.appendChild(gutter);
   for (const day of days) {
     const col = document.createElement('div');
-    col.className = 'cal-tg-col cal-drop' + (day === today ? ' today' : '');
+    col.className = 'cal-tg-col cal-drop' + (day === today ? ' today' : '') + (shaded(day) ? ' in-iteration' : '');
     col.dataset.day = day;
     col.style.height = `${24 * CAL_HOUR_PX}px`;
+    const dayNotes = notesByDay.get(day);
+    const strip = dayNotes && dayNotes.slots.length; // a day with timed notes keeps a strip right of the card blocks for them
+    if (strip) col.classList.add('has-notes');
     for (const block of layout.timed[day]) {
       const el = calendarChipEl(block.card, 'single', block.time, block.due);
       el.classList.add('cal-timeblock');
@@ -4363,8 +4455,8 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       el.draggable = false;
       el.style.top = `${(block.startMin / 60) * CAL_HOUR_PX}px`;
       el.style.height = `${Math.max(18, ((block.endMin - block.startMin) / 60) * CAL_HOUR_PX - 2)}px`;
-      el.style.left = `calc(${block.lane} * 100% / ${block.lanes})`;
-      el.style.width = `calc(100% / ${block.lanes} - 4px)`;
+      el.style.left = strip ? `calc(${block.lane} * (100% - var(--cal-note-strip)) / ${block.lanes})` : `calc(${block.lane} * 100% / ${block.lanes})`;
+      el.style.width = strip ? `calc((100% - var(--cal-note-strip)) / ${block.lanes} - 4px)` : `calc(100% / ${block.lanes} - 4px)`;
       // Only a REAL same-day duration (not a point/due placeholder,
       // whose height is a synthetic 60-min marker) gets resize handles — the
       // point/due block's own `point`/`due` flags answer "resizable?" with no
@@ -4379,6 +4471,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       }
       col.appendChild(el);
     }
+    if (strip) for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
     body.appendChild(col);
   }
   scroll.appendChild(body);
@@ -4440,7 +4533,7 @@ function wireCalendarDrag() {
       // never get its dragend — a stuck cal-dragging would leave every chip
       // click-dead (pointer-events:none) until the next drag.
       container.classList.remove('cal-dragging');
-      const id = Number(e.dataTransfer.getData('text/plain'));
+      const id = e.dataTransfer.getData('text/plain');
       onCalendarDrop(id, cell.dataset.day, calDragDue);
     });
   });
@@ -4576,7 +4669,7 @@ function wireCalendarTimeDrag() {
     const mode = handleEl
       ? (handleEl.classList.contains('top') ? 'resize-start' : 'resize-end')
       : (blockEl.dataset.due === '1' ? 'due' : 'shift');
-    const id = Number(blockEl.dataset.id);
+    const id = blockEl.dataset.id;
     // Archived guard, BEFORE any capture/state (same as the gantt): an archived
     // card only lives in state.archived, so this find returns undefined.
     const card = state.active.find((c) => c.id === id);
@@ -4657,6 +4750,11 @@ function wireCalendarTimeDrag() {
 const CALENDAR_CREATE_DAY_CELLS = '.cal-day, .cal-tg-allday-cell';
 const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
 
+// A single click on an empty hour opens the notes palette once the double click that would make
+// a card there can no longer follow it.
+const CAL_DOUBLE_CLICK_MS = 300;
+let calHourClickTimer = 0;
+
 // --- Calendar view wiring: header toggle + the
 // prev/today/next nav. #calendar-view is rebuilt by every renderCalendarView()
 // call, so clicks delegate to the stable parent — same pattern (and reason)
@@ -4680,7 +4778,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (sv) { setCalendarSubview(sv.dataset.subview); return; }
     if (e.target.closest('#cal-prev-btn')) { shiftCalendarWindow(-1); return; }
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
-    if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); }
+    if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); return; }
+    if (e.target.closest('#cal-notes-btn')) { setCalendarNotes(!calendarNotesOn()); return; }
+    // A click on an empty part of a day's column opens the palette on that hour. A double click
+    // there makes a card, so the palette waits out the double click's window.
+    const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
+    if (!col || e.target.closest('.card-el, .cal-note') || isDragging || ganttDrag || calTimeDrag || !calendarNotesOn()) return;
+    const r = col.getBoundingClientRect();
+    const req = noteHourRequest(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN);
+    clearTimeout(calHourClickTimer);
+    calHourClickTimer = setTimeout(() => { if (calendarNotesOn()) openNotes(req); }, CAL_DOUBLE_CLICK_MS);
   });
   // Click-to-create rides double-click on the empty cells, the one empty space
   // where a double click already means something, so the click-away rule leaves
@@ -4693,7 +4800,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // unlike the column "+", a calendar cell doesn't imply a status.
   $('#calendar-view').addEventListener('dblclick', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the contextmenu listener below: never fire out from under a live drag
+    clearTimeout(calHourClickTimer); // the click that began this double click wanted the palette; the double click wants a card
     if (e.target.closest('.card-el')) return; // a chip's dblclick is its own affair, not a create gesture
+    if (e.target.closest('.cal-note')) return; // so is a note's
     const dayCell = e.target.closest(CALENDAR_CREATE_DAY_CELLS);
     if (dayCell) { openModal(null, null, calendarCreateStart(dayCell.dataset.day)); return; }
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
@@ -4944,7 +5053,7 @@ function ganttBarEl(bar, win, dayPx) {
 // What renderGanttView composes before it draws, as the jump needs it: the same shape as
 // calendarViewInput, over the Gantt's status filter (timelineViewInput).
 function ganttViewInput(match = currentSearchMatch()) {
-  return timelineViewInput(loadGanttStatusFilter(), match.ids);
+  return timelineViewInput(loadGanttStatusFilter(), withIterationCut(match.ids));
 }
 
 function renderGanttView() {
@@ -4984,7 +5093,7 @@ function renderGanttView() {
   // unconditionally (same as the map's own search pool) — harmless while the
   // Archive pill is off, since no archived bar is ever added to groups below
   // regardless of whether its id lands in searchIds.
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   // NOT mapFilterVisibleIds — that folds an unlisted status
   // into the FIRST column's toggle, correct for the map/board but wrong here.
   // ganttGroups (below) buckets cards by their RAW status and gives an
@@ -5288,7 +5397,7 @@ function wireGanttPointerDrag() {
     if (!barEl) return;
     const handle = diamondEl ? null : e.target.closest('.gantt-handle');
     const mode = diamondEl ? 'due' : handle ? (handle.classList.contains('start') ? 'start' : 'end') : 'shift';
-    const card = state.active.find((c) => c.id === Number(barEl.dataset.id));
+    const card = state.active.find((c) => c.id === barEl.dataset.id);
     // An archived bar/diamond's id only ever lives in
     // state.archived, so `card` is undefined here — without this guard the
     // gesture would start identically to a live drag (pointer capture claimed,
@@ -5303,7 +5412,7 @@ function wireGanttPointerDrag() {
     }
     const rf = rangeFields(card); // triad-aware shape
     ganttDrag = {
-      id: Number(barEl.dataset.id),
+      id: barEl.dataset.id,
       mode,
       // end-drag on an end-only or reversed card relocates its 1-day bar
       // instead of stretching (see barResizeChanges) — the preview must match
@@ -5461,7 +5570,7 @@ async function openMentionFromTray(e) {
   const m = e.target.closest('code.mention.same');
   if (!m) return;
   e.preventDefault();
-  await openCard(Number(m.dataset.cardId));
+  await openCard(m.dataset.cardId);
   if (!$('#detail-modal').classList.contains('hidden')) closeNotifModal();
 }
 
@@ -5623,7 +5732,7 @@ function setHoveredId(id) {
 // toggles .hidden — so the query must scope to the active container, not the
 // whole document.
 function visibleCardIds() {
-  const ids = [...$(VIEW_CONTAINERS[loadViewMode()]).querySelectorAll('.card-el')].map((el) => Number(el.dataset.id));
+  const ids = [...$(VIEW_CONTAINERS[loadViewMode()]).querySelectorAll('.card-el')].map((el) => el.dataset.id);
   return [...new Set(ids)];
 }
 
@@ -5731,7 +5840,7 @@ function onCardOpenKey(e) {
   });
   if (action !== 'open') return;
   e.preventDefault();
-  openCard(Number(el.dataset.id));
+  openCard(el.dataset.id);
 }
 
 // The click-away rule. A click on empty space can be an accident, so a single click
@@ -5803,6 +5912,10 @@ function showContextMenu(x, y) {
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
+  $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
+  $('#ctx-scratch').classList.toggle('hidden', !scratchpadOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
+  $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
+  $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
   menu.classList.remove('hidden');
   // Clamp to the viewport so the menu never opens half off-screen.
@@ -5907,20 +6020,15 @@ async function bulkRestore() {
   toast(failed.length ? `Restored ${ids.length - failed.length}${skipNote}; failed: ${failed.join(', ')}` : `Restored ${ids.length} card(s)${skipNote}.`);
 }
 
-async function bulkDelete() {
+// One popup for the whole selection (delete-ui.js): it asks once, whatever the count.
+function bulkDelete() {
   hideContextMenu();
   const ids = bulkTargets(menuSubject.ids).map((c) => c.id);
   if (!ids.length) return;
   const wasSelection = menuSubject.inSelection;
-  if (!confirm(`Permanently delete ${ids.length} card(s)? This cannot be undone.`)) return;
-  const failed = [];
-  for (const id of ids) {
-    try { await api('DELETE', `/api/cards/${id}`); }
-    catch (e) { failed.push(`#${id} (${e.message})`); }
-  }
-  if (wasSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
-  await loadBoard();
-  toast(failed.length ? `Deleted ${ids.length - failed.length}; failed: ${failed.join(', ')}` : `Deleted ${ids.length} card(s).`);
+  openDelete('card', ids, {
+    onDone: () => { if (wasSelection) setSelection(NO_SELECTION); }, // a menu opened outside the selection leaves the hand-built selection as it was
+  });
 }
 
 // Bulk move (drag): the doing entry gate (waiting + blocked)
@@ -6168,7 +6276,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
     const view = loadViewMode();
     const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
-    applyCardClick(action, Number(el.dataset.id), cue);
+    applyCardClick(action, el.dataset.id, cue);
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the
   // browser's own context menu (don't hijack the whole page), except the empty
@@ -6180,12 +6288,12 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
     if (!el) { openCanvasContextMenu(e); return; }
-    openCardContextMenu(e, Number(el.dataset.id));
+    openCardContextMenu(e, el.dataset.id);
   });
   document.addEventListener('keydown', onCardOpenKey);
   // The preferences sheet: the gear opens it; its close button and a click on
   // the backdrop close it, and so does Esc (its own line in the Esc handler).
-  $('#prefs-btn').addEventListener('click', openPrefsSheet);
+  $('#prefs-btn').addEventListener('click', () => openPrefsSheet());
   $('#prefs-close').addEventListener('click', closePrefsSheet);
   $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
@@ -6202,14 +6310,14 @@ window.addEventListener('DOMContentLoaded', () => {
   // card-el's own edge.
   const enterHover = (e) => {
     const el = e.target.closest('.card-el');
-    setHoveredId(el ? Number(el.dataset.id) : null);
+    setHoveredId(el ? el.dataset.id : null);
   };
   const leaveHover = (e) => {
     const from = e.target.closest('.card-el');
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card-el');
     if (to === from) return;
-    setHoveredId(to ? Number(to.dataset.id) : null);
+    setHoveredId(to ? to.dataset.id : null);
   };
   document.addEventListener('mouseover', enterHover);
   document.addEventListener('mouseout', leaveHover);
@@ -6597,7 +6705,8 @@ function renderDatePicker() {
     timeInput.value = timePart(datePickerFor.value); // set via property, not an HTML string — no escaping needed
     timeRow.appendChild(timeInput);
   }
-  pop.replaceChildren(controls, grid, timeRow);
+  if (datePickerFor.hasAttribute('data-date-only')) pop.replaceChildren(controls, grid);
+  else pop.replaceChildren(controls, grid, timeRow);
   pop.hidden = false;
   positionDatePicker();
 }
@@ -6618,14 +6727,20 @@ function positionDatePicker() {
   pop.style.top = `${Math.round(top)}px`;
 }
 
-document.querySelectorAll('.date-pick-btn').forEach((btn) => {
-  const input = document.getElementById(btn.dataset.dateInput);
-  // Toggle: same button closes; a different field's button MOVES the one
-  // popover there (openDatePicker re-derives month + selection per opening).
+// Toggle: same button closes; a different field's button MOVES the one
+// popover there (openDatePicker re-derives month + selection per opening).
+// A field marked data-date-only (the group forms: a group's dates are days)
+// gets the grid without the clock row. Forms built after load (groups-ui.js)
+// wire their own buttons through here.
+function wireDatePickButton(btn, input) {
   btn.addEventListener('click', () => {
     if (datePickerFor === input) closeDatePicker();
     else openDatePicker(input, btn);
   });
+}
+
+document.querySelectorAll('.date-pick-btn').forEach((btn) => {
+  wireDatePickButton(btn, document.getElementById(btn.dataset.dateInput));
 });
 
 // Clicking anywhere outside closes it. The popover's own clicks and the 📅

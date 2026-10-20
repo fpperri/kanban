@@ -17,10 +17,10 @@ test('the recognized view set is exactly board/map/gantt/calendar/graph', () => 
 });
 
 test('?card=<id>&view=<view> parses both fields', () => {
-  assert.deepStrictEqual(parseDeepLink('?card=194&view=board'), { hasCard: true, id: 194, q: null, view: 'board', isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?card=7&view=map'), { hasCard: true, id: 7, q: null, view: 'map', isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?card=7&view=gantt'), { hasCard: true, id: 7, q: null, view: 'gantt', isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?card=7&view=calendar'), { hasCard: true, id: 7, q: null, view: 'calendar', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=194&view=board'), { hasCard: true, id: '194', q: null, view: 'board', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=7&view=map'), { hasCard: true, id: '7', q: null, view: 'map', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=7&view=gantt'), { hasCard: true, id: '7', q: null, view: 'gantt', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=7&view=calendar'), { hasCard: true, id: '7', q: null, view: 'calendar', isolate: false });
 });
 
 test('none of the three keys present — not a deep link', () => {
@@ -49,20 +49,20 @@ test('q and view compose without a card', () => {
 
 test('all three keys compose', () => {
   assert.deepStrictEqual(parseDeepLink('?card=42&q=type%3Aepic&view=map'), {
-    hasCard: true, id: 42, q: 'type:epic', view: 'map', isolate: false,
+    hasCard: true, id: '42', q: 'type:epic', view: 'map', isolate: false,
   });
 });
 
 test('missing/unrecognized "view" resolves to view: null — id still parses', () => {
-  assert.deepStrictEqual(parseDeepLink('?card=194'), { hasCard: true, id: 194, q: null, view: null, isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?card=194&view=kanban'), { hasCard: true, id: 194, q: null, view: null, isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?card=194&view='), { hasCard: true, id: 194, q: null, view: null, isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=194'), { hasCard: true, id: '194', q: null, view: null, isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=194&view=kanban'), { hasCard: true, id: '194', q: null, view: null, isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=194&view='), { hasCard: true, id: '194', q: null, view: null, isolate: false });
 });
 
-test('a non-numeric or non-positive-integer "card" value resolves to id: null, not a dropped link', () => {
+test('a "card" value that is no id resolves to id: null, not a dropped link', () => {
   assert.deepStrictEqual(parseDeepLink('?card=abc&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?card=&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?card=0&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=g7&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?card=-3&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
   assert.deepStrictEqual(parseDeepLink('?card=3.5&view=board'), { hasCard: true, id: null, q: null, view: 'board', isolate: false });
 });
@@ -120,9 +120,10 @@ test('the shop status page URL shapes parse', () => {
 });
 
 test('leading zeros / extra params / order do not matter', () => {
-  assert.deepStrictEqual(parseDeepLink('?card=007&view=board'), { hasCard: true, id: 7, q: null, view: 'board', isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?view=board&card=194&extra=1'), { hasCard: true, id: 194, q: null, view: 'board', isolate: false });
-  assert.deepStrictEqual(parseDeepLink('?extra=1&q=type%3Aepic&card=5'), { hasCard: true, id: 5, q: 'type:epic', view: null, isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=007&view=board'), { hasCard: true, id: '7', q: null, view: 'board', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?card=G7&view=board'), { hasCard: true, id: 'G7', q: null, view: 'board', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?view=board&card=194&extra=1'), { hasCard: true, id: '194', q: null, view: 'board', isolate: false });
+  assert.deepStrictEqual(parseDeepLink('?extra=1&q=type%3Aepic&card=5'), { hasCard: true, id: '5', q: 'type:epic', view: null, isolate: false });
 });
 
 test('non-string input never throws — resolves to null', () => {

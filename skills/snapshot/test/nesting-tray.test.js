@@ -68,7 +68,7 @@ test('a type and a parent saved for a card queue one edit that applies cleanly',
     assert.deepStrictEqual(ops(page), [{ op: 'edit', id: '8', fm: { type: 'story', parent: '2' } }]);
     const read = readBack('0008.loose.card.md', ops(page)[0].fm);
     assert.strictEqual(read.type, 'story');
-    assert.strictEqual(read.parent, 2);
+    assert.strictEqual(read.parent, '2');
     assert.strictEqual(read.title, 'Loose');
   });
 });
@@ -159,7 +159,7 @@ test('the map keeps reading a parent edited in the tray', () => {
   open(BOARD, (page) => {
     sheet(page, 8);
     saveField(page, 'parent', '2');
-    assert.strictEqual(page.run('find("8").pt'), 2);
+    assert.strictEqual(page.run('find("8").pt'), '2');
     saveField(page, 'parent', 'fpp#4');
     assert.strictEqual(page.run('find("8").pt'), null);
     saveField(page, 'parent', '');

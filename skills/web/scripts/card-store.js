@@ -1,14 +1,17 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { allocateId } = require('./config-store');
+const { allocateId, readConfig, prefixForType } = require('./config-store');
 // The ONE home of both `doing`-gate predicates: waiting (derived
 // from waiting_for) and blocked (the manual sticker) — plus review (ADR
 // 0009), blocked's sibling sticker that does NOT gate `doing`.
 // Dual-environment — the browser loads the same file as a plain <script>, so
 // store and UI can never drift on what "waiting"/"blocked"/"review" means.
 const { isBlockedValue, blockedReason, isReviewValue, unresolvedWaits } = require('../web/waiting-blocked');
-const { parseParent, parseRank } = require('../web/nesting');
+const { parseRank } = require('../web/nesting');
+// Ids are the id module's whole strings (`7`, `G3`): the store keeps them as
+// strings, compares them with idKey and never turns one into a number.
+const ids = require('../web/ids');
 // The `prompt` field's single-line quoting — the same
 // quote/unquote yaml-list.js already gives notifications.md's `message`
 // field, reused here rather than forked (see the field's own writer note in
@@ -125,12 +128,18 @@ function stripQuotes(s) {
   return t.replace(/^"(.*)"$/, '$1');
 }
 
-// A parent as the card JSON carries it: a number for a card on this board,
+// A parent as the store holds it: the id string of a card on this board,
 // `board#id` for another board's, null when the value reads as nothing.
 function readParent(raw) {
-  const p = parseParent(raw, null);
-  if (!p) return null;
-  return p.local ? p.id : `${p.board}#${p.id}`;
+  if (typeof raw === 'number') return ids.idKey(raw);
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim().replace(/^(["'])(.*)\1$/, '$2').trim();
+  const own = ids.idKey(text);
+  if (own) return own;
+  const m = /^([^#]+)#(.+)$/.exec(text);
+  const board = m && m[1].trim();
+  const id = m && ids.idKey(m[2]);
+  return board && id ? `${board}#${id}` : null;
 }
 
 // A type is written bare unless that would not read back as typed (`x: y`, a
@@ -159,14 +168,15 @@ function readCardFile(file, archived = false) {
   const { order, values, body } = parseFrontmatter(raw);
   const get = (k) => (values[k] === undefined ? '' : values[k].trim());
   const { title, description } = splitTitleBody(body);
+  const id = ids.idKey(get('id')); // null: no frontmatter, no id, or one the id module rejects
   return {
-    id: parseInt(get('id'), 10),
+    id,
     status: get('status') || 'backlog',
     priority: get('priority') || 'Normal',
     // Hard cutover: waiting_for replaced blocked_by — no reader
     // honors the old name. An unmigrated blocked_by line survives verbatim as
     // unmanaged frontmatter, it just carries no edges here.
-    waiting_for: parseList(get('waiting_for')).map(Number).filter((n) => !Number.isNaN(n)),
+    waiting_for: parseList(get('waiting_for')).map(ids.idKey).filter((k) => k !== null),
     // The raw sticker value, verbatim (quotes stripped, like assignee) — the
     // shared predicate decides blockedness at read time, so `blocked: false`
     // round-trips for display without ever gating.
@@ -195,7 +205,7 @@ function readCardFile(file, archived = false) {
     body: description,
     file,
     archived,
-    unparseable: Number.isNaN(parseInt(get('id'), 10)), // no frontmatter / no id
+    unparseable: id === null, // no frontmatter / no id
     _order: order,
     _values: values,
     _rawBody: body,
@@ -281,16 +291,24 @@ function listArchived(dir) {
 }
 
 function findCardFile(dir, id) {
-  const want = Number(id);
+  const want = ids.idKey(id);
+  if (want === null) return null;
   for (const f of [...cardFiles(dir), ...cardFilesDeep(archivedDir(dir))]) {
     if (readCardFile(f).id === want) return f;
   }
   return null;
 }
 
-function nextId(dir) {
-  const ids = [...listActive(dir), ...listArchived(dir)].map((c) => c.id).filter((n) => !Number.isNaN(n));
-  return ids.length ? Math.max(...ids) + 1 : 1;
+// The scan candidate for a new id: one past the highest number among the ids
+// that carry this prefix ('' = plain numbers), so a `G40` never moves the plain counter.
+// Cards and groups share a prefix's counter, so the groups that hold it count too.
+function nextId(dir, prefix = '') {
+  const numbers = [...listActive(dir), ...listArchived(dir)]
+    .map((c) => ids.parseId(c.id))
+    .filter((p) => p && p.prefix === prefix)
+    .map((p) => p.number)
+    .concat(require('./group-store').numbersWithPrefix(dir, prefix)); // required here: group-store requires this file
+  return numbers.length ? Math.max(...numbers) + 1 : 1;
 }
 
 // The `doing` entry gate refuses for two distinct reasons, and
@@ -511,9 +529,14 @@ function quoteAssignee(v) {
 }
 
 function createCard(dir, input) {
-  // config.yaml's nextId counter when present (ids stay unique across deletes
-  // and racing writers); scan-only max+1 behavior when the board has no config.
-  const id = allocateId(dir, nextId(dir));
+  // The prefix the card's type declares (config.yaml's `prefixes:`) is the card's
+  // for life: it is taken here, once, and no later change of type moves it. The
+  // number comes from that prefix's counter (`nextId` for plain cards) when the
+  // board has a config (ids stay unique across deletes and racing writers);
+  // scan-only max+1 behavior when the board has no config.
+  const config = readConfig(dir);
+  const prefix = prefixForType(config, oneLine(input.type));
+  const id = `${prefix}${allocateId(dir, nextId(dir, prefix), prefix)}`;
   // Birth directly into the literal `doing` counts as entry — both gates
   // apply, same refusals as updateCard.
   if ((input.status || 'backlog') === 'doing') {
@@ -573,24 +596,25 @@ function createCard(dir, input) {
   const rawTitle = input.title || '';
   const title = (rawTitle.trim() || promptVal) ? rawTitle : 'Untitled';
   const body = joinTitleBody(title, input.body || '');
-  // <0000-id>.<slug>.card.md — id zero-padded to 4 digits so files sort by
-  // card id; frontmatter id stays the source of truth, this prefix is
-  // cosmetic. Ids past 9999 skip the prefix entirely (mirrors
-  // migrate_card_names.sh's own "id > 9999 exceeds 4-digit prefix" guard):
-  // padStart alone can't widen past 4 digits without breaking lexicographic
-  // sort against already-4-digit-prefixed files (e.g. "10000." would sort
+  // <0000-id>.<slug>.card.md — the id (its prefix, then its number zero-padded to the
+  // board's idDigits, 4 by default) so files sort by card id; frontmatter id stays the
+  // source of truth, this prefix is cosmetic, and a file padded to another width
+  // still reads by its number. A number wider than idDigits skips the prefix
+  // entirely (mirrors migrate_card_names.sh's own "id > 9999 exceeds 4-digit
+  // prefix" guard): padStart alone can't widen past the width without breaking
+  // lexicographic sort against already-padded files (e.g. "10000." would sort
   // before "9999."), and fixing that would require reflowing every existing
   // filename, which is out of scope here.
   // capSlug: keep the slug component under the NTFS 255 limit —
-  // covers both branches below (prefixed and prefix-less past id 9999).
-  // An empty title yields an empty slug, so the id<=9999
+  // covers both branches below (prefixed and prefix-less past the width).
+  // An empty title yields an empty slug, so the in-width
   // branch degrades to the bare zero-padded id prefix (no dangling `.` and
-  // no fake "card-N" title landing in the filename); past id 9999 there IS
+  // no fake "card-N" title landing in the filename); past the width there IS
   // no id prefix to fall back to, so `card-${id}` keeps that branch's
   // filename non-empty.
   const slug = capSlug(slugify(title));
-  const idPrefix = String(id).padStart(4, '0');
-  const file = id <= 9999
+  const idPrefix = ids.formatId(id, config.idDigits);
+  const file = ids.parseId(id).number < 10 ** config.idDigits
     ? uniqueFilePath(dir, slug ? `${idPrefix}.${slug}` : idPrefix)
     : uniqueFilePath(dir, slug || `card-${id}`);
   writeAtomic(file, serializeCard({ order, values }, body));
@@ -599,8 +623,8 @@ function createCard(dir, input) {
 
 // Read-only detail view for the card popup: the raw frontmatter block
 // (byte-identical to what's between the `---` fences) plus title/body/absolute
-// path/archived flag. `id` is always numeric here (route regex enforces \d+),
-// and findCardFile only ever matches against parsed frontmatter ids within
+// path/archived flag. `id` is always an id string here (the route pattern
+// admits nothing else), and findCardFile only ever matches against parsed frontmatter ids within
 // `dir`/`dir/archived` — it never builds a path from the id, so this can't be
 // used for traversal.
 function cardDetail(dir, id) {
@@ -671,7 +695,7 @@ function deleteCard(dir, id) {
 module.exports = {
   parseFrontmatter, serializeCard, splitTitleBody, joinTitleBody,
   parseList, formatList, slugify, capSlug, projectName,
-  readCardFile, listActive, listArchived, findCardFile, nextId,
+  readCardFile, writeAtomic, listActive, listArchived, findCardFile, nextId, todayLocalDate,
   listArchivePackages, archivePackageDir, isArchivedFile,
   createCard, updateCard, archiveCard, restoreCard, deleteCard,
   WaitingError, BlockedError, PackageError, toJSON, cardDetail,

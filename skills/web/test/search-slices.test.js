@@ -81,7 +81,7 @@ async function open({ view = 'board', stored = UNFOLDED, board = makeBoard(), se
   const page = await loadPage({ board, search, stored: storage, elements, documentExtras: { createElement: () => control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const slices = elements['#search-slices'];
-  const sorted = (set) => [...set].sort((a, b) => a - b);
+  const sorted = (set) => [...set].map(Number).sort((a, b) => a - b);
   let prevented = 0;
   const s = {
     page, board, elements, stored: storage, slices,
@@ -463,7 +463,7 @@ test('a card selection is kept by a click on an entry, and a run changes none of
   s.openPanel();
   s.page.run('setSelection({ anchor: cardPart(3), additions: [] }, 3)');
   const before = s.selection();
-  assert.strictEqual(before.anchor.id, 3);
+  assert.strictEqual(before.anchor.id, '3');
   s.click('goal');
   s.click('depth 2');
   assert.strictEqual(s.box(), 'slice:epic..1');
@@ -492,7 +492,7 @@ test('in the Graph, a run set with no typed search does not make the box the anc
   assert.strictEqual(s.selection().anchor, null);
   s.page.run('setSelection({ anchor: cardPart(3), additions: [] }, 3)');
   s.click('depth 2');
-  assert.deepStrictEqual(s.selection().anchor, { kind: 'card', id: 3 });
+  assert.deepStrictEqual(s.selection().anchor, { kind: 'card', id: '3' });
 });
 
 test('in the Graph, taking the last term out of a typed search with a run takes the anchor with it, as clearing the box does', async () => {

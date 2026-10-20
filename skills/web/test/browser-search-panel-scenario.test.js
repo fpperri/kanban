@@ -5,8 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { materialize } = require('./browser/boards');
+const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { pillList } = require('../web/pills');
 const scenarios = require('./browser/scenarios');
@@ -24,12 +25,12 @@ const planBoard = () => {
   roots.push(root);
   const dir = path.join(root, 'board');
   materialize('plan', dir);
-  const live = listActive(dir);
-  return { live, all: live.concat(listArchived(dir)), byId: new Map(live.map((c) => [c.id, c])) };
+  const live = listActive(dir).map(toJSON);
+  return { live, all: live.concat(listArchived(dir).map(toJSON)), byId: idMap(live) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const sorted = (list) => [...list].sort((a, b) => a - b);
+const sorted = (list) => [...list].map(Number).sort((a, b) => a - b);
 const idsOf = (b, query) => sorted(filterCards(b.all, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => b.byId.has(id)));
 const countsOver = (cards, all) => Object.fromEntries(pillList(cards, (q) => new Set(filterCards(all, parseSearchQuery(q, 'plan'), { board: 'plan' }).map((c) => c.id))).map((p) => [p.key, p.count]));
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'search-panel.js'), 'utf8');
@@ -52,7 +53,7 @@ test('before the scenario gives a done card a sticker, the pills match the cards
 
 test('with the sticker on the done card, each pill counts what the scenario says, and the cards of review and of both pills are the sets it says', () => {
   const b = planBoard();
-  const after = b.all.map((c) => (c.id === panel.CASES.stickered ? { ...c, review: 'look once more' } : c));
+  const after = b.all.map((c) => (c.id === String(panel.CASES.stickered) ? { ...c, review: 'look once more' } : c));
   const live = after.filter((c) => !c.archived);
   assert.deepStrictEqual(countsOver(live, after), panel.CASES.counts);
   const ids = (q) => sorted(filterCards(after, parseSearchQuery(q, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => live.some((c) => c.id === id)));
@@ -68,8 +69,8 @@ test('a second card, blocked through the API, and the Done status pill off, move
   const lone = b.byId.get(panel.CASES.lonePatched);
   assert.ok(lone && lone.status !== 'done' && lone.status !== 'doing' && !lone.blocked, 'a card that can be blocked, and is not done');
   const patched = b.all.map((c) => {
-    if (c.id === panel.CASES.stickered) return { ...c, review: 'look once more' };
-    if (c.id === panel.CASES.lonePatched) return { ...c, blocked: 'waiting on the vendor' };
+    if (c.id === String(panel.CASES.stickered)) return { ...c, review: 'look once more' };
+    if (c.id === String(panel.CASES.lonePatched)) return { ...c, blocked: 'waiting on the vendor' };
     return c;
   });
   const live = patched.filter((c) => !c.archived);

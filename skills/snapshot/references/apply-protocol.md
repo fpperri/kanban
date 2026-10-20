@@ -25,7 +25,14 @@ file adds the payload-specific rules.
 | archive | `{"op":"archive","id":<id>}` | move file to `archived/` |
 | delete | `{"op":"delete","id":<id>}` | permanent removal (see write mechanics) |
 
-Notes: ids may arrive as strings. `assignee:""` removes the field. `body`
+Notes: an id arrives as a string and is the **whole id**: `{"op":"archive","id":"G3"}`,
+`"id":"7"`, `"id":"_12"`.
+The prefix is part of the identity, so `#7` and `#G7` are two cards; match the
+op's id to the `id:` line of a card file as a whole (a padded `0003` and a plain
+`3` are the same number, `G3` is not `3`), never by its digits alone. Card files
+are named for their id, `0007.<slug>.card.md`, `G0003.<slug>.card.md`,
+`_0012.<slug>.card.md`, but the `id:` line is the source of truth. The editor only
+creates cards without a prefix. `assignee:""` removes the field. `body`
 replaces the card's full markdown body below the `# title` H1 (frontmatter and
 H1 untouched; `""` clears). `create.body` becomes the markdown under the new H1.
 The editor merges duplicate ops (last-wins) before sending, but don't rely on it.
@@ -103,15 +110,20 @@ successfully — `fm` changes nothing about that order.
    - edit priority/assignee: update or insert; lean frontmatter —
      drop a field rather than write an empty value.
    - edit body: replace everything below the H1.
-   - create: id = `nextId` from `config.yaml`. Filename
-     `<0000-padded-id>.<slug>.card.md`, slug lowercased/hyphenated, capped ~60
-     chars. Frontmatter: id, status, priority, assignee?, updated
+   - create: id = `nextId` from `config.yaml`; when the op's `fm.type` names a
+     type that `config.yaml`'s `prefixes:` gives a prefix (kanban skill, `id`
+     field), the id is that prefix and the next number of its entry on the
+     `counters:` line instead. The editor itself only queues plain `n1`-style
+     cards and never draws or allocates a prefixed id. Filename
+     `<0000-padded-id>.<slug>.card.md` (the number padded to `idDigits`, 4 by
+     default), slug lowercased/hyphenated, capped ~60 chars. Frontmatter: id, status, priority, assignee?, updated
      (+ start_date if landing on todo), plus any `fm` keys folded in (same
      value/quoting rules as `edit.fm`; `id`/`status`/`updated` and top-level
      collisions resolve per the `create.fm` note above).
      Body: `# <title>` then `body` if given.
-     **Write order: card file first, bump `nextId` only after the
-     write succeeds — a failed create must never burn an id.**
+     **Write order: card file first, bump `nextId` (or the prefix's
+     counter) only after the write succeeds — a failed create must never
+     burn an id.**
 4. **Write mechanics:**
    - Local session (board directly on disk): ordinary file writes; archive =
      move into the board directory's `archived/` subfolder; delete = actual

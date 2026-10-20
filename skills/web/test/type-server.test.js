@@ -53,8 +53,8 @@ test('GET /api/board returns types: [] with no config.yaml or no types key', asy
 test('the board payload carries each card\'s type, null when it has none', async () => {
   await withServer(tmpBoard(), async (base) => {
     const { active } = (await json(base, 'GET', '/api/board')).json;
-    assert.strictEqual(active.find((c) => c.id === 1).type, 'objective');
-    assert.strictEqual(active.find((c) => c.id === 2).type, null);
+    assert.strictEqual(active.find((c) => c.id === '1').type, 'objective');
+    assert.strictEqual(active.find((c) => c.id === '2').type, null);
   });
 });
 

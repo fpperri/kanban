@@ -12,6 +12,7 @@ const path = require('node:path');
 const PAGE_GLOBALS = [
   'autoRefreshTick',
   'boardControlFocused',
+  'calendarAnchor',
   'graphCur',
   'graphFanLines',
   'graphFanNames',
@@ -20,10 +21,17 @@ const PAGE_GLOBALS = [
   'graphSetOption',
   'hoveredId',
   'isDragging',
+  'localTodayStr',
+  'noteClock',
+  'renderBoard',
+  'renderCalendarView',
   'renderGraphView',
   'selectedIds',
   'selectionState',
+  'settingsRenderBoard',
+  'settingsUi',
   'state',
+  'toast',
   'writeSearch',
 ];
 

@@ -61,7 +61,7 @@ test('Enter on a focused card opens it in each view the preferences set to selec
     const page = gesturePage({ view, click: SELECTS });
     const e = enter(targetIn({ isCard: true }));
     page.onCardOpenKey(e);
-    assert.deepStrictEqual(page.calls.open, [7], view);
+    assert.deepStrictEqual(page.calls.open, ['7'], view);
     assert.strictEqual(e.defaultPrevented, true, view);
   }
 });

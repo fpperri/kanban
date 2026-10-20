@@ -141,7 +141,7 @@ const dotCountIs = (n) => `document.querySelectorAll('#graph-view .graph-node').
 // The sectors of the fan, as the layout has them: { kind, tops, from, to } in radians,
 // turning from the left of the seam round to its right (`from` the larger), and the
 // sweep they share, { from, to }.
-const SECTORS = `graphCur.layout.sectors.map((s)=>({kind:s.kind,tops:s.tops,from:s.from,to:s.to}))`;
+const SECTORS = `graphCur.layout.sectors.map((s)=>({kind:s.kind,tops:s.tops.map(Number),from:s.from,to:s.to}))`;
 const SWEEP = `({from:graphCur.layout.fan.from,to:graphCur.layout.fan.to})`;
 
 // Where everything sits on screen: the stage, each dot, each caption and the block's frame.

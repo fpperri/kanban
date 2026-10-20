@@ -159,7 +159,7 @@ and Unnested (outermost, off, depth 0, table). Folded, the default, draws a line
 end of each dependency chain and one counted line for a parent's other children on one
 ring. Names puts a card's title on the fan: relevant, the default, names the
 selection, what it lights and the highest parents, all names every card and none names
-no card; the n key steps through them. A parent's name sits beside its ring; every other
+no card; the l key steps through them. A parent's name sits beside its ring; every other
 name sits in a row outside the rim, joined to its dot by a leader, and the Unnested
 block's names in a list above it. Names stay upright and the same size at any zoom and
 keep off the lines, the dots and each other, though a leader may pass under one; a card
@@ -363,8 +363,11 @@ and the selection stays.
 ![Bulk context menu](images/web-bulk-actions.png)
 
 **Preferences** — the gear at the right end of the header opens a sheet from the right
-with the settings that rarely change. They are kept in your browser, per board, and are
-never written to the board's files.
+with two sections. *This browser* holds the settings that rarely change; they are kept in
+your browser, per board, and are never written to the board's files. *This board* holds
+pages that write `config.yaml`, described after the list below. On a wide window (760 px
+and up) the menu and a page sit side by side; on a narrow one the menu leads to a page with a
+back button.
 
 - *A plain click on a card* opens the card or selects it, chosen separately for the
   Board, Map, Gantt and Calendar (it opens, by default). The Graph is shown fixed at
@@ -387,7 +390,7 @@ never written to the board's files.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -395,8 +398,79 @@ never written to the board's files.
   sheet itself is up. The list is to read, not to change.
 
 The sheet closes with Esc, a click outside it or its close button, and focus goes back to
-the gear. While it is open the board does not refresh under it, and `/`, `p` and Ctrl+F
-stand still.
+the gear; on a narrow window Esc first steps back from a page to the menu. While it is open
+the board does not refresh under it, and `/`, `p` and Ctrl+F stand still.
+
+*This board* has five pages. Each change writes one line of `config.yaml` and leaves every
+other byte as it was, comments included.
+
+- *Logbook*, *Scratchpad* and *Groups* have an on/off switch and a folder field. Off removes the line; on
+  writes it back with the folder. A folder is a path inside the board; one that leaves the
+  board is refused. A folder you wrote by hand outside the board still works, but shows as
+  locked with the reason, and the page leaves it alone. Changing a folder changes the line
+  only: the files stay where they are, for you to move.
+- *Groups* also has the *Iterations* switch, which gives the header its iteration dropdown.
+  Turning groups off leaves the iterations line, which is ignored until groups are back,
+  and iterations cannot be turned on without groups. The page lists the groups it found, by type, and opens one in the palette.
+- *Prefixes* shows the `prefixes:` block, read only, and lets you change `idDigits`, the
+  width card file names are padded to. Only new files take the new width.
+- *Counters* shows `nextId` and the `counters:` line, read only.
+
+**Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
+selected card, a card with notes wears a small count that opens its notes, and the card menu
+has **Add note…**. Type a note and press Enter: it is written at the time field's time into
+the card's day file and the palette stays open for the next note; Shift+Enter starts a new
+line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
+`#22` aims it at another card; the line under the box says exactly what Enter will write. The
+list below groups the notes by day and card, newest first, with a filter field of its own
+(`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a
+note written in the palette stays listed whatever they say. On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
+it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
+
+**Scratchpad** — with a `scratchpad:` line in `config.yaml`, a card or a group has a disposable
+page, kept as `0007.scratchpad.md` in that folder, with optional `refs:` (the notes, files and
+folders it points at) and a free body. The notes palette gains a **Scratchpad** tab: open it from
+the card menu's **Scratchpad…**, from a group's **Scratchpad** button, or beside Notes. It shows
+the page's file, its refs and a multi-line box; **Ctrl+Enter** or **Save** writes the body. Text
+you have not saved stays in the page until you reload it. The kanban never deletes a page: the
+delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
+`scratchpad:` line nothing of this shows.
+
+**Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges
+(`#I2 zephyr-2`, then `+N`) below its title, with the group's dates and type path as a tooltip.
+A badge opens the notes palette on that group's **Group** tab, which edits its name, dates,
+`auto_join` and one-line extra keys (a cleared field empties the value, a separate x removes
+the key; a list or multi-line key is shown as written and left alone), takes members out, and
+has **Show this group's cards**, which fills
+the search box with `group:I2`. A note written on a group goes in that group's day file. The
+card menu has **Add to group…** and, on two or more cards, **Make a group from them…**, which
+opens a form for the short name, the folder (the group's type), the dates and `auto_join`.
+**Add note…** on several cards asks for a group they all share, or offers to make one, or to
+write the note on each card. `group:I2` and `group:zephyr-2` find a group's cards, a bare
+`group:` every card that is in a group and `-group:` the cards that are in none. A group with
+both dates and `auto_join` on is running from its start to its end, both days included, and a
+card you make in the New card form while it runs joins it; the flash after saving names the
+groups it joined (`Joined #I2 zephyr-2.`). A dated group without `auto_join` never takes a new
+card. Without a `groups:` line nothing of this shows.
+
+**Iterations** — with `iterations: true` in `config.yaml` over a `groups:` line, the header has a
+dropdown of the groups in the `iteration/` folder: All cards, the iterations newest first with
+their dates, and New iteration…. It opens on the running iteration, or on All cards when none
+runs. A pick narrows the Board, Calendar, Gantt, Map and Graph to its cards on top of the search
+box, without writing the box or changing any group, and is kept in this browser only; a kept
+pick (All cards included) yields to the running iteration once the iteration that was running
+when it was made has ended. The Calendar shades the picked iteration's days and moves to its
+first day when you pick it, never when the page loads. New iteration… opens the
+group form with the name bumped (`zephyr-2` becomes `zephyr-3`), the dates continuing at the same
+length and `auto_join` on.
+
+**Delete.** Deleting a card, or a selection of cards, opens one popup that says what goes and which
+groups lose the card: its id always leaves every group's list. **Its logbook** (the count of its
+notes) is a box left unticked; unticked, the day files stay and read as dangling. **Its
+scratchpad** is another, for a card or a group that has a page. The Group tab's
+**Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
+cards it would delete and names the ones another group holds, which it skips; ticking it
+offers, unticked, those members' logbooks and scratchpads too. Archiving never opens it.
 
 ## Other surfaces
 

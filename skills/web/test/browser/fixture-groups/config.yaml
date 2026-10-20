@@ -1,0 +1,35 @@
+name: groups
+nextId: 30
+statuses: [backlog, todo, doing, done]
+priorities: [High, Normal, Low]
+hierarchy: [goal, strategy, objective, epic]
+types:
+  - name: goal
+    color: "#a371f7"
+    icon: star
+  - name: strategy
+    icon: hexagon
+  - name: objective
+    icon: diamond
+  - name: epic
+    color: "#d29922"
+    icon: square
+  - name: story
+    icon: circle
+  - name: task
+    icon: triangle
+  - name: bug
+    icon: blob
+pills:
+  - next: 'tags:"next-up"'
+  - "assignee:@human"
+  - "tags:*"
+logbook: logbook
+groups: .groups
+prefixes:
+  G: goal
+  _: .groups
+  I: .groups/iteration
+  W: .groups/workflow
+  DW: .groups/workflow/dynamic
+counters: { I: 3, W: 2, DW: 2 }

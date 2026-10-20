@@ -138,7 +138,7 @@ test('an archived sibling counts: it is renumbered with the rest', () => {
 test('after the drop the outline shows the card where it was dropped, free gap or full', () => {
   const free = family([10, 20, 30], [card(5, { parent: 1, rank: 40 })]);
   const full = [card(1), card(2, { parent: 1, rank: 10 }), card(3, { parent: 1, rank: 11 }), card(4, { parent: 1, rank: 12 })];
-  for (const [cards, id, prev, next, expected] of [[free, 5, 2, 3, [1, 2, 5, 3, 4]], [full, 4, 2, 3, [1, 2, 4, 3]]]) {
+  for (const [cards, id, prev, next, expected] of [[free, 5, 2, 3, ['1', '2', '5', '3', '4']], [full, 4, 2, 3, ['1', '2', '4', '3']]]) {
     assert.deepStrictEqual(outlineOrder(applied(cards, id, plan(cards, id, prev, next)), CTX).ids, expected);
   }
 });

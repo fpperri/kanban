@@ -238,7 +238,7 @@ test('an unresolved slice: term matches nothing, like tree: and path:, and is ne
 test('a page that has not loaded the slices module cuts nothing and does not throw', () => {
   const page = vm.createContext({});
   page.window = page;
-  for (const file of ['dependency-graph.js', 'waiting-blocked.js', 'nesting.js', 'search.js']) {
+  for (const file of ['ids.js', 'dependency-graph.js', 'waiting-blocked.js', 'nesting.js', 'search.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'web', file), 'utf8'), page, { filename: file });
   }
   assert.strictEqual(typeof page.sliceCards, 'undefined', 'the stand-in page has no slices module');

@@ -4,8 +4,15 @@ const fs = require('fs');
 const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
+const lb = require('./logbook-store');
+const sp = require('./scratchpad-store');
+const gs = require('./group-store');
+const del = require('./delete-store');
 const cfg = require('./config-store');
+const settings = require('./settings-store');
 const nesting = require('../web/nesting');
+const ids = require('../web/ids');
+const { StatusError } = require('./store-common');
 
 const WEB = path.join(__dirname, '..', 'web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -205,13 +212,12 @@ function readBody(req) {
   });
 }
 
-// A neighbour in a reorder body: a card id, null when absent, undefined when
-// it is neither.
+// A neighbour in a reorder body: a card id as its whole string (`7`, `G3`),
+// null when absent, undefined when it is neither.
 function readNeighbour(v) {
   if (v === undefined || v === null) return null;
-  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return v;
-  if (typeof v === 'string' && /^\d+$/.test(v.trim())) return Number(v);
-  return undefined;
+  const key = ids.idKey(typeof v === 'string' ? v.trim() : v);
+  return key === null ? undefined : key;
 }
 
 function boardName(dir, config) {
@@ -256,6 +262,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         const bad = [...active, ...archived].filter((c) => c.unparseable);
         if (bad.length) console.warn(`[kanban-app] skipping ${bad.length} unparseable card(s): ${bad.map((c) => path.basename(c.file)).join(', ')}`);
         const config = cfg.readConfig(dir); // one read carries the board name, assignees + official lists
+        const groups = gs.readGroups(dir);
+        if (groups && groups.skipped.length) console.warn(`[kanban-app] skipping ${groups.skipped.length} group file(s): ${groups.skipped.map((s) => `${s.file} (${s.reason})`).join(', ')}`);
         return sendJSON(res, 200, {
           // The BOARD NAME: config.yaml's human-declared `name:` when present,
           // else the parent-folder derivation. Wire name kept as projectName —
@@ -279,6 +287,11 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           hierarchy: config.hierarchy, // type names, top tier first, as written; [] = none declared
           pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
+          logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
+          scratchpad: config.scratchpad ? { folder: config.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
+          groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
+          settings: settings.readSettings(dir), // the config the gear's This board pages show (ADR 0017)
+          iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
@@ -298,11 +311,50 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         });
       }
 
+      // The logbook, the scratchpad, the gear's settings and the groups: a store refusal is a
+      // StatusError, which the catch at the end of this handler answers with its own status
+      // (400 a bad value, 404 nothing there, 409 a change that clashed, 413 too long).
+      if (p === '/api/notes' || p === '/api/notes/assign') {
+        const body = await readBody(req);
+        if (req.method === 'POST' && p === '/api/notes') return sendJSON(res, 201, { note: lb.addNote(dir, body) });
+        if (req.method === 'PATCH' && p === '/api/notes') return sendJSON(res, 200, { note: lb.editNote(dir, body.ref, body) });
+        if (req.method === 'DELETE' && p === '/api/notes') return sendJSON(res, 200, lb.deleteNote(dir, body.ref));
+        if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
+      }
+
+      // the scratchpad: GET reads a page, PUT writes its body; there is no delete route (only the
+      // delete flow takes a page, when asked)
+      const pm = p.match(new RegExp(`^/api/scratchpad/(${ids.ID_SOURCE})$`));
+      if (pm && (req.method === 'GET' || req.method === 'PUT')) {
+        const body = req.method === 'GET' ? {} : await readBody(req);
+        return sendJSON(res, 200, { pad: req.method === 'GET' ? sp.readPad(dir, pm[1]) : sp.writePad(dir, pm[1], body.body) });
+      }
+
+      // the gear's This board pages: one config.yaml line per request (ADR 0017)
+      if (req.method === 'POST' && p === '/api/config') {
+        const body = await readBody(req);
+        return sendJSON(res, 200, { settings: settings.writeSetting(dir, body) });
+      }
+
+      // groups
+      const gm = p.match(new RegExp(`^/api/groups(?:/(${ids.ID_SOURCE})(/members)?)?$`));
+      if (gm) {
+        const body = req.method === 'GET' ? {} : await readBody(req);
+        if (!gm[1] && req.method === 'POST') return sendJSON(res, 201, { group: gs.createGroup(dir, body) });
+        if (gm[1] && !gm[2] && req.method === 'PATCH') return sendJSON(res, 200, { group: gs.updateGroup(dir, gm[1], body) });
+        if (gm[1] && gm[2] && req.method === 'POST') return sendJSON(res, 200, { group: gs.changeMembers(dir, gm[1], body) });
+        // the extras to delete with it ride in the body, each only when true (delete-store.js)
+        if (gm[1] && !gm[2] && req.method === 'DELETE') return sendJSON(res, 200, { ok: true, ...del.deleteGroup(dir, gm[1], body) });
+      }
+
       // mutations
       if (req.method === 'POST' && p === '/api/cards') {
         const body = await readBody(req);
         try {
-          return sendJSON(res, 201, cs.toJSON(cs.createCard(dir, body)));
+          const created = cs.toJSON(cs.createCard(dir, body));
+          // Auto-join in the same request: the groups running on the creator's local date
+          // with auto_join take the card, and the reply names them for the flash.
+          return sendJSON(res, 201, { ...created, joined: gs.joinRunning(dir, created.id, cs.todayLocalDate()) });
         } catch (e) {
           // the 422 names WHICH gate refused — waiting carries the
           // unresolved deps, blocked carries the sticker's reason.
@@ -311,10 +363,10 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           throw e;
         }
       }
-      const m = p.match(/^\/api\/cards\/(\d+)(\/archive|\/restore|\/detail|\/reorder)?$/);
+      const m = p.match(new RegExp(`^/api/cards/(${ids.ID_SOURCE})(/archive|/restore|/detail|/reorder)?$`));
       if (m) {
-        const id = Number(m[1]);
-        if (!cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${id}` });
+        const id = ids.idKey(m[1]); // the whole id; null when the digits run past what an id holds
+        if (id === null || !cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${m[1]}` });
         if (req.method === 'GET' && m[2] === '/detail') {
           const detail = cs.cardDetail(dir, id);
           // file mtime for the popup's "Last modified" fallback when
@@ -364,11 +416,13 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
             renumbered: written.filter((c) => c.id !== id),
           });
         }
-        if (req.method === 'DELETE' && !m[2]) { cs.deleteCard(dir, id); return sendJSON(res, 200, { ok: true }); }
+        // Its id always leaves every group's list; the body names the extras to delete with it (delete-store.js).
+        if (req.method === 'DELETE' && !m[2]) return sendJSON(res, 200, { ok: true, ...del.deleteCard(dir, id, await readBody(req)) });
       }
 
       res.writeHead(404); res.end('not found');
     } catch (err) {
+      if (err instanceof StatusError) return sendJSON(res, err.status, { error: err.message });
       sendJSON(res, 500, { error: String((err && err.message) || err) });
     }
   });
@@ -450,6 +504,15 @@ function resolvePort(dir, arg) {
   return { port: DEFAULT_PORT, pinned: false };
 }
 
+// What the config says that the server cannot use as written, said once at startup on stderr and
+// never fatal: a prefix declared for a card type and again for a groups folder (or twice for
+// anything) keeps its first declaration and ignores the rest.
+function warnConfig(dir) {
+  for (const { prefix, kept, ignored } of cfg.readConfig(dir).prefixClashes) {
+    console.error(`Kanban app: config.yaml declares prefix \`${prefix}\` twice; keeping \`${kept}\`, \`${ignored}\` is ignored.`);
+  }
+}
+
 // Board-directory discovery for a missing CLI arg: `.kanban/` is the
 // preferred convention, `kanban/` a supported legacy fallback — checked
 // relative to `baseDir` (default: cwd). Neither present: fall back to the
@@ -471,6 +534,7 @@ if (require.main === module) {
   const dir = rest[0] || resolveDefaultBoardDir();
   if (!fs.existsSync(dir)) { console.error(`Board dir not found: ${dir}`); process.exit(1); }
   const { port, pinned } = resolvePort(dir, rest[1]);
+  warnConfig(dir);
   let extraOrigins;
   try {
     extraOrigins = parseAllowedOrigins(cliOrigins, process.env.KANBAN_WEB_ALLOWED_ORIGINS);
@@ -480,5 +544,5 @@ if (require.main === module) {
 
 module.exports = {
   createServer, start, originAllowed, resolveDefaultBoardDir, pageFiles,
-  parseAllowedOrigins, extractAllowOriginArgs, resolvePort, parseHomeUrl, extractHomeUrlArg,
+  parseAllowedOrigins, extractAllowOriginArgs, resolvePort, warnConfig, parseHomeUrl, extractHomeUrlArg,
 };

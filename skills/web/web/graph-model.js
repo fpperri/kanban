@@ -10,6 +10,7 @@
 // Sibling modules are reached through namespace objects rather than top-level
 // destructured consts: every web/*.js shares ONE browser global scope, so a
 // second top-level binding of a name another script owns kills the later file.
+const GRAPH_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 const GRAPH_NEST = (typeof module !== 'undefined' && module.exports)
   ? require('./nesting')
   : window;
@@ -84,6 +85,19 @@ function mergeGraphFanOptions(saved) {
 }
 
 // --- model ---------------------------------------------------------------------
+// The fan keys every card on the id module's whole-id string, so `#7` and `#G7` are two
+// cards whatever the payload sent. Cards already in that form pass through untouched.
+function graphKey(id) {
+  const key = GRAPH_IDS.idKey(id);
+  return key === null ? String(id) : key;
+}
+
+function graphCards(cards) {
+  const canonical = (c) => c.id === graphKey(c.id) && (c.waiting_for || []).every((w) => w === graphKey(w));
+  if (cards.every(canonical)) return cards;
+  return cards.map((c) => (canonical(c) ? c : Object.assign({}, c, { id: graphKey(c.id), waiting_for: (c.waiting_for || []).map(graphKey) })));
+}
+
 // Which cards have a parent or children on the board, and the rows of siblings, read
 // on the whole pool.
 function graphNesting(whole, pool, ctx) {
@@ -96,7 +110,7 @@ function graphNesting(whole, pool, ctx) {
       nested.add(c.id);
       nested.add(pid);
       parentIn.set(c.id, pid);
-      siblings.push({ id: c.id, parent: pid, waitsOn: (c.waiting_for || []).map(Number) });
+      siblings.push({ id: c.id, parent: pid, waitsOn: c.waiting_for || [] });
     }
   }
   return { nested, siblings, parentIn };
@@ -110,11 +124,12 @@ function graphUnnestedOf(whole, nested, slices) {
 
 // The board `cards` as every reading of it starts from it (live and archived, whatever
 // any view draws): the cards by id, their list, the slice of each and the nesting.
-function graphBoardOf(cards, opts) {
+function graphBoardOf(cardList, opts) {
   const ctx = (opts && opts.ctx) || null;
   const hierarchy = (opts && opts.hierarchy) || (ctx && ctx.hierarchy) || [];
+  const cards = graphCards(cardList || []);
   const pool = new Map();
-  for (const c of cards || []) if (!pool.has(c.id)) pool.set(c.id, c);
+  for (const c of cards) if (!pool.has(c.id)) pool.set(c.id, c);
   const whole = [...pool.values()];
   const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
   return { ctx, pool, whole, slices, nesting: graphNesting(whole, pool, ctx) };
@@ -148,7 +163,7 @@ function graphUnnestedIds(cards, opts) {
 // unnested (no parent, no children) and have no tier are not drawn, and neither is
 // any relation that joined one to a drawn card. Any other value draws them.
 function graphBuild(cards, opts) {
-  const visibleIds = (opts && opts.visibleIds) || null;
+  const visibleIds = opts && opts.visibleIds ? new Set([...opts.visibleIds].map(graphKey)) : null;
   const types = (opts && opts.types) || null;
   const { ctx, pool, whole, slices, nesting } = graphBoardOf(cards, opts);
   const { nested, siblings, parentIn } = nesting;
@@ -177,7 +192,7 @@ function graphBuild(cards, opts) {
   // Each card has at most one parent, so a loop is a cycle of a functional
   // graph: the member with the smallest id becomes the root.
   const state = new Map();
-  for (const id of [...drawn.keys()].sort((a, b) => a - b)) {
+  for (const id of [...drawn.keys()].sort(GRAPH_IDS.compareIds)) {
     if (state.has(id)) continue;
     const path = [];
     let cur = id;
@@ -188,7 +203,7 @@ function graphBuild(cards, opts) {
     }
     if (cur !== undefined && state.get(cur) === 1) {
       const loop = path.slice(path.indexOf(cur));
-      parentOf.delete(Math.min(...loop));
+      parentOf.delete(GRAPH_IDS.sortIds(loop)[0]);
     }
     for (const p of path) state.set(p, 2);
   }
@@ -212,7 +227,7 @@ function graphBuild(cards, opts) {
     const card = drawn.get(id);
     const parentId = parentOf.has(id) ? parentOf.get(id) : null;
     const parent = parentId === null ? null : byId.get(parentId);
-    const waits = (card.waiting_for || []).map(Number);
+    const waits = card.waiting_for || [];
     const node = {
       id,
       card,
@@ -310,7 +325,7 @@ function graphQueryEffect(match, pool, ctx, { isolated = false } = {}) {
   const slices = terms.filter((t) => t && t.field === 'slice');
   if (!ids || !slices.length) return { visibleIds: null, litIds: ids };
   if (!pool) throw new Error('graphQueryEffect: a slice: term needs the board to cut');
-  const cut = new Set(GRAPH_SEARCH.filterCards(pool, slices, ctx).map((c) => c.id));
+  const cut = new Set(GRAPH_SEARCH.filterCards(pool, slices, ctx).map((c) => graphKey(c.id)));
   return { visibleIds: cut, litIds: slices.length < terms.length ? ids : null };
 }
 
@@ -362,7 +377,7 @@ function graphFanNames(model, names, { selectedIds, loneCardId } = {}) {
   const named = new Set(lit ? lit.nodes : []);
   const altitude = graphFanAltitudes(model);
   const parents = model.nodes.filter((n) => altitude.get(n.id) > 0)
-    .sort((a, b) => altitude.get(b.id) - altitude.get(a.id) || a.id - b.id);
+    .sort((a, b) => altitude.get(b.id) - altitude.get(a.id) || GRAPH_IDS.compareIds(a.id, b.id));
   for (const n of parents) {
     if (named.size >= GRAPH_FAN_NAMES_CAP) break;
     named.add(n.id);
@@ -370,7 +385,7 @@ function graphFanNames(model, names, { selectedIds, loneCardId } = {}) {
   return named;
 }
 
-// The value the n key sets next: relevant, all, none, and round to relevant. A value the
+// The value the l key sets next: relevant, all, none, and round to relevant. A value the
 // row does not offer steps from the default.
 function graphFanNextNames(current) {
   const values = GRAPH_FAN_OPTION_VALUES.names;
@@ -382,7 +397,7 @@ function graphFanNextNames(current) {
 // ellipsis so the whole stays within the room a name has (the number is never cut), or the
 // number alone when the card has no title. Text only: the page sets it as text.
 function graphFanNameText(title, id) {
-  const lead = `#${id}`;
+  const lead = `#${GRAPH_IDS.idKey(id) || id}`;
   const text = String(title === null || title === undefined ? '' : title).replace(/\s+/g, ' ').trim();
   if (!text) return lead;
   const chars = Array.from(text);
@@ -1034,7 +1049,7 @@ function graphLayoutStatus(model, opts) {
     let r = GRAPH_STATUS_START;
     for (const s of order) {
       const ns = g.nodes.filter((n) => ringOf(n) === s)
-        .sort((p, q) => p.rootId - q.rootId || p.id - q.id);
+        .sort((p, q) => GRAPH_IDS.compareIds(p.rootId, q.rootId) || GRAPH_IDS.compareIds(p.id, q.id));
       const th = ns.length ? Math.max(...ns.map((n) => 2 * graphRadius(n))) + 6 : 0;
       const circ = Math.PI * 2 * r;
       const widths = ns.map((n) => 2 * graphRadius(n) + 4);
@@ -1088,7 +1103,7 @@ function graphForceIterations(n) {
 // seed (Map id -> {x, y}) starts the nodes where they are drawn instead of on
 // the golden spiral, so a drag continues from what is on screen.
 function graphForceSim(model, seed) {
-  const nodes = model.nodes.filter((n) => n.deg > 0).sort((a, b) => a.id - b.id);
+  const nodes = model.nodes.filter((n) => n.deg > 0).sort((a, b) => GRAPH_IDS.compareIds(a.id, b.id));
   const n = nodes.length;
   const px = new Float64Array(n);
   const py = new Float64Array(n);
@@ -1148,7 +1163,7 @@ function graphForcePositions(sim) {
 
 function graphLayoutForce(model) {
   const sim = graphForceSim(model);
-  const loose = model.nodes.filter((n) => n.deg === 0).sort((a, b) => a.id - b.id);
+  const loose = model.nodes.filter((n) => n.deg === 0).sort((a, b) => GRAPH_IDS.compareIds(a.id, b.id));
   let alpha = 1;
   for (let it = 0; it < sim.iterations; it++) {
     graphForceStep(sim, alpha, null);

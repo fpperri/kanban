@@ -62,7 +62,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
   elements['#toast'] = spied(hidden());
   const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, ...stored }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
-  const sortedIds = (set) => [...set].sort((a, b) => a - b);
+  const sortedIds = (set) => [...set].map(Number).sort((a, b) => a - b);
   const switchEl = elements['#isolate-switch'];
   const chipEl = elements['#search-chip'];
   const s = {
@@ -123,7 +123,7 @@ function nodeEvent(id, m = {}) {
   return { target, stopPropagation() {}, preventDefault() {}, key: m.key, repeat: false, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...m };
 }
 
-const a = (id) => ({ kind: 'card', id });
+const a = (id) => ({ kind: 'card', id: String(id) });
 const q = (text) => ({ kind: 'query', text });
 const typed = (text) => ({ kind: 'query', text, source: 'typing' });
 
@@ -578,7 +578,7 @@ test('in the Graph the typed text only lights, so it does not join the isolate t
 
 const opens = () => {
   const s = [];
-  return { calls: s, wrap: (page) => { page.ctx.openCard = (id) => { s.push(id); }; } };
+  return { calls: s, wrap: (page) => { page.ctx.openCard = (id) => { s.push(Number(id)); }; } };
 };
 
 test('a plain click that opens a card keeps the pill on and its query in the box, with the text typed beside it', async () => {

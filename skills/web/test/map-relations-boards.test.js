@@ -17,12 +17,12 @@ const linesOf = (view) => view.graphs.flatMap((g) => g.lines).map((l) => [l.pare
 
 test('the parent below its children draws one parent line, from the child that ends the chain', () => {
   const view = shape(familyChainingToOneEnd(), {}, 10);
-  assert.deepStrictEqual(linesOf(view), [[10, 19]]);
+  assert.deepStrictEqual(linesOf(view), [['10', '19']]);
 });
 
 test('the parent above its children draws two, to the children that start the chain', () => {
   const view = shape(familyChainingToOneEnd(), { parent: 'above' }, 10);
-  assert.deepStrictEqual(linesOf(view), [[10, 11], [10, 12]]);
+  assert.deepStrictEqual(linesOf(view), [['10', '11'], ['10', '12']]);
 });
 
 test('parent lines "all" draws one to each of the nine children, "off" draws none', () => {

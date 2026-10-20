@@ -55,17 +55,17 @@ module.exports = {
     const ids = await ev(`[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))]`);
     const [first, second, third, fourth] = ids;
     await clickCard(cardIn('#board', first), { modifiers: 2 });
-    check('Ctrl+click toggles one card in', await selectionSize(1) && await ev(`selectedIds.has(${first})`));
+    check('Ctrl+click toggles one card in', await selectionSize(1) && await ev(`selectedIds.has(String(${first}))`));
     await clickCard(cardIn('#board', first), { modifiers: 2 });
     check('Ctrl+click on a selected card toggles it out', await selectionSize(0));
     await clickCard(cardIn('#board', first), { modifiers: 4 });
-    check('Cmd+click toggles one card in', await selectionSize(1) && await ev(`selectedIds.has(${first})`));
+    check('Cmd+click toggles one card in', await selectionSize(1) && await ev(`selectedIds.has(String(${first}))`));
     await clickCard(cardIn('#board', third), { modifiers: 8 });
-    check('Shift+click adds the range from the last toggled card', await selectionSize(3) && await ev(`[${first},${second},${third}].every((i)=>selectedIds.has(i))`), await ev('[...selectedIds]'));
+    check('Shift+click adds the range from the last toggled card', await selectionSize(3) && await ev(`[${first},${second},${third}].every((i)=>selectedIds.has(String(i)))`), await ev('[...selectedIds]'));
     check('none of those clicks opened a card', await ev(noCard));
 
     await rightClick(cardIn('#board', fourth));
-    check('a right-click on a card outside the selection opens its menu and leaves the selection as it was', await selectionSize(3) && await ev(`!selectedIds.has(${fourth})&&[${first},${second},${third}].every((i)=>selectedIds.has(i))&&!document.getElementById('context-menu').classList.contains('hidden')`), await ev('[...selectedIds]'));
+    check('a right-click on a card outside the selection opens its menu and leaves the selection as it was', await selectionSize(3) && await ev(`!selectedIds.has(String(${fourth}))&&[${first},${second},${third}].every((i)=>selectedIds.has(String(i)))&&!document.getElementById('context-menu').classList.contains('hidden')`), await ev('[...selectedIds]'));
     check('Escape closes that menu and keeps the selection', await closeWithEscape(`document.getElementById('context-menu').classList.contains('hidden')`) && (await ev('selectedIds.size')) === 3);
     const away = await emptyPoint();
     await click(away.x, away.y);
@@ -75,7 +75,7 @@ module.exports = {
     await click(away.x, away.y, { clickCount: 2 });
     check('a double click on empty space clears the selection', await selectionSize(0), away);
 
-    // The confirmations answer no, so nothing is archived or deleted; what they asked is what is under test.
+    // The archive confirmation answers no, so nothing is archived; Delete opens its popup, which is closed unanswered.
     await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
     await clickCard(cardIn('#board', 3), { modifiers: 2 });
     await clickCard(cardIn('#board', 6), { modifiers: 2 });
@@ -86,7 +86,9 @@ module.exports = {
     await ev(`document.getElementById('ctx-delete').click()`);
     const asked = await ev('window.__asked');
     check('the archive confirmation names the count', asked[0] === 'Archive 2 card(s)? (moves their files to archived/)', asked);
-    check('the delete confirmation names the count', asked[1] === 'Permanently delete 2 card(s)? This cannot be undone.', asked);
+    check('Delete opens one popup that names the count, and asks through no confirm()', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
+    await key('Escape');
+    await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
 
     check('the Graph draws card 3', await showView('graph', '#graph-view', 3));
     await ev(`document.querySelector('#graph-view .graph-node').focus()`);

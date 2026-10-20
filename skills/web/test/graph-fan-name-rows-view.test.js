@@ -46,7 +46,7 @@ const makeBoard = () => ({
   ],
   archived: [],
 });
-const PARENTS = [1, 2, 3, 4];
+const PARENTS = ['1', '2', '3', '4'];
 const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
 const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
 const OPTIONS = 'kanban.kanban.graph.options';
@@ -200,7 +200,7 @@ test('at a real fit every name and leader is drawn where the placement puts it, 
     assert.strictEqual(got.named, true, `card ${node.attrs['data-id']} is named under all`);
   }
   const one = own(s.nodeOf(1), 'graph-node-name')[0];
-  assert.ok(names.placed.has(1), 'card 1 is placed');
+  assert.ok(names.placed.has('1'), 'card 1 is placed');
   assert.ok('#1 Ship <b>the</b> beta'.startsWith(one.textContent.replace(/…$/, '')), one.textContent);
   assert.strictEqual(one.innerHTML, '', 'no markup set');
   assert.strictEqual(s.leaders().length, s.nodes().length, 'one leader for each card');
@@ -217,7 +217,7 @@ test('a named card with no room keeps its id label: no graph-placed, no leader, 
     const got = drawnOf(node);
     assert.ok(got.named && !got.placed && !got.called, `card ${id}`);
     assert.strictEqual(got.d, '', `card ${id} has no leader`);
-    assert.strictEqual(got.x, String(s.run(`graphCur.plan.nodes.find((n) => n.id === ${id}).reach`) + 3), `card ${id}: beside its dot`);
+    assert.strictEqual(got.x, String(s.run(`graphCur.plan.nodes.find((n) => n.id === ${JSON.stringify(String(id))}).reach`) + 3), `card ${id}: beside its dot`);
   }
   s.fit(0.3);
   const thin = s.run('graphCur.names');
@@ -313,7 +313,7 @@ test('a click names and places in place: no rebuild, and the card it names has i
   s.run('setSelection(addPart(NO_SELECTION, cardPart(100)), 100)');
   s.run('graphPaintSelection()');
   assert.strictEqual(s.run('graphCur'), fan, 'painted in place');
-  const p = s.run('graphCur.names.placed.get(100)');
+  const p = s.run("graphCur.names.placed.get('100')");
   assert.ok(p && p.kind === 'row' && p.leader, 'the card clicked is named in a row, with a leader');
   const got = drawnOf(s.nodeOf(100));
   assert.ok(got.named && got.placed && got.called);
