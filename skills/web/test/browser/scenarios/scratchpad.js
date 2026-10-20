@@ -125,7 +125,7 @@ module.exports = {
     await click(holder.x, holder.y);
     await waitFor(`!!document.querySelector('#notes-palette .gp-delete')`, 3000);
     await press('#notes-palette .gp-delete');
-    check('scratchpad: Delete group offers the logbook, its scratchpad and its member cards, all unticked', await waitFor(DLG_UP, 3000) && await ev(boxes) === 'logbook:false,scratchpad:false,members:false', await ev(boxes));
+    check('scratchpad: Delete group offers the logbook, its scratchpad, its member cards and their scratchpads, all unticked', await waitFor(DLG_UP, 3000) && await ev(boxes) === 'logbook:false,scratchpad:false,members:false,memberScratchpad:false', await ev(boxes));
     await ev(`${BODY}.querySelector('input[data-del="scratchpad"]').click()`);
     await press('#group-dialog [data-confirm="delete"]');
     check('scratchpad: ticked, the group and its page go; the member cards stay', await waitFor(`!state.groups.list.some((g)=>g.id==='I2')&&${targets}==='["3","7"]'`, 4000) && !fs.existsSync(path.join(boardDir, '.scratchpad', 'I0002.scratchpad.md')) && await ev(live('3')), await ev(targets));
