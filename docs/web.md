@@ -436,8 +436,20 @@ card menu has **Add to group…** and, on two or more cards, **Make a group from
 opens a form for the short name, the folder (the group's type), the dates and `auto_join`.
 **Add note…** on several cards asks for a group they all share, or offers to make one, or to
 write the note on each card. `group:I2` and `group:zephyr-2` find a group's cards, a bare
-`group:` every card that is in a group and `-group:` the cards that are in none. Without a
-`groups:` line nothing of this shows.
+`group:` every card that is in a group and `-group:` the cards that are in none. A group with
+both dates and `auto_join` on is running from its start to its end, both days included, and a
+card you make in the New card form while it runs joins it; the flash after saving names the
+groups it joined (`Joined #I2 zephyr-2.`). A dated group without `auto_join` never takes a new
+card. Without a `groups:` line nothing of this shows.
+
+**Iterations** — with `iterations: true` in `config.yaml` over a `groups:` line, the header has a
+dropdown of the groups in the `iteration/` folder: All cards, the iterations newest first with
+their dates, and New iteration…. It opens on the running iteration, or on All cards when none
+runs. A pick narrows the Board, Calendar, Gantt, Map and Graph to its cards on top of the search
+box, without writing the box or changing any group, and is kept in this browser only. The
+Calendar shades the picked iteration's days and opens on its first day. New iteration… opens the
+group form with the name bumped (`zephyr-2` becomes `zephyr-3`), the dates continuing at the same
+length and `auto_join` on.
 
 ## Other surfaces
 

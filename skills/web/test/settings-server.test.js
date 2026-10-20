@@ -54,20 +54,15 @@ const without = (text, line) => text.split('\n').filter((l) => l !== line).join(
 
 // --- reading --------------------------------------------------------------------------
 
-test('config.yaml reads iterations: true as on and nothing else as on', () => {
-  assert.strictEqual(parseConfig('iterations: true\n').iterations, true);
-  assert.strictEqual(parseConfig('iterations: false\n').iterations, false);
-  assert.strictEqual(parseConfig('iterations: yes\n').iterations, false);
-  assert.strictEqual(parseConfig('name: t\n').iterations, false);
-});
-
 test('the board payload carries the config the gear shows', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
-    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    const board = (await req(base, 'GET', '/api/board')).json;
+    const { settings } = board;
     assert.deepStrictEqual(settings.logbook, { on: true, folder: 'logbook', locked: false, reason: '' });
     assert.deepStrictEqual(settings.groups, { on: true, folder: '.groups', locked: false, reason: '' });
-    assert.strictEqual(settings.iterations, true);
+    assert.strictEqual(board.iterations, true, 'the payload\'s own iterations field is what the switch shows');
+    assert.strictEqual('iterations' in settings, false, 'and settings carries no second one');
     assert.strictEqual(settings.idDigits, 4);
     assert.strictEqual(settings.nextId, 30);
     assert.deepStrictEqual(settings.counters, { I: 3 });
@@ -86,7 +81,7 @@ test('a board with no config.yaml shows every feature off', async () => {
     const { settings } = (await req(base, 'GET', '/api/board')).json;
     assert.strictEqual(settings.logbook.on, false);
     assert.strictEqual(settings.groups.on, false);
-    assert.strictEqual(settings.iterations, false);
+    assert.strictEqual((await req(base, 'GET', '/api/board')).json.iterations, false);
     assert.strictEqual(settings.idDigits, 4);
     assert.deepStrictEqual(settings.prefixes, []);
   });
@@ -239,7 +234,7 @@ test('turning groups off turns iterations off', async () => {
     const r = await set(base, 'groups', null);
     assert.strictEqual(r.status, 200);
     assert.strictEqual(config(dir), without(without(before, 'groups: .groups'), 'iterations: true'));
-    assert.strictEqual(r.json.settings.iterations, false);
+    assert.strictEqual((await req(base, 'GET', '/api/board')).json.iterations, false);
   });
 });
 

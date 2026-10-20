@@ -263,6 +263,17 @@ test('groupsonly board: the groups board with the logbook line taken out', () =>
   assert.deepStrictEqual(readGroups(b.dir).list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
 });
 
+test('iterations board: the groups board with iterations: true, which is the only difference', () => {
+  const b = load('iterations');
+  const groups = load('groups');
+  assert.strictEqual(b.config.iterations, true);
+  assert.strictEqual(groups.config.iterations, false, 'the groups board has no iterations line');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.deepStrictEqual(readGroups(b.dir).list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.strictEqual(b.config.name, 'iterations', 'its own name, so its saved choices have their own keys');
+});
+
 test('calnotes board: the notes board and two more notes, one half hour with two notes and a day with two untimed', () => {
   const b = load('calnotes');
   const notes = new Map();

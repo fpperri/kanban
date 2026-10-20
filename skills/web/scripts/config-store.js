@@ -34,8 +34,8 @@
 //                         # logbook and nothing of it shows
 //   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
 //                         # way; absent = no groups and nothing of them shows
-//   iterations: true      # the iteration dropdown in the header (groups in the groups
-//                         # folder's iteration/ folder); needs groups; absent = off
+//   iterations: true      # the header's iteration dropdown over the groups in the
+//                         # iteration/ folder (docs/adr/0015); needs groups:, absent = off
 //   assignees:           # who can own cards; feeds the form's combobox
 //     - handle: "@alex"
 //       name: "Alex"

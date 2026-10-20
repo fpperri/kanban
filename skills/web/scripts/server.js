@@ -287,6 +287,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
           settings: settings.readSettings(dir), // the config the gear's This board pages show (ADR 0017)
+          iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
@@ -350,7 +351,10 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       if (req.method === 'POST' && p === '/api/cards') {
         const body = await readBody(req);
         try {
-          return sendJSON(res, 201, cs.toJSON(cs.createCard(dir, body)));
+          const created = cs.toJSON(cs.createCard(dir, body));
+          // Auto-join in the same request: the groups running on the creator's local date
+          // with auto_join take the card, and the reply names them for the flash.
+          return sendJSON(res, 201, { ...created, joined: gs.joinRunning(dir, created.id, cs.todayLocalDate()) });
         } catch (e) {
           // the 422 names WHICH gate refused — waiting carries the
           // unresolved deps, blocked carries the sticker's reason.

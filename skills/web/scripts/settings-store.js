@@ -93,7 +93,6 @@ function readSettings(dir) {
   return {
     logbook: folderState(dir, config, 'logbook'),
     groups: folderState(dir, config, 'groups'),
-    iterations: config.iterations,
     idDigits: config.idDigits,
     nextId: config.nextId,
     prefixes: prefixRows(config),

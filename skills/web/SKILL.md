@@ -1021,7 +1021,8 @@ to `127.0.0.1` only.
   table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
   new card files. **Counters** shows `nextId:` and the `counters:` line, read only. The
   `/api/board` payload carries `settings`: `logbook` and `groups` as `{ on, folder, locked,
-  reason }`, `iterations`, `idDigits`, `nextId`, `prefixes` and `counters`. Another page of
+  reason }`, `idDigits`, `nextId`, `prefixes` and `counters` (the Iterations switch shows the
+  payload's own top-level `iterations`). Another page of
   This board is added with `settingsAddBoardPage` in `settings-ui.js`.
 - **Notes (logbook)** — with a `logbook:` line in `config.yaml` (the folder of the board's
   day files, see the kanban skill's logbook section) the page keeps a **notes palette**, the
@@ -1085,8 +1086,28 @@ to `127.0.0.1` only.
   more than two folders deep is skipped, named with its reason in the payload and a server
   warning, and never fatal. `group:<id or name>` (any letter case; a quoted name may hold a
   space), a bare `group:` (every card in a group) and `-group:` or `-group:<id or name>` (the
-  cards in none, or not in that group) are search terms. Deleting a group, auto-join on card
-  creation and the iteration dropdown are separate features.
+  cards in none, or not in that group) are search terms. A group with both dates and
+  `auto_join: true` is running from its start to its end, both days included, by the local
+  date of the board's server; a card made in the New card form (`POST /api/cards`) is written
+  into the `cards:` of every running auto-join group in that same request, and no other, and
+  the reply carries `joined` (`[{id, name}]`) so the page's flash can say `Joined #I2
+  zephyr-2.` A dated group without `auto_join` never takes a new card, a card edited later
+  joins nothing, and a card the doing-gate refuses joins nothing. Deleting a group is a separate feature.
+- **Iterations** — with `iterations: true` in `config.yaml` over a `groups:` line, the header
+  beside the board name has a dropdown of the groups in the `iteration/` folder (no
+  subtype): **All cards**, the iterations newest first, each with its id, name, dates and
+  `running` when it is, and **New iteration…**. It opens on the running iteration (the
+  newest one whose dates include today, both days), or on All cards when none runs. A pick
+  narrows the Board, Calendar, Gantt, Map and Graph to the iteration's cards on top of the
+  search box: both must say yes, the pick never writes the box, and it never changes a group
+  or its membership. The pick is kept in this browser only (`localStorage`, not the board);
+  a kept pick, All cards included, beats the running iteration, and one whose iteration is
+  gone falls back to it. The Calendar shades the picked iteration's days (an iteration with
+  both dates) and opens on its first day when the pick changes. **New iteration…** opens the
+  group form in the `iteration` folder with the newest iteration's name bumped (`zephyr-2`
+  becomes `zephyr-3`; a name with no trailing number is left blank), the dates continuing the
+  day after its end at the same length, and `auto_join` on; the pick stays where it was. The
+  server adds `iterations` (true only with the key and a groups folder) to the board payload.
 - **Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
   keyboard focus onto, any piece of a card lights every piece sharing its id, the same
   card-el grammar and same "one card, several DOM elements" reach as selection: on the

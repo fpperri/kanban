@@ -487,6 +487,14 @@ test('parseConfig reads the groups folder and a missing or blank line is none', 
   assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    groups: nope\n').groups, '', 'an indented groups is not the key');
 });
 
+test('parseConfig reads iterations: true as on, and any other value or a missing line as off', () => {
+  assert.strictEqual(cfg.parseConfig('iterations: true\n').iterations, true);
+  assert.strictEqual(cfg.parseConfig('iterations: true   # the dropdown\n').iterations, true);
+  assert.strictEqual(cfg.parseConfig('iterations: "true"\n').iterations, true);
+  for (const off of ['iterations: false\n', 'iterations:\n', 'iterations: yes\n', 'iterations: 1\n', 'name: x\n']) assert.strictEqual(cfg.parseConfig(off).iterations, false, off);
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    iterations: true\n').iterations, false, 'an indented iterations is not the key');
+});
+
 test('groupFolderOf reads a prefixes value as a groups folder: a path, or the groups folder itself, the root included', () => {
   const c = cfg.parseConfig('groups: .groups\nprefixes:\n  _: .groups\n  I: .groups/iteration\n  W: workflow/\n  DW: workflow/dynamic\n  G: goal\n  X: .groups/\n');
   assert.strictEqual(cfg.groupFolderOf(c, c.prefixes._), '', 'the groups folder itself is the root, which has no slash');
