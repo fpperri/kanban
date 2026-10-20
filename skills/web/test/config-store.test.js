@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', groups: '', prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', groups: '', iterations: false, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -485,6 +485,14 @@ test('parseConfig reads the groups folder and a missing or blank line is none', 
   assert.strictEqual(cfg.parseConfig('groups: "my groups"   # where\n').groups, 'my groups');
   assert.strictEqual(cfg.parseConfig('groups:\nname: x\n').groups, '');
   assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    groups: nope\n').groups, '', 'an indented groups is not the key');
+});
+
+test('parseConfig reads iterations: true as on, and any other value or a missing line as off', () => {
+  assert.strictEqual(cfg.parseConfig('iterations: true\n').iterations, true);
+  assert.strictEqual(cfg.parseConfig('iterations: true   # the dropdown\n').iterations, true);
+  assert.strictEqual(cfg.parseConfig('iterations: "true"\n').iterations, true);
+  for (const off of ['iterations: false\n', 'iterations:\n', 'iterations: yes\n', 'iterations: 1\n', 'name: x\n']) assert.strictEqual(cfg.parseConfig(off).iterations, false, off);
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    iterations: true\n').iterations, false, 'an indented iterations is not the key');
 });
 
 test('groupFolderOf reads a prefixes value as a groups folder: a path, or the groups folder itself, the root included', () => {

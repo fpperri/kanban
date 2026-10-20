@@ -285,6 +285,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
           logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
+          iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));

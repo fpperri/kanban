@@ -39,6 +39,7 @@
   --accent-soft: #f8e8e0;
   --accent-wash: rgba(169, 75, 41, 0.14);
   --today-wash: rgba(169, 75, 41, 0.08);
+  --iter-wash: rgba(46, 125, 91, 0.10);
   --ok: #2e7d5b;
   --warn: #8f6218;
   --warn-soft: #fbf1e0;
@@ -93,6 +94,7 @@
     --accent-soft: #33211b;
     --accent-wash: rgba(217, 119, 87, 0.22);
     --today-wash: rgba(217, 119, 87, 0.10);
+    --iter-wash: rgba(92, 196, 149, 0.12);
     --ok: #5cc495;
     --warn: #d9ae58;
     --warn-soft: #2b2416;
@@ -148,6 +150,7 @@
   --accent-soft: #33211b;
   --accent-wash: rgba(217, 119, 87, 0.22);
   --today-wash: rgba(217, 119, 87, 0.10);
+  --iter-wash: rgba(92, 196, 149, 0.12);
   --ok: #5cc495;
   --warn: #d9ae58;
   --warn-soft: #2b2416;
@@ -259,6 +262,10 @@ button { background: var(--btn-bg); border: 1px solid var(--line); color: var(--
 button:hover { background: var(--btn-hover); }
 #new-btn { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
 #stale-indicator { align-self: center; color: var(--warn); font-size: 0.78em; }
+/* The iteration dropdown rides beside the board name and wraps with it on a narrow screen. */
+.iter-select { min-width: 0; max-width: min(22em, calc(100vw - 32px)); background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 4px 6px; border-radius: .15rem; font: inherit; font-size: 0.85em; }
+.iter-select:focus { outline: none; border-color: var(--accent); }
+.iter-select.narrowed { border-color: var(--accent); color: var(--accent-strong); }
 .search-bar { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
 .search-input { width: 100%; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 10px; border-radius: .15rem; font-size: 0.85em; font-family: inherit; }
 .search-input:focus { outline: none; border-color: var(--accent); }
@@ -1079,6 +1086,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: minmax(16px, auto) repeat(var(--cal-week-rows), minmax(20px, auto)) minmax(0, 1fr); gap: 4px; }
 .cal-day { background: var(--paper); border: 1px solid var(--line-soft); border-radius: .2rem; min-height: 96px; padding: 4px; min-width: 0; }
 .cal-day.outside { background: var(--raised); border-style: dashed; border-color: var(--line-strong); }
+.cal-day.in-iteration { background: var(--iter-wash); }
 .cal-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .cal-day.drag-over { border-color: var(--accent); background: var(--accent-soft); }
 .cal-day-num { color: var(--ink); font-size: 0.72em; text-align: right; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
@@ -1139,11 +1147,13 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-timegrid { --cal-day-cols: 7; border: 1px solid var(--line-soft); border-radius: .2rem; overflow: hidden; }
 .cal-tg-head { display: grid; grid-template-columns: 52px repeat(var(--cal-day-cols), 1fr); border-bottom: 1px solid var(--line-soft); }
 .cal-tg-dayhead { text-align: center; color: var(--mut); font-size: 0.78em; font-weight: 600; padding: 5px 0; border-left: 1px solid var(--line-soft); text-transform: uppercase; letter-spacing: 0.08em; }
+.cal-tg-dayhead.in-iteration { background: var(--iter-wash); }
 .cal-tg-dayhead.today { color: var(--accent); }
 .cal-tg-allday { display: grid; grid-template-columns: 52px 1fr; border-bottom: 1px solid var(--line); }
 .cal-tg-gutterlabel { color: var(--mut); font-size: 0.65em; padding: 4px 6px; text-align: right; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 600; }
 .cal-tg-allday-grid { display: grid; grid-template-columns: repeat(var(--cal-day-cols), 1fr); grid-auto-rows: minmax(22px, auto); gap: 2px 0; }
 .cal-tg-allday-cell { border-left: 1px solid var(--line-soft); min-height: 22px; }
+.cal-tg-allday-cell.in-iteration { background: var(--iter-wash); }
 .cal-tg-allday-cell.today { background: var(--today-wash); }
 /* Band chips lay over the cells (later DOM order paints on top); margins keep
    the day gridlines peeking through between neighboring spans. */
@@ -1161,6 +1171,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-tg-gutter .cal-tg-hour:first-child { transform: none; } /* 00:00 sits below the band edge, not clipped on it */
 .cal-tg-col { position: relative; border-left: 1px solid var(--line-soft);
   background: repeating-linear-gradient(to bottom, transparent 0 39px, var(--line-soft) 39px 40px); } /* 40px = CAL_HOUR_PX */
+.cal-tg-col.in-iteration { background-color: var(--iter-wash); }
 .cal-tg-col.today { background-color: var(--today-wash); }
 .cal-tg-col.drag-over, .cal-tg-allday-cell.drag-over { background-color: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
 /* While a drag is live (wireCalendarDrag toggles the class), chips
