@@ -230,7 +230,7 @@ A search query offered as one click: blocked, review and waiting are built in, a
 _Avoid_: light pill, filter button, chip.
 
 **Status pill**:
-One status's switch in a view's row: on shows that status's cards, off hides them, and soloing keeps that status alone. It belongs to its view and never touches the selection.
+One status's switch, in the search panel's Statuses section: on shows that status's cards, off hides them, and soloing keeps that status alone. No view holds a row of them. It still belongs to its view (each view keeps its own set) and never touches the selection.
 _Avoid_: pill (alone), filter chip.
 
 **Isolate**:

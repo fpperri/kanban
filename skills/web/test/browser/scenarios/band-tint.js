@@ -84,7 +84,7 @@ const rgbOf = (hex) => {
 
 const dotPoint = (id) => `(()=>{const dot=document.querySelector('.graph-node[data-id="${id}"] .graph-dot');if(!dot)return null;const r=dot.getBoundingClientRect();`
   + `const x=r.left+r.width/2,y=r.top+r.height/2;const hit=document.elementFromPoint(x,y);return hit&&hit.closest('.graph-node')&&hit.closest('.graph-node').dataset.id==='${id}'?{x,y}:null})()`;
-const STATUS_PILL = `document.querySelector('.graph-filter-toggle[data-col=${PILL}]').click()`;
+const STATUS_PILL = `document.querySelector('#search-statuses .status-pill[data-col=${PILL}]').click()`;
 
 module.exports = {
   name: 'band-tint',

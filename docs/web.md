@@ -96,7 +96,7 @@ The options and the zoom (`−`, the percentage, `+` and **Fit**) sit in a panel
 right of the view, which the panel icon at the top right, level with the top of the view,
 opens and closes. The options are always shown in it; the panel is what hides them, and
 a fold remembered from before the panel is ignored. The Graph keeps its layouts, its zoom and its Options section in a
-panel the same way, while its status pills, key and card count stay in the view. The Map's status pills are in the search panel's Statuses section. The
+panel the same way, while its key and card count stay in the view. The status pills of the Map and the Graph are in the search panel's Statuses section. The
 panel is open from 760 px wide and closed below it, where it opens over the view as a
 sheet with a close button of its own and adds no sideways scroll. The choice is
 remembered per board in your browser, for the Map and for the Graph apart. Closed, the
