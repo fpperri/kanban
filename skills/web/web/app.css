@@ -1546,11 +1546,33 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .prefs-btn svg { width: 15px; height: 15px; }
 .prefs-btn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .prefs-backdrop { justify-content: flex-end; align-items: stretch; }
-.prefs-sheet { width: min(380px, 100vw); height: 100vh; overflow-y: auto; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop); padding: 20px; display: flex; flex-direction: column; gap: 22px; animation: prefs-slide 160ms ease-out; }
+.prefs-sheet { width: min(380px, 100vw); height: 100vh; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; animation: prefs-slide 160ms ease-out; }
 @keyframes prefs-slide { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .prefs-sheet { animation: none; } }
-.prefs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+@media (min-width: 760px) { .prefs-sheet { width: min(760px, 100vw); } }
+.prefs-sheet [hidden] { display: none !important; }
+.prefs-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 20px 14px; border-bottom: 1px solid var(--line); }
 .prefs-head h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+/* The body is the menu and one page: side by side from 760 px, else one at a time (settings.js). */
+.prefs-body { flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden; }
+.prefs-menu, .prefs-pages { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 18px 20px 28px; }
+.prefs-menu { display: flex; flex-direction: column; gap: 22px; }
+.is-split .prefs-menu { flex: 0 0 248px; border-right: 1px solid var(--line); background: var(--raised); }
+.prefs-pages { display: flex; flex-direction: column; gap: 14px; }
+.prefs-page { display: flex; flex-direction: column; gap: 22px; }
+.is-drill .prefs-pages.slide-in { animation: prefs-slide 160ms ease-out; }
+.prefs-section h3 { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.prefs-section-sub { margin-top: 3px; color: var(--mut); font-size: 0.78em; line-height: 1.45; }
+.prefs-menu-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.prefs-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; text-align: left; font-size: 0.9em; color: var(--ink); background: transparent; border: 0; border-left: 3px solid transparent; border-radius: 0; cursor: pointer; }
+.prefs-menu-item:hover { background: var(--hover-wash); }
+.prefs-menu-item[aria-current="page"] { background: var(--accent-soft); border-left-color: var(--accent); color: var(--ink-strong); font-weight: 600; }
+.prefs-menu-state { color: var(--mut); font-size: 0.85em; font-weight: 400; }
+.is-split .prefs-back { display: none; }
+.prefs-back { align-self: flex-start; margin: -4px 0 0 -6px; padding: 4px 6px; background: transparent; border: 0; color: var(--accent); font-size: 0.9em; cursor: pointer; }
+.prefs-back:hover { background: var(--hover-wash); color: var(--accent-strong); }
+.prefs-eyebrow { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: -14px; }
+.prefs-page-title { color: var(--ink-strong); font-size: 1.05em; font-weight: 700; letter-spacing: -0.01em; }
 .prefs-group { display: flex; flex-direction: column; gap: 10px; }
 .prefs-group h3 { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .prefs-hint { color: var(--mut); font-size: 0.8em; line-height: 1.5; }
@@ -1564,6 +1586,23 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .prefs-opt[aria-pressed="true"] { position: relative; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .prefs-opt:disabled { cursor: default; }
 .prefs-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 0.9em; cursor: pointer; }
+#prefs-board-page { gap: 14px; }
+#prefs-board-page .prefs-eyebrow { margin-bottom: -10px; }
+.prefs-item { display: flex; flex-direction: column; gap: 6px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.prefs-seg .prefs-opt:disabled { opacity: .55; }
+.prefs-path { display: flex; gap: 6px; min-width: 0; margin: 0; }
+.prefs-path input { flex: 1 1 auto; min-width: 0; padding: 6px 8px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
+.prefs-path input:focus { outline: none; border-color: var(--accent); }
+.prefs-path input:disabled { opacity: .6; }
+.prefs-error { padding: 6px 9px; border: 1px solid var(--crit); background: var(--crit-soft); color: var(--ink); border-radius: .15rem; font-size: 0.8em; overflow-wrap: anywhere; }
+.prefs-note { padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: .15rem; color: var(--mut); font-size: 0.8em; overflow-wrap: anywhere; }
+.prefs-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+.prefs-table th { text-align: left; color: var(--mut); font-size: 0.82em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
+.prefs-table td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; overflow-wrap: anywhere; }
+.prefs-table td.mono { color: var(--code-ink); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
+.prefs-found { display: flex; flex-direction: column; gap: 10px; }
+.prefs-found h4 { color: var(--mut); font-size: 0.75em; font-weight: 600; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
+.prefs-found .pick-list { margin-top: 4px; }
 .hotkeys-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .hotkey-row { display: grid; grid-template-columns: minmax(84px, 34%) 1fr; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 0.85em; }
 .hotkey-row:first-child { border-top: 0; }

@@ -363,8 +363,11 @@ and the selection stays.
 ![Bulk context menu](images/web-bulk-actions.png)
 
 **Preferences** — the gear at the right end of the header opens a sheet from the right
-with the settings that rarely change. They are kept in your browser, per board, and are
-never written to the board's files.
+with two sections. *This browser* holds the settings that rarely change; they are kept in
+your browser, per board, and are never written to the board's files. *This board* holds
+pages that write `config.yaml`, described after the list below. On a wide window (760 px
+and up) the menu and a page sit side by side; on a narrow one the menu leads to a page with a
+back button.
 
 - *A plain click on a card* opens the card or selects it, chosen separately for the
   Board, Map, Gantt and Calendar (it opens, by default). The Graph is shown fixed at
@@ -395,8 +398,23 @@ never written to the board's files.
   sheet itself is up. The list is to read, not to change.
 
 The sheet closes with Esc, a click outside it or its close button, and focus goes back to
-the gear. While it is open the board does not refresh under it, and `/`, `p` and Ctrl+F
-stand still.
+the gear; on a narrow window Esc first steps back from a page to the menu. While it is open
+the board does not refresh under it, and `/`, `p` and Ctrl+F stand still.
+
+*This board* has four pages. Each change writes one line of `config.yaml` and leaves every
+other byte as it was, comments included.
+
+- *Logbook* and *Groups* have an on/off switch and a folder field. Off removes the line; on
+  writes it back with the folder. A folder is a path inside the board; one that leaves the
+  board is refused. A folder you wrote by hand outside the board still works, but shows as
+  locked with the reason, and the page leaves it alone. Changing a folder changes the line
+  only: the files stay where they are, for you to move.
+- *Groups* also has the *Iterations* switch, which gives the header its iteration dropdown.
+  Turning groups off turns iterations off, and iterations cannot be turned on without
+  groups. The page lists the groups it found, by type, and opens one in the palette.
+- *Prefixes* shows the `prefixes:` block, read only, and lets you change `idDigits`, the
+  width card file names are padded to. Only new files take the new width.
+- *Counters* shows `nextId` and the `counters:` line, read only.
 
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
 selected card, a card with notes wears a small count that opens its notes, and the card menu

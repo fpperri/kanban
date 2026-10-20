@@ -160,7 +160,7 @@ function fakeEl(id, classes = []) {
 function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const colState = require('../web/column-state');
   const writes = {};
-  const log = { renders: 0, details: [], folds: [], sliceFolds: [], switches: [], focused: null };
+  const log = { renders: 0, details: [], folds: [], sliceFolds: [], switches: [], focused: null, shown: [], went: [] };
   const sheet = fakeEl('prefs-sheet', ['modal-backdrop', 'hidden']);
   const gear = fakeEl('prefs-btn');
   gear.setAttribute('aria-expanded', 'false');
@@ -199,6 +199,8 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
     foldSearchPills: (folded) => { log.folds.push(folded); },
     foldSearchSlices: (folded) => { log.sliceFolds.push(folded); },
     applySearchPanelSwitch: (on, openNow) => { log.switches.push([on, openNow]); },
+    settingsShow: (page) => { log.shown.push(page); },
+    settingsGo: (page) => { log.went.push(page); },
     currentDetailId: detailOpen ? 4 : null,
     sheet, gear, close, archived, pillsFolded, slicesFolded, panelOnFocus, opts, writes, log,
   };
@@ -424,7 +426,7 @@ test('a click on the backdrop itself closes the sheet; a click inside it does no
 });
 
 test('the checkbox, the close button and the gear are wired in the DOMContentLoaded block', () => {
-  assert.match(appSrc, /\$\('#prefs-btn'\)\.addEventListener\('click', openPrefsSheet\);/);
+  assert.match(appSrc, /\$\('#prefs-btn'\)\.addEventListener\('click', \(\) => openPrefsSheet\(\)\);/);
   assert.match(appSrc, /\$\('#prefs-close'\)\.addEventListener\('click', closePrefsSheet\);/);
   assert.match(appSrc, /\$\('#prefs-sheet'\)\.addEventListener\('click', onPrefsSheetClick\);/);
   assert.match(appSrc, /\$\('#prefs-archived-done'\)\.addEventListener\('change', \(e\) => setArchivedDone\(e\.target\.checked\)\);/);
@@ -485,7 +487,7 @@ function escPage({ open = [] } = {}) {
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
     requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),
     closeSearchPanel: () => (open.includes('#search-panel') ? (calls.push('panel'), true) : false),
-    escapeStep: () => calls.push('step'), closePrefsSheet: () => calls.push('prefs'),
+    escapeStep: () => calls.push('step'), settingsStepBack: () => calls.push('prefs'),
   };
   vm.createContext(sandbox);
   vm.runInContext(escHandler(), sandbox);
@@ -534,9 +536,9 @@ test('a held Esc runs the end of the chain once: a repeated keydown with nothing
 test('the sheet\'s line is added to the Esc handler without moving the lines around it', () => {
   const body = escHandler();
   const at = (s) => body.indexOf(s);
-  assert.ok(at("closePrefsSheet(); return;") > at("closeNotifModal(); return;"));
-  assert.ok(at("closePrefsSheet(); return;") < at("closeCard(); return;"));
-  assert.ok(at("if (anyModalOpen()) return;") > at("closePrefsSheet(); return;"), 'the catch-all stays last but for the end of the chain');
+  assert.ok(at("settingsStepBack(); return;") > at("closeNotifModal(); return;"));
+  assert.ok(at("settingsStepBack(); return;") < at("closeCard(); return;"));
+  assert.ok(at("if (anyModalOpen()) return;") > at("settingsStepBack(); return;"), 'the catch-all stays last but for the end of the chain');
 });
 
 test('an open sheet stops the 5s poll, because it sits on the modal backdrop the poll already reads', () => {

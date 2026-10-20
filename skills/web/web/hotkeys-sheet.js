@@ -80,13 +80,11 @@ function syncHotkeys() {
   });
 }
 
-// ?: the sheet opens as the gear opens it, with the list drawn, and its Hotkeys section is
-// brought to the top of the sheet. Focus stays where the sheet puts it, on its close button.
+// ?: the sheet opens as the gear opens it, with the list drawn, on its Hotkeys page. Focus stays
+// where the sheet puts it, on its close button.
 function openHotkeys() {
   syncHotkeys();
-  openPrefsSheet();
-  const section = $('#prefs-hotkeys');
-  if (section) section.scrollIntoView({ block: 'start' });
+  openPrefsSheet('browser:hotkeys');
 }
 
 function onHotkeysKey(e) {

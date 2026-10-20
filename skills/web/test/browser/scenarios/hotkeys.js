@@ -58,9 +58,9 @@ const KEY_LABELS = `${ROWS}.flatMap((r)=>[...r.querySelectorAll('.hotkey-key')].
 const WHATS = `${ROWS}.map((r)=>{const w=r.querySelector('.hotkey-what');return w?w.textContent.trim():''})`;
 const STATES = `(()=>{const o={};for(const r of ${ROWS}){const s=r.querySelector('.hotkey-state');if(s)o[r.dataset.hotkey]=s.textContent}return o})()`;
 const STATE_OF = (id) => `(()=>{const s=document.querySelector('#hotkeys-list .hotkey-row[data-hotkey="${id}"] .hotkey-state');return s?s.textContent:null})()`;
-// Where the Hotkeys heading is in the sheet: inside the sheet's box, and the sheet scrolled to get it there when it scrolls at all.
+// Where the Hotkeys heading is in the sheet: drawn, inside the sheet's box, on the page the sheet opened on.
 const HEADING_IN_VIEW = `(()=>{const sheet=document.querySelector('.prefs-sheet');const h=document.getElementById('prefs-hotkeys-title').getBoundingClientRect();const s=sheet.getBoundingClientRect();`
-  + `const fits=sheet.scrollHeight<=sheet.clientHeight;return h.height>0&&h.top>=s.top-1&&h.bottom<=s.bottom&&(fits||sheet.scrollTop>0)})()`;
+  + `const page=document.querySelector('.prefs-page[data-page="browser:hotkeys"]');return !!page&&!page.hidden&&h.height>0&&h.top>=s.top-1&&h.bottom<=s.bottom})()`;
 const NOT_WIDER = `(()=>{const sheet=document.querySelector('.prefs-sheet');return sheet.scrollWidth<=sheet.clientWidth})()`;
 const KEYS_DRAWN = `${ROWS}.every((r)=>r.querySelectorAll('.hotkey-key').length>0&&[...r.querySelectorAll('.hotkey-key')].every((k)=>k.tagName.toLowerCase()==='kbd'&&k.getBoundingClientRect().width>0))`;
 const LAST_KEY = `(()=>{const l=window.__keyLog||[];return l.length?l[l.length-1]:null})()`;
@@ -105,14 +105,14 @@ module.exports = {
       return !!logged && logged.key === '?' && logged.prevented === false && await ev(SHEET_SHUT);
     };
 
-    // --- ? opens the sheet at the Hotkeys section --------------------------------------------------------------
+    // --- ? opens the sheet on its Hotkeys page --------------------------------------------------------------
     check('the plan board is drawn', await goto('/', BOARD_READY));
     await questionMark();
     check('with nothing open and nobody typing, ? opens the preferences sheet', await waitFor(SHEET_UP, 2500));
     await waitFor(SHEET_SETTLED, 2500);
     const opened = await lastKey();
     check('the page stopped the browser\'s own response to ?, and the gear says the sheet is open', !!opened && opened.key === '?' && opened.prevented === true && await ev(GEAR_EXPANDED) === 'true', opened);
-    check('the Hotkeys heading is inside the sheet, brought into view', await ev(HEADING_IN_VIEW));
+    check('the sheet shows its Hotkeys page, with the heading inside the sheet', await ev(HEADING_IN_VIEW));
 
     // --- what the list holds -------------------------------------------------------------------------------
     const labels = await ev(KEY_LABELS);
@@ -195,7 +195,11 @@ module.exports = {
     check('the sheet shows isolate on', await openSheetByKey() && await ev(STATE_OF('isolate')) === CASES.afterKeys.isolate, await states());
 
     // --- a change made in the sheet shows in the list at once -------------------------------------------------------
-    // ? scrolled the sheet to the Hotkeys section, so the checkbox above it is brought back into view to be clicked.
+    // ? opened the Hotkeys page, so the Preferences page is brought up to click the checkbox on it; the list keeps drawing behind.
+    const toPrefs = await centre('.prefs-menu-item[data-page="browser:prefs"]');
+    if (!toPrefs) throw new Error('nothing matches the Preferences menu item');
+    await click(toPrefs.x, toPrefs.y);
+    await waitFor(`!document.querySelector('.prefs-page[data-page="browser:prefs"]').hidden`, 2500);
     await ev(`document.getElementById('prefs-panel-on-focus').scrollIntoView({block:'center'})`);
     const box = await centre('#prefs-panel-on-focus');
     if (!box) throw new Error('nothing matches #prefs-panel-on-focus');

@@ -43,5 +43,6 @@ module.exports = [
   require('./groups'),
   require('./groups-autojoin'),
   require('./iterations'),
+  require('./settings'),
   require('./delete'),
 ];

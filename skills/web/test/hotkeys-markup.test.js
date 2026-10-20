@@ -70,12 +70,10 @@ test('the sheet script asks the shared key guard and the list\'s own check for t
   assert.doesNotMatch(listSrc, /\bdocument\b|\bwindow\.(?!HOTKEYS|hotkeyRows|hotkeyIsHelp)/, 'the list is pure: it touches the page only to export itself');
 });
 
-test('? opens the sheet through the page\'s own open, not a second path, and brings the section to the top', () => {
+test('? opens the sheet through the page\'s own open, not a second path, on its Hotkeys page', () => {
   const open = sheetSrc.match(/function openHotkeys\([\s\S]*?\n\}/)[0];
-  assert.match(open, /openPrefsSheet\(\)/);
-  assert.match(open, /scrollIntoView\(\{ block: 'start' \}\)/);
-  assert.ok(open.indexOf('syncHotkeys()') < open.indexOf('openPrefsSheet()'), 'the rows are drawn before the sheet shows');
-  assert.ok(open.indexOf('openPrefsSheet()') < open.indexOf('scrollIntoView'), 'the sheet is open, and laid out, before the section is scrolled to');
+  assert.match(open, /openPrefsSheet\('browser:hotkeys'\)/);
+  assert.ok(open.indexOf('syncHotkeys()') < open.indexOf('openPrefsSheet('), 'the rows are drawn before the sheet shows');
 });
 
 // --- the stylesheet -------------------------------------------------------------------------

@@ -398,80 +398,110 @@
   </div>
 </div>
 
-<!-- Preferences sheet: the settings that rarely change, kept in this browser
-     per board and never written to the board. It sits on the modal backdrop, so
-     the poll pauses and the Esc catch-all see it (and Esc, a click outside and
-     the close button each close it and hand focus back to the gear); the key
-     guard names it, so / and Ctrl+F stand still while it is open. Nothing here
-     sets a tab order: it traps no Tab, like the other popups. -->
+<!-- Preferences sheet: two sections. This browser holds the settings that rarely change, kept in this
+     browser per board and never written to the board. This board holds the pages that write config.yaml
+     one line at a time (docs/adr/0017), drawn by settings-ui.js into #prefs-board-menu and
+     #prefs-board-page. A sheet 760 px wide or more shows the menu and one page side by side; a narrower
+     one shows the menu, then the page with a back button. It sits on the modal backdrop, so the poll
+     pauses and the Esc catch-all see it (Esc steps back from a page on a narrow sheet, else closes it; a
+     click outside and the close button close it and hand focus back to the gear); the key guard names it,
+     so / and Ctrl+F stand still while it is open. Nothing here sets a tab order: it traps no Tab, like the
+     other popups. -->
 <div id="prefs-sheet" class="modal-backdrop prefs-backdrop hidden" data-keeps-selection>
-  <aside class="prefs-sheet" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+  <aside class="prefs-sheet" id="prefs-panel" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
     <div class="prefs-head">
       <h2 id="prefs-title">Preferences</h2>
       <button type="button" id="prefs-close" class="icon-btn" data-keeps-selection data-holds-poll title="Close" aria-label="Close preferences">&#10005;</button>
     </div>
-    <section class="prefs-group" aria-labelledby="prefs-click-title">
-      <h3 id="prefs-click-title">A plain click on a card</h3>
-      <p class="prefs-hint">Opens the card, or selects it. Where a click selects, a double click or Enter on a focused card opens it. Ctrl or Cmd click toggles a card and Shift click adds a range in every view.</p>
-      <div class="prefs-row">
-        <span class="prefs-label" id="prefs-label-board">Board</span>
-        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-board">
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="opens" aria-pressed="false">opens</button>
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="selects" aria-pressed="false">selects</button>
-        </span>
+    <div class="prefs-body">
+      <nav class="prefs-menu" id="prefs-menu" aria-label="Preferences menu">
+        <section class="prefs-section" aria-labelledby="prefs-browser-title">
+          <h3 id="prefs-browser-title">This browser</h3>
+          <p class="prefs-section-sub">Saved in this browser only</p>
+          <ul class="prefs-menu-list" id="prefs-browser-menu">
+            <li><button type="button" class="prefs-menu-item" data-keeps-selection data-holds-poll data-page="browser:prefs"><span>Preferences</span></button></li>
+            <li><button type="button" class="prefs-menu-item" data-keeps-selection data-holds-poll data-page="browser:hotkeys"><span>Hotkeys</span></button></li>
+          </ul>
+        </section>
+        <section class="prefs-section" aria-labelledby="prefs-board-title">
+          <h3 id="prefs-board-title">This board</h3>
+          <p class="prefs-section-sub">Written to config.yaml: everyone and every agent using this board sees it, and it lands in git</p>
+          <ul class="prefs-menu-list" id="prefs-board-menu"></ul>
+        </section>
+      </nav>
+      <div class="prefs-pages" id="prefs-pages">
+        <button type="button" class="prefs-back" id="prefs-back" data-keeps-selection data-holds-poll>&#8249; Preferences</button>
+        <section class="prefs-page" data-page="browser:prefs">
+          <p class="prefs-eyebrow">This browser</p>
+          <section class="prefs-group" aria-labelledby="prefs-click-title">
+            <h3 id="prefs-click-title">A plain click on a card</h3>
+            <p class="prefs-hint">Opens the card, or selects it. Where a click selects, a double click or Enter on a focused card opens it. Ctrl or Cmd click toggles a card and Shift click adds a range in every view.</p>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-label-board">Board</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-label-board">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="board" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-label-map">Map</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-label-map">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-label-gantt">Gantt</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-label-gantt">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-label-calendar">Calendar</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-label-calendar">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-label-graph">Graph</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-label-graph">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
+              </span>
+            </div>
+          </section>
+          <section class="prefs-group" aria-labelledby="prefs-rollup-title">
+            <h3 id="prefs-rollup-title">Roll-ups</h3>
+            <p class="prefs-hint">Every parent card shows a bar of the leaves below it; a click on any bar flips it for all of them, the same choice as here.</p>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-label-bar">Bar</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-label-bar">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="open" aria-pressed="false">open</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="collapsed" aria-pressed="false">collapsed</button>
+              </span>
+            </div>
+            <label class="prefs-check"><input type="checkbox" id="prefs-archived-done" data-keeps-selection data-holds-poll> Count archived leaves as done</label>
+          </section>
+          <section class="prefs-group" aria-labelledby="prefs-panel-title">
+            <h3 id="prefs-panel-title">Search panel</h3>
+            <p class="prefs-hint">The panel under the search box lists the slices and the pills. A section's fold control folds it for this visit; these are how each starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
+            <label class="prefs-check"><input type="checkbox" id="prefs-slices-folded" data-keeps-selection data-holds-poll> Slice section starts folded</label>
+            <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
+            <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
+          </section>
+        </section>
+        <section class="prefs-page" data-page="browser:hotkeys">
+          <p class="prefs-eyebrow">This browser</p>
+          <section class="prefs-group" id="prefs-hotkeys" aria-labelledby="prefs-hotkeys-title">
+            <h3 id="prefs-hotkeys-title">Hotkeys</h3>
+            <p class="prefs-hint">Every key the page answers and, where a key has one, the state it is in now. The single keys do nothing while you type in a field, or while a menu, a dialog or this sheet is up. Press ? to open this list.</p>
+            <ul id="hotkeys-list" class="hotkeys-list"></ul>
+          </section>
+        </section>
+        <section class="prefs-page" id="prefs-board-page" data-page="board" aria-live="polite"></section>
       </div>
-      <div class="prefs-row">
-        <span class="prefs-label" id="prefs-label-map">Map</span>
-        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-map">
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="opens" aria-pressed="false">opens</button>
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="map" data-value="selects" aria-pressed="false">selects</button>
-        </span>
-      </div>
-      <div class="prefs-row">
-        <span class="prefs-label" id="prefs-label-gantt">Gantt</span>
-        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-gantt">
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="opens" aria-pressed="false">opens</button>
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="gantt" data-value="selects" aria-pressed="false">selects</button>
-        </span>
-      </div>
-      <div class="prefs-row">
-        <span class="prefs-label" id="prefs-label-calendar">Calendar</span>
-        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-calendar">
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="opens" aria-pressed="false">opens</button>
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="calendar" data-value="selects" aria-pressed="false">selects</button>
-        </span>
-      </div>
-      <div class="prefs-row">
-        <span class="prefs-label" id="prefs-label-graph">Graph</span>
-        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-graph">
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
-        </span>
-      </div>
-    </section>
-    <section class="prefs-group" aria-labelledby="prefs-rollup-title">
-      <h3 id="prefs-rollup-title">Roll-ups</h3>
-      <p class="prefs-hint">Every parent card shows a bar of the leaves below it; a click on any bar flips it for all of them, the same choice as here.</p>
-      <div class="prefs-row">
-        <span class="prefs-label" id="prefs-label-bar">Bar</span>
-        <span class="prefs-seg" role="group" aria-labelledby="prefs-label-bar">
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="open" aria-pressed="false">open</button>
-          <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="bar" data-value="collapsed" aria-pressed="false">collapsed</button>
-        </span>
-      </div>
-      <label class="prefs-check"><input type="checkbox" id="prefs-archived-done" data-keeps-selection data-holds-poll> Count archived leaves as done</label>
-    </section>
-    <section class="prefs-group" aria-labelledby="prefs-panel-title">
-      <h3 id="prefs-panel-title">Search panel</h3>
-      <p class="prefs-hint">The panel under the search box lists the slices and the pills. A section's fold control folds it for this visit; these are how each starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
-      <label class="prefs-check"><input type="checkbox" id="prefs-slices-folded" data-keeps-selection data-holds-poll> Slice section starts folded</label>
-      <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
-      <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
-    </section>
-    <section class="prefs-group" id="prefs-hotkeys" aria-labelledby="prefs-hotkeys-title">
-      <h3 id="prefs-hotkeys-title">Hotkeys</h3>
-      <p class="prefs-hint">Every key the page answers and, where a key has one, the state it is in now. The single keys do nothing while you type in a field, or while a menu, a dialog or this sheet is up. Press ? to open this list.</p>
-      <ul id="hotkeys-list" class="hotkeys-list"></ul>
-    </section>
+    </div>
   </aside>
 </div>
 
@@ -521,6 +551,7 @@
 <script src="/hotkeys.js"></script>
 <script src="/hotkeys-sheet.js"></script>
 <script src="/groups.js"></script>
+<script src="/settings.js"></script>
 <script src="/iterations.js"></script>
 <script src="/notes.js"></script>
 <script src="/notes-calendar.js"></script>
@@ -528,6 +559,7 @@
 <script src="/groups-ui.js"></script>
 <script src="/delete-plan.js"></script>
 <script src="/delete-ui.js"></script>
+<script src="/settings-ui.js"></script>
 <script src="/iterations-ui.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>
