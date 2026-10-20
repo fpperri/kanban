@@ -107,3 +107,9 @@ test('the bundled demo board carries the starter: its types, hierarchy and prefi
   assert.deepStrictEqual(demo.hierarchy, starter.hierarchy);
   assert.deepStrictEqual(demo.prefixes, starter.prefixes);
 });
+
+test('the README and the skill say a type the board has gets the starter colour or icon only where its entry has none', () => {
+  assert.match(flatReadme, /colour or icon only where that entry has none/);
+  assert.match(flatSkill, /`color:` or `icon:` on a type the board has when that entry has none/);
+  assert.match(flatSkill, /a value the entry has is never changed/);
+});

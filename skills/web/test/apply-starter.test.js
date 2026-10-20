@@ -55,25 +55,83 @@ test('a config with fpp-style types gets the missing types and keeps its own, co
   assert.strictEqual(r.status, 0);
   const after = read(dir);
   const cfg = parseConfig(after);
-  assert.deepStrictEqual(cfg.types.slice(0, 3), [{ name: 'epic', color: '#f0883e' }, { name: 'Objective', color: '#111111' }, { name: 'spike', color: '' }]);
+  assert.deepStrictEqual(cfg.types.slice(0, 3), [
+    { name: 'epic', color: '#f0883e', icon: 'square' },
+    { name: 'Objective', color: '#111111', icon: 'diamond' },
+    { name: 'spike', color: '' },
+  ]);
   assert.deepStrictEqual(cfg.types.slice(3).map((t) => t.name), ['goal', 'strategy', 'story', 'task', 'bug']);
   assert.strictEqual(cfg.types.find((t) => t.name === 'goal').icon, 'star');
   assert.strictEqual(cfg.assignees.length, 1);
-  assert.ok(after.startsWith(before.slice(0, before.indexOf('assignees:')).replace('  - name: spike\n', '  - name: spike\n')), 'everything before the new lines is untouched');
-  assert.ok(after.includes('  - name: spike\n  - name: goal\n'), 'the new types follow the last type, inside the block');
+  assert.ok(after.startsWith('name: fpp\nnextId: 9\ntypes:\n  - name: epic\n    color: "#f0883e"\n    icon: square\n  - name: Objective\n    color: "#111111"\n    icon: diamond\n  - name: spike\n  - name: goal\n'), 'icons join the entries that have none, and the new types follow the last type, inside the block');
   assert.ok(after.includes('assignees:\n  - handle: "@human"\n    name: "Human"\n'), 'the assignees block is untouched');
   assert.ok(after.indexOf('hierarchy:') > after.indexOf('name: "Human"'), 'hierarchy and prefixes are appended at the end');
   assert.deepStrictEqual(cfg.hierarchy, starter.hierarchy);
   assert.deepStrictEqual(cfg.prefixes, starter.prefixes);
 });
 
-test('a type is matched without regard to case and is never recoloured or given an icon', () => {
-  const before = 'types:\n  - name: GOAL\n    color: "#000001"\n';
-  const dir = board(before);
+const rest = 'hierarchy: [goal, strategy, objective, epic]\nprefixes:\n  G: goal\n  S: strategy\n  O: objective\n  _: .groups\n  I: .groups/iteration\n  W: .groups/workflow\n  DW: .groups/workflow/dynamic\n';
+const others = (names) => names.map((n) => starter.types.find((t) => t.name === n)).flatMap((t) => {
+  const lines = [`  - name: ${t.name}`];
+  if (t.color) lines.push(`    color: "${t.color}"`);
+  if (t.icon) lines.push(`    icon: ${t.icon}`);
+  return t.color || t.icon ? lines : [`  - ${t.name}`];
+}).join('\n') + '\n';
+const all = ['goal', 'strategy', 'objective', 'epic', 'story', 'task', 'bug'];
+
+test('an entry with a colour and no icon gets the starter icon, matched without regard to case, and its colour stays', () => {
+  const dir = board('types:\n  - name: GOAL\n    color: "#000001"\n');
+  const r = run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith('types:\n  - name: GOAL\n    color: "#000001"\n    icon: star\n  - name: strategy\n'));
+  assert.deepStrictEqual(parseConfig(after).types[0], { name: 'GOAL', color: '#000001', icon: 'star' });
+  assert.strictEqual(parseConfig(after).types.filter((t) => t.name.toLowerCase() === 'goal').length, 1);
+  assert.match(r.out, /added colours and icons \(GOAL: icon\)/);
+});
+
+test('an entry with an icon and no colour gets the starter colour and keeps its icon', () => {
+  const dir = board('types:\n  - name: epic\n    icon: hexagon\n');
   run(dir);
-  const cfg = parseConfig(read(dir));
-  assert.deepStrictEqual(cfg.types[0], { name: 'GOAL', color: '#000001' });
-  assert.strictEqual(cfg.types.filter((t) => t.name.toLowerCase() === 'goal').length, 1);
+  assert.ok(read(dir).startsWith('types:\n  - name: epic\n    icon: hexagon\n    color: "#58a6ff"\n  - name: goal\n'));
+});
+
+test('a bare entry becomes a block entry that keeps its name, its comment and its place', () => {
+  const dir = board('types:\n  - story   # kept\n  - epic\nnextId: 4\n');
+  const r = run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith('types:\n  - name: story   # kept\n    color: "#3fb950"\n    icon: circle\n  - name: epic\n    color: "#58a6ff"\n    icon: square\n  - name: goal\n'));
+  assert.ok(after.includes('\nnextId: 4\n'));
+  assert.deepStrictEqual(parseConfig(after).types.slice(0, 2), [
+    { name: 'story', color: '#3fb950', icon: 'circle' },
+    { name: 'epic', color: '#58a6ff', icon: 'square' },
+  ]);
+  assert.match(r.out, /colours and icons \(story: color and icon, epic: color and icon\)/);
+  const dry = run('--dry-run', board('types:\n  - story   # kept\n')).out;
+  assert.match(dry, /^\+ {1,3}- name: story {3}# kept$/m);
+  assert.match(dry, /^\+ {1,5}icon: circle$/m);
+});
+
+test('an entry with a colour, an icon and its own values stays byte-identical, and a type the starter lacks too', () => {
+  const entries = 'types:\n  - name: goal\n    color: "#123456"\n    icon: circle\n  - name: spike\n    color: "#abcdef"\n  - bug\n';
+  const dir = board(entries);
+  run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith(entries.replace('  - bug\n', '  - bug\n')));
+  assert.strictEqual(after.indexOf('  - name: goal\n    color: "#123456"\n    icon: circle\n  - name: spike\n    color: "#abcdef"\n  - bug\n  - name: strategy\n'), 'types:\n'.length);
+});
+
+test('a board whose entries already hold the starter values is left as it is', () => {
+  const before = `name: done\ntypes:\n${others(all)}${rest}`;
+  const dir = board(before);
+  const r = run(dir);
+  assert.strictEqual(read(dir), before);
+  assert.match(r.out, /nothing to add/);
+});
+
+test('an inline types list is told its colours and icons were not added', () => {
+  const dir = board('types: [epic, goal, story, task, bug, strategy, objective]\n');
+  const r = run(dir);
+  assert.match(r.out, /types is an inline list; colours and icons not added/);
 });
 
 test('a different hierarchy is reported and left as it was', () => {
@@ -135,7 +193,7 @@ test('CRLF files stay CRLF and every other byte stays', () => {
   run(dir);
   const after = read(dir);
   assert.ok(!/(^|[^\r])\n/.test(after), 'no bare LF');
-  assert.ok(after.startsWith('# my board\r\nname: crlf\r\nnextId: 3\r\ntypes:\r\n  - name: epic\r\n    color: "#f0883e"\r\n  - name: goal\r\n'));
+  assert.ok(after.startsWith('# my board\r\nname: crlf\r\nnextId: 3\r\ntypes:\r\n  - name: epic\r\n    color: "#f0883e"\r\n    icon: square\r\n  - name: goal\r\n'));
   assert.ok(after.includes('\r\nlogbook: logbook\r\n\r\n# tail comment\r\n'), 'the lines after the types block are untouched');
   assert.strictEqual(parseConfig(after).logbook, 'logbook');
   assert.deepStrictEqual(parseConfig(after).prefixes, starter.prefixes);

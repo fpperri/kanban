@@ -217,8 +217,9 @@ comments say what each line is, and every line can be changed or deleted.
   them on from the web's gear sheet (This board), and they exist.
 
 An existing board gets the same with a script that adds only what the board
-lacks, never recolours a type it has, reports a hierarchy that differs and
-changes no other byte. Run it dry first:
+lacks, gives a type the board already has the starter's colour or icon only
+where that entry has none (it never changes a value it has), reports a
+hierarchy that differs and changes no other byte. Run it dry first:
 
 ```bash
 node skills/kanban/scripts/apply-starter.js .kanban --dry-run

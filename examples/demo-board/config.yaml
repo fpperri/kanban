@@ -18,6 +18,7 @@ statuses: [backlog, todo, doing, done]
 types:
   - name: epic
     color: "#f0883e"
+    icon: square
   - name: goal
     color: "#e3b341"
     icon: star

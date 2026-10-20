@@ -7,7 +7,8 @@
 //   - no config.yaml: it is created from the starter, as it is;
 //   - types: a missing block is added whole, missing types are added at the end
 //     of an existing block; a type the board has (compared without regard to
-//     case) is never recoloured or given an icon;
+//     case) gets the starter's color or icon only when its entry has none, and a
+//     bare entry (`- epic`) becomes a block entry; a value it has is never changed;
 //   - hierarchy: added only when the board has none; a different one is reported;
 //   - prefixes: a missing block is added whole, missing entries are added at the
 //     end of an existing block; an entry the board has is never changed, and a
@@ -17,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { parseConfig, groupFolderOf } = require('../../web/scripts/config-store');
+const { scalar } = require('../../web/scripts/yaml-list');
 
 const STARTER_FILE = path.join(__dirname, '..', 'starter-config.yaml');
 const TOP_KEY = /^(\w+):\s*(.*)$/;
@@ -30,7 +32,7 @@ function splitLines(raw) {
   for (;;) {
     let end = start;
     while (end < raw.length && raw[end] !== '\r' && raw[end] !== '\n') end++;
-    lines.push({ text: raw.slice(start, end), end });
+    lines.push({ text: raw.slice(start, end), start, end });
     if (end >= raw.length) break;
     start = end + (raw[end] === '\r' && raw[end + 1] === '\n' ? 2 : 1);
   }
@@ -57,6 +59,39 @@ function blockOf(lines, header) {
   }
   const first = lines.slice(header.index + 1, last + 1).find((l) => /^[ \t]+\S/.test(l.text));
   return { last, unindented, indent: first ? /^[ \t]+/.exec(first.text)[0] : '  ' };
+}
+
+// The entries of a block-form `types:` list: where each sits, its name, and which of
+// color and icon it already has. A key that is present counts as had, even when blank.
+function typeEntries(lines, header, block) {
+  const entries = [];
+  let cur = null;
+  for (let j = header.index + 1; j <= block.last; j++) {
+    const text = lines[j].text;
+    if (text.trim() === '') continue;
+    const dash = /^([ \t]*)-(?:[ \t]+(.*))?$/.exec(text);
+    if (dash) {
+      const rest = dash[2] === undefined ? '' : dash[2];
+      const lead = text.length - rest.length;
+      cur = { first: j, last: j, rest, lead, fields: {}, fieldIndent: null, bare: null };
+      entries.push(cur);
+      const field = /^(\w+):\s*(.*)$/.exec(rest);
+      if (field) cur.fields[field[1]] = field[2];
+      else if (rest.trim() !== '' && rest.trim()[0] !== '#') cur.bare = rest;
+    } else if (cur) {
+      cur.last = j;
+      const field = /^([ \t]+)(\w+):\s*(.*)$/.exec(text);
+      if (field) {
+        cur.fields[field[2]] = field[3];
+        if (cur.fieldIndent === null) cur.fieldIndent = field[1];
+      }
+    }
+  }
+  for (const e of entries) {
+    const name = e.bare !== null ? scalar(e.bare) : scalar(e.fields.name === undefined ? '' : e.fields.name);
+    e.name = name;
+  }
+  return entries.filter((e) => e.name !== '');
 }
 
 function typeLines(type, indent) {
@@ -97,7 +132,7 @@ function merge(raw, utf8, starterText) {
   const appended = [];
   const appendBlock = (blockLines) => { appended.push(...blockLines); };
   const insertAfter = (lineIndex, blockLines) => {
-    inserts.push({ at: lines[lineIndex].end, text: eol + blockLines.join(eol) });
+    inserts.push({ at: lines[lineIndex].end, text: eol + blockLines.join(eol), seq: inserts.length });
   };
   const starterLines = (key) => {
     const src = splitLines(starterText);
@@ -107,7 +142,45 @@ function merge(raw, utf8, starterText) {
   };
 
   const typesHeader = findHeader(lines, 'types');
+  const starterType = (name) => starter.types.find((t) => t.name.toLowerCase() === String(name).toLowerCase());
   const missingTypes = starter.types.filter((t) => !config.types.some((c) => c.name.toLowerCase() === t.name.toLowerCase()));
+
+  if (typesHeader && bareTail(typesHeader.tail)) {
+    const block = blockOf(lines, typesHeader);
+    if (!block.unindented) {
+      const gaps = [];
+      const gapLines = [];
+      for (const e of typeEntries(lines, typesHeader, block)) {
+        const st = starterType(e.name);
+        if (!st) continue;
+        const wants = [];
+        if (st.color && !('color' in e.fields)) wants.push(['color', `"${st.color}"`]);
+        if (st.icon && !('icon' in e.fields)) wants.push(['icon', st.icon]);
+        if (!wants.length) continue;
+        gaps.push(`${e.name}: ${wants.map(([k]) => k).join(' and ')}`);
+        const text = lines[e.first].text;
+        if (e.bare !== null && e.last === e.first) {
+          const pad = ' '.repeat(e.lead);
+          const added = [`${text.slice(0, e.lead)}name: ${e.rest}`, ...wants.map(([k, v]) => `${pad}${k}: ${v}`)];
+          inserts.push({ at: lines[e.first].start, end: lines[e.first].end, text: added.join(eol), seq: inserts.length });
+          gapLines.push(...added);
+        } else if (e.bare === null) {
+          const pad = e.fieldIndent !== null ? e.fieldIndent : ' '.repeat(e.lead);
+          const added = wants.map(([k, v]) => `${pad}${k}: ${v}`);
+          inserts.push({ at: lines[e.last].end, text: eol + added.join(eol), seq: inserts.length });
+          gapLines.push(...added);
+        }
+      }
+      if (gaps.length) additions.push(['colours and icons', gaps, gapLines]);
+    }
+  } else if (typesHeader) {
+    const gapped = config.types.filter((c) => {
+      const st = starterType(c.name);
+      return st && ((st.color && !c.color) || (st.icon && !c.icon));
+    });
+    if (gapped.length) notes.push(`types is an inline list; colours and icons not added (${joinList(gapped.map((c) => c.name))})`);
+  }
+
   if (missingTypes.length) {
     if (!typesHeader) {
       const block = starterLines('types');
@@ -176,10 +249,11 @@ function merge(raw, utf8, starterText) {
 
   if (appended.length) {
     const endsClean = raw === '' || /[\r\n]$/.test(raw);
-    inserts.push({ at: raw.length, text: endsClean ? appended.join(eol) + eol : eol + appended.join(eol) });
+    inserts.push({ at: raw.length, text: endsClean ? appended.join(eol) + eol : eol + appended.join(eol), seq: inserts.length });
   }
   let out = raw;
-  for (const ins of [...inserts].sort((a, b) => b.at - a.at)) out = out.slice(0, ins.at) + ins.text + out.slice(ins.at);
+  const byPosition = [...inserts].sort((a, b) => b.at - a.at || b.seq - a.seq);
+  for (const ins of byPosition) out = out.slice(0, ins.at) + ins.text + out.slice(ins.end === undefined ? ins.at : ins.end);
   return { out, additions, notes };
 }
 

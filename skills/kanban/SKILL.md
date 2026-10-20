@@ -224,8 +224,9 @@ node <SCRIPTS_DIR>/apply-starter.js <kanban-dir>...             # adds them
 ```
 
   It adds only what a board lacks: a missing `types:` block, or the types
-  missing from one (a type the board has is never recoloured or given another
-  icon); `hierarchy:` only when the board has none (a different one is
+  missing from one, and the starter's `color:` or `icon:` on a type the board
+  has when that entry has none (a bare entry such as `- epic` becomes a block
+  entry that keeps its name; a value the entry has is never changed); `hierarchy:` only when the board has none (a different one is
   reported, never changed); `prefixes:` when missing, or the entries missing
   from it (an entry the board has is never changed, and a prefix that means
   something else is reported). It keeps every other byte and the file's line
