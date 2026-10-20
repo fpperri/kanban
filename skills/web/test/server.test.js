@@ -27,7 +27,7 @@ async function withServer(dir, fn) {
 
 // --- board-directory discovery: .kanban/ preferred, kanban/ legacy fallback ---
 
-const PILL_CLASSES = ['.map-section-toggle', '.graph-filter-toggle'];
+const PILL_CLASSES = ['.map-section-toggle'];
 
 test('resolveDefaultBoardDir prefers .kanban over kanban when both exist', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-discover-'));
@@ -1952,15 +1952,15 @@ test('gantt status filter: own persisted state, statuses + Archive (default OFF 
   });
 });
 
-test('the Map, the Gantt and the Calendar build no status pill row; the Graph keeps the shared pill builder', async () => {
+test('no view builds a status pill row: the Map, the Gantt, the Calendar and the Graph leave them to the Statuses section', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.doesNotMatch(js, /buildMapFilterRow|buildGanttFilterRow|buildCalendarFilterRow/, 'the three view rows are gone, with their calls');
     assert.doesNotMatch(js, /map-filter-toggle|gantt-filter-toggle|calendar-filter-toggle|map-filter-row|gantt-filter-row|calendar-filter-row/, 'no view-row class is left in the script');
-    assert.match(js, /function buildFilterPillRow\(/, 'the Graph still builds its pills with the shared builder');
+    assert.doesNotMatch(js, /buildFilterPillRow|graph-filter-toggle|graph-filter-row/, 'the Graph builds no pill row either, and the shared row builder is gone');
     const css = await (await fetch(`${base}/app.css`)).text();
-    assert.doesNotMatch(css, /map-filter-|gantt-filter-|calendar-filter-/, 'no view-row rule is left in the stylesheet');
+    assert.doesNotMatch(css, /map-filter-|gantt-filter-|calendar-filter-|graph-filter-/, 'no view-row rule is left in the stylesheet');
     assert.match(css, /\.map-zoom-btn\s*\{/, 'the zoom button keeps its look');
   });
 });
@@ -2272,17 +2272,6 @@ test('soloMapStatusFilter/soloGanttStatusFilter/soloCalendarStatusFilter each fe
     assert.match(soloCal[0], /soloStatusFilter\(filter, boardColumnIds\(\), col\)/, 'calendar solo now uses statuses + Archive, same list as toggleCalendarStatusFilter');
     assert.match(soloCal[0], /saveCalendarStatusFilter\(\)/);
     assert.match(soloCal[0], /renderBoard\(\)/);
-  });
-});
-
-test('buildFilterPillRow appends the SOLO/viceversa hint to every pill\'s tooltip once, shared by all three views', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const build = js.match(/function buildFilterPillRow\([\s\S]*?\n\}/);
-    assert.ok(build, 'buildFilterPillRow found in app.js');
-    assert.match(build[0], /titleFor\(col, on\) \+ ' Right-click to solo \(right-click the soloed pill again to restore all\)\.'/,
-      'the SOLO/viceversa hint rides in the shared builder once, rather than being repeated in each view\'s titleFor closure');
   });
 });
 

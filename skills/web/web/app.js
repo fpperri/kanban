@@ -1465,52 +1465,14 @@ function renderMapView() {
   main.scrollTop = keepTop;
 }
 
-// The status-filter pill row MECHANISM — one toggle per column,
-// shared verbatim between the map and the gantt rather than each
-// view duplicating the markup/build-loop. Only the filter state, the id list,
-// the row/pill class (so each view's own delegated listener keeps targeting
-// just its own pills), and
-// the tooltip wording differ per caller. The look itself is ALSO shared, not
-// duplicated — app.css comma-joins the two views' pill classes onto one
-// declaration each. The identity dot's color comes from statusColorVar() for EVERY pill —
-// built-in, custom (their hashed hue; no CSS rule exists, same reasoning as
-// the column headers), and archive's neutral grey where the map's
-// row includes it.
-//
-// The right-click SOLO/viceversa grammar rides here too — one
-// line appended to every caller's tooltip (rather than repeating it in each
-// titleFor closure) since the gesture is otherwise invisible; the per-view
-// contextmenu wiring lives with each view's own click delegate.
-function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
-  const row = document.createElement('div');
-  row.className = rowClass;
-  for (const col of columnIds) {
-    const on = filter[col] !== false;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = pillClass + (on ? '' : ' off');
-    btn.dataset.col = col;
-    btn.dataset.keepsSelection = '';
-    btn.setAttribute('aria-pressed', String(on));
-    btn.title = titleFor(col, on) + ' Right-click to solo (right-click the soloed pill again to restore all).';
-    const dot = document.createElement('span');
-    dot.className = 'pill-dot';
-    dot.style.color = statusColorVar(col);
-    btn.append(dot, columnLabel(col));
-    row.appendChild(btn);
-  }
-  return row;
-}
+const REFOCUS_SELECTOR = '.map-section-toggle, .graph-option-btn, .view-panel-toggle, .view-panel-close';
 
-const REFOCUS_SELECTOR = '.map-section-toggle, .graph-filter-toggle, .graph-option-btn, .view-panel-toggle, .view-panel-close';
-
-// What finds a rebuilt control again after a render: its class and what names it, a status
-// pill's column or a fold toggle's section, a panel button its view, or for a button of the
+// What finds a rebuilt control again after a render: its class and what names it, a fold
+// toggle's section, a panel button its view, or for a button of the
 // Graph's option row its option and its value.
 function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
-  if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
   if (el.dataset.panel !== undefined) return `.${el.classList[0]}${named('panel')}`;
   if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
   return `.${el.classList[0]}${named('section')}`;
@@ -1521,7 +1483,7 @@ function focusedRebuiltControl() {
   return el && el.closest ? el.closest(REFOCUS_SELECTOR) : null;
 }
 
-// A status pill, a fold toggle or an option button is rebuilt by the render its own press
+// A fold toggle or an option button is rebuilt by the render its own press
 // triggers, so focus has to be handed back to the new element.
 function keepControlFocus(el, action) {
   const selector = refocusSelector(el);
@@ -1614,7 +1576,7 @@ function buildMapPanel() {
   return panel;
 }
 
-// Zoom toolbar — the first thing in the option panel (buildFilterPillRow's own
+// Zoom toolbar — the first thing in the option panel (the pill row's own
 // flex-wrap keeps growing the pill row for every board status; a wide status list
 // would push these off-screen or wrap them awkwardly into the status pills
 // if they shared one row). Rebuilt by every renderMapView() call like the

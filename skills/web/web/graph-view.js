@@ -329,8 +329,8 @@ function graphBuildPanel(kind, fan) {
   return panel;
 }
 
-// The view's own top: the card count and the panel's button at the right, then the status pills and the key.
-function graphBuildControls(filter, cardCount, relationCount, fan, panelOpen) {
+// The view's own top: the card count and the panel's button at the right, then the key.
+function graphBuildControls(cardCount, relationCount, fan, panelOpen) {
   const frag = document.createDocumentFragment();
   const row = document.createElement('div');
   row.className = 'graph-controls';
@@ -340,8 +340,6 @@ function graphBuildControls(filter, cardCount, relationCount, fan, panelOpen) {
   row.appendChild(count);
   row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
   frag.appendChild(row);
-  frag.appendChild(buildFilterPillRow(filter, boardColumnIds(), 'graph-filter-row', 'graph-filter-toggle graph-control',
-    (col, on) => statusFilterTitle('graph', col, columnLabel(col), on)));
   const key = document.createElement('p');
   key.className = 'graph-key';
   key.textContent = fan ? `${GRAPH_KEY} · l steps the names: ${fan.options.names}` : GRAPH_KEY;
@@ -734,7 +732,7 @@ function renderGraphView() {
   main.className = 'graph-main';
   host.appendChild(main);
   if (panelOpen) host.appendChild(graphBuildPanel(kind, fan));
-  main.appendChild(graphBuildControls(filter, model.nodes.length, model.links.length, fan, panelOpen));
+  main.appendChild(graphBuildControls(model.nodes.length, model.links.length, fan, panelOpen));
   if (!plan.nodes.length) {
     const p = document.createElement('p');
     p.className = 'graph-empty';
@@ -958,8 +956,6 @@ function wireGraphView(host) {
   host.addEventListener('click', (e) => {
     const panelBtn = e.target.closest('.view-panel-toggle[data-panel], .view-panel-close[data-panel]');
     if (panelBtn) { pressViewPanelButton(panelBtn, graphRedrawForPanel); return; }
-    const pill = e.target.closest('.graph-filter-toggle[data-col]');
-    if (pill) { keepControlFocus(pill, () => graphToggleFilter(pill.dataset.col)); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
     if (option) { keepControlFocus(option, () => graphSetOption(option.dataset.key, option.dataset.val)); return; }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
@@ -982,13 +978,6 @@ function wireGraphView(host) {
     if (action === 'fit') graphFitNow();
     else graphZoomBy(action === 'in' ? GRAPH_BUTTON_ZOOM : 1 / GRAPH_BUTTON_ZOOM, graphCur.w / 2, graphCur.h / 2);
     zoomBtn.blur();
-  });
-  host.addEventListener('contextmenu', (e) => {
-    if (isDragging) return;
-    const pill = e.target.closest('.graph-filter-toggle[data-col]');
-    if (!pill) return;
-    e.preventDefault();
-    keepControlFocus(pill, () => graphSoloFilter(pill.dataset.col));
   });
   host.addEventListener('wheel', (e) => {
     if (!graphCur || !e.target.closest('.graph-stage')) return;
