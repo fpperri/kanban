@@ -967,7 +967,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    panel once the pointer clears the drag threshold) the whole graph
    including node rects reads grabbing, so the cursor never lies about which
    gesture is live mid-drag. */
-.map-canvas { display: block; cursor: grab; }
+.map-canvas { display: block; cursor: grab; touch-action: pan-x pan-y; }
 .map-view.map-panning .map-canvas,
 .map-view.map-panning .map-node rect { cursor: grabbing; }
 /* The node border is ONE neutral weight regardless of status — a
