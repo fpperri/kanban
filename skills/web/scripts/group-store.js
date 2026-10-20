@@ -344,11 +344,15 @@ function uniquePath(folder, base) {
   return candidate;
 }
 
-// The scan candidate for a new group id: one past the highest number among the ids of
-// cards and groups that carry the prefix.
-function nextNumber(dir, root, prefix) {
-  const groupNumbers = scan(dir, root).found.map((f) => ids.parseId(f.group.id)).filter((p) => p && p.prefix === prefix).map((p) => p.number);
-  return Math.max(cs.nextId(dir, prefix), groupNumbers.length ? Math.max(...groupNumbers) + 1 : 1);
+// The numbers of the groups' ids that carry the prefix; card-store's nextId counts them with the
+// cards', since the two share a prefix's counter. Empty when the board keeps no groups.
+function numbersWithPrefix(dir, prefix) {
+  const config = cfg.readConfig(dir);
+  if (!config.groups) return [];
+  return scan(dir, path.resolve(dir, config.groups)).found
+    .map((f) => ids.parseId(f.group.id))
+    .filter((p) => p && p.prefix === prefix)
+    .map((p) => p.number);
 }
 
 function createGroup(dir, input) {
@@ -361,7 +365,7 @@ function createGroup(dir, input) {
   checkSpan(start, end);
   const cards = checkCards(dir, body.cards);
   const prefix = cfg.prefixForGroupFolder(config, folder);
-  const number = cfg.allocateId(dir, nextNumber(dir, root, prefix), prefix);
+  const number = cfg.allocateId(dir, cs.nextId(dir, prefix), prefix);
   const id = ids.idKey({ prefix, number });
   const lines = ['---', `id: ${id}`, `name: ${yamlText(name)}`];
   if (start) lines.push(`start_date: ${start}`);
@@ -485,4 +489,4 @@ function joinRunning(dir, cardId, day) {
   return joined;
 }
 
-module.exports = { GroupError, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, joinRunning, groupsHolding, dropCard, deleteGroup };
+module.exports = { numbersWithPrefix, GroupError, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, joinRunning, groupsHolding, dropCard, deleteGroup };

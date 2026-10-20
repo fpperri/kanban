@@ -301,11 +301,13 @@ function findCardFile(dir, id) {
 
 // The scan candidate for a new id: one past the highest number among the ids
 // that carry this prefix ('' = plain numbers), so a `G40` never moves the plain counter.
+// Cards and groups share a prefix's counter, so the groups that hold it count too.
 function nextId(dir, prefix = '') {
   const numbers = [...listActive(dir), ...listArchived(dir)]
     .map((c) => ids.parseId(c.id))
     .filter((p) => p && p.prefix === prefix)
-    .map((p) => p.number);
+    .map((p) => p.number)
+    .concat(require('./group-store').numbersWithPrefix(dir, prefix)); // required here: group-store requires this file
   return numbers.length ? Math.max(...numbers) + 1 : 1;
 }
 
