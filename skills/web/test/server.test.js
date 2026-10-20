@@ -389,7 +389,7 @@ test('index html has a top-bar graph toggle button and a graph view container', 
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const html = await (await fetch(`${base}/`)).text();
-    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>'));
+    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" data-view="graph" data-view-toggle title="Graph: every card as a dot, joined by its relations"><span class="btn-icon" data-icon="graph" aria-hidden="true"></span><span class="btn-label">Graph</span></button>'));
     assert.ok(html.includes('<div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>'));
     assert.ok(html.indexOf('id="gantt-toggle-btn"') < html.indexOf('id="graph-toggle-btn"') && html.indexOf('id="graph-toggle-btn"') < html.indexOf('id="refresh-btn"'));
   });
@@ -2228,7 +2228,7 @@ test('buildCalendarFilterRow shares the pill-row MECHANISM and now includes the 
     assert.ok(row, 'buildCalendarFilterRow found in app.js');
     assert.match(row[0], /buildFilterPillRow\(/, 'the calendar row calls the same shared builder as map/gantt');
     assert.match(row[0], /boardColumnIds\(\)/, 'pills now come from statuses + Archive, same id list as the gantt\'s row');
-    assert.match(row[0], /col === 'archive'/, 'the Archive pill gets its own tooltip wording, same ternary shape as the gantt row');
+    assert.match(row[0], /statusFilterTitle\('calendar', col,/, 'the pill titles, the Archive wording included, come from the status-filter registry');
     // CSS is shared too — comma-joined selectors, not a third declaration block.
     const css = await (await fetch(`${base}/app.css`)).text();
     assert.match(css, /\.map-filter-row,\s*\.gantt-filter-row,\s*\.calendar-filter-row\s*\{/, 'the row layout rule is shared across all three views');
