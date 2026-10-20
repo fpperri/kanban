@@ -389,7 +389,7 @@ test('index html has a top-bar graph toggle button and a graph view container', 
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const html = await (await fetch(`${base}/`)).text();
-    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>'));
+    assert.ok(html.includes('<button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" data-view="graph" data-view-toggle title="Graph: every card as a dot, joined by its relations"><span class="btn-icon" data-icon="graph" aria-hidden="true"></span><span class="btn-label">Graph</span></button>'));
     assert.ok(html.includes('<div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>'));
     assert.ok(html.indexOf('id="gantt-toggle-btn"') < html.indexOf('id="graph-toggle-btn"') && html.indexOf('id="graph-toggle-btn"') < html.indexOf('id="refresh-btn"'));
   });
