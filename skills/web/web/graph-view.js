@@ -76,6 +76,8 @@ const graphViews = new Map();
 let graphCur = null;
 let graphPan = null;
 let graphClickSwallow = null;
+let graphPinch = null;
+let graphLastPoint = null;
 let graphDrag = null;
 const graphArrangements = new Map();
 const GRAPH_ARRANGEMENTS_MAX = 6;
@@ -194,6 +196,8 @@ function resetGraphViewState() {
   graphCur = null;
   if (graphPan && graphPan.moved) isDragging = false;
   graphPan = null;
+  graphEndPinch(false);
+  graphLastPoint = null;
   clearTimeout(graphNamesTimer);
   graphNamesTimer = 0;
   graphNamesMemo = null;
@@ -789,6 +793,53 @@ function graphFinishPan() {
   if (moved) graphSwallowNextClick();
 }
 
+// --- two-finger pinch ----------------------------------------------------------
+// A second finger on the Graph ends the one-finger pan and starts a pinch. Each move zooms by
+// the running factor (the fingers' distance against the distance when the second one landed,
+// map-zoom.js) around their midpoint. isDragging holds the refresh for the whole gesture and
+// every exit (a lift, pointercancel, lostpointercapture) goes through graphEndPinch.
+
+function graphPinchPoints() {
+  const rect = graphCur.svg.getBoundingClientRect();
+  const [a, b] = graphPinch.ids.map((id) => graphPinch.points.get(id));
+  return [{ x: a.x - rect.left, y: a.y - rect.top }, { x: b.x - rect.left, y: b.y - rect.top }];
+}
+
+function graphStartPinch(e, host) {
+  const first = graphPan.pointerId;
+  const firstPoint = graphLastPoint && graphLastPoint.id === first ? graphLastPoint : { x: graphPan.sx, y: graphPan.sy };
+  graphFinishPan();
+  graphPinch = {
+    ids: [first, e.pointerId],
+    points: new Map([[first, { x: firstPoint.x, y: firstPoint.y }], [e.pointerId, { x: e.clientX, y: e.clientY }]]),
+    startDistance: 0, startK: graphCur.view.k,
+  };
+  const [a, b] = graphPinchPoints();
+  graphPinch.startDistance = pinchDistance(a, b);
+  isDragging = true;
+  graphCur.svg.classList.add('graph-panning');
+  try { host.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
+}
+
+function graphPinchMove(e) {
+  if (!graphPinch || !graphCur || !graphPinch.points.has(e.pointerId)) return;
+  graphPinch.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const [a, b] = graphPinchPoints();
+  const want = pinchFactor(graphPinch.startDistance, pinchDistance(a, b)) * graphPinch.startK;
+  const step = want / graphCur.view.k;
+  if (!pinchFactorIsChange(step) && step === 1) return;
+  const mid = pinchMidpoint(a, b);
+  graphZoomBy(step, mid.x, mid.y);
+}
+
+function graphEndPinch(swallow) {
+  if (!graphPinch) return;
+  graphPinch = null;
+  isDragging = false;
+  if (graphCur) graphCur.svg.classList.remove('graph-panning');
+  if (swallow) graphSwallowNextClick();
+}
+
 // --- node drag (force layout) --------------------------------------------------
 // Dragging a card pins it to the pointer and lets the cards related to it
 // follow: the same force step as the layout, continued from what is on screen.
@@ -946,6 +997,8 @@ function wireGraphView(host) {
 
   host.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || !graphCur) return;
+    if (graphPinch) return;
+    if (graphPan && e.pointerId !== graphPan.pointerId) { graphStartPinch(e, host); return; }
     if (graphDrag) graphStopDrag(true);
     const node = e.target.closest('.graph-node');
     if (node) {
@@ -963,6 +1016,8 @@ function wireGraphView(host) {
     try { host.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
   });
   host.addEventListener('pointermove', (e) => {
+    if (graphPan && e.pointerId === graphPan.pointerId) graphLastPoint = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    if (graphPinch) { graphPinchMove(e); return; }
     if (!graphPan || e.pointerId !== graphPan.pointerId || !graphCur) return;
     const dx = e.clientX - graphPan.sx;
     const dy = e.clientY - graphPan.sy;
@@ -979,6 +1034,7 @@ function wireGraphView(host) {
   });
   host.addEventListener('pointermove', graphDragMove);
   const finish = (e) => {
+    if (graphPinch && graphPinch.points.has(e.pointerId)) graphEndPinch(true);
     if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan();
     if (graphDrag && e.pointerId === graphDrag.pointerId) graphReleaseDrag(e);
   };
