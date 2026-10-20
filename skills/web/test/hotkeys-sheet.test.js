@@ -64,8 +64,6 @@ async function open({ stored = {}, board = makeBoard() } = {}) {
   elements['#prefs-close'] = spied();
   elements['#prefs-panel-on-focus'] = spied();
   const section = control();
-  section.scrolled = [];
-  section.scrollIntoView = (options) => { section.scrolled.push(options); };
   elements['#prefs-hotkeys'] = section;
   elements['#hotkeys-list'] = listHost();
   elements['#search-pills'] = listHost();
@@ -149,12 +147,12 @@ test('opening the sheet again draws no second list: the rows are the same rows',
 
 // --- the ? key --------------------------------------------------------------------------------------
 
-test('? opens the sheet at the Hotkeys section, stops the browser\'s own response, and marks the gear expanded', async () => {
+test('? opens the sheet on its Hotkeys page, stops the browser\'s own response, and marks the gear expanded', async () => {
   const s = await open();
   assert.strictEqual(s.key('?'), 1);
   assert.strictEqual(s.isOpen(), true);
   assert.strictEqual(s.gear.attrs['aria-expanded'], 'true');
-  assert.deepStrictEqual(s.section.scrolled.map((options) => options.block), ['start'], 'the section is brought to the top of the sheet once');
+  assert.strictEqual(s.page.run('settingsUi.page'), 'browser:hotkeys', 'the sheet shows its Hotkeys page');
   assert.deepStrictEqual(s.ids(), HOTKEYS.map((h) => h.id), 'the list is there when the sheet shows');
 });
 
@@ -178,7 +176,7 @@ test('? does nothing while typing in a field: an input, a text area, a select, a
     assert.strictEqual(s.key('?'), 0, el.tagName);
     assert.strictEqual(s.isOpen(), false, el.tagName);
   }
-  assert.deepStrictEqual(s.section.scrolled, []);
+  assert.strictEqual(s.page.run('settingsUi.page'), null);
 });
 
 test('? does nothing while a card menu, a dialog, the notifications panel or the preferences sheet itself is up', async () => {
@@ -188,7 +186,7 @@ test('? does nothing while a card menu, a dialog, the notifications panel or the
     s.focusOn(button());
     assert.strictEqual(s.key('?'), 0, name);
     assert.strictEqual(s.isOpen(), false, name);
-    assert.deepStrictEqual(s.section.scrolled, [], name);
+    assert.strictEqual(s.page.run('settingsUi.page'), null, name);
   }
 });
 

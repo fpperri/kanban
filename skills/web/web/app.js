@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null, iterations: false }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -974,15 +974,16 @@ function prefOptionOn(opt) {
 }
 
 function syncPrefsSheet() {
-  $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => opt.setAttribute('aria-pressed', String(prefOptionOn(opt))));
+  $('#prefs-sheet').querySelectorAll('.prefs-opt').forEach((opt) => { if (opt.dataset.pref) opt.setAttribute('aria-pressed', String(prefOptionOn(opt))); }); // the choices of This browser; the switches of This board are drawn by settings-ui.js
   $('#prefs-archived-done').checked = countArchivedLeaves();
   $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
 
-function openPrefsSheet() {
+function openPrefsSheet(page) {
   syncPrefsSheet();
+  settingsShow(typeof page === 'string' ? page : null);
   $('#prefs-sheet').classList.remove('hidden');
   $('#prefs-btn').setAttribute('aria-expanded', 'true');
   $('#prefs-close').focus();
@@ -994,14 +995,20 @@ function closePrefsSheet() {
   $('#prefs-btn').focus();
 }
 
-// A click on the backdrop outside the sheet closes it; one on a choice makes it.
+// A click on the backdrop outside the sheet closes it; one on a choice makes it, one on a menu item
+// shows that page. The switches of This board's pages answer to settings-ui.js, not here.
 function onPrefsSheetClick(e) {
   if (e.target.id === 'prefs-sheet') { closePrefsSheet(); return; }
   const opt = e.target.closest('.prefs-opt');
-  if (!opt || opt.disabled) return;
-  if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
-  else setClickPref(opt.dataset.view, opt.dataset.value);
-  syncPrefsSheet();
+  if (opt) {
+    if (opt.disabled || !opt.dataset.pref) return;
+    if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
+    else setClickPref(opt.dataset.view, opt.dataset.value);
+    syncPrefsSheet();
+    return;
+  }
+  const item = e.target.closest('.prefs-menu-item');
+  if (item) settingsGo(item.dataset.page);
 }
 
 // Cards are edited in place (optimistic drops), so the nesting index is rebuilt
@@ -2056,6 +2063,7 @@ function applyBoardData(data) {
   state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
+  state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
   state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
   state.logbook = data.logbook || null; // { folder, notes } when config.yaml has a logbook: line, else null and nothing of it shows (notes.js, notes-palette.js); read by the card tiles, so before renderBoard
   dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
@@ -3367,7 +3375,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
-    if (!$('#prefs-sheet').classList.contains('hidden')) { closePrefsSheet(); return; }
+    if (!$('#prefs-sheet').classList.contains('hidden')) { settingsStepBack(); return; }
     if (!$('#detail-modal').classList.contains('hidden')) { closeCard(); return; }
     if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
     if (closeAnyBulkPopup()) return;
@@ -6289,7 +6297,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onCardOpenKey);
   // The preferences sheet: the gear opens it; its close button and a click on
   // the backdrop close it, and so does Esc (its own line in the Esc handler).
-  $('#prefs-btn').addEventListener('click', openPrefsSheet);
+  $('#prefs-btn').addEventListener('click', () => openPrefsSheet());
   $('#prefs-close').addEventListener('click', closePrefsSheet);
   $('#prefs-sheet').addEventListener('click', onPrefsSheetClick);
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));

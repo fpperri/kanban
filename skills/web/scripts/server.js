@@ -7,6 +7,7 @@ const ns = require('./notifications-store');
 const lb = require('./logbook-store');
 const gs = require('./group-store');
 const cfg = require('./config-store');
+const settings = require('./settings-store');
 const nesting = require('../web/nesting');
 const ids = require('../web/ids');
 
@@ -285,6 +286,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
           logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
+          settings: settings.readSettings(dir), // the config the gear's This board pages show (ADR 0017)
           iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
         });
       }
@@ -316,6 +318,17 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
         } catch (e) {
           if (e.name === 'LogbookError') return sendJSON(res, e.status, { error: e.message });
+          throw e;
+        }
+      }
+
+      // the gear's This board pages: one config.yaml line per request (ADR 0017); a refusal carries its own status
+      if (req.method === 'POST' && p === '/api/config') {
+        const body = await readBody(req);
+        try {
+          return sendJSON(res, 200, { settings: settings.writeSetting(dir, body) });
+        } catch (e) {
+          if (e.name === 'SettingsError') return sendJSON(res, e.status, { error: e.message });
           throw e;
         }
       }
