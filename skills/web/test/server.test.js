@@ -2228,7 +2228,7 @@ test('buildCalendarFilterRow shares the pill-row MECHANISM and now includes the 
     assert.ok(row, 'buildCalendarFilterRow found in app.js');
     assert.match(row[0], /buildFilterPillRow\(/, 'the calendar row calls the same shared builder as map/gantt');
     assert.match(row[0], /boardColumnIds\(\)/, 'pills now come from statuses + Archive, same id list as the gantt\'s row');
-    assert.match(row[0], /col === 'archive'/, 'the Archive pill gets its own tooltip wording, same ternary shape as the gantt row');
+    assert.match(row[0], /statusFilterTitle\('calendar', col,/, 'the pill titles, the Archive wording included, come from the status-filter registry');
     // CSS is shared too — comma-joined selectors, not a third declaration block.
     const css = await (await fetch(`${base}/app.css`)).text();
     assert.match(css, /\.map-filter-row,\s*\.gantt-filter-row,\s*\.calendar-filter-row\s*\{/, 'the row layout rule is shared across all three views');
