@@ -8,7 +8,7 @@ const {
   mapFilterColumn, mapFilterVisibleIds, ganttFilterVisibleIds, intersectVisibleIds,
   soloStatusFilter,
   MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed,
-  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar } = require('../web/column-state');
+  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar, swipeDirection, neighbourPhoneColumn } = require('../web/column-state');
 
 test('DEFAULT_COLLAPSED has the four live columns expanded and Archive collapsed', () => {
   assert.deepStrictEqual(DEFAULT_COLLAPSED, {
@@ -481,4 +481,39 @@ test('the tab count is shown/total while a search narrows the board', () => {
   const counts = { backlog: { shown: 0, total: 3 }, todo: { shown: 1, total: 2 }, archive: { shown: 0, total: 0 } };
   const tabs = phoneTabs(['backlog', 'todo'], counts, 'backlog', true);
   assert.deepStrictEqual(tabs.map((t) => t.count), ['0/3', '1/2', '0/0']);
+});
+
+test('a swipe is a direction only at 60 px sideways or more', () => {
+  assert.strictEqual(swipeDirection(-60, 0, 300), 'next');
+  assert.strictEqual(swipeDirection(60, 0, 300), 'prev');
+  assert.strictEqual(swipeDirection(-59, 0, 300), null);
+  assert.strictEqual(swipeDirection(59, 0, 300), null);
+});
+
+test('a swipe must be at least 1.5 times as far sideways as vertically', () => {
+  assert.strictEqual(swipeDirection(-150, 100, 300), 'next');
+  assert.strictEqual(swipeDirection(-149, 100, 300), null);
+  assert.strictEqual(swipeDirection(150, -100, 300), 'prev');
+  assert.strictEqual(swipeDirection(100, 70, 300), null);
+});
+
+test('a swipe must finish in under 700 ms', () => {
+  assert.strictEqual(swipeDirection(-100, 0, 699), 'next');
+  assert.strictEqual(swipeDirection(-100, 0, 700), null);
+  assert.strictEqual(swipeDirection(-100, 0, 701), null);
+});
+
+test('a vertical scroll is never a swipe', () => {
+  assert.strictEqual(swipeDirection(0, 300, 200), null);
+  assert.strictEqual(swipeDirection(-20, 300, 200), null);
+});
+
+test('the step to a neighbour status stops at both ends and Archive is the last', () => {
+  const s = ['backlog', 'todo', 'doing', 'done'];
+  assert.strictEqual(neighbourPhoneColumn(s, 'todo', 'next'), 'doing');
+  assert.strictEqual(neighbourPhoneColumn(s, 'todo', 'prev'), 'backlog');
+  assert.strictEqual(neighbourPhoneColumn(s, 'backlog', 'prev'), 'backlog');
+  assert.strictEqual(neighbourPhoneColumn(s, 'done', 'next'), 'archive');
+  assert.strictEqual(neighbourPhoneColumn(s, 'archive', 'next'), 'archive');
+  assert.strictEqual(neighbourPhoneColumn(s, 'archive', 'prev'), 'done');
 });
