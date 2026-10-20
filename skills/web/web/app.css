@@ -657,6 +657,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    one vocabulary, not a per-view dialect. */
 .modal label { display: flex; flex-direction: column; font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mut); gap: 4px; }
 .modal input, .modal select, .modal textarea { background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 8px; border-radius: .15rem; font-family: inherit; }
+/* The edit form on a phone (under 760 px): the form fills the screen, and every field is 16 px, since a
+   phone browser zooms the page to any field smaller than that when it takes focus. */
+@media (max-width: 759.98px) {
+  #card-form { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; border-radius: 0; border: 0; }
+  #card-form input, #card-form select, #card-form textarea { font-size: 16px; }
+}
 /* field-sizing: content grows the textarea with its input (Chromium 123+). This is a
    progressive enhancement, not a browser-support narrowing: rows="8" in the HTML stays
    as a fallback for browsers without field-sizing support, so unsupported browsers just
