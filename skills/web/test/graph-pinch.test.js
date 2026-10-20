@@ -124,3 +124,20 @@ test('a one-finger pan still pans and a third finger changes nothing', async () 
   s.fire('pointermove', 3, 400, 400);
   assert.strictEqual(s.k(), k);
 });
+
+test('a pinch starts although the first finger landed on a card', async () => {
+  const s = await open();
+  const onCard = new Proxy({}, { get: (t, k) => (k === 'closest' ? (sel) => (sel === '.graph-node' ? { dataset: { id: '2' } } : sel === '.graph-canvas' ? {} : null) : harmless(String(k))) });
+  const down = (pointerId, x, y, isPrimary, target) => s.host.fire('pointerdown', { button: 0, pointerId, isPrimary, clientX: x, clientY: y, target, preventDefault() {}, stopPropagation() {} });
+  const before = s.view();
+  down(1, 100, 100, true, onCard);
+  down(2, 200, 100, false, onCard);
+  assert.notStrictEqual(s.run('graphPinch'), null, 'the second finger started a pinch');
+  s.fire('pointermove', 1, 50, 100);
+  s.fire('pointermove', 2, 250, 100);
+  assert.ok(Math.abs(s.view().k / before.k - 2) < 1e-6, 'the pinch doubled k');
+  s.fire('pointerup', 2, 250, 100);
+  s.fire('pointerup', 1, 50, 100);
+  assert.strictEqual(s.dragging(), false);
+  assert.strictEqual(s.run('graphTouch'), null);
+});
