@@ -84,7 +84,7 @@ module.exports = {
     const sections = await ev(`[...document.querySelectorAll('.prefs-section h3')].map((h)=>h.textContent)`);
     check('the menu has This browser and This board', sections.join() === 'This browser,This board', sections);
     const boardPages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent)`);
-    check('This board lists Logbook, Groups, Prefixes and Counters', boardPages.join() === 'Logbook,Groups,Prefixes,Counters', boardPages);
+    check('This board lists Logbook, Scratchpad, Groups, Prefixes and Counters', boardPages.join() === 'Logbook,Scratchpad,Groups,Prefixes,Counters', boardPages);
     check('the menu says the logbook is on and the groups on with how many were found', await ev(menuState('board:logbook')) === 'on' && /^on · \d+$/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:groups'))]);
     check('the sheet is wide, with the menu and a page side by side', await ev(`document.getElementById('prefs-panel').classList.contains('is-split')`)
       && await ev(shown('#prefs-menu')) && await ev(shown('.prefs-page[data-page="browser:prefs"]'))

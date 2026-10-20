@@ -255,6 +255,9 @@
   <!-- Add note… opens the notes palette on one card; it shows only when the board keeps a
        logbook and the menu is for a single card (toggled in showContextMenu, main script below). -->
   <button type="button" id="ctx-note" role="menuitem" class="hidden">Add note…</button>
+  <!-- Scratchpad… opens the palette on one card's scratchpad; it shows only when the board keeps
+       scratchpads and the menu is for a single card (toggled in showContextMenu, main script below). -->
+  <button type="button" id="ctx-scratch" role="menuitem" class="hidden">Scratchpad…</button>
   <!-- Add to group… adds the menu's cards to a group; Make a group from them… needs two or more.
        Both show only when the board keeps groups (toggled in showContextMenu, main script below). -->
   <button type="button" id="ctx-group-add" role="menuitem" class="hidden">Add to group…</button>
@@ -560,6 +563,7 @@
 <script src="/delete-plan.js"></script>
 <script src="/delete-ui.js"></script>
 <script src="/settings-ui.js"></script>
+<script src="/scratchpad-ui.js"></script>
 <script src="/iterations-ui.js"></script>
 <script src="/graph-view.js"></script>
 <script src="/app.js"></script>

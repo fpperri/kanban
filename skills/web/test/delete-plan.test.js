@@ -15,6 +15,7 @@ const note = (target) => ({ day: '2026-10-16', target, at: '09:00', by: '@human'
 const NOTES = [note('7'), note('7'), note('I1'), note('')];
 const board = { cards: CARDS, groups: GROUPS, notes: NOTES, logbookOn: true };
 const keys = (plan) => plan.options.map((o) => o.key);
+const pads = { scratchpadOn: true, scratchpads: ['7', '15', 'I1'] };
 
 test('one card: names it, says which groups lose it, offers its logbook with the count', () => {
   const plan = deletePlan({ ...board, kind: 'card', targets: ['7'] });
@@ -79,11 +80,38 @@ test('the request carries only the boxes ticked', () => {
   assert.deepStrictEqual(deleteBody({}), {});
 });
 
+test('a card or a group that has a scratchpad offers it, unticked, after the logbook', () => {
+  assert.deepStrictEqual(deletePlan({ ...board, ...pads, kind: 'card', targets: ['7'] }).options, [
+    { key: 'logbook', label: 'Its logbook (2 notes)' },
+    { key: 'scratchpad', label: 'Its scratchpad' },
+  ]);
+  assert.deepStrictEqual(deletePlan({ ...board, ...pads, kind: 'group', targets: ['I1'] }).options, [
+    { key: 'logbook', label: 'Its logbook (1 note)' },
+    { key: 'scratchpad', label: 'Its scratchpad' },
+  ]);
+});
+
+test('a target with no scratchpad, and a board with the scratchpad off, offer no box', () => {
+  assert.deepStrictEqual(keys(deletePlan({ ...board, ...pads, kind: 'card', targets: ['3'] })), []);
+  assert.deepStrictEqual(keys(deletePlan({ ...board, ...pads, scratchpadOn: false, kind: 'card', targets: ['7'] })), ['logbook']);
+  assert.deepStrictEqual(keys(deletePlan({ ...board, kind: 'card', targets: ['7'] })), ['logbook']);
+});
+
+test('several cards offer their scratchpads once, counting the ones that exist', () => {
+  const plan = deletePlan({ ...board, ...pads, kind: 'card', targets: ['3', '7', '15'] });
+  assert.deepStrictEqual(plan.options.filter((o) => o.key === 'scratchpad'), [{ key: 'scratchpad', label: 'Their scratchpads (2)' }]);
+  assert.deepStrictEqual(deletePlan({ ...board, ...pads, kind: 'card', targets: ['3', '7'] }).options.filter((o) => o.key === 'scratchpad'), [{ key: 'scratchpad', label: 'Their scratchpads (1)' }]);
+});
+
+test('the request carries the scratchpad box when it is ticked', () => {
+  assert.deepStrictEqual(deleteBody({ logbook: false, scratchpad: true }), { scratchpad: true });
+});
+
 test('an extra another ticket adds joins the popup: it is one entry in the registry', () => {
-  const extra = { key: 'scratchpad', count: () => 1, label: () => 'Its scratchpad' };
+  const extra = { key: 'attachments', count: () => 1, label: () => 'Its attachments' };
   DELETE_EXTRAS.push(extra);
   try {
-    assert.deepStrictEqual(keys(deletePlan({ ...board, kind: 'card', targets: ['7'] })), ['logbook', 'scratchpad']);
+    assert.deepStrictEqual(keys(deletePlan({ ...board, kind: 'card', targets: ['7'] })), ['logbook', 'attachments']);
   } finally {
     DELETE_EXTRAS.pop();
   }
@@ -94,6 +122,13 @@ test('the toast says what went: the card, the groups it left, the logbook files'
   assert.strictEqual(deleteSummary('card', ['7'], [{ groups: ['I1', 'I2'], swept: { logbook: 2 } }], []), 'Deleted #7; out of #I1, #I2; deleted 2 logbook files.');
   assert.strictEqual(deleteSummary('card', ['3'], [{ groups: [], swept: {} }], []), 'Deleted #3.');
   assert.strictEqual(deleteSummary('card', ['3', '7', '15'], [{ groups: ['I1'], swept: {} }, { groups: ['I1', 'I2'], swept: {} }], ['#15 (boom)']), 'Deleted 2 cards; out of #I1, #I2; failed: #15 (boom)');
+});
+
+test('the toast names the scratchpads that went with a card or a group', () => {
+  const { deleteSummary } = require('../web/delete-plan');
+  assert.strictEqual(deleteSummary('card', ['7'], [{ groups: [], swept: { logbook: 1, scratchpad: 1 } }], []), 'Deleted #7; deleted 1 logbook file; deleted 1 scratchpad.');
+  assert.strictEqual(deleteSummary('card', ['3', '7'], [{ groups: [], swept: { scratchpad: 1 } }, { groups: [], swept: { scratchpad: 1 } }], []), 'Deleted 2 cards; deleted 2 scratchpads.');
+  assert.strictEqual(deleteSummary('group', ['I1'], [{ deleted: [], kept: [], swept: { scratchpad: 1 } }], []), 'Deleted group #I1; deleted its scratchpad.');
 });
 
 test('the toast for a group names the members it deleted and the ones it kept', () => {

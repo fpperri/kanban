@@ -83,7 +83,7 @@ function noteParseLine(raw, known) {
 
 // What the palette is about. `req` is what opened it:
 //   { kind: 'card-notes', id } | { kind: 'group', gid } | { kind: 'slot', day, fromMin, toMin }
-//   | { kind: 'untimed', day } | { target, day?, at? } | { targets: [id, ...] } | {}
+//   | { kind: 'untimed', day } | { kind: 'scratchpad', target } | { target, day?, at? } | { targets: [id, ...] } | {}
 //   (target '' or none: nothing; targets: several cards, one note on each)
 // -> { kind: 'none' | 'card' | 'group' | 'each' | 'slot' | 'untimed', id?, ids?, day, at?, ... }
 function noteSubjectFrom(req, o) {
@@ -113,6 +113,19 @@ function noteSubjectFrom(req, o) {
     return { kind: 'slot', day, fromMin: from, toMin: from + 60, at: req.at };
   }
   return { kind: 'none', day };
+}
+
+// The tabs the palette shows for a subject, in order: Notes (when the board keeps a logbook), a
+// group's own Group tab, and the Scratchpad of a card or group (when the board keeps scratchpads).
+// A card with the logbook off still has its Scratchpad, so it opens on that alone.
+function noteTabs(sub, o) {
+  const target = !!sub && (sub.kind === 'card' || sub.kind === 'group');
+  if (!target) return ['notes'];
+  const tabs = [];
+  if (o.notesOn || (sub.kind === 'card' && !o.scratchpadOn)) tabs.push('notes');
+  if (sub.kind === 'group') tabs.push('group');
+  if (o.scratchpadOn) tabs.push('scratch');
+  return tabs;
 }
 
 // A bare mention re-aims the palette at a card or group. From a slot or a day's untimed
@@ -291,7 +304,7 @@ function noteLastSave(storage, projectName, id) {
 }
 
 const NOTES_EXPORTS = {
-  noteFieldTime, noteParseLine, noteSubjectFrom, noteSubjectAimed, noteSubjectCleared, noteSubjectNotes,
+  noteFieldTime, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectCleared, noteSubjectNotes,
   noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave,
 };
 

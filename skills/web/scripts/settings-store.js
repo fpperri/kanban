@@ -32,7 +32,8 @@ const ID_LINES = ['idDigits', 'nextId', 'name'];
 // The features that take a folder. Adding one is a line here and its reader in config-store.
 const FOLDER_KEYS = {
   logbook: { label: 'logbook', after: ID_LINES },
-  groups: { label: 'groups', after: ['logbook', ...ID_LINES] },
+  scratchpad: { label: 'scratchpad', after: ['logbook', ...ID_LINES] },
+  groups: { label: 'groups', after: ['scratchpad', 'logbook', ...ID_LINES] },
 };
 
 const WRITABLE = ['iterations', 'idDigits', ...Object.keys(FOLDER_KEYS)];
@@ -92,6 +93,7 @@ function readSettings(dir) {
   const config = cfg.readConfig(dir);
   return {
     logbook: folderState(dir, config, 'logbook'),
+    scratchpad: folderState(dir, config, 'scratchpad'),
     groups: folderState(dir, config, 'groups'),
     idDigits: config.idDigits,
     nextId: config.nextId,

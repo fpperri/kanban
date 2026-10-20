@@ -7,6 +7,7 @@ const path = require('node:path');
 const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig, ICON_NAMES } = require('../scripts/config-store');
 const { listNotes } = require('../scripts/logbook-store');
+const { readPad, listTargets } = require('../scripts/scratchpad-store');
 const { readGroups } = require('../scripts/group-store');
 const { BOARDS, materialize } = require('./browser/boards');
 
@@ -272,6 +273,32 @@ test('iterations board: the groups board with iterations: true, which is the onl
   assert.deepStrictEqual(readGroups(b.dir).list.map((g) => g.id).sort(), ['DW1', 'I1', 'I2', 'W1', '_1']);
   assert.strictEqual(b.config.groups, '.groups');
   assert.strictEqual(b.config.name, 'iterations', 'its own name, so its saved choices have their own keys');
+});
+
+test('scratchpad board: the groups board with a scratchpad: line, a page for card 7 with three refs and one for group I2', () => {
+  const b = load('scratchpad');
+  const groups = load('groups');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.strictEqual(b.config.scratchpad, '.scratchpad');
+  assert.strictEqual(b.config.logbook, 'logbook', 'the logbook stays on');
+  assert.strictEqual(groups.config.scratchpad, '', 'the groups board has no scratchpad line');
+  assert.deepStrictEqual(listTargets(b.dir), ['7', 'I2']);
+  const pad = readPad(b.dir, '7');
+  assert.deepStrictEqual(pad.refs, ['src/orders/schema.js', '2026.10.15.I0002.logbook.md', '#3']);
+  assert.match(pad.body, /^check the enum renames\n- orders\.status/);
+  assert.strictEqual(readPad(b.dir, 'I2').body, 'ask ops about the freeze window\n');
+  assert.strictEqual(b.config.name, 'scratchpad');
+});
+
+test('scratchonly board: the groups board with scratchpads on and the logbook off, and no page written yet', () => {
+  const b = load('scratchonly');
+  const groups = load('groups');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.strictEqual(b.config.scratchpad, '.scratchpad');
+  assert.strictEqual(b.config.logbook, '');
+  assert.strictEqual(b.config.groups, '.groups');
+  assert.deepStrictEqual(listTargets(b.dir), []);
+  assert.strictEqual(b.config.name, 'scratchonly');
 });
 
 test('calnotes board: the notes board and two more notes, one half hour with two notes and a day with two untimed', () => {

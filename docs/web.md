@@ -401,10 +401,10 @@ The sheet closes with Esc, a click outside it or its close button, and focus goe
 the gear; on a narrow window Esc first steps back from a page to the menu. While it is open
 the board does not refresh under it, and `/`, `p` and Ctrl+F stand still.
 
-*This board* has four pages. Each change writes one line of `config.yaml` and leaves every
+*This board* has five pages. Each change writes one line of `config.yaml` and leaves every
 other byte as it was, comments included.
 
-- *Logbook* and *Groups* have an on/off switch and a folder field. Off removes the line; on
+- *Logbook*, *Scratchpad* and *Groups* have an on/off switch and a folder field. Off removes the line; on
   writes it back with the folder. A folder is a path inside the board; one that leaves the
   board is refused. A folder you wrote by hand outside the board still works, but shows as
   locked with the reason, and the page leaves it alone. Changing a folder changes the line
@@ -426,6 +426,15 @@ list below groups the notes by day and card, newest first, with a filter field o
 (`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a
 note written in the palette stays listed whatever they say. On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
 it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
+
+**Scratchpad** — with a `scratchpad:` line in `config.yaml`, a card or a group has a disposable
+page, kept as `0007.scratchpad.md` in that folder, with optional `refs:` (the notes, files and
+folders it points at) and a free body. The notes palette gains a **Scratchpad** tab: open it from
+the card menu's **Scratchpad…**, from a group's **Scratchpad** button, or beside Notes. It shows
+the page's file, its refs and a multi-line box; **Ctrl+Enter** or **Save** writes the body. Text
+you have not saved stays in the page until you reload it. The kanban never deletes a page: the
+delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
+`scratchpad:` line nothing of this shows.
 
 **Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges
 (`#I2 zephyr-2`, then `+N`) below its title, with the group's dates and type path as a tooltip.
@@ -453,7 +462,8 @@ length and `auto_join` on.
 
 **Delete.** Deleting a card, or a selection of cards, opens one popup that says what goes and which
 groups lose the card: its id always leaves every group's list. **Its logbook** (the count of its
-notes) is a box left unticked; unticked, the day files stay and read as dangling. The Group tab's
+notes) is a box left unticked; unticked, the day files stay and read as dangling. **Its
+scratchpad** is another, for a card or a group that has a page. The Group tab's
 **Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
 cards it would delete and names the ones another group holds, which it skips. Archiving never
 opens it.

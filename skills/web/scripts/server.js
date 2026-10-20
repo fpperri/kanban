@@ -5,6 +5,7 @@ const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
 const lb = require('./logbook-store');
+const sp = require('./scratchpad-store');
 const gs = require('./group-store');
 const del = require('./delete-store');
 const cfg = require('./config-store');
@@ -286,6 +287,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
           logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
+          scratchpad: config.scratchpad ? { folder: config.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
           settings: settings.readSettings(dir), // the config the gear's This board pages show (ADR 0017)
           iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
@@ -319,6 +321,20 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
         } catch (e) {
           if (e.name === 'LogbookError') return sendJSON(res, e.status, { error: e.message });
+          throw e;
+        }
+      }
+
+      // the scratchpad: GET reads a page, PUT writes its body; there is no delete route (only the
+      // delete flow takes a page, when asked). A store error carries its own status (400 a bad body,
+      // 404 no scratchpad, 413 too long)
+      const pm = p.match(/^\/api\/scratchpad\/(_?[A-Z]*\d+)$/);
+      if (pm && (req.method === 'GET' || req.method === 'PUT')) {
+        const body = req.method === 'GET' ? {} : await readBody(req);
+        try {
+          return sendJSON(res, 200, { pad: req.method === 'GET' ? sp.readPad(dir, pm[1]) : sp.writePad(dir, pm[1], body.body) });
+        } catch (e) {
+          if (e.name === 'ScratchpadError') return sendJSON(res, e.status, { error: e.message });
           throw e;
         }
       }
