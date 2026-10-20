@@ -32,6 +32,8 @@
 //   logbook: logbook      # the folder of the board's notes (docs/adr/0016), relative to
 //                         # the board, or absolute when written by hand; absent = no
 //                         # logbook and nothing of it shows
+//   scratchpad: .scratchpad  # the folder of the cards' and groups' scratchpads
+//                         # (docs/adr/0016), the same way; absent = no scratchpads
 //   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
 //                         # way; absent = no groups and nothing of them shows
 //   iterations: true      # the header's iteration dropdown over the groups in the
@@ -176,7 +178,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', groups: '', iterations: false, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -229,6 +231,9 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'logbook') {
         config.logbook = scalar(top[2]);
+        section = null;
+      } else if (top[1] === 'scratchpad') {
+        config.scratchpad = top[2].trim()[0] === '#' ? '' : scalar(top[2]);
         section = null;
       } else if (top[1] === 'groups') {
         config.groups = top[2].trim()[0] === '#' ? '' : scalar(top[2]);
