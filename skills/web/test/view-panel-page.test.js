@@ -173,7 +173,7 @@ test('Map, wide with nothing chosen: the zoom and the Options section are in the
   assert.strictEqual(inside(panel, 'map-zoom-btn').length, 3);
   assert.strictEqual(inside(panel, 'map-options').length, 1);
   const main = s.main();
-  assert.strictEqual(inside(main, 'map-filter-toggle').length, 5, 'one pill for each column and Archive');
+  assert.strictEqual(inside(main, 'map-filter-toggle').length, 0, 'no status pill in the Map; they live in the Statuses section of the search panel');
   assert.strictEqual(inside(main, 'view-panel-toggle').length, 1);
   assert.strictEqual(inside(main, 'map-zoom-btn').length, 0);
   assert.strictEqual(inside(main, 'map-options').length, 0);
@@ -181,10 +181,10 @@ test('Map, wide with nothing chosen: the zoom and the Options section are in the
   assert.deepStrictEqual(inside(panel, 'map-zoom-btn').map((b) => [b.textContent, b.title, b.dataset.zoomAction]), [['−', 'Zoom out', 'out'], ['+', 'Zoom in', 'in'], ['Fit', 'Fit the whole graph in the panel', 'fit']]);
 });
 
-test('Map: the status pills lead the top row and the button ends it, on the right; a press on it flips the Map\'s choice alone', async () => {
+test('Map: the top row holds only the option button, on the right; a press on it flips the Map\'s choice alone', async () => {
   const s = await open('map', { stored: { [KEY]: '{"map":null,"graph":false}' } });
   const bar = byClass(s.main(), 'view-bar')[0];
-  assert.deepStrictEqual(bar.children.map((c) => c.classes[0]), ['map-filter-row', 'view-panel-toggle']);
+  assert.deepStrictEqual(bar.children.map((c) => c.classes[0]), ['view-panel-toggle']);
   assert.ok(s.panel(), 'the Graph\'s closed choice is not the Map\'s');
   s.press(s.toggle());
   assert.strictEqual(s.stored[KEY], '{"map":false,"graph":false}');

@@ -64,11 +64,11 @@ function focusSandbox() {
 
 test('keepControlFocus puts focus back on the same pill after the row re-renders', () => {
   const s = focusSandbox();
-  const pill = { classList: ['gantt-filter-toggle'], dataset: { col: 'in-progress' } };
-  s.wanted.set('.gantt-filter-toggle[data-col="in-progress"]', true);
+  const pill = { classList: ['graph-filter-toggle'], dataset: { col: 'in-progress' } };
+  s.wanted.set('.graph-filter-toggle[data-col="in-progress"]', true);
   s.keepControlFocus(pill, () => s.log.push('rendered'));
   assert.deepStrictEqual(s.log, ['rendered']);
-  assert.deepStrictEqual(s.focused, ['.gantt-filter-toggle[data-col="in-progress"]']);
+  assert.deepStrictEqual(s.focused, ['.graph-filter-toggle[data-col="in-progress"]']);
 });
 
 test('keepControlFocus refocuses a section fold toggle by its section', () => {
@@ -81,19 +81,13 @@ test('keepControlFocus refocuses a section fold toggle by its section', () => {
 
 test('keepControlFocus does nothing when the pill is gone after the render', () => {
   const s = focusSandbox();
-  s.keepControlFocus({ classList: ['map-filter-toggle'], dataset: { col: 'gone' } }, () => {});
+  s.keepControlFocus({ classList: ['graph-filter-toggle'], dataset: { col: 'gone' } }, () => {});
   assert.deepStrictEqual(s.focused, []);
 });
 
 test('every pill and fold handler runs through keepControlFocus', () => {
   const calls = [
     [appSrc, /toggleMapSection\(sectionBtn\.dataset\.section\)/],
-    [appSrc, /toggleMapStatusFilter\(filterBtn\.dataset\.col\)/],
-    [appSrc, /soloMapStatusFilter\(filterBtn\.dataset\.col\)/],
-    [appSrc, /toggleCalendarStatusFilter\(filterBtn\.dataset\.col\)/],
-    [appSrc, /soloCalendarStatusFilter\(filterBtn\.dataset\.col\)/],
-    [appSrc, /toggleGanttStatusFilter\(filterBtn\.dataset\.col\)/],
-    [appSrc, /soloGanttStatusFilter\(filterBtn\.dataset\.col\)/],
     [graphSrc, /graphToggleFilter\(pill\.dataset\.col\)/],
     [graphSrc, /graphSoloFilter\(pill\.dataset\.col\)/],
   ];
@@ -106,13 +100,13 @@ test('every pill and fold handler runs through keepControlFocus', () => {
 
 test('the pill and fold toggles are focusable controls the stylesheet rings', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-  for (const cls of ['map-filter-toggle', 'gantt-filter-toggle', 'calendar-filter-toggle', 'graph-filter-toggle', 'map-section-toggle']) {
+  for (const cls of ['graph-filter-toggle', 'map-section-toggle']) {
     const rule = css.split('\n').find((l) => l.includes('.' + cls + ':focus-visible'));
     assert.ok(rule && rule.includes('outline: 2px solid var(--accent)'), cls + ' has no focus ring');
   }
 });
 
-const PILL_CLASSES = ['map-filter-toggle', 'map-section-toggle', 'gantt-filter-toggle', 'calendar-filter-toggle', 'graph-filter-toggle graph-control'];
+const PILL_CLASSES = ['map-section-toggle', 'graph-filter-toggle graph-control'];
 
 const NOT_A_CALL = new Set(['if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'new', 'await', 'async', 'do', 'else', 'throw', 'delete', 'void', 'with', 'in', 'of', 'instanceof', 'super', 'import', 'yield', 'class']);
 
@@ -208,7 +202,7 @@ test('real form controls and graph buttons still hold the poll', () => {
 
 test('the pills and fold toggles the page builds do not hold the poll, for every view', () => {
   const { sandbox, doc, makeEl } = pollSandbox();
-  for (const selector of ['.map-filter-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle', '.map-section-toggle']) {
+  for (const selector of ['.graph-filter-toggle', '.map-section-toggle']) {
     for (const tag of tagsOf(selector)) {
       const built = elementOf(tag);
       doc.activeElement = makeEl(built.classList.join(' '), built.dataset);
@@ -240,14 +234,14 @@ test('a poll render hands focus back to the rebuilt pill, without scrolling', ()
 
 test('refocusSelector escapes a backslash before a quote', () => {
   const s = focusSandbox();
-  assert.strictEqual(s.refocusSelector({ classList: ['map-filter-toggle'], dataset: { col: 'a\\"b' } }), '.map-filter-toggle[data-col="a\\\\\\"b"]');
+  assert.strictEqual(s.refocusSelector({ classList: ['graph-filter-toggle'], dataset: { col: 'a\\"b' } }), '.graph-filter-toggle[data-col="a\\\\\\"b"]');
 });
 
 test('keepControlFocus refocuses without scrolling', () => {
   const opts = [];
   const sandbox = { document: { querySelector: () => ({ focus: (o) => opts.push(o) }) } };
   vm.runInNewContext(fn('refocusSelector') + '\n' + fn('keepControlFocus'), sandbox);
-  sandbox.keepControlFocus({ classList: ['map-filter-toggle'], dataset: { col: 'x' } }, () => {});
+  sandbox.keepControlFocus({ classList: ['graph-filter-toggle'], dataset: { col: 'x' } }, () => {});
   assert.strictEqual(opts.length, 1);
   assert.strictEqual(opts[0] && opts[0].preventScroll, true);
 });
@@ -260,15 +254,15 @@ test('an off pill shows a hollow dot: ring kept, fill gone', () => {
 
 test('the guard reads the marker: a pill that wears the poll marker holds the poll', () => {
   const { sandbox, doc, makeEl } = pollSandbox();
-  doc.activeElement = makeEl('gantt-filter-toggle', { col: 'done', holdsPoll: '' });
+  doc.activeElement = makeEl('graph-filter-toggle', { col: 'done', holdsPoll: '' });
   assert.strictEqual(sandbox.boardControlFocused(), true);
-  doc.activeElement = makeEl('gantt-filter-toggle', { col: 'done' });
+  doc.activeElement = makeEl('graph-filter-toggle', { col: 'done' });
   assert.strictEqual(sandbox.boardControlFocused(), false, 'the same pill without the marker does not');
 });
 
 test('a real poll tick with the pointer resting on a card and a pill focused keeps the hover wash', async () => {
   const { sandbox, doc, makeEl } = pollSandbox();
-  const pill = makeEl('gantt-filter-toggle', { col: 'done' });
+  const pill = makeEl('graph-filter-toggle', { col: 'done' });
   doc.current = pill;
   doc.activeElement = pill;
   sandbox.hoveredId = 7;
@@ -277,7 +271,7 @@ test('a real poll tick with the pointer resting on a card and a pill focused kee
   sandbox.renderBoard = () => {
     rendered++;
     pill.attached = false;
-    const next = makeEl('gantt-filter-toggle', { col: 'done' });
+    const next = makeEl('graph-filter-toggle', { col: 'done' });
     next.focus = function () { doc.activeElement = this; sandbox.hoveredId = null; };
     doc.current = next;
     doc.activeElement = { closest: () => null };

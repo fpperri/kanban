@@ -15,7 +15,6 @@ module.exports = {
     const pillSel = (col) => `#search-statuses .status-pill[data-col="${col}"]`;
     const pressed = `JSON.stringify([...document.querySelectorAll('#search-statuses .status-pill')].filter((b)=>b.getAttribute('aria-pressed')==='true').map((b)=>b.dataset.col))`;
     const sameJson = (expr, wanted) => `${expr}===${JSON.stringify(JSON.stringify(wanted))}`;
-    const viewPill = (view, col) => `document.querySelector('#${view}-view .${view}-filter-toggle[data-col="${col}"]')`;
     const toggleBtn = { gantt: 'gantt-toggle-btn', calendar: 'calendar-toggle-btn', map: 'map-toggle-btn', graph: 'graph-toggle-btn' };
     const COLUMNS = ['backlog', 'todo', 'doing', 'done'];
 
@@ -44,8 +43,8 @@ module.exports = {
     const selectionBefore = await ev(`JSON.stringify([...selectedIds])`);
 
     await tapPill('done');
-    check('a tap on Done in the section switches it in the Gantt too',
-      await waitFor(`document.querySelector(${JSON.stringify(pillSel('done'))}).getAttribute('aria-pressed')==='false'&&${viewPill('gantt', 'done')}.getAttribute('aria-pressed')==='false'`, 5000));
+    check('a tap on Done in the section switches it off, and the Gantt holds no pill of its own',
+      await waitFor(`document.querySelector(${JSON.stringify(pillSel('done'))}).getAttribute('aria-pressed')==='false'&&!document.querySelector('#gantt-view .status-pill')`, 5000));
     await sleep(REFRESH_MS);
     check('it holds through the 5-second refresh, focus still on the pill',
       await ev(`document.querySelector(${JSON.stringify(pillSel('done'))}).getAttribute('aria-pressed')==='false'&&document.activeElement===document.querySelector(${JSON.stringify(pillSel('done'))})`));
