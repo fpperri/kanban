@@ -72,6 +72,12 @@ module.exports = {
     const optionsIn = await inPanel('#graph-view .graph-options');
     const graphCorner = await ev(corner('graph'));
     check('the icon button is at the top right of the view, beside the panel', graphCorner.fromRight >= 0 && graphCorner.fromRight < 40 && graphCorner.fromTop < 50, graphCorner);
+    const infoShown = () => ev(`(()=>{const e=document.querySelector('#graph-view .graph-info');return !!e&&e.getBoundingClientRect().height>0})()`);
+    check('the (i) is off by default: the count and the key are hidden', !(await infoShown()));
+    await clickOn('#graph-view .graph-info-toggle');
+    check('the (i) shows the count and the key', await waitFor(`document.querySelector('#graph-view .graph-info').getBoundingClientRect().height>0`));
+    await clickOn('#graph-view .graph-info-toggle');
+    check('and hides them again', await waitFor(`document.querySelector('#graph-view .graph-info').getBoundingClientRect().height===0`));
     const graphOptions = await ev(`({buttons:document.querySelectorAll('#graph-view .view-panel .graph-option-btn').length,toggles:document.querySelectorAll('#graph-view .view-panel .map-section-toggle').length})`);
     check('the Options section is always expanded: all its buttons are built, with no toggle', graphOptions.buttons === 15 && graphOptions.toggles === 0, graphOptions);
     check('the layout buttons, the zoom buttons and the Options section are in the panel', layoutsIn.length === 3 && zoomIn.length === 3 && optionsIn.length === 1 && [...layoutsIn, ...zoomIn, ...optionsIn].every(Boolean), { layoutsIn, zoomIn, optionsIn });
@@ -118,6 +124,11 @@ module.exports = {
     const pillsIn = await inPanel('#map-view .status-pill, #map-view .map-filter-toggle');
     const mapCorner = await ev(corner('map'));
     check('the Map\'s icon button is at the top right of its area, beside the panel', mapCorner.fromRight >= 0 && mapCorner.fromRight < 40 && mapCorner.fromTop < 50, mapCorner);
+    const mapBefore = await ev(`(()=>{const r=document.querySelector('#map-view .view-panel-toggle').getBoundingClientRect();const h=document.querySelector('#map-view .map-graph-heading');return {t:r.top,b:r.bottom,r:r.right,headTop:h?h.getBoundingClientRect().top:null}})()`);
+    check('the first Map heading starts at or below the bottom edge of the floating button', mapBefore.headTop === null || mapBefore.headTop >= mapBefore.b, mapBefore);
+    await ev(`document.querySelector('#map-view .map-main').scrollTop=60`);
+    const mapAfter = await ev(`(()=>{const r=document.querySelector('#map-view .view-panel-toggle').getBoundingClientRect();return {t:r.top,r:r.right,scrolled:document.querySelector('#map-view .map-main').scrollTop}})()`);
+    check('the floating Map button has not moved after the Map scrolls', mapAfter.scrolled === 0 || (Math.abs(mapAfter.t - mapBefore.t) < 1 && Math.abs(mapAfter.r - mapBefore.r) < 1), { mapBefore, mapAfter });
     const mapOptions = await ev(`({groups:document.querySelectorAll('#map-view .view-panel .map-option').length,toggles:document.querySelectorAll('#map-view .view-panel .map-section-toggle').length})`);
     check('the Map\'s Options section is always expanded: its eight controls are built, with no toggle', mapOptions.groups === 8 && mapOptions.toggles === 0, mapOptions);
     check('the Map\'s zoom and Options section are in the panel, and no status pill sits in the Map', mapZoomIn.length === 3 && mapZoomIn.every(Boolean) && mapOptionsIn.length === 1 && mapOptionsIn[0] && pillsIn.length === 0, { mapZoomIn, mapOptionsIn, pillsIn });

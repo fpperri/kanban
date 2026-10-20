@@ -84,10 +84,11 @@ test('Graph, wide with nothing chosen: the layouts, the zoom and the Options sec
   assert.deepStrictEqual(s.host.children.map((c) => c.classes[0]), ['graph-main', 'view-panel'], 'the panel stands after the view, on its right');
 });
 
-test('Graph: the card count and then the button make the top row, the button on the right', async () => {
+test('Graph: the (i) and then the option button make the floating top row; the count and the key follow in a box of their own', async () => {
   const s = await open('graph');
   const row = byClass(s.main(), 'graph-controls')[0];
-  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-count', 'view-panel-toggle']);
+  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-info-toggle', 'view-panel-toggle']);
+  assert.deepStrictEqual(byClass(s.main(), 'graph-info')[0].children.map((c) => c.classes[0]), ['graph-count', 'graph-key']);
 });
 
 test('Graph: the layout buttons and the zoom buttons keep their labels, titles and data', async () => {

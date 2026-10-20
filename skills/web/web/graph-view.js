@@ -108,6 +108,17 @@ function graphSaveLayout() {
   catch (e) { /* storage unavailable — the layout choice just won't persist this session */ }
 }
 
+// Whether the count line and the key show: off until the (i) button is pressed, kept per board.
+function graphInfoOn() {
+  try { return localStorage.getItem(storageKey(state.projectName, 'graph.info')) === 'true'; }
+  catch (e) { return false; }
+}
+
+function graphInfoSet(on) {
+  try { localStorage.setItem(storageKey(state.projectName, 'graph.info'), String(on)); }
+  catch (e) { /* storage unavailable: the choice just won't persist this session */ }
+}
+
 function graphLoadFilter() {
   if (graphStatusFilter) return graphStatusFilter;
   let saved = null;
@@ -329,21 +340,36 @@ function graphBuildPanel(kind, fan) {
   return panel;
 }
 
-// The view's own top: the card count and the panel's button at the right, then the key.
+// The view's own top: the (i) button and the panel's button float in the drawing's top-right corner;
+// the card count and the key stay in the DOM, hidden by a class until the (i) is pressed.
 function graphBuildControls(cardCount, relationCount, fan, panelOpen) {
   const frag = document.createDocumentFragment();
+  const infoOn = graphInfoOn();
   const row = document.createElement('div');
   row.className = 'graph-controls';
+  const info = document.createElement('button');
+  info.type = 'button';
+  info.className = 'graph-info-toggle graph-control';
+  info.dataset.keepsSelection = '';
+  info.dataset.graphInfo = '';
+  info.textContent = 'i';
+  info.title = 'Show or hide the card count and the key';
+  info.setAttribute('aria-label', 'Card count and key');
+  info.setAttribute('aria-pressed', String(infoOn));
+  row.appendChild(info);
+  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
+  frag.appendChild(row);
+  const box = document.createElement('div');
+  box.className = infoOn ? 'graph-info' : 'graph-info graph-info-off';
   const count = document.createElement('span');
   count.className = 'graph-count';
   count.textContent = `${graphPlural(cardCount, 'card')}, ${graphPlural(relationCount, 'relation')}`;
-  row.appendChild(count);
-  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
-  frag.appendChild(row);
+  box.appendChild(count);
   const key = document.createElement('p');
   key.className = 'graph-key';
   key.textContent = fan ? `${GRAPH_KEY} · l steps the names: ${fan.options.names}` : GRAPH_KEY;
-  frag.appendChild(key);
+  box.appendChild(key);
+  frag.appendChild(box);
   return frag;
 }
 
@@ -956,6 +982,8 @@ function wireGraphView(host) {
   host.addEventListener('click', (e) => {
     const panelBtn = e.target.closest('.view-panel-toggle[data-panel], .view-panel-close[data-panel]');
     if (panelBtn) { pressViewPanelButton(panelBtn, graphRedrawForPanel); return; }
+    const infoBtn = e.target.closest('.graph-info-toggle');
+    if (infoBtn) { keepControlFocus(infoBtn, () => { graphInfoSet(!graphInfoOn()); renderGraphView(); }); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
     if (option) { keepControlFocus(option, () => graphSetOption(option.dataset.key, option.dataset.val)); return; }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
