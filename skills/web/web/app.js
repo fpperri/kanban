@@ -1066,21 +1066,61 @@ function toggleView(mode) {
 // — so a sixth view is one entry here, not two edits.
 const VIEW_CONTAINERS = { board: '#board', map: '#map-view', calendar: '#calendar-view', gantt: '#gantt-view', graph: '#graph-view' };
 
+// The views, in the order the header and the phone's view bar list them: id, the
+// button's word, the line icon (view-icons.js) it wears. The active view's button
+// reads "Board view" and wears the Board icon instead, so a sixth view is one entry
+// here and one in VIEW_CONTAINERS.
+const VIEW_TABLE = [
+  { id: 'board', label: 'Board', icon: 'board' },
+  { id: 'calendar', label: 'Calendar', icon: 'calendar' },
+  { id: 'gantt', label: 'Gantt', icon: 'gantt' },
+  { id: 'map', label: 'Map view', icon: 'map' },
+  { id: 'graph', label: 'Graph', icon: 'graph' },
+];
+
+// What each view's button shows in a mode: label, icon, pressed. The Board's own entry
+// never reads "Board view"; an unknown mode is the Board.
+function viewButtonsModel(mode) {
+  const current = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
+  return VIEW_TABLE.map((v) => {
+    const active = v.id === current;
+    const away = active && v.id !== 'board';
+    return { id: v.id, label: away ? 'Board view' : v.label, icon: away ? 'board' : v.icon, pressed: active };
+  });
+}
+
+// Draw every icon slot to the shape its data-icon names, once per change.
+function paintIconSlots() {
+  for (const slot of document.querySelectorAll('.btn-icon')) {
+    if (slot.dataset.drawn === slot.dataset.icon) continue;
+    slot.innerHTML = viewIconSvg(slot.dataset.icon);
+    slot.dataset.drawn = slot.dataset.icon;
+  }
+}
+
+// Paint the view buttons for a mode, writing only what changed. Any element that
+// names a view with data-view gets aria-pressed; only the header's toggle buttons
+// (data-view-toggle) get a label and an icon, so a second set of view buttons is markup only.
+function paintViewButtons(mode) {
+  const rows = new Map(viewButtonsModel(mode).map((r) => [r.id, r]));
+  for (const el of document.querySelectorAll('[data-view]')) {
+    const row = rows.get(el.dataset.view);
+    if (!row) continue;
+    const pressed = String(row.pressed);
+    if (el.getAttribute('aria-pressed') !== pressed) el.setAttribute('aria-pressed', pressed);
+    if (el.dataset.viewToggle === undefined) continue;
+    const label = el.querySelector('.btn-label');
+    if (label && label.textContent !== row.label) label.textContent = row.label;
+    const icon = el.querySelector('.btn-icon');
+    if (icon && icon.dataset.icon !== row.icon) icon.dataset.icon = row.icon;
+  }
+  paintIconSlots();
+}
+
 function applyViewMode() {
   const mode = loadViewMode();
   for (const [m, sel] of Object.entries(VIEW_CONTAINERS)) $(sel).classList.toggle('hidden', mode !== m);
-  const mapBtn = $('#map-toggle-btn');
-  mapBtn.textContent = mode === 'map' ? '☰ Board view' : '🕸 Map view';
-  mapBtn.setAttribute('aria-pressed', String(mode === 'map'));
-  const calBtn = $('#calendar-toggle-btn');
-  calBtn.textContent = mode === 'calendar' ? '☰ Board view' : '📅 Calendar';
-  calBtn.setAttribute('aria-pressed', String(mode === 'calendar'));
-  const ganttBtn = $('#gantt-toggle-btn');
-  ganttBtn.textContent = mode === 'gantt' ? '☰ Board view' : '📊 Gantt';
-  ganttBtn.setAttribute('aria-pressed', String(mode === 'gantt'));
-  const graphBtn = $('#graph-toggle-btn');
-  graphBtn.textContent = mode === 'graph' ? '☰ Board view' : '◉ Graph';
-  graphBtn.setAttribute('aria-pressed', String(mode === 'graph'));
+  paintViewButtons(mode);
   if (mode === 'map') renderMapView();
   if (mode === 'calendar') renderCalendarView();
   if (mode === 'gantt') renderGanttView();
@@ -1406,7 +1446,7 @@ function keepControlFocus(el, action) {
 // listener (see the map wiring section).
 function buildMapFilterRow() {
   const row = buildFilterPillRow(loadMapStatusFilter(), boardColumnIds(), 'map-filter-row', 'map-filter-toggle',
-    (col, on) => `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the map (hidden cards ghost when a visible card references them)`);
+    (col, on) => statusFilterTitle('map', col, columnLabel(col), on));
   return row;
 }
 
@@ -1609,9 +1649,7 @@ function buildMapOptionsRow() {
 // ride #gantt-view's own delegated listener (see wireGanttPointerDrag).
 function buildGanttFilterRow() {
   return buildFilterPillRow(loadGanttStatusFilter(), boardColumnIds(), 'gantt-filter-row', 'gantt-filter-toggle',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the timeline (dated archived cards render in their own Archive group, muted grey)`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the timeline (the visible window re-derives from what's left)`);
+    (col, on) => statusFilterTitle('gantt', col, columnLabel(col), on));
 }
 
 // Same mechanism again, calendar-scoped: statuses +
@@ -1622,9 +1660,7 @@ function buildGanttFilterRow() {
 // #calendar-view's own delegated listener (see the calendar wiring section).
 function buildCalendarFilterRow() {
   return buildFilterPillRow(loadCalendarStatusFilter(), boardColumnIds(), 'calendar-filter-row', 'calendar-filter-toggle',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the calendar (dated archived cards render read-only, with the archived ball)`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the calendar`);
+    (col, on) => statusFilterTitle('calendar', col, columnLabel(col), on));
 }
 
 // The map's fold toggles (the graphs, No relations) share

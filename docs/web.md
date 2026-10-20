@@ -127,7 +127,7 @@ status-filter pills and search as the other views.
 
 ## Graph
 
-The **Graph** view (the header's "◉ Graph" button) draws every card at once as
+The **Graph** view (the header's "Graph" button) draws every card at once as
 a dot, joined by its relations: a solid line from a parent to its child, a
 dashed arrow from a card to the card that waits for it. Three layouts, remembered
 per board, with **Tiers** first:
