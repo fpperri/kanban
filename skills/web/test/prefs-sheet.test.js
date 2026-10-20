@@ -183,9 +183,10 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   graph.disabled = true;
   for (const value of ['open', 'collapsed']) opt('bar', value);
   sheet.querySelectorAll = (sel) => { assert.strictEqual(sel, '.prefs-opt'); return opts; };
+  const more = fakeEl('more-btn');
   const owner = log;
-  for (const e of [sheet, gear, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, ...opts]) e.owner = owner;
-  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-statuses-folded': statusesFolded, '#prefs-slices-folded': slicesFolded, '#prefs-panel-on-focus': panelOnFocus };
+  for (const e of [sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, ...opts]) e.owner = owner;
+  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#more-btn': more, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-statuses-folded': statusesFolded, '#prefs-slices-folded': slicesFolded, '#prefs-panel-on-focus': panelOnFocus };
   const sandbox = {
     state: { projectName: 'shop' },
     ...colState,
@@ -204,7 +205,7 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
     settingsShow: (page) => { log.shown.push(page); },
     settingsGo: (page) => { log.went.push(page); },
     currentDetailId: detailOpen ? 4 : null,
-    sheet, gear, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, opts, writes, log,
+    sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, opts, writes, log,
   };
   vm.createContext(sandbox);
   const memo = (re, what) => { const m = appSrc.match(re); assert.ok(m, what); return m[0]; };
@@ -235,6 +236,14 @@ test('closing the sheet hides it, marks the gear collapsed and returns focus to 
   assert.strictEqual(p.sheet.classList.contains('hidden'), true);
   assert.strictEqual(p.gear.attrs['aria-expanded'], 'false');
   assert.strictEqual(p.log.focused, p.gear);
+});
+
+test('closing the sheet on a phone, where the gear is hidden, returns focus to the More button', () => {
+  const p = sheetPage();
+  p.gear.offsetParent = null;
+  p.openPrefsSheet();
+  p.closePrefsSheet();
+  assert.strictEqual(p.log.focused, p.more);
 });
 
 test('with nothing stored the sheet shows the defaults: every view opens, the Graph selects, the bar is collapsed, archived leaves count', () => {
