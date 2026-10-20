@@ -1,7 +1,7 @@
 'use strict';
 // What the delete popup says and offers (GLOSSARY.md "Ids, groups and the logbook"), apart from
 // the DOM: a card's id always leaves every group's list and the popup says which; the extras
-// (its logbook) are boxes, each unticked; deleting a group adds "Its member cards", listing what it
+// (its logbook, its scratchpad) are boxes, each unticked; deleting a group adds "Its member cards", listing what it
 // would delete and naming the members another group holds, which it skips. delete-ui.js draws the
 // plan and sends the request; the server's delete-store.js does the deleting.
 //
@@ -28,6 +28,15 @@ const DELETE_EXTRAS = [
     },
     label: (kind, n, many) => `${many ? 'Their logbooks' : 'Its logbook'} (${deletePlural(n, 'note')})`,
   },
+  {
+    key: 'scratchpad',
+    count: (ctx, kind, targets) => {
+      if (!ctx.scratchpadOn) return 0;
+      const have = new Set((ctx.scratchpads || []).map((t) => DELETE_IDS.idKey(t)));
+      return targets.filter((t) => have.has(t)).length;
+    },
+    label: (kind, n, many) => (many ? `Their scratchpads (${n})` : 'Its scratchpad'),
+  },
 ];
 
 function deleteCardLabel(cards, id) {
@@ -40,7 +49,7 @@ function deleteGroupLabel(group) {
 }
 
 // The popup for a delete. `kind` is 'card' (one or more) or 'group' (one); `targets` their ids;
-// the rest is the board as the page holds it: { cards, groups, notes, logbookOn }. Returns
+// the rest is the board as the page holds it: { cards, groups, notes, logbookOn, scratchpadOn, scratchpads }. Returns
 // { title, chips?, lines, options: [{ key, label }], members, hint }.
 function deletePlan(ctx) {
   const { kind, cards = [], groups = [] } = ctx;
@@ -95,13 +104,16 @@ function deleteSummary(kind, targets, results, failed) {
     if (r.deleted.length) parts.push(`deleted ${deletePlural(r.deleted.length, 'member card')} (${r.deleted.map((x) => `#${x}`).join(', ')})`);
     if (r.kept.length) parts.push(`kept ${r.kept.map((k) => `#${k.id} (also in ${k.groups.map((g) => `#${g}`).join(', ')})`).join(', ')}`);
     if (r.swept.logbook) parts.push(`deleted its ${deletePlural(r.swept.logbook, 'logbook file')}`);
+    if (r.swept.scratchpad) parts.push('deleted its scratchpad');
     return `${parts.join('; ')}.`;
   }
   const left = [...new Set(results.flatMap((r) => r.groups || []))];
   const files = results.reduce((n, r) => n + ((r.swept && r.swept.logbook) || 0), 0);
+  const pads = results.reduce((n, r) => n + ((r.swept && r.swept.scratchpad) || 0), 0);
   const parts = [results.length === 1 && targets.length === 1 ? `Deleted #${targets[0]}` : `Deleted ${deletePlural(results.length, 'card')}`];
   if (left.length) parts.push(`out of ${left.map((g) => `#${g}`).join(', ')}`);
   if (files) parts.push(`deleted ${deletePlural(files, 'logbook file')}`);
+  if (pads) parts.push(`deleted ${deletePlural(pads, 'scratchpad')}`);
   const text = parts.join('; ');
   return failed.length ? `${text}; failed: ${failed.join(', ')}` : `${text}.`;
 }

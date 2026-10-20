@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null, scratchpad: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -2065,6 +2065,7 @@ function applyBoardData(data) {
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
   state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
   state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
+  state.scratchpad = data.scratchpad || null; // { folder, targets } when config.yaml has a scratchpad: line, else null and nothing of it shows (scratchpad-ui.js); targets are the ids that have a page
   state.logbook = data.logbook || null; // { folder, notes } when config.yaml has a logbook: line, else null and nothing of it shows (notes.js, notes-palette.js); read by the card tiles, so before renderBoard
   dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -5912,6 +5913,7 @@ function showContextMenu(x, y) {
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
   $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
+  $('#ctx-scratch').classList.toggle('hidden', !scratchpadOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
   $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);

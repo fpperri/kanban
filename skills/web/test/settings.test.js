@@ -51,6 +51,14 @@ test('the menu says a feature is on or off, and the groups on with how many were
   assert.strictEqual(s.settingsPageState('prefixes', off, 0), '0');
 });
 
+test('the Scratchpad page says on, off or locked like the Logbook, and switches on to .scratchpad', () => {
+  assert.strictEqual(s.settingsPageState('scratchpad', { scratchpad: { on: true } }, 0), 'on');
+  assert.strictEqual(s.settingsPageState('scratchpad', { scratchpad: { on: false } }, 0), 'off');
+  assert.strictEqual(s.settingsPageState('scratchpad', { scratchpad: { on: true, locked: true } }, 0), 'on · locked');
+  assert.deepStrictEqual(s.settingsSwitchBody('scratchpad', true, ''), { key: 'scratchpad', value: '.scratchpad' });
+  assert.deepStrictEqual(s.settingsSwitchBody('scratchpad', false, 'pads'), { key: 'scratchpad', value: null });
+});
+
 test('a locked feature says so in the menu', () => {
   const settings = { logbook: { on: true, locked: true }, groups: { on: false } };
   assert.strictEqual(s.settingsPageState('logbook', settings, 0), 'on · locked');

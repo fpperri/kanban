@@ -12,7 +12,9 @@
 // right-click Add note... on a selection aim the palette at it. A group's palette has a tab row, Notes
 // and Group; the Group tab (groups-ui.js groupPanel) edits the group and lists its members and,
 // like the notes list, belongs to the same surface. With the logbook off a group still opens, on its
-// Group tab alone. Several cards at once are the subject "each": one note is written on every card.
+// Group tab alone. A card or group of a board that keeps scratchpads has a third tab, Scratchpad
+// (scratchpad-ui.js scratchPanel), and a card opens on it alone when the logbook is off. Several
+// cards at once are the subject "each": one note is written on every card.
 //
 // Keys. In the box: Enter writes the note and keeps the palette open for the next, Shift+Enter
 // starts a new line, a bare mention (#22) then Enter aims the palette at that card, Backspace
@@ -27,7 +29,7 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds,
-// prefsStorage, keyGuardOff, and notes.js's and groups.js's functions.
+// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, and notes.js's and groups.js's functions.
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
@@ -289,18 +291,18 @@ function notesGrow() {
 // ({ kind: 'card-notes', id }), a day's slot or untimed box, a card or group to write on
 // ({ target }), or nothing ({}) to start on the card last noted.
 function openNotes(req) {
-  if (!notesOn() && !state.groups) return;
+  if (!notesOn() && !state.groups && !scratchpadOn()) return;
   notesBuild();
   const u = notesUi;
   const ctx = notesCtx();
   const sub = noteSubjectFrom(req || {}, { today: ctx.today, isGroup: (id) => notesGroup(id) !== null });
   if (sub.kind === 'card' && !notesCard(sub.id)) return;
   if (sub.kind === 'group' && !notesGroup(sub.id)) return;
-  if (!notesOn() && sub.kind !== 'group') return;
+  if (!notesOn() && sub.kind !== 'group' && !(sub.kind === 'card' && scratchpadOn())) return;
   const same = u.sub && JSON.stringify(u.sub) === JSON.stringify(sub);
   if (!u.sub && document.activeElement && !u.el.contains(document.activeElement)) u.opener = document.activeElement;
   u.sub = sub;
-  u.tab = req && req.kind === 'group' ? 'group' : same ? u.tab : 'notes';
+  u.tab = req && req.kind === 'group' ? 'group' : req && req.kind === 'scratchpad' ? 'scratch' : same ? u.tab : 'notes';
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (!same) {
     u.written = [];
@@ -313,14 +315,13 @@ function openNotes(req) {
   u.hi = -1;
   u.el.classList.remove('hidden');
   notesPaint();
-  if (u.tab === 'group') notesFocusGroupPanel(); else u.input.focus();
+  if (u.tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();
 }
 
-// The tabs a subject has: Notes (when the board keeps a logbook), and for a group its Group tab.
+// The tabs a subject has (notes.js noteTabs): Notes (when the board keeps a logbook), a group's
+// Group tab, and the Scratchpad of a card or group (when the board keeps scratchpads).
 function notesTabs() {
-  const sub = notesUi.sub;
-  if (sub && sub.kind === 'group') return notesOn() ? ['notes', 'group'] : ['group'];
-  return ['notes'];
+  return noteTabs(notesUi.sub, { notesOn: notesOn(), scratchpadOn: scratchpadOn() });
 }
 
 function notesSetTab(tab) {
@@ -330,7 +331,7 @@ function notesSetTab(tab) {
   u.hi = -1;
   u.groupSig = '';
   notesPaint();
-  if (tab === 'group') notesFocusGroupPanel(); else u.input.focus();
+  if (tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();
 }
 
 function notesFocusGroupPanel() {
@@ -370,6 +371,7 @@ function notesResetTime() {
 function notesClearChip() {
   const u = notesUi;
   if (!u.sub || u.sub.kind === 'none') return;
+  if (!notesOn()) { notesClose(); return; }
   u.sub = noteSubjectCleared(u.sub, localTodayStr());
   u.tab = 'notes';
   u.written = [];
@@ -414,12 +416,12 @@ function notesPaint() {
   u.chipText.title = text;
   u.input.placeholder = u.sub.kind === 'card' || u.sub.kind === 'group' ? 'Write a note' : 'Write a note; #7 picks the card';
   notesPaintTabs();
-  const group = u.tab === 'group';
-  for (const el of [u.when, u.input, u.prev, u.filterRow]) el.hidden = group;
+  const panel = u.tab !== 'notes';
+  for (const el of [u.when, u.input, u.prev, u.filterRow]) el.hidden = panel;
   const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
-  if (group) {
+  if (panel) {
     notesPaintBody();
-    u.foot.replaceChildren(hint('Esc', 'close'));
+    u.foot.replaceChildren(...(u.tab === 'scratch' ? [hint('Ctrl+↵', 'save')] : []), hint('Esc', 'close'));
     return;
   }
   notesPaintPreview();
@@ -432,7 +434,7 @@ function notesPaintTabs() {
   const u = notesUi;
   const tabs = notesTabs();
   u.tabsEl.hidden = tabs.length < 2;
-  const names = { notes: 'Notes', group: 'Group' };
+  const names = { notes: 'Notes', group: 'Group', scratch: 'Scratchpad' };
   u.tabsEl.replaceChildren(...tabs.map((t) => {
     const b = notesButton(`np-tab${t === u.tab ? ' on' : ''}`, names[t], '', () => notesSetTab(t));
     b.setAttribute('role', 'tab');
@@ -458,6 +460,8 @@ function notesPaintBody() {
   if (u.tab === 'group') {
     u.groupSig = groupSignature(notesGroup(u.sub.id));
     u.body.replaceChildren(groupPanel(u.sub.id));
+  } else if (u.tab === 'scratch') {
+    u.body.replaceChildren(scratchPanel(u.sub.id));
   } else {
     u.body.replaceChildren(notesList());
   }
@@ -792,6 +796,7 @@ function notesOnBoard() {
   const missing = (sub.kind === 'card' && !notesCard(sub.id)) || (sub.kind === 'group' && !notesGroup(sub.id));
   if (missing || (!notesOn() && sub.kind !== 'group')) { notesClose(); return; }
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
+  if (u.tab === 'scratch') return; // the page being written is not redrawn under the person's hands
   if (u.tab === 'group') {
     if (groupSignature(notesGroup(sub.id)) === u.groupSig) return;
     const typing = document.activeElement && u.body.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);

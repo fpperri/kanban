@@ -16,7 +16,7 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
 // loads: $, state, api, toast, loadBoard, openCard, localTodayStr, writeSearch, menuSubject,
-// hideContextMenu, openNotes, notesSetTab, notesClose, notesOn, openDelete (delete-ui.js), and groups.js's functions.
+// hideContextMenu, openNotes, notesSetTab, notesClose, notesOn, scratchpadOn, openDelete (delete-ui.js), and groups.js's functions.
 
 const groupsUi = { opener: null, open: false };
 
@@ -398,9 +398,11 @@ function groupPanel(gid) {
   const buttons = groupEl('div', 'gp-btns');
   const note = groupButton('gp-note', '+ Note', notesOn() ? 'A note on this group' : 'The logbook is off', () => notesSetTab('notes'));
   note.disabled = !notesOn();
+  const scratch = groupButton('gp-scratch', 'Scratchpad', scratchpadOn() ? 'This group\'s scratchpad' : 'The scratchpad is off', () => notesSetTab('scratch'));
+  scratch.disabled = !scratchpadOn();
   const show = groupButton('gp-show', 'Show this group’s cards', `Search group:${g.id}`, () => { writeSearch(`group:${g.id}`, 'cue'); notesClose(); });
   const del = groupButton('gp-delete', 'Delete group…', 'Delete this group, and on request its logbook and member cards', () => openDelete('group', [g.id], { onDone: notesClose }));
-  buttons.append(note, show, del);
+  buttons.append(note, scratch, show, del);
 
   wrap.append(head, path, form, groupEl('p', 'gp-sub', `Members (${g.cards.length})`), members, buttons);
   return wrap;

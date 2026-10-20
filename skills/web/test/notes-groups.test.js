@@ -20,6 +20,26 @@ test('a group is a subject of its own, and a mention of it aims a note at it', (
   assert.deepStrictEqual([parsed.mention, parsed.text], ['I2', 'mid-iteration check']);
 });
 
+test('a scratchpad request aims the palette at a card or a group, and at nothing for a target that is no id', () => {
+  const is = { today: CTX.today, isGroup: (id) => id === 'I2' };
+  assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'scratchpad', target: '7' }, is), { kind: 'card', id: '7', day: CTX.today });
+  assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'scratchpad', target: 'I2' }, is), { kind: 'group', id: 'I2', day: CTX.today });
+  assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'scratchpad', target: 'nope' }, is), { kind: 'none', day: CTX.today });
+});
+
+test('the tabs a subject has: Notes with a logbook, Group for a group, Scratchpad for a card or group with the scratchpad on', () => {
+  const on = { notesOn: true, scratchpadOn: true };
+  const card = { kind: 'card', id: '7' };
+  const group = { kind: 'group', id: 'I2' };
+  assert.deepStrictEqual(n.noteTabs(card, { notesOn: true, scratchpadOn: false }), ['notes']);
+  assert.deepStrictEqual(n.noteTabs(card, on), ['notes', 'scratch']);
+  assert.deepStrictEqual(n.noteTabs(group, on), ['notes', 'group', 'scratch']);
+  assert.deepStrictEqual(n.noteTabs(group, { notesOn: false, scratchpadOn: false }), ['group']);
+  assert.deepStrictEqual(n.noteTabs(group, { notesOn: false, scratchpadOn: true }), ['group', 'scratch']);
+  assert.deepStrictEqual(n.noteTabs(card, { notesOn: false, scratchpadOn: true }), ['scratch'], 'a card with the logbook off still has its scratchpad');
+  for (const kind of ['none', 'each', 'slot', 'untimed']) assert.deepStrictEqual(n.noteTabs({ kind }, on), ['notes'], `${kind} has no scratchpad`);
+});
+
 test('a note typed on a group\'s chip is written to the group', () => {
   const plan = n.noteWritePlan(n.noteParseLine('on track except #7', KNOWN), { kind: 'group', id: 'I2', day: CTX.today }, field('10:30'), CTX);
   assert.deepStrictEqual([plan.target, plan.from, plan.at], ['I2', 'chip', '10:30']);
