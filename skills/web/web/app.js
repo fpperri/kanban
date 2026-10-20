@@ -1479,7 +1479,7 @@ function renderMapView() {
   main.scrollTop = keepTop;
 }
 
-const REFOCUS_SELECTOR = '.map-section-toggle, .graph-option-btn, .view-panel-toggle, .view-panel-close';
+const REFOCUS_SELECTOR = '.map-section-toggle, .graph-option-btn, .graph-info-toggle, .view-panel-toggle, .view-panel-close';
 
 // What finds a rebuilt control again after a render: its class and what names it, a fold
 // toggle's section, a panel button its view, or for a button of the
@@ -1487,6 +1487,7 @@ const REFOCUS_SELECTOR = '.map-section-toggle, .graph-option-btn, .view-panel-to
 function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
+  if (el.dataset.graphInfo !== undefined) return '.graph-info-toggle';
   if (el.dataset.panel !== undefined) return `.${el.classList[0]}${named('panel')}`;
   if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
   return `.${el.classList[0]}${named('section')}`;

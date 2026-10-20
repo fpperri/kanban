@@ -1504,8 +1504,7 @@ to `127.0.0.1` only.
   buttons and option row (Tiers), stand in an `<aside class="view-panel">` on the right of the view, built
   by `buildViewPanel` in app.js, which `graphBuildPanel` and `buildMapPanel` fill. One icon button
   (`.view-panel-toggle`, a rectangle with a bar on its right, `aria-label="Options panel"`, `aria-expanded`)
-  opens and closes it, at the top right, the side the panel comes out of: it ends the Map's top row
-  (`.view-bar`, which holds only that button) and the Graph's top row (after the card count). The Graph's key and card count stay in the view; its status pills are in the search panel's Statuses section. The
+  opens and closes it, at the top right, the side the panel comes out of: it floats in the top-right corner of the Map (`.view-bar`, which holds only that button, and stays put while `.map-main` scrolls) and of the Graph (`.graph-controls`, beside the (i) button). The Graph's card count and key sit behind that (i) button (`.graph-info-toggle`, `aria-pressed`, off by default, remembered per board); they stay in the DOM, hidden by a class while it is off. The Graph's status pills are in the search panel's Statuses section. The
   Map's graphs scroll in `.map-main` beside the panel, and the pan, the zoom and Fit read and move that
   element (`mapMain`). Closed, the panel is not built at all, so the view has its width back and no
   control of it can take focus; the Graph then frames an untouched view again in the new width

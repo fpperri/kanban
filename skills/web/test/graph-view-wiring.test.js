@@ -73,12 +73,13 @@ test('every focusable control carries graph-control', () => {
   assert.ok(!src.includes('graph-filter-toggle'), 'the Graph builds no status pill');
 });
 
-test('the Graph top row is the count and the option button, with no status pill row', () => {
+test('the Graph top row is the (i) and the option button, the count and the key behind the (i), with no status pill row', () => {
   const build = fn('graphBuildControls');
   assert.doesNotMatch(build, /buildFilterPillRow|graph-filter-row|filter/);
   assert.match(build, /graph-count/);
   assert.match(build, /buildViewPanelToggle\('graph'/);
   assert.match(build, /graph-key/);
+  assert.match(build, /graph-info-toggle/);
   assert.ok(!/graph-filter-(row|toggle)/.test(css), 'app.css has no Graph pill rule');
   const app = read('app.js');
   assert.ok(!/function buildFilterPillRow\(/.test(app), 'the per-view pill builder is gone');
