@@ -10,8 +10,8 @@ const { tap } = require('../../steps');
 module.exports = {
   async run(page) {
     const { ev, open, waitFor, check } = page;
-    const hasCard = '/[?&]card=\d+(&|$)/.test(location.search)';
-    const noCard = '!/card=\d+/.test(location.search)';
+    const hasCard = 'new URLSearchParams(location.search).has("card")';
+    const noCard = '!new URLSearchParams(location.search).has("card")';
     const shown = (sel) => `(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).display!=='none'})()`;
 
     await open('/');
@@ -25,7 +25,7 @@ module.exports = {
 
     const row = await ev(`(()=>{const q=(s)=>{const r=document.querySelector(s).getBoundingClientRect();return {l:r.left,r:r.right,t:r.top,b:r.bottom}};return {back:q('#detail-back-btn'),edit:q('#detail-edit-btn'),archive:q('#detail-archive-btn'),del:q('#detail-delete-btn'),w:innerWidth}})()`);
     const sameRow = ['edit', 'archive', 'del'].every((k) => row[k].t < row.back.b && row[k].b > row.back.t);
-    check('back and the three buttons are on one row, back at the left and the three at the right', sameRow && row.back.l < row.edit.l && row.del.r > row.w - 40, row);
+    check('back and the three buttons are on one row, back at the left and the three at the right', sameRow && row.back.l < row.edit.l && row.back.r < row.edit.l && row.del.r > row.w - 40, row);
     check('full screen, close and copy path are hidden', !(await ev(shown('#detail-fullscreen-btn'))) && !(await ev(shown('#detail-close'))) && !(await ev(shown('#detail-copy-btn'))));
     check('there is no status selector in the detail', await ev(`!document.querySelector('#detail-modal select')`));
 
