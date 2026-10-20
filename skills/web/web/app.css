@@ -428,6 +428,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    which pushes every full-width phone box past the screen. Under 760 px they wrap onto a second row until the phone header takes them. */
 @media (max-width: 759.98px) {
   .actions { flex-wrap: wrap; min-width: 0; }
+  .cal-controls { flex-wrap: wrap; }
 }
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; box-shadow: var(--shadow); padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
 /* The text column. min-width:0 is load-bearing: without it a long unbroken
