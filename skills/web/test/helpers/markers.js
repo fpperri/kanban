@@ -135,6 +135,8 @@ function elementOf(tag) {
   return { classList: cls.split(/\s+/).filter(Boolean), dataset };
 }
 
+const viewBarTags = () => (html.match(/<nav id="view-bar"[\s\S]*?<\/nav>/) || [''])[0].match(/<button[^>]*>/g) || [];
+
 const STATIC = (id) => () => staticTag(id);
 const SITES = (cls) => () => templateSites(appSrc, cls);
 
@@ -149,6 +151,7 @@ const CONTROLS = {
   '#calendar-toggle-btn': STATIC('calendar-toggle-btn'),
   '#gantt-toggle-btn': STATIC('gantt-toggle-btn'),
   '#graph-toggle-btn': STATIC('graph-toggle-btn'),
+  '.view-bar-btn': viewBarTags,
   '.date-picker-pop': datePickerTags,
   '.cal-nav': SITES('cal-nav'),
   '.cal-span-cycle': SITES('cal-span-cycle'),

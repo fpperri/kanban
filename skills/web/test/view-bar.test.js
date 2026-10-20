@@ -1,0 +1,57 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const { loadPage } = require('./helpers/page-vm');
+const { assertKeepsSelection, tagsOf } = require('./helpers/markers');
+
+const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+const BOARD = { projectName: 'k', statuses: ['todo'], priorities: [], assignees: [], tags: [], types: [], active: [], archived: [] };
+const MODES = ['board', 'calendar', 'gantt', 'map', 'graph'];
+
+test('the view bar is a nav right after the Graph with one button per view, each keeping the selection', () => {
+  assert.match(html, /<div id="graph-view"[^>]*><\/div>\s*<nav id="view-bar"/);
+  const tags = tagsOf('.view-bar-btn');
+  assert.deepStrictEqual(tags.map((t) => t.match(/data-view="(\w+)"/)[1]), MODES);
+  for (const t of tags) assert.doesNotMatch(t, /data-view-toggle|\sstyle=|\son[a-z]+=/, t);
+  assertKeepsSelection(['.view-bar-btn'], 'a view bar button');
+});
+
+test('the bar buttons are empty slots the page fills once from the views table', async () => {
+  const page = await loadPage({ board: BOARD }).start();
+  assert.strictEqual(typeof page.run('fillViewBar'), 'function');
+  const slots = html.match(/<nav id="view-bar"[\s\S]*?<\/nav>/)[0];
+  assert.strictEqual((slots.match(/class="btn-icon"/g) || []).length, 5);
+  assert.strictEqual((slots.match(/class="btn-label"/g) || []).length, 5);
+});
+
+test('setView assigns the view and never toggles it', async () => {
+  const page = await loadPage({ board: BOARD, stored: { 'kanban.k.view.mode': 'graph' } }).start();
+  const view = () => page.run('loadViewMode()');
+  assert.strictEqual(view(), 'graph');
+  page.run("setView('graph')");
+  assert.strictEqual(view(), 'graph', 'the current view stays');
+  page.run("setView('board')");
+  assert.strictEqual(view(), 'board');
+  page.run("setView('board')");
+  assert.strictEqual(view(), 'board', 'the Board is not a toggle back');
+  page.run("setView('calendar')");
+  assert.strictEqual(view(), 'calendar');
+});
+
+test('setView sits directly above toggleView', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  assert.match(src, /function setView\(mode\) \{[\s\S]*?\n\}\n\n(?:\/\/[^\n]*\n)*function toggleView/);
+});
+
+test('at phone width every view is 100dvh minus the header and the bar, the Board also the tab strip; from 760 px the bar is off', () => {
+  assert.match(css, /\n#view-bar \{ display: none;/);
+  const phone = css.split('@media (max-width: 759.98px) {').slice(1).join('\n');
+  assert.match(phone, /#view-bar \{[^}]*display: flex;[^}]*env\(safe-area-inset-bottom\)/);
+  for (const sel of [String.raw`.map-view, .graph-view`, String.raw`.calendar-view, .gantt-view`]) {
+    assert.match(phone, new RegExp(String.raw`${sel} \{[^}]*height: calc\(100dvh - var\(--board-header-h, 64px\) - 48px - var\(--view-bar-h`), sel);
+  }
+  assert.match(phone, /main#board \{[^}]*height: calc\(100dvh - var\(--board-header-h, 64px\) - 48px - 48px - var\(--view-bar-h/);
+  assert.match(phone, /\.actions > \[data-view-toggle\] \{ display: none; \}|\[data-view-toggle\][^{}]*\{ display: none; \}/);
+});

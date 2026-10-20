@@ -1071,6 +1071,19 @@ function openLeavesNote(cards, status) {
   return openLeavesWarning(cards.map((c) => ({ id: c.id, open: index.openLeafCount(c.id) })));
 }
 
+// A view bar button assigns its view: unlike toggleView, a tap on the current view stays on it, and
+// the Board is a place to go, never a toggle back. The selection rule is toggleView's.
+function setView(mode) {
+  const from = loadViewMode();
+  viewMode = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
+  saveViewMode();
+  const boxText = isolateNow() ? '' : $('#search-input').value;
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText });
+  if (kept !== selectionState.selection) setSelection(kept);
+  renderBoard();
+  moveViewToNearestMatch();
+}
+
 // Each header toggle flips between its own view and the board: map ⇄ board,
 // calendar ⇄ board — and pressing one while the OTHER view is active jumps
 // straight to the pressed view (no board stopover).
@@ -1137,6 +1150,20 @@ function paintViewButtons(mode) {
     if (label && label.textContent !== row.label) label.textContent = row.label;
     const icon = el.querySelector('.btn-icon');
     if (icon && icon.dataset.icon !== row.icon) icon.dataset.icon = row.icon;
+  }
+  paintIconSlots();
+}
+
+// The view bar's words and icons, written once from VIEW_TABLE: the idle label of each view with its
+// " view" tail dropped, and the table's icon. Pressed state is the painter's.
+function fillViewBar() {
+  for (const el of document.querySelectorAll('#view-bar [data-view]')) {
+    const row = VIEW_TABLE.find((v) => v.id === el.dataset.view);
+    if (!row) continue;
+    const label = el.querySelector('.btn-label');
+    if (label) label.textContent = row.label.replace(/ view$/, '');
+    const icon = el.querySelector('.btn-icon');
+    if (icon) icon.dataset.icon = row.icon;
   }
   paintIconSlots();
 }
@@ -3778,6 +3805,8 @@ window.addEventListener('DOMContentLoaded', () => {
 //   nothing to open and never gets data-id.
 window.addEventListener('DOMContentLoaded', () => {
   $('#map-toggle-btn').addEventListener('click', () => toggleView('map'));
+  fillViewBar();
+  for (const btn of document.querySelectorAll('#view-bar [data-view]')) btn.addEventListener('click', () => setView(btn.dataset.view));
   $('#map-view').addEventListener('click', (e) => {
     const panelBtn = e.target.closest('.view-panel-toggle[data-panel], .view-panel-close[data-panel]');
     if (panelBtn) { pressViewPanelButton(panelBtn, renderMapView); return; }

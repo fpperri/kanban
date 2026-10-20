@@ -289,7 +289,7 @@ button:hover { background: var(--btn-hover); }
   .more-btn svg { width: 15px; height: 15px; }
   .search-bar { order: 4; flex: 1 1 100%; max-width: none; min-width: 0; }
   .more-menu:not(.hidden) { display: flex; }
-  #refresh-btn, #prefs-btn, #board-copy-btn, .home-link, .iter-select { display: none; }
+  #refresh-btn, #prefs-btn, #board-copy-btn, .home-link, .iter-select, .actions > [data-view-toggle] { display: none; }
   .more-iter .iter-select { display: block; }
   .actions > button { position: relative; padding: 6px 8px; }
   .actions > button:has(.btn-icon) { gap: 0; }
@@ -442,6 +442,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    The strip is hidden from 760 px; the column's own header row (sort, collapse, +, AI +) goes,
    since the tab names the status and the tab strip is the only chrome the phone Board needs. */
 .board-tabs { display: none; }
+/* The view bar: five views at the bottom of a phone, each a line icon over a word. Hidden from 760 px, where the header's view buttons stand. */
+#view-bar { display: none; }
+@media (max-width: 759.98px) { :root { --view-bar-h: calc(56px + env(safe-area-inset-bottom)); } }
 @media (max-width: 759.98px) {
   .board-tabs { display: flex; gap: 4px; height: 40px; margin-bottom: 8px; overflow-x: auto; flex-wrap: nowrap; }
   .board-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: .2rem; color: var(--mut); font-weight: 600; font-size: 0.85em; cursor: pointer; }
@@ -452,7 +455,13 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
   .board-tab-done { color: var(--st-done); }
   .board-tab-archive { color: var(--st-archive); }
   .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
-  main#board { overflow-x: hidden; height: calc(100vh - var(--board-header-h, 64px) - 48px - 48px); }
+  main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h)); }
+  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); }
+  .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); overflow: auto; }
+  #view-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 14; display: flex; height: var(--view-bar-h); padding-bottom: env(safe-area-inset-bottom); background: var(--paper); border-top: 1px solid var(--line-strong); }
+  #view-bar .view-bar-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; background: transparent; border: 0; border-radius: 0; color: var(--mut); font-size: 0.7em; }
+  #view-bar .view-bar-btn .btn-icon svg { width: 22px; height: 22px; display: block; }
+  #view-bar .view-bar-btn[aria-pressed="true"] { color: var(--accent-strong); font-weight: 600; }
   .column { min-width: 0; }
   .column-header { display: none; }
 }

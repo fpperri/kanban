@@ -28,6 +28,7 @@ const PAGE_GLOBALS = [
   'renderCalendarView',
   'renderGraphView',
   'selectedIds',
+  'selectionFromParts',
   'selectionState',
   'setSelection',
   'settingsRenderBoard',
