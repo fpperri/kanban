@@ -26,6 +26,17 @@ const makeBoard = () => ({
 });
 
 const hidden = () => { const el = control(); el.classList.add('hidden'); return el; };
+const spied = (el) => {
+  el.attrs = {};
+  el.setAttribute = (k, v) => { el.attrs[k] = String(v); };
+  return el;
+};
+const chipEl = () => {
+  const el = spied(hidden());
+  let text = '';
+  Object.defineProperty(el, 'textContent', { get: () => text, set: (v) => { text = String(v); } });
+  return el;
+};
 const withStyle = () => {
   const dom = fakeDom();
   return { createElement: (tag) => Object.assign(dom.createElement(tag), { style: {} }) };
@@ -47,11 +58,11 @@ async function open({ view = 'gantt', stored = {} } = {}) {
   for (const sel of ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#search-panel']) elements[sel] = hidden();
   elements['#search-statuses'] = host();
   elements['#search-statuses-section'] = control();
-  elements['#search-statuses-fold'] = control();
+  elements['#search-statuses-fold'] = spied(control());
   elements['#search-slices'] = host();
   elements['#search-slices-section'] = hidden();
   elements['#search-pills'] = host();
-  elements['#search-chip'] = hidden();
+  elements['#search-chip'] = chipEl();
   const storage = { 'kanban.kanban.view.mode': view, ...stored };
   const page = await loadPage({ board: makeBoard(), stored: storage, elements, documentExtras: { createElement: () => control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
@@ -205,6 +216,61 @@ test('the fold control folds and unfolds the pill host for the visit, open to st
   assert.strictEqual(s.pills.classList.contains('hidden'), false);
 });
 
+test('the section starts folded when the preference says so, and the fold control still unfolds it for the visit', async () => {
+  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ statusesFolded: true }) } });
+  assert.strictEqual(s.pills.classList.contains('hidden'), true);
+  assert.strictEqual(s.elements['#search-statuses-fold'].attrs['aria-expanded'], 'false');
+  s.elements['#search-statuses-fold'].fire('click', {});
+  assert.strictEqual(s.pills.classList.contains('hidden'), false);
+  assert.strictEqual(s.elements['#search-statuses-fold'].attrs['aria-expanded'], 'true');
+});
+
+test('the preference changing in the sheet folds and unfolds the section now', async () => {
+  const s = await open();
+  s.page.run('foldSearchStatuses(true)');
+  assert.strictEqual(s.pills.classList.contains('hidden'), true);
+  s.page.run('foldSearchStatuses(false)');
+  assert.strictEqual(s.pills.classList.contains('hidden'), false);
+});
+
+// --- the chip -----------------------------------------------------------------------------------
+
+const chip = (s) => {
+  const el = s.elements['#search-chip'];
+  return { hidden: el.classList.contains('hidden'), text: el.textContent, name: el.attrs['aria-label'] };
+};
+
+test('closed, the search chip counts the statuses switched off in the view and names them, so a hidden status is never invisible', async () => {
+  const s = await open({ view: 'gantt' });
+  assert.deepStrictEqual(chip(s), { hidden: true, text: '', name: '' }, 'every status on: no chip (the Gantt starts with Archive off, its default)');
+  s.tap('done');
+  assert.deepStrictEqual(chip(s), { hidden: false, text: '1', name: '1 on: done hidden' });
+  s.tap('todo');
+  assert.deepStrictEqual(chip(s), { hidden: false, text: '2', name: '2 on: todo hidden, done hidden' });
+  s.tap('done');
+  s.tap('todo');
+  assert.strictEqual(chip(s).hidden, true, 'every status back on, no chip');
+});
+
+test('the chip reads the registry, so the Map counts Archive when it is switched off and the Calendar and the Graph do not', async () => {
+  const map = await open({ view: 'map' });
+  assert.strictEqual(chip(map).hidden, true, 'the Map starts with Archive on');
+  map.tap('archive');
+  assert.deepStrictEqual(chip(map), { hidden: false, text: '1', name: '1 on: archive hidden' });
+  const cal = await open({ view: 'calendar' });
+  assert.strictEqual(chip(cal).hidden, true);
+  cal.tap('doing');
+  assert.strictEqual(chip(cal).text, '1');
+});
+
+test('a status switched off in the view shows on the chip after a reload, and the Board, which has no status pills, counts none', async () => {
+  const stored = { 'kanban.kanban.gantt.statusFilter': JSON.stringify({ backlog: false, todo: true, doing: true, done: true, archive: false }) };
+  const gantt = await open({ view: 'gantt', stored });
+  assert.deepStrictEqual(chip(gantt), { hidden: false, text: '1', name: '1 on: backlog hidden' });
+  const board = await open({ view: 'board', stored });
+  assert.strictEqual(chip(board).hidden, true);
+});
+
 // --- the source ------------------------------------------------------------------------------
 
 const fs = require('node:fs');
@@ -244,4 +310,16 @@ test('the section is drawn in place by status, through the registry, with one cl
   assert.doesNotMatch(code, /map-filter-toggle|gantt-filter-toggle|calendar-filter-toggle|graph-filter-toggle|map-section-toggle/, 'it never names the per-view pill classes');
   assert.doesNotMatch(code, /setSelection|selectionState|selectedIds/, 'it never touches the selection');
   assert.doesNotMatch(code, /setAttribute\('style'|style=|innerHTML|onclick/);
+});
+
+test('the phone rules for the panel and its pills sit in one phone block at the end of the search block, in existing tokens only', () => {
+  const css = read('app.css');
+  const end = css.indexOf('/* End search box and search panel */');
+  const start = css.indexOf('@media (max-width: 759.98px) {', css.indexOf('.status-pill:focus-visible'));
+  assert.ok(start > -1 && start < end, 'the block is inside the search block, after the status pill rules');
+  const block = css.slice(start, end);
+  assert.strictEqual(block.split('@media').length - 1, 1, 'one block');
+  assert.match(block, /\.search-panel \{[^}]*max-height:[^}]*overflow-y: auto/);
+  assert.match(block, /\.status-pill \{[^}]*min-height: 44px/);
+  assert.doesNotMatch(block, /#[0-9a-f]{3,8}\b|rgb\(/i, 'no colour of its own');
 });

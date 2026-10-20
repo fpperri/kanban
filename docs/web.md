@@ -225,7 +225,7 @@ the preferences sheet is up. The arrow is announced as pressed while the switch 
 is struck through while it is off, the choice is kept in your browser per board, and the
 preferences sheet shows and sets it. The panel adds nothing to the header's height. It opens with a Statuses section, the current
 view's own status pills (the Map, the Gantt, the Calendar and the Graph; none on the Board), where
-a tap switches a status and a right-click solos it. Under it the panel
+a tap switches a status and a right-click solos it. The search chip counts the statuses switched off, so a hidden one shows with the panel closed. Under it the panel
 lists the built-in pills, blocked, review and waiting, each with a count of the cards its
 query matches, done cards included. The counts are taken over the cards the view shows
 after its status pills and Archive, and before the search box, so turning one pill on
@@ -384,6 +384,8 @@ back button.
 - *Slice section starts folded* is on by default. It says how the search panel's slice
   section starts; its fold control still unfolds it for the visit.
 - *Pill section starts folded* is off by default. It says how the search panel's pill
+  section starts; its fold control still folds it for the visit.
+- *Status section starts folded* is off by default. It says how the search panel's Statuses
   section starts; its fold control still folds it for the visit.
 - *Panel opens when the search box is focused* is on by default. It is the switch at the
   end of the search box, the same choice the arrow and the `p` key flip, so each shows
