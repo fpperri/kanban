@@ -11,10 +11,12 @@
 const cs = require('./card-store');
 const gs = require('./group-store');
 const lb = require('./logbook-store');
+const sp = require('./scratchpad-store');
 const ids = require('../web/ids');
 
 const SWEEPS = {
   logbook: (dir, target) => lb.deleteTargetFiles(dir, target),
+  scratchpad: (dir, target) => sp.deleteTargetFiles(dir, target),
 };
 
 // Run the extras the options ask for on one target: { logbook: 2 } for what was asked, nothing

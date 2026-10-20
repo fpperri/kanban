@@ -98,6 +98,18 @@ test('a folder set by hand outside the board shows locked with the reason', asyn
   });
 });
 
+test('the scratchpad is a folder feature like the logbook: off without the line, locked when set by hand outside the board', async () => {
+  await withServer(tmpBoard(), async (base) => {
+    assert.deepStrictEqual((await req(base, 'GET', '/api/board')).json.settings.scratchpad, { on: false, folder: '', locked: false, reason: '' });
+  });
+  await withServer(tmpBoard({ config: 'scratchpad: ../pads\n' }), async (base) => {
+    const { scratchpad } = (await req(base, 'GET', '/api/board')).json.settings;
+    assert.strictEqual(scratchpad.locked, true);
+    assert.match(scratchpad.reason, /outside the board/);
+    assert.strictEqual((await set(base, 'scratchpad', null)).status, 409);
+  });
+});
+
 // --- on and off -----------------------------------------------------------------------
 
 test('switching the logbook off removes its line and every other byte stays; on writes it back in place', async () => {
@@ -123,6 +135,20 @@ test('a feature switched on on a bare board writes its line below the id lines',
     await set(base, 'logbook', 'logbook');
     await set(base, 'groups', '.groups');
     assert.strictEqual(config(dir), '# c\nname: t\nnextId: 5\nlogbook: logbook\ngroups: .groups\nassignees:\n  - handle: "@a"\n');
+  });
+});
+
+test('the scratchpad line goes below the logbook line, and the groups line below it', async () => {
+  const dir = tmpBoard({ config: 'name: t\nnextId: 5\nlogbook: logbook\nassignees:\n  - handle: "@a"\n' });
+  await withServer(dir, async (base) => {
+    const on = await set(base, 'scratchpad', '.scratchpad');
+    assert.strictEqual(on.status, 200);
+    assert.strictEqual(on.json.settings.scratchpad.on, true);
+    await set(base, 'groups', '.groups');
+    assert.strictEqual(config(dir), 'name: t\nnextId: 5\nlogbook: logbook\nscratchpad: .scratchpad\ngroups: .groups\nassignees:\n  - handle: "@a"\n');
+    assert.strictEqual((await set(base, 'scratchpad', '../out')).status, 400, 'a folder from the page sits inside the board');
+    await set(base, 'scratchpad', null);
+    assert.strictEqual(config(dir), 'name: t\nnextId: 5\nlogbook: logbook\ngroups: .groups\nassignees:\n  - handle: "@a"\n');
   });
 });
 

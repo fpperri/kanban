@@ -34,7 +34,7 @@ class ScratchpadError extends Error {
 
 const FILE_RE = /^([^.]+)\.scratchpad\.md$/;
 const FRONT_RE = /^---[ \t]*\r?\n(?:[\s\S]*?\r?\n)??---[ \t]*(?:\r?\n|$)/;
-const MAX_PAD = 1000000;
+const MAX_PAD = 300000; // under the server's request limit even when every new line is escaped
 
 // The scratchpad folder as an absolute path, or null when the board keeps none. Relative to the
 // board; a hand-written absolute path or one that leaves the board is honoured.
