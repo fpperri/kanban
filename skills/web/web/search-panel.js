@@ -171,15 +171,16 @@ function syncPillButtons(host, rows, selection) {
     (button, row) => (row.kind === 'more' ? updateMoreButton(button, row) : updatePillButton(button, row, pillIsOn(selection, row))));
 }
 
-// The chip a closed panel shows: how many things are on (the pills, a run of slices that cuts,
-// and isolate), and a name that says which, for a screen reader (its accessible name) and as its
+// The chip a closed panel shows: how many things are on (the pills, the statuses switched off in the
+// view, a run of slices that cuts, and isolate), and a name that says which, for a screen reader (its accessible name) and as its
 // hover text. While isolate is on the chip reads "isolated", not a number, so a box that hides
 // cards says why; the pills and the cut that are on are still in its name.
 function syncSearchChip(selection) {
   const chip = $('#search-chip');
   if (!chip) return;
   const isolated = isolateNow() !== null;
-  const names = pillsOn(selection, searchPanelEntries()).map((pill) => pill.label).concat(searchSlicesChipNames(), isolated ? ['isolated'] : []);
+  const names = pillsOn(selection, searchPanelEntries()).map((pill) => pill.label)
+    .concat(searchStatusesChipNames(), searchSlicesChipNames(), isolated ? ['isolated'] : []);
   const { count, name } = panelChip(names);
   chip.classList.toggle('hidden', !count || searchPanelOpen);
   chip.textContent = isolated ? 'isolated' : count ? String(count) : '';

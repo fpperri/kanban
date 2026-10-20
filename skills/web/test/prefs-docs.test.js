@@ -83,6 +83,13 @@ test('the human docs describe the gear, each setting, where they are kept and ho
   assert.match(text, /closes with Esc, a click outside it or its close button, and focus goes back to the gear/);
 });
 
+test('the preferences entry of each lists the Statuses section starting folded, off by default, right after the pill one', () => {
+  for (const [where, text] of [['the web skill', skillBullet()], ['the web docs', docSection()]]) {
+    assert.match(text, /Pill section starts folded[^]*Status section starts folded[^]*Panel opens when the search box is focused/, where);
+    assert.match(text, /Status section starts folded\*{0,2} is off by default/, where);
+  }
+});
+
 test('neither doc describes a Bar select or an Archived checkbox in the header', () => {
   for (const text of [flat(webSkill), flat(webDoc)]) {
     assert.doesNotMatch(text, /Bar select|Archived checkbox|\*\*Bar\*\* select|\*\*Archived\*\* checkbox/);

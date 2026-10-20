@@ -332,6 +332,10 @@ button:hover { background: var(--btn-hover); }
 .status-pill.off { color: var(--mut); text-decoration: line-through; }
 .status-pill:hover { background: var(--btn-bg); }
 .status-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 759.98px) {
+  .search-panel { max-height: 70vh; overflow-y: auto; }
+  .status-pill { min-height: 44px; padding: 2px 14px; font-size: 0.9em; }
+}
 /* End search box and search panel */
 /* Signals a collapsed column that still has hits — the count itself
    already reads matching/total, this just adds a visual nudge to notice it. */

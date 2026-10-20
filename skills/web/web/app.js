@@ -968,6 +968,14 @@ function setPillsFolded(on) {
   foldSearchPills(on);
 }
 
+// Whether the search panel's Statuses section starts folded; the section takes the choice now
+// (search-statuses.js).
+function setStatusesFolded(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { statusesFolded: on });
+  savePrefsState();
+  foldSearchStatuses(on);
+}
+
 // Whether the search panel's slice section starts folded; the section takes the choice now
 // (search-slices.js).
 function setSlicesFolded(on) {
@@ -1002,6 +1010,7 @@ function syncPrefsSheet() {
   $('#prefs-archived-done').checked = countArchivedLeaves();
   $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
+  $('#prefs-statuses-folded').checked = loadPrefsState().statusesFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
 
@@ -6408,6 +6417,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
   $('#prefs-slices-folded').addEventListener('change', (e) => setSlicesFolded(e.target.checked));
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
+  $('#prefs-statuses-folded').addEventListener('change', (e) => setStatusesFolded(e.target.checked));
   $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
