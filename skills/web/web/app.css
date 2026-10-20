@@ -536,6 +536,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.drop-before { box-shadow: 0 -4px 0 0 var(--accent); }
 .card.drop-after { box-shadow: 0 4px 0 0 var(--accent); }
 .card.archived-card { cursor: pointer; }
+@media (max-width: 759.98px) {
+  .card { touch-action: pan-y pinch-zoom; }
+}
 /* The head wraps: a tile carrying its id, priority, assignee and both stickers
    moves the overflow to a second line instead of running under the date stack
    beside it. The id keeps its priority label on the same line. */

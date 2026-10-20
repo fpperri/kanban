@@ -270,9 +270,29 @@ function phoneTabs(statuses, counts, active, narrowed) {
   });
 }
 
+// A swipe on the phone Board: at least 60 px sideways, at least 1.5 times the vertical distance,
+// in under 700 ms. A leftward swipe goes to the next status, a rightward one to the previous.
+const SWIPE_MIN_PX = 60;
+const SWIPE_RATIO = 1.5;
+const SWIPE_MAX_MS = 700;
+
+function swipeDirection(dx, dy, ms) {
+  if (ms >= SWIPE_MAX_MS || Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < SWIPE_RATIO * Math.abs(dy)) return null;
+  return dx < 0 ? 'next' : 'prev';
+}
+
+// The status a swipe moves to; the ends do not wrap.
+function neighbourPhoneColumn(statuses, active, direction) {
+  const ids = columnIdsFor(statuses);
+  const at = ids.indexOf(active);
+  if (at < 0) return active;
+  const to = at + (direction === 'next' ? 1 : -1);
+  return to < 0 || to >= ids.length ? active : ids[to];
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    activePhoneColumn, phoneTabs,
+    activePhoneColumn, phoneTabs, swipeDirection, neighbourPhoneColumn,
     COLUMN_IDS, COLUMN_LABELS, DEFAULT_COLLAPSED, DEFAULT_STATUSES,
     liveStatuses, columnIdsFor, columnForStatus, columnLabel, defaultCollapsed,
     showsColumnAdd, storageKey, mergeCollapsedState,
@@ -314,4 +334,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.nextRollupBar = nextRollupBar;
   window.activePhoneColumn = activePhoneColumn;
   window.phoneTabs = phoneTabs;
+  window.swipeDirection = swipeDirection;
+  window.neighbourPhoneColumn = neighbourPhoneColumn;
 }
