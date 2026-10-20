@@ -21,6 +21,7 @@ const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, 
 const appSrc = read('app.js');
 const graphSrc = read('graph-view.js');
 const html = read('app.html');
+const statusesSrc = read('search-statuses.js');
 
 function fn(name, src = appSrc) {
   const m = src.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n\\}`));
@@ -62,6 +63,16 @@ function pillTags(pillClass) {
   const sandbox = { document: { createElement: fakeNode }, columnLabel: (c) => c, statusColorVar: () => '' };
   vm.runInNewContext(fn('buildFilterPillRow'), sandbox);
   return sandbox.buildFilterPillRow({}, ['todo', 'archive'], 'row', pillClass, () => 'title').children.map((b) => b.tagText);
+}
+
+function statusPillTags() {
+  const sandbox = { columnLabel: (c) => c, statusColorVar: () => '', statusFilterTitle: () => 'title' };
+  vm.runInNewContext(fn('statusPillTitle', statusesSrc) + fn('buildStatusPill', statusesSrc) + fn('updateStatusPill', statusesSrc) + 'const STATUS_PILL_SOLO_HINT = "";', sandbox);
+  const node = (tag) => Object.assign(fakeNode(tag), {
+    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
+    classList: { toggle() {} },
+  });
+  return ['todo', 'archive'].map((col) => sandbox.buildStatusPill({ createElement: node }, 'gantt', col, true).tagText);
 }
 
 function graphButtonTags() {
@@ -140,10 +151,12 @@ const CONTROLS = {
   '#graph-toggle-btn': STATIC('graph-toggle-btn'),
   '.date-picker-pop': datePickerTags,
   '.cal-nav': SITES('cal-nav'),
+  '.cal-span-cycle': SITES('cal-span-cycle'),
   '.map-filter-toggle': () => pillTags('map-filter-toggle'),
   '.gantt-filter-toggle': () => pillTags('gantt-filter-toggle'),
   '.calendar-filter-toggle': () => pillTags('calendar-filter-toggle'),
   '.graph-filter-toggle': () => pillTags('graph-filter-toggle graph-control'),
+  '.status-pill': statusPillTags,
   '.map-section-toggle': sectionToggleTags,
   '.view-panel-toggle': () => panelButtonTags().slice(0, 1),
   '.view-panel-close': () => panelButtonTags().slice(1),

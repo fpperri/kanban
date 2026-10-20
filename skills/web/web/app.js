@@ -4296,6 +4296,9 @@ function renderCalendarView() {
       `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${CAL_SUBVIEW_LABELS[sv]}</button>`).join('') +
     `</span>` +
+    // The span cycle button: on a phone it stands in for the span switch (app.css hides one and shows the other).
+    // It shows the current span and a cycle mark; a screen reader hears the span a tap moves to.
+    `<button type="button" class="cal-span-cycle cal-nav" data-keeps-selection data-holds-poll aria-label="Span: ${CAL_SUBVIEW_LABELS[subview]}. Change to ${CAL_SUBVIEW_LABELS[nextSubview(CALENDAR_SUBVIEWS, subview)]}">${CAL_SUBVIEW_LABELS[subview]} &#8635;</button>` +
     // The Notes switch: only where notes are drawn (the time grids of a board with a logbook).
     (subview !== 'month' && notesOn()
       ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>`
@@ -4892,6 +4895,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // prev/today/next — all four button sets are rebuilt every render.
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setCalendarSubview(sv.dataset.subview); return; }
+    if (e.target.closest('.cal-span-cycle')) { setCalendarSubview(nextSubview(CALENDAR_SUBVIEWS, loadCalendarSubview())); return; }
     if (e.target.closest('#cal-prev-btn')) { shiftCalendarWindow(-1); return; }
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
     if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); return; }
@@ -5086,7 +5090,8 @@ function buildGanttControls() {
     GANTT_SUBVIEWS.map((sv) =>
       `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${GANTT_SUBVIEW_LABELS[sv]}</button>`).join('') +
-    `</span>`;
+    `</span>` +
+    `<button type="button" class="cal-span-cycle cal-nav" data-keeps-selection data-holds-poll aria-label="Span: ${GANTT_SUBVIEW_LABELS[subview]}. Change to ${GANTT_SUBVIEW_LABELS[nextSubview(GANTT_SUBVIEWS, subview)]}">${GANTT_SUBVIEW_LABELS[subview]} &#8635;</button>`;
   return controls;
 }
 
@@ -5488,6 +5493,7 @@ function wireGanttPointerDrag() {
     if (filterBtn) { keepControlFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setGanttSubview(sv.dataset.subview); return; }
+    if (e.target.closest('.cal-span-cycle')) { setGanttSubview(nextSubview(GANTT_SUBVIEWS, loadGanttSubview())); return; }
     if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
     if (e.target.closest('#gantt-next-btn')) { shiftGanttWindow(1); return; }
     if (e.target.closest('#gantt-today-btn')) { ganttAnchor = null; renderGanttView(); }

@@ -36,6 +36,15 @@ test('both describe the arrow at the end of the box as the panel\'s switch: on, 
   }
 });
 
+test("both list the Statuses section first: the current view's status pills, a tap and a right-click as the view's own, none on the Board", () => {
+  assert.match(skillPanel, /five regions, drawn on their own: the \*\*Statuses section\*\* first, then the \*\*slice section\*\*/);
+  assert.match(skillPanel, /for the Map, the Gantt, the Calendar and the Graph/);
+  assert.match(skillPanel, /a tap on a pill switches that status in the view and a right-click solos it/);
+  assert.match(skillPanel, /hidden on the Board, still shows when the view's filter hides every card/);
+  assert.match(docsPanel, /opens with a Statuses section/);
+  assert.match(docsPanel, /none on the Board/);
+});
+
 test('both say the p key flips the same switch, and when it does nothing', () => {
   for (const [where, text] of BOTH) {
     assert.match(text, /`p` key flips the same switch/, where);

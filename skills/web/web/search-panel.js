@@ -191,6 +191,7 @@ function syncSearchChip(selection) {
 // only while the panel is open, since a closed panel shows no count.
 function renderSearchPanel() {
   applyPillsFold();
+  renderSearchStatuses();
   renderSearchSlices();
   syncSearchSwitch();
   syncIsolateSwitch();
