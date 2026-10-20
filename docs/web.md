@@ -437,8 +437,8 @@ length and `auto_join` on.
 groups lose the card: its id always leaves every group's list. **Its logbook** (the count of its
 notes) is a box left unticked; unticked, the day files stay and read as dangling. The Group tab's
 **Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
-cards it would delete and names the ones another group holds, which it skips. Archiving asks
-nothing.
+cards it would delete and names the ones another group holds, which it skips. Archiving never
+opens it.
 
 ## Other surfaces
 

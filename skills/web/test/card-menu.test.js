@@ -210,7 +210,7 @@ test('the bulk entries include cards added by a path: a selection holding a path
   assert.deepStrictEqual(s.cardRequests(), ['PATCH /api/cards/5', 'PATCH /api/cards/1', 'PATCH /api/cards/2', 'PATCH /api/cards/3']);
 });
 
-test('Delete opens one popup for the cards it acts on: the right-clicked card alone outside the selection, the resolved selection inside it; Archive asks nothing', async () => {
+test('Delete opens one popup for the cards it acts on: the right-clicked card alone outside the selection, the resolved selection inside it; Archive names the count in its confirmation', async () => {
   const s = await open();
   s.select(null, 'cardPart(1)', 'pathPart(2)', 'cardPart(5)');
   assert.deepStrictEqual(s.ids(), [1, 2, 3, 5]);
@@ -222,7 +222,7 @@ test('Delete opens one popup for the cards it acts on: the right-clicked card al
   s.click('#ctx-archive');
   s.click('#ctx-delete');
   assert.deepStrictEqual(s.asked.deletes.map((d) => [d.kind, [...d.targets].map(String)]), [['card', ['4']], ['card', ['1', '2', '3', '5']]]);
-  assert.deepStrictEqual(s.asked.confirms, [], 'neither archiving nor opening the popup asks through confirm()');
+  assert.deepStrictEqual(s.asked.confirms, ['Archive 1 card(s)? (moves their files to archived/)', 'Archive 4 card(s)? (moves their files to archived/)'], 'Delete asks in its popup, not through confirm()');
 });
 
 test('deleting the card a menu outside the selection was opened on leaves the hand-built selection as it was; deleting a selection clears it', async () => {

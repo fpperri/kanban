@@ -60,11 +60,11 @@ test('the multi-select section says where the Esc step runs: with nothing open a
   assert.match(text, /away from the box Esc no longer clears it/);
 });
 
-test('the multi-select section says bulk targets are fixed when an action starts, and that the delete popup names that count', () => {
+test('the multi-select section says bulk targets are fixed when an action starts, and that the confirmations name that count', () => {
   const text = bullet('- **Multi-select**');
   assert.match(text, /takes its list of target cards once, when it starts/);
   assert.match(text, /writes, repaints and polls during the action never change the list/);
-  assert.match(text, /the delete\s+popup names the count of that list/);
+  assert.match(text, /archive and delete confirmations name the count of that list/);
 });
 
 test('the Speedbumps section sends Esc with nothing open to the selection, and the key guard paragraph names the Esc question', () => {
@@ -87,7 +87,7 @@ test('the multi-select section says Path and Tree add to the selection as one pa
   assert.match(text, /\*\*Dependency path\*\* add the card's tree or path to the selection as one part/);
   assert.match(text, /They no longer write the search box/);
   assert.doesNotMatch(text, /sugar over the/);
-  assert.match(text, /Delete opens the delete popup once for the\s+resolved selection, naming its count; Archive asks nothing/);
+  assert.match(text, /Archive and Delete keep their confirmation, which names the resolved count/);
 });
 
 test('the Map section says the menu adds a tree or a path to the selection instead of writing a term', () => {

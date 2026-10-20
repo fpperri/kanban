@@ -243,9 +243,8 @@ const CARD_CLICK_CHECKS = [
   'Ctrl+click toggles one card in', 'Ctrl+click on a selected card toggles it out', 'Cmd+click toggles one card in',
   'Shift+click adds the range from the last toggled card', 'none of those clicks opened a card',
   'a right-click on a card outside the selection opens its menu and leaves the selection as it was', 'Escape closes that menu and keeps the selection',
-  'a click on empty space leaves the selection', 'a double click on empty space clears the selection', 'two cards are selected for the bulk actions',
-  'archiving asks nothing and goes to the Archive popup, which names the count', 'Delete opens one popup that names the count, and asks through no confirm()',
-  'Esc closes that popup and nothing is deleted',
+  'a click on empty space leaves the selection', 'a double click on empty space clears the selection', 'two cards are selected for the bulk confirmations',
+  'the archive confirmation names the count', 'Delete opens one popup that names the count, and asks through no confirm()',
   'in the Graph, Enter on a focused card opens it',
 ];
 
@@ -453,7 +452,7 @@ const CARD_MENU_CHECKS = [
   'Dependency tree on a card adds its tree, marked on the Board', 'and the tree is one part of the selection',
   'and the search box is unchanged after Dependency tree', 'and the tree is lit in the Graph',
   'Dependency path and Dependency tree are absent from the menu when its subject is several cards',
-  'archiving a selection that holds a path part names the resolved count in its popup and asks nothing', 'deleting a selection that holds a path part names the resolved count in the delete popup',
+  'archiving a selection that holds a path part names the resolved count', 'deleting a selection that holds a path part names the resolved count in the delete popup',
 ];
 
 test('the card-menu scenario runs on the fixture board and makes every check the card menu owes', () => {

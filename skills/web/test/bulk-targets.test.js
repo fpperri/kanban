@@ -179,10 +179,10 @@ test('schedule: the targets are the cards the query matched when the popup opene
   assert.deepStrictEqual(s.patched().map(([url]) => url), ['/api/cards/1', '/api/cards/2', '/api/cards/3', '/api/cards/5']);
 });
 
-test('archive on a selection holding a query part asks nothing, counts at the start and archives exactly those cards', async () => {
+test('archive on a selection holding a query part confirms the count taken at the start and archives exactly those cards', async () => {
   const s = bulkSandbox({ query: 'assignee:@afk' });
   await s.run('bulkArchive()');
-  assert.deepStrictEqual(s.calls.confirms, [], 'archiving asks nothing; the popup that follows asks only where');
+  assert.deepStrictEqual(s.calls.confirms, ['Archive 3 card(s)? (moves their files to archived/)'], 'the three live cards; card 5 is archived already');
   assert.match(s.boxes.get('#bulk-archive-title').textContent, /Archive 3 card/);
   s.find(4).assignee = '@afk';
   s.find(2).assignee = '@human';

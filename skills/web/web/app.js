@@ -2768,8 +2768,13 @@ function cardLabel(id) {
   return titleDisplay.text ? `#${id} "${titleDisplay.text}"` : `#${id}`;
 }
 
-// Archiving asks nothing: it is a location move a drop or a Restore undoes, so it stays cheap.
+// A done card archiving is completion, not a destructive act — skip
+// the confirm when the card is already done (shared archiveNeedsConfirm rule,
+// selection.js). A missing lookup (shouldn't happen — the button is only
+// wired for live cards) falls back to confirming, the safe default.
 async function doArchive(id, { onSuccess } = {}) {
+  const card = state.active.find((c) => c.id === id);
+  if ((!card || archiveNeedsConfirm([card])) && !confirm(`Archive ${cardLabel(id)}? (moves the file to archived/)`)) return;
   try { await api('POST', `/api/cards/${id}/archive`); if (onSuccess) onSuccess(); await loadBoard(); }
   catch (e) { toast('Archive failed: ' + e.message); }
 }
@@ -5936,11 +5941,12 @@ function addDependencyToSelection(kind) {
   renderBoard();
 }
 
-// Bulk archive asks WHERE before it moves anything (ADR 0010): the Archive
-// popup, whose package box completes against the board's existing
-// archived/<package>/ folders. Left empty it archives to the archived/ root,
-// exactly as before packages existed — the drag-to-Archive and tile/detail
-// Archive paths never ask at all.
+// Bulk archive asks WHERE before it moves anything (ADR 0010): the
+// confirm speedbump first (unchanged rule — skipped when every card being
+// archived is already done), then the Archive popup, whose package box
+// completes against the board's existing archived/<package>/ folders. Left
+// empty it archives to the archived/ root, exactly as before packages existed
+// — the drag-to-Archive and tile/detail Archive paths never ask at all.
 async function bulkArchive() {
   hideContextMenu();
   captureBulkTargets();
@@ -5949,6 +5955,9 @@ async function bulkArchive() {
   const toArchive = targets.filter((c) => !c.archived);
   const ids = toArchive.map((c) => c.id);
   if (!ids.length) { if (skipped) toast('Everything selected is already archived.'); return; }
+  // one speedbump for the batch, not one per card — skipped entirely
+  // when every card being archived is already done
+  if (archiveNeedsConfirm(toArchive) && !confirm(`Archive ${ids.length} card(s)? (moves their files to archived/)`)) return;
   openBulkArchive(ids.length);
 }
 

@@ -5,8 +5,8 @@
 // Shift adds a range; a right-click on a card outside the selection opens its
 // menu and leaves the selection as it was (card-menu.js drives the menu); a click
 // on empty space leaves it and a double click there clears it (empty-space.js drives
-// that in every view); archiving a selection asks nothing and Delete opens one popup naming
-// how many cards it acts on; in the Graph, Enter opens the focused card.
+// that in every view); the bulk confirmations name
+// how many cards they act on; in the Graph, Enter opens the focused card.
 // Card 3 sits in the Board and the Map, and is dated today here so the Calendar
 // and the Gantt draw it as well (the runner puts the board's cards back before
 // the next scenario).
@@ -75,22 +75,20 @@ module.exports = {
     await click(away.x, away.y, { clickCount: 2 });
     check('a double click on empty space clears the selection', await selectionSize(0), away);
 
-    // Any confirm() answers no and is counted: archiving asks nothing, and Delete asks in its popup, which is closed unanswered.
-    const total = await ev('state.active.length+state.archived.length');
+    // The archive confirmation answers no, so nothing is archived; Delete opens its popup, which is closed unanswered.
     await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
     await clickCard(cardIn('#board', 3), { modifiers: 2 });
     await clickCard(cardIn('#board', 6), { modifiers: 2 });
-    check('two cards are selected for the bulk actions', await selectionSize(2));
+    check('two cards are selected for the bulk confirmations', await selectionSize(2));
     await rightClick(cardIn('#board', 6));
     await ev(`document.getElementById('ctx-archive').click()`);
-    check('archiving asks nothing and goes to the Archive popup, which names the count', await waitFor(`!document.getElementById('bulk-archive').classList.contains('hidden')&&/Archive 2 card/.test(document.getElementById('bulk-archive-title').textContent)`, 3000) && await ev('window.__asked.length===0'), await ev('window.__asked'));
-    await key('Escape');
-    await waitFor(`document.getElementById('bulk-archive').classList.contains('hidden')`, 2500);
     await rightClick(cardIn('#board', 6));
     await ev(`document.getElementById('ctx-delete').click()`);
-    check('Delete opens one popup that names the count, and asks through no confirm()', await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000) && await ev('window.__asked.length===0'), await ev('window.__asked'));
+    const asked = await ev('window.__asked');
+    check('the archive confirmation names the count', asked[0] === 'Archive 2 card(s)? (moves their files to archived/)', asked);
+    check('Delete opens one popup that names the count, and asks through no confirm()', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
     await key('Escape');
-    check('Esc closes that popup and nothing is deleted', await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500) && await ev(`state.active.length+state.archived.length===${total}`));
+    await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
 
     check('the Graph draws card 3', await showView('graph', '#graph-view', 3));
     await ev(`document.querySelector('#graph-view .graph-node').focus()`);

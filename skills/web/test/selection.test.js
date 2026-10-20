@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { cardMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, rangeSelection } = require('../web/selection');
+const { cardMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
 
 // --- shift+click adds a RANGE between the range start and the target,
 // in the active view's rendered order. Additive (union), never replacing —
@@ -138,7 +138,7 @@ const REFUSES_NONE = () => false;
 
 function byIdOf(cards) { return new Map(cards.map((c) => [c.id, c])); }
 
-test('dragPlan to archive: a live card archives without a confirm, an already-archived one skips', () => {
+test('dragPlan to archive: a non-done live card archives with a confirm, an already-archived one skips', () => {
   const cards = [
     { id: 1, status: 'todo', archived: false },
     { id: 2, status: 'done', archived: true },
@@ -147,19 +147,27 @@ test('dragPlan to archive: a live card archives without a confirm, an already-ar
   assert.deepStrictEqual(p.toArchive.map((c) => c.id), [1]);
   assert.deepStrictEqual(p.toRestore, []);
   assert.deepStrictEqual(p.toMove, []);
+  assert.match(p.confirmMessage, /Archive 1 card/);
+});
+
+// --- a fully-done batch is the natural completion flow, not a
+// destructive act — the confirm is skipped when EVERY card being archived
+// has status 'done'. One non-done card in the batch keeps the confirm.
+
+test('dragPlan to archive skips the confirm when the whole batch being archived is already done', () => {
+  const p = dragPlan([1], byIdOf([{ id: 1, status: 'done', archived: false }]), 'archive', REFUSES_NONE);
+  assert.deepStrictEqual(p.toArchive.map((c) => c.id), [1]);
   assert.strictEqual(p.confirmMessage, null);
 });
 
-// --- archiving asks nothing, whatever the cards' status: it is a location move.
-
-test('dragPlan to archive asks nothing for a batch that is not all done', () => {
+test('dragPlan to archive keeps the confirm when even one card in the batch is not done', () => {
   const cards = [
     { id: 1, status: 'done', archived: false },
     { id: 2, status: 'todo', archived: false },
   ];
   const p = dragPlan([1, 2], byIdOf(cards), 'archive', REFUSES_NONE);
   assert.deepStrictEqual(p.toArchive.map((c) => c.id).sort(), [1, 2]);
-  assert.strictEqual(p.confirmMessage, null);
+  assert.match(p.confirmMessage, /Archive 2 card/);
 });
 
 test('dragPlan to archive with nothing to do returns a null confirm (no-op drag)', () => {
@@ -204,6 +212,23 @@ test('dragPlan drops unknown ids and same-status live cards stay unchanged', () 
   assert.deepStrictEqual(p.toMove, []);
   assert.deepStrictEqual(p.unchanged.map((c) => c.id), [1]);
   assert.strictEqual(p.confirmMessage, null);
+});
+
+// --- the shared "does this archive batch need a confirm" rule,
+// reused by the tile Archive button, drag-to-Archive, and bulk Archive
+// selected — one place decides, all three callers agree.
+
+test('archiveNeedsConfirm is false when every card in the batch is done', () => {
+  assert.strictEqual(archiveNeedsConfirm([{ id: 1, status: 'done' }, { id: 2, status: 'done' }]), false);
+});
+
+test('archiveNeedsConfirm is true when any card in the batch is not done', () => {
+  assert.strictEqual(archiveNeedsConfirm([{ id: 1, status: 'done' }, { id: 2, status: 'todo' }]), true);
+  assert.strictEqual(archiveNeedsConfirm([{ id: 1, status: 'backlog' }]), true);
+});
+
+test('archiveNeedsConfirm on a single done card is false (tile Archive button, one card)', () => {
+  assert.strictEqual(archiveNeedsConfirm([{ id: 1, status: 'done' }]), false);
 });
 
 // --- what a click on a card does: one pure decision beside the selection

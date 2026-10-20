@@ -642,7 +642,7 @@ to `127.0.0.1` only.
   deleted (their logbooks stay). The server's `DELETE /api/cards/<id>` and
   `DELETE /api/groups/<id>` take `{ logbook, members }` in the body, each only when `true`,
   and answer what went (`groups`, `deleted`, `kept`, `swept`). Archiving never opens it and
-  asks nothing.
+  gets none of its questions.
 
 - **Multi-select** — one interaction grammar, uniform across **all five views**
   (ADR 0006), with file-manager gestures: click a card's representation to open its
@@ -693,8 +693,8 @@ to `127.0.0.1` only.
   reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
   with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
   card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
-  `tree:<id>`/`path:<id>` term still works. Delete opens the delete popup once for the
-  resolved selection, naming its count; Archive asks nothing. The conditionally-hidden items: Peek and Add to selection show only
+  `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
+  names the resolved count (Delete's is the delete popup, once for the whole selection). The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
   show only when the subject is one card, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling
@@ -752,8 +752,8 @@ to `127.0.0.1` only.
   delete and drag) takes its list of target cards once, when it starts, from the selection
   as it resolves then, so writes, repaints and polls during the action never change the
   list. An assign on a selection holding an `assignee:@afk` query part reaches every card
-  that matched at the start, though each write takes a card off the query, and the delete
-  popup names the count of that list.
+  that matched at the start, though each write takes a card off the query, and the archive
+  and delete confirmations name the count of that list.
   Exceptions: the map's muted, dashed ghost stubs are click-through-to-detail only, never
   selectable — they stand for cards the active filters hid; a dangling-id stub (no such
   card) is fully inert, and a filtered-out card can't join a selection anywhere else
@@ -1127,13 +1127,15 @@ to `127.0.0.1` only.
   highlight forward on its own: every render call site reads `hoveredId` the same way it
   already reads `selectedIds`, so a poll landing under a stationary pointer doesn't lose
   the highlight the way a naive `:hover`-only or event-only approach would.
-- **Speedbumps** — deleting asks first in the delete popup, naming its object and what
-  goes with it (one popup per batch, with the count); notification delete and clear-all
-  confirm too. Archiving asks nothing — it is a location move that Restore undoes — and
-  Restore is exempt (it's the reversible direction), except a drag that restores archived
-  cards onto a live column, which confirms. Clicking the
+- **Speedbumps** — every destructive action confirms first, naming its object: archive,
+  delete, bulk archive/delete (one confirm per batch, with the count), notification
+  delete and clear-all; Delete's confirmation is the delete popup, which also says what goes
+  with the card. Restore is exempt (it's the reversible direction). Clicking the
   backdrop closes any popup; the create/edit form interposes a confirm only when it has
-  unsaved changes. Archive selected asks WHERE
+  unsaved changes. Archiving skips the confirm when EVERY card in the action is already
+  `done` — the tile's Archive button, drag-to-Archive (single or batch), and the bulk
+  menu's Archive selected share one pure rule (`archiveNeedsConfirm`, selection.js); a
+  single non-done card in the batch keeps the confirm. Archive selected then asks WHERE
   in the Archive popup (packages, above), whose Archive button is the act itself —
   closing that popup cancels the whole batch.
   **Esc** closes whichever popup is open, on the very first press, regardless of
@@ -2064,7 +2066,7 @@ it does not define a second contract. Not a card — only `*.card.md` files are 
   never loads.
 - `archive` here is a *location* (the `archived/` folder), not a status — ADR 0002's
   data model — but the column has full UI parity (ADR 0005): drag a batch onto Archive
-  to archive it (no confirm), drag
+  to archive it (one confirm, skipped when the whole batch is already `done`), drag
   archived cards onto a live column to restore them **with that column's status**
   (confirms when the batch contains archived cards; the `doing` entry gate — waiting +
   blocked — applies per card), and archived tiles join ctrl/shift-click and right-click

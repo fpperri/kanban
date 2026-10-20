@@ -650,10 +650,10 @@ test('schedule: the popup applies to the cards it captured when it opened', asyn
   assert.deepStrictEqual(s.patched()[0][1], { due_date: '2026-12-01' });
 });
 
-test('archive: nothing is asked, and the popup archives the cards it captured when the action started', async () => {
+test('archive: the confirmation names the count, and the popup archives the cards it captured when the action started', async () => {
   const s = bulkSandbox({ selected: [1, 2, 4] });
   await s.run('bulkArchive()');
-  assert.deepStrictEqual(s.calls.confirms, []);
+  assert.deepStrictEqual(s.calls.confirms, ['Archive 2 card(s)? (moves their files to archived/)']);
   assert.match(s.boxes.get('#bulk-archive-title').textContent, /Archive 2 card/);
   s.select(3);
   await s.run('applyBulkArchive()');
