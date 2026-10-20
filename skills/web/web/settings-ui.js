@@ -223,7 +223,7 @@ function settingsGroupsNodes() {
   const st = state.settings;
   nodes.push(settingsSwitch('iterations', 'Iterations', state.iterations, {
     disabled: st.groups.on ? null : 'Turn groups on first: iterations are groups',
-    hint: 'iterations: true gives the header the iteration dropdown. Iterations are the groups in the iteration/ folder; turning groups off turns this off too.',
+    hint: 'iterations: true gives the header the iteration dropdown. Iterations are the groups in the iteration/ folder; the line is ignored while groups are off.',
     set: (on) => settingsSend(settingsSwitchBody('iterations', on), 'iterations'),
   }));
   nodes.push(settingsGroupsFoundNodes());

@@ -22,10 +22,10 @@ from urllib.parse import quote
 from functools import cmp_to_key
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ids import compare_ids, id_key
+from ids import compare_ids, id_key, ID_SOURCE
 
 # The leading id of a card file name: `0007.slug.card.md`, `G0003.slug.card.md`, `_0012.slug.card.md`.
-FILE_ID_RE = re.compile(r"^(_?[A-Z]*[0-9]+)\.")
+FILE_ID_RE = re.compile(r"^(%s)\." % ID_SOURCE)
 
 def parse_card(path):
     text = open(path, encoding="utf-8", errors="replace").read()
@@ -43,7 +43,7 @@ def parse_card(path):
             title = ln[2:].strip(); continue
         rest.append(ln)
     name = os.path.basename(path)
-    idm = re.match(r"^(_?[A-Z]*[0-9]+)", name)
+    idm = re.match(r"^(%s)" % ID_SOURCE, name)
     def lst(v):
         if not v or v == "[]": return []
         return [t.strip().strip('"').strip("'") for t in v.strip("[]").split(",") if t.strip()]

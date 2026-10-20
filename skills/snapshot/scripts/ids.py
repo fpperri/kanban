@@ -12,11 +12,17 @@ import re
 
 MAX_NUMBER = 999999999999999
 DEFAULT_DIGITS = 4
-_ID_RE = re.compile(r"(_?[A-Z]*)([0-9]{1,15})", re.ASCII)
-_PREFIX_RE = re.compile(r"_?[A-Z]*", re.ASCII)
+# The pieces other readers build their own patterns from (a file name), so the shape
+# of an id is written once: ID_SOURCE has no groups.
+PREFIX_SOURCE = r"_?[A-Z]*"
+DIGITS_SOURCE = r"[0-9]{1,15}"
+ID_SOURCE = PREFIX_SOURCE + DIGITS_SOURCE
+_ID_RE = re.compile("(%s)(%s)" % (PREFIX_SOURCE, DIGITS_SOURCE), re.ASCII)
+_PREFIX_RE = re.compile(PREFIX_SOURCE, re.ASCII)
 
-# Groups: 1 board, 2 prefix, 3 digits. The very string the web module holds.
-MENTION_SOURCE = r"(?<![A-Za-z0-9_#])(?:([A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9_])?)(?=#))?#(_?[A-Z]*)([0-9]{1,15})\b"
+# Groups: 1 board, 2 prefix, 3 digits. The very string the web module holds. An
+# uppercase hex colour (#FF0000, #ABC123, #FF000080) is not a mention.
+MENTION_SOURCE = r"(?<![A-Za-z0-9_#])(?:([A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9_])?)(?=#))?#(?![0-9A-F]{6}(?:[0-9A-F]{2})?(?![A-Za-z0-9_]))(_?[A-Z]*)([0-9]{1,15})\b"
 _MENTION_RE = re.compile(MENTION_SOURCE, re.ASCII)
 
 

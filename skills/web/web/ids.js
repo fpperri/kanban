@@ -14,13 +14,21 @@
 const idsModule = (() => {
   const MAX_NUMBER = 999999999999999;
   const DEFAULT_DIGITS = 4;
-  const ID_RE = /^(_?[A-Z]*)([0-9]{1,15})$/;
+  // The pieces other readers build their own patterns from (a route, a file name),
+  // so the shape of an id is written once: ID_SOURCE has no groups.
+  const PREFIX_SOURCE = '_?[A-Z]*';
+  const DIGITS_SOURCE = '[0-9]{1,15}';
+  const ID_SOURCE = PREFIX_SOURCE + DIGITS_SOURCE;
+  const ID_RE = new RegExp(`^(${PREFIX_SOURCE})(${DIGITS_SOURCE})$`);
+  const PREFIX_RE = new RegExp(`^${PREFIX_SOURCE}$`);
 
   // `board#G3`, `#G3`: the board token (when there is one) is the run of name
   // characters just before the `#`; the id is `#`, a prefix, digits and a word
-  // boundary, so `#a371f7`, `#371f7` and `# Heading` are not mentions. ASCII only.
+  // boundary, so `#a371f7`, `#371f7` and `# Heading` are not mentions. An uppercase
+  // hex colour (`#FF0000`, `#ABC123`, `#FF000080`: six or eight hex characters on
+  // their own) is not a mention either; shorter or longer runs stay ids. ASCII only.
   // Groups: 1 board, 2 prefix, 3 digits.
-  const MENTION_SOURCE = '(?<![A-Za-z0-9_#])(?:([A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9_])?)(?=#))?#(_?[A-Z]*)([0-9]{1,15})\\b';
+  const MENTION_SOURCE = '(?<![A-Za-z0-9_#])(?:([A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9_])?)(?=#))?#(?![0-9A-F]{6}(?:[0-9A-F]{2})?(?![A-Za-z0-9_]))(_?[A-Z]*)([0-9]{1,15})\\b';
   const WHOLE_MENTION_RE = new RegExp(`^${MENTION_SOURCE}$`);
 
   function parseId(value) {
@@ -33,7 +41,7 @@ const idsModule = (() => {
     }
     if (value && typeof value === 'object') {
       const { prefix, number } = value;
-      const ok = typeof prefix === 'string' && /^_?[A-Z]*$/.test(prefix)
+      const ok = typeof prefix === 'string' && PREFIX_RE.test(prefix)
         && Number.isInteger(number) && number >= 0 && number <= MAX_NUMBER;
       return ok ? { prefix, number } : null;
     }
@@ -91,7 +99,7 @@ const idsModule = (() => {
     return found;
   }
 
-  return { parseId, idKey, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE };
+  return { parseId, idKey, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE, ID_SOURCE, PREFIX_SOURCE };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

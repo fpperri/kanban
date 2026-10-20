@@ -1478,6 +1478,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    vocabulary: muted outside-month days, accent today ring, selected fill. */
 .date-field { display: flex; gap: 4px; align-items: center; }
 .date-field input { flex: 1; min-width: 0; }
+.gp-v .date-field { display: inline-flex; width: 10.5em; vertical-align: middle; }
 .date-pick-btn { flex-shrink: 0; padding: 4px 6px; font-size: 0.9em; line-height: 1; }
 .date-picker-pop { position: fixed; z-index: 70; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 8px; box-shadow: var(--shadow-pop); }
 .date-picker-controls { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
@@ -1763,6 +1764,9 @@ button.np-nhead-label:hover { color: var(--accent); }
 .gp-form input[type="text"], .gp-form input[type="date"] { padding: 4px 7px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font: inherit; min-width: 0; }
 .gp-form input[type="text"]:focus, .gp-form input[type="date"]:focus { outline: none; border-color: var(--accent); }
 .gp-form .gp-v > input[type="text"] { flex: 1 1 8em; }
+.gp-extra-raw { margin: 0; flex: 1 1 100%; padding: 4px 7px; background: var(--paper); border: 1px dashed var(--line); border-radius: .15rem; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.9em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gp-extra-rm { padding: 2px 6px; border: 1px solid var(--line); border-radius: .15rem; background: transparent; color: var(--mut); cursor: pointer; }
+.gp-extra-rm:hover { border-color: var(--accent); color: var(--accent); }
 .gp-save, .gp-note, .gp-scratch, .gp-show { justify-self: start; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; }
 .gp-save:hover, .gp-note:hover, .gp-scratch:hover, .gp-show:hover { border-color: var(--accent); color: var(--accent); }
 .gp-note:disabled, .gp-scratch:disabled { opacity: .5; cursor: default; }
@@ -1794,6 +1798,8 @@ button.np-nhead-label:hover { color: var(--accent); }
 .del-popup .bulk-hint { margin: 0; }
 .del-list { list-style: none; margin: 0 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; }
 .del-list.off li { color: var(--mut); }
+.del-member-extras { margin-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.del-member-extras.off { color: var(--mut); }
 .del-list li.skip { color: var(--mut); font-style: italic; }
 .del-confirm { border: 1px solid var(--crit); background: var(--raised); color: var(--crit); border-radius: .15rem; padding: 3px 12px; cursor: pointer; }
 .del-confirm:hover, .del-confirm:focus-visible { background: var(--crit-soft); }

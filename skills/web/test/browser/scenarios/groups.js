@@ -102,13 +102,17 @@ module.exports = {
     check('groups: on its Group tab, beside the Notes tab', await waitFor(`${q('.np-tab.on')}.dataset.tab==='group'&&[...document.querySelectorAll('#notes-palette .np-tab')].map((t)=>t.dataset.tab).join()==='notes,group'`, 2500));
     check('groups: the time field, the note box, the preview and the filter are not shown on the Group tab', await ev(`['.np-when','.np-input','.np-prev','.np-filter-row'].every((s)=>getComputedStyle(document.querySelector('#notes-palette '+s)).display==='none')`));
     await shot('group-tab');
-    check('groups: the tab shows the name, the dates, auto_join and the extra key', await ev(`(()=>{const p=${q('.gp')};const t=[...p.querySelectorAll('input[type="text"]')].map((i)=>i.value);return t[0]==='zephyr-2'&&t.includes('@human')&&p.querySelector('input[type="date"]').value==='2026-10-12'&&p.querySelector('input[type="checkbox"]').checked})()`));
+    check('groups: the tab shows the name, the dates, auto_join and the extra key', await ev(`(()=>{const p=${q('.gp')};const t=[...p.querySelectorAll('input[type="text"]')].map((i)=>i.value);return t[0]==='zephyr-2'&&t.includes('@human')&&p.querySelector('.date-field input').value==='2026-10-12'&&p.querySelector('input[type="checkbox"]').checked})()`));
     check('groups: it lists the six members', await ev(`${q('.gp-members')}.querySelectorAll('li[data-member]').length===6`));
     check('groups: and the type path and the file', await ev(`${q('.gp-chip')}.textContent==='iteration'&&${q('.gp-path')}.textContent==='.groups/iteration/I0002.zephyr-2.md'`));
 
     // --- editing the group ----------------------------------------------------------------------------------------------
     await setField('#notes-palette .gp-form input[type="text"]', 'zephyr-two');
-    await setField('#notes-palette .gp-form .gp-v input[type="date"]:last-of-type', '2026-10-25');
+    check('groups: the tab has no native date input and a picker button beside each date', await ev(`!${q('input[type="date"]')}&&${q('.gp-form')}.querySelectorAll('.date-field .date-pick-btn').length===2`));
+    await mouseClick('#notes-palette .gp-form .date-field:last-of-type .date-pick-btn');
+    check('groups: the end date button opens the day picker on its month, with no time row', await waitFor(`!!document.querySelector('.date-picker-pop')&&!document.querySelector('.date-picker-pop').hidden&&document.querySelector('.dp-day.selected').dataset.day==='2026-10-23'&&!document.querySelector('.date-picker-time')`, 2500));
+    await mouseClick('.date-picker-pop .dp-day[data-day="2026-10-25"]');
+    check('groups: picking a day fills the field, closes the picker and leaves the palette up', await ev(`${q('.gp-form .date-field:last-of-type input')}.value==='2026-10-25'&&document.querySelector('.date-picker-pop').hidden`) && await ev(PAL_UP));
     await ev(`(()=>{const k=${q('input[aria-label="New key"]')};k.value='sprint';const v=${q('input[aria-label="New value"]')};v.value='two';return true})()`);
     await mouseClick('#notes-palette .gp-save');
     check('groups: Save changes the name, the end date and adds a key', await waitFor(`${group('I2')}.name==='zephyr-two'&&${group('I2')}.end_date==='2026-10-25'&&${group('I2')}.extra.sprint==='two'&&${group('I2')}.extra.owner==='@human'`, 4000), await ev(`JSON.stringify(${group('I2')})`));
@@ -118,6 +122,13 @@ module.exports = {
     await mouseClick('#notes-palette .gp-save');
     check('groups: a blank name is refused and changes nothing', await waitFor(`/short name/.test(document.getElementById('toast').textContent)`, 2000) && await ev(`${group('I2')}.name==='zephyr-two'`));
     await setField('#notes-palette .gp-form input[type="text"]', 'zephyr-two');
+    check('groups: a list-valued extra key is shown as written, read only', await ev(`${q('.gp-extra-raw[data-key="milestones"]')}.textContent==='milestones:\\n  - design freeze\\n  - cutover'&&!${q('input[aria-label="milestones"]')}`));
+    await setField('#notes-palette input[aria-label="owner"]', '');
+    await mouseClick('#notes-palette .gp-save');
+    check('groups: clearing a field empties the value and keeps the key', await waitFor(`'owner' in ${group('I2')}.extra&&${group('I2')}.extra.owner===''&&${group('I2')}.extra.sprint==='two'`, 4000), await ev(`JSON.stringify(${group('I2')}.extra)`));
+    check('groups: the list-valued key is untouched by the save', await ev(`${group('I2')}.extra_raw.milestones==='milestones:\\n  - design freeze\\n  - cutover'`));
+    await mouseClick('#notes-palette .gp-extra-rm[data-key="sprint"]');
+    check('groups: a remove control takes the key out of the file', await waitFor(`!('sprint' in ${group('I2')}.extra)&&'owner' in ${group('I2')}.extra`, 4000), await ev(`JSON.stringify(${group('I2')}.extra)`));
 
     // --- taking a member out ---------------------------------------------------------------------------------------------
     await mouseClick('#notes-palette .gp-members li[data-member="24"] .gp-member-rm');
@@ -184,11 +195,16 @@ module.exports = {
     await setField('#gf-name', 'spring-clean');
     await setField('#gf-folder', 'iteration');
     check('groups: the folder says which prefix the id starts with', await ev(`/starts with I;/.test(document.querySelector('#group-dialog .bulk-hint').textContent)`));
+    check('groups: the form has no native date input and a picker button beside each date', await ev(`!document.querySelector('#group-dialog input[type="date"]')&&document.querySelectorAll('#group-dialog .date-field .date-pick-btn').length===2`));
     await setField('#gf-start', '2026-11-02');
+    await mouseClick('#group-dialog .date-pick-btn[data-date-input="gf-start"]');
+    check('groups: the picker over the form opens on the typed date', await waitFor(`!document.querySelector('.date-picker-pop').hidden&&document.querySelector('.dp-day.selected').dataset.day==='2026-11-02'`, 2500));
+    await mouseClick('.date-picker-pop .dp-day[data-day="2026-11-03"]');
+    check('groups: picking a day fills the start date', await ev(`document.getElementById('gf-start').value==='2026-11-03'`));
     await setField('#gf-end', '2026-11-13');
     check('groups: auto_join is on offer once both dates are in', await ev(`!document.getElementById('gf-auto').disabled&&document.getElementById('gf-auto').checked`));
     await ev(`document.querySelector('#group-dialog .group-form').requestSubmit()`);
-    check('groups: Create makes the group in its folder, with the id the counter gives and the two cards', await waitFor(`${group('I3')}&&${cardsOf('I3')}==='8,10'&&${group('I3')}.folder==='iteration'&&${group('I3')}.name==='spring-clean'&&${group('I3')}.auto_join===true&&${group('I3')}.start_date==='2026-11-02'`, 4000), await ev(`JSON.stringify(${GROUPS}.map((g)=>g.id))`));
+    check('groups: Create makes the group in its folder, with the id the counter gives and the two cards', await waitFor(`${group('I3')}&&${cardsOf('I3')}==='8,10'&&${group('I3')}.folder==='iteration'&&${group('I3')}.name==='spring-clean'&&${group('I3')}.auto_join===true&&${group('I3')}.start_date==='2026-11-03'`, 4000), await ev(`JSON.stringify(${GROUPS}.map((g)=>g.id))`));
     check('groups: the dialog closes and the cards wear the badge', await waitFor(`${DLG_GONE}`, 2000) && await waitFor(`JSON.stringify(${badgesOf('10')})===JSON.stringify(['#I3 spring-clean'])`, 4000), await ev(badgesOf('10')));
 
     // --- Add note... on several cards ----------------------------------------------------------------------------------------------------

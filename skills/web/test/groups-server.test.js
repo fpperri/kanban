@@ -116,10 +116,10 @@ test('group files in the root, one folder and two folders are read; the folders 
     assert.strictEqual(by.DW1.folder, 'workflow/dynamic');
     assert.deepStrictEqual(by.I2, {
       id: 'I2', name: 'zephyr-2', folder: 'iteration', start_date: '2026-10-12', end_date: '2026-10-23', auto_join: true,
-      cards: ['3', '7'], extra: { owner: '@human' }, file: '.groups/iteration/I0002.zephyr-2.md',
+      cards: ['3', '7'], extra: { owner: '@human' }, extra_raw: {}, file: '.groups/iteration/I0002.zephyr-2.md',
     });
     assert.deepStrictEqual(by.W1.cards, ['7', '15', '99', '2'], 'a member that is no card of the board is kept as written');
-    assert.deepStrictEqual(by._1, { id: '_1', name: 'offsite-prep', folder: '', start_date: '', end_date: '', auto_join: false, cards: ['3'], extra: {}, file: '.groups/_0001.offsite-prep.md' });
+    assert.deepStrictEqual(by._1, { id: '_1', name: 'offsite-prep', folder: '', start_date: '', end_date: '', auto_join: false, cards: ['3'], extra: {}, extra_raw: {}, file: '.groups/_0001.offsite-prep.md' });
   });
 });
 
@@ -271,9 +271,41 @@ test('PATCH changes the name, the dates, auto_join and extra keys and keeps ever
   assert.ok(text.endsWith('---\n\nThe second iteration.\n'), text);
 });
 
-test('PATCH takes an extra key out with null or an empty string, clears a date with an empty string, and refuses a managed key as extra', async () => {
+const SHAPED = '---\nid: I2\nname: zephyr-2\nowner: "@human"\ntags:\n  - a\n  - b\nnote: |\n  first line\n  second line\nmilestones: [a, b]\ncards: [3, 7]\n---\n\nBody.\n';
+
+test('an extra key whose value is a list or several lines is reported as written, apart from the one-line extras', async () => {
+  const dir = tmpBoard({ files: { '.groups/iteration/I0002.zephyr-2.md': SHAPED } });
+  await withServer(dir, async (base) => {
+    const g = (await board(base)).groups.list.find((x) => x.id === 'I2');
+    assert.deepStrictEqual(g.extra, { owner: '@human', milestones: '[a, b]' });
+    assert.deepStrictEqual(g.extra_raw, { tags: 'tags:\n  - a\n  - b', note: 'note: |\n  first line\n  second line' });
+  });
+});
+
+test('PATCH keeps a list or multi-line extra exactly as written, and refuses to overwrite or remove one', async () => {
+  const dir = tmpBoard({ files: { '.groups/iteration/I0002.zephyr-2.md': SHAPED } });
+  await withServer(dir, async (base) => {
+    const saved = await req(base, 'PATCH', '/api/groups/I2', { name: 'zephyr two', extra: { owner: '@afk' } });
+    assert.strictEqual(saved.status, 200);
+    assert.deepStrictEqual(saved.json.group.extra_raw, { tags: 'tags:\n  - a\n  - b', note: 'note: |\n  first line\n  second line' });
+    assert.strictEqual(read(dir, '.groups/iteration/I0002.zephyr-2.md'), SHAPED.replace('name: zephyr-2', 'name: zephyr two').replace('owner: "@human"', 'owner: "@afk"'));
+    const before = read(dir, '.groups/iteration/I0002.zephyr-2.md');
+    for (const extra of [{ tags: 'x' }, { note: null }, { tags: '' }]) {
+      const r = await req(base, 'PATCH', '/api/groups/I2', { extra });
+      assert.strictEqual(r.status, 409, JSON.stringify(extra));
+      assert.match(r.json.error, /more than one line/);
+    }
+    assert.strictEqual(read(dir, '.groups/iteration/I0002.zephyr-2.md'), before);
+  });
+});
+
+test('PATCH takes an extra key out with null, empties it with an empty string, clears a date with an empty string, and refuses a managed key as extra', async () => {
   const dir = tmpBoard({ files: { '.groups/iteration/I0002.zephyr-2.md': I2 } });
   await withServer(dir, async (base) => {
+    const emptied = await req(base, 'PATCH', '/api/groups/I2', { extra: { owner: '' } });
+    assert.strictEqual(emptied.status, 200);
+    assert.deepStrictEqual(emptied.json.group.extra, { owner: '' }, 'the key stays, its value is empty');
+    assert.match(read(dir, '.groups/iteration/I0002.zephyr-2.md'), /^owner: ""$/m);
     const r = await req(base, 'PATCH', '/api/groups/I2', { start_date: '', end_date: '', extra: { owner: null } });
     assert.strictEqual(r.status, 200);
     assert.strictEqual(r.json.group.start_date, '');

@@ -152,3 +152,15 @@ test('POST /api/cards gives a goal G1 then G2, and the board lists both under th
     assert.strictEqual((await req(base, 'GET', '/api/cards/G1/detail')).status, 200);
   });
 });
+
+test('a card counter sees the groups that hold its prefix, and a group counter sees the cards', () => {
+  const gs = require('../scripts/group-store');
+  const config = 'groups: .groups\nprefixes:\n  G: goal\n  I: .groups/iteration\n';
+  const dir = board(config, {
+    '.groups/G0005.hand-written.md': '---\nid: G5\nname: hand written\ncards: []\n---\n',
+    'I0007.iteration-card.card.md': card('I7'),
+  });
+  assert.strictEqual(cs.createCard(dir, { title: 'After the group', type: 'goal' }).id, 'G6');
+  assert.strictEqual(gs.createGroup(dir, { name: 'after the card', folder: 'iteration' }).id, 'I8');
+  assert.match(configText(dir), /counters: \{ G: 7, I: 9 \}/);
+});

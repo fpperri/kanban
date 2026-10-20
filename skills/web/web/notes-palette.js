@@ -33,7 +33,7 @@
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
-  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', body: null, foot: null,
+  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', body: null, foot: null, timeTyped: false,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
@@ -174,16 +174,15 @@ function notesCalendarButton(className, title, req) {
 // One half hour's notes in a day's column: a chip for one note (the card's id and the first
 // words), a count bubble for two or more. `top` is the half hour's offset in pixels.
 function notesCalendarSlot(day, slot, top) {
-  const req = noteSlotRequest(day, slot);
   let el;
   if (slot.notes.length === 1) {
     const note = slot.notes[0];
-    el = notesCalendarButton('cal-note-chip', noteTip(note, notesLabel), req);
+    el = notesCalendarButton('cal-note-chip', noteTip(note, notesLabel), noteChipRequest(note, slot));
     if (note.target) el.append(notesEl('span', 'cal-note-id', `#${note.target}`));
     else el.append(notesGlyph());
     el.append(document.createTextNode(noteFirstWords(note.note, 12)));
   } else {
-    el = notesCalendarButton('cal-note-bubble', noteSlotTip(slot), req);
+    el = notesCalendarButton('cal-note-bubble', noteSlotTip(slot), noteSlotRequest(day, slot));
     el.append(notesEl('b', 'cal-note-count', String(slot.notes.length)), notesEl('span', 'cal-note-ids', noteSlotTargets(slot.notes).join(' ')));
   }
   el.dataset.slot = `${day}|${slot.fromMin}`;
@@ -261,7 +260,7 @@ function notesBuild() {
 
   u.input.addEventListener('input', () => { notesGrow(); notesPaintPreview(); });
   u.filter.addEventListener('input', () => { u.hi = -1; notesPaintBody(); });
-  u.time.addEventListener('input', notesPaintPreview);
+  u.time.addEventListener('input', () => { u.timeTyped = true; notesPaintPreview(); });
   u.untimed.addEventListener('change', () => { u.time.disabled = u.untimed.checked; notesPaintPreview(); u.input.focus(); });
   u.time.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
   u.filter.addEventListener('keydown', notesOnFilterKey);
@@ -359,9 +358,18 @@ function notesClose() {
   return true;
 }
 
+// After a write the field goes back to what it starts as (the slot's time, else now), unless the
+// person typed a time into it, or ticked untimed, which stay as they were.
+function notesRefreshTime() {
+  const u = notesUi;
+  if (u.timeTyped || u.untimed.checked || !u.sub) return;
+  u.time.value = u.sub.at || noteClock(new Date());
+}
+
 function notesResetTime() {
   const u = notesUi;
   const sub = u.sub || {};
+  u.timeTyped = false;
   const untimed = sub.kind === 'untimed' || !!sub.untimed;
   u.untimed.checked = untimed;
   u.time.disabled = untimed;
@@ -520,7 +528,7 @@ function notesRow(note) {
   const view = () => {
     if (row.classList.contains('editing')) { notesUi.editing -= 1; row.classList.remove('editing'); }
     const time = notesEl('span', `np-note-time${note.at ? '' : ' untimed'}`, note.at || 'untimed');
-    const by = notesEl('span', 'np-note-by', note.by && note.by !== '@human' ? note.by : '');
+    const by = notesEl('span', 'np-note-by', note.by || '');
     by.title = note.by || '';
     const text = notesEl('span', 'np-note-text');
     text.append(...notesTextNodes(note.note));
@@ -667,7 +675,7 @@ async function notesWrite() {
   u.input.value = '';
   notesGrow();
   try { await loadBoard(); } catch (e) { toast(e.message); }
-  if (u.sub) { notesPaint(); u.input.focus(); }
+  if (u.sub) { notesRefreshTime(); notesPaint(); u.input.focus(); }
 }
 
 // Enter on a line that is only a mention: the palette moves to that card or group.
@@ -781,7 +789,7 @@ function onNotesEscape(e) {
 function onNotesPointer(e) {
   const u = notesUi;
   if (!u.sub || u.el.contains(e.target)) return;
-  if (e.target.closest && e.target.closest('.np-trigger, #context-menu, .modal-backdrop, #toast')) return;
+  if (e.target.closest && e.target.closest('.np-trigger, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
   notesClose();
 }
 

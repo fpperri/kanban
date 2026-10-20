@@ -66,7 +66,24 @@ test('a group: its file, its logbook, and its member cards listed with the ones 
       { id: '7', skip: true, text: 'Skips #7 Seven: also in #I1 zephyr-1' },
       { id: '15', skip: false, text: 'Deletes #15 Fifteen' },
     ],
+    extras: [],
   });
+});
+
+test('a group with member cards to delete offers their logbooks and scratchpads, unticked, counted over the members it would delete', () => {
+  const notes = [note('15'), note('15'), note('7'), note('I2')];
+  const plan = deletePlan({ ...board, notes, ...pads, kind: 'group', targets: ['I2'] });
+  assert.deepStrictEqual(plan.members.extras, [
+    { key: 'memberLogbook', label: 'Their logbooks (2 notes)' },
+    { key: 'memberScratchpad', label: 'Their scratchpads (1)' },
+  ]);
+  assert.deepStrictEqual(plan.options, [{ key: 'logbook', label: 'Its logbook (1 note)' }], 'the boxes of the group itself are as before');
+});
+
+test('the member boxes count only the members the group would delete, and are left out when none has a file', () => {
+  const skipped = deletePlan({ ...board, notes: [note('7')], ...pads, scratchpads: ['7'], kind: 'group', targets: ['I2'] });
+  assert.deepStrictEqual(skipped.members.extras, [], '7 is held by I1, so it is skipped and its files are not offered');
+  assert.deepStrictEqual(deletePlan({ ...board, logbookOn: false, scratchpadOn: false, kind: 'group', targets: ['I2'] }).members.extras, []);
 });
 
 test('a group with notes offers its logbook; a group with no cards offers no member box', () => {
@@ -107,7 +124,7 @@ test('the request carries the scratchpad box when it is ticked', () => {
   assert.deepStrictEqual(deleteBody({ logbook: false, scratchpad: true }), { scratchpad: true });
 });
 
-test('an extra another ticket adds joins the popup: it is one entry in the registry', () => {
+test('an extra added later joins the popup: it is one entry in the registry', () => {
   const extra = { key: 'attachments', count: () => 1, label: () => 'Its attachments' };
   DELETE_EXTRAS.push(extra);
   try {
@@ -129,6 +146,12 @@ test('the toast names the scratchpads that went with a card or a group', () => {
   assert.strictEqual(deleteSummary('card', ['7'], [{ groups: [], swept: { logbook: 1, scratchpad: 1 } }], []), 'Deleted #7; deleted 1 logbook file; deleted 1 scratchpad.');
   assert.strictEqual(deleteSummary('card', ['3', '7'], [{ groups: [], swept: { scratchpad: 1 } }, { groups: [], swept: { scratchpad: 1 } }], []), 'Deleted 2 cards; deleted 2 scratchpads.');
   assert.strictEqual(deleteSummary('group', ['I1'], [{ deleted: [], kept: [], swept: { scratchpad: 1 } }], []), 'Deleted group #I1; deleted its scratchpad.');
+});
+
+test('the toast for a group names the member files that went with the cards', () => {
+  const { deleteSummary } = require('../web/delete-plan');
+  const r = { deleted: ['15'], kept: [], swept: {}, membersSwept: { logbook: 2, scratchpad: 1 } };
+  assert.strictEqual(deleteSummary('group', ['I2'], [r], []), 'Deleted group #I2; deleted 1 member card (#15); deleted their 2 logbook files; deleted their 1 scratchpad.');
 });
 
 test('the toast for a group names the members it deleted and the ones it kept', () => {

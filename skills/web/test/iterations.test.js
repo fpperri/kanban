@@ -52,12 +52,32 @@ test('a choice kept in this browser wins, All cards included, while the iteratio
   assert.strictEqual(it.iterationPick({ pick: 'W1' }, ALL, '2026-10-15'), 'I2', 'a workflow is not an iteration');
 });
 
+test('a kept choice yields to the running iteration once the iteration it was kept under has ended', () => {
+  assert.strictEqual(it.iterationPick({ pick: 'I1', under: 'I2' }, ALL, '2026-10-15'), 'I1', 'kept under I2, which still runs');
+  assert.strictEqual(it.iterationPick({ pick: 'I1', under: 'I2' }, ALL, '2026-10-23'), 'I1', 'the last day of I2 still counts');
+  assert.strictEqual(it.iterationPick({ pick: 'I1', under: 'I2' }, ALL, '2026-10-25'), '', 'I2 ended and none runs: the default is All cards');
+  assert.strictEqual(it.iterationPick({ pick: 'I1', under: 'I2' }, ALL, '2026-11-03'), 'I3', 'I2 ended and I3 runs: the running one');
+  assert.strictEqual(it.iterationPick({ pick: '', under: 'I2' }, ALL, '2026-10-15'), '', 'All cards kept under I2 holds while I2 runs');
+  assert.strictEqual(it.iterationPick({ pick: '', under: 'I2' }, ALL, '2026-11-03'), 'I3', 'a kept All cards yields the same way');
+  assert.strictEqual(it.iterationPick({ pick: 'I1', under: 'I77' }, ALL, '2026-10-15'), 'I2', 'an iteration it was kept under that is gone has ended');
+});
+
+test('a choice kept while no iteration ran has nothing to end and holds; one kept before this rule has no under and holds', () => {
+  assert.strictEqual(it.iterationPick({ pick: 'I1', under: '' }, ALL, '2026-11-03'), 'I1');
+  assert.strictEqual(it.iterationPick({ pick: '', under: '' }, ALL, '2026-11-03'), '');
+  assert.strictEqual(it.iterationPick({ pick: 'I1' }, ALL, '2026-11-03'), 'I1');
+});
+
 test('the saved choice is read tolerantly and written as one small JSON entry', () => {
-  assert.deepStrictEqual(it.iterationChoiceRead('{"pick":"I2"}'), { pick: 'I2' });
-  assert.deepStrictEqual(it.iterationChoiceRead('{"pick":""}'), { pick: '' });
+  assert.deepStrictEqual(it.iterationChoiceRead('{"pick":"I2"}'), { pick: 'I2', under: '' });
+  assert.deepStrictEqual(it.iterationChoiceRead('{"pick":""}'), { pick: '', under: '' });
+  assert.deepStrictEqual(it.iterationChoiceRead('{"pick":"I1","under":"I2"}'), { pick: 'I1', under: 'I2' });
+  assert.deepStrictEqual(it.iterationChoiceRead('{"pick":"I1","under":7}'), { pick: 'I1', under: '' }, 'an under that is not an id reads as none');
+  assert.deepStrictEqual(it.iterationChoiceRead('{"pick":"I1","under":"x y"}'), { pick: 'I1', under: '' });
   for (const bad of [null, undefined, '', 'nope', '{"pick":3}', '{}', '[]', 'null', '{"pick":"x y"}']) assert.strictEqual(it.iterationChoiceRead(bad), null, String(bad));
-  assert.strictEqual(it.iterationChoiceWrite('I2'), '{"pick":"I2"}');
-  assert.strictEqual(it.iterationChoiceWrite(''), '{"pick":""}');
+  assert.strictEqual(it.iterationChoiceWrite('I2', 'I2'), '{"pick":"I2","under":"I2"}');
+  assert.strictEqual(it.iterationChoiceWrite('', 'I2'), '{"pick":"","under":"I2"}');
+  assert.strictEqual(it.iterationChoiceWrite('I2'), '{"pick":"I2","under":""}');
 });
 
 test('a picked iteration cuts the views to the cards it lists; All cards cuts nothing', () => {

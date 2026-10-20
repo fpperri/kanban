@@ -642,9 +642,11 @@ to `127.0.0.1` only.
   (the Group tab's **Delete group…**) deletes the group file and offers the same logbook and scratchpad boxes,
   plus **Its member cards**: the list shows each member it would delete and names the members
   another group holds as skipped, with the groups that hold them, and only the others are
-  deleted (their logbooks stay). The server's `DELETE /api/cards/<id>` and
-  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, members }` in the body, each only when `true`,
-  and answer what went (`groups`, `deleted`, `kept`, `swept`). Archiving never opens it and
+  deleted. Ticking it offers, each unticked, **Their logbooks** and **Their scratchpads**, counted
+  over the members it would delete; unticked, those files stay. The server's `DELETE /api/cards/<id>` and
+  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, members, memberLogbook, memberScratchpad }` in the body,
+  each only when `true` (the member boxes count only with `members`), and answer what went (`groups`, `deleted`,
+  `kept`, `swept`, `membersSwept`). Archiving never opens it and
   gets none of its questions.
 
 - **Multi-select** — one interaction grammar, uniform across **all five views**
@@ -1030,8 +1032,8 @@ to `127.0.0.1` only.
   hand outside the board still works for reading and writing notes and groups, shows
   **locked** with the reason, and every change to it is refused (409). Changing a folder
   changes the line only: the files stay where they are. **Groups** adds the **Iterations**
-  switch (`iterations: true`): turning groups off removes `iterations:` too, and turning
-  iterations on without groups is refused (409). It also lists the groups found, by type path,
+  switch (`iterations: true`): turning groups off removes only the `groups:` line (`iterations:` stays and is ignored
+  without groups), and turning iterations on without groups is refused (409). It also lists the groups found, by type path,
   each opening its group in the palette, and **New group…**. **Prefixes** shows the `prefixes:` block as a read only
   table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
   new card files. **Counters** shows `nextId:` and the `counters:` line, read only. The
@@ -1050,8 +1052,10 @@ to `127.0.0.1` only.
   tick), the note box, the preview line that says exactly what Enter will write (`Note at
   10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
   All, Human and AI switch beside it) and the list of notes, grouped by day and card, newest day
-  first, each with its time and, when it is not the human's, its author. **Enter** writes the
+  first, each with its time and its author, the human's included. **Enter** writes the
   note at the time field's time (now, to start with) and keeps the palette open for the next;
+  the field then goes back to now (or to the slot's time, when the palette was opened on a
+  slot) unless a time was typed into it;
   **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
   a leading `-` or `untimed` (or the tick) makes it untimed, and a leading mention of a card
   (`#22`, `plan#22`) aims that one note at it and is cut from the text; a mention anywhere
@@ -1070,7 +1074,8 @@ to `127.0.0.1` only.
   `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/notes/assign`, which build the day
   file's name from a day and an id and never from request text; a write re-reads the file
   and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
-  a day file survive every write. The Graph's names step moved to `l` to free `n`.
+  a day file survive every write. A note's `by` is kept as written (one trimmed line, any
+  text; a blank one is `@human`), never refused for not being a handle. The Graph's names step moved to `l` to free `n`.
 - **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
   pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
   `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.
@@ -1094,7 +1099,9 @@ to `127.0.0.1` only.
   of it shows. A badge opens the **notes palette** on that group, on its **Group tab** (the
   palette then has a tab row, Notes and Group; with the logbook off a group still opens, on
   its Group tab alone). The Group tab edits the group's name, dates, `auto_join` (on offer only
-  with both dates) and extra keys, with a Save button, lists its members each with an x that
+  with both dates) and one-line extra keys (a cleared field keeps the key with an empty value;
+  a separate x takes the key out; a key whose value is a list or several lines is shown as
+  written, read only, and never rewritten), with a Save button, lists its members each with an x that
   takes it out (the card is never touched), and has **+ Note** (back to the Notes tab, on the
   group) and **Show this group's cards**, which fills the search box with `group:<id>` and
   closes the palette. A note written on a group lands in `<day>.<padded group id>.logbook.md`,
@@ -1109,8 +1116,8 @@ to `127.0.0.1` only.
   `POST /api/groups` makes a group (`name`, `folder` of at most two plain names, optional
   dates, `auto_join` kept only with both, `cards` that must be cards of the board; the id is
   allocated from the folder's prefix and its counter, and a refused group burns no id),
-  `PATCH /api/groups/<id>` changes the name, dates, `auto_join` and `extra` keys (null or empty
-  removes one), and `POST /api/groups/<id>/members` takes `add` and `remove` lists of card
+  `PATCH /api/groups/<id>` changes the name, dates, `auto_join` and `extra` keys (null takes one
+  out, an empty string empties its value; a key holding a list or several lines is refused, 409), and `POST /api/groups/<id>/members` takes `add` and `remove` lists of card
   ids; each rewrites only the lines it changes, keeping every other line, comment and the
   body, and a group is found by the id in its frontmatter, never by file name or request
   text. A group file that cannot be read (no id, a repeated id, no frontmatter) or that sits
@@ -1132,10 +1139,12 @@ to `127.0.0.1` only.
   newest one whose dates include today, both days), or on All cards when none runs. A pick
   narrows the Board, Calendar, Gantt, Map and Graph to the iteration's cards on top of the
   search box: both must say yes, the pick never writes the box, and it never changes a group
-  or its membership. The pick is kept in this browser only (`localStorage`, not the board);
-  a kept pick, All cards included, beats the running iteration, and one whose iteration is
-  gone falls back to it. The Calendar shades the picked iteration's days (an iteration with
-  both dates) and opens on its first day when the pick changes. **New iteration…** opens the
+  or its membership. The pick is kept in this browser only (`localStorage`, not the board),
+  with the iteration that was running when it was made; a kept pick, All cards included,
+  beats the running iteration until that one has ended, and one whose iteration is gone
+  falls back to the running one. The Calendar shades the picked iteration's days (an
+  iteration with both dates) and moves to its first day when the person picks it, never on
+  page load. **New iteration…** opens the
   group form in the `iteration` folder with the newest iteration's name bumped (`zephyr-2`
   becomes `zephyr-3`; a name with no trailing number is left blank), the dates continuing the
   day after its end at the same length, and `auto_join` on; the pick stays where it was. The

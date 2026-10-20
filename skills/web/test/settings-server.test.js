@@ -253,14 +253,18 @@ test('a folder is not touched in its files: changing the line moves nothing', as
 
 // --- groups and iterations ------------------------------------------------------------
 
-test('turning groups off turns iterations off', async () => {
+test('turning groups off removes only the groups line; the iterations line stays and is ignored until groups are back', async () => {
   const dir = tmpBoard();
   const before = config(dir);
   await withServer(dir, async (base) => {
     const r = await set(base, 'groups', null);
     assert.strictEqual(r.status, 200);
-    assert.strictEqual(config(dir), without(without(before, 'groups: .groups'), 'iterations: true'));
-    assert.strictEqual((await req(base, 'GET', '/api/board')).json.iterations, false);
+    assert.strictEqual(config(dir), without(before, 'groups: .groups'));
+    assert.ok(config(dir).includes('iterations: true'));
+    assert.strictEqual((await req(base, 'GET', '/api/board')).json.iterations, false, 'the payload ignores it without groups');
+    const back = await set(base, 'groups', '.groups');
+    assert.strictEqual(back.status, 200);
+    assert.strictEqual((await req(base, 'GET', '/api/board')).json.iterations, true, 'and picks it up again with them');
   });
 });
 

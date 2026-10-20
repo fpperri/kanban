@@ -23,14 +23,8 @@ const path = require('path');
 const cfg = require('./config-store');
 const { scalar } = require('./yaml-list');
 const ids = require('../web/ids');
-
-class ScratchpadError extends Error {
-  constructor(message, status) {
-    super(message);
-    this.name = 'ScratchpadError';
-    this.status = status;
-  }
-}
+const { StatusError } = require('./store-common');
+const { writeAtomic } = require('./card-store');
 
 const FILE_RE = /^([^.]+)\.scratchpad\.md$/;
 const FRONT_RE = /^---[ \t]*\r?\n(?:[\s\S]*?\r?\n)??---[ \t]*(?:\r?\n|$)/;
@@ -45,13 +39,13 @@ function scratchpadDir(dir) {
 
 function mustScratchpad(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.scratchpad) throw new ScratchpadError('The scratchpad is off: config.yaml has no scratchpad: line.', 404);
+  if (!config.scratchpad) throw new StatusError('The scratchpad is off: config.yaml has no scratchpad: line.', 404);
   return { folder: path.resolve(dir, config.scratchpad), digits: config.idDigits };
 }
 
 function checkTarget(target) {
   const key = typeof target === 'string' ? ids.idKey(target.trim()) : null;
-  if (key === null) throw new ScratchpadError('That is not an id.', 400);
+  if (key === null) throw new StatusError('That is not an id.', 400);
   return key;
 }
 
@@ -60,7 +54,7 @@ function canonicalName(target, digits) {
 }
 
 // Every file of the folder that is a page: { name, target }, by name.
-function pageFiles(folder) {
+function padFiles(folder) {
   let entries;
   try { entries = fs.readdirSync(folder); } catch (_) { return []; }
   const out = [];
@@ -76,7 +70,7 @@ function pageFiles(folder) {
 // target, else the canonical name for a page not written yet.
 function nameOf(folder, digits, target) {
   const canon = canonicalName(target, digits);
-  const have = pageFiles(folder).filter((f) => f.target === target);
+  const have = padFiles(folder).filter((f) => f.target === target);
   return have.some((f) => f.name === canon) ? canon : have.length ? have[0].name : canon;
 }
 
@@ -132,8 +126,8 @@ function readPad(dir, target) {
 function writePad(dir, target, body) {
   const { folder, digits } = mustScratchpad(dir);
   const key = checkTarget(target);
-  if (typeof body !== 'string') throw new ScratchpadError('The page is text.', 400);
-  if (body.length > MAX_PAD) throw new ScratchpadError('That page is too long.', 413);
+  if (typeof body !== 'string') throw new StatusError('The page is text.', 400);
+  if (body.length > MAX_PAD) throw new StatusError('That page is too long.', 413);
   const name = nameOf(folder, digits, key);
   const file = path.join(folder, name);
   let old = '';
@@ -146,9 +140,7 @@ function writePad(dir, target, body) {
   if (front !== '' && !/\n$/.test(front)) front += was.eol;
   const text = front + (gap ? was.eol : '') + (was.eol === '\n' ? plain : plain.replace(/\n/g, was.eol));
   fs.mkdirSync(folder, { recursive: true });
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, text);
-  fs.renameSync(tmp, file);
+  writeAtomic(file, text);
   return readPad(dir, key);
 }
 
@@ -156,7 +148,7 @@ function writePad(dir, target, body) {
 function listTargets(dir) {
   const folder = scratchpadDir(dir);
   if (folder === null) return [];
-  return ids.sortIds([...new Set(pageFiles(folder).map((f) => f.target))]);
+  return ids.sortIds([...new Set(padFiles(folder).map((f) => f.target))]);
 }
 
 // Delete every page of one target (a card or a group), whatever its padding; how many went. A
@@ -166,11 +158,11 @@ function deleteTargetFiles(dir, target) {
   const key = typeof target === 'string' || typeof target === 'number' ? ids.idKey(target) : null;
   if (folder === null || key === null) return 0;
   let gone = 0;
-  for (const f of pageFiles(folder)) {
+  for (const f of padFiles(folder)) {
     if (f.target !== key) continue;
     try { fs.unlinkSync(path.join(folder, f.name)); gone++; } catch (_) { /* already gone */ }
   }
   return gone;
 }
 
-module.exports = { ScratchpadError, scratchpadDir, readPad, writePad, listTargets, deleteTargetFiles, canonicalName, MAX_PAD };
+module.exports = { scratchpadDir, readPad, writePad, listTargets, deleteTargetFiles, canonicalName, MAX_PAD };

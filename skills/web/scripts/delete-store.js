@@ -4,7 +4,9 @@
 // card. The rest is the person's say, each unticked in the delete popup: the extras in
 // SWEEPS, each a function of the board and the target (a card or a group id) that deletes the
 // files kept for that target and returns how many. Deleting a group can also delete its member
-// cards, but never one another group still lists.
+// cards, but never one another group still lists, and with them, each unticked, their
+// logbook files and scratchpads (the same SWEEPS, asked as `member<Key>`, run on the members
+// that were deleted).
 //
 // A new kind of file kept per target joins the popup by adding one entry to SWEEPS; the
 // options a request sends are the keys that are `true`, nothing else is read.
@@ -21,10 +23,11 @@ const SWEEPS = {
 
 // Run the extras the options ask for on one target: { logbook: 2 } for what was asked, nothing
 // for what was not (even when it found no file).
-function sweep(dir, target, options) {
+function sweep(dir, target, options, prefix = '') {
   const swept = {};
   for (const [key, run] of Object.entries(SWEEPS)) {
-    if (options && options[key] === true) swept[key] = run(dir, target);
+    const asked = prefix ? `${prefix}${key[0].toUpperCase()}${key.slice(1)}` : key;
+    if (options && options[asked] === true) swept[key] = run(dir, target);
   }
   return swept;
 }
@@ -37,13 +40,14 @@ function deleteCard(dir, id, options) {
 }
 
 // The group's file, its extras if asked, and with options.members the member cards no other
-// group holds: { deleted: [card ids], kept: [{ id, groups }], swept }. A member that is no card
-// of the board is neither.
+// group holds: { deleted: [card ids], kept: [{ id, groups }], swept, membersSwept }. A member that is
+// no card of the board is neither. membersSwept adds up the member extras asked, over the deleted members.
 function deleteGroup(dir, id, options) {
   const group = gs.deleteGroup(dir, id);
   const swept = sweep(dir, group.id, options);
   const deleted = [];
   const kept = [];
+  const membersSwept = {};
   if (options && options.members === true) {
     for (const member of group.cards) {
       if (!cs.findCardFile(dir, member)) continue;
@@ -51,9 +55,10 @@ function deleteGroup(dir, id, options) {
       if (others.length) { kept.push({ id: member, groups: others }); continue; }
       cs.deleteCard(dir, member);
       deleted.push(member);
+      for (const [key, n] of Object.entries(sweep(dir, member, options, 'member'))) membersSwept[key] = (membersSwept[key] || 0) + n;
     }
   }
-  return { deleted: ids.sortIds(deleted), kept, swept };
+  return { deleted: ids.sortIds(deleted), kept, swept, membersSwept };
 }
 
 module.exports = { SWEEPS, deleteCard, deleteGroup };

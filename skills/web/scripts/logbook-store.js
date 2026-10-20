@@ -31,19 +31,12 @@ const fs = require('fs');
 const path = require('path');
 const cfg = require('./config-store');
 const ids = require('../web/ids');
+const { validDay } = require('../web/days');
+const { StatusError } = require('./store-common');
+const { writeAtomic } = require('./card-store');
 
-class LogbookError extends Error {
-  constructor(message, status) {
-    super(message);
-    this.name = 'LogbookError';
-    this.status = status;
-  }
-}
-
-const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const FILE_RE = /^(\d{4})\.(\d{2})\.(\d{2})\.(?:([^.]+)\.)?logbook\.md$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-const HANDLE_RE = /^@[\w.-]{1,64}$/;
 const DEFAULT_AUTHOR = '@human';
 const MAX_NOTE = 20000;
 
@@ -58,20 +51,12 @@ function logbookDir(dir) {
 
 function mustLogbook(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.logbook) throw new LogbookError('The logbook is off: config.yaml has no logbook: line.', 404);
+  if (!config.logbook) throw new StatusError('The logbook is off: config.yaml has no logbook: line.', 404);
   return { folder: path.resolve(dir, config.logbook), digits: config.idDigits };
 }
 
-function validDay(day) {
-  const m = DAY_RE.exec(String(day));
-  if (!m) return false;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
-}
-
 function checkDay(day) {
-  if (!validDay(day)) throw new LogbookError('A day reads YYYY-MM-DD.', 400);
+  if (!validDay(day)) throw new StatusError('A day reads YYYY-MM-DD.', 400);
   return String(day);
 }
 
@@ -79,27 +64,29 @@ function checkDay(day) {
 function checkTarget(target) {
   if (target === undefined || target === null || target === '') return '';
   const key = typeof target === 'string' ? ids.idKey(target.trim()) : null;
-  if (key === null) throw new LogbookError('That is not an id.', 400);
+  if (key === null) throw new StatusError('That is not an id.', 400);
   return key;
 }
 
 function checkTime(at) {
   if (at === undefined || at === null || at === '') return null;
-  if (typeof at !== 'string' || !TIME_RE.test(at.trim())) throw new LogbookError('A time reads HH:MM, e.g. 09:10.', 400);
+  if (typeof at !== 'string' || !TIME_RE.test(at.trim())) throw new StatusError('A time reads HH:MM, e.g. 09:10.', 400);
   return at.trim();
 }
 
 function checkText(note) {
   const text = typeof note === 'string' ? note.replace(/\r\n?/g, '\n').trim() : '';
-  if (text === '') throw new LogbookError('A note needs text.', 400);
-  if (text.length > MAX_NOTE) throw new LogbookError('That note is too long.', 400);
+  if (text === '') throw new StatusError('A note needs text.', 400);
+  if (text.length > MAX_NOTE) throw new StatusError('That note is too long.', 400);
   return text;
 }
 
+// An author is kept as written, as one trimmed line; the entry writer quotes it, so no text
+// can break the YAML. A blank one is the human, like an absent one.
 function checkAuthor(by) {
-  if (by === undefined || by === null || by === '') return DEFAULT_AUTHOR;
-  if (typeof by !== 'string' || !HANDLE_RE.test(by)) throw new LogbookError('An author is an assignee handle such as @human.', 400);
-  return by;
+  if (by === undefined || by === null) return DEFAULT_AUTHOR;
+  if (typeof by !== 'string') throw new StatusError('An author is text.', 400);
+  return by.replace(/\s*[\r\n]+\s*/g, ' ').trim() || DEFAULT_AUTHOR;
 }
 
 function canonicalName(day, target, digits) {
@@ -393,15 +380,13 @@ function withFile(file, hooks, apply) {
     if (model.entries.length || hasOtherContent(model)) {
       const text = renderDayFile(model);
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      const tmp = `${file}.tmp`;
-      fs.writeFileSync(tmp, text);
-      fs.renameSync(tmp, file);
+      writeAtomic(file, text);
     } else if (before !== null) {
       fs.unlinkSync(file);
     }
     return result;
   }
-  throw new LogbookError(`${path.basename(file)} kept changing while it was written; nothing was lost, try again.`, 409);
+  throw new StatusError(`${path.basename(file)} kept changing while it was written; nothing was lost, try again.`, 409);
 }
 
 const same = (a, b) => (a.at || null) === (b.at || null) && (a.by || '') === (b.by || '') && a.note === b.note;
@@ -412,12 +397,12 @@ function locate(model, ref) {
   const at = model.entries[ref.index];
   const seen = ref.expect;
   if (!seen) {
-    if (!at) throw new LogbookError('That note is gone.', 409);
+    if (!at) throw new StatusError('That note is gone.', 409);
     return at;
   }
   if (at && same(at, seen)) return at;
   const found = model.entries.find((e) => same(e, seen));
-  if (!found) throw new LogbookError('That note has changed or is gone; reload and try again.', 409);
+  if (!found) throw new StatusError('That note has changed or is gone; reload and try again.', 409);
   return found;
 }
 
@@ -428,7 +413,7 @@ function fileOfRef(dir, ref) {
   const day = checkDay(ref && ref.day);
   const target = checkTarget(ref && ref.target);
   const have = dayFiles(folder).filter((f) => f.day === day && f.target === target);
-  if (!have.length) throw new LogbookError('That note is gone.', 409);
+  if (!have.length) throw new StatusError('That note is gone.', 409);
   const named = have.find((f) => f.name === ref.file);
   return { file: path.join(folder, (named || have[0]).name), day, target, folder };
 }
@@ -479,7 +464,7 @@ function deleteNote(dir, ref, hooks) {
 function assignNote(dir, ref, to, hooks) {
   const where = fileOfRef(dir, ref);
   const target = checkTarget(to);
-  if (target === where.target) throw new LogbookError('The note is already there.', 400);
+  if (target === where.target) throw new StatusError('The note is already there.', 400);
   const { digits } = mustLogbook(dir);
   const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
   const seen = { at: found.at, by: found.by, note: found.note };
@@ -509,4 +494,4 @@ function deleteTargetFiles(dir, target) {
   return gone;
 }
 
-module.exports = { LogbookError, logbookDir, listNotes, addNote, editNote, deleteNote, assignNote, canonicalName, deleteTargetFiles };
+module.exports = { logbookDir, listNotes, addNote, editNote, deleteNote, assignNote, canonicalName, deleteTargetFiles };

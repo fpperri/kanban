@@ -13,6 +13,7 @@
 
 const ITER_GROUPS = (typeof module !== 'undefined' && module.exports) ? require('./groups') : window;
 const ITER_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+const ITER_DAYS = (typeof module !== 'undefined' && module.exports) ? require('./days') : window.kanbanDays;
 
 const ITERATION_FOLDER = 'iteration';
 const ITERATION_DAY_MS = 24 * 60 * 60 * 1000;
@@ -39,12 +40,16 @@ function iterationLabel(group, today) {
   return parts.join(' · ');
 }
 
-// The id the dropdown shows ('' = All cards). `saved` is what this browser kept ({ pick } or null):
-// a kept choice wins, All cards included, while its iteration still exists; with none, or a gone
-// one, the dropdown opens on the running iteration, or on All cards when none runs.
+// The id the dropdown shows ('' = All cards). `saved` is what this browser kept ({ pick, under } or
+// null): a kept choice wins, All cards included, while its iteration still exists and the iteration
+// that was running when it was made (`under`, '' when none ran) has not ended; once that one has
+// ended, or with no choice, or a gone one, the dropdown opens on the running iteration, or on All
+// cards when none runs.
 function iterationPick(saved, groups, today) {
   const list = iterationList(groups);
-  if (saved && typeof saved.pick === 'string') {
+  const under = saved && typeof saved.under === 'string' ? saved.under : '';
+  const ended = under !== '' && !list.some((g) => g.id === under && ITER_GROUPS.groupRunning(g, today));
+  if (saved && typeof saved.pick === 'string' && !ended) {
     if (saved.pick === '') return '';
     if (list.some((g) => g.id === saved.pick)) return saved.pick;
   }
@@ -52,18 +57,20 @@ function iterationPick(saved, groups, today) {
   return running ? running.id : '';
 }
 
-// The kept choice as one JSON entry; anything else it holds reads as no choice.
+// The kept choice as one JSON entry; anything else it holds reads as no choice. An entry kept before
+// `under` existed, or with a bad one, reads as kept under none.
 function iterationChoiceRead(raw) {
   if (typeof raw !== 'string' || raw === '') return null;
   let parsed;
   try { parsed = JSON.parse(raw); } catch (e) { return null; }
   if (!parsed || typeof parsed !== 'object' || typeof parsed.pick !== 'string') return null;
   if (parsed.pick !== '' && ITER_IDS.idKey(parsed.pick) !== parsed.pick) return null;
-  return { pick: parsed.pick };
+  const under = typeof parsed.under === 'string' && parsed.under !== '' && ITER_IDS.idKey(parsed.under) === parsed.under ? parsed.under : '';
+  return { pick: parsed.pick, under };
 }
 
-function iterationChoiceWrite(pick) {
-  return JSON.stringify({ pick });
+function iterationChoiceWrite(pick, under) {
+  return JSON.stringify({ pick, under: under || '' });
 }
 
 // The ids of the picked iteration's cards, or null for All cards, no pick or a pick that is gone.
@@ -75,8 +82,8 @@ function iterationCut(groups, pick) {
 }
 
 function iterationDayNumber(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
-  return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / ITERATION_DAY_MS : null;
+  const day = ITER_DAYS.parseDay(iso);
+  return day ? day.number : null;
 }
 
 function iterationDayText(number) {

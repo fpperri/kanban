@@ -11,7 +11,8 @@
 //   end_date: 2026-10-23      # optional
 //   auto_join: true           # optional
 //   cards: [3, 7]             # the ids of its member cards, this board's cards only
-//   owner: "@human"           # any other key is kept as written
+//   owner: "@human"           # any other key is kept as written; a one-line value is an
+//                             # extra the page edits, a list or several lines is shown as is
 //   ---
 //   free markdown, kept as written
 //
@@ -32,14 +33,8 @@ const cs = require('./card-store');
 const ids = require('../web/ids');
 const { groupRunning } = require('../web/groups');
 const { scalar, quote } = require('./yaml-list');
-
-class GroupError extends Error {
-  constructor(message, status) {
-    super(message);
-    this.name = 'GroupError';
-    this.status = status;
-  }
-}
+const { StatusError, posix } = require('./store-common');
+const { validDay } = require('../web/days');
 
 const MANAGED = ['id', 'name', 'start_date', 'end_date', 'auto_join', 'cards'];
 const MAX_FOLDERS = 2;
@@ -56,11 +51,9 @@ function groupsFolder(dir) {
 
 function mustGroups(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.groups) throw new GroupError('Groups are off: config.yaml has no groups: line.', 404);
+  if (!config.groups) throw new StatusError('Groups are off: config.yaml has no groups: line.', 404);
   return { config, root: path.resolve(dir, config.groups) };
 }
-
-const posix = (p) => p.split(path.sep).join('/');
 
 // ---------- the file ----------
 
@@ -92,14 +85,6 @@ function firstKey(keys, name) {
   return keys.find((k) => k.key === name) || null;
 }
 
-function validDate(text) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-  if (!m) return false;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
-}
-
 function flowItems(inline) {
   const s = inline.trim();
   const close = s.indexOf(']');
@@ -126,6 +111,12 @@ function scalarOf(keys, name) {
   return k && k.inline[0] !== '#' ? scalar(k.inline) : '';
 }
 
+// A key whose whole value is on its own line. A key with a nested list or block under it, or with
+// nothing after the colon, is not (the page shows it as written and leaves it alone).
+function oneLineScalar(key) {
+  return key.cont.length === 0 && key.inline !== '' && key.inline[0] !== '#';
+}
+
 // A group file's text -> { group } or { reason }. `folder` is where the file sits.
 function parseGroup(raw, folder, file) {
   const parsed = splitFile(raw);
@@ -135,16 +126,18 @@ function parseGroup(raw, folder, file) {
   if (idText === '') return { reason: 'no id: line' };
   const id = ids.idKey(idText);
   if (id === null) return { reason: `${idText} is not an id` };
-  const date = (name) => { const v = scalarOf(keys, name); return validDate(v) ? v : ''; };
+  const date = (name) => { const v = scalarOf(keys, name); return validDay(v) ? v : ''; };
   const extra = {};
+  const extraRaw = {};
   for (const k of keys) {
-    if (MANAGED.includes(k.key) || k.key in extra || k.cont.length || k.inline === '' || k.inline[0] === '#') continue;
-    extra[k.key] = scalar(k.inline);
+    if (MANAGED.includes(k.key) || k.key in extra || k.key in extraRaw) continue;
+    if (oneLineScalar(k)) extra[k.key] = scalar(k.inline);
+    else extraRaw[k.key] = parsed.lines.slice(k.start, k.end).join('\n');
   }
   return {
     group: {
       id, name: scalarOf(keys, 'name'), folder, start_date: date('start_date'), end_date: date('end_date'),
-      auto_join: scalarOf(keys, 'auto_join').toLowerCase() === 'true', cards: memberIds(firstKey(keys, 'cards')), extra, file,
+      auto_join: scalarOf(keys, 'auto_join').toLowerCase() === 'true', cards: memberIds(firstKey(keys, 'cards')), extra, extra_raw: extraRaw, file,
     },
   };
 }
@@ -223,7 +216,7 @@ function findGroup(dir, id) {
   const { root } = mustGroups(dir);
   const want = ids.idKey(id);
   const hit = want === null ? null : scan(dir, root).found.find((f) => f.group.id === want);
-  if (!hit) throw new GroupError(`no group #${id}`, 404);
+  if (!hit) throw new StatusError(`no group #${id}`, 404);
   return hit;
 }
 
@@ -235,28 +228,28 @@ function oneLine(v) {
 
 function checkName(name) {
   const text = oneLine(name);
-  if (text === '') throw new GroupError('A group needs a short name.', 400);
-  if (text.length > MAX_NAME) throw new GroupError('That name is too long.', 400);
+  if (text === '') throw new StatusError('A group needs a short name.', 400);
+  if (text.length > MAX_NAME) throw new StatusError('That name is too long.', 400);
   return text;
 }
 
 function checkDate(value, what) {
   if (value === undefined || value === null) return '';
   const text = String(value).trim();
-  if (text !== '' && !validDate(text)) throw new GroupError(`${what} reads YYYY-MM-DD.`, 400);
+  if (text !== '' && !validDay(text)) throw new StatusError(`${what} reads YYYY-MM-DD.`, 400);
   return text;
 }
 
 // A folder of the groups folder: '' (none), `type` or `type/subtype`, each a plain name.
 function checkFolder(folder) {
   if (folder === undefined || folder === null) return '';
-  if (typeof folder !== 'string') throw new GroupError('A folder is text.', 400);
+  if (typeof folder !== 'string') throw new StatusError('A folder is text.', 400);
   const parts = folder.trim().replace(/\/+$/, '').split('/');
   if (parts.length === 1 && parts[0] === '') return '';
-  if (parts.length > MAX_FOLDERS) throw new GroupError('A group sits in at most two folders: a type and a subtype.', 400);
+  if (parts.length > MAX_FOLDERS) throw new StatusError('A group sits in at most two folders: a type and a subtype.', 400);
   for (const part of parts) {
     if (part === '' || part === '.' || part === '..' || part !== part.trim() || /[\\/:*?"<>|\u0000-\u001f]/.test(part) || /\.$/.test(part)) {
-      throw new GroupError(`${folder} is not a folder name.`, 400);
+      throw new StatusError(`${folder} is not a folder name.`, 400);
     }
   }
   return parts.join('/');
@@ -274,20 +267,20 @@ function boardCardIds(dir) {
 // A list of ids that must all be cards of this board, whole ids, once each, in id order.
 function checkCards(dir, list, what = 'cards') {
   if (list === undefined || list === null) return [];
-  if (!Array.isArray(list)) throw new GroupError(`${what} is a list of card ids.`, 400);
+  if (!Array.isArray(list)) throw new StatusError(`${what} is a list of card ids.`, 400);
   const have = boardCardIds(dir);
   const out = [];
   for (const raw of list) {
     const id = typeof raw === 'string' || typeof raw === 'number' ? ids.idKey(typeof raw === 'string' ? raw.trim() : raw) : null;
-    if (id === null) throw new GroupError(`${JSON.stringify(raw)} is not an id.`, 400);
-    if (!have.has(id)) throw new GroupError(`#${id} is no card of this board.`, 400);
+    if (id === null) throw new StatusError(`${JSON.stringify(raw)} is not an id.`, 400);
+    if (!have.has(id)) throw new StatusError(`#${id} is no card of this board.`, 400);
     if (!out.includes(id)) out.push(id);
   }
   return ids.sortIds(out);
 }
 
 function checkSpan(start, end) {
-  if (start !== '' && end !== '' && end < start) throw new GroupError('A group cannot end before it starts.', 400);
+  if (start !== '' && end !== '' && end < start) throw new StatusError('A group cannot end before it starts.', 400);
 }
 
 // ---------- writing ----------
@@ -320,9 +313,7 @@ function setKey(file, key, line, after = []) {
 }
 
 function writeFile(file, abs) {
-  const tmp = `${abs}.tmp`;
-  fs.writeFileSync(tmp, file.lines.join(file.eol));
-  fs.renameSync(tmp, abs);
+  cs.writeAtomic(abs, file.lines.join(file.eol));
 }
 
 function slugOf(name) {
@@ -335,11 +326,15 @@ function uniquePath(folder, base) {
   return candidate;
 }
 
-// The scan candidate for a new group id: one past the highest number among the ids of
-// cards and groups that carry the prefix.
-function nextNumber(dir, root, prefix) {
-  const groupNumbers = scan(dir, root).found.map((f) => ids.parseId(f.group.id)).filter((p) => p && p.prefix === prefix).map((p) => p.number);
-  return Math.max(cs.nextId(dir, prefix), groupNumbers.length ? Math.max(...groupNumbers) + 1 : 1);
+// The numbers of the groups' ids that carry the prefix; card-store's nextId counts them with the
+// cards', since the two share a prefix's counter. Empty when the board keeps no groups.
+function numbersWithPrefix(dir, prefix) {
+  const config = cfg.readConfig(dir);
+  if (!config.groups) return [];
+  return scan(dir, path.resolve(dir, config.groups)).found
+    .map((f) => ids.parseId(f.group.id))
+    .filter((p) => p && p.prefix === prefix)
+    .map((p) => p.number);
 }
 
 function createGroup(dir, input) {
@@ -352,8 +347,8 @@ function createGroup(dir, input) {
   checkSpan(start, end);
   const cards = checkCards(dir, body.cards);
   const prefix = cfg.prefixForGroupFolder(config, folder);
-  const number = cfg.allocateId(dir, nextNumber(dir, root, prefix), prefix);
-  const id = `${prefix}${number}`;
+  const number = cfg.allocateId(dir, cs.nextId(dir, prefix), prefix);
+  const id = ids.idKey({ prefix, number });
   const lines = ['---', `id: ${id}`, `name: ${yamlText(name)}`];
   if (start) lines.push(`start_date: ${start}`);
   if (end) lines.push(`end_date: ${end}`);
@@ -362,19 +357,17 @@ function createGroup(dir, input) {
   const where = path.join(root, ...(folder ? folder.split('/') : []));
   fs.mkdirSync(where, { recursive: true });
   const abs = uniquePath(where, `${ids.formatId(id, config.idDigits)}.${slugOf(name)}`);
-  const tmp = `${abs}.tmp`;
-  fs.writeFileSync(tmp, lines.join('\n'));
-  fs.renameSync(tmp, abs);
+  cs.writeAtomic(abs, lines.join('\n'));
   return findGroup(dir, id).group;
 }
 
 function checkExtra(extra) {
   if (extra === undefined || extra === null) return {};
-  if (typeof extra !== 'object' || Array.isArray(extra)) throw new GroupError('extra is a map of keys to text.', 400);
+  if (typeof extra !== 'object' || Array.isArray(extra)) throw new StatusError('extra is a map of keys to text.', 400);
   const out = {};
   for (const [key, value] of Object.entries(extra)) {
-    if (!/^[A-Za-z_][\w-]*$/.test(key) || MANAGED.includes(key)) throw new GroupError(`${key} is not a key a group can carry as an extra.`, 400);
-    if (value !== null && typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') throw new GroupError(`${key} is text.`, 400);
+    if (!/^[A-Za-z_][\w-]*$/.test(key) || MANAGED.includes(key)) throw new StatusError(`${key} is not a key a group can carry as an extra.`, 400);
+    if (value !== null && typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') throw new StatusError(`${key} is text.`, 400);
     out[key] = value === null ? null : oneLine(value);
   }
   return out;
@@ -390,14 +383,20 @@ function updateGroup(dir, id, patch) {
   const autoJoin = (body.auto_join === undefined ? group.auto_join : body.auto_join === true) && start !== '' && end !== '';
   const extra = checkExtra(body.extra);
   const file = splitFile(fs.readFileSync(abs, 'utf8'));
-  if (!file) throw new GroupError(`${group.file} can no longer be read as a group.`, 409);
+  if (!file) throw new StatusError(`${group.file} can no longer be read as a group.`, 409);
   const earlier = ['end_date', 'start_date', 'name', 'id'];
   if (name !== group.name) setKey(file, 'name', `name: ${yamlText(name)}`, ['id']);
   if (start !== group.start_date) setKey(file, 'start_date', start ? `start_date: ${start}` : null, ['name', 'id']);
   if (end !== group.end_date) setKey(file, 'end_date', end ? `end_date: ${end}` : null, ['start_date', 'name', 'id']);
   if (autoJoin !== group.auto_join) setKey(file, 'auto_join', autoJoin ? 'auto_join: true' : null, earlier);
+  const held = keysOf(file);
+  for (const key of Object.keys(extra)) {
+    const have = firstKey(held, key);
+    if (have && !oneLineScalar(have)) throw new StatusError(`${key} holds more than one line; edit the file to change it.`, 409);
+  }
   for (const [key, value] of Object.entries(extra)) {
-    const now = value === null || value === '' ? null : String(value);
+    // null takes the key out; an empty string keeps it with an empty value
+    const now = value === null ? null : String(value);
     if (now === (group.extra[key] === undefined ? null : group.extra[key])) continue;
     setKey(file, key, now === null ? null : `${key}: ${yamlText(now)}`, ['cards', 'auto_join', ...earlier]);
   }
@@ -410,13 +409,13 @@ function updateGroup(dir, id, patch) {
 function changeMembers(dir, id, change) {
   const { group, abs } = findGroup(dir, id);
   const body = change || {};
-  if (body.add === undefined && body.remove === undefined) throw new GroupError('Name the cards to add or remove.', 400);
+  if (body.add === undefined && body.remove === undefined) throw new StatusError('Name the cards to add or remove.', 400);
   const add = checkCards(dir, body.add, 'add');
-  if (body.remove !== undefined && !Array.isArray(body.remove)) throw new GroupError('remove is a list of card ids.', 400);
+  if (body.remove !== undefined && !Array.isArray(body.remove)) throw new StatusError('remove is a list of card ids.', 400);
   const gone = new Set((body.remove || []).map((r) => ids.idKey(typeof r === 'string' ? r.trim() : r)).filter((r) => r !== null));
   const cards = ids.sortIds([...new Set([...group.cards, ...add])].filter((c) => !gone.has(c)));
   const file = splitFile(fs.readFileSync(abs, 'utf8'));
-  if (!file) throw new GroupError(`${group.file} can no longer be read as a group.`, 409);
+  if (!file) throw new StatusError(`${group.file} can no longer be read as a group.`, 409);
   setKey(file, 'cards', cardsLine(cards), ['auto_join', 'end_date', 'start_date', 'name', 'id']);
   writeFile(file, abs);
   return findGroup(dir, id).group;
@@ -463,11 +462,11 @@ function joinRunning(dir, cardId, day) {
       changeMembers(dir, g.id, { add: [card] });
       joined.push({ id: g.id, name: g.name });
     } catch (e) {
-      if (e.name !== 'GroupError') throw e;
+      if (!(e instanceof StatusError)) throw e;
       console.warn(`[kanban-app] card #${card} did not join group #${g.id}: ${e.message}`);
     }
   }
   return joined;
 }
 
-module.exports = { GroupError, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, joinRunning, groupsHolding, dropCard, deleteGroup };
+module.exports = { numbersWithPrefix, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, joinRunning, groupsHolding, dropCard, deleteGroup };

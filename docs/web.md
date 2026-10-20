@@ -410,8 +410,8 @@ other byte as it was, comments included.
   locked with the reason, and the page leaves it alone. Changing a folder changes the line
   only: the files stay where they are, for you to move.
 - *Groups* also has the *Iterations* switch, which gives the header its iteration dropdown.
-  Turning groups off turns iterations off, and iterations cannot be turned on without
-  groups. The page lists the groups it found, by type, and opens one in the palette.
+  Turning groups off leaves the iterations line, which is ignored until groups are back,
+  and iterations cannot be turned on without groups. The page lists the groups it found, by type, and opens one in the palette.
 - *Prefixes* shows the `prefixes:` block, read only, and lets you change `idDigits`, the
   width card file names are padded to. Only new files take the new width.
 - *Counters* shows `nextId` and the `counters:` line, read only.
@@ -439,7 +439,9 @@ delete popup's **Its scratchpad** box is unticked, and only ticking it removes t
 **Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges
 (`#I2 zephyr-2`, then `+N`) below its title, with the group's dates and type path as a tooltip.
 A badge opens the notes palette on that group's **Group** tab, which edits its name, dates,
-`auto_join` and extra keys, takes members out, and has **Show this group's cards**, which fills
+`auto_join` and one-line extra keys (a cleared field empties the value, a separate x removes
+the key; a list or multi-line key is shown as written and left alone), takes members out, and
+has **Show this group's cards**, which fills
 the search box with `group:I2`. A note written on a group goes in that group's day file. The
 card menu has **Add to group…** and, on two or more cards, **Make a group from them…**, which
 opens a form for the short name, the folder (the group's type), the dates and `auto_join`.
@@ -455,8 +457,10 @@ card. Without a `groups:` line nothing of this shows.
 dropdown of the groups in the `iteration/` folder: All cards, the iterations newest first with
 their dates, and New iteration…. It opens on the running iteration, or on All cards when none
 runs. A pick narrows the Board, Calendar, Gantt, Map and Graph to its cards on top of the search
-box, without writing the box or changing any group, and is kept in this browser only. The
-Calendar shades the picked iteration's days and opens on its first day. New iteration… opens the
+box, without writing the box or changing any group, and is kept in this browser only; a kept
+pick (All cards included) yields to the running iteration once the iteration that was running
+when it was made has ended. The Calendar shades the picked iteration's days and moves to its
+first day when you pick it, never when the page loads. New iteration… opens the
 group form with the name bumped (`zephyr-2` becomes `zephyr-3`), the dates continuing at the same
 length and `auto_join` on.
 
@@ -465,8 +469,8 @@ groups lose the card: its id always leaves every group's list. **Its logbook** (
 notes) is a box left unticked; unticked, the day files stay and read as dangling. **Its
 scratchpad** is another, for a card or a group that has a page. The Group tab's
 **Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
-cards it would delete and names the ones another group holds, which it skips. Archiving never
-opens it.
+cards it would delete and names the ones another group holds, which it skips; ticking it
+offers, unticked, those members' logbooks and scratchpads too. Archiving never opens it.
 
 ## Other surfaces
 

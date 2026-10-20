@@ -46,7 +46,7 @@ module.exports = {
     await open('/?view=board');
     check('delete: the board is drawn with its groups', await waitFor(`document.querySelectorAll('#board .card-el').length>20&&state.groups&&state.groups.list.length===5`, 10000));
     await ev(`window.confirm=()=>{window.__confirms=(window.__confirms||0)+1;return true}`);
-    for (const [target, text] of [['3', 'three a'], ['3', 'three b'], ['15', 'fifteen'], ['I1', 'about the iteration'], ['_1', 'about the offsite']]) await note(target, text);
+    for (const [target, text] of [['3', 'three a'], ['3', 'three b'], ['15', 'fifteen'], ['I1', 'about the iteration'], ['_1', 'about the offsite'], ['2', 'two a'], ['8', 'eight a'], ['8', 'eight b'], ['5', 'five a']]) await note(target, text);
     check('delete: the notes are on the board', await refreshed(`${notesOf('3')}===2&&${notesOf('15')}===1&&${notesOf('I1')}===1`));
 
     // --- a card: the groups it leaves, the logbook box unticked ----------------------------------------------
@@ -96,13 +96,16 @@ module.exports = {
     check('delete: a badge opens the group on its Group tab', await waitFor(`!!document.querySelector('#notes-palette .gp-delete')`, 3000));
     await press('#notes-palette .gp-delete');
     check('delete: Delete group... opens the popup', await dlgUp() && await ev(`${TITLE}==='Delete group #I1 zephyr-1?'`), await ev(TITLE));
-    check('delete: it offers the logbook and the member cards, both unticked', await ev(`${boxes}==='logbook:false,members:false'`), await ev(boxes));
+    check('delete: it offers the logbook and the member cards, and their logbooks, all unticked', await ev(`${boxes}==='logbook:false,members:false,memberLogbook:false'`), await ev(boxes));
+    check('delete: the member logbooks count the notes of the two it would delete, not the one it skips', await ev(`/Their logbooks \\(3 notes\\)/.test(${BODY}.textContent)`), await ev(`${BODY}.textContent`));
     check('delete: it lists the members: two to delete, one it skips, naming the group that holds it', await ev(`${rows}==='Deletes #2 Move the zephyr data layer | Skips #5 Inventory current services: also in #_1 offsite-prep | Deletes #8 Backfill historic rows'`), await ev(rows));
     await shot('delete-group');
     await ev(`${BODY}.querySelector('input[data-del="logbook"]').click()`);
     await ev(`${BODY}.querySelector('input[data-del="members"]').click()`);
+    await ev(`${BODY}.querySelector('input[data-del="memberLogbook"]').click()`);
     await press('#group-dialog [data-confirm="delete"]');
     check('delete: the group is gone with its members that no other group holds', await refreshed(`!${group('I1')}&&!${live('2')}&&!${live('8')}&&${live('5')}`), await ev(`[${live('2')},${live('8')},${live('5')}].join(' ')`));
+    check('delete: the logbooks of the deleted members went with them, the one of the kept member stayed', await ev(`${notesOf('2')}===0&&${notesOf('8')}===0&&${notesOf('5')}===1`));
     check('delete: its logbook went and the kept member\'s group still lists it', await ev(`${notesOf('I1')}===0&&${cardsOf('_1')}==='5,17'`));
     check('delete: the toast names what it kept, and the palette closes', await waitFor(`/kept #5 \\(also in #_1\\)/.test(document.getElementById('toast').textContent)`, 2500) && await waitFor(PAL_GONE, 2500), await ev(`document.getElementById('toast').textContent`));
 

@@ -83,7 +83,16 @@ function deletePlan(ctx) {
         ? { id: member, skip: true, text: `Skips ${deleteCardLabel(cards, member)}: also in ${others.map(deleteGroupLabel).join(', ')}` }
         : { id: member, skip: false, text: `Deletes ${deleteCardLabel(cards, member)}` });
     }
-    if (rows.length) plan.members = { key: 'members', label: `Its member cards (${rows.length})`, rows };
+    if (rows.length) {
+      // Their files too, counted over the members it would delete (the ones another group holds are skipped).
+      const going = rows.filter((r) => !r.skip).map((r) => r.id);
+      const extras = [];
+      for (const extra of DELETE_EXTRAS) {
+        const n = going.length ? extra.count(ctx, 'card', going) : 0;
+        if (n > 0) extras.push({ key: `member${extra.key[0].toUpperCase()}${extra.key.slice(1)}`, label: extra.label('card', n, true) });
+      }
+      plan.members = { key: 'members', label: `Its member cards (${rows.length})`, rows, extras };
+    }
   }
   return plan;
 }
@@ -105,6 +114,9 @@ function deleteSummary(kind, targets, results, failed) {
     if (r.kept.length) parts.push(`kept ${r.kept.map((k) => `#${k.id} (also in ${k.groups.map((g) => `#${g}`).join(', ')})`).join(', ')}`);
     if (r.swept.logbook) parts.push(`deleted its ${deletePlural(r.swept.logbook, 'logbook file')}`);
     if (r.swept.scratchpad) parts.push('deleted its scratchpad');
+    const theirs = r.membersSwept || {};
+    if (theirs.logbook) parts.push(`deleted their ${deletePlural(theirs.logbook, 'logbook file')}`);
+    if (theirs.scratchpad) parts.push(`deleted their ${deletePlural(theirs.scratchpad, 'scratchpad')}`);
     return `${parts.join('; ')}.`;
   }
   const left = [...new Set(results.flatMap((r) => r.groups || []))];

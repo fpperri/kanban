@@ -44,6 +44,9 @@ either, every id is a plain number as before.
 - **Lowercase or other symbols in a prefix.** Rejected: `.` splits logbook file
   names, `-` splits card file names, several symbols are illegal in Windows file
   names, and lowercase would read a hex colour such as `#a371f7` as an id.
+  Uppercase hex colours are the one clash left: six or eight uppercase hex
+  characters after a `#` (`#FF0000`, `#ABC123`, `#FF000080`) are not a mention,
+  so an id written in that shape (`#AB1234`) is the price.
 
 ## Consequences
 

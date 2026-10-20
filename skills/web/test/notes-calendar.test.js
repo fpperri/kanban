@@ -93,6 +93,19 @@ test('a slot opens the palette on that half hour, and the palette lists its note
   assert.deepStrictEqual(n.noteSubjectNotes(all, sub).map((x) => x.note), ['a']);
 });
 
+test('a chip opens the palette on the card or group of its note at the time of the note; a note about nothing opens its half hour', () => {
+  const is = { today: '2026-10-19', isGroup: (id) => id === 'I2' };
+  const card = note('2026-10-15', '09:42', '7', 'a');
+  const req = c.noteChipRequest(card, null);
+  assert.deepStrictEqual(req, { target: '7', day: '2026-10-15', at: '09:42' });
+  assert.deepStrictEqual(n.noteSubjectFrom(req, is), { kind: 'card', id: '7', day: '2026-10-15', at: '09:42' });
+  const group = c.noteChipRequest(note('2026-10-15', '10:00', 'I2', 'b'), null);
+  assert.deepStrictEqual(n.noteSubjectFrom(group, is), { kind: 'group', id: 'I2', day: '2026-10-15', at: '10:00' });
+  const loose = note('2026-10-15', '09:42', '', 'c');
+  const slot = c.noteCalendarDay([loose], '2026-10-15').slots[0];
+  assert.deepStrictEqual(c.noteChipRequest(loose, slot), c.noteSlotRequest('2026-10-15', slot));
+});
+
 test('the untimed box opens the palette on the day\'s untimed notes', () => {
   assert.deepStrictEqual(c.noteUntimedRequest('2026-10-15'), { kind: 'untimed', day: '2026-10-15' });
 });

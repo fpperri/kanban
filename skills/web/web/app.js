@@ -6705,7 +6705,8 @@ function renderDatePicker() {
     timeInput.value = timePart(datePickerFor.value); // set via property, not an HTML string — no escaping needed
     timeRow.appendChild(timeInput);
   }
-  pop.replaceChildren(controls, grid, timeRow);
+  if (datePickerFor.hasAttribute('data-date-only')) pop.replaceChildren(controls, grid);
+  else pop.replaceChildren(controls, grid, timeRow);
   pop.hidden = false;
   positionDatePicker();
 }
@@ -6726,14 +6727,20 @@ function positionDatePicker() {
   pop.style.top = `${Math.round(top)}px`;
 }
 
-document.querySelectorAll('.date-pick-btn').forEach((btn) => {
-  const input = document.getElementById(btn.dataset.dateInput);
-  // Toggle: same button closes; a different field's button MOVES the one
-  // popover there (openDatePicker re-derives month + selection per opening).
+// Toggle: same button closes; a different field's button MOVES the one
+// popover there (openDatePicker re-derives month + selection per opening).
+// A field marked data-date-only (the group forms: a group's dates are days)
+// gets the grid without the clock row. Forms built after load (groups-ui.js)
+// wire their own buttons through here.
+function wireDatePickButton(btn, input) {
   btn.addEventListener('click', () => {
     if (datePickerFor === input) closeDatePicker();
     else openDatePicker(input, btn);
   });
+}
+
+document.querySelectorAll('.date-pick-btn').forEach((btn) => {
+  wireDatePickButton(btn, document.getElementById(btn.dataset.dateInput));
 });
 
 // Clicking anywhere outside closes it. The popover's own clicks and the 📅
