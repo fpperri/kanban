@@ -59,12 +59,6 @@ function templateSites(src, cls) {
   return src.split('\n').filter((l) => !/^\s*\/\//.test(l) && re.test(l));
 }
 
-function pillTags(pillClass) {
-  const sandbox = { document: { createElement: fakeNode }, columnLabel: (c) => c, statusColorVar: () => '' };
-  vm.runInNewContext(fn('buildFilterPillRow'), sandbox);
-  return sandbox.buildFilterPillRow({}, ['todo', 'archive'], 'row', pillClass, () => 'title').children.map((b) => b.tagText);
-}
-
 function statusPillTags() {
   const sandbox = { columnLabel: (c) => c, statusColorVar: () => '', statusFilterTitle: () => 'title' };
   vm.runInNewContext(fn('statusPillTitle', statusesSrc) + fn('buildStatusPill', statusesSrc) + fn('updateStatusPill', statusesSrc) + 'const STATUS_PILL_SOLO_HINT = "";', sandbox);
@@ -152,7 +146,6 @@ const CONTROLS = {
   '.date-picker-pop': datePickerTags,
   '.cal-nav': SITES('cal-nav'),
   '.cal-span-cycle': SITES('cal-span-cycle'),
-  '.graph-filter-toggle': () => pillTags('graph-filter-toggle graph-control'),
   '.status-pill': statusPillTags,
   '.map-section-toggle': sectionToggleTags,
   '.view-panel-toggle': () => panelButtonTags().slice(0, 1),
@@ -160,7 +153,7 @@ const CONTROLS = {
   '.map-zoom-btn': zoomTags,
   '.map-option-btn': () => tagsIn(optionsRowHtml(), 'map-option-btn'),
   '.rollup': rollupTags,
-  '.graph-control': () => [...graphButtonTags(), ...pillTags('graph-filter-toggle graph-control')],
+  '.graph-control': () => graphButtonTags(),
   '.graph-button': graphButtonTags,
   '.column-sort-field': SITES('column-sort-field'),
   '.column-sort-dir': SITES('column-sort-dir'),

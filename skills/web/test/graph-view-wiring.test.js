@@ -61,16 +61,29 @@ test('a pan sets isDragging past the threshold, clears it on release and swallow
   assert.ok(src.includes('GRAPH_PAN_THRESHOLD = 4'));
 });
 
-test('controls, layout switch and pills run through one delegated listener on #graph-view', () => {
+test('controls and the layout switch run through one delegated listener on #graph-view, and it has no status pill branch', () => {
   assert.match(src, /wireGraphView\(\$\('#graph-view'\)\)/);
   assert.match(fn('wireGraphView'), /host\.addEventListener\('click'/);
-  assert.match(fn('wireGraphView'), /host\.addEventListener\('contextmenu'/);
+  assert.doesNotMatch(fn('wireGraphView'), /contextmenu|graph-filter-toggle|graphToggleFilter|graphSoloFilter/);
   assert.ok(!/\b(?:b|btn|pill|el)\.addEventListener/.test(src), 'no per-control listeners');
 });
 
 test('every focusable control carries graph-control', () => {
   assert.match(fn('graphButton'), /graph-control/);
-  assert.ok(src.includes("'graph-filter-toggle graph-control'"));
+  assert.ok(!src.includes('graph-filter-toggle'), 'the Graph builds no status pill');
+});
+
+test('the Graph top row is the count and the option button, with no status pill row', () => {
+  const build = fn('graphBuildControls');
+  assert.doesNotMatch(build, /buildFilterPillRow|graph-filter-row|filter/);
+  assert.match(build, /graph-count/);
+  assert.match(build, /buildViewPanelToggle\('graph'/);
+  assert.match(build, /graph-key/);
+  assert.ok(!/graph-filter-(row|toggle)/.test(css), 'app.css has no Graph pill rule');
+  const app = read('app.js');
+  assert.ok(!/function buildFilterPillRow\(/.test(app), 'the per-view pill builder is gone');
+  assert.ok(!/REFOCUS_SELECTOR = [^\n]*graph-filter-toggle/.test(app));
+  assert.match(css, /\.graph-layout-btn, \.graph-zoom-btn \{/);
 });
 
 test('app.css defines every .graph-* class the plan, the view and the key emit', () => {

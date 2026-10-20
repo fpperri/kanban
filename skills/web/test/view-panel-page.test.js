@@ -78,8 +78,9 @@ test('Graph, wide with nothing chosen: the layouts, the zoom and the Options sec
   assert.strictEqual(inside(panel, 'graph-zoom-btn').length, 3);
   assert.strictEqual(inside(panel, 'graph-options').length, 1);
   const main = s.main();
-  for (const cls of ['graph-count', 'graph-filter-row', 'graph-key', 'graph-stage', 'view-panel-toggle']) assert.strictEqual(inside(main, cls).length, 1, `${cls} stays in the view`);
+  for (const cls of ['graph-count', 'graph-key', 'graph-stage', 'view-panel-toggle']) assert.strictEqual(inside(main, cls).length, 1, `${cls} stays in the view`);
   for (const cls of ['graph-layout-btn', 'graph-zoom-btn', 'graph-options']) assert.strictEqual(inside(main, cls).length, 0, `${cls} is not in the view`);
+  for (const cls of ['graph-filter-row', 'graph-filter-toggle', 'status-pill']) assert.strictEqual(inside(main, cls).length, 0, `${cls}: the Graph shows no status pill row`);
   assert.deepStrictEqual(s.host.children.map((c) => c.classes[0]), ['graph-main', 'view-panel'], 'the panel stands after the view, on its right');
 });
 

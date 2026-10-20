@@ -1184,7 +1184,7 @@ to `127.0.0.1` only.
   deliberately NOT in the `boardControlFocused` poll guard the other rebuilt controls sit
   in: a plain click leaves a card focused indefinitely, so blocking there would quietly
   freeze the refresh; `applyBoardData` re-finds the focused card after the render instead.
-  The status pills and fold toggles of every view are treated the same way (a click or a
+  The status pills (in the Statuses section) and the Map's fold toggles are treated the same way (a click or a
   keypress leaves one focused, so guarding them would stop the 5s refresh): the guard keeps
   only real form controls, and `applyBoardData` refocuses the focused pill without scrolling.
   A caption of the Graph's tier fan is a tab stop that every render rebuilds, so it is found
@@ -1505,7 +1505,7 @@ to `127.0.0.1` only.
   by `buildViewPanel` in app.js, which `graphBuildPanel` and `buildMapPanel` fill. One icon button
   (`.view-panel-toggle`, a rectangle with a bar on its right, `aria-label="Options panel"`, `aria-expanded`)
   opens and closes it, at the top right, the side the panel comes out of: it ends the Map's top row
-  (`.view-bar`, which holds only that button) and the Graph's top row (after the card count). The Graph's status pills, key and card count stay in the view. The
+  (`.view-bar`, which holds only that button) and the Graph's top row (after the card count). The Graph's key and card count stay in the view; its status pills are in the search panel's Statuses section. The
   Map's graphs scroll in `.map-main` beside the panel, and the pan, the zoom and Fit read and move that
   element (`mapMain`). Closed, the panel is not built at all, so the view has its width back and no
   control of it can take focus; the Graph then frames an untouched view again in the new width
@@ -1908,7 +1908,7 @@ to `127.0.0.1` only.
   never clears the selection and never pauses the 5-second poll. Pressing Lines, Dependencies or Order never pans, zooms or
   re-fits the view, so a fan framed once keeps its place and **Fit** frames every card again.
   Pressing Unnested, which changes what the fan draws and what Fit frames, frames an untouched view again; a view the person has panned or zoomed stays where it is.
-  The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
+  The Graph draws no status pill row: its status pills sit in the search panel's Statuses section, as the Gantt's do. Left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
   (archived, or filtered out by a pill) is drawn as a root, the top of its own sector, in the band of its slice. The search box hides nothing
@@ -1953,7 +1953,7 @@ to `127.0.0.1` only.
   a click on empty space and keeps the selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
   about the centre or fit every card in the panel. Picking a layout re-fits the view; after
   that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
-  Per board in `localStorage`: the layout under `graph.layout` and the pill row under
+  Per board in `localStorage`: the layout under `graph.layout` and the status pills under
   `graph.statusFilter` (same defensive merge as the Gantt's: a saved value with no
   `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options`.
   The 5-second poll rebuilds the view and keeps the

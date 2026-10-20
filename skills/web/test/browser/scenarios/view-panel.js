@@ -75,8 +75,9 @@ module.exports = {
     const graphOptions = await ev(`({buttons:document.querySelectorAll('#graph-view .view-panel .graph-option-btn').length,toggles:document.querySelectorAll('#graph-view .view-panel .map-section-toggle').length})`);
     check('the Options section is always expanded: all its buttons are built, with no toggle', graphOptions.buttons === 15 && graphOptions.toggles === 0, graphOptions);
     check('the layout buttons, the zoom buttons and the Options section are in the panel', layoutsIn.length === 3 && zoomIn.length === 3 && optionsIn.length === 1 && [...layoutsIn, ...zoomIn, ...optionsIn].every(Boolean), { layoutsIn, zoomIn, optionsIn });
-    const staying = await ev(`['.graph-filter-toggle','.graph-count','.graph-key'].map((s)=>{const e=document.querySelector('#graph-view '+s);return !!e&&!e.closest('.view-panel')})`);
-    check('the status pills, the card count and the key stay in the view', staying.every(Boolean), staying);
+    const staying = await ev(`['.graph-count','.graph-key'].map((s)=>{const e=document.querySelector('#graph-view '+s);return !!e&&!e.closest('.view-panel')})`);
+    check('the card count and the key stay in the view', staying.every(Boolean), staying);
+    check('no status pill stands in the Graph', await ev(`document.querySelectorAll('#graph-view .status-pill, #graph-view [class*="-filter-toggle"], #graph-view [class*="-filter-row"]').length===0`));
     const before = await ev(GRAPH_VIEW);
     await clickOn('#graph-view .graph-zoom-btn[data-graph-action=in]');
     check('Zoom in, pressed in the panel, zooms the Graph', await waitFor(`graphCur.view.k>${before.k}&&graphCur.view.touched===true`), await ev(GRAPH_VIEW));

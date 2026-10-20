@@ -100,9 +100,9 @@ test('status-filters.js loads from one script tag right after search-panel.js', 
   assert.strictEqual(tags[tags.indexOf('search-panel.js') + 1], 'status-filters.js');
 });
 
-test('the Graph row and the Statuses section take their titles from the registry; the three view rows are gone', () => {
+test('the Statuses section takes its titles from the registry; no view builds a status row', () => {
   const web = (f) => fs.readFileSync(path.join(__dirname, '..', 'web', f), 'utf8');
-  assert.ok(web('graph-view.js').includes("statusFilterTitle('graph'"));
+  assert.ok(!web('graph-view.js').includes('statusFilterTitle('), 'the Graph builds no titled pill any more');
   assert.ok(web('search-statuses.js').includes('statusFilterTitle(view, col'));
   assert.doesNotMatch(web('app.js'), /buildMapFilterRow|buildGanttFilterRow|buildCalendarFilterRow/);
 });

@@ -498,7 +498,7 @@ module.exports = {
     check('a right-click on the soloed pill in the Graph turns every pill off, empties the box and dims nothing', await boxIs('') && await pillShut('waiting') && await pillShut('review') && await pillShut('blocked') && await waitFor(`!(${dimmed})`), await boxText());
     await clickOn(pillSel('review'));
     check('a click on review in the Graph turns it on again, with its query in the box and its cards lit', await boxIs('review:') && await litIs(CASES.review), await boxText());
-    await ev(`document.querySelector('.graph-filter-toggle[data-col="done"]').click()`);
+    await ev(`document.querySelector('#search-statuses .status-pill[data-col="done"]').click()`);
     check('with the Done status pill off, the done cards leave the pill counts', await countsAre(CASES.doneOffCounts), await counts());
     check('with the Done status pill off the done review card is no longer lit', await waitFor(`${idsExpr(LIT)}===${JSON.stringify(JSON.stringify([CASES.review[0]]))}`), await ev(LIT));
 

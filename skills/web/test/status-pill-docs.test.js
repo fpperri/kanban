@@ -55,7 +55,7 @@ test('SKILL.md says the Map, the Calendar and the Gantt keep their status pills 
 
 test('docs/web.md says the Map and the Calendar keep their status pills in the search panel\'s Statuses section', () => {
   const docs = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8').replace(/\s+/g, ' ');
-  assert.match(docs, /The Map's status pills are in the search panel's Statuses section/);
+  assert.match(docs, /The status pills of the Map and the Graph are in the search panel's Statuses section/);
   assert.match(docs, /Same status pills, in the search panel's Statuses section, and search as the other views/);
   assert.doesNotMatch(docs, /A status-filter pill row \(left-click to toggle/);
 });
