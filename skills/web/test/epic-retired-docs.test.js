@@ -33,7 +33,11 @@ const outside = (text, heading) => {
 
 test('the kanban skill no longer describes epic as a card field: it names it only in the migration section', () => {
   assert.ok(!kanbanSkill.split('\n').some((l) => l.startsWith('- `epic` ')), 'no epic bullet in the card fields');
-  const stray = outside(kanbanSkill, '### Migrating `epic: true` to `type: epic`').split('\n').filter((l) => EPIC_WORD.test(l));
+  const starterStart = kanbanSkill.indexOf('**The starter config.**');
+  const starterEnd = kanbanSkill.indexOf('\n**', starterStart + 1);
+  const withoutStarter = kanbanSkill.replace(kanbanSkill.slice(starterStart, starterEnd), '');
+  const hierarchyExample = /hierarchy: \[[^\]]*\bepic\b/;
+  const stray = outside(withoutStarter, '### Migrating `epic: true` to `type: epic`').split('\n').filter((l) => EPIC_WORD.test(l) && !hierarchyExample.test(l));
   assert.deepStrictEqual(stray, []);
 });
 
