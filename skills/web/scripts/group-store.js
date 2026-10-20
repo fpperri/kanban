@@ -11,7 +11,8 @@
 //   end_date: 2026-10-23      # optional
 //   auto_join: true           # optional
 //   cards: [3, 7]             # the ids of its member cards, this board's cards only
-//   owner: "@human"           # any other key is kept as written
+//   owner: "@human"           # any other key is kept as written; a one-line value is an
+//                             # extra the page edits, a list or several lines is shown as is
 //   ---
 //   free markdown, kept as written
 //
@@ -126,6 +127,12 @@ function scalarOf(keys, name) {
   return k && k.inline[0] !== '#' ? scalar(k.inline) : '';
 }
 
+// A key whose whole value is on its own line. A key with a nested list or block under it, or with
+// nothing after the colon, is not (the page shows it as written and leaves it alone).
+function oneLineScalar(key) {
+  return key.cont.length === 0 && key.inline !== '' && key.inline[0] !== '#';
+}
+
 // A group file's text -> { group } or { reason }. `folder` is where the file sits.
 function parseGroup(raw, folder, file) {
   const parsed = splitFile(raw);
@@ -137,14 +144,16 @@ function parseGroup(raw, folder, file) {
   if (id === null) return { reason: `${idText} is not an id` };
   const date = (name) => { const v = scalarOf(keys, name); return validDate(v) ? v : ''; };
   const extra = {};
+  const extraRaw = {};
   for (const k of keys) {
-    if (MANAGED.includes(k.key) || k.key in extra || k.cont.length || k.inline === '' || k.inline[0] === '#') continue;
-    extra[k.key] = scalar(k.inline);
+    if (MANAGED.includes(k.key) || k.key in extra || k.key in extraRaw) continue;
+    if (oneLineScalar(k)) extra[k.key] = scalar(k.inline);
+    else extraRaw[k.key] = parsed.lines.slice(k.start, k.end).join('\n');
   }
   return {
     group: {
       id, name: scalarOf(keys, 'name'), folder, start_date: date('start_date'), end_date: date('end_date'),
-      auto_join: scalarOf(keys, 'auto_join').toLowerCase() === 'true', cards: memberIds(firstKey(keys, 'cards')), extra, file,
+      auto_join: scalarOf(keys, 'auto_join').toLowerCase() === 'true', cards: memberIds(firstKey(keys, 'cards')), extra, extra_raw: extraRaw, file,
     },
   };
 }
@@ -396,8 +405,14 @@ function updateGroup(dir, id, patch) {
   if (start !== group.start_date) setKey(file, 'start_date', start ? `start_date: ${start}` : null, ['name', 'id']);
   if (end !== group.end_date) setKey(file, 'end_date', end ? `end_date: ${end}` : null, ['start_date', 'name', 'id']);
   if (autoJoin !== group.auto_join) setKey(file, 'auto_join', autoJoin ? 'auto_join: true' : null, earlier);
+  const held = keysOf(file);
+  for (const key of Object.keys(extra)) {
+    const have = firstKey(held, key);
+    if (have && !oneLineScalar(have)) throw new GroupError(`${key} holds more than one line; edit the file to change it.`, 409);
+  }
   for (const [key, value] of Object.entries(extra)) {
-    const now = value === null || value === '' ? null : String(value);
+    // null takes the key out; an empty string keeps it with an empty value
+    const now = value === null ? null : String(value);
     if (now === (group.extra[key] === undefined ? null : group.extra[key])) continue;
     setKey(file, key, now === null ? null : `${key}: ${yamlText(now)}`, ['cards', 'auto_join', ...earlier]);
   }

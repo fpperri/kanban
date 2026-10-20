@@ -1096,7 +1096,9 @@ to `127.0.0.1` only.
   of it shows. A badge opens the **notes palette** on that group, on its **Group tab** (the
   palette then has a tab row, Notes and Group; with the logbook off a group still opens, on
   its Group tab alone). The Group tab edits the group's name, dates, `auto_join` (on offer only
-  with both dates) and extra keys, with a Save button, lists its members each with an x that
+  with both dates) and one-line extra keys (a cleared field keeps the key with an empty value;
+  a separate x takes the key out; a key whose value is a list or several lines is shown as
+  written, read only, and never rewritten), with a Save button, lists its members each with an x that
   takes it out (the card is never touched), and has **+ Note** (back to the Notes tab, on the
   group) and **Show this group's cards**, which fills the search box with `group:<id>` and
   closes the palette. A note written on a group lands in `<day>.<padded group id>.logbook.md`,
@@ -1111,8 +1113,8 @@ to `127.0.0.1` only.
   `POST /api/groups` makes a group (`name`, `folder` of at most two plain names, optional
   dates, `auto_join` kept only with both, `cards` that must be cards of the board; the id is
   allocated from the folder's prefix and its counter, and a refused group burns no id),
-  `PATCH /api/groups/<id>` changes the name, dates, `auto_join` and `extra` keys (null or empty
-  removes one), and `POST /api/groups/<id>/members` takes `add` and `remove` lists of card
+  `PATCH /api/groups/<id>` changes the name, dates, `auto_join` and `extra` keys (null takes one
+  out, an empty string empties its value; a key holding a list or several lines is refused, 409), and `POST /api/groups/<id>/members` takes `add` and `remove` lists of card
   ids; each rewrites only the lines it changes, keeping every other line, comment and the
   body, and a group is found by the id in its frontmatter, never by file name or request
   text. A group file that cannot be read (no id, a repeated id, no frontmatter) or that sits

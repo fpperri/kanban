@@ -122,6 +122,13 @@ module.exports = {
     await mouseClick('#notes-palette .gp-save');
     check('groups: a blank name is refused and changes nothing', await waitFor(`/short name/.test(document.getElementById('toast').textContent)`, 2000) && await ev(`${group('I2')}.name==='zephyr-two'`));
     await setField('#notes-palette .gp-form input[type="text"]', 'zephyr-two');
+    check('groups: a list-valued extra key is shown as written, read only', await ev(`${q('.gp-extra-raw[data-key="milestones"]')}.textContent==='milestones:\\n  - design freeze\\n  - cutover'&&!${q('input[aria-label="milestones"]')}`));
+    await setField('#notes-palette input[aria-label="owner"]', '');
+    await mouseClick('#notes-palette .gp-save');
+    check('groups: clearing a field empties the value and keeps the key', await waitFor(`'owner' in ${group('I2')}.extra&&${group('I2')}.extra.owner===''&&${group('I2')}.extra.sprint==='two'`, 4000), await ev(`JSON.stringify(${group('I2')}.extra)`));
+    check('groups: the list-valued key is untouched by the save', await ev(`${group('I2')}.extra_raw.milestones==='milestones:\\n  - design freeze\\n  - cutover'`));
+    await mouseClick('#notes-palette .gp-extra-rm[data-key="sprint"]');
+    check('groups: a remove control takes the key out of the file', await waitFor(`!('sprint' in ${group('I2')}.extra)&&'owner' in ${group('I2')}.extra`, 4000), await ev(`JSON.stringify(${group('I2')}.extra)`));
 
     // --- taking a member out ---------------------------------------------------------------------------------------------
     await mouseClick('#notes-palette .gp-members li[data-member="24"] .gp-member-rm');

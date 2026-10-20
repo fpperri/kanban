@@ -439,7 +439,9 @@ delete popup's **Its scratchpad** box is unticked, and only ticking it removes t
 **Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges
 (`#I2 zephyr-2`, then `+N`) below its title, with the group's dates and type path as a tooltip.
 A badge opens the notes palette on that group's **Group** tab, which edits its name, dates,
-`auto_join` and extra keys, takes members out, and has **Show this group's cards**, which fills
+`auto_join` and one-line extra keys (a cleared field empties the value, a separate x removes
+the key; a list or multi-line key is shown as written and left alone), takes members out, and
+has **Show this group's cards**, which fills
 the search box with `group:I2`. A note written on a group goes in that group's day file. The
 card menu has **Add to group…** and, on two or more cards, **Make a group from them…**, which
 opens a form for the short name, the folder (the group's type), the dates and `auto_join`.

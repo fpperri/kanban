@@ -1764,6 +1764,9 @@ button.np-nhead-label:hover { color: var(--accent); }
 .gp-form input[type="text"], .gp-form input[type="date"] { padding: 4px 7px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font: inherit; min-width: 0; }
 .gp-form input[type="text"]:focus, .gp-form input[type="date"]:focus { outline: none; border-color: var(--accent); }
 .gp-form .gp-v > input[type="text"] { flex: 1 1 8em; }
+.gp-extra-raw { margin: 0; flex: 1 1 100%; padding: 4px 7px; background: var(--paper); border: 1px dashed var(--line); border-radius: .15rem; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.9em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gp-extra-rm { padding: 2px 6px; border: 1px solid var(--line); border-radius: .15rem; background: transparent; color: var(--mut); cursor: pointer; }
+.gp-extra-rm:hover { border-color: var(--accent); color: var(--accent); }
 .gp-save, .gp-note, .gp-scratch, .gp-show { justify-self: start; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; }
 .gp-save:hover, .gp-note:hover, .gp-scratch:hover, .gp-show:hover { border-color: var(--accent); color: var(--accent); }
 .gp-note:disabled, .gp-scratch:disabled { opacity: .5; cursor: default; }
