@@ -116,7 +116,9 @@ test('app.css floats the Graph\'s controls and the Map\'s bar top-right on an op
   assert.match(controls, /z-index/);
   const bar = rule('.view-bar');
   assert.match(bar, /position: sticky/);
-  assert.match(bar, /top: \d+px/);
+  assert.match(bar, /top: -?\d+px/);
+  const pad = Number(/padding: (\d+)px 14px 14px/.exec(rule('.map-main'))[1]);
+  assert.strictEqual(Number(/top: (-?\d+)px/.exec(bar)[1]), 10 - pad, 'a sticky offset counts from the padding edge in, so the bar sits 10px from the top of the scroll area');
   assert.match(css, /\.graph-info-toggle, \.view-panel-toggle \{[^}]*background: var\(--paper\)/);
   assert.match(rule('.graph-main'), /position: relative/);
   assert.match(rule('.map-main'), /padding: (3\d|4\d)px 14px 14px/);

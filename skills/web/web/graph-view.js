@@ -401,9 +401,41 @@ function graphScheduleTransform() {
   });
 }
 
+// Fit frames the cards' bounds with a margin of GRAPH_FIT_PAD. A name outside the fan's rim keeps its
+// size on screen and has no room of its own on the stage, so on a fan with names the margin grows
+// by what the furthest name stands out of the stage: the names are placed at the fit's zoom, how far
+// each is past the stage's edge (less GRAPH_FIT_NAMES_MARGIN) is measured, and the fit is worked
+// out again with that much more margin, a few times at most, since a new zoom can place a name differently.
+const GRAPH_FIT_PAD = 60;
+const GRAPH_FIT_NAMES_PASSES = 3;
+const GRAPH_FIT_NAMES_MARGIN = 6;
+
+function graphFrameFit(c) {
+  const b = c.layout.bounds;
+  let pad = GRAPH_FIT_PAD;
+  let fit = graphFit(b, c.w, c.h, pad);
+  if (c.kind !== 'tiers') return fit;
+  const kept = { x: c.view.x, y: c.view.y, k: c.view.k };
+  for (let pass = 0; pass < GRAPH_FIT_NAMES_PASSES; pass++) {
+    Object.assign(c.view, fit);
+    graphPaintNames();
+    if (!c.names || !c.names.placed.size) break;
+    const m = GRAPH_FIT_NAMES_MARGIN;
+    let over = 0;
+    for (const p of c.names.placed.values()) {
+      over = Math.max(over, m - (fit.x + p.box.x0 * fit.k), fit.x + p.box.x1 * fit.k - (c.w - m), m - (fit.y + p.box.y0 * fit.k), fit.y + p.box.y1 * fit.k - (c.h - m));
+    }
+    if (over <= 0) break;
+    pad = Math.min(pad + over, Math.min(c.w, c.h) / 4);
+    fit = graphFit(b, c.w, c.h, pad);
+  }
+  Object.assign(c.view, kept);
+  return fit;
+}
+
 function graphFitNow() {
   if (!graphCur) return;
-  Object.assign(graphCur.view, graphFit(graphCur.layout.bounds, graphCur.w, graphCur.h), { touched: false });
+  Object.assign(graphCur.view, graphFrameFit(graphCur), { touched: false });
   graphApplyTransform();
 }
 
@@ -784,7 +816,7 @@ function renderGraphView() {
     kind, sig, model, layout, plan, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
     svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
   };
-  if (refit) Object.assign(view, graphFit(layout.bounds, w, h), { touched: false });
+  if (refit) Object.assign(view, graphFrameFit(graphCur), { touched: false });
   graphPaintNames();
   graphApplyTransform();
   graphSettleFocus();
