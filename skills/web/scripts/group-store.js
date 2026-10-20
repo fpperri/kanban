@@ -353,7 +353,7 @@ function createGroup(dir, input) {
   const cards = checkCards(dir, body.cards);
   const prefix = cfg.prefixForGroupFolder(config, folder);
   const number = cfg.allocateId(dir, nextNumber(dir, root, prefix), prefix);
-  const id = `${prefix}${number}`;
+  const id = ids.idKey({ prefix, number });
   const lines = ['---', `id: ${id}`, `name: ${yamlText(name)}`];
   if (start) lines.push(`start_date: ${start}`);
   if (end) lines.push(`end_date: ${end}`);

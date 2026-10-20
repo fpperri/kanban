@@ -328,7 +328,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       // the scratchpad: GET reads a page, PUT writes its body; there is no delete route (only the
       // delete flow takes a page, when asked). A store error carries its own status (400 a bad body,
       // 404 no scratchpad, 413 too long)
-      const pm = p.match(/^\/api\/scratchpad\/(_?[A-Z]*\d+)$/);
+      const pm = p.match(new RegExp(`^/api/scratchpad/(${ids.ID_SOURCE})$`));
       if (pm && (req.method === 'GET' || req.method === 'PUT')) {
         const body = req.method === 'GET' ? {} : await readBody(req);
         try {
@@ -351,7 +351,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       }
 
       // groups: a store error carries its own status (400 a bad value, 404 no groups or no such group)
-      const gm = p.match(/^\/api\/groups(?:\/(_?[A-Z]*\d+)(\/members)?)?$/);
+      const gm = p.match(new RegExp(`^/api/groups(?:/(${ids.ID_SOURCE})(/members)?)?$`));
       if (gm) {
         const body = req.method === 'GET' ? {} : await readBody(req);
         try {
@@ -382,7 +382,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           throw e;
         }
       }
-      const m = p.match(/^\/api\/cards\/(_?[A-Z]*\d+)(\/archive|\/restore|\/detail|\/reorder)?$/);
+      const m = p.match(new RegExp(`^/api/cards/(${ids.ID_SOURCE})(/archive|/restore|/detail|/reorder)?$`));
       if (m) {
         const id = ids.idKey(m[1]); // the whole id; null when the digits run past what an id holds
         if (id === null || !cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${m[1]}` });

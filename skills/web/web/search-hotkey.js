@@ -53,7 +53,7 @@ function searchHotkeyPrefill(chord, ctx) {
 function searchHashStrip(value) {
   if (typeof value !== 'string' || value[0] !== '#') return null;
   const rest = value.slice(1).trimEnd();
-  if (/\s/.test(rest) || rest === '' || SHK_IDS.parseId(rest) !== null || /^_?[A-Z]*$/.test(rest)) return null;
+  if (/\s/.test(rest) || rest === '' || SHK_IDS.parseId(rest) !== null || new RegExp(`^${SHK_IDS.PREFIX_SOURCE}$`).test(rest)) return null;
   return value.slice(1);
 }
 
