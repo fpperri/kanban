@@ -179,3 +179,10 @@ test('each scenario folder holds a boot step', () => {
     assert.strictEqual(typeof require(path.join(dir, f, '00-boot.js')).run, 'function', f);
   }
 });
+
+test('the whole-layout checks are steps: layout on the phone, flip and desktop on the flip scenario', () => {
+  const dir = path.join(__dirname, 'browser', 'scenarios');
+  for (const f of ['phone-steps/layout.js', 'phone-flip-steps/flip.js', 'phone-flip-steps/desktop.js']) {
+    assert.strictEqual(typeof require(path.join(dir, f)).run, 'function', f);
+  }
+});
