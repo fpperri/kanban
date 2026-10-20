@@ -80,9 +80,9 @@ module.exports = {
 
     // --- each one opens the palette ---------------------------------------------------------------------------
     await press(slotEl('2026-10-15', 570));
-    check('calnotes: a chip opens the palette on its half hour', await palUp() && await ev(CHIP) === 'Thu 15 09:30', await ev(CHIP));
-    check('calnotes: with the notes of that half hour, headed by card', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|7|1']), await ev(SECTIONS));
-    check('calnotes: and the time field starts at the half hour', await ev(`${q('.np-time')}.value`) === '09:30');
+    check('calnotes: a chip opens the palette on its note\'s card, at the chip\'s time', await palUp() && await ev(CHIP) === '#7 Port the zephyr schema · Thu 15 09:30', await ev(CHIP));
+    check('calnotes: with the notes of that card, headed by day', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-14|7|1', '2026-10-15|7|2']), await ev(SECTIONS));
+    check('calnotes: and the time field starts at the chip\'s time', await ev(`${q('.np-time')}.value`) === '09:30');
     check('calnotes: Esc closes the palette, which would cover the next one', await closePalette());
     await press(slotEl('2026-10-15', 600));
     check('calnotes: a count bubble opens it on that half hour', await waitFor(`${CHIP}==='Thu 15 10:00'`, 3000), await ev(CHIP));
@@ -105,6 +105,7 @@ module.exports = {
     await ev(`(()=>{const i=${q('.np-input')};i.value='checked the window';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()})()`);
     await key('Enter');
     check('calnotes: the note is written on card 22 on Friday at 10:00', await waitFor(`state.logbook.notes.some((n)=>n.day==='2026-10-16'&&n.at==='10:00'&&n.target==='22'&&n.note==='checked the window')`, 4000));
+    check('calnotes: a palette opened on a slot keeps the slot\'s time after the write', await ev(`${q('.np-time')}.value`) === '10:00');
     check('calnotes: and the Calendar draws it as a chip at that half hour', await waitFor(`!!document.querySelector(${JSON.stringify(slotEl('2026-10-16', 600) + '.cal-note-chip')})`, 4000));
     check('calnotes: Esc closes the palette again', await closePalette());
 

@@ -80,6 +80,12 @@ function noteSlotRequest(day, slot) {
   return { kind: 'slot', day, fromMin: slot.fromMin, toMin: slot.toMin };
 }
 
+// A chip is one note: the palette opens on that note's card or group, at the note's time. A
+// note about nothing has no subject to open on, so it opens its half hour, as a bubble does.
+function noteChipRequest(note, slot) {
+  return note.target ? { target: note.target, day: note.day, at: note.at } : noteSlotRequest(note.day, slot);
+}
+
 function noteUntimedRequest(day) {
   return { kind: 'untimed', day };
 }
@@ -91,7 +97,7 @@ function noteHourRequest(day, rawMin) {
 }
 
 const NOTES_CALENDAR_EXPORTS = {
-  noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteUntimedRequest, noteHourRequest,
+  noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

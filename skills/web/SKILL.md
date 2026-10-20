@@ -1050,8 +1050,10 @@ to `127.0.0.1` only.
   tick), the note box, the preview line that says exactly what Enter will write (`Note at
   10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
   All, Human and AI switch beside it) and the list of notes, grouped by day and card, newest day
-  first, each with its time and, when it is not the human's, its author. **Enter** writes the
+  first, each with its time and its author, the human's included. **Enter** writes the
   note at the time field's time (now, to start with) and keeps the palette open for the next;
+  the field then goes back to now (or to the slot's time, when the palette was opened on a
+  slot) unless a time was typed into it;
   **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
   a leading `-` or `untimed` (or the tick) makes it untimed, and a leading mention of a card
   (`#22`, `plan#22`) aims that one note at it and is cut from the text; a mention anywhere

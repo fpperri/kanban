@@ -14,7 +14,7 @@
 // why. Each step waits on the page, never on a fixed sleep.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// state, selectedIds, hoveredId, toast (the page's #toast element, by its id).
+// state, selectedIds, hoveredId, noteClock, toast (the page's #toast element, by its id).
 
 const PAL = `document.getElementById('notes-palette')`;
 const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
@@ -72,7 +72,7 @@ module.exports = {
     check('notes: a click on the count opens the palette aimed at that card', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
     check('notes: its notes are listed newest day first', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|7|2', '2026-10-14|7|1']), await ev(SECTIONS));
     await shot('palette-on-card');
-    check('notes: each note shows its time, and an agent\'s its author', await ev(`${q('.np-ngroup .np-note')}.textContent.startsWith('09:30')&&[...document.querySelectorAll('#notes-palette .np-note-by')].map((b)=>b.textContent).filter(Boolean).join()==='@afk'&&document.querySelector('#notes-palette .np-note-time.untimed').textContent==='untimed'`));
+    check('notes: each note shows its time and its author, the human\'s too', await ev(`${q('.np-ngroup .np-note')}.textContent.startsWith('09:30')&&[...document.querySelectorAll('#notes-palette .np-note-by')].map((b)=>b.textContent).join()==='@human,@afk,@human'&&document.querySelector('#notes-palette .np-note-time.untimed').textContent==='untimed'`));
     check('notes: with no time given the time field starts at now', await ev(`/^\\d\\d:\\d\\d$/.test(${q('.np-time')}.value)`));
 
     // --- the filter narrows the list and leaves the note box alone -------------------------------------------
@@ -237,5 +237,23 @@ module.exports = {
     await key('n');
     check('notes: n with nothing hovered or selected opens on the card last noted, after a reload too', await palUp() && await chip() === '' && (await preview()).includes('on #22 Cut over the data layer (last noted)'), await preview());
     check('notes: the day\'s notes are listed when there is no chip', (await ev(SECTIONS)).length >= 1 && (await ev(SECTIONS)).every((s) => s.startsWith('20')));
+    await closePalette();
+
+    // --- after a write the time field follows the clock, unless the person typed a time -------------------------
+    await ev(`noteClock=()=>'10:11'`);
+    check('notes: the pointer rests on card 7 again', await hoverCard('7'));
+    await key('n');
+    check('notes: the time field opens at now', await palUp() && await ev(`${q('.np-time')}.value`) === '10:11');
+    await ev(`noteClock=()=>'10:12'`);
+    await setBox('followed the clock');
+    await key('Enter');
+    check('notes: the note is written at the time the field had', await written('7', 'followed the clock') && (await ev(notesOf('7'))).includes('today|10:11|@human|followed the clock'), await ev(notesOf('7')));
+    check('notes: and the field is at now again after the write', await waitFor(`${q('.np-time')}.value==='10:12'`, 3000), await ev(`${q('.np-time')}.value`));
+    await setTime('08:05');
+    await ev(`noteClock=()=>'10:13'`);
+    await setBox('typed a time');
+    await key('Enter');
+    check('notes: a note is written at the typed time', await written('7', 'typed a time') && (await ev(notesOf('7'))).includes('today|08:05|@human|typed a time'), await ev(notesOf('7')));
+    check('notes: and a time the person typed stays after the write', await ev(`${q('.np-time')}.value`) === '08:05');
   },
 };
