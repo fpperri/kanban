@@ -334,9 +334,7 @@ function graphBuildControls(filter, cardCount, relationCount, fan, panelOpen) {
   row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
   frag.appendChild(row);
   frag.appendChild(buildFilterPillRow(filter, boardColumnIds(), 'graph-filter-row', 'graph-filter-toggle graph-control',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the graph`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the graph`));
+    (col, on) => statusFilterTitle('graph', col, columnLabel(col), on)));
   const key = document.createElement('p');
   key.className = 'graph-key';
   key.textContent = fan ? `${GRAPH_KEY} · l steps the names: ${fan.options.names}` : GRAPH_KEY;
