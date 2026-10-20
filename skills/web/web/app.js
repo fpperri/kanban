@@ -1107,30 +1107,26 @@ function openLeavesNote(cards, status) {
 }
 
 // A view bar button assigns its view: unlike toggleView, a tap on the current view stays on it, and
-// the Board is a place to go, never a toggle back. The selection rule is toggleView's.
+// the Board is a place to go, never a toggle back. A tap on the view already showing changes nothing:
+// no redraw, and no jump of the Calendar or the Gantt to another date range.
 function setView(mode) {
   const from = loadViewMode();
-  viewMode = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
-  saveViewMode();
-  const boxText = isolateNow() ? '' : $('#search-input').value;
-  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText });
-  if (kept !== selectionState.selection) setSelection(kept);
-  renderBoard();
-  moveViewToNearestMatch();
-}
-
-// Each header toggle flips between its own view and the board: map ⇄ board,
-// calendar ⇄ board — and pressing one while the OTHER view is active jumps
-// straight to the pressed view (no board stopover).
-function toggleView(mode) {
-  const from = loadViewMode();
-  viewMode = from === mode ? 'board' : mode;
+  const to = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
+  if (to === from) return;
+  viewMode = to;
   saveViewMode();
   const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
   if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
+}
+
+// Each header toggle flips between its own view and the board: map ⇄ board,
+// calendar ⇄ board — and pressing one while the OTHER view is active jumps
+// straight to the pressed view (no board stopover).
+function toggleView(mode) {
+  setView(loadViewMode() === mode ? 'board' : mode);
 }
 
 // One mode→container map for everything that needs "which element hosts
@@ -1188,7 +1184,7 @@ function paintIconSlots() {
 // (data-view-toggle) get a label and an icon, so a second set of view buttons is markup only.
 function paintViewButtons(mode) {
   const rows = new Map(viewButtonsModel(mode).map((r) => [r.id, r]));
-  for (const el of document.querySelectorAll('[data-view]')) {
+  for (const el of document.querySelectorAll('[data-view-toggle], #view-bar [data-view]')) {
     const row = rows.get(el.dataset.view);
     if (!row) continue;
     const pressed = String(row.pressed);
@@ -2812,8 +2808,8 @@ async function submitModal(e) {
 
 window.addEventListener('DOMContentLoaded', () => {
   $('#new-btn').addEventListener('click', () => {
-    const active = onPhoneLayout() ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
-    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read
+    const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
+    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read, which only the Board shows
   });
   // X goes through the dirty guard (the retired Cancel button bypassed it —
   // backdrop-click and X now agree on the unsaved-changes speedbump)

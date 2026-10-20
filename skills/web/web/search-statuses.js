@@ -123,11 +123,13 @@ function applyStatusGesture(gesture, button) {
 }
 
 function onStatusPillClick(e) {
+  if (isDragging || ganttDrag || calTimeDrag) return; // a drag is not redrawn under the gesture
   const button = e.target.closest('.status-pill');
   if (button) applyStatusGesture('toggle', button);
 }
 
 function onStatusPillContextMenu(e) {
+  if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
   const button = e.target.closest('.status-pill');
   if (!button) return;
   e.preventDefault();

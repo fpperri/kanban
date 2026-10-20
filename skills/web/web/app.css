@@ -719,7 +719,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* The edit form on a phone (under 760 px): the form fills the screen, and every field is 16 px, since a
    phone browser zooms the page to any field smaller than that when it takes focus. */
 @media (max-width: 759.98px) {
-  #card-form { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; border-radius: 0; border: 0; }
+  #card-form { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; border-radius: 0; border: 0; }
   #card-form input, #card-form select, #card-form textarea { font-size: 16px; }
 }
 /* field-sizing: content grows the textarea with its input (Chromium 123+). This is a
@@ -839,7 +839,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    the back row, '‹ Board' at the left and edit, archive and delete at the right. The same buttons,
    laid out by CSS alone; full screen, close and copy path have no use here. */
 @media (max-width: 759.98px) {
-  .detail-modal { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; border-radius: 0; border: 0; }
+  .detail-modal { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; border-radius: 0; border: 0; }
   .detail-actions { width: 100%; align-items: center; }
   .detail-back-btn { display: flex; align-items: center; height: 30px; margin-right: auto; padding: 0 10px; }
   #detail-fullscreen-btn, #detail-close, #detail-copy-btn { display: none; }
@@ -1122,7 +1122,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-option-btn:focus-visible, .graph-option-btn:focus-visible { outline-offset: -2px; }
 /* One graph per tree: a heading of root titles and card count above each. */
 .map-graph-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.82em; }
-.map-section-header + .map-graph-heading { margin-top: 4px; border-top: none; padding-top: 0; }
+.map-section-header + .map-trees > .map-graph-heading:first-child { margin-top: 4px; border-top: none; padding-top: 0; }
 .map-graph-heading span { color: var(--mut); }
 .map-align-center .map-canvas { margin-left: auto; margin-right: auto; }
 .map-align-center .map-graph-heading { justify-content: center; }
