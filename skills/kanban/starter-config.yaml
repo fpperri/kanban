@@ -1,0 +1,48 @@
+# The starter config every board begins with: the plan types, their
+# hierarchy and the id prefixes. Every line can be changed or deleted; the
+# lists suggest, they never validate.
+
+# Card types: a chip colour and a shape (circle, square, diamond, triangle,
+# hexagon or star) are optional. A bare entry is a name with no colour.
+types:
+  - name: goal
+    color: "#e3b341"
+    icon: star
+  - name: strategy
+    color: "#f0883e"
+    icon: hexagon
+  - name: objective
+    color: "#a371f7"
+    icon: diamond
+  - name: epic
+    color: "#58a6ff"
+    icon: square
+  - name: story
+    color: "#3fb950"
+    icon: circle
+  - name: task
+    icon: triangle
+  - bug
+
+# The levels of the plan, top first. It orders drawing and slicing and
+# enforces nothing.
+hierarchy: [goal, strategy, objective, epic]
+
+# A new card of a type takes its prefix for life (G1, S1, O1); cards made
+# before a prefix keep their plain numbers. A value that is a folder names a
+# groups folder: _ is the groups folder itself, I a group in iteration/.
+prefixes:
+  G: goal
+  S: strategy
+  O: objective
+  _: .groups
+  I: .groups/iteration
+  W: .groups/workflow
+  DW: .groups/workflow/dynamic
+
+# Off until its own line is added here, or switched on from the web's gear
+# sheet (This board):
+# logbook: logbook          # dated notes, one file per day
+# scratchpad: .scratchpad   # a disposable page per card or group
+# groups: .groups           # files that list cards; the I, W and DW prefixes above name folders in it
+# iterations: true          # the header's iteration dropdown; needs groups
