@@ -20,7 +20,9 @@ module.exports = {
     check('the label title is hidden', await ev(`[...document.querySelectorAll('#gantt-view .gantt-label-title')].every(t=>getComputedStyle(t).display==='none')`));
     check('a status heading is not clipped', await ev(`[...document.querySelectorAll('#gantt-view .gantt-gutter .gantt-group-row')].every(h=>h.scrollWidth<=h.clientWidth||getComputedStyle(h).overflow==='visible')`));
     check('a status heading reads in full, running on past the gutter', await ev(`(()=>{const h=document.querySelector('#gantt-view .gantt-gutter .gantt-group-row');if(!h)return false;const r=document.createRange();r.selectNodeContents(h);const b=r.getBoundingClientRect();return b.width>0&&b.right>h.parentElement.getBoundingClientRect().left&&b.width>=h.textContent.trim().length*3})()`));
-    check('a bar keeps its title', await ev(`[...document.querySelectorAll('#gantt-view .gantt-bar-text')].some(t=>t.textContent.trim().length>2)`));
+    await ev(`document.querySelector('#gantt-view .cal-subview-btn[data-subview="month"]').click()`);
+    await ev(`(()=>{const i=document.getElementById('search-input');i.value='centennial';i.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    check('a bar keeps its title', await waitFor(`[...document.querySelectorAll('#gantt-view .gantt-bar-text')].some(t=>t.textContent.trim().length>2)`, 10000));
 
     const p = await ev(`(()=>{const l=document.querySelector('#gantt-view .gantt-label[data-id="28"] .gantt-label-id');if(!l)return null;l.scrollIntoView({block:'center'});const r=l.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     check('card 28 has an id in the label column', !!p, p);

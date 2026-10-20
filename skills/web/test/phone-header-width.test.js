@@ -17,6 +17,13 @@ test('under 760 px the header action buttons wrap and may shrink, so the header 
   assert.match(rule[1], /min-width:\s*0/);
 });
 
+test('under 760 px the Gantt and Calendar controls row wraps, so its nav buttons, title and span switcher cannot widen the layout viewport', () => {
+  const blocks = [...css.matchAll(/@media \(max-width: 759\.98px\) \{([\s\S]*?)\n\}/g)].map((m) => m[1]);
+  const rule = blocks.map((b) => b.match(/^\s*\.cal-controls \{([^}]*)\}/m)).find(Boolean);
+  assert.ok(rule, 'a phone block styles .cal-controls');
+  assert.match(rule[1], /flex-wrap:\s*wrap/);
+});
+
 test('the wide header keeps its one unwrapped row of actions', () => {
   assert.match(css, /^\.actions \{ display: flex; gap: 8px; \}$/m);
 });
