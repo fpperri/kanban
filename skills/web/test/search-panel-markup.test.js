@@ -25,6 +25,12 @@ const attr = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}(?:="([^
 const tagOf = (id) => { const [tag] = tagsOf(bar, new RegExp(`<[a-z]+[^>]*\\sid="${id}"[^>]*>`)); assert.ok(tag, `#${id} is in the search bar`); return tag; };
 const at = (id) => bar.indexOf(`id="${id}"`);
 
+test('the phone search button follows the search bar in the header and controls its input, outside the bar it opens', () => {
+  assert.ok(header.indexOf('<div class="search-bar">') < header.indexOf('id="search-btn"'));
+  assert.strictEqual(attr(tagsOf(header, /<button[^>]*id="search-btn"[^>]*>/)[0], 'aria-controls'), 'search-input');
+  assert.ok(!bar.includes('id="search-btn"'), 'the button is outside the bar it opens, so hiding the bar leaves it');
+});
+
 // --- the box ------------------------------------------------------------------------
 
 test('the search bar holds a box round the input, the chip, the clear button and the toggle, in that order, and the panel beside it', () => {

@@ -81,8 +81,7 @@ test('source: the phone header rules are one 760 px block after the .iter-select
     assert.match(block, new RegExp(`${sel.replace(/[.#]/g, '\\$&')}[^{]*\\{[^}]*display:\\s*none`), `${sel} is hidden`);
   }
   assert.doesNotMatch(block, /#stale-indicator[^{]*\{[^}]*display:\s*none/, 'the stale cue stays');
-  assert.match(block, /\.search-bar\s*\{[^}]*order:\s*\d/);
-  assert.match(block, /\.search-bar\s*\{[^}]*flex:\s*1 1 100%/);
+  assert.doesNotMatch(block, /\.search-bar\s*\{/, 'the search bar is hidden until the search button opens it (search-button.test.js), not given a row here');
   assert.match(block, /\.more-btn\s*\{[^}]*display:\s*inline-flex/);
   assert.match(block, /\.more-menu:not\(\.hidden\)\s*\{[^}]*display:\s*flex/);
 });
