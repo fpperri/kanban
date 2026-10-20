@@ -76,8 +76,17 @@ function setPhoneColumn(col) {
   catch (e) { /* storage unavailable/full — the tab just won't persist this session */ }
 }
 
+// The one MediaQueryList for the width line, made on first use: a card asks per card, so a list per
+// ask would be one per tile drawn.
+let phoneWidthList = null;
+function phoneWidthMedia() {
+  if (!phoneWidthList && window.matchMedia) phoneWidthList = window.matchMedia(PHONE_WIDTH_QUERY);
+  return phoneWidthList;
+}
+
 function onPhoneLayout() {
-  return !!(window.matchMedia && window.matchMedia(PHONE_WIDTH_QUERY).matches);
+  const list = phoneWidthMedia();
+  return !!(list && list.matches);
 }
 
 // A sideways swipe on the phone Board moves to the neighbouring status. The listeners are passive
@@ -1305,12 +1314,13 @@ function renderBoardColumns() {
     const sortState = colSort[col];
     // The Assignee sort ranks by registry order, so the comparator
     // gets the config.yaml handles — plumbed exactly like priorities above.
+    if (phone && col !== phoneActive) { // the phone Board shows one status at a time: the others are only counted
+      tabCounts[col] = { shown: narrowed ? source.filter((c) => searchIds.has(c.id)).length : source.length, total: source.length };
+      continue;
+    }
     const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
     const cards = narrowed ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
-    if (phone) {
-      tabCounts[col] = { shown: cards.length, total: allCards.length };
-      if (col !== phoneActive) continue; // the phone Board shows one status at a time
-    }
+    if (phone) tabCounts[col] = { shown: cards.length, total: allCards.length };
     const isCollapsed = phone ? false : !!collapsed[col]; // a status collapsed on the desktop still shows its cards, and nothing is written
     const label = columnLabel(col);
     // Counts stay truthful whether or not the column is collapsed — column-count
@@ -1598,12 +1608,11 @@ function pressViewPanelButton(btn, redraw) {
 
 // Until the person chooses, the panel follows the screen, so crossing the phone width line (phone-width.js) draws the view again.
 window.addEventListener('DOMContentLoaded', () => {
-  if (!window.matchMedia) return;
-  window.matchMedia(PHONE_WIDTH_QUERY).addEventListener('change', () => {
-    const mode = loadViewMode();
-    renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column
-    if (mode === 'map') renderMapView();
-    if (mode === 'graph') graphRedrawForPanel();
+  const list = phoneWidthMedia();
+  if (!list) return;
+  list.addEventListener('change', () => {
+    if (loadViewMode() === 'graph') graphRefitNext = true; // the stage has another width, so the cards are framed again
+    renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column, and the Map or the Graph once
   });
 });
 

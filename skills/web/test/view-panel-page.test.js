@@ -219,7 +219,8 @@ test('the panel button and the sheet\'s close button are refocused after a redra
 
 test('crossing 760 px draws the view again, which the page asks the browser to tell it of', async () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /window\.matchMedia\(PHONE_WIDTH_QUERY\)\.addEventListener\('change'/);
+  assert.match(src, /window\.matchMedia\(PHONE_WIDTH_QUERY\)/);
+  assert.match(src, /phoneWidthMedia\(\);\s+if \(!list\) return;\s+list\.addEventListener\('change'/);
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(css, /@media \(max-width: 759\.98px\) \{\n  \.view-panel \{ position: absolute;/, 'the sheet starts where the width default stops');
 });

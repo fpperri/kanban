@@ -278,3 +278,24 @@ test('the status tabs are a tablist of tabs, so a screen reader says which statu
   assert.ok(s.tabs().every((t) => t.getAttribute('role') === 'tab'));
   assert.deepStrictEqual(s.selected(), ['backlog']);
 });
+
+test('crossing the width line draws the Map once and the Graph once, the Graph framed again', async () => {
+  for (const view of ['map', 'graph']) {
+    const s = await open({ stored: { 'kanban.kanban.view.mode': view } });
+    s.page.run('globalThis.__d = []; renderMapView = () => { __d.push("map"); }; renderGraphView = () => { __d.push(graphRefitNext ? "graph refit" : "graph"); };');
+    s.media.cross(false);
+    assert.deepStrictEqual(JSON.parse(s.page.run('JSON.stringify(__d)')), [view === 'map' ? 'map' : 'graph refit'], view);
+  }
+});
+
+test('the phone-width query is read through one MediaQueryList, and a hidden status is counted without sorting its cards', async () => {
+  const s = await open();
+  s.page.run('globalThis.__m = 0; globalThis.__s = 0; const __mm = window.matchMedia; window.matchMedia = (q) => { __m++; return __mm(q); }; const __sc = sortCards; sortCards = (...a) => { __s++; return __sc(...a); };');
+  s.page.run('renderBoard(); renderBoard()');
+  assert.strictEqual(s.page.run('__m'), 0, 'the list made at the start is the one read');
+  assert.strictEqual(s.page.run('__s'), 2, 'one column sorted per draw: the status shown');
+  assert.deepStrictEqual(s.counts(), ['1', '2', '1', '0', '1']);
+  s.page.input.typed('Card 2');
+  await s.page.settle();
+  assert.deepStrictEqual(s.counts(), ['0/1', '1/2', '0/1', '0/0', '0/1']);
+});
