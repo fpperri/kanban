@@ -968,33 +968,17 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-view { position: relative; display: flex; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; height: calc(100vh - var(--board-header-h, 64px) - 48px); }
 /* The Map's graphs scroll here, beside the option panel, which stays in place. */
 .map-main { flex: 1; min-width: 0; overflow: auto; padding: 14px; }
-/* The status-filter pill row. Border color is inline per pill
-   (statusColor() — covers custom statuses' hashed hues, which have no CSS
-   rule; same reasoning as the column headers), so the rules here only shape
-   the pill and encode ON/OFF. An OFF pill turns muted with a struck-through
-   label and a hollow dot, never opacity. The
-   gantt's own pill row (.gantt-filter-row/.gantt-filter-toggle, see the Gantt
-   view section below) shares these declarations via comma — one pill LOOK
-   for both views, not a duplicated rule per view. The calendar's
-   own row (.calendar-filter-row/.calendar-filter-toggle, see the Calendar
-   view section) joins the same comma group — a third view, still one rule. */
-.map-filter-row, .gantt-filter-row, .calendar-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-/* 1px, not 2px: after header claims 2px var(--ink) as the page-boundary
-   weight, these were the only other 2px chrome borders in the file — the
-   ON/OFF signal already rides colour, strike-through and the dot's fill, not
-   weight, so dropping to 1px costs nothing and keeps the border scale a
-   scale rather than a coincidence. Still a visibly tappable control: radius,
-   padding and fill are untouched. */
-.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
-.map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { color: var(--mut); text-decoration: line-through; }
-.map-filter-toggle:hover, .gantt-filter-toggle:hover, .calendar-filter-toggle:hover { background: var(--btn-bg); }
+/* The pill dot and the small-button look.
+   The Graph's pills keep the .graph-filter-toggle rules; the Map's zoom buttons share this one
+   small-button look. The Map, the Gantt and the Calendar have no pill row: their status pills
+   are in the search panel's Statuses section. */
+.map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.map-zoom-btn:hover { background: var(--btn-bg); }
 .pill-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: currentColor; border: 1px solid currentColor; vertical-align: 0.05em; }
 .off > .pill-dot { background: transparent; }
-.map-filter-toggle:focus-visible, .gantt-filter-toggle:focus-visible, .calendar-filter-toggle:focus-visible, .graph-filter-toggle:focus-visible, .map-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* The zoom toolbar — its own row right after the filter row (see
-   buildMapZoomControls, app.js), same small-pill look as .map-filter-toggle
-   (comma-joined into that rule above) rather than a full-size <button>, so
-   it reads as part of the same control-row vocabulary. */
+.graph-filter-toggle:focus-visible, .map-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The zoom toolbar — the first row of the option panel (see buildMapZoomControls,
+   app.js), a small-pill button rather than a full-size <button>. */
 .map-zoom-controls { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
 .map-zoom-btn:disabled { opacity: 0.45; cursor: default; }
 .map-zoom-pct { font-size: 0.78em; color: var(--mut); min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
@@ -1359,8 +1343,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* The option panel of the Map and of the Graph: the zoom, the Graph's layouts and the Options
    section, one control above the next. Beside the view from 760 px; under it, a bottom sheet over the
    view, which is positioned against .map-view / .graph-view and so adds no width to the page. */
-.view-bar { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
-.view-bar > .map-filter-row { flex: 1; margin-bottom: 0; }
+.view-bar { display: flex; align-items: flex-start; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
 .graph-controls .view-panel-toggle { align-self: center; }
 .view-panel-toggle { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 24px; padding: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); cursor: pointer; }
 .view-panel-toggle svg { width: 15px; height: 15px; display: block; }
@@ -1479,7 +1462,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    gutter and timeline stay aligned row for row. #gantt-view itself is a
    plain block container — the sub-view controls row (.cal-controls, the
    SAME classes/look the calendar's own uses) then the status-filter row
-   (.gantt-filter-row) are its first two children, stacked ABOVE the
+   is its first child, stacked ABOVE the
    gutter+timeline; .gantt-body carries the side-by-side flex row. */
 #gantt-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .gantt-view { background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; }

@@ -41,3 +41,21 @@ test('SKILL.md gives the calendar its own dedicated status-filter write-up, in t
   assert.match(calendarSection[0], /calendar\.statusFilter/, 'the persistence key is named');
   assert.match(calendarSection[0], /\*\*intersection\*\*/, 'search+status composition is documented');
 });
+
+test('SKILL.md says the Map, the Calendar and the Gantt keep their status pills in the search panel\'s Statuses section', () => {
+  const flat = webSkill.replace(/\s+/g, ' ');
+  for (const [name, re] of [
+    ['Map', /\*\*Status-filter row\*\* — the Map draws no pill row of its own: its status pills sit in the search panel's Statuses section/],
+    ['Calendar', /\*\*Status-filter row\*\* — no row sits above the grid: the status pills \(month AND every sub-view alike\) sit in the search panel's Statuses section/],
+    ['Gantt', /\*\*Status-filter row\*\* — no row sits above the timeline: the status pills sit in the search panel's Statuses section/],
+  ]) assert.match(flat, re, name);
+  assert.doesNotMatch(flat, /one compact row under the status pills/);
+  assert.doesNotMatch(flat, /`\.view-bar`, after the status pills/);
+});
+
+test('docs/web.md says the Map and the Calendar keep their status pills in the search panel\'s Statuses section', () => {
+  const docs = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(docs, /The Map's status pills are in the search panel's Statuses section/);
+  assert.match(docs, /Same status pills, in the search panel's Statuses section, and search as the other views/);
+  assert.doesNotMatch(docs, /A status-filter pill row \(left-click to toggle/);
+});

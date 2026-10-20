@@ -303,7 +303,7 @@ function clears(set, fg, bg, floor, what) {
   assert.ok(r >= floor, `${what}: ${fg} on ${bg} is ${r.toFixed(2)}:1, under ${floor}`);
 }
 
-const PILLS = ['.map-filter-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle'];
+const PILLS = ['.graph-filter-toggle'];
 
 for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
   test(`${name}: an off filter pill is muted text with a strike-through, never opacity, and holds the floor on its ground and its hover`, () => {

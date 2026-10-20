@@ -1429,12 +1429,11 @@ function renderMapView() {
   const allCards = state.active.concat(state.archived);
   const options = loadMapOptions();
   container.classList.toggle('map-align-center', options.align === 'center');
-  // The status-filter row renders first and UNCONDITIONALLY — if it
-  // vanished with the graph on the everything-filtered-out state, there'd be
-  // no control left to toggle a status back ON. The panel's button sits in front of it, and
-  // the panel with the zoom toolbar stands beside it, same unconditional treatment (a corner
-  // case, but a zoomed-out board that then filters everything away shouldn't strand the
-  // human with no way to zoom back before turning a pill back on).
+  // The status pills sit in the search panel's Statuses section, which keeps the
+  // recover-from-empty guarantee: a board filtered down to nothing still has a control
+  // to turn a status back on. The option panel with the zoom toolbar stands beside the
+  // bar, same unconditional treatment (a zoomed-out board that then filters everything
+  // away shouldn't strand the human with no way to zoom back).
   main.appendChild(buildMapBar(panelOpen));
   const searchIds = withIterationCut(currentSearchMatch().ids);
   // Status filter composes with search by INTERSECTION — a card is
@@ -1503,7 +1502,7 @@ function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
   return row;
 }
 
-const REFOCUS_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn, .view-panel-toggle, .view-panel-close';
+const REFOCUS_SELECTOR = '.map-section-toggle, .graph-filter-toggle, .graph-option-btn, .view-panel-toggle, .view-panel-close';
 
 // What finds a rebuilt control again after a render: its class and what names it, a status
 // pill's column or a fold toggle's section, a panel button its view, or for a button of the
@@ -1529,18 +1528,6 @@ function keepControlFocus(el, action) {
   action();
   const next = document.querySelector(selector);
   if (next) next.focus({ preventScroll: true });
-}
-
-// One pill per board column in column order (statuses + Archive:
-// the map always includes archived cards, so the location pseudo-column is
-// always offered). Rebuilt by every renderMapView() call like the rest of
-// #map-view; state lives in the memoized mapStatusFilter, so the row never
-// visually resets across the 5s poll. Clicks ride #map-view's delegated
-// listener (see the map wiring section).
-function buildMapFilterRow() {
-  const row = buildFilterPillRow(loadMapStatusFilter(), boardColumnIds(), 'map-filter-row', 'map-filter-toggle',
-    (col, on) => statusFilterTitle('map', col, columnLabel(col), on));
-  return row;
 }
 
 // The option panel on the right of the Map and of the Graph (view-panel.js keeps whether it is
@@ -1612,11 +1599,10 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// The Map's top row: the status pills, then the panel button on the right, the side the panel comes out of.
+// The Map's top row: the panel button alone, on the right, the side the panel comes out of. The status pills sit in the search panel's Statuses section.
 function buildMapBar(open) {
   const bar = document.createElement('div');
   bar.className = 'view-bar';
-  bar.appendChild(buildMapFilterRow());
   bar.appendChild(buildViewPanelToggle('map', 'Show or hide the zoom and the options', open));
   return bar;
 }
@@ -1729,32 +1715,6 @@ function buildMapOptionsRow() {
   row.className = 'map-options';
   row.insertAdjacentHTML('beforeend', mapOptionsRowHtml(loadMapOptions()));
   return row;
-}
-
-// Same mechanism, gantt-scoped — statuses + Archive (boardColumnIds(),
-// same id list as the map's row; the Archive
-// pseudo-pill defaults OFF — see loadGanttStatusFilter). No ghost
-// wording either — the gantt has no dependency edges, so a filtered-out
-// status just drops its group rows outright, and the rendered timeline
-// window re-derives from whatever bars remain (may narrow). Archive gets its
-// own tooltip: flipping it ON adds one more group, after the live status
-// groups, for dated ARCHIVED cards (muted grey, same mute as everywhere
-// else archive shows up). Rebuilt by every renderGanttView() call; clicks
-// ride #gantt-view's own delegated listener (see wireGanttPointerDrag).
-function buildGanttFilterRow() {
-  return buildFilterPillRow(loadGanttStatusFilter(), boardColumnIds(), 'gantt-filter-row', 'gantt-filter-toggle',
-    (col, on) => statusFilterTitle('gantt', col, columnLabel(col), on));
-}
-
-// Same mechanism again, calendar-scoped: statuses +
-// Archive (boardColumnIds(), same id list as the gantt's row) — the calendar
-// can show dated ARCHIVED cards too, opt-in, default OFF, same shape as
-// the gantt's own Archive pill. Rebuilt by every renderCalendarView() call
-// (month AND every sub-view share this one row); clicks ride
-// #calendar-view's own delegated listener (see the calendar wiring section).
-function buildCalendarFilterRow() {
-  return buildFilterPillRow(loadCalendarStatusFilter(), boardColumnIds(), 'calendar-filter-row', 'calendar-filter-toggle',
-    (col, on) => statusFilterTitle('calendar', col, columnLabel(col), on));
 }
 
 // The map's fold toggles (the graphs, No relations) share
@@ -3841,13 +3801,6 @@ window.addEventListener('DOMContentLoaded', () => {
       keepControlFocus(sectionBtn, () => toggleMapSection(sectionBtn.dataset.section));
       return;
     }
-    // Status-filter pills — control-row buttons, checked first for
-    // the same reason data-act buttons are (never fall through to card-el).
-    const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
-    if (filterBtn) {
-      keepControlFocus(filterBtn, () => toggleMapStatusFilter(filterBtn.dataset.col));
-      return;
-    }
     const optionBtn = e.target.closest('.map-option-btn[data-key][data-val]');
     if (optionBtn) {
       setMapOption(optionBtn.dataset.key, optionBtn.dataset.val);
@@ -3875,20 +3828,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const stub = e.target.closest('.map-node.ghost[data-id]');
     if (stub) openCard(stub.dataset.id);
-  });
-  // Right-click a status-filter pill SOLOs it (every other pill
-  // off); right-click the already-soloed pill again restores all ON. Own
-  // listener (not folded into the click one above) so it can preventDefault
-  // WITHOUT touching the browser's context menu anywhere else in #map-view —
-  // a right-click that misses a pill falls through untouched to the
-  // shared card-el contextmenu handler on document (map nodes/No relations tiles
-  // keep their bulk-menu right-click exactly as before).
-  $('#map-view').addEventListener('contextmenu', (e) => {
-    if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the gantt's contextmenu — a chorded right-click mid-drag must not re-render under the gesture
-    const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
-    if (!filterBtn) return;
-    e.preventDefault();
-    keepControlFocus(filterBtn, () => soloMapStatusFilter(filterBtn.dataset.col));
   });
   wireMapPanZoom();
 });
@@ -4415,12 +4354,9 @@ function renderCalendarView() {
       ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>`
       : '');
   container.appendChild(controls);
-  // The status-filter row renders first and UNCONDITIONALLY — same
-  // reasoning as the map's row and the gantt's row: if it vanished on
-  // an everything-filtered-out empty grid, there'd be no control left to
-  // toggle a status back ON. Shared by BOTH branches below (month and every
-  // sub-view read the same loadCalendarStatusFilter()).
-  container.appendChild(buildCalendarFilterRow());
+  // No status pill row here: the search panel's Statuses section keeps the
+  // recover-from-empty guarantee. Both branches below (month and every
+  // sub-view) read the same loadCalendarStatusFilter().
 
   if (subview === 'month') renderCalendarMonthGrid(container);
   else renderCalendarTimeGrid(container, subview, keepScroll);
@@ -4997,11 +4933,6 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-toggle-btn').addEventListener('click', () => toggleView('calendar'));
   wireCalendarTimeDrag(); // delegated once on the stable #calendar-view
   $('#calendar-view').addEventListener('click', (e) => {
-    // Status-filter pills — control-row buttons, checked first for
-    // the same reason the map's and the gantt's pills are (never fall
-    // through to the sub-view switcher/nav/card-el handling below).
-    const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
-    if (filterBtn) { keepControlFocus(filterBtn, () => toggleCalendarStatusFilter(filterBtn.dataset.col)); return; }
     // The sub-view switcher rides the same delegated listener as
     // prev/today/next — all four button sets are rebuilt every render.
     const sv = e.target.closest('.cal-subview-btn');
@@ -5041,16 +4972,6 @@ window.addEventListener('DOMContentLoaded', () => {
       const r = col.getBoundingClientRect();
       openModal(null, null, calendarCreateStart(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN));
     }
-  });
-  // Right-click SOLO on the calendar's own pills — same reasoning
-  // as the map's contextmenu listener above (own listener so a miss falls
-  // through untouched to the shared chip contextmenu on document).
-  $('#calendar-view').addEventListener('contextmenu', (e) => {
-    if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the gantt's contextmenu — a chorded right-click mid-.cal-chip-drag must not re-render out from under the gesture
-    const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
-    if (!filterBtn) return;
-    e.preventDefault();
-    keepControlFocus(filterBtn, () => soloCalendarStatusFilter(filterBtn.dataset.col));
   });
 });
 
@@ -5310,13 +5231,10 @@ function renderGanttView() {
   // self-corrects on the very next render.
   const prevWidth = prevScroll ? prevScroll.clientWidth : null;
   container.innerHTML = '';
-  // The sub-view controls row, then the status-filter row, render first and
-  // UNCONDITIONALLY — same reasoning as the map's row: if either vanished on
-  // the everything-filtered-out empty state, there'd be no control left to
-  // get back. Everything from here on APPENDS (never innerHTML=, which would
-  // wipe these rows straight back out).
+  // The sub-view controls row renders first and unconditionally; the status
+  // pills are in the search panel's Statuses section. Everything from here on
+  // APPENDS (never innerHTML=, which would wipe the controls straight back out).
   container.appendChild(buildGanttControls());
-  container.appendChild(buildGanttFilterRow());
   // Same search composition as board/map/calendar: the shared match result.
   // Status filter composes with search by INTERSECTION — a card is visible
   // only if BOTH say so — same pure helper and same rule as the map's
@@ -5596,28 +5514,15 @@ function wireGanttPointerDrag() {
     e.preventDefault();
     e.stopPropagation(); // capture phase at document — nothing else sees this click
   }, true);
-  // Control-row buttons — status-filter pills, the sub-view switcher, and
-  // prev/today/next — checked first for the same reason the map's pills are
+  // Control-row buttons — the sub-view switcher and prev/today/next — checked first
   // (never fall through to the pointer-drag/card-el handling below).
   container.addEventListener('click', (e) => {
-    const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (filterBtn) { keepControlFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setGanttSubview(sv.dataset.subview); return; }
     if (e.target.closest('.cal-span-cycle')) { setGanttSubview(nextSubview(GANTT_SUBVIEWS, loadGanttSubview())); return; }
     if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
     if (e.target.closest('#gantt-next-btn')) { shiftGanttWindow(1); return; }
     if (e.target.closest('#gantt-today-btn')) { ganttAnchor = null; renderGanttView(); }
-  });
-  // Right-click SOLO on the gantt's own pills — same reasoning as
-  // the map's contextmenu listener (own listener so a miss falls through
-  // untouched to the shared bar/gutter-label contextmenu on document).
-  container.addEventListener('contextmenu', (e) => {
-    if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-bar-drag must not detach ganttDrag.barEl via re-render
-    const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (!filterBtn) return;
-    e.preventDefault();
-    keepControlFocus(filterBtn, () => soloGanttStatusFilter(filterBtn.dataset.col));
   });
   container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || ganttDrag) return;

@@ -114,12 +114,12 @@ module.exports = {
     check('the Map\'s button is the same glyph with the same label', !!mapButton && mapButton.expanded === 'true' && mapButton.label === 'Options panel' && mapButton.icon && !mapButton.inPanel, mapButton);
     const mapZoomIn = await inPanel('#map-view .map-zoom-btn');
     const mapOptionsIn = await inPanel('#map-view .map-options');
-    const pillsIn = await inPanel('#map-view .map-filter-toggle');
+    const pillsIn = await inPanel('#map-view .status-pill, #map-view .map-filter-toggle');
     const mapCorner = await ev(corner('map'));
     check('the Map\'s icon button is at the top right of its area, beside the panel', mapCorner.fromRight >= 0 && mapCorner.fromRight < 40 && mapCorner.fromTop < 50, mapCorner);
     const mapOptions = await ev(`({groups:document.querySelectorAll('#map-view .view-panel .map-option').length,toggles:document.querySelectorAll('#map-view .view-panel .map-section-toggle').length})`);
     check('the Map\'s Options section is always expanded: its eight controls are built, with no toggle', mapOptions.groups === 8 && mapOptions.toggles === 0, mapOptions);
-    check('the Map\'s zoom and Options section are in the panel, and its status pills are not', mapZoomIn.length === 3 && mapZoomIn.every(Boolean) && mapOptionsIn.length === 1 && mapOptionsIn[0] && pillsIn.length > 0 && !pillsIn.some(Boolean), { mapZoomIn, mapOptionsIn, pillsIn });
+    check('the Map\'s zoom and Options section are in the panel, and no status pill sits in the Map', mapZoomIn.length === 3 && mapZoomIn.every(Boolean) && mapOptionsIn.length === 1 && mapOptionsIn[0] && pillsIn.length === 0, { mapZoomIn, mapOptionsIn, pillsIn });
     const pct = () => ev(`document.querySelector('#map-view .map-zoom-pct').textContent`);
     const pctBefore = await pct();
     await clickOn('#map-view .map-zoom-btn[data-zoom-action=out]');
