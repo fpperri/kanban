@@ -8,7 +8,7 @@ const { tap } = require('../../steps');
 
 module.exports = {
   async run(page) {
-    const { ev, open, waitFor, check } = page;
+    const { ev, open, waitFor, check, expectRefusedRequest } = page;
     const cardOpen = (id) => `!document.querySelector('#detail-modal').classList.contains('hidden')&&new URLSearchParams(location.search).get('card')==='${id}'`;
     const formOpen = `!document.querySelector('#modal').classList.contains('hidden')`;
     const tabs = `[...document.querySelectorAll('#board-tabs .board-tab')].filter((t)=>t.getAttribute('aria-selected')==='true').map((t)=>t.dataset.col)`;
@@ -55,5 +55,6 @@ module.exports = {
     await tapSel('#modal-save');
     check('a refused move to doing shows the server\'s reason in the toast', await waitFor(`/Can't set doing — waiting on #3/.test(document.getElementById('toast').textContent)`, 5000), await ev(`document.getElementById('toast').textContent`));
     check('and the form stays open', await ev(formOpen));
+    check("the refusal was the server's 422 on that card, which the scenario's console check does not count", await expectRefusedRequest(422, '/api/cards/4'));
   },
 };

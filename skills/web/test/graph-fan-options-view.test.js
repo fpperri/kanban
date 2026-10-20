@@ -484,10 +484,26 @@ test('the mode is kept for the board: a reload draws it, and another board has i
   assert.strictEqual(stale.run('graphLoadOptions().unnested'), 'outermost', 'a stored mode this version does not offer reads as the default');
 });
 
+test('the first draw and Fit keep every placed name clear of the edge of the stage, the margin growing to hold the furthest', async () => {
+  const size = { w: 600, h: 900 };
+  const EDGE = 5;
+  const s = await open({ size, stored: UNFOLDED });
+  const offStage = () => {
+    const v = viewOf(s);
+    const placed = [...s.run('graphCur.names').placed.values()];
+    assert.ok(placed.length > 0, 'the fan has names placed');
+    return placed.filter((p) => v.x + p.box.x0 * v.k < EDGE || v.x + p.box.x1 * v.k > size.w - EDGE || v.y + p.box.y0 * v.k < EDGE || v.y + p.box.y1 * v.k > size.h - EDGE).length;
+  };
+  assert.strictEqual(offStage(), 0, 'the first draw');
+  s.run('graphZoomBy(1.5, 100, 100)');
+  s.run('graphFitNow(); graphPaintNames()');
+  assert.strictEqual(offStage(), 0, 'Fit');
+});
+
 test('a mode frames the view again when the person has not moved it, and leaves one the person moved alone', async () => {
   const size = { w: 900, h: 600 };
   const s = await open({ size, stored: UNFOLDED });
-  const fitted = () => JSON.parse(s.run('JSON.stringify(graphFit(graphCur.layout.bounds, graphCur.w, graphCur.h))'));
+  const fitted = () => JSON.parse(s.run('JSON.stringify(graphFrameFit(graphCur))'));
   const view = () => { const v = viewOf(s); return { x: v.x, y: v.y, k: v.k }; };
   assert.deepStrictEqual(view(), fitted(), 'the first draw is the fit of the ring\'s bounds');
   const ringBounds = JSON.stringify(s.run('graphCur.layout.bounds'));
