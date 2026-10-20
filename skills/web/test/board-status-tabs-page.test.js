@@ -45,18 +45,29 @@ function mediaStandIn(phone) {
 async function open({ phone = true, stored = {} } = {}) {
   const board = recordingElement('main');
   Object.defineProperty(board, 'innerHTML', { get: () => '', set: () => { board.children.length = 0; } });
-  const strip = recordingElement('nav');
+  const innerStrip = recordingElement('nav');
+  // A real strip goes back to the left when it is emptied: its content is gone, so there is nothing to scroll.
+  const strip = new Proxy(innerStrip, { set(t, k, v) { if (k === 'textContent') t.scrollLeft = 0; t[k] = v; return true; } });
   const media = mediaStandIn(phone);
   const newBtn = control();
   const statusField = control();
   const all = { ...stored };
-  const page = loadPage({ board: makeBoard(), stored: all, elements: { '#board': board, '#board-tabs': strip, '#new-btn': newBtn, '#f-status': statusField }, documentExtras: recordingDocument() });
+  const scrolled = [];
+  const documentExtras = recordingDocument();
+  const make = documentExtras.createElement;
+  documentExtras.createElement = (tag) => {
+    const el = make(tag);
+    el.style = {};
+    el.scrollIntoView = (o) => scrolled.push({ col: el.dataset.col, ...o });
+    return el;
+  };
+  const page = loadPage({ board: makeBoard(), stored: all, elements: { '#board': board, '#board-tabs': strip, '#new-btn': newBtn, '#f-status': statusField }, documentExtras });
   page.ctx.matchMedia = media.matchMedia;
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
-  const tabs = () => byClass(strip, 'board-tab');
+  const tabs = () => byClass(innerStrip, 'board-tab');
   return {
-    page, board, strip, media, stored: all, tabs,
+    page, board, strip, media, stored: all, tabs, scrolled,
     cards: () => byClass(board, 'card'),
     newCard() { statusField.value = '(unset)'; newBtn.fire('click', {}); return statusField.value; },
     touch(type, x, y, t, extra = {}) {
@@ -152,8 +163,7 @@ test('the strip, the hidden column header row and the Board phone height sit in 
   assert.ok(block, 'one phone block between the column rules and .card');
   const rules = block[1];
   assert.match(rules, /\.board-tabs\s*\{[^}]*display: flex/);
-  assert.match(rules, /\.board-tab-backlog\s*\{[^}]*var\(--st-backlog\)/);
-  assert.match(rules, /\.board-tab-archive\s*\{[^}]*var\(--st-archive\)/);
+  assert.doesNotMatch(css, /\.board-tab-(backlog|todo|doing|done|archive)\s*\{/, 'a tab takes its colour from statusColorVar, not from a rule per status');
   assert.match(rules, /\.column-header\s*\{[^}]*display: none/);
   assert.match(rules, /main#board\s*\{[^}]*height:/);
   assert.match(css, /\.board-tabs\s*\{\s*display: none/, 'the strip is hidden above the line');
@@ -239,4 +249,32 @@ test('the Board swipe listeners are passive, and the cards take pan-y pinch-zoom
   const after = css.slice(css.indexOf('.card.archived-card {'));
   assert.match(after, /\.card\s*\{[^}]*touch-action: pan-y pinch-zoom/);
   assert.ok(!/touch-action: pan-y;/.test(css.slice(css.indexOf('.card.archived-card {'), css.indexOf('.card.archived-card {') + 600)), "never 'pan-y' alone");
+});
+
+test('every tab takes its colour from statusColorVar', async () => {
+  const s = await open();
+  for (const t of s.tabs()) {
+    assert.strictEqual(t.style.color, s.page.run(`statusColorVar(${JSON.stringify(t.dataset.col)})`), t.dataset.col);
+    assert.ok(!t.classes.some((c) => c.startsWith('board-tab-') && c !== 'board-tab-label' && c !== 'board-tab-count'), 'no per-status class');
+  }
+});
+
+test('a redraw keeps the strip where it was scrolled, and a changed status brings its tab into view', async () => {
+  const s = await open();
+  assert.deepStrictEqual(s.scrolled.map((x) => x.col), ['backlog'], 'the first draw shows the chosen tab');
+  s.strip.scrollLeft = 120;
+  s.page.run('renderBoard()');
+  assert.strictEqual(s.strip.scrollLeft, 120, 'a poll or a keystroke does not snap the strip back');
+  assert.strictEqual(s.scrolled.length, 1, 'the same status is not scrolled to again');
+  s.tap('archive');
+  assert.strictEqual(s.strip.scrollLeft, 120);
+  assert.deepStrictEqual(s.scrolled[s.scrolled.length - 1], { col: 'archive', inline: 'nearest', block: 'nearest' });
+});
+
+test('the status tabs are a tablist of tabs, so a screen reader says which status is shown', async () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+  assert.match(html, /<nav id="board-tabs"[^>]*role="tablist"/);
+  const s = await open();
+  assert.ok(s.tabs().every((t) => t.getAttribute('role') === 'tab'));
+  assert.deepStrictEqual(s.selected(), ['backlog']);
 });

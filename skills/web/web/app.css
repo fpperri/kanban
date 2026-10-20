@@ -464,11 +464,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
   .board-tabs { display: flex; gap: 4px; height: 40px; margin-bottom: 8px; overflow-x: auto; flex-wrap: nowrap; }
   .board-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: .2rem; color: var(--mut); font-weight: 600; font-size: 0.85em; cursor: pointer; }
   .board-tab-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
-  .board-tab-backlog { color: var(--st-backlog); }
-  .board-tab-todo { color: var(--st-todo); }
-  .board-tab-doing { color: var(--st-doing); }
-  .board-tab-done { color: var(--st-done); }
-  .board-tab-archive { color: var(--st-archive); }
   .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
   main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h)); }
   .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); overflow: auto; }

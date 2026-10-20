@@ -1393,18 +1393,23 @@ function renderBoardColumns() {
 }
 
 // The status tabs of the phone Board, one button per status with its colour and count. The strip is
-// emptied above the width line, where the stylesheet hides it anyway.
+// emptied above the width line, where the stylesheet hides it anyway. A redraw keeps the strip where it
+// was scrolled; the chosen tab is brought into view only when the choice has changed.
 function renderBoardTabs(tabs) {
   const strip = $('#board-tabs');
+  const keepLeft = strip.scrollLeft;
+  const chosenBefore = strip.dataset.chosen;
   strip.textContent = '';
+  let chosen = null;
   for (const t of tabs) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    const safe = /^[a-zA-Z0-9_-]+$/.test(t.status) && (t.status === 'archive' || isBuiltinStatus(t.status));
-    btn.className = `board-tab${safe ? ` board-tab-${t.status}` : ''}`;
+    btn.className = 'board-tab';
+    btn.setAttribute('role', 'tab');
     btn.dataset.col = t.status;
     btn.setAttribute('aria-selected', String(t.selected));
-    if (!safe) btn.style.color = statusColorVar(t.status);
+    btn.style.color = statusColorVar(t.status);
+    if (t.selected) chosen = btn;
     const name = document.createElement('span');
     name.className = 'board-tab-label';
     name.textContent = t.label;
@@ -1415,6 +1420,9 @@ function renderBoardTabs(tabs) {
     btn.appendChild(count);
     strip.appendChild(btn);
   }
+  strip.scrollLeft = keepLeft;
+  if (chosen && chosen.dataset.col !== chosenBefore) chosen.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  if (chosen) strip.dataset.chosen = chosen.dataset.col; else delete strip.dataset.chosen;
 }
 
 // --- Dependency map rendering ------------------------------------
