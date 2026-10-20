@@ -108,7 +108,7 @@ cards nothing links; rows that read doing, todo, backlog, done from the left and
 centered; and cards that carry their type chip, `▲` badge and roll-up bar. The Map
 options row is kanban-web's: the snapshot always draws these defaults.
 
-The snapshot has no Graph view; that one is kanban-web only. Its Calendar and Gantt filter by the
+The snapshot has no Graph view; that one is kanban-web only. It has no logbook, no group badges, Group tab or iteration dropdown, and no scratchpad either: all three are web-only in this release. Its Calendar and Gantt filter by the
 search box as kanban-web's do, but do not jump to the nearest match when the box leaves none on
 screen: page to it yourself.
 
