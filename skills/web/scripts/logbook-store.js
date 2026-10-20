@@ -43,7 +43,6 @@ class LogbookError extends Error {
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const FILE_RE = /^(\d{4})\.(\d{2})\.(\d{2})\.(?:([^.]+)\.)?logbook\.md$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-const HANDLE_RE = /^@[\w.-]{1,64}$/;
 const DEFAULT_AUTHOR = '@human';
 const MAX_NOTE = 20000;
 
@@ -96,10 +95,12 @@ function checkText(note) {
   return text;
 }
 
+// An author is kept as written, as one trimmed line; the entry writer quotes it, so no text
+// can break the YAML. A blank one is the human, like an absent one.
 function checkAuthor(by) {
-  if (by === undefined || by === null || by === '') return DEFAULT_AUTHOR;
-  if (typeof by !== 'string' || !HANDLE_RE.test(by)) throw new LogbookError('An author is an assignee handle such as @human.', 400);
-  return by;
+  if (by === undefined || by === null) return DEFAULT_AUTHOR;
+  if (typeof by !== 'string') throw new LogbookError('An author is text.', 400);
+  return by.replace(/\s*[\r\n]+\s*/g, ' ').trim() || DEFAULT_AUTHOR;
 }
 
 function canonicalName(day, target, digits) {

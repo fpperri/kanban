@@ -219,7 +219,7 @@ test('request text never builds a path: a bad day, id or time is refused and not
     { day: '2026-10-16', target: 'g7', note: 'x' },
     { day: '2026-10-16', target: '7', at: '9:10', note: 'x' },
     { day: '2026-10-16', target: '7', note: '' },
-    { day: '2026-10-16', target: '7', note: 'x', by: 'not a handle' },
+    { day: '2026-10-16', target: '7', note: 'x', by: ['@afk'] },
   ];
   for (const input of bad) assert.throws(() => lb.addNote(dir, input), (e) => e.status === 400, JSON.stringify(input));
   assert.deepStrictEqual(names(dir), []);

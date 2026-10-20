@@ -1074,7 +1074,8 @@ to `127.0.0.1` only.
   `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/notes/assign`, which build the day
   file's name from a day and an id and never from request text; a write re-reads the file
   and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
-  a day file survive every write. The Graph's names step moved to `l` to free `n`.
+  a day file survive every write. A note's `by` is kept as written (one trimmed line, any
+  text; a blank one is `@human`), never refused for not being a handle. The Graph's names step moved to `l` to free `n`.
 - **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
   pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
   `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.

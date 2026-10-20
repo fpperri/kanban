@@ -61,7 +61,7 @@ test('a note with no card goes to the day file with no id, untimed when no time 
   assert.deepStrictEqual(names(dir), ['2026.10.16.logbook.md']);
 });
 
-test('a bad day, id, time or author is a 400 and writes nothing', async () => {
+test('a bad day, id, time or note is a 400 and writes nothing', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     for (const body of [
@@ -69,7 +69,7 @@ test('a bad day, id, time or author is a 400 and writes nothing', async () => {
       { day: '2026-10-16', target: '../7', note: 'x' },
       { day: '2026-10-16', target: '7', at: '25:00', note: 'x' },
       { day: '2026-10-16', target: '7', note: '  ' },
-      { day: '2026-10-16', target: '7', note: 'x', by: 'me' },
+      { day: '2026-10-16', target: '7', note: 'x', by: 7 },
     ]) {
       const r = await req(base, 'POST', '/api/notes', body);
       assert.strictEqual(r.status, 400, JSON.stringify(body));
@@ -77,6 +77,20 @@ test('a bad day, id, time or author is a 400 and writes nothing', async () => {
     }
   });
   assert.deepStrictEqual(names(dir), []);
+});
+
+test('an author is kept as written: any text, one line, trimmed, and quoted when the YAML needs it', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    for (const by of ['me', 'Dana (build bot)', '  @afk  ', 'a: b # c', 'say "hi"', 'two\nlines']) {
+      const r = await req(base, 'POST', '/api/notes', { day: '2026-10-16', target: '7', at: '09:10', note: `by ${by}`, by });
+      assert.strictEqual(r.status, 201, by);
+    }
+    const board = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(board.logbook.notes.map((n) => n.by), ['me', 'Dana (build bot)', '@afk', 'a: b # c', 'say "hi"', 'two lines']);
+    const blank = await req(base, 'POST', '/api/notes', { day: '2026-10-16', target: '7', at: '09:11', note: 'blank', by: '   ' });
+    assert.strictEqual(blank.json.note.by, '@human', 'a blank author is the human, as an absent one is');
+  });
 });
 
 test('two notes written one after the other to the same day file both land', async () => {
