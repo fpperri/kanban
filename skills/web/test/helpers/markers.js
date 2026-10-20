@@ -140,6 +140,7 @@ const CONTROLS = {
   '#graph-toggle-btn': STATIC('graph-toggle-btn'),
   '.date-picker-pop': datePickerTags,
   '.cal-nav': SITES('cal-nav'),
+  '.cal-span-cycle': SITES('cal-span-cycle'),
   '.map-filter-toggle': () => pillTags('map-filter-toggle'),
   '.gantt-filter-toggle': () => pillTags('gantt-filter-toggle'),
   '.calendar-filter-toggle': () => pillTags('calendar-filter-toggle'),

@@ -246,6 +246,13 @@ function capChips(chips, max) {
 
 const CALENDAR_SUBVIEWS = ['month', 'week', '3day', 'day'];
 
+// The span cycle button's step: the entry after the current one in a span list (CALENDAR_SUBVIEWS or
+// GANTT_SUBVIEWS), wrapping to the first; an unknown span steps to the first entry.
+function nextSubview(subviews, current) {
+  const i = subviews.indexOf(current);
+  return subviews[(i + 1) % subviews.length];
+}
+
 function mergeCalendarSubview(saved) {
   return CALENDAR_SUBVIEWS.includes(saved) ? saved : 'month';
 }
@@ -720,7 +727,7 @@ if (typeof module !== 'undefined' && module.exports) {
     rescheduleChanges, rescheduleDueChanges, capChips,
     CALENDAR_SUBVIEWS, CALENDAR_DEFAULT_BLOCK_MIN, // sub-views
     mergeCalendarSubview, weekStartOf, calendarSubviewDays, shiftAnchorDay,
-    subviewTitle, timeToMinutes, assignLanes, timeGridLayout,
+    subviewTitle, nextSubview, timeToMinutes, assignLanes, timeGridLayout,
     monthChipLayout, CALENDAR_MAX_CHIP_ROWS_PER_WEEK, // month-grid packed layout
     minutesToTime, CALENDAR_DRAG_SNAP_MIN, // time-grid drag/resize
     rescheduleRangeAtTime, rescheduleDueAtTime, resizeRangeAtTime,
@@ -754,6 +761,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.calendarSubviewDays = calendarSubviewDays;
   window.shiftAnchorDay = shiftAnchorDay;
   window.subviewTitle = subviewTitle;
+  window.nextSubview = nextSubview;
   window.timeToMinutes = timeToMinutes;
   window.assignLanes = assignLanes;
   window.timeGridLayout = timeGridLayout;
