@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -447,6 +447,19 @@ test('parseConfig reads a prefixes block of prefix to card type or folder, in co
 test('parseConfig skips a prefixes entry whose key is no prefix or whose value is blank, and the first of a repeated prefix wins', () => {
   const c = cfg.parseConfig('prefixes:\n  g: lower\n  G1: digit\n  H:\n  I: # nothing\n  J: ok\n  J: second\n  K-L: dash\n');
   assert.deepStrictEqual(c.prefixes, { J: 'ok' });
+});
+
+test('a prefix declared for a card type and again for a groups folder keeps the first and reports the second, never fatal', () => {
+  const c = cfg.parseConfig('groups: .groups\nprefixes:\n  G: goal\n  I: .groups/iteration\n  G: .groups/workflow\n  I: .groups/iteration\n  W: workflow/\n  W: task\n');
+  assert.deepStrictEqual(c.prefixes, { G: 'goal', I: '.groups/iteration', W: 'workflow/' }, 'the first declaration of each prefix stands');
+  assert.deepStrictEqual(c.prefixClashes, [
+    { prefix: 'G', kept: 'goal', ignored: '.groups/workflow' },
+    { prefix: 'W', kept: 'workflow/', ignored: 'task' },
+  ], 'a repeat that names the same target is harmless and not reported');
+  assert.strictEqual(cfg.prefixForType(c, 'goal'), 'G');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'workflow'), 'W');
+  assert.strictEqual(cfg.prefixForGroupFolder(c, 'iteration'), 'I');
+  assert.deepStrictEqual(cfg.parseConfig('prefixes:\n  G: goal\n  I: .groups/iteration\n').prefixClashes, []);
 });
 
 test('parseConfig answers no prefixes for a scalar or a list, and an indented prefix of an assignee is not one', () => {

@@ -27,6 +27,8 @@
 //     G: goal             #   a new goal is #G1, #G2 ... A value that names a groups
 //     W: workflow/        #   folder is a folder, not a type: a path (with a `/`), or the
 //     _: .groups          #   groups: folder itself (the root). Block form only.
+//                         #   A prefix is declared once: a second declaration that names
+//                         #   something else is skipped and listed in `prefixClashes`.
 //   counters: { G: 3 }    # one line, one counter per prefix; the next id of a prefix
 //                         # is max(its counter, its highest id + 1), like nextId
 //   logbook: logbook      # the folder of the board's notes (docs/adr/0016), relative to
@@ -178,7 +180,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -296,7 +298,13 @@ function parseConfig(text) {
       const entry = line.match(/^\s+("[^"]*"|'[^']*'|[^\s:]+)\s*:(?:\s+(.*))?$/);
       const prefix = entry && scalar(entry[1]);
       const target = entry && entry[2] !== undefined && entry[2].trim()[0] !== '#' ? scalar(entry[2]) : '';
-      if (prefix && isPrefix(prefix) && target !== '' && !(prefix in config.prefixes)) config.prefixes[prefix] = target;
+      if (prefix && isPrefix(prefix) && target !== '') {
+        // A prefix is one declaration: for a card type or for a groups folder, never both. The first
+        // stands and a later one that names something else is skipped and reported (`prefixClashes`),
+        // so the id counter of a prefix is never read from two places.
+        if (!(prefix in config.prefixes)) config.prefixes[prefix] = target;
+        else if (config.prefixes[prefix] !== target) config.prefixClashes.push({ prefix, kept: config.prefixes[prefix], ignored: target });
+      }
       continue;
     }
     if (section === 'pills') {
