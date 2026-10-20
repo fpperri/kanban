@@ -9,7 +9,7 @@
 // written by hand outside the board shows locked with its controls standing still. Each step waits
 // on the page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): state.
+// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): settingsRenderBoard, settingsUi, state.
 
 const fs = require('fs');
 const path = require('path');
@@ -72,7 +72,10 @@ module.exports = {
       await ev(`${field(key_)}.select()`);
       await send('Input.insertText', { text });
     };
-    const save = (key_) => clickOn(`[data-fk="save:${key_}"]`);
+    const save = async (key_) => {
+      await clickOn(`[data-fk="save:${key_}"]`);
+      await waitFor(`settingsUi.sending===0`, 4000);
+    };
 
     const original = config();
     const eol = original.includes('\r\n') ? '\r\n' : '\n';
@@ -110,6 +113,9 @@ module.exports = {
     await save('logbook');
     check('a folder inside the board saves and changes only the line', await waitConfig((c) => c.includes('logbook: notes/day\n')) && has('groups: .groups'));
     const beforeRefusal = config();
+    await type('logbook', 'half-typed');
+    await ev(`settingsRenderBoard()`);
+    check('a render while a folder is being typed keeps the typed text in the field', await ev(`${field('logbook')}.value`) === 'half-typed');
     await type('logbook', '../outside');
     await save('logbook');
     check('a folder outside the board is refused on the page, under the field', await waitFor(`${errorText}.length>0`, 3000) && /outside the board/.test(await ev(errorText)), await ev(errorText));
