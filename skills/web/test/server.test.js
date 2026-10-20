@@ -1528,11 +1528,14 @@ test('column headers carry a + quick-create button — gated by showsColumnAdd, 
     const open = js.match(/function openModal\([\s\S]*?\n\}/);
     assert.ok(open, 'openModal found in app.js');
     assert.match(open[0], /presetStatus \|\| boardStatuses\(\)\[0\]/, 'preset falls back to the first column');
-    // The caller side of that criterion: the global button must actually take
-    // the no-preset path — a handler drifting to openModal(null, something)
-    // would break the first-column default with the fallback regex still green.
-    assert.match(js, /\$\('#new-btn'\)\.addEventListener\('click', \(\) => openModal\(null\)\)/,
-      'the global + New card button passes NO preset');
+    // The caller side of that criterion: the global button takes the no-preset path above the
+    // phone width line (a handler drifting to a preset there would break the first-column
+    // default with the fallback regex still green); on a phone it passes the active status tab.
+    const newBtn = js.match(/\$\('#new-btn'\)\.addEventListener\('click', \(\) => \{[\s\S]*?
+  \}\);/);
+    assert.ok(newBtn, 'the New card handler found in app.js');
+    assert.match(newBtn[0], /onPhoneLayout\(\) \? activePhoneColumn\(loadPhoneColumn\(\), boardStatuses\(\)\) : null/, 'only a phone reads the active status tab');
+    assert.match(newBtn[0], /openModal\(null, active && active !== 'archive' \? active : undefined\)/, 'the desktop passes NO preset');
     // A focused + button must block the 5s poll like its header siblings —
     // renderBoardColumns wipes #board, silently dumping keyboard focus to <body>.
     assertHoldsPoll(['.column-add', '.column-add-ai'], 'the + button holds the poll like its header siblings');

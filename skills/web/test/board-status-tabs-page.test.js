@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { loadPage, harmless } = require('./helpers/page-vm');
+const { loadPage, harmless, control } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
 const { PHONE_WIDTH_QUERY } = require('../web/phone-width');
 
@@ -47,14 +47,27 @@ async function open({ phone = true, stored = {} } = {}) {
   Object.defineProperty(board, 'innerHTML', { get: () => '', set: () => { board.children.length = 0; } });
   const strip = recordingElement('nav');
   const media = mediaStandIn(phone);
+  const newBtn = control();
+  const statusField = control();
   const all = { ...stored };
-  const page = loadPage({ board: makeBoard(), stored: all, elements: { '#board': board, '#board-tabs': strip }, documentExtras: recordingDocument() });
+  const page = loadPage({ board: makeBoard(), stored: all, elements: { '#board': board, '#board-tabs': strip, '#new-btn': newBtn, '#f-status': statusField }, documentExtras: recordingDocument() });
   page.ctx.matchMedia = media.matchMedia;
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const tabs = () => byClass(strip, 'board-tab');
   return {
     page, board, strip, media, stored: all, tabs,
+    cards: () => byClass(board, 'card'),
+    newCard() { statusField.value = '(unset)'; newBtn.fire('click', {}); return statusField.value; },
+    touch(type, x, y, t, extra = {}) {
+      const point = { clientX: x, clientY: y };
+      const e = { timeStamp: t, touches: type === 'touchend' ? [] : [point], changedTouches: [point], ...extra };
+      board.fire(type, e);
+    },
+    swipe(dx, dy, ms = 200) {
+      this.touch('touchstart', 200, 300, 1000);
+      this.touch('touchend', 200 + dx, 300 + dy, 1000 + ms);
+    },
     columns: () => board.children.map((c) => c.dataset.col),
     counts: () => tabs().map((t) => byClass(t, 'board-tab-count')[0].textContent),
     selected: () => tabs().filter((t) => t.getAttribute('aria-selected') === 'true').map((t) => t.dataset.col),
@@ -144,4 +157,86 @@ test('the strip, the hidden column header row and the Board phone height sit in 
   assert.match(rules, /\.column-header\s*\{[^}]*display: none/);
   assert.match(rules, /main#board\s*\{[^}]*height:/);
   assert.match(css, /\.board-tabs\s*\{\s*display: none/, 'the strip is hidden above the line');
+});
+
+test('a sideways swipe moves to the neighbouring status and remembers it, and the ends do not wrap', async () => {
+  const s = await open({ stored: { [PHONE]: 'todo' } });
+  s.swipe(-100, 0);
+  assert.deepStrictEqual(s.columns(), ['doing']);
+  assert.strictEqual(s.stored[PHONE], 'doing');
+  assert.deepStrictEqual(s.selected(), ['doing']);
+  s.swipe(100, 0);
+  s.swipe(100, 0);
+  assert.deepStrictEqual(s.columns(), ['backlog']);
+  s.swipe(100, 0);
+  assert.deepStrictEqual(s.columns(), ['backlog'], 'no wrap before the first status');
+  for (let i = 0; i < 6; i++) s.swipe(-100, 0);
+  assert.deepStrictEqual(s.columns(), ['archive'], 'no wrap past Archive');
+});
+
+test('a vertical scroll, a short drag or a slow drag on the Board does not change the status', async () => {
+  const s = await open({ stored: { [PHONE]: 'todo' } });
+  s.swipe(-10, 200);
+  s.swipe(-40, 0);
+  s.swipe(-100, 0, 900);
+  assert.deepStrictEqual(s.columns(), ['todo']);
+});
+
+test('a second finger cancels the swipe', async () => {
+  const s = await open({ stored: { [PHONE]: 'todo' } });
+  s.touch('touchstart', 200, 300, 1000);
+  s.touch('touchstart', 220, 300, 1050, { touches: [{ clientX: 200, clientY: 300 }, { clientX: 220, clientY: 300 }] });
+  s.touch('touchend', 60, 300, 1200);
+  assert.deepStrictEqual(s.columns(), ['todo']);
+});
+
+test('a swipe is ignored while a drag is in progress', async () => {
+  const s = await open({ stored: { [PHONE]: 'todo' } });
+  s.page.run('isDragging = true');
+  s.swipe(-100, 0);
+  assert.deepStrictEqual(s.columns(), ['todo']);
+  s.page.run('isDragging = false');
+  s.swipe(-100, 0);
+  assert.deepStrictEqual(s.columns(), ['doing']);
+});
+
+test('above the phone width a swipe on the Board changes nothing', async () => {
+  const s = await open({ phone: false });
+  s.swipe(-100, 0);
+  assert.deepStrictEqual(s.columns(), ALL);
+  assert.strictEqual(s.stored[PHONE], undefined);
+});
+
+test('cards are not draggable at phone width, are above it, and follow the width line both ways', async () => {
+  const s = await open({ stored: { [PHONE]: 'todo' } });
+  assert.ok(s.cards().length > 0);
+  assert.ok(s.cards().every((c) => c.draggable === false));
+  s.media.cross(false);
+  assert.ok(s.cards().length > 0);
+  assert.ok(s.cards().every((c) => c.draggable === true));
+  s.media.cross(true);
+  s.tap('archive');
+  assert.ok(s.cards().length > 0);
+  assert.ok(s.cards().every((c) => c.draggable === false), 'the Archive tiles too');
+});
+
+test('New card at phone width presets the active status; on the desktop it presets none', async () => {
+  const s = await open({ stored: { [PHONE]: 'doing' } });
+  assert.strictEqual(s.newCard(), 'doing');
+  s.tap('archive');
+  assert.strictEqual(s.newCard(), 'backlog', 'Archive is not a status a card can be made in');
+  const wide = await open({ phone: false, stored: { [PHONE]: 'doing' } });
+  assert.strictEqual(wide.newCard(), 'backlog');
+});
+
+test('the Board swipe listeners are passive, and the cards take pan-y pinch-zoom in a rule after .card.archived-card', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const body = app.slice(app.indexOf('function wireBoardSwipe'), app.indexOf('function toggleColumn'));
+  for (const type of ['touchstart', 'touchend', 'touchcancel']) assert.ok(body.includes(`addEventListener('${type}'`), `${type} is listened for`);
+  assert.strictEqual((body.match(/\{ passive: true \}\)/g) || []).length, 3, 'each listener is passive');
+  assert.ok(!/preventDefault/.test(body));
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const after = css.slice(css.indexOf('.card.archived-card {'));
+  assert.match(after, /\.card\s*\{[^}]*touch-action: pan-y pinch-zoom/);
+  assert.ok(!/touch-action: pan-y;/.test(css.slice(css.indexOf('.card.archived-card {'), css.indexOf('.card.archived-card {') + 600)), "never 'pan-y' alone");
 });
