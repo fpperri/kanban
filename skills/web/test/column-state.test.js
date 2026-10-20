@@ -450,3 +450,35 @@ test('nextRollupBar flips between open and collapsed, and an unreadable value co
   assert.strictEqual(nextRollupBar(nextRollupBar(nextRollupBar('open'))), 'collapsed');
 });
 
+
+// --- the phone Board: status tabs, one status at a time ------------------------------------
+
+const { activePhoneColumn, phoneTabs } = require('../web/column-state');
+
+test('the active phone column is the remembered one while its status exists', () => {
+  assert.strictEqual(activePhoneColumn('doing', ['backlog', 'todo', 'doing', 'done']), 'doing');
+  assert.strictEqual(activePhoneColumn('archive', ['backlog', 'todo']), 'archive');
+});
+
+test('the active phone column falls back to the first live status when the remembered one is gone or never set', () => {
+  assert.strictEqual(activePhoneColumn('review', ['backlog', 'todo']), 'backlog');
+  assert.strictEqual(activePhoneColumn(null, ['todo', 'doing']), 'todo');
+  assert.strictEqual(activePhoneColumn(undefined, undefined), 'backlog');
+  assert.strictEqual(activePhoneColumn({}, ['todo']), 'todo');
+});
+
+test('the tab model gives status, label, count and selected, with Archive last', () => {
+  const counts = { backlog: { shown: 3, total: 3 }, todo: { shown: 1, total: 2 }, archive: { shown: 0, total: 5 } };
+  const tabs = phoneTabs(['backlog', 'todo'], counts, 'todo', false);
+  assert.deepStrictEqual(tabs, [
+    { status: 'backlog', label: 'Backlog', count: '3', selected: false },
+    { status: 'todo', label: 'Todo', count: '2', selected: true },
+    { status: 'archive', label: 'Archive', count: '5', selected: false },
+  ]);
+});
+
+test('the tab count is shown/total while a search narrows the board', () => {
+  const counts = { backlog: { shown: 0, total: 3 }, todo: { shown: 1, total: 2 }, archive: { shown: 0, total: 0 } };
+  const tabs = phoneTabs(['backlog', 'todo'], counts, 'backlog', true);
+  assert.deepStrictEqual(tabs.map((t) => t.count), ['0/3', '1/2', '0/0']);
+});

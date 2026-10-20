@@ -433,6 +433,24 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    independently, the header staying visible above it for free (see
    .column-header's comment). */
 .column-cards { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow-y: auto; }
+/* The phone Board: a strip of status tabs (Archive last) and one status's column at full width.
+   The strip is hidden from 760 px; the column's own header row (sort, collapse, +, AI +) goes,
+   since the tab names the status and the tab strip is the only chrome the phone Board needs. */
+.board-tabs { display: none; }
+@media (max-width: 759.98px) {
+  .board-tabs { display: flex; gap: 4px; height: 40px; margin-bottom: 8px; overflow-x: auto; flex-wrap: nowrap; }
+  .board-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: .2rem; color: var(--mut); font-weight: 600; font-size: 0.85em; cursor: pointer; }
+  .board-tab-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+  .board-tab-backlog { color: var(--st-backlog); }
+  .board-tab-todo { color: var(--st-todo); }
+  .board-tab-doing { color: var(--st-doing); }
+  .board-tab-done { color: var(--st-done); }
+  .board-tab-archive { color: var(--st-archive); }
+  .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
+  main#board { overflow-x: hidden; height: calc(100vh - var(--board-header-h, 64px) - 48px - 48px); }
+  .column { min-width: 0; }
+  .column-header { display: none; }
+}
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; box-shadow: var(--shadow); padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
 /* The text column. min-width:0 is load-bearing: without it a long unbroken
    title refuses to shrink below its content width and pushes the date stack
@@ -772,6 +790,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    it carries neither class. */
 .popup-header { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .detail-actions { display: flex; gap: 6px; flex-shrink: 0; order: -1; }
+.detail-back-btn { display: none; }
+/* The card detail on a phone (under 760 px): the card fills the screen and its header's first row is
+   the back row, '‹ Board' at the left and edit, archive and delete at the right. The same buttons,
+   laid out by CSS alone; full screen, close and copy path have no use here. */
+@media (max-width: 759.98px) {
+  .detail-modal { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; border-radius: 0; border: 0; }
+  .detail-actions { width: 100%; align-items: center; }
+  .detail-back-btn { display: flex; align-items: center; height: 30px; margin-right: auto; padding: 0 10px; }
+  #detail-fullscreen-btn, #detail-close, #detail-copy-btn { display: none; }
+}
 .icon-btn { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; flex-shrink: 0; }
 .modal-header-actions { display: flex; gap: 6px; flex-shrink: 0; order: -1; } /* icon-btn is flex (block-level) — without this the header icons stack vertically */
 .icon-btn svg { width: 16px; height: 16px; display: block; }
@@ -1299,7 +1327,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-stage { position: relative; flex: 1; min-height: 0; }
 
 /* The option panel of the Map and of the Graph: the zoom, the Graph's layouts and the Options
-   section, one control above the next. Beside the view from 760 px; under it, a sheet over the
+   section, one control above the next. Beside the view from 760 px; under it, a bottom sheet over the
    view, which is positioned against .map-view / .graph-view and so adds no width to the page. */
 .view-bar { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
 .view-bar > .map-filter-row { flex: 1; margin-bottom: 0; }
@@ -1318,7 +1346,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .view-panel .map-option-seg, .view-panel .graph-option-seg { flex-wrap: wrap; gap: 4px; border: none; overflow: visible; }
 .view-panel .map-option-btn, .view-panel .graph-option-btn { border: 1px solid var(--line); border-radius: .15rem; }
 @media (max-width: 759.98px) {
-  .view-panel { position: absolute; top: 0; right: 0; bottom: 0; z-index: 4; width: min(18rem, 100%); padding-top: 44px; box-shadow: var(--shadow-pop); }
+  .view-panel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; width: 100%; max-height: 50%; padding-top: 44px; border-left: none; border-top: 1px solid var(--line); box-shadow: var(--shadow-pop); }
   .view-panel-close { display: block; }
 }
 .graph-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; user-select: none; touch-action: none; }
@@ -1447,6 +1475,14 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* Same italic/muted read as .card-title--prompt-fallback
    (board tile, card-title.js) for the two gantt surfaces. */
 .gantt-label-title--prompt-fallback, .gantt-bar-text--prompt-fallback { font-style: italic; opacity: 0.75; }
+/* On a phone the label column keeps each card's id and status dot and gives the width to the timeline: the
+   gutter is as wide as its widest id (64 to 96 px), the bars keep the titles, and a status heading is a
+   zero-width row whose text runs on over the timeline (the gutter rides over the bar rows, under the popovers). */
+@media (max-width: 759.98px) {
+  .gantt-gutter { flex: 0 0 auto; width: max-content; min-width: 64px; max-width: 96px; position: relative; z-index: 3; }
+  .gantt-label-title { display: none; }
+  .gantt-gutter .gantt-group-row { width: 0; overflow: visible; white-space: nowrap; }
+}
 .gantt-bar-row { position: relative; z-index: 2; }
 .gantt-bar { position: absolute; top: 3px; height: 20px; display: flex; align-items: stretch; background: var(--paper); border: 1px solid var(--line); border-left-width: 3px; border-radius: .15rem; font-size: 0.7em; color: var(--ink); cursor: grab; user-select: none; touch-action: none; overflow: hidden; }
 .gantt-bar-text { flex: 1; min-width: 0; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; pointer-events: none; }

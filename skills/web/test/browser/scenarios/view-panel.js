@@ -157,8 +157,8 @@ module.exports = {
     await clickOn(toggleOf('graph'));
     check('the button opens the panel on a narrow screen', await waitFor(panelPresent('graph')));
     const sheet = await ev(`(()=>{const p=document.querySelector('${panelOf('graph')}');const v=document.querySelector('#graph-view').getBoundingClientRect();const r=p.getBoundingClientRect();`
-      + `const c=p.querySelector('.view-panel-close');const cr=c.getBoundingClientRect();return {position:getComputedStyle(p).position,inside:r.left>=v.left-1&&r.right<=v.right+1&&r.top>=v.top-1&&r.bottom<=v.bottom+1,closeShown:cr.width>0&&cr.height>0,label:c.getAttribute('aria-label')}})()`);
-    check('it lies over the view as a sheet, inside it, with a close button of its own', sheet.position === 'absolute' && sheet.inside && sheet.closeShown && sheet.label.length > 3, sheet);
+      + `const c=p.querySelector('.view-panel-close');const cr=c.getBoundingClientRect();return {position:getComputedStyle(p).position,atBottom:Math.abs(r.bottom-v.bottom)<=1,fullWidth:Math.abs(r.width-v.width)<=1,short:r.height<=v.height*0.55,inside:r.left>=v.left-1&&r.right<=v.right+1&&r.top>=v.top-1&&r.bottom<=v.bottom+1,closeShown:cr.width>0&&cr.height>0,label:c.getAttribute('aria-label')}})()`);
+    check('it lies over the view as a bottom sheet, full width, no taller than about half, with a close button of its own', sheet.position === 'absolute' && sheet.atBottom && sheet.fullWidth && sheet.short && sheet.inside && sheet.closeShown && sheet.label.length > 3, sheet);
     check('the sheet takes no width from the stage and adds no sideways scroll to the view', Math.abs((await stageWidth()) - stageBefore) <= 1 && (await viewOverflow('graph')) <= 0, { stageBefore, now: await stageWidth(), overflow: await viewOverflow('graph') });
     await shot('graph-sheet');
     await clickOn(`${panelOf('graph')} .view-panel-close`);
