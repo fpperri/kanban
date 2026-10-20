@@ -35,6 +35,25 @@ function groupEl(tag, className, text) {
   return el;
 }
 
+// A day field the way the card form has one (ADR 0003): a text input and a 📅 button that
+// opens the page's day picker, which writes a bare day here. `input` is the field itself.
+function groupDateField(input, label) {
+  input.type = 'text';
+  input.placeholder = 'YYYY-MM-DD';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.setAttribute('data-date-only', '');
+  const pick = groupEl('button', 'date-pick-btn', '📅');
+  pick.type = 'button';
+  pick.title = 'Pick a date';
+  pick.setAttribute('aria-label', `Pick the ${label} date`);
+  if (input.id) pick.dataset.dateInput = input.id;
+  wireDatePickButton(pick, input);
+  const wrap = groupEl('span', 'date-field');
+  wrap.append(input, pick);
+  return wrap;
+}
+
 function groupButton(className, text, title, onclick) {
   const b = groupEl('button', className, text);
   b.type = 'button';
@@ -136,9 +155,9 @@ function openGroupForm(draft = {}, after = null) {
   folder.addEventListener('change', paintId);
   paintId();
   const start = groupEl('input');
-  Object.assign(start, { type: 'date', id: 'gf-start', value: draft.start_date || '' });
+  Object.assign(start, { id: 'gf-start', value: draft.start_date || '' });
   const end = groupEl('input');
-  Object.assign(end, { type: 'date', id: 'gf-end', value: draft.end_date || '' });
+  Object.assign(end, { id: 'gf-end', value: draft.end_date || '' });
   const auto = groupEl('input');
   Object.assign(auto, { type: 'checkbox', id: 'gf-auto' });
   const autoLabel = groupEl('label', 'group-check');
@@ -156,7 +175,7 @@ function openGroupForm(draft = {}, after = null) {
   end.addEventListener('input', paintAuto);
   paintAuto();
   const dates = groupEl('div', 'group-row');
-  dates.append(field('Start (optional)', start), field('End (optional)', end));
+  dates.append(field('Start (optional)', groupDateField(start, 'start')), field('End (optional)', groupDateField(end, 'end')));
   const error = groupEl('p', 'group-error');
   error.setAttribute('role', 'alert');
   error.hidden = true;
@@ -315,10 +334,10 @@ function groupPanel(gid) {
   Object.assign(name, { type: 'text', value: g.name, spellcheck: false, autocomplete: 'off' });
   name.setAttribute('aria-label', 'Short name');
   const start = groupEl('input');
-  Object.assign(start, { type: 'date', value: g.start_date });
+  start.value = g.start_date;
   start.setAttribute('aria-label', 'Start date');
   const end = groupEl('input');
-  Object.assign(end, { type: 'date', value: g.end_date });
+  end.value = g.end_date;
   end.setAttribute('aria-label', 'End date');
   const auto = groupEl('input');
   Object.assign(auto, { type: 'checkbox', checked: g.auto_join });
@@ -358,7 +377,7 @@ function groupPanel(gid) {
     form.append(l, v);
   };
   row('name', name);
-  row('dates', start, document.createTextNode(' – '), end);
+  row('dates', groupDateField(start, 'start'), document.createTextNode(' – '), groupDateField(end, 'end'));
   row('auto_join', autoLabel);
   for (const [key, input] of extras) row(key, input);
   row('add a key', newKey, newValue);

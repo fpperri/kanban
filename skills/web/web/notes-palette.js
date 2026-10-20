@@ -781,7 +781,7 @@ function onNotesEscape(e) {
 function onNotesPointer(e) {
   const u = notesUi;
   if (!u.sub || u.el.contains(e.target)) return;
-  if (e.target.closest && e.target.closest('.np-trigger, #context-menu, .modal-backdrop, #toast')) return;
+  if (e.target.closest && e.target.closest('.np-trigger, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
   notesClose();
 }
 

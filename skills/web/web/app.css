@@ -1478,6 +1478,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    vocabulary: muted outside-month days, accent today ring, selected fill. */
 .date-field { display: flex; gap: 4px; align-items: center; }
 .date-field input { flex: 1; min-width: 0; }
+.gp-v .date-field { display: inline-flex; width: 10.5em; vertical-align: middle; }
 .date-pick-btn { flex-shrink: 0; padding: 4px 6px; font-size: 0.9em; line-height: 1; }
 .date-picker-pop { position: fixed; z-index: 70; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 8px; box-shadow: var(--shadow-pop); }
 .date-picker-controls { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
