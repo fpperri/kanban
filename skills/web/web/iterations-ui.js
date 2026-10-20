@@ -7,16 +7,17 @@
 // It opens on the running iteration, or on All cards when none runs. A pick narrows Board, Calendar,
 // Gantt, Map and Graph to the iteration's cards on top of the search box, through the same
 // intersection the status pills use (withIterationCut); it never writes the box and never changes a
-// group. The pick is kept in this browser only (localStorage), not in the board. The Calendar
-// shades the picked iteration's days and moves to its first day when the pick changes.
+// group. The pick is kept in this browser only (localStorage), not in the board, together with
+// the iteration that was running when it was made: once that one has ended the pick yields to the
+// running iteration. The Calendar shades the picked iteration's days and moves to its first day
+// when the person picks it, never when the page loads or the board refreshes.
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
 // loads: $, state, storageKey, localTodayStr, renderBoard, calendarAnchorTo, intersectVisibleIds,
 // openGroupForm, groupsList, and iterations.js's functions.
 
-// choice: undefined = not read yet (app.js drops it on a board rename), null = none kept, else { pick }.
-// shown: the pick the last render drew, to tell when the pick changed.
-const iterationUi = { choice: undefined, shown: null, signature: '' };
+// choice: undefined = not read yet (app.js drops it on a board rename), null = none kept, else { pick, under }.
+const iterationUi = { choice: undefined, signature: '' };
 
 function iterationsOn() {
   return !!(state.iterations && state.groups);
@@ -36,8 +37,10 @@ function iterationSavedChoice() {
 }
 
 function iterationSaveChoice(pick) {
-  iterationUi.choice = { pick };
-  try { localStorage.setItem(iterationChoiceKey(), iterationChoiceWrite(pick)); }
+  const running = iterationRunning(groupsList(), localTodayStr());
+  const under = running ? running.id : '';
+  iterationUi.choice = { pick, under };
+  try { localStorage.setItem(iterationChoiceKey(), iterationChoiceWrite(pick, under)); }
   catch (e) { /* storage unavailable/full: the choice just won't persist this session */ }
 }
 
@@ -81,7 +84,6 @@ function renderIterations() {
     sel.hidden = true;
     if (iterationUi.signature) sel.replaceChildren();
     iterationUi.signature = '';
-    iterationUi.shown = null;
     return;
   }
   const today = localTodayStr();
@@ -103,11 +105,6 @@ function renderIterations() {
   const group = pick ? list.find((g) => g.id === pick) || null : null;
   sel.title = iterationSelectTip(group);
   sel.classList.toggle('narrowed', !!group);
-  if (pick !== iterationUi.shown) {
-    iterationUi.shown = pick;
-    const span = iterationSpan(group);
-    if (span) calendarAnchorTo(span.start);
-  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -120,6 +117,8 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
     iterationSaveChoice(value);
+    const span = iterationSpan(iterationList(groupsList()).find((g) => g.id === value));
+    if (span) calendarAnchorTo(span.start);
     renderBoard();
   });
 });

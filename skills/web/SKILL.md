@@ -1132,10 +1132,12 @@ to `127.0.0.1` only.
   newest one whose dates include today, both days), or on All cards when none runs. A pick
   narrows the Board, Calendar, Gantt, Map and Graph to the iteration's cards on top of the
   search box: both must say yes, the pick never writes the box, and it never changes a group
-  or its membership. The pick is kept in this browser only (`localStorage`, not the board);
-  a kept pick, All cards included, beats the running iteration, and one whose iteration is
-  gone falls back to it. The Calendar shades the picked iteration's days (an iteration with
-  both dates) and opens on its first day when the pick changes. **New iteration…** opens the
+  or its membership. The pick is kept in this browser only (`localStorage`, not the board),
+  with the iteration that was running when it was made; a kept pick, All cards included,
+  beats the running iteration until that one has ended, and one whose iteration is gone
+  falls back to the running one. The Calendar shades the picked iteration's days (an
+  iteration with both dates) and moves to its first day when the person picks it, never on
+  page load. **New iteration…** opens the
   group form in the `iteration` folder with the newest iteration's name bumped (`zephyr-2`
   becomes `zephyr-3`; a name with no trailing number is left blank), the dates continuing the
   day after its end at the same length, and `auto_join` on; the pick stays where it was. The

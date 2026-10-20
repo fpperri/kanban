@@ -5,7 +5,8 @@
 // opens on the running iteration, a pick narrows Board, Calendar, Gantt, Map and Graph on top of the
 // search box without writing it, the pick is kept across a reload, "New iteration..." opens the group
 // form with zephyr-3 and the dates continuing at the same length, and the Calendar shades the picked
-// iteration's days and opens on its first. The groups board, with no iterations line, has no dropdown.
+// iteration's days and moves to its first when the pick is made, not when the page loads; a kept pick
+// yields to the running iteration once the iteration it was kept under has ended. The groups board, with no iterations line, has no dropdown.
 //
 // The iterations board dates card 3 (in zephyr-2) and card 5 (in zephyr-1) in the same week, so the Gantt and
 // the Calendar have one card to draw for each pick.
@@ -68,11 +69,14 @@ module.exports = {
     check('iterations: and the box is still empty', await ev(`document.getElementById('search-input').value===''`));
     check('iterations: picking zephyr-1', await pick('I1'));
     check('iterations: shows its cards', await waitFor(`(()=>{const cut=state.groups.list.find((g)=>g.id==='I1').cards;const live=state.active.filter((c)=>cut.includes(c.id)).map((c)=>c.id).sort((a,b)=>a-b).join();return live.length>0&&${BOARD_IDS}===live})()`, 3000), await ev(BOARD_IDS));
-    check('iterations: the choice is kept in this browser', await ev(`localStorage.getItem(${JSON.stringify(KEY)})==='{"pick":"I1"}'`), await ev(`String(localStorage.getItem(${JSON.stringify(KEY)}))`));
+    check('iterations: the choice is kept in this browser', await ev(`localStorage.getItem(${JSON.stringify(KEY)})==='{"pick":"I1","under":"I2"}'`), await ev(`String(localStorage.getItem(${JSON.stringify(KEY)}))`));
     await open('/?view=board');
     check('iterations: after a reload the board is drawn', await boardReady(10000, 0));
     await setToday('2026-10-15');
     check('iterations: it opens on the kept choice, not the running iteration', await ev(`${SEL}.value==='I1'`));
+    await setToday('2026-10-25');
+    check('iterations: once the iteration it was kept under has ended, the kept choice yields', await waitFor(`${SEL}.value===''`, 3000), await ev(`${SEL}.value`));
+    await setToday('2026-10-15');
 
     // --- every view is narrowed ----------------------------------------------------------------------------------------------
     check('iterations: picking zephyr-2', await pick('I2'));
@@ -95,11 +99,12 @@ module.exports = {
     await open('/?view=calendar');
     await waitFor(`document.querySelectorAll('#calendar-view .cal-day').length>20`, 8000);
     await setToday('2026-10-15');
-    check('iterations: the Calendar opens on the iteration\'s first day', await ev(`calendarAnchor==='2026-10-12'`), await ev(`String(calendarAnchor)`));
+    check('iterations: the Calendar does not jump to the iteration on load', await ev(`calendarAnchor!=='2026-10-12'`), await ev(`String(calendarAnchor)`));
     const shadedDays = `[...document.querySelectorAll('#calendar-view .cal-day.in-iteration')].map((e)=>e.dataset.day).sort()`;
     check('iterations: and shades its twelve days, no others', await waitFor(`(()=>{const d=${shadedDays};return d.length===12&&d[0]==='2026-10-12'&&d[11]==='2026-10-23'})()`, 3000), await ev(`${shadedDays}.join()`));
     await shot('iteration-calendar');
     check('iterations: picking All cards shades nothing', await pick('') && await waitFor(`document.querySelectorAll('#calendar-view .in-iteration').length===0`, 3000));
+    check('iterations: picking zephyr-2 moves the Calendar to its first day', await pick('I2') && await waitFor(`calendarAnchor==='2026-10-12'`, 3000), await ev(`String(calendarAnchor)`));
     check('iterations: picking zephyr-1 moves the Calendar to its first day', await pick('I1') && await waitFor(`calendarAnchor==='2026-09-28'`, 3000), await ev(`String(calendarAnchor)`));
 
     // --- New iteration... ------------------------------------------------------------------------------------------------------------

@@ -114,11 +114,11 @@ test('picking All cards or another iteration repaints the views, keeps the pick 
   page.sel.value = '';
   page.sel.fire('change');
   assert.strictEqual(page.run('iterationCutIds()'), null);
-  assert.strictEqual(page.stored['kanban.plan.iteration'], '{"pick":""}');
+  assert.strictEqual(page.stored['kanban.plan.iteration'], '{"pick":"","under":"I2"}', 'kept with the iteration that was running');
   page.sel.value = 'I1';
   page.sel.fire('change');
   assert.deepStrictEqual(sorted(page.run('iterationCutIds()')), ['2', '5', '9']);
-  assert.strictEqual(page.stored['kanban.plan.iteration'], '{"pick":"I1"}');
+  assert.strictEqual(page.stored['kanban.plan.iteration'], '{"pick":"I1","under":"I2"}');
   assert.strictEqual(page.input.writes.length, 0);
   page.run(`viewMode = 'board'`);
   assert.deepStrictEqual(sorted(page.run('viewCardIds(true)')), ['2', '5'], 'the Board shows its expanded columns: the Archive column, with member 9, is folded');
@@ -137,6 +137,21 @@ test('a pick kept in this browser wins over the running iteration, All cards inc
   assert.strictEqual(junk.sel.value, 'I2');
 });
 
+test('a pick kept under an iteration that has since ended yields to the running iteration', async () => {
+  const stored = { 'kanban.plan.iteration': '{"pick":"I1","under":"I2"}' };
+  assert.strictEqual((await pageOn({ today: '2026-10-15', stored })).sel.value, 'I1', 'I2 still runs: the pick holds');
+  assert.strictEqual((await pageOn({ today: '2026-11-30', stored })).sel.value, '', 'I2 ended, none runs: All cards');
+  const allKept = { 'kanban.plan.iteration': '{"pick":"","under":"I1"}' };
+  assert.strictEqual((await pageOn({ today: '2026-10-15', stored: allKept })).sel.value, 'I2', 'a kept All cards yields to the running one');
+});
+
+test('a pick made while none ran is kept under none', async () => {
+  const page = await pageOn({ today: '2026-11-30' });
+  page.sel.value = 'I1';
+  page.sel.fire('change');
+  assert.strictEqual(page.stored['kanban.plan.iteration'], '{"pick":"I1","under":""}');
+});
+
 test('New iteration... opens the group form with the next draft and leaves the pick where it was', async () => {
   const page = await pageOn();
   const opened = [];
@@ -149,9 +164,11 @@ test('New iteration... opens the group form with the next draft and leaves the p
   assert.deepStrictEqual(page.stored, {}, 'opening the form keeps nothing');
 });
 
-test('the Calendar opens on the picked iteration\'s first day and shades its days', async () => {
+test('the Calendar moves to the picked iteration\'s first day when the person picks it, never on load, and shades its days', async () => {
   const page = await pageOn();
-  assert.strictEqual(page.run('calendarAnchor'), '2026-10-12', 'opened on the running iteration');
+  assert.strictEqual(page.run('calendarAnchor'), null, 'a page that opens on the running iteration has not moved the Calendar');
+  const kept = await pageOn({ stored: { 'kanban.plan.iteration': '{"pick":"I1","under":"I2"}' } });
+  assert.strictEqual(kept.run('calendarAnchor'), null, 'nor one that opens on a kept pick');
   const shaded = page.run('iterationDayShader()');
   assert.deepStrictEqual(['2026-10-11', '2026-10-12', '2026-10-23', '2026-10-24'].map((d) => shaded(d)), [false, true, true, false]);
   page.sel.value = 'I1';
