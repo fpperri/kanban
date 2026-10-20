@@ -76,8 +76,17 @@ function setPhoneColumn(col) {
   catch (e) { /* storage unavailable/full — the tab just won't persist this session */ }
 }
 
+// The one MediaQueryList for the width line, made on first use: a card asks per card, so a list per
+// ask would be one per tile drawn.
+let phoneWidthList = null;
+function phoneWidthMedia() {
+  if (!phoneWidthList && window.matchMedia) phoneWidthList = window.matchMedia(PHONE_WIDTH_QUERY);
+  return phoneWidthList;
+}
+
 function onPhoneLayout() {
-  return !!(window.matchMedia && window.matchMedia(PHONE_WIDTH_QUERY).matches);
+  const list = phoneWidthMedia();
+  return !!(list && list.matches);
 }
 
 // A sideways swipe on the phone Board moves to the neighbouring status. The listeners are passive
@@ -986,29 +995,17 @@ function setArchivedDone(on) {
   repaintRollups();
 }
 
-// Whether the search panel's pill section starts folded; the section takes the
-// choice now (search-panel.js).
-function setPillsFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { pillsFolded: on });
+// Whether a section of the search panel starts folded; the section takes the choice now (searchFoldSection,
+// search-panel.js).
+function setFoldPref(prefKey, on, fold) {
+  prefsMemo = prefsWith(loadPrefsState(), { [prefKey]: on });
   savePrefsState();
-  foldSearchPills(on);
+  fold(on);
 }
 
-// Whether the search panel's Statuses section starts folded; the section takes the choice now
-// (search-statuses.js).
-function setStatusesFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { statusesFolded: on });
-  savePrefsState();
-  foldSearchStatuses(on);
-}
-
-// Whether the search panel's slice section starts folded; the section takes the choice now
-// (search-slices.js).
-function setSlicesFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { slicesFolded: on });
-  savePrefsState();
-  foldSearchSlices(on);
-}
+function setPillsFolded(on) { setFoldPref('pillsFolded', on, foldSearchPills); }
+function setStatusesFolded(on) { setFoldPref('statusesFolded', on, foldSearchStatuses); }
+function setSlicesFolded(on) { setFoldPref('slicesFolded', on, foldSearchSlices); }
 
 // Whether the search panel opens when the search box is focused: the switch at the end
 // of the box, flipped by a click on the arrow and by the p key (which open the panel at
@@ -1107,30 +1104,26 @@ function openLeavesNote(cards, status) {
 }
 
 // A view bar button assigns its view: unlike toggleView, a tap on the current view stays on it, and
-// the Board is a place to go, never a toggle back. The selection rule is toggleView's.
+// the Board is a place to go, never a toggle back. A tap on the view already showing changes nothing:
+// no redraw, and no jump of the Calendar or the Gantt to another date range.
 function setView(mode) {
   const from = loadViewMode();
-  viewMode = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
-  saveViewMode();
-  const boxText = isolateNow() ? '' : $('#search-input').value;
-  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText });
-  if (kept !== selectionState.selection) setSelection(kept);
-  renderBoard();
-  moveViewToNearestMatch();
-}
-
-// Each header toggle flips between its own view and the board: map ⇄ board,
-// calendar ⇄ board — and pressing one while the OTHER view is active jumps
-// straight to the pressed view (no board stopover).
-function toggleView(mode) {
-  const from = loadViewMode();
-  viewMode = from === mode ? 'board' : mode;
+  const to = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
+  if (to === from) return;
+  viewMode = to;
   saveViewMode();
   const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
   if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
+}
+
+// Each header toggle flips between its own view and the board: map ⇄ board,
+// calendar ⇄ board — and pressing one while the OTHER view is active jumps
+// straight to the pressed view (no board stopover).
+function toggleView(mode) {
+  setView(loadViewMode() === mode ? 'board' : mode);
 }
 
 // One mode→container map for everything that needs "which element hosts
@@ -1188,7 +1181,7 @@ function paintIconSlots() {
 // (data-view-toggle) get a label and an icon, so a second set of view buttons is markup only.
 function paintViewButtons(mode) {
   const rows = new Map(viewButtonsModel(mode).map((r) => [r.id, r]));
-  for (const el of document.querySelectorAll('[data-view]')) {
+  for (const el of document.querySelectorAll('[data-view-toggle], #view-bar [data-view]')) {
     const row = rows.get(el.dataset.view);
     if (!row) continue;
     const pressed = String(row.pressed);
@@ -1309,12 +1302,13 @@ function renderBoardColumns() {
     const sortState = colSort[col];
     // The Assignee sort ranks by registry order, so the comparator
     // gets the config.yaml handles — plumbed exactly like priorities above.
+    if (phone && col !== phoneActive) { // the phone Board shows one status at a time: the others are only counted
+      tabCounts[col] = { shown: narrowed ? source.filter((c) => searchIds.has(c.id)).length : source.length, total: source.length };
+      continue;
+    }
     const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
     const cards = narrowed ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
-    if (phone) {
-      tabCounts[col] = { shown: cards.length, total: allCards.length };
-      if (col !== phoneActive) continue; // the phone Board shows one status at a time
-    }
+    if (phone) tabCounts[col] = { shown: cards.length, total: allCards.length };
     const isCollapsed = phone ? false : !!collapsed[col]; // a status collapsed on the desktop still shows its cards, and nothing is written
     const label = columnLabel(col);
     // Counts stay truthful whether or not the column is collapsed — column-count
@@ -1397,18 +1391,23 @@ function renderBoardColumns() {
 }
 
 // The status tabs of the phone Board, one button per status with its colour and count. The strip is
-// emptied above the width line, where the stylesheet hides it anyway.
+// emptied above the width line, where the stylesheet hides it anyway. A redraw keeps the strip where it
+// was scrolled; the chosen tab is brought into view only when the choice has changed.
 function renderBoardTabs(tabs) {
   const strip = $('#board-tabs');
+  const keepLeft = strip.scrollLeft;
+  const chosenBefore = strip.dataset.chosen;
   strip.textContent = '';
+  let chosen = null;
   for (const t of tabs) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    const safe = /^[a-zA-Z0-9_-]+$/.test(t.status) && (t.status === 'archive' || isBuiltinStatus(t.status));
-    btn.className = `board-tab${safe ? ` board-tab-${t.status}` : ''}`;
+    btn.className = 'board-tab';
+    btn.setAttribute('role', 'tab');
     btn.dataset.col = t.status;
     btn.setAttribute('aria-selected', String(t.selected));
-    if (!safe) btn.style.color = statusColorVar(t.status);
+    btn.style.color = statusColorVar(t.status);
+    if (t.selected) chosen = btn;
     const name = document.createElement('span');
     name.className = 'board-tab-label';
     name.textContent = t.label;
@@ -1419,6 +1418,9 @@ function renderBoardTabs(tabs) {
     btn.appendChild(count);
     strip.appendChild(btn);
   }
+  strip.scrollLeft = keepLeft;
+  if (chosen && chosen.dataset.col !== chosenBefore) chosen.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  if (chosen) strip.dataset.chosen = chosen.dataset.col; else delete strip.dataset.chosen;
 }
 
 // --- Dependency map rendering ------------------------------------
@@ -1594,12 +1596,11 @@ function pressViewPanelButton(btn, redraw) {
 
 // Until the person chooses, the panel follows the screen, so crossing the phone width line (phone-width.js) draws the view again.
 window.addEventListener('DOMContentLoaded', () => {
-  if (!window.matchMedia) return;
-  window.matchMedia(PHONE_WIDTH_QUERY).addEventListener('change', () => {
-    const mode = loadViewMode();
-    renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column
-    if (mode === 'map') renderMapView();
-    if (mode === 'graph') graphRedrawForPanel();
+  const list = phoneWidthMedia();
+  if (!list) return;
+  list.addEventListener('change', () => {
+    if (loadViewMode() === 'graph') graphRefitNext = true; // the stage has another width, so the cards are framed again
+    renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column, and the Map or the Graph once
   });
 });
 
@@ -2812,8 +2813,8 @@ async function submitModal(e) {
 
 window.addEventListener('DOMContentLoaded', () => {
   $('#new-btn').addEventListener('click', () => {
-    const active = onPhoneLayout() ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
-    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read
+    const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
+    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read, which only the Board shows
   });
   // X goes through the dirty guard (the retired Cancel button bypassed it —
   // backdrop-click and X now agree on the unsaved-changes speedbump)

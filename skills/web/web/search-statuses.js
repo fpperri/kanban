@@ -20,11 +20,6 @@
 
 const STATUS_PILL_SOLO_HINT = 'Right-click to solo (right-click the soloed pill again to restore all).';
 
-// Whether the section is folded for this visit, and the board that choice was made for; null until
-// the preference has been read (the fold preference starts it, off by default: open).
-let searchStatusesFolded = null;
-let searchStatusesFoldedFor = null;
-
 function statusPillTitle(view, col, on) {
   return `${statusFilterTitle(view, col, columnLabel(col), on)} ${STATUS_PILL_SOLO_HINT}`;
 }
@@ -72,36 +67,11 @@ function renderSearchStatuses() {
     (button, col) => updateStatusPill(button, view, col, filter[col] !== false));
 }
 
-// Whether the section is folded: the choice made at the fold control for this visit, or the
-// preference until there is one.
-function currentStatusesFolded() {
-  if (searchStatusesFolded === null || searchStatusesFoldedFor !== state.projectName) {
-    searchStatusesFolded = loadPrefsState().statusesFolded;
-    searchStatusesFoldedFor = state.projectName;
-  }
-  return searchStatusesFolded;
-}
-
-function applyStatusesFold() {
-  const folded = currentStatusesFolded();
-  const host = $('#search-statuses');
-  const fold = $('#search-statuses-fold');
-  if (host) host.classList.toggle('hidden', folded);
-  if (fold) fold.setAttribute('aria-expanded', String(!folded));
-}
-
-// The fold control: folds or unfolds the section for this visit only.
-function toggleSearchStatusesFold() {
-  searchStatusesFolded = !currentStatusesFolded();
-  applyStatusesFold();
-}
-
-// The preference changed in the sheet: the section takes it now.
-function foldSearchStatuses(folded) {
-  searchStatusesFolded = !!folded;
-  searchStatusesFoldedFor = state.projectName;
-  applyStatusesFold();
-}
+const statusesFold = searchFoldSection('statusesFolded', '#search-statuses', '#search-statuses-fold');
+const currentStatusesFolded = statusesFold.current;
+const applyStatusesFold = statusesFold.apply;
+const toggleSearchStatusesFold = statusesFold.toggle;
+const foldSearchStatuses = statusesFold.set;
 
 // What the search chip adds for the view showing now: one name per status switched off, read through
 // the registry; none on the Board. Archive counts only when it is off against the view's default (the
@@ -123,11 +93,13 @@ function applyStatusGesture(gesture, button) {
 }
 
 function onStatusPillClick(e) {
+  if (isDragging || ganttDrag || calTimeDrag) return; // a drag is not redrawn under the gesture
   const button = e.target.closest('.status-pill');
   if (button) applyStatusGesture('toggle', button);
 }
 
 function onStatusPillContextMenu(e) {
+  if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
   const button = e.target.closest('.status-pill');
   if (!button) return;
   e.preventDefault();

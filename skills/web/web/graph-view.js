@@ -403,34 +403,29 @@ function graphScheduleTransform() {
 
 // Fit frames the cards' bounds with a margin of GRAPH_FIT_PAD. A name outside the fan's rim keeps its
 // size on screen and has no room of its own on the stage, so on a fan with names the margin grows
-// by what the furthest name stands out of the stage: the names are placed at the fit's zoom, how far
-// each is past the stage's edge (less GRAPH_FIT_NAMES_MARGIN) is measured, and the fit is worked
-// out again with that much more margin, a few times at most, since a new zoom can place a name differently.
+// by what the furthest name stands out of the stage: the names are placed once at the fit's zoom, how
+// far each is past the stage's edge (less GRAPH_FIT_NAMES_MARGIN) is measured, and only when one is
+// out is the fit worked out again with that much more margin. A fit whose names all stand inside is
+// the plain fit, and a refit places the names once more than the plain one did, never again.
 const GRAPH_FIT_PAD = 60;
-const GRAPH_FIT_NAMES_PASSES = 3;
 const GRAPH_FIT_NAMES_MARGIN = 6;
 
 function graphFrameFit(c) {
   const b = c.layout.bounds;
-  let pad = GRAPH_FIT_PAD;
-  let fit = graphFit(b, c.w, c.h, pad);
+  const fit = graphFit(b, c.w, c.h, GRAPH_FIT_PAD);
   if (c.kind !== 'tiers') return fit;
   const kept = { x: c.view.x, y: c.view.y, k: c.view.k };
-  for (let pass = 0; pass < GRAPH_FIT_NAMES_PASSES; pass++) {
-    Object.assign(c.view, fit);
-    graphPaintNames();
-    if (!c.names || !c.names.placed.size) break;
-    const m = GRAPH_FIT_NAMES_MARGIN;
-    let over = 0;
-    for (const p of c.names.placed.values()) {
-      over = Math.max(over, m - (fit.x + p.box.x0 * fit.k), fit.x + p.box.x1 * fit.k - (c.w - m), m - (fit.y + p.box.y0 * fit.k), fit.y + p.box.y1 * fit.k - (c.h - m));
-    }
-    if (over <= 0) break;
-    pad = Math.min(pad + over, Math.min(c.w, c.h) / 4);
-    fit = graphFit(b, c.w, c.h, pad);
-  }
+  Object.assign(c.view, fit);
+  graphPaintNames();
   Object.assign(c.view, kept);
-  return fit;
+  if (!c.names || !c.names.placed.size) return fit;
+  const m = GRAPH_FIT_NAMES_MARGIN;
+  let over = 0;
+  for (const p of c.names.placed.values()) {
+    over = Math.max(over, m - (fit.x + p.box.x0 * fit.k), fit.x + p.box.x1 * fit.k - (c.w - m), m - (fit.y + p.box.y0 * fit.k), fit.y + p.box.y1 * fit.k - (c.h - m));
+  }
+  if (over <= 0) return fit;
+  return graphFit(b, c.w, c.h, Math.min(GRAPH_FIT_PAD + over, Math.min(c.w, c.h) / 4));
 }
 
 function graphFitNow() {
@@ -885,7 +880,7 @@ function graphPinchMove(e) {
   const [a, b] = graphPinchPoints();
   const want = pinchFactor(graphPinch.startDistance, pinchDistance(a, b)) * graphPinch.startK;
   const step = want / graphCur.view.k;
-  if (!pinchFactorIsChange(step) && step === 1) return;
+  if (!pinchFactorIsChange(step)) return;
   const mid = pinchMidpoint(a, b);
   graphZoomBy(step, mid.x, mid.y);
 }
@@ -1049,7 +1044,7 @@ function wireGraphView(host) {
   host.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || !graphCur) return;
     if (graphPinch) return;
-    if (graphPan && e.pointerId !== graphPan.pointerId) { graphStartPinch(e, host); return; }
+    if (graphPan && e.pointerId !== graphPan.pointerId && e.target.closest('.graph-canvas')) { graphStartPinch(e, host); return; }
     if (!graphPan && graphTouch && e.isPrimary === false && e.pointerId !== graphTouch.id && e.target.closest('.graph-canvas')) { graphStartPinch(e, host, graphTouch); return; }
     if (e.isPrimary !== false) graphTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
     if (graphDrag) graphStopDrag(true);

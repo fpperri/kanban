@@ -76,7 +76,7 @@ test('the painter writes a label and aria-pressed only when they change, and lab
   const all = [...toggles, second];
   const page = await loadPage({
     board: BOARD,
-    documentExtras: { querySelectorAll: (sel) => (sel === '[data-view]' ? all : sel === '.btn-icon' ? toggles.map((t) => t.slot) : []) },
+    documentExtras: { querySelectorAll: (sel) => (sel === '[data-view-toggle], #view-bar [data-view]' ? all : sel === '.btn-icon' ? toggles.map((t) => t.slot) : []) },
   }).start();
   const [, , mapToggle, graphToggle] = toggles;
   const counts = () => JSON.stringify([...toggles.map((t) => [t.label.log.text.length, t.log.pressed.length]), second.log.pressed.length]);

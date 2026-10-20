@@ -37,11 +37,6 @@
 // the keys), type-icons.js (typeIconGlyph, typeIconOf), prefs.js (loadPrefs) and
 // key-guard.js (keyGuardOff).
 
-// Whether the section is folded for this visit; null until it is read from the preferences,
-// which have to wait for the board's name (they are kept per board).
-let searchSlicesFolded = null;
-let searchSlicesFoldedFor = '';
-
 const SEARCH_SLICES_HINT = 'click: grow the run to this slice, or drop it from an end (a run of one: every slice again), right-click: only this slice';
 
 // --- what the section shows now ------------------------------------------------------------------
@@ -205,36 +200,11 @@ function onSliceKey(e) {
 
 // --- the fold ------------------------------------------------------------------------------------
 
-// Whether the section is folded: the choice made at the fold control for this visit, or the
-// preference until there is one.
-function currentSlicesFolded() {
-  if (searchSlicesFolded === null || searchSlicesFoldedFor !== state.projectName) {
-    searchSlicesFolded = loadPrefsState().slicesFolded;
-    searchSlicesFoldedFor = state.projectName;
-  }
-  return searchSlicesFolded;
-}
-
-function applySlicesFold() {
-  const folded = currentSlicesFolded();
-  const host = $('#search-slices');
-  const fold = $('#search-slices-fold');
-  if (host) host.classList.toggle('hidden', folded);
-  if (fold) fold.setAttribute('aria-expanded', String(!folded));
-}
-
-// The fold control: folds or unfolds the section for this visit only.
-function toggleSearchSlicesFold() {
-  searchSlicesFolded = !currentSlicesFolded();
-  applySlicesFold();
-}
-
-// The preference changed in the sheet: the section takes it now.
-function foldSearchSlices(folded) {
-  searchSlicesFolded = !!folded;
-  searchSlicesFoldedFor = state.projectName;
-  applySlicesFold();
-}
+const slicesFold = searchFoldSection('slicesFolded', '#search-slices', '#search-slices-fold');
+const currentSlicesFolded = slicesFold.current;
+const applySlicesFold = slicesFold.apply;
+const toggleSearchSlicesFold = slicesFold.toggle;
+const foldSearchSlices = slicesFold.set;
 
 window.addEventListener('DOMContentLoaded', () => {
   const slices = $('#search-slices');

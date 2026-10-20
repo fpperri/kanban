@@ -1533,7 +1533,7 @@ test('column headers carry a + quick-create button — gated by showsColumnAdd, 
     // default with the fallback regex still green); on a phone it passes the active status tab.
     const newBtn = js.match(/\$\('#new-btn'\)\.addEventListener\('click', \(\) => \{[\s\S]*?\n  \}\);/);
     assert.ok(newBtn, 'the New card handler found in app.js');
-    assert.match(newBtn[0], /onPhoneLayout\(\) \? activePhoneColumn\(loadPhoneColumn\(\), boardStatuses\(\)\) : null/, 'only a phone reads the active status tab');
+    assert.match(newBtn[0], /onPhoneLayout\(\) && loadViewMode\(\) === 'board' \? activePhoneColumn\(loadPhoneColumn\(\), boardStatuses\(\)\) : null/, 'only a phone reads the active status tab');
     assert.match(newBtn[0], /openModal\(null, active && active !== 'archive' \? active : undefined\)/, 'the desktop passes NO preset');
     // A focused + button must block the 5s poll like its header siblings —
     // renderBoardColumns wipes #board, silently dumping keyboard focus to <body>.
