@@ -794,9 +794,13 @@ to `127.0.0.1` only.
   in the browser per board, in the board's own `prefs` entry, and the preferences sheet
   shows and sets it. An open panel adds nothing to the header's height, and a press
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
-  four regions, drawn on their own: the **slice section** (next entry) with its fold control,
-  the **pill section** with its fold control, a divider, and a foot that holds the **Isolate**
-  switch (see Isolate).
+  five regions, drawn on their own: the **Statuses section** first, then the **slice section**
+  (next entry) with its fold control, the **pill section** with its fold control, a divider, and a
+  foot that holds the **Isolate** switch (see Isolate). The Statuses section shows the current
+  view's own status pills with their state, for the Map, the Gantt, the Calendar and the Graph,
+  at every width: it is open to start and folds like the others, a tap on a pill switches that
+  status in the view and a right-click solos it, as the view's own pills do. It is hidden on the
+  Board, still shows when the view's filter hides every card, and never touches the selection.
   The pill section lists the built-in pills, blocked, review and waiting, in that order,
   each with a count of the cards its query matches, done cards included. The counts are
   taken over the cards the view shows after its status pills and the Archive pill and
