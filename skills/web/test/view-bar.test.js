@@ -18,6 +18,10 @@ test('the view bar is a nav right after the Graph with one button per view, each
   assertKeepsSelection(['.view-bar-btn'], 'a view bar button');
 });
 
+test('the nav does not carry the option-button strip class, whose sticky offsets would pull the fixed bar off the bottom', () => {
+  assert.doesNotMatch(html.match(/<nav id="view-bar"[^>]*>/)[0], /class=/);
+});
+
 test('the bar buttons are empty slots the page fills once from the views table', async () => {
   const page = await loadPage({ board: BOARD }).start();
   assert.strictEqual(typeof page.run('fillViewBar'), 'function');

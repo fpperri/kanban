@@ -15,6 +15,8 @@ module.exports = {
     const pillSel = (col) => `#search-statuses .status-pill[data-col="${col}"]`;
     const pressed = (col) => `document.querySelector(${JSON.stringify(pillSel(col))}).getAttribute('aria-pressed')`;
     const openPanel = async () => {
+      const r = await ev(`(()=>{const b=document.getElementById('search-btn').getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()`);
+      await tap(page, r.x, r.y);
       await ev(`document.getElementById('search-input').focus()`);
       return waitFor(`!document.getElementById('search-panel').classList.contains('hidden')`, 5000);
     };
