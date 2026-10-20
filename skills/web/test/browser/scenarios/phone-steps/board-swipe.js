@@ -35,7 +35,13 @@ module.exports = {
     await swipe(page, { x: centre.x + 100, y: centre.y }, { x: centre.x - 100, y: centre.y });
     await waitFor(`JSON.stringify(${shown})===JSON.stringify(['${second}'])`);
     const r = await ev(`(()=>{const b=document.getElementById('new-btn').getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()`);
-    await tap(page, r.x, r.y);
+    // a tap that lands while the swipe's scroll fling is still settling only stops the fling and makes no click, so the tap is repeated until the form opens
+    const formOpen = `!document.getElementById('modal').classList.contains('hidden')`;
+    for (let i = 0; i < 3 && !(await ev(formOpen)); i++) {
+      await page.sleep(400);
+      await tap(page, r.x, r.y);
+      await waitFor(formOpen, 1500);
+    }
     check('New card opens the form on the active status', await waitFor(`!document.getElementById('modal').classList.contains('hidden')&&document.getElementById('f-status').value==='${second}'`), await ev(`document.getElementById('f-status').value`));
     await ev(`document.getElementById('modal-close').click()`);
     check('the form closes without saving', await waitFor(`document.getElementById('modal').classList.contains('hidden')`));

@@ -321,7 +321,7 @@ const { KEEPS, HOLDS, tagsOf, assertKeepsSelection, assertHoldsPoll, assertLetsP
 // Everything the click-away handler's selector list named before the marker.
 const FORMER_CLICK_AWAY = ['#context-menu', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '.date-picker-pop',
   '#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '#graph-toggle-btn', '.cal-nav',
-  '.map-filter-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle', '.map-section-toggle',
+  '.map-section-toggle',
   '.map-zoom-btn', '.map-option-btn', '.rollup', '.graph-control'];
 
 test('every element that the click-away list exempted before the marker carries the marker', () => {
@@ -418,7 +418,7 @@ test('the click-away handler asks the marker and carries no list of selectors', 
 
 test('every control the poll guard listed before the marker carries the poll marker, and the pills do not', () => {
   assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn', '.graph-button'], 'a former poll-guard control');
-  assertLetsPollRun(['.map-filter-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle', '.map-section-toggle', '.rollup'], 'a pill or fold toggle');
+  assertLetsPollRun(['.map-section-toggle', '.rollup'], 'a pill or fold toggle');
 });
 
 test('the poll guard asks the marker and carries no list of selectors', () => {

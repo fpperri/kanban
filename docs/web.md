@@ -93,17 +93,16 @@ per tree or one graph, which side the parent sits, alignment, row order, whether
 toggled line moves the cards, and how much detail a card shows (type, altitude and the
 roll-up bar). Each choice is remembered per board in your browser.
 The options and the zoom (`−`, the percentage, `+` and **Fit**) sit in a panel on the
-right of the view, which the panel icon at the top right, level with the status pills,
+right of the view, which the panel icon at the top right, level with the top of the view,
 opens and closes. The options are always shown in it; the panel is what hides them, and
 a fold remembered from before the panel is ignored. The Graph keeps its layouts, its zoom and its Options section in a
-panel the same way, while its status pills, key and card count stay in the view. The
+panel the same way. At every width the Graph's drawing starts right under the header: its card count and key sit behind an (i) button, off by default and remembered per board, and the (i) and the option button float in the drawing's top-right corner, as the Map's option button does in the Map's, staying put while the Map scrolls. The status pills of the Map and the Graph are in the search panel's Statuses section. The
 panel is open from 760 px wide and closed below it, where it opens over the view as a
 sheet with a close button of its own and adds no sideways scroll. The choice is
 remembered per board in your browser, for the Map and for the Graph apart. Closed, the
 view has the panel's width back, and the Graph frames its cards again in it unless you
 have moved the view.
-A status-filter pill row (left-click to toggle, right-click to solo) and the
-search box both prune the graph.
+The status pills (left-click to toggle, right-click to solo), which sit in the search panel's Statuses section, and the search box both prune the graph.
 
 ## Gantt
 
@@ -112,8 +111,7 @@ search box both prune the graph.
 The **Gantt** view is a day-granular timeline grouped by status: each dated
 card is a **bar** for its working range (`start_date → end_date`) and/or an
 amber **diamond** for its `due_date`. Drag a bar to reschedule, drag an edge to
-resize, drag the diamond to move the deadline. The Archive pill (off by
-default) folds dated archived cards in as a trailing group.
+resize, drag the diamond to move the deadline. The status pills sit in the search panel's Statuses section, not in the view. The Archive pill (off by default) folds dated archived cards in as a trailing group.
 
 ## Calendar
 
@@ -122,8 +120,7 @@ default) folds dated archived cards in as a trailing group.
 The **Calendar** view is a Monday-start month grid (with Week / 3-day / Day
 sub-views). Working ranges render as linked chips; a `due_date` is its own
 amber deadline chip. Drag a chip to move the range or the deadline. Double-click an empty
-day, or a slot in the time grid, to start a new card there; the selection stays. Same
-status-filter pills and search as the other views.
+day, or a slot in the time grid, to start a new card there; the selection stays. Same status pills, in the search panel's Statuses section, and search as the other views.
 
 ## Graph
 

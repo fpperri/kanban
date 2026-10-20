@@ -84,6 +84,16 @@ test('events are kept until they are taken, and taking them empties the list', a
   assert.deepStrictEqual(cdp.takeEvents(), []);
 });
 
+test('dropEvents takes out the events that match and leaves the rest, answering how many went', async () => {
+  FakeSocket.reply = null;
+  const cdp = await connect();
+  FakeSocket.last.push({ method: 'Log.entryAdded', params: { entry: { level: 'error', n: 1 } } });
+  FakeSocket.last.push({ method: 'Page.loadEventFired', params: {} });
+  FakeSocket.last.push({ method: 'Log.entryAdded', params: { entry: { level: 'error', n: 2 } } });
+  assert.strictEqual(cdp.dropEvents((e) => e.method === 'Log.entryAdded' && e.params.entry.n === 1), 1);
+  assert.deepStrictEqual(cdp.takeEvents().map((e) => e.method), ['Page.loadEventFired', 'Log.entryAdded']);
+});
+
 test('ev evaluates an expression in the page and answers its value', async () => {
   FakeSocket.reply = answer({ result: { value: 42 } });
   const cdp = await connect();
@@ -347,4 +357,16 @@ test('a scenario that names more boards gets each one cleared and put back, and 
   const nav = cdp.calls.filter((c) => c[0] === 'Page.navigate').pop();
   assert.deepStrictEqual(nav[1], { url: 'http://127.0.0.1:7001/?view=map' });
   assert.throws(() => page.baseOf('malformed'), /scenario 'smoke' did not name board 'malformed'/);
+});
+
+const refusal = (status, url) => ({ method: 'Log.entryAdded', params: { entry: { source: 'network', level: 'error', text: `Failed to load resource: the server responded with a status of ${status} (Unprocessable Entity)`, url } } });
+
+test('expectRefusedRequest takes the named refusal out of the console errors and leaves any other, so the scenario\'s console check still sees it', async () => {
+  const events = [refusal(422, 'http://127.0.0.1:7000/api/cards/4'), refusal(500, 'http://127.0.0.1:7000/api/cards/4'), refusal(422, 'http://127.0.0.1:7000/api/cards/9')];
+  const cdp = fakeCdp();
+  cdp.dropEvents = (match) => { const n = events.length; const kept = events.filter((e) => !match(e)); events.length = 0; events.push(...kept); return n - kept.length; };
+  const { page } = livePage(cdp);
+  assert.strictEqual(await page.expectRefusedRequest(422, '/api/cards/4', 50), true);
+  assert.deepStrictEqual(consoleErrorsFrom(events).length, 2, 'the 500 and the other card\'s 422 are still errors');
+  assert.strictEqual(await page.expectRefusedRequest(422, '/api/cards/4', 50), false, 'a refusal that never came is not found');
 });

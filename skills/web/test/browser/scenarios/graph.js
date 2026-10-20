@@ -82,14 +82,14 @@ module.exports = {
     check('status rings run done, doing, todo, backlog from the centre out', Array.isArray(order) && order.length >= 4 && order.slice(0, 4).map((t) => t.split(' ')[0]).join(',') === 'done,doing,todo,backlog', order);
     await shot('status');
     const before = s.nodes;
-    await ev(`document.querySelector('.graph-filter-toggle[data-col=archive]').click()`);
+    await ev(`document.querySelector('#search-statuses .status-pill[data-col=archive]').click()`);
     await waitFor(`document.querySelectorAll('.graph-node').length>${before}`);
     s = await stats();
     check('archive pill adds archived cards as a second clump', s.nodes > before && (await ev(`document.querySelectorAll('.graph-title').length`)) === 2, { before, after: s.nodes });
     await shot('status-archive');
 
     await pickLayout('tiers');
-    await ev(`document.querySelector('.graph-filter-toggle[data-col=archive]').click()`);
+    await ev(`document.querySelector('#search-statuses .status-pill[data-col=archive]').click()`);
     await waitFor(`document.querySelectorAll('.graph-node').length===${tiersNodes}`);
 
     const hub = await ev(`(()=>{let best=null;for(const n of document.querySelectorAll('.graph-node')){const sc=n.classList.contains('graph-hub')?1:0;if(!best||sc>best.sc)best={sc,id:n.dataset.id};}return best&&best.id})()`);

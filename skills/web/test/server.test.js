@@ -27,7 +27,7 @@ async function withServer(dir, fn) {
 
 // --- board-directory discovery: .kanban/ preferred, kanban/ legacy fallback ---
 
-const PILL_CLASSES = ['.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle', '.graph-filter-toggle'];
+const PILL_CLASSES = ['.map-section-toggle'];
 
 test('resolveDefaultBoardDir prefers .kanban over kanban when both exist', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-discover-'));
@@ -424,7 +424,7 @@ test('graph wiring: the sixth view is registered, its toggle/control join the cl
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.match(js, /graph: '#graph-view'/);
     assert.match(js, /if \(mode === 'graph'\) renderGraphView\(\);/);
-    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.rollup', '#graph-toggle-btn', '.graph-control'],
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.rollup', '#graph-toggle-btn', '.graph-control'],
       '#graph-toggle-btn, .graph-control are in the click-away exemption list');
     assertHoldsPoll(['.graph-button'], 'graph buttons other than the pills hold the poll');
   });
@@ -1848,7 +1848,7 @@ test('map section toggles keep the selection and stay out of the poll guard, sam
     const js = await (await fetch(`${base}/app.js`)).text();
     assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
     assertLetsPollRun(PILL_CLASSES, 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
-    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle'],
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-section-toggle'],
       'a section-toggle click must not wipe a building selection, same curate-the-view exemption as the #56 pills');
   });
 });
@@ -1885,7 +1885,7 @@ test('map status-filter pills keep the selection and stay out of the poll guard'
     // document's click-away rule (onClickAway) — without data-keeps-selection, a double
     // click while toggling a status to declutter the map wipes the shift-click batch being built
     // (the same curate-before-acting class .cal-nav was exempted for).
-    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle'],
+    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav'],
       'pill clicks must not wipe a building selection');
     // Poll guard: the pills live in #map-view, which renderMapView wipes via
     // innerHTML='' on every 5s tick. They stay out of the guard, because a
@@ -1952,46 +1952,27 @@ test('gantt status filter: own persisted state, statuses + Archive (default OFF 
   });
 });
 
-test('buildGanttFilterRow shares the pill-row MECHANISM with the map, and now includes the Archive pill', async () => {
+test('no view builds a status pill row: the Map, the Gantt, the Calendar and the Graph leave them to the Statuses section', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    const shared = js.match(/function buildFilterPillRow\([\s\S]*?\n\}/);
-    assert.ok(shared, 'buildFilterPillRow found in app.js — the extracted shared builder both views call');
-    const mapRow = js.match(/function buildMapFilterRow\([\s\S]*?\n\}/);
-    assert.ok(mapRow, 'buildMapFilterRow found in app.js');
-    assert.match(mapRow[0], /buildFilterPillRow\(/, 'the map row now calls the shared builder (extracted, not duplicated)');
-    const ganttRow = js.match(/function buildGanttFilterRow\([\s\S]*?\n\}/);
-    assert.ok(ganttRow, 'buildGanttFilterRow found in app.js');
-    assert.match(ganttRow[0], /buildFilterPillRow\(/, 'the gantt row calls the same shared builder');
-    // the gantt pill row
-    // includes the Archive pseudo-pill, same id list as the map's row
-    // (boardColumnIds: statuses + archive) — not the live-only
-    // boardStatuses().
-    assert.match(ganttRow[0], /boardColumnIds\(\)/, 'gantt pills now come from statuses + the Archive pseudo-column, same list as the map\'s row');
-    assert.doesNotMatch(ganttRow[0], /boardStatuses\(\)/, 'no longer scoped to live statuses only — that was the pre-reopen #98 shape');
-    // CSS is shared too — comma-joined selectors, not a second declaration
-    // block. The calendar row belongs to this same comma group
-    // (see the buildCalendarFilterRow test below), so these anchor on
-    // the full three-view selector rather than stopping after gantt.
+    assert.doesNotMatch(js, /buildMapFilterRow|buildGanttFilterRow|buildCalendarFilterRow/, 'the three view rows are gone, with their calls');
+    assert.doesNotMatch(js, /map-filter-toggle|gantt-filter-toggle|calendar-filter-toggle|map-filter-row|gantt-filter-row|calendar-filter-row/, 'no view-row class is left in the script');
+    assert.doesNotMatch(js, /buildFilterPillRow|graph-filter-toggle|graph-filter-row/, 'the Graph builds no pill row either, and the shared row builder is gone');
     const css = await (await fetch(`${base}/app.css`)).text();
-    assert.match(css, /\.map-filter-row,\s*\.gantt-filter-row,\s*\.calendar-filter-row\s*\{/, 'the row layout rule is shared across all views');
-    assert.match(css, /\.map-filter-toggle,\s*\.gantt-filter-toggle,\s*\.calendar-filter-toggle,\s*\.map-zoom-btn\s*\{/, 'the pill look rule is shared across all views');
-    assert.match(css, /\.map-filter-toggle\.off,\s*\.gantt-filter-toggle\.off,\s*\.calendar-filter-toggle\.off\s*\{/, 'the OFF-state pill rule is shared across all views');
+    assert.doesNotMatch(css, /map-filter-|gantt-filter-|calendar-filter-|graph-filter-/, 'no view-row rule is left in the stylesheet');
+    assert.match(css, /\.map-zoom-btn\s*\{/, 'the zoom button keeps its look');
   });
 });
 
-test('renderGanttView renders the status-filter row UNCONDITIONALLY and composes search+status by intersection, same rule as the map', async () => {
+test('renderGanttView holds no status pill row and composes search+status by intersection, same rule as the map', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     const render = js.match(/function renderGanttView\([\s\S]*?\n\}/);
     assert.ok(render, 'renderGanttView found in app.js');
-    const rowIdx = render[0].indexOf('buildGanttFilterRow()');
-    const groupsIdx = render[0].indexOf('ganttGroups(');
-    assert.ok(rowIdx > -1, 'the filter row is built');
-    assert.ok(groupsIdx > -1 && rowIdx < groupsIdx,
-      'the row is appended before groups are computed — if it vanished on the everything-filtered-out state there would be no control left to toggle a status back ON, same reasoning as the map\'s #56 row');
+    assert.doesNotMatch(render[0], /FilterRow/, 'no pill row: the Statuses section of the search panel keeps the recover-from-empty guarantee');
+    assert.ok(render[0].indexOf('ganttGroups(') > -1, 'the groups are still computed');
     // The bug guarded here: mapFilterVisibleIds folds an unlisted status into the
     // FIRST column's toggle (correct for the map/board) — but ganttGroups
     // (gantt-model.js) groups cards by their RAW status and gives an
@@ -2163,28 +2144,12 @@ test('wireGanttPointerDrag blocks the drag gesture at pointerdown for an archive
   });
 });
 
-test('a click on a gantt pill calls toggleGanttStatusFilter, checked before the pointer-drag/card-el handling', async () => {
+test('the Gantt wires no pill click or contextmenu branch', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assert.match(js, /closest\('\.gantt-filter-toggle\[data-col\]'\)/, 'pill buttons are checked in a delegated #gantt-view listener, same pattern as the map');
-    assert.match(js, /toggleGanttStatusFilter\(filterBtn\.dataset\.col\)/, 'the click calls toggleGanttStatusFilter with the button\'s column');
-  });
-});
-
-test('gantt status-filter pills keep the selection and stay out of the poll guard, same as the map pills', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    // A pill click bubbles past the #gantt-view delegated handler to the
-    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
-    // click while toggling a status to declutter the timeline wipes the shift-click batch being built.
-    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
-      'a gantt pill click must not wipe a building selection — this pin also names .calendar-filter-toggle (verify-fix: it previously stopped at .gantt-filter-toggle, an unanchored prefix match that no longer proved the #99 calendar pill\'s presence in this exemption list)');
-    // Poll guard: the pills live in #gantt-view, which renderGanttView wipes
-    // via innerHTML='' on every 5s tick; they stay out of the guard, as the map's do.
-    assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
-    assertLetsPollRun(PILL_CLASSES, 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
+    assert.doesNotMatch(js, /gantt-filter-toggle|toggleGanttStatusFilter\(filterBtn|soloGanttStatusFilter\(filterBtn/);
+    assert.match(js, /function toggleGanttStatusFilter\(/, 'the Statuses section still toggles the same stored filter');
   });
 });
 
@@ -2222,23 +2187,6 @@ test('calendar status filter: own persisted state, statuses + Archive (default O
   });
 });
 
-test('buildCalendarFilterRow shares the pill-row MECHANISM and now includes the Archive pill', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const row = js.match(/function buildCalendarFilterRow\([\s\S]*?\n\}/);
-    assert.ok(row, 'buildCalendarFilterRow found in app.js');
-    assert.match(row[0], /buildFilterPillRow\(/, 'the calendar row calls the same shared builder as map/gantt');
-    assert.match(row[0], /boardColumnIds\(\)/, 'pills now come from statuses + Archive, same id list as the gantt\'s row');
-    assert.match(row[0], /statusFilterTitle\('calendar', col,/, 'the pill titles, the Archive wording included, come from the status-filter registry');
-    // CSS is shared too — comma-joined selectors, not a third declaration block.
-    const css = await (await fetch(`${base}/app.css`)).text();
-    assert.match(css, /\.map-filter-row,\s*\.gantt-filter-row,\s*\.calendar-filter-row\s*\{/, 'the row layout rule is shared across all three views');
-    assert.match(css, /\.map-filter-toggle,\s*\.gantt-filter-toggle,\s*\.calendar-filter-toggle,\s*\.map-zoom-btn\s*\{/, 'the pill look rule is shared across all three views');
-    assert.match(css, /\.map-filter-toggle\.off,\s*\.gantt-filter-toggle\.off,\s*\.calendar-filter-toggle\.off\s*\{/, 'the OFF-state pill rule is shared across all three views');
-  });
-});
-
 test('the calendar month grid AND the sub-month time grid both append search-filtered archived cards only while the Archive pill is on', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
@@ -2255,16 +2203,14 @@ test('the calendar month grid AND the sub-month time grid both append search-fil
   });
 });
 
-test('renderCalendarView renders the status-filter row UNCONDITIONALLY, before branching into month/sub-month', async () => {
+test('renderCalendarView holds no status pill row', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     const render = js.match(/function renderCalendarView\([\s\S]*?\n\}/);
     assert.ok(render, 'renderCalendarView found in app.js');
-    const rowIdx = render[0].indexOf('buildCalendarFilterRow()');
-    const branchIdx = render[0].indexOf("subview === 'month'");
-    assert.ok(rowIdx > -1, 'the filter row is built');
-    assert.ok(branchIdx > -1 && rowIdx < branchIdx, 'the row renders before the month/sub-month branch, so it never disappears with an empty filtered result — same reasoning as the map/gantt row');
+    assert.doesNotMatch(render[0], /FilterRow/);
+    assert.ok(render[0].indexOf("subview === 'month'") > -1, 'the month and sub-month branch is still there');
   });
 });
 
@@ -2285,28 +2231,12 @@ test('the calendar month grid AND the sub-month time grid both compose search+st
   });
 });
 
-test('a click on a calendar pill calls toggleCalendarStatusFilter, checked in the delegated #calendar-view listener', async () => {
+test('the Calendar wires no pill click or contextmenu branch', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    assert.match(js, /closest\('\.calendar-filter-toggle\[data-col\]'\)/, 'pill buttons are checked in a delegated #calendar-view listener, same pattern as the map/gantt');
-    assert.match(js, /toggleCalendarStatusFilter\(filterBtn\.dataset\.col\)/, 'the click calls toggleCalendarStatusFilter with the button\'s column');
-  });
-});
-
-test('calendar status-filter pills keep the selection and stay out of the poll guard, same as the map/gantt pills', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    // A pill click bubbles past the #calendar-view delegated handler to the
-    // document's click-away rule (onClickAway) — without data-keeps-selection, a double
-    // click while toggling a status to declutter the calendar wipes the shift-click batch being built.
-    assertKeepsSelection(['#map-toggle-btn', '#calendar-toggle-btn', '#gantt-toggle-btn', '.cal-nav', '.map-filter-toggle', '.map-section-toggle', '.gantt-filter-toggle', '.calendar-filter-toggle'],
-      'a calendar pill click must not wipe a building selection');
-    // Poll guard: the pills live in #calendar-view, which renderCalendarView wipes
-    // via innerHTML='' on every 5s tick; they stay out of the guard, as the map's/gantt's do.
-    assertHoldsPoll(['.column-sort-field', '.column-sort-dir', '.cal-nav', '.column-add', '.column-add-ai', '.map-zoom-btn', '.map-option-btn'], 'real form controls and rebuilt header buttons still block the auto-refresh');
-    assertLetsPollRun(PILL_CLASSES, 'pills are not in the poll guard: applyBoardData refocuses the focused pill instead');
+    assert.doesNotMatch(js, /calendar-filter-toggle|toggleCalendarStatusFilter\(filterBtn|soloCalendarStatusFilter\(filterBtn/);
+    assert.match(js, /function toggleCalendarStatusFilter\(/, 'the Statuses section still toggles the same stored filter');
   });
 });
 
@@ -2345,36 +2275,12 @@ test('soloMapStatusFilter/soloGanttStatusFilter/soloCalendarStatusFilter each fe
   });
 });
 
-test('buildFilterPillRow appends the SOLO/viceversa hint to every pill\'s tooltip once, shared by all three views', async () => {
+test('no view wires a pill contextmenu branch: the Map, the Calendar and the Gantt keep their other listeners', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
-    const build = js.match(/function buildFilterPillRow\([\s\S]*?\n\}/);
-    assert.ok(build, 'buildFilterPillRow found in app.js');
-    assert.match(build[0], /titleFor\(col, on\) \+ ' Right-click to solo \(right-click the soloed pill again to restore all\)\.'/,
-      'the SOLO/viceversa hint rides in the shared builder once, rather than being repeated in each view\'s titleFor closure');
-  });
-});
-
-test('the three pill contextmenu listeners solo the right view and, like the shared document-level contextmenu handler, skip while a drag is in flight', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    // Without this guard, a chorded right-click over a pill mid-drag (e.g. a
-    // .cal-chip drag on the calendar, or a bar drag on the gantt) re-renders
-    // the view via soloXStatusFilter -> renderBoard() -> innerHTML='', which
-    // detaches the dragged DOM node before its dragend/pointerup fires — the
-    // exact "removed node may never get its dragend" risk this file's own
-    // calendar-drop comment already treats as real.
-    assert.match(js,
-      /\$\('#map-view'\)\.addEventListener\('contextmenu', \(e\) => \{\s*if \(isDragging \|\| ganttDrag \|\| calTimeDrag\) return;[\s\S]{0,300}closest\('\.map-filter-toggle\[data-col\]'\)[\s\S]{0,200}soloMapStatusFilter\(filterBtn\.dataset\.col\)/,
-      'map pill contextmenu checks the drag guard before soloing, same guard as the #39 shared handler (app.js ~3006)');
-    assert.match(js,
-      /\$\('#calendar-view'\)\.addEventListener\('contextmenu', \(e\) => \{\s*if \(isDragging \|\| ganttDrag \|\| calTimeDrag\) return;[\s\S]{0,300}closest\('\.calendar-filter-toggle\[data-col\]'\)[\s\S]{0,200}soloCalendarStatusFilter\(filterBtn\.dataset\.col\)/,
-      'calendar pill contextmenu checks the drag guard before soloing — a mid-.cal-chip-drag right-click must not wipe the dragged chip via renderCalendarView\'s innerHTML reset');
-    assert.match(js,
-      /container\.addEventListener\('contextmenu', \(e\) => \{\s*if \(isDragging \|\| ganttDrag \|\| calTimeDrag\) return;[\s\S]{0,300}closest\('\.gantt-filter-toggle\[data-col\]'\)[\s\S]{0,200}soloGanttStatusFilter\(filterBtn\.dataset\.col\)/,
-      'gantt pill contextmenu checks the drag guard before soloing, matching the ganttDrag guard the bar/pointer drag itself relies on');
+    assert.doesNotMatch(js, /soloMapStatusFilter\(filterBtn|soloCalendarStatusFilter\(filterBtn|soloGanttStatusFilter\(filterBtn/);
+    assert.doesNotMatch(js, /\$\('#map-view'\)\.addEventListener\('contextmenu'/, 'that listener existed only for the Map pills');
   });
 });
 
@@ -2484,7 +2390,7 @@ test('the document-level contextmenu guard also skips a calendar time-drag', asy
     const withCal = (js.match(/if \(isDragging \|\| ganttDrag \|\| calTimeDrag\) return;/g) || []).length;
     const withoutCal = (js.match(/if \(isDragging \|\| ganttDrag\) return;/g) || []).length;
     assert.strictEqual(withoutCal, 0, 'no guard left on the pre-#109 two-term form');
-    assert.ok(withCal >= 4, 'all four guards (map/calendar/gantt/document #39) include calTimeDrag');
+    assert.ok(withCal >= 1, 'the document guard includes calTimeDrag');
   });
 });
 
