@@ -247,10 +247,10 @@ test('the plan names what the selection lights: the cards it is given and a lone
   assert.deepStrictEqual(namedIn(several), ids(new Set([5, 6, ...PLAN_PARENTS])));
 });
 
-test('a named node carries its title as the name, text only, and an unnamed one carries it too so a press of l can name it in place', () => {
+test('a named node carries its id then its title as the name, text only, and an unnamed one carries it too so a press of l can name it in place', () => {
   const model = buildOf([card(1, { title: 'Ship <b>the</b> beta' }), card(2, { title: '  spaced \n  out  ', parent: 1 })]);
   const plan = planOf(model, { names: 'all' });
-  assert.deepStrictEqual(plan.nodes.map((n) => n.name), ['Ship <b>the</b> beta', 'spaced out']);
+  assert.deepStrictEqual(plan.nodes.map((n) => n.name), ['#1 Ship <b>the</b> beta', '#2 spaced out']);
 });
 
 test('a title longer than the name\'s room is cut with an ellipsis, and an empty one reads as the card\'s number', () => {
@@ -258,8 +258,18 @@ test('a title longer than the name\'s room is cut with an ellipsis, and an empty
   const model = buildOf([card(1, { title: long }), card(2, { title: '' }), card(3, { title: '   ' })]);
   const plan = planOf(model, { names: 'all' });
   assert.ok(plan.nodes[0].name.length <= 38 && plan.nodes[0].name.endsWith('…'), plan.nodes[0].name);
-  assert.ok(long.startsWith(plan.nodes[0].name.slice(0, -1)));
+  assert.ok(plan.nodes[0].name.startsWith('#1 Port'), plan.nodes[0].name);
+  assert.ok(long.startsWith(plan.nodes[0].name.slice('#1 '.length, -1)));
   assert.deepStrictEqual(plan.nodes.slice(1).map((n) => n.name), ['#2', '#3']);
+});
+
+test('a prefixed id leads its name whole, and a long title is cut after it', () => {
+  const long = 'Port the whole of the order tables to the new cluster, one at a time';
+  const model = buildOf([card('G3', { title: 'Plan the week' }), card('G12', { title: long }), card('_4', { title: '' })]);
+  const names = planOf(model, { names: 'all' }).nodes.map((n) => n.name);
+  assert.strictEqual(names[0], '#G3 Plan the week');
+  assert.ok(names[1].startsWith('#G12 Port') && names[1].endsWith('…') && names[1].length <= 38, names[1]);
+  assert.strictEqual(names[2], '#_4');
 });
 
 test('only the tier fan has names: a plan with no options, and Force and Status, name no card and carry no name', () => {
