@@ -142,10 +142,10 @@ test('every card of the fan has exactly one name label, with its title as text, 
 test('a title reaches the page as text: markup in it is shown, never built', async () => {
   const s = await open({ stored: { [key('kanban', 'graph.options')]: JSON.stringify({ names: 'all' }) } });
   const nameOf = (id) => s.nodes().find((n) => n.attrs['data-id'] === String(id)).children.find((c) => c.classes && c.classes.includes('graph-node-name'));
-  assert.strictEqual(nameOf(1).textContent, 'Ship <b>the</b> beta');
-  assert.strictEqual(nameOf(11).textContent, '<img src=x onerror=alert(1)>');
+  assert.strictEqual(nameOf(1).textContent, '#1 Ship <b>the</b> beta');
+  assert.strictEqual(nameOf(11).textContent, '#11 <img src=x onerror=alert(1)>');
   assert.strictEqual(nameOf(1).innerHTML, '', 'no markup set');
-  assert.strictEqual(nameOf(2).textContent, 'Card 2');
+  assert.strictEqual(nameOf(2).textContent, '#2 Card 2');
 });
 
 test('each Names press changes the number of names drawn: relevant 4, all 34, none 0', async () => {
