@@ -2572,6 +2572,11 @@ function consumeDeepLink() {
   // key was present — so this reads the view actually on screen either way.
   const el = document.querySelector(`${VIEW_CONTAINERS[loadViewMode()]} .card-el[data-id="${card.id}"]`);
   if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+  // On a phone the Board behind the card shows one status: the card's own, set before it opens.
+  if (onPhoneLayout()) {
+    setPhoneColumn(state.archived.some((c) => c.id === card.id) ? 'archive' : card.status);
+    renderBoard();
+  }
   openDetailModal(card.id);
 }
 
@@ -2696,7 +2701,11 @@ function syncAssigneeColor() {
 // same hidden-field-submits-while-minimal trick, but for #f-start alone;
 // status is deliberately left at its own default here (see the Calendar view
 // dblclick glue below for why).
+// The card whose detail the open edit form was started from: on a phone Save returns there.
+let editFromCardId = null;
+
 function openModal(card, presetStatus, presetStart) {
+  editFromCardId = null;
   $('#modal-title').textContent = card ? `Edit #${card.id}` : 'New card';
   $('#f-id').value = card ? card.id : '';
   $('#f-title').value = card ? card.title : '';
@@ -2811,8 +2820,11 @@ async function submitModal(e) {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
     else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
+    const backToCard = id && onPhoneLayout() && editFromCardId !== null && String(editFromCardId) === id ? editFromCardId : null;
     closeModal();
+    if (backToCard !== null) setPhoneColumn(payload.status);
     await loadBoard();
+    if (backToCard !== null) openDetailModal(backToCard);
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
     else if (joined) toast(joined);
@@ -3461,6 +3473,7 @@ function editFromDetail() {
   if (!card) { closeDetailModal(); toast('Card not found — Refresh.'); return; }
   closeDetailModal();
   openModal(card);
+  editFromCardId = card.id;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
