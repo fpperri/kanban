@@ -46,4 +46,5 @@ module.exports = [
   require('./settings'),
   require('./scratchpad'),
   require('./delete'),
+  require('./feature'),
 ];
