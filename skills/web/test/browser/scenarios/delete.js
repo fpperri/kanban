@@ -3,8 +3,8 @@
 // group _1). Deleting a card opens a popup that says what goes and which groups lose the card; its id
 // always leaves every group's list, and "Its logbook" is a box left unticked (unticked, the day files stay
 // and read as dangling). A selection of cards is one popup. A group's popup adds "Its member cards", which
-// lists what it would delete and names the members another group holds, which it skips. Archiving asks
-// nothing: the page's confirm() is replaced here and counted. Each step waits on the page, never on a
+// lists what it would delete and names the members another group holds, which it skips. Archiving keeps
+// its own confirm and none of these questions: the page's confirm() is replaced here and counted. Each step waits on the page, never on a
 // fixed sleep.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
@@ -88,7 +88,7 @@ module.exports = {
     await click(tile.x, tile.y);
     await waitFor(`!document.getElementById('detail-modal').classList.contains('hidden')`, 3000);
     await press('#detail-archive-btn');
-    check('delete: archiving from the card asks nothing and archives', await refreshed(`state.archived.some((c)=>c.id==='24')`) && await ev(`!window.__confirms`), await ev(`window.__confirms`));
+    check('delete: archiving from the card keeps its own confirm and archives, with none of the delete questions', await refreshed(`state.archived.some((c)=>c.id==='24')`) && await ev(`window.__confirms===1&&!document.querySelector('#group-dialog [data-del]')`), await ev(`window.__confirms`));
 
     // --- a group: the member list, the skips ----------------------------------------------------------------------
     const badge = await centre('#board .card-el[data-id="8"] .group-badge');
@@ -114,6 +114,6 @@ module.exports = {
     await dlgUp();
     await press('#group-dialog [data-confirm="delete"]');
     check('delete: unticked, only the group file goes: its cards and its logbook stay', await refreshed(`!${group('_1')}&&${live('5')}&&${live('17')}&&${notesOf('_1')}===1`), await ev(`[${live('5')},${live('17')},${notesOf('_1')}].join(' ')`));
-    check('delete: no confirm() was asked all through', await ev(`!window.__confirms`), await ev(`window.__confirms`));
+    check('delete: no confirm() was asked for a delete, only the one from archiving', await ev(`window.__confirms===1`), await ev(`window.__confirms`));
   },
 };
