@@ -56,6 +56,30 @@ function saveCollapsedColumns() {
   catch (e) { /* storage unavailable/full — collapse state just won't persist this session */ }
 }
 
+// The phone Board's status tab: one status at a time, remembered per board (feature
+// 'columns.phone', the same storageKey pattern as the collapse state). Loaded once and reset with
+// the other per-board caches when the board's name arrives.
+let phoneColumn = null;
+
+function loadPhoneColumn() {
+  if (phoneColumn !== null) return phoneColumn;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'columns.phone')); }
+  catch (e) { saved = null; }
+  phoneColumn = saved || '';
+  return phoneColumn;
+}
+
+function setPhoneColumn(col) {
+  phoneColumn = col;
+  try { localStorage.setItem(storageKey(state.projectName, 'columns.phone'), col); }
+  catch (e) { /* storage unavailable/full — the tab just won't persist this session */ }
+}
+
+function onPhoneLayout() {
+  return !!(window.matchMedia && window.matchMedia(PHONE_WIDTH_QUERY).matches);
+}
+
 function toggleColumn(col) {
   const collapsed = loadCollapsedColumns();
   collapsed[col] = !collapsed[col];
@@ -1069,6 +1093,7 @@ const VIEW_CONTAINERS = { board: '#board', map: '#map-view', calendar: '#calenda
 function applyViewMode() {
   const mode = loadViewMode();
   for (const [m, sel] of Object.entries(VIEW_CONTAINERS)) $(sel).classList.toggle('hidden', mode !== m);
+  $('#board-tabs').classList.toggle('hidden', mode !== 'board');
   const mapBtn = $('#map-toggle-btn');
   mapBtn.textContent = mode === 'map' ? '☰ Board view' : '🕸 Map view';
   mapBtn.setAttribute('aria-pressed', String(mode === 'map'));
@@ -1159,6 +1184,9 @@ function renderBoardColumns() {
   // may sit in another column), so the whole board is indexed once.
   const outlineIndex = outlineOrder(state.active.concat(state.archived), nestingCtx()).index;
   const statuses = boardStatuses();
+  const phone = onPhoneLayout();
+  const phoneActive = phone ? activePhoneColumn(loadPhoneColumn(), statuses) : null;
+  const tabCounts = {};
   for (const col of boardColumnIds()) {
     const isArchive = col === 'archive';
     const source = isArchive ? state.archived : state.active.filter((c) => columnForStatus(c.status, statuses) === col);
@@ -1167,7 +1195,11 @@ function renderBoardColumns() {
     // gets the config.yaml handles — plumbed exactly like priorities above.
     const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
     const cards = narrowed ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
-    const isCollapsed = !!collapsed[col];
+    if (phone) {
+      tabCounts[col] = { shown: cards.length, total: allCards.length };
+      if (col !== phoneActive) continue; // the phone Board shows one status at a time
+    }
+    const isCollapsed = phone ? false : !!collapsed[col]; // a status collapsed on the desktop still shows its cards, and nothing is written
     const label = columnLabel(col);
     // Counts stay truthful whether or not the column is collapsed — column-count
     // renders in both states, so a collapsed column with hits signals them on its
@@ -1244,7 +1276,33 @@ function renderBoardColumns() {
     }
   }
   board.scrollLeft = keepBoardLeft;
+  renderBoardTabs(phone ? phoneTabs(statuses, tabCounts, phoneActive, narrowed) : []);
   wireDrag();
+}
+
+// The status tabs of the phone Board, one button per status with its colour and count. The strip is
+// emptied above the width line, where the stylesheet hides it anyway.
+function renderBoardTabs(tabs) {
+  const strip = $('#board-tabs');
+  strip.textContent = '';
+  for (const t of tabs) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const safe = /^[a-zA-Z0-9_-]+$/.test(t.status) && (t.status === 'archive' || isBuiltinStatus(t.status));
+    btn.className = `board-tab${safe ? ` board-tab-${t.status}` : ''}`;
+    btn.dataset.col = t.status;
+    btn.setAttribute('aria-selected', String(t.selected));
+    if (!safe) btn.style.color = statusColorVar(t.status);
+    const name = document.createElement('span');
+    name.className = 'board-tab-label';
+    name.textContent = t.label;
+    const count = document.createElement('span');
+    count.className = 'board-tab-count';
+    count.textContent = t.count;
+    btn.appendChild(name);
+    btn.appendChild(count);
+    strip.appendChild(btn);
+  }
 }
 
 // --- Dependency map rendering ------------------------------------
@@ -1473,6 +1531,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!window.matchMedia) return;
   window.matchMedia(PHONE_WIDTH_QUERY).addEventListener('change', () => {
     const mode = loadViewMode();
+    renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column
     if (mode === 'map') renderMapView();
     if (mode === 'graph') graphRedrawForPanel();
   });
@@ -1990,6 +2049,7 @@ function applyProjectName(name) {
     // projectName change invalidates all of them, forcing a re-load under the
     // correct key on next access.
     collapsedColumns = null;
+    phoneColumn = null;
     columnSort = null;
     columnSortPicks = null;
     modalFullscreen = null;
@@ -2736,6 +2796,12 @@ window.addEventListener('DOMContentLoaded', () => {
   // four views. These button branches simply return; the shared handler
   // independently ignores clicks landing on buttons/selects, so a Restore
   // click inside a card-el tile never also opens its detail popup.
+  $('#board-tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.board-tab');
+    if (!tab) return;
+    setPhoneColumn(tab.dataset.col);
+    renderBoard();
+  });
   $('#board').addEventListener('click', (e) => {
     const toggleBtn = e.target.closest('.column-toggle');
     if (toggleBtn) { toggleColumn(toggleBtn.dataset.col); return; }

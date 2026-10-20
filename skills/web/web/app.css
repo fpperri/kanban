@@ -403,6 +403,24 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    independently, the header staying visible above it for free (see
    .column-header's comment). */
 .column-cards { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow-y: auto; }
+/* The phone Board: a strip of status tabs (Archive last) and one status's column at full width.
+   The strip is hidden from 760 px; the column's own header row (sort, collapse, +, AI +) goes,
+   since the tab names the status and the tab strip is the only chrome the phone Board needs. */
+.board-tabs { display: none; }
+@media (max-width: 759.98px) {
+  .board-tabs { display: flex; gap: 4px; height: 40px; margin-bottom: 8px; overflow-x: auto; flex-wrap: nowrap; }
+  .board-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: .2rem; color: var(--mut); font-weight: 600; font-size: 0.85em; cursor: pointer; }
+  .board-tab-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+  .board-tab-backlog { color: var(--st-backlog); }
+  .board-tab-todo { color: var(--st-todo); }
+  .board-tab-doing { color: var(--st-doing); }
+  .board-tab-done { color: var(--st-done); }
+  .board-tab-archive { color: var(--st-archive); }
+  .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
+  main#board { overflow-x: hidden; height: calc(100vh - var(--board-header-h, 64px) - 48px - 48px); }
+  .column { min-width: 0; }
+  .column-header { display: none; }
+}
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; box-shadow: var(--shadow); padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
 /* The text column. min-width:0 is load-bearing: without it a long unbroken
    title refuses to shrink below its content width and pushes the date stack
