@@ -236,7 +236,14 @@ test('the panel\'s rules use tokens and no hex, and the sheet adds no width of i
   for (const l of rules) assert.doesNotMatch(l, /#[0-9a-fA-F]{3,8}\b/, l);
   const sheet = css.match(/@media \(max-width: 759\.98px\) \{\n  \.view-panel \{([^}]*)\}/)[1];
   assert.match(sheet, /position: absolute/);
-  assert.match(sheet, /width: min\(18rem, 100%\)/);
+  assert.match(sheet, /bottom: 0/);
+  assert.match(sheet, /left: 0/);
+  assert.match(sheet, /right: 0/);
+  assert.match(sheet, /width: 100%/);
+  assert.match(sheet, /max-height: 50%/);
+  assert.match(sheet, /border-top: 1px solid var\(--line\)/);
+  assert.match(sheet, /border-left: none/);
+  assert.doesNotMatch(sheet, /18rem|top: 0|backdrop/);
 });
 
 test('the l key still steps the Graph\'s names with the panel closed, since the choice is not read from the row', async () => {
