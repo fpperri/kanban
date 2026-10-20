@@ -229,8 +229,32 @@ _Avoid_: primary, focus card.
 A search query offered as one click: blocked, review and waiting are built in, and a board adds its own in `pills:`. A pill follows the status pills' rules: a click turns one on or off, a right-click keeps only that one, and the first one on is the anchor of the selection while later ones are additions.
 _Avoid_: light pill, filter button, chip.
 
+**Phone layout**:
+The Web's layout below 760 px wide, one width line shared by every width-gated rule: a one-row header, the view bar at the bottom, status tabs on the Board, full-screen cards and forms. From 760 px it is the desktop layout; crossing the line either way switches with no reload.
+_Avoid_: mobile site, responsive mode.
+
+**Status tabs**:
+The strip across the top of the phone Board, one tab per status (Archive last) with its colour and count; the Board shows the one status chosen, and a tap or a sideways swipe changes it. They replace the column headers on a phone.
+_Avoid_: column tabs, swimlanes.
+
+**View bar**:
+The bottom bar of the phone layout listing Board, Calendar, Gantt, Map and Graph; a tap goes straight to that view. It stands in for the header's view buttons.
+_Avoid_: tab bar, nav bar.
+
+**Bottom sheet**:
+The Graph's and the Map's option panel on a phone, a bottom sheet: it opens over the lower part of the view, no taller than about half of it, with no dimming behind it.
+_Avoid_: drawer, modal.
+
+**Span cycle button**:
+The one button that stands in for the Calendar's and the Gantt's span switch on a phone: it shows the current span, and each tap moves to the next and wraps.
+_Avoid_: span dropdown.
+
+**Header date**:
+The date range of the Calendar or the Gantt, shown in the phone header beside the board's name.
+_Avoid_: title date.
+
 **Status pill**:
-One status's switch, in the search panel's Statuses section: on shows that status's cards, off hides them, and soloing keeps that status alone. No view holds a row of them. It still belongs to its view (each view keeps its own set) and never touches the selection.
+One status's switch, in the search panel's Statuses section (the **Statuses section**, at every width): on shows that status's cards, off hides them, and soloing keeps that status alone. No view holds a row of them. It still belongs to its view (each view keeps its own set) and never touches the selection.
 _Avoid_: pill (alone), filter chip.
 
 **Isolate**:
