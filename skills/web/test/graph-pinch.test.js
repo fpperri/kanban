@@ -141,3 +141,25 @@ test('a pinch starts although the first finger landed on a card', async () => {
   assert.strictEqual(s.dragging(), false);
   assert.strictEqual(s.run('graphTouch'), null);
 });
+
+test('a second finger on the option panel or the floating (i) does not start a pinch while a finger pans the canvas', async () => {
+  const s = await open();
+  const panel = new Proxy({}, { get: (t, k) => (k === 'closest' ? () => null : harmless(String(k))) });
+  s.fire('pointerdown', 1, 100, 100);
+  const pan = s.run('graphPan');
+  assert.notStrictEqual(pan, null);
+  s.host.fire('pointerdown', { button: 0, pointerId: 2, isPrimary: false, clientX: 300, clientY: 300, target: panel, preventDefault() {}, stopPropagation() {} });
+  assert.strictEqual(s.run('graphPinch'), null, 'no pinch');
+  assert.notStrictEqual(s.run('graphPan'), null, 'the one-finger pan goes on');
+  s.fire('pointerup', 2, 300, 300);
+  assert.strictEqual(s.run('graphClickSwallow'), null, 'the press on the panel is not swallowed');
+});
+
+test('a pinch step within 1% of no change does not zoom the Graph', async () => {
+  const s = await open();
+  const before = s.view();
+  s.fire('pointerdown', 1, 100, 100);
+  s.fire('pointerdown', 2, 200, 100);
+  s.fire('pointermove', 2, 200.5, 100);
+  assert.deepStrictEqual(s.view(), before);
+});

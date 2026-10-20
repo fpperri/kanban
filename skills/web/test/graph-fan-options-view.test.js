@@ -500,6 +500,15 @@ test('the first draw and Fit keep every placed name clear of the edge of the sta
   assert.strictEqual(offStage(), 0, 'Fit');
 });
 
+test('Fit places the names at most once more than it would without them, and is the plain fit when no name stands outside the stage', async () => {
+  const placements = (s) => { s.run('globalThis.__p = 0; const __orig = graphPaintNames; graphPaintNames = () => { __p++; return __orig(); }'); s.run('graphFitNow()'); return s.run('__p'); };
+  const tight = await open({ size: { w: 600, h: 900 }, stored: UNFOLDED });
+  assert.ok(placements(tight) <= 1, 'a stage where a name stands outside takes one placement to measure');
+  const roomy = await open({ size: { w: 3000, h: 3000 }, stored: UNFOLDED });
+  assert.ok(placements(roomy) <= 1);
+  assert.deepStrictEqual(JSON.parse(roomy.run('JSON.stringify(graphFrameFit(graphCur))')), JSON.parse(roomy.run('JSON.stringify(graphFit(graphCur.layout.bounds, graphCur.w, graphCur.h))')), 'no name outside: the plain fit');
+});
+
 test('a mode frames the view again when the person has not moved it, and leaves one the person moved alone', async () => {
   const size = { w: 900, h: 600 };
   const s = await open({ size, stored: UNFOLDED });
