@@ -2122,6 +2122,8 @@ it does not define a second contract. Not a card — only `*.card.md` files are 
   entry, its `<script>` tag in `app.html` in load order; nothing in `server.js` changes.
   A test fails when the page names a file `web/` lacks, or `web/` holds a script the page
   never loads.
+- **Running the tests.** `docs/testing.md` says which npm script runs what, how a server test
+  and a browser scenario are added, and how the docs are held to the code.
 - `archive` here is a *location* (the `archived/` folder), not a status — ADR 0002's
   data model — but the column has full UI parity (ADR 0005): drag a batch onto Archive
   to archive it (one confirm, skipped when the whole batch is already `done`), drag
