@@ -15,7 +15,7 @@
 // loads: $, state, api, loadBoard, openNotes, openGroupForm, closePrefsSheet, and settings.js's
 // functions.
 
-const settingsUi = { page: null, errors: {}, drafts: {}, ready: false };
+const settingsUi = { page: null, errors: {}, drafts: {}, ready: false, sending: 0 };
 
 function settingsEl(tag, className, text) {
   const el = document.createElement(tag);
@@ -41,6 +41,7 @@ function settingsSheetOpen() {
 // control that asked, with the value the person typed still in the field.
 async function settingsSend(body, draftKey, typed) {
   settingsUi.errors = {};
+  settingsUi.sending += 1;
   try {
     const answer = await api('POST', '/api/config', body);
     state.settings = answer.settings;
@@ -50,6 +51,7 @@ async function settingsSend(body, draftKey, typed) {
     settingsUi.errors[draftKey] = e.message;
     if (typed !== undefined) settingsUi.drafts[draftKey] = typed;
   }
+  settingsUi.sending -= 1;
   settingsRenderBoard();
 }
 
@@ -104,10 +106,11 @@ function settingsSwitch(key, label, on, o = {}) {
 function settingsField(key, label, value, o = {}) {
   const item = settingsEl('div', 'prefs-item');
   const input = settingsMark(settingsEl('input'));
-  const draft = Object.prototype.hasOwnProperty.call(settingsUi.drafts, key) ? settingsUi.drafts[key] : null;
+  const draft = Object.prototype.hasOwnProperty.call(settingsUi.drafts, key) && settingsUi.drafts[key] !== String(value) ? settingsUi.drafts[key] : null;
   Object.assign(input, { type: 'text', id: `pf-${key}`, spellcheck: false, autocomplete: 'off', value: draft !== null ? draft : value, placeholder: o.placeholder || '', disabled: !!o.disabled });
   if (o.numeric) input.inputMode = 'numeric';
   input.dataset.fk = `field:${key}`;
+  input.dataset.shown = input.value;
   const save = settingsMark(settingsEl('button', '', 'Save'));
   save.type = 'submit';
   save.dataset.fk = `save:${key}`;
@@ -300,6 +303,9 @@ function settingsRenderBoard() {
   if (!menu || !panel) return;
   const active = document.activeElement;
   const keep = active && active.dataset && $('#prefs-sheet').contains(active) ? active.dataset.fk || null : null;
+  for (const input of panel.querySelectorAll('input[data-fk^="field:"]')) {
+    if (input.value !== input.dataset.shown) settingsUi.drafts[input.dataset.fk.slice(6)] = input.value;
+  }
   menu.replaceChildren(...settingsBoardPages.map((p) => settingsMenuItem(`board:${p.id}`, p.title, settingsPageStateText(p))));
   const current = settingsUi.page && settingsUi.page.startsWith('board:') ? settingsBoardPages.find((p) => p.id === settingsUi.page.slice(6)) : null;
   if (!state.settings) {

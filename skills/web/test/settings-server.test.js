@@ -357,3 +357,14 @@ test('a folder value must be text, an iterations value true or false', async () 
     assert.strictEqual(config(dir), before);
   });
 });
+
+test('the inside-the-board rule reads POSIX and Windows spellings of a path alike, on any OS', () => {
+  const { insideBoard } = require('../scripts/settings-store');
+  const dir = path.resolve(os.tmpdir(), 'a-board');
+  for (const out of ['../outside', '..\\outside', 'a/../../b', 'a\\..\\..\\b', '..', '/etc/notes', '', '   ', '.', './']) {
+    assert.strictEqual(insideBoard(dir, out), null, `refuses ${JSON.stringify(out)}`);
+  }
+  assert.strictEqual(insideBoard(dir, 'notes/day'), 'notes/day');
+  assert.strictEqual(insideBoard(dir, 'notes\\day'), 'notes/day');
+  assert.strictEqual(insideBoard(dir, './notes/../notes/day'), 'notes/day');
+});

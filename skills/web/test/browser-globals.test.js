@@ -28,6 +28,8 @@ const PAGE_GLOBALS = [
   'renderGraphView',
   'selectedIds',
   'selectionState',
+  'settingsRenderBoard',
+  'settingsUi',
   'state',
   'toast',
   'writeSearch',

@@ -1485,7 +1485,7 @@ test('web /api/board loads exactly the same cards whether or not the launcher\'s
     });
     const board = JSON.parse(body);
     const ids = (board.active || []).map((c) => c.id).sort();
-    assert.deepStrictEqual(ids, [1, 2], 'exactly the two real cards — the launcher\'s own files never show up as cards');
+    assert.deepStrictEqual(ids, ['1', '2'], 'exactly the two real cards — the launcher\'s own files never show up as cards');
   } finally {
     killTree(serverProc && serverProc.pid);
     killBoardAppPid(dir);
