@@ -18,9 +18,11 @@ const idsModule = (() => {
 
   // `board#G3`, `#G3`: the board token (when there is one) is the run of name
   // characters just before the `#`; the id is `#`, a prefix, digits and a word
-  // boundary, so `#a371f7`, `#371f7` and `# Heading` are not mentions. ASCII only.
+  // boundary, so `#a371f7`, `#371f7` and `# Heading` are not mentions. An uppercase
+  // hex colour (`#FF0000`, `#ABC123`, `#FF000080`: six or eight hex characters on
+  // their own) is not a mention either; shorter or longer runs stay ids. ASCII only.
   // Groups: 1 board, 2 prefix, 3 digits.
-  const MENTION_SOURCE = '(?<![A-Za-z0-9_#])(?:([A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9_])?)(?=#))?#(_?[A-Z]*)([0-9]{1,15})\\b';
+  const MENTION_SOURCE = '(?<![A-Za-z0-9_#])(?:([A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9_])?)(?=#))?#(?![0-9A-F]{6}(?:[0-9A-F]{2})?(?![A-Za-z0-9_]))(_?[A-Z]*)([0-9]{1,15})\\b';
   const WHOLE_MENTION_RE = new RegExp(`^${MENTION_SOURCE}$`);
 
   function parseId(value) {
