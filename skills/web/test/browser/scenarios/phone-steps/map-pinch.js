@@ -11,7 +11,7 @@ module.exports = {
     check('the Map draws on the phone', await waitFor(`document.querySelectorAll('#map-view .map-canvas').length>0&&document.querySelectorAll('#map-view .map-trees .map-canvas').length===document.querySelectorAll('#map-view .map-canvas').length`, 10000));
     const drawnWidth = () => ev(`document.querySelector('#map-view .map-canvas').getBoundingClientRect().width`);
     const before = await drawnWidth();
-    const centre = await ev(`(() => { const r = document.querySelector('#map-view .map-main').getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 120) }; })()`);
+    const centre = await ev(`(() => { const m = document.querySelector('#map-view .map-main').getBoundingClientRect(); const c = document.querySelector('#map-view .map-canvas').getBoundingClientRect(); const l = Math.max(m.left, c.left), r = Math.min(m.right, c.right), t = Math.max(m.top, c.top), b = Math.min(m.bottom, c.bottom); return { x: Math.round((l + r) / 2), y: Math.round((t + b) / 2) }; })()`);
     const selected = () => ev(`document.querySelectorAll('.card-el.selected').length+'/'+document.querySelectorAll('.modal:not(.hidden), #detail-modal:not(.hidden)').length`);
     const quiet = await selected();
 

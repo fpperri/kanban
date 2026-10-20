@@ -78,6 +78,8 @@ let graphPan = null;
 let graphClickSwallow = null;
 let graphPinch = null;
 let graphLastPoint = null;
+// The first finger of a touch that landed on a card, so a second finger can still start a pinch.
+let graphTouch = null;
 let graphDrag = null;
 const graphArrangements = new Map();
 const GRAPH_ARRANGEMENTS_MAX = 6;
@@ -198,6 +200,7 @@ function resetGraphViewState() {
   graphPan = null;
   graphEndPinch(false);
   graphLastPoint = null;
+  graphTouch = null;
   clearTimeout(graphNamesTimer);
   graphNamesTimer = 0;
   graphNamesMemo = null;
@@ -803,10 +806,11 @@ function graphPinchPoints() {
   return [{ x: a.x - rect.left, y: a.y - rect.top }, { x: b.x - rect.left, y: b.y - rect.top }];
 }
 
-function graphStartPinch(e, host) {
-  const first = graphPan.pointerId;
-  const firstPoint = graphLastPoint && graphLastPoint.id === first ? graphLastPoint : { x: graphPan.sx, y: graphPan.sy };
+function graphStartPinch(e, host, touch) {
+  const first = touch ? touch.id : graphPan.pointerId;
+  const firstPoint = touch || (graphLastPoint && graphLastPoint.id === first ? graphLastPoint : { x: graphPan.sx, y: graphPan.sy });
   graphFinishPan();
+  graphStopDrag(true);
   graphPinch = {
     ids: [first, e.pointerId],
     points: new Map([[first, { x: firstPoint.x, y: firstPoint.y }], [e.pointerId, { x: e.clientX, y: e.clientY }]]),
@@ -997,6 +1001,8 @@ function wireGraphView(host) {
     if (e.button !== 0 || !graphCur) return;
     if (graphPinch) return;
     if (graphPan && e.pointerId !== graphPan.pointerId) { graphStartPinch(e, host); return; }
+    if (!graphPan && graphTouch && e.isPrimary === false && e.pointerId !== graphTouch.id && e.target.closest('.graph-canvas')) { graphStartPinch(e, host, graphTouch); return; }
+    if (e.isPrimary !== false) graphTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
     if (graphDrag) graphStopDrag(true);
     const node = e.target.closest('.graph-node');
     if (node) {
@@ -1014,6 +1020,7 @@ function wireGraphView(host) {
     try { host.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
   });
   host.addEventListener('pointermove', (e) => {
+    if (graphTouch && e.pointerId === graphTouch.id) { graphTouch.x = e.clientX; graphTouch.y = e.clientY; }
     if (graphPan && e.pointerId === graphPan.pointerId) graphLastPoint = { id: e.pointerId, x: e.clientX, y: e.clientY };
     if (graphPinch) { graphPinchMove(e); return; }
     if (!graphPan || e.pointerId !== graphPan.pointerId || !graphCur) return;
@@ -1032,6 +1039,7 @@ function wireGraphView(host) {
   });
   host.addEventListener('pointermove', graphDragMove);
   const finish = (e) => {
+    if (graphTouch && graphTouch.id === e.pointerId) graphTouch = null;
     if (graphPinch && graphPinch.points.has(e.pointerId)) graphEndPinch(true);
     if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan();
     if (graphDrag && e.pointerId === graphDrag.pointerId) graphReleaseDrag(e);

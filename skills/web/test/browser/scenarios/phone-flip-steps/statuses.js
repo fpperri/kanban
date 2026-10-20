@@ -61,9 +61,9 @@ module.exports = {
     }
     check('with every status off the section still shows every pill',
       await waitFor(`${sameJson(pressed, [])}&&document.querySelectorAll('#search-statuses .status-pill').length===${COLUMNS.length + 1}&&!${SECTION}.classList.contains('hidden')`, 5000), await ev(pressed));
-    await tapPill('todo');
-    check('one tap brings cards back', await waitFor(`${sameJson(pressed, ['todo'])}&&document.querySelectorAll('#gantt-view .gantt-label').length>0`, 5000), await ev(pressed));
-    await rightClick(pillSel('todo'));
+    await tapPill('backlog');
+    check('one tap brings cards back', await waitFor(`${sameJson(pressed, ['backlog'])}&&document.querySelectorAll('#gantt-view .gantt-label').length>0`, 5000), await ev(pressed));
+    await rightClick(pillSel('backlog'));
     await waitFor(sameJson(pressed, [...COLUMNS, 'archive']), 5000);
 
     check('the Calendar shows its own state', await showView('calendar')
