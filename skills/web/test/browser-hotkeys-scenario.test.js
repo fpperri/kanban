@@ -106,12 +106,12 @@ test('it presses ? as Shift with the slash key, as a US keyboard does, and never
   for (const [, mods] of questions) assert.deepStrictEqual(mods, { shift: true });
 });
 
-test('it makes these checks: the sheet opens at the section, the list, the states, and the places ? does nothing', async () => {
+test('it makes these checks: the sheet opens on its Hotkeys page, the list, the states, and the places ? does nothing', async () => {
   const page = standIn();
   await scenario.run(page);
   const names = page.log.checks.map(([n]) => n);
   for (const part of [
-    'opens the preferences sheet', 'Hotkeys heading is inside the sheet', 'a key element for every key the page answers',
+    'opens the preferences sheet', 'heading inside the sheet', 'a key element for every key the page answers',
     'one row for each entry of the list', 'shows its default', 'with the sheet up, ? does nothing', 'with focus in the search box, ? is typed',
     'with a dialog up, ? does nothing', 'with a card menu up, ? does nothing', 'with the notifications panel up, ? does nothing',
     'the sheet shows the names the Graph now draws', 'still shows the names the board kept',

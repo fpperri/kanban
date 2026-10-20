@@ -957,7 +957,11 @@ to `127.0.0.1` only.
   A link with `isolate=1` and no usable `q` opens with isolate off and loses the parameter from the
   address on load, and any value but `1` is no request.
 - **Preferences sheet** — the gear at the right end of the header opens a full-height sheet
-  from the right that holds the settings which rarely change. Each is kept in the browser per
+  from the right with two sections. **This browser** holds the settings which rarely change
+  (the Preferences and Hotkeys pages, below) and **This board** holds the pages that write
+  `config.yaml` (the last item of this bullet). A sheet 760 px wide or more shows the menu and
+  one page side by side; a narrower one shows the menu, then the page with a back button, and
+  Esc steps back to the menu before it closes the sheet. Each setting of This browser is kept in the browser per
   board (`localStorage`, in the board's own `prefs` entry beside its other remembered
   choices), never written to the board, and applies the moment it is chosen. **A plain click
   on a card** opens it or selects it, chosen separately for the Board, the Map, the Gantt and
@@ -999,7 +1003,26 @@ to `127.0.0.1` only.
   back to the gear; like the other popups it
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
-  the sheet), and a click inside it never clears a selection.
+  the sheet), and a click inside it never clears a selection. `?` opens the sheet on its Hotkeys page.
+  **This board** has the pages Logbook, Groups, Prefixes and Counters, each written to
+  `config.yaml` one top-level line at a time (the line replaced, inserted or removed, every
+  other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with
+  `{ key, value }`, which answers `{ settings }` as the file now reads. **Logbook** and
+  **Groups** each have an on/off switch (off removes the line, on writes the folder) and a
+  folder field (saving a folder turns the feature on). The page takes a folder inside the
+  board only, saved relative to it, and the server refuses a folder that leaves the board,
+  the board itself, or a name that would need quoting in the file (400); a folder written by
+  hand outside the board still works for reading and writing notes and groups, shows
+  **locked** with the reason, and every change to it is refused (409). Changing a folder
+  changes the line only: the files stay where they are. **Groups** adds the **Iterations**
+  switch (`iterations: true`): turning groups off removes `iterations:` too, and turning
+  iterations on without groups is refused (409). It also lists the groups found, by type path,
+  each opening its group in the palette, and **New group…**. **Prefixes** shows the `prefixes:` block as a read only
+  table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
+  new card files. **Counters** shows `nextId:` and the `counters:` line, read only. The
+  `/api/board` payload carries `settings`: `logbook` and `groups` as `{ on, folder, locked,
+  reason }`, `iterations`, `idDigits`, `nextId`, `prefixes` and `counters`. Another page of
+  This board is added with `settingsAddBoardPage` in `settings-ui.js`.
 - **Notes (logbook)** — with a `logbook:` line in `config.yaml` (the folder of the board's
   day files, see the kanban skill's logbook section) the page keeps a **notes palette**, the
   one surface for notes. Without the line nothing of it shows: no count, no menu entry, and

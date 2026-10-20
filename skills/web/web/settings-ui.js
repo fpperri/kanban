@@ -53,6 +53,15 @@ async function settingsSend(body, draftKey, typed) {
   settingsRenderBoard();
 }
 
+// A typed value: the page refuses what it can see is wrong (the text stays in the field, with the
+// reason under it); anything else goes to the server, which judges it.
+function settingsSave(key, text, problem, body) {
+  if (!problem) { settingsSend(body, key, text); return; }
+  settingsUi.errors = { [key]: problem };
+  settingsUi.drafts[key] = text;
+  settingsRenderBoard();
+}
+
 // ---------- the controls ----------
 
 function settingsError(key) {
@@ -156,11 +165,7 @@ function settingsFeatureNodes(key, label, what) {
     placeholder: SETTINGS_FOLDERS[key],
     disabled: !!lock,
     hint: feature.on ? 'Only the line changes; moving the files is yours to do.' : 'Saving a folder turns it on.',
-    save: (text) => {
-      const body = settingsFolderBody(key, text);
-      if (body) settingsSend(body, key, text);
-      else { settingsUi.errors[key] = 'Type a folder inside the board, or switch it off.'; settingsRenderBoard(); }
-    },
+    save: (text) => settingsSave(key, text, settingsFolderProblem(text), settingsFolderBody(key, text)),
   }));
   return nodes;
 }
@@ -234,7 +239,7 @@ function settingsPrefixesNodes() {
   nodes.push(settingsField('idDigits', 'idDigits: zero-padding in file names', String(st.idDigits), {
     numeric: true,
     hint: `A new card file is named ${settingsIdExample(st.idDigits)}.a-title.card.md. Files already named stay as they are, and every id is read by its number.`,
-    save: (text) => settingsSend(settingsDigitsBody(text), 'idDigits', text),
+    save: (text) => settingsSave('idDigits', text, settingsDigitsProblem(text), settingsDigitsBody(text)),
   }));
   return nodes;
 }

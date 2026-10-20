@@ -65,9 +65,22 @@ test('switching a feature off sends null, on sends the folder it has or its defa
   assert.deepStrictEqual(s.settingsSwitchBody('iterations', false), { key: 'iterations', value: false });
 });
 
-test('a folder typed in is trimmed; an empty one is not sent as a folder', () => {
+test('a folder typed in is trimmed', () => {
   assert.deepStrictEqual(s.settingsFolderBody('logbook', '  notes/day '), { key: 'logbook', value: 'notes/day' });
-  assert.strictEqual(s.settingsFolderBody('logbook', '   '), null);
+});
+
+test('the page refuses what plainly leaves the board before it asks the server, and lets the rest through to be judged', () => {
+  for (const bad of ['', '   ', '.', './', '..', '../notes', 'a/../../b', '/etc/notes', 'C:\\Windows', 'c:/x', '\\\\server\\share']) {
+    assert.match(s.settingsFolderProblem(bad), /\S/, `refuses ${JSON.stringify(bad)}`);
+  }
+  for (const ok of ['.logbook', 'notes/day', 'my notes (2026)', 'a/./b', 'what: odd']) {
+    assert.strictEqual(s.settingsFolderProblem(ok), '', `lets ${JSON.stringify(ok)} through`);
+  }
+});
+
+test('the page refuses an idDigits that is not a whole number from 1 to 15', () => {
+  for (const bad of ['', 'x', '0', '16', '2.5', '-1', '4 # no']) assert.match(s.settingsDigitsProblem(bad), /1 to 15/, bad);
+  for (const ok of ['1', ' 6 ', '15']) assert.strictEqual(s.settingsDigitsProblem(ok), '', ok);
 });
 
 test('idDigits is sent as typed for the server to judge, and its example shows a padded id', () => {

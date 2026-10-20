@@ -15,6 +15,7 @@ const SETTINGS_IDS = (typeof module !== 'undefined' && module.exports) ? require
 
 const SETTINGS_WIDE_AT = 760;
 const SETTINGS_DEFAULT_PAGE = 'browser:prefs';
+const SETTINGS_MAX_DIGITS = 15;
 
 // The pages kept in this browser, in menu order.
 const SETTINGS_BROWSER_PAGES = [
@@ -67,12 +68,30 @@ function settingsSwitchBody(key, on, folder) {
 }
 
 function settingsFolderBody(key, text) {
-  const value = String(text).trim();
-  return value === '' ? null : { key, value };
+  return { key, value: String(text).trim() };
+}
+
+// What a typed folder plainly gets wrong, before the server is asked: no folder, the board itself,
+// an absolute path or a way out of the board. '' = nothing the page can see; the server judges the
+// rest (the characters of a name, and a path that comes back in through a link).
+function settingsFolderProblem(text) {
+  const t = String(text).trim().replace(/\\/g, '/');
+  if (t === '') return 'Type a folder inside the board, or switch it off.';
+  const parts = t.split('/');
+  if (/^([A-Za-z]:|\/)/.test(t) || parts.includes('..')) {
+    return 'A folder is a path inside the board, like .logbook. One outside the board is set by hand in config.yaml.';
+  }
+  if (parts.every((p) => p === '' || p === '.')) return 'That is the board itself: name a folder inside it.';
+  return '';
 }
 
 function settingsDigitsBody(text) {
   return { key: 'idDigits', value: String(text).trim() };
+}
+
+function settingsDigitsProblem(text) {
+  const t = String(text).trim();
+  return /^[0-9]+$/.test(t) && Number(t) >= 1 && Number(t) <= SETTINGS_MAX_DIGITS ? '' : `idDigits is a whole number from 1 to ${SETTINGS_MAX_DIGITS}.`;
 }
 
 // How a file named with the board's idDigits starts: card 7, zero-padded.
@@ -99,7 +118,7 @@ function settingsPrefixTarget(row, groupsFolder) {
 
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
-  settingsFolderBody, settingsDigitsBody, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
+  settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   SETTINGS_BROWSER_PAGES, SETTINGS_DEFAULT_PAGE, SETTINGS_FOLDERS,
 };
 
