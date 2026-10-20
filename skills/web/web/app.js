@@ -1655,18 +1655,22 @@ function buildMapGraphSection(graphs, draw, collapsed) {
   wrap.appendChild(buildMapSectionHeader('graph', mapGraphSectionLabel(graphs, draw.group), collapsed));
   if (!collapsed) {
     const zoom = loadMapZoom();
+    // One wrapper holds every tree, so a two-finger pinch scales them all at once (wireMapPanZoom).
+    const trees = document.createElement('div');
+    trees.className = 'map-trees';
     for (const graph of graphs) {
       if (draw.group === 'tree') {
         const heading = document.createElement('div');
         heading.className = 'map-graph-heading';
         heading.innerHTML = mapGraphHeadingHtml(graph);
-        wrap.appendChild(heading);
+        trees.appendChild(heading);
       }
       const layer = layerNodes(graph.ids, graph.layoutEdges);
       const svg = buildMapSvg(graph, layer, draw);
       applyMapZoomToSvg(svg, zoom);
-      wrap.appendChild(svg);
+      trees.appendChild(svg);
     }
+    wrap.appendChild(trees);
   }
   return wrap;
 }
@@ -3768,6 +3772,12 @@ let mapPan = null; // { pointerId, startX, startY, startScrollLeft, startScrollT
 // drag in one view eat an unrelated click in the other if timing ever raced.
 let mapPanClickSuppressed = false;
 
+// A two-finger pinch on the Map: { ids, points, startDistance, startMid, startZoom, scale, trees }.
+// The fingers' latest positions are kept for every pointer pressed inside a drawing, so the
+// second finger to land can measure against the first.
+let mapPinch = null;
+const mapPointers = new Map();
+
 function suppressMapPanPhantomClick() {
   mapPanClickSuppressed = true;
   setTimeout(() => { mapPanClickSuppressed = false; }, 0);
@@ -3889,9 +3899,56 @@ function wireMapPanZoom() {
     e.preventDefault();
     e.stopPropagation();
   }, true);
+  // The pinch scales one wrapper of every tree while the fingers move (a CSS transform through
+  // the style object) and zooms the Map once when they lift: the Map redraws on every zoom, which
+  // would pull the touched drawing out of the page mid-gesture. isDragging is held the whole time
+  // so the 5-second refresh waits, and every exit path (lift, cancel, lost capture) clears it.
+  const startMapPinch = (e) => {
+    const first = [...mapPointers.keys()].find((id) => id !== e.pointerId);
+    const a = mapPointers.get(first);
+    const b = { x: e.clientX, y: e.clientY };
+    if (mapPan) { // the second finger ends a one-finger pan in progress
+      mapPan = null;
+      container.classList.remove('map-panning');
+    }
+    const trees = e.target.closest('.map-trees');
+    const mid = pinchMidpoint(a, b);
+    mapPinch = {
+      ids: [first, e.pointerId],
+      points: { [first]: a, [e.pointerId]: b },
+      startDistance: pinchDistance(a, b),
+      startMid: mid,
+      startZoom: loadMapZoom(),
+      scale: 1,
+      trees,
+    };
+    if (trees) {
+      const rect = trees.getBoundingClientRect();
+      trees.style.transformOrigin = `${mid.x - rect.left}px ${mid.y - rect.top}px`;
+    }
+    isDragging = true;
+  };
+  const finishMapPinch = () => {
+    if (!mapPinch) return;
+    const pinch = mapPinch;
+    mapPinch = null;
+    isDragging = false;
+    if (pinch.trees) {
+      pinch.trees.style.transform = '';
+      pinch.trees.style.transformOrigin = '';
+    }
+    suppressMapPanPhantomClick(); // a pinch never ends in a tap that opens or selects a card
+    const factor = pinchFactor(pinch.startDistance, pinchDistance(pinch.points[pinch.ids[0]], pinch.points[pinch.ids[1]]));
+    if (!pinchFactorIsChange(factor)) return;
+    const rect = mapMain.getBoundingClientRect();
+    zoomMapAt(pinchZoom(pinch.startZoom, factor), pinch.startMid.x - rect.left, pinch.startMid.y - rect.top);
+  };
   container.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || mapPan) return; // primary button only; a second pointer mid-pan is ignored
     if (!e.target.closest('.map-canvas')) return; // pan only from inside the graph section — see the header comment above
+    if (mapPinch) return; // a third finger starts nothing
+    mapPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mapPan && e.pointerId !== mapPan.pointerId && mapPointers.size === 2) { startMapPinch(e); return; }
+    if (e.button !== 0 || mapPan) return; // primary button only; a second pointer mid-pan is ignored
     mapPan = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -3917,6 +3974,15 @@ function wireMapPanZoom() {
     e.preventDefault(); // no text selection mid-drag over node/edge SVG text
   });
   container.addEventListener('pointermove', (e) => {
+    if (mapPointers.has(e.pointerId)) mapPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mapPinch) {
+      if (!mapPinch.ids.includes(e.pointerId)) return;
+      mapPinch.points[e.pointerId] = { x: e.clientX, y: e.clientY };
+      const factor = pinchFactor(mapPinch.startDistance, pinchDistance(mapPinch.points[mapPinch.ids[0]], mapPinch.points[mapPinch.ids[1]]));
+      mapPinch.scale = pinchZoom(mapPinch.startZoom, factor) / mapPinch.startZoom;
+      if (mapPinch.trees) mapPinch.trees.style.transform = `scale(${mapPinch.scale})`;
+      return;
+    }
     if (!mapPan || e.pointerId !== mapPan.pointerId) return;
     const dx = e.clientX - mapPan.startX;
     const dy = e.clientY - mapPan.startY;
@@ -3944,14 +4010,19 @@ function wireMapPanZoom() {
     container.classList.remove('map-panning');
     if (drag.moved) suppressMapPanPhantomClick(); // only a MOVED drag suppresses the click that follows — an unmoved press stays a plain click (card open / selection), same >threshold rule as the gantt's own drag-vs-click line
   };
-  container.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
-  container.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  const pointerEnded = (e) => {
+    mapPointers.delete(e.pointerId);
+    if (mapPinch && mapPinch.ids.includes(e.pointerId)) finishMapPinch();
+    else if (mapPan && e.pointerId === mapPan.pointerId) finish();
+  };
+  container.addEventListener('pointerup', pointerEnded);
+  container.addEventListener('pointercancel', pointerEnded);
   // Capture can end without either event above — the browser drops it
   // implicitly (e.g. another element steals capture, or #map-view's own
   // innerHTML gets rebuilt out from under an active capture by some other
   // path). Treat that the same as a release, so the gesture can never end
   // in a state pointerup/pointercancel would have cleaned up.
-  container.addEventListener('lostpointercapture', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  container.addEventListener('lostpointercapture', pointerEnded);
   // Deferred capture (above) means an UNMOVED press's release can land
   // outside #map-view — right at the panel's edge, or in the sliver before
   // the gesture crosses the threshold — where the container's own pointerup
@@ -3961,8 +4032,8 @@ function wireMapPanZoom() {
   // release regardless of target; finish() itself is idempotent (no-ops
   // once mapPan is already null), so this never double-fires against the
   // container listeners above.
-  document.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
-  document.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  document.addEventListener('pointerup', pointerEnded);
+  document.addEventListener('pointercancel', pointerEnded);
   // Ctrl+wheel (also what a trackpad pinch sends) zooms around the pointer;
   // a plain wheel keeps the panel's native scroll. Non-passive — the
   // preventDefault below is what stops the browser's own page-zoom/scroll on
