@@ -56,14 +56,11 @@ test('a second finger ends the one-finger pan and the pinch grows k around the m
   assert.notStrictEqual(s.run('graphPan'), null);
   s.fire('pointerdown', 2, 200, 100);
   assert.strictEqual(s.run('graphPan'), null, 'the pan ended');
-  s.fire('pointermove', 1, 50, 100);
-  s.fire('pointermove', 2, 250, 100);
+  s.fire('pointermove', 2, 300, 100);
   const after = s.view();
   assert.ok(Math.abs(after.k / before.k - 2) < 1e-6, `k doubled: ${before.k} to ${after.k}`);
-  const mid = { x: 150, y: 100 };
-  const worldBefore = (mid.x - before.x) / before.k;
-  const worldAfter = (mid.x - after.x) / after.k;
-  assert.ok(Math.abs(worldBefore - worldAfter) < 1e-6, 'the point under the midpoint stays under it');
+  const mid = 200;
+  assert.ok(Math.abs((mid - before.x) / before.k - (mid - after.x) / after.k) < 1e-6, 'the point under the midpoint stays under it');
 });
 
 test('isDragging holds for the whole pinch and clears when a finger lifts', async () => {
