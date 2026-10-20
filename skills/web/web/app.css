@@ -460,7 +460,6 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
   .board-tab-archive { color: var(--st-archive); }
   .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
   main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h)); }
-  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); }
   .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); overflow: auto; }
   #view-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 14; display: flex; height: var(--view-bar-h); padding-bottom: env(safe-area-inset-bottom); background: var(--paper); border-top: 1px solid var(--line-strong); }
   #view-bar .view-bar-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; background: transparent; border: 0; border-radius: 0; color: var(--mut); font-size: 0.7em; }
@@ -1350,6 +1349,9 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .graph-view { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; height: calc(100vh - var(--board-header-h, 64px) - 48px); display: flex; }
 .graph-main { flex: 1; min-width: 0; padding: 14px; display: flex; flex-direction: column; }
 
+@media (max-width: 759.98px) {
+  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); }
+}
 /* Graph view */
 .graph-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 8px; }
 .graph-layouts, .graph-zoom { display: flex; gap: 6px; }

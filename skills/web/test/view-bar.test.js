@@ -49,9 +49,14 @@ test('at phone width every view is 100dvh minus the header and the bar, the Boar
   assert.match(css, /\n#view-bar \{ display: none;/);
   const phone = css.split('@media (max-width: 759.98px) {').slice(1).join('\n');
   assert.match(phone, /#view-bar \{[^}]*display: flex;[^}]*env\(safe-area-inset-bottom\)/);
-  for (const sel of [String.raw`.map-view, .graph-view`, String.raw`.calendar-view, .gantt-view`]) {
+  for (const sel of [String.raw`.calendar-view, .gantt-view`]) {
     assert.match(phone, new RegExp(String.raw`${sel} \{[^}]*height: calc\(100dvh - var\(--board-header-h, 64px\) - 48px - var\(--view-bar-h`), sel);
   }
+  const heights = css.match(/\n  \.map-view, \.graph-view \{ height: calc\(100dvh - var\(--board-header-h, 64px\) - 48px - var\(--view-bar-h\)\); \}/);
+  assert.ok(heights, 'the Map and Graph phone height rule exists');
+  const at = css.indexOf(heights[0]);
+  assert.ok(at > css.lastIndexOf('\n.map-view {'), 'it follows the last base .map-view rule, so it wins the cascade');
+  assert.ok(at > css.lastIndexOf('\n.graph-view {'), 'it follows the last base .graph-view rule, so it wins the cascade');
   assert.match(phone, /main#board \{[^}]*height: calc\(100dvh - var\(--board-header-h, 64px\) - 48px - 48px - var\(--view-bar-h/);
   assert.match(phone, /\.actions > \[data-view-toggle\] \{ display: none; \}|\[data-view-toggle\][^{}]*\{ display: none; \}/);
 });
