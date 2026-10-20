@@ -143,11 +143,40 @@ function mapDragExceededThreshold(dx, dy, threshold) {
   return (dx * dx + dy * dy) > (t * t);
 }
 
+// Two-finger pinch arithmetic, shared by the Graph pinch and the Map pinch.
+// Pure: points are {x, y} in any one coordinate space. A pinch's running
+// factor is always measured against the distance when the second finger
+// landed, so a long gesture does not accumulate rounding drift.
+const PINCH_NO_CHANGE = 0.01; // a factor within 1% of 1 is no change
+
+function pinchDistance(a, b) {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function pinchMidpoint(a, b) {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+function pinchFactor(startDistance, currentDistance) {
+  if (!(startDistance > 0) || !Number.isFinite(startDistance)) return 1;
+  const f = currentDistance / startDistance;
+  return Number.isFinite(f) ? f : 1;
+}
+
+function pinchZoom(startZoom, factor) {
+  return clampMapZoom(clampMapZoom(startZoom) * factor);
+}
+
+function pinchFactorIsChange(factor) {
+  return Math.abs(factor - 1) > PINCH_NO_CHANGE;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     MAP_ZOOM_MIN, MAP_ZOOM_MAX, MAP_ZOOM_DEFAULT, MAP_ZOOM_STEP, MAP_DRAG_THRESHOLD,
     clampMapZoom, stepMapZoom, mapZoomPanOffset, fitMapZoom, mapDragExceededThreshold,
     normalizeWheelDeltaY, wheelZoomFactor, stepMapZoomByWheel,
+    PINCH_NO_CHANGE, pinchDistance, pinchMidpoint, pinchFactor, pinchZoom, pinchFactorIsChange,
   };
 } else {
   window.MAP_ZOOM_MIN = MAP_ZOOM_MIN;
@@ -163,4 +192,10 @@ if (typeof module !== 'undefined' && module.exports) {
   window.normalizeWheelDeltaY = normalizeWheelDeltaY;
   window.wheelZoomFactor = wheelZoomFactor;
   window.stepMapZoomByWheel = stepMapZoomByWheel;
+  window.PINCH_NO_CHANGE = PINCH_NO_CHANGE;
+  window.pinchDistance = pinchDistance;
+  window.pinchMidpoint = pinchMidpoint;
+  window.pinchFactor = pinchFactor;
+  window.pinchZoom = pinchZoom;
+  window.pinchFactorIsChange = pinchFactorIsChange;
 }
