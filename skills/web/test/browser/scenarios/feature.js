@@ -47,7 +47,7 @@ const NOTE_TEXT = 'cutover reliability reviewed with the team';
 module.exports = {
   name: 'feature',
   board: 'feature',
-  timeoutMs: 140000,
+  timeoutMs: 90000,
   async run(page) {
     const { ev, open, waitFor, centre, click, key, rightClick, check, shot } = page;
     const press = (sel) => ev(`(()=>{const b=document.querySelector(${JSON.stringify(sel)});if(!b)return false;b.click();return true})()`);
