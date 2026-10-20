@@ -288,7 +288,7 @@ button:hover { background: var(--btn-hover); }
   .more-btn { order: 3; display: inline-flex; align-items: center; padding: 6px 8px; }
   .more-btn svg { width: 15px; height: 15px; }
   .more-menu:not(.hidden) { display: flex; }
-  #refresh-btn, #prefs-btn, #board-copy-btn, .home-link, .iter-select, .actions > [data-view-toggle] { display: none; }
+  #refresh-btn, #prefs-btn, #board-copy-btn, .home-link, .iter-select, .actions > button[data-view-toggle]:has(.btn-icon) { display: none; }
   .more-iter .iter-select { display: block; }
   .actions > button { position: relative; padding: 6px 8px; }
   .actions > button:has(.btn-icon) { gap: 0; }

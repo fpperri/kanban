@@ -62,7 +62,7 @@ test('at phone width every view is 100dvh minus the header and the bar, the Boar
   assert.ok(at > css.lastIndexOf('\n.map-view {'), 'it follows the last base .map-view rule, so it wins the cascade');
   assert.ok(at > css.lastIndexOf('\n.graph-view {'), 'it follows the last base .graph-view rule, so it wins the cascade');
   assert.match(phone, /main#board \{[^}]*height: calc\(100dvh - var\(--board-header-h, 64px\) - 48px - 48px - var\(--view-bar-h/);
-  assert.match(phone, /\.actions > \[data-view-toggle\] \{ display: none; \}|\[data-view-toggle\][^{}]*\{ display: none; \}/);
+  assert.match(phone, /\.actions > button\[data-view-toggle\]:has\(\.btn-icon\) \{ display: none; \}/, 'outranks .actions > button:has(.btn-icon), which sets inline-flex');
 });
 
 test('the phone header hides every .btn-label, so the view bar un-hides its own five words', () => {
