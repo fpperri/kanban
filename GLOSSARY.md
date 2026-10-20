@@ -254,7 +254,7 @@ The date range of the Calendar or the Gantt, shown in the phone header beside th
 _Avoid_: title date.
 
 **Status pill**:
-One status's switch, in the search panel's Statuses section (the **Statuses section**, at every width): on shows that status's cards, off hides them, and soloing keeps that status alone. No view holds a row of them. It still belongs to its view (each view keeps its own set) and never touches the selection.
+One status's switch, in the search panel's Statuses section: on shows that status's cards, off hides them, and soloing keeps that status alone. No view holds a row of them. It still belongs to its view (each view keeps its own set) and never touches the selection.
 _Avoid_: pill (alone), filter chip.
 
 **Isolate**:
