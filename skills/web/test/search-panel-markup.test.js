@@ -92,8 +92,8 @@ test('the panel is hidden to start, a named group, and keeps a selection', () =>
   assert.notStrictEqual(attr(panel, 'data-keeps-selection'), null, 'a click on its empty space never clears a card selection');
 });
 
-test('the panel has a slice region, then the pill section, then a divider, then a foot, each its own element', () => {
-  const order = [at('search-slices'), at('search-pills-fold'), at('search-pills'), bar.indexOf('class="search-divider"'), at('search-foot')];
+test('the panel has the Statuses section, then a slice region, then the pill section, then a divider, then a foot, each its own element', () => {
+  const order = [at('search-statuses-fold'), at('search-statuses'), at('search-slices'), at('search-pills-fold'), at('search-pills'), bar.indexOf('class="search-divider"'), at('search-foot')];
   assert.ok(order.every((i) => i > -1), 'every region is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
   assert.match(bar, /<div id="search-slices"[^>]*><\/div>/, 'the slice region starts empty');
@@ -111,6 +111,22 @@ test('the pill section has a fold control that says whether it is open and names
   const pills = tagOf('search-pills');
   assert.strictEqual(attr(pills, 'role'), 'group');
   assert.strictEqual(attr(pills, 'aria-labelledby'), 'search-pills-fold');
+});
+
+test('the Statuses section is static markup first in the panel: a fold control that is open, names what it folds and keeps a selection, and a pill host it labels', () => {
+  const panel = bar.slice(bar.indexOf('<div id="search-panel"'));
+  assert.match(panel, /^<div id="search-panel"[^>]*>\s*<section id="search-statuses-section"/, 'the first thing in the panel');
+  const fold = tagOf('search-statuses-fold');
+  assert.strictEqual(attr(fold, 'type'), 'button');
+  assert.strictEqual(attr(fold, 'aria-expanded'), 'true', 'open to start');
+  assert.strictEqual(attr(fold, 'aria-controls'), 'search-statuses');
+  assert.strictEqual(attr(fold, 'aria-label'), 'Statuses');
+  assert.notStrictEqual(attr(fold, 'data-keeps-selection'), null);
+  const host = tagOf('search-statuses');
+  assert.strictEqual(attr(host, 'role'), 'group');
+  assert.strictEqual(attr(host, 'aria-labelledby'), 'search-statuses-fold');
+  assert.notStrictEqual(attr(host, 'data-keeps-selection'), null);
+  assert.match(bar, /<div id="search-statuses"[^>]*><\/div>/, 'the host starts empty: the page draws the pills');
 });
 
 test('nothing in the bar or the panel holds the poll: a button left focused by a click would stop it for good', () => {

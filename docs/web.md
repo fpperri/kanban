@@ -223,7 +223,9 @@ and a second click switches it on and opens the panel now. The `p` key flips the
 switch, except while you type in a field or a menu, a dialog, the notifications panel or
 the preferences sheet is up. The arrow is announced as pressed while the switch is on and
 is struck through while it is off, the choice is kept in your browser per board, and the
-preferences sheet shows and sets it. The panel adds nothing to the header's height. It
+preferences sheet shows and sets it. The panel adds nothing to the header's height. It opens with a Statuses section, the current
+view's own status pills (the Map, the Gantt, the Calendar and the Graph; none on the Board), where
+a tap switches a status and a right-click solos it. Under it the panel
 lists the built-in pills, blocked, review and waiting, each with a count of the cards its
 query matches, done cards included. The counts are taken over the cards the view shows
 after its status pills and Archive, and before the search box, so turning one pill on
