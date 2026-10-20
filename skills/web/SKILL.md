@@ -635,12 +635,15 @@ to `127.0.0.1` only.
   popup for the whole selection, so it asks once). The popup says what goes, and says which
   groups lose the card: its id always leaves every group's list, so no group points at a gone
   card. Its extras are boxes, each **unticked**: **Its logbook** (with the count of its notes)
-  deletes the card's day files; left unticked they stay and read as dangling. A group's popup
-  (the Group tab's **Delete group…**) deletes the group file and offers the same logbook box,
+  deletes the card's day files; left unticked they stay and read as dangling. **Its scratchpad**
+  (only when the board keeps scratchpads and the card has a page, or **Their scratchpads** with
+  the count over a selection) deletes its page, and unticked the page stays: the kanban never
+  deletes one otherwise. A group's popup
+  (the Group tab's **Delete group…**) deletes the group file and offers the same logbook and scratchpad boxes,
   plus **Its member cards**: the list shows each member it would delete and names the members
   another group holds as skipped, with the groups that hold them, and only the others are
   deleted (their logbooks stay). The server's `DELETE /api/cards/<id>` and
-  `DELETE /api/groups/<id>` take `{ logbook, members }` in the body, each only when `true`,
+  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, members }` in the body, each only when `true`,
   and answer what went (`groups`, `deleted`, `kept`, `swept`). Archiving never opens it and
   gets none of its questions.
 
@@ -1016,11 +1019,11 @@ to `127.0.0.1` only.
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
   the sheet), and a click inside it never clears a selection. `?` opens the sheet on its Hotkeys page.
-  **This board** has the pages Logbook, Groups, Prefixes and Counters, each written to
+  **This board** has the pages Logbook, Scratchpad, Groups, Prefixes and Counters, each written to
   `config.yaml` one top-level line at a time (the line replaced, inserted or removed, every
   other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with
-  `{ key, value }`, which answers `{ settings }` as the file now reads. **Logbook** and
-  **Groups** each have an on/off switch (off removes the line, on writes the folder) and a
+  `{ key, value }`, which answers `{ settings }` as the file now reads. **Logbook**,
+  **Scratchpad** and **Groups** each have an on/off switch (off removes the line, on writes the folder) and a
   folder field (saving a folder turns the feature on). The page takes a folder inside the
   board only, saved relative to it, and the server refuses a folder that leaves the board,
   the board itself, or a name that would need quoting in the file (400); a folder written by
@@ -1032,7 +1035,7 @@ to `127.0.0.1` only.
   each opening its group in the palette, and **New group…**. **Prefixes** shows the `prefixes:` block as a read only
   table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
   new card files. **Counters** shows `nextId:` and the `counters:` line, read only. The
-  `/api/board` payload carries `settings`: `logbook` and `groups` as `{ on, folder, locked,
+  `/api/board` payload carries `settings`: `logbook`, `scratchpad` and `groups` as `{ on, folder, locked,
   reason }`, `idDigits`, `nextId`, `prefixes` and `counters` (the Iterations switch shows the
   payload's own top-level `iterations`). Another page of
   This board is added with `settingsAddBoardPage` in `settings-ui.js`.
@@ -1068,6 +1071,22 @@ to `127.0.0.1` only.
   file's name from a day and an id and never from request text; a write re-reads the file
   and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
   a day file survive every write. The Graph's names step moved to `l` to free `n`.
+- **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
+  pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
+  `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.
+  Without the line nothing of it shows. The notes palette gains a **Scratchpad** tab, after
+  Notes (and after a group's Group tab); a card opens on it alone when the logbook is off, and
+  opens on it from the card menu's **Scratchpad…** (one card) or the Group tab's
+  **Scratchpad** button. The tab shows the page's file (`(not written yet)` until the first
+  save), its refs (a mention among them is a chip that opens the card) and a multi-line box;
+  **Ctrl+Enter** or **Save** writes the body, and the frontmatter stays as written. The page is
+  read when the tab opens, so a refresh does not redraw it under the person's hands, and text
+  not yet saved is kept in the page until it is reloaded. The server's
+  `GET /api/scratchpad/<id>` answers `{ pad: { target, exists, file, refs, body } }` and
+  `PUT /api/scratchpad/<id>` with `{ body }` writes the body (404 with the scratchpad off, 400 for
+  an id or a body that is wrong, 413 for a page over 300000 characters); there is no delete
+  route, only the delete popup's **Its scratchpad** takes a page. The `/api/board` payload
+  carries `scratchpad: { folder, targets }`, the ids that have a page, or `null`.
 - **Groups** — with a `groups:` line in `config.yaml` (the folder of the board's group
   files, see the kanban skill's groups section) a card shows **badges** below its title: up to
   two small buttons (`#I2 zephyr-2`) and `+N` for the rest, the dates and the type path (the
@@ -2056,6 +2075,11 @@ handle a card carries.
   slash) or a path under it (`I: .groups/iteration`), or any path with a slash read relative
   to the groups folder (`W: workflow/`); a bare word is a card type. A group in exactly the
   folder a prefix names takes it, else `_`. The web never writes this key.
+- **`scratchpad`** (a folder, relative to the board; absolute when written by hand) turns
+  scratchpads on: the board payload then carries `scratchpad: { folder, targets }` and the
+  page shows the palette's Scratchpad tab. Absent, the payload carries `scratchpad: null` and
+  nothing of it shows. The gear's Scratchpad page writes this one line; a folder outside the
+  board works for reading and writing.
 - **`logbook`** (a folder, relative to the board; absolute when written by hand) turns the
   logbook on: the board payload then carries `logbook: { folder, notes }`, every note of the
   day files in it, and the page shows the notes palette. Absent, the payload carries

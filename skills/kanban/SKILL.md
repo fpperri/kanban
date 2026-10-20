@@ -240,6 +240,8 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`logbook` — the folder of the board's notes.** `logbook: logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Logbook), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The logbook: notes in day files* below.
 
+**`scratchpad` — the folder of the board's scratchpads.** `scratchpad: .scratchpad` (relative to the board, or an absolute path written by hand) turns scratchpads on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Scratchpad), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The scratchpad: a disposable page per card or group* below.
+
 Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them (the web's gear sheet writes `idDigits:` for the human, one line, and shows `prefixes:` and `counters:` read only). The id counters' writes (`nextId:` for a plain id, `counters:` for a prefixed one) replace their own one line, or insert it below `nextId:`, and leave these lines, comments and every unknown key as they were.
 
 The `priorities`/`tags` lists are **HITL-curated suggestions**: prefer official values when creating cards, free text stays legal, and only the human adds new values to the lists. Absent file = fall back to the max+1 scan and freeform values; never create `config.yaml` yourself — seeding `name:` is the one exception to that (above) — and never invent a key beyond the three named exceptions above (`name:`, `artifact:`, `port:`), of which only `name:` and `artifact:` an AI ever writes on its own. **Rescan ids in the same turn you create a card** — the web app or another session may be writing concurrently.
@@ -297,6 +299,29 @@ free markdown, kept as written
 **Writing a note (agents may).** Re-read the day file just before you write it (the web may have written it a moment ago), add an entry, keep the entries in time order with untimed last, and write the file back whole through a temporary file and a rename, creating it when absent. Never change another entry, another frontmatter key, a key an entry carries that you do not know, or the body below: they are the person's, and the web keeps them byte for byte too. Quote a note that would otherwise read as something other than a string (`note: "fixed #12 today"`, a leading `-`, `@` or `[`, a `: ` inside). A file with nothing left in it is deleted.
 
 The web reads the same files, shows a card's notes behind a small count on its tile, and lets a person edit, delete and **assign** a note: assign moves that one note into the other target's file for the same day. When the web and an agent write one file at once, the web re-reads and retries once, then reports a conflict, so a re-read before every write is what keeps both notes.
+
+### The scratchpad: a disposable page per card or group
+
+A **scratchpad** is a working page for one card or one group: a checklist, a paste, a half-formed plan, anything that does not belong in the card or in a note. It is meant to be thrown away. Scratchpads live in the folder `scratchpad:` names, **one Markdown file per target**, named `<padded id>.scratchpad.md`: `0007.scratchpad.md` for card `#7`, `I0002.scratchpad.md` for group `#I2` (the id padded to `idDigits` after its prefix; the number is what is read, so any padding resolves). A target has at most one page.
+
+```yaml
+---
+refs:                       # optional; what the page points at: notes, files, folders, mentions
+  - src/orders/schema.js
+  - 2026.10.16.0007.logbook.md
+  - "#3"
+---
+
+anything at all, kept as written
+```
+
+The frontmatter is optional and holds only `refs:` (a block list or `refs: [a, b]`); every other key in it is kept. Below it the body is free Markdown with no structure the board reads. A file with no frontmatter is all body.
+
+**Writing a page (agents may).** Re-read the file just before you write it (the web may have saved it a moment ago), change only the body or the refs you mean, keep every other frontmatter key and the line ending, and write it back through a temporary file and a rename, creating the folder and the file when absent. The page is the person's scratch space: write one only when asked or when you need somewhere to put working text for that target, and say in the card's narrative or a note when a decision depends on what it holds.
+
+**The kanban never deletes one.** Deleting a card or a group leaves its page where it is (and it reads as dangling) unless the person ticks **Its scratchpad** in the web's delete popup; archiving never touches it. An agent that deletes a card does not delete its page unless it was told to.
+
+The web shows a page on the **Scratchpad** tab of the notes palette (a card's, or a group's after its Group tab): the file, its refs, and a multi-line box that Ctrl+Enter or Save writes. A page is read when its tab opens and saved whole; the web writes the body and leaves the frontmatter.
 
 ### Groups: files that list their cards
 
