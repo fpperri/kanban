@@ -269,6 +269,33 @@ button:hover { background: var(--btn-hover); }
 .iter-select { min-width: 0; max-width: min(22em, calc(100vw - 32px)); background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 4px 6px; border-radius: .15rem; font: inherit; font-size: 0.85em; }
 .iter-select:focus { outline: none; border-color: var(--accent); }
 .iter-select.narrowed { border-color: var(--accent); color: var(--accent-strong); }
+/* The More button and its menu (more-menu.js) are drawn under 760 px only. */
+.more-btn, .more-menu { display: none; }
+.more-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; flex-direction: column; min-width: 12em; padding: 4px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow); }
+.more-item { display: block; text-align: left; padding: 10px 12px; background: transparent; border: 0; color: var(--ink); font-size: 0.9em; text-decoration: none; border-radius: .15rem; }
+.more-item:hover, .more-item:focus-visible { background: var(--btn-hover); }
+.more-iter { display: flex; align-items: center; gap: 8px; }
+.more-iter .iter-select { flex: 1 1 auto; }
+/* Phone header: under 760 px the top row is one line (the board name shortened with an ellipsis, New card, the view
+   buttons as icons, the bell, More) and the search bar takes its own full-width row under it. Refresh, the gear, the copy
+   button, the home link and the iteration select move into the More menu; the stale cue stays. A label is hidden by
+   clipping, not display: none, so a button keeps its accessible name. */
+@media (max-width: 759.98px) {
+  header { gap: 6px; }
+  .title-group { order: 1; flex: 1 1 0; min-width: 0; }
+  h1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.15em; }
+  .actions { order: 2; gap: 4px; }
+  .more-btn { order: 3; display: inline-flex; align-items: center; padding: 6px 8px; }
+  .more-btn svg { width: 15px; height: 15px; }
+  .search-bar { order: 4; flex: 1 1 100%; max-width: none; min-width: 0; }
+  .more-menu:not(.hidden) { display: flex; }
+  #refresh-btn, #prefs-btn, #board-copy-btn, .home-link, .iter-select { display: none; }
+  .more-iter .iter-select { display: block; }
+  .actions > button { position: relative; padding: 6px 8px; }
+  .actions > button:has(.btn-icon) { gap: 0; }
+  .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #stale-indicator { max-width: 1.2em; overflow: hidden; white-space: nowrap; }
+}
 .search-bar { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
 .search-input { width: 100%; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 10px; border-radius: .15rem; font-size: 0.85em; font-family: inherit; }
 .search-input:focus { outline: none; border-color: var(--accent); }

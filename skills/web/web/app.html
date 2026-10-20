@@ -72,6 +72,17 @@
     </button>
     <span id="stale-indicator" class="hidden" title="Auto-refresh can't reach the server — showing last loaded data">⚠ stale</span>
   </div>
+  <!-- The phone header's More button and menu (more-menu.js): the stylesheet draws them under 760 px only. The menu holds what the desktop header shows, so the home link and the iteration picker are hidden unless the board has them. -->
+  <button id="more-btn" type="button" class="more-btn" data-keeps-selection aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" aria-label="More" title="More">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
+  </button>
+  <div id="more-menu" class="more-menu hidden" role="menu" aria-label="More" data-keeps-selection>
+    <button type="button" id="more-prefs" class="more-item" role="menuitem" data-keeps-selection>Preferences</button>
+    <button type="button" id="more-refresh" class="more-item" role="menuitem" data-keeps-selection>Refresh</button>
+    <button type="button" id="more-copy" class="more-item" role="menuitem" data-keeps-selection>Copy board path</button>
+    <a id="more-home" class="more-item hidden" role="menuitem" rel="noopener noreferrer" data-keeps-selection>Home page</a>
+    <div id="more-iter" class="more-item more-iter hidden" role="none"><label for="more-iter-select">Iteration</label><select id="more-iter-select" class="iter-select" data-keeps-selection data-holds-poll></select></div>
+  </div>
 </header>
 <div id="toast" class="toast hidden" title="Click to dismiss"></div>
 <main id="board"></main>
@@ -567,6 +578,7 @@
 <script src="/delete-plan.js"></script>
 <script src="/delete-ui.js"></script>
 <script src="/settings-ui.js"></script>
+<script src="/more-menu.js"></script>
 <script src="/scratchpad-ui.js"></script>
 <script src="/iterations-ui.js"></script>
 <script src="/graph-view.js"></script>

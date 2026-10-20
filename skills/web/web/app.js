@@ -3409,6 +3409,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // listener ever sees the key, so nothing here needs to special-case it.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (moreMenuClose()) { e.preventDefault(); $('#more-btn').focus(); return; }
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
     if (!$('#prefs-sheet').classList.contains('hidden')) { settingsStepBack(); return; }
