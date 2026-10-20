@@ -56,10 +56,6 @@
 // prefs.js (loadPrefs) and key-guard.js (keyGuardOff).
 
 let searchPanelOpen = false;
-// Whether the pill section is folded for this visit; null until it is read from the
-// preferences, which have to wait for the board's name (they are kept per board).
-let searchPillsFolded = null;
-let searchPillsFoldedFor = '';
 // The fields whose value pills are all shown rather than the first eight, for this visit.
 const searchPillGroupsOpen = new Set();
 
@@ -338,36 +334,39 @@ function onSearchPanelOutside(e) {
 
 // --- the fold --------------------------------------------------------------------------------------
 
-// Whether the pill section is folded: the choice made at the fold control for this
-// visit, or the preference until there is one.
-function currentPillsFolded() {
-  if (searchPillsFolded === null || searchPillsFoldedFor !== state.projectName) {
-    searchPillsFolded = loadPrefsState().pillsFolded;
-    searchPillsFoldedFor = state.projectName;
-  }
-  return searchPillsFolded;
+// One fold for a section of the search panel: whether it is folded is the choice made at its fold
+// control for this visit, or the preference (prefKey, read per board) until there is one. The Pills,
+// Slices and Statuses sections each hold one, made from their preference key and element ids.
+function searchFoldSection(prefKey, hostSel, foldSel) {
+  let folded = null;
+  let foldedFor = null;
+  const current = () => {
+    if (folded === null || foldedFor !== state.projectName) {
+      folded = loadPrefsState()[prefKey];
+      foldedFor = state.projectName;
+    }
+    return folded;
+  };
+  const apply = () => {
+    const on = current();
+    const host = $(hostSel);
+    const fold = $(foldSel);
+    if (host) host.classList.toggle('hidden', on);
+    if (fold) fold.setAttribute('aria-expanded', String(!on));
+  };
+  return {
+    current,
+    apply,
+    toggle() { folded = !current(); apply(); }, // the fold control: this visit only
+    set(on) { folded = !!on; foldedFor = state.projectName; apply(); }, // the preference changed in the sheet: the section takes it now
+  };
 }
 
-function applyPillsFold() {
-  const folded = currentPillsFolded();
-  const host = $('#search-pills');
-  const fold = $('#search-pills-fold');
-  if (host) host.classList.toggle('hidden', folded);
-  if (fold) fold.setAttribute('aria-expanded', String(!folded));
-}
-
-// The fold control: folds or unfolds the section for this visit only.
-function toggleSearchPillsFold() {
-  searchPillsFolded = !currentPillsFolded();
-  applyPillsFold();
-}
-
-// The preference changed in the sheet: the section takes it now.
-function foldSearchPills(folded) {
-  searchPillsFolded = !!folded;
-  searchPillsFoldedFor = state.projectName;
-  applyPillsFold();
-}
+const pillsFold = searchFoldSection('pillsFolded', '#search-pills', '#search-pills-fold');
+const currentPillsFolded = pillsFold.current;
+const applyPillsFold = pillsFold.apply;
+const toggleSearchPillsFold = pillsFold.toggle;
+const foldSearchPills = pillsFold.set;
 
 // --- a click on a pill ---------------------------------------------------------------------------
 

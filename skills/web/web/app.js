@@ -995,29 +995,17 @@ function setArchivedDone(on) {
   repaintRollups();
 }
 
-// Whether the search panel's pill section starts folded; the section takes the
-// choice now (search-panel.js).
-function setPillsFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { pillsFolded: on });
+// Whether a section of the search panel starts folded; the section takes the choice now (searchFoldSection,
+// search-panel.js).
+function setFoldPref(prefKey, on, fold) {
+  prefsMemo = prefsWith(loadPrefsState(), { [prefKey]: on });
   savePrefsState();
-  foldSearchPills(on);
+  fold(on);
 }
 
-// Whether the search panel's Statuses section starts folded; the section takes the choice now
-// (search-statuses.js).
-function setStatusesFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { statusesFolded: on });
-  savePrefsState();
-  foldSearchStatuses(on);
-}
-
-// Whether the search panel's slice section starts folded; the section takes the choice now
-// (search-slices.js).
-function setSlicesFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { slicesFolded: on });
-  savePrefsState();
-  foldSearchSlices(on);
-}
+function setPillsFolded(on) { setFoldPref('pillsFolded', on, foldSearchPills); }
+function setStatusesFolded(on) { setFoldPref('statusesFolded', on, foldSearchStatuses); }
+function setSlicesFolded(on) { setFoldPref('slicesFolded', on, foldSearchSlices); }
 
 // Whether the search panel opens when the search box is focused: the switch at the end
 // of the box, flipped by a click on the arrow and by the p key (which open the panel at
