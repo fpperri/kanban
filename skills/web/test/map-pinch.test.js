@@ -212,10 +212,10 @@ test('a third finger starts nothing while two are pinching', async () => {
 
 // --- source pins -----------------------------------------------------------------------------
 
-test('the Map canvas leaves one finger to scroll and takes two for the script, in the stylesheet and not in a style attribute', () => {
+test('the Map canvas hands every touch to the script, so a pinch is never cancelled by a native scroll, in the stylesheet and not in a style attribute', () => {
   const rule = read('app.css').match(/\.map-canvas \{[^}]*\}/);
   assert.ok(rule, '.map-canvas rule found');
-  assert.match(rule[0], /touch-action: pan-x pan-y/);
+  assert.match(rule[0], /touch-action: none/);
   const wire = read('app.js').match(/function wireMapPanZoom\([\s\S]*?\n\}/)[0];
   assert.doesNotMatch(wire, /style=|setAttribute\('style'|\.onclick/);
   assert.doesNotMatch(read('app.html'), /map-canvas/);

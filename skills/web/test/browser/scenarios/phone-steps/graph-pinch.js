@@ -6,9 +6,16 @@ const { pinch } = require('../../steps');
 
 module.exports = {
   async run(page) {
-    const { ev, open, waitFor, centre, check } = page;
+    const { ev, open, waitFor, centre, check, sleep } = page;
     await open('/?view=graph');
     check('the Graph draws at phone width', await waitFor(`!!graphCur&&document.querySelectorAll('.graph-node').length>0`, 10000));
+    let settled = await ev(`graphCur.view.k`);
+    for (let i = 0; i < 20; i++) {
+      await sleep(300);
+      const now = await ev(`graphCur.view.k`);
+      if (now === settled) break;
+      settled = now;
+    }
     const before = await ev(`({k:graphCur.view.k,sel:[...selectedIds].sort().join(','),href:location.href})`);
     const c = await centre('.graph-canvas');
     await pinch(page, c, { from: 80, to: 240 });
