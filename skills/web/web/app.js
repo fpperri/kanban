@@ -1406,7 +1406,7 @@ function keepControlFocus(el, action) {
 // listener (see the map wiring section).
 function buildMapFilterRow() {
   const row = buildFilterPillRow(loadMapStatusFilter(), boardColumnIds(), 'map-filter-row', 'map-filter-toggle',
-    (col, on) => `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the map (hidden cards ghost when a visible card references them)`);
+    (col, on) => statusFilterTitle('map', col, columnLabel(col), on));
   return row;
 }
 
@@ -1609,9 +1609,7 @@ function buildMapOptionsRow() {
 // ride #gantt-view's own delegated listener (see wireGanttPointerDrag).
 function buildGanttFilterRow() {
   return buildFilterPillRow(loadGanttStatusFilter(), boardColumnIds(), 'gantt-filter-row', 'gantt-filter-toggle',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the timeline (dated archived cards render in their own Archive group, muted grey)`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the timeline (the visible window re-derives from what's left)`);
+    (col, on) => statusFilterTitle('gantt', col, columnLabel(col), on));
 }
 
 // Same mechanism again, calendar-scoped: statuses +
@@ -1622,9 +1620,7 @@ function buildGanttFilterRow() {
 // #calendar-view's own delegated listener (see the calendar wiring section).
 function buildCalendarFilterRow() {
   return buildFilterPillRow(loadCalendarStatusFilter(), boardColumnIds(), 'calendar-filter-row', 'calendar-filter-toggle',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the calendar (dated archived cards render read-only, with the archived ball)`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the calendar`);
+    (col, on) => statusFilterTitle('calendar', col, columnLabel(col), on));
 }
 
 // The map's fold toggles (the graphs, No relations) share
