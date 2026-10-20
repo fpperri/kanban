@@ -186,6 +186,35 @@ function syncSearchChip(selection) {
   chip.textContent = isolated ? 'isolated' : count ? String(count) : '';
   chip.setAttribute('aria-label', name);
   if (chip.title !== name) chip.title = name;
+  syncSearchButton(count);
+}
+
+// The phone's search button (#search-btn, in the header's top row under 760 px) is lit while the
+// box has text or the chip counts any filter, a status switched off in the view among them, so a
+// closed search field still says the Board is cut.
+function syncSearchButton(count) {
+  const button = $('#search-btn');
+  if (!button) return;
+  const input = $('#search-input');
+  button.classList.toggle('lit', count > 0 || (!!input && input.value !== ''));
+}
+
+// Whether the phone's search field is open: the class on the search bar that the stylesheet shows
+// it by, under 760 px. Closing keeps the box's text, so the query and the filter stay. Above the
+// line the class does nothing, the bar always being shown.
+let searchFieldOpen = false;
+
+function setSearchFieldOpen(open) {
+  searchFieldOpen = !!open;
+  $('.search-bar').classList.toggle('search-open', searchFieldOpen);
+  $('#search-btn').setAttribute('aria-expanded', String(searchFieldOpen));
+  if (searchFieldOpen) {
+    $('#search-input').focus();
+  } else {
+    setSearchPanelOpen(false);
+    const box = $('#search-input');
+    if (document.activeElement === box) box.blur();
+  }
 }
 
 // Every repaint of the board comes here (renderBoard): the chip always, the pills
@@ -302,8 +331,9 @@ function closeSearchPanel(strandedOnly = false) {
 
 // A press anywhere outside the search bar closes the panel, as it closes any popup.
 function onSearchPanelOutside(e) {
-  if (!searchPanelOpen || e.target.closest('.search-bar')) return;
-  setSearchPanelOpen(false);
+  if (e.target.closest('.search-bar')) return;
+  if (searchFieldOpen && !e.target.closest('#search-btn')) setSearchFieldOpen(false);
+  else if (searchPanelOpen) setSearchPanelOpen(false);
 }
 
 // --- the fold --------------------------------------------------------------------------------------
@@ -417,6 +447,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#search-panel-toggle').addEventListener('click', flipSearchPanelSwitch);
   $('#search-panel-toggle').addEventListener('keydown', onSearchSwitchKeyDown);
   $('#search-chip').addEventListener('click', onSearchChipClick);
+  $('#search-btn').addEventListener('click', () => setSearchFieldOpen(!searchFieldOpen));
   $('#search-input').addEventListener('focus', onSearchBoxFocus);
   document.addEventListener('keydown', onSearchPanelKey);
   document.addEventListener('keydown', onPillStepKey);

@@ -287,7 +287,6 @@ button:hover { background: var(--btn-hover); }
   .actions { order: 2; gap: 4px; }
   .more-btn { order: 3; display: inline-flex; align-items: center; padding: 6px 8px; }
   .more-btn svg { width: 15px; height: 15px; }
-  .search-bar { order: 4; flex: 1 1 100%; max-width: none; min-width: 0; }
   .more-menu:not(.hidden) { display: flex; }
   #refresh-btn, #prefs-btn, #board-copy-btn, .home-link, .iter-select, .actions > [data-view-toggle] { display: none; }
   .more-iter .iter-select { display: block; }
@@ -359,7 +358,19 @@ button:hover { background: var(--btn-hover); }
 .status-pill.off { color: var(--mut); text-decoration: line-through; }
 .status-pill:hover { background: var(--btn-bg); }
 .status-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The phone's search button (search-panel.js) stands in the header's top row for the search bar, which is hidden until
+   the button opens it; opened, the bar spans the header on a row of its own. The button is lit while the box has text or
+   the search chip counts a filter. While the input has focus the view bar is not displayed, so it does not ride up over
+   the keyboard, and the Board takes its room. */
+.search-btn { display: none; }
+.search-btn.lit { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); }
 @media (max-width: 759.98px) {
+  .search-btn { display: inline-flex; align-items: center; }
+  .search-btn svg { width: 15px; height: 15px; }
+  .search-bar { display: none; }
+  .search-bar.search-open { display: flex; order: 4; flex: 1 1 100%; max-width: none; min-width: 0; }
+  :root:has(.search-input:focus) { --view-bar-h: 0px; }
+  :root:has(.search-input:focus) #view-bar { display: none; }
   .search-panel { max-height: 70vh; overflow-y: auto; }
   .status-pill { min-height: 44px; padding: 2px 14px; font-size: 0.9em; }
 }

@@ -3,7 +3,7 @@
 // name, New card, the view buttons, the bell and More share one row, and the name ellipsises without
 // wrapping; More lists exactly the items the desktop header shows for the board, and its Refresh
 // reloads the board; a stale cue that is shown sits inside the header, on the same row. The search
-// bar sits on its own row under the top row.
+// bar is not displayed until the search button opens it (search.js), so the header is the one row.
 
 const ROW = `(()=>{
   const r = (el) => el.getBoundingClientRect();
@@ -16,8 +16,7 @@ const ROW = `(()=>{
     sameRow: Math.max(...mid) - Math.min(...mid) < 6,
     inside: boxes.every((b) => b.left >= 0 && b.right <= innerWidth),
     ellipsis: h1.textOverflow === 'ellipsis' && h1.whiteSpace === 'nowrap',
-    below: r(document.querySelector('.search-bar')).top >= Math.max(...boxes.map((b) => b.bottom)) - 1,
-    wide: r(document.querySelector('.search-bar')).width > innerWidth - 40,
+    barHidden: getComputedStyle(document.querySelector('.search-bar')).display === 'none',
     noWrap: document.documentElement.scrollWidth <= innerWidth,
   };
 })()`;
@@ -45,7 +44,7 @@ module.exports = {
       const row = await ev(ROW);
       check(`${name}: the name, New card, the bell and More share one row inside the window`, row.count === 4 && row.sameRow && row.inside, JSON.stringify(row));
       check(`${name}: the name ellipsises without wrapping and the page does not scroll sideways`, row.ellipsis && row.noWrap, JSON.stringify(row));
-      check(`${name}: the search bar is on its own full-width row under the top row`, row.below && row.wide, JSON.stringify(row));
+      check(`${name}: the search bar is not displayed until its button opens it`, row.barHidden, JSON.stringify(row));
 
       await ev(`document.getElementById('more-btn').click()`);
       check(`${name}: More opens its menu`, await waitFor(MENU_OPEN, 2000));
