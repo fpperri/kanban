@@ -41,7 +41,7 @@ module.exports = {
     for (const [board, name] of [[undefined, 'plan'], ['feature', 'feature']]) {
       const { ev, open, waitFor, check } = page;
       await open('/', board);
-      check(`${name}: the Board draws`, await waitFor(`document.querySelectorAll('#board .column .card-el').length>0`, 10000));
+      check(`${name}: the Board draws`, await waitFor(`document.querySelectorAll('#board .column').length===1&&document.querySelectorAll('#board-tabs .board-tab').length>0`, 10000));
       const row = await ev(ROW);
       check(`${name}: the name, New card, the view buttons, the bell and More share one row inside the window`, row.count === 8 && row.sameRow && row.inside, JSON.stringify(row));
       check(`${name}: the name ellipsises without wrapping and the page does not scroll sideways`, row.ellipsis && row.noWrap, JSON.stringify(row));
