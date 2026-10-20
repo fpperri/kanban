@@ -82,6 +82,14 @@ test('with no groups: line the payload carries no groups and every group route i
   assert.deepStrictEqual(fs.readdirSync(dir).filter((n) => n.startsWith('.groups')), []);
 });
 
+test('the payload says whether iterations are on: only with iterations: true and a groups: line', async () => {
+  const on = tmpBoard({ config: CONFIG + 'iterations: true\n' });
+  await withServer(on, async (base) => assert.strictEqual((await board(base)).iterations, true));
+  await withServer(tmpBoard(), async (base) => assert.strictEqual((await board(base)).iterations, false));
+  const noGroups = tmpBoard({ config: 'name: t\niterations: true\n' });
+  await withServer(noGroups, async (base) => assert.strictEqual((await board(base)).iterations, false, 'iterations are groups: no groups, no dropdown'));
+});
+
 test('with a groups: line and no folder yet the payload carries an empty groups', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {

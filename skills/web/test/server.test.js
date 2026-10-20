@@ -2245,7 +2245,7 @@ test('the calendar month grid AND the sub-month time grid both append search-fil
     assert.ok(month, 'renderCalendarMonthGrid found in app.js');
     assert.match(month[0], /loadCalendarStatusFilter\(\)\.archive === true/, 'the Archive pill\'s OWN boolean gates inclusion — a missing/stale/false value must never render archived chips');
     assert.match(month[0], /state\.archived\.filter\(\(c\) => searchIds\.has\(c\.id\)\)/, 'archived cards still respect the live search box');
-    assert.match(month[0], /const searchIds = currentSearchMatch\(\)\.ids;/, 'the search pool spans live + archived unconditionally, same as the gantt: the shared match result is made over the whole board');
+    assert.match(month[0], /const searchIds = withIterationCut\(currentSearchMatch\(\)\.ids\);/, 'the search pool spans live + archived unconditionally, same as the gantt: the shared match result is made over the whole board, cut to the picked iteration');
     const timegrid = js.match(/function renderCalendarTimeGrid\([\s\S]*?\n\}/);
     assert.ok(timegrid, 'renderCalendarTimeGrid found in app.js');
     assert.match(timegrid[0], /loadCalendarStatusFilter\(\)\.archive === true/, 'the #58 sub-month grid gates archived inclusion the same way as the month grid');

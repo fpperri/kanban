@@ -122,7 +122,7 @@ function openGroupForm(draft = {}, after = null) {
   Object.assign(name, { type: 'text', id: 'gf-name', value: draft.name || '', autocomplete: 'off', spellcheck: false, placeholder: 'e.g. zephyr-3' });
   const folder = groupEl('select');
   folder.id = 'gf-folder';
-  for (const c of groupFolderChoices(state.groups)) {
+  for (const c of groupFolderChoices(state.groups, draft.folder || '')) {
     const o = groupEl('option', '', c.label);
     o.value = c.value;
     folder.append(o);

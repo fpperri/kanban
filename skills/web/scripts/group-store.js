@@ -30,6 +30,7 @@ const path = require('path');
 const cfg = require('./config-store');
 const cs = require('./card-store');
 const ids = require('../web/ids');
+const { groupRunning } = require('../web/groups');
 const { scalar, quote } = require('./yaml-list');
 
 class GroupError extends Error {
@@ -447,4 +448,26 @@ function deleteGroup(dir, id) {
   return group;
 }
 
-module.exports = { GroupError, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, groupsHolding, dropCard, deleteGroup };
+// A new card joins every group that is running on `day` (the creator's local date) with
+// `auto_join` on, and no other. Returns the groups it newly joined as { id, name }, in id
+// order. The card is already written, so one group that cannot take it is warned about and
+// skipped, never fatal: the card stays, and the next group still gets its turn.
+function joinRunning(dir, cardId, day) {
+  const read = readGroups(dir);
+  if (!read) return [];
+  const card = ids.idKey(cardId);
+  const joined = [];
+  for (const g of read.list) {
+    if (!g.auto_join || !groupRunning(g, day) || g.cards.includes(card)) continue;
+    try {
+      changeMembers(dir, g.id, { add: [card] });
+      joined.push({ id: g.id, name: g.name });
+    } catch (e) {
+      if (e.name !== 'GroupError') throw e;
+      console.warn(`[kanban-app] card #${card} did not join group #${g.id}: ${e.message}`);
+    }
+  }
+  return joined;
+}
+
+module.exports = { GroupError, groupsFolder, readGroups, createGroup, updateGroup, changeMembers, joinRunning, groupsHolding, dropCard, deleteGroup };

@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null, iterations: false }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -762,7 +762,8 @@ function currentSearchMatch() {
 // about a query, read by what is drawn, what is lit and what a selection can reach.
 // While isolate is on the whole query is a cut, as it is in every other view.
 function currentGraphQueryEffect() {
-  return graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx(), { isolated: isolateNow() !== null });
+  const effect = graphQueryEffect(currentSearchMatch(), state.active.concat(state.archived), searchCtx(), { isolated: isolateNow() !== null });
+  return { visibleIds: withIterationCut(effect.visibleIds), litIds: effect.litIds }; // the picked iteration hides the cards outside it, on top of a slice: cut
 }
 
 // The cards one piece of search text matches, over the whole board like the box.
@@ -805,6 +806,7 @@ function cardIsScheduled(card) {
 function viewCardIds(withSearch) {
   const pool = state.active.concat(state.archived);
   const searchIds = withSearch ? currentSearchMatch().ids : null;
+  const cut = iterationCutIds();
   const mode = loadViewMode();
   let visible;
   if (mode === 'graph') {
@@ -819,7 +821,8 @@ function viewCardIds(withSearch) {
     const open = pool.filter((c) => !collapsed[mapFilterColumn(c, boardStatuses())]);
     visible = intersectVisibleIds(searchIds, new Set(open.map((c) => c.id)));
   }
-  return visible || new Set(pool.map((c) => c.id));
+  const shownIds = visible || new Set(pool.map((c) => c.id));
+  return cut ? intersectVisibleIds(shownIds, cut) : shownIds; // the iteration's cut counts with or without the box: it is not a search
 }
 
 function shownCardIds() {
@@ -1079,6 +1082,7 @@ function applyViewMode() {
 
 function renderBoard() {
   nestingIndex = buildNestingIndex();
+  renderIterations(); // the dropdown, before the views read the cut it makes
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
   try {
@@ -1132,8 +1136,9 @@ function renderBoardColumns() {
   board.innerHTML = '';
   const collapsed = loadCollapsedColumns();
   const colSort = loadColumnSort();
-  const searchIds = currentSearchMatch().ids;
-  const searchActive = searchIds !== null;
+  const searchActive = currentSearchMatch().ids !== null;
+  const searchIds = withIterationCut(currentSearchMatch().ids); // the picked iteration cuts the columns on top of the box, which it never writes
+  const narrowed = searchIds !== null;
   const clearBtn = $('#search-clear-btn');
   if (clearBtn) clearBtn.classList.toggle('hidden', !searchActive);
   // tree:/path: terms need the FULL active+archived graph to
@@ -1154,13 +1159,13 @@ function renderBoardColumns() {
     // The Assignee sort ranks by registry order, so the comparator
     // gets the config.yaml handles — plumbed exactly like priorities above.
     const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
-    const cards = searchActive ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
+    const cards = narrowed ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
     const isCollapsed = !!collapsed[col];
     const label = columnLabel(col);
     // Counts stay truthful whether or not the column is collapsed — column-count
     // renders in both states, so a collapsed column with hits signals them on its
     // strip with no extra branching.
-    const countLabel = searchActive ? `${cards.length}/${allCards.length}` : `${allCards.length}`;
+    const countLabel = narrowed ? `${cards.length}/${allCards.length}` : `${allCards.length}`;
     const colEl = document.createElement('div');
     // col-<name> only for css-safe names (the built-in five have color rules;
     // a custom name's rule wouldn't exist anyway — its color is inline below).
@@ -1291,7 +1296,7 @@ function renderMapView() {
   // case, but a zoomed-out board that then filters everything away shouldn't strand the
   // human with no way to zoom back before turning a pill back on).
   main.appendChild(buildMapBar(panelOpen));
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildRelationsGraph sees one combined
   // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
@@ -1984,6 +1989,7 @@ function applyProjectName(name) {
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
     prefsMemo = null; // the preferences entry too
+    iterationUi.choice = undefined; // the iteration pick too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     calendarNotes = null; // calendar.notes too
@@ -2050,6 +2056,7 @@ function applyBoardData(data) {
   state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
+  state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
   state.logbook = data.logbook || null; // { folder, notes } when config.yaml has a logbook: line, else null and nothing of it shows (notes.js, notes-palette.js); read by the card tiles, so before renderBoard
   dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -2666,12 +2673,14 @@ async function submitModal(e) {
     body: $('#f-body').value,
   };
   try {
+    let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
-    else await api('POST', '/api/cards', payload);
+    else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
     closeModal();
     await loadBoard();
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
+    else if (joined) toast(joined);
   } catch (e2) {
     if (e2.status === 422) {
       toast(`Can't set doing — ${gate422Text(e2.data)}.`);
@@ -3982,6 +3991,11 @@ function currentCalendarAnchor() {
   return calendarAnchor;
 }
 
+// The Calendar opens on a day: the picked iteration's first one (iterations-ui.js).
+function calendarAnchorTo(day) {
+  calendarAnchor = day;
+}
+
 function currentCalendarMonth() {
   const [y, m] = currentCalendarAnchor().split('-').map(Number);
   return { year: y, monthIndex: m - 1 };
@@ -4124,7 +4138,7 @@ function timelineViewInput(filter, searchIds) {
 }
 
 function calendarViewInput(match = currentSearchMatch()) {
-  return timelineViewInput(loadCalendarStatusFilter(), match.ids);
+  return timelineViewInput(loadCalendarStatusFilter(), withIterationCut(match.ids));
 }
 
 function renderCalendarView() {
@@ -4181,7 +4195,7 @@ function renderCalendarMonthGrid(container) {
   // the gantt — harmless while the Archive pill is off, since no archived
   // card is ever added to `cards` below regardless of whether its id lands
   // in searchIds.
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   // Status filter composes with search by INTERSECTION — same rule
   // as the map's and the gantt's composition. ganttFilterVisibleIds
   // (not mapFilterVisibleIds) is the right helper here too: the calendar
@@ -4214,6 +4228,7 @@ function renderCalendarMonthGrid(container) {
   grid.appendChild(dowRow);
 
   const today = localTodayStr();
+  const shaded = iterationDayShader();
   const cells = monthGrid(year, monthIndex);
   // monthChipLayout packs runs PER WEEK ROW (a week is the most a single DOM
   // element can span — a run crossing into the next week is a squared-off
@@ -4238,7 +4253,7 @@ function renderCalendarMonthGrid(container) {
 
     cells.slice(w * 7, w * 7 + 7).forEach((cell, i) => {
       const dayEl = document.createElement('div');
-      dayEl.className = 'cal-day' + (cell.inMonth ? '' : ' outside') + (cell.date === today ? ' today' : '');
+      dayEl.className = 'cal-day' + (cell.inMonth ? '' : ' outside') + (cell.date === today ? ' today' : '') + (shaded(cell.date) ? ' in-iteration' : '');
       dayEl.dataset.day = cell.date;
       const num = document.createElement('div');
       num.className = 'cal-day-num';
@@ -4314,7 +4329,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   // band AND the timed hour grid alike, not just the month view. Same
   // live+archived search pool and Archive-pill composition as the month
   // grid too, so the toggle applies to both grids alike.
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   const statusIds = ganttFilterVisibleIds(state.active, loadCalendarStatusFilter(), boardStatuses());
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
   const cards = visibleIds ? state.active.filter((c) => visibleIds.has(c.id)) : state.active;
@@ -4324,6 +4339,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
     : cards;
   const layout = timeGridLayout(allCards, days);
   const today = localTodayStr();
+  const shaded = iterationDayShader();
 
   const grid = document.createElement('div');
   grid.className = 'cal-timegrid';
@@ -4336,7 +4352,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   head.appendChild(document.createElement('div')); // spacer over the hour gutter
   for (const day of days) {
     const h = document.createElement('div');
-    h.className = 'cal-tg-dayhead' + (day === today ? ' today' : '');
+    h.className = 'cal-tg-dayhead' + (day === today ? ' today' : '') + (shaded(day) ? ' in-iteration' : '');
     const dt = new Date(dayToUtc(day));
     h.textContent = `${CAL_DOW_SHORT[dt.getUTCDay()]} ${dt.getUTCDate()}`;
     head.appendChild(h);
@@ -4359,7 +4375,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   const bandRows = Math.max(1, layout.allDayRows + ([...notesByDay.values()].some((d) => d && d.untimed.length) ? 1 : 0)); // at least one row of drop surface, even empty
   days.forEach((day, i) => {
     const cell = document.createElement('div');
-    cell.className = 'cal-tg-allday-cell cal-drop' + (day === today ? ' today' : '');
+    cell.className = 'cal-tg-allday-cell cal-drop' + (day === today ? ' today' : '') + (shaded(day) ? ' in-iteration' : '');
     cell.dataset.day = day;
     cell.style.gridColumn = `${i + 1}`;
     cell.style.gridRow = `1 / ${bandRows + 1}`;
@@ -4407,7 +4423,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   body.appendChild(gutter);
   for (const day of days) {
     const col = document.createElement('div');
-    col.className = 'cal-tg-col cal-drop' + (day === today ? ' today' : '');
+    col.className = 'cal-tg-col cal-drop' + (day === today ? ' today' : '') + (shaded(day) ? ' in-iteration' : '');
     col.dataset.day = day;
     col.style.height = `${24 * CAL_HOUR_PX}px`;
     const dayNotes = notesByDay.get(day);
@@ -5023,7 +5039,7 @@ function ganttBarEl(bar, win, dayPx) {
 // What renderGanttView composes before it draws, as the jump needs it: the same shape as
 // calendarViewInput, over the Gantt's status filter (timelineViewInput).
 function ganttViewInput(match = currentSearchMatch()) {
-  return timelineViewInput(loadGanttStatusFilter(), match.ids);
+  return timelineViewInput(loadGanttStatusFilter(), withIterationCut(match.ids));
 }
 
 function renderGanttView() {
@@ -5063,7 +5079,7 @@ function renderGanttView() {
   // unconditionally (same as the map's own search pool) — harmless while the
   // Archive pill is off, since no archived bar is ever added to groups below
   // regardless of whether its id lands in searchIds.
-  const searchIds = currentSearchMatch().ids;
+  const searchIds = withIterationCut(currentSearchMatch().ids);
   // NOT mapFilterVisibleIds — that folds an unlisted status
   // into the FIRST column's toggle, correct for the map/board but wrong here.
   // ganttGroups (below) buckets cards by their RAW status and gives an

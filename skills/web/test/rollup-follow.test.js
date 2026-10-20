@@ -297,6 +297,7 @@ function flipSandbox({ mode, detailId = null } = {}) {
     applyViewMode: () => { s.flip.views++; },
     computeSearchMatch: () => ({ terms: [], ids: null }),
     renderSearchPanel: () => {},
+    renderIterations: () => {},
   });
   vm.runInContext([selectionSteps(), fn('renderBoard'), sharedClickHandler()].join('\n'), s);
   assert.strictEqual(listeners.length, 1);
