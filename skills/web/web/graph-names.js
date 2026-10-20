@@ -263,21 +263,32 @@ function graphNameAssign(labels, rows, cost) {
   return out;
 }
 
+// How many leading characters of a name are its card's number, `#7 ` or the whole `#7`: the
+// part a cut never reaches.
+function graphNameLead(name, id) {
+  const lead = `#${id}`;
+  if (name === lead) return lead.length;
+  return String(name).startsWith(`${lead} `) ? lead.length + 1 : 0;
+}
+
 // The longest start of `text` that, with an ellipsis, is no wider than `px` by `measure`; the
 // whole text when it fits, and '' when not even one character does. Cut between characters.
-function graphNameFit(text, px, measure) {
+// The first `keep` characters are never cut: the cut falls in what follows, and when none of
+// that fits the start alone stays if it does, else ''.
+function graphNameFit(text, px, measure, keep = 0) {
   const s = String(text === null || text === undefined ? '' : text);
   if (measure(s) <= px) return s;
   const chars = Array.from(s);
-  const cut = (n) => `${chars.slice(0, n).join('').trimEnd()}…`;
+  const lead = chars.slice(0, keep).join('').trimEnd();
+  const cut = (n) => (n > 0 ? `${chars.slice(0, keep + n).join('').trimEnd()}…` : lead);
   let lo = 0;
-  let hi = chars.length;
+  let hi = chars.length - keep;
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1;
     if (measure(cut(mid)) <= px) lo = mid;
     else hi = mid - 1;
   }
-  return lo > 0 ? cut(lo) : '';
+  return lo > 0 || (lead && measure(lead) <= px) ? cut(lo) : '';
 }
 
 function graphNameClip(text, max) {
@@ -594,7 +605,7 @@ function graphNamesPlace(input) {
     const tops = new Map();
     for (const { c, j, y, room } of rows) {
       const { n, pole } = c;
-      const text = graphNameFit(n.name, (room - pad) * k, (t) => px(t));
+      const text = graphNameFit(n.name, (room - pad) * k, (t) => px(t), graphNameLead(n.name, n.id));
       if (!text) continue;
       const a = pole + 4 / k;
       const half = (block.pitch || 0) / 2;
@@ -671,7 +682,7 @@ function graphNamesPlace(input) {
     list.forEach((c, i) => {
       const { n, ray } = c;
       const row = got[i];
-      const text = graphNameFit(n.name, (row.room - pad) * k, (t) => px(t));
+      const text = graphNameFit(n.name, (row.room - pad) * k, (t) => px(t), graphNameLead(n.name, n.id));
       if (!text) return;
       const tw = px(text) / k;
       const x = dir * row.a;
@@ -766,7 +777,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GRAPH_NAME_PX, GRAPH_NAME_ROW, GRAPH_NAME_PAD, GRAPH_NAME_MIN_W, GRAPH_NAME_RAIL, GRAPH_NAME_EDGE, GRAPH_NAME_GAP, GRAPH_NAME_BLOCK_UP, GRAPH_NAME_POLE, GRAPH_NAME_LEADER_OUT,
     GRAPH_NAME_MARK_PAD, GRAPH_NAME_DETOUR,
     graphNamesRim, graphNamesKey, graphNamesPlace,
-    graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets, graphNameIndex,
+    graphNameAssign, graphNameLead, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets, graphNameIndex,
   };
 } else {
   window.graphNamesRim = graphNamesRim;

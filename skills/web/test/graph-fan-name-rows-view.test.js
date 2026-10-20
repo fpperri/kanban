@@ -201,7 +201,7 @@ test('at a real fit every name and leader is drawn where the placement puts it, 
   }
   const one = own(s.nodeOf(1), 'graph-node-name')[0];
   assert.ok(names.placed.has('1'), 'card 1 is placed');
-  assert.ok('Ship <b>the</b> beta'.startsWith(one.textContent.replace(/…$/, '')), one.textContent);
+  assert.ok('#1 Ship <b>the</b> beta'.startsWith(one.textContent.replace(/…$/, '')), one.textContent);
   assert.strictEqual(one.innerHTML, '', 'no markup set');
   assert.strictEqual(s.leaders().length, s.nodes().length, 'one leader for each card');
   assert.deepStrictEqual(s.errors, []);

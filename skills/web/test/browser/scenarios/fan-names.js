@@ -47,7 +47,7 @@ const CASES = {
     picks: [{ id: 5, related: [1, 6, 27] }, { id: 3, related: [1, 4, 6] }],
     // Cards to add to the selection with Shift, the first that is under no other dot.
     extras: [6, 4, 12, 14],
-    title: { id: 1, text: 'Zephyr platform migration' },
+    title: { id: 1, text: '#1 Zephyr platform migration' },
     added: { title: 'Name the new card', status: 'todo' },
     addedId: 30,
     values: ['relevant', 'all', 'none'],
@@ -94,7 +94,7 @@ const FOCUS_BOX = `${BOX}.focus()`;
 const CANVAS_DRAGGED = `graphCur.view.touched===true`;
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-// A name shows a card's title whole, or a start of it with an ellipsis when its room is shorter.
+// A name shows a card's id and title whole, or a start of it with an ellipsis when its room is shorter; the id is always whole.
 const showsTitle = (shown, title) => typeof shown === 'string' && (shown === title || (shown.length > 1 && shown.endsWith('…') && title.startsWith(shown.slice(0, -1))));
 const sorted = (ids) => ids.slice().sort((a, b) => a - b);
 const union = (...lists) => sorted([...new Set(lists.flat())]);

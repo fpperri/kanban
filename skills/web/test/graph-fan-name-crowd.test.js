@@ -30,11 +30,11 @@ const ZOOMS = [1, 2, 0.5];
 // Measured over every case below, and pinned at each zoom: the fewest cards placed, and twice
 // the most work one placement did, in exact tests of a place, marks looked at for the leaders'
 // runs and cells of the tables that give the rows out.
-const PLACED_AT_LEAST = { 1: 124, 2: 139, 0.5: 56 };
+const PLACED_AT_LEAST = { 1: 106, 2: 134, 0.5: 55 };
 const WORK_AT_MOST = {
-  1: { tests: 2 * 24538, rays: 2 * 14453, cells: 2 * 6111 },
-  2: { tests: 2 * 4374, rays: 2 * 14453, cells: 2 * 11349 },
-  0.5: { tests: 2 * 43016, rays: 2 * 10430, cells: 2 * 2450 },
+  1: { tests: 2 * 32387, rays: 2 * 14453, cells: 2 * 6111 },
+  2: { tests: 2 * 9159, rays: 2 * 14453, cells: 2 * 11349 },
+  0.5: { tests: 2 * 37329, rays: 2 * 10430, cells: 2 * 2450 },
 };
 // A frame at 60 a second.
 const FRAME_MS = 16;
