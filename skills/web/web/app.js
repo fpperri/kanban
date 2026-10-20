@@ -80,6 +80,32 @@ function onPhoneLayout() {
   return !!(window.matchMedia && window.matchMedia(PHONE_WIDTH_QUERY).matches);
 }
 
+// A sideways swipe on the phone Board moves to the neighbouring status. The listeners are passive
+// (the browser keeps scrolling and pinch-zooming); a second finger, a drag in progress or a layout
+// above the width line leaves the gesture alone.
+function wireBoardSwipe(board) {
+  let start = null;
+  board.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches && e.changedTouches[0];
+    start = t && e.touches && e.touches.length === 1 && onPhoneLayout() && !isDragging ? { x: t.clientX, y: t.clientY, at: e.timeStamp } : null;
+  }, { passive: true });
+  board.addEventListener('touchend', (e) => {
+    const from = start;
+    start = null;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!from || !t || isDragging || !onPhoneLayout()) return;
+    const direction = swipeDirection(t.clientX - from.x, t.clientY - from.y, e.timeStamp - from.at);
+    if (!direction) return;
+    const statuses = boardStatuses();
+    const active = activePhoneColumn(loadPhoneColumn(), statuses);
+    const next = neighbourPhoneColumn(statuses, active, direction);
+    if (next === active) return;
+    setPhoneColumn(next);
+    renderBoard();
+  }, { passive: true });
+  board.addEventListener('touchcancel', () => { start = null; }, { passive: true });
+}
+
 function toggleColumn(col) {
   const collapsed = loadCollapsedColumns();
   collapsed[col] = !collapsed[col];
@@ -614,7 +640,7 @@ function cardEl(card) {
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
   el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
-  el.draggable = true;
+  el.draggable = !onPhoneLayout(); // a phone swipes between statuses; a touch never starts a native drag
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const tags = card.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
@@ -701,7 +727,7 @@ function cardEl(card) {
 function archiveCardEl(card) {
   const el = document.createElement('div');
   el.className = 'card card-el archived-card' + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
-  el.draggable = true; // drag out of Archive restores to the drop column
+  el.draggable = !onPhoneLayout(); // drag out of Archive restores to the drop column; no native drag on a phone
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
@@ -968,6 +994,14 @@ function setPillsFolded(on) {
   foldSearchPills(on);
 }
 
+// Whether the search panel's Statuses section starts folded; the section takes the choice now
+// (search-statuses.js).
+function setStatusesFolded(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { statusesFolded: on });
+  savePrefsState();
+  foldSearchStatuses(on);
+}
+
 // Whether the search panel's slice section starts folded; the section takes the choice now
 // (search-slices.js).
 function setSlicesFolded(on) {
@@ -1002,6 +1036,7 @@ function syncPrefsSheet() {
   $('#prefs-archived-done').checked = countArchivedLeaves();
   $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
+  $('#prefs-statuses-folded').checked = loadPrefsState().statusesFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
 
@@ -2573,6 +2608,11 @@ function consumeDeepLink() {
   // key was present — so this reads the view actually on screen either way.
   const el = document.querySelector(`${VIEW_CONTAINERS[loadViewMode()]} .card-el[data-id="${card.id}"]`);
   if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+  // On a phone the Board behind the card shows one status: the card's own, set before it opens.
+  if (onPhoneLayout()) {
+    setPhoneColumn(state.archived.some((c) => c.id === card.id) ? 'archive' : card.status);
+    renderBoard();
+  }
   openDetailModal(card.id);
 }
 
@@ -2697,7 +2737,11 @@ function syncAssigneeColor() {
 // same hidden-field-submits-while-minimal trick, but for #f-start alone;
 // status is deliberately left at its own default here (see the Calendar view
 // dblclick glue below for why).
+// The card whose detail the open edit form was started from: on a phone Save returns there.
+let editFromCardId = null;
+
 function openModal(card, presetStatus, presetStart) {
+  editFromCardId = null;
   $('#modal-title').textContent = card ? `Edit #${card.id}` : 'New card';
   $('#f-id').value = card ? card.id : '';
   $('#f-title').value = card ? card.title : '';
@@ -2812,8 +2856,11 @@ async function submitModal(e) {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
     else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
+    const backToCard = id && onPhoneLayout() && editFromCardId !== null && String(editFromCardId) === id ? editFromCardId : null;
     closeModal();
+    if (backToCard !== null) setPhoneColumn(payload.status);
     await loadBoard();
+    if (backToCard !== null) openDetailModal(backToCard);
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
     else if (joined) toast(joined);
@@ -2827,7 +2874,10 @@ async function submitModal(e) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  $('#new-btn').addEventListener('click', () => openModal(null));
+  $('#new-btn').addEventListener('click', () => {
+    const active = onPhoneLayout() ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
+    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read
+  });
   // X goes through the dirty guard (the retired Cancel button bypassed it —
   // backdrop-click and X now agree on the unsaved-changes speedbump)
   $('#modal-close').addEventListener('click', requestCloseModal);
@@ -2869,6 +2919,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setPhoneColumn(tab.dataset.col);
     renderBoard();
   });
+  wireBoardSwipe($('#board'));
   $('#board').addEventListener('click', (e) => {
     const toggleBtn = e.target.closest('.column-toggle');
     if (toggleBtn) { toggleColumn(toggleBtn.dataset.col); return; }
@@ -3458,6 +3509,7 @@ function editFromDetail() {
   if (!card) { closeDetailModal(); toast('Card not found — Refresh.'); return; }
   closeDetailModal();
   openModal(card);
+  editFromCardId = card.id;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -6509,6 +6561,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
   $('#prefs-slices-folded').addEventListener('change', (e) => setSlicesFolded(e.target.checked));
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
+  $('#prefs-statuses-folded').addEventListener('change', (e) => setStatusesFolded(e.target.checked));
   $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/

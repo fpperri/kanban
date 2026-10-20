@@ -801,6 +801,10 @@ to `127.0.0.1` only.
   at every width: it is open to start and folds like the others, a tap on a pill switches that
   status in the view and a right-click solos it, as the view's own pills do. It is hidden on the
   Board, still shows when the view's filter hides every card, and never touches the selection.
+  **Status section starts folded** makes it start folded. The search chip counts the statuses
+  switched off in the view, named "hidden" (Archive only when it is off against the view's
+  default), so a hidden status shows with the panel closed. On a phone its pills are 44 px tall
+  and the panel scrolls inside a maximum height.
   The pill section lists the built-in pills, blocked, review and waiting, in that order,
   each with a count of the cards its query matches, done cards included. The counts are
   taken over the cards the view shows after its status pills and the Archive pill and
@@ -1007,7 +1011,9 @@ to `127.0.0.1` only.
   default: it says how the search panel's slice section starts, and the section's own fold
   control still folds it for the visit. **Pill section starts folded** is off by
   default: it says how the search panel's pill section starts, and the section's own fold
-  control still folds it for the visit. **Panel opens when the search box is focused** is
+  control still folds it for the visit. **Status section starts folded** is off by default:
+  it says how the Statuses section starts, and its own fold control still folds it for the
+  visit. **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
   so each shows what the others did; turning it off closes the panel, and turning it on
   from the sheet leaves the panel closed until the box is focused. Switching it off moves focus to
