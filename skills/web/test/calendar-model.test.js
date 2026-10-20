@@ -12,8 +12,9 @@ const {
   monthChipLayout, CALENDAR_MAX_CHIP_ROWS_PER_WEEK,
   minutesToTime, CALENDAR_DRAG_SNAP_MIN,
   rescheduleRangeAtTime, rescheduleDueAtTime, resizeRangeAtTime,
-  calendarCreateStart,
+  calendarCreateStart, nextSubview,
 } = require('../web/calendar-model');
+const { GANTT_SUBVIEWS } = require('../web/gantt-model');
 
 // --- view mode (board / map / calendar / gantt / graph) ------
 
@@ -1077,4 +1078,25 @@ test('calendarCreateStart: clamps a rawMin from a click above/below the grid', (
   assert.strictEqual(calendarCreateStart('2026-07-20', -20), '2026-07-20T00:00');
   assert.strictEqual(calendarCreateStart('2026-07-20', 1439), '2026-07-20T23:59'); // snaps past 1439, then clamps
   assert.strictEqual(calendarCreateStart('2026-07-20', 1500), '2026-07-20T23:59');
+});
+
+// --- nextSubview: the span cycle button's step ------------------------------------
+
+test('nextSubview walks the Calendar spans in order and wraps to the first', () => {
+  const walked = [];
+  let span = 'month';
+  for (let i = 0; i < 5; i++) { walked.push(span); span = nextSubview(CALENDAR_SUBVIEWS, span); }
+  assert.deepStrictEqual(walked, ['month', 'week', '3day', 'day', 'month']);
+});
+
+test('nextSubview walks the Gantt spans in order and wraps to All', () => {
+  const walked = [];
+  let span = 'all';
+  for (let i = 0; i < 6; i++) { walked.push(span); span = nextSubview(GANTT_SUBVIEWS, span); }
+  assert.deepStrictEqual(walked, ['all', 'month', 'week', '3day', 'day', 'all']);
+});
+
+test('nextSubview of an unknown span is the first entry', () => {
+  assert.strictEqual(nextSubview(CALENDAR_SUBVIEWS, 'year'), 'month');
+  assert.strictEqual(nextSubview(GANTT_SUBVIEWS, undefined), 'all');
 });

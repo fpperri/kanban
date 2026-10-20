@@ -1176,6 +1176,12 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
 .cal-subview-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+/* The span cycle button stands in for the span switch on a phone, and the switch for it from 760 px. */
+.cal-span-cycle { display: none; margin-left: auto; }
+@media (max-width: 759.98px) {
+  .cal-subview-switch { display: none; }
+  .cal-span-cycle { display: inline-block; }
+}
 /* Same .cal-controls row, reused verbatim by the gantt (see .gantt-view
    below) — its prev/today/next disable while the 'All' sub-view is active
    (no anchor day to page from), same opacity-dim convention as
