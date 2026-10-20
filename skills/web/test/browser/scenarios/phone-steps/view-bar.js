@@ -28,6 +28,8 @@ module.exports = {
     const bar = await ev(`(()=>{const b=document.getElementById('view-bar').getBoundingClientRect();const btns=[...document.querySelectorAll('#view-bar [data-view]')];return {bottom:Math.round(b.bottom),inner:innerHeight,words:btns.map((x)=>x.querySelector('.btn-label').textContent).join(),drawn:btns.every((x)=>!!x.querySelector('.btn-icon svg')),toggles:[...document.querySelectorAll('.actions [data-view-toggle]')].every((t)=>getComputedStyle(t).display==='none')}})()`);
     check('the bar sits at the bottom with five words and icons', bar.bottom === bar.inner && bar.words === 'Board,Calendar,Gantt,Map,Graph' && bar.drawn, bar);
     check('the header\'s view buttons are hidden', bar.toggles, bar);
+    const seen = await ev(`[...document.querySelectorAll('#view-bar .btn-label')].map((l)=>{const r=l.getBoundingClientRect();const c=getComputedStyle(l);return {w:Math.round(r.width),h:Math.round(r.height),clip:c.clip}})`);
+    check('each of the five words is visible, not clipped to a 1px box', seen.length === 5 && seen.every((s) => s.w > 4 && s.h > 4 && s.clip !== 'rect(0px, 0px, 0px, 0px)'), seen);
     check('the Board is the pressed tab', await ev(pressed) === 'board', await ev(pressed));
 
     const first = await ev(`(()=>{const c=document.querySelector('#board .card-el');return c?c.dataset.id:null})()`);

@@ -60,3 +60,11 @@ test('at phone width every view is 100dvh minus the header and the bar, the Boar
   assert.match(phone, /main#board \{[^}]*height: calc\(100dvh - var\(--board-header-h, 64px\) - 48px - 48px - var\(--view-bar-h/);
   assert.match(phone, /\.actions > \[data-view-toggle\] \{ display: none; \}|\[data-view-toggle\][^{}]*\{ display: none; \}/);
 });
+
+test('the phone header hides every .btn-label, so the view bar un-hides its own five words', () => {
+  const phone = css.split('@media (max-width: 759.98px) {').slice(1).join('\n');
+  assert.match(phone, /\n  \.btn-label \{[^}]*clip: rect\(0 0 0 0\)/, 'the header rule that clips labels exists');
+  const rule = phone.match(/#view-bar \.view-bar-btn \.btn-label \{([^}]*)\}/);
+  assert.ok(rule, 'the view bar overrides the label clip');
+  for (const decl of ['position: static', 'width: auto', 'height: auto', 'overflow: visible', 'clip: auto']) assert.ok(rule[1].includes(decl), decl);
+});
