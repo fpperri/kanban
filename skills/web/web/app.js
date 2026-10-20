@@ -1148,6 +1148,19 @@ function viewButtonsModel(mode) {
   });
 }
 
+// The date range the header shows beside the board's name on a phone: the view's own title for the
+// Calendar and the Gantt, nothing for any other view.
+function headerDateText(mode, title) {
+  return (mode === 'calendar' || mode === 'gantt') && typeof title === 'string' ? title : '';
+}
+
+function paintHeaderDate(mode, title) {
+  const slot = $('#header-date');
+  const text = headerDateText(mode, title);
+  if (slot.textContent !== text) slot.textContent = text;
+  slot.classList.toggle('hidden', text === '');
+}
+
 // Draw every icon slot to the shape its data-icon names, once per change.
 function paintIconSlots() {
   for (const slot of document.querySelectorAll('.btn-icon')) {
@@ -1181,6 +1194,7 @@ function applyViewMode() {
   for (const [m, sel] of Object.entries(VIEW_CONTAINERS)) $(sel).classList.toggle('hidden', mode !== m);
   $('#board-tabs').classList.toggle('hidden', mode !== 'board');
   paintViewButtons(mode);
+  if (mode !== 'calendar' && mode !== 'gantt') paintHeaderDate(mode, '');
   if (mode === 'map') renderMapView();
   if (mode === 'calendar') renderCalendarView();
   if (mode === 'gantt') renderGanttView();
@@ -4331,13 +4345,15 @@ function renderCalendarView() {
   container.innerHTML = '';
 
   const spanNoun = { month: 'month', week: 'week', '3day': '3 days', day: 'day' }[subview];
+  const title = subviewTitle(subview, currentCalendarAnchor());
+  paintHeaderDate('calendar', title);
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =
     `<button type="button" id="cal-prev-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Previous ${spanNoun}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
     `<button type="button" id="cal-today-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Jump back to today">Today</button>` +
     `<button type="button" id="cal-next-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Next ${spanNoun}" aria-label="Next ${spanNoun}">&#8250;</button>` +
-    `<span class="cal-title">${escapeHtml(subviewTitle(subview, currentCalendarAnchor()))}</span>` +
+    `<span class="cal-title">${escapeHtml(title)}</span>` +
     // The sub-view switcher. Like prev/today/next (these buttons are rebuilt every
     // render too) it wears data-holds-poll, the focused-control poll guard, and
     // data-keeps-selection, so a click on it never reads as a click away.
@@ -5111,6 +5127,7 @@ function buildGanttControls() {
   const todayTitle = isAll ? noPagingHint : 'Jump back to today';
   const nextTitle = isAll ? noPagingHint : `Next ${spanNoun}`;
   const title = isAll ? 'All dated cards' : subviewTitle(subview, currentGanttAnchor());
+  paintHeaderDate('gantt', title);
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =

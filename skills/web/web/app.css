@@ -1129,6 +1129,13 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 /* Headline-role, same reasoning as .modal h2 above — the visible month name. */
 .cal-title { font-weight: 700; color: var(--ink); font-size: 1.05em; margin-left: 6px; letter-spacing: -0.01em; }
+/* On a phone the date range sits in the header beside the board's name (the header date slot) and the view's own row drops
+   its title; from 760 px the slot is not displayed. */
+.header-date { display: none; }
+@media (max-width: 759.98px) {
+  .header-date:not(.hidden) { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ink); font-size: 1.05em; }
+  .cal-title { display: none; }
+}
 /* .cal-grid is a vertical stack: the weekday header row, then one .cal-week
    per calendar week — a week is its own nested grid (below) because a run
    crossing a week boundary can never be one DOM element across the wrap. */
