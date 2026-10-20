@@ -1051,7 +1051,7 @@ function openPrefsSheet(page) {
 function closePrefsSheet() {
   $('#prefs-sheet').classList.add('hidden');
   $('#prefs-btn').setAttribute('aria-expanded', 'false');
-  $('#prefs-btn').focus();
+  ($('#prefs-btn').offsetParent === null ? $('#more-btn') : $('#prefs-btn')).focus();
 }
 
 // A click on the backdrop outside the sheet closes it; one on a choice makes it, one on a menu item
