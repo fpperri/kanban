@@ -2,32 +2,13 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
-const { escapeHtml } = require('../web/assignee-badge.js');
 
-// Markdown tables in the card detail popup (kanban.proj #256). mdToHtml has always
-// been a small hand-rolled renderer and tables were simply not in its set, so a
-// table's rows fell through to the paragraph collector and came out as one run-on
-// line. Unlike the other app.js tests, which assert on the source text, these run
-// the real function: extract it from app.js and call it, so a regression shows up
-// as wrong HTML rather than as a missing string.
-const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-
-function loadRenderer() {
-  const helpers = src.match(/const TABLE_DELIM_RE = [\s\S]*?\n\}/);
-  assert.ok(helpers, 'TABLE_DELIM_RE and splitRow are defined together above mdToHtml');
-  const fn = src.match(/function mdToHtml\([\s\S]*?\n\}/);
-  assert.ok(fn, 'mdToHtml is defined in app.js');
-  // Evaluated in a vm context rather than required: app.js is a browser script with
-  // no exports, and these two definitions are the only part under test. The source is
-  // this repo's own file, and the sandbox holds escapeHtml, cardMention and a board name.
-  const sandbox = { escapeHtml, cardMention: require('../web/prose.js').cardMention, state: { projectName: 'webapp' } };
-  vm.createContext(sandbox);
-  vm.runInContext(`${helpers[0]}\n${fn[0]}`, sandbox, { filename: 'app.js#mdToHtml' });
-  return sandbox.mdToHtml;
-}
-
-const mdToHtml = loadRenderer();
+// Markdown tables in the card detail popup. The renderer has always
+// been a small hand-rolled one and tables were simply not in its set, so a table's rows
+// fell through to the paragraph collector and came out as one run-on line. These run the
+// real renderer, so a regression shows up as wrong HTML rather than as a missing string.
+const { mdToHtml: render } = require('../web/markdown.js');
+const mdToHtml = (md) => render(md, { board: 'webapp' });
 
 const LADDER = [
   '| Step | Your role | Agents |',

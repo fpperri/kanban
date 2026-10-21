@@ -47,14 +47,8 @@ test('inlineTokens finds code spans and bold, and nothing else', () => {
 
 // --- the card body renderer ---------------------------------------------------
 const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-function loadMd(projectName) {
-  const helpers = appSrc.match(/const TABLE_DELIM_RE = [\s\S]*?\n\}/)[0];
-  const fn = appSrc.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-  const sandbox = { escapeHtml, cardMention, state: { projectName } };
-  vm.createContext(sandbox);
-  vm.runInContext(`${helpers}\n${fn}`, sandbox);
-  return sandbox.mdToHtml;
-}
+const { mdToHtml } = require('../web/markdown');
+const loadMd = (projectName) => (text) => mdToHtml(text, { board: projectName });
 
 test('a mention code span renders as a chip; one on this board carries its id for the click', () => {
   const md = loadMd('webapp');
@@ -159,14 +153,14 @@ test('frontmatter values stay escaped on every path', () => {
 
 test('a board name with markup characters still gets clickable mentions', () => {
   const md = loadMd('r&d');
-  assert.ok(md('`r&d#4 t`').includes('class="mention same" data-card-id="4"'), 'escaped text is compared with the escaped name');
+  assert.ok(md('`r&d#4 t`').includes('class="mention same" data-card-id="4"'), 'the name is compared as written');
 });
 
 test('a mention inside a link URL leaves the link as text instead of breaking its attributes', () => {
   const md = loadMd('webapp');
   const html = md('[see](http://x.test/`webapp#5 t`) done');
   assert.ok(!/<a [^>]*href="[^"]*<code/.test(html), 'no chip inside an href');
-  assert.ok(!html.includes('<a '), 'the link is not built at all');
+  assert.ok(html.includes('[see](') && !html.includes('>see</a>'), 'the link is not built at all, its text stays text');
   assert.ok(md('[see](https://x.test/a) done').includes('<a href="https://x.test/a" target="_blank" rel="noopener noreferrer">see</a>'), 'ordinary links still work');
 });
 
