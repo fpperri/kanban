@@ -58,7 +58,14 @@ module.exports = {
       if (!p) throw new Error(`nothing matches ${sel}`);
       await click(p.x, p.y);
     };
-    const closePalette = async () => { await key('Escape'); return waitFor(PAL_GONE, 2500); };
+    // Esc clears a card chip before it closes the palette: press it until the palette is gone.
+    const closePalette = async () => {
+      for (let i = 0; i < 3; i++) {
+        await key('Escape');
+        if (await waitFor(PAL_GONE, i < 2 ? 700 : 2500)) return true;
+      }
+      return false;
+    };
     const setToday = (day) => ev(`(()=>{localTodayStr=()=>${JSON.stringify(day)};renderBoard();return true})()`);
     const pick = (value) => ev(`(()=>{const s=${SEL};s.value=${JSON.stringify(value)};s.dispatchEvent(new Event('change',{bubbles:true}));return s.value===${JSON.stringify(value)}})()`);
     const refreshed = async (expr) => { await ev(`autoRefreshTick()`); return waitFor(expr, 4000); };

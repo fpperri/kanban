@@ -236,6 +236,98 @@ test('a press on the menu is a press in the palette: it stays up', async () => {
   assert.strictEqual(p.page.run('notesUi.sub'), null, 'a press anywhere else still closes it');
 });
 
+// --- Esc clears the chip before it closes the palette -------------------------------------------------------------
+
+const bubbled = (p, from) => { const e = { key: 'Escape', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, target: from, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } }; for (let at = from; at && !e.stopped; at = at.parent) at.fire('keydown', e); return e; };
+const esc = (p, from) => bubbled(p, from || p.ui().input);
+const footHint = (p, key) => { const kbd = p.ui().foot.querySelectorAll('kbd').find((k) => p.text(k) === key); return kbd && p.text(kbd.parent).replace(p.text(kbd), '').trim(); };
+
+test('Esc on a palette aimed at a card clears the chip, as the backspace does, and keeps the palette open', async () => {
+  const p = await open();
+  p.openCard('7');
+  setBox(p, 'half a thought');
+  const e = esc(p);
+  assert.strictEqual(e.stopped, true);
+  assert.notStrictEqual(p.page.run('notesUi.sub'), null, 'still open');
+  assert.strictEqual(p.page.run('notesUi.sub.kind'), 'none');
+  assert.ok(p.find('.np-chip').hidden, 'no chip shows');
+  assert.strictEqual(p.ui().input.value, 'half a thought', 'the box is as it was');
+  assert.deepStrictEqual(p.pressed(), ['day'], 'the range is the opening rule\'s with no card');
+});
+
+test('the same Esc on several cards clears the chip (a group is a target of the same kind: noteIsAboutCards)', async () => {
+  const p = await open();
+  p.page.run("openNotes({ targets: ['3', '7'] })");
+  esc(p);
+  assert.strictEqual(p.page.run('notesUi.sub.kind'), 'none');
+  assert.notStrictEqual(p.page.run('notesUi.sub'), null);
+  p.page.run("notesUi.sub = { kind: 'group', id: 'I2', day: localTodayStr() }; notesPaint = notesPaint");
+  assert.strictEqual(p.page.run('notesChipClearable()'), true);
+});
+
+test('with no chip showing Esc closes the palette', async () => {
+  const p = await open();
+  p.openCard('7');
+  esc(p);
+  esc(p);
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+  const q = await open();
+  q.page.run('openNotes({})');
+  esc(q);
+  assert.strictEqual(q.page.run('notesUi.sub'), null, 'a palette aimed at nothing closes at once');
+});
+
+test('an hour\'s chip is not cleared by Esc: Esc closes', async () => {
+  const p = await open();
+  p.page.run("openNotes({ kind: 'slot', day: '2026-10-21', fromMin: 540, toMin: 600 })");
+  esc(p);
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+});
+
+test('Esc in the filter field closes the palette at once, chip or not', async () => {
+  const p = await open();
+  p.openCard('7');
+  assert.strictEqual(bubbled(p, p.ui().filter).stopped, true);
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+});
+
+test('Esc in a note\'s edit form cancels the edit first, and then clears the chip', async () => {
+  const p = await open();
+  p.openCard('7');
+  p.press(p.ui().body, 'e', { target: p.all('.np-note')[0] });
+  assert.strictEqual(p.all('.np-edit-text').length, 1);
+  p.find('.np-edit').fire('keydown', { key: 'Escape', preventDefault() {}, stopPropagation() {} });
+  assert.strictEqual(p.all('.np-edit-text').length, 0);
+  assert.strictEqual(p.page.run('notesUi.sub.id'), '7', 'the chip is still there');
+  esc(p, p.ui().body);
+  assert.strictEqual(p.page.run('notesUi.sub.kind'), 'none');
+});
+
+test('on the Calendar the cleared chip goes back to the Calendar\'s range', async () => {
+  const p = await open();
+  onCalendar(p);
+  p.openCard('7');
+  esc(p);
+  assert.deepStrictEqual(p.pressed(), ['week']);
+});
+
+test('Esc on a group\'s own tabs closes the palette: there is no chip to clear there', async () => {
+  const p = await open({ scratchpad: { folder: 'scratch', targets: [] } });
+  p.page.run("scratchPanel = () => document.createElement('div')");
+  p.openCard('7');
+  p.page.run("notesSetTab('scratch')");
+  esc(p, p.pal());
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+});
+
+test('the footer reads Esc as clear the chip while a chip shows, and close otherwise', async () => {
+  const p = await open();
+  p.openCard('7');
+  assert.strictEqual(footHint(p, 'Esc'), 'clear the chip');
+  esc(p);
+  assert.strictEqual(footHint(p, 'Esc'), 'close');
+});
+
 // --- a closed palette ----------------------------------------------------------------------------------------
 
 test('a closed palette never throws: a stray input, Enter or write finds no subject and does nothing', async () => {

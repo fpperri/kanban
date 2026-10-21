@@ -481,8 +481,11 @@ Copy button.
 - *Counters* shows `nextId` and the `counters:` line, read only.
 
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
-details are open, else the hovered or selected card; it draws above the details, Esc closes it
-before them, and a field in the details gets the letter instead. With no card, `n` on the Calendar
+details are open, else the hovered or selected card; it draws above the details, and a field in the
+details gets the letter instead. While the palette is aimed at a card, a group or several cards, **Esc**
+clears the chip, as the backspace does, and the palette stays open on the range it opens on with no card;
+with no chip showing Esc closes it, and from its filter field Esc closes it at once. From a card's
+details that is three presses: the chip, the palette, then the details. With no card, `n` on the Calendar
 opens it on the Calendar's own mode and range (Month, Week, 3 days or Day), or on the day under the
 pointer when the pointer is over a day (that only chooses what is listed: the note still goes to
 today); anywhere else it opens on today. A card with notes wears a

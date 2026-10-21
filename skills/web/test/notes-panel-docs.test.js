@@ -23,6 +23,12 @@ test('the Notes paragraph says where n opens the palette, and that the pointer\'
   assert.match(notes, /anywhere else it opens on today/);
 });
 
+test('it says Esc clears the card chip before it closes the palette', () => {
+  assert.match(notes, /\*\*Esc\*\* clears the chip, as the backspace does, and the palette stays open on the range it opens on with no card/);
+  assert.match(notes, /with no chip showing Esc closes it, and from its filter field Esc closes it at once/);
+  assert.match(notes, /three presses: the chip, the palette, then the details/);
+});
+
 test('it describes the subject row: the date, the time, the untimed tick and the card picker', () => {
   assert.match(notes, /a \*\*date\*\* \(with a picker; today, or the day of the hour or all-day box the palette was opened from\) beside the \*\*time\*\*/);
   assert.match(notes, /the \*untimed\* tick, which drops the time and keeps the day/);

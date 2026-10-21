@@ -48,7 +48,14 @@ module.exports = {
       await press('#ctx-scratch');
       return waitFor(READY, 4000);
     };
-    const closePalette = async () => { await key('Escape'); return waitFor(PAL_GONE, 2500); };
+    // Esc clears a card chip before it closes the palette: press it until the palette is gone.
+    const closePalette = async () => {
+      for (let i = 0; i < 3; i++) {
+        await key('Escape');
+        if (await waitFor(PAL_GONE, i < 2 ? 700 : 2500)) return true;
+      }
+      return false;
+    };
     const clickOn = async (sel) => {
       await ev(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({block:'nearest'})`);
       const p = await centre(sel);

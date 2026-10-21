@@ -185,14 +185,17 @@ const escape = (p, target = {}) => {
   return e;
 };
 
-test('Esc with focus outside the palette closes the palette and leaves the details for the next Esc', async () => {
+test('from the details: Esc with focus outside the palette clears the chip, the next closes the palette, the one after is the details\'', async () => {
   const p = await withDetails();
   keyN(p);
   const first = escape(p);
-  assert.strictEqual(p.page.run('notesUi.sub'), null, 'the palette is closed');
+  assert.strictEqual(p.page.run('notesUi.sub.kind'), 'none', 'the chip is cleared and the palette is up');
   assert.strictEqual(first.stopped, true, 'and the details never hear that Esc');
   const second = escape(p);
-  assert.strictEqual(second.stopped, undefined, 'a second Esc is left to the details, which close as they do today');
+  assert.strictEqual(p.page.run('notesUi.sub'), null, 'the next Esc closes the palette');
+  assert.strictEqual(second.stopped, true);
+  const third = escape(p);
+  assert.strictEqual(third.stopped, undefined, 'a third Esc is left to the details, which close as they do today');
 });
 
 test('Esc leaves the palette open when another popup is up over it', async () => {
@@ -202,9 +205,12 @@ test('Esc leaves the palette open when another popup is up over it', async () =>
   assert.strictEqual(aimedAt(p), '3');
 });
 
-test('Esc inside the palette closes the palette alone', async () => {
+test('Esc inside the palette clears the chip first and closes the palette alone the next time', async () => {
   const p = await withDetails();
   keyN(p);
+  const first = p.press(p.pal(), 'Escape');
+  assert.strictEqual(p.page.run('notesUi.sub.kind'), 'none');
+  assert.strictEqual(first.stopped, true);
   const e = p.press(p.pal(), 'Escape');
   assert.strictEqual(p.page.run('notesUi.sub'), null);
   assert.strictEqual(e.stopped, true);
@@ -475,7 +481,8 @@ test('a closed palette lets Esc go on: the box that kept the focus does not swal
   const p = await withDetails();
   keyN(p);
   const input = p.ui().input;
-  assert.strictEqual(p.press(p.pal(), 'Escape').stopped, true, 'the first Esc closes it');
+  p.press(p.pal(), 'Escape');
+  assert.strictEqual(p.press(p.pal(), 'Escape').stopped, true, 'the second Esc closes it');
   assert.strictEqual(p.page.run('notesUi.sub'), null);
   for (const key of ['Escape', 'a', 'ArrowDown']) {
     const e = p.press(p.pal(), key);

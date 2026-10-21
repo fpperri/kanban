@@ -51,7 +51,14 @@ module.exports = {
       await mouse('mouseMoved', p.x, p.y, { button: 'none', clickCount: 0 });
       return waitFor(`hoveredId===${JSON.stringify(id)}`, 2000);
     };
-    const closePalette = async () => { await key('Escape'); return waitFor(PAL_GONE, 2500); };
+    // Esc clears a card chip before it closes the palette: press it until the palette is gone.
+    const closePalette = async () => {
+      for (let i = 0; i < 3; i++) {
+        await key('Escape');
+        if (await waitFor(PAL_GONE, i < 2 ? 700 : 2500)) return true;
+      }
+      return false;
+    };
     const noteCount = (id) => ev(`(()=>{const b=document.querySelector('#board .card-el[data-id="${id}"] .card-notes');return b?b.textContent:null})()`);
     const focusedRow = () => ev(`!!document.activeElement&&document.activeElement.classList.contains('np-note')`);
     const rowTextFocused = () => ev(`document.activeElement.querySelector('.np-note-text').textContent`);
@@ -393,6 +400,20 @@ module.exports = {
     check('notes: Esc cancels the edit and leaves the palette up', await waitFor(`!${q('.np-edit-text')}`, 2500) && await ev(PAL_UP));
     await closePalette();
 
+    // --- Esc clears the card chip before it closes the palette -------------------------------------------------------
+    const ESC_HINT = `[...document.querySelectorAll('#notes-palette .np-foot kbd')].find((k)=>k.textContent==='Esc').parentElement.textContent.replace('Esc','').trim()`;
+    await ev(`openNotes({ kind: 'card-notes', id: '7' })`);
+    check('notes: a palette aimed at a card says Esc clears the chip', await palUp() && await chip() === '#7 Port the zephyr schema' && await ev(ESC_HINT) === 'clear the chip', await ev(ESC_HINT));
+    await key('Escape');
+    check('notes: Esc clears the chip, exactly as the backspace does, and the palette stays up on Day, today', await waitFor(`${CHIP}===''`, 2500) && await ev(PAL_UP) && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week', '3 days', 'Day*']), JSON.stringify(await ev(RANGE_BTNS)));
+    check('notes: with no chip the footer says Esc closes', await ev(ESC_HINT) === 'close', await ev(ESC_HINT));
+    await key('Escape');
+    check('notes: the next Esc closes the palette', await waitFor(PAL_GONE, 2500));
+    await ev(`openNotes({ kind: 'card-notes', id: '7' })`);
+    await ev(`${q('.np-filter')}.focus()`);
+    await key('Escape');
+    check('notes: Esc in the filter field closes the palette at once, chip and all', await waitFor(PAL_GONE, 2500));
+
     // --- Tab and the Markdown keys in the note box ---------------------------------------------------------------
     const IN_BOX = `document.activeElement===${q('.np-input')}`;
     check('notes: the pointer rests on card 7 for the next palette', await hoverCard('7'));
@@ -432,8 +453,10 @@ module.exports = {
     check('notes: n with the details open opens the palette on the open card, whatever is hovered behind them', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
     check('notes: the palette draws above the details', await ev(`(()=>{const r=${PAL}.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+12);return !!e&&${PAL}.contains(e)})()`));
     await key('Escape');
-    check('notes: the first Esc closes the palette and leaves the details open', await waitFor(PAL_GONE, 2500) && await ev(DETAIL_UP));
+    check('notes: the first Esc clears the card chip and leaves the palette and the details up', await waitFor(`${CHIP}===''`, 2500) && await ev(PAL_UP) && await ev(DETAIL_UP), await chip());
     await key('Escape');
-    check('notes: a second Esc closes the details, as it does today', await waitFor(DETAIL_SHUT, 2500));
+    check('notes: the next Esc closes the palette and leaves the details open', await waitFor(PAL_GONE, 2500) && await ev(DETAIL_UP));
+    await key('Escape');
+    check('notes: the one after that closes the details, as it does today', await waitFor(DETAIL_SHUT, 2500));
   },
 };

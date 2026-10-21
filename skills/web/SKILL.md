@@ -1173,8 +1173,8 @@ to `127.0.0.1` only.
   elsewhere on Day, today (`notesCalendarOpening`). The Calendar has no way to select a day or a range
   of days, and none was added. The card details are the one popup `n` works
   over (`keyGuardOff(document, '#detail-modal')`): any other popup, a menu, or a field with
-  focus still turns it off. The palette then draws above the details, and the first Esc closes
-  it while a second closes the details; the card menu's **Add note…** opens it on one card. Its rows, top down: the
+  focus still turns it off. The palette then draws above the details; Esc clears the card chip first,
+  the next closes the palette (`notesEscape`), the one after closes the details; the card menu's **Add note…** opens it on one card. Its rows, top down: the
   subject row (a chip that says what the palette is about, a **date** field with the date picker's
   grid (`wireDatePickButton`, `data-date-only`), a time field, an *untimed* tick and a **card picker**,
   the form's `attachCombobox` over *no card* and the live cards in id order), the note box, the preview line that says exactly what Enter will write (`Note at
@@ -1231,8 +1231,11 @@ to `127.0.0.1` only.
   author, a handle the registry does not list included. A note written in the palette stays listed whatever the filter and the
   switch say. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
   to another card or to no card (the note moves to that target's file for the same day, and
-  a file left empty is removed), **d** twice deletes it. **Esc** closes the palette; a press
-  outside it does too. Every key typed in the palette stays in it, so none reaches the
+  a file left empty is removed), **d** twice deletes it. **Esc** clears the chip while the palette is
+  aimed at a card, a group or several cards on its Notes tab (`notesChipClearable`: exactly what the
+  backspace does, the range going back to the opening rule with no card), and closes the palette
+  otherwise, from the filter field at once; the footer's Esc hint reads *clear the chip* or *close*; a
+  press outside the palette closes it too. Every key typed in the palette stays in it, so none reaches the
   board's own shortcuts. The palette is no modal: the board keeps refreshing behind it, and
   each refresh repaints the list unless a note is being edited. The notes are written by
   `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/notes/assign`, which build the day

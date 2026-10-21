@@ -34,7 +34,14 @@ module.exports = {
   async run(page) {
     const { ev, open, waitFor, centre, click, mouse, key, check, shot, sleep } = page;
     const palUp = (ms) => waitFor(PAL_UP, ms || 3000);
-    const closePalette = async () => { await key('Escape'); return waitFor(PAL_GONE, 2500); };
+    // Esc clears a card chip before it closes the palette: press it until the palette is gone.
+    const closePalette = async () => {
+      for (let i = 0; i < 3; i++) {
+        await key('Escape');
+        if (await waitFor(PAL_GONE, i < 2 ? 700 : 2500)) return true;
+      }
+      return false;
+    };
     const weekDrawn = (ms) => waitFor(`document.querySelectorAll('#calendar-view .cal-tg-col').length===7`, ms || 10000);
     const showWeek = async () => {
       await open('/?view=calendar');

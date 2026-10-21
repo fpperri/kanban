@@ -18,7 +18,7 @@
 const HOTKEYS = [
   { id: 'search', keys: ['/'], reads: ['/'], what: 'Focus the search box.' },
   { id: 'find', keys: ['Ctrl/Cmd+F'], reads: ['f'], what: 'Focus the search box with # ready for a card number, or select what it holds. Works from inside a text field.' },
-  { id: 'escape', keys: ['Esc'], reads: ['Escape'], what: 'Close the menu or popup that is up, then the search panel. With none up, in the search box it clears the box, and elsewhere it steps the selection back: isolate off, then the additions, then the anchor.' },
+  { id: 'escape', keys: ['Esc'], reads: ['Escape'], what: 'Close the menu or popup that is up, then the search panel. In the notes palette it clears the card chip first, then closes the palette (at once from its filter field). With none up, in the search box it clears the box, and elsewhere it steps the selection back: isolate off, then the additions, then the anchor.' },
   { id: 'enter', keys: ['Enter'], reads: ['Enter'], what: 'Open the focused card. In a list of suggestions, take the highlighted one. In the search box, go to the first match; a second Enter opens it when it is the only one.' },
   { id: 'space', keys: ['Space'], reads: [' '], what: 'Select the focused card in the Graph, as a click does.' },
   { id: 'save', keys: ['Ctrl/Cmd+S'], reads: ['s'], what: 'Save the edit or bulk popup that is open.' },

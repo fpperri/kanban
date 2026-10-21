@@ -563,7 +563,7 @@ function notesPaint() {
   }
   notesPaintPreview();
   notesPaintBody();
-  u.foot.replaceChildren(hint('↵', 'write'), hint('↓', 'notes'), hint('e', 'edit'), hint('a', 'assign'), hint('d d', 'delete'), ...(text ? [hint('⌫', 'clear the chip')] : []), hint('Esc', 'close'));
+  u.foot.replaceChildren(hint('↵', 'write'), hint('↓', 'notes'), hint('e', 'edit'), hint('a', 'assign'), hint('d d', 'delete'), ...(text ? [hint('⌫', 'clear the chip')] : []), hint('Esc', notesChipClearable() ? 'clear the chip' : 'close'));
 }
 
 // The tab row: shown only when the subject has more than one tab.
@@ -1055,13 +1055,25 @@ function onNotesTabKey(e) {
   notesTabKey(e);
 }
 
+// Esc: while the palette is aimed at a card, a group or several cards, on its Notes tab, it clears the chip
+// as the backspace does and the palette stays up; with no chip to clear it closes. The filter field is
+// the exception: Esc there closes at once.
+function notesChipClearable() {
+  return !!notesUi.sub && notesUi.tab === 'notes' && noteIsAboutCards(notesUi.sub);
+}
+
+function notesEscape(fromFilter = false) {
+  if (notesChipClearable() && !fromFilter) notesClearChip();
+  else notesClose();
+}
+
 function notesOnPaletteKey(e) {
   if (!notesUi.sub) return; // a palette that has closed keeps no keys: a box that still holds the focus must not swallow the page's Esc
   if (notesTabKey(e)) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
-    notesClose();
+    notesEscape(e.target === notesUi.filter);
     return;
   }
   e.stopPropagation();
@@ -1108,7 +1120,7 @@ function onNotesEscape(e) {
   if (keyGuardSurface(document, NOTES_DETAIL) !== null) return;
   e.preventDefault();
   e.stopPropagation();
-  notesClose();
+  notesEscape();
 }
 
 // A mouse press outside the palette closes it, but not on what opens it.
