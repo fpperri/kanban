@@ -451,18 +451,30 @@ const AI_PROMPT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 const FULLSCREEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
 const EXIT_FULLSCREEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>';
 
-// Registry mapping a modal type (matches modal-fullscreen.js's MODAL_TYPES)
-// to its DOM handles. Following the .modal-backdrop convention here (rather
-// than hardcoding two call sites) lets a future popup
-// get fullscreen "mostly free": it only
-// needs an entry here plus a toggle button of its own.
+// Registry mapping a type (matches modal-fullscreen.js's MODAL_TYPES) to its
+// DOM handles. An entry is a selector or a function for each of:
+//   btn        the toggle button;
+//   backdrop   a .modal-backdrop popup, whose .modal is the panel and whose
+//              hidden class says whether it is open; or, for a panel that is
+//              no backdrop popup,
+//   panel      the element that takes the fullscreen class, with
+//   isOpen()   whether the type is the popup that is up;
+// and, both optional,
+//   locked()   true or false where the type has no choice (it is always, or
+//              never, fullscreen there): the saved choice is not applied, the
+//              button is hidden and the toggle does nothing; null otherwise;
+//   onChange() called after the button or Alt+Enter toggled it.
+// The first open type in the order below is the one Alt+Enter toggles.
 const FULLSCREEN_MODALS = {
+  // The notes palette draws above the card details, so it answers first.
+  notes: { btn: () => notesUi.fsBtn, panel: () => notesUi.el, isOpen: () => notesOnTop(), locked: () => notesFullscreenLocked(), onChange: () => notesFullscreenChanged() },
   edit: { backdrop: '#modal', btn: '#modal-fullscreen-btn' },
   detail: { backdrop: '#detail-modal', btn: '#detail-fullscreen-btn' },
   bulkSingle: { backdrop: '#bulk-single', btn: '#bulk-single-fullscreen-btn' },
   bulkTags: { backdrop: '#bulk-tags', btn: '#bulk-tags-fullscreen-btn' },
   bulkSchedule: { backdrop: '#bulk-schedule', btn: '#bulk-schedule-fullscreen-btn' },
 };
+const fullscreenEl = (ref) => (typeof ref === 'function' ? ref() : $(ref));
 
 let modalFullscreen = null;
 
@@ -492,10 +504,13 @@ function saveModalFullscreen() {
 function setModalFullscreenVisual(type, on) {
   const cfg = FULLSCREEN_MODALS[type];
   if (!cfg) return;
-  const backdrop = $(cfg.backdrop);
-  const btn = $(cfg.btn);
-  const panel = backdrop && backdrop.querySelector('.modal');
+  const btn = fullscreenEl(cfg.btn);
+  const backdrop = cfg.backdrop && fullscreenEl(cfg.backdrop);
+  const panel = cfg.panel ? fullscreenEl(cfg.panel) : backdrop && backdrop.querySelector('.modal');
   if (!panel || !btn) return;
+  const locked = cfg.locked ? cfg.locked() : null;
+  if (cfg.locked) btn.hidden = locked !== null;
+  if (locked !== null) on = locked;
   panel.classList.toggle('fullscreen', on);
   btn.innerHTML = on ? EXIT_FULLSCREEN_ICON : FULLSCREEN_ICON;
   const label = on ? 'Exit full screen' : 'Expand to full screen';
@@ -513,10 +528,12 @@ function applyModalFullscreen(type) {
 
 function toggleModalFullscreen(type) {
   const fs = loadModalFullscreen();
-  if (!(type in fs)) return;
+  const cfg = FULLSCREEN_MODALS[type];
+  if (!(type in fs) || !cfg || (cfg.locked && cfg.locked() !== null)) return;
   fs[type] = !fs[type];
   saveModalFullscreen();
   applyModalFullscreen(type);
+  if (cfg.onChange) cfg.onChange();
 }
 
 // The fullscreen-capable popup currently open, if any (the Alt+Enter
@@ -525,7 +542,12 @@ function toggleModalFullscreen(type) {
 // and correctly yields null.
 function openFullscreenModalType() {
   for (const type of Object.keys(FULLSCREEN_MODALS)) {
-    const backdrop = $(FULLSCREEN_MODALS[type].backdrop);
+    const cfg = FULLSCREEN_MODALS[type];
+    if (cfg.isOpen) {
+      if (cfg.isOpen()) return type;
+      continue;
+    }
+    const backdrop = fullscreenEl(cfg.backdrop);
     if (backdrop && !backdrop.classList.contains('hidden')) return type;
   }
   return null;

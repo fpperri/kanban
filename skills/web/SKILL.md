@@ -1455,12 +1455,13 @@ to `127.0.0.1` only.
   there), ahead of the selection step. With nothing
   open, Esc steps the selection back (see Multi-select).
   **Alt+Enter** toggles fullscreen on whichever fullscreen-capable popup is open
-  (detail, create/edit, and the three bulk-edit popups) — the keyboard twin of that
+  (detail, create/edit, the three bulk-edit popups and the notes palette) — the keyboard twin of that
   popup's fullscreen toggle button, updating the same persisted per-modal-type
   preference. Works with focus anywhere inside the popup, form fields included; an open
   combobox menu exempts alt-chorded Enter, so the hotkey wins there too (plain Enter
-  keeps the menu's pick grammar). No popup open = no-op; the notifications popup isn't
-  fullscreen-capable.
+  keeps the menu's pick grammar). With the notes palette up over the card details, the
+  palette is the popup it toggles; the palette's header carries the same button. No popup
+  open = no-op; the notifications popup isn't fullscreen-capable.
   **Ctrl+S / Cmd+S** saves the open popup — the keyboard twin of its Save/Apply button.
   Only popups with ONE unambiguous save action participate: the create/edit form and the
   Assign/priority and Schedule… popups; Edit tags has two competing actions (add /
