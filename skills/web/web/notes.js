@@ -24,11 +24,19 @@ const NOTE_IDS = (typeof module !== 'undefined' && module.exports) ? require('./
 const NOTE_COLUMN_STATE = (typeof module !== 'undefined' && module.exports) ? require('./column-state') : window;
 const NOTE_CALENDAR_MODEL = (typeof module !== 'undefined' && module.exports) ? require('./calendar-model') : window;
 
+// How the palette and the Calendar name a note about nothing.
+const NOTE_NO_CARD = 'no card';
+const NOTE_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const NOTE_LAST_FEATURE = 'lastnoted';
 const NOTE_LAYOUT_FEATURE = 'notes.layout';
 const NOTE_LAYOUTS = ['grouped', 'timeline'];
 const NOTE_LINE_TIME = /^(\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
 const NOTE_FIELD_TIME = /^(\d{1,2})[:.]?(\d{2})$/;
+
+// A subject that is a card or a group (the palette writes on it and lists its notes), and one that is
+// about cards: those or several cards at once.
+const noteIsTarget = (sub) => sub.kind === 'card' || sub.kind === 'group';
+const noteIsAboutCards = (sub) => noteIsTarget(sub) || sub.kind === 'each';
 
 const notePad = (n) => String(n).padStart(2, '0');
 
@@ -51,7 +59,7 @@ const noteBadDay = (text) => `${text} is not a date; a date reads YYYY-MM-DD.`;
 // The date field's text as YYYY-MM-DD, null when it is none or names a day the calendar lacks.
 function noteFieldDay(text) {
   const day = String(text == null ? '' : text).trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  if (!NOTE_DAY.test(day)) return null;
   const d = new Date(Date.parse(`${day}T00:00:00Z`));
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day ? null : day;
 }
@@ -131,7 +139,7 @@ function noteSubjectFrom(req, o) {
 // group's own Group tab, and the Scratchpad of a card or group (when the board keeps scratchpads).
 // A card with the logbook off still has its Scratchpad, so it opens on that alone.
 function noteTabs(sub, o) {
-  const target = !!sub && (sub.kind === 'card' || sub.kind === 'group');
+  const target = !!sub && noteIsTarget(sub);
   if (!target) return ['notes'];
   const tabs = [];
   if (o.notesOn || (sub.kind === 'card' && !o.scratchpadOn)) tabs.push('notes');
@@ -164,7 +172,7 @@ function noteSubjectNoCard(was) {
 // many cards }. For a palette aimed at nothing it is the card Enter would write on, the last noted.
 function noteSubjectTarget(sub, lastNoted) {
   if (sub.kind === 'each') return { each: sub.ids.length };
-  if (sub.kind === 'card' || sub.kind === 'group') return { id: sub.id };
+  if (noteIsTarget(sub)) return { id: sub.id };
   if (sub.noCard) return { id: '' };
   return { id: lastNoted || '' };
 }
@@ -225,7 +233,7 @@ function noteWritePlan(parsed, subject, field, o) {
   let targets = null;
   let from;
   if (parsed.mention !== null) { target = parsed.mention; from = 'line'; }
-  else if (subject.kind === 'card' || subject.kind === 'group') { target = subject.id; from = 'chip'; }
+  else if (noteIsTarget(subject)) { target = subject.id; from = 'chip'; }
   else if (subject.kind === 'each') { target = ''; targets = subject.ids; from = 'each'; }
   else if (subject.noCard) { target = ''; from = 'nocard'; }
   else { target = o.lastNoted || ''; from = 'last'; }
@@ -293,10 +301,10 @@ function noteRangeLabel(mode, anchor) {
 // aimed at on what `req.range` asks for (the Calendar's own mode and range, or a day under the
 // pointer), else Day, today. `sub` is the subject (noteSubjectFrom), `req` what opened the palette.
 function noteRangeFor(sub, req, today) {
-  if (sub.kind === 'card' || sub.kind === 'group' || sub.kind === 'each') return { mode: 'all', anchor: sub.day || today };
+  if (noteIsAboutCards(sub)) return { mode: 'all', anchor: sub.day || today };
   if (sub.kind === 'slot' || sub.kind === 'untimed') return { mode: 'day', anchor: sub.day };
   const asked = req && req.range;
-  if (asked && NOTE_RANGE_MODES.includes(asked.mode) && /^\d{4}-\d{2}-\d{2}$/.test(asked.anchor || '')) return { mode: asked.mode, anchor: asked.anchor };
+  if (asked && NOTE_RANGE_MODES.includes(asked.mode) && NOTE_DAY.test(asked.anchor || '')) return { mode: asked.mode, anchor: asked.anchor };
   return { mode: 'day', anchor: sub.day || today };
 }
 
@@ -310,7 +318,7 @@ function noteInRange(notes, bounds) {
 // untimed box lists only itself while the range is as it opened, `range.touched` false, and the rest
 // of the range once it has been changed. `range` is { mode, anchor, touched }.
 function noteListNotes(notes, subject, range, o = {}) {
-  const own = subject.kind === 'card' || subject.kind === 'group' || subject.kind === 'each' || ((subject.kind === 'slot' || subject.kind === 'untimed') && !range.touched)
+  const own = noteIsAboutCards(subject) || ((subject.kind === 'slot' || subject.kind === 'untimed') && !range.touched)
     ? noteSubjectNotes(notes, subject, o)
     : notes;
   return noteInRange(own, noteRangeBounds(range.mode, range.anchor));
@@ -442,33 +450,26 @@ function noteDayName(day) {
 
 // The card last noted, kept in this browser per board: only what reads as an id.
 function noteLastLoad(storage, projectName) {
-  let saved = null;
-  try { saved = storage.getItem(NOTE_COLUMN_STATE.storageKey(projectName, NOTE_LAST_FEATURE)); }
-  catch (e) { saved = null; }
-  return typeof saved === 'string' && NOTE_IDS.idKey(saved) !== null ? NOTE_IDS.idKey(saved) : '';
+  const saved = NOTE_COLUMN_STATE.boardPrefLoad(storage, projectName, NOTE_LAST_FEATURE);
+  return saved !== null && NOTE_IDS.idKey(saved) !== null ? NOTE_IDS.idKey(saved) : '';
 }
 
 function noteLastSave(storage, projectName, id) {
-  if (NOTE_IDS.idKey(id) === null) return;
-  try { storage.setItem(NOTE_COLUMN_STATE.storageKey(projectName, NOTE_LAST_FEATURE), NOTE_IDS.idKey(id)); }
-  catch (e) { /* storage unavailable/full: it just won't persist this session */ }
+  if (NOTE_IDS.idKey(id) !== null) NOTE_COLUMN_STATE.boardPrefSave(storage, projectName, NOTE_LAST_FEATURE, NOTE_IDS.idKey(id));
 }
 
 // The list's layout, Grouped or Timeline, kept in this browser per board; anything else is Grouped.
 function noteLayoutLoad(storage, projectName) {
-  let saved = null;
-  try { saved = storage.getItem(NOTE_COLUMN_STATE.storageKey(projectName, NOTE_LAYOUT_FEATURE)); }
-  catch (e) { saved = null; }
+  const saved = NOTE_COLUMN_STATE.boardPrefLoad(storage, projectName, NOTE_LAYOUT_FEATURE);
   return NOTE_LAYOUTS.includes(saved) ? saved : 'grouped';
 }
 
 function noteLayoutSave(storage, projectName, layout) {
-  if (!NOTE_LAYOUTS.includes(layout)) return;
-  try { storage.setItem(NOTE_COLUMN_STATE.storageKey(projectName, NOTE_LAYOUT_FEATURE), layout); }
-  catch (e) { /* storage unavailable/full: it just won't persist this session */ }
+  if (NOTE_LAYOUTS.includes(layout)) NOTE_COLUMN_STATE.boardPrefSave(storage, projectName, NOTE_LAYOUT_FEATURE, layout);
 }
 
 const NOTES_EXPORTS = {
+  NOTE_NO_CARD, noteIsTarget, noteIsAboutCards,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteInRange, noteListNotes,
   noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,

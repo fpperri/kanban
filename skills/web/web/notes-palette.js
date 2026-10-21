@@ -66,7 +66,7 @@ function notesGroup(id) {
 
 // A card or a group as the chip and the list read it; '' is a note about nothing.
 function notesLabel(id) {
-  if (id === '') return 'no card';
+  if (id === '') return NOTE_NO_CARD;
   const card = notesCard(id);
   if (card) return `#${id} ${card.title}`;
   const group = notesGroup(id);
@@ -509,7 +509,7 @@ function notesClearChip() {
 function notesChipText() {
   const sub = notesUi.sub;
   const day = noteDayName(sub.day);
-  if (sub.kind === 'card' || sub.kind === 'group') {
+  if (noteIsTarget(sub)) {
     return notesLabel(sub.id) + (sub.at ? ` · ${day} ${sub.at}` : sub.untimed ? ` · ${day} untimed` : '');
   }
   if (sub.kind === 'each') return `each of ${sub.ids.length} cards`;
@@ -537,7 +537,7 @@ function notesPaint() {
   u.chip.hidden = !text;
   u.chipText.textContent = text;
   u.chipText.title = text;
-  u.input.placeholder = u.sub.kind === 'card' || u.sub.kind === 'group' ? 'Write a note' : 'Write a note; #7 picks the card';
+  u.input.placeholder = noteIsTarget(u.sub) ? 'Write a note' : 'Write a note; #7 picks the card';
   notesPaintTabs();
   const panel = u.tab !== 'notes';
   for (const el of [u.when, u.input, u.prev, u.filterRow, u.rangeRow]) el.hidden = panel;
@@ -626,7 +626,7 @@ function notesList() {
   const today = localTodayStr();
   const multiDay = new Set(notes.map((n) => n.day)).size > 1;
   const wrap = notesEl('div', 'np-notes');
-  const first = sub.kind === 'card' || sub.kind === 'group' ? sub.id : null;
+  const first = noteIsTarget(sub) ? sub.id : null;
   if (notesLayout() === 'timeline') {
     for (const day of noteTimeline(notes, { first })) {
       const block = notesEl('section', 'np-ngroup np-tgroup');
@@ -861,7 +861,7 @@ function notesAim(id, keepText = false) {
 // menu writes into the field and notesOnPickInput reads back.
 function notesPickOptions() {
   const cards = state.active.slice().sort((a, b) => kanbanIds.compareIds(String(a.id), String(b.id)));
-  return [{ value: 'no card', label: 'no card' }].concat(cards.map((c) => ({ value: String(c.id), label: `#${c.id} ${c.title}` })));
+  return [{ value: NOTE_NO_CARD, label: NOTE_NO_CARD }].concat(cards.map((c) => ({ value: String(c.id), label: `#${c.id} ${c.title}` })));
 }
 
 // What the picker shows: the note's target as the chip would name it. A field being typed in is not
@@ -883,7 +883,7 @@ function onNotesPickInput(e) {
   const u = notesUi;
   if (!u.sub) return;
   const value = u.pick.value;
-  if (value === 'no card') {
+  if (value === NOTE_NO_CARD) {
     u.sub = noteSubjectNoCard(u.sub);
     notesRetargeted();
     notesResetTime();

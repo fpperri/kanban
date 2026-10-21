@@ -364,3 +364,15 @@ test('any other key, a digit without Alt, or Alt with another modifier is no tab
   assert.strictEqual(n.noteTabKey({ key: 'ArrowRight', code: 'ArrowRight', altKey: true }), -1);
   assert.strictEqual(n.noteTabKey({ altKey: true }), -1);
 });
+
+test('a note about nothing has one name, in the palette and on the Calendar', () => {
+  const c = require('../web/notes-calendar');
+  assert.strictEqual(n.NOTE_NO_CARD, 'no card');
+  assert.deepStrictEqual(c.noteSlotTargets([{ target: '' }, { target: '7' }]), ['#7', n.NOTE_NO_CARD]);
+  assert.strictEqual(c.noteUntimedTip([{ target: '', note: 'x' }]), `${n.NOTE_NO_CARD}: x`);
+});
+
+test('a subject is a target when it is a card or a group, and about cards when it is also several of them', () => {
+  assert.deepStrictEqual(['card', 'group', 'each', 'none', 'slot', 'untimed'].map((kind) => n.noteIsTarget({ kind })), [true, true, false, false, false, false]);
+  assert.deepStrictEqual(['card', 'group', 'each', 'none', 'slot', 'untimed'].map((kind) => n.noteIsAboutCards({ kind })), [true, true, true, false, false, false]);
+});

@@ -517,3 +517,21 @@ test('the step to a neighbour status stops at both ends and Archive is the last'
   assert.strictEqual(neighbourPhoneColumn(s, 'archive', 'next'), 'archive');
   assert.strictEqual(neighbourPhoneColumn(s, 'archive', 'prev'), 'done');
 });
+
+test('a per-board preference is read and written as text under the board\'s own key, and a storage that fails is no preference', () => {
+  const { boardPrefLoad, boardPrefSave } = require('../web/column-state');
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  assert.strictEqual(boardPrefLoad(storage, 'plan', 'notes.layout'), null);
+  boardPrefSave(storage, 'plan', 'notes.layout', 'timeline');
+  assert.strictEqual(store.get('kanban.plan.notes.layout'), 'timeline');
+  assert.strictEqual(boardPrefLoad(storage, 'plan', 'notes.layout'), 'timeline');
+  assert.strictEqual(boardPrefLoad(storage, 'other', 'notes.layout'), null);
+  boardPrefSave(storage, 'plan', 'calendar.notesWidth', 150);
+  assert.strictEqual(store.get('kanban.plan.calendar.notesWidth'), '150', 'a number is kept as text');
+  boardPrefSave(storage, 'plan', 'calendar.notesWidth', null);
+  assert.strictEqual(store.has('kanban.plan.calendar.notesWidth'), false, 'null takes the key away');
+  assert.strictEqual(boardPrefLoad({ getItem() { throw new Error('blocked'); } }, 'plan', 'x'), null);
+  boardPrefSave({ setItem() { throw new Error('full'); }, removeItem() { throw new Error('full'); } }, 'plan', 'x', 'y');
+  boardPrefSave({ setItem() { throw new Error('full'); }, removeItem() { throw new Error('full'); } }, 'plan', 'x', null);
+});

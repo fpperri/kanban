@@ -15,6 +15,7 @@
 // Pure: Node tests drive it with plain notes. Same dual-environment export pattern as notes.js.
 
 const NCAL_COLUMN_STATE = (typeof module !== 'undefined' && module.exports) ? require('./column-state') : window;
+const NCAL_NOTES = (typeof module !== 'undefined' && module.exports) ? require('./notes') : window;
 
 const NCAL_SLOT_MIN = 30;
 const NCAL_DAY_MIN = 24 * 60;
@@ -88,21 +89,15 @@ function noteChipWords(stripPx) {
 }
 
 function noteStripLoad(storage, projectName) {
-  let saved = null;
-  try { saved = storage.getItem(NCAL_COLUMN_STATE.storageKey(projectName, NCAL_STRIP_FEATURE)); }
-  catch (e) { saved = null; }
-  if (typeof saved !== 'string' || !/^\d+$/.test(saved)) return null;
+  const saved = NCAL_COLUMN_STATE.boardPrefLoad(storage, projectName, NCAL_STRIP_FEATURE);
+  if (saved === null || !/^\d+$/.test(saved)) return null;
   const px = Number(saved);
   return px >= NCAL_STRIP_MIN && px <= NCAL_STRIP_MAX_SAVED ? px : null;
 }
 
 // Null puts the default back: nothing is kept.
 function noteStripSave(storage, projectName, px) {
-  const key = NCAL_COLUMN_STATE.storageKey(projectName, NCAL_STRIP_FEATURE);
-  try {
-    if (px === null) storage.removeItem(key);
-    else storage.setItem(key, String(px));
-  } catch (e) { /* storage unavailable/full: the width just won't persist this session */ }
+  NCAL_COLUMN_STATE.boardPrefSave(storage, projectName, NCAL_STRIP_FEATURE, px);
 }
 
 // The first `count` words of a note, with an ellipsis when there are more.
@@ -115,7 +110,7 @@ function noteFirstWords(text, count) {
 function noteSlotTargets(notes) {
   const ids = [];
   for (const note of notes) if (note.target && !ids.includes(`#${note.target}`)) ids.push(`#${note.target}`);
-  if (notes.some((note) => !note.target)) ids.push('no card');
+  if (notes.some((note) => !note.target)) ids.push(NCAL_NOTES.NOTE_NO_CARD);
   return ids;
 }
 
@@ -134,7 +129,7 @@ function noteSlotTip(slot) {
 }
 
 function noteUntimedTip(notes) {
-  return notes.map((note) => `${note.target ? `#${note.target}` : 'no card'}: ${note.note}`).join('\n');
+  return notes.map((note) => `${note.target ? `#${note.target}` : NCAL_NOTES.NOTE_NO_CARD}: ${note.note}`).join('\n');
 }
 
 // The palette requests (notes.js, noteSubjectFrom).
