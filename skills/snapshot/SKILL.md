@@ -300,6 +300,12 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
   each, in config order. The readers of `icon:` and `pills:` are written twice, here
   and in kanban-web's `config-store.js`, and `test/nesting-config.test.js` fails when
   they stop reading the same entries alike. The list only suggests: any word is a type.
+- **Types off.** With `typesOn: false` in `config.yaml` the builder embeds no `types:` and no
+  `hierarchy:` and a flag the page reads (`TYPES_ON`), as kanban-web's `boardTypeView` does:
+  no type chip, color or icon on a tile or a Map node, no type pill in a card's sheet and no
+  `type` field in All fields (so the editor queues no change to a card's `type:` line), and the
+  slices are the depths. The cards and the lists stay as written, and a line absent or not
+  `false` means on. `test/types-off.test.js` pins the reading to kanban-web's.
 - **Outline order.** On a board where any card has a `rank` or a `parent`, every
   status section lists its cards in outline order: parents before their children,
   siblings by rank, then by priority (the `priorities:` order), then by id. A board

@@ -50,7 +50,7 @@ test('the web skill describes the tab, its entries, the keys, the routes and the
     assert.ok(webBullet.includes(part), part);
   }
   assert.ok(flat(web).includes('`DELETE /api/groups/<id>` take `{ logbook, scratchpad, members, memberLogbook, memberScratchpad }`'));
-  assert.ok(flat(web).includes('the pages Logbook, Scratchpad, Groups, Prefixes and Counters'));
+  assert.ok(flat(web).includes('the pages Logbook, Scratchpad, Groups, Types, Prefixes and Counters'));
 });
 
 test('the docs describe the tab, the ways in, the save, and the delete box that is unticked', () => {
@@ -58,5 +58,5 @@ test('the docs describe the tab, the ways in, the save, and the delete box that 
   for (const part of ['**Scratchpad** tab', '**Scratchpad…**', '**Ctrl+Enter**', '**Save**', 'The kanban never deletes a page', '**Its scratchpad**', 'unticked']) {
     assert.ok(docsPad.includes(part), part);
   }
-  assert.ok(flat(docs).includes('*This board* has five pages'));
+  assert.ok(flat(docs).includes('*This board* has six pages'));
 });

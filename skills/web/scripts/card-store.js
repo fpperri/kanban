@@ -695,7 +695,7 @@ function deleteCard(dir, id) {
 module.exports = {
   parseFrontmatter, serializeCard, splitTitleBody, joinTitleBody,
   parseList, formatList, slugify, capSlug, projectName,
-  readCardFile, writeAtomic, listActive, listArchived, findCardFile, nextId, todayLocalDate,
+  readCardFile, typeValue, writeAtomic, listActive, listArchived, findCardFile, nextId, todayLocalDate,
   listArchivePackages, archivePackageDir, isArchivedFile,
   createCard, updateCard, archiveCard, restoreCard, deleteCard,
   WaitingError, BlockedError, PackageError, toJSON, cardDetail,
