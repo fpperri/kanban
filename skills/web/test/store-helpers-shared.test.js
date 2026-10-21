@@ -16,10 +16,10 @@ test('the group and logbook stores and the iteration rules read a day through da
   }
 });
 
-test('the group, logbook, scratchpad and settings stores refuse with the one status error', () => {
+test('the group, logbook, scratchpad, todo and settings stores refuse with the one status error', () => {
   const { StatusError } = require('../scripts/store-common');
   const server = read(SCRIPTS, 'server.js');
-  for (const file of ['group-store.js', 'logbook-store.js', 'scratchpad-store.js', 'settings-store.js']) {
+  for (const file of ['group-store.js', 'logbook-store.js', 'scratchpad-store.js', 'todo-store.js', 'settings-store.js']) {
     assert.ok(!/class \w+Error/.test(read(SCRIPTS, file)), `${file} declares no error class of its own`);
   }
   assert.ok(!/(?:GroupError|LogbookError|ScratchpadError|SettingsError)/.test(server), 'the server names none of them');
@@ -31,7 +31,7 @@ test('the group, logbook, scratchpad and settings stores refuse with the one sta
 });
 
 test('the stores write through card-store\'s writeAtomic and name no tmp file of their own', () => {
-  for (const file of ['group-store.js', 'logbook-store.js', 'scratchpad-store.js']) {
+  for (const file of ['group-store.js', 'logbook-store.js', 'scratchpad-store.js', 'todo-store.js']) {
     assert.ok(!/\.tmp`/.test(read(SCRIPTS, file)), `${file} has no tmp-and-rename of its own`);
     assert.match(read(SCRIPTS, file), /writeAtomic/, `${file} writes through writeAtomic`);
   }
