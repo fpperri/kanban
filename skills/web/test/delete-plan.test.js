@@ -120,6 +120,36 @@ test('several cards offer their scratchpads once, counting the ones that exist',
   assert.deepStrictEqual(deletePlan({ ...board, ...pads, kind: 'card', targets: ['3', '7'] }).options.filter((o) => o.key === 'scratchpad'), [{ key: 'scratchpad', label: 'Their scratchpads (1)' }]);
 });
 
+test('a card or a group that has a todo list offers it, unticked, after the scratchpad (docs/adr/0021)', () => {
+  const lists = { todosOn: true, todos: ['7', 'I1', '15'] };
+  assert.deepStrictEqual(deletePlan({ ...board, ...pads, ...lists, kind: 'card', targets: ['7'] }).options, [
+    { key: 'logbook', label: 'Its logbook (2 notes)' },
+    { key: 'scratchpad', label: 'Its scratchpad' },
+    { key: 'todos', label: 'Its todo list' },
+  ]);
+  assert.deepStrictEqual(keys(deletePlan({ ...board, ...lists, kind: 'group', targets: ['I1'] })), ['logbook', 'todos']);
+  assert.deepStrictEqual(keys(deletePlan({ ...board, ...lists, kind: 'card', targets: ['3'] })), [], 'a target with no list offers no box');
+  assert.deepStrictEqual(keys(deletePlan({ ...board, ...lists, todosOn: false, kind: 'card', targets: ['7'] })), ['logbook'], 'nor does a board with todo lists off');
+});
+
+test('several cards offer their todo lists once, counting the ones that exist, and a group offers its members\' lists', () => {
+  const lists = { todosOn: true, todos: ['7', '15'] };
+  assert.deepStrictEqual(deletePlan({ ...board, ...lists, kind: 'card', targets: ['3', '7', '15'] }).options.filter((o) => o.key === 'todos'), [{ key: 'todos', label: 'Their todo lists (2)' }]);
+  assert.deepStrictEqual(deletePlan({ ...board, ...lists, kind: 'group', targets: ['I2'] }).members.extras, [{ key: 'memberTodos', label: 'Their todo lists (1)' }], 'counted over the members it would delete: 7 is held by I1 and skipped');
+  assert.deepStrictEqual(deletePlan({ ...board, notes: [], todosOn: true, todos: ['7'], kind: 'group', targets: ['I2'] }).members.extras, [], '7 is held by I1, so it is skipped and its list is not offered');
+});
+
+test('the request carries the todo list box when it is ticked', () => {
+  assert.deepStrictEqual(deleteBody({ logbook: false, todos: true, memberTodos: true }), { todos: true, memberTodos: true });
+});
+
+test('the toast names the todo lists that went with a card or a group', () => {
+  const { deleteSummary } = require('../web/delete-plan');
+  assert.strictEqual(deleteSummary('card', ['7'], [{ groups: [], swept: { scratchpad: 1, todos: 1 } }], []), 'Deleted #7; deleted 1 scratchpad; deleted 1 todo list.');
+  assert.strictEqual(deleteSummary('card', ['3', '7'], [{ groups: [], swept: { todos: 1 } }, { groups: [], swept: { todos: 1 } }], []), 'Deleted 2 cards; deleted 2 todo lists.');
+  assert.strictEqual(deleteSummary('group', ['I1'], [{ deleted: ['7'], kept: [], swept: { todos: 1 }, membersSwept: { todos: 2 } }], []), 'Deleted group #I1; deleted 1 member card (#7); deleted its todo list; deleted their 2 todo lists.');
+});
+
 test('the request carries the scratchpad box when it is ticked', () => {
   assert.deepStrictEqual(deleteBody({ logbook: false, scratchpad: true }), { scratchpad: true });
 });

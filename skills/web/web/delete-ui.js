@@ -8,7 +8,7 @@
 // backdrop, Escape and click-away, and it works on a board that keeps no groups.
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
-// loads: state, api, toast, loadBoard, groupsList, notesOn, notesAll, scratchpadOn, scratchpadTargets,
+// loads: state, api, toast, loadBoard, groupsList, notesOn, notesAll, scratchpadOn, scratchpadTargets, todosOn, todoTargets,
 // openGroupDialog, closeGroupDialog, and delete-plan.js's functions.
 
 function delEl(tag, className, text) {
@@ -48,7 +48,7 @@ function openDelete(kind, targets, opts = {}) {
   const have = delCards();
   const live = kind === 'group' ? targets.filter((t) => groupsList().some((g) => g.id === t)) : targets.filter((t) => have.some((c) => c.id === t));
   if (!live.length) { toast(kind === 'group' ? 'That group is gone.' : 'That card is gone.'); return; }
-  const plan = deletePlan({ kind, targets: live, cards: have, groups: groupsList(), notes: notesAll(), logbookOn: notesOn(), scratchpadOn: scratchpadOn(), scratchpads: scratchpadTargets() });
+  const plan = deletePlan({ kind, targets: live, cards: have, groups: groupsList(), notes: notesAll(), logbookOn: notesOn(), scratchpadOn: scratchpadOn(), scratchpads: scratchpadTargets(), todosOn: todosOn(), todos: todoTargets() });
   const body = delEl('div', 'del-popup');
   if (plan.chips) {
     const row = delEl('div', 'group-chips');
