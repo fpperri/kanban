@@ -5,7 +5,7 @@
 // SWEEPS, each a function of the board and the target (a card or a group id) that deletes the
 // files kept for that target and returns how many. Deleting a group can also delete its member
 // cards, but never one another group still lists, and with them, each unticked, their
-// logbook files and scratchpads (the same SWEEPS, asked as `member<Key>`, run on the members
+// logbook files, scratchpads and todo lists (the same SWEEPS, asked as `member<Key>`, run on the members
 // that were deleted).
 //
 // A new kind of file kept per target joins the popup by adding one entry to SWEEPS; the
@@ -14,11 +14,13 @@ const cs = require('./card-store');
 const gs = require('./group-store');
 const lb = require('./logbook-store');
 const sp = require('./scratchpad-store');
+const td = require('./todo-store');
 const ids = require('../web/ids');
 
 const SWEEPS = {
   logbook: (dir, target) => lb.deleteTargetFiles(dir, target),
   scratchpad: (dir, target) => sp.deleteTargetFiles(dir, target),
+  todos: (dir, target) => td.deleteTargetFiles(dir, target),
 };
 
 // Run the extras the options ask for on one target: { logbook: 2 } for what was asked, nothing

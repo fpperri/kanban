@@ -193,6 +193,10 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
       // and the names outside its rim, which the fit leaves no room for.
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+      // A slow machine, on request: KANBAN_BROWSER_CPU_THROTTLE=4 runs the page four times slower, to find the step
+      // that only passes because the page is fast (CI's runner is slower than a desk).
+      const throttle = Number(process.env.KANBAN_BROWSER_CPU_THROTTLE);
+      if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
       // The phone scenario turns touch on; no other scenario starts with it.
       await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
       // A tab nobody has clicked in is not focused, and a focus() on one of its elements fires no focus event. Focus

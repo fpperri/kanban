@@ -3,6 +3,7 @@
 // status: the group, logbook, scratchpad and settings stores throw it, and the server answers
 // every one with its status and message from a single catch. posix writes a path with `/`.
 const path = require('path');
+const crypto = require('crypto');
 
 class StatusError extends Error {
   constructor(message, status) {
@@ -14,4 +15,7 @@ class StatusError extends Error {
 
 const posix = (p) => p.split(path.sep).join('/');
 
-module.exports = { StatusError, posix };
+// A short version of a text, for a change that names the text it read (a 409 when it has changed since).
+const versionOf = (text) => crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+
+module.exports = { StatusError, posix, versionOf };

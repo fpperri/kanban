@@ -37,6 +37,7 @@ test('the starter file reads as the plan: seven types, the four-level hierarchy 
   assert.strictEqual(starter.groups, '');
   assert.strictEqual(starter.logbook, '');
   assert.strictEqual(starter.scratchpad, '');
+  assert.strictEqual(starter.todos, '');
   assert.strictEqual(starter.iterations, false);
 });
 

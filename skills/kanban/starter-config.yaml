@@ -44,5 +44,6 @@ prefixes:
 # sheet (This board):
 # logbook: logbook          # dated notes, one file per day
 # scratchpad: .scratchpad   # a disposable page per card or group
+# todos: .todos             # a Markdown task list per card or group; may share the scratchpad's folder
 # groups: .groups           # files that list cards; the I, W and DW prefixes above name folders in it
 # iterations: true          # the header's iteration dropdown; needs groups

@@ -149,7 +149,7 @@ module.exports = {
     await clickOn('#prefs-btn');
     check('feature: the gear opens its sheet', await waitFor(`!${SHEET}.classList.contains('hidden')`, 2500) && await waitFor(`document.querySelector('.prefs-sheet').getAnimations().length===0`, 2500));
     const pages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent)`);
-    check('feature: This board lists Logbook, Scratchpad, Groups, Types, Prefixes and Counters', pages.join() === 'Logbook,Scratchpad,Groups,Types,Prefixes,Counters', pages);
+    check('feature: This board lists Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters', pages.join() === 'Logbook,Scratchpad,Todos,Groups,Types,Prefixes,Counters', pages);
     check('feature: the menu says logbook on, scratchpad on and groups on', await ev(menuState('board:logbook')) === 'on' && await ev(menuState('board:scratchpad')) === 'on' && /^on/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:scratchpad')), await ev(menuState('board:groups'))]);
     await clickOn('.prefs-menu-item[data-page="board:groups"]');
     check('feature: the Groups page has Iterations on, as the board declares', await waitFor(`${pageTitle}==='Groups'`, 2500) && await ev(`document.querySelector('.prefs-opt[data-switch="iterations"][data-value="on"]').getAttribute('aria-pressed')==='true'`));

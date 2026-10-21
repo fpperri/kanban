@@ -36,6 +36,7 @@ const PAGE_GLOBALS = [
   'settingsUi',
   'shownCardIds',
   'state',
+  'todosUi',
   'toast',
   'writeSearch',
 ];

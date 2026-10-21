@@ -40,6 +40,26 @@ test('the tabs a subject has: Notes with a logbook, Group for a group, Scratchpa
   for (const kind of ['none', 'each', 'slot', 'untimed']) assert.deepStrictEqual(n.noteTabs({ kind }, on), ['notes'], `${kind} has no scratchpad`);
 });
 
+test('Todos is the last tab of a card or group on a board that keeps todo lists, and a card with nothing else opens on it alone (docs/adr/0021)', () => {
+  const card = { kind: 'card', id: '7' };
+  const group = { kind: 'group', id: 'I2' };
+  const all = { notesOn: true, scratchpadOn: true, todosOn: true };
+  assert.deepStrictEqual(n.noteTabs(card, all), ['notes', 'scratch', 'todos']);
+  assert.deepStrictEqual(n.noteTabs(group, all), ['notes', 'group', 'scratch', 'todos']);
+  assert.deepStrictEqual(n.noteTabs(card, { notesOn: true, scratchpadOn: false, todosOn: true }), ['notes', 'todos']);
+  assert.deepStrictEqual(n.noteTabs(card, { notesOn: false, scratchpadOn: false, todosOn: true }), ['todos'], 'a card with the logbook off still has its todos');
+  assert.deepStrictEqual(n.noteTabs(card, { notesOn: false, scratchpadOn: true, todosOn: true }), ['scratch', 'todos']);
+  assert.deepStrictEqual(n.noteTabs(group, { notesOn: false, scratchpadOn: false, todosOn: true }), ['group', 'todos']);
+  assert.deepStrictEqual(n.noteTabs(card, { notesOn: true, scratchpadOn: true }), ['notes', 'scratch'], 'todosOn absent = off');
+  for (const kind of ['none', 'each', 'slot', 'untimed']) assert.deepStrictEqual(n.noteTabs({ kind }, all), ['notes'], `${kind} has no todos`);
+});
+
+test('a request to open the todos of a card or group aims the palette at it', () => {
+  const is = { today: CTX.today, isGroup: (id) => id === 'I2' };
+  assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'todos', target: '7' }, is), { kind: 'card', id: '7', day: CTX.today });
+  assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'todos', target: 'I2' }, is), { kind: 'group', id: 'I2', day: CTX.today });
+});
+
 test('a note typed on a group\'s chip is written to the group', () => {
   const plan = n.noteWritePlan(n.noteParseLine('on track except #7', KNOWN), { kind: 'group', id: 'I2', day: CTX.today }, field('10:30'), CTX);
   assert.deepStrictEqual([plan.target, plan.from, plan.at], ['I2', 'chip', '10:30']);

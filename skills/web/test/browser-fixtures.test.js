@@ -8,6 +8,7 @@ const { listActive, listArchived } = require('../scripts/card-store');
 const { readConfig, ICON_NAMES } = require('../scripts/config-store');
 const { listNotes } = require('../scripts/logbook-store');
 const { readPad, listTargets } = require('../scripts/scratchpad-store');
+const todoStore = require('../scripts/todo-store');
 const { readGroups } = require('../scripts/group-store');
 const { BOARDS, materialize } = require('./browser/boards');
 
@@ -300,6 +301,23 @@ test('scratchpad board: the groups board with a scratchpad: line, a page for car
   assert.match(pad.body, /^check the enum renames\n- orders\.status/);
   assert.strictEqual(readPad(b.dir, 'I2').body, 'ask ops about the freeze window\n');
   assert.strictEqual(b.config.name, 'scratchpad');
+});
+
+test('todos board: the scratchpad board with todos: naming the scratchpad\'s own folder, a list for card 7 beside its page and one for group I2', () => {
+  const b = load('todos');
+  const pads = load('scratchpad');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), pads.cards.map((c) => c.id).sort(), 'the same cards as the scratchpad board');
+  assert.strictEqual(b.config.todos, '.scratchpad');
+  assert.strictEqual(b.config.scratchpad, '.scratchpad', 'both name one folder');
+  assert.strictEqual(b.config.logbook, 'logbook');
+  assert.strictEqual(pads.config.todos, '', 'the scratchpad board has no todos line');
+  assert.strictEqual(b.config.name, 'todos');
+  assert.deepStrictEqual(todoStore.listTargets(b.dir), ['7', 'I2']);
+  assert.deepStrictEqual(listTargets(b.dir), ['7', 'I2'], 'and each store lists only its own kind of file');
+  assert.deepStrictEqual(todoStore.counts(b.dir), { 7: { open: 3, total: 4 }, I2: { open: 1, total: 1 } });
+  const list = todoStore.readTodos(b.dir, '7');
+  assert.deepStrictEqual(list.lines.map((l) => (l.item ? `${l.depth}${l.done ? 'x' : 'o'} ${l.text}` : `= ${l.text}`)), ['= # Before the handoff', '0o check the enum renames', '0x run the migration dry run', '0o update the changelog', '1o note the breaking rename']);
+  assert.strictEqual(readPad(b.dir, '7').body.startsWith('check the enum renames'), true, 'the scratchpad page beside it is the same');
 });
 
 test('scratchonly board: the groups board with scratchpads on and the logbook off, and no page written yet', () => {

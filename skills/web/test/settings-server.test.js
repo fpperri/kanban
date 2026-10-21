@@ -147,6 +147,34 @@ test('a feature switched on on a bare board writes its line below the id lines',
   });
 });
 
+test('the todos folder is a folder feature: off without the line, locked outside the board, and its line goes below the scratchpad\'s (docs/adr/0021)', async () => {
+  await withServer(tmpBoard(), async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.todos, { on: false, folder: '', locked: false, reason: '' });
+    assert.strictEqual(settings.paths.todos, null);
+    assert.strictEqual(settings.paths.todosNow, null);
+  });
+  await withServer(tmpBoard({ config: 'todos: ../lists\n' }), async (base) => {
+    const { todos } = (await req(base, 'GET', '/api/board')).json.settings;
+    assert.strictEqual(todos.locked, true);
+    assert.strictEqual((await set(base, 'todos', null)).status, 409);
+  });
+  const dir = tmpBoard({ config: 'name: t\nscratchpad: .scratchpad\ngroups: .groups\n' });
+  await withServer(dir, async (base) => {
+    const on = await set(base, 'todos', 'lists/<iteration>');
+    assert.strictEqual(on.status, 200);
+    assert.strictEqual(on.json.settings.todos.on, true);
+    assert.strictEqual(config(dir), 'name: t\nscratchpad: .scratchpad\ntodos: lists/<iteration>\ngroups: .groups\n');
+    assert.strictEqual(on.json.settings.paths.todos, path.resolve(dir, 'lists/<iteration>'));
+    assert.strictEqual(on.json.settings.paths.todosNow, path.resolve(dir, 'lists'), 'no iteration holds today: the segment is dropped');
+    assert.strictEqual((await set(base, 'todos', '<iteration>/x')).status, 400, 'the iteration cannot lead the path');
+    assert.strictEqual((await set(base, 'todos', '../out')).status, 400);
+    assert.strictEqual((await set(base, 'todos', '.scratchpad')).status, 200, 'it may name the scratchpad\'s folder');
+    await set(base, 'todos', null);
+    assert.strictEqual(config(dir), 'name: t\nscratchpad: .scratchpad\ngroups: .groups\n');
+  });
+});
+
 test('the scratchpad line goes below the logbook line, and the groups line below it', async () => {
   const dir = tmpBoard({ config: 'name: t\nnextId: 5\nlogbook: logbook\nassignees:\n  - handle: "@a"\n' });
   await withServer(dir, async (base) => {

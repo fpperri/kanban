@@ -28,68 +28,23 @@
 // from the folder's own listing.
 const fs = require('fs');
 const path = require('path');
-const cfg = require('./config-store');
 const { scalar } = require('./yaml-list');
-const ids = require('../web/ids');
 const { StatusError } = require('./store-common');
 const { writeAtomic } = require('./card-store');
 const iter = require('./iteration-folders');
+const { targetFiles } = require('./target-files');
 const { localToday } = require('../web/days');
 
-const FILE_RE = /^([^.]+)\.scratchpad\.md$/;
 const FRONT_RE = /^---[ \t]*\r?\n(?:[\s\S]*?\r?\n)??---[ \t]*(?:\r?\n|$)/;
 const MAX_PAD = 300000; // under the server's request limit even when every new line is escaped
 
+// The file naming, the folders and the listing are shared with the todo lists (target-files.js).
+const files = targetFiles({ key: 'scratchpad', kind: 'scratchpad', off: 'The scratchpad is off: config.yaml has no scratchpad: line.' });
+const { checkTarget, canonicalName, placeOf } = files;
+
 function mustScratchpad(dir) {
-  const config = cfg.readConfig(dir);
-  if (!config.scratchpad) throw new StatusError('The scratchpad is off: config.yaml has no scratchpad: line.', 404);
-  return { value: config.scratchpad, digits: config.idDigits };
-}
-
-function checkTarget(target) {
-  const key = typeof target === 'string' ? ids.idKey(target.trim()) : null;
-  if (key === null) throw new StatusError('That is not an id.', 400);
-  return key;
-}
-
-function canonicalName(target, digits) {
-  return `${ids.formatId(target, digits)}.scratchpad.md`;
-}
-
-// Every file of the folder that is a page: { name, target }, by name.
-function padFiles(folder) {
-  let entries;
-  try { entries = fs.readdirSync(folder); } catch (_) { return []; }
-  const out = [];
-  for (const name of entries.sort()) {
-    const m = FILE_RE.exec(name);
-    const target = m ? ids.idKey(m[1]) : null;
-    if (target !== null) out.push({ name, target });
-  }
-  return out;
-}
-
-// Every page of every folder the path can name: { name, target, folder: { label, abs } }.
-function allPadFiles(dir, value) {
-  const out = [];
-  for (const folder of iter.readFolders(dir, value)) for (const f of padFiles(folder.abs)) out.push({ ...f, folder });
-  return out;
-}
-
-// Where a target's page is, or would be written: { folder, name, exists }. A page that is there
-// stays there (the folder a new page would take, if it is in several); else the canonical name in the
-// folder of the iteration its card or group is a member of, else the one holding `today`.
-function placeOf(dir, value, digits, target, today) {
-  const canon = canonicalName(target, digits);
-  const fresh = () => iter.folderOfPad(dir, value, target, today);
-  const have = allPadFiles(dir, value).filter((f) => f.target === target);
-  const folders = [...new Map(have.map((f) => [f.folder.label, f.folder])).values()];
-  let folder;
-  if (folders.length === 0) folder = fresh();
-  else if (folders.length === 1) [folder] = folders;
-  else folder = folders.find((f) => f.label === fresh().label) || folders[0];
-  const here = have.filter((f) => f.folder.label === folder.label);
-  return { folder, name: here.some((f) => f.name === canon) ? canon : here.length ? here[0].name : canon, exists: here.length > 0 };
+  const { value, digits } = files.mustBeOn(dir);
+  return { value, digits };
 }
 
 // The refs of a page's frontmatter lines: a block list under `refs:` or a flow list on its line.
@@ -169,25 +124,6 @@ function writePad(dir, target, body, opts) {
   return readPad(dir, key, opts);
 }
 
-// The targets that have a page, in id order, from the file names alone.
-function listTargets(dir) {
-  const config = cfg.readConfig(dir);
-  if (!config.scratchpad) return [];
-  return ids.sortIds([...new Set(allPadFiles(dir, config.scratchpad).map((f) => f.target))]);
-}
-
-// Delete every page of one target (a card or a group), whatever its padding or folder; how many went. A
-// board with no scratchpad has none to delete. Only the delete flow calls this.
-function deleteTargetFiles(dir, target) {
-  const config = cfg.readConfig(dir);
-  const key = typeof target === 'string' || typeof target === 'number' ? ids.idKey(target) : null;
-  if (!config.scratchpad || key === null) return 0;
-  let gone = 0;
-  for (const f of allPadFiles(dir, config.scratchpad)) {
-    if (f.target !== key) continue;
-    try { fs.unlinkSync(path.join(f.folder.abs, f.name)); gone++; } catch (_) { /* already gone */ }
-  }
-  return gone;
-}
+const { listTargets, deleteTargetFiles } = files;
 
 module.exports = { readPad, writePad, listTargets, deleteTargetFiles, canonicalName, MAX_PAD };

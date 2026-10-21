@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -410,6 +410,15 @@ test('parseConfig reads the logbook folder: a scalar, quoted or not, comment str
   assert.strictEqual(cfg.parseConfig('logbook: "my notes"   # where\n').logbook, 'my notes');
   assert.strictEqual(cfg.parseConfig('logbook:\nname: x\n').logbook, '');
   assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    logbook: nope\n').logbook, '', 'an indented logbook is not the key');
+});
+
+test('parseConfig reads the todos folder like the scratchpad: a scalar, comment stripped, empty when absent or blank (docs/adr/0021)', () => {
+  assert.strictEqual(cfg.parseConfig('').todos, '');
+  assert.strictEqual(cfg.parseConfig('todos: .todos\n').todos, '.todos');
+  assert.strictEqual(cfg.parseConfig('todos: pads/<iteration>   # where\n').todos, 'pads/<iteration>');
+  assert.strictEqual(cfg.parseConfig('todos:   # off\nname: x\n').todos, '');
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    todos: nope\n').todos, '', 'an indented todos is not the key');
+  assert.strictEqual(cfg.parseConfig('scratchpad: .both\ntodos: .both\n').scratchpad, '.both', 'the two may name one folder');
 });
 
 test('parseConfig reads the scratchpad folder like the logbook: a scalar, comment stripped, empty when absent or blank', () => {

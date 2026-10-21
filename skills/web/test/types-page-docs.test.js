@@ -19,7 +19,7 @@ const kanban = flat(kanbanRaw);
 const header = read('skills', 'web', 'web', 'settings.js').split('\n').slice(0, 20).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
 
 const gear = web.slice(web.indexOf('**This board** has the pages Logbook'), web.indexOf('- **Notes (logbook)**'));
-const board = docs.slice(docs.indexOf('*This board* has six pages'), docs.indexOf('**Notes** —'));
+const board = docs.slice(docs.indexOf('*This board* has seven pages'), docs.indexOf('**Notes** —'));
 
 test('the web skill says a save is one line or one whole block, that comments inside a rewritten block are dropped, and where a missing key goes', () => {
   assert.ok(gear.length > 3000, 'the gear section is found');
@@ -62,7 +62,7 @@ test('the web skill describes the editable Prefixes page: the confirm, the queue
 
 test('docs/web.md describes the six pages, the one-line-or-one-block save, the version, Types off and the editable Prefixes page', () => {
   assert.ok(board.length > 2500, 'the This board section is found');
-  for (const part of ['*This board* has six pages', 'or rewrites one whole block (`types:`, `hierarchy:` or `prefixes:`)', 'Comments inside a block that is rewritten go with it, and the page does not warn first',
+  for (const part of ['*This board* has seven pages', 'or rewrites one whole block (`types:`, `hierarchy:` or `prefixes:`)', 'Comments inside a block that is rewritten go with it, and the page does not warn first',
     'Every save carries the version of `config.yaml` the page read', 'nothing is saved, and the page reads it again and says so', 'leaves out the `nextId:` and `counters:` lines',
     'Every page shows the file or folder it reads, with a Copy button', '*Types* has a switch', 'Off writes `typesOn: false`, on removes the line', 'display only',
     'a row of swatches and a hex field', 'Each edit changes only its own list', '*Prefixes* is editable', 'every change asks first', 'rewrites the block without the line the board ignores']) {

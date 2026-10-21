@@ -63,7 +63,7 @@ module.exports = {
     await waitFor(SHEET_UP, 2500);
     await waitFor(`document.querySelector('.prefs-sheet').getAnimations().length===0`, 2500);
     const boardPages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent).join()`);
-    check('This board lists Logbook, Scratchpad, Groups, Types, Prefixes and Counters in that order', boardPages === 'Logbook,Scratchpad,Groups,Types,Prefixes,Counters', boardPages);
+    check('This board lists Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters in that order', boardPages === 'Logbook,Scratchpad,Todos,Groups,Types,Prefixes,Counters', boardPages);
 
     // --- the Types page --------------------------------------------------------------------------
     await clickOn(item('board:types'));

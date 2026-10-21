@@ -62,25 +62,26 @@ test('the skill names every starter type', () => {
   for (const t of starter.types) assert.ok(flatSkill.includes(`\`${t.name}\``), `the skill names ${t.name}`);
 });
 
-test('the README and the skill say the lines can be changed, that cards made before a prefix keep their numbers, and that the four features are off', () => {
+test('the README and the skill say the lines can be changed, that cards made before a prefix keep their numbers, and that the five features are off', () => {
   assert.match(flatReadme, /every line can be changed or deleted/);
   assert.match(flatSkill, /every line can be changed or deleted/);
   assert.match(flatReadme, /card made before its prefix was declared keeps its plain number/);
   assert.match(flatSkill, /card made before a prefix is declared keeps its plain number/);
   for (const [name, text] of [['README', flatReadme], ['skill', flatSkill]]) {
-    for (const line of ['logbook:', 'scratchpad:', 'groups:', 'iterations: true']) {
+    for (const line of ['logbook:', 'scratchpad:', 'todos:', 'groups:', 'iterations: true']) {
       assert.ok(text.includes(line), `${name} gives the line ${line}`);
     }
     assert.match(text, /gear sheet/);
   }
 });
 
-test('the starter file leaves the four features off and says what each line would be', () => {
+test('the starter file leaves the five features off and says what each line would be', () => {
   assert.strictEqual(starter.logbook, '');
   assert.strictEqual(starter.scratchpad, '');
+  assert.strictEqual(starter.todos, '');
   assert.strictEqual(starter.groups, '');
   assert.strictEqual(starter.iterations, false);
-  for (const key of ['logbook', 'scratchpad', 'groups', 'iterations']) {
+  for (const key of ['logbook', 'scratchpad', 'todos', 'groups', 'iterations']) {
     assert.match(starterText, new RegExp(`^# ${key}: \\S.*# \\S`, 'm'), `${key} is a comment with its meaning`);
   }
   assert.match(flatten(starterText), /Every line can be changed or deleted/);

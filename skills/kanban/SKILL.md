@@ -206,10 +206,10 @@ icon each, except `task`, which has an icon only, and `bug`, which is bare),
 the `hierarchy` `[goal, strategy, objective, epic]`, and the `prefixes`
 `G: goal`, `S: strategy`, `O: objective`, `_: .groups`, `I: .groups/iteration`,
 `W: .groups/workflow` and `DW: .groups/workflow/dynamic`. A card made before a
-prefix is declared keeps its plain number. The logbook, scratchpad, groups and
+prefix is declared keeps its plain number. The logbook, scratchpad, todo lists, groups and
 iterations are not lines of it: each stays off until its own line (`logbook:`,
-`scratchpad:`, `groups:`, `iterations: true`) is added by a human or from the
-web's gear sheet, and the starter lists the four as comments.
+`scratchpad:`, `todos:`, `groups:`, `iterations: true`) is added by a human or from the
+web's gear sheet, and the starter lists them as comments.
 
 - **A new board.** When you create a board's `config.yaml` (the `name:` seed
   above), write `name:` on line 1 and the starter file's content under it, as it
@@ -277,6 +277,8 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 **`logbook` — the folder of the board's notes.** `logbook: logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Logbook), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The logbook: notes in day files* below.
 
 **`scratchpad` — the folder of the board's scratchpads.** `scratchpad: .scratchpad` (relative to the board, or an absolute path written by hand) turns scratchpads on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Scratchpad), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The scratchpad: a disposable page per card or group* below.
+
+**`todos` — the folder of the board's todo lists.** `todos: .todos` (relative to the board, or an absolute path written by hand) turns todo lists on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Todos); nothing that services the board invents it. See *The todo list: a task list per card or group* below.
 
 **`typesOn` — Types off.** `typesOn: false` makes the web and the snapshot show no types (display only), so keep writing `type:` and prefixed ids as ever. A human writes the line, or switches it in the web's gear sheet; nothing that services the board invents it.
 
@@ -361,9 +363,13 @@ The frontmatter is optional and holds only `refs:` (a block list or `refs: [a, b
 
 The web shows a page on the **Scratchpad** tab of the notes palette (a card's, or a group's after its Group tab): the file, its refs, and a multi-line box that Ctrl+Enter or Save writes. A page is read when its tab opens and saved whole; the web writes the body and leaves the frontmatter.
 
-### The iteration in the logbook and scratchpad paths
+### The todo list: a task list per card or group
 
-`logbook:` and `scratchpad:` may hold `<iteration>` as a whole path segment (`logbook: sprints/<iteration>/.logbook`); it is the only placeholder, and any other `<word>` is an ordinary folder name. It stands for a folder named as the iteration's group file is named, without `.md`: the group `.groups/iteration/0005.sprint-496.md` keeps its files in `.../0005.sprint-496/...`. A folder is matched to its iteration by the id at the front of its name, so a renamed group keeps its folder, and an existing folder whose id matches is used before a new name is built. A note for a day and target that already have a day file joins that file, in whichever folder it is. Otherwise it goes to the iteration whose dates hold the note's day (two hold it: the one that started first); a note aimed at an iteration goes to that iteration's folder, whatever its day. A scratchpad goes to the iteration its card or group is a member of (the one that started first, if several), else the iteration that holds the day it is first written. With no iteration the segment is dropped (`sprints/.logbook`). A file that exists is read and edited where it is: never move one between iteration folders, a card that changes iteration keeps its page where it was first written, and assigning a note to another target keeps it in its folder (joining that target's day file if one exists) unless the new target is an iteration itself, whose folder it then goes to. Only `<iteration>` is a placeholder: do not write a folder name with `<` or `>` in it, which Windows does not allow. When you look for a note or a page, look in every folder the path can name. A path without the placeholder is read exactly as before.
+A card or a group may have a **todo list**: a GitHub Markdown task list in `<padded id>.todo.md` in the folder `todos:` names (`0007.todo.md`, `I0002.todo.md`), which may be the scratchpad's folder, since the two kinds of file never share a name. Items are `- [ ] text` and `- [x] text`, a child indented two or more spaces (or a tab) under its parent; any other line is kept as it is. Edit it by hand like any file: re-read it just before you write, change only the line you mean, and keep every other byte and the line ending. It means nothing to the board: it never changes a card's status, never holds a card out of `doing`, and adds into no roll-up; the card's own body, acceptance criteria included, stays the work spec. The web shows it on the **Todos** tab of the notes palette and a small `open/total` count on the card, and the delete popup's **Its todo list** box is the only thing that deletes one. `todos:` may hold `<iteration>` the way a scratchpad's path does (see the next section).
+
+### The iteration in the logbook, scratchpad and todo paths
+
+`logbook:`, `scratchpad:` and `todos:` may hold `<iteration>` as a whole path segment (`logbook: sprints/<iteration>/.logbook`); it is the only placeholder, and any other `<word>` is an ordinary folder name. It stands for a folder named as the iteration's group file is named, without `.md`: the group `.groups/iteration/0005.sprint-496.md` keeps its files in `.../0005.sprint-496/...`. A folder is matched to its iteration by the id at the front of its name, so a renamed group keeps its folder, and an existing folder whose id matches is used before a new name is built. A note for a day and target that already have a day file joins that file, in whichever folder it is. Otherwise it goes to the iteration whose dates hold the note's day (two hold it: the one that started first); a note aimed at an iteration goes to that iteration's folder, whatever its day. A scratchpad or a todo list goes to the iteration its card or group is a member of (the one that started first, if several), else the iteration that holds the day it is first written. With no iteration the segment is dropped (`sprints/.logbook`). A file that exists is read and edited where it is: never move one between iteration folders, a card that changes iteration keeps its page where it was first written, and assigning a note to another target keeps it in its folder (joining that target's day file if one exists) unless the new target is an iteration itself, whose folder it then goes to. Only `<iteration>` is a placeholder: do not write a folder name with `<` or `>` in it, which Windows does not allow. When you look for a note or a page, look in every folder the path can name. A path without the placeholder is read exactly as before.
 
 ### Groups: files that list their cards
 

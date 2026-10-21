@@ -671,6 +671,9 @@ narrows the views to an iteration. Web-only in this release.
 Scratchpad page have no counterpart: the snapshot reads no `scratchpad:` folder. The scratchpad is
 only in kanban-web, web-only in this release.
 
+**No todo lists.** kanban-web's Todos tab, the open/total count on a card tile and a group badge, and
+the gear's Todos page have no counterpart: the snapshot reads no `todos:` folder (docs/adr/0021).
+
 **No Map options.** kanban-web's Map options row (parent lines, dependency lines,
 graphs, parent sits, align, row order, layout, cards) has no counterpart: the Map
 always draws the defaults in "The Map", and with no bar mode to flip, a click on a

@@ -51,6 +51,17 @@ test('the menu says a feature is on or off, and the groups on with how many were
   assert.strictEqual(s.settingsPageState('prefixes', off, 0), '0');
 });
 
+test('the Todos page says on, off or locked like the Scratchpad, switches on to .todos and reads a folder with a path bar and a today (docs/adr/0021)', () => {
+  assert.strictEqual(s.settingsPageState('todos', { todos: { on: true } }, 0), 'on');
+  assert.strictEqual(s.settingsPageState('todos', { todos: { on: false } }, 0), 'off');
+  assert.strictEqual(s.settingsPageState('todos', { todos: { on: true, locked: true } }, 0), 'on · locked');
+  assert.deepStrictEqual(s.settingsSwitchBody('todos', true, ''), { key: 'todos', value: '.todos' });
+  assert.deepStrictEqual(s.settingsSwitchBody('todos', false, 'x'), { key: 'todos', value: null });
+  const st = { paths: { todos: '/b/t/<iteration>', todosNow: '/b/t/0005.s', scratchpad: null } };
+  assert.deepStrictEqual(s.settingsPageReads('todos', st), { kind: 'Folder', path: '/b/t/<iteration>', now: '/b/t/0005.s' });
+  assert.strictEqual(s.settingsPagePath('todos', { paths: { todos: null } }), null);
+});
+
 test('the Scratchpad page says on, off or locked like the Logbook, and switches on to .scratchpad', () => {
   assert.strictEqual(s.settingsPageState('scratchpad', { scratchpad: { on: true } }, 0), 'on');
   assert.strictEqual(s.settingsPageState('scratchpad', { scratchpad: { on: false } }, 0), 'off');

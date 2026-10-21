@@ -56,7 +56,7 @@ test('it describes the range: its buttons, its label, what it opens on, and that
 
 test('it says the boxes grow, Esc and the tab keys', () => {
   assert.match(notes, /grows with its text, typed and wrapped lines both, up to 12 lines or 40% of the window/);
-  assert.match(notes, /`Alt\+1`, `Alt\+2` and `Alt\+3` switch the open palette's first, second and third tab/);
+  assert.match(notes, /`Alt\+1` to `Alt\+4` switch the open palette's first to fourth tab \(Notes, Group, Scratchpad,\s+Todos/);
 });
 
 test('the Calendar section describes the notes strip and its divider', () => {
