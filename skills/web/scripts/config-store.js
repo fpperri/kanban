@@ -436,10 +436,18 @@ function writeConfigLine(dir, key, value, after = null) {
   fs.renameSync(tmp, file);
 }
 
-// The top-level keys in the order the config documents them. A block that is not in the file yet is
-// inserted below the nearest key before it in this order that the file has, else at the top.
+// The top-level keys in the order the config documents them, and the one table of where a key goes
+// when the file does not have it yet: below the nearest key before it in this order that the file
+// has, else at the top. keyBefore answers that key: the gear hands it to writeConfigLine as `after`,
+// and writeConfigBlock uses it itself.
 const KEY_ORDER = ['name', 'port', 'nextId', 'idDigits', 'prefixes', 'counters', 'logbook', 'scratchpad', 'groups', 'iterations', 'typesOn', 'assignees', 'types', 'hierarchy', 'pills'];
+// The keys whose whole block the web rewrites (docs/adr/0018).
 const BLOCK_KEYS = ['types', 'hierarchy', 'prefixes'];
+
+function keyBefore(raw, key) {
+  const at = KEY_ORDER.indexOf(key);
+  return KEY_ORDER.slice(0, at === -1 ? 0 : at).reverse().find((name) => new RegExp(`^${name}:`, 'm').test(raw)) || null;
+}
 
 // Where the block under the top-level key matched by `header` ends: after its last indented line.
 // Blank lines and unindented comments inside it are part of it, but those after its last indented
@@ -471,7 +479,7 @@ function writeConfigBlock(dir, key, lines) {
   const file = configFile(dir);
   const raw = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   const eol = raw.includes('\r\n') ? '\r\n' : '\n';
-  const find = (name) => new RegExp(`^${name}:[^\\r\\n]*`, 'm').exec(raw);
+  const find = (name) => (name === null ? null : new RegExp(`^${name}:[^\\r\\n]*`, 'm').exec(raw));
   const header = find(key);
   const text = lines === null ? null : lines.join(eol);
   let out;
@@ -485,7 +493,7 @@ function writeConfigBlock(dir, key, lines) {
   } else if (text === null) {
     return;
   } else {
-    const before = KEY_ORDER.slice(0, KEY_ORDER.indexOf(key)).reverse().map(find).find((m) => m);
+    const before = find(keyBefore(raw, key));
     if (before) {
       const end = blockEnd(raw, before);
       out = raw.slice(0, end) + eol + text + raw.slice(end);
@@ -562,4 +570,4 @@ function prefixForGroupFolder(config, folder) {
   return '_';
 }
 
-module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, writeConfigLine, writeConfigBlock, isPrefix, prefixForType, groupFolderOf, prefixForGroupFolder, splitPillEntry, ICON_NAMES };
+module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, writeConfigLine, writeConfigBlock, keyBefore, KEY_ORDER, BLOCK_KEYS, isPrefix, prefixForType, groupFolderOf, prefixForGroupFolder, splitPillEntry, ICON_NAMES };

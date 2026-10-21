@@ -126,13 +126,30 @@ function settingsPrefixTarget(row, groupsFolder) {
 
 // ---------- the file or folder a page reads ----------
 
+// What each page of This board reads, in one table: which of the settings' `paths` it is, and the
+// word the path bar puts before it.
+const SETTINGS_PAGE_READS = {
+  types: { path: 'config', kind: 'File' },
+  prefixes: { path: 'config', kind: 'File' },
+  counters: { path: 'config', kind: 'File' },
+  logbook: { path: 'logbook', kind: 'Folder' },
+  scratchpad: { path: 'scratchpad', kind: 'Folder' },
+  groups: { path: 'groups', kind: 'Folder' },
+};
+
+// { kind, path } the page of This board reads, for its path bar and Copy button; null when the
+// page has none or its feature is off.
+function settingsPageReads(id, settings) {
+  const reads = SETTINGS_PAGE_READS[id];
+  const paths = settings && settings.paths;
+  if (!reads || !paths || !paths[reads.path]) return null;
+  return { kind: reads.kind, path: paths[reads.path] };
+}
+
 // The absolute path the page of This board reads, for its copy button; null when the feature is off.
 function settingsPagePath(id, settings) {
-  const paths = settings && settings.paths;
-  if (!paths) return null;
-  if (id === 'types' || id === 'prefixes' || id === 'counters') return paths.config || null;
-  if (id === 'logbook' || id === 'scratchpad' || id === 'groups') return paths[id] || null;
-  return null;
+  const reads = settingsPageReads(id, settings);
+  return reads ? reads.path : null;
 }
 
 // ---------- the Types page (docs/adr/0018) ----------
@@ -374,7 +391,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
-  settingsPagePath, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
+  settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,

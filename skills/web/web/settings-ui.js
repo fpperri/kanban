@@ -818,8 +818,8 @@ function settingsRenderBoard() {
     const title = settingsEl('h3', 'prefs-page-title', current.title);
     title.id = 'prefs-page-title';
     panel.setAttribute('aria-labelledby', 'prefs-page-title');
-    const where = settingsPagePath(current.id, state.settings);
-    const reads = settingsPathNode(where, ['types', 'prefixes', 'counters'].includes(current.id) ? 'File' : 'Folder');
+    const where = settingsPageReads(current.id, state.settings);
+    const reads = where ? settingsPathNode(where.path, where.kind) : null;
     panel.replaceChildren(settingsEl('p', 'prefs-eyebrow', 'This board · written to config.yaml'), title, ...(reads ? [reads] : []), ...current.build(state.settings));
     paintTypeColors(panel);
   } else {

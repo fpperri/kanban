@@ -790,7 +790,7 @@ test('the other board pages show their path from the settings, and Counters stay
 });
 
 test('the render puts the path under the page title for every page, and focus is kept by key with a fallback to the row', () => {
-  assert.match(ui, /settingsPagePath\(current\.id, state\.settings\)/);
+  assert.match(ui, /settingsPageReads\(current\.id, state\.settings\)/);
   assert.match(ui, /settingsUi\.focusKey/);
   assert.match(ui, /navigator\.clipboard\.writeText/);
 });

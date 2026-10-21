@@ -24,21 +24,15 @@ const cs = require('./card-store');
 const yaml = require('./yaml-list');
 const { StatusError, posix } = require('./store-common');
 
-// Where a line is inserted when its key is not in the file yet: below the first of these keys the
-// file has, else at the top. The keys the gear writes follow the id lines, in the order the config
-// documents them.
-const ID_LINES = ['idDigits', 'nextId', 'name'];
-
-// The features that take a folder. Adding one is a line here and its reader in config-store.
+// The features that take a folder. Adding one is a line here, its reader in config-store and its
+// place in config-store's KEY_ORDER, which also says where a line goes when the file lacks its key.
 const FOLDER_KEYS = {
-  logbook: { label: 'logbook', after: ID_LINES },
-  scratchpad: { label: 'scratchpad', after: ['logbook', ...ID_LINES] },
-  groups: { label: 'groups', after: ['scratchpad', 'logbook', ...ID_LINES] },
+  logbook: { label: 'logbook' },
+  scratchpad: { label: 'scratchpad' },
+  groups: { label: 'groups' },
 };
 
 const WRITABLE = ['iterations', 'typesOn', 'idDigits', ...Object.keys(FOLDER_KEYS)];
-
-const BLOCKS = ['types', 'hierarchy', 'prefixes'];
 
 const MAX_ID_DIGITS = 15;
 
@@ -143,15 +137,8 @@ function rawKeys(dir) {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 }
 
-// The first of `names` that has a line in the file, for writeConfigLine's `after`.
-function anchorFor(dir, names) {
-  const raw = rawKeys(dir);
-  return names.find((n) => new RegExp(`^${n}:`, 'm').test(raw)) || null;
-}
-
 function writeLine(dir, key, value) {
-  const after = FOLDER_KEYS[key] ? FOLDER_KEYS[key].after : key === 'iterations' ? ['groups', ...FOLDER_KEYS.groups.after] : key === 'typesOn' ? ['iterations', 'groups', ...FOLDER_KEYS.groups.after] : ID_LINES;
-  cfg.writeConfigLine(dir, key, value, value === null ? null : anchorFor(dir, after.filter((n) => n !== key)));
+  cfg.writeConfigLine(dir, key, value, value === null ? null : cfg.keyBefore(rawKeys(dir), key));
 }
 
 // --- the three blocks (docs/adr/0018) --------------------------------------------------------
@@ -244,7 +231,7 @@ function prefixesBlock(dir, value) {
 }
 
 function writeBlock(dir, name, value) {
-  if (!BLOCKS.includes(name)) throw new StatusError(`The gear does not write the block ${JSON.stringify(name)}.`, 400);
+  if (!cfg.BLOCK_KEYS.includes(name)) throw new StatusError(`The gear does not write the block ${JSON.stringify(name)}.`, 400);
   const lines = name === 'types' ? (value === undefined || value === null ? null : typesBlock(value))
     : name === 'hierarchy' ? hierarchyBlock(value)
       : prefixesBlock(dir, value);

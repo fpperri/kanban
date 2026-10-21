@@ -218,7 +218,10 @@ test('a color the person types is a hex color, or nothing', () => {
 
 test('the swatches are the colors the starter config uses and the status palette, each once, as hex', () => {
   const swatches = s.SETTINGS_TYPE_SWATCHES;
-  for (const hex of ['#e3b341', '#f0883e', '#a371f7', '#58a6ff', '#3fb950']) assert.ok(swatches.includes(hex), hex);
+  const starter = require('../scripts/config-store').parseConfig(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'kanban', 'starter-config.yaml'), 'utf8'));
+  const starterColors = starter.types.map((t) => t.color).filter(Boolean);
+  assert.ok(starterColors.length >= 5, 'sanity: the starter colors its types');
+  for (const hex of starterColors) assert.ok(swatches.includes(hex.toLowerCase()), hex);
   for (const hex of require('../web/status-colors').STATUS_PALETTE) assert.ok(swatches.includes(hex.toLowerCase()), hex);
   assert.strictEqual(new Set(swatches).size, swatches.length);
   for (const hex of swatches) assert.strictEqual(s.settingsColorProblem(hex), '', hex);
@@ -294,6 +297,16 @@ test('every page of This board names the file or folder it reads, absolute, and 
   assert.strictEqual(s.settingsPagePath('scratchpad', st), null);
   assert.strictEqual(s.settingsPagePath('nothing', st), null);
   assert.strictEqual(s.settingsPagePath('types', {}), null);
+});
+
+test('the path bar says File for the config pages and Folder for the feature pages, from the one table the path comes from', () => {
+  const st = { paths: { config: '/b/config.yaml', logbook: '/b/logbook', scratchpad: null, groups: '/b/.groups' } };
+  for (const id of ['types', 'prefixes', 'counters']) assert.deepStrictEqual(s.settingsPageReads(id, st), { kind: 'File', path: '/b/config.yaml' }, id);
+  assert.deepStrictEqual(s.settingsPageReads('logbook', st), { kind: 'Folder', path: '/b/logbook' });
+  assert.deepStrictEqual(s.settingsPageReads('groups', st), { kind: 'Folder', path: '/b/.groups' });
+  assert.strictEqual(s.settingsPageReads('scratchpad', st), null);
+  assert.strictEqual(s.settingsPageReads('nothing', st), null);
+  for (const id of ['types', 'logbook', 'scratchpad', 'nothing']) assert.strictEqual(s.settingsPagePath(id, st), (s.settingsPageReads(id, st) || {}).path || null, id);
 });
 
 test('the menu says Types is off, else how many types are listed', () => {

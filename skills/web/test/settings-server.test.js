@@ -637,6 +637,17 @@ test('names that differ only in capitals are kept as written in types and in the
 
 // --- types off, the version, the conflict ----------------------------------------------------
 
+test('a line the file lacks goes below the nearest key before it in the order the config documents', async () => {
+  const dir = tmpBoard({ config: 'name: t\nnextId: 5\nprefixes:\n  G: goal\ncounters: { G: 3 }\nassignees:\n  - handle: "@a"\n' });
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await set(base, 'logbook', 'notes')).status, 200);
+    assert.strictEqual((await set(base, 'idDigits', 6)).status, 200);
+    assert.strictEqual((await set(base, 'groups', '.groups')).status, 200);
+    assert.strictEqual((await set(base, 'typesOn', false)).status, 200);
+    assert.strictEqual(config(dir), 'name: t\nnextId: 5\nidDigits: 6\nprefixes:\n  G: goal\ncounters: { G: 3 }\nlogbook: notes\ngroups: .groups\ntypesOn: false\nassignees:\n  - handle: "@a"\n');
+  });
+});
+
 test('typesOn off writes the line below the feature lines, on removes it, and nothing else moves', async () => {
   const dir = tmpBoard({ config: PLAN });
   await withServer(dir, async (base) => {
