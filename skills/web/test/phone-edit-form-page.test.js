@@ -6,8 +6,8 @@ const { loadPage, control } = require('./helpers/page-vm');
 const { PHONE_WIDTH_QUERY } = require('../web/phone-width');
 
 // Editing on a phone, in the real page (helpers/page-vm.js): Save on an edit opened from a card
-// reopens that card, on the status tab of its new status; above the phone width Save closes the
-// form as it always did. A ?card= link sets the status tab before it opens the card. The form's
+// reopens that card, on the status tab of its new status; above the phone width Save does the
+// same without the status tab. A ?card= link sets the status tab before it opens the card. The form's
 // look (full screen, 16 px fields) is CSS-first and pinned below against app.css; the browser
 // runner measures it in Chrome (phone-steps/card-edit.js).
 
@@ -48,8 +48,13 @@ async function open({ phone = true, search = '', stored = {} } = {}) {
   return { page, els, calls, stored };
 }
 
-async function editFromCard(s, id, status) {
+const openCardAt = async (s, id) => {
+  s.page.ctx.location.search = `?card=${id}`; // the address a card opened by a click or a link carries
   await s.page.run(`openDetailModal(${id})`);
+};
+
+async function editFromCard(s, id, status) {
+  await openCardAt(s, id);
   s.page.run('editFromDetail()');
   s.els['#f-status'].value = status;
   s.calls.length = 0;
@@ -72,13 +77,36 @@ test('on a phone Save on an edit opened from a card reopens that card, on the ta
   assert.ok(s.els['#modal'].classList.contains('hidden'));
 });
 
-test('above the phone width Save closes the form and opens nothing, as before', async () => {
+test('above the phone width Save brings the card back too, and leaves the phone tab alone', async () => {
   const s = await open({ phone: false });
   await editFromCard(s, 2, 'done');
   assert.ok(s.els['#modal'].classList.contains('hidden'));
-  assert.strictEqual(detailFetches(s).length, 0);
-  assert.ok(s.els['#detail-modal'].classList.contains('hidden'));
+  assert.strictEqual(detailFetches(s).length, 1);
+  assert.match(detailFetches(s)[0].url, /\/api\/cards\/2\/detail$/);
+  assert.ok(!s.els['#detail-modal'].classList.contains('hidden'));
   assert.strictEqual(s.stored[PHONE], undefined);
+});
+
+test('leaving an edit opened from a card, on any width, brings the card back; the form of a new card just closes', async () => {
+  for (const phone of [false, true]) {
+    const s = await open({ phone });
+    s.page.ctx.confirm = () => true; // the stand-in controls read as changed; the question itself is pinned in edit-returns-to-details.test.js
+    await openCardAt(s, 2);
+    s.page.run('editFromDetail()');
+    assert.ok(s.els['#detail-modal'].classList.contains('hidden'));
+    s.calls.length = 0;
+    s.page.run('requestCloseModal()');
+    await s.page.settle();
+    assert.ok(s.els['#modal'].classList.contains('hidden'), `phone ${phone}`);
+    assert.ok(!s.els['#detail-modal'].classList.contains('hidden'), `phone ${phone}`);
+    assert.strictEqual(detailFetches(s).length, 1);
+    assert.strictEqual(s.calls.filter((c) => c.method !== 'GET').length, 0, 'nothing is written');
+    s.page.run('openModal(null)');
+    s.calls.length = 0;
+    s.page.run('requestCloseModal()');
+    await s.page.settle();
+    assert.strictEqual(detailFetches(s).length, 0, 'the form of a new card does not reopen the card the last form came from');
+  }
 });
 
 test('a new card saved on a phone is not reopened, nor is an edit that did not start from a card', async () => {

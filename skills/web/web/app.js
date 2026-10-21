@@ -2718,7 +2718,7 @@ function syncAssigneeColor() {
 // same hidden-field-submits-while-minimal trick, but for #f-start alone;
 // status is deliberately left at its own default here (see the Calendar view
 // dblclick glue below for why).
-// The card whose detail the open edit form was started from: on a phone Save returns there.
+// The card whose details the open edit form was started from: Save, and leaving the form, return there.
 let editFromCardId = null;
 
 function openModal(card, presetStatus, presetStart, presetParent) {
@@ -2765,6 +2765,26 @@ function openModal(card, presetStatus, presetStart, presetParent) {
 
 function closeModal() { $('#modal').classList.add('hidden'); }
 
+// Back to the details the edit form came from. The address decides which card they show: Back or Forward
+// may have moved it while the form was up (the popup was left alone then), and it names no card when they
+// stepped back to the board. `seen` is detailRequestId when the form closed: if it moved, the person opened or
+// closed a card since, and that choice stands. The card is read again, so the details show what was saved,
+// and they take the focus. No history step is pushed. A card deleted on disk meanwhile is said gone and
+// taken out of the address, replacing its step.
+async function returnToDetails(seen) {
+  if (detailRequestId !== seen) return;
+  const id = cardIdFromSearch(location.search);
+  if (id === null) return;
+  const failed = (e) => {
+    closeDetailModal();
+    const search = nextCardHistorySearch(location.search, null);
+    if (search !== null) history.replaceState(null, '', location.pathname + search);
+    toast(e.status === 404 ? `Card #${id} is gone.` : 'Load failed: ' + e.message);
+    if (e.status === 404) loadBoard();
+  };
+  if (await openDetailModal(id, { onFail: failed })) $('#detail-modal .modal').focus({ preventScroll: true });
+}
+
 // Backdrop-close for the edit/new-card form: silent when the form
 // is untouched, one confirm when typed work would be lost. Cancel/Save keep
 // their existing behavior — explicit buttons are deliberate, only the easy-to-
@@ -2783,7 +2803,10 @@ function snapshotFormFields() {
 function requestCloseModal() {
   if (isDirty(formSnapshot, snapshotFormFields()) &&
       !confirm('Discard unsaved changes to this card?')) return;
+  const backToCard = editFromCardId !== null;
+  const seen = detailRequestId;
   closeModal();
+  if (backToCard) returnToDetails(seen);
 }
 
 function parseIds(s) {
@@ -2838,11 +2861,12 @@ async function submitModal(e) {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
     else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
-    const backToCard = id && onPhoneLayout() && editFromCardId !== null && String(editFromCardId) === id ? editFromCardId : null;
+    const backToCard = Boolean(id) && editFromCardId !== null && String(editFromCardId) === id;
+    const seen = detailRequestId;
     closeModal();
-    if (backToCard !== null) setPhoneColumn(payload.status);
+    if (backToCard && onPhoneLayout()) setPhoneColumn(payload.status);
     await loadBoard();
-    if (backToCard !== null) openDetailModal(backToCard);
+    if (backToCard) await returnToDetails(seen);
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
     else if (joined) toast(joined);
@@ -3184,14 +3208,15 @@ function formatDetailModified(data) {
 // `quiet` (popstate's use only — see below): on a failed fetch, close the
 // popup instead of toasting. Returns true iff the card actually ended up
 // showing, so callers that need to know (openCard, below) can tell a real
-// open from a failed one instead of assuming success.
-async function openDetailModal(id, { quiet } = {}) {
+// open from a failed one instead of assuming success. `onFail(error)` (the edit form's return) takes over the
+// failure from both the quiet close and the toast.
+async function openDetailModal(id, { quiet, onFail } = {}) {
   const reqId = ++detailRequestId;
   let data;
   try { data = await api('GET', `/api/cards/${id}/detail`); }
   catch (e) {
     if (reqId !== detailRequestId) return false; // superseded — some other call already decided the popup's fate
-    if (quiet) closeDetailModal(); else toast('Load failed: ' + e.message);
+    if (onFail) onFail(e); else if (quiet) closeDetailModal(); else toast('Load failed: ' + e.message);
     return false;
   }
   if (reqId !== detailRequestId) return false; // a newer openDetailModal call superseded this one
@@ -3387,7 +3412,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // An open detail popup closes on the very first Esc regardless of its
   // fullscreen state. The edit/new-card modal closes on Esc too — through
   // requestCloseModal(), the exact same unsaved-changes guard the X button
-  // uses. Esc
+  // uses, and it returns to the details the form was opened from. Esc
   // never calls setModalFullscreenVisual, so the persisted preference
   // and the toggle button's state are untouched by it either way — the toggle
   // button is the only thing that changes fullscreen. The

@@ -1483,7 +1483,8 @@ to `127.0.0.1` only.
   **Esc** closes whichever popup is open, on the very first press, regardless of
   fullscreen state — only the fullscreen toggle button changes fullscreen. The detail
   popup and the create/edit form (through the same unsaved-changes guard the X button
-  uses) close directly on Esc, and so do the three bulk-edit popups (Assign/priority,
+  uses) close directly on Esc (a form opened from a card's details returns to those details,
+  as it does when saved or left by its X), and so do the three bulk-edit popups (Assign/priority,
   Edit tags, Schedule…) and the Archive popup — speedbump-exempt, same as their
   backdrop-click. An open
   combobox menu gets first crack at Esc: it closes the MENU only, one level at a time,

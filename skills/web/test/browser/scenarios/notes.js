@@ -14,7 +14,7 @@
 // subject row's date and card picker retarget the note (a note written to another day lands in that
 // day's file), and the range row limits the list to a day, 3 days, a week or a month: a card opens
 // on All and still lists its notes from several days.
-// e with a card's details open opens its edit form with the focus in the title, and the palette over the details keeps its e, on a note row too.
+// e with a card's details open opens its edit form with the focus in the title, and the palette over the details keeps its e, on a note row too. Esc and Ctrl+S in that form return to the details; a New card form closes to the board.
 // With no logbook line nothing shows and n says why. Each step waits on the page, never on a fixed
 // sleep.
 //
@@ -485,9 +485,21 @@ module.exports = {
     await key('e');
     check('notes: e then opens the card\'s edit form and puts the details away', await waitFor(`${FORM_UP}&&${DETAIL_SHUT}&&document.getElementById('modal-title').textContent==='Edit #7'`, 3000), await ev(`document.getElementById('modal-title').textContent`));
     check('notes: the title field of the form has the focus and the key typed nothing in it', await ev(`document.activeElement===document.getElementById('f-title')&&document.getElementById('f-title').value==='Port the zephyr schema'`), await ev(`document.activeElement.id+'|'+document.getElementById('f-title').value`));
+    const DETAIL_FOCUSED = `document.activeElement===document.querySelector('#detail-modal .modal')`;
+    const ON_CARD_7 = `(new URLSearchParams(location.search).get('card')==='7')`;
     await key('Escape');
-    check('notes: Esc closes the edit form', await waitFor(FORM_SHUT, 2500));
-    check('notes: the details are closed by now', await waitFor(DETAIL_SHUT, 2500));
+    check('notes: Esc leaves the edit form and returns to the details of card 7, with the focus on them and the address still naming the card', await waitFor(`${FORM_SHUT}&&${DETAIL_UP}&&${DETAIL_FOCUSED}&&${ON_CARD_7}&&document.getElementById('detail-title').textContent.startsWith('#7')`, 3000), await ev(`location.search+'|'+document.activeElement.className`));
+    await key('e');
+    check('notes: e opens the form again from the returned details', await waitFor(`${FORM_UP}&&${DETAIL_SHUT}`, 3000));
+    await ev(`(()=>{const t=document.getElementById('f-title');t.value='Port the zephyr schema, reviewed';t.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    await key('s', { ctrl: true });
+    check('notes: Ctrl+S saves and returns to the details, showing what was saved, with the card still open', await waitFor(`${FORM_SHUT}&&${DETAIL_UP}&&${DETAIL_FOCUSED}&&${ON_CARD_7}&&document.getElementById('detail-title').textContent==='#7 Port the zephyr schema, reviewed'`, 5000), await ev(`document.getElementById('detail-title').textContent`));
+    await key('Escape');
+    check('notes: Esc on the returned details closes the card, as it does today', await waitFor(`${DETAIL_SHUT}&&!${ON_CARD_7}`, 3000), await ev('location.search'));
+    await ev(`document.getElementById('new-btn').click()`);
+    check('notes: New card opens a form that comes from no details', await waitFor(`${FORM_UP}&&${DETAIL_SHUT}`, 3000));
+    await key('Escape');
+    check('notes: Esc on it closes it and shows no details', await waitFor(FORM_SHUT, 2500) && await ev(DETAIL_SHUT));
 
     // --- the palette goes full screen, as the card details do ----------------------------------------------------
     const FS_BTN = `document.getElementById('notes-fullscreen-btn')`;
