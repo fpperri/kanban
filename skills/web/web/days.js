@@ -21,7 +21,14 @@ const daysModule = (() => {
 
   const validDay = (text) => parseDay(text) !== null;
 
-  return { parseDay, validDay };
+  // The local date of a moment (now by default), as a day: the user's wall clock, which the server
+  // takes for the creator's date and the page for "today".
+  function localToday(now = new Date()) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  }
+
+  return { parseDay, validDay, localToday };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -12,6 +12,7 @@ const { parseRank } = require('../web/nesting');
 // Ids are the id module's whole strings (`7`, `G3`): the store keeps them as
 // strings, compares them with idKey and never turns one into a number.
 const ids = require('../web/ids');
+const { localToday } = require('../web/days');
 // The `prompt` field's single-line quoting — the same
 // quote/unquote yaml-list.js already gives notifications.md's `message`
 // field, reused here rather than forked (see the field's own writer note in
@@ -160,7 +161,7 @@ function nowLocalISO() {
 // Date-only local stamp (YYYY-MM-DD) for the auto start/end dates —
 // a card landing in 'todo' starts today, one landing in 'done' ends today.
 function todayLocalDate() {
-  return nowLocalISO().slice(0, 10);
+  return localToday();
 }
 
 function readCardFile(file, archived = false) {

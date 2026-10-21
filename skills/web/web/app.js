@@ -4400,9 +4400,7 @@ function setCalendarNotesStrip(px) {
 // formatLocalDateTime) — the grid itself is built with UTC math but its "is
 // this cell today" check must agree with the calendar on the user's wall.
 function localTodayStr() {
-  const now = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  return kanbanDays.localToday();
 }
 
 function calendarChipEl(card, pos, time, isDue) {

@@ -48,6 +48,7 @@ module.exports = [
   require('./settings'),
   require('./types-page'),
   require('./scratchpad'),
+  require('./iteration-paths'),
   require('./delete'),
   require('./feature'),
   require('./phone'),
