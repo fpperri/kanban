@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], pills: [], archivePackages: [], logbook: null, groups: null, scratchpad: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], typesOn: true, pills: [], archivePackages: [], logbook: null, groups: null, scratchpad: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -625,7 +625,7 @@ function cardEl(card) {
   // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}${parent.badge}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types, state.typesOn)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
       (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting + parent.bar +
     `</div>` +
@@ -691,7 +691,7 @@ function archiveCardEl(card) {
     : escapeHtml(card.title);
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types)}${parent.badge}</div>` +
+      `<div class="card-head"><span class="card-id">#${card.id}</span>${statusBadge(card)}${archivedBadge()}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types, state.typesOn)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
       parent.bar +
     `</div>` +
@@ -1740,7 +1740,7 @@ const MAP_RICH_DIMS = { top: MAP_RICH_TOP, metaH: MAP_RICH_META_H, barGap: 3, bo
 function mapRichLayout(n, draw) {
   if (draw.cards !== 'rich' || !n || n.ghost || n.missing || n.external) return null;
   const card = draw.byId && draw.byId.get(n.id);
-  const type = card && card.type != null ? String(card.type).trim() : '';
+  const type = state.typesOn !== false && card && card.type != null ? String(card.type).trim() : '';
   const alt = nestingIndex.altitudeOf(n.id);
   const mode = loadRollupBarMode();
   const rollup = alt ? nestingIndex.rollup(n.id, { countArchived: countArchivedLeaves() }) : null;
@@ -1760,7 +1760,7 @@ function mapRichHtml(n, rich, statuses) {
   const x0 = n.blocked ? 56 : 8;
   if (rich.type || rich.alt >= 1) {
     html += `<foreignObject class="map-rich" x="${x0}" y="${rich.metaY}" width="${MAP_NODE_W - x0 - 8}" height="${MAP_RICH_META_H}">` +
-      `<div class="map-rich-meta">${typeBadge({ type: rich.type }, state.types)}${altitudeBadge(rich.alt)}</div></foreignObject>`;
+      `<div class="map-rich-meta">${typeBadge({ type: rich.type }, state.types, state.typesOn)}${altitudeBadge(rich.alt)}</div></foreignObject>`;
   }
   if (rich.hasBar) {
     html += `<foreignObject class="map-rich" x="8" y="${rich.barY}" width="${MAP_NODE_W - 16}" height="${rich.barH}">` +
@@ -2058,8 +2058,10 @@ function applyBoardData(data) {
   // for the same reason: the Priority sort/badges read state.priorities at
   // render time (masked pre-move only by priorityRank's built-in fallback).
   applyLists(data.priorities || [], data.tags || []);
-  state.types = data.types || []; // chips read it at render time; defensive || for an old server without the field
-  state.hierarchy = data.hierarchy || []; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise); same old-server fallback
+  const view = boardTypeView(data); // the one gate for types off (ADR 0018): empty lists when the board says typesOn: false, the board's own otherwise; defensive for an old server without the fields
+  state.typesOn = view.typesOn; // chips and the form's Type field read it
+  state.types = view.types; // chips read it at render time
+  state.hierarchy = view.hierarchy; // type names, top tier first, as the config wrote them (duplicates and case are the readers' to normalise)
   state.pills = data.pills || []; // [{label, query}] the board's own pills; same old-server fallback
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
@@ -2581,6 +2583,7 @@ function openModal(card, presetStatus, presetStart) {
   $('#f-rank').value = card && card.rank != null ? String(card.rank) : '';
   syncNestingFieldValidity();
   $('#f-type').value = card && card.type ? card.type : '';
+  $('#f-type').closest('label').classList.toggle('hidden', state.typesOn === false); // types off: no Type field, and submitModal sends no type, so the card keeps its line
   $('#f-tags').value = card ? card.tags.join(', ') : '';
   $('#f-waiting').value = card ? card.waiting_for.join(', ') : '';
   $('#f-blocked').value = card && card.blocked ? card.blocked : '';
@@ -2667,7 +2670,6 @@ async function submitModal(e) {
     priority: $('#f-priority').value,
     parent: $('#f-parent').value.trim(), // blank clears; the store keeps a value that reads the same as the card's as written
     rank: $('#f-rank').value.trim(),
-    type: $('#f-type').value.trim(), // blank clears: the line is removed
     tags: parseTags($('#f-tags').value),
     waiting_for: parseIds($('#f-waiting').value),
     // The sticker's raw text — the store's predicate-judged lean rule strips
@@ -2681,6 +2683,7 @@ async function submitModal(e) {
     due_date: $('#f-due').value.trim(),
     body: $('#f-body').value,
   };
+  if (state.typesOn !== false) payload.type = $('#f-type').value.trim(); // blank clears: the line is removed; types off sends none, and a write with no type leaves the line alone
   try {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
@@ -2992,7 +2995,7 @@ function frontmatterValueHtml(k, v) {
   }
   if (k === 'priority' && plain === 'High') return '<span class="fm-high">High</span>';
   if (k === 'assignee' && plain) return assigneeBadge({ assignee: plain }, state.assignees);
-  if (k === 'type' && plain) return typeBadge({ type: plain }, state.types);
+  if (k === 'type' && plain && state.typesOn !== false) return typeBadge({ type: plain }, state.types); // types off: the line prints as written, plain
   if (k === 'parent') {
     const ref = parseParent(plain, state.projectName);
     // a card on this board opens on click; another board's is shown, not followed

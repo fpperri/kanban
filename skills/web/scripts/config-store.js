@@ -40,6 +40,8 @@
 //                         # way; absent = no groups and nothing of them shows
 //   iterations: true      # the header's iteration dropdown over the groups in the
 //                         # iteration/ folder (docs/adr/0015); needs groups:, absent = off
+//   typesOn: false        # types off (docs/adr/0018): the web and the snapshot ignore the
+//                         # board's types; absent = on. Display only, the cards keep theirs
 //   assignees:           # who can own cards; feeds the form's combobox
 //     - handle: "@alex"
 //       name: "Alex"
@@ -180,7 +182,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -242,6 +244,9 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'iterations') {
         config.iterations = scalar(top[2]) === 'true';
+        section = null;
+      } else if (top[1] === 'typesOn') {
+        config.typesOn = scalar(top[2]) !== 'false';
         section = null;
       } else if (top[1] === 'counters') {
         for (const [prefix, text] of parseFlowMap(top[2])) {

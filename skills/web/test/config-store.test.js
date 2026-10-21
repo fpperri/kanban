@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -506,6 +506,14 @@ test('parseConfig reads the groups folder and a missing or blank line is none', 
   assert.strictEqual(cfg.parseConfig('groups: "my groups"   # where\n').groups, 'my groups');
   assert.strictEqual(cfg.parseConfig('groups:\nname: x\n').groups, '');
   assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    groups: nope\n').groups, '', 'an indented groups is not the key');
+});
+
+test('parseConfig reads typesOn: false as types off, and any other value or a missing line as on', () => {
+  assert.strictEqual(cfg.parseConfig('typesOn: false\n').typesOn, false);
+  assert.strictEqual(cfg.parseConfig('typesOn: false   # display only\n').typesOn, false);
+  assert.strictEqual(cfg.parseConfig('typesOn: "false"\n').typesOn, false);
+  for (const on of ['typesOn: true\n', 'typesOn:\n', 'typesOn: no\n', 'typesOn: 0\n', 'name: x\n', '']) assert.strictEqual(cfg.parseConfig(on).typesOn, true, JSON.stringify(on));
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    typesOn: false\n').typesOn, true, 'an indented typesOn is not the key');
 });
 
 test('parseConfig reads iterations: true as on, and any other value or a missing line as off', () => {

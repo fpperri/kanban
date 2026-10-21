@@ -31,7 +31,9 @@ function loadFrontmatterValueHtml(types) {
   };
   vm.createContext(sandbox);
   vm.runInContext(src, sandbox);
-  return sandbox.frontmatterValueHtml;
+  const html = sandbox.frontmatterValueHtml;
+  html.state = sandbox.state;
+  return html;
 }
 
 test('the card detail shows a type: line as a chip in the type\'s configured color', () => {
@@ -71,7 +73,7 @@ test('board tiles and archived tiles both render the chip in the head row, then 
     const body = fn(name);
     const head = body.match(/<div class="card-head">[^\n]*<\/div>/);
     assert.ok(head, `${name} has a card-head row`);
-    assert.match(head[0], /\$\{typeBadge\(card, state\.types\)\}/, `${name} puts the type chip in the head`);
+    assert.match(head[0], /\$\{typeBadge\(card, state\.types, state\.typesOn\)\}/, `${name} puts the type chip in the head`);
     assert.match(body, /paintTypeColors\(el\)/, `${name} paints configured colors after innerHTML lands`);
     assert.ok(body.indexOf('paintTypeColors(el)') > body.indexOf('el.innerHTML ='), `${name} paints after insertion`);
   }
@@ -87,8 +89,9 @@ test('the detail popup paints the chip colors after rendering its frontmatter ta
 test('the board payload\'s types land in state before the first render, with an old-server fallback', () => {
   assert.match(appSrc, /^const state = \{[^\n]*\btypes: \[\]/m, 'state is seeded with types');
   const body = fn('applyBoardData');
-  const set = body.indexOf('state.types = data.types || [];');
-  assert.ok(set > -1, 'applyBoardData stores data.types defensively');
+  const set = body.indexOf('state.types = view.types;');
+  assert.ok(set > -1, 'applyBoardData stores the gate types');
+  assert.match(body, /const view = boardTypeView\(data\);/, 'the gate defaults a missing field');
   assert.ok(set < body.indexOf('renderBoard();'), 'types are in place before renderBoard paints chips');
 });
 
@@ -113,8 +116,8 @@ test('in the detail a type with an unknown icon draws the plain chip', () => {
 });
 
 test('board tiles, archive tiles and the Map\'s rich rows all draw the chip from the board\'s types, so the icon reaches each', () => {
-  for (const name of ['cardEl', 'archiveCardEl']) assert.match(fn(name), /\$\{typeBadge\(card, state\.types\)\}/, name);
-  assert.match(fn('mapRichHtml'), /typeBadge\(\{ type: rich\.type \}, state\.types\)/);
+  for (const name of ['cardEl', 'archiveCardEl']) assert.match(fn(name), /\$\{typeBadge\(card, state\.types, state\.typesOn\)\}/, name);
+  assert.match(fn('mapRichHtml'), /typeBadge\(\{ type: rich\.type \}, state\.types, state\.typesOn\)/);
 });
 
 test('app.css gives the glyph a gap and no colour of its own, so it wears the chip\'s', () => {
@@ -131,4 +134,11 @@ test('app.css keeps a wider chip inside a tile\'s text column, so it cannot run 
   assert.match(rule[0], /max-width:\s*100%/);
   assert.match(rule[0], /overflow:\s*hidden/);
   assert.match(rule[0], /text-overflow:\s*ellipsis/);
+});
+
+test('with types off the detail prints a type: line as written, with no chip, color or icon', () => {
+  const fm = loadFrontmatterValueHtml([{ name: 'objective', color: '#a371f7', icon: 'diamond' }]);
+  assert.match(fm('type', 'objective'), /type-chip/);
+  fm.state.typesOn = false;
+  assert.strictEqual(fm('type', 'objective'), 'objective');
 });

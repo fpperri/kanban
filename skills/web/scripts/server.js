@@ -285,6 +285,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           statuses: config.statuses, // ordered column list; [] = built-in four
           types: config.types, // [{name, color}] card-type vocabulary, plus icon on an entry that sets one; [] = none declared
           hierarchy: config.hierarchy, // type names, top tier first, as written; [] = none declared
+          typesOn: config.typesOn, // false = types off (ADR 0018): the web ignores types and hierarchy; the lists above stay as written
           pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
           logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
