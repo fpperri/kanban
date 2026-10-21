@@ -139,7 +139,8 @@ module.exports = {
       for (let i = 1; i <= 6; i++) await mouse('mouseMoved', p.x + (dx * i) / 6, p.y, { buttons: 1 });
       await mouse('mouseReleased', p.x + dx, p.y);
     };
-    check('calnotes: a day with a notes strip has a divider on its left edge, and a day without has none', await ev(`document.querySelectorAll('#calendar-view .cal-note-divider').length===2&&!!${DIVIDER('2026-10-13')}&&!!${DIVIDER('2026-10-15')}&&!${COL('2026-10-16')}.querySelector('.cal-note-divider')`));
+    check('calnotes: every day that keeps a notes strip has a divider on its left edge (Friday does since the note written there), and a day without has none', await ev(`(()=>{const strips=document.querySelectorAll('#calendar-view .cal-tg-col.has-notes');return strips.length>=3&&document.querySelectorAll('#calendar-view .cal-note-divider').length===strips.length&&[...strips].every((c)=>c.querySelectorAll('.cal-note-divider').length===1)})()&&!!${DIVIDER('2026-10-13')}&&!!${DIVIDER('2026-10-15')}&&!${COL('2026-10-17')}.querySelector('.cal-note-divider')`));
+    check('calnotes: each divider names its day and reports its width as a percentage of the column', await ev(`(()=>{const d=${DIVIDER('2026-10-15')};return d.getAttribute('aria-label')==='Width of the notes on Thu 15'&&Number(d.getAttribute('aria-valuenow'))>Number(d.getAttribute('aria-valuemin'))-1&&Number(d.getAttribute('aria-valuenow'))<=Number(d.getAttribute('aria-valuemax'))&&Number(d.getAttribute('aria-valuemax'))<100})()`));
     check('calnotes: the divider is a focusable separator whose title says what it does', await ev(`(()=>{const d=${DIVIDER('2026-10-15')};return d.getAttribute('role')==='separator'&&d.tabIndex===0&&/Drag/.test(d.title)&&/Double-click/.test(d.title)&&/arrow/.test(d.title)})()`));
     const first = await stripOf('2026-10-15');
     check('calnotes: the strip starts at its default width, 44px to 170px', first >= 44 && first <= 171, String(first));
