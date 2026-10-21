@@ -23,6 +23,7 @@ const PAGE_GLOBALS = [
   'hoveredId',
   'isDragging',
   'localTodayStr',
+  'openNotes',
   'noteClock',
   'renderBoard',
   'renderCalendarView',

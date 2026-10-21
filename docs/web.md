@@ -479,24 +479,42 @@ Copy button.
 - *Counters* shows `nextId` and the `counters:` line, read only.
 
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
-details are open, else the hovered or selected card (it draws above the details, and Esc closes
-it before them; a field in the details gets the letter instead), a card with notes wears a small count that opens its notes, and the card menu
-has **Add note…**. Type a note and press Enter: it is written at the time field's time into
-the card's day file and the palette stays open for the next note; Shift+Enter starts a new
-line. The note box starts one line high and grows with its text, typed and wrapped lines both, up
-to 12 lines or 40% of the window, whichever is less, and scrolls inside past that; the box a listed
-note is edited in grows the same way and opens sized to the note. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
-`#22` aims it at another card; the line under the box says exactly what Enter will write. The
-list below groups the notes by day and card, newest first, with a filter field of its own
-(`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a
-note written in the palette stays listed whatever they say. A **Grouped | Timeline** switch
-beside them, remembered per board, changes the list's shape: Timeline is one flat list, days
-newest first and inside a day the timed notes in time order, then the untimed ones, each row
-naming its card (a link to it, or "no card"); the filter, the switches and the keys work on it
-as on the grouped one. `Alt+1`, `Alt+2` and `Alt+3` switch the open palette's first, second and third tab (Notes,
-Group, Scratchpad, as the tab row shows them; each tab carries its key), from the note box too.
-On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
-it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
+details are open, else the hovered or selected card; it draws above the details, Esc closes it
+before them, and a field in the details gets the letter instead. With no card, `n` on the Calendar
+opens it on the Calendar's own mode and range (Month, Week, 3 days or Day), or on the day under the
+pointer when the pointer is over a day; anywhere else it opens on today. A card with notes wears a
+small count that opens its notes, and the card menu has **Add note…**.
+
+Type a note and press Enter: it is written into the card's day file and the palette stays open for
+the next note; Shift+Enter starts a new line. The note box starts one line high and grows with its
+text, typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less, and
+scrolls inside past that; the box a listed note is edited in grows the same way and opens sized to
+the note. The subject row sets where and when the note goes: a **date** (with a picker; today, or the
+day of the hour or all-day box the palette was opened from) beside the **time**, the *untimed* tick,
+which drops the time and keeps the day, and a **card** picker, a searchable list of *no card* and the
+live cards that aims the palette at the one chosen, as typing a bare `#22` and Enter does. A leading
+`10:30` sets that note's time, a leading `-` makes it untimed, and a leading `#22` aims it at another
+card and wins over the picker; the line under the box says exactly which day, time and card Enter
+will write.
+
+The list below groups the notes by day and card, newest first, with a filter field of its own
+(`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a note
+written in the palette stays listed whatever they say. A **Grouped | Timeline** switch beside them,
+remembered per board, changes the list's shape: Timeline is one flat list, days newest first and
+inside a day the timed notes in time order, then the untimed ones, each row naming its card (a link
+to it, or "no card"); the filter, the switches and the keys work on it as on the grouped one. A
+**range** row over the list, All, Month, Week, 3 days or Day, with ‹ and › buttons (off on All) and a
+label (`Wed 21 Oct`, `19–25 Oct`; a click on it goes back to the range that holds today), limits the
+list to a span of days; weeks start on Monday, as the Calendar's do. The palette opens on All for a
+card, a group or several cards (so a card's whole history is listed), on Day for the day of an hour or
+the all-day box it was opened from (widening the range lists the rest of it), on the Calendar's own
+range or the day under the pointer for `n` there, and on Day, today for `n` anywhere else. The range
+is set each time the palette opens and is no memory. It only chooses which notes are listed: the date
+field decides the day a note is written to, and a note written outside the range stays listed.
+`Alt+1`, `Alt+2` and `Alt+3` switch the open palette's first, second and third tab (Notes, Group,
+Scratchpad, as the tab row shows them; each tab carries its key), from the note box too. On a listed
+note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes it. Without a
+`logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 **Text boxes** — four multiline boxes take editing keys: the notes palette's note box, the box a
 listed note is edited in, the Scratchpad's box and the card form's description. **Tab** indents by two

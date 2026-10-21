@@ -10,7 +10,10 @@
 // time, and the preview line says exactly what Enter will write; a bare #22 then Enter aims the
 // palette at that card and Backspace on the empty box clears the chip. e, a and d d work on a
 // listed note: edit its text and time, assign it to another card, delete it. Keys typed in the
-// palette reach none of the board's own shortcuts, and Esc closes it from the filter field too.
+// palette reach none of the board's own shortcuts, and Esc closes it from the filter field too. The
+// subject row's date and card picker retarget the note (a note written to another day lands in that
+// day's file), and the range row limits the list to a day, 3 days, a week or a month: a card opens
+// on All and still lists its notes from several days.
 // With no logbook line nothing shows and n says why. Each step waits on the page, never on a fixed
 // sleep.
 //
@@ -284,6 +287,71 @@ module.exports = {
     await pickLayout('grouped');
     check('notes: Grouped brings the sections back', await waitFor(`document.querySelectorAll('#notes-palette .np-tgroup').length===0&&document.querySelectorAll('#notes-palette .np-ngroup').length>=2`, 2500));
     await closePalette();
+
+    // --- the card picker, the date and the range ---------------------------------------------------------------------
+    const PICK = q('.np-pick-input');
+    const DATE = q('.np-date');
+    const PICK_MENU = `[...document.querySelectorAll('#notes-palette .np-pick .combobox-item')].map((e)=>e.textContent)`;
+    const RANGE_BTNS = `[...document.querySelectorAll('#notes-palette .np-range-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
+    const RANGE_LABEL = `document.querySelector('#notes-palette .np-range-label').textContent`;
+    const DAYS = `[...document.querySelectorAll('#notes-palette .np-ngroup')].map((g)=>g.dataset.day)`;
+    const pickRange = async (mode) => { const p = await centre(`#notes-palette .np-range-slot .np-by-btn[data-range="${mode}"]`); await click(p.x, p.y); };
+    const stepRange = async (dir) => { const p = await centre(`#notes-palette .np-range-step[data-step="${dir}"]`); await click(p.x, p.y); };
+    const chooseCard = async (text) => {
+      await ev(`${PICK}.focus()`);
+      if (!(await waitFor(`${PICK_MENU}.includes(${JSON.stringify(text)})`, 2500))) return false;
+      const at = await ev(`(()=>{const e=[...document.querySelectorAll('#notes-palette .np-pick .combobox-item')].find((x)=>x.textContent===${JSON.stringify(text)});const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      await mouse('mouseMoved', at.x, at.y, { button: 'none', clickCount: 0 });
+      await click(at.x, at.y);
+      return true;
+    };
+    check('notes: the pointer rests on card 7 for the picker', await hoverCard('7'));
+    await key('n');
+    check('notes: n opens the palette on card 7', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
+    check('notes: a card opens on All, so its notes from several days are all listed', JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All*', 'Month', 'Week', '3 days', 'Day']) && (await ev(DAYS)).includes('2026-10-15') && (await ev(DAYS)).includes('2026-10-14'), JSON.stringify(await ev(DAYS)));
+    check('notes: the date starts at today, beside the time', await ev(`${DATE}.value===${TODAY}`));
+    check('notes: the picker names the card', await ev(`${PICK}.value`) === '#7 Port the zephyr schema');
+    await setBox('kept text');
+    check('notes: the picker\'s menu lists no card first and then the cards', await (async () => { await ev(`${PICK}.focus()`); return waitFor(`${PICK_MENU}[0]==='no card'&&${PICK_MENU}.includes('#22 Cut over the data layer')&&${PICK_MENU}.includes('#7 Port the zephyr schema')`, 2500); })(), JSON.stringify(await ev(PICK_MENU)));
+    await shot('card-picker');
+    check('notes: choosing #22 aims the palette at it, as a bare #22 and Enter does', await chooseCard('#22 Cut over the data layer') && await waitFor(`${CHIP}==='#22 Cut over the data layer'`, 2500), await chip());
+    check('notes: the picker names the new card, the note box keeps what was typed, and card 22\'s notes are listed', await ev(`${PICK}.value`) === '#22 Cut over the data layer' && await ev(BOX) === 'kept text' && (await ev(SECTIONS)).includes('2026-10-15|22|1') && (await ev(SECTIONS)).every((g) => g.split('|')[1] === '22'), JSON.stringify(await ev(SECTIONS)));
+    check('notes: and the preview line says the card', (await preview()).endsWith('on #22 Cut over the data layer'), await preview());
+    await setBox('#7 the line wins');
+    check('notes: a #7 typed at the start of the note wins over the picker, and the preview says so', (await preview()).endsWith('on #7 Port the zephyr schema'), await preview());
+    await setBox('kept text');
+    check('notes: choosing no card makes the note about nothing', await chooseCard('no card') && await waitFor(`${PICK}.value==='no card'`, 2500) && (await preview()).endsWith('on no card'), await preview());
+    await setBox('');
+    await ev(`(()=>{const d=${DATE};d.value='2026-10-12';d.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    await setBox('written to another day');
+    check('notes: the preview names the day when it is not today', (await preview()).includes('Mon 12'), await preview());
+    await key('Enter');
+    check('notes: Enter writes the note to the day in the date field, in that day\'s file', await waitFor(`${NOTES}.some((n)=>n.day==='2026-10-12'&&n.target===''&&n.note==='written to another day'&&/2026\\.10\\.12/.test(n.file))`, 4000), JSON.stringify(await ev(`${NOTES}.filter((n)=>n.note==='written to another day')`)));
+    check('notes: the date stays for the next note', await ev(`${DATE}.value`) === '2026-10-12');
+    await ev(`(()=>{const u=${q('.np-untimed')};u.checked=true;u.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+    await setBox('untimed on the same day');
+    await key('Enter');
+    check('notes: the untimed tick drops the time and keeps that day', await waitFor(`${NOTES}.some((n)=>n.day==='2026-10-12'&&!n.at&&n.note==='untimed on the same day')`, 4000));
+    check('notes: Esc closes the palette', await closePalette());
+    await ev(`openNotes({ kind: 'card-notes', id: '7', day: '2026-10-15' })`);
+    check('notes: card 7 again, on All', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All*', 'Month', 'Week', '3 days', 'Day']) && await ev(RANGE_LABEL) === 'All dates');
+    check('notes: with All the previous and next buttons are off', await ev(`[...document.querySelectorAll('#notes-palette .np-range-step')].every((b)=>b.disabled)`));
+    await pickRange('week');
+    check('notes: Week lists that card\'s notes from 12 to 18 October only', await waitFor(`${RANGE_LABEL}==='12–18 Oct'`, 2500) && JSON.stringify(await ev(DAYS)) === JSON.stringify(['2026-10-15', '2026-10-14']), JSON.stringify(await ev(DAYS)));
+    await shot('palette-range-week');
+    await pickRange('day');
+    check('notes: Day lists the notes of 15 October', await waitFor(`${RANGE_LABEL}==='Thu 15 Oct'`, 2500) && JSON.stringify(await ev(DAYS)) === JSON.stringify(['2026-10-15']), JSON.stringify(await ev(DAYS)));
+    await stepRange(-1);
+    check('notes: the previous button steps to 14 October', await waitFor(`${RANGE_LABEL}==='Wed 14 Oct'`, 2500) && JSON.stringify(await ev(DAYS)) === JSON.stringify(['2026-10-14']), JSON.stringify(await ev(DAYS)));
+    await stepRange(1);
+    await stepRange(1);
+    check('notes: the next button reaches a day with no note, and the list says so', await waitFor(`${RANGE_LABEL}==='Fri 16 Oct'`, 2500) && await ev(`!!document.querySelector('#notes-palette .np-empty')&&/No notes in Fri 16 Oct yet\\./.test(document.querySelector('#notes-palette .np-empty').textContent)`));
+    await pickRange('all');
+    check('notes: All brings every day back', await waitFor(`${DAYS}.includes('2026-10-14')&&${DAYS}.includes('2026-10-15')`, 2500));
+    check('notes: Esc closes the palette', await closePalette());
+    await ev(`openNotes({ kind: 'card-notes', id: '7' })`);
+    check('notes: the range is set again each time the palette opens: All', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All*', 'Month', 'Week', '3 days', 'Day']));
+    check('notes: Esc closes the palette', await closePalette());
 
     // --- the note boxes grow with their text -----------------------------------------------------------------------
     const BOX_H = `${q('.np-input')}.getBoundingClientRect().height`;

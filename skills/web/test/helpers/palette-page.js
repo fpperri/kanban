@@ -68,6 +68,8 @@ function paletteDocument(holder) {
       el.value = el.value.slice(0, from) + text + el.value.slice(to);
       if (mode === 'end') { el.selectionStart = from + text.length; el.selectionEnd = from + text.length; }
     };
+    Object.defineProperty(el, 'parentElement', { get: () => (el.parent ? same(el.parent) : null) });
+    el.select = () => { el.selectionStart = 0; el.selectionEnd = String(el.value).length; };
     el.dispatchEvent = (event) => el.fire(event.type || 'event', event);
     el.replaceChildren = (...kids) => { el.children.length = 0; el.append(...kids); };
     el.descendants = () => el.walk().slice(1).map(same);

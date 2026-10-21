@@ -97,6 +97,7 @@ test('the n line says it notes the card whose details are open, ahead of the hov
   const what = rowOf(hotkeyRows(NOW), 'note').what;
   assert.match(what, /card whose details are open/);
   assert.ok(what.indexOf('details are open') < what.indexOf('hovered or selected'), 'the open details come first');
+  assert.match(what, /With no card, on the Calendar it opens on the Calendar's own range, or on the day under the pointer; elsewhere on today/);
 });
 
 test('Alt+1, Alt+2 and Alt+3 are listed together as the notes palette\'s tab keys', () => {

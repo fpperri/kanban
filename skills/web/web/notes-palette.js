@@ -3,11 +3,14 @@
 // card whose details are open, else the hovered or selected card, a card's note count and the
 // right-click Add note... open it aimed at a card; with nothing aimed at it opens on the card last
 // noted. Over the card details it draws above them and Esc closes it before them. Rows, top down:
-// the subject row (the chip that says what it is about, the time field, the untimed tick),
-// the note box, the preview line that says what Enter will write, the filter row (the
-// filter field, and beside it the Grouped or Timeline switch and the All, Human and AI switch on
-// a note's author), then the notes list, newest day first: Grouped by day and card, or Timeline,
-// one flat list per day by time with each row naming its card. The filter field reads `by:@handle`
+// the subject row (the chip that says what it is about, the date and time fields, the untimed
+// tick and the card picker), the note box, the preview line that says what Enter will write, the
+// filter row (the filter field, and beside it the Grouped or Timeline switch and the All, Human and
+// AI switch on a note's author), the range row (All, Month, Week, 3 days or Day, with previous and
+// next buttons and the range's label), then the notes list, newest day first: Grouped by day and
+// card, or Timeline, one flat list per day by time with each row naming its card. The range is
+// set each time the palette opens (notes.js noteRangeFor) and is no memory: a card, a group or
+// several cards open on All, nothing aimed at on Day today or on what the Calendar asked for. The filter field reads `by:@handle`
 // too; a note written in this palette stays listed whatever the filter and the switches say.
 //
 // A group is a subject too (docs/adr/0015): a badge on a card, a mention of a group's id and the
@@ -31,10 +34,13 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
-// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, and notes.js's and groups.js's functions.
+// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, wireDatePickButton, attachCombobox, loadViewMode,
+// loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, and notes.js's and groups.js's functions.
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
+  date: null, dateBtn: null, dateWrap: null, dateTyped: false, pick: null, pickWrap: null,
+  range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null, timeTyped: false,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
@@ -91,8 +97,9 @@ function notesLayout() {
 }
 
 const notesCtx = () => ({ today: localTodayStr(), now: noteClock(new Date()), lastNoted: notesLastNoted() });
-const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked });
+const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked, day: notesUi.date.value });
 const NOTES_LAYOUTS = [['grouped', 'Grouped', 'The notes grouped by day and card'], ['timeline', 'Timeline', 'One list of the notes by day and time, each naming its card']];
+const NOTES_RANGES = [['all', 'All', 'Every day'], ['month', 'Month', 'A month at a time'], ['week', 'Week', 'A week at a time, from Monday'], ['3day', '3 days', 'Three days at a time'], ['day', 'Day', 'A day at a time']];
 const NOTES_BY = [['all', 'All', 'Every note'], ['human', 'Human', 'Notes by a human'], ['ai', 'AI', 'Notes by an AI, or by a handle the board does not list']];
 const notesKey = (n) => `${n.day}|${n.target}|${n.at || ''}|${n.note}|${n.by}`;
 
@@ -238,6 +245,15 @@ function notesBuild() {
   u.chip = notesEl('span', 'np-chip');
   u.chip.hidden = true;
   u.chip.append(u.chipText, clear);
+  u.date = notesEl('input', 'np-date');
+  Object.assign(u.date, { type: 'text', maxLength: 10, placeholder: 'YYYY-MM-DD', autocomplete: 'off', inputMode: 'numeric' });
+  u.date.setAttribute('aria-label', 'Day of the note');
+  u.date.setAttribute('data-date-only', ''); // the picker's grid without its clock row: the time is the next field
+  u.dateBtn = notesButton('np-date-btn date-pick-btn', '📅', 'Pick the day', () => {});
+  u.dateBtn.setAttribute('aria-label', 'Pick the day of the note');
+  wireDatePickButton(u.dateBtn, u.date); // app.js: the one date picker serves this field as it does the card form's
+  u.dateWrap = notesEl('span', 'np-date-wrap');
+  u.dateWrap.append(u.date, u.dateBtn);
   u.time = notesEl('input', 'np-time');
   Object.assign(u.time, { type: 'text', maxLength: 5, placeholder: 'HH:MM', autocomplete: 'off', inputMode: 'numeric' });
   u.time.setAttribute('aria-label', 'Time of the note');
@@ -246,7 +262,13 @@ function notesBuild() {
   const untimedLabel = notesEl('label', 'np-untimed-label');
   untimedLabel.append(u.untimed, document.createTextNode(' untimed'));
   const when = notesEl('span', 'np-when');
-  when.append(notesEl('span', '', 'at'), u.time, untimedLabel);
+  u.pick = notesEl('input', 'np-pick-input');
+  Object.assign(u.pick, { type: 'text', autocomplete: 'off', placeholder: 'Card' });
+  u.pick.setAttribute('aria-label', 'Card the note is about');
+  u.pickWrap = notesEl('span', 'np-pick');
+  u.pickWrap.append(u.pick);
+  when.append(u.dateWrap, notesEl('span', '', 'at'), u.time, untimedLabel, u.pickWrap);
+  attachCombobox(u.pick, notesPickOptions); // app.js: the form's suggest-never-validate menu
   u.when = when;
   const subjectRow = notesEl('div', 'np-subject-row');
   subjectRow.append(u.chip, when);
@@ -286,6 +308,24 @@ function notesBuild() {
   const filterRow = notesEl('div', 'np-filter-row');
   filterRow.append(u.filter, u.layoutSlot, u.bySlot);
   u.filterRow = filterRow;
+  u.rangeRow = notesEl('div', 'np-range-row');
+  const rangeSlot = notesEl('span', 'np-by-slot np-range-slot');
+  rangeSlot.setAttribute('role', 'group');
+  rangeSlot.setAttribute('aria-label', 'Dates shown');
+  u.rangeBtns = NOTES_RANGES.map(([mode, text, title]) => {
+    const b = notesButton('np-by-btn', text, title, () => notesSetRangeMode(mode));
+    b.dataset.range = mode;
+    return b;
+  });
+  rangeSlot.append(...u.rangeBtns);
+  u.rangeStepBtns = [-1, 1].map((dir) => {
+    const b = notesButton('np-range-step', dir < 0 ? '‹' : '›', dir < 0 ? 'Previous' : 'Next', () => notesStepRange(dir));
+    b.setAttribute('aria-label', dir < 0 ? 'Previous range' : 'Next range');
+    b.dataset.step = String(dir);
+    return b;
+  });
+  u.rangeLabel = notesButton('np-range-label', '', 'Back to the range that holds today', () => notesRangeToday());
+  u.rangeRow.append(rangeSlot, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1]);
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
   u.el = notesEl('section', 'notes-palette hidden');
@@ -293,12 +333,16 @@ function notesBuild() {
   u.el.setAttribute('role', 'dialog');
   u.el.setAttribute('aria-label', 'Notes');
   u.el.dataset.keepsSelection = '';
-  u.el.append(u.tabsEl, bar, u.prev, filterRow, u.body, u.foot);
+  u.el.append(u.tabsEl, bar, u.prev, filterRow, u.rangeRow, u.body, u.foot);
   document.body.append(u.el);
 
   u.input.addEventListener('input', () => { notesGrow(); notesPaintPreview(); });
   u.filter.addEventListener('input', () => { u.hi = -1; notesPaintBody(); });
   u.time.addEventListener('input', () => { u.timeTyped = true; notesPaintPreview(); });
+  u.date.addEventListener('input', () => { u.dateTyped = true; notesPaintPreview(); });
+  u.date.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
+  u.pick.addEventListener('input', onNotesPickInput);
+  u.pick.addEventListener('blur', () => notesPaintPick(true));
   u.untimed.addEventListener('change', () => { u.time.disabled = u.untimed.checked; notesPaintPreview(); u.input.focus(); });
   u.time.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
   u.filter.addEventListener('keydown', notesOnFilterKey);
@@ -361,9 +405,12 @@ function openNotes(req) {
     u.input.value = '';
     u.filter.value = '';
     u.by = 'all';
+    u.dateTyped = false;
     notesGrow();
     notesResetTime();
   }
+  u.range = noteRangeFor(sub, req, ctx.today);
+  u.rangeTouched = false;
   u.hi = -1;
   u.el.classList.toggle('np-over-detail', notesDetailId() !== null);
   u.el.classList.remove('hidden');
@@ -406,6 +453,7 @@ function notesClose() {
   u.input.value = '';
   u.filter.value = '';
   u.by = 'all';
+  u.dateTyped = false;
   const back = u.opener;
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
@@ -416,7 +464,9 @@ function notesClose() {
 // person typed a time into it, or ticked untimed, which stay as they were.
 function notesRefreshTime() {
   const u = notesUi;
-  if (u.timeTyped || u.untimed.checked || !u.sub) return;
+  if (!u.sub) return;
+  if (!u.dateTyped) u.date.value = u.sub.day;
+  if (u.timeTyped || u.untimed.checked) return;
   u.time.value = u.sub.at || noteClock(new Date());
 }
 
@@ -428,6 +478,7 @@ function notesResetTime() {
   u.untimed.checked = untimed;
   u.time.disabled = untimed;
   u.time.value = untimed ? '' : sub.at || noteClock(new Date());
+  if (!u.dateTyped) u.date.value = sub.day || localTodayStr();
 }
 
 function notesClearChip() {
@@ -438,6 +489,8 @@ function notesClearChip() {
   u.tab = 'notes';
   u.written = [];
   u.hi = -1;
+  u.range = noteRangeFor(u.sub, null, localTodayStr());
+  u.rangeTouched = false;
   notesResetTime();
   notesPaint();
   u.input.focus();
@@ -479,8 +532,8 @@ function notesPaint() {
   u.input.placeholder = u.sub.kind === 'card' || u.sub.kind === 'group' ? 'Write a note' : 'Write a note; #7 picks the card';
   notesPaintTabs();
   const panel = u.tab !== 'notes';
-  for (const el of [u.when, u.input, u.prev, u.filterRow]) el.hidden = panel;
-  if (!panel) notesGrow();
+  for (const el of [u.when, u.input, u.prev, u.filterRow, u.rangeRow]) el.hidden = panel;
+  if (!panel) { notesGrow(); notesPaintPick(); notesPaintRange(); }
   const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
   if (panel) {
     notesPaintBody();
@@ -551,13 +604,15 @@ function notesList() {
   const fresh = new Set(u.written);
   const all = notesAll();
   const group = sub.kind === 'group' ? notesGroup(sub.id) : null;
-  const mine = noteSubjectNotes(all, sub, { members: () => (group ? group.cards : []) });
+  const mine = noteListNotes(all, sub, { ...u.range, touched: u.rangeTouched }, { members: () => (group ? group.cards : []) });
   const shown = new Set(noteFilter(mine, u.filter.value, notesLabel, { by: u.by, assignees: state.assignees }));
   const notes = mine.filter((n) => shown.has(n) || fresh.has(notesKey(n)));
   for (const n of all) if (fresh.has(notesKey(n)) && !notes.includes(n)) notes.push(n);
   if (!notes.length) {
     const typed = u.filter.value.trim();
-    const text = mine.length ? (typed ? `No note here matches “${typed}”${u.by === 'all' ? '' : ` by ${u.by === 'human' ? 'a human' : 'an AI'}`}.` : `No note here is by ${u.by === 'human' ? 'a human' : 'an AI'}.`) : sub.kind === 'none' ? 'No notes today yet.' : 'No notes here yet. Enter writes the first one.';
+    const ranged = u.range.mode !== 'all' && !(sub.kind === 'none' && u.range.mode === 'day' && u.range.anchor === localTodayStr());
+    const none = sub.kind === 'none' ? 'No notes today yet.' : 'No notes here yet. Enter writes the first one.';
+    const text = mine.length ? (typed ? `No note here matches “${typed}”${u.by === 'all' ? '' : ` by ${u.by === 'human' ? 'a human' : 'an AI'}`}.` : `No note here is by ${u.by === 'human' ? 'a human' : 'an AI'}.`) : ranged ? `No notes in ${noteRangeLabel(u.range.mode, u.range.anchor)} yet.` : none;
     return notesEl('p', 'np-empty', text);
   }
   const today = localTodayStr();
@@ -778,18 +833,109 @@ async function notesWrite() {
 }
 
 // Enter on a line that is only a mention: the palette moves to that card or group.
-function notesAim(id) {
+// `keepText`: the card picker aims the palette without losing what was typed; a bare mention is the line.
+function notesAim(id, keepText = false) {
   const u = notesUi;
   u.sub = noteSubjectAimed(u.sub, id, notesCard(id) === null && notesGroup(id) !== null ? 'group' : 'card');
   u.tab = 'notes';
   u.written = [];
   u.hi = -1;
-  u.input.value = '';
+  u.range = noteRangeFor(u.sub, null, localTodayStr());
+  u.rangeTouched = false;
+  if (!keepText) u.input.value = '';
   notesGrow();
   if (!u.sub.when) notesResetTime();
   else { u.untimed.checked = !!u.sub.untimed; u.time.disabled = u.untimed.checked; }
   notesPaint();
+  notesPaintPick(true);
   u.input.focus();
+}
+
+// ---------- the card picker ----------
+
+// The picker's options: no card, then every live card. The value of a card is its id, which the
+// menu writes into the field and notesOnPickInput reads back.
+function notesPickOptions() {
+  const cards = state.active.slice().sort((a, b) => kanbanIds.compareIds(String(a.id), String(b.id)));
+  return [{ value: 'no card', label: 'no card' }].concat(cards.map((c) => ({ value: String(c.id), label: `#${c.id} ${c.title}` })));
+}
+
+// What the picker shows: the note's target as the chip would name it. A field being typed in is not
+// painted over (the board refresh repaints the palette) unless `force`.
+function notesPaintPick(force = false) {
+  const u = notesUi;
+  if (!u.sub || !u.pick) return;
+  if (!force && document.activeElement === u.pick) return;
+  const target = noteSubjectTarget(u.sub, notesLastNoted());
+  u.pick.value = target.each ? `${target.each} cards` : notesLabel(target.id);
+  u.pick.title = u.pick.value;
+}
+
+// A choice from the menu arrives as an input event the browser did not make (a typed one is trusted
+// and only filters the menu): a card aims the palette at it, as a bare mention and Enter does, and
+// "no card" makes the note about nothing.
+function onNotesPickInput(e) {
+  if (e.isTrusted) return;
+  const u = notesUi;
+  if (!u.sub) return;
+  const value = u.pick.value;
+  if (value === 'no card') {
+    u.sub = noteSubjectNoCard(u.sub);
+    u.tab = 'notes';
+    u.written = [];
+    u.hi = -1;
+    u.range = noteRangeFor(u.sub, null, localTodayStr());
+    u.rangeTouched = false;
+    notesResetTime();
+    notesPaint();
+    notesPaintPick(true);
+    u.input.focus();
+    return;
+  }
+  const id = kanbanIds.idKey(value);
+  if (id !== null && notesCard(id) !== null) notesAim(id, true);
+  else notesPaintPick(true);
+}
+
+// ---------- the range ----------
+
+function notesPaintRange() {
+  const u = notesUi;
+  if (!u.sub) return;
+  for (const b of u.rangeBtns) b.setAttribute('aria-pressed', String(b.dataset.range === u.range.mode));
+  const all = u.range.mode === 'all';
+  for (const b of u.rangeStepBtns) b.disabled = all;
+  u.rangeLabel.disabled = all;
+  u.rangeLabel.textContent = noteRangeLabel(u.range.mode, u.range.anchor);
+}
+
+// Any change of the range, by the buttons, lists the range's notes and no longer only the hour or
+// the untimed box the palette was opened on.
+function notesRangeChanged() {
+  const u = notesUi;
+  u.rangeTouched = true;
+  u.hi = -1;
+  notesPaintRange();
+  notesPaintBody();
+}
+
+function notesSetRangeMode(mode) {
+  notesUi.range = { mode, anchor: notesUi.range.anchor };
+  notesRangeChanged();
+}
+
+function notesStepRange(dir) {
+  const u = notesUi;
+  if (u.range.mode === 'all') return;
+  u.range = { mode: u.range.mode, anchor: noteRangeStep(u.range.mode, u.range.anchor, dir) };
+  notesRangeChanged();
+}
+
+function notesRangeToday() {
+  const u = notesUi;
+  if (u.range.mode === 'all') return;
+  u.range = { mode: u.range.mode, anchor: localTodayStr() };
+  notesRangeChanged();
 }
 
 // ---------- keys ----------
@@ -895,7 +1041,15 @@ function onNotesKey(e) {
   if (!notesOn()) { toast('The logbook is off: config.yaml has no logbook: line.'); return; }
   const detail = notesDetailId();
   const aimed = detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
-  openNotes(aimed === null ? {} : { kind: 'card-notes', id: aimed });
+  openNotes(aimed === null ? notesCalendarOpening() : { kind: 'card-notes', id: aimed });
+}
+
+// n with no card on the Calendar: the Calendar's own mode and range, or, with the pointer on a day,
+// that one day (the day the note then defaults to). Elsewhere nothing: Day, today.
+function notesCalendarOpening() {
+  if (loadViewMode() !== 'calendar') return {};
+  if (calendarHoverDay) return { day: calendarHoverDay, range: { mode: 'day', anchor: calendarHoverDay } };
+  return { range: { mode: loadCalendarSubview(), anchor: currentCalendarAnchor() } };
 }
 
 // Esc with focus outside the palette (a click on its empty space took it) closes it, unless a menu or a

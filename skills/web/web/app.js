@@ -4319,6 +4319,10 @@ function setCalendarSubview(subview) {
 // and the layer exist only on a board that keeps a logbook.
 let calendarNotes = null;
 
+// The day cell or column the pointer is over in the Calendar, or null: n then opens the notes palette on
+// that day (notes-palette.js notesCalendarOpening). Tracked from the pointer, kept nowhere.
+let calendarHoverDay = null;
+
 function calendarNotesOn() {
   if (!notesOn()) return false;
   if (calendarNotes === null) {
@@ -5137,6 +5141,11 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-toggle-btn').addEventListener('click', () => toggleView('calendar'));
   wireCalendarTimeDrag(); // delegated once on the stable #calendar-view
   const calView = $('#calendar-view');
+  calView.addEventListener('mouseover', (e) => {
+    const day = e.target && e.target.closest ? e.target.closest('.cal-day, .cal-tg-allday-cell, .cal-tg-col') : null;
+    calendarHoverDay = day && day.dataset.day ? day.dataset.day : null;
+  });
+  calView.addEventListener('mouseleave', () => { calendarHoverDay = null; });
   calView.addEventListener('pointerdown', onCalNotesDividerDown);
   calView.addEventListener('pointermove', onCalNotesDividerMove);
   calView.addEventListener('pointerup', onCalNotesDividerUp);

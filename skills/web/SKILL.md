@@ -1162,23 +1162,49 @@ to `127.0.0.1` only.
   one surface for notes. Without the line nothing of it shows: no count, no menu entry, and
   `n` only says the logbook is off. A card with notes wears a small count on its tile (live
   and archived); a click on it opens the card's notes. `n` opens the palette on the card whose
-  details are open, else on the hovered card, else on the one selected card, else on the card
-  last noted (kept per board in this browser). The card details are the one popup `n` works
+  details are open, else on the hovered card, else on the one selected card, else on nothing: on
+  the Calendar (`loadViewMode() === 'calendar'`) with the Calendar's own sub-view and anchor as the
+  range, or with the pointer over a day cell or column (`calendarHoverDay`, tracked by a
+  `mouseover` on `#calendar-view`, kept nowhere) on that one day, and the date field defaulting to it;
+  elsewhere on Day, today (`notesCalendarOpening`). The Calendar has no way to select a day or a range
+  of days, and none was added. The card details are the one popup `n` works
   over (`keyGuardOff(document, '#detail-modal')`): any other popup, a menu, or a field with
   focus still turns it off. The palette then draws above the details, and the first Esc closes
   it while a second closes the details; the card menu's **Add note…** opens it on one card. Its rows, top down: the
-  subject row (a chip that says what the palette is about, a time field and an *untimed*
-  tick), the note box, the preview line that says exactly what Enter will write (`Note at
+  subject row (a chip that says what the palette is about, a **date** field with the date picker's
+  grid (`wireDatePickButton`, `data-date-only`), a time field, an *untimed* tick and a **card picker**,
+  the form's `attachCombobox` over *no card* and the live cards in id order), the note box, the preview line that says exactly what Enter will write (`Note at
   10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
   All, Human and AI switch beside it, and a **Grouped | Timeline** switch, kept per board in
-  this browser as `notes.layout`) and the list of notes, grouped by day and card, newest day
+  this browser as `notes.layout`), the **range** row (All, Month, Week, 3 days, Day, the ‹ and ›
+  buttons and the label) and the list of notes, grouped by day and card, newest day
   first, each with its time and its author, the human's included. Timeline is the same notes as
   one flat list (`noteTimeline`, notes.js): days newest first, inside a day the timed notes in
   time order and then the untimed ones, each row naming its card with the link a group heading
-  has (`no card` for none); a day line shows where the grouped list shows one. **Enter** writes the
-  note at the time field's time (now, to start with) and keeps the palette open for the next;
-  the field then goes back to now (or to the slot's time, when the palette was opened on a
-  slot) unless a time was typed into it;
+  has (`no card` for none); a day line shows where the grouped list shows one, and so whenever more
+  than one day is listed. **Enter** writes the
+  note to the day in the date field (today, or the day of the hour or all-day box the palette was
+  opened from; a day that is not a date is said in the preview and written nowhere) at the time
+  field's time (now, to start with) and keeps the palette open for the next; the fields then go
+  back to those defaults (`notesRefreshTime`) unless a date or a time was typed or picked into
+  them, which stay. The untimed tick drops the time and keeps the day, a leading `10:30` sets the
+  time alone, and the preview names the day when it is not today (`noteWritePlan`, notes.js). The
+  **card picker** shows the note's target (`noteSubjectTarget`: the card or group, `N cards` for
+  several, `no card`, else the card Enter would write on) and a choice from its menu, which
+  arrives as an input event the browser did not make, aims the palette at that card as a bare
+  mention and Enter does, keeping the note box's text; choosing *no card* (`noteSubjectNoCard`)
+  makes the note about nothing whatever card was last noted, and on several cards choosing one
+  makes it the single target. A mention at the start of the note wins over the picker. The
+  **range** is `{ mode, anchor }` over the Calendar's own sub-view names (`noteRangeBounds`,
+  `noteRangeStep` and `noteRangeLabel` over calendar-model.js, weeks from Monday); the ‹ and ›
+  buttons step one unit and are off on All, a click on the label goes back to the range that
+  holds today, and `noteListNotes` lists the subject's notes in it. It is set at every opening
+  (`noteRangeFor`) and kept nowhere: All for a card, a group or several cards, Day of the hour or
+  all-day box's day for those (the hour or the untimed box alone until the range is changed, then
+  the rest of the range), the Calendar's range or the day under the pointer for `n` there, and
+  Day, today otherwise; aiming the palette (the picker, a bare mention) opens it again for the new
+  subject. It never changes the day a note is written to, and a note written outside it stays
+  listed;
   **Alt+1**, **Alt+2** and **Alt+3** switch the open palette to its first, second and third tab
   in the order the tab row shows them (`notesTabs()`, `notesSetTab`); a number past the last tab
   does nothing, each tab shows its key, and they work from the note box (`noteTabKey`, notes.js;

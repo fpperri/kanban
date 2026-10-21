@@ -10,7 +10,8 @@
 // divider on each strip's left edge sets the strip's width for every day at once, by a drag (held
 // between 44px and the column less 24px), by Left and Right on the focused divider and back to the
 // default by a double click; the width is kept per board and neither a drag nor a double click on it
-// opens the palette or a card form. The plan board draws no switch and no note. Each step waits on the page; the one fixed pause proves
+// opens the palette or a card form. n on the Week view opens the palette on that week, and with the
+// pointer on a day's column on that day. The plan board draws no switch and no note. Each step waits on the page; the one fixed pause proves
 // that the palette did NOT open.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
@@ -170,6 +171,28 @@ module.exports = {
     check('calnotes: a double click on the divider goes back to the default width', await waitFor(`(()=>{const c=${COL('2026-10-15')}.getBoundingClientRect();const d=${DIVIDER('2026-10-15')}.getBoundingClientRect();const s=c.right-(d.left+d.width/2);return s>=44&&s<=171})()`, 3000) && await ev(`${STORED}===null`), String(await stripOf('2026-10-15')));
     await sleep(600);
     check('calnotes: and made no card form and opened no palette', await ev(`document.getElementById('modal').classList.contains('hidden')`) && await ev(PAL_GONE));
+
+    // --- n on the Calendar opens the palette on the Calendar's range ----------------------------------------------------
+    const RANGE_BTNS = `[...document.querySelectorAll('#notes-palette .np-range-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
+    const RANGE_LABEL = `document.querySelector('#notes-palette .np-range-label').textContent`;
+    const IN_WEEK = `state.logbook.notes.filter((n)=>n.day>='2026-10-12'&&n.day<='2026-10-18').length`;
+    check('calnotes: the week is drawn again before n is tried', await showWeek());
+    await mouse('mouseMoved', 5, 5, { button: 'none', clickCount: 0 });
+    await ev(`document.activeElement&&document.activeElement.blur&&document.activeElement.blur()`);
+    await key('n');
+    check('calnotes: n on the Week view, the pointer on no day, opens the palette on Week', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week*', '3 days', 'Day']), JSON.stringify(await ev(RANGE_BTNS)));
+    check('calnotes: with the range of the week on screen, 12 to 18 October', await ev(RANGE_LABEL) === '12–18 Oct', await ev(RANGE_LABEL));
+    check('calnotes: and lists that week\'s notes, of every card', await ev(`document.querySelectorAll('#notes-palette .np-note').length===${IN_WEEK}`) && await ev(IN_WEEK) >= 6, `${await ev(`document.querySelectorAll('#notes-palette .np-note').length`)} of ${await ev(IN_WEEK)}`);
+    check('calnotes: it is no card\'s: the picker names the card last noted or none, and the box is empty', await ev(`!document.querySelector('#notes-palette .np-chip')||document.querySelector('#notes-palette .np-chip').hidden`));
+    await shot('palette-week-range');
+    check('calnotes: Esc closes the palette', await closePalette());
+    const friday = await hourPoint('2026-10-16', 10);
+    await mouse('mouseMoved', friday.x, friday.y, { button: 'none', clickCount: 0 });
+    await key('n');
+    check('calnotes: n with the pointer on Friday\'s column opens the palette on Day, that Friday', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week', '3 days', 'Day*']) && await ev(RANGE_LABEL) === 'Fri 16 Oct', await ev(RANGE_LABEL));
+    check('calnotes: and the note defaults to that day', await ev(`${q('.np-date')}.value`) === '2026-10-16');
+    check('calnotes: Esc closes it again', await closePalette());
+    await mouse('mouseMoved', 5, 5, { button: 'none', clickCount: 0 });
 
     // --- the Notes switch ------------------------------------------------------------------------------------------
     await press('#cal-notes-btn');
