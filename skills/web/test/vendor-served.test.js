@@ -124,3 +124,27 @@ test('the served list is the vendor folder, less its licences, and the frame fil
   assert.deepStrictEqual(found.sort(), [...VENDORED].sort());
   for (const f of FRAME_FILES) assert.ok(fs.existsSync(path.join(web, f)), f);
 });
+
+test('the vendored files are cached for good, since a version is a file and a new version is a new query; everything else stays no-store', async () => {
+  await serve(async (base) => {
+    for (const url of ['/vendor/mermaid/mermaid.min.js?v=12.2.0', '/vendor/highlight.js/highlight.min.js?v=1', '/vendor/highlight.js/github.min.css']) {
+      const res = await fetch(`${base}${url}`);
+      assert.strictEqual(res.status, 200, url);
+      assert.strictEqual(res.headers.get('cache-control'), 'public, max-age=31536000, immutable', url);
+      await res.arrayBuffer();
+    }
+    for (const url of ['/', '/app.js', '/mermaid-frame.html', '/mermaid-frame.js', '/api/board']) {
+      const res = await fetch(`${base}${url}`);
+      assert.strictEqual(res.headers.get('cache-control'), 'no-store', url);
+      await res.arrayBuffer();
+    }
+  });
+});
+
+test('one function says which file a path names, for the check and the route alike', () => {
+  const { frameAssetFile } = require('../scripts/server');
+  const web = path.join('/w');
+  assert.deepStrictEqual(frameAssetFile(web, '/vendor/mermaid/mermaid.min.js'), { file: path.join(web, 'vendor', 'mermaid', 'mermaid.min.js'), immutable: true });
+  assert.deepStrictEqual(frameAssetFile(web, '/mermaid-frame.js'), { file: path.join(web, 'mermaid-frame.js'), immutable: false });
+  for (const p of ['/vendor/mermaid/LICENSE', '/vendor/', '/vendor', '/app.js', '/mermaid-frame.css', '/vendor/../app.html']) assert.strictEqual(frameAssetFile(web, p), null, p);
+});

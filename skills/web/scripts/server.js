@@ -49,8 +49,17 @@ const FRAME_FILES = ['mermaid-frame.html', 'mermaid-frame.js'];
 const FRAME_CSP = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox allow-scripts";
 
-// The files the sandboxed frame reads, by their path.
-const isFrameAsset = (p) => (p.startsWith('/vendor/') && VENDORED.includes(p.slice('/vendor/'.length))) || FRAME_FILES.includes(p.slice(1));
+// The file a request path names among the vendored libraries and the frame's own two, or null: the
+// one place the /vendor/ prefix is read, for both the check that lets a sandboxed frame in and the
+// route that serves it. A vendored file is version-pinned (the page asks for it by version), so it is
+// cached for good; the frame's two files are not versioned and are not.
+function frameAssetFile(webDir, p) {
+  if (p.startsWith('/vendor/')) {
+    const rel = p.slice('/vendor/'.length);
+    return VENDORED.includes(rel) ? { file: path.join(webDir, 'vendor', ...rel.split('/')), immutable: true } : null;
+  }
+  return FRAME_FILES.includes(p.slice(1)) ? { file: path.join(webDir, p.slice(1)), immutable: false } : null;
+}
 
 // CSRF + DNS-rebinding guard for every request, reads included — exempting
 // GET (mutations only) would leave DNS rebinding's read/exfiltration half
@@ -97,9 +106,9 @@ function originMatches(origin, extraOrigins) {
 // A sandboxed frame has an opaque origin, which a browser may send as the string "null". It may read
 // the frame's own files, which are public and carry nothing of the board, and only those: the host
 // must still be this machine, and every other path keeps the rule above.
-function sandboxedAssetAllowed(req, pathname) {
+function sandboxedAssetAllowed(req, pathname, webDir) {
   const host = req.headers.host;
-  return req.method === 'GET' && req.headers.origin === 'null' && isFrameAsset(pathname) && (!host || ALLOWED_HOST_RE.test(host));
+  return req.method === 'GET' && req.headers.origin === 'null' && frameAssetFile(webDir, pathname) !== null && (!host || ALLOWED_HOST_RE.test(host));
 }
 
 function originAllowed(req, extraOrigins = NO_EXTRA_ORIGINS) {
@@ -222,13 +231,13 @@ function sendJSON(res, code, obj) {
   res.end(buf);
 }
 
-function serveStatic(res, file, csp = CSP) {
+function serveStatic(res, file, { csp = CSP, immutable = false } = {}) {
   if (!fs.existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
   const body = fs.readFileSync(file);
   const isHtml = path.extname(file) === '.html';
   // no-store: localhost + tiny files — heuristic caching once served a stale
   // app.html against new scripts and silently broke the form
-  const headers = { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'content-length': body.length, 'cache-control': 'no-store' };
+  const headers = { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'content-length': body.length, 'cache-control': immutable ? 'public, max-age=31536000, immutable' : 'no-store' };
   if (isHtml) headers['content-security-policy'] = csp;
   res.writeHead(200, headers);
   res.end(body);
@@ -283,7 +292,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
     try {
       // Reject every request — reads included — carrying a
       // disallowed Origin/Referer/Host before touching any route below.
-      if (!originAllowed(req, extraOrigins) && !sandboxedAssetAllowed(req, p)) {
+      if (!originAllowed(req, extraOrigins) && !sandboxedAssetAllowed(req, p, webDir)) {
         return sendJSON(res, 403, { error: 'Forbidden: disallowed Origin/Referer/Host header' });
       }
       // static + board
@@ -327,10 +336,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
-      if (req.method === 'GET' && isFrameAsset(p)) {
-        const file = path.join(webDir, ...(p.startsWith('/vendor/') ? ['vendor', ...p.slice('/vendor/'.length).split('/')] : [p.slice(1)]));
-        return serveStatic(res, file, FRAME_CSP);
-      }
+      const frameAsset = req.method === 'GET' ? frameAssetFile(webDir, p) : null;
+      if (frameAsset) return serveStatic(res, frameAsset.file, { csp: FRAME_CSP, immutable: frameAsset.immutable });
       if (req.method === 'GET' && /^\/[\w.-]+$/.test(p) && pageServes(webDir, p.slice(1))) {
         return serveStatic(res, path.join(webDir, p.slice(1)));
       }
@@ -579,6 +586,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  createServer, start, originAllowed, resolveDefaultBoardDir, pageFiles, VENDORED, FRAME_FILES,
+  createServer, start, originAllowed, resolveDefaultBoardDir, pageFiles, VENDORED, FRAME_FILES, frameAssetFile,
   parseAllowedOrigins, extractAllowOriginArgs, resolvePort, warnConfig, parseHomeUrl, extractHomeUrlArg,
 };
