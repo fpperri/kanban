@@ -171,6 +171,7 @@ function checkText(value, what, name) {
 // The lines of a `types:` block from the page's list: each entry a name, or { name, color?, icon? }.
 // An entry with neither a color nor an icon is written bare, as the starter writes `- bug`.
 function typesBlock(value) {
+  if (value === undefined || value === null) return null;
   if (!Array.isArray(value)) throw new StatusError('The types are a list of names, each with an optional color and icon.', 400);
   const types = value.map((item) => {
     const entry = typeof item === 'string' ? { name: item } : item;
@@ -232,7 +233,7 @@ function prefixesBlock(dir, value) {
 
 function writeBlock(dir, name, value) {
   if (!cfg.BLOCK_KEYS.includes(name)) throw new StatusError(`The gear does not write the block ${JSON.stringify(name)}.`, 400);
-  const lines = name === 'types' ? (value === undefined || value === null ? null : typesBlock(value))
+  const lines = name === 'types' ? typesBlock(value)
     : name === 'hierarchy' ? hierarchyBlock(value)
       : prefixesBlock(dir, value);
   cfg.writeConfigBlock(dir, name, lines);

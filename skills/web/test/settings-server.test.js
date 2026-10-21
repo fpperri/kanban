@@ -523,6 +523,16 @@ test('an empty or absent hierarchy removes the line; so do an empty types and pr
   });
 });
 
+test('null, absent and empty each remove a block, the same for types, hierarchy and prefixes', async () => {
+  for (const [name, empty] of [['types', null], ['types', undefined], ['types', []], ['hierarchy', null], ['hierarchy', undefined], ['hierarchy', []], ['prefixes', null], ['prefixes', undefined], ['prefixes', {}], ['prefixes', []]]) {
+    const dir = tmpBoard({ config: PLAN });
+    await withServer(dir, async (base) => {
+      assert.strictEqual((await block(base, name, empty)).status, 200, `${name} ${JSON.stringify(empty)}`);
+      assert.ok(!new RegExp(`^${name}:`, 'm').test(config(dir)), `${name} ${JSON.stringify(empty)} removed the block`);
+    });
+  }
+});
+
 test('the hierarchy is written in the starter\'s inline layout, and as a block when a name will not sit in a flow list', async () => {
   const dir = tmpBoard({ config: 'name: t\n' });
   await withServer(dir, async (base) => {

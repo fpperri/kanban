@@ -151,8 +151,8 @@ test('found on cards: the words cards carry that no listed type has, with counts
 });
 
 test('how many cards carry a type counts every spelling of its name', () => {
-  assert.strictEqual(s.settingsTypeCards({ bug: 2, Bug: 1, bugs: 5 }, 'bug'), 3);
-  assert.strictEqual(s.settingsTypeCards({}, 'bug'), 0);
+  assert.strictEqual(s.settingsTypeUseCount({ bug: 2, Bug: 1, bugs: 5 }, 'bug'), 3);
+  assert.strictEqual(s.settingsTypeUseCount({}, 'bug'), 0);
 });
 
 test('moving a row down or up rewrites the hierarchy list and stops at the ends', () => {

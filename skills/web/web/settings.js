@@ -182,8 +182,9 @@ function settingsTypeAreas(types, hierarchy) {
   };
 }
 
-// How many cards carry the type, whatever the capitals the card wrote.
-function settingsTypeCards(typeUse, name) {
+// How many cards carry the type, whatever the capitals the card wrote. `typeUse` is the settings'
+// count of cards by the word as written.
+function settingsTypeUseCount(typeUse, name) {
   const key = settingsTypeKey(name);
   let n = 0;
   for (const word of Object.keys(typeUse || {})) if (settingsTypeKey(word) === key) n += typeUse[word];
@@ -322,7 +323,7 @@ function settingsTypeWarnings({ types, hierarchy, prefixes, typeUse, renamed }) 
     if (!listed.has(settingsTypeKey(name))) out.push(`\`${name}\` is still in the hierarchy. Why: renaming or removing a type ${SETTINGS_LEFTOVER_WHY}; ask an AI to update the hierarchy, the prefixes and the cards.`);
   }
   for (const old of Object.keys(renamed || {})) {
-    const n = settingsTypeCards(typeUse, old);
+    const n = settingsTypeUseCount(typeUse, old);
     if (n > 0 && !listed.has(settingsTypeKey(old))) out.push(`${settingsCardsWord(n)} \`${old}\`. Why: renaming a type ${SETTINGS_LEFTOVER_WHY}; ask an AI to update the cards, the hierarchy and the prefixes.`);
   }
   out.push(...settingsPrefixWarnings(prefixes, types));
@@ -391,7 +392,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
-  settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
+  settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeUseCount, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,

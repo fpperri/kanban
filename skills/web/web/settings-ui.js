@@ -302,7 +302,8 @@ function settingsPathNode(path, kind) {
 // turn comes. A rename or a removal writes types: only; what else names the old word is shown as a
 // warning, never rewritten.
 
-function settingsTypeUsed() {
+// The settings' count of cards by the type word as written.
+function settingsTypeUse() {
   return state.settings.typeUse || {};
 }
 
@@ -352,7 +353,7 @@ function settingsSetIcon(type, icon) {
 }
 
 function settingsRemoveType(type) {
-  const ask = settingsRemoveConfirm(type.name, settingsTypeCards(settingsTypeUsed(), type.name));
+  const ask = settingsRemoveConfirm(type.name, settingsTypeUseCount(settingsTypeUse(), type.name));
   if (ask && !confirm(ask)) return;
   settingsChangeTypes(settingsTypeKey(type.name), (types) => settingsTypesRemove(types, type.name), 'field:newType');
 }
@@ -438,9 +439,9 @@ function settingsColorNow(type) {
   return swatch;
 }
 
-// A text input whose unsaved text survives a redraw (settingsKeepDrafts). `draft` = [key, field]: the
+// A plain text input of the Types and Prefixes pages, whose unsaved text survives a redraw (settingsKeepDrafts). `draft` = [key, field]: the
 // text is kept as settingsUi.drafts[key][field]; `committed` is the value without any draft.
-function settingsTypeInput(className, label, value, fk, draft, committed) {
+function settingsTextInput(className, label, value, fk, draft, committed) {
   const input = settingsMark(settingsEl('input', className));
   Object.assign(input, { type: 'text', value, spellcheck: false, autocomplete: 'off' });
   input.dataset.fk = fk;
@@ -478,9 +479,9 @@ function settingsTypeRow(row, where, at, count) {
   li.append(handle);
   if (type) {
     li.append(settingsTypePreview(type));
-    const name = settingsTypeInput('types-name', `Name of ${type.name}`, draft.name !== undefined ? draft.name : type.name, `name:${key}`, [`row:${key}`, 'name'], type.name);
+    const name = settingsTextInput('types-name', `Name of ${type.name}`, draft.name !== undefined ? draft.name : type.name, `name:${key}`, [`row:${key}`, 'name'], type.name);
     name.addEventListener('change', () => settingsRename(type, name));
-    const hex = settingsTypeInput('types-hex', `Hex color of ${type.name}`, draft.hex !== undefined ? draft.hex : type.color || '', `hex:${key}`, [`row:${key}`, 'hex'], type.color || '');
+    const hex = settingsTextInput('types-hex', `Hex color of ${type.name}`, draft.hex !== undefined ? draft.hex : type.color || '', `hex:${key}`, [`row:${key}`, 'hex'], type.color || '');
     hex.placeholder = 'none';
     hex.addEventListener('change', () => settingsSetColor(type, hex.value));
     li.append(name, settingsColorSwatches(type, key), settingsColorNow(type), hex, settingsIconButtons(type, key));
@@ -585,7 +586,7 @@ function settingsTypesNodes() {
       set: (on) => settingsSendLater(() => settingsTypesOnBody(on, state.settings.version), 'typesOn'),
     }),
   ];
-  const bullets = settingsBullets(settingsTypeWarnings({ types: st.types, hierarchy: st.hierarchy, prefixes: st.prefixes, typeUse: settingsTypeUsed(), renamed: settingsUi.renamed }));
+  const bullets = settingsBullets(settingsTypeWarnings({ types: st.types, hierarchy: st.hierarchy, prefixes: st.prefixes, typeUse: settingsTypeUse(), renamed: settingsUi.renamed }));
   if (bullets) nodes.push(bullets);
   nodes.push(
     settingsTypeArea('hierarchy', 'Hierarchy', 'The hierarchy: list, top first. Drag a row, or use its buttons. Nothing is enforced; the Graph reads it as tiers.', areas.hierarchy,
@@ -603,7 +604,7 @@ function settingsTypesNodes() {
       settingsSendLater(() => settingsBlockBody('types', settingsTypesAdd(state.settings.types, text), state.settings.version), 'newType', text);
     },
   }));
-  nodes.push(settingsFoundNodes(settingsFoundOnCards(st.types, settingsTypeUsed())));
+  nodes.push(settingsFoundNodes(settingsFoundOnCards(st.types, settingsTypeUse())));
   return nodes;
 }
 
@@ -643,7 +644,7 @@ function settingsPrefixEdit(row, prefix, target) {
 }
 
 function settingsPrefixCell(label, value, fk, onChange, draft, committed) {
-  const input = settingsTypeInput('prefs-cell', label, value, fk, draft, committed);
+  const input = settingsTextInput('prefs-cell', label, value, fk, draft, committed);
   input.addEventListener('change', onChange);
   const td = settingsEl('td');
   td.append(input);
@@ -683,8 +684,8 @@ function settingsPrefixRows(root) {
 
 function settingsPrefixAddForm() {
   const draft = settingsUi.drafts['prefix:new'] || {};
-  const prefix = settingsTypeInput('prefs-cell', 'New prefix', draft.prefix || '', 'prefix:new:prefix', ['prefix:new', 'prefix'], '');
-  const target = settingsTypeInput('prefs-cell', 'Card type or groups folder of the new prefix', draft.target || '', 'prefix:new:target', ['prefix:new', 'target'], '');
+  const prefix = settingsTextInput('prefs-cell', 'New prefix', draft.prefix || '', 'prefix:new:prefix', ['prefix:new', 'prefix'], '');
+  const target = settingsTextInput('prefs-cell', 'Card type or groups folder of the new prefix', draft.target || '', 'prefix:new:target', ['prefix:new', 'target'], '');
   prefix.id = 'pf-newPrefix';
   target.id = 'pf-newTarget';
   prefix.placeholder = 'G';
