@@ -7,9 +7,10 @@
 // focus, the scroll and the pan.
 
 // Whether this keydown in the box is the Enter that goes to the match: a plain Enter, not a held
-// one, not part of an IME composition, that the suggestion list did not take.
+// one, not part of an IME composition, with no row of the suggestion list highlighted (a
+// highlighted row is the list's to pick).
 function searchEnterKeyGoes(e, ctx) {
-  if (!e || e.key !== 'Enter' || !ctx || !ctx.menuHidden) return false;
+  if (!e || e.key !== 'Enter' || !ctx || ctx.highlighted) return false;
   if (e.defaultPrevented || e.isComposing || e.repeat) return false;
   return !(e.shiftKey || e.ctrlKey || e.metaKey || e.altKey);
 }

@@ -10,6 +10,7 @@ const path = require('node:path');
 const WEB = path.join(__dirname, '..', 'web');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
+const flat = (f) => read(f).split(/\s+/).join(' ');
 const html = read(path.join(WEB, 'app.html'));
 const app = read(path.join(WEB, 'app.js'));
 
@@ -19,8 +20,8 @@ test('the page loads search-enter.js before app.js', () => {
   assert.ok(at < html.indexOf('<script src="/app.js"></script>'));
 });
 
-test('a keydown in the search box asks searchEnterKeyGoes, with the suggestion list closed', () => {
-  assert.match(app, /input\.addEventListener\('keydown', \(e\) => \{[^]*?searchEnterKeyGoes\(e, \{ menuHidden:/);
+test('a keydown on the search box wrapper, in the capture phase, asks searchEnterKeyGoes whether a list row is highlighted', () => {
+  assert.match(app, /searchBox\.addEventListener\('keydown', \(e\) => \{[^]*?searchEnterKeyGoes\(e, \{ highlighted \}\)[^]*?\}, true\);/);
 });
 
 test('the card Enter key lets a lone match open whatever the click preference says', () => {
@@ -34,6 +35,6 @@ test('the search box title names Enter', () => {
 
 test('the skill and the web doc say Enter goes to the first match and a second opens a lone one', () => {
   for (const f of [path.join(ROOT, 'skills', 'web', 'SKILL.md'), path.join(ROOT, 'docs', 'web.md')]) {
-    assert.match(read(f), /Enter in the search box goes to the first match, and a second Enter opens it when it is the only one/, f);
+    assert.match(flat(f), /Enter in the search box goes to the first match, and a second Enter opens it when it is the only one/, f);
   }
 });

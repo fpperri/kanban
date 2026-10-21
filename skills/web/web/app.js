@@ -876,7 +876,7 @@ function viewCardIds(withSearch) {
     const shown = viewShownCards(timelineViewInput(mode === 'gantt' ? loadGanttStatusFilter() : loadCalendarStatusFilter(), searchIds));
     visible = new Set(shown.live.concat(shown.archived).filter(cardIsScheduled).map((c) => c.id));
   } else {
-    const collapsed = loadCollapsedColumns();
+    const collapsed = onPhoneLayout() ? {} : loadCollapsedColumns(); // the phone Board draws a status collapsed on the desktop
     const open = pool.filter((c) => !collapsed[mapFilterColumn(c, boardStatuses())]);
     visible = intersectVisibleIds(searchIds, new Set(open.map((c) => c.id)));
   }
@@ -3774,12 +3774,15 @@ window.addEventListener('DOMContentLoaded', () => {
   // board and its context go with it, the arguments a query is resolved with,
   // so after `slice:` and after `..` the box suggests the slices a cut can name.
   attachCombobox(input, () => searchSuggestionItems(input.value, input.selectionStart, state.active.concat(state.archived), searchCtx()), { preFiltered: true, selectOnFocus: false });
-  // Enter, after the suggestion list has had its say (its listener is first and marks the key handled), goes to the first match.
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    const menu = input.parentElement.querySelector('.combobox-menu');
-    if (searchEnterKeyGoes(e, { menuHidden: !menu || menu.hidden }) && goToSearchMatch()) e.preventDefault();
-  });
+  // Enter goes to the first match unless a row of the suggestion list is highlighted. The listener is on the
+  // box's wrapper in the capture phase so it runs before the input's own (the list's), which would otherwise
+  // take the first Enter after typing just to close the list.
+  const searchBox = input.parentElement;
+  searchBox.addEventListener('keydown', (e) => {
+    if (e.target !== input) return;
+    const highlighted = !!searchBox.querySelector('.combobox-item.active');
+    if (searchEnterKeyGoes(e, { highlighted }) && goToSearchMatch()) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
 });
 
 // The cards the query matches among those the view shows, as a Set of ids; null with no query. The Graph
@@ -3796,20 +3799,21 @@ function searchEnterMatchIds() {
 // The view's cards in reading order. The Board's columns are worked out here rather than read off the page,
 // because a phone draws one status at a time.
 function searchEnterOrder(mode) {
-  if (mode === 'board') {
-    const colSort = loadColumnSort();
-    const statuses = boardStatuses();
-    const outlineIndex = outlineOrder(state.active.concat(state.archived), nestingCtx()).index;
-    const ids = [];
-    for (const col of boardColumnIds()) {
-      const source = col === 'archive' ? state.archived : state.active.filter((c) => columnForStatus(c.status, statuses) === col);
-      sortCards(source, colSort[col], state.priorities, state.assignees.map((a) => a.handle), outlineIndex).forEach((c) => ids.push(c.id));
-    }
-    return ids;
+  if (mode !== 'board') return visibleCardIds();
+  const colSort = loadColumnSort();
+  const statuses = boardStatuses();
+  const outlineIndex = outlineOrder(state.active.concat(state.archived), nestingCtx()).index;
+  const ids = [];
+  for (const col of boardColumnIds()) {
+    const source = col === 'archive' ? state.archived : state.active.filter((c) => columnForStatus(c.status, statuses) === col);
+    sortCards(source, colSort[col], state.priorities, state.assignees.map((a) => a.handle), outlineIndex).forEach((c) => ids.push(c.id));
   }
-  const dots = mode === 'graph' ? '.graph-node[data-id]' : '.card-el[data-id]';
-  return [...document.querySelectorAll(`${VIEW_CONTAINERS[mode]} ${dots}`)].map((el) => el.dataset.id);
+  return ids;
 }
+
+// The card the last Enter in the search box focused in the Graph, as text: its focus does not light the card's
+// relations, so the search's own lights stay. Any other pointer or focus move forgets it.
+let searchEnterFocusedId = null;
 
 // Enter in the search box: close the panel (and the phone's field), bring the first matching card to the middle
 // of the view and give it focus. The query, the selection and the pills are not touched. False when nothing matches.
@@ -3828,20 +3832,28 @@ function goToSearchMatch() {
     setPhoneColumn(state.archived.some((c) => String(c.id) === id) ? 'archive' : columnForStatus(card.status, boardStatuses()));
     renderBoard();
   }
+  const inline = onPhoneLayout() ? 'nearest' : 'center'; // a phone's page never scrolls sideways
+  const pointer = hoveredId;
   let el;
   if (mode === 'graph' && graphCur) {
-    const node = graphCur.plan.nodes.find((n) => String(n.id) === id);
-    if (node) {
+    const nodeId = [...graphCur.nodeEls.keys()].find((k) => String(k) === id);
+    const at = nodeId === undefined ? null : graphCur.layout.pos.get(nodeId);
+    if (at) {
       const stage = graphCur.svg.getBoundingClientRect();
-      Object.assign(graphCur.view, searchEnterPan(graphCur.view, node, stage.width || graphCur.w, stage.height || graphCur.h), { touched: true });
+      Object.assign(graphCur.view, searchEnterPan(graphCur.view, at, stage.width || graphCur.w, stage.height || graphCur.h), { touched: true });
       graphApplyTransform();
     }
-    el = graphCur.nodeEls.get(node ? node.id : id);
+    el = nodeId === undefined ? null : graphCur.nodeEls.get(nodeId);
   } else {
-    el = document.querySelector(`${VIEW_CONTAINERS[mode]} .card-el[data-id="${id}"]`);
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'center' });
+    const root = $(VIEW_CONTAINERS[mode]);
+    el = root.querySelector(`.card-el[data-id="${id}"]`);
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline });
+    const bar = mode === 'gantt' ? root.querySelector(`.gantt-scroll .card-el[data-id="${id}"]`) : null; // the label in the gutter has the focus; the bar is brought into the timeline's view
+    if (bar && bar.scrollIntoView) bar.scrollIntoView({ block: 'nearest', inline });
   }
+  searchEnterFocusedId = mode === 'graph' ? id : null; // the Graph keeps the search's lights when this focus lands (see wireGraphView)
   if (el) el.focus({ preventScroll: true, focusVisible: true });
+  if (mode === 'graph' && hoveredId !== pointer) setHoveredId(pointer); // focus is not the pointer: a poll would light the card again
   return true;
 }
 

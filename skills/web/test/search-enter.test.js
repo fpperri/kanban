@@ -7,18 +7,18 @@ const { searchEnterKeyGoes, searchEnterTarget, searchEnterOpens, searchEnterPan 
 
 const plain = { key: 'Enter', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, isComposing: false, repeat: false, defaultPrevented: false };
 
-test('a plain Enter with the suggestion list closed goes to the match', () => {
-  assert.strictEqual(searchEnterKeyGoes(plain, { menuHidden: true }), true);
+test('a plain Enter with no row of the suggestion list highlighted goes to the match', () => {
+  assert.strictEqual(searchEnterKeyGoes(plain, { highlighted: false }), true);
 });
 
-test('Enter does not go while the suggestion list is open or took the key', () => {
-  assert.strictEqual(searchEnterKeyGoes(plain, { menuHidden: false }), false);
-  assert.strictEqual(searchEnterKeyGoes({ ...plain, defaultPrevented: true }, { menuHidden: true }), false);
+test('Enter does not go while a row of the suggestion list is highlighted or something took the key', () => {
+  assert.strictEqual(searchEnterKeyGoes(plain, { highlighted: true }), false);
+  assert.strictEqual(searchEnterKeyGoes({ ...plain, defaultPrevented: true }, { highlighted: false }), false);
 });
 
 test('Enter does not go with a modifier, while composing, on a repeat, or for another key', () => {
   for (const change of [{ shiftKey: true }, { ctrlKey: true }, { metaKey: true }, { altKey: true }, { isComposing: true }, { repeat: true }, { key: 'a' }]) {
-    assert.strictEqual(searchEnterKeyGoes({ ...plain, ...change }, { menuHidden: true }), false, JSON.stringify(change));
+    assert.strictEqual(searchEnterKeyGoes({ ...plain, ...change }, { highlighted: false }), false, JSON.stringify(change));
   }
 });
 

@@ -28,7 +28,8 @@ actually bound.
 Pass `--home-url <url>` (http or https only; anything else stops the server at startup) and
 the header shows a small home icon before the board title that leads to that address. Without
 it there is no icon. In the search box, pasting `webapp#42` on the board named `webapp`
-finds card 42, the same as `#42`. Another board's mention is searched as text and the panel says which board holds the card.
+finds card 42, the same as `#42`. Another board's mention is searched as text and the
+panel says which board holds the card.
 
 All the screenshots below are the bundled `examples/demo-board` (a fictional
 "Tallybird" app launch).
@@ -56,7 +57,8 @@ order; it is the default sort on a board where any card has a `rank` or a
 `parent`, except in the Archive column, which keeps id order. In an Outline column, dragging a card between two siblings writes its `rank`:
 one card when there is room between the neighbours, that parent's children renumbered
 in tens when there is not. The search box up top filters every view at once, except the
-Graph, which lights its matches and hides nothing but a `slice:` cut. Enter in the search box goes to the first match, and a second Enter opens it when it is the only one.
+Graph, which lights its matches and hides nothing but a `slice:` cut. Enter in the search box
+goes to the first match, and a second Enter opens it when it is the only one.
 
 A card with children shows `▲n` (how many layers sit below it) and a status bar
 of the leaves under it. Every bar is either collapsed (a thin line) or open (with
