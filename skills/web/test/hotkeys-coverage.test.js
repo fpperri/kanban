@@ -49,6 +49,11 @@ test('the scan reads a bare key only in a file that takes it from an event\'s ke
   assert.deepStrictEqual([...keysRead(option)], ['Enter'], 'the name of an option in a file that also reads an event is not a key');
 });
 
+test('the scan sees the quoted keys of a constant map of keys, one to a line', () => {
+  const src = ["const TEXT_EDIT_MARKDOWN_KEYS = {", "  'b': { mods: 'ctrl' },", "  '&': { mods: 'ctrl+shift' },", "};", "const OTHER = {", "  'z': 1,", "};"].join(String.fromCharCode(10));
+  assert.deepStrictEqual([...keysRead(src)].sort(), ['&', 'b']);
+});
+
 test('a source that reads no key gives none', () => {
   assert.deepStrictEqual([...keysRead('const a = 1; if (b.key === c) {}')], []);
 });
@@ -65,7 +70,7 @@ test('a key the page reads and the list lacks is reported: drop an entry from th
   const texts = sources.map((s) => s.text);
   assert.deepStrictEqual(keysMissing(texts, without('names'), NOT_HOTKEYS), ['l']);
   assert.deepStrictEqual(keysMissing(texts, without('note'), NOT_HOTKEYS), ['n']);
-  assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), ['a', 'd', 'e']);
+  assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), ['a'], 'e and d are still listed: they are Ctrl+E and Ctrl+Shift+D too');
   assert.deepStrictEqual(keysMissing(texts, without('slice'), NOT_HOTKEYS), ['[', ']', '{', '}'].sort());
   assert.deepStrictEqual(keysMissing(texts, without('find'), NOT_HOTKEYS), ['f']);
   assert.deepStrictEqual(keysMissing(texts, without('hotkeys'), NOT_HOTKEYS), ['?']);

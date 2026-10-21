@@ -743,10 +743,11 @@ to `127.0.0.1` only.
   menu for the card shown, without Peek, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
   already handles the right-click itself, the browser's own menu shows instead. The card details
-  keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add to selection**,
-  **Assign…**, **Set priority…**, **Edit tags…**,
-  **Schedule…**, **Isolate**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
-  acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
+  keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add note…**, **Add child…**, then the groups **Edit**
+  (**Assign…**, **Set priority…**, **Edit tags…**, **Schedule…**), **Group** (**Add to group…**,
+  **Make a group from them…**) and **Explore** (**Isolate**, **Dependency tree**, **Dependency
+  path**), then **Scratchpad…**, **Add to selection**, and Archive, Restore, Delete (never in a
+  group) — acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
   selection inside it, regardless of which view opened it. The subject is fixed when the menu
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
   is when Apply is pressed. **Dependency tree**/
@@ -755,7 +756,33 @@ to `127.0.0.1` only.
   with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
   card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
-  names the resolved count (Delete's is the delete popup, once for the whole selection). The conditionally-hidden items: Peek and Add to selection show only
+  names the resolved count (Delete's is the delete popup, once for the whole selection). **Add child…** opens the New card form (`openModal(null, undefined, undefined, parentId)`) exactly
+  as New card does, with Parent preset to the card and the heading "New card under #<id>"; it shows
+  only when the subject is one live card (not an archived one, not a batch, not the canvas), in the
+  card details' own menu too, and writes nothing until the form is saved, then only the new card
+  (a parent never lists its children; clearing Parent saves a root card). **The groups** (`menu-nest.js` for the rules, `menu-nest-ui.js` for the page; built by hand, ADR
+  0003): `#context-menu` holds plain entries, `<hr class="ctx-sep">` separators and three
+  `.ctx-sub` groups, each a `.ctx-parent` row (`aria-haspopup="menu"`, `aria-expanded`, a ▸ the
+  stylesheet draws) and a `.ctx-sub-panel` of entries; every entry keeps its own `ctx-*` id and
+  click handler. `showContextMenu` decides which entries show as before and then calls
+  `menuNestSync`, which hides a group whose entries are all hidden (`menuSubShown`) and a separator
+  not between two things that show (`menuSeparators`); `hideContextMenu` calls `menuNestClose`.
+  A panel opens when its row is hovered for 120ms (300ms when another panel is open, so the pointer
+  crossing the rows on its way to the open one does not swap it), when the row is clicked, and on
+  Right, Enter or Space on it; it opens beside the row, with the class `flip` on the left when
+  the right has no room and lifted by what it would run off the bottom (`menuSubPlacement`), and at
+  phone width (`isPhoneWidth`, phone-width.js; the stylesheet's own `max-width: 759.98px` query)
+  it is drawn in the flow under its row, a second tap on the row shutting it. Up and Down move the
+  highlight among the entries that show (wrapping), Right or Enter on a row open its panel and
+  highlight its first entry, Left or Esc shut it and return to the row, Home and End go to the first and
+  last entry of the level; the menu takes the focus when it opens (`tabindex="-1"`,
+  `menuNestFocus`) and gives it back when it closes (`menuNestRelease`), and its keys are read in the
+  capture phase only while focus is inside it, so they reach nothing behind it and nothing in a field
+  outside it; Esc at the top level is the page's, which closes the menu. The group rows carry
+  `aria-controls`, and the glyphs and hints the stylesheet draws (`content: "▸" / ""`) have empty
+  alternative text, so they are not in an accessible name. **Add note…** shows its key as `data-hint="n"` drawn by the stylesheet, so the entry's text
+  is its name; no other entry shows a key. The empty Graph or Map canvas's menu is still Isolate
+  alone: its group's panel stands in the menu with no row (`canvas-menu`). The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
   show only when the subject is one card, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling
@@ -1071,7 +1098,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1178,18 +1205,62 @@ to `127.0.0.1` only.
   day files, see the kanban skill's logbook section) the page keeps a **notes palette**, the
   one surface for notes. Without the line nothing of it shows: no count, no menu entry, and
   `n` only says the logbook is off. A card with notes wears a small count on its tile (live
-  and archived); a click on it opens the card's notes. `n` opens the palette on the hovered
-  card, else on the one selected card, else on the card last noted (kept per board in this
-  browser); the card menu's **Add note…** opens it on one card. Its rows, top down: the
-  subject row (a chip that says what the palette is about, a time field and an *untimed*
-  tick), the note box, the preview line that says exactly what Enter will write (`Note at
+  and archived); a click on it opens the card's notes. `n` opens the palette on the card whose
+  details are open, else on the hovered card, else on the one selected card, else on nothing: on
+  the Calendar (`loadViewMode() === 'calendar'`) with the Calendar's own sub-view and anchor as the
+  range, or with the pointer over a day cell or column (`calendarHoverDay`, tracked by a
+  `mouseover` on `#calendar-view`, kept nowhere) as the range (Day), the note still going to today;
+  elsewhere on Day, today (`notesCalendarOpening`). The Calendar has no way to select a day or a range
+  of days, and none was added. The card details are the one popup `n` works
+  over (`keyGuardOff(document, '#detail-modal')`): any other popup, a menu, or a field with
+  focus still turns it off. The palette then draws above the details; Esc clears the card chip first,
+  the next closes the palette (`notesEscape`), the one after closes the details; the card menu's **Add note…** opens it on one card. Its rows, top down: the
+  subject row (a chip that says what the palette is about, a **date** field with the date picker's
+  grid (`wireDatePickButton`, `data-date-only`), a time field, an *untimed* tick and a **card picker**,
+  the form's `attachCombobox` over *no card* and the live cards in id order), the note box, the preview line that says exactly what Enter will write (`Note at
   10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
-  All, Human and AI switch beside it) and the list of notes, grouped by day and card, newest day
-  first, each with its time and its author, the human's included. **Enter** writes the
-  note at the time field's time (now, to start with) and keeps the palette open for the next;
-  the field then goes back to now (or to the slot's time, when the palette was opened on a
-  slot) unless a time was typed into it;
-  **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
+  All, Human and AI switch beside it, and a **Grouped | Timeline** switch, kept per board in
+  this browser as `notes.layout`), the **range** row (All, Month, Week, 3 days, Day, the ‹ and ›
+  buttons and the label) and the list of notes, grouped by day and card, newest day
+  first, each with its time and its author, the human's included. Timeline is the same notes as
+  one flat list (`noteTimeline`, notes.js): days newest first, inside a day the timed notes in
+  time order and then the untimed ones, each row naming its card with the link a group heading
+  has (`no card` for none); a day line shows where the grouped list shows one, and so whenever more
+  than one day is listed. **Enter** writes the
+  note to the day in the date field (today, or the day of the hour or all-day box the palette was
+  opened from; a day that is not a date is said in the preview and written nowhere) at the time
+  field's time (now, to start with) and keeps the palette open for the next; the fields then go
+  back to those defaults (`notesRefreshTime`) unless a date or a time was typed or picked into
+  them, which stay. The untimed tick drops the time and keeps the day, a leading `10:30` sets the
+  time alone, and the preview names the day when it is not today (`noteWritePlan`, notes.js). The
+  **card picker** shows the note's target (`noteSubjectTarget`: the card or group, `N cards` for
+  several, `no card`, else the card Enter would write on) and a choice from its menu, which
+  arrives as an input event the browser did not make, aims the palette at that card as a bare
+  mention and Enter does, keeping the note box's text; choosing *no card* (`noteSubjectNoCard`)
+  makes the note about nothing whatever card was last noted, and on several cards choosing one
+  makes it the single target. A mention at the start of the note wins over the picker, and so does a card id typed in the
+  picker (`22`, `#22`) on Enter or on leaving the field (`notesCommitPick`; free text stays legal,
+  ADR 0003). The menu is `attachCombobox`'s, which tells the palette of a choice through its
+  `onPick` option, and it is moved to the page and fixed under the field (`.np-pick-menu`) so the
+  palette's `overflow: hidden` never clips it. The
+  **range** is `{ mode, anchor }` over the Calendar's own sub-view names (`noteRangeBounds`,
+  `noteRangeStep` and `noteRangeLabel` over calendar-model.js, weeks from Monday); the ‹ and ›
+  buttons step one unit and are off on All, a click on the label goes back to the range that
+  holds today, and `noteListNotes` lists the subject's notes in it. It is set at every opening
+  (`noteRangeFor`) and kept nowhere: All for a card, a group or several cards, Day of the hour or
+  all-day box's day for those (the hour or the untimed box alone until the range is changed, then
+  the rest of the range), the Calendar's range or the day under the pointer for `n` there, and
+  Day, today otherwise; aiming the palette (the picker, a bare mention) opens it again for the new
+  subject. It never changes the day a note is written to, and a note written outside it stays
+  listed;
+  **Alt+1**, **Alt+2** and **Alt+3** switch the open palette to its first, second and third tab
+  in the order the tab row shows them (`notesTabs()`, `notesSetTab`); a number past the last tab
+  does nothing, each tab shows its key, and they work from the note box (`noteTabKey`, notes.js;
+  Alt+Left and Alt+Right stay the browser's). **Shift+Enter** starts a new line. The note box starts one line high and grows with its text,
+  typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less
+  (`noteBoxSize`, notes.js), and scrolls inside past that; the box a listed note is edited in
+  grows the same way and is sized to the note when it opens. Neither has a resize grip.
+  A leading `10:30` in the line sets that one note's time,
   a leading `-` or `untimed` (or the tick) makes it untimed, and a leading mention of a card
   (`#22`, `plan#22`) aims that one note at it and is cut from the text; a mention anywhere
   later is only text. A line that is only a mention, then Enter, moves the palette to that
@@ -1200,8 +1271,11 @@ to `127.0.0.1` only.
   author, a handle the registry does not list included. A note written in the palette stays listed whatever the filter and the
   switch say. **↓** moves into the list: **e** edits a note's text and time, **a** assigns it
   to another card or to no card (the note moves to that target's file for the same day, and
-  a file left empty is removed), **d** twice deletes it. **Esc** closes the palette; a press
-  outside it does too. Every key typed in the palette stays in it, so none reaches the
+  a file left empty is removed), **d** twice deletes it. **Esc** clears the chip while the palette is
+  aimed at a card, a group or several cards on its Notes tab (`notesChipClearable`: exactly what the
+  backspace does, the range going back to the opening rule with no card), and closes the palette
+  otherwise, from the filter field at once; the footer's Esc hint reads *clear the chip* or *close*; a
+  press outside the palette closes it too. Every key typed in the palette stays in it, so none reaches the
   board's own shortcuts. The palette is no modal: the board keeps refreshing behind it, and
   each refresh repaints the list unless a note is being edited. The notes are written by
   `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/notes/assign`, which build the day
@@ -1209,6 +1283,34 @@ to `127.0.0.1` only.
   and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
   a day file survive every write. A note's `by` is kept as written (one trimmed line, any
   text; a blank one is `@human`), never refused for not being a handle. The Graph's names step moved to `l` to free `n`.
+- **Text boxes** — the notes palette's note box and a listed note's edit box, the Scratchpad's box
+  and the card form's description (`#f-body`) each call `textEditAttach(box)` (text-edit-ui.js)
+  once; single-line fields are never attached. The rules are `textEditKey(text, start, end, event)`
+  (text-edit.js, pure): **Tab** indents two spaces at the cursor or on every selected line (a
+  selection inside one line is replaced, a blank line stays blank, a selection ending at the start
+  of a line leaves that line), **Shift+Tab** takes up to two spaces or a tab off; **Ctrl+B**
+  (`**`), **Ctrl+I** (`*`), **Ctrl+U** (`<u>…</u>`), **Alt+S** (`~~`) and **Ctrl+E** (`` ` ``) wrap
+  the selection and unwrap it when the markers are inside it or just outside it (a run of stars is
+  italic when odd and bold from two, so italic on bold adds one star); with no selection the pair
+  goes in with the cursor between and a cursor in an empty pair takes it away; **Ctrl+K** makes
+  `[selection](url)` with `url` selected (`[](url)` with the cursor in the brackets when nothing is
+  selected); **Ctrl+Shift+7**, **Ctrl+Shift+8** and **Ctrl+Shift+.** number, bullet or quote each
+  line the selection spans (blank lines left alone, a line of the other list kind converted) or take
+  it off when every line has it; **Ctrl+Shift+D** wraps the lines the selection spans in
+  `<details>`, `<summary>[...]</summary>`, a blank line, the lines, a blank line and `</details>`
+  and selects `[...]` (nothing selected: the same block on lines of its own, with an empty line for
+  the body), and with the cursor inside a section of that shape it takes the wrapper off and selects
+  the lines it kept. Cmd does what Ctrl does, and the digits and the period are read by
+  key or by key position. An edit is one replacement (`{ from, to, insert, start, end }`), made with
+  `document.execCommand('insertText')` (`delete` for an empty insert) so Undo takes it back in one
+  step; where the command is refused the text is replaced with `setRangeText` and the input event
+  fired by hand. The browser's own action for a handled key is stopped, only while the box has focus
+  (Ctrl+U view source, Ctrl+K and Ctrl+E the address bar). **Ctrl+M** switches Tab to moving focus
+  (VS Code's); `#text-edit-hint` shows while an attached box has focus and says which Tab it is now and
+  what Ctrl+M changes (WCAG 2.1.2: Tab is never a trap); the mode is a module
+  variable, kept nowhere. Enter, Shift+Enter, Ctrl+Enter and Ctrl+S are not read by these boxes'
+  keys, so each keeps its own meaning (Enter writes a note, Ctrl+Enter saves a scratchpad, Ctrl+S
+  saves the form); none of the new keys clashes with an existing hotkey.
 - **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
   pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
   `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.
@@ -1819,6 +1921,21 @@ to `127.0.0.1` only.
   double-click landing on a chip is the chip's own affair (the shared card grammar),
   excluded before the cell/column lookup ever runs. The snapshot's own calendar has no
   click-to-create — a deliberate, unbuilt gap.
+  **Notes on the Calendar** — on a board with a logbook the week, 3-day and day views draw its
+  notes: a day with timed notes keeps a strip at the right of its column (`--cal-note-strip`),
+  with a chip for one note in a half hour and a count bubble for more, and the day's untimed
+  notes are one box in its all-day cell; the toolbar's **Notes** button switches the layer
+  (`calendar.notes`). A **divider** on the strip's left edge (`.cal-note-divider`, a focusable
+  `role="separator"`) sets the strip's width for every day column at once: a pointer drag moves
+  it live, without a re-render, from 44px to the column less a 24px sliver for the card blocks
+  (`noteStripClamp`, notes-calendar.js), and the width is saved when the pointer lets go; Left
+  and Right on the focused divider step it 8px; a double click goes back to the default,
+  `clamp(44px, 34%, 170px)`. It is kept per board in this browser as `calendar.notesWidth`
+  (every read and write in try/catch) and drawn as the custom property `--cal-note-width` on
+  the time grid, which each column's strip reads; once a width is set the 170px cap is gone and
+  a chip shows up to 60 words instead of 12, cut by its edge. A drag holds the poll
+  (`isDragging`), starts no card drag or retime, and the hour click and the double click that
+  makes a card both skip a target on the divider.
 - **Gantt view** — a top-bar "Gantt" button (a line icon, then the word) swaps the board for a day-granular
   timeline: each dated live card gets a row (dated ARCHIVED cards join too, opt-in via
   the Archive pill below) — the **working range** as a bar (start→end inclusive; compat

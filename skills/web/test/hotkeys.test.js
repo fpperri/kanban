@@ -92,3 +92,18 @@ test('no other key, and no chord with Ctrl, Cmd or Alt, and no held key, is the 
   assert.strictEqual(hotkeyIsHelp({}), false);
   assert.strictEqual(hotkeyIsHelp(null), false);
 });
+
+test('the n line says it notes the card whose details are open, ahead of the hovered or selected card', () => {
+  const what = rowOf(hotkeyRows(NOW), 'note').what;
+  assert.match(what, /card whose details are open/);
+  assert.ok(what.indexOf('details are open') < what.indexOf('hovered or selected'), 'the open details come first');
+  assert.match(what, /With no card, on the Calendar it opens on the Calendar's own range, or on the day under the pointer; elsewhere on today/);
+});
+
+test('Alt+1, Alt+2 and Alt+3 are listed together as the notes palette\'s tab keys', () => {
+  const row = rowOf(hotkeyRows(NOW), 'note-tabs');
+  assert.deepStrictEqual(row.keys, ['Alt+1', 'Alt+2', 'Alt+3']);
+  assert.match(row.what, /notes palette/);
+  assert.match(row.what, /first, second or third tab/);
+  assert.strictEqual(row.state, null);
+});

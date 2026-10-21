@@ -59,9 +59,9 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-enter, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint, a view-panel, an ids, a notes, a notes-calendar, a groups, a groups-autojoin, an iterations, a settings, a types-page, a markdown, a scratchpad, an iteration-paths, a delete, a feature, a phone and a phone-flip scenario, with unique names', () => {
+test('the runner knows a search-box, a search-enter, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a card-menu-nest, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint, a view-panel, an ids, a notes, a notes-calendar, a groups, a groups-autojoin, an iterations, a settings, a types-page, a markdown, a scratchpad, an iteration-paths, a delete, a feature, a phone and a phone-flip scenario, with unique names', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-enter', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel', 'ids', 'notes', 'notes-calendar', 'groups', 'groups-autojoin', 'iterations', 'settings', 'types-page', 'markdown', 'scratchpad', 'iteration-paths', 'delete', 'feature', 'phone', 'phone-flip']);
+  assert.deepStrictEqual(names, ['search-box', 'search-enter', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'card-menu-nest', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel', 'ids', 'notes', 'notes-calendar', 'groups', 'groups-autojoin', 'iterations', 'settings', 'types-page', 'markdown', 'scratchpad', 'iteration-paths', 'delete', 'feature', 'phone', 'phone-flip']);
   assert.strictEqual(new Set(names).size, names.length);
 });
 
@@ -436,9 +436,9 @@ test('the preferences scenario sets each choice through the sheet and clears no 
 // bulk entries on the menu's subject, and Path and Tree adding to the selection.
 const CARD_MENU_CHECKS = [
   'cards 1, 3 and 4 are dated today for the Calendar and Gantt right-clicks', 'two cards are picked on the Board',
-  'Board: a right-click on a third card opens a menu led by Peek and Add to selection', 'Board: the two cards stay selected',
+  'Board: a right-click on a third card opens a menu led by Peek and Add child…', 'Board: the two cards stay selected',
   'Board: the menu closes on Escape', '${view}: the view draws card 4 and the two cards are still selected',
-  '${view}: a right-click on a card outside the selection opens a menu led by Peek and Add to selection', '${view}: and leaves the selection unchanged',
+  '${view}: a right-click on a card outside the selection opens a menu led by Peek and Add child…', '${view}: and leaves the selection unchanged',
   'Peek opens the card details', 'and the two cards stay selected while they are open',
   'the details own right-click menu offers no Peek and still offers Add to selection', 'Escape closes the details',
   'after they close, the same two cards are selected', 'closing the details with the X button leaves the same two cards selected',

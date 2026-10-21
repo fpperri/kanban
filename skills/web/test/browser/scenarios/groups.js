@@ -43,7 +43,14 @@ module.exports = {
       const p = await centre(sel);
       await click(p.x, p.y);
     };
-    const closePalette = async () => { await key('Escape'); return waitFor(PAL_GONE, 2500); };
+    // Esc clears a card chip before it closes the palette: press it until the palette is gone.
+    const closePalette = async () => {
+      for (let i = 0; i < 3; i++) {
+        await key('Escape');
+        if (await waitFor(PAL_GONE, i < 2 ? 700 : 2500)) return true;
+      }
+      return false;
+    };
     const selectCards = async (ids) => {
       const [first, ...rest] = ids;
       const p = await centre(`#board .card-el[data-id="${first}"] .card-title`);

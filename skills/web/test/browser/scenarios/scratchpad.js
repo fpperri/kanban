@@ -5,7 +5,7 @@
 // refs (a mention among them is a chip), and a multi-line box; Ctrl+Enter or Save writes the body and the
 // refs stay in the file; unsaved text survives a tab switch; a card with no page says it is not written
 // yet and Save writes it. A group's palette gets the tab after its Group tab and a Scratchpad button
-// there. The gear's Scratchpad page switches the feature and its line returns between the logbook's and
+// there; Alt+1, Alt+2 and Alt+3 switch its three tabs, and Alt+4 does nothing. The gear's Scratchpad page switches the feature and its line returns between the logbook's and
 // the groups'; the pages stay on disk when it is off. Deleting a card or a group offers "Its scratchpad",
 // unticked: unticked the page stays, ticked it goes. With the logbook off a card opens on its scratchpad
 // alone. Each step waits on the page or on the file, never on a fixed sleep.
@@ -48,7 +48,14 @@ module.exports = {
       await press('#ctx-scratch');
       return waitFor(READY, 4000);
     };
-    const closePalette = async () => { await key('Escape'); return waitFor(PAL_GONE, 2500); };
+    // Esc clears a card chip before it closes the palette: press it until the palette is gone.
+    const closePalette = async () => {
+      for (let i = 0; i < 3; i++) {
+        await key('Escape');
+        if (await waitFor(PAL_GONE, i < 2 ? 700 : 2500)) return true;
+      }
+      return false;
+    };
     const clickOn = async (sel) => {
       await ev(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({block:'nearest'})`);
       const p = await centre(sel);
@@ -115,6 +122,15 @@ module.exports = {
     check('scratchpad: a badge opens the group on its Group tab, with Scratchpad after it', await waitFor(`!!document.querySelector('#notes-palette .gp-scratch')`, 3000) && await ev(TABS) === 'Notes,Group*,Scratchpad', await ev(TABS));
     await press('#notes-palette .gp-scratch');
     check('scratchpad: the Group tab\'s Scratchpad button opens the group\'s page', await waitFor(READY, 4000) && await ev(`${PATH}==='.scratchpad/I0002.scratchpad.md'`) && await ev(`${TEXT}.value==='ask ops about the freeze window\\n'`), await ev(PATH));
+    check('scratchpad: each tab of the group\'s palette names its key', await ev(`[...document.querySelectorAll('#notes-palette .np-tab')].map((b)=>b.title).join()`) === 'Notes (Alt+1),Group (Alt+2),Scratchpad (Alt+3)');
+    await key('1', { alt: true });
+    check('scratchpad: Alt+1, from inside the page\'s box, switches to the Notes tab', await waitFor(`${TABS}==='Notes*,Group,Scratchpad'`, 2500), await ev(TABS));
+    await key('2', { alt: true });
+    check('scratchpad: Alt+2 switches to the Group tab', await waitFor(`${TABS}==='Notes,Group*,Scratchpad'`, 2500), await ev(TABS));
+    await key('3', { alt: true });
+    check('scratchpad: Alt+3 switches to the Scratchpad tab, and its page shows', await waitFor(`${TABS}==='Notes,Group,Scratchpad*'`, 2500) && await waitFor(READY, 4000), await ev(TABS));
+    await key('4', { alt: true });
+    check('scratchpad: Alt+4 is past the last tab and does nothing', await ev(TABS) === 'Notes,Group,Scratchpad*' && await ev(PAL_UP), await ev(TABS));
     await closePalette();
 
     // --- the gear's Scratchpad page -----------------------------------------------------------------------------------------

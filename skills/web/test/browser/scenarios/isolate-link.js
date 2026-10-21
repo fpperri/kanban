@@ -83,9 +83,11 @@ module.exports = {
     const menuUp = () => waitFor(MENU_UP);
     const menuGone = () => waitFor(`!(${MENU_UP})`, 2500);
     const ENTRY = `document.getElementById('ctx-isolate')`;
-    const offered = () => ev(`!${ENTRY}.classList.contains('hidden')&&${ENTRY}.getBoundingClientRect().width>0`);
+    const offered = () => ev(`!${ENTRY}.classList.contains('hidden')&&!${ENTRY}.closest('.ctx-sub').classList.contains('hidden')`);
     const entryLabel = () => ev(`${ENTRY}.textContent.trim()`);
     const visibleEntries = () => ev(`[...${MENU}.querySelectorAll('button')].filter((b)=>b.getBoundingClientRect().width>0).map((b)=>b.id)`);
+    // The entries a card's menu always has at the top level, though its groups are shut: Edit, Explore, Archive and Delete.
+    const hasCardEntries = async () => { const ids = await visibleEntries(); return ['ctx-edit', 'ctx-explore', 'ctx-archive', 'ctx-delete'].every((id) => ids.includes(id)); };
     const lead = () => ev(`[...${MENU}.querySelectorAll('button')].filter((b)=>b.getBoundingClientRect().width>0).slice(0,2).map((b)=>b.textContent.trim())`);
     const escape = () => key('Escape');
     const closeMenu = async () => { await escape(); return menuGone(); };
@@ -94,7 +96,11 @@ module.exports = {
       if (!p) throw new Error(`nothing matches ${selector}`);
       await click(p.x, p.y, extra);
     };
-    const choose = () => clickOn('#ctx-isolate');
+    // Isolate sits in the Explore group of a card's menu: the group is opened by a click on its row first; in the empty canvas's menu its panel is drawn in place.
+    const choose = async () => {
+      if (!(await ev(`${ENTRY}.getBoundingClientRect().width>0`))) await clickOn('#ctx-explore');
+      return clickOn('#ctx-isolate');
+    };
     const press = (id) => ev(`document.getElementById(${JSON.stringify(id)}).click()`);
     const viewShown = (container) => `!document.querySelector(${JSON.stringify(container)}).classList.contains('hidden')`;
     const blur = () => ev(`document.activeElement&&document.activeElement.blur&&document.activeElement.blur()`);
@@ -147,14 +153,14 @@ module.exports = {
     check('two Ctrl+clicks pick two loose cards', await pickOnBoard([a, b]));
     const entries = await entryCount();
     await rightClick(`#board .card-el[data-id="${CASES.outside}"]`);
-    check('a right-click on a card outside the selection opens a menu led by Peek and Add to selection', await menuUp() && same(await lead(), ['Peek', 'Add to selection']), await lead());
+    check('a right-click on a card outside the selection opens a menu led by Peek and Add child…', await menuUp() && same(await lead(), ['Peek', 'Add child…']), await lead());
     check('and that menu does not offer Isolate', (await offered()) === false);
     check('with the selection as it was', await pickedIs(wanted));
     check('Esc closes the menu', await closeMenu());
     await rightClick(`#board .card-el[data-id="${a}"]`);
     check('a right-click on a card inside the selection of two opens the menu', await menuUp());
     check('and that menu offers Isolate, as Isolate', await offered() && (await entryLabel()) === 'Isolate', await entryLabel());
-    check('with every other entry of the card menu still in it', (await visibleEntries()).length > 5, await visibleEntries());
+    check('with every other entry of the card menu still in it', await hasCardEntries(), await visibleEntries());
     await shot('isolate-menu-board');
     await choose();
     check('choosing it writes the selection into the box, as the switch does', await boxIs(wantedText), await boxText());
@@ -177,7 +183,7 @@ module.exports = {
     check('the Graph is up, with the selection kept', await waitFor(viewShown('#graph-view')) && await waitFor(graphReady) && await pickedIs(wanted));
     const total = await ev(dotsDrawn);
     await rightClick(`#graph-view .card-el[data-id="${CASES.outside}"]`);
-    check('Graph: a right-click on a card outside the selection opens its menu with no Isolate', await menuUp() && (await offered()) === false && same(await lead(), ['Peek', 'Add to selection']), await lead());
+    check('Graph: a right-click on a card outside the selection opens its menu with no Isolate', await menuUp() && (await offered()) === false && same(await lead(), ['Peek', 'Add child…']), await lead());
     check('Graph: Esc closes it', await closeMenu());
     await rightClick(`#graph-view .card-el[data-id="${a}"]`);
     check('Graph: a right-click on a card inside the selection of two offers Isolate', await menuUp() && await offered() && (await entryLabel()) === 'Isolate', await entryLabel());
@@ -196,7 +202,7 @@ module.exports = {
     check('and the menu closed', await menuGone());
     // Isolate is off, so every dot is drawn, the card outside the selection among them: isolated, the Graph draws no such card to right-click.
     await rightClick(`#graph-view .card-el[data-id="${CASES.outside}"]`);
-    check('the menu of a card outside the selection, opened after the canvas menu, has every entry again, and still no Isolate', await menuUp() && (await visibleEntries()).length > 5 && (await offered()) === false && same(await lead(), ['Peek', 'Add to selection']), await visibleEntries());
+    check('the menu of a card outside the selection, opened after the canvas menu, has every entry again, and still no Isolate', await menuUp() && (await visibleEntries()).length > 5 && (await offered()) === false && same(await lead(), ['Peek', 'Add child…']), await visibleEntries());
     await closeMenu();
     const spotAgain = await emptyPoint(canvas);
     check('the empty canvas right-click is kept from the browser again', !!spotAgain && await rightClickKept(spotAgain), spotAgain);
@@ -205,7 +211,7 @@ module.exports = {
     check('choosing it turns isolate on, and only the two cards are drawn', await switchIs(true) && await shows(SELECTORS.graph, wanted), await nowShown(SELECTORS.graph));
     check('with no dot dimmed', await ev(notDimmed));
     await rightClick(`#graph-view .card-el[data-id="${a}"]`);
-    check('the menu of a card inside the selection, opened after the canvas menu, has every entry again, and reads Turn isolate off', await menuUp() && (await visibleEntries()).length > 5 && await offered() && (await entryLabel()) === 'Turn isolate off', await visibleEntries());
+    check('the menu of a card inside the selection, opened after the canvas menu, has every entry again, and reads Turn isolate off', await menuUp() && await hasCardEntries() && await offered() && (await entryLabel()) === 'Turn isolate off', await visibleEntries());
     await closeMenu();
 
     // --- the Map: the empty canvas -----------------------------------------------------------------------------------------------

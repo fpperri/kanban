@@ -20,6 +20,7 @@ module.exports = [
   require('./smoke'),
   require('./calendar-jump'),
   require('./card-menu'),
+  require('./card-menu-nest'),
   require('./slice-term'),
   require('./tier-fan'),
   require('./tier-fan-options'),

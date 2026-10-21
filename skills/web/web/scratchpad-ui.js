@@ -51,6 +51,7 @@ function scratchPanel(target) {
   const text = scratchEl('textarea', 'sp-text');
   Object.assign(text, { spellcheck: false, disabled: true, placeholder: 'Loading…' });
   text.setAttribute('aria-label', 'Scratchpad text');
+  textEditAttach(text);
   text.hidden = false;
   const view = scratchEl('div', 'sp-preview detail-body');
   view.hidden = true;

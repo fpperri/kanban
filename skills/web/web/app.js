@@ -2106,6 +2106,7 @@ function applyProjectName(name) {
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     calendarNotes = null; // calendar.notes too
+    calendarNotesWidth = CAL_NOTES_UNREAD; // calendar.notesWidth too
     ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
     mapZoom = null; // map.zoom too
@@ -2693,15 +2694,15 @@ function syncAssigneeColor() {
 // The card whose detail the open edit form was started from: on a phone Save returns there.
 let editFromCardId = null;
 
-function openModal(card, presetStatus, presetStart) {
+function openModal(card, presetStatus, presetStart, presetParent) {
   editFromCardId = null;
-  $('#modal-title').textContent = card ? `Edit #${card.id}` : 'New card';
+  $('#modal-title').textContent = card ? `Edit #${card.id}` : presetParent != null ? `New card under #${presetParent}` : 'New card';
   $('#f-id').value = card ? card.id : '';
   $('#f-title').value = card ? card.title : '';
   renderStatusOptions(card ? card.status : null);
   $('#f-status').value = card ? card.status : (presetStatus || boardStatuses()[0]);
   $('#f-priority').value = card ? card.priority : 'Normal';
-  $('#f-parent').value = card && card.parent != null ? String(card.parent) : '';
+  $('#f-parent').value = card && card.parent != null ? String(card.parent) : presetParent != null ? String(presetParent) : ''; // Add child… presets the parent of a new card
   $('#f-rank').value = card && card.rank != null ? String(card.rank) : '';
   syncNestingFieldValidity();
   $('#f-type').value = card && card.type ? card.type : '';
@@ -2827,11 +2828,17 @@ async function submitModal(e) {
   }
 }
 
+// The status a new card starts in when the person did not pick one: on a phone the status tab being read,
+// which only the Board shows; otherwise none, and the form takes the board's first. New card and the
+// card menu's Add child… both start here.
+function newCardStatus() {
+  const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
+  return active && active !== 'archive' ? active : undefined;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  $('#new-btn').addEventListener('click', () => {
-    const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
-    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read, which only the Board shows
-  });
+  textEditAttach($('#f-body')); // the description: Tab indents and the Markdown keys format (text-edit-ui.js)
+  $('#new-btn').addEventListener('click', () => openModal(null, newCardStatus()));
   // X goes through the dirty guard (the retired Cancel button bypassed it —
   // backdrop-click and X now agree on the unsaved-changes speedbump)
   $('#modal-close').addEventListener('click', requestCloseModal);
@@ -4158,6 +4165,10 @@ function setCalendarSubview(subview) {
 // and the layer exist only on a board that keeps a logbook.
 let calendarNotes = null;
 
+// The day cell or column the pointer is over in the Calendar, or null: n then opens the notes palette on
+// that day (notes-palette.js notesCalendarOpening). Tracked from the pointer, kept nowhere.
+let calendarHoverDay = null;
+
 function calendarNotesOn() {
   if (!notesOn()) return false;
   if (calendarNotes === null) {
@@ -4174,6 +4185,56 @@ function setCalendarNotes(on) {
   try { localStorage.setItem(storageKey(state.projectName, 'calendar.notes'), calendarNotes ? 'on' : 'off'); }
   catch (e) { /* storage unavailable/full: the choice just won't persist this session */ }
   renderCalendarView();
+}
+
+// The notes strip's width (feature key 'calendar.notesWidth'): the divider on a strip's left edge sets
+// it for every day column at once. It is CAL_NOTES_UNREAD until the board's saved choice has been read,
+// then CAL_NOTES_DEFAULT (the stylesheet's own width) or a number of px. Kept per board in this browser
+// (notes-calendar.js), and drawn into the grid as the custom property --cal-note-width, which every
+// column's --cal-note-strip reads.
+const CAL_NOTES_UNREAD = 'unread';
+const CAL_NOTES_DEFAULT = 'default';
+let calendarNotesWidth = CAL_NOTES_UNREAD;
+
+// The width in px, or null for the default.
+function calendarNotesStrip() {
+  if (calendarNotesWidth === CAL_NOTES_UNREAD) {
+    const storage = prefsStorage();
+    const saved = storage ? noteStripLoad(storage, state.projectName) : null;
+    calendarNotesWidth = saved === null ? CAL_NOTES_DEFAULT : saved;
+  }
+  return calendarNotesWidth === CAL_NOTES_DEFAULT ? null : calendarNotesWidth;
+}
+
+// `px` into the time grid that is drawn, live: no re-render, so a drag and a key press keep their element.
+function paintCalendarNotesStrip(px) {
+  const grid = document.querySelector('#calendar-view .cal-timegrid');
+  if (!grid) return;
+  const css = noteStripCss(px);
+  if (css === null) grid.style.removeProperty('--cal-note-width');
+  else grid.style.setProperty('--cal-note-width', css);
+  paintCalendarNotesAria();
+}
+
+// Each divider reports its strip as a percentage of its column (aria-valuenow, -min, -max), read from where
+// it is drawn: the default width is the stylesheet's.
+function paintCalendarNotesAria() {
+  for (const d of document.querySelectorAll('#calendar-view .cal-note-divider')) {
+    const r = d.closest('.cal-tg-col').getBoundingClientRect();
+    const at = d.getBoundingClientRect();
+    const v = noteStripPercent(r.right - (at.left + at.width / 2), r.width);
+    if (!v) continue;
+    d.setAttribute('aria-valuenow', String(v.now));
+    d.setAttribute('aria-valuemin', String(v.min));
+    d.setAttribute('aria-valuemax', String(v.max));
+  }
+}
+
+function setCalendarNotesStrip(px) {
+  calendarNotesWidth = px === null ? CAL_NOTES_DEFAULT : px;
+  const storage = prefsStorage();
+  if (storage) noteStripSave(storage, state.projectName, px);
+  paintCalendarNotesStrip(px);
 }
 
 // Local time on purpose (matches the user's wall clock, same as
@@ -4469,6 +4530,8 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   const grid = document.createElement('div');
   grid.className = 'cal-timegrid';
   grid.style.setProperty('--cal-day-cols', days.length);
+  const stripCss = noteStripCss(calendarNotesStrip());
+  if (stripCss !== null) grid.style.setProperty('--cal-note-width', stripCss);
 
   // Header row: weekday + day-of-month per column, today highlighted like the
   // month grid's cell.
@@ -4582,12 +4645,16 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       }
       col.appendChild(el);
     }
-    if (strip) for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
+    if (strip) {
+      col.appendChild(notesCalendarDivider(day));
+      for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
+    }
     body.appendChild(col);
   }
   scroll.appendChild(body);
   grid.appendChild(scroll);
   container.appendChild(grid);
+  paintCalendarNotesAria();
   // First paint opens at 08:00 (the working morning, Outlook's default);
   // re-renders — poll ticks included — keep the user's scroll.
   scroll.scrollTop = keepScroll != null ? keepScroll : 8 * CAL_HOUR_PX;
@@ -4854,6 +4921,67 @@ function wireCalendarTimeDrag() {
   container.addEventListener('pointercancel', (e) => { if (calTimeDrag && e.pointerId === calTimeDrag.pointerId) finish(false); });
 }
 
+// --- The divider on the notes strip's left edge ---------------------------------------------------
+// A pointer drag sets the strip's width for every day column at once, live and without a re-render;
+// the width is saved when the pointer lets go. isDragging is the same poll guard the other calendar
+// drags hold, so the 5s refresh never redraws mid-drag. The arrow keys step it, a double click puts
+// the default back. Nothing here starts a card drag (the pointerdown handler above reads only a
+// .cal-timeblock), and the click and double click handlers below skip a target on the divider.
+let calNotesDrag = null;
+
+function onCalNotesDividerDown(e) {
+  const divider = e.target.closest && e.target.closest('.cal-note-divider');
+  if (!divider || e.button !== 0 || calNotesDrag) return;
+  calNotesDrag = { pointerId: e.pointerId, divider, col: divider.closest('.cal-tg-col'), was: calendarNotesStrip(), px: null };
+  divider.setPointerCapture(e.pointerId);
+  divider.classList.add('dragging');
+  isDragging = true;
+  e.preventDefault();
+}
+
+function onCalNotesDividerMove(e) {
+  if (!calNotesDrag || e.pointerId !== calNotesDrag.pointerId) return;
+  const r = calNotesDrag.col.getBoundingClientRect();
+  calNotesDrag.px = noteStripFromPointer(r.right, e.clientX, r.width);
+  paintCalendarNotesStrip(calNotesDrag.px);
+}
+
+function endCalNotesDrag(e, keep) {
+  if (!calNotesDrag || e.pointerId !== calNotesDrag.pointerId) return;
+  const drag = calNotesDrag;
+  calNotesDrag = null;
+  isDragging = false;
+  drag.divider.classList.remove('dragging');
+  if (keep && drag.px !== null) setCalendarNotesStrip(drag.px);
+  else paintCalendarNotesStrip(drag.was);
+}
+
+function onCalNotesDividerUp(e) {
+  endCalNotesDrag(e, true);
+}
+
+function onCalNotesDividerCancel(e) {
+  endCalNotesDrag(e, false);
+}
+
+// Left widens the strip and Right narrows it, a step from where it is drawn now.
+function onCalNotesDividerKey(e) {
+  const divider = e.target.closest && e.target.closest('.cal-note-divider');
+  if (!divider || e.altKey || e.ctrlKey || e.metaKey) return;
+  const r = divider.closest('.cal-tg-col').getBoundingClientRect();
+  const d = divider.getBoundingClientRect();
+  const px = noteStripStep(r.right - (d.left + d.width / 2), e.key, r.width);
+  if (px === null) return;
+  e.preventDefault();
+  setCalendarNotesStrip(px);
+}
+
+function onCalNotesDividerDblClick(e) {
+  if (!e.target.closest || !e.target.closest('.cal-note-divider')) return;
+  e.preventDefault();
+  setCalendarNotesStrip(null);
+}
+
 // The empty space a double click creates a card on: a day of the month grid, a cell
 // of the all-day band, and a day column of the time grid. The click-away rule reads
 // the same two lists, so the double click that opens the create modal never also
@@ -4877,6 +5005,18 @@ let calHourClickTimer = 0;
 window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-toggle-btn').addEventListener('click', () => toggleView('calendar'));
   wireCalendarTimeDrag(); // delegated once on the stable #calendar-view
+  const calView = $('#calendar-view');
+  calView.addEventListener('mouseover', (e) => {
+    const day = e.target && e.target.closest ? e.target.closest('.cal-day, .cal-tg-allday-cell, .cal-tg-col') : null;
+    calendarHoverDay = day && day.dataset.day ? day.dataset.day : null;
+  });
+  calView.addEventListener('mouseleave', () => { calendarHoverDay = null; });
+  calView.addEventListener('pointerdown', onCalNotesDividerDown);
+  calView.addEventListener('pointermove', onCalNotesDividerMove);
+  calView.addEventListener('pointerup', onCalNotesDividerUp);
+  calView.addEventListener('pointercancel', onCalNotesDividerCancel);
+  calView.addEventListener('keydown', onCalNotesDividerKey);
+  calView.addEventListener('dblclick', onCalNotesDividerDblClick);
   $('#calendar-view').addEventListener('click', (e) => {
     // The sub-view switcher rides the same delegated listener as
     // prev/today/next — all four button sets are rebuilt every render.
@@ -4890,7 +5030,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // A click on an empty part of a day's column opens the palette on that hour. A double click
     // there makes a card, so the palette waits out the double click's window.
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
-    if (!col || e.target.closest('.card-el, .cal-note') || isDragging || ganttDrag || calTimeDrag || !calendarNotesOn()) return;
+    if (!col || e.target.closest('.card-el, .cal-note, .cal-note-divider') || isDragging || ganttDrag || calTimeDrag || !calendarNotesOn()) return;
     const r = col.getBoundingClientRect();
     const req = noteHourRequest(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN);
     clearTimeout(calHourClickTimer);
@@ -4909,7 +5049,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the contextmenu listener below: never fire out from under a live drag
     clearTimeout(calHourClickTimer); // the click that began this double click wanted the palette; the double click wants a card
     if (e.target.closest('.card-el')) return; // a chip's dblclick is its own affair, not a create gesture
-    if (e.target.closest('.cal-note')) return; // so is a note's
+    if (e.target.closest('.cal-note, .cal-note-divider')) return; // so is a note's, and the notes divider's
     const dayCell = e.target.closest(CALENDAR_CREATE_DAY_CELLS);
     if (dayCell) { openModal(null, null, calendarCreateStart(dayCell.dataset.day)); return; }
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
@@ -5821,6 +5961,8 @@ function visibleCardIds() {
 }
 
 function hideContextMenu() {
+  menuNestClose();
+  menuNestRelease();
   $('#context-menu').classList.add('hidden');
 }
 
@@ -5998,11 +6140,14 @@ function showContextMenu(x, y) {
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
   $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
+  $('#ctx-child').classList.toggle('hidden', !!menuSubject.canvas || menuSubject.ids.length !== 1 || !state.active.some((c) => String(c.id) === String(menuSubject.ids[0])));
   $('#ctx-scratch').classList.toggle('hidden', !scratchpadOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
   $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
+  menuNestSync(!!menuSubject.canvas); // the groups follow their entries, the separators follow the groups
   menu.classList.remove('hidden');
+  menuNestFocus();
   // Clamp to the viewport so the menu never opens half off-screen.
   const rect = menu.getBoundingClientRect();
   menu.style.left = `${Math.min(x, window.innerWidth - rect.width - 8)}px`;
@@ -6409,6 +6554,11 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('mouseout', leaveHover);
   document.addEventListener('focusin', enterHover);
   document.addEventListener('focusout', leaveHover);
+  $('#ctx-child').addEventListener('click', () => {
+    const parent = menuSubject.ids[0];
+    hideContextMenu();
+    openModal(null, newCardStatus(), undefined, parent);
+  });
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);
   $('#ctx-delete').addEventListener('click', bulkDelete);
@@ -6537,6 +6687,7 @@ function attachCombobox(input, getOptions, opts = {}) {
     input.value = applyChoice(input.value, choice.value, { ...opts, append: !typed });
     input.dispatchEvent(new Event('input', { bubbles: true })); // form-guard sees the change
     close();
+    if (opts.onPick) opts.onPick(choice); // a field that acts on a choice (the notes palette's card picker) hears it here
   };
   // Focus always shows the FULL list (the text is pre-selected, so typing
   // replaces it) — filtering only applies while typing. A stale value that

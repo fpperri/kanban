@@ -1354,7 +1354,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    that hides the lot. */
 .cal-notes-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .cal-notes-switch { margin-left: 6px; }
-.cal-tg-col.has-notes { --cal-note-strip: clamp(44px, 34%, 170px); }
+.cal-tg-col.has-notes { --cal-note-strip: var(--cal-note-width, clamp(44px, 34%, 170px)); }
+.cal-note-divider { position: absolute; top: 0; bottom: 0; right: calc(var(--cal-note-strip) - 3px); width: 6px; z-index: 3; cursor: col-resize; touch-action: none; user-select: none; }
+.cal-note-divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; }
+.cal-note-divider:hover::after, .cal-note-divider:focus-visible::after, .cal-note-divider.dragging::after { background: var(--accent); }
+.cal-note-divider:focus-visible { outline: none; }
 .cal-note { box-sizing: border-box; margin: 0; padding: 0 4px; font-size: 10.5px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left; }
 .cal-note-chip, .cal-note-bubble { position: absolute; right: 2px; width: calc(var(--cal-note-strip) - 4px); height: 18px; z-index: 2; }
 .cal-note-chip { background: var(--surface); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }
@@ -1844,6 +1848,9 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .card-notes:hover, .card-notes:focus-visible { border-color: var(--line-strong); color: var(--accent); }
 .card-notes svg { width: 11px; height: 11px; }
 .notes-palette { position: fixed; z-index: 19; top: calc(var(--board-header-h, 64px) + 24px); left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - var(--board-header-h, 64px) - 64px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 15px; overflow: hidden; }
+.text-edit-hint { position: fixed; right: 12px; bottom: 8px; z-index: 61; padding: 2px 8px; font-size: 0.75rem; color: var(--mut); background: var(--surface); border: 1px solid var(--line-soft); border-radius: .15rem; pointer-events: none; }
+.text-edit-hint[hidden] { display: none; }
+.notes-palette.np-over-detail { z-index: 31; } /* over the card details, which sit at 30 */
 .np-bar { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .np-subject-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
 .np-chip { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; padding: 2px 4px 2px 8px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--ink); font-size: 0.85em; white-space: nowrap; }
@@ -1852,11 +1859,17 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .np-chip-x { flex: 0 0 auto; padding: 0 4px; font-size: 0.85em; line-height: 1.2; border: 0; background: transparent; color: var(--mut); cursor: pointer; }
 .np-chip-x:hover { background: transparent; color: var(--accent); }
 .np-when { display: inline-flex; align-items: center; gap: 6px; color: var(--mut); font-size: 0.82em; }
+.np-date-wrap { display: inline-flex; align-items: center; gap: 2px; }
+.np-date { width: 6.8em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
+.np-date-btn { padding: 1px 4px; border: 0; background: transparent; cursor: pointer; font-size: 1em; line-height: 1; }
+.np-pick { position: relative; display: inline-flex; min-width: 0; }
+.np-pick-input { width: 14em; max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1em; text-overflow: ellipsis; }
+.combobox-menu.np-pick-menu { position: fixed; right: auto; z-index: 40; max-width: min(40em, 92vw); }
 .np-time { width: 4.6em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
-.np-time:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
+.np-time:focus, .np-date:focus, .np-pick-input:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
 .np-time:disabled { opacity: .45; }
 .np-untimed-label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-.np-input { min-height: 2.6em; max-height: 160px; padding: 6px 9px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1.02em; line-height: 1.4; resize: none; overflow-y: auto; }
+.np-input { padding: 6px 9px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1.02em; line-height: 1.4; resize: none; overflow-y: hidden; }
 .np-input::placeholder, .np-filter::placeholder { color: var(--mut); }
 .np-prev { display: flex; align-items: baseline; gap: 6px; padding: 6px 14px; border-bottom: 1px solid var(--line-soft); background: var(--raised); color: var(--ink); font-size: 0.8em; min-width: 0; }
 .np-prev-key { flex: 0 0 auto; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: .15rem; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
@@ -1865,14 +1878,21 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .np-prev.idle .np-prev-text { color: var(--mut); }
 .np-prev.bad { color: var(--crit); }
 .np-prev.bad .np-prev-key { color: var(--crit); border-color: var(--crit); }
-.np-filter-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px 0; }
-.np-filter { flex: 1 1 auto; min-width: 0; padding: 5px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.85em; }
+.np-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px 0; }
+.np-filter { flex: 1 1 8em; min-width: 0; padding: 5px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.85em; }
 .np-by-slot { display: inline-flex; flex: 0 0 auto; border: 1px solid var(--line-soft); border-radius: .15rem; overflow: hidden; }
 .np-by-btn { padding: 4px 9px; border: 0; border-left: 1px solid var(--line-soft); border-radius: 0; background: transparent; color: var(--mut); font: inherit; font-size: 0.8em; cursor: pointer; }
 .np-by-btn:first-child { border-left: 0; }
 .np-by-btn:hover { background: var(--hover-wash); color: var(--ink); }
 .np-by-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink-strong); }
 .np-by-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.np-range-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 12px 0; }
+.np-range-step { padding: 2px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.9em; cursor: pointer; }
+.np-range-step:hover:not(:disabled) { background: var(--hover-wash); }
+.np-range-step:disabled, .np-range-label:disabled { opacity: .4; cursor: default; }
+.np-range-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.np-range-label { padding: 2px 8px; border: 0; background: transparent; color: var(--ink-strong); font: inherit; font-size: 0.85em; font-weight: 600; cursor: pointer; }
+.np-range-label:hover:not(:disabled) { color: var(--accent); }
 .np-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 12px; }
 .np-notes { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .np-nhead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; font-size: 0.8em; min-width: 0; }
@@ -1884,6 +1904,11 @@ button.np-nhead-label:hover { color: var(--accent); }
 .np-note { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr) auto; align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
 .np-note:hover, .np-note:focus-within { background: var(--hover-wash); }
 .np-note:focus { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
+.np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 11em) minmax(0, 1fr) auto; }
+.np-note.np-tl .np-note-by:empty { display: block; }
+.np-note-card { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--mut); font: inherit; text-align: left; }
+button.np-note-card { cursor: pointer; }
+button.np-note-card:hover { color: var(--accent); }
 .np-note.editing { display: block; background: var(--raised); }
 .np-note-time { color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; white-space: nowrap; }
 .np-note-time.untimed { font-style: italic; font-family: inherit; }
@@ -1901,7 +1926,7 @@ button.np-nhead-label:hover { color: var(--accent); }
 .np-edit { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
 .np-edit input, .np-edit textarea { padding: 4px 7px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font: inherit; min-width: 0; }
 .np-edit-time { width: 5em; text-align: center; }
-.np-edit-text { flex: 1 1 12em; resize: vertical; }
+.np-edit-text { flex: 1 1 12em; line-height: 1.4; resize: none; overflow-y: hidden; }
 .np-assign-input { flex: 1 1 12em; }
 .np-assign-list { flex: 1 0 100%; display: flex; flex-direction: column; }
 .np-assign-item { padding: 3px 7px; border-radius: .15rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1925,6 +1950,7 @@ button.np-nhead-label:hover { color: var(--accent); }
 .notes-palette [hidden] { display: none !important; }
 .np-tabs { display: flex; gap: 2px; padding: 8px 12px 0; }
 .np-tab { padding: 3px 10px; font-size: 0.78em; background: transparent; border: 1px solid transparent; border-bottom: 0; border-radius: .2rem .2rem 0 0; color: var(--mut); cursor: pointer; }
+.np-tab::after { content: attr(data-key); content: attr(data-key) / ""; margin-left: 6px; color: var(--mut); font-size: 0.85em; font-weight: 400; }
 .np-tab:hover { background: var(--hover-wash); color: var(--ink); }
 .np-tab.on, .np-tab.on:hover { background: var(--raised); border-color: var(--line); color: var(--ink); font-weight: 600; }
 .gp { display: flex; flex-direction: column; gap: 8px; font-size: 0.85em; min-width: 0; }
@@ -2007,9 +2033,27 @@ button.np-nhead-label:hover { color: var(--accent); }
 .pick-btn:disabled { opacity: .5; cursor: default; }
 .pick-meta { color: var(--mut); font-size: 0.85em; white-space: nowrap; }
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
-.context-menu button:hover { background: var(--btn-hover); }
-.context-menu button.danger:hover { background: var(--crit-soft); color: var(--crit); }
+.context-menu button:hover, .context-menu button:focus-visible { background: var(--btn-hover); outline: none; }
+.context-menu button.danger:hover, .context-menu button.danger:focus-visible { background: var(--crit-soft); color: var(--crit); }
 .context-menu.canvas-menu button:not(#ctx-isolate) { display: none; }
+/* The card menu's groups (menu-nest-ui.js): a row that opens a panel of entries beside it, or under it on a phone. */
+.context-menu:focus { outline: none; }
+.ctx-sep { height: 1px; margin: 4px 6px; border: 0; background: var(--line); }
+.ctx-sub { position: relative; display: flex; flex-direction: column; }
+.context-menu button.ctx-parent { display: flex; justify-content: space-between; align-items: center; }
+.ctx-parent::after { content: "▸"; content: "▸" / ""; margin-left: 18px; color: var(--mut); }
+.context-menu button[data-hint] { display: flex; justify-content: space-between; align-items: center; }
+.context-menu button[data-hint]::after { content: attr(data-hint); content: attr(data-hint) / ""; margin-left: 24px; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
+.ctx-sub-panel { display: none; position: absolute; left: 100%; top: -5px; z-index: 1; min-width: 180px; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; box-shadow: var(--shadow-pop); }
+.ctx-sub.open > .ctx-sub-panel { display: flex; }
+.ctx-sub-panel.flip { left: auto; right: 100%; }
+/* The empty canvas's menu is Isolate alone: its group's panel stands in the menu, with no row. */
+.context-menu.canvas-menu .ctx-sub-panel { display: flex; position: static; min-width: 0; padding: 0; border: 0; box-shadow: none; }
+@media (max-width: 759.98px) {
+  .ctx-sub-panel { position: static; min-width: 0; margin: 0 0 2px 12px; padding: 0 0 0 6px; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+  .ctx-sub-panel.flip { right: auto; }
+  .ctx-sub.open > .ctx-parent::after { content: "▾"; content: "▾" / ""; }
+}
 body.shift-held .card-el { user-select: none; } /* shift+click selects cards, not their text — only while shift is down, so text stays copyable otherwise (covers every view's card-el) */
 
 /* Theme every visible scrollbar to match the dark palette

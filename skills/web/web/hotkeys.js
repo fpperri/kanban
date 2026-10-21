@@ -8,20 +8,29 @@
 // handlers read for it (`reads`; a letter is read whatever its case), what it does
 // (`what`) and, when it has a state, which one (`state`). The keys that act on a field's
 // own list are not here: ArrowUp and ArrowDown move the highlight in the search box's
-// suggestions, and Shift is only noted as held. Tab is the browser's.
+// suggestions, ArrowLeft and ArrowRight step the Calendar's notes divider while it has focus (it is a
+// slider, the way those arrows are its own), the arrows move through the open card menu and its groups
+// (menu-nest.js), and Shift is only noted as held. Tab is the browser's, but in the multiline text boxes, where
+// it indents (the list names it, and Ctrl+M, which gives it back).
 //
 // Pure: the caller passes the state, so Node tests drive it with plain values. Same
 // dual-environment export pattern as key-guard.js.
 const HOTKEYS = [
   { id: 'search', keys: ['/'], reads: ['/'], what: 'Focus the search box.' },
   { id: 'find', keys: ['Ctrl/Cmd+F'], reads: ['f'], what: 'Focus the search box with # ready for a card number, or select what it holds. Works from inside a text field.' },
-  { id: 'escape', keys: ['Esc'], reads: ['Escape'], what: 'Close the menu or popup that is up, then the search panel. With none up, in the search box it clears the box, and elsewhere it steps the selection back: isolate off, then the additions, then the anchor.' },
+  { id: 'escape', keys: ['Esc'], reads: ['Escape'], what: 'Close the menu or popup that is up, then the search panel. In the notes palette it clears the card chip first, then closes the palette (at once from its filter field). With none up, in the search box it clears the box, and elsewhere it steps the selection back: isolate off, then the additions, then the anchor.' },
   { id: 'enter', keys: ['Enter'], reads: ['Enter'], what: 'Open the focused card. In a list of suggestions, take the highlighted one. In the search box, go to the first match; a second Enter opens it when it is the only one.' },
   { id: 'space', keys: ['Space'], reads: [' '], what: 'Select the focused card in the Graph, as a click does.' },
   { id: 'save', keys: ['Ctrl/Cmd+S'], reads: ['s'], what: 'Save the edit or bulk popup that is open.' },
   { id: 'fullscreen', keys: ['Alt+Enter'], reads: ['Enter'], what: 'Toggle fullscreen on the popup that is open.' },
-  { id: 'note', keys: ['n'], reads: ['n'], what: 'Add a note on the hovered or selected card (the card last noted when none is): opens the notes palette, where Enter writes the note and Shift+Enter starts a new line. Needs a logbook: line in config.yaml.' },
+  { id: 'note', keys: ['n'], reads: ['n'], what: 'Add a note on the card whose details are open, else on the hovered or selected card: opens the notes palette, where Enter writes the note and Shift+Enter starts a new line. With no card, on the Calendar it opens on the Calendar\'s own range, or on the day under the pointer; elsewhere on today. Needs a logbook: line in config.yaml.' },
   { id: 'note-row', keys: ['e', 'a', 'd d'], reads: ['e', 'a', 'd'], what: 'On a note in the notes palette: edit it, assign it to another card, or delete it (press d twice).' },
+  { id: 'note-tabs', keys: ['Alt+1', 'Alt+2', 'Alt+3'], reads: ['1', '2', '3'], what: 'In the open notes palette: switch to its first, second or third tab, as the tab row shows them (Notes, Group, Scratchpad). Works from the note box too.' },
+  { id: 'text-indent', keys: ['Tab', 'Shift+Tab'], reads: ['Tab'], what: 'In a multiline text box (the notes palette\'s note box and a note\'s edit box, the Scratchpad\'s box, the card form\'s description): indent the line, or every selected line, by two spaces, or outdent by up to two. Undo takes either back.' },
+  { id: 'text-tab-focus', keys: ['Ctrl+M'], reads: ['m'], what: 'In those boxes: switch Tab between indenting and moving focus, for keyboard-only use. A hint shows while Tab moves focus; it lasts until the page is reloaded.' },
+  { id: 'text-format', keys: ['Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Alt+S', 'Ctrl+E', 'Ctrl+K'], reads: ['b', 'i', 'u', 's', 'e', 'k'], what: 'In those boxes, on the selection: bold, italic, <u>underline</u>, strikethrough, code and a link, each taken off again when the selection already has it. With nothing selected the pair goes in with the cursor between.' },
+  { id: 'text-lists', keys: ['Ctrl+Shift+7', 'Ctrl+Shift+8', 'Ctrl+Shift+.'], reads: ['7', '&', '8', '*', '.', '>'], what: 'In those boxes, on each selected line: a numbered list, a bullet list and a quote, taken off again when the lines already have it.' },
+  { id: 'text-details', keys: ['Ctrl+Shift+D'], reads: ['d'], what: 'In those boxes: wrap the selected lines in a collapsible section (<details> with a <summary>), with the summary text selected to type over; with the cursor inside a section it made, take the wrapper off and keep the lines.' },
   { id: 'names', keys: ['l'], reads: ['l'], state: 'names', what: 'Step the names the Graph\'s tier fan draws: relevant, all, none.' },
   { id: 'slice', keys: ['[', ']', '{', '}'], reads: ['[', ']', '{', '}'], state: 'slice', what: 'Move the bottom of the run of slices up and down with [ and ], and its top up and down with { and }.' },
   { id: 'slice-keep', keys: ['Menu', 'Shift+F10'], reads: ['ContextMenu', 'F10'], what: 'On a focused slice entry in the search panel, keep only that slice, as a right-click does.' },

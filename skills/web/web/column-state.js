@@ -62,6 +62,26 @@ function storageKey(projectName, feature) {
   return `kanban.${projectName || 'default'}.${feature}`;
 }
 
+// One value kept in this browser per board and feature, as text: null when there is none or the
+// storage cannot be read; a write that fails (storage unavailable or full) only means it will not persist
+// this session, and a null value takes the key away. The one place the per-board preferences of the
+// notes palette and the Calendar's notes strip read and write.
+function boardPrefLoad(storage, projectName, feature) {
+  try {
+    const saved = storage.getItem(storageKey(projectName, feature));
+    return typeof saved === 'string' ? saved : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function boardPrefSave(storage, projectName, feature, value) {
+  try {
+    if (value === null) storage.removeItem(storageKey(projectName, feature));
+    else storage.setItem(storageKey(projectName, feature), String(value));
+  } catch (e) { /* storage unavailable/full: it just won't persist this session */ }
+}
+
 // --- map view status-filter ----------------------------------------
 // One show/hide toggle per column (the configured statuses in column order +
 // archive, the location pseudo-column — the map always includes archived
@@ -295,7 +315,7 @@ if (typeof module !== 'undefined' && module.exports) {
     activePhoneColumn, phoneTabs, swipeDirection, neighbourPhoneColumn,
     COLUMN_IDS, COLUMN_LABELS, DEFAULT_COLLAPSED, DEFAULT_STATUSES,
     liveStatuses, columnIdsFor, columnForStatus, columnLabel, defaultCollapsed,
-    showsColumnAdd, storageKey, mergeCollapsedState,
+    showsColumnAdd, storageKey, boardPrefLoad, boardPrefSave, mergeCollapsedState,
     defaultMapStatusFilter, mergeMapStatusFilter, mapFilterColumn, mapFilterVisibleIds, ganttFilterVisibleIds, intersectVisibleIds,
     defaultGanttStatusFilter, mergeGanttStatusFilter,
     soloStatusFilter,
@@ -314,6 +334,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.defaultCollapsed = defaultCollapsed;
   window.showsColumnAdd = showsColumnAdd;
   window.storageKey = storageKey;
+  window.boardPrefLoad = boardPrefLoad;
+  window.boardPrefSave = boardPrefSave;
   window.mergeCollapsedState = mergeCollapsedState;
   window.defaultMapStatusFilter = defaultMapStatusFilter;
   window.mergeMapStatusFilter = mergeMapStatusFilter;

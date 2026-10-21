@@ -138,6 +138,14 @@ sub-views). Working ranges render as linked chips; a `due_date` is its own
 amber deadline chip. Drag a chip to move the range or the deadline. Double-click an empty
 day, or a slot in the time grid, to start a new card there; the selection stays. Same status pills, in the search panel's Statuses section, and search as the other views.
 
+With a `logbook:` line the Week, 3-day and Day views also draw the board's notes: a day with
+timed notes keeps a strip at the right of its column, with a chip for a note and a count for
+several in a half hour, and a box in the all-day row for its untimed notes. The **Notes**
+button in the toolbar hides and shows them. A **divider** on the strip's left edge changes the
+strip's width for every day at once: drag it (from 44px nearly to the whole column, leaving the
+cards a sliver), or focus it and press Left and Right; a double click puts the default width
+back. A wider strip shows more of each note's words. The width is kept per board in this browser.
+
 ## Graph
 
 The **Graph** view (the header's "Graph" button) draws every card at once as
@@ -363,9 +371,26 @@ right-click for a context menu: assign, set priority, edit tags, schedule,
 archive, restore, delete, isolate (inside the selection only), or add a dependency tree/path to
 the selection. A
 right-click on a card outside the selection opens the menu for that card alone,
-leading with Peek (open its details) and Add to selection, and leaves your
-selection as it was. The same selection grammar works in every view, and
+leading with Peek (open its details), and leaves your
+selection as it was. The menu reads Peek, Add note… (with its key, `n`, muted at the right),
+Add child…, then **Edit** (Assign…, Set priority…, Edit tags…, Schedule…), **Group** (Add to
+group…, Make a group from them…) and **Explore** (Isolate, Dependency tree, Dependency path), then
+Scratchpad… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
+Each of the three is a row marked ▸ that opens its entries in a panel beside it: hover it for a
+moment or click it. A pointer on its way to the panel across the next row does not lose it, and a
+panel with no room on the right opens on the left. The menu takes the focus when it opens and gives it
+back when it closes, and its keys work only while focus is in it. Up and Down move the highlight
+(Home and End go to the first and last entry), Right or Enter
+on a row open its panel and highlight its first entry, Left closes the panel and returns to the
+row, and Esc closes the panel first and the menu second. On a phone the panel opens under its
+row, inside the menu. A group whose entries are all out (Group with no `groups:` line) is out
+itself, and every entry shows when it always did. The same selection grammar works in every view, and
 right-clicking inside an open card opens the same menu for that card, without Peek.
+
+**Add child…** in that menu (one live card only, in every view and in the card details' own
+menu) opens the New card form as **New card** does, headed "New card under #42", with Parent set
+to that card. Only the new card is written, never the parent; clear the Parent field and it saves
+as an ordinary root card.
 
 A click on empty space never touches the selection, since it can be an accident. A
 double click on empty space clears it: the additions, the anchor, and the anchor's text in
@@ -407,7 +432,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -496,16 +521,65 @@ A browser may send a sandboxed frame's requests with the origin `null`; the serv
 the frame's own files and the vendored libraries (they are public and carry nothing of the board) and
 for nothing else.
 
-**Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
-selected card, a card with notes wears a small count that opens its notes, and the card menu
-has **Add note…**. Type a note and press Enter: it is written at the time field's time into
-the card's day file and the palette stays open for the next note; Shift+Enter starts a new
-line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
-`#22` aims it at another card; the line under the box says exactly what Enter will write. The
-list below groups the notes by day and card, newest first, with a filter field of its own
-(`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a
-note written in the palette stays listed whatever they say. On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
-it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
+**Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
+details are open, else the hovered or selected card; it draws above the details, and a field in the
+details gets the letter instead. While the palette is aimed at a card, a group or several cards, **Esc**
+clears the chip, as the backspace does, and the palette stays open on the range it opens on with no card;
+with no chip showing Esc closes it, and from its filter field Esc closes it at once. From a card's
+details that is three presses: the chip, the palette, then the details. With no card, `n` on the Calendar
+opens it on the Calendar's own mode and range (Month, Week, 3 days or Day), or on the day under the
+pointer when the pointer is over a day (that only chooses what is listed: the note still goes to
+today); anywhere else it opens on today. A card with notes wears a
+small count that opens its notes, and the card menu has **Add note…**.
+
+Type a note and press Enter: it is written into the card's day file and the palette stays open for
+the next note; Shift+Enter starts a new line. The note box starts one line high and grows with its
+text, typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less, and
+scrolls inside past that; the box a listed note is edited in grows the same way and opens sized to
+the note. The subject row sets where and when the note goes: a **date** (with a picker; today, or the
+day of the hour or all-day box the palette was opened from) beside the **time**, the *untimed* tick,
+which drops the time and keeps the day, and a **card** picker, a searchable list of *no card* and the
+live cards that aims the palette at the one chosen, as typing a bare `#22` and Enter does; a card id
+typed in it (`22` or `#22`) aims it too, on Enter or on leaving the field. Its menu hangs off the page
+and is never clipped by the palette. A leading
+`10:30` sets that note's time, a leading `-` makes it untimed, and a leading `#22` aims it at another
+card and wins over the picker; the line under the box says exactly which day, time and card Enter
+will write.
+
+The list below groups the notes by day and card, newest first, with a filter field of its own
+(`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a note
+written in the palette stays listed whatever they say. A **Grouped | Timeline** switch beside them,
+remembered per board, changes the list's shape: Timeline is one flat list, days newest first and
+inside a day the timed notes in time order, then the untimed ones, each row naming its card (a link
+to it, or "no card"); the filter, the switches and the keys work on it as on the grouped one. A
+**range** row over the list, All, Month, Week, 3 days or Day, with ‹ and › buttons (off on All) and a
+label (`Wed 21 Oct`, `19–25 Oct`; a click on it goes back to the range that holds today), limits the
+list to a span of days; weeks start on Monday, as the Calendar's do. The palette opens on All for a
+card, a group or several cards (so a card's whole history is listed), on Day for the day of an hour or
+the all-day box it was opened from (widening the range lists the rest of it), on the Calendar's own
+range or the day under the pointer for `n` there, and on Day, today for `n` anywhere else. The range
+is set each time the palette opens and is no memory. It only chooses which notes are listed: the date
+field decides the day a note is written to, and a note written outside the range stays listed.
+`Alt+1`, `Alt+2` and `Alt+3` switch the open palette's first, second and third tab (Notes, Group,
+Scratchpad, as the tab row shows them; each tab carries its key), from the note box too. On a listed
+note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes it. Without a
+`logbook:` line nothing of this shows. The Graph's names step with `l`.
+
+**Text boxes** — four multiline boxes take editing keys: the notes palette's note box, the box a
+listed note is edited in, the Scratchpad's box and the card form's description. **Tab** indents by two
+spaces (every selected line, when several are selected) and **Shift+Tab** outdents by up to two;
+**Ctrl+M** switches Tab to moving focus for keyboard-only use, until the page is reloaded; a small hint
+in the box always says which Tab it is now and what Ctrl+M changes ("Tab indents · Ctrl+M: Tab moves
+focus"), so Tab is never a trap. On the selection, **Ctrl+B** makes bold (`**`), **Ctrl+I** italic (`*`),
+**Ctrl+U** underline (`<u>`), **Alt+S** strikethrough (`~~`), **Ctrl+E** code and **Ctrl+K** a
+Markdown link with the placeholder `url` selected, ready to be typed over; with nothing selected the
+pair goes in with the cursor between (a link's cursor goes between its brackets). **Ctrl+Shift+7**, **Ctrl+Shift+8** and **Ctrl+Shift+.** put
+a number, a bullet or a quote on each selected line, and **Ctrl+Shift+D** wraps the selected lines in a
+collapsible `<details>` section with its `<summary>` text selected to type over. Each key takes its
+mark off again when the selection already has it (the cursor inside a section it made, for Ctrl+Shift+D), and the browser's Undo takes any of them back in one step. Their browser
+actions (view source, the address bar) are stopped only while one of these boxes has focus. Enter,
+Shift+Enter, Ctrl+Enter and Ctrl+S keep what they do in each box, and the single-line fields (the
+filter, the time, a combobox) keep the browser's Tab.
 
 **Scratchpad** — with a `scratchpad:` line in `config.yaml`, a card or a group has a disposable
 page, kept as `0007.scratchpad.md` in that folder, with optional `refs:` (the notes, files and

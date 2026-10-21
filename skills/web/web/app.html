@@ -270,36 +270,53 @@
   </div>
 </div>
 
-<div id="context-menu" class="context-menu hidden" role="menu" data-keeps-selection>
-  <!-- Peek and Add to selection lead the menu a right-click opens on a card
-       outside the selection; Peek is also left out of the card details' own
-       menu (both toggled in showContextMenu, main script below). -->
+<div id="context-menu" class="context-menu hidden" role="menu" tabindex="-1" data-keeps-selection>
+  <!-- The card menu, nested (menu-nest.js, menu-nest-ui.js): the entries that act on the menu's cards
+       are grouped under Edit, Group and Explore, each a row that opens a panel (.ctx-sub-panel) beside
+       it, or under it on a phone. Every entry keeps its own id, and showContextMenu (main script
+       below) decides which show; a group whose entries are all out is out itself.
+       Peek leads a menu for a card outside the selection and is left out of the card details' own
+       menu. Add note… opens the notes palette on one card (needs a logbook; its key, n, is the muted
+       hint). Add child… opens the New card form under one live card. -->
   <button type="button" id="ctx-peek" role="menuitem">Peek</button>
-  <button type="button" id="ctx-add" role="menuitem">Add to selection</button>
-  <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
-  <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
-  <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
-  <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
-  <!-- Add note… opens the notes palette on one card; it shows only when the board keeps a
-       logbook and the menu is for a single card (toggled in showContextMenu, main script below). -->
-  <button type="button" id="ctx-note" role="menuitem" class="hidden">Add note…</button>
-  <!-- Scratchpad… opens the palette on one card's scratchpad; it shows only when the board keeps
-       scratchpads and the menu is for a single card (toggled in showContextMenu, main script below). -->
-  <button type="button" id="ctx-scratch" role="menuitem" class="hidden">Scratchpad…</button>
+  <button type="button" id="ctx-note" role="menuitem" class="hidden" data-hint="n" aria-keyshortcuts="n">Add note…</button>
+  <button type="button" id="ctx-child" role="menuitem" class="hidden">Add child…</button>
+  <hr class="ctx-sep" role="separator">
+  <div class="ctx-sub">
+    <button type="button" id="ctx-edit" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-edit-panel">Edit</button>
+    <div class="ctx-sub-panel" id="ctx-edit-panel" role="menu" aria-label="Edit">
+      <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
+      <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
+      <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
+      <button type="button" id="ctx-schedule" role="menuitem">Schedule…</button>
+    </div>
+  </div>
   <!-- Add to group… adds the menu's cards to a group; Make a group from them… needs two or more.
-       Both show only when the board keeps groups (toggled in showContextMenu, main script below). -->
-  <button type="button" id="ctx-group-add" role="menuitem" class="hidden">Add to group…</button>
-  <button type="button" id="ctx-group-make" role="menuitem" class="hidden">Make a group from them…</button>
-  <!-- Isolate leads nothing and trails the edits: it is offered inside the selection
-       only, and alone in the small menu of the empty Graph or Map canvas (toggled in
-       showContextMenu, main script below). It reads Turn isolate off while isolate is on. -->
-  <button type="button" id="ctx-isolate" role="menuitem" class="hidden">Isolate</button>
-  <!-- Add the card's dependency tree or path to the selection as one part;
-       the search box is left alone. One card only: hidden whenever the
-       menu's subject is more than one card (toggled in showContextMenu,
-       main script below). -->
-  <button type="button" id="ctx-tree" role="menuitem">Dependency tree</button>
-  <button type="button" id="ctx-path" role="menuitem">Dependency path</button>
+       Both show only when the board keeps groups. -->
+  <div class="ctx-sub">
+    <button type="button" id="ctx-group" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-group-panel">Group</button>
+    <div class="ctx-sub-panel" id="ctx-group-panel" role="menu" aria-label="Group">
+      <button type="button" id="ctx-group-add" role="menuitem" class="hidden">Add to group…</button>
+      <button type="button" id="ctx-group-make" role="menuitem" class="hidden">Make a group from them…</button>
+    </div>
+  </div>
+  <!-- Isolate trails the edits: it is offered inside the selection only, and alone in the small menu of
+       the empty Graph or Map canvas, where its panel is drawn in place of the menu. It reads Turn
+       isolate off while isolate is on. The dependency tree and path add one card's tree or path to the
+       selection as one part and show only for one card. -->
+  <div class="ctx-sub">
+    <button type="button" id="ctx-explore" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-explore-panel">Explore</button>
+    <div class="ctx-sub-panel" id="ctx-explore-panel" role="menu" aria-label="Explore">
+      <button type="button" id="ctx-isolate" role="menuitem" class="hidden">Isolate</button>
+      <button type="button" id="ctx-tree" role="menuitem">Dependency tree</button>
+      <button type="button" id="ctx-path" role="menuitem">Dependency path</button>
+    </div>
+  </div>
+  <!-- Scratchpad… opens the palette on one card's scratchpad; it shows only when the board keeps
+       scratchpads and the menu is for a single card. -->
+  <button type="button" id="ctx-scratch" role="menuitem" class="hidden">Scratchpad…</button>
+  <button type="button" id="ctx-add" role="menuitem">Add to selection</button>
+  <hr class="ctx-sep" role="separator">
   <button type="button" id="ctx-archive" role="menuitem">Archive selected</button>
   <button type="button" id="ctx-restore" role="menuitem">Restore selected</button>
   <button type="button" id="ctx-delete" role="menuitem" class="danger">Delete selected</button>
@@ -603,6 +620,10 @@
 <script src="/delete-ui.js"></script>
 <script src="/settings-ui.js"></script>
 <script src="/more-menu.js"></script>
+<script src="/menu-nest.js"></script>
+<script src="/menu-nest-ui.js"></script>
+<script src="/text-edit.js"></script>
+<script src="/text-edit-ui.js"></script>
 <script src="/scratchpad-ui.js"></script>
 <script src="/iterations-ui.js"></script>
 <script src="/graph-view.js"></script>

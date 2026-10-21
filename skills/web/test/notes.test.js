@@ -179,6 +179,29 @@ test('the list groups notes by day then target, newest day first, the chip\'s ta
   ]);
 });
 
+test('the timeline is one flat list per day, newest day first, the timed notes in time order and then the untimed ones', () => {
+  const note = (day, target, at, text, index = 0) => ({ day, target, at, by: '@human', note: text, index, file: 'f' });
+  const days = n.noteTimeline([
+    note('2026-10-15', '7', '10:00', 'old'), note('2026-10-16', '22', '09:40', 'c'), note('2026-10-16', '', null, 'free'),
+    note('2026-10-16', '7', null, 'untimed'), note('2026-10-16', '7', '09:10', 'a'), note('2026-10-16', 'G3', '07:00', 'g'),
+  ]);
+  assert.deepStrictEqual(days.map((d) => [d.day, d.notes.map((x) => x.note)]), [
+    ['2026-10-16', ['g', 'a', 'c', 'untimed', 'free']],
+    ['2026-10-15', ['old']],
+  ]);
+});
+
+test('in the timeline two notes at one time keep the chip\'s target first, then the id order, then the file order', () => {
+  const note = (target, text, index = 0) => ({ day: '2026-10-16', target, at: '09:00', by: '@human', note: text, index, file: 'f' });
+  const order = (first) => n.noteTimeline([note('G3', 'g'), note('7', 'b', 1), note('7', 'a', 0), note('', 'none'), note('22', 'c')], { first })[0].notes.map((x) => x.note);
+  assert.deepStrictEqual(order(null), ['a', 'b', 'c', 'g', 'none']);
+  assert.deepStrictEqual(order('22'), ['c', 'a', 'b', 'g', 'none']);
+});
+
+test('the timeline of no notes is no days', () => {
+  assert.deepStrictEqual(n.noteTimeline([]), []);
+});
+
 test('the filter narrows by every word, in the text or the card\'s label, without regard to case', () => {
   const note = (target, text) => ({ day: '2026-10-16', target, at: '09:00', by: '@human', note: text, index: 0, file: 'f' });
   const all = [note('7', 'Renamed ORDER_STATE'), note('22', 'order cutover'), note('', 'standup')];
@@ -270,4 +293,86 @@ test('the card last noted is kept in the browser per board and a bad value is no
   assert.strictEqual(n.noteLastLoad(storage, 'plan'), '');
   assert.strictEqual(n.noteLastLoad({ getItem() { throw new Error('blocked'); } }, 'plan'), '');
   n.noteLastSave({ setItem() { throw new Error('full'); } }, 'plan', '22');
+});
+
+test('the palette\'s layout, Grouped or Timeline, is kept in the browser per board and anything else reads as Grouped', () => {
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'grouped');
+  n.noteLayoutSave(storage, 'plan', 'timeline');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'timeline');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'other'), 'grouped');
+  assert.strictEqual(store.get('kanban.plan.notes.layout'), 'timeline');
+  n.noteLayoutSave(storage, 'plan', 'sideways');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'timeline', 'a layout that is not one is not saved');
+  store.set('kanban.plan.notes.layout', 'sideways');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'grouped');
+  assert.strictEqual(n.noteLayoutLoad({ getItem() { throw new Error('blocked'); } }, 'plan'), 'grouped');
+  n.noteLayoutSave({ setItem() { throw new Error('full'); } }, 'plan', 'timeline');
+});
+
+// --- the note boxes ------------------------------------------------------------------------------
+
+// `content` is the height the whole text needs, `line` one line, `chrome` the box's padding and border.
+const size = (content, over = {}) => n.noteBoxSize({ content, line: 20, chrome: 14, windowHeight: 1000, ...over });
+
+test('a note box is as high as its text, from one line up', () => {
+  assert.deepStrictEqual(size(34), { height: 34, scroll: false });
+  assert.deepStrictEqual(size(94), { height: 94, scroll: false }, 'four lines');
+  assert.deepStrictEqual(size(34 + 20 * 6), { height: 154, scroll: false });
+});
+
+test('a note box stops growing at 12 lines and scrolls inside past them', () => {
+  assert.deepStrictEqual(size(14 + 20 * 12), { height: 254, scroll: false }, 'twelve lines fit');
+  assert.deepStrictEqual(size(14 + 20 * 13), { height: 254, scroll: true });
+  assert.deepStrictEqual(size(5000), { height: 254, scroll: true });
+});
+
+test('a note box stops at 40% of the window when that is less than 12 lines', () => {
+  assert.deepStrictEqual(size(5000, { windowHeight: 500 }), { height: 200, scroll: true });
+  assert.deepStrictEqual(size(150, { windowHeight: 500 }), { height: 150, scroll: false });
+  assert.deepStrictEqual(size(5000, { windowHeight: 700 }), { height: 254, scroll: true }, '40% of 700 is 280: the 12 lines are less');
+});
+
+test('a note box takes whole pixels, and shrinks when its text does', () => {
+  assert.deepStrictEqual(size(33.2), { height: 34, scroll: false });
+  assert.ok(size(94).height < size(154).height);
+  assert.deepStrictEqual(size(1), { height: 34, scroll: false }, 'never under one line');
+});
+
+// --- Alt+1, Alt+2, Alt+3 --------------------------------------------------------------------------
+
+const alt = (key, over = {}) => ({ key, code: `Digit${key}`, altKey: true, ctrlKey: false, metaKey: false, shiftKey: false, ...over });
+
+test('Alt+1, Alt+2 and Alt+3 are the first, second and third tab', () => {
+  assert.deepStrictEqual(['1', '2', '3'].map((k) => n.noteTabKey(alt(k))), [0, 1, 2]);
+});
+
+test('the digit is found by its key or, where Alt changes the character, by its place on the keyboard', () => {
+  assert.strictEqual(n.noteTabKey({ key: '¡', code: 'Digit1', altKey: true }), 0);
+  assert.strictEqual(n.noteTabKey({ key: '™', code: 'Digit2', altKey: true }), 1);
+});
+
+test('any other key, a digit without Alt, or Alt with another modifier is no tab key', () => {
+  assert.strictEqual(n.noteTabKey(alt('4')), -1);
+  assert.strictEqual(n.noteTabKey(alt('0')), -1);
+  assert.strictEqual(n.noteTabKey({ key: '1', code: 'Digit1', altKey: false }), -1);
+  assert.strictEqual(n.noteTabKey(alt('1', { ctrlKey: true })), -1);
+  assert.strictEqual(n.noteTabKey(alt('1', { metaKey: true })), -1);
+  assert.strictEqual(n.noteTabKey(alt('1', { shiftKey: true })), -1);
+  assert.strictEqual(n.noteTabKey({ key: 'ArrowLeft', code: 'ArrowLeft', altKey: true }), -1, 'Alt+Left stays the browser\'s Back');
+  assert.strictEqual(n.noteTabKey({ key: 'ArrowRight', code: 'ArrowRight', altKey: true }), -1);
+  assert.strictEqual(n.noteTabKey({ altKey: true }), -1);
+});
+
+test('a note about nothing has one name, in the palette and on the Calendar', () => {
+  const c = require('../web/notes-calendar');
+  assert.strictEqual(n.NOTE_NO_CARD, 'no card');
+  assert.deepStrictEqual(c.noteSlotTargets([{ target: '' }, { target: '7' }]), ['#7', n.NOTE_NO_CARD]);
+  assert.strictEqual(c.noteUntimedTip([{ target: '', note: 'x' }]), `${n.NOTE_NO_CARD}: x`);
+});
+
+test('a subject is a target when it is a card or a group, and about cards when it is also several of them', () => {
+  assert.deepStrictEqual(['card', 'group', 'each', 'none', 'slot', 'untimed'].map((kind) => n.noteIsTarget({ kind })), [true, true, false, false, false, false]);
+  assert.deepStrictEqual(['card', 'group', 'each', 'none', 'slot', 'untimed'].map((kind) => n.noteIsAboutCards({ kind })), [true, true, true, false, false, false]);
 });

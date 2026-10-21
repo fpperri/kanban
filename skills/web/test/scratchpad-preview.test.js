@@ -29,6 +29,7 @@ function panel({ body = '', refs = [] } = {}) {
     notesTextNodes: () => [],
     notesUi: { el: { contains: () => false } },
     settingsAddBoardPage() {},
+    textEditAttach() {}, // text-edit-ui.js: the Edit box takes Tab and the Markdown keys
     $: () => ({ addEventListener() {} }),
     mdToHtml,
     kanbanCodeLibs: { HIGHLIGHT_VERSION: '1.0.0' },
