@@ -2828,12 +2828,17 @@ async function submitModal(e) {
   }
 }
 
+// The status a new card starts in when the person did not pick one: on a phone the status tab being read,
+// which only the Board shows; otherwise none, and the form takes the board's first. New card and the
+// card menu's Add child… both start here.
+function newCardStatus() {
+  const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
+  return active && active !== 'archive' ? active : undefined;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   textEditAttach($('#f-body')); // the description: Tab indents and the Markdown keys format (text-edit-ui.js)
-  $('#new-btn').addEventListener('click', () => {
-    const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
-    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read, which only the Board shows
-  });
+  $('#new-btn').addEventListener('click', () => openModal(null, newCardStatus()));
   // X goes through the dirty guard (the retired Cancel button bypassed it —
   // backdrop-click and X now agree on the unsaved-changes speedbump)
   $('#modal-close').addEventListener('click', requestCloseModal);
@@ -6690,7 +6695,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#ctx-child').addEventListener('click', () => {
     const parent = menuSubject.ids[0];
     hideContextMenu();
-    openModal(null, undefined, undefined, parent);
+    openModal(null, newCardStatus(), undefined, parent);
   });
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);

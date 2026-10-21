@@ -388,3 +388,20 @@ test('Add child… is a menu item in the markup', () => {
   const menu = html.match(/<div id="context-menu"[\s\S]*?\n<\/div>/)[0];
   assert.match(menu, /<button type="button" id="ctx-child" role="menuitem" class="hidden">Add child…<\/button>/);
 });
+
+test('on a phone in the Board, Add child… opens in the status tab being read, as New card does', async () => {
+  const s = await open();
+  s.page.run("onPhoneLayout = () => true; activePhoneColumn = () => 'doing'");
+  s.rightClick(3);
+  s.click('#ctx-child');
+  assert.strictEqual(s.elements['#f-status'].value, 'doing');
+  assert.strictEqual(s.elements['#modal-title'].textContent, 'New card under #3');
+});
+
+test('on a phone the archive tab is no status: Add child… opens in the first status', async () => {
+  const s = await open();
+  s.page.run("onPhoneLayout = () => true; activePhoneColumn = () => 'archive'");
+  s.rightClick(3);
+  s.click('#ctx-child');
+  assert.strictEqual(s.elements['#f-status'].value, 'backlog');
+});
