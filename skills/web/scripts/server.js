@@ -6,6 +6,7 @@ const cs = require('./card-store');
 const ns = require('./notifications-store');
 const lb = require('./logbook-store');
 const sp = require('./scratchpad-store');
+const td = require('./todo-store');
 const gs = require('./group-store');
 const del = require('./delete-store');
 const cfg = require('./config-store');
@@ -330,6 +331,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
           logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
           scratchpad: config.scratchpad ? { folder: config.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
+          todos: config.todos ? { folder: config.todos, targets: td.listTargets(dir), counts: td.counts(dir) } : null, // the folder, the ids that have a list and the open and total of each (ADR 0021); the list itself is read when opened; null = no todos: line, nothing shows
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
           settings: settings.readSettings(dir, [...active, ...archived]), // the config the gear's This board pages show (ADR 0017)
           iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
@@ -371,6 +373,18 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       if (pm && (req.method === 'GET' || req.method === 'PUT')) {
         const body = req.method === 'GET' ? {} : await readBody(req);
         return sendJSON(res, 200, { pad: req.method === 'GET' ? sp.readPad(dir, pm[1]) : sp.writePad(dir, pm[1], body.body) });
+      }
+
+      // the todo lists (ADR 0021): GET reads a list; POST adds an item, PATCH ticks or edits one, DELETE
+      // removes one and POST .../move reorders one, each naming the version it read (a clash is a 409)
+      const tm = p.match(new RegExp(`^/api/todos/(${ids.ID_SOURCE})(/move)?$`));
+      if (tm) {
+        const body = req.method === 'GET' ? {} : await readBody(req);
+        if (!tm[2] && req.method === 'GET') return sendJSON(res, 200, { todos: td.readTodos(dir, tm[1]) });
+        if (!tm[2] && req.method === 'POST') return sendJSON(res, 201, { todos: td.addTodo(dir, tm[1], body) });
+        if (!tm[2] && req.method === 'PATCH') return sendJSON(res, 200, { todos: td.setTodo(dir, tm[1], body) });
+        if (!tm[2] && req.method === 'DELETE') return sendJSON(res, 200, { todos: td.deleteTodo(dir, tm[1], body) });
+        if (tm[2] && req.method === 'POST') return sendJSON(res, 200, { todos: td.moveTodo(dir, tm[1], body) });
       }
 
       // the gear's This board pages: one config.yaml line per request (ADR 0017)
