@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { openPalette, note } = require('./helpers/palette-page');
+const { control } = require('./helpers/page-vm');
 
 // The notes palette in the real page (helpers/palette-page.js): its Grouped or Timeline switch, the
 // note boxes that grow with their text, and n on the card whose details are open. The rules each
@@ -107,4 +108,105 @@ test('the filter, the author switch and the arrow keys work on the flat list as 
   assert.strictEqual(p.page.run('notesUi.hi'), 1, 'Down steps to the next row');
   p.press(p.ui().body, 'e', { target: p.all('.np-note')[0] });
   assert.ok(p.all('.np-edit-text').length === 1, 'e opens the row for editing');
+});
+
+// --- n over the card details ---------------------------------------------------------------
+
+const ANY_DIALOG = '.modal-backdrop:not(.hidden)';
+const OTHER_DIALOG = '.modal-backdrop:not(.hidden):not(#detail-modal)';
+const ESC_PROBE = '#context-menu:not(.hidden), .modal-backdrop:not(.hidden):not(#detail-modal)';
+
+// A page with the details of card 3 up and card 22 hovered behind them; `besides` puts another popup up
+// too, `active` puts focus on an element.
+async function withDetails({ besides = false, active = null, open = true } = {}) {
+  const other = besides ? control() : null;
+  const elements = { [ANY_DIALOG]: open ? control() : null, [OTHER_DIALOG]: other, [ESC_PROBE]: other };
+  const p = await openPalette({ notes: NOTES, elements });
+  if (open) p.page.run("currentDetailId = '3'");
+  p.page.run("hoveredId = '22'");
+  p.doc.activeElement = active;
+  return p;
+}
+
+const keyN = (p, over = {}) => {
+  const e = { key: 'n', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, repeat: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...over };
+  p.page.ctx.onNotesKey(e);
+  return e;
+};
+const aimedAt = (p) => p.page.run('notesUi.sub && notesUi.sub.id');
+
+test('n with the card details open notes that card, even with another card hovered behind them', async () => {
+  const p = await withDetails();
+  const e = keyN(p);
+  assert.strictEqual(e.defaultPrevented, true);
+  assert.strictEqual(aimedAt(p), '3');
+  assert.strictEqual(p.page.run('notesUi.sub.kind'), 'card');
+});
+
+test('n with the card details open notes that card even when a different card is selected', async () => {
+  const p = await withDetails();
+  p.page.run("selectedIds.clear(); selectedIds.add('7')");
+  keyN(p);
+  assert.strictEqual(aimedAt(p), '3');
+});
+
+test('without the details open n is as it was: the hovered card', async () => {
+  const p = await withDetails({ open: false });
+  keyN(p);
+  assert.strictEqual(aimedAt(p), '22');
+});
+
+test('n types an n while a field of the details has focus', async () => {
+  const p = await withDetails({ active: { tagName: 'TEXTAREA', isContentEditable: false } });
+  const e = keyN(p);
+  assert.strictEqual(e.defaultPrevented, false);
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+});
+
+test('n stays off behind any other popup, over the details or not', async () => {
+  const p = await withDetails({ besides: true });
+  const e = keyN(p);
+  assert.strictEqual(e.defaultPrevented, false);
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+});
+
+test('the palette draws above the details when they are open, and not otherwise', async () => {
+  const p = await withDetails();
+  keyN(p);
+  assert.strictEqual(p.pal().classes.includes('np-over-detail'), true);
+  p.page.run('notesClose()');
+  const q = await withDetails({ open: false });
+  keyN(q);
+  assert.strictEqual(q.pal().classes.includes('np-over-detail'), false);
+});
+
+const escape = (p, target = {}) => {
+  const e = { key: 'Escape', defaultPrevented: false, target, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } };
+  p.page.ctx.onNotesEscape(e);
+  return e;
+};
+
+test('Esc with focus outside the palette closes the palette and leaves the details for the next Esc', async () => {
+  const p = await withDetails();
+  keyN(p);
+  const first = escape(p);
+  assert.strictEqual(p.page.run('notesUi.sub'), null, 'the palette is closed');
+  assert.strictEqual(first.stopped, true, 'and the details never hear that Esc');
+  const second = escape(p);
+  assert.strictEqual(second.stopped, undefined, 'a second Esc is left to the details, which close as they do today');
+});
+
+test('Esc leaves the palette open when another popup is up over it', async () => {
+  const p = await withDetails({ besides: true });
+  p.page.run("openNotes({ kind: 'card-notes', id: '3' })");
+  escape(p);
+  assert.strictEqual(aimedAt(p), '3');
+});
+
+test('Esc inside the palette closes the palette alone', async () => {
+  const p = await withDetails();
+  keyN(p);
+  const e = p.press(p.pal(), 'Escape');
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+  assert.strictEqual(e.stopped, true);
 });

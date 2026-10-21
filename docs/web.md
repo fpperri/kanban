@@ -455,8 +455,9 @@ Copy button.
   `idDigits`, the width card file names are padded to. Only new files take the new width.
 - *Counters* shows `nextId` and the `counters:` line, read only.
 
-**Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
-selected card, a card with notes wears a small count that opens its notes, and the card menu
+**Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
+details are open, else the hovered or selected card (it draws above the details, and Esc closes
+it before them; a field in the details gets the letter instead), a card with notes wears a small count that opens its notes, and the card menu
 has **Add note…**. Type a note and press Enter: it is written at the time field's time into
 the card's day file and the palette stays open for the next note; Shift+Enter starts a new
 line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading

@@ -40,7 +40,7 @@ function matcher(selector) {
   });
 }
 
-function paletteDocument() {
+function paletteDocument(holder) {
   const doc = { activeElement: null };
   let uid = 0;
   const make = (tag) => {
@@ -55,9 +55,9 @@ function paletteDocument() {
     el.descendants = () => el.walk().slice(1);
     el.querySelectorAll = (sel) => { const is = matcher(sel); return el.descendants().filter((e) => e.classes && is(e)); };
     el.querySelector = (sel) => el.querySelectorAll(sel)[0] || null;
-    el.contains = (other) => !!other && el.walk().some((e) => e.uid === other.uid);
-    el.focus = () => { doc.activeElement = el; };
-    el.blur = () => { if (doc.activeElement === el) doc.activeElement = null; };
+    el.contains = (other) => !!other && other.uid !== undefined && el.walk().some((e) => e.uid === other.uid);
+    el.focus = () => { holder.document.activeElement = el; };
+    el.blur = () => { if (holder.document.activeElement === el) holder.document.activeElement = null; };
     el.click = () => el.fire('click', { stopPropagation() {}, preventDefault() {}, target: el });
     return el;
   };
@@ -69,8 +69,9 @@ function paletteDocument() {
   return doc;
 }
 
-async function openPalette({ cards, notes, stored = {}, viewport = {} } = {}) {
-  const documentExtras = paletteDocument();
+async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {} } = {}) {
+  const holder = { document: null };
+  const documentExtras = paletteDocument(holder);
   const board = {
     projectName: 'kanban',
     statuses: ['backlog', 'todo', 'doing', 'done'],
@@ -80,10 +81,11 @@ async function openPalette({ cards, notes, stored = {}, viewport = {} } = {}) {
     archived: [],
     logbook: { folder: 'logbook', notes: notes || [] },
   };
-  const elements = { '#detail-modal': control(), '#ctx-note': control() };
+  const elements = { '#detail-modal': control(), '#ctx-note': control(), ...more };
   const page = await loadPage({ board, stored, documentExtras, elements }).start();
   Object.assign(page.ctx, viewport);
-  const doc = documentExtras;
+  const doc = page.ctx.document;
+  holder.document = doc;
   const ui = () => page.run('notesUi');
   const pal = () => ui().el;
   const find = (sel) => pal().querySelector(sel);

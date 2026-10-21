@@ -1,7 +1,8 @@
 'use strict';
-// The notes palette on the page (docs/adr/0016): the one surface for a board's notes. n on
-// the hovered or selected card, a card's note count and the right-click Add note... open it
-// aimed at a card; with nothing aimed at it opens on the card last noted. Rows, top down:
+// The notes palette on the page (docs/adr/0016): the one surface for a board's notes. n on the
+// card whose details are open, else the hovered or selected card, a card's note count and the
+// right-click Add note... open it aimed at a card; with nothing aimed at it opens on the card last
+// noted. Over the card details it draws above them and Esc closes it before them. Rows, top down:
 // the subject row (the chip that says what it is about, the time field, the untimed tick),
 // the note box, the preview line that says what Enter will write, the filter row (the
 // filter field, and beside it the Grouped or Timeline switch and the All, Human and AI switch on
@@ -29,7 +30,7 @@
 // shows. The rules (reading the line, planning the write, ordering the list) are notes.js.
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
-// when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds,
+// when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
 // prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, and notes.js's and groups.js's functions.
 
 const notesUi = {
@@ -334,6 +335,7 @@ function openNotes(req) {
     notesResetTime();
   }
   u.hi = -1;
+  u.el.classList.toggle('np-over-detail', notesDetailId() !== null);
   u.el.classList.remove('hidden');
   notesPaint();
   if (u.tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();
@@ -822,24 +824,32 @@ function notesOnPaletteKey(e) {
   e.stopPropagation();
 }
 
-// n opens the palette on the hovered card, else the one selected card, else on the card last
-// noted. A key that types nothing but reads a letter, so it reads the whole key guard
-// unchanged: off while a field has focus and while a menu, a dialog, the notifications panel or
-// the preferences sheet is up.
+// The card whose details are open, else null.
+function notesDetailId() {
+  return currentDetailId != null && !$('#detail-modal').classList.contains('hidden') ? currentDetailId : null;
+}
+
+// n opens the palette on the card whose details are open, else the hovered card, else the one
+// selected card, else on the card last noted. A key that types nothing but reads a letter, so it
+// reads the key guard: off while a field has focus and while a menu, a dialog, the notifications
+// panel or the preferences sheet is up. The card details are the one popup it works over.
 function onNotesKey(e) {
   if (!e.key || e.key.toLowerCase() !== 'n' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-  if (keyGuardOff(document)) return;
+  if (keyGuardOff(document, '#detail-modal')) return;
   e.preventDefault();
   if (!notesOn()) { toast('The logbook is off: config.yaml has no logbook: line.'); return; }
-  const aimed = hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
+  const detail = notesDetailId();
+  const aimed = detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
   openNotes(aimed === null ? {} : { kind: 'card-notes', id: aimed });
 }
 
 // Esc with focus outside the palette (a click on its empty space took it) closes it, unless a menu or a
-// popup is up: those take the Esc first. In the palette Esc is read by the palette itself.
+// popup is up: those take the Esc first. The card details are no exception to the palette: it draws
+// above them, so it closes first and a second Esc closes the details. In the palette Esc is read by
+// the palette itself.
 function onNotesEscape(e) {
   if (e.key !== 'Escape' || !notesUi.sub || notesUi.el.contains(e.target)) return;
-  if (document.querySelector('#context-menu:not(.hidden), .modal-backdrop:not(.hidden)')) return;
+  if (document.querySelector('#context-menu:not(.hidden), .modal-backdrop:not(.hidden):not(#detail-modal)')) return;
   e.preventDefault();
   e.stopPropagation();
   notesClose();

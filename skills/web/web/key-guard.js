@@ -14,6 +14,8 @@
 // #notif-modal and #prefs-sheet are .modal-backdrop too, so the 'dialog' entry answers for
 // them and keyGuardSurface never names 'notifications' or 'preferences' there; those two
 // entries are a safety net behind it, for a surface that stops being a .modal-backdrop.
+// A key may name one popup that does not turn it off (`n` notes the card whose details are open):
+// it passes that popup's selector, and any other popup open besides still does.
 //
 // Pure: callers pass the document, so Node tests drive it with a fake. Same
 // dual-environment export pattern as save-hotkey.js and search-hotkey.js.
@@ -30,13 +32,15 @@ function keyGuardTyping(doc) {
   return active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || !!active.isContentEditable;
 }
 
-function keyGuardSurface(doc) {
-  const open = KEY_GUARD_SURFACES.find((s) => doc.querySelector(s.selector));
+// `except` is the selector of one popup that may stay open without turning the guard off (`n`
+// notes the open card, so the card details do not stop it); any other popup still does.
+function keyGuardSurface(doc, except) {
+  const open = KEY_GUARD_SURFACES.find((s) => doc.querySelector(except && s.name === 'dialog' ? `${s.selector}:not(${except})` : s.selector));
   return open ? open.name : null;
 }
 
-function keyGuardOff(doc) {
-  return keyGuardTyping(doc) || keyGuardSurface(doc) !== null;
+function keyGuardOff(doc, except) {
+  return keyGuardTyping(doc) || keyGuardSurface(doc, except) !== null;
 }
 
 // What Esc does once nothing has taken it: 'clear-box' when focus is in the

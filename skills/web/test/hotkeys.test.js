@@ -92,3 +92,9 @@ test('no other key, and no chord with Ctrl, Cmd or Alt, and no held key, is the 
   assert.strictEqual(hotkeyIsHelp({}), false);
   assert.strictEqual(hotkeyIsHelp(null), false);
 });
+
+test('the n line says it notes the card whose details are open, ahead of the hovered or selected card', () => {
+  const what = rowOf(hotkeyRows(NOW), 'note').what;
+  assert.match(what, /card whose details are open/);
+  assert.ok(what.indexOf('details are open') < what.indexOf('hovered or selected'), 'the open details come first');
+});

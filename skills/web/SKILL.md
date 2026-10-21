@@ -1138,9 +1138,12 @@ to `127.0.0.1` only.
   day files, see the kanban skill's logbook section) the page keeps a **notes palette**, the
   one surface for notes. Without the line nothing of it shows: no count, no menu entry, and
   `n` only says the logbook is off. A card with notes wears a small count on its tile (live
-  and archived); a click on it opens the card's notes. `n` opens the palette on the hovered
-  card, else on the one selected card, else on the card last noted (kept per board in this
-  browser); the card menu's **Add note…** opens it on one card. Its rows, top down: the
+  and archived); a click on it opens the card's notes. `n` opens the palette on the card whose
+  details are open, else on the hovered card, else on the one selected card, else on the card
+  last noted (kept per board in this browser). The card details are the one popup `n` works
+  over (`keyGuardOff(document, '#detail-modal')`): any other popup, a menu, or a field with
+  focus still turns it off. The palette then draws above the details, and the first Esc closes
+  it while a second closes the details; the card menu's **Add note…** opens it on one card. Its rows, top down: the
   subject row (a chip that says what the palette is about, a time field and an *untimed*
   tick), the note box, the preview line that says exactly what Enter will write (`Note at
   10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an

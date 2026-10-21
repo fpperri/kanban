@@ -20,7 +20,7 @@ const HOTKEYS = [
   { id: 'space', keys: ['Space'], reads: [' '], what: 'Select the focused card in the Graph, as a click does.' },
   { id: 'save', keys: ['Ctrl/Cmd+S'], reads: ['s'], what: 'Save the edit or bulk popup that is open.' },
   { id: 'fullscreen', keys: ['Alt+Enter'], reads: ['Enter'], what: 'Toggle fullscreen on the popup that is open.' },
-  { id: 'note', keys: ['n'], reads: ['n'], what: 'Add a note on the hovered or selected card (the card last noted when none is): opens the notes palette, where Enter writes the note and Shift+Enter starts a new line. Needs a logbook: line in config.yaml.' },
+  { id: 'note', keys: ['n'], reads: ['n'], what: 'Add a note on the card whose details are open, else on the hovered or selected card (the card last noted when none is): opens the notes palette, where Enter writes the note and Shift+Enter starts a new line. Needs a logbook: line in config.yaml.' },
   { id: 'note-row', keys: ['e', 'a', 'd d'], reads: ['e', 'a', 'd'], what: 'On a note in the notes palette: edit it, assign it to another card, or delete it (press d twice).' },
   { id: 'names', keys: ['l'], reads: ['l'], state: 'names', what: 'Step the names the Graph\'s tier fan draws: relevant, all, none.' },
   { id: 'slice', keys: ['[', ']', '{', '}'], reads: ['[', ']', '{', '}'], state: 'slice', what: 'Move the bottom of the run of slices up and down with [ and ], and its top up and down with { and }.' },

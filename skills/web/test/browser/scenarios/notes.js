@@ -282,5 +282,20 @@ module.exports = {
     await pickLayout('grouped');
     check('notes: Grouped brings the sections back', await waitFor(`document.querySelectorAll('#notes-palette .np-tgroup').length===0&&document.querySelectorAll('#notes-palette .np-ngroup').length>=2`, 2500));
     await closePalette();
+
+    // --- n with the card details open notes that card ----------------------------------------------------------
+    const DETAIL_UP = `!document.getElementById('detail-modal').classList.contains('hidden')`;
+    const DETAIL_SHUT = `document.getElementById('detail-modal').classList.contains('hidden')`;
+    const title7 = await centre('#board .card-el[data-id="7"] .card-title');
+    await click(title7.x, title7.y);
+    check('notes: a click on card 7 opens its details', await waitFor(`${DETAIL_UP}&&document.getElementById('detail-title').textContent.startsWith('#7')`, 4000));
+    await ev(`(()=>{hoveredId='22';if(document.activeElement)document.activeElement.blur()})()`);
+    await key('n');
+    check('notes: n with the details open opens the palette on the open card, whatever is hovered behind them', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
+    check('notes: the palette draws above the details', await ev(`(()=>{const r=${PAL}.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+12);return !!e&&${PAL}.contains(e)})()`));
+    await key('Escape');
+    check('notes: the first Esc closes the palette and leaves the details open', await waitFor(PAL_GONE, 2500) && await ev(DETAIL_UP));
+    await key('Escape');
+    check('notes: a second Esc closes the details, as it does today', await waitFor(DETAIL_SHUT, 2500));
   },
 };

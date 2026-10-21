@@ -103,3 +103,45 @@ test('with no search box to compare against, every text field stays guarded and 
   assert.strictEqual(keyGuardEscape(fakeDoc({ active: field('INPUT') }), null), null);
   assert.strictEqual(keyGuardEscape(fakeDoc({ active: field('BODY') }), null), 'step');
 });
+
+// A key can name one popup that does not turn it off (`n` names the card details: it notes the
+// open card). Any other popup, menu or panel open besides still does.
+const DETAIL = '#detail-modal';
+
+// A document of the elements that are open, answering the page's selectors the way the page does.
+function openDoc({ active = null, open = [] } = {}) {
+  const matches = (sel, el) => {
+    const not = [...sel.matchAll(/:not\(([^)]+)\)/g)].map((m) => m[1]).filter((s) => s !== '.hidden');
+    const base = sel.replace(/:not\([^)]+\)/g, '');
+    return el.selectors.includes(base) && !not.some((s) => el.selectors.includes(s));
+  };
+  return { activeElement: active, querySelector: (sel) => open.find((el) => matches(sel, el)) || null };
+}
+const popup = (id, ...more) => ({ selectors: [`#${id}`, ...more] });
+const detail = popup('detail-modal', '.modal-backdrop');
+
+test('with the card details named, they alone do not turn the guard off', () => {
+  const doc = openDoc({ open: [detail] });
+  assert.strictEqual(keyGuardSurface(doc), 'dialog');
+  assert.strictEqual(keyGuardOff(doc), true, 'without the exception the card details are a dialog');
+  assert.strictEqual(keyGuardSurface(doc, DETAIL), null);
+  assert.strictEqual(keyGuardOff(doc, DETAIL), false);
+});
+
+test('with the card details named, any other popup open beside them still turns the guard off', () => {
+  for (const other of [popup('modal', '.modal-backdrop'), popup('delete-modal', '.modal-backdrop'), popup('notif-modal', '.modal-backdrop'), popup('prefs-sheet', '.modal-backdrop')]) {
+    const doc = openDoc({ open: [detail, other] });
+    assert.strictEqual(keyGuardOff(doc, DETAIL), true, other.selectors[0]);
+  }
+  assert.strictEqual(keyGuardOff(openDoc({ open: [detail, popup('context-menu')] }), DETAIL), true, 'the card menu over the details');
+});
+
+test('with the card details named, typing in a field still turns the guard off', () => {
+  assert.strictEqual(keyGuardOff(openDoc({ active: field('TEXTAREA'), open: [detail] }), DETAIL), true);
+  assert.strictEqual(keyGuardOff(openDoc({ active: field('BUTTON'), open: [detail] }), DETAIL), false);
+});
+
+test('naming a popup that is not open changes nothing', () => {
+  assert.strictEqual(keyGuardOff(openDoc({ open: [popup('modal', '.modal-backdrop')] }), DETAIL), true);
+  assert.strictEqual(keyGuardOff(openDoc({}), DETAIL), false);
+});
