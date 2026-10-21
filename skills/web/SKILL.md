@@ -1022,7 +1022,7 @@ to `127.0.0.1` only.
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
   the sheet), and a click inside it never clears a selection. `?` opens the sheet on its Hotkeys page.
   **This board** has the pages Logbook, Scratchpad, Groups, Prefixes and Counters, each written to
-  `config.yaml` one top-level line at a time (the line replaced, inserted or removed, every
+  `config.yaml` one top-level line at a time (or one block, below; the line replaced, inserted or removed, every
   other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with
   `{ key, value }`, which answers `{ settings }` as the file now reads. **Logbook**,
   **Scratchpad** and **Groups** each have an on/off switch (off removes the line, on writes the folder) and a
@@ -1036,9 +1036,32 @@ to `127.0.0.1` only.
   without groups), and turning iterations on without groups is refused (409). It also lists the groups found, by type path,
   each opening its group in the palette, and **New group…**. **Prefixes** shows the `prefixes:` block as a read only
   table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
-  new card files. **Counters** shows `nextId:` and the `counters:` line, read only. The
+  new card files. **Counters** shows `nextId:` and the `counters:` line, read only.
+  **One block at a time (ADR 0018).** The same route also rewrites one whole top-level block, `types:`,
+  `hierarchy:` or `prefixes:`, from `{ block, value }`: `types` a list of names or of
+  `{ name, color?, icon? }` (an entry with neither is written bare, as the starter writes `- bug`),
+  `hierarchy` a list of names (written inline, or as a block when a name will not sit in a flow
+  list), `prefixes` a map from each prefix to a card type or a groups folder (or a list of
+  `{ prefix, target }`). An empty or absent value removes the block. The block is written clean in
+  the starter's layout; every byte outside it stays, the file's line ending included, and the
+  comments inside the old block are dropped. A block that is not in the file yet is inserted below
+  the nearest key before it in the config's own order, else at the top. The server refuses (400) a
+  name that is empty, has a line break or repeats another (the same with or without capitals), a
+  color that is not a hex color, an icon that is not one of the six names or none, and a prefix
+  that is not `_` and capitals; a name that would not read back bare is quoted. Each edit changes
+  only its own block: the server never rewrites `hierarchy:` or `prefixes:` because `types:`
+  changed, and never writes a card. **Types off** is `{ key: "typesOn", value }`: `false` writes
+  `typesOn: false`, `true` removes the line (no line means on); it is display only and writes
+  no list and no card. Any save may send the `version` the settings answered: when `config.yaml`
+  has changed on disk since (the id counters, `nextId:` and `counters:`, do not count), the save is
+  refused with 409 and writes nothing, and the page reads again. A save that sends no version
+  is not checked. The
   `/api/board` payload carries `settings`: `logbook`, `scratchpad` and `groups` as `{ on, folder, locked,
-  reason }`, `idDigits`, `nextId`, `prefixes` and `counters` (the Iterations switch shows the
+  reason }`, `idDigits`, `nextId`, `prefixes` and `counters`, and for the Types page `types`,
+  `hierarchy`, `typesOn`, `typeUse` (how many cards, on the board and archived, carry each `type:` word
+  as written), `version`, and `paths` (the absolute path of `config.yaml` and of the logbook,
+  scratchpad and groups folders, resolved whether or not the folder exists, `null` when off) for
+  each page's copy button (the Iterations switch shows the
   payload's own top-level `iterations`). Another page of
   This board is added with `settingsAddBoardPage` in `settings-ui.js`.
 - **Notes (logbook)** — with a `logbook:` line in `config.yaml` (the folder of the board's
