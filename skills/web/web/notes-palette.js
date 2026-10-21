@@ -830,7 +830,6 @@ function notesOnInputKey(e) {
 function notesOnFilterKey(e) {
   if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); notesFocusRow(0); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); notesUi.input.focus(); }
-  else if (e.key === 'Escape' && notesUi.filter.value) { e.preventDefault(); e.stopPropagation(); notesUi.filter.value = ''; notesPaintBody(); }
 }
 
 function notesOnBodyKey(e) {

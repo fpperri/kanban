@@ -385,3 +385,45 @@ test('each tab shows its key as a muted hint and in its title', async () => {
   assert.deepStrictEqual(tabs.map((t) => t.title), ['Notes (Alt+1)', 'Scratchpad (Alt+2)']);
   assert.deepStrictEqual(tabs.map((t) => t.dataset.tab), ['notes', 'scratch']);
 });
+
+// --- Esc in the filter field ---------------------------------------------------------------
+
+// A key at `target`, handed up its parents the way the browser does until something stops it.
+function bubble(target, key) {
+  const e = { key, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, repeat: false, target, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } };
+  for (let at = target; at && !e.stopped; at = at.parent) at.fire('keydown', e);
+  return e;
+}
+
+test('Esc in the filter field closes the palette at once, with text in the filter or without', async () => {
+  for (const typed of ['', 'enum']) {
+    const p = await openPalette({ notes: NOTES });
+    p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+    p.ui().filter.value = typed;
+    p.ui().filter.fire('input', {});
+    bubble(p.ui().filter, 'Escape');
+    assert.strictEqual(p.page.run('notesUi.sub'), null, `filter ${JSON.stringify(typed)}`);
+  }
+});
+
+test('the filter starts empty when the palette opens again, as it does today', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  p.ui().filter.value = 'enum';
+  bubble(p.ui().filter, 'Escape');
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  assert.strictEqual(p.ui().filter.value, '');
+});
+
+test('Esc in a note\'s edit form or assign field still cancels it and leaves the palette open', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  p.press(p.ui().body, 'e', { target: p.all('.np-note')[0] });
+  assert.strictEqual(p.all('.np-edit-text').length, 1);
+  const form = p.find('.np-edit');
+  const first = { key: 'Escape', preventDefault() {}, stopPropagation() { this.stopped = true; } };
+  form.fire('keydown', first);
+  assert.strictEqual(first.stopped, true, 'the form keeps the key');
+  assert.strictEqual(p.all('.np-edit-text').length, 0, 'the edit is cancelled');
+  assert.notStrictEqual(p.page.run('notesUi.sub'), null, 'and the palette is still up');
+});

@@ -10,8 +10,9 @@
 // time, and the preview line says exactly what Enter will write; a bare #22 then Enter aims the
 // palette at that card and Backspace on the empty box clears the chip. e, a and d d work on a
 // listed note: edit its text and time, assign it to another card, delete it. Keys typed in the
-// palette reach none of the board's own shortcuts. With no logbook line nothing shows and n says
-// why. Each step waits on the page, never on a fixed sleep.
+// palette reach none of the board's own shortcuts, and Esc closes it from the filter field too.
+// With no logbook line nothing shows and n says why. Each step waits on the page, never on a fixed
+// sleep.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // state, selectedIds, hoveredId, noteClock, toast (the page's #toast element, by its id).
@@ -272,8 +273,9 @@ module.exports = {
     check('notes: the down arrow still moves from the note box into the list', await waitFor(`document.activeElement.classList.contains('np-note')`, 2000));
     await ev(`(()=>{const f=${q('.np-filter')};f.value='enum';f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     check('notes: the filter narrows the flat list too', await waitFor(`${ROW_TEXTS}.length===1&&${ROW_TEXTS}[0].includes('enum renames')`, 2500), await ev(ROW_TEXTS));
-    await ev(`(()=>{const f=${q('.np-filter')};f.value='';f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
-    check('notes: Esc closes the palette', await closePalette());
+    await ev(`${q('.np-filter')}.focus()`);
+    check('notes: the filter field has the focus and holds its text', await ev(`document.activeElement===${q('.np-filter')}&&${q('.np-filter')}.value==='enum'`));
+    check('notes: Esc in the filter field closes the palette at once, text and all', await closePalette());
     await open('/?view=board');
     check('notes: the board is drawn again after a reload', await boardReady());
     check('notes: the pointer rests on card 7 once more', await hoverCard('7'));
