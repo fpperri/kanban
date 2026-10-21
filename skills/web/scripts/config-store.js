@@ -36,6 +36,8 @@
 //                         # logbook and nothing of it shows
 //   scratchpad: .scratchpad  # the folder of the cards' and groups' scratchpads
 //                         # (docs/adr/0016), the same way; absent = no scratchpads
+//                         # Either may hold `<iteration>` as a whole segment, the folder of
+//                         # an iteration (docs/adr/0019, iteration-folders.js); read as text
 //   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
 //                         # way; absent = no groups and nothing of them shows
 //   typesOn: false        # Types off: the web and the snapshot ignore `types:`, the

@@ -475,6 +475,18 @@ you have not saved stays in the page until you reload it. The kanban never delet
 delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
 `scratchpad:` line nothing of this shows.
 
+**Iteration folders** — `logbook:` and `scratchpad:` may hold `<iteration>` as a whole path
+segment, as in `logbook: sprints/<iteration>/.logbook`. It stands for the folder of an iteration,
+named as its group file is without `.md` (`0005.sprint-496`); a folder is matched to its
+iteration by the id at the front of its name, so renaming the group keeps the folder. A note goes
+to the iteration it is aimed at, else the one whose dates hold its day (the one that started
+first, if two do); a scratchpad goes to the iteration its card or group is a member of, else the
+one holding the day it is first written. With none, the segment is dropped (`sprints/.logbook`).
+A file that exists is read and edited where it is, and nothing moves one. Notes and pages are read
+from every folder the path can name, past iterations included. The gear shows the path as written
+and, under it, the folder a new write goes to today. Any other `<word>` is an ordinary folder
+name, and a path without `<iteration>` reads as it always did.
+
 **Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges
 (`#I2 zephyr-2`, then `+N`) below its title, with the group's dates and type path as a tooltip.
 A badge opens the notes palette on that group's **Group** tab, which edits its name, dates,

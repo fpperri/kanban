@@ -228,3 +228,11 @@ test('groups reads the iteration file name the folder takes', () => {
   twoSprints(dir);
   assert.deepStrictEqual(gs.readGroups(dir).list.map((g) => g.file), ['.groups/iteration/0005.sprint-496.md', '.groups/iteration/0006.sprint-497.md']);
 });
+
+test('a group file whose name does not start with its id still gets a folder that reads back', () => {
+  const dir = tmpBoard();
+  iteration(dir, '5', 'sprint-496', '2026-10-12', '2026-10-23');
+  const made = lb.addNote(dir, { day: '2026-10-16', target: '', note: 'x' });
+  assert.strictEqual(made.file, '0005.sprint-496/2026.10.16.logbook.md');
+  assert.deepStrictEqual(lb.listNotes(dir).map((n) => n.note), ['x']);
+});

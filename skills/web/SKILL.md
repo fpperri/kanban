@@ -1185,6 +1185,16 @@ to `127.0.0.1` only.
   an id or a body that is wrong, 413 for a page over 300000 characters); there is no delete
   route, only the delete popup's **Its scratchpad** takes a page. The `/api/board` payload
   carries `scratchpad: { folder, targets }`, the ids that have a page, or `null`.
+  Either path may hold `<iteration>` as a whole segment (docs/adr/0019, `iteration-folders.js`):
+  a note goes to the iteration it is aimed at or whose dates hold its day, a page to the
+  iteration its card or group is in, else the segment is dropped; a file that exists stays where
+  it is, and a read covers every folder the path can name. A note's `file` then reads
+  `<iteration folder>/<day file>` (just the day file for the dropped-segment folder, and the ref
+  an edit or delete sends names the file it means), and a page carries `folder`, the path with
+  the segment filled in, only for such a path. The settings' `paths.logbook` and `paths.scratchpad`
+  stay the path as written, with `logbookNow` and `scratchpadNow` the folder a new write goes to
+  today (`null` for a path without the placeholder); the gear's path bar shows both and the
+  folder field accepts a `<iteration>` segment, as in `0005.sprint-496`.
 - **Groups** — with a `groups:` line in `config.yaml` (the folder of the board's group
   files, see the kanban skill's groups section) a card shows **badges** below its title: up to
   two small buttons (`#I2 zephyr-2`) and `+N` for the rest, the dates and the type path (the

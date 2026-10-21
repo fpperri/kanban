@@ -13,6 +13,7 @@
 // head's own listing or built from a group file's name.
 const fs = require('fs');
 const path = require('path');
+const cfg = require('./config-store');
 const gs = require('./group-store');
 const ids = require('../web/ids');
 const { groupRunning } = require('../web/groups');
@@ -31,13 +32,22 @@ const hasPlaceholder = (value) => split(value) !== null;
 
 const joinParts = (parts) => parts.join('/');
 
-// The board's iterations: { id, name, start, end } where name is the group file's name without `.md`.
+// The folder name an iteration's group file gives: the file's name without `.md`. A file whose name
+// does not start with its id (the file name is only a label) gets the id put in front, so the folder
+// can be matched to it again.
+function nameOf(group, digits) {
+  const base = path.posix.basename(group.file).replace(/\.md$/, '');
+  return idOfFolder(base) === group.id ? base : `${ids.formatId(group.id, digits)}.${base}`;
+}
+
+// The board's iterations: { id, name, start, end, cards, group }.
 function iterations(dir) {
   const read = gs.readGroups(dir);
   if (!read) return [];
+  const digits = cfg.readConfig(dir).idDigits;
   return read.list
     .filter((g) => g.folder === ITERATION_FOLDER)
-    .map((g) => ({ id: g.id, name: path.posix.basename(g.file).replace(/\.md$/, ''), start: g.start_date, end: g.end_date, cards: g.cards, group: g }));
+    .map((g) => ({ id: g.id, name: nameOf(g, digits), start: g.start_date, end: g.end_date, cards: g.cards, group: g }));
 }
 
 // The one that started first; an undated one after every dated one; ties by id.
