@@ -1,6 +1,6 @@
 # 0017. The web writes config.yaml one line at a time, and never a folder outside the board
 
-Date: 2026-10-19 · Status: accepted
+Date: 2026-10-19 · Status: accepted; the one-line rule is widened to one block by ADR 0018
 
 ## Context
 
