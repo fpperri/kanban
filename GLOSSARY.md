@@ -211,8 +211,12 @@ _Avoid_: journal, log, diary.
 One entry in the logbook: a line of text written at a moment of a day (or untimed), about a card, a group or nothing, signed by its author, human or AI. Kept out of the card, unlike a narrative entry.
 _Avoid_: log entry, logbook entry, comment, narrative entry (that lives in the card), notification (that is addressed to the human).
 
+**Todo list** (via **todos:**):
+A card's or group's ad hoc checklist, kept apart from its body: a Markdown task list that a person or an agent ticks as they go. The board attaches no meaning to it.
+_Avoid_: checklist, tasks, acceptance criteria.
+
 **Target**:
-What a note or a scratchpad is about: one card, one group, or nothing.
+What a note, a scratchpad or a todo list is about: one card, one group, or nothing.
 _Avoid_: subject, owner, link.
 
 **Scratchpad** (via **scratchpad:**):
