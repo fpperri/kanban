@@ -1728,7 +1728,12 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .types-name { flex: 1 1 8em; min-width: 6em; padding: 4px 6px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.9em; }
 .types-hex { width: 6.5em; padding: 4px 6px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
 .types-name:focus, .types-hex:focus { outline: none; border-color: var(--accent); }
-.types-color { width: 2.2em; height: 1.9em; padding: 0; background: transparent; border: 1px solid var(--line); border-radius: .15rem; cursor: pointer; }
+.types-swatches { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.types-swatch { box-sizing: border-box; min-width: 1.4em; height: 1.4em; padding: 0; border: 1px solid var(--line-strong); border-radius: .15rem; background: currentColor; cursor: pointer; }
+.types-swatch.is-none { padding: 0 6px; background: var(--btn-bg); color: var(--mut); font-size: 0.75em; }
+.types-swatch.is-current { cursor: default; background: transparent; }
+.types-swatch.is-current[data-type-color] { background: currentColor; }
+.types-swatch[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
 .types-icons { display: inline-flex; flex-wrap: wrap; }
 .types-icon { min-width: 2em; padding: 3px 6px; border-radius: 0; font-size: 0.8em; }
 .types-icon + .types-icon { margin-left: -1px; }

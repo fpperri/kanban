@@ -203,13 +203,38 @@ test('the page refuses a blank name or one another type has before it asks the s
   assert.strictEqual(s.settingsTypeNameProblem(TYPES, 'spike', null), '');
 });
 
-test('a color is a hex color the page can hand the color picker, or nothing', () => {
+test('a color the person types is a hex color, or nothing', () => {
   for (const ok of ['', '#fff', '#A371F7', '#a371f7cc']) assert.strictEqual(s.settingsColorProblem(ok), '', ok);
   for (const bad of ['red', '#12', '#12345', 'a371f7', '#gggggg']) assert.match(s.settingsColorProblem(bad), /hex color/, bad);
-  assert.strictEqual(s.settingsColorForPicker('#fff'), '#ffffff');
-  assert.strictEqual(s.settingsColorForPicker('#A371F7'), '#a371f7');
-  assert.strictEqual(s.settingsColorForPicker('#a371f7cc'), '#a371f7');
-  assert.strictEqual(s.settingsColorForPicker(''), '#808080');
+});
+
+test('the swatches are the colors the starter config uses and the status palette, each once, as hex', () => {
+  const swatches = s.SETTINGS_TYPE_SWATCHES;
+  for (const hex of ['#e3b341', '#f0883e', '#a371f7', '#58a6ff', '#3fb950']) assert.ok(swatches.includes(hex), hex);
+  for (const hex of require('../web/status-colors').STATUS_PALETTE) assert.ok(swatches.includes(hex.toLowerCase()), hex);
+  assert.strictEqual(new Set(swatches).size, swatches.length);
+  for (const hex of swatches) assert.strictEqual(s.settingsColorProblem(hex), '', hex);
+});
+
+test('names that differ only in capitals are separate rows: a move, a drop and an edit act on the one named', () => {
+  const types = [{ name: 'Bug', color: 'red' }, { name: 'bug', icon: 'star' }, { name: 'epic' }];
+  const h = ['Bug', 'bug', 'epic'];
+  const areas = s.settingsTypeAreas(types, h);
+  assert.deepStrictEqual(areas.hierarchy.map((r) => r.type), types);
+  assert.deepStrictEqual(areas.other, []);
+  assert.deepStrictEqual(s.settingsMoveType(h, 'bug', -1), ['bug', 'Bug', 'epic']);
+  assert.deepStrictEqual(s.settingsMoveType(h, 'Bug', 1), ['bug', 'Bug', 'epic']);
+  assert.deepStrictEqual(s.settingsDropType(h, 'bug', 'other'), ['Bug', 'epic']);
+  assert.deepStrictEqual(s.settingsTypesRename(types, 'bug', 'insect').map((t) => t.name), ['Bug', 'insect', 'epic']);
+  assert.deepStrictEqual(s.settingsTypesPatch(types, 'bug', { color: '#fff' })[0], { name: 'Bug', color: 'red' });
+  assert.deepStrictEqual(s.settingsTypesRemove(types, 'bug').map((t) => t.name), ['Bug', 'epic']);
+  assert.match(s.settingsTypeNameProblem(types, 'BUG', 'bug'), /already a card type named BUG/, 'the other spelling is another type');
+});
+
+test('a stored color that is a name, or an icon this build does not draw, stays on its entry through a rename and an icon change', () => {
+  const types = [{ name: 'bug', color: 'red', icon: 'hexagram' }];
+  assert.deepStrictEqual(s.settingsTypesRename(types, 'bug', 'insect'), [{ name: 'insect', color: 'red', icon: 'hexagram' }]);
+  assert.deepStrictEqual(s.settingsTypesPatch(types, 'bug', { icon: 'star' }), [{ name: 'bug', color: 'red', icon: 'star' }]);
 });
 
 test('each leftover is ONE bullet saying what and why: a hierarchy name no type has', () => {

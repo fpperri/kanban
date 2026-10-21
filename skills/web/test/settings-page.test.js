@@ -238,12 +238,17 @@ test('a hierarchy name that is not a listed type is a warning chip in the Hierar
   assert.match(act(row, 'remove').attrs['aria-label'], /Remove sprint from the hierarchy/);
 });
 
-test('each listed row has an editable name, a color picker and hex field, seven icon buttons and a read only prefix with a link', () => {
+test('each listed row has an editable name, a swatch row and hex field, seven icon buttons and a read only prefix with a link', () => {
   const row = rowNamed(loadPages().page('types'), 'goal');
   assert.strictEqual(row.one(labelled('Name of goal')).value, 'goal');
-  const picker = row.one(labelled('Color of goal'));
-  assert.strictEqual(picker.type, 'color');
-  assert.strictEqual(picker.value, '#a371f7');
+  assert.strictEqual(row.all((el) => el.tag === 'input').filter((el) => el.type === 'color').length, 0, 'no native color popup (docs/adr/0003)');
+  const swatches = row.one(labelled('Color of goal'));
+  assert.strictEqual(swatches.attrs.role, 'group');
+  const buttons = swatches.all((el) => el.tag === 'button');
+  assert.strictEqual(buttons[0].dataset.color, '', 'the first clears the color');
+  assert.deepStrictEqual(buttons.slice(1).map((b) => b.dataset.color), settings.SETTINGS_TYPE_SWATCHES);
+  assert.deepStrictEqual(buttons.filter((b) => b.attrs['aria-pressed'] === 'true').map((b) => b.dataset.color), ['#a371f7']);
+  for (const b of buttons.slice(1)) assert.strictEqual(b.dataset.typeColor, b.dataset.color, 'painted by paintTypeColors');
   assert.strictEqual(row.one(labelled('Hex color of goal')).value, '#a371f7');
   const group = row.one(labelled('Icon of goal'));
   assert.strictEqual(group.attrs.role, 'group');
@@ -385,7 +390,7 @@ test('a name another type has is refused on the page with the text kept, and not
   assert.strictEqual(ctx.run("settingsUi.drafts['row:goal'].name"), 'BUG');
 });
 
-test('a hex color that is not one is refused on the page; a valid one and the picker write the types block', async () => {
+test('a hex color the person types that is not one is refused on the page; a valid one and a swatch write the types block', async () => {
   const ctx = loadPages();
   const row = rowNamed(ctx.page('types'), 'story');
   const hex = row.one(labelled('Hex color of story'));
@@ -393,12 +398,77 @@ test('a hex color that is not one is refused on the page; a valid one and the pi
   await hex.fire('change');
   assert.deepStrictEqual(ctx.calls, []);
   assert.match(ctx.run("settingsUi.errors['row:story']"), /hex color/);
-  const picker = row.one(labelled('Color of story'));
-  picker.value = '#112233';
-  await picker.fire('change');
-  hex.value = '';
+  const swatch = rowNamed(ctx.page('types'), 'story').one(labelled('Set the color of story to #3fb950'));
+  await swatch.fire('click');
   await ctx.settle();
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2].value[2])), { name: 'story', color: '#112233' });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2].value[2])), { name: 'story', color: '#3fb950' });
+  const typed = rowNamed(ctx.page('types'), 'story').one(labelled('Hex color of story'));
+  typed.value = '#112233';
+  await typed.fire('change');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[1][2].value[2])), { name: 'story', color: '#112233' });
+  await rowNamed(ctx.page('types'), 'goal').one(labelled('No color for goal')).fire('click');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[2][2].value[0])), { name: 'goal', icon: 'star' });
+});
+
+// A value from the file is kept as written (docs/adr/0004): the page checks only what the person just typed.
+const TOLERANT = () => ({
+  ...BASE_SETTINGS(),
+  types: [{ name: 'bug', color: 'red', icon: 'hexagram' }, { name: 'Task', color: 'rebeccapurple' }, { name: 'Bug' }],
+  hierarchy: ['bug', 'Bug', 'epic'],
+  typeUse: { spike: 2 },
+});
+
+test('a row whose stored color is a name shows that name in the field and in a swatch, and no swatch or icon is pressed', () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  const row = rowNamed(ctx.page('types'), 'bug');
+  assert.strictEqual(row.one(labelled('Hex color of bug')).value, 'red');
+  const current = row.one(byClass('is-current'));
+  assert.strictEqual(current.dataset.typeColor, 'red');
+  assert.deepStrictEqual(row.one(labelled('Color of bug')).all((el) => el.attrs['aria-pressed'] === 'true'), []);
+  assert.deepStrictEqual(row.one(labelled('Icon of bug')).children.map((b) => b.attrs['aria-pressed']), ['false', 'false', 'false', 'false', 'false', 'false', 'false']);
+});
+
+test('a color the browser cannot draw is shown as text in the field and gets no swatch color', () => {
+  const ctx = loadPages({ CSS: { supports: (prop, value) => value !== 'rebeccapurple' } });
+  ctx.state.settings = TOLERANT();
+  const row = rowNamed(ctx.page('types'), 'Task');
+  assert.strictEqual(row.one(labelled('Hex color of Task')).value, 'rebeccapurple');
+  assert.strictEqual(row.one(byClass('is-current')).dataset.typeColor, undefined);
+  assert.strictEqual(rowNamed(ctx.page('types'), 'bug').one(byClass('is-current')).dataset.typeColor, 'red');
+});
+
+test('Add from Found on cards saves a board whose colors are names and whose icon this build does not draw, those entries untouched', async () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  await ctx.page('types').one(labelled('Add spike to the types')).fire('click');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2].value)), [{ name: 'bug', color: 'red', icon: 'hexagram' }, { name: 'Task', color: 'rebeccapurple' }, { name: 'Bug' }, { name: 'spike' }]);
+});
+
+test('retyping the stored color name or leaving the hex field as it is writes nothing and shows no refusal', async () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  const hex = rowNamed(ctx.page('types'), 'bug').one(labelled('Hex color of bug'));
+  await hex.fire('change');
+  hex.value = 'red';
+  await hex.fire('change');
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls, []);
+  assert.strictEqual(ctx.run("settingsUi.errors['row:bug']"), undefined);
+});
+
+test('names that differ only in capitals are two rows; moving one saves the hierarchy with both names as written', async () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  const root = ctx.page('types');
+  assert.deepStrictEqual(rowsOf(area(root, 'hierarchy')).map((li) => li.dataset.type), ['bug', 'Bug', 'epic']);
+  await act(rowNamed(root, 'Bug'), 'up').fire('click');
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls[0][2].value, ['Bug', 'bug', 'epic']);
+  assert.strictEqual(ctx.calls[0][2].block, 'hierarchy');
 });
 
 test('an icon button sets the icon and none clears it; the pressed one does nothing', async () => {

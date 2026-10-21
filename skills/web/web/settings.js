@@ -11,7 +11,9 @@
 // Pure: same dual-environment export pattern as groups.js — loaded as a plain <script> in the
 // browser (one global per function) AND required by node --test.
 
-const SETTINGS_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+const SETTINGS_NODE = typeof module !== 'undefined' && module.exports;
+const SETTINGS_IDS = SETTINGS_NODE ? require('./ids') : window.kanbanIds;
+const SETTINGS_SCOL = SETTINGS_NODE ? require('./status-colors') : window;
 
 const SETTINGS_WIDE_AT = 760;
 const SETTINGS_DEFAULT_PAGE = 'browser:prefs';
@@ -140,15 +142,21 @@ function settingsTypeKey(name) {
   return String(name == null ? '' : name).trim().toLowerCase();
 }
 
+// Where `name` is in a list: the entry spelled exactly so, else the first that differs only in
+// capitals. Names that differ only in capitals are kept as the file wrote them, so a row acts on its
+// own entry and not on its twin. `nameOf` reads the name of an entry that is not a bare name.
+function settingsIndexOf(list, name, nameOf = (x) => x) {
+  const exact = list.findIndex((x) => nameOf(x) === name);
+  return exact !== -1 ? exact : list.findIndex((x) => settingsTypeKey(nameOf(x)) === settingsTypeKey(name));
+}
+
 // The two areas: the hierarchy in its order (a name with no listed type has `type: null`, a warning
 // chip) and the rest of the types in their order. Names meet without regard to case.
 function settingsTypeAreas(types, hierarchy) {
-  const byKey = new Map();
-  for (const t of types) if (!byKey.has(settingsTypeKey(t.name))) byKey.set(settingsTypeKey(t.name), t);
-  const inHierarchy = new Set(hierarchy.map(settingsTypeKey));
+  const at = hierarchy.map((name) => settingsIndexOf(types, name, (t) => t.name));
   return {
-    hierarchy: hierarchy.map((name) => ({ name, type: byKey.get(settingsTypeKey(name)) || null })),
-    other: types.filter((t) => !inHierarchy.has(settingsTypeKey(t.name))),
+    hierarchy: hierarchy.map((name, i) => ({ name, type: types[at[i]] || null })),
+    other: types.filter((_, i) => !at.includes(i)),
   };
 }
 
@@ -177,8 +185,7 @@ function settingsFoundOnCards(types, typeUse) {
 
 // One row down (+1) or up (-1) in the hierarchy; null at an end or for a name not in it.
 function settingsMoveType(hierarchy, name, delta) {
-  const key = settingsTypeKey(name);
-  const at = hierarchy.findIndex((n) => settingsTypeKey(n) === key);
+  const at = settingsIndexOf(hierarchy, name);
   const to = at + delta;
   if (at === -1 || to < 0 || to >= hierarchy.length) return null;
   const next = [...hierarchy];
@@ -190,8 +197,7 @@ function settingsMoveType(hierarchy, name, delta) {
 // dragged one included): the new hierarchy, null when it lands where it was. Into 'other': the name
 // leaves the hierarchy, null when it was not in it (the order of Other types is the types list's).
 function settingsDropType(hierarchy, name, area, index) {
-  const key = settingsTypeKey(name);
-  const at = hierarchy.findIndex((n) => settingsTypeKey(n) === key);
+  const at = settingsIndexOf(hierarchy, name);
   if (area === 'other') return at === -1 ? null : hierarchy.filter((_, i) => i !== at);
   const entry = at === -1 ? String(name).trim() : hierarchy[at];
   const to = Math.max(0, Math.min(index, hierarchy.length));
@@ -218,15 +224,15 @@ function settingsTypesAdd(types, name) {
 }
 
 function settingsTypesRename(types, from, to) {
-  const key = settingsTypeKey(from);
-  return types.map((t) => (settingsTypeKey(t.name) === key ? settingsTypeEntry(String(to).trim(), t.color, t.icon) : { ...t }));
+  const at = settingsIndexOf(types, from, (t) => t.name);
+  return types.map((t, i) => (i === at ? settingsTypeEntry(String(to).trim(), t.color, t.icon) : { ...t }));
 }
 
 // Sets a type's color and/or icon; '' clears it.
 function settingsTypesPatch(types, name, patch) {
-  const key = settingsTypeKey(name);
-  return types.map((t) => {
-    if (settingsTypeKey(t.name) !== key) return { ...t };
+  const at = settingsIndexOf(types, name, (t) => t.name);
+  return types.map((t, i) => {
+    if (i !== at) return { ...t };
     const color = patch.color !== undefined ? patch.color : t.color;
     const icon = patch.icon !== undefined ? patch.icon : t.icon;
     return settingsTypeEntry(t.name, color, icon);
@@ -234,8 +240,8 @@ function settingsTypesPatch(types, name, patch) {
 }
 
 function settingsTypesRemove(types, name) {
-  const key = settingsTypeKey(name);
-  return types.filter((t) => settingsTypeKey(t.name) !== key).map((t) => ({ ...t }));
+  const at = settingsIndexOf(types, name, (t) => t.name);
+  return types.filter((_, i) => i !== at).map((t) => ({ ...t }));
 }
 
 // A save of one whole block, with the version of config.yaml the page read.
@@ -247,11 +253,14 @@ function settingsTypesOnBody(on, version) {
   return { key: 'typesOn', value: !!on, version };
 }
 
-// What a typed type name plainly gets wrong, before the server is asked. `self` = the type being renamed.
+// What a typed type name plainly gets wrong, before the server is asked: it must not match another
+// listed type, with or without capitals. `self` = the type being renamed. Only what the person just
+// typed is checked; a name already in the file is never refused.
 function settingsTypeNameProblem(types, text, self) {
   const key = settingsTypeKey(text);
   if (key === '') return 'A card type needs a name.';
-  if (types.some((t) => settingsTypeKey(t.name) === key && settingsTypeKey(t.name) !== settingsTypeKey(self))) {
+  const own = self == null ? -1 : settingsIndexOf(types, self, (t) => t.name);
+  if (types.some((t, i) => i !== own && settingsTypeKey(t.name) === key)) {
     return `There is already a card type named ${String(text).trim()}: a name is the same with or without capitals.`;
   }
   return '';
@@ -259,18 +268,17 @@ function settingsTypeNameProblem(types, text, self) {
 
 const SETTINGS_HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
+// A color the person types in the hex field. A color already in the file may be a name (docs/adr/0004)
+// and is shown and saved as written; this checks only what is typed now.
 function settingsColorProblem(text) {
   const t = String(text).trim();
   return t === '' || SETTINGS_HEX_COLOR.test(t) ? '' : 'A color is a hex color like #e3b341, or empty for none.';
 }
 
-// The #rrggbb a color picker can hold for a hex color; grey for none.
-function settingsColorForPicker(text) {
-  const t = String(text).trim().toLowerCase();
-  if (/^#[0-9a-f]{3}$/.test(t)) return `#${t[1]}${t[1]}${t[2]}${t[2]}${t[3]}${t[3]}`;
-  if (/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/.test(t)) return t.slice(0, 7);
-  return '#808080';
-}
+// The swatches beside the hex field: the colors the starter config gives its types, then the rest of
+// the status palette the board uses, each once.
+const SETTINGS_STARTER_COLORS = ['#e3b341', '#f0883e', '#a371f7', '#58a6ff', '#3fb950'];
+const SETTINGS_TYPE_SWATCHES = [...new Set([...SETTINGS_STARTER_COLORS, ...SETTINGS_SCOL.STATUS_PALETTE.map((c) => c.toLowerCase())])];
 
 // The prefix a card type has in the prefixes: block, '' for none. Read only on the Types page.
 function settingsPrefixOf(prefixes, type) {
@@ -354,10 +362,10 @@ const SETTINGS_EXPORTS = {
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   settingsPagePath, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
-  settingsTypeNameProblem, settingsColorProblem, settingsColorForPicker, settingsPrefixOf, settingsTypeWarnings, settingsPrefixWarnings,
+  settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,
   settingsPrefixRemove, settingsPrefixProblem, settingsPrefixConfirm,
-  SETTINGS_BROWSER_PAGES, SETTINGS_DEFAULT_PAGE, SETTINGS_FOLDERS,
+  SETTINGS_BROWSER_PAGES, SETTINGS_DEFAULT_PAGE, SETTINGS_FOLDERS, SETTINGS_TYPE_SWATCHES,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

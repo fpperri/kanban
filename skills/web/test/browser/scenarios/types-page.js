@@ -96,6 +96,10 @@ module.exports = {
     await settled();
     await typeInto('#prefs-board-page li[data-type="task"] .types-hex', 'red');
     check('a color that is not hex is refused on the page, under its row, and the file is as it was', await waitFor(`!!document.querySelector('#prefs-board-page li[data-type="task"] .prefs-error')`, 3000) && /- name: task\n    color: "#112233"/.test(config()));
+    await settled();
+    await clickOn(`#prefs-board-page li[data-type="task"] ${fk('swatch:task:#3fb950')}`);
+    check('a swatch writes the color in the types block, and the page has no native color input', await waitConfig((c) => /- name: task\n    color: "#3fb950"\n/.test(c)) && await ev(`!document.querySelector('#prefs-board-page input[type=color]')`));
+    await settled();
 
     // rename: the types block only, with its leftovers shown
     const beforeRename = config();

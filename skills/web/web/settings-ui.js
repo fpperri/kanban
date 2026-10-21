@@ -336,9 +336,9 @@ function settingsRename(type, input) {
 function settingsSetColor(type, raw) {
   const key = settingsTypeKey(type.name);
   const color = raw.trim().toLowerCase();
+  if (color === (type.color || '').toLowerCase()) { delete settingsUi.drafts[`row:${key}`]; settingsRenderBoard(); return; }
   const problem = settingsColorProblem(color);
   if (problem) { settingsRowProblem(key, problem, { hex: raw }); return; }
-  if (color === (type.color || '').toLowerCase()) { settingsRenderBoard(); return; }
   settingsChangeTypes(key, (types) => settingsTypesPatch(types, type.name, { color }), `hex:${key}`, { hex: raw });
 }
 
@@ -393,6 +393,48 @@ function settingsIconButtons(type, key) {
   return group;
 }
 
+// Whether this browser can draw the color as written (a hex, a name); when the page cannot tell, it tries.
+function settingsColorDrawn(color) {
+  return typeof CSS === 'undefined' || !CSS.supports ? true : CSS.supports('color', color);
+}
+
+// The swatch row beside the hex field (docs/adr/0003: no native color popup): one button that clears the
+// color, one per color of the starter config and the status palette, and, before the field, the color the
+// type has now as written, drawn when the browser can.
+function settingsColorSwatches(type, key) {
+  const group = settingsEl('span', 'types-swatches');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', `Color of ${type.name}`);
+  const now = (type.color || '').toLowerCase();
+  const none = settingsMark(settingsEl('button', 'types-swatch is-none', 'none'));
+  none.type = 'button';
+  none.dataset.color = '';
+  none.dataset.fk = `swatch:${key}:none`;
+  none.setAttribute('aria-label', `No color for ${type.name}`);
+  none.setAttribute('aria-pressed', String(now === ''));
+  none.addEventListener('click', () => settingsSetColor(type, ''));
+  group.append(none);
+  for (const hex of SETTINGS_TYPE_SWATCHES) {
+    const b = settingsMark(settingsEl('button', 'types-swatch'));
+    b.type = 'button';
+    b.dataset.color = hex;
+    b.dataset.typeColor = hex;
+    b.dataset.fk = `swatch:${key}:${hex}`;
+    b.setAttribute('aria-label', `Set the color of ${type.name} to ${hex}`);
+    b.setAttribute('aria-pressed', String(now === hex));
+    b.addEventListener('click', () => settingsSetColor(type, hex));
+    group.append(b);
+  }
+  return group;
+}
+
+function settingsColorNow(type) {
+  const swatch = settingsEl('span', 'types-swatch is-current');
+  swatch.setAttribute('aria-hidden', 'true');
+  if (type.color && settingsColorDrawn(type.color)) swatch.dataset.typeColor = type.color;
+  return swatch;
+}
+
 function settingsTypeInput(className, label, value, fk) {
   const input = settingsMark(settingsEl('input', className));
   Object.assign(input, { type: 'text', value, spellcheck: false, autocomplete: 'off' });
@@ -428,16 +470,10 @@ function settingsTypeRow(row, where, at, count) {
     li.append(settingsTypePreview(type));
     const name = settingsTypeInput('types-name', `Name of ${type.name}`, draft.name !== undefined ? draft.name : type.name, `name:${key}`);
     name.addEventListener('change', () => settingsRename(type, name));
-    const picker = settingsMark(settingsEl('input', 'types-color'));
-    picker.type = 'color';
-    picker.value = settingsColorForPicker(type.color || '');
-    picker.dataset.fk = `color:${key}`;
-    picker.setAttribute('aria-label', `Color of ${type.name}`);
     const hex = settingsTypeInput('types-hex', `Hex color of ${type.name}`, draft.hex !== undefined ? draft.hex : type.color || '', `hex:${key}`);
     hex.placeholder = 'none';
-    picker.addEventListener('change', () => settingsSetColor(type, picker.value));
     hex.addEventListener('change', () => settingsSetColor(type, hex.value));
-    li.append(name, picker, hex, settingsIconButtons(type, key));
+    li.append(name, settingsColorSwatches(type, key), settingsColorNow(type), hex, settingsIconButtons(type, key));
     const prefix = settingsPrefixOf(state.settings.prefixes, type.name);
     const prefixText = settingsEl('span', 'types-prefix', prefix ? `Prefix ${prefix}` : 'No prefix');
     const link = settingsMark(settingsEl('button', 'types-link', 'Prefixes'));
