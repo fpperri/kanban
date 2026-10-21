@@ -12,8 +12,9 @@
 // command is refused the text is replaced directly and the input event fired by hand.
 //
 // Ctrl+M switches "Tab moves focus" for a person using the keyboard alone, as in VS Code: while it is on
-// Tab is left to the browser in every attached box, and a muted hint says so. It lasts until the page
-// is reloaded and is no board's.
+// Tab is left to the browser in every attached box. A muted hint shows while an attached box has focus and
+// says which Tab it is and what Ctrl+M changes, so Tab is never a trap (WCAG 2.1.2). The setting lasts
+// until the page is reloaded and is no board's.
 //
 // This script reads text-edit.js's textEditKey at the moment it runs, never when it loads.
 
@@ -61,18 +62,18 @@ function onTextEditKey(e) {
   textEditApply(box, edit);
 }
 
-// The hint shows while Tab moves focus and an attached box has focus.
+// The hint shows while an attached box has focus, saying what Tab does there and what Ctrl+M changes.
 function textEditPaintHint() {
   const at = document.activeElement;
-  const show = textEditTabMovesFocus && !!at && !!at.dataset && !!at.dataset.textEdit;
+  const show = !!at && !!at.dataset && !!at.dataset.textEdit;
   if (!textEditHint) {
     if (!show) return;
     textEditHint = document.createElement('div');
     textEditHint.id = 'text-edit-hint';
     textEditHint.className = 'text-edit-hint';
     textEditHint.setAttribute('role', 'status');
-    textEditHint.textContent = 'Tab moves focus · Ctrl+M to indent with Tab again';
     document.body.append(textEditHint);
   }
+  textEditHint.textContent = textEditTabMovesFocus ? 'Tab moves focus · Ctrl+M: Tab indents' : 'Tab indents · Ctrl+M: Tab moves focus';
   textEditHint.hidden = !show;
 }

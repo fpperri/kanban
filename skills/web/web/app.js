@@ -4367,6 +4367,21 @@ function paintCalendarNotesStrip(px) {
   const css = noteStripCss(px);
   if (css === null) grid.style.removeProperty('--cal-note-width');
   else grid.style.setProperty('--cal-note-width', css);
+  paintCalendarNotesAria();
+}
+
+// Each divider reports its strip as a percentage of its column (aria-valuenow, -min, -max), read from where
+// it is drawn: the default width is the stylesheet's.
+function paintCalendarNotesAria() {
+  for (const d of document.querySelectorAll('#calendar-view .cal-note-divider')) {
+    const r = d.closest('.cal-tg-col').getBoundingClientRect();
+    const at = d.getBoundingClientRect();
+    const v = noteStripPercent(r.right - (at.left + at.width / 2), r.width);
+    if (!v) continue;
+    d.setAttribute('aria-valuenow', String(v.now));
+    d.setAttribute('aria-valuemin', String(v.min));
+    d.setAttribute('aria-valuemax', String(v.max));
+  }
 }
 
 function setCalendarNotesStrip(px) {
@@ -4787,7 +4802,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       col.appendChild(el);
     }
     if (strip) {
-      col.appendChild(notesCalendarDivider());
+      col.appendChild(notesCalendarDivider(day));
       for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
     }
     body.appendChild(col);
@@ -4795,6 +4810,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   scroll.appendChild(body);
   grid.appendChild(scroll);
   container.appendChild(grid);
+  paintCalendarNotesAria();
   // First paint opens at 08:00 (the working morning, Outlook's default);
   // re-renders — poll ticks included — keep the user's scroll.
   scroll.scrollTop = keepScroll != null ? keepScroll : 8 * CAL_HOUR_PX;

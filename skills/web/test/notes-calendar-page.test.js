@@ -163,9 +163,43 @@ test('the week is drawn with a divider in each day that keeps a strip, at the wi
   }
 });
 
+test('every divider reports its width as a percentage of its column, and names its day', async () => {
+  const p = await weekPage({ stored: { [KEY]: '100' } });
+  p.page.run("calendarAnchor = '2026-10-15'");
+  const host = p.doc.createElement('div');
+  p.page.ctx.__host = host;
+  p.page.run("renderCalendarTimeGrid(__host, 'week', 0)");
+  const dividers = host.querySelectorAll('.cal-note-divider');
+  assert.deepStrictEqual(dividers.map((d) => d.getAttribute('aria-label')), ['Width of the notes on Tue 13', 'Width of the notes on Thu 15']);
+  for (const d of dividers) {
+    const col = d.parent;
+    col.getBoundingClientRect = () => ({ left: 0, right: 400, width: 400, top: 0, bottom: 0, height: 0 });
+    d.getBoundingClientRect = () => ({ left: 297, width: 6, right: 303, top: 0, bottom: 0, height: 0 });
+  }
+  p.page.ctx.document.querySelectorAll = () => dividers;
+  p.page.run('paintCalendarNotesAria()');
+  for (const d of dividers) {
+    assert.deepStrictEqual([d.getAttribute('aria-valuenow'), d.getAttribute('aria-valuemin'), d.getAttribute('aria-valuemax')], ['25', '11', '94']);
+  }
+});
+
+test('setting the width, by a drag, a key or a double click, refreshes what each divider reports', async () => {
+  const p = await weekPage();
+  const d = p.doc.createElement('div');
+  const col = p.doc.createElement('div');
+  col.className = 'cal-tg-col';
+  col.append(d);
+  d.className = 'cal-note-divider';
+  col.getBoundingClientRect = () => ({ left: 0, right: 400, width: 400, top: 0, bottom: 0, height: 0 });
+  d.getBoundingClientRect = () => ({ left: 297, width: 6, right: 303, top: 0, bottom: 0, height: 0 });
+  p.page.ctx.document.querySelectorAll = () => [d];
+  p.page.run('setCalendarNotesStrip(120)');
+  assert.strictEqual(d.getAttribute('aria-valuenow'), '25', 'it is read from where the divider is drawn');
+});
+
 test('the divider is a focusable, labelled separator that holds the poll and keeps the selection', async () => {
   const p = await weekPage();
-  const d = p.page.run('notesCalendarDivider()');
+  const d = p.page.run("notesCalendarDivider('2026-10-15')");
   assert.strictEqual(d.tabIndex, 0);
   assert.strictEqual(d.getAttribute('role'), 'separator');
   assert.strictEqual(d.getAttribute('aria-orientation'), 'vertical');

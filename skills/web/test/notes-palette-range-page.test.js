@@ -298,7 +298,7 @@ test('the range row holds All, Month, Week, 3 days and Day, then previous, the l
   const p = await open();
   p.openCard('7');
   assert.deepStrictEqual(p.all('.np-range-slot .np-by-btn').map((b) => p.text(b)), ['All', 'Month', 'Week', '3 days', 'Day']);
-  assert.deepStrictEqual(p.find('.np-range-row').children.map((c) => c.classes.includes('np-range-slot') ? 'modes' : c.classes.includes('np-range-label') ? 'label' : `step ${c.dataset.step}`), ['modes', 'step -1', 'label', 'step 1']);
+  assert.deepStrictEqual(p.find('.np-range-row').children.map((c) => c.classes.includes('np-range-slot') ? 'modes' : c.classes.includes('np-range-label') ? 'label' : c.classes.includes('np-range-live') ? 'live' : `step ${c.dataset.step}`), ['modes', 'step -1', 'label', 'step 1', 'live']);
   assert.deepStrictEqual(p.all('.np-range-step').map((b) => p.text(b)), ['‹', '›']);
 });
 
@@ -307,6 +307,32 @@ test('a card opens on All and lists every one of its notes, whatever the day', a
   p.openCard('7');
   assert.deepStrictEqual(p.pressed(), ['all']);
   assert.deepStrictEqual(p.listed().slice().sort(), ['a', 'b', 'e', 'f']);
+});
+
+test('the label button says it goes back to today, in its title and its name', async () => {
+  const p = await open();
+  p.openCard('7');
+  const label = p.find('.np-range-label');
+  assert.strictEqual(label.title, 'Back to today');
+  assert.strictEqual(label.getAttribute('aria-label'), 'Back to today');
+});
+
+test('a change of range is announced politely: the range and how many notes it lists', async () => {
+  const p = await open();
+  p.openCard('7');
+  const live = p.find('.np-range-live');
+  assert.strictEqual(live.getAttribute('role'), 'status');
+  assert.strictEqual(live.getAttribute('aria-live'), 'polite');
+  assert.strictEqual(p.text(live), '', 'nothing is announced for the opening');
+  p.rangeBtn('week').click();
+  assert.strictEqual(p.text(live), '19–25 Oct: 2 notes');
+  p.step(-1).click();
+  assert.strictEqual(p.text(live), '12–18 Oct: 1 note');
+  p.step(1).click();
+  p.step(1).click();
+  p.step(1).click();
+  assert.strictEqual(p.text(live), '2–8 Nov: no notes');
+  assert.match(css, /^\.np-range-live \{[^}]*clip:/m);
 });
 
 test('All has nothing to step and no label to go back by', async () => {

@@ -76,6 +76,15 @@ function noteStripStep(current, key, colWidth) {
   return null;
 }
 
+// What a divider reports as a separator: the strip as a percentage of its column, and the least and the
+// most it can be. null for a column with no width.
+function noteStripPercent(px, colWidth) {
+  if (!(colWidth > 0)) return null;
+  const pct = (v) => Math.round((100 * v) / colWidth);
+  const most = Math.max(NCAL_STRIP_MIN, colWidth - NCAL_STRIP_SLIVER);
+  return { now: pct(Math.min(most, Math.max(NCAL_STRIP_MIN, px))), min: pct(NCAL_STRIP_MIN), max: pct(most) };
+}
+
 // The CSS value of --cal-note-width for a set width, or null for none. The column's own width bounds
 // it, so a narrower column or a narrower window still leaves the card blocks their sliver.
 function noteStripCss(px) {
@@ -155,7 +164,7 @@ function noteHourRequest(day, rawMin) {
 
 const NOTES_CALENDAR_EXPORTS = {
   noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
-  noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteChipWords, noteStripLoad, noteStripSave,
+  noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteStripPercent, noteChipWords, noteStripLoad, noteStripSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

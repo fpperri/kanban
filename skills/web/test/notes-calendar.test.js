@@ -175,6 +175,16 @@ test('chips show 12 words by default and many more once the strip has a width se
   assert.ok(c.noteChipWords(120) > 40);
 });
 
+test('the divider reports the strip as a percentage of its column, between the least and the most it can be', () => {
+  assert.deepStrictEqual(c.noteStripPercent(100, 400), { now: 25, min: 11, max: 94 });
+  assert.deepStrictEqual(c.noteStripPercent(44, 400), { now: 11, min: 11, max: 94 });
+  assert.deepStrictEqual(c.noteStripPercent(376, 400), { now: 94, min: 11, max: 94 });
+  assert.deepStrictEqual(c.noteStripPercent(500, 400), { now: 94, min: 11, max: 94 }, 'never past the most');
+  assert.deepStrictEqual(c.noteStripPercent(20, 400), { now: 11, min: 11, max: 94 }, 'never under the least');
+  assert.strictEqual(c.noteStripPercent(100, 0), null, 'a column with no width reports nothing');
+  assert.deepStrictEqual(c.noteStripPercent(44, 60), { now: 73, min: 73, max: 73 }, 'a column too narrow for both is the least strip');
+});
+
 test('the strip\'s width is kept in the browser per board, and a bad value is no width', () => {
   const store = new Map();
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };

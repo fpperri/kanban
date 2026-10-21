@@ -1860,6 +1860,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .np-range-step { padding: 2px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.9em; cursor: pointer; }
 .np-range-step:hover:not(:disabled) { background: var(--hover-wash); }
 .np-range-step:disabled, .np-range-label:disabled { opacity: .4; cursor: default; }
+.np-range-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .np-range-label { padding: 2px 8px; border: 0; background: transparent; color: var(--ink-strong); font: inherit; font-size: 0.85em; font-weight: 600; cursor: pointer; }
 .np-range-label:hover:not(:disabled) { color: var(--accent); }
 .np-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 12px; }

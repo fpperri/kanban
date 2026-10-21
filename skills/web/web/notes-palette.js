@@ -40,7 +40,7 @@
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
   date: null, dateBtn: null, dateWrap: null, dateTyped: false, pick: null, pickWrap: null,
-  range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null,
+  range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null, timeTyped: false,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
@@ -213,12 +213,12 @@ function notesCalendarSlot(day, slot, top) {
 
 // The handle on the left edge of a day's notes strip (app.js sets the width it drags): a focusable
 // separator, so the arrow keys step it as well as a pointer.
-function notesCalendarDivider() {
+function notesCalendarDivider(day) {
   const d = notesEl('div', 'cal-note-divider');
   d.tabIndex = 0;
   d.setAttribute('role', 'separator');
   d.setAttribute('aria-orientation', 'vertical');
-  d.setAttribute('aria-label', 'Width of the notes');
+  d.setAttribute('aria-label', `Width of the notes on ${noteDayName(day)}`); // aria-valuenow/min/max: app.js paintCalendarNotesAria
   d.title = 'Drag to change the width of the notes, for every day. Double-click for the default width. Left and Right arrows step it.';
   d.setAttribute('data-holds-poll', '');
   d.setAttribute('data-keeps-selection', '');
@@ -328,8 +328,12 @@ function notesBuild() {
     b.dataset.step = String(dir);
     return b;
   });
-  u.rangeLabel = notesButton('np-range-label', '', 'Back to the range that holds today', () => notesRangeToday());
-  u.rangeRow.append(rangeSlot, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1]);
+  u.rangeLabel = notesButton('np-range-label', '', 'Back to today', () => notesRangeToday());
+  u.rangeLabel.setAttribute('aria-label', 'Back to today');
+  u.rangeLive = notesEl('span', 'np-range-live'); // what a change of range lists, for a screen reader
+  u.rangeLive.setAttribute('role', 'status');
+  u.rangeLive.setAttribute('aria-live', 'polite');
+  u.rangeRow.append(rangeSlot, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1], u.rangeLive);
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
   u.el = notesEl('section', 'notes-palette hidden');
@@ -947,6 +951,8 @@ function notesRangeChanged() {
   u.hi = -1;
   notesPaintRange();
   notesPaintBody();
+  const count = u.body.querySelectorAll('.np-note').length;
+  u.rangeLive.textContent = `${noteRangeLabel(u.range.mode, u.range.anchor)}: ${count === 0 ? 'no notes' : count === 1 ? '1 note' : `${count} notes`}`;
 }
 
 function notesSetRangeMode(mode) {

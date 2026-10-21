@@ -24,6 +24,7 @@ function fill(p, box, text, start = text.length, end = start) {
   box.value = text;
   box.setSelectionRange(start, end);
   box.focus();
+  box.fire('focus', {});
 }
 
 function press(box, k, over = {}) {
@@ -172,20 +173,28 @@ test('the card form\'s description takes the keys, and its single-line fields do
 
 // --- Ctrl+M ---------------------------------------------------------------------------------------
 
-test('Ctrl+M makes Tab move focus, with a hint saying so, and again makes it indent', async () => {
+test('while Tab indents, a hint in the box says so and how to make it move focus', async () => {
+  const p = await open();
+  fill(p, p.box, 'ab', 1);
+  const hint = p.doc.body.querySelector('.text-edit-hint');
+  assert.ok(hint && !hint.hidden, 'the hint shows as soon as the box has focus');
+  assert.strictEqual(p.text(hint), 'Tab indents · Ctrl+M: Tab moves focus');
+  assert.strictEqual(hint.getAttribute('role'), 'status');
+});
+
+test('Ctrl+M makes Tab move focus, with a hint saying so and how to go back, and again makes it indent', async () => {
   const p = await open();
   fill(p, p.box, 'ab', 1);
   const m = press(p.box, 'm', ctrl());
   assert.strictEqual(m.prevented, true);
   const hint = p.doc.body.querySelector('.text-edit-hint');
   assert.ok(hint && !hint.hidden, 'the hint shows');
-  assert.match(p.text(hint), /Tab moves focus/);
-  assert.match(p.text(hint), /Ctrl\+M/);
+  assert.strictEqual(p.text(hint), 'Tab moves focus · Ctrl+M: Tab indents');
   const tab = press(p.box, 'Tab');
   assert.strictEqual(tab.prevented, undefined, 'Tab is the browser\'s');
   assert.strictEqual(p.box.value, 'ab');
   press(p.box, 'm', ctrl());
-  assert.strictEqual(hint.hidden, true);
+  assert.strictEqual(p.text(hint), 'Tab indents · Ctrl+M: Tab moves focus');
   press(p.box, 'Tab');
   assert.strictEqual(p.box.value, 'a  b');
 });
@@ -201,7 +210,6 @@ test('with Tab moving focus the Markdown keys still work', async () => {
 test('the hint shows only while an attached box has focus', async () => {
   const p = await open();
   fill(p, p.box, 'x', 0);
-  press(p.box, 'm', ctrl());
   const hint = p.doc.body.querySelector('.text-edit-hint');
   assert.strictEqual(hint.hidden, false);
   p.doc.activeElement = null;
@@ -227,6 +235,6 @@ test('Ctrl+M in another field, or with another modifier, is not the switch', asy
   press(p.box, 'm', ctrl({ shiftKey: true }));
   press(p.box, 'm', { altKey: true });
   press(p.box, 'm');
-  assert.strictEqual(p.doc.body.querySelector('.text-edit-hint'), null);
+  assert.strictEqual(p.text(p.doc.body.querySelector('.text-edit-hint')), 'Tab indents · Ctrl+M: Tab moves focus');
   assert.strictEqual(press(p.box, 'Tab').prevented, true);
 });
