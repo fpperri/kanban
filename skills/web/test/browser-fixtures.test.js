@@ -357,3 +357,18 @@ test('materializing a board again puts it back as it was, and keeps the folder',
 test('an unknown board is refused and the known ones are listed', () => {
   assert.throws(() => materialize('nope', os.tmpdir()), /unknown board 'nope': fixture, plan, malformed/);
 });
+
+test('iterlog board: the groups board whose logbook and scratchpad paths name the iteration, with card 7 in the iteration I2', () => {
+  const b = load('iterlog');
+  const groups = load('groups');
+  assert.deepStrictEqual(b.cards.map((c) => c.id).sort(), groups.cards.map((c) => c.id).sort(), 'the same cards as the groups board');
+  assert.strictEqual(b.config.name, 'iterlog');
+  assert.strictEqual(b.config.logbook, 'logbook/<iteration>');
+  assert.strictEqual(b.config.scratchpad, '.pads/<iteration>');
+  assert.strictEqual(b.config.groups, '.groups');
+  const i2 = readGroups(b.dir).list.find((g) => g.id === 'I2');
+  assert.deepStrictEqual([i2.start_date, i2.end_date], ['2026-10-12', '2026-10-23']);
+  assert.ok(i2.cards.includes('7'));
+  assert.deepStrictEqual(listNotes(b.dir).map((n) => `${n.day} ${n.target}`), ['2026-10-15 I2'], 'the group note sits in the folder with the segment dropped');
+  assert.deepStrictEqual(listTargets(b.dir), []);
+});

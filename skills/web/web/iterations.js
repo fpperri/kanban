@@ -18,14 +18,21 @@ const ITER_DAYS = (typeof module !== 'undefined' && module.exports) ? require('.
 const ITERATION_FOLDER = 'iteration';
 const ITERATION_DAY_MS = 24 * 60 * 60 * 1000;
 
+// The groups that are iterations, in the order given: the ones in the `iteration/` folder itself. The
+// server (scripts/iteration-folders.js) takes its iterations from here too.
+function iterationGroups(groups) {
+  return (groups || []).filter((g) => g.folder === ITERATION_FOLDER);
+}
+
 // The board's iterations, newest start first; the undated ones last, ties by id, highest first.
 function iterationList(groups) {
-  return (groups || [])
-    .filter((g) => g.folder === ITERATION_FOLDER)
+  return iterationGroups(groups)
     .sort((a, b) => (b.start_date || '').localeCompare(a.start_date || '') || ITER_IDS.compareIds(b.id, a.id));
 }
 
-// The newest iteration running on the day (both end days included), or null.
+// The newest iteration running on the day (both end days included), or null. The dropdown opens on the
+// newest because it shows what is current; the folders (iteration-folders.js) give a shared day to the
+// iteration that started first (docs/adr/0019).
 function iterationRunning(groups, day) {
   return iterationList(groups).find((g) => ITER_GROUPS.groupRunning(g, day)) || null;
 }
@@ -124,7 +131,7 @@ function iterationShades(span, day) {
 }
 
 const ITERATION_EXPORTS = {
-  iterationList, iterationRunning, iterationLabel, iterationPick, iterationChoiceRead, iterationChoiceWrite,
+  iterationGroups, iterationList, iterationRunning, iterationLabel, iterationPick, iterationChoiceRead, iterationChoiceWrite,
   iterationCut, iterationBumpName, iterationNextDraft, iterationSpan, iterationShades,
 };
 

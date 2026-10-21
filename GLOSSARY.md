@@ -204,7 +204,7 @@ A group in the board's iteration folder: a stretch of work between two dates, us
 _Avoid_: sprint, cycle, timebox.
 
 **Logbook** (via **logbook:**):
-The board's folder of notes, kept as one file per target per day, so a day's or a target's notes are found by file name alone.
+The board's notes, kept as one file per target per day, in one folder or in one folder per iteration, so a day's or a target's notes are found by file name alone.
 _Avoid_: journal, log, diary.
 
 **Note**:
@@ -216,7 +216,7 @@ What a note or a scratchpad is about: one card, one group, or nothing.
 _Avoid_: subject, owner, link.
 
 **Scratchpad** (via **scratchpad:**):
-A disposable working page for one card or group, free text that may point at notes, files and folders. The kanban never throws it away on its own.
+A disposable working page for one card or group, kept in one folder or in one folder per iteration, free text that may point at notes, files and folders. The kanban never throws it away on its own.
 _Avoid_: scratchbook, notes, draft.
 
 ## Selecting and isolating

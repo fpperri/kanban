@@ -295,6 +295,13 @@ function settingsPathNode(path, kind) {
   return bar;
 }
 
+// The line under the path bar of a path that holds `<iteration>`: where a new write goes today; null
+// when the page's path has none.
+function settingsPathNowNode(id, reads) {
+  if (!reads || !reads.now) return null;
+  return settingsEl('p', 'prefs-hint', `A new ${id === 'logbook' ? 'note' : 'page'} written today goes to ${reads.now}`);
+}
+
 // ---------- the Types page (docs/adr/0018) ----------
 //
 // Hierarchy on top (the hierarchy: list in order), Other types below (the rest of types:). Each
@@ -821,7 +828,8 @@ function settingsRenderBoard() {
     panel.setAttribute('aria-labelledby', 'prefs-page-title');
     const where = settingsPageReads(current.id, state.settings);
     const reads = where ? settingsPathNode(where.path, where.kind) : null;
-    panel.replaceChildren(settingsEl('p', 'prefs-eyebrow', 'This board · written to config.yaml'), title, ...(reads ? [reads] : []), ...current.build(state.settings));
+    const now = settingsPathNowNode(current.id, where);
+    panel.replaceChildren(settingsEl('p', 'prefs-eyebrow', 'This board · written to config.yaml'), title, ...(reads ? [reads] : []), ...(now ? [now] : []), ...current.build(state.settings));
     paintTypeColors(panel);
   } else {
     panel.replaceChildren();
