@@ -201,6 +201,11 @@ function settingsDropType(hierarchy, name, area, index) {
   return rest;
 }
 
+// Where a drop lands among the Hierarchy rows: how many rows have their midpoint above the pointer.
+function settingsDropIndex(mids, y) {
+  return mids.filter((m) => m < y).length;
+}
+
 function settingsTypeEntry(name, color, icon) {
   const entry = { name };
   if (color) entry.color = color;
@@ -347,7 +352,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
-  settingsPagePath, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
+  settingsPagePath, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
   settingsTypeNameProblem, settingsColorProblem, settingsColorForPicker, settingsPrefixOf, settingsTypeWarnings, settingsPrefixWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,

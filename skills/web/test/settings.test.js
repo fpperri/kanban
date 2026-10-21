@@ -303,3 +303,10 @@ test('removing a type that cards use asks first, with the count', () => {
   assert.match(s.settingsRemoveConfirm('bug', 3), /3 cards say `bug`/);
   assert.match(s.settingsRemoveConfirm('bug', 1), /1 card says `bug`/);
 });
+
+test('a drop lands among the rows by where the pointer is against their midpoints', () => {
+  assert.strictEqual(s.settingsDropIndex([10, 30, 50], 5), 0);
+  assert.strictEqual(s.settingsDropIndex([10, 30, 50], 31), 2);
+  assert.strictEqual(s.settingsDropIndex([10, 30, 50], 99), 3);
+  assert.strictEqual(s.settingsDropIndex([], 4), 0);
+});
