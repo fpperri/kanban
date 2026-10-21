@@ -578,19 +578,27 @@ to `127.0.0.1` only.
   always CSSOM) — synced on open and on every keystroke/combobox pick, the same
   "reflect the live typed value" pattern as the blocked input's red border. The snapshot
   carries the same rule in its own reimplementation — see that skill's write-up.
-- **Markdown body** — the detail popup renders the card body through `mdToHtml()`, a
-  minimal dependency-free renderer (headings, bold/italic, inline code, fenced code
-  blocks, links with a scheme allowlist, hr, `- [x]` task lists) that runs `escapeHtml()`
-  on the raw body FIRST, before any tag synthesis — the only path from card text to
-  `innerHTML`. Bulleted lists are indent-depth-aware: a sub-bullet indented under a
-  parent nests into a real `<ul>` inside that parent's `<li>` rather than flattening to
-  a sibling, any depth, tracked by comparing each line's indent width against the open
-  levels. A wrapped line that isn't itself a `-` bullet (no blank line before it) is a
-  lazy continuation of the last list item's text, appended in place, rather than closing
-  the list and stranding a bare paragraph. A task item's tick sits in its own span,
-  green when done and muted when open. A code span holding a card mention (`board#id title`, the
-  Card mention rule in GLOSSARY.md) renders as an accent chip instead of code; a mention
-  of a card on this board opens that card when clicked.
+- **Markdown body** — the detail popup renders the card body through `markdownInto()`
+  (`markdown-ui.js`), which draws `mdToHtml()` from `markdown.js`, the one hand-rolled,
+  dependency-free renderer that the scratchpad's Preview and the snapshot's card sheet use too
+  (the snapshot embeds the same file and draws its parse as DOM nodes). It reads the raw text
+  into a tree of blocks and inline tokens (`parseMarkdown`) and writes the HTML escaping every
+  piece of text and every attribute value as it goes, so a body never holds a live tag; the
+  only tags let through are `<u>…</u>` as a pair on one line and `<details>`, `<details open>`,
+  `<summary>…</summary>` and `</details>` each on a line of its own (an unclosed section, an
+  attribute other than a bare `open` or any other tag shows as typed, and a section never
+  swallows the rest of the body). Blocks: headings `#` to `######`, bullet (`-`, `*`, `+`) and
+  numbered lists that nest by indent depth and mix, `- [x]` tasks (the tick in its own span,
+  green when done and muted when open), lazy continuation lines, `>` quotes (nested, holding
+  lists and code), pipe tables (alignment by class, the CSP having no inline styles), rules and
+  fenced code (``` or `~~~`, closed by a run at least as long). A fence with a language shows it
+  as a label and a **Copy** button (one delegated listener in `markdown-ui.js`) and keeps it as
+  `data-lang` on the `pre`; the language is cut to `[A-Za-z0-9_+#.-]`. Inline: bold, italic,
+  both, `_em_`/`__strong__` that leave snake_case alone, strike, links with a scheme allowlist,
+  bare `https://` addresses, code spans, hard line breaks. A bullet list ends at a blank line,
+  and a block quote, heading, rule or fence closes every open list level. A code span holding a
+  card mention (`board#id title`, the Card mention rule in GLOSSARY.md) renders as an accent chip
+  instead of code; a mention of a card on this board opens that card when clicked.
 - **Frontmatter marks** — the detail popup's frontmatter table prints every field as
   written, except the few the board itself understands: `status` gets its status dot and
   colour, `priority: High` the high-priority red, `assignee` its chip, `parent` a
@@ -1176,7 +1184,9 @@ to `127.0.0.1` only.
   Notes (and after a group's Group tab); a card opens on it alone when the logbook is off, and
   opens on it from the card menu's **Scratchpad…** (one card) or the Group tab's
   **Scratchpad** button. The tab shows the page's file (`(not written yet)` until the first
-  save), its refs (a mention among them is a chip that opens the card) and a multi-line box;
+  save), its refs (a mention among them is a chip that opens the card) and a multi-line box with
+  an **Edit | Preview** switch over it (Edit, the default, is the box; Preview draws the box's text,
+  saved or not, through `markdownInto()`, and is off until the page has loaded);
   **Ctrl+Enter** or **Save** writes the body, and the frontmatter stays as written. The page is
   read when the tab opens, so a refresh does not redraw it under the person's hands, and text
   not yet saved is kept in the page until it is reloaded. The server's
