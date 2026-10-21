@@ -36,7 +36,10 @@
 //                         # logbook and nothing of it shows
 //   scratchpad: .scratchpad  # the folder of the cards' and groups' scratchpads
 //                         # (docs/adr/0016), the same way; absent = no scratchpads
-//                         # Either may hold `<iteration>` as a whole segment, the folder of
+//   todos: .scratchpad    # the folder of the cards' and groups' todo lists (docs/adr/0021),
+//                         # the same way; absent = no todo lists. It may name the scratchpad's
+//                         # folder: the two kinds of file never share a name.
+//                         # Each may hold `<iteration>` as a whole segment, the folder of
 //                         # an iteration (docs/adr/0019, iteration-folders.js); read as text
 //   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
 //                         # way; absent = no groups and nothing of them shows
@@ -185,7 +188,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -241,6 +244,9 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'scratchpad') {
         config.scratchpad = top[2].trim()[0] === '#' ? '' : scalar(top[2]);
+        section = null;
+      } else if (top[1] === 'todos') {
+        config.todos = top[2].trim()[0] === '#' ? '' : scalar(top[2]);
         section = null;
       } else if (top[1] === 'groups') {
         config.groups = top[2].trim()[0] === '#' ? '' : scalar(top[2]);
@@ -442,7 +448,7 @@ function writeConfigLine(dir, key, value, after = null) {
 // when the file does not have it yet: below the nearest key before it in this order that the file
 // has, else at the top. keyBefore answers that key: the gear hands it to writeConfigLine as `after`,
 // and writeConfigBlock uses it itself.
-const KEY_ORDER = ['name', 'port', 'nextId', 'idDigits', 'prefixes', 'counters', 'logbook', 'scratchpad', 'groups', 'iterations', 'typesOn', 'assignees', 'types', 'hierarchy', 'pills'];
+const KEY_ORDER = ['name', 'port', 'nextId', 'idDigits', 'prefixes', 'counters', 'logbook', 'scratchpad', 'todos', 'groups', 'iterations', 'typesOn', 'assignees', 'types', 'hierarchy', 'pills'];
 // The keys whose whole block the web rewrites (docs/adr/0018).
 const BLOCK_KEYS = ['types', 'hierarchy', 'prefixes'];
 

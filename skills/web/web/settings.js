@@ -31,7 +31,7 @@ const SETTINGS_BROWSER_PAGES = [
 ];
 
 // The folder a feature gets when it is switched on and has none to go back to.
-const SETTINGS_FOLDERS = { logbook: 'logbook', scratchpad: '.scratchpad', groups: '.groups' };
+const SETTINGS_FOLDERS = { logbook: 'logbook', scratchpad: '.scratchpad', todos: '.todos', groups: '.groups' };
 
 // Menu and page side by side from this width up, else the menu drills down to a page.
 function settingsIsWide(width) {
@@ -57,7 +57,7 @@ function settingsEscape(page, wide) {
 }
 
 function settingsPageState(id, settings, foundGroups) {
-  if (id === 'logbook' || id === 'scratchpad' || id === 'groups') {
+  if (id === 'logbook' || id === 'scratchpad' || id === 'todos' || id === 'groups') {
     const feature = settings[id];
     if (!feature.on) return 'off';
     if (feature.locked) return 'on · locked';
@@ -139,6 +139,7 @@ const SETTINGS_PAGE_READS = {
   counters: { path: 'config', kind: 'File' },
   logbook: { path: 'logbook', kind: 'Folder', now: 'logbookNow' },
   scratchpad: { path: 'scratchpad', kind: 'Folder', now: 'scratchpadNow' },
+  todos: { path: 'todos', kind: 'Folder', now: 'todosNow' },
   groups: { path: 'groups', kind: 'Folder' },
 };
 

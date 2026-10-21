@@ -31,6 +31,7 @@ const { localToday } = require('../web/days');
 const FOLDER_KEYS = {
   logbook: { label: 'logbook' },
   scratchpad: { label: 'scratchpad' },
+  todos: { label: 'todos' },
   groups: { label: 'groups' },
 };
 
@@ -128,6 +129,7 @@ function readSettings(dir, cards) {
   return {
     logbook: folderState(dir, config, 'logbook'),
     scratchpad: folderState(dir, config, 'scratchpad'),
+    todos: folderState(dir, config, 'todos'),
     groups: folderState(dir, config, 'groups'),
     idDigits: config.idDigits,
     nextId: config.nextId,
@@ -145,6 +147,8 @@ function readSettings(dir, cards) {
       logbookNow: folderToday(dir, config, 'logbook'),
       scratchpad: folderPath(dir, config, 'scratchpad'),
       scratchpadNow: folderToday(dir, config, 'scratchpad'),
+      todos: folderPath(dir, config, 'todos'),
+      todosNow: folderToday(dir, config, 'todos'),
       groups: folderPath(dir, config, 'groups'),
     },
   };
