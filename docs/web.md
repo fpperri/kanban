@@ -536,7 +536,7 @@ small count that opens its notes, and the card menu has **Add note…**.
 
 Type a note and press Enter: it is written into the card's day file and the palette stays open for
 the next note; Shift+Enter starts a new line. The note box starts one line high and grows with its
-text, typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less (30 lines when the palette is full screen), and
+text, typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less (30 lines or 70% of the window when the palette is full screen), and
 scrolls inside past that; the box a listed note is edited in grows the same way and opens sized to
 the note. The subject row sets where and when the note goes: a **date** (with a picker; today, or the
 day of the hour or all-day box the palette was opened from) beside the **time**, the *untimed* tick,
@@ -568,8 +568,9 @@ note, `e` edits it, `a` assigns it to another card (or to none) and `d d` delete
 header has the card details' full screen button, and `Alt+Enter` does the same while the palette is the
 popup that is up, from any box of it (over the card details it toggles the palette, not the details):
 full screen it fills the window, and the list, the Scratchpad tab's box and its Preview take the
-height. The choice is kept per board; every key, tab and Esc work as before. On a phone the button is
-not there and the palette keeps its sheet. Without a
+height. The choice is kept per board; every key, tab and Esc work as before. With focus in the palette
+while another popup is up, `Alt+Enter` does nothing. On a phone (under 760 px) the button is not
+there, a saved choice does not apply, `Alt+Enter` does nothing and the palette keeps its sheet. Without a
 `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 **Text boxes** — four multiline boxes take editing keys: the notes palette's note box, the box a

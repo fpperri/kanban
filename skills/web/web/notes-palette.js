@@ -337,11 +337,8 @@ function notesBuild() {
   u.rangeRow.append(rangeSlot, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1], u.rangeLive);
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
-  u.fsBtn = notesButton('icon-btn np-fs-btn', '', 'Expand to full screen', () => toggleModalFullscreen('notes'));
+  u.fsBtn = notesButton('icon-btn np-fs-btn', '', '', () => toggleModalFullscreen('notes')); // app.js applyModalFullscreen gives it its icon, label and pressed state
   u.fsBtn.id = 'notes-fullscreen-btn';
-  u.fsBtn.innerHTML = FULLSCREEN_ICON;
-  u.fsBtn.setAttribute('aria-label', 'Expand to full screen');
-  u.fsBtn.setAttribute('aria-pressed', 'false');
   u.head = notesEl('div', 'np-head');
   u.head.append(u.tabsEl, u.fsBtn);
   u.el = notesEl('section', 'notes-palette hidden');
@@ -393,7 +390,7 @@ function notesGrowBox(box) {
     line: px(css.lineHeight) || px(css.fontSize) * 1.4,
     chrome: px(css.paddingTop) + px(css.paddingBottom) + border,
     windowHeight: window.innerHeight,
-    lines: notesUi.el && notesUi.el.classList.contains('fullscreen') ? NOTE_BOX_LINES_FULLSCREEN : undefined,
+    ...(notesUi.el && notesUi.el.classList.contains('fullscreen') ? NOTES_FULLSCREEN_BOX : {}),
   });
   box.style.height = `${size.height}px`;
   box.style.overflowY = size.scroll ? 'auto' : 'hidden';
@@ -401,8 +398,15 @@ function notesGrowBox(box) {
 
 const notesGrow = () => notesGrowBox(notesUi.input);
 
-// Fullscreen is room: a note box may grow to this many lines before it scrolls inside (the window's 40% still caps it).
-const NOTE_BOX_LINES_FULLSCREEN = 30;
+// Fullscreen is room: a note box may grow to this many lines, and to this share of the window, before it
+// scrolls inside (notes.js noteBoxSize).
+const NOTES_FULLSCREEN_BOX = { lines: 30, share: 0.7 };
+
+// The one place that decides where the palette can be full screen: from this window width up. Under it
+// (a phone) the palette keeps its sheet whatever was saved, the button is hidden and Alt+Enter does
+// nothing. Set it to 0 and the phone goes full screen too.
+const NOTES_FULLSCREEN_MIN_WIDTH = 760;
+const notesFullscreenAvailable = () => window.innerWidth >= NOTES_FULLSCREEN_MIN_WIDTH;
 
 // The palette is the popup Alt+Enter and the fullscreen button answer for when it is open and nothing but the
 // card details is up besides it (the key guard names that one popup, as for the other notes keys).
@@ -415,7 +419,7 @@ function notesFullscreenChanged() {
   const u = notesUi;
   if (!u.sub) return;
   notesGrow();
-  u.body.querySelectorAll('textarea').forEach((box) => { if (box !== u.input && box.classList.contains('np-edit-text')) notesGrowBox(box); });
+  u.body.querySelectorAll('.np-edit-text').forEach(notesGrowBox);
 }
 
 // Alt+Enter inside the palette toggles its fullscreen, from any box of it, and never reaches the box's own
@@ -1197,7 +1201,11 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
   document.addEventListener('keydown', onNotesEscape, true);
   document.addEventListener('keydown', onNotesTabKey);
-  window.addEventListener('resize', () => { if (notesUi.sub && notesUi.input) notesGrow(); });
+  window.addEventListener('resize', () => {
+    if (!notesUi.sub || !notesUi.input) return;
+    applyModalFullscreen('notes'); // a window that crosses the width goes in or out of full screen
+    notesFullscreenChanged();
+  });
   document.addEventListener('mousedown', onNotesPointer, true);
   document.addEventListener('click', (e) => {
     const count = e.target.closest && e.target.closest('.card-notes');

@@ -786,7 +786,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    auto is inherited from the base .modal rule (not redeclared here), so the
    same internal-scroll fallback that already keeps a tall modal's Save/Cancel
    or frontmatter/body reachable today keeps working at full viewport size. */
-.modal.fullscreen { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; border-radius: 0; }
+.modal.fullscreen, .notes-palette.fullscreen { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; border-radius: 0; }
 /* field-sizing: content sizes the textarea from its OWN content, not from
    available container space — a wider/taller fullscreen .modal does not, by
    itself, make the textarea any taller (that's the trap: "the panel grew" is
@@ -1940,16 +1940,15 @@ button.np-note-card:hover { color: var(--accent); }
 .np-head { display: flex; align-items: flex-end; gap: 8px; padding-right: 8px; }
 .np-head .np-tabs { flex: 1 1 auto; min-width: 0; }
 .np-fs-btn { margin: 6px 0 0 auto; }
-@media (min-width: 760px) {
-  .notes-palette.fullscreen { inset: 0; transform: none; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; border-width: 0; border-radius: 0; }
-  .notes-palette.fullscreen .np-body { display: flex; flex-direction: column; }
-  .notes-palette.fullscreen .np-notes, .notes-palette.fullscreen .gp { flex: 0 0 auto; }
-  .notes-palette.fullscreen .sp { flex: 1 0 auto; }
-  .notes-palette.fullscreen .sp-text { flex: 1 1 auto; resize: none; }
-  .notes-palette.fullscreen .sp-preview { flex: 1 1 auto; max-height: none; }
-}
+/* The shared box is the .modal.fullscreen rule above. Whether the palette may go full screen at a width is
+   notes-palette.js's NOTES_FULLSCREEN_MIN_WIDTH, not a media query: the class is never set under it. */
+.notes-palette.fullscreen { transform: none; border-width: 0; }
+.notes-palette.fullscreen .np-body { display: flex; flex-direction: column; }
+.notes-palette.fullscreen .np-notes, .notes-palette.fullscreen .gp { flex: 0 0 auto; }
+.notes-palette.fullscreen .sp { flex: 1 0 auto; }
+.notes-palette.fullscreen .sp-text { flex: 1 1 auto; resize: none; }
+.notes-palette.fullscreen .sp-preview { flex: 1 1 auto; max-height: none; }
 @media (max-width: 759.98px) {
-  #notes-fullscreen-btn { display: none; }
   .notes-palette { top: 0; left: 0; right: 0; transform: none; width: auto; max-height: 82vh; border-width: 0 0 1px; border-radius: 0; }
   .np-bar, .np-body { padding-left: 16px; padding-right: 16px; }
   .np-prev { padding-left: 16px; padding-right: 16px; white-space: normal; }
