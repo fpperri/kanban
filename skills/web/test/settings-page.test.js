@@ -631,6 +631,16 @@ test('every page of This board shows its path with a Copy button; Copied shows a
   assert.strictEqual(ctx.run("settingsPathNode('')"), null);
 });
 
+test('a path with <iteration> gets a line under the path bar naming the folder a new write goes to today', () => {
+  const ctx = loadPages();
+  const logbook = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/s/<iteration>/.logbook', now: '/b/s/0005.x/.logbook' })");
+  assert.match(logbook.textContent, /A new note written today goes to \/b\/s\/0005\.x\/\.logbook/);
+  const pad = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/s/<iteration>', now: '/b/s' })");
+  assert.match(pad.textContent, /A new page written today goes to \/b\/s$/);
+  assert.strictEqual(ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/l' })"), null);
+  assert.strictEqual(ctx.run("settingsPathNowNode('logbook', null)"), null);
+});
+
 test('the Prefixes page is a table of fields with a Remove each and an Add row, the id note, the warning, and idDigits', () => {
   const root = loadPages().page('prefixes');
   const rows = root.all((el) => el.tag === 'tr' && el.dataset.prefixAt !== undefined);

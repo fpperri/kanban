@@ -112,6 +112,11 @@ function localDay(now = new Date()) {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+// The iteration whose dates hold the day (the first to start of two), or null.
+function iterationOfDay(dir, day) {
+  return holding(iterations(dir), day);
+}
+
 // A note's iteration: the one it is aimed at, else the one whose dates hold its day.
 function iterationOfNote(dir, target, day) {
   const list = iterations(dir);
@@ -125,4 +130,4 @@ function iterationOfPad(dir, target, today) {
   return list.find((i) => i.id === target) || startedFirst(list.filter((i) => i.cards.includes(target))) || holding(list, today);
 }
 
-module.exports = { PLACEHOLDER, hasPlaceholder, readFolders, folderFor, shown, localDay, iterationOfNote, iterationOfPad };
+module.exports = { PLACEHOLDER, hasPlaceholder, readFolders, folderFor, shown, localDay, iterationOfDay, iterationOfNote, iterationOfPad };
