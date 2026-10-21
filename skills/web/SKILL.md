@@ -1321,7 +1321,8 @@ to `127.0.0.1` only.
   save), its refs (a mention among them is a chip that opens the card) and a multi-line box with
   an **Edit | Preview** switch over it (Edit, the default, is the box; Preview draws the box's text,
   saved or not, through `markdownInto()`, and is off until the page has loaded; **Ctrl+Shift+V** flips
-  the switch from the box or anywhere in the palette on that tab, and both buttons show the key);
+  the switch from the box or anywhere in the palette on that tab (Cmd+Shift+V works too, and both buttons show
+  the key for the platform);
   **Ctrl+Enter** or **Save** writes the body, and the frontmatter stays as written. The page is
   read when the tab opens, so a refresh does not redraw it under the person's hands, and text
   not yet saved is kept in the page until it is reloaded. The server's

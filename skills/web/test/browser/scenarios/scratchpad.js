@@ -91,7 +91,7 @@ module.exports = {
     await key('v', { ctrl: true, shift: true });
     check('scratchpad: Ctrl+Shift+V in the box switches to Preview, and the palette keeps the focus', await waitFor(`!!${PREVIEW}.querySelector('h1')&&${TEXT}.hidden&&!${PREVIEW}.hidden`, 2500) && await ev(`document.getElementById('notes-palette').contains(document.activeElement)&&document.activeElement!==document.body`));
     const buttonHints = await ev(`[...document.querySelectorAll('#notes-palette .sp-mode')].map((b)=>b.dataset.key+'|'+getComputedStyle(b,'::after').content+'|'+b.getAttribute('aria-keyshortcuts')+'|'+b.firstChild.textContent).join()`);
-    check('scratchpad: both buttons show the key beside their name, outside it', buttonHints === 'Ctrl+Shift+V|"Ctrl+Shift+V" / ""|Control+Shift+V|Edit,Ctrl+Shift+V|"Ctrl+Shift+V" / ""|Control+Shift+V|Preview', buttonHints);
+    check('scratchpad: both buttons show the key beside their name, outside it', buttonHints === 'Ctrl+Shift+V|"Ctrl+Shift+V" / ""|Control+Shift+V Meta+Shift+V|Edit,Ctrl+Shift+V|"Ctrl+Shift+V" / ""|Control+Shift+V Meta+Shift+V|Preview', buttonHints);
     await key('v', { ctrl: true, shift: true });
     check('scratchpad: Ctrl+Shift+V from Preview goes back to Edit, with the focus in the box at the end of its text', await waitFor(`!${TEXT}.hidden&&${PREVIEW}.hidden`, 2500) && await ev(`document.activeElement===${TEXT}&&${TEXT}.selectionStart===${TEXT}.value.length&&${TEXT}.selectionEnd===${TEXT}.value.length`));
     await press('#notes-palette .sp-mode:last-child');

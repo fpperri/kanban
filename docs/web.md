@@ -521,7 +521,7 @@ A browser may send a sandboxed frame's requests with the origin `null`; the serv
 the frame's own files and the vendored libraries (they are public and carry nothing of the board) and
 for nothing else.
 
-**Edit from the details** — `e` with a card's details open opens its edit form, as the details' Edit button does (its tooltip names the key). It is read through the shared key guard, as `n` is: a field in the details gets the letter, it does nothing behind a menu, the edit form, the notifications panel or the preferences sheet, and with the notes palette up `e` stays the palette's (it edits the listed note). An archived card has no Edit button and no `e`.
+**Edit from the details** — `e` with a card's details open opens its edit form, as the details' Edit button does (its tooltip names the key), with the cursor in the title field so you can type at once. It is read through the shared key guard, as `n` is: a field in the details gets the letter, it does nothing behind a menu, the edit form, the notifications panel or the preferences sheet, and with the notes palette up, which draws above the details, `e` stays the palette's (it edits the listed note). An archived card has no Edit button and no `e`.
 
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
 details are open, else the hovered or selected card; it draws above the details, and a field in the
@@ -592,7 +592,7 @@ the page's file, its refs and a multi-line box; **Ctrl+Enter** or **Save** write
 text, saved or not, as Markdown (see **Markdown** below). **Ctrl+Shift+V** (VS Code's preview key) flips
 the switch from the box or anywhere else in the palette on that tab: to Edit it puts the cursor at the end
 of the text, to Preview it keeps the palette's keys working; in the box it would only paste, as Ctrl+V does,
-and off the tab it is the browser's. The two buttons show the key. Text
+and off the tab it is the browser's. The two buttons show the key (`Cmd+Shift+V` on a Mac, where Cmd works as Ctrl). Text
 you have not saved stays in the page until you reload it. The kanban never deletes a page: the
 delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
 `scratchpad:` line nothing of this shows.

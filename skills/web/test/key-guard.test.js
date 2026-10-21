@@ -145,3 +145,26 @@ test('naming a popup that is not open changes nothing', () => {
   assert.strictEqual(keyGuardOff(openDoc({ open: [popup('modal', '.modal-backdrop')] }), DETAIL), true);
   assert.strictEqual(keyGuardOff(openDoc({}), DETAIL), false);
 });
+
+// --- the keys that act on the card details -----------------------------------------------------
+
+const { KEY_GUARD_DETAIL_SURFACES, keyGuardDetailOff } = require('../web/key-guard');
+const OTHER_DIALOG = `.modal-backdrop:not(.hidden):not(${DETAIL})`;
+
+test('a key that acts on the details is off behind the notes palette, which sits above them; no other key is', () => {
+  assert.deepStrictEqual(KEY_GUARD_DETAIL_SURFACES.map((s) => s.name), ['notes']);
+  const palette = KEY_GUARD_DETAIL_SURFACES[0].selector;
+  const doc = fakeDoc({ open: [palette] });
+  assert.strictEqual(keyGuardDetailOff(doc, DETAIL), true);
+  assert.strictEqual(keyGuardOff(doc, DETAIL), false, 'n and Alt+1 to Alt+3 still work with the palette up');
+  assert.strictEqual(keyGuardOff(doc), false, '/ and the other keys are unchanged');
+  assert.strictEqual(keyGuardSurface(doc), null);
+});
+
+test('a key that acts on the details reads the rest of the guard as any other key does', () => {
+  assert.strictEqual(keyGuardDetailOff(fakeDoc(), DETAIL), false);
+  assert.strictEqual(keyGuardDetailOff(fakeDoc({ active: field('TEXTAREA') }), DETAIL), true);
+  assert.strictEqual(keyGuardDetailOff(fakeDoc({ open: [OTHER_DIALOG] }), DETAIL), true);
+  assert.strictEqual(keyGuardDetailOff(fakeDoc({ open: ['#context-menu:not(.hidden)'] }), DETAIL), true);
+  assert.strictEqual(keyGuardDetailOff(fakeDoc({ open: ['.modal-backdrop:not(.hidden)'] }), DETAIL), false, 'the details themselves are no reason');
+});

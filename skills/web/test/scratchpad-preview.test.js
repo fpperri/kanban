@@ -13,7 +13,7 @@ const { mdToHtml } = require('../web/markdown');
 
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', 'web', f), 'utf8').replace(/\r\n/g, '\n');
 
-function panel({ body = '', refs = [] } = {}) {
+function panel({ body = '', refs = [], navigator = {} } = {}) {
   const saved = [];
   const sandbox = {
     document: recordingDocument(),
@@ -37,7 +37,7 @@ function panel({ body = '', refs = [] } = {}) {
     kanbanCodeBlocks: { createCodeBlocks: () => ({ enhance: (el) => sandbox.enhanced.push(el.hidden) }) },
     console,
     fallbackCopy: () => true,
-    navigator: {},
+    navigator,
     setTimeout: () => 0,
   };
   sandbox.document.addEventListener = () => {};
@@ -138,6 +138,7 @@ test('the preview is shown before its text is drawn, so a diagram in it is measu
 
 const chord = (over = {}) => ({ key: 'V', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false, repeat: false, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...over });
 const press = (p, over) => {
+  p.wrap.isConnected = !p.detached; // the page's panel sits in the palette; a test detaches it to say the palette dropped it
   const e = chord(over);
   const took = p.sandbox.scratchPreviewKey(e);
   return { e, took };
@@ -220,7 +221,7 @@ test('both buttons show the key as a hint outside their name, and name it for as
   const p = panel({ body: 'x' });
   for (const b of byClass(p.wrap, 'sp-mode')) {
     assert.strictEqual(b.dataset.key, 'Ctrl+Shift+V');
-    assert.strictEqual(b.getAttribute('aria-keyshortcuts'), 'Control+Shift+V');
+    assert.strictEqual(b.getAttribute('aria-keyshortcuts'), 'Control+Shift+V Meta+Shift+V');
   }
   assert.deepStrictEqual(byClass(p.wrap, 'sp-mode').map((b) => b.textContent), ['Edit', 'Preview'], 'the name stays the word');
   assert.deepStrictEqual(byClass(p.wrap, 'sp-mode').map((b) => b.title), ['Edit (Ctrl+Shift+V)', 'Preview (Ctrl+Shift+V)']);
@@ -229,4 +230,37 @@ test('both buttons show the key as a hint outside their name, and name it for as
 test('the stylesheet draws the hint after the name with an empty alternative text, as the tab hints are', () => {
   const css = read('app.css');
   assert.match(css, /\.sp-mode::after \{[^}]*content: attr\(data-key\) \/ "";/);
+});
+
+test('a panel the palette has dropped, as when the gear turns the scratchpad off, gives the key back to the browser', async () => {
+  const p = panel({ body: 'x' });
+  await p.settled();
+  press(p);
+  press(p);
+  p.detached = true;
+  const r = press(p);
+  assert.strictEqual(r.took, false);
+  assert.strictEqual(r.e.defaultPrevented, false);
+  assert.strictEqual(p.one('sp-preview').hidden, true, 'nothing switched');
+  assert.strictEqual(vm.runInContext('scratchUi.toggle', p.sandbox), null, 'and the stale switch is forgotten');
+});
+
+test('the buttons list both modifiers for assistive technology, whatever the platform', () => {
+  for (const navigator of [{}, { platform: 'MacIntel' }]) {
+    const p = panel({ navigator });
+    for (const b of byClass(p.wrap, 'sp-mode')) assert.strictEqual(b.getAttribute('aria-keyshortcuts'), 'Control+Shift+V Meta+Shift+V');
+  }
+});
+
+test('on a Mac the hints and titles read Cmd+Shift+V, from the platform or the user agent data; elsewhere Ctrl+Shift+V', () => {
+  const MAC = [{ platform: 'MacIntel' }, { platform: '', userAgentData: { platform: 'macOS' } }];
+  for (const navigator of MAC) {
+    const p = panel({ navigator });
+    assert.deepStrictEqual(byClass(p.wrap, 'sp-mode').map((b) => b.dataset.key), ['Cmd+Shift+V', 'Cmd+Shift+V']);
+    assert.deepStrictEqual(byClass(p.wrap, 'sp-mode').map((b) => b.title), ['Edit (Cmd+Shift+V)', 'Preview (Cmd+Shift+V)']);
+  }
+  for (const navigator of [{}, { platform: 'Win32' }, { platform: 'Linux x86_64', userAgentData: { platform: 'Linux' } }]) {
+    const p = panel({ navigator });
+    assert.deepStrictEqual(byClass(p.wrap, 'sp-mode').map((b) => b.dataset.key), ['Ctrl+Shift+V', 'Ctrl+Shift+V']);
+  }
 });

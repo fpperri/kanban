@@ -20,7 +20,13 @@
 // settingsFeatureNodes, settingsAddBoardPage.
 
 const scratchUi = { drafts: new Map(), saving: false, toggle: null };
-const SCRATCH_PREVIEW_KEY = 'Ctrl+Shift+V';
+
+// The key as this platform names it: Cmd on a Mac, Ctrl elsewhere. Both are read by scratchPreviewKey.
+function scratchKeyName() {
+  const nav = typeof navigator === 'undefined' ? null : navigator;
+  const platform = nav ? (nav.userAgentData && nav.userAgentData.platform) || nav.platform || '' : '';
+  return `${/mac/i.test(platform) ? 'Cmd' : 'Ctrl'}+Shift+V`;
+}
 
 function scratchpadOn() {
   return !!state.scratchpad;
@@ -76,11 +82,12 @@ function scratchPanel(target) {
   modes.setAttribute('aria-label', 'Edit or preview');
   const edit = scratchEl('button', 'sp-mode on', 'Edit');
   const preview = scratchEl('button', 'sp-mode', 'Preview');
+  const keyName = scratchKeyName();
   for (const b of [edit, preview]) {
     b.type = 'button';
-    b.title = `${b.textContent} (${SCRATCH_PREVIEW_KEY})`;
-    b.dataset.key = SCRATCH_PREVIEW_KEY; // drawn after the name by the stylesheet, with an empty alternative text: the button's name stays its text
-    b.setAttribute('aria-keyshortcuts', 'Control+Shift+V');
+    b.title = `${b.textContent} (${keyName})`;
+    b.dataset.key = keyName; // drawn after the name by the stylesheet, with an empty alternative text: the button's name stays its text
+    b.setAttribute('aria-keyshortcuts', 'Control+Shift+V Meta+Shift+V');
   }
   edit.setAttribute('aria-pressed', 'true');
   preview.setAttribute('aria-pressed', 'false');
@@ -101,11 +108,16 @@ function scratchPanel(target) {
       if (byKey) text.setSelectionRange(text.value.length, text.value.length);
     }
   };
-  scratchUi.toggle = () => {
+  const toggle = () => {
+    if (!wrap.isConnected) { // the palette dropped this panel (the gear turned the scratchpad off): the key is the browser's again
+      if (scratchUi.toggle === toggle) scratchUi.toggle = null;
+      return false;
+    }
     if (preview.disabled) return false;
     showPreview(view.hidden, true);
     return true;
   };
+  scratchUi.toggle = toggle;
   edit.addEventListener('click', () => showPreview(false));
   preview.addEventListener('click', () => showPreview(true));
   const status = scratchEl('span', 'sp-status');
