@@ -6,8 +6,10 @@
 // Tab indents by two spaces (the lines a selection spans, or the cursor's place) and Shift+Tab takes up
 // to two off; Ctrl+B, Ctrl+I, Ctrl+U, Alt+S and Ctrl+E wrap the selection in **, *, <u>, ~~ and ` and
 // unwrap it when it already is; Ctrl+K makes it a link; Ctrl+Shift+7, Ctrl+Shift+8 and Ctrl+Shift+. put
-// a number, a bullet or a quote on each selected line, or take it off. They follow VS Code with Markdown
-// All in One and GitHub's editor. Cmd does what Ctrl does.
+// a number, a bullet or a quote on each selected line, or take it off; Ctrl+Shift+D wraps the selected
+// lines in a collapsible <details> section, with its summary text selected to be typed over, and takes a
+// section it made off again. They follow VS Code with Markdown All in One and GitHub's editor. Cmd does
+// what Ctrl does.
 //
 // An edit is { from, to, insert, start, end }: replace [from, to) of the text with `insert`, then select
 // [start, end] of the result. It is always one replacement, so the page can make it with the browser's
@@ -102,6 +104,56 @@ function textEditLink(text, start, end) {
   return { from: start, to: end, insert, start: url, end: url + 3 };
 }
 
+const TEXT_EDIT_SUMMARY = '[...]';
+const TEXT_EDIT_DETAILS_HEAD = `<details>\n<summary>${TEXT_EDIT_SUMMARY}</summary>\n\n`;
+
+// The section the key made around the cursor or the selection, if there is one: the line numbers of its
+// <details> and </details>. It has the shape the key writes, a <summary> line and a blank line after the
+// opening tag and a blank line before the closing one, with at least a line between.
+function textEditSectionAround(lines, first, last) {
+  let open = -1;
+  for (let k = first; k >= 0; k--) {
+    if (lines[k] === '</details>' && k !== first) return null;
+    if (lines[k] === '<details>') { open = k; break; }
+  }
+  if (open === -1) return null;
+  let close = -1;
+  for (let k = last; k < lines.length; k++) {
+    if (lines[k] === '<details>' && k !== open) return null;
+    if (lines[k] === '</details>') { close = k; break; }
+  }
+  if (close === -1) return null;
+  const shaped = /^<summary>.*<\/summary>$/.test(lines[open + 1] || '') && lines[open + 2] === '' && lines[close - 1] === '' && close - 1 > open + 2;
+  return shaped ? { open, close } : null;
+}
+
+function textEditDetails(text, start, end) {
+  const lines = text.split('\n');
+  const offsets = [];
+  let at = 0;
+  for (const line of lines) { offsets.push(at); at += line.length + 1; }
+  const lineOf = (pos) => { let k = 0; while (k + 1 < offsets.length && offsets[k + 1] <= pos) k++; return k; };
+  const span = textEditLines(text, start, end);
+  const first = lineOf(span.from);
+  const last = lineOf(span.to);
+  const section = textEditSectionAround(lines, first, last);
+  if (section) {
+    const from = offsets[section.open];
+    const to = offsets[section.close] + lines[section.close].length;
+    const body = lines.slice(section.open + 3, section.close - 1).join('\n');
+    return { from, to, insert: body, start: from, end: from + body.length };
+  }
+  const selected = start < end;
+  const body = selected ? text.slice(span.from, span.to) : '';
+  const from = selected ? span.from : start;
+  const to = selected ? span.to : end;
+  const before = !selected && from > 0 && text[from - 1] !== '\n' ? '\n' : '';
+  const after = !selected && to < text.length && text[to] !== '\n' ? '\n' : '';
+  const insert = `${before}${TEXT_EDIT_DETAILS_HEAD}${body}\n\n</details>${after}`;
+  const summary = from + before.length + '<details>\n<summary>'.length;
+  return { from, to, insert, start: summary, end: summary + TEXT_EDIT_SUMMARY.length };
+}
+
 // A number, a bullet or a quote on each line the selection spans, or off them when each already has it.
 // Blank lines are left alone and do not count in the numbering.
 function textEditPrefix(text, start, end, kind) {
@@ -137,6 +189,7 @@ function textEditKey(text, start, end, e) {
     return null;
   }
   if (mod && !e.altKey && e.shiftKey) {
+    if (e.key.toLowerCase() === 'd') return textEditDetails(text, start, end);
     if (e.key === '7' || e.key === '&' || e.code === 'Digit7') return textEditPrefix(text, start, end, 'ol');
     if (e.key === '8' || e.key === '*' || e.code === 'Digit8') return textEditPrefix(text, start, end, 'ul');
     if (e.key === '.' || e.key === '>' || e.code === 'Period') return textEditPrefix(text, start, end, 'quote');

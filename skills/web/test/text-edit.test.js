@@ -256,3 +256,74 @@ test('every edit is one replacement of the text, so it is one step of undo', () 
     assert.ok(edit && Number.isInteger(edit.from) && Number.isInteger(edit.to) && typeof edit.insert === 'string' && edit.from <= edit.to, JSON.stringify(e));
   }
 });
+
+// --- Ctrl+Shift+D: a collapsible section ---------------------------------------------------------------
+
+const detailsKey = () => ctrl('D', { shiftKey: true, code: 'KeyD' });
+const SECTION = (body) => `<details>\n<summary>[...]</summary>\n\n${body}\n\n</details>`;
+
+test('Ctrl+Shift+D wraps the selected lines in a details section and selects the summary text to type over', () => {
+  const text = 'before\none\ntwo\nafter';
+  const r = play(text, 7, 14, detailsKey());
+  assert.strictEqual(r.text, `before\n${SECTION('one\ntwo')}\nafter`);
+  assert.strictEqual(r.sel, '[...]');
+});
+
+test('the section wraps whole lines, though the selection starts and ends inside them', () => {
+  const r = play('one\ntwo\nthree', 1, 6, detailsKey());
+  assert.strictEqual(r.text, `${SECTION('one\ntwo')}\nthree`);
+});
+
+test('a selection that ends at the start of a line leaves that line out of the section', () => {
+  const r = play('one\ntwo\nthree', 0, 8, detailsKey());
+  assert.strictEqual(r.text, `${SECTION('one\ntwo')}\nthree`);
+});
+
+test('with nothing selected the section goes in with an empty line in the middle, and the summary text selected', () => {
+  const r = play('', 0, 0, detailsKey());
+  assert.strictEqual(r.text, SECTION(''));
+  assert.strictEqual(r.sel, '[...]');
+});
+
+test('with nothing selected, in the middle of a line, the section goes on lines of its own', () => {
+  const r = play('ab cd', 2, 2, detailsKey());
+  assert.strictEqual(r.text, `ab\n${SECTION('')}\n cd`);
+  assert.strictEqual(r.sel, '[...]');
+});
+
+test('Ctrl+Shift+D with the cursor inside a section the key made takes the wrapper off and keeps the lines', () => {
+  const wrapped = `before\n${SECTION('one\ntwo')}\nafter`;
+  const inside = wrapped.indexOf('two') + 1;
+  const r = play(wrapped, inside, inside, detailsKey());
+  assert.strictEqual(r.text, 'before\none\ntwo\nafter');
+  assert.strictEqual(r.sel, 'one\ntwo', 'the lines it kept are selected');
+});
+
+test('and the same with a selection inside the section, or the cursor on the summary line', () => {
+  const wrapped = SECTION('one\ntwo');
+  assert.strictEqual(on(wrapped, 'one', detailsKey()).text, 'one\ntwo');
+  assert.strictEqual(on(wrapped, '[...]', detailsKey()).text, 'one\ntwo');
+});
+
+test('a section the key did not make is left alone: the key makes a new one instead of unwrapping it', () => {
+  const text = '<details>\none\n</details>';
+  const r = play(text, 10, 10, detailsKey());
+  assert.strictEqual(r.text.split('<details>').length - 1, 2, 'the one that was there and the new one');
+  assert.strictEqual(r.text.split('<summary>[...]</summary>').length - 1, 1);
+  assert.ok(r.text.includes('</details>'), 'the old closing tag is still there');
+  const whole = play(text, 0, text.length, detailsKey());
+  assert.ok(whole.text.includes('<details>\none\n</details>\n\n</details>'), 'selected, it goes inside the new one');
+});
+
+test('a cursor after a section, not inside it, makes a new one', () => {
+  const wrapped = `${SECTION('one')}\nafter`;
+  const at = wrapped.indexOf('after');
+  const r = play(wrapped, at, at + 5, detailsKey());
+  assert.strictEqual(r.text, `${SECTION('one')}\n${SECTION('after')}`);
+});
+
+test('Ctrl+Shift+D needs Ctrl and Shift together, and Cmd does what Ctrl does', () => {
+  assert.strictEqual(t.textEditKey('a', 0, 1, ctrl('d')), null);
+  assert.strictEqual(t.textEditKey('a', 0, 1, key('D', { shiftKey: true })), null);
+  assert.ok(t.textEditKey('a', 0, 1, key('D', { shiftKey: true, metaKey: true })));
+});

@@ -1054,7 +1054,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `l`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1219,7 +1219,11 @@ to `127.0.0.1` only.
   `[selection](url)` with `url` selected (`[](url)` with the cursor in the brackets when nothing is
   selected); **Ctrl+Shift+7**, **Ctrl+Shift+8** and **Ctrl+Shift+.** number, bullet or quote each
   line the selection spans (blank lines left alone, a line of the other list kind converted) or take
-  it off when every line has it. Cmd does what Ctrl does, and the digits and the period are read by
+  it off when every line has it; **Ctrl+Shift+D** wraps the lines the selection spans in
+  `<details>`, `<summary>[...]</summary>`, a blank line, the lines, a blank line and `</details>`
+  and selects `[...]` (nothing selected: the same block on lines of its own, with an empty line for
+  the body), and with the cursor inside a section of that shape it takes the wrapper off and selects
+  the lines it kept. Cmd does what Ctrl does, and the digits and the period are read by
   key or by key position. An edit is one replacement (`{ from, to, insert, start, end }`), made with
   `document.execCommand('insertText')` (`delete` for an empty insert) so Undo takes it back in one
   step; where the command is refused the text is replaced with `setRangeText` and the input event

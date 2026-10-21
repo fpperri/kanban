@@ -104,6 +104,15 @@ test('the browser\'s own action is stopped for Ctrl+U, Ctrl+K and Ctrl+E in the 
   }
 });
 
+test('Ctrl+Shift+D is stopped as the browser\'s while the box has focus, and wraps the lines', async () => {
+  const p = await open();
+  fill(p, p.box, 'one', 0, 3);
+  const e = press(p.box, 'D', ctrl({ shiftKey: true }));
+  assert.strictEqual(e.prevented, true);
+  assert.strictEqual(p.box.value, '<details>\n<summary>[...]</summary>\n\none\n\n</details>');
+  assert.strictEqual(p.box.value.slice(p.box.selectionStart, p.box.selectionEnd), '[...]');
+});
+
 test('Enter, Shift+Enter, Ctrl+Enter and Ctrl+S are not read here, so each box keeps its own meaning for them', async () => {
   const description = require('./helpers/palette-page').paletteDocument({ document: null }).createElement('textarea');
   await openPalette({ notes: NOTES, elements: { '#f-body': description } });

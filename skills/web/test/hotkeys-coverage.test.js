@@ -65,7 +65,7 @@ test('a key the page reads and the list lacks is reported: drop an entry from th
   const texts = sources.map((s) => s.text);
   assert.deepStrictEqual(keysMissing(texts, without('names'), NOT_HOTKEYS), ['l']);
   assert.deepStrictEqual(keysMissing(texts, without('note'), NOT_HOTKEYS), ['n']);
-  assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), ['a', 'd'], 'e is still listed: it is Ctrl+E too');
+  assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), ['a'], 'e and d are still listed: they are Ctrl+E and Ctrl+Shift+D too');
   assert.deepStrictEqual(keysMissing(texts, without('slice'), NOT_HOTKEYS), ['[', ']', '{', '}'].sort());
   assert.deepStrictEqual(keysMissing(texts, without('find'), NOT_HOTKEYS), ['f']);
   assert.deepStrictEqual(keysMissing(texts, without('hotkeys'), NOT_HOTKEYS), ['?']);
