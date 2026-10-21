@@ -127,7 +127,8 @@ test('a single click on the background of the stand-in leaves the selection, and
 });
 
 test('no scenario takes a selection down with a synthetic click on the body: it has no click count, so the page never reads it as a double click', () => {
-  const files = fs.readdirSync(DIR).filter((f) => f.endsWith('.js') && f !== 'index.js');
+  const files = [DIR, path.join(DIR, 'phone-steps'), path.join(DIR, 'phone-flip-steps')]
+    .flatMap((d) => fs.readdirSync(d).filter((f) => f.endsWith('.js') && f !== 'index.js').map((f) => path.relative(DIR, path.join(d, f))));
   assert.ok(files.length >= 19, files.join(', '));
   for (const f of files) {
     const text = fs.readFileSync(path.join(DIR, f), 'utf8').split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');

@@ -13,6 +13,8 @@
     <a id="home-link" class="home-link hidden" rel="noopener noreferrer" title="Up to the home page" aria-label="Up to the home page"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-6h4v6"/></svg></a>
     <!-- copy button INSIDE the h1 so it rides beside the title when the flex header wraps -->
     <h1><span id="project-name" class="project-name"></span> <button type="button" id="board-copy-btn" class="board-copy-btn" title="Copy the board folder's absolute path" aria-label="Copy the board folder's absolute path">&#x29C9;</button></h1>
+    <!-- The Calendar's or the Gantt's date range, in the header on a phone; hidden while empty, and from 760 px up. -->
+    <span id="header-date" class="header-date hidden"></span>
     <!-- The iteration dropdown (iterations-ui.js): shown only with iterations: true over a groups: line. It narrows every view on top of the search box. -->
     <select id="iter-select" class="iter-select" aria-label="Iteration" data-keeps-selection data-holds-poll hidden></select>
   </div>
@@ -39,6 +41,10 @@
       <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
     </div>
     <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters" data-keeps-selection>
+      <section id="search-statuses-section" class="search-section" aria-labelledby="search-statuses-fold">
+        <button type="button" id="search-statuses-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-statuses" aria-label="Statuses" title="Fold or unfold the statuses">Statuses</button>
+        <div id="search-statuses" class="search-statuses" role="group" aria-labelledby="search-statuses-fold" data-keeps-selection></div>
+      </section>
       <section id="search-slices-section" class="search-section hidden" aria-labelledby="search-slices-fold">
         <button type="button" id="search-slices-fold" class="search-fold" data-keeps-selection aria-expanded="false" aria-controls="search-slices" aria-label="Slices" title="Fold or unfold the slices">Slices</button>
         <div id="search-slices" class="search-slices hidden" role="group" aria-labelledby="search-slices-fold"></div>
@@ -54,15 +60,16 @@
     </div>
   </div>
   <div class="actions">
-    <button id="new-btn">+ New card</button>
-    <button id="calendar-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
-      title="Toggle calendar view (month / week / 3-day / day sub-views of start→end ranges plus due-deadline chips, drag chips to reschedule, honors the search filter)">📅 Calendar</button>
-    <button id="gantt-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
-      title="Toggle gantt view (ranges as bars, due dates as diamonds, on a day timeline — drag a bar to shift, an edge to resize, a diamond to move its due date; honors the search filter)">📊 Gantt</button>
-    <button id="map-toggle-btn" type="button" data-keeps-selection aria-pressed="false"
-      title="Toggle dependency map view (nodes = cards, edges = waiting_for, honors the search filter)">🕸 Map view</button>
-    <button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" title="Graph: every card as a dot, joined by its relations">◉ Graph</button>
-    <button id="refresh-btn" title="Reload from disk">⟳ Refresh</button>
+    <button id="search-btn" type="button" class="search-btn" data-keeps-selection aria-expanded="false" aria-controls="search-input" aria-label="Search" title="Search"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg></button>
+    <button id="new-btn"><span class="btn-icon" data-icon="new" aria-hidden="true"></span><span class="btn-label">New card</span></button>
+    <button id="calendar-toggle-btn" type="button" data-keeps-selection aria-pressed="false" data-view="calendar" data-view-toggle
+      title="Toggle calendar view (month / week / 3-day / day sub-views of start→end ranges plus due-deadline chips, drag chips to reschedule, honors the search filter)"><span class="btn-icon" data-icon="calendar" aria-hidden="true"></span><span class="btn-label">Calendar</span></button>
+    <button id="gantt-toggle-btn" type="button" data-keeps-selection aria-pressed="false" data-view="gantt" data-view-toggle
+      title="Toggle gantt view (ranges as bars, due dates as diamonds, on a day timeline — drag a bar to shift, an edge to resize, a diamond to move its due date; honors the search filter)"><span class="btn-icon" data-icon="gantt" aria-hidden="true"></span><span class="btn-label">Gantt</span></button>
+    <button id="map-toggle-btn" type="button" data-keeps-selection aria-pressed="false" data-view="map" data-view-toggle
+      title="Toggle dependency map view (nodes = cards, edges = waiting_for, honors the search filter)"><span class="btn-icon" data-icon="map" aria-hidden="true"></span><span class="btn-label">Map view</span></button>
+    <button id="graph-toggle-btn" type="button" data-keeps-selection aria-pressed="false" data-view="graph" data-view-toggle title="Graph: every card as a dot, joined by its relations"><span class="btn-icon" data-icon="graph" aria-hidden="true"></span><span class="btn-label">Graph</span></button>
+    <button id="refresh-btn" title="Reload from disk"><span class="btn-icon" data-icon="refresh" aria-hidden="true"></span><span class="btn-label">Refresh</span></button>
     <button id="notif-btn" type="button" class="notif-btn" title="Notifications (agents write to notifications.md)" aria-label="Notifications">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
       <span id="notif-badge" class="notif-badge hidden"></span>
@@ -72,13 +79,32 @@
     </button>
     <span id="stale-indicator" class="hidden" title="Auto-refresh can't reach the server — showing last loaded data">⚠ stale</span>
   </div>
+  <!-- The phone header's More button and menu (more-menu.js): the stylesheet draws them under 760 px only. The menu holds what the desktop header shows, so the home link and the iteration picker are hidden unless the board has them. -->
+  <button id="more-btn" type="button" class="more-btn" data-keeps-selection aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" aria-label="More" title="More">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
+  </button>
+  <div id="more-menu" class="more-menu hidden" role="menu" aria-label="More" data-keeps-selection>
+    <button type="button" id="more-prefs" class="more-item" role="menuitem" data-keeps-selection>Preferences</button>
+    <button type="button" id="more-refresh" class="more-item" role="menuitem" data-keeps-selection>Refresh</button>
+    <button type="button" id="more-copy" class="more-item" role="menuitem" data-keeps-selection>Copy board path</button>
+    <a id="more-home" class="more-item hidden" role="menuitem" rel="noopener noreferrer" data-keeps-selection>Home page</a>
+    <div id="more-iter" class="more-item more-iter hidden" role="none"><label for="more-iter-select">Iteration</label><select id="more-iter-select" class="iter-select" data-keeps-selection data-holds-poll></select></div>
+  </div>
 </header>
 <div id="toast" class="toast hidden" title="Click to dismiss"></div>
+<nav id="board-tabs" class="board-tabs" role="tablist" aria-label="Statuses"></nav>
 <main id="board"></main>
 <div id="map-view" class="map-view hidden" aria-label="Dependency map view"></div>
 <div id="calendar-view" class="calendar-view hidden" aria-label="Calendar view"></div>
 <div id="gantt-view" class="gantt-view hidden" aria-label="Gantt view"></div>
 <div id="graph-view" class="graph-view hidden" aria-label="Graph view"></div>
+<nav id="view-bar" aria-label="Views">
+  <button type="button" class="view-bar-btn" data-view="board" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
+  <button type="button" class="view-bar-btn" data-view="calendar" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
+  <button type="button" class="view-bar-btn" data-view="gantt" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
+  <button type="button" class="view-bar-btn" data-view="map" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
+  <button type="button" class="view-bar-btn" data-view="graph" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
+</nav>
 
 <div id="modal" class="modal-backdrop hidden">
   <!-- autocomplete=off: the browser's form-history dropdown fights the
@@ -219,6 +245,7 @@
         <div id="detail-modified" class="detail-path"></div>
       </div>
       <div class="detail-actions">
+        <button type="button" id="detail-back-btn" class="detail-back-btn" title="Back to the Board" aria-label="Back to the Board">&#8249; Board</button>
         <button type="button" id="detail-edit-btn" class="icon-btn" title="Edit card fields" aria-label="Edit card fields">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>
         </button>
@@ -491,6 +518,7 @@
             <p class="prefs-hint">The panel under the search box lists the slices and the pills. A section's fold control folds it for this visit; these are how each starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
             <label class="prefs-check"><input type="checkbox" id="prefs-slices-folded" data-keeps-selection data-holds-poll> Slice section starts folded</label>
             <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
+            <label class="prefs-check"><input type="checkbox" id="prefs-statuses-folded" data-keeps-selection data-holds-poll> Status section starts folded</label>
             <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
           </section>
         </section>
@@ -524,6 +552,7 @@
 <script src="/calendar-model.js"></script>
 <script src="/gantt-model.js"></script>
 <script src="/type-icons.js"></script>
+<script src="/view-icons.js"></script>
 <script src="/graph-model.js"></script>
 <script src="/graph-names.js"></script>
 <script src="/date-picker.js"></script>
@@ -540,6 +569,7 @@
 <script src="/form-guard.js"></script>
 <script src="/prefs.js"></script>
 <script src="/view-panel.js"></script>
+<script src="/phone-width.js"></script>
 <script src="/selection.js"></script>
 <script src="/status-colors.js"></script>
 <script src="/assignee-colors.js"></script>
@@ -549,6 +579,8 @@
 <script src="/deep-link.js"></script>
 <script src="/card-history.js"></script>
 <script src="/search-panel.js"></script>
+<script src="/status-filters.js"></script>
+<script src="/search-statuses.js"></script>
 <script src="/search-slices.js"></script>
 <script src="/isolate.js"></script>
 <script src="/hotkeys.js"></script>
@@ -564,6 +596,7 @@
 <script src="/delete-plan.js"></script>
 <script src="/delete-ui.js"></script>
 <script src="/settings-ui.js"></script>
+<script src="/more-menu.js"></script>
 <script src="/scratchpad-ui.js"></script>
 <script src="/iterations-ui.js"></script>
 <script src="/graph-view.js"></script>

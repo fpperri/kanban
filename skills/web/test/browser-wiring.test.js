@@ -11,7 +11,7 @@ const path = require('node:path');
 
 const browserDir = path.join(__dirname, 'browser');
 const files = [];
-for (const dir of [browserDir, path.join(browserDir, 'scenarios')]) {
+for (const dir of [browserDir, path.join(browserDir, 'scenarios'), path.join(browserDir, 'scenarios', 'phone-steps'), path.join(browserDir, 'scenarios', 'phone-flip-steps')]) {
   for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js'))) files.push(path.join(dir, f));
 }
 

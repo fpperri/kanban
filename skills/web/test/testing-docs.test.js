@@ -37,3 +37,11 @@ test('every file the testing doc points at exists', () => {
   assert.ok(paths.length >= 8, 'the doc points at files');
   for (const p of paths) assert.ok(fs.existsSync(path.join(ROOT, p)), `${p} exists`);
 });
+
+test('the testing doc says how to add a step to the phone and phone-flip scenarios', () => {
+  for (const name of ['phone-steps/', 'phone-flip-steps/', '`run(page)`', 'skills/web/test/browser/steps.js', '`tap`', '`swipe`', '`pinch`', 'PAGE_GLOBALS']) {
+    assert.ok(doc.includes(name), `${name} is in the testing doc`);
+  }
+  assert.match(doc, /clean page/);
+  assert.match(doc, /puts back any card/);
+});

@@ -162,7 +162,7 @@ const TABLE_DRAWN = `graphLoadOptions().unnested==='table'&&!!graphCur&&graphCur
 
 const TIERS_PRESSED = `(document.querySelector('.graph-layout-btn[aria-pressed=true]')||{dataset:{}}).dataset.layout==='tiers'`;
 const DRAWN = `document.querySelectorAll('#graph-view .graph-node').length>0`;
-const ARCHIVE_PILL = `document.querySelector('.graph-filter-toggle[data-col=archive]').click()`;
+const ARCHIVE_PILL = `document.querySelector('#search-statuses .status-pill[data-col=archive]').click()`;
 const FIT = `document.querySelector('.graph-zoom-btn[data-graph-action=fit]').click()`;
 const ZOOM_IN = `document.querySelector('.graph-zoom-btn[data-graph-action=in]').click()`;
 const FITTED = `graphCur.view.touched===false`;

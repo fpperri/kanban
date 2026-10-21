@@ -191,7 +191,12 @@ module.exports = {
 
     // --- the sheet, narrow ---------------------------------------------------------------------------
     await metrics(400);
-    await openSheet();
+    const openNarrow = async () => {
+      await clickOn('#more-btn');
+      await clickOn('#more-prefs');
+      return (await waitFor(SHEET_UP, 2500)) && settled();
+    };
+    await openNarrow();
     check('a narrow sheet shows the menu alone, with no page and no back button', await ev(`document.getElementById('prefs-panel').classList.contains('is-drill')`)
       && await ev(shown('#prefs-menu')) && !(await ev(shown('#prefs-pages'))) && !(await ev(shown('#prefs-back'))));
     await clickOn(item('board:prefixes'));
@@ -201,8 +206,8 @@ module.exports = {
     check('Esc steps back to the menu, and the sheet stays open', await waitFor(`${shown('#prefs-menu')}&&!${'(' + shown('#prefs-pages') + ')'}`, 2500) && await ev(SHEET_UP));
     check('focus is back on the item that opened the page', await ev(`document.activeElement===document.querySelector(${JSON.stringify(item('board:prefixes'))})`));
     await key('Escape');
-    check('a second Esc closes the sheet', await waitFor(SHEET_SHUT, 2500) && await ev(GEAR_FOCUSED));
-    await openSheet();
+    check('a second Esc closes the sheet and hands focus to More, the gear being hidden', await waitFor(SHEET_SHUT, 2500) && await ev(`document.activeElement===document.getElementById('more-btn')`));
+    await openNarrow();
     await clickOn(item('browser:hotkeys'));
     await waitFor(shown('#prefs-back'), 2500);
     await clickOn('#prefs-back');

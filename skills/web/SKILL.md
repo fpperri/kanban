@@ -219,7 +219,9 @@ to `127.0.0.1` only.
   The form's status dropdown offers the list's values (an unlisted status on the card
   being edited is appended as "(unlisted)" so saving never silently rewrites it), and new
   cards default to the first column (a column header's **+** pre-selects its own column
-  instead).
+  instead). In the phone layout the status tabs replace the column header below 760 px: the Board shows one
+  status at a time, chosen by the tab strip, and the column header's controls below are the desktop's.
+- **Left out on a phone** — the phone layout leaves out sorting (no sort dropdown), collapsing (a collapsed status shows its cards), the AI-prompt add (no sparkle button) and selection gestures (no Shift or Ctrl click, no box); they stay on the desktop layout.
 - **Collapsible columns** — every column header has a collapse/expand toggle. Collapsed =
   a narrow strip showing just the toggle icon and the card count; hovering it tooltips
   the full column name. Live columns default expanded, Archive defaults collapsed.
@@ -543,6 +545,13 @@ to `127.0.0.1` only.
   an unknown icon name, draws the plain chip: its name alone. The six glyphs live in their own
   module, `type-icons.js`, which has no dependencies and loads before the type chip and the
   Graph.
+- **Header icons** — the header's New card, Calendar, Gantt, Map view, Graph and Refresh
+  buttons each hold an icon slot and a label span; the active view's button reads
+  "Board view" and wears the Board icon. The line icons (a 24 px box, stroked with the
+  current colour, so they read in light and dark) live in `view-icons.js`, which loads right
+  after `type-icons.js`. A views table in `app.js`, beside `VIEW_CONTAINERS`, lists each
+  view's id, label and icon and drives the painter, which writes a label or `aria-pressed`
+  only when it changes and puts `aria-pressed` on every element marked `data-view`.
 - **Assignee text color** — `assigneeBadge()` (assignee-badge.js) tints the handle text
   itself — the handle carries the color; there is no separate glyph. A config.yaml
   `assignees[].color` reservation wins; absent, the handle hashes into the same 8-color
@@ -787,9 +796,17 @@ to `127.0.0.1` only.
   in the browser per board, in the board's own `prefs` entry, and the preferences sheet
   shows and sets it. An open panel adds nothing to the header's height, and a press
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
-  four regions, drawn on their own: the **slice section** (next entry) with its fold control,
-  the **pill section** with its fold control, a divider, and a foot that holds the **Isolate**
-  switch (see Isolate).
+  five regions, drawn on their own: the **Statuses section** first, then the **slice section**
+  (next entry) with its fold control, the **pill section** with its fold control, a divider, and a
+  foot that holds the **Isolate** switch (see Isolate). The Statuses section shows the current
+  view's own status pills with their state, for the Map, the Gantt, the Calendar and the Graph,
+  at every width: it is open to start and folds like the others, a tap on a pill switches that
+  status in the view and a right-click solos it, as the view's own pills do. It is hidden on the
+  Board, still shows when the view's filter hides every card, and never touches the selection.
+  **Status section starts folded** makes it start folded. The search chip counts the statuses
+  switched off in the view, named "hidden" (Archive only when it is off against the view's
+  default), so a hidden status shows with the panel closed. On a phone its pills are 44 px tall
+  and the panel scrolls inside a maximum height.
   The pill section lists the built-in pills, blocked, review and waiting, in that order,
   each with a count of the cards its query matches, done cards included. The counts are
   taken over the cards the view shows after its status pills and the Archive pill and
@@ -996,7 +1013,9 @@ to `127.0.0.1` only.
   default: it says how the search panel's slice section starts, and the section's own fold
   control still folds it for the visit. **Pill section starts folded** is off by
   default: it says how the search panel's pill section starts, and the section's own fold
-  control still folds it for the visit. **Panel opens when the search box is focused** is
+  control still folds it for the visit. **Status section starts folded** is off by default:
+  it says how the Statuses section starts, and its own fold control still folds it for the
+  visit. **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
   so each shows what the others did; turning it off closes the panel, and turning it on
   from the sheet leaves the panel closed until the box is focused. Switching it off moves focus to
@@ -1212,7 +1231,7 @@ to `127.0.0.1` only.
   deliberately NOT in the `boardControlFocused` poll guard the other rebuilt controls sit
   in: a plain click leaves a card focused indefinitely, so blocking there would quietly
   freeze the refresh; `applyBoardData` re-finds the focused card after the render instead.
-  The status pills and fold toggles of every view are treated the same way (a click or a
+  The status pills (in the Statuses section) and the Map's fold toggles are treated the same way (a click or a
   keypress leaves one focused, so guarding them would stop the 5s refresh): the guard keeps
   only real form controls, and `applyBoardData` refocuses the focused pill without scrolling.
   A caption of the Graph's tier fan is a tab stop that every render rebuilds, so it is found
@@ -1416,7 +1435,7 @@ to `127.0.0.1` only.
   `id` or a non-empty `message` are skipped by the reader (never fatal); the next
   managed rewrite (mark-read / remove / clear-all) moves their raw blocks verbatim to
   the archive too — deletion never happens, malformed writes included.
-- **Dependency map** — a top-bar "🕸 Map view" button swaps the board for a hand-rolled
+- **Dependency map** — a top-bar "Map view" button (a line icon, then the words) swaps the board for a hand-rolled
   layered SVG graph: nodes are cards (id + title), solid edges are `waiting_for` (arrow from
   the depended-on card to the card waiting on it), dashed lines are parents (below).
   Nodes come from both live and archived cards — blocking is location-independent.
@@ -1462,7 +1481,7 @@ to `127.0.0.1` only.
   open); a click on a bar flips every bar and never opens the card. A node's
   height follows what it holds (a plain node is 58px tall), and stubs stay plain; "plain"
   draws id and title only.
-  **Map options:** one compact row under the status pills holds the eight choices as
+  **Map options:** one compact row in the option panel, under the zoom, holds the eight choices as
   segmented controls — Parent lines (chain ends / all / off), Dependency lines (on / off),
   Graphs (one per tree / one graph), Parent sits (below / above), Align (center / left),
   Row order (by status / layout), Layout (keep / reflow), Cards (rich / plain) — defaults
@@ -1497,10 +1516,9 @@ to `127.0.0.1` only.
   on archived nodes too: a stop sign is identity, not location, and unlike the stroke it
   doesn't share a channel with the archived grey. Cycles in `waiting_for` render as a
   visibly distinct amber curved "back edge" rather than hanging the layout.
-  **Status-filter row** — one toggle pill per board column (the configured statuses in
+  **Status-filter row** — the Map draws no pill row of its own: its status pills sit in the search panel's Statuses section, which keeps the guarantee that a control is always left to turn a status back on. One toggle pill per board column (the configured statuses in
   column order + Archive, the location pseudo-column), each led by a dot in its column's
-  color (hollow, with the label struck through, when the pill is off) — all ON by default, and the row renders even when everything is filtered out
-  (so a toggle can always be turned back on). These are the glossary's **status pills**: they
+  color (hollow, with the label struck through, when the pill is off) — all ON by default, and the section is there even when everything is filtered out (so a toggle can always be turned back on). These are the glossary's **status pills**: they
   hide cards, and they are not the search panel's pills, which are queries (see Search panel).
   **Pill interaction grammar, shared by
   every status-filter row in the app** (this one, the gantt's, the calendar's and the graph's):
@@ -1533,8 +1551,7 @@ to `127.0.0.1` only.
   buttons and option row (Tiers), stand in an `<aside class="view-panel">` on the right of the view, built
   by `buildViewPanel` in app.js, which `graphBuildPanel` and `buildMapPanel` fill. One icon button
   (`.view-panel-toggle`, a rectangle with a bar on its right, `aria-label="Options panel"`, `aria-expanded`)
-  opens and closes it, at the top right, the side the panel comes out of: it ends the Map's top row
-  (`.view-bar`, after the status pills) and the Graph's top row (after the card count). The status pills, the Graph's key and its card count stay in the view. The
+  opens and closes it, at the top right, the side the panel comes out of: it floats in the top-right corner of the Map (`.view-bar`, which holds only that button, and stays put while `.map-main` scrolls) and of the Graph (`.graph-controls`, beside the (i) button). The Graph's card count and key sit behind that (i) button (`.graph-info-toggle`, `aria-pressed`, off by default, remembered per board); they stay in the DOM, hidden by a class while it is off. The Graph's status pills are in the search panel's Statuses section. The
   Map's graphs scroll in `.map-main` beside the panel, and the pan, the zoom and Fit read and move that
   element (`mapMain`). Closed, the panel is not built at all, so the view has its width back and no
   control of it can take focus; the Graph then frames an untouched view again in the new width
@@ -1575,8 +1592,7 @@ to `127.0.0.1` only.
   delegated parent, not the specific node pressed — and deliberately deferred until the
   drag clears the threshold: claiming it at pointerdown retargets the click that follows
   EVERY press (including an unmoved one) to the container, which broke plain-click/
-  Ctrl-click on a node entirely. The pill row, options row,
-  section header, graph headings and the No relations row are outside the drag surface, so filter clicks, the
+  Ctrl-click on a node entirely. The options row, section header, graph headings and the No relations row are outside the drag surface, so filter clicks, the
   collapse chevron and text selection there are untouched. A zoom toolbar
   (−/percentage/+/Fit) is the first thing in the option panel (see **Option panel**): the buttons step the zoom by one
   rung of a 1.25^n ladder (10%–200%) around the panel's center, rounding the current zoom
@@ -1602,7 +1618,7 @@ to `127.0.0.1` only.
   the same way it already skips for every other pointer-capture drag (`isDragging`), with
   a document-level pointerup/pointercancel/lostpointercapture net so a release that lands
   outside `#map-view` before capture is even claimed can't leave that guard stuck forever.
-- **Calendar view** — a top-bar "📅 Calendar" button swaps the board for a month grid
+- **Calendar view** — a top-bar "Calendar" button (a line icon, then the word) swaps the board for a month grid
   (weeks start Monday; prev/next/Today controls; outside-month days on the raised ground, today
   highlighted). Live cards by default; dated ARCHIVED cards join too, opt-in via the
   Archive pill below. The **working range** (start→end inclusive; compat: start→due when
@@ -1645,9 +1661,7 @@ to `127.0.0.1` only.
   the jump is a listener of the one search-box writer); so does entering the Calendar,
   once, so a query already in the box shows its month. A poll, a re-render, Today and
   paging with previous and next never jump, so after a jump paging works as usual.
-  **Status-filter row** — a pill row above the grid (month AND every sub-view alike),
-  sharing the map's pill-row MECHANISM (one builder, comma-joined CSS) rather than a
-  duplicate: one toggle per LIVE board status in column order, all ON by default, PLUS
+  **Status-filter row** — no row sits above the grid: the status pills (month AND every sub-view alike) sit in the search panel's Statuses section, sharing the Map's pill mechanism rather than a duplicate: one toggle per LIVE board status in column order, all ON by default, PLUS
   an Archive pseudo-pill (same id list as the gantt's row) that defaults **OFF** — the
   base calendar stays live-only until a human opts in (same merge helper as the gantt's
   row: a saved value with no `archive` key merges in OFF, never ON). Flipping Archive ON
@@ -1667,8 +1681,7 @@ to `127.0.0.1` only.
   map's column-bucketing one) — the calendar doesn't bucket cards into board columns any
   more than the gantt does, so an on-disk status the `statuses` list doesn't include
   stays ungoverned by any pill, same as the gantt, rather than riding an unrelated
-  toggle. Renders unconditionally ("always leave a control to turn a pill back on") and
-  shares the pill interaction grammar (left toggle, right solo) with the map/gantt rows.
+  toggle. The section is there unconditionally ("always leave a control to turn a pill back on") and shares the pill interaction grammar (left toggle, right solo) with the Map's and the Gantt's pills.
   **Sub-views** — the calendar header carries an Outlook/Teams-style
   Month | Week | 3 days | Day switcher (persisted per board under `calendar.subview`;
   unknown saved values fall back to Month, which is exactly the grid above). Sub-month
@@ -1722,7 +1735,7 @@ to `127.0.0.1` only.
   double-click landing on a chip is the chip's own affair (the shared card grammar),
   excluded before the cell/column lookup ever runs. The snapshot's own calendar has no
   click-to-create — a deliberate, unbuilt gap.
-- **Gantt view** — a top-bar "📊 Gantt" button swaps the board for a day-granular
+- **Gantt view** — a top-bar "Gantt" button (a line icon, then the word) swaps the board for a day-granular
   timeline: each dated live card gets a row (dated ARCHIVED cards join too, opt-in via
   the Archive pill below) — the **working range** as a bar (start→end inclusive; compat
   start→due; one-date and reversed ranges collapse to a 1-day bar — same shapes as the
@@ -1784,8 +1797,7 @@ to `127.0.0.1` only.
   Month is the month's own days, with no leading or trailing days, because the Gantt draws
   none. **All** never jumps, since it already fits every dated card. Entering the Gantt
   makes the check once; a poll, a re-render and paging never do.
-  **Status-filter row** — a pill row above the timeline, sharing the map's pill-row
-  MECHANISM: one toggle per LIVE board status in column order, all ON by default, PLUS
+  **Status-filter row** — no row sits above the timeline: the status pills sit in the search panel's Statuses section, sharing the Map's pill mechanism: one toggle per LIVE board status in column order, all ON by default, PLUS
   an Archive pseudo-pill (same id list as the map's row) that defaults **OFF** —
   archived rows are opt-in, so the base gantt stays live-only. Flipping Archive ON
   appends ONE more group AFTER the live status groups — every dated ARCHIVED card,
@@ -1821,7 +1833,7 @@ to `127.0.0.1` only.
   re-derives from the cards on each poll (a sized sub-view's window instead re-derives
   from its own anchor day + span, not from the cards) while the timeline's horizontal
   scroll position is carried across re-renders.
-- **Graph view** — a top-bar "◉ Graph" button (`aria-pressed`; it reads "☰ Board view"
+- **Graph view** — a top-bar "Graph" button (a line icon, then the word; `aria-pressed`; it reads "Board view" with the Board icon
   while the graph is up) swaps the board for the **Graph**: every card at once as a dot,
   joined by its relations, in one of three **layouts** picked from a button row in the
   graph's own header (`aria-pressed` marks the active one). **Tiers** opens first and is
@@ -1942,7 +1954,7 @@ to `127.0.0.1` only.
   never clears the selection and never pauses the 5-second poll. Pressing Lines, Dependencies or Order never pans, zooms or
   re-fits the view, so a fan framed once keeps its place and **Fit** frames every card again.
   Pressing Unnested, which changes what the fan draws and what Fit frames, frames an untouched view again; a view the person has panned or zoomed stays where it is.
-  The header holds the same **status-filter pill row** as the Gantt: left-click toggles a
+  The Graph draws no status pill row: its status pills sit in the search panel's Statuses section, as the Gantt's do. Left-click toggles a
   status, right-click solos it (right-click the soloed pill to restore all), and the
   Archive pill is **off by default** (unlike the Map). A card whose parent is hidden
   (archived, or filtered out by a pill) is drawn as a root, the top of its own sector, in the band of its slice. The search box hides nothing
@@ -1987,7 +1999,7 @@ to `127.0.0.1` only.
   a click on empty space and keeps the selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
   about the centre or fit every card in the panel. Picking a layout re-fits the view; after
   that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
-  Per board in `localStorage`: the layout under `graph.layout` and the pill row under
+  Per board in `localStorage`: the layout under `graph.layout` and the status pills under
   `graph.statusFilter` (same defensive merge as the Gantt's: a saved value with no
   `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options`.
   The 5-second poll rebuilds the view and keeps the

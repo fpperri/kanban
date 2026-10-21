@@ -56,6 +56,65 @@ function saveCollapsedColumns() {
   catch (e) { /* storage unavailable/full — collapse state just won't persist this session */ }
 }
 
+// The phone Board's status tab: one status at a time, remembered per board (feature
+// 'columns.phone', the same storageKey pattern as the collapse state). Loaded once and reset with
+// the other per-board caches when the board's name arrives.
+let phoneColumn = null;
+
+function loadPhoneColumn() {
+  if (phoneColumn !== null) return phoneColumn;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'columns.phone')); }
+  catch (e) { saved = null; }
+  phoneColumn = saved || '';
+  return phoneColumn;
+}
+
+function setPhoneColumn(col) {
+  phoneColumn = col;
+  try { localStorage.setItem(storageKey(state.projectName, 'columns.phone'), col); }
+  catch (e) { /* storage unavailable/full — the tab just won't persist this session */ }
+}
+
+// The one MediaQueryList for the width line, made on first use: a card asks per card, so a list per
+// ask would be one per tile drawn.
+let phoneWidthList = null;
+function phoneWidthMedia() {
+  if (!phoneWidthList && window.matchMedia) phoneWidthList = window.matchMedia(PHONE_WIDTH_QUERY);
+  return phoneWidthList;
+}
+
+function onPhoneLayout() {
+  const list = phoneWidthMedia();
+  return !!(list && list.matches);
+}
+
+// A sideways swipe on the phone Board moves to the neighbouring status. The listeners are passive
+// (the browser keeps scrolling and pinch-zooming); a second finger, a drag in progress or a layout
+// above the width line leaves the gesture alone.
+function wireBoardSwipe(board) {
+  let start = null;
+  board.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches && e.changedTouches[0];
+    start = t && e.touches && e.touches.length === 1 && onPhoneLayout() && !isDragging ? { x: t.clientX, y: t.clientY, at: e.timeStamp } : null;
+  }, { passive: true });
+  board.addEventListener('touchend', (e) => {
+    const from = start;
+    start = null;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!from || !t || isDragging || !onPhoneLayout()) return;
+    const direction = swipeDirection(t.clientX - from.x, t.clientY - from.y, e.timeStamp - from.at);
+    if (!direction) return;
+    const statuses = boardStatuses();
+    const active = activePhoneColumn(loadPhoneColumn(), statuses);
+    const next = neighbourPhoneColumn(statuses, active, direction);
+    if (next === active) return;
+    setPhoneColumn(next);
+    renderBoard();
+  }, { passive: true });
+  board.addEventListener('touchcancel', () => { start = null; }, { passive: true });
+}
+
 function toggleColumn(col) {
   const collapsed = loadCollapsedColumns();
   collapsed[col] = !collapsed[col];
@@ -590,7 +649,7 @@ function cardEl(card) {
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
   el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
-  el.draggable = true;
+  el.draggable = !onPhoneLayout(); // a phone swipes between statuses; a touch never starts a native drag
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const tags = card.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
@@ -677,7 +736,7 @@ function cardEl(card) {
 function archiveCardEl(card) {
   const el = document.createElement('div');
   el.className = 'card card-el archived-card' + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
-  el.draggable = true; // drag out of Archive restores to the drop column
+  el.draggable = !onPhoneLayout(); // drag out of Archive restores to the drop column; no native drag on a phone
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
   const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
@@ -936,21 +995,17 @@ function setArchivedDone(on) {
   repaintRollups();
 }
 
-// Whether the search panel's pill section starts folded; the section takes the
-// choice now (search-panel.js).
-function setPillsFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { pillsFolded: on });
+// Whether a section of the search panel starts folded; the section takes the choice now (searchFoldSection,
+// search-panel.js).
+function setFoldPref(prefKey, on, fold) {
+  prefsMemo = prefsWith(loadPrefsState(), { [prefKey]: on });
   savePrefsState();
-  foldSearchPills(on);
+  fold(on);
 }
 
-// Whether the search panel's slice section starts folded; the section takes the choice now
-// (search-slices.js).
-function setSlicesFolded(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { slicesFolded: on });
-  savePrefsState();
-  foldSearchSlices(on);
-}
+function setPillsFolded(on) { setFoldPref('pillsFolded', on, foldSearchPills); }
+function setStatusesFolded(on) { setFoldPref('statusesFolded', on, foldSearchStatuses); }
+function setSlicesFolded(on) { setFoldPref('slicesFolded', on, foldSearchSlices); }
 
 // Whether the search panel opens when the search box is focused: the switch at the end
 // of the box, flipped by a click on the arrow and by the p key (which open the panel at
@@ -978,6 +1033,7 @@ function syncPrefsSheet() {
   $('#prefs-archived-done').checked = countArchivedLeaves();
   $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
+  $('#prefs-statuses-folded').checked = loadPrefsState().statusesFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
 }
 
@@ -992,7 +1048,7 @@ function openPrefsSheet(page) {
 function closePrefsSheet() {
   $('#prefs-sheet').classList.add('hidden');
   $('#prefs-btn').setAttribute('aria-expanded', 'false');
-  $('#prefs-btn').focus();
+  ($('#prefs-btn').offsetParent === null ? $('#more-btn') : $('#prefs-btn')).focus();
 }
 
 // A click on the backdrop outside the sheet closes it; one on a choice makes it, one on a menu item
@@ -1047,12 +1103,14 @@ function openLeavesNote(cards, status) {
   return openLeavesWarning(cards.map((c) => ({ id: c.id, open: index.openLeafCount(c.id) })));
 }
 
-// Each header toggle flips between its own view and the board: map ⇄ board,
-// calendar ⇄ board — and pressing one while the OTHER view is active jumps
-// straight to the pressed view (no board stopover).
-function toggleView(mode) {
+// A view bar button assigns its view: unlike toggleView, a tap on the current view stays on it, and
+// the Board is a place to go, never a toggle back. A tap on the view already showing changes nothing:
+// no redraw, and no jump of the Calendar or the Gantt to another date range.
+function setView(mode) {
   const from = loadViewMode();
-  viewMode = from === mode ? 'board' : mode;
+  const to = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
+  if (to === from) return;
+  viewMode = to;
   saveViewMode();
   const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
@@ -1061,26 +1119,102 @@ function toggleView(mode) {
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
+// Each header toggle flips between its own view and the board: map ⇄ board,
+// calendar ⇄ board — and pressing one while the OTHER view is active jumps
+// straight to the pressed view (no board stopover).
+function toggleView(mode) {
+  setView(loadViewMode() === mode ? 'board' : mode);
+}
+
 // One mode→container map for everything that needs "which element hosts
 // this view" — applyViewMode's hide/show and visibleCardIds' range scope
 // — so a sixth view is one entry here, not two edits.
 const VIEW_CONTAINERS = { board: '#board', map: '#map-view', calendar: '#calendar-view', gantt: '#gantt-view', graph: '#graph-view' };
 
+// The views, in the order the header and the phone's view bar list them: id, the
+// button's word, the line icon (view-icons.js) it wears. The active view's button
+// reads "Board view" and wears the Board icon instead, so a sixth view is one entry
+// here and one in VIEW_CONTAINERS.
+const VIEW_TABLE = [
+  { id: 'board', label: 'Board', icon: 'board' },
+  { id: 'calendar', label: 'Calendar', icon: 'calendar' },
+  { id: 'gantt', label: 'Gantt', icon: 'gantt' },
+  { id: 'map', label: 'Map view', icon: 'map' },
+  { id: 'graph', label: 'Graph', icon: 'graph' },
+];
+
+// What each view's button shows in a mode: label, icon, pressed. The Board's own entry
+// never reads "Board view"; an unknown mode is the Board.
+function viewButtonsModel(mode) {
+  const current = VIEW_TABLE.some((v) => v.id === mode) ? mode : 'board';
+  return VIEW_TABLE.map((v) => {
+    const active = v.id === current;
+    const away = active && v.id !== 'board';
+    return { id: v.id, label: away ? 'Board view' : v.label, icon: away ? 'board' : v.icon, pressed: active };
+  });
+}
+
+// The date range the header shows beside the board's name on a phone: the view's own title for the
+// Calendar and the Gantt, nothing for any other view.
+function headerDateText(mode, title) {
+  return (mode === 'calendar' || mode === 'gantt') && typeof title === 'string' ? title : '';
+}
+
+function paintHeaderDate(mode, title) {
+  const slot = $('#header-date');
+  const text = headerDateText(mode, title);
+  if (slot.textContent !== text) slot.textContent = text;
+  slot.classList.toggle('hidden', text === '');
+}
+
+// Draw every icon slot to the shape its data-icon names, once per change.
+function paintIconSlots() {
+  for (const slot of document.querySelectorAll('.btn-icon')) {
+    if (slot.dataset.drawn === slot.dataset.icon) continue;
+    slot.innerHTML = viewIconSvg(slot.dataset.icon);
+    slot.dataset.drawn = slot.dataset.icon;
+  }
+}
+
+// Paint the view buttons for a mode, writing only what changed. Any element that
+// names a view with data-view gets aria-pressed; only the header's toggle buttons
+// (data-view-toggle) get a label and an icon, so a second set of view buttons is markup only.
+function paintViewButtons(mode) {
+  const rows = new Map(viewButtonsModel(mode).map((r) => [r.id, r]));
+  for (const el of document.querySelectorAll('[data-view-toggle], #view-bar [data-view]')) {
+    const row = rows.get(el.dataset.view);
+    if (!row) continue;
+    const pressed = String(row.pressed);
+    if (el.getAttribute('aria-pressed') !== pressed) el.setAttribute('aria-pressed', pressed);
+    if (el.dataset.viewToggle === undefined) continue;
+    const label = el.querySelector('.btn-label');
+    if (label && label.textContent !== row.label) label.textContent = row.label;
+    const icon = el.querySelector('.btn-icon');
+    if (icon && icon.dataset.icon !== row.icon) icon.dataset.icon = row.icon;
+  }
+  paintIconSlots();
+}
+
+// The view bar's words and icons, written once from VIEW_TABLE: the idle label of each view with its
+// " view" tail dropped, and the table's icon. Pressed state is the painter's.
+function fillViewBar() {
+  for (const el of document.querySelectorAll('#view-bar [data-view]')) {
+    const row = VIEW_TABLE.find((v) => v.id === el.dataset.view);
+    if (!row) continue;
+    const label = el.querySelector('.btn-label');
+    if (label) label.textContent = row.label.replace(/ view$/, '');
+    const icon = el.querySelector('.btn-icon');
+    if (icon) icon.dataset.icon = row.icon;
+  }
+  paintIconSlots();
+}
+
 function applyViewMode() {
   const mode = loadViewMode();
   for (const [m, sel] of Object.entries(VIEW_CONTAINERS)) $(sel).classList.toggle('hidden', mode !== m);
-  const mapBtn = $('#map-toggle-btn');
-  mapBtn.textContent = mode === 'map' ? '☰ Board view' : '🕸 Map view';
-  mapBtn.setAttribute('aria-pressed', String(mode === 'map'));
-  const calBtn = $('#calendar-toggle-btn');
-  calBtn.textContent = mode === 'calendar' ? '☰ Board view' : '📅 Calendar';
-  calBtn.setAttribute('aria-pressed', String(mode === 'calendar'));
-  const ganttBtn = $('#gantt-toggle-btn');
-  ganttBtn.textContent = mode === 'gantt' ? '☰ Board view' : '📊 Gantt';
-  ganttBtn.setAttribute('aria-pressed', String(mode === 'gantt'));
-  const graphBtn = $('#graph-toggle-btn');
-  graphBtn.textContent = mode === 'graph' ? '☰ Board view' : '◉ Graph';
-  graphBtn.setAttribute('aria-pressed', String(mode === 'graph'));
+  $('#board-tabs').classList.toggle('hidden', mode !== 'board');
+  paintViewButtons(mode);
+  if (mode !== 'calendar' && mode !== 'gantt') paintHeaderDate(mode, '');
   if (mode === 'map') renderMapView();
   if (mode === 'calendar') renderCalendarView();
   if (mode === 'gantt') renderGanttView();
@@ -1159,15 +1293,23 @@ function renderBoardColumns() {
   // may sit in another column), so the whole board is indexed once.
   const outlineIndex = outlineOrder(state.active.concat(state.archived), nestingCtx()).index;
   const statuses = boardStatuses();
+  const phone = onPhoneLayout();
+  const phoneActive = phone ? activePhoneColumn(loadPhoneColumn(), statuses) : null;
+  const tabCounts = {};
   for (const col of boardColumnIds()) {
     const isArchive = col === 'archive';
     const source = isArchive ? state.archived : state.active.filter((c) => columnForStatus(c.status, statuses) === col);
     const sortState = colSort[col];
     // The Assignee sort ranks by registry order, so the comparator
     // gets the config.yaml handles — plumbed exactly like priorities above.
+    if (phone && col !== phoneActive) { // the phone Board shows one status at a time: the others are only counted
+      tabCounts[col] = { shown: narrowed ? source.filter((c) => searchIds.has(c.id)).length : source.length, total: source.length };
+      continue;
+    }
     const allCards = sortCards(source, sortState, state.priorities, state.assignees.map((a) => a.handle), outlineIndex);
     const cards = narrowed ? allCards.filter((c) => searchIds.has(c.id)) : allCards;
-    const isCollapsed = !!collapsed[col];
+    if (phone) tabCounts[col] = { shown: cards.length, total: allCards.length };
+    const isCollapsed = phone ? false : !!collapsed[col]; // a status collapsed on the desktop still shows its cards, and nothing is written
     const label = columnLabel(col);
     // Counts stay truthful whether or not the column is collapsed — column-count
     // renders in both states, so a collapsed column with hits signals them on its
@@ -1244,7 +1386,41 @@ function renderBoardColumns() {
     }
   }
   board.scrollLeft = keepBoardLeft;
+  renderBoardTabs(phone ? phoneTabs(statuses, tabCounts, phoneActive, narrowed) : []);
   wireDrag();
+}
+
+// The status tabs of the phone Board, one button per status with its colour and count. The strip is
+// emptied above the width line, where the stylesheet hides it anyway. A redraw keeps the strip where it
+// was scrolled; the chosen tab is brought into view only when the choice has changed.
+function renderBoardTabs(tabs) {
+  const strip = $('#board-tabs');
+  const keepLeft = strip.scrollLeft;
+  const chosenBefore = strip.dataset.chosen;
+  strip.textContent = '';
+  let chosen = null;
+  for (const t of tabs) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'board-tab';
+    btn.setAttribute('role', 'tab');
+    btn.dataset.col = t.status;
+    btn.setAttribute('aria-selected', String(t.selected));
+    btn.style.color = statusColorVar(t.status);
+    if (t.selected) chosen = btn;
+    const name = document.createElement('span');
+    name.className = 'board-tab-label';
+    name.textContent = t.label;
+    const count = document.createElement('span');
+    count.className = 'board-tab-count';
+    count.textContent = t.count;
+    btn.appendChild(name);
+    btn.appendChild(count);
+    strip.appendChild(btn);
+  }
+  strip.scrollLeft = keepLeft;
+  if (chosen && chosen.dataset.col !== chosenBefore) chosen.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  if (chosen) strip.dataset.chosen = chosen.dataset.col; else delete strip.dataset.chosen;
 }
 
 // --- Dependency map rendering ------------------------------------
@@ -1296,12 +1472,11 @@ function renderMapView() {
   const allCards = state.active.concat(state.archived);
   const options = loadMapOptions();
   container.classList.toggle('map-align-center', options.align === 'center');
-  // The status-filter row renders first and UNCONDITIONALLY — if it
-  // vanished with the graph on the everything-filtered-out state, there'd be
-  // no control left to toggle a status back ON. The panel's button sits in front of it, and
-  // the panel with the zoom toolbar stands beside it, same unconditional treatment (a corner
-  // case, but a zoomed-out board that then filters everything away shouldn't strand the
-  // human with no way to zoom back before turning a pill back on).
+  // The status pills sit in the search panel's Statuses section, which keeps the
+  // recover-from-empty guarantee: a board filtered down to nothing still has a control
+  // to turn a status back on. The option panel with the zoom toolbar stands beside the
+  // bar, same unconditional treatment (a zoomed-out board that then filters everything
+  // away shouldn't strand the human with no way to zoom back).
   main.appendChild(buildMapBar(panelOpen));
   const searchIds = withIterationCut(currentSearchMatch().ids);
   // Status filter composes with search by INTERSECTION — a card is
@@ -1333,52 +1508,15 @@ function renderMapView() {
   main.scrollTop = keepTop;
 }
 
-// The status-filter pill row MECHANISM — one toggle per column,
-// shared verbatim between the map and the gantt rather than each
-// view duplicating the markup/build-loop. Only the filter state, the id list,
-// the row/pill class (so each view's own delegated listener keeps targeting
-// just its own pills), and
-// the tooltip wording differ per caller. The look itself is ALSO shared, not
-// duplicated — app.css comma-joins the two views' pill classes onto one
-// declaration each. The identity dot's color comes from statusColorVar() for EVERY pill —
-// built-in, custom (their hashed hue; no CSS rule exists, same reasoning as
-// the column headers), and archive's neutral grey where the map's
-// row includes it.
-//
-// The right-click SOLO/viceversa grammar rides here too — one
-// line appended to every caller's tooltip (rather than repeating it in each
-// titleFor closure) since the gesture is otherwise invisible; the per-view
-// contextmenu wiring lives with each view's own click delegate.
-function buildFilterPillRow(filter, columnIds, rowClass, pillClass, titleFor) {
-  const row = document.createElement('div');
-  row.className = rowClass;
-  for (const col of columnIds) {
-    const on = filter[col] !== false;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = pillClass + (on ? '' : ' off');
-    btn.dataset.col = col;
-    btn.dataset.keepsSelection = '';
-    btn.setAttribute('aria-pressed', String(on));
-    btn.title = titleFor(col, on) + ' Right-click to solo (right-click the soloed pill again to restore all).';
-    const dot = document.createElement('span');
-    dot.className = 'pill-dot';
-    dot.style.color = statusColorVar(col);
-    btn.append(dot, columnLabel(col));
-    row.appendChild(btn);
-  }
-  return row;
-}
+const REFOCUS_SELECTOR = '.map-section-toggle, .graph-option-btn, .graph-info-toggle, .view-panel-toggle, .view-panel-close';
 
-const REFOCUS_SELECTOR = '.map-filter-toggle, .map-section-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .graph-filter-toggle, .graph-option-btn, .view-panel-toggle, .view-panel-close';
-
-// What finds a rebuilt control again after a render: its class and what names it, a status
-// pill's column or a fold toggle's section, a panel button its view, or for a button of the
+// What finds a rebuilt control again after a render: its class and what names it, a fold
+// toggle's section, a panel button its view, or for a button of the
 // Graph's option row its option and its value.
 function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
-  if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
+  if (el.dataset.graphInfo !== undefined) return '.graph-info-toggle';
   if (el.dataset.panel !== undefined) return `.${el.classList[0]}${named('panel')}`;
   if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
   return `.${el.classList[0]}${named('section')}`;
@@ -1389,25 +1527,13 @@ function focusedRebuiltControl() {
   return el && el.closest ? el.closest(REFOCUS_SELECTOR) : null;
 }
 
-// A status pill, a fold toggle or an option button is rebuilt by the render its own press
+// A fold toggle or an option button is rebuilt by the render its own press
 // triggers, so focus has to be handed back to the new element.
 function keepControlFocus(el, action) {
   const selector = refocusSelector(el);
   action();
   const next = document.querySelector(selector);
   if (next) next.focus({ preventScroll: true });
-}
-
-// One pill per board column in column order (statuses + Archive:
-// the map always includes archived cards, so the location pseudo-column is
-// always offered). Rebuilt by every renderMapView() call like the rest of
-// #map-view; state lives in the memoized mapStatusFilter, so the row never
-// visually resets across the 5s poll. Clicks ride #map-view's delegated
-// listener (see the map wiring section).
-function buildMapFilterRow() {
-  const row = buildFilterPillRow(loadMapStatusFilter(), boardColumnIds(), 'map-filter-row', 'map-filter-toggle',
-    (col, on) => `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the map (hidden cards ghost when a visible card references them)`);
-  return row;
 }
 
 // The option panel on the right of the Map and of the Graph (view-panel.js keeps whether it is
@@ -1468,21 +1594,20 @@ function pressViewPanelButton(btn, redraw) {
   if (toggle) toggle.focus({ preventScroll: true });
 }
 
-// Until the person chooses, the panel follows the screen, so crossing 760 px draws the view again.
+// Until the person chooses, the panel follows the screen, so crossing the phone width line (phone-width.js) draws the view again.
 window.addEventListener('DOMContentLoaded', () => {
-  if (!window.matchMedia) return;
-  window.matchMedia(`(min-width: ${VIEW_PANEL_WIDE_PX}px)`).addEventListener('change', () => {
-    const mode = loadViewMode();
-    if (mode === 'map') renderMapView();
-    if (mode === 'graph') graphRedrawForPanel();
+  const list = phoneWidthMedia();
+  if (!list) return;
+  list.addEventListener('change', () => {
+    if (loadViewMode() === 'graph') graphRefitNext = true; // the stage has another width, so the cards are framed again
+    renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column, and the Map or the Graph once
   });
 });
 
-// The Map's top row: the status pills, then the panel button on the right, the side the panel comes out of.
+// The Map's top row: the panel button alone, on the right, the side the panel comes out of. The status pills sit in the search panel's Statuses section.
 function buildMapBar(open) {
   const bar = document.createElement('div');
   bar.className = 'view-bar';
-  bar.appendChild(buildMapFilterRow());
   bar.appendChild(buildViewPanelToggle('map', 'Show or hide the zoom and the options', open));
   return bar;
 }
@@ -1494,7 +1619,7 @@ function buildMapPanel() {
   return panel;
 }
 
-// Zoom toolbar — the first thing in the option panel (buildFilterPillRow's own
+// Zoom toolbar — the first thing in the option panel (the pill row's own
 // flex-wrap keeps growing the pill row for every board status; a wide status list
 // would push these off-screen or wrap them awkwardly into the status pills
 // if they shared one row). Rebuilt by every renderMapView() call like the
@@ -1597,36 +1722,6 @@ function buildMapOptionsRow() {
   return row;
 }
 
-// Same mechanism, gantt-scoped — statuses + Archive (boardColumnIds(),
-// same id list as the map's row; the Archive
-// pseudo-pill defaults OFF — see loadGanttStatusFilter). No ghost
-// wording either — the gantt has no dependency edges, so a filtered-out
-// status just drops its group rows outright, and the rendered timeline
-// window re-derives from whatever bars remain (may narrow). Archive gets its
-// own tooltip: flipping it ON adds one more group, after the live status
-// groups, for dated ARCHIVED cards (muted grey, same mute as everywhere
-// else archive shows up). Rebuilt by every renderGanttView() call; clicks
-// ride #gantt-view's own delegated listener (see wireGanttPointerDrag).
-function buildGanttFilterRow() {
-  return buildFilterPillRow(loadGanttStatusFilter(), boardColumnIds(), 'gantt-filter-row', 'gantt-filter-toggle',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the timeline (dated archived cards render in their own Archive group, muted grey)`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the timeline (the visible window re-derives from what's left)`);
-}
-
-// Same mechanism again, calendar-scoped: statuses +
-// Archive (boardColumnIds(), same id list as the gantt's row) — the calendar
-// can show dated ARCHIVED cards too, opt-in, default OFF, same shape as
-// the gantt's own Archive pill. Rebuilt by every renderCalendarView() call
-// (month AND every sub-view share this one row); clicks ride
-// #calendar-view's own delegated listener (see the calendar wiring section).
-function buildCalendarFilterRow() {
-  return buildFilterPillRow(loadCalendarStatusFilter(), boardColumnIds(), 'calendar-filter-row', 'calendar-filter-toggle',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the calendar (dated archived cards render read-only, with the archived ball)`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the calendar`);
-}
-
 // The map's fold toggles (the graphs, No relations) share
 // this header shape — a chevron toggle (same CHEVRON_LEFT/RIGHT_ICON +
 // .column-toggle look as the board's per-column collapse) plus a label.
@@ -1655,18 +1750,22 @@ function buildMapGraphSection(graphs, draw, collapsed) {
   wrap.appendChild(buildMapSectionHeader('graph', mapGraphSectionLabel(graphs, draw.group), collapsed));
   if (!collapsed) {
     const zoom = loadMapZoom();
+    // One wrapper holds every tree, so a two-finger pinch scales them all at once (wireMapPanZoom).
+    const trees = document.createElement('div');
+    trees.className = 'map-trees';
     for (const graph of graphs) {
       if (draw.group === 'tree') {
         const heading = document.createElement('div');
         heading.className = 'map-graph-heading';
         heading.innerHTML = mapGraphHeadingHtml(graph);
-        wrap.appendChild(heading);
+        trees.appendChild(heading);
       }
       const layer = layerNodes(graph.ids, graph.layoutEdges);
       const svg = buildMapSvg(graph, layer, draw);
       applyMapZoomToSvg(svg, zoom);
-      wrap.appendChild(svg);
+      trees.appendChild(svg);
     }
+    wrap.appendChild(trees);
   }
   return wrap;
 }
@@ -1990,6 +2089,7 @@ function applyProjectName(name) {
     // projectName change invalidates all of them, forcing a re-load under the
     // correct key on next access.
     collapsedColumns = null;
+    phoneColumn = null;
     columnSort = null;
     columnSortPicks = null;
     modalFullscreen = null;
@@ -2448,6 +2548,11 @@ function consumeDeepLink() {
   // key was present — so this reads the view actually on screen either way.
   const el = document.querySelector(`${VIEW_CONTAINERS[loadViewMode()]} .card-el[data-id="${card.id}"]`);
   if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+  // On a phone the Board behind the card shows one status: the card's own, set before it opens.
+  if (onPhoneLayout()) {
+    setPhoneColumn(state.archived.some((c) => c.id === card.id) ? 'archive' : card.status);
+    renderBoard();
+  }
   openDetailModal(card.id);
 }
 
@@ -2572,7 +2677,11 @@ function syncAssigneeColor() {
 // same hidden-field-submits-while-minimal trick, but for #f-start alone;
 // status is deliberately left at its own default here (see the Calendar view
 // dblclick glue below for why).
+// The card whose detail the open edit form was started from: on a phone Save returns there.
+let editFromCardId = null;
+
 function openModal(card, presetStatus, presetStart) {
+  editFromCardId = null;
   $('#modal-title').textContent = card ? `Edit #${card.id}` : 'New card';
   $('#f-id').value = card ? card.id : '';
   $('#f-title').value = card ? card.title : '';
@@ -2688,8 +2797,11 @@ async function submitModal(e) {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
     else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
+    const backToCard = id && onPhoneLayout() && editFromCardId !== null && String(editFromCardId) === id ? editFromCardId : null;
     closeModal();
+    if (backToCard !== null) setPhoneColumn(payload.status);
     await loadBoard();
+    if (backToCard !== null) openDetailModal(backToCard);
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
     else if (joined) toast(joined);
@@ -2703,7 +2815,10 @@ async function submitModal(e) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  $('#new-btn').addEventListener('click', () => openModal(null));
+  $('#new-btn').addEventListener('click', () => {
+    const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
+    openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read, which only the Board shows
+  });
   // X goes through the dirty guard (the retired Cancel button bypassed it —
   // backdrop-click and X now agree on the unsaved-changes speedbump)
   $('#modal-close').addEventListener('click', requestCloseModal);
@@ -2739,6 +2854,13 @@ window.addEventListener('DOMContentLoaded', () => {
   // four views. These button branches simply return; the shared handler
   // independently ignores clicks landing on buttons/selects, so a Restore
   // click inside a card-el tile never also opens its detail popup.
+  $('#board-tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.board-tab');
+    if (!tab) return;
+    setPhoneColumn(tab.dataset.col);
+    renderBoard();
+  });
+  wireBoardSwipe($('#board'));
   $('#board').addEventListener('click', (e) => {
     const toggleBtn = e.target.closest('.column-toggle');
     if (toggleBtn) { toggleColumn(toggleBtn.dataset.col); return; }
@@ -3328,10 +3450,12 @@ function editFromDetail() {
   if (!card) { closeDetailModal(); toast('Card not found — Refresh.'); return; }
   closeDetailModal();
   openModal(card);
+  editFromCardId = card.id;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   $('#detail-close').addEventListener('click', closeCard);
+  $('#detail-back-btn').addEventListener('click', closeCard);
   $('#detail-copy-btn').addEventListener('click', copyDetailPath);
   // A mention of a card on this board opens that card, in the body and in the
   // frontmatter's parent field alike.
@@ -3376,6 +3500,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // listener ever sees the key, so nothing here needs to special-case it.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (moreMenuClose()) { e.preventDefault(); $('#more-btn').focus(); return; }
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
     if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
     if (!$('#prefs-sheet').classList.contains('hidden')) { settingsStepBack(); return; }
@@ -3673,6 +3798,8 @@ window.addEventListener('DOMContentLoaded', () => {
 //   nothing to open and never gets data-id.
 window.addEventListener('DOMContentLoaded', () => {
   $('#map-toggle-btn').addEventListener('click', () => toggleView('map'));
+  fillViewBar();
+  for (const btn of document.querySelectorAll('#view-bar [data-view]')) btn.addEventListener('click', () => setView(btn.dataset.view));
   $('#map-view').addEventListener('click', (e) => {
     const panelBtn = e.target.closest('.view-panel-toggle[data-panel], .view-panel-close[data-panel]');
     if (panelBtn) { pressViewPanelButton(panelBtn, renderMapView); return; }
@@ -3682,13 +3809,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const sectionBtn = e.target.closest('.map-section-toggle[data-section]');
     if (sectionBtn) {
       keepControlFocus(sectionBtn, () => toggleMapSection(sectionBtn.dataset.section));
-      return;
-    }
-    // Status-filter pills — control-row buttons, checked first for
-    // the same reason data-act buttons are (never fall through to card-el).
-    const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
-    if (filterBtn) {
-      keepControlFocus(filterBtn, () => toggleMapStatusFilter(filterBtn.dataset.col));
       return;
     }
     const optionBtn = e.target.closest('.map-option-btn[data-key][data-val]');
@@ -3718,20 +3838,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const stub = e.target.closest('.map-node.ghost[data-id]');
     if (stub) openCard(stub.dataset.id);
-  });
-  // Right-click a status-filter pill SOLOs it (every other pill
-  // off); right-click the already-soloed pill again restores all ON. Own
-  // listener (not folded into the click one above) so it can preventDefault
-  // WITHOUT touching the browser's context menu anywhere else in #map-view —
-  // a right-click that misses a pill falls through untouched to the
-  // shared card-el contextmenu handler on document (map nodes/No relations tiles
-  // keep their bulk-menu right-click exactly as before).
-  $('#map-view').addEventListener('contextmenu', (e) => {
-    if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the gantt's contextmenu — a chorded right-click mid-drag must not re-render under the gesture
-    const filterBtn = e.target.closest('.map-filter-toggle[data-col]');
-    if (!filterBtn) return;
-    e.preventDefault();
-    keepControlFocus(filterBtn, () => soloMapStatusFilter(filterBtn.dataset.col));
   });
   wireMapPanZoom();
 });
@@ -3770,6 +3876,12 @@ let mapPan = null; // { pointerId, startX, startY, startScrollLeft, startScrollT
 // gestures never overlap (different views), but sharing one would let a
 // drag in one view eat an unrelated click in the other if timing ever raced.
 let mapPanClickSuppressed = false;
+
+// A two-finger pinch on the Map: { ids, points, startDistance, startMid, startZoom, scale, trees }.
+// The fingers' latest positions are kept for every pointer pressed inside a drawing, so the
+// second finger to land can measure against the first.
+let mapPinch = null;
+const mapPointers = new Map();
 
 function suppressMapPanPhantomClick() {
   mapPanClickSuppressed = true;
@@ -3892,9 +4004,56 @@ function wireMapPanZoom() {
     e.preventDefault();
     e.stopPropagation();
   }, true);
+  // The pinch scales one wrapper of every tree while the fingers move (a CSS transform through
+  // the style object) and zooms the Map once when they lift: the Map redraws on every zoom, which
+  // would pull the touched drawing out of the page mid-gesture. isDragging is held the whole time
+  // so the 5-second refresh waits, and every exit path (lift, cancel, lost capture) clears it.
+  const startMapPinch = (e) => {
+    const first = [...mapPointers.keys()].find((id) => id !== e.pointerId);
+    const a = mapPointers.get(first);
+    const b = { x: e.clientX, y: e.clientY };
+    if (mapPan) { // the second finger ends a one-finger pan in progress
+      mapPan = null;
+      container.classList.remove('map-panning');
+    }
+    const trees = e.target.closest('.map-trees');
+    const mid = pinchMidpoint(a, b);
+    mapPinch = {
+      ids: [first, e.pointerId],
+      points: { [first]: a, [e.pointerId]: b },
+      startDistance: pinchDistance(a, b),
+      startMid: mid,
+      startZoom: loadMapZoom(),
+      scale: 1,
+      trees,
+    };
+    if (trees) {
+      const rect = trees.getBoundingClientRect();
+      trees.style.transformOrigin = `${mid.x - rect.left}px ${mid.y - rect.top}px`;
+    }
+    isDragging = true;
+  };
+  const finishMapPinch = () => {
+    if (!mapPinch) return;
+    const pinch = mapPinch;
+    mapPinch = null;
+    isDragging = false;
+    if (pinch.trees) {
+      pinch.trees.style.transform = '';
+      pinch.trees.style.transformOrigin = '';
+    }
+    suppressMapPanPhantomClick(); // a pinch never ends in a tap that opens or selects a card
+    const factor = pinchFactor(pinch.startDistance, pinchDistance(pinch.points[pinch.ids[0]], pinch.points[pinch.ids[1]]));
+    if (!pinchFactorIsChange(factor)) return;
+    const rect = mapMain.getBoundingClientRect();
+    zoomMapAt(pinchZoom(pinch.startZoom, factor), pinch.startMid.x - rect.left, pinch.startMid.y - rect.top);
+  };
   container.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || mapPan) return; // primary button only; a second pointer mid-pan is ignored
     if (!e.target.closest('.map-canvas')) return; // pan only from inside the graph section — see the header comment above
+    if (mapPinch) return; // a third finger starts nothing
+    mapPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mapPan && e.pointerId !== mapPan.pointerId && mapPointers.size === 2) { startMapPinch(e); return; }
+    if (e.button !== 0 || mapPan) return; // primary button only; a second pointer mid-pan is ignored
     mapPan = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -3920,6 +4079,15 @@ function wireMapPanZoom() {
     e.preventDefault(); // no text selection mid-drag over node/edge SVG text
   });
   container.addEventListener('pointermove', (e) => {
+    if (mapPointers.has(e.pointerId)) mapPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mapPinch) {
+      if (!mapPinch.ids.includes(e.pointerId)) return;
+      mapPinch.points[e.pointerId] = { x: e.clientX, y: e.clientY };
+      const factor = pinchFactor(mapPinch.startDistance, pinchDistance(mapPinch.points[mapPinch.ids[0]], mapPinch.points[mapPinch.ids[1]]));
+      mapPinch.scale = pinchZoom(mapPinch.startZoom, factor) / mapPinch.startZoom;
+      if (mapPinch.trees) mapPinch.trees.style.transform = `scale(${mapPinch.scale})`;
+      return;
+    }
     if (!mapPan || e.pointerId !== mapPan.pointerId) return;
     const dx = e.clientX - mapPan.startX;
     const dy = e.clientY - mapPan.startY;
@@ -3947,14 +4115,19 @@ function wireMapPanZoom() {
     container.classList.remove('map-panning');
     if (drag.moved) suppressMapPanPhantomClick(); // only a MOVED drag suppresses the click that follows — an unmoved press stays a plain click (card open / selection), same >threshold rule as the gantt's own drag-vs-click line
   };
-  container.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
-  container.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  const pointerEnded = (e) => {
+    mapPointers.delete(e.pointerId);
+    if (mapPinch && mapPinch.ids.includes(e.pointerId)) finishMapPinch();
+    else if (mapPan && e.pointerId === mapPan.pointerId) finish();
+  };
+  container.addEventListener('pointerup', pointerEnded);
+  container.addEventListener('pointercancel', pointerEnded);
   // Capture can end without either event above — the browser drops it
   // implicitly (e.g. another element steals capture, or #map-view's own
   // innerHTML gets rebuilt out from under an active capture by some other
   // path). Treat that the same as a release, so the gesture can never end
   // in a state pointerup/pointercancel would have cleaned up.
-  container.addEventListener('lostpointercapture', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  container.addEventListener('lostpointercapture', pointerEnded);
   // Deferred capture (above) means an UNMOVED press's release can land
   // outside #map-view — right at the panel's edge, or in the sliver before
   // the gesture crosses the threshold — where the container's own pointerup
@@ -3964,8 +4137,8 @@ function wireMapPanZoom() {
   // release regardless of target; finish() itself is idempotent (no-ops
   // once mapPan is already null), so this never double-fires against the
   // container listeners above.
-  document.addEventListener('pointerup', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
-  document.addEventListener('pointercancel', (e) => { if (mapPan && e.pointerId === mapPan.pointerId) finish(); });
+  document.addEventListener('pointerup', pointerEnded);
+  document.addEventListener('pointercancel', pointerEnded);
   // Ctrl+wheel (also what a trackpad pinch sends) zooms around the pointer;
   // a plain wheel keeps the panel's native scroll. Non-passive — the
   // preventDefault below is what stops the browser's own page-zoom/scroll on
@@ -4168,13 +4341,15 @@ function renderCalendarView() {
   container.innerHTML = '';
 
   const spanNoun = { month: 'month', week: 'week', '3day': '3 days', day: 'day' }[subview];
+  const title = subviewTitle(subview, currentCalendarAnchor());
+  paintHeaderDate('calendar', title);
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =
     `<button type="button" id="cal-prev-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Previous ${spanNoun}" aria-label="Previous ${spanNoun}">&#8249;</button>` +
     `<button type="button" id="cal-today-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Jump back to today">Today</button>` +
     `<button type="button" id="cal-next-btn" class="cal-nav" data-keeps-selection data-holds-poll title="Next ${spanNoun}" aria-label="Next ${spanNoun}">&#8250;</button>` +
-    `<span class="cal-title">${escapeHtml(subviewTitle(subview, currentCalendarAnchor()))}</span>` +
+    `<span class="cal-title">${escapeHtml(title)}</span>` +
     // The sub-view switcher. Like prev/today/next (these buttons are rebuilt every
     // render too) it wears data-holds-poll, the focused-control poll guard, and
     // data-keeps-selection, so a click on it never reads as a click away.
@@ -4183,17 +4358,17 @@ function renderCalendarView() {
       `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${CAL_SUBVIEW_LABELS[sv]}</button>`).join('') +
     `</span>` +
+    // The span cycle button: on a phone it stands in for the span switch (app.css hides one and shows the other).
+    // It shows the current span and a cycle mark; a screen reader hears the span a tap moves to.
+    `<button type="button" class="cal-span-cycle cal-nav" data-keeps-selection data-holds-poll aria-label="Span: ${CAL_SUBVIEW_LABELS[subview]}. Change to ${CAL_SUBVIEW_LABELS[nextSubview(CALENDAR_SUBVIEWS, subview)]}">${CAL_SUBVIEW_LABELS[subview]} &#8635;</button>` +
     // The Notes switch: only where notes are drawn (the time grids of a board with a logbook).
     (subview !== 'month' && notesOn()
       ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>`
       : '');
   container.appendChild(controls);
-  // The status-filter row renders first and UNCONDITIONALLY — same
-  // reasoning as the map's row and the gantt's row: if it vanished on
-  // an everything-filtered-out empty grid, there'd be no control left to
-  // toggle a status back ON. Shared by BOTH branches below (month and every
-  // sub-view read the same loadCalendarStatusFilter()).
-  container.appendChild(buildCalendarFilterRow());
+  // No status pill row here: the search panel's Statuses section keeps the
+  // recover-from-empty guarantee. Both branches below (month and every
+  // sub-view) read the same loadCalendarStatusFilter().
 
   if (subview === 'month') renderCalendarMonthGrid(container);
   else renderCalendarTimeGrid(container, subview, keepScroll);
@@ -4770,15 +4945,11 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-toggle-btn').addEventListener('click', () => toggleView('calendar'));
   wireCalendarTimeDrag(); // delegated once on the stable #calendar-view
   $('#calendar-view').addEventListener('click', (e) => {
-    // Status-filter pills — control-row buttons, checked first for
-    // the same reason the map's and the gantt's pills are (never fall
-    // through to the sub-view switcher/nav/card-el handling below).
-    const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
-    if (filterBtn) { keepControlFocus(filterBtn, () => toggleCalendarStatusFilter(filterBtn.dataset.col)); return; }
     // The sub-view switcher rides the same delegated listener as
     // prev/today/next — all four button sets are rebuilt every render.
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setCalendarSubview(sv.dataset.subview); return; }
+    if (e.target.closest('.cal-span-cycle')) { setCalendarSubview(nextSubview(CALENDAR_SUBVIEWS, loadCalendarSubview())); return; }
     if (e.target.closest('#cal-prev-btn')) { shiftCalendarWindow(-1); return; }
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
     if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); return; }
@@ -4813,16 +4984,6 @@ window.addEventListener('DOMContentLoaded', () => {
       const r = col.getBoundingClientRect();
       openModal(null, null, calendarCreateStart(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN));
     }
-  });
-  // Right-click SOLO on the calendar's own pills — same reasoning
-  // as the map's contextmenu listener above (own listener so a miss falls
-  // through untouched to the shared chip contextmenu on document).
-  $('#calendar-view').addEventListener('contextmenu', (e) => {
-    if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the gantt's contextmenu — a chorded right-click mid-.cal-chip-drag must not re-render out from under the gesture
-    const filterBtn = e.target.closest('.calendar-filter-toggle[data-col]');
-    if (!filterBtn) return;
-    e.preventDefault();
-    keepControlFocus(filterBtn, () => soloCalendarStatusFilter(filterBtn.dataset.col));
   });
 });
 
@@ -4962,6 +5123,7 @@ function buildGanttControls() {
   const todayTitle = isAll ? noPagingHint : 'Jump back to today';
   const nextTitle = isAll ? noPagingHint : `Next ${spanNoun}`;
   const title = isAll ? 'All dated cards' : subviewTitle(subview, currentGanttAnchor());
+  paintHeaderDate('gantt', title);
   const controls = document.createElement('div');
   controls.className = 'cal-controls';
   controls.innerHTML =
@@ -4973,7 +5135,8 @@ function buildGanttControls() {
     GANTT_SUBVIEWS.map((sv) =>
       `<button type="button" class="cal-subview-btn cal-nav${sv === subview ? ' active' : ''}" data-keeps-selection data-holds-poll ` +
         `data-subview="${sv}" aria-pressed="${sv === subview}">${GANTT_SUBVIEW_LABELS[sv]}</button>`).join('') +
-    `</span>`;
+    `</span>` +
+    `<button type="button" class="cal-span-cycle cal-nav" data-keeps-selection data-holds-poll aria-label="Span: ${GANTT_SUBVIEW_LABELS[subview]}. Change to ${GANTT_SUBVIEW_LABELS[nextSubview(GANTT_SUBVIEWS, subview)]}">${GANTT_SUBVIEW_LABELS[subview]} &#8635;</button>`;
   return controls;
 }
 
@@ -5081,13 +5244,10 @@ function renderGanttView() {
   // self-corrects on the very next render.
   const prevWidth = prevScroll ? prevScroll.clientWidth : null;
   container.innerHTML = '';
-  // The sub-view controls row, then the status-filter row, render first and
-  // UNCONDITIONALLY — same reasoning as the map's row: if either vanished on
-  // the everything-filtered-out empty state, there'd be no control left to
-  // get back. Everything from here on APPENDS (never innerHTML=, which would
-  // wipe these rows straight back out).
+  // The sub-view controls row renders first and unconditionally; the status
+  // pills are in the search panel's Statuses section. Everything from here on
+  // APPENDS (never innerHTML=, which would wipe the controls straight back out).
   container.appendChild(buildGanttControls());
-  container.appendChild(buildGanttFilterRow());
   // Same search composition as board/map/calendar: the shared match result.
   // Status filter composes with search by INTERSECTION — a card is visible
   // only if BOTH say so — same pure helper and same rule as the map's
@@ -5367,27 +5527,15 @@ function wireGanttPointerDrag() {
     e.preventDefault();
     e.stopPropagation(); // capture phase at document — nothing else sees this click
   }, true);
-  // Control-row buttons — status-filter pills, the sub-view switcher, and
-  // prev/today/next — checked first for the same reason the map's pills are
+  // Control-row buttons — the sub-view switcher and prev/today/next — checked first
   // (never fall through to the pointer-drag/card-el handling below).
   container.addEventListener('click', (e) => {
-    const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (filterBtn) { keepControlFocus(filterBtn, () => toggleGanttStatusFilter(filterBtn.dataset.col)); return; }
     const sv = e.target.closest('.cal-subview-btn');
     if (sv) { setGanttSubview(sv.dataset.subview); return; }
+    if (e.target.closest('.cal-span-cycle')) { setGanttSubview(nextSubview(GANTT_SUBVIEWS, loadGanttSubview())); return; }
     if (e.target.closest('#gantt-prev-btn')) { shiftGanttWindow(-1); return; }
     if (e.target.closest('#gantt-next-btn')) { shiftGanttWindow(1); return; }
     if (e.target.closest('#gantt-today-btn')) { ganttAnchor = null; renderGanttView(); }
-  });
-  // Right-click SOLO on the gantt's own pills — same reasoning as
-  // the map's contextmenu listener (own listener so a miss falls through
-  // untouched to the shared bar/gutter-label contextmenu on document).
-  container.addEventListener('contextmenu', (e) => {
-    if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-bar-drag must not detach ganttDrag.barEl via re-render
-    const filterBtn = e.target.closest('.gantt-filter-toggle[data-col]');
-    if (!filterBtn) return;
-    e.preventDefault();
-    keepControlFocus(filterBtn, () => soloGanttStatusFilter(filterBtn.dataset.col));
   });
   container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || ganttDrag) return;
@@ -6302,6 +6450,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-archived-done').addEventListener('change', (e) => setArchivedDone(e.target.checked));
   $('#prefs-slices-folded').addEventListener('change', (e) => setSlicesFolded(e.target.checked));
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
+  $('#prefs-statuses-folded').addEventListener('change', (e) => setStatusesFolded(e.target.checked));
   $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/

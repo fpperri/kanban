@@ -76,6 +76,10 @@ const graphViews = new Map();
 let graphCur = null;
 let graphPan = null;
 let graphClickSwallow = null;
+let graphPinch = null;
+let graphLastPoint = null;
+// The first finger of a touch that landed on a card, so a second finger can still start a pinch.
+let graphTouch = null;
 let graphDrag = null;
 const graphArrangements = new Map();
 const GRAPH_ARRANGEMENTS_MAX = 6;
@@ -102,6 +106,17 @@ function graphLoadLayout() {
 function graphSaveLayout() {
   try { localStorage.setItem(storageKey(state.projectName, 'graph.layout'), graphLayoutKind); }
   catch (e) { /* storage unavailable — the layout choice just won't persist this session */ }
+}
+
+// Whether the count line and the key show: off until the (i) button is pressed, kept per board.
+function graphInfoOn() {
+  try { return localStorage.getItem(storageKey(state.projectName, 'graph.info')) === 'true'; }
+  catch (e) { return false; }
+}
+
+function graphInfoSet(on) {
+  try { localStorage.setItem(storageKey(state.projectName, 'graph.info'), String(on)); }
+  catch (e) { /* storage unavailable: the choice just won't persist this session */ }
 }
 
 function graphLoadFilter() {
@@ -194,6 +209,9 @@ function resetGraphViewState() {
   graphCur = null;
   if (graphPan && graphPan.moved) isDragging = false;
   graphPan = null;
+  graphEndPinch(false);
+  graphLastPoint = null;
+  graphTouch = null;
   clearTimeout(graphNamesTimer);
   graphNamesTimer = 0;
   graphNamesMemo = null;
@@ -322,25 +340,36 @@ function graphBuildPanel(kind, fan) {
   return panel;
 }
 
-// The view's own top: the card count and the panel's button at the right, then the status pills and the key.
-function graphBuildControls(filter, cardCount, relationCount, fan, panelOpen) {
+// The view's own top: the (i) button and the panel's button float in the drawing's top-right corner;
+// the card count and the key stay in the DOM, hidden by a class until the (i) is pressed.
+function graphBuildControls(cardCount, relationCount, fan, panelOpen) {
   const frag = document.createDocumentFragment();
+  const infoOn = graphInfoOn();
   const row = document.createElement('div');
   row.className = 'graph-controls';
+  const info = document.createElement('button');
+  info.type = 'button';
+  info.className = 'graph-info-toggle graph-control';
+  info.dataset.keepsSelection = '';
+  info.dataset.graphInfo = '';
+  info.textContent = 'i';
+  info.title = 'Show or hide the card count and the key';
+  info.setAttribute('aria-label', 'Card count and key');
+  info.setAttribute('aria-pressed', String(infoOn));
+  row.appendChild(info);
+  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
+  frag.appendChild(row);
+  const box = document.createElement('div');
+  box.className = infoOn ? 'graph-info' : 'graph-info graph-info-off';
   const count = document.createElement('span');
   count.className = 'graph-count';
   count.textContent = `${graphPlural(cardCount, 'card')}, ${graphPlural(relationCount, 'relation')}`;
-  row.appendChild(count);
-  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
-  frag.appendChild(row);
-  frag.appendChild(buildFilterPillRow(filter, boardColumnIds(), 'graph-filter-row', 'graph-filter-toggle graph-control',
-    (col, on) => col === 'archive'
-      ? `${on ? 'Hide' : 'Show'} archived cards on the graph`
-      : `${on ? 'Hide' : 'Show'} ${columnLabel(col)} cards on the graph`));
+  box.appendChild(count);
   const key = document.createElement('p');
   key.className = 'graph-key';
   key.textContent = fan ? `${GRAPH_KEY} · l steps the names: ${fan.options.names}` : GRAPH_KEY;
-  frag.appendChild(key);
+  box.appendChild(key);
+  frag.appendChild(box);
   return frag;
 }
 
@@ -372,9 +401,36 @@ function graphScheduleTransform() {
   });
 }
 
+// Fit frames the cards' bounds with a margin of GRAPH_FIT_PAD. A name outside the fan's rim keeps its
+// size on screen and has no room of its own on the stage, so on a fan with names the margin grows
+// by what the furthest name stands out of the stage: the names are placed once at the fit's zoom, how
+// far each is past the stage's edge (less GRAPH_FIT_NAMES_MARGIN) is measured, and only when one is
+// out is the fit worked out again with that much more margin. A fit whose names all stand inside is
+// the plain fit, and a refit places the names once more than the plain one did, never again.
+const GRAPH_FIT_PAD = 60;
+const GRAPH_FIT_NAMES_MARGIN = 6;
+
+function graphFrameFit(c) {
+  const b = c.layout.bounds;
+  const fit = graphFit(b, c.w, c.h, GRAPH_FIT_PAD);
+  if (c.kind !== 'tiers') return fit;
+  const kept = { x: c.view.x, y: c.view.y, k: c.view.k };
+  Object.assign(c.view, fit);
+  graphPaintNames();
+  Object.assign(c.view, kept);
+  if (!c.names || !c.names.placed.size) return fit;
+  const m = GRAPH_FIT_NAMES_MARGIN;
+  let over = 0;
+  for (const p of c.names.placed.values()) {
+    over = Math.max(over, m - (fit.x + p.box.x0 * fit.k), fit.x + p.box.x1 * fit.k - (c.w - m), m - (fit.y + p.box.y0 * fit.k), fit.y + p.box.y1 * fit.k - (c.h - m));
+  }
+  if (over <= 0) return fit;
+  return graphFit(b, c.w, c.h, Math.min(GRAPH_FIT_PAD + over, Math.min(c.w, c.h) / 4));
+}
+
 function graphFitNow() {
   if (!graphCur) return;
-  Object.assign(graphCur.view, graphFit(graphCur.layout.bounds, graphCur.w, graphCur.h), { touched: false });
+  Object.assign(graphCur.view, graphFrameFit(graphCur), { touched: false });
   graphApplyTransform();
 }
 
@@ -729,7 +785,7 @@ function renderGraphView() {
   main.className = 'graph-main';
   host.appendChild(main);
   if (panelOpen) host.appendChild(graphBuildPanel(kind, fan));
-  main.appendChild(graphBuildControls(filter, model.nodes.length, model.links.length, fan, panelOpen));
+  main.appendChild(graphBuildControls(model.nodes.length, model.links.length, fan, panelOpen));
   if (!plan.nodes.length) {
     const p = document.createElement('p');
     p.className = 'graph-empty';
@@ -755,7 +811,7 @@ function renderGraphView() {
     kind, sig, model, layout, plan, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
     svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
   };
-  if (refit) Object.assign(view, graphFit(layout.bounds, w, h), { touched: false });
+  if (refit) Object.assign(view, graphFrameFit(graphCur), { touched: false });
   graphPaintNames();
   graphApplyTransform();
   graphSettleFocus();
@@ -787,6 +843,54 @@ function graphFinishPan() {
   if (moved) isDragging = false;
   graphPan = null;
   if (moved) graphSwallowNextClick();
+}
+
+// --- two-finger pinch ----------------------------------------------------------
+// A second finger on the Graph ends the one-finger pan and starts a pinch. Each move zooms by
+// the running factor (the fingers' distance against the distance when the second one landed,
+// map-zoom.js) around their midpoint. isDragging holds the refresh for the whole gesture and
+// every exit (a lift, pointercancel, lostpointercapture) goes through graphEndPinch.
+
+function graphPinchPoints() {
+  const rect = graphCur.svg.getBoundingClientRect();
+  const [a, b] = graphPinch.ids.map((id) => graphPinch.points.get(id));
+  return [{ x: a.x - rect.left, y: a.y - rect.top }, { x: b.x - rect.left, y: b.y - rect.top }];
+}
+
+function graphStartPinch(e, host, touch) {
+  const first = touch ? touch.id : graphPan.pointerId;
+  const firstPoint = touch || (graphLastPoint && graphLastPoint.id === first ? graphLastPoint : { x: graphPan.sx, y: graphPan.sy });
+  graphFinishPan();
+  graphStopDrag(true);
+  graphPinch = {
+    ids: [first, e.pointerId],
+    points: new Map([[first, { x: firstPoint.x, y: firstPoint.y }], [e.pointerId, { x: e.clientX, y: e.clientY }]]),
+    startDistance: 0, startK: graphCur.view.k,
+  };
+  const [a, b] = graphPinchPoints();
+  graphPinch.startDistance = pinchDistance(a, b);
+  isDragging = true;
+  graphCur.svg.classList.add('graph-panning');
+  try { host.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
+}
+
+function graphPinchMove(e) {
+  if (!graphPinch || !graphCur || !graphPinch.points.has(e.pointerId)) return;
+  graphPinch.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const [a, b] = graphPinchPoints();
+  const want = pinchFactor(graphPinch.startDistance, pinchDistance(a, b)) * graphPinch.startK;
+  const step = want / graphCur.view.k;
+  if (!pinchFactorIsChange(step)) return;
+  const mid = pinchMidpoint(a, b);
+  graphZoomBy(step, mid.x, mid.y);
+}
+
+function graphEndPinch(swallow) {
+  if (!graphPinch) return;
+  graphPinch = null;
+  isDragging = false;
+  if (graphCur) graphCur.svg.classList.remove('graph-panning');
+  if (swallow) graphSwallowNextClick();
 }
 
 // --- node drag (force layout) --------------------------------------------------
@@ -905,8 +1009,8 @@ function wireGraphView(host) {
   host.addEventListener('click', (e) => {
     const panelBtn = e.target.closest('.view-panel-toggle[data-panel], .view-panel-close[data-panel]');
     if (panelBtn) { pressViewPanelButton(panelBtn, graphRedrawForPanel); return; }
-    const pill = e.target.closest('.graph-filter-toggle[data-col]');
-    if (pill) { keepControlFocus(pill, () => graphToggleFilter(pill.dataset.col)); return; }
+    const infoBtn = e.target.closest('.graph-info-toggle');
+    if (infoBtn) { keepControlFocus(infoBtn, () => { graphInfoSet(!graphInfoOn()); renderGraphView(); }); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
     if (option) { keepControlFocus(option, () => graphSetOption(option.dataset.key, option.dataset.val)); return; }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
@@ -930,13 +1034,6 @@ function wireGraphView(host) {
     else graphZoomBy(action === 'in' ? GRAPH_BUTTON_ZOOM : 1 / GRAPH_BUTTON_ZOOM, graphCur.w / 2, graphCur.h / 2);
     zoomBtn.blur();
   });
-  host.addEventListener('contextmenu', (e) => {
-    if (isDragging) return;
-    const pill = e.target.closest('.graph-filter-toggle[data-col]');
-    if (!pill) return;
-    e.preventDefault();
-    keepControlFocus(pill, () => graphSoloFilter(pill.dataset.col));
-  });
   host.addEventListener('wheel', (e) => {
     if (!graphCur || !e.target.closest('.graph-stage')) return;
     e.preventDefault();
@@ -946,6 +1043,10 @@ function wireGraphView(host) {
 
   host.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || !graphCur) return;
+    if (graphPinch) return;
+    if (graphPan && e.pointerId !== graphPan.pointerId && e.target.closest('.graph-canvas')) { graphStartPinch(e, host); return; }
+    if (!graphPan && graphTouch && e.isPrimary === false && e.pointerId !== graphTouch.id && e.target.closest('.graph-canvas')) { graphStartPinch(e, host, graphTouch); return; }
+    if (e.isPrimary !== false) graphTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
     if (graphDrag) graphStopDrag(true);
     const node = e.target.closest('.graph-node');
     if (node) {
@@ -963,6 +1064,9 @@ function wireGraphView(host) {
     try { host.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
   });
   host.addEventListener('pointermove', (e) => {
+    if (graphTouch && e.pointerId === graphTouch.id) { graphTouch.x = e.clientX; graphTouch.y = e.clientY; }
+    if (graphPan && e.pointerId === graphPan.pointerId) graphLastPoint = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    if (graphPinch) { graphPinchMove(e); return; }
     if (!graphPan || e.pointerId !== graphPan.pointerId || !graphCur) return;
     const dx = e.clientX - graphPan.sx;
     const dy = e.clientY - graphPan.sy;
@@ -979,6 +1083,8 @@ function wireGraphView(host) {
   });
   host.addEventListener('pointermove', graphDragMove);
   const finish = (e) => {
+    if (graphTouch && graphTouch.id === e.pointerId) graphTouch = null;
+    if (graphPinch && graphPinch.points.has(e.pointerId)) graphEndPinch(true);
     if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan();
     if (graphDrag && e.pointerId === graphDrag.pointerId) graphReleaseDrag(e);
   };

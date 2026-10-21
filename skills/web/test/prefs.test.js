@@ -22,6 +22,7 @@ const DEFAULTS = {
   click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
   archivedDone: true,
   pillsFolded: false,
+  statusesFolded: false,
   slicesFolded: true,
   panelOnFocus: true,
 };
@@ -51,6 +52,7 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
     archivedDone: false,
     pillsFolded: false,
+    statusesFolded: false,
     slicesFolded: true,
     panelOnFocus: true,
   });
@@ -58,16 +60,17 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
 
 test('unknown keys are dropped, at the top and inside the click choices', () => {
   const merged = mergePrefs(JSON.stringify({ click: { board: 'selects', list: 'selects' }, archivedDone: false, theme: 'dark' }));
-  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'panelOnFocus', 'pillsFolded', 'slicesFolded']);
+  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'panelOnFocus', 'pillsFolded', 'slicesFolded', 'statusesFolded']);
   assert.deepStrictEqual(Object.keys(merged.click).sort(), ['board', 'calendar', 'gantt', 'graph', 'map']);
 });
 
 test('a bad value falls back to that setting\'s default and leaves the good ones alone', () => {
-  const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true', slicesFolded: 'false', panelOnFocus: 'false' }));
+  const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true', statusesFolded: 'true', slicesFolded: 'false', panelOnFocus: 'false' }));
   assert.deepStrictEqual(merged, {
     click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
     archivedDone: true,
     pillsFolded: false,
+    statusesFolded: false,
     slicesFolded: true,
     panelOnFocus: true,
   });
@@ -103,6 +106,22 @@ test('the pill-section choice changes alone', () => {
   assert.strictEqual(next.archivedDone, true);
   assert.deepStrictEqual(next.click, DEFAULTS.click);
   assert.strictEqual(prefsWith(next, { pillsFolded: 'no' }).pillsFolded, true, 'a change that is not a boolean is dropped');
+});
+
+test('a saved statuses-section choice comes back as saved, and an entry saved before the setting existed starts the section open', () => {
+  assert.strictEqual(mergePrefs(JSON.stringify({ statusesFolded: true })).statusesFolded, true);
+  assert.strictEqual(mergePrefs(JSON.stringify({ statusesFolded: false })).statusesFolded, false);
+  assert.strictEqual(mergePrefs(JSON.stringify({ archivedDone: false })).statusesFolded, false, 'open by default');
+  assert.strictEqual(mergePrefs(JSON.stringify({ statusesFolded: 1 })).statusesFolded, false, 'a value that is not a boolean falls back to the default, which is open');
+});
+
+test('the statuses-section choice changes alone', () => {
+  const next = prefsWith(prefsDefaults(), { statusesFolded: true });
+  assert.strictEqual(next.statusesFolded, true);
+  assert.strictEqual(next.pillsFolded, false);
+  assert.strictEqual(next.slicesFolded, true);
+  assert.strictEqual(prefsWith(next, { statusesFolded: 'no' }).statusesFolded, true, 'a change that is not a boolean is dropped');
+  assert.strictEqual(prefsWith(next, { pillsFolded: true }).statusesFolded, true, 'a change to another setting leaves it alone');
 });
 
 test('a saved slice-section choice comes back as saved, true or false, and an entry saved before the setting existed starts the section folded', () => {
@@ -197,11 +216,12 @@ test('storage that throws on read or write falls back to the defaults and never 
 
 test('what is saved is the merged, validated set, never what the caller passed in raw', () => {
   const storage = storageOf();
-  savePrefs(storage, 'shop', { click: { board: 'selects', graph: 'opens', bogus: 'x' }, archivedDone: 'no', pillsFolded: 1, slicesFolded: 0, panelOnFocus: 'off', extra: 1 });
+  savePrefs(storage, 'shop', { click: { board: 'selects', graph: 'opens', bogus: 'x' }, archivedDone: 'no', pillsFolded: 1, statusesFolded: 1, slicesFolded: 0, panelOnFocus: 'off', extra: 1 });
   assert.deepStrictEqual(JSON.parse(storage.items['kanban.shop.prefs']), {
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
     archivedDone: true,
     pillsFolded: false,
+    statusesFolded: false,
     slicesFolded: true,
     panelOnFocus: true,
   });
@@ -218,7 +238,7 @@ test('one view\'s choice changes alone, and the set passed in is not touched', (
 test('every boolean the defaults hold is read from a stored entry and taken from a change, and neither takes a value that is not a boolean', () => {
   const defaults = prefsDefaults();
   const keys = Object.keys(defaults).filter((key) => typeof defaults[key] === 'boolean');
-  assert.deepStrictEqual(keys, ['archivedDone', 'pillsFolded', 'slicesFolded', 'panelOnFocus']);
+  assert.deepStrictEqual(keys, ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus']);
   for (const key of keys) {
     const flipped = !defaults[key];
     assert.strictEqual(mergePrefs(JSON.stringify({ [key]: flipped }))[key], flipped, `${key} is read`);

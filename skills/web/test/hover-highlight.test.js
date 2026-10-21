@@ -44,7 +44,7 @@ test('hoveredId is a single module-level id, never a Set — only one card is ho
 });
 
 test('board tile: cardEl reads hoveredId via isHoverHighlighted and is Tab-reachable', () => {
-  assert.match(appJs, /\(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);\s*\n\s*el\.draggable = true;\s*\n\s*el\.tabIndex = 0;/);
+  assert.match(appJs, /\(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);\s*\n\s*el\.draggable = !onPhoneLayout\(\);[^\n]*\n\s*el\.tabIndex = 0;/);
 });
 
 test('archived tile: archiveCardEl carries the same hover-highlight + tabIndex pair', () => {
