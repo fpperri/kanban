@@ -1600,7 +1600,13 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!list) return;
   list.addEventListener('change', () => {
     if (loadViewMode() === 'graph') graphRefitNext = true; // the stage has another width, so the cards are framed again
+    const focused = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.card-el') : null;
+    const focusedId = focused ? focused.dataset.id : null;
+    const pointerId = hoveredId;
     renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column, and the Map or the Graph once
+    const again = focusedId === null ? null : cardElInShownView(focusedId);
+    if (again) again.focus({ preventScroll: true });
+    if (hoveredId !== pointerId) setHoveredId(pointerId);
   });
 });
 
@@ -2195,12 +2201,19 @@ function applyBoardData(data) {
     if (again) again.focus({ preventScroll: true });
   }
   if (focusedCard) {
-    const again = document.querySelector(`.card-el[data-id="${focusedCardId}"]`);
+    const again = cardElInShownView(focusedCardId);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   }
   notesOnBoard(); // the notes palette, when open, follows the payload
   applyNotifications(data.notifications || []); // the board poll carries them — no separate timer
+}
+
+// The card's element in the view that shows. The other views stay in the page, hidden, and the Board comes first,
+// so a lookup over the whole document would find a hidden copy.
+function cardElInShownView(id) {
+  const root = $(VIEW_CONTAINERS[loadViewMode()]);
+  return root ? root.querySelector(`.card-el[data-id="${id}"]`) : null;
 }
 
 async function loadBoard() {
