@@ -429,6 +429,9 @@ back button.
   end of the search box, the same choice the arrow and the `p` key flip, so each shows
   what the others did. Turning it off closes the panel; turning it on here leaves the
   panel closed until the box is focused.
+- *Colour Markdown while editing* is on by default. The card form's description and the
+  Scratchpad's Edit box show their Markdown in colour as you type (see **Coloured
+  Markdown** below); off, they are plain boxes.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
@@ -582,6 +585,19 @@ mark off again when the selection already has it (the cursor inside a section it
 actions (view source, the address bar) are stopped only while one of these boxes has focus. Enter,
 Shift+Enter, Ctrl+Enter and Ctrl+S keep what they do in each box, and the single-line fields (the
 filter, the time, a combobox) keep the browser's Tab.
+
+**Coloured Markdown** — the card form's description and the Scratchpad's Edit box draw what you
+type in colour: headings, **bold**, *italic*, ~~strike~~ (struck through), `inline code` and fenced
+blocks, links (underlined), the marks of lists, quotes, rules and tables, the `<u>`, `<details>` and
+`<summary>` tags, and card mentions (`` `webapp#12 Title` `` and a bare `#12`) on the chip's ground. It is
+colour and nothing else: no weight, style or size changes, so a line wraps exactly where it would in
+a plain box, in the popup, full screen and on a phone. The text is still the box's own: typing, Undo,
+Tab and the editing keys, Ctrl+S and Ctrl+Enter work as before, and the colours show only what the
+preview would make of the text (a `**` that never closes, or a table without its delimiter row, stays
+plain). The notes palette's note box and the single-line fields stay plain. **Colour Markdown while
+editing** in the preferences sheet turns it off and on, remembered in your browser; off, the boxes are
+exactly the plain boxes they were. The colours are the `--md-edit-*` tokens in `app.css`, one set
+for each theme.
 
 **Scratchpad** — with a `scratchpad:` line in `config.yaml`, a card or a group has a disposable
 page, kept as `0007.scratchpad.md` in that folder, with optional `refs:` (the notes, files and

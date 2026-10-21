@@ -1017,6 +1017,14 @@ function setPanelOnFocus(on, openNow = false) {
   applySearchPanelSwitch(on, openNow);
 }
 
+// Whether the Markdown boxes are coloured while they are edited (markdown-edit-ui.js); the boxes take the
+// choice now.
+function setMdColour(on) {
+  prefsMemo = prefsWith(loadPrefsState(), { mdColour: on });
+  savePrefsState();
+  mdEditSetOn(on);
+}
+
 // --- The preferences sheet, opened by the gear in the header. It lists the
 // settings above and the roll-up bar mode, and writes each to the browser the
 // moment it is chosen. It sits on the modal backdrop (so the poll pauses and
@@ -1035,6 +1043,7 @@ function syncPrefsSheet() {
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
   $('#prefs-statuses-folded').checked = loadPrefsState().statusesFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
+  $('#prefs-md-colour').checked = loadPrefsState().mdColour;
 }
 
 function openPrefsSheet(page) {
@@ -2116,6 +2125,7 @@ function applyProjectName(name) {
     resetGraphViewState(); // graph memos too
   }
   state.projectName = next;
+  mdEditSetOn(loadPrefsState().mdColour); // the choice is kept per board in this browser
   document.title = name || 'Kanban App';
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
@@ -2838,6 +2848,7 @@ function newCardStatus() {
 
 window.addEventListener('DOMContentLoaded', () => {
   textEditAttach($('#f-body')); // the description: Tab indents and the Markdown keys format (text-edit-ui.js)
+  mdEditAttach($('#f-body')); // and it is drawn in colour, as the Scratchpad's Edit box is (markdown-edit-ui.js)
   $('#new-btn').addEventListener('click', () => openModal(null, newCardStatus()));
   // X goes through the dirty guard (the retired Cancel button bypassed it —
   // backdrop-click and X now agree on the unsaved-changes speedbump)
@@ -6545,6 +6556,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
   $('#prefs-statuses-folded').addEventListener('change', (e) => setStatusesFolded(e.target.checked));
   $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
+  $('#prefs-md-colour').addEventListener('change', (e) => setMdColour(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —
   // those don't bubble, and this wants one delegated pair like the click/
   // contextmenu grammar above) plus focusin/focusout so Tab reaches the

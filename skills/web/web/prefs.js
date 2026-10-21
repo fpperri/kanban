@@ -4,7 +4,8 @@
 // the card, or selects it), whether archived leaves count as done in the
 // roll-ups, whether the search panel's pill section starts folded, whether its slice
 // section starts folded (it does, by default), and whether the panel opens when the
-// search box is focused (the arrow's switch and the p key flip the same choice). One
+// search box is focused (the arrow's switch and the p key flip the same choice), and whether the
+// Markdown boxes are coloured while they are edited (markdown-edit-ui.js, on by default). One
 // entry per board under the app's per-board key, validated on every read, so a
 // hand-edited or stale value falls back to its default.
 //
@@ -26,13 +27,13 @@ const PREFS_CLICK_CHOICES = ['opens', 'selects'];
 // The Graph's plain click is always a selection; the sheet shows it fixed.
 const PREFS_GRAPH_CLICK = 'selects';
 // The sheet's on/off settings, which mergePrefs and prefsWith both validate by this list.
-const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus'];
+const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus', 'mdColour'];
 
 function prefsDefaults() {
   const click = {};
   for (const view of PREFS_CLICK_VIEWS) click[view] = 'opens';
   click.graph = PREFS_GRAPH_CLICK;
-  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, panelOnFocus: true };
+  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, panelOnFocus: true, mdColour: true };
 }
 
 function prefsParse(saved) {

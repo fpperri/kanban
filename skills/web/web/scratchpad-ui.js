@@ -127,7 +127,7 @@ function scratchPanel(target) {
   save.disabled = true;
   const bar = scratchEl('div', 'sp-bar');
   bar.append(save, scratchEl('span', 'np-muted', 'Ctrl+Enter saves'), status);
-  wrap.append(path, refs, modes, text, view, bar);
+  wrap.append(path, refs, modes, mdEditAttach(text), view, bar); // the box is drawn in colour (markdown-edit-ui.js)
 
   let pad = null;
   const paintPad = () => {

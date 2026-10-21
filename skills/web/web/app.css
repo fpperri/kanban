@@ -75,6 +75,18 @@
   --blocked-bg: #fde8e6;
   --review-ink: #7d6400;
   --review-bg: #fbf3c9;
+  --md-edit-heading: #2b4a77;
+  --md-edit-bold: #7d3b5d;
+  --md-edit-italic: #8c526e;
+  --md-edit-strike: var(--mut);
+  --md-edit-code: var(--code-ink);
+  --md-edit-link: var(--accent);
+  --md-edit-marker: var(--mut);
+  --md-edit-tag: var(--mut);
+  --md-edit-mention: var(--accent-strong);
+  --md-edit-mention-bg: var(--accent-soft);
+  --md-edit-selection: rgba(169, 75, 41, 0.10);
+  --md-preview-heading: #2b4a77;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -130,6 +142,18 @@
     --blocked-bg: #3a1c21;
     --review-ink: #eac54f;
     --review-bg: #332b14;
+    --md-edit-heading: #a1c2ec;
+    --md-edit-bold: #dfa6c0;
+    --md-edit-italic: #bf8ba3;
+    --md-edit-strike: var(--mut);
+    --md-edit-code: var(--code-ink);
+    --md-edit-link: var(--accent);
+    --md-edit-marker: var(--mut);
+    --md-edit-tag: var(--mut);
+    --md-edit-mention: var(--accent-strong);
+    --md-edit-mention-bg: var(--accent-soft);
+    --md-edit-selection: rgba(217, 119, 87, 0.16);
+    --md-preview-heading: #a1c2ec;
   }
 }
 :root[data-theme="dark"] {
@@ -186,6 +210,18 @@
   --blocked-bg: #3a1c21;
   --review-ink: #eac54f;
   --review-bg: #332b14;
+  --md-edit-heading: #a1c2ec;
+  --md-edit-bold: #dfa6c0;
+  --md-edit-italic: #bf8ba3;
+  --md-edit-strike: var(--mut);
+  --md-edit-code: var(--code-ink);
+  --md-edit-link: var(--accent);
+  --md-edit-marker: var(--mut);
+  --md-edit-tag: var(--mut);
+  --md-edit-mention: var(--accent-strong);
+  --md-edit-mention-bg: var(--accent-soft);
+  --md-edit-selection: rgba(217, 119, 87, 0.16);
+  --md-preview-heading: #a1c2ec;
 }
 :root[data-theme="light"] { color-scheme: light; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -802,6 +838,33 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.fullscreen .modal-desc { flex: 1 1 auto; }
 .modal.fullscreen .modal-desc textarea { flex: 1 1 auto; }
 
+/* --- Markdown coloured while it is edited (markdown-edit-ui.js) ------------------------------------
+   A box that takes the colours sits in a .md-edit wrapper that holds the textarea and a coloured copy of
+   its text behind it. While the switch is off the wrapper has no box (display: contents) and the
+   textarea is laid out as if it were not there. On, the wrapper is the textarea's size and carries the
+   paper the textarea would have had; the textarea goes transparent over the copy, keeping its caret, its
+   selection and its spellcheck. The copy takes the textarea's font, padding, border and wrapping from
+   script, so only COLOUR may differ between a kind and plain text: a weight, a style or a size here
+   would make a line wrap where the textarea does not. A mention has a ground, which is no width. */
+.md-edit { display: contents; }
+.md-edit.on { position: relative; isolation: isolate; display: flex; flex-direction: column; min-width: 0; background: var(--paper); border-radius: .15rem; }
+.md-edit.on:has(> textarea[hidden]) { display: none; }
+.md-edit.on > textarea { position: relative; z-index: 1; flex: 1 1 auto; background: transparent; color: transparent; caret-color: var(--ink); }
+.md-edit.on > textarea::selection { background: var(--md-edit-selection); color: transparent; }
+.modal.fullscreen .modal-desc > .md-edit.on { flex: 1 1 auto; }
+.md-edit-back { display: none; }
+.md-edit.on > .md-edit-back { display: block; position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; left: 0; margin: 0; overflow: hidden; border-style: solid; border-color: transparent; background: transparent; color: var(--ink); pointer-events: none; user-select: none; }
+@media (forced-colors: active) { .md-edit.on > .md-edit-back { display: none; } }
+.md-edit-heading { color: var(--md-edit-heading); }
+.md-edit-bold { color: var(--md-edit-bold); }
+.md-edit-italic { color: var(--md-edit-italic); }
+.md-edit-strike { color: var(--md-edit-strike); text-decoration: line-through; }
+.md-edit-code { color: var(--md-edit-code); }
+.md-edit-link { color: var(--md-edit-link); text-decoration: underline; }
+.md-edit-marker { color: var(--md-edit-marker); }
+.md-edit-tag { color: var(--md-edit-tag); }
+.md-edit-mention { color: var(--md-edit-mention); background: var(--md-edit-mention-bg); border-radius: .15rem; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
 .detail-modal { width: min(680px, 92vw); }
 /* row layout lives on .popup-header (below) — see there. */
 /* Headline-role, same reasoning as .modal h2 above — a card's own title. */
@@ -882,7 +945,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    rested on size alone. Prose runs the full width of the modal, fullscreen
    included. */
 .detail-body { font-size: 1em; line-height: 1.6; color: var(--prose); }
-.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--ink-strong); font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; text-wrap: balance; }
+.detail-body h1, .detail-body h2, .detail-body h3 { color: var(--md-preview-heading); font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; text-wrap: balance; }
 .detail-body h1 { font-size: 1.3em; margin: 1.4em 0 0.5em; }
 .detail-body h2 { font-size: 1.16em; margin: 1.6em 0 0.55em; padding-top: 0.8em; border-top: 1px solid var(--line); }
 .detail-body h3 { font-size: 1.02em; margin: 1.3em 0 0.4em; }
@@ -924,7 +987,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-body blockquote { margin: 0.7em 0; padding: 0.05em 0 0.05em 0.95em; border-left: 3px solid var(--line-strong); color: var(--mut); }
 .detail-body blockquote > :first-child { margin-top: 0; }
 .detail-body blockquote > :last-child { margin-bottom: 0; }
-.detail-body h4, .detail-body h5, .detail-body h6 { color: var(--ink-strong); font-weight: 650; line-height: 1.3; margin: 1.1em 0 0.35em; font-size: 1em; }
+.detail-body h4, .detail-body h5, .detail-body h6 { color: var(--md-preview-heading); font-weight: 650; line-height: 1.3; margin: 1.1em 0 0.35em; font-size: 1em; }
 .detail-body h6 { color: var(--mut); }
 .detail-body del { color: var(--mut); }
 .detail-body details { margin: 0.7em 0; border: 1px solid var(--line); border-radius: .2rem; padding: 0 12px; }

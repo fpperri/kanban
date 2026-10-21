@@ -442,3 +442,70 @@ test('a code block sits on the raised ground, as the stylesheet says, and its in
   assert.strictEqual(tokenIn(declsFor('.detail-body pre').background, 'code block ground'), '--raised');
   for (const set of [LIGHT, DARK]) clears(set, '--code-ink', '--raised', TEXT, 'code block');
 });
+
+// --- the coloured Markdown boxes (markdown-edit-ui.js) ---------------------------------------
+// A kind's colour is drawn on the box's paper; the selection wash is drawn over the copy, so the
+// text under a selection is read on the paper with the wash composited over it. A token may name
+// another (`var(--mut)`), so the pairs are resolved before they are measured.
+
+const MD_EDIT_KINDS = ['heading', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
+
+function colourOf(set, tok) {
+  let value = set[tok];
+  for (let i = 0; i < 4 && value; i++) {
+    const m = /^var\((--[a-z-]+)\)$/.exec(value);
+    if (!m) break;
+    value = set[m[1]];
+  }
+  const c = parse(value);
+  assert.ok(c, `${tok} is not a colour this test can resolve: ${set[tok]}`);
+  return c;
+}
+
+function ratioOfColours(fg, bg) {
+  const a = lum(over(fg, bg));
+  const b = lum(bg);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
+  test(`${name}: every Markdown edit colour clears ${TEXT}:1 on the box's paper`, () => {
+    for (const kind of MD_EDIT_KINDS) {
+      const tok = `--md-edit-${kind}`;
+      const r = ratioOfColours(colourOf(set, tok), colourOf(set, '--paper'));
+      assert.ok(r >= TEXT, `${tok} on --paper is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
+  test(`${name}: a mention clears ${TEXT}:1 on its own ground`, () => {
+    const r = ratioOfColours(colourOf(set, '--md-edit-mention'), colourOf(set, '--md-edit-mention-bg'));
+    assert.ok(r >= TEXT, `--md-edit-mention on --md-edit-mention-bg is ${r.toFixed(2)}:1, under ${TEXT}`);
+  });
+
+  test(`${name}: the preview heading clears ${TEXT}:1 on the surface and on the raised ground`, () => {
+    for (const ground of ['--surface', '--raised']) {
+      const r = ratioOfColours(colourOf(set, '--md-preview-heading'), colourOf(set, ground));
+      assert.ok(r >= TEXT, `--md-preview-heading on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
+  test(`${name}: every Markdown edit colour still clears ${TEXT}:1 under the box's selection wash`, () => {
+    const wash = colourOf(set, '--md-edit-selection');
+    assert.ok(wash[3] < 1, 'the selection wash has an alpha of its own');
+    const selected = over(wash, colourOf(set, '--paper'));
+    for (const kind of MD_EDIT_KINDS.filter((k) => k !== 'mention')) {
+      const tok = `--md-edit-${kind}`;
+      const r = ratioOfColours(colourOf(set, tok), selected);
+      assert.ok(r >= TEXT, `${tok} on the selected paper is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+    const chip = over(wash, colourOf(set, '--md-edit-mention-bg'));
+    const r = ratioOfColours(colourOf(set, '--md-edit-mention'), chip);
+    assert.ok(r >= TEXT, `--md-edit-mention on the selected chip is ${r.toFixed(2)}:1, under ${TEXT}`);
+    const plain = ratioOfColours(colourOf(set, '--ink'), selected);
+    assert.ok(plain >= TEXT, `--ink on the selected paper is ${plain.toFixed(2)}:1, under ${TEXT}`);
+  });
+
+  test(`${name}: the shared accent wash is not the box's selection, which has to keep muted and accent text readable`, () => {
+    assert.notStrictEqual(set['--md-edit-selection'], set['--accent-wash']);
+  });
+}

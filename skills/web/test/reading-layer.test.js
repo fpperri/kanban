@@ -15,9 +15,9 @@ function rule(selector) {
   return m[2];
 }
 
-test('card body prose paints --prose; headings and bold paint --ink-strong', () => {
+test('card body prose paints --prose; headings paint --md-preview-heading and bold --ink-strong', () => {
   assert.match(rule('.detail-body'), /color:\s*var\(--prose\)/);
-  assert.match(rule('.detail-body h1, .detail-body h2, .detail-body h3'), /color:\s*var\(--ink-strong\)/);
+  assert.match(rule('.detail-body h1, .detail-body h2, .detail-body h3'), /color:\s*var\(--md-preview-heading\)/);
   assert.match(rule('.detail-body strong'), /color:\s*var\(--ink-strong\)/);
 });
 

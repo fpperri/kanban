@@ -1094,7 +1094,9 @@ to `127.0.0.1` only.
   so each shows what the others did; turning it off closes the panel, and turning it on
   from the sheet leaves the panel closed until the box is focused. Switching it off moves focus to
   the arrow only when a control of the panel had it, and leaves it where it was otherwise (the box,
-  the sheet, the board). **Hotkeys** lists every key
+  the sheet, the board). **Colour Markdown while editing** is on by default and kept in the
+  browser's prefs entry as `mdColour`: it turns the coloured Markdown boxes off and on at once (see
+  Coloured Markdown boxes). **Hotkeys** lists every key
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
@@ -1311,6 +1313,37 @@ to `127.0.0.1` only.
   variable, kept nowhere. Enter, Shift+Enter, Ctrl+Enter and Ctrl+S are not read by these boxes'
   keys, so each keeps its own meaning (Enter writes a note, Ctrl+Enter saves a scratchpad, Ctrl+S
   saves the form); none of the new keys clashes with an existing hotkey.
+- **Coloured Markdown boxes** — the card form's description (`#f-body`) and the Scratchpad's Edit box
+  (`.sp-text`) call `mdEditAttach(box)` (markdown-edit-ui.js) once, after `textEditAttach`; the notes
+  palette's boxes and the single-line fields are never attached. `markdownEditSpans(text)`
+  (markdown-edit.js, pure, tested in Node) returns the sorted, non-overlapping `{ from, to, kind }` spans
+  to colour, reading the text a line at a time as markdown.js does: `heading` (the whole `#` line, the
+  marks inside it keeping their own kind), `bold`, `italic`, `strike`, `code` (inline code, and a fenced
+  block as one span from its opening line to its closing one, or to the end of the text), `link` (`[text](address)`,
+  an image, a bare address), `marker` (a list bullet, number or task box, a quote `>`, a rule, a table's
+  pipes and its delimiter row, which needs the pipes of the row above it), `tag` (`<u>`, `<details>`,
+  `<summary>`, opening and closing) and `mention` (a code span naming a card, and a bare `#12`,
+  `board#12` or `#G3`, by the mention pattern in ids.js). It is bounded: each scan for a closing mark
+  remembers where one failed, only the first 4000 characters of a line are read for marks (the rest keeps
+  its block colour), and a text over 400000 characters has no spans. The box is wrapped in a
+  `.md-edit` element holding the textarea and a `<pre class="md-edit-back" aria-hidden>` that
+  draws the spans as `<span class="md-edit-<kind>">`; the textarea's own text is transparent over it
+  (its caret, selection and spellcheck stay), and the copy takes the textarea's font, padding, border
+  widths, wrapping and a scrollbar's width from `getComputedStyle` so each word sits where the textarea
+  has it. It is redrawn synchronously on every `input`, whenever script sets `value` (the box's own
+  accessor is wrapped, no prototype is touched), and when a `ResizeObserver` sees the box change size
+  (it grows with its text, a drag, full screen, the phone layout); its scroll follows the textarea's.
+  Only colours and a line-through or an underline are ever applied, never a weight, style or size, so a
+  line cannot wrap differently. The wrapper is `display: contents` when the switch is off, and
+  `.md-edit.on` otherwise; `mdEditSetOn(on)` is the switch (app.js keeps it per board in the browser,
+  `setMdColour`, applied when the board's name is known), and a box attached while it is off starts
+  plain. Under `forced-colors` the copy is hidden and the textarea shows its own text. The colours
+  are tokens, declared on `:root` and in both dark blocks: `--md-edit-heading`, `--md-edit-bold`,
+  `--md-edit-italic`, `--md-edit-strike`, `--md-edit-code`, `--md-edit-link`, `--md-edit-marker`,
+  `--md-edit-tag`, `--md-edit-mention` on `--md-edit-mention-bg`, the box's own selection wash
+  `--md-edit-selection` (its own alpha, so selected text stays readable), and `--md-preview-heading`,
+  the colour of headings in the rendered preview and the card details. Each pair clears 4.5:1 in
+  both themes (theme-contrast.test.js).
 - **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
   pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
   `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.

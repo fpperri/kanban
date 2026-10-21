@@ -30,6 +30,7 @@ function panel({ body = '', refs = [], navigator = {} } = {}) {
     notesUi: { el: { contains: () => false }, tab: 'scratch' },
     settingsAddBoardPage() {},
     textEditAttach: (box) => { sandbox.attached = box; }, // text-edit-ui.js: the Edit box takes Tab and the Markdown keys; kept so a test can say it has the focus
+    mdEditAttach: (box) => box, // markdown-edit-ui.js: the box is drawn in colour; tested apart (markdown-edit-page.test.js)
     $: () => ({ addEventListener() {} }),
     mdToHtml,
     kanbanCodeLibs: { HIGHLIGHT_VERSION: '1.0.0' },
