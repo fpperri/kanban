@@ -18,12 +18,14 @@ function fn(name) {
   return m[0];
 }
 
-function gesturePage({ view = 'board', click = {}, dragging = {} } = {}) {
+function gesturePage({ view = 'board', click = {}, dragging = {}, matched = null } = {}) {
   const calls = { open: [] };
   const sandbox = {
     ...require('../web/selection'),
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
+    ...require('../web/search-enter'),
+    searchEnterMatchIds: () => matched,
     openCard: (id) => { calls.open.push(id); },
     isDragging: false, ganttDrag: null, calTimeDrag: null,
     calls,
@@ -140,4 +142,35 @@ test('a double click on a Calendar card is not a create gesture: the Calendar ke
   const m = appSrc.match(/\$\('#calendar-view'\)\.addEventListener\('dblclick', \(e\) => \{[\s\S]*?\n  \}\);/);
   assert.ok(m, 'the Calendar create handler is found');
   assert.match(m[0], /if \(e\.target\.closest\('\.card-el'\)\) return;/);
+});
+
+test('Enter on the one card a search matched opens it in every view, whatever the click preference says', () => {
+  for (const view of ['board', 'map', 'gantt', 'calendar']) {
+    for (const click of [{}, SELECTS]) {
+      const page = gesturePage({ view, click, matched: new Set(['7']) });
+      const e = enter(targetIn({ isCard: true }));
+      page.onCardOpenKey(e);
+      assert.deepStrictEqual(page.calls.open, ['7'], view);
+      assert.strictEqual(e.defaultPrevented, true, view);
+    }
+  }
+});
+
+test('with several matches, or a match that is another card, Enter does what it did before', () => {
+  for (const matched of [new Set(['7', '8']), new Set(['8']), null]) {
+    const plain = gesturePage({ view: 'board', matched });
+    plain.onCardOpenKey(enter(targetIn({ isCard: true })));
+    assert.deepStrictEqual(plain.calls.open, [], JSON.stringify([...(matched || [])]));
+    const selects = gesturePage({ view: 'board', click: SELECTS, matched });
+    selects.onCardOpenKey(enter(targetIn({ isCard: true })));
+    assert.deepStrictEqual(selects.calls.open, ['7'], JSON.stringify([...(matched || [])]));
+  }
+});
+
+test('a held Shift, Ctrl, Cmd or Alt keeps a lone match from opening on Enter', () => {
+  for (const mod of ['shiftKey', 'ctrlKey', 'metaKey', 'altKey']) {
+    const page = gesturePage({ view: 'board', matched: new Set(['7']) });
+    page.onCardOpenKey(enter(targetIn({ isCard: true }), { [mod]: true }));
+    assert.deepStrictEqual(page.calls.open, [], mod);
+  }
 });

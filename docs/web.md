@@ -56,7 +56,7 @@ order; it is the default sort on a board where any card has a `rank` or a
 `parent`, except in the Archive column, which keeps id order. In an Outline column, dragging a card between two siblings writes its `rank`:
 one card when there is room between the neighbours, that parent's children renumbered
 in tens when there is not. The search box up top filters every view at once, except the
-Graph, which lights its matches and hides nothing but a `slice:` cut.
+Graph, which lights its matches and hides nothing but a `slice:` cut. Enter in the search box goes to the first match, and a second Enter opens it when it is the only one.
 
 A card with children shows `▲n` (how many layers sit below it) and a status bar
 of the leaves under it. Every bar is either collapsed (a thin line) or open (with
