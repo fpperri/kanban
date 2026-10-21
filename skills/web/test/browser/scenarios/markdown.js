@@ -54,7 +54,7 @@ module.exports = {
     // --- highlight.js: card 22's ```c# block --------------------------------------------------------------------------------------
     check('markdown: the c# block is coloured, and still says c# and still has its text', await waitFor(`document.querySelectorAll('#detail-body .md-code pre code.hljs span[class^="hljs-"]').length>0`, 6000) && await ev(`${text('.md-code .md-code-lang')}==='c#'&&${text('.md-code pre code')}==='var answer = 42;'`));
     check('markdown: only highlight.js was asked for, from the plugin\'s own files', await ev(`${asked}.some((p)=>p==='/vendor/highlight.js/highlight.min.js')&&!${asked}.some((p)=>/mermaid/.test(p))`), await ev(`JSON.stringify(${asked})`));
-    check('markdown: the page takes the theme it is in', await ev(`(()=>{const dark=matchMedia('(prefers-color-scheme: dark)').matches;const l=document.querySelector('link[href$="github.min.css"]'),d=document.querySelector('link[href$="github-dark.min.css"]');return !!l&&!!d&&l.disabled===dark&&d.disabled===!dark})()`));
+    check('markdown: the page takes the theme it is in', await ev(`(()=>{const dark=matchMedia('(prefers-color-scheme: dark)').matches;const l=document.querySelector('link[href*="/github.min.css"]'),d=document.querySelector('link[href*="/github-dark.min.css"]');return !!l&&!!d&&l.disabled===dark&&d.disabled===!dark})()`));
     await ev(`window.__copied=[];Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:(t)=>{window.__copied.push(t);return Promise.resolve()}})`);
     await ev(`document.querySelector('#detail-body .md-code-copy').scrollIntoView({block:'nearest'})`);
     const at = await centre('#detail-body .md-code-copy');
@@ -63,7 +63,7 @@ module.exports = {
     check('markdown: and the button says so, then goes back', await waitFor(`${text('.md-code-copy')}==='Copied'`, 3000) && await waitFor(`${text('.md-code-copy')}==='Copy'`, 4000));
 
     await ev(`document.documentElement.setAttribute('data-theme','dark')`);
-    check('markdown: and the other when the root says so', await waitFor(`document.querySelector('link[href$="github-dark.min.css"]').disabled===false&&document.querySelector('link[href$="github.min.css"]').disabled===true`, 3000));
+    check('markdown: and the other when the root says so', await waitFor(`document.querySelector('link[href*="/github-dark.min.css"]').disabled===false&&document.querySelector('link[href*="/github.min.css"]').disabled===true`, 3000));
     await ev(`document.documentElement.removeAttribute('data-theme')`);
 
     // --- mermaid: card 23's diagram ------------------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ module.exports = {
     await open('/?card=24');
     check('markdown: card 24 opens', await waitFor(`!!${body('.md-code')}`, 10000));
     check('markdown: a diagram that does not parse leaves the labelled block with one line of error under it', await waitFor(`!!${body('.md-diagram-error')}&&/^Diagram error: \\S/.test(${text('.md-diagram-error')})`, 20000) && await ev(`${body('.md-code')}.hidden===false&&${text('.md-code .md-code-lang')}==='mermaid'&&!${body('iframe.md-diagram')}&&!/\\n/.test(${text('.md-diagram-error')})`), await ev(`${text('.md-diagram-error')}`));
-    check('markdown: and the text after it is drawn', await ev(`${text('p')}==='Still here after it.'`));
+    check('markdown: and the text after it is drawn', await ev(`(()=>{const p=document.querySelector('#detail-body > p:not(.md-diagram-error)');return !!p&&p.textContent==='Still here after it.'})()`));
     await shot('markdown-diagram-error');
     await ev(`window.__copied=[];Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:(t)=>{window.__copied.push(t);return Promise.resolve()}})`);
     const bad = await centre('#detail-body .md-code-copy');
