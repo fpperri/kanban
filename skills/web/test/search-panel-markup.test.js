@@ -121,7 +121,7 @@ test('the pill section has a fold control that says whether it is open and names
 
 test('the Statuses section is static markup first in the panel (after the board note): a fold control that is open, names what it folds and keeps a selection, and a pill host it labels', () => {
   const panel = bar.slice(bar.indexOf('<div id="search-panel"'));
-  assert.match(panel, /^<div id="search-panel"[^>]*>\s*(?:<p id="search-board-note"[^>]*><\/p>\s*)?<section id="search-statuses-section"/, 'the first section in the panel, after the board note');
+  assert.match(panel, /^<div id="search-panel"[^>]*>\s*<p id="search-board-note"[^>]*><\/p>\s*<section id="search-statuses-section"/, 'the first section in the panel, after the board note');
   const fold = tagOf('search-statuses-fold');
   assert.strictEqual(attr(fold, 'type'), 'button');
   assert.strictEqual(attr(fold, 'aria-expanded'), 'true', 'open to start');

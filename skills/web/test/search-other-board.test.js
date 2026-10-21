@@ -15,9 +15,25 @@ test('this board, in any case, is no mention', () => {
   assert.deepStrictEqual(mentions('alpha#3 ALPHA#4'), []);
 });
 
-test('the name is split at the last # and may hold dots and hyphens', () => {
+test('the name is one token that may hold dots and hyphens, never a #', () => {
   assert.deepStrictEqual(mentions('my-board.core#7'), [{ board: 'my-board.core', id: '7' }]);
-  assert.deepStrictEqual(mentions('a#b#7'), [{ board: 'a#b', id: '7' }]);
+  assert.deepStrictEqual(mentions('a#b#7'), []);
+});
+
+test('only what the id module reads as a mention counts: no URL fragment, hex colour, glued scope or | run', () => {
+  for (const text of ['http://x.com/#3', '-fpp#3', 'waiting:fpp#4', 'fpp#FF0000', 'beta#1|gamma#2']) {
+    assert.deepStrictEqual(mentions(text), [], text);
+  }
+});
+
+test('the same card named twice, in any case, is one mention', () => {
+  assert.deepStrictEqual(mentions('fpp#345 fpp#345'), [{ board: 'fpp', id: '345' }]);
+  assert.deepStrictEqual(mentions('fpp#345 FPP#345'), [{ board: 'fpp', id: '345' }]);
+  assert.deepStrictEqual(mentions('fpp#345 fpp#346'), [{ board: 'fpp', id: '345' }, { board: 'fpp', id: '346' }]);
+});
+
+test('a board with a dot in its name, named in full, is this board', () => {
+  assert.deepStrictEqual(mentions('shop.core#3', 'shop.core'), []);
 });
 
 test('the id reads through the id module: prefixed ids count, text after the # does not', () => {
@@ -31,6 +47,7 @@ test('a bare #id, quoted text and scoped terms are no mention', () => {
 
 test('several mentions come out in order, among other terms, across or and brackets', () => {
   assert.deepStrictEqual(mentions('fix (beta#1 | gamma#2) done'), [{ board: 'beta', id: '1' }, { board: 'gamma', id: '2' }]);
+  assert.deepStrictEqual(mentions('(beta#1) | gamma#2'), [{ board: 'beta', id: '1' }, { board: 'gamma', id: '2' }]);
 });
 
 test('an other-board mention still searches as text', () => {
@@ -103,4 +120,20 @@ test('the web skill and the web docs say another board\'s mention is text and th
   for (const [name, text] of [['the web skill', doc('skills', 'web', 'SKILL.md')], ['the web docs', doc('docs', 'web.md')]]) {
     assert.match(text, /another board's mention is searched as text and the panel says which board holds the card/i, name);
   }
+});
+
+test('the status region is written only when its text changes, so a poll or a repeat keystroke does not announce it again', async () => {
+  const { page, note } = await openWithNote();
+  const writes = [];
+  let text = '';
+  Object.defineProperty(note, 'textContent', { get: () => text, set: (v) => { writes.push(v); text = String(v); } });
+  page.input.typed('beta#345');
+  page.run('renderSearchPanel()');
+  page.run('renderSearchPanel()');
+  page.input.typed('beta#345 ');
+  assert.deepStrictEqual(writes, ['beta#345 is a card on the beta board, not this one.']);
+  page.input.typed('');
+  assert.deepStrictEqual(writes, ['beta#345 is a card on the beta board, not this one.', '']);
+  page.run('renderSearchPanel()');
+  assert.strictEqual(writes.length, 2);
 });

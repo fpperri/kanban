@@ -308,23 +308,24 @@ function searchAltsToTerms(alts, text, board) {
   return [{ field: 'or', alts: lists }];
 }
 
-// The cards the box names on other boards: one { board, id } per bare token
-// `<name>#<id>`, the name as typed, split at the LAST '#' like parseTerm, whose name is not
-// this board's. Quoted text, scoped terms and a `#id` with no name are no mention.
+// The cards the box names on other boards: one { board, id } per bare text token that the id
+// module reads whole as a mention `<name>#<id>` (the name as typed) whose name is not this
+// board's, the same card named twice (any case in the name) once. Quoted text, scoped terms,
+// a `#id` with no name and what the id module does not read as a mention (a URL fragment, a
+// hex colour) are no mention.
 function searchOtherBoardMentions(raw, board) {
   const lexed = lexSearch(raw);
   const found = [];
+  const seen = new Set();
   for (const token of lexed.tokens) {
     if (token.kind !== 'text') continue;
-    const text = lexed.text.slice(token.start, token.end);
-    if (text[0] === '"') continue;
-    const hash = text.lastIndexOf('#');
-    if (hash <= 0) continue;
-    const id = SEARCH_IDS.idKey(text.slice(hash + 1));
-    const name = text.slice(0, hash);
-    if (id === null || (board && name.toLowerCase() === String(board).toLowerCase())) continue;
-    const term = parseTerm(text, board);
-    if (term && term.field === null) found.push({ board: name, id: text.slice(hash + 1) });
+    const m = SEARCH_IDS.parseMention(lexed.text.slice(token.start, token.end));
+    if (!m || !m.board || (board && m.board.toLowerCase() === String(board).toLowerCase())) continue;
+    const id = `${m.prefix}${m.number}`;
+    const key = `${m.board.toLowerCase()}#${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    found.push({ board: m.board, id });
   }
   return found;
 }

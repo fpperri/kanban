@@ -219,7 +219,8 @@ function syncSearchBoardNote() {
   const note = $('#search-board-note');
   if (!note) return;
   const mentions = searchOtherBoardMentions($('#search-input').value, state.projectName);
-  note.textContent = mentions.map((m) => `${m.board}#${m.id} is a card on the ${m.board} board, not this one.`).join(' ');
+  const text = mentions.map((m) => `${m.board}#${m.id} is a card on the ${m.board} board, not this one.`).join(' ');
+  if (note.textContent !== text) note.textContent = text; // a status region is announced when written, so only a change is written
   note.classList.toggle('hidden', mentions.length === 0);
 }
 
