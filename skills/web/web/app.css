@@ -1618,7 +1618,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .types-list { list-style: none; margin: 0; padding: 4px; min-height: 2.4em; display: flex; flex-direction: column; gap: 6px; border: 1px dashed transparent; border-radius: .15rem; }
 .types-list.is-over { border-color: var(--accent); background: var(--accent-soft); }
 .types-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; background: var(--raised); border: 1px solid var(--line); border-radius: .15rem; }
-.types-row.is-dragging { opacity: .45; }
+.types-row.is-dragging { border-style: dashed; border-color: var(--accent); }
 .types-handle { color: var(--mut); cursor: grab; user-select: none; letter-spacing: -2px; }
 .types-name { flex: 1 1 8em; min-width: 6em; padding: 4px 6px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.9em; }
 .types-hex { width: 6.5em; padding: 4px 6px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
@@ -1629,7 +1629,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .types-icon + .types-icon { margin-left: -1px; }
 .types-icon[aria-pressed="true"] { position: relative; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .types-prefix { color: var(--mut); font-size: 0.8em; white-space: nowrap; }
-.types-link { padding: 0 4px; background: transparent; border: 0; color: var(--accent); font-size: 1em; text-decoration: underline; cursor: pointer; }
+.types-link { padding: 0 4px; background: transparent; border: 0; color: var(--accent); font-size: 1em; border-bottom: 1px dotted var(--accent); cursor: pointer; }
 .types-acts { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
 .types-act { font-size: 0.8em; padding: 3px 8px; }
 .types-act:disabled { opacity: .45; cursor: default; }
