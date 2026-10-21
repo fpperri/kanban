@@ -172,7 +172,7 @@ module.exports = {
     await typeInto('#pf-newTarget', 'ghost');
     await clickOn(fk('prefix:new:add'));
     check('a prefix naming a type the list does not have shows one warning bullet', await waitFor(`${bullets}.some((t)=>/^The prefix \`Z\` still names \`ghost\`, which is not a listed type\\. Why: /.test(t))`, 4000));
-    await clickOn(fk('prefix:1:remove'));
+    await clickOn(fk('prefix:Z:remove'));
     check('Remove on a prefix asks and rewrites the block without it', await waitConfig((c) => /\nprefixes:\n  T: task\n/.test(c) && !c.includes('ghost')));
     await settled();
     check('a Types row shows the prefix the block gives its type', (await ev(`(async()=>{document.querySelector(${JSON.stringify(item('board:types'))}).click();return true})()`)) && await waitFor(`/Prefix T/.test(document.querySelector('#prefs-board-page li[data-type="task"] .types-prefix').textContent)`, 3000));
