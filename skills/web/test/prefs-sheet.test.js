@@ -633,27 +633,27 @@ test('the sheet\'s rules are in the stylesheet: a slide in from the right, a ful
   }
 });
 
-test('the sheet shows the Markdown boxes as coloured to start, and as not when the browser kept that for this board', () => {
+test('the sheet shows the Markdown boxes as coloured to start, and as not when this browser kept that, on every board', () => {
   const none = sheetPage();
   none.openPrefsSheet();
   assert.strictEqual(none.mdColour.checked, true);
-  const kept = sheetPage({ stored: { 'kanban.shop.prefs': JSON.stringify({ mdColour: false }) } });
+  const kept = sheetPage({ stored: { 'kanban.md-colour': 'false' } });
   kept.openPrefsSheet();
   assert.strictEqual(kept.mdColour.checked, false);
-  const other = sheetPage({ stored: { 'kanban.lab.prefs': JSON.stringify({ mdColour: false }) } });
+  const other = sheetPage({ stored: { 'kanban.md-colour': 'false' } });
+  other.state.projectName = 'lab';
   other.openPrefsSheet();
-  assert.strictEqual(other.mdColour.checked, true, "another board's choice is not this board's");
+  assert.strictEqual(other.mdColour.checked, false, "the choice is the browser's, not a board's");
 });
 
-test('choosing to colour or not saves it in the prefs entry and tells the boxes, leaving the other settings and the board alone', () => {
+test('choosing to colour or not saves one browser-wide key and tells the boxes, leaving the prefs entry of a board and the board alone', () => {
   const p = sheetPage();
   p.setMdColour(false);
-  assert.deepStrictEqual(Object.keys(p.writes), ['kanban.shop.prefs']);
-  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).mdColour, false);
+  assert.deepStrictEqual(Object.keys(p.writes), ['kanban.md-colour']);
+  assert.strictEqual(p.writes['kanban.md-colour'], 'false');
   assert.deepStrictEqual(p.log.colour, [false]);
   p.setMdColour(true);
-  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).mdColour, true);
+  assert.strictEqual(p.writes['kanban.md-colour'], 'true');
   assert.deepStrictEqual(p.log.colour, [false, true]);
-  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).panelOnFocus, true, 'the other settings are left alone');
   assert.strictEqual(p.log.renders, 0, 'nothing on the board is repainted');
 });

@@ -4,7 +4,8 @@
 // the text between them being plain. markdown-edit-ui.js paints them; the colours are the --md-edit-*
 // tokens in app.css, one per kind.
 //
-// Kinds: heading (a whole `#` line, the marks inside it keeping their own kind), bold, italic, strike,
+// Kinds: heading (a whole `#` line, the marks inside it keeping their own kind) and heading-six (the same for
+// a sixth-level one, which the preview keeps muted: h4 to h6 share a size, so colour is all that sets h6 apart), bold, italic, strike,
 // code (inline code and a fenced block, one span from the opening line to the closing one), link
 // (`[text](address)`, an image, a bare address), marker (a list bullet, a number or a task box, a
 // quote `>`, a rule, a table's pipes and its delimiter row), tag (`<u>`, `<details>`, `<summary>`,
@@ -27,12 +28,12 @@ const markdownEditModule = (() => {
   const editIds = () => (EDIT_NODE ? require('./ids') : window.kanbanIds);
   const editMention = (code) => (EDIT_NODE ? require('./prose').cardMention : window.cardMention)(code);
 
-  const KINDS = ['heading', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
+  const KINDS = ['heading', 'heading-six', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
   const MAX_CHARS = 400000;
   const INLINE_CAP = 4000;
 
   const FENCE_RE = /^[ \t]*(`{3,}|~{3,})/;
-  const HEADING_RE = /^ {0,3}#{1,6}(?=[ \t]|$)/;
+  const HEADING_RE = /^ {0,3}(#{1,6})(?=[ \t]|$)/;
   const HR_RE = /^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*\r?$/;
   const ITEM_RE = /^[ \t]*(?:[-*+]|\d{1,9}[.)])(?=[ \t])/;
   const TASK_RE = /^[ \t]*\[[ xX]\](?=[ \t]|$)/;
@@ -300,10 +301,11 @@ const markdownEditModule = (() => {
       }
       const body = at === pos ? head : text.slice(at, Math.min(end, at + INLINE_CAP));
 
-      if (HEADING_RE.test(body)) {
+      const heading = HEADING_RE.exec(body);
+      if (heading) {
         const startIdx = out.length;
         inlineRange(at, end);
-        fillGaps(startIdx, at, end, 'heading');
+        fillGaps(startIdx, at, end, heading[1].length === 6 ? 'heading-six' : 'heading');
       } else if (HR_RE.test(body)) {
         const [a, b] = trimmed(at, end);
         push(a, b, 'marker');

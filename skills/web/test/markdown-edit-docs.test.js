@@ -17,7 +17,7 @@ const web = read('skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
-const KINDS = ['heading', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
+const KINDS = ['heading', 'heading-six', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
 const TOKENS = [...KINDS.map((k) => `--md-edit-${k}`), '--md-edit-mention-bg', '--md-edit-selection', '--md-preview-heading'];
 
 const at = (f) => html.indexOf(`<script src="/${f}"></script>`);
@@ -47,8 +47,8 @@ test('every colour is a token on :root and in both dark blocks', () => {
   for (const block of blocks) for (const tok of TOKENS) assert.ok(new RegExp(`${tok}:\\s*[^;]+;`).test(block), `${tok} is declared`);
 });
 
-test('every kind has a rule that paints its token and nothing but colour, an underline or a line-through', () => {
-  const COLOUR_ONLY = /^(color|background|border-radius|text-decoration|-webkit-box-decoration-break|box-decoration-break)$/;
+test('every kind has a rule that paints its token and nothing but colour, a dotted line under a link or a line-through', () => {
+  const COLOUR_ONLY = /^(color|background|border-radius|border-bottom|text-decoration|-webkit-box-decoration-break|box-decoration-break)$/;
   for (const kind of KINDS) {
     const m = new RegExp(`\\.md-edit-${kind} \\{([^}]*)\\}`).exec(css);
     assert.ok(m, `a rule for ${kind}`);
@@ -57,7 +57,9 @@ test('every kind has a rule that paints its token and nothing but colour, an und
     for (const d of decls) assert.ok(COLOUR_ONLY.test(d[1]), `.md-edit-${kind} sets ${d[1]}, which could change how a line wraps`);
   }
   assert.match(/\.md-edit-strike \{([^}]*)\}/.exec(css)[1], /text-decoration:\s*line-through/);
-  assert.match(/\.md-edit-link \{([^}]*)\}/.exec(css)[1], /text-decoration:\s*underline/);
+  const link = /\.md-edit-link \{([^}]*)\}/.exec(css)[1];
+  assert.match(link, /border-bottom:\s*1px dotted var\(--md-edit-link\)/, 'the link cue is the preview dotted border, which is no height on an inline box');
+  assert.doesNotMatch(link, /text-decoration|padding/, 'no underline, and no padding that would move the text');
   assert.match(/\.md-edit-mention \{([^}]*)\}/.exec(css)[1], /background:\s*var\(--md-edit-mention-bg\)/);
 });
 
@@ -65,7 +67,28 @@ test('the wrapper has no box while the switch is off, and the stylesheet hides i
   assert.match(css, /\.md-edit \{ display: contents; \}/);
   assert.match(css, /\.md-edit\.on:has\(> textarea\[hidden\]\) \{ display: none; \}/);
   assert.match(css, /\.md-edit-back \{ display: none; \}/);
-  assert.match(css, /@media \(forced-colors: active\) \{ \.md-edit\.on > \.md-edit-back \{ display: none; \} \}/);
+});
+
+test('under forced colours the copy is hidden and the textarea is given the system text colour, not left to be overridden from transparent', () => {
+  const at = css.indexOf('@media (forced-colors: active)');
+  assert.ok(at > -1, 'a forced-colors block');
+  const media = css.slice(at, css.indexOf('}\n}', at) + 3);
+  const textarea = /\.md-edit\.on > textarea \{([^}]*)\}/.exec(media);
+  assert.ok(textarea, 'the textarea has a rule in it');
+  assert.match(textarea[1], /color:\s*CanvasText/);
+  assert.match(textarea[1], /background:\s*Canvas;/);
+  assert.doesNotMatch(textarea[1], /transparent/);
+  assert.match(media, /\.md-edit\.on > \.md-edit-back \{[^}]*display:\s*none/);
+  assert.ok(css.indexOf('.md-edit.on > textarea {') < at, 'it follows the rule it overrides');
+});
+
+test('h6 stays muted in the preview, on purpose, and says why where the rule is', () => {
+  const rule = css.lastIndexOf('.detail-body h6 {');
+  assert.ok(rule > -1);
+  assert.match(css.slice(Math.max(0, rule - 500), rule), /h4 to h6 share a size/);
+  assert.match(css.slice(rule, css.indexOf('}', rule)), /color:\s*var\(--mut\)/);
+  assert.match(css, /\.md-edit-heading-six \{ color: var\(--md-edit-heading-six\); \}/);
+  assert.match(css, /--md-edit-heading-six:\s*var\(--mut\);/);
 });
 
 test('on, the textarea is transparent over the copy with its caret and selection kept, and the selection has a wash of its own', () => {
@@ -102,20 +125,21 @@ test('the web skill names the layer, the tokenizer, the kinds, the bounds and ev
   const bullet = flat(web.slice(web.indexOf('- **Coloured Markdown boxes** —'), web.indexOf('- **Scratchpad** —')));
   assert.ok(bullet.length > 1500, 'the bullet is found');
   for (const part of ['mdEditAttach', 'markdown-edit-ui.js', 'markdownEditSpans', 'markdown-edit.js', '#f-body', '.sp-text', '`display: contents`', 'mdEditSetOn', 'setMdColour', 'ResizeObserver',
-    '4000 characters', '400000 characters', 'forced-colors', 'never a weight, style or size', 'theme-contrast.test.js', ...TOKENS.map((t) => `\`${t}\``)]) {
+    '4000 characters', '400000 characters', 'forced-colors', 'CanvasText', 'requestAnimationFrame', 'One `ResizeObserver`', 'kanban.md-colour', 'dotted', 'never a weight, style or size', 'theme-contrast.test.js', ...TOKENS.map((t) => `\`${t}\``)]) {
     assert.ok(bullet.includes(part), part);
   }
   for (const kind of KINDS) assert.ok(bullet.includes(`\`${kind}\``), kind);
-  assert.ok(flat(web).includes('**Colour Markdown while editing** is on by default') && flat(web).includes('`mdColour`'), 'the preferences sheet entry');
+  assert.ok(flat(web).includes('**Colour Markdown while editing** is on by default') && flat(web).includes('`kanban.md-colour`') && flat(web).includes('not per board'), 'the preferences sheet entry, one key for the browser');
+  assert.ok(!flat(web).includes('`mdColour`'), 'it is not a key of the prefs entry of a board');
 });
 
 test('the docs say what the boxes show, that only colour changes, where it is turned off and which boxes stay plain', () => {
   const para = flat(docs.slice(docs.indexOf('**Coloured Markdown** —'), docs.indexOf('**Scratchpad** —')));
   assert.ok(para.length > 900, 'the paragraph is found');
-  for (const part of ['description', 'Scratchpad\'s Edit box', 'headings', 'links (underlined)', 'card mentions', 'colour and nothing else', 'wraps exactly where it would in a plain box',
-    'Undo', 'Ctrl+S and Ctrl+Enter', 'a table without its delimiter row', 'note box', '**Colour Markdown while editing**', 'remembered in your browser', '`--md-edit-*`']) {
+  for (const part of ['description', 'Scratchpad\'s Edit box', 'headings', 'links (a dotted line under them', 'card mentions', 'colour and nothing else', 'wraps exactly where it would in a plain box',
+    'Undo', 'Ctrl+S and Ctrl+Enter', 'a table without its delimiter row', 'note box', '**Colour Markdown while editing**', 'remembered in your browser, one choice for every board', '`--md-edit-*`', 'sixth-level heading', 'stays muted']) {
     assert.ok(para.includes(part), part);
   }
   const bullet = flat(docs.slice(docs.indexOf('- *Colour Markdown while editing*'), docs.indexOf('- *Hotkeys* lists')));
-  assert.ok(bullet.includes('on by default') && bullet.includes('plain boxes'), 'the sheet\'s bullet');
+  assert.ok(bullet.includes('on by default') && bullet.includes('plain boxes') && bullet.includes('every board'), 'the sheet\'s bullet');
 });

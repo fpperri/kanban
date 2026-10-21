@@ -131,8 +131,7 @@ test('links are dotted borders, never underlines', () => {
   assert.match(hover, /border-bottom-style:\s*solid/, 'hover solidifies the dotted border');
   const focus = ruleBlock('.detail-body a:focus-visible');
   assert.match(focus, /outline:\s*2px solid var\(--accent\)/, 'focus-visible gets a real outline');
-  const reading = css.replace(/\.md-edit-link \{[^}]*\}/, ''); // the coloured copy behind an edit box underlines a link, as the box's brief asks; it is not a link anyone can click
-  assert.ok(!/text-decoration:\s*underline/.test(reading), 'no text-decoration: underline anywhere in the file — the dotted-border idiom is the only link cue');
+  assert.ok(!/text-decoration:\s*underline/.test(css), 'no text-decoration: underline anywhere in the file — the dotted-border idiom is the only link cue');
 });
 
 test('2px is reserved for the page boundary', () => {

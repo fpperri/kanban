@@ -448,7 +448,7 @@ test('a code block sits on the raised ground, as the stylesheet says, and its in
 // text under a selection is read on the paper with the wash composited over it. A token may name
 // another (`var(--mut)`), so the pairs are resolved before they are measured.
 
-const MD_EDIT_KINDS = ['heading', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
+const MD_EDIT_KINDS = ['heading', 'heading-six', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
 
 function colourOf(set, tok) {
   let value = set[tok];
@@ -489,20 +489,34 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     }
   });
 
+  // The wash is drawn over the copy, which is drawn over the paper: what is read is the text colour under the
+  // wash, on the paper under the wash.
   test(`${name}: every Markdown edit colour still clears ${TEXT}:1 under the box's selection wash`, () => {
     const wash = colourOf(set, '--md-edit-selection');
     assert.ok(wash[3] < 1, 'the selection wash has an alpha of its own');
-    const selected = over(wash, colourOf(set, '--paper'));
+    const paper = colourOf(set, '--paper');
+    const washedPaper = over(wash, paper);
     for (const kind of MD_EDIT_KINDS.filter((k) => k !== 'mention')) {
       const tok = `--md-edit-${kind}`;
-      const r = ratioOfColours(colourOf(set, tok), selected);
-      assert.ok(r >= TEXT, `${tok} on the selected paper is ${r.toFixed(2)}:1, under ${TEXT}`);
+      const r = ratioOfColours(over(wash, colourOf(set, tok)), washedPaper);
+      assert.ok(r >= TEXT, `${tok} under the wash on the washed paper is ${r.toFixed(2)}:1, under ${TEXT}`);
     }
     const chip = over(wash, colourOf(set, '--md-edit-mention-bg'));
-    const r = ratioOfColours(colourOf(set, '--md-edit-mention'), chip);
-    assert.ok(r >= TEXT, `--md-edit-mention on the selected chip is ${r.toFixed(2)}:1, under ${TEXT}`);
-    const plain = ratioOfColours(colourOf(set, '--ink'), selected);
-    assert.ok(plain >= TEXT, `--ink on the selected paper is ${plain.toFixed(2)}:1, under ${TEXT}`);
+    const mention = ratioOfColours(over(wash, colourOf(set, '--md-edit-mention')), chip);
+    assert.ok(mention >= TEXT, `--md-edit-mention under the wash on the washed chip is ${mention.toFixed(2)}:1, under ${TEXT}`);
+    const plain = ratioOfColours(over(wash, colourOf(set, '--ink')), washedPaper);
+    assert.ok(plain >= TEXT, `--ink under the wash on the washed paper is ${plain.toFixed(2)}:1, under ${TEXT}`);
+  });
+
+  // A link's dotted border is a mark, not text: the 3:1 floor, on the paper and under the wash.
+  test(`${name}: a link's dotted border clears ${UI}:1 on the paper and under the selection wash`, () => {
+    const link = colourOf(set, '--md-edit-link');
+    const paper = colourOf(set, '--paper');
+    const wash = colourOf(set, '--md-edit-selection');
+    const plain = ratioOfColours(link, paper);
+    assert.ok(plain >= UI, `--md-edit-link on --paper is ${plain.toFixed(2)}:1, under ${UI}`);
+    const washed = ratioOfColours(over(wash, link), over(wash, paper));
+    assert.ok(washed >= UI, `--md-edit-link under the wash is ${washed.toFixed(2)}:1, under ${UI}`);
   });
 
   test(`${name}: the shared accent wash is not the box's selection, which has to keep muted and accent text readable`, () => {

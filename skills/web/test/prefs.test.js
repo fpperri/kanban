@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { PREFS_FEATURE, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs } = require('../web/prefs');
+const { PREFS_FEATURE, MD_COLOUR_KEY, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs, loadMdColour, saveMdColour } = require('../web/prefs');
 
 // The preferences kept in the browser per board: what a plain click on a card
 // does in each view, whether archived leaves count as done, whether the
@@ -25,7 +25,6 @@ const DEFAULTS = {
   statusesFolded: false,
   slicesFolded: true,
   panelOnFocus: true,
-  mdColour: true,
 };
 
 test('with nothing stored, the Board, Map, Gantt and Calendar open on a plain click, the Graph selects, archived leaves count as done, the pill section starts unfolded, the slice section starts folded and the search panel opens on focus', () => {
@@ -43,7 +42,6 @@ test('the defaults are handed out fresh: changing one copy never changes the nex
   a.pillsFolded = true;
   a.slicesFolded = false;
   a.panelOnFocus = false;
-  a.mdColour = false;
   assert.deepStrictEqual(prefsDefaults(), DEFAULTS);
   assert.deepStrictEqual(mergePrefs(null), DEFAULTS);
 });
@@ -57,18 +55,17 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
     statusesFolded: false,
     slicesFolded: true,
     panelOnFocus: true,
-    mdColour: true,
   });
 });
 
 test('unknown keys are dropped, at the top and inside the click choices', () => {
   const merged = mergePrefs(JSON.stringify({ click: { board: 'selects', list: 'selects' }, archivedDone: false, theme: 'dark' }));
-  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'mdColour', 'panelOnFocus', 'pillsFolded', 'slicesFolded', 'statusesFolded']);
+  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'panelOnFocus', 'pillsFolded', 'slicesFolded', 'statusesFolded']);
   assert.deepStrictEqual(Object.keys(merged.click).sort(), ['board', 'calendar', 'gantt', 'graph', 'map']);
 });
 
 test('a bad value falls back to that setting\'s default and leaves the good ones alone', () => {
-  const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true', statusesFolded: 'true', slicesFolded: 'false', panelOnFocus: 'false', mdColour: 'false' }));
+  const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true', statusesFolded: 'true', slicesFolded: 'false', panelOnFocus: 'false' }));
   assert.deepStrictEqual(merged, {
     click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
     archivedDone: true,
@@ -76,7 +73,6 @@ test('a bad value falls back to that setting\'s default and leaves the good ones
     statusesFolded: false,
     slicesFolded: true,
     panelOnFocus: true,
-    mdColour: true,
   });
 });
 
@@ -228,7 +224,6 @@ test('what is saved is the merged, validated set, never what the caller passed i
     statusesFolded: false,
     slicesFolded: true,
     panelOnFocus: true,
-    mdColour: true,
   });
 });
 
@@ -243,7 +238,7 @@ test('one view\'s choice changes alone, and the set passed in is not touched', (
 test('every boolean the defaults hold is read from a stored entry and taken from a change, and neither takes a value that is not a boolean', () => {
   const defaults = prefsDefaults();
   const keys = Object.keys(defaults).filter((key) => typeof defaults[key] === 'boolean');
-  assert.deepStrictEqual(keys, ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus', 'mdColour']);
+  assert.deepStrictEqual(keys, ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus']);
   for (const key of keys) {
     const flipped = !defaults[key];
     assert.strictEqual(mergePrefs(JSON.stringify({ [key]: flipped }))[key], flipped, `${key} is read`);
@@ -269,26 +264,28 @@ test('a change the sheet cannot make is dropped: a bad choice, the Graph set to 
   assert.deepStrictEqual(prefsWith(prefs, {}), prefs);
 });
 
-test('a saved Markdown-colour choice comes back as saved, and an entry saved before the setting existed colours the boxes', () => {
-  assert.strictEqual(mergePrefs(JSON.stringify({ mdColour: false })).mdColour, false);
-  assert.strictEqual(mergePrefs(JSON.stringify({ mdColour: true })).mdColour, true);
-  assert.strictEqual(mergePrefs(JSON.stringify({ archivedDone: false })).mdColour, true, 'on by default');
-  assert.strictEqual(mergePrefs(JSON.stringify({ mdColour: 'false' })).mdColour, true, 'a value that is not a boolean falls back to the default, which is on');
-});
-
-test('the Markdown-colour choice changes alone', () => {
-  const off = prefsWith(prefsDefaults(), { mdColour: false });
-  assert.strictEqual(off.mdColour, false);
-  assert.strictEqual(off.panelOnFocus, true);
-  assert.deepStrictEqual(off.click, DEFAULTS.click);
-  assert.strictEqual(prefsWith(off, { mdColour: 0 }).mdColour, false, 'a change that is not a boolean is dropped');
-  assert.strictEqual(prefsWith(off, { pillsFolded: true }).mdColour, false, 'a change to another setting leaves it alone');
-  assert.strictEqual(prefsWith(off, { mdColour: true }).mdColour, true);
-});
-
-test('the Markdown-colour choice is saved with the others and read back', () => {
+test('whether the Markdown boxes are coloured is one choice for the whole browser: one key with no board in it, on by default', () => {
+  assert.strictEqual(MD_COLOUR_KEY, 'kanban.md-colour');
+  assert.strictEqual(loadMdColour(storageOf()), true);
   const storage = storageOf();
-  savePrefs(storage, 'shop', prefsWith(prefsDefaults(), { mdColour: false }));
-  assert.strictEqual(JSON.parse(storage.items['kanban.shop.prefs']).mdColour, false);
-  assert.strictEqual(loadPrefs(storage, 'shop').mdColour, false);
+  saveMdColour(storage, false);
+  assert.deepStrictEqual(Object.keys(storage.items), ['kanban.md-colour']);
+  assert.strictEqual(loadMdColour(storage), false);
+  saveMdColour(storage, true);
+  assert.strictEqual(loadMdColour(storage), true);
+});
+
+test('the Markdown-colour choice is not part of the prefs entry of a board, saved or read', () => {
+  assert.ok(!('mdColour' in prefsDefaults()));
+  assert.ok(!('mdColour' in mergePrefs(JSON.stringify({ mdColour: false }))));
+  assert.ok(!('mdColour' in prefsWith(prefsDefaults(), { mdColour: false })));
+});
+
+test('a stored value that is not false, text that does not parse and storage that throws all leave the boxes coloured', () => {
+  for (const bad of ['"false"', '0', 'null', '{', 'nonsense']) assert.strictEqual(loadMdColour(storageOf({ 'kanban.md-colour': bad })), true, bad);
+  const broken = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+  assert.strictEqual(loadMdColour(broken), true);
+  assert.doesNotThrow(() => saveMdColour(broken, false));
+  assert.strictEqual(loadMdColour(null), true);
+  assert.doesNotThrow(() => saveMdColour(null, false));
 });

@@ -12,9 +12,16 @@ const spans = (text) => markdownEditSpans(text).map((s) => [text.slice(s.from, s
 
 test('a heading line is one heading span, with the constructs inside it keeping their own', () => {
   assert.deepStrictEqual(spans('# Title'), [['# Title', 'heading']]);
-  assert.deepStrictEqual(spans('###### Six'), [['###### Six', 'heading']]);
+  assert.deepStrictEqual(spans('##### Five'), [['##### Five', 'heading']]);
   assert.deepStrictEqual(spans('## Fix `x` now'), [['## Fix ', 'heading'], ['`x`', 'code'], [' now', 'heading']]);
   assert.deepStrictEqual(spans('# **a**'), [['# ', 'heading'], ['**a**', 'bold']]);
+});
+
+test('a sixth-level heading is its own kind, as the preview keeps it muted: h4 to h6 share a size, so colour is its only cue', () => {
+  assert.deepStrictEqual(spans('###### Six'), [['###### Six', 'heading-six']]);
+  assert.deepStrictEqual(spans('###### Six `x` **b**'), [['###### Six ', 'heading-six'], ['`x`', 'code'], [' ', 'heading-six'], ['**b**', 'bold']]);
+  assert.deepStrictEqual(spans('> ###### quoted'), [['>', 'marker'], ['###### quoted', 'heading-six']]);
+  assert.deepStrictEqual(spans('##### Five'), [['##### Five', 'heading']]);
 });
 
 test('a hash that is not a heading stays plain: no space after it, seven of them, or four spaces in', () => {
@@ -207,8 +214,8 @@ test('every span is a known kind, sits inside the text, is not empty and follows
   }
 });
 
-test('every kind the tokenizer makes is on the list of kinds, and the list names exactly the nine colours', () => {
-  assert.deepStrictEqual(MARKDOWN_EDIT_KINDS.slice().sort(), ['bold', 'code', 'heading', 'italic', 'link', 'marker', 'mention', 'strike', 'tag']);
+test('every kind the tokenizer makes is on the list of kinds, and the list names exactly the ten colours', () => {
+  assert.deepStrictEqual(MARKDOWN_EDIT_KINDS.slice().sort(), ['bold', 'code', 'heading', 'heading-six', 'italic', 'link', 'marker', 'mention', 'strike', 'tag']);
 });
 
 test('Windows line ends and a trailing newline change nothing about the spans', () => {

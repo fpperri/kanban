@@ -7,14 +7,22 @@
 // border, wrapping and size, so each word is where the textarea has it, and the textarea's own text is
 // transparent (its caret, selection and spellcheck stay). The textarea is still the one place the text
 // lives: typing, Undo, composing, Tab and the editing keys, Ctrl+S and Ctrl+Enter all reach it as they
-// did. The copy is redrawn from the textarea's value on every input, whenever code sets the value, when
-// the box is resized (it grows with its text, a person drags it, the popup goes full screen, the phone
-// layout takes over) and when the switch is flipped, and its scroll follows the textarea's. Only colours
-// are ever applied, never weight, style or size, so no line can wrap differently from the textarea's.
+// did. Only colours (and a line-through or a dotted line under) are ever applied, never weight, style or
+// size, so no line can wrap differently from the textarea's.
 //
-// Colour Markdown while editing is a switch in the preferences sheet (app.js keeps it, mdEditSetOn
-// applies it). While it is off the wrapper has no box of its own and the textarea sits in the page as it
-// always did.
+// When the copy is drawn. The text is redrawn at most once a frame: an input, or code setting the value,
+// asks for a frame and any number of them before it share it; the frame comes before the page is painted,
+// so the textarea's transparent text is never seen without its copy. The textarea's computed style is read
+// on attach, on a resize and when the switch is turned on, never on an input. A resize is seen by one
+// ResizeObserver for every box (the box grows with its text, a person drags it, the popup goes full screen,
+// the phone layout takes over); it is called in the frame, so it draws at once and the frame an input asked
+// for has nothing left to do. Per frame the copy reads only the textarea's width, to give up the width of
+// a scrollbar that came or went with the text, and its scroll, which it follows.
+//
+// Colour Markdown while editing is a switch in the preferences sheet (app.js keeps it for the whole
+// browser, mdEditSetOn applies it). While it is off the wrapper has no box of its own and the textarea sits
+// in the page as it always did. A box the page has dropped (the Scratchpad's panel is rebuilt each time
+// its tab opens) is let go of the next time a box is attached or the switch is flipped.
 //
 // mdEditAttach returns the node to put in the page where the textarea went: the wrapper, which holds the
 // textarea. Called with the textarea already in the page it takes its place there and the caller keeps
@@ -22,13 +30,15 @@
 // when it loads.
 
 let mdEditOn = true;
+let mdEditResizer = null;
 const mdEditEntries = new Set();
 const mdEditWraps = new WeakMap();
+const mdEditByBox = new WeakMap();
 
 // What the copy takes from the textarea, so a line breaks where the textarea's does.
 const MD_EDIT_COPY = [
-  'boxSizing', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing', 'wordSpacing',
-  'textTransform', 'textIndent', 'tabSize', 'whiteSpace', 'overflowWrap', 'wordBreak',
+  'boxSizing', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontVariant', 'fontKerning', 'lineHeight', 'letterSpacing', 'wordSpacing',
+  'textAlign', 'textTransform', 'textIndent', 'tabSize', 'whiteSpace', 'overflowWrap', 'wordBreak',
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
 ];
@@ -52,29 +62,82 @@ function mdEditNodes(text) {
   return nodes;
 }
 
-// Draws the copy again: the textarea's metrics, then its text, then its scroll. A scrollbar on the
-// textarea narrows the width its text wraps in, so the copy gives up the same width on its right.
-function mdEditPaint(entry) {
-  if (!mdEditOn) return;
+// The textarea's metrics, copied to the copy: font, padding, border widths and wrapping. What a width needs
+// from them each frame (the padding on the right and the borders) is kept.
+function mdEditMetrics(entry) {
   const { box, back } = entry;
   const cs = getComputedStyle(box);
   for (const prop of MD_EDIT_COPY) back.style[prop] = cs[prop];
-  const bar = Math.max(0, box.offsetWidth - box.clientWidth - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth));
-  back.style.paddingRight = `${parseFloat(cs.paddingRight) + bar}px`;
-  back.replaceChildren(mdEditNodes(box.value));
-  back.scrollTop = box.scrollTop;
+  entry.padRight = parseFloat(cs.paddingRight);
+  entry.sides = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+  entry.bar = 0;
+}
+
+// A scrollbar on the textarea narrows the width its text wraps in, so the copy gives up the same width on its
+// right. The bar is what the box's own width has beyond its borders and its inside; measured from the rect,
+// which keeps the fraction the rounded widths lose at a fractional zoom, and a difference under a pixel is
+// that rounding, not a bar.
+function mdEditBar(entry) {
+  const { box, back } = entry;
+  const left = box.getBoundingClientRect().width - entry.sides - box.clientWidth;
+  const bar = left < 1 ? 0 : left;
+  if (bar === entry.bar) return;
+  entry.bar = bar;
+  back.style.paddingRight = `${entry.padRight + bar}px`;
+}
+
+// The copy drawn again from the textarea, now.
+function mdEditFlush(entry) {
+  entry.queued = false;
+  if (!mdEditOn) return;
+  mdEditBar(entry);
+  entry.back.replaceChildren(mdEditNodes(entry.box.value));
+  entry.back.scrollTop = entry.box.scrollTop;
+}
+
+// Asks for the copy to be drawn in the next frame; a frame already asked for does for this.
+function mdEditSchedule(entry) {
+  if (entry.queued) return;
+  entry.queued = true;
+  requestAnimationFrame(() => { if (entry.queued) mdEditFlush(entry); });
 }
 
 function mdEditApply(entry) {
   entry.wrap.classList.toggle('on', mdEditOn);
-  if (mdEditOn) mdEditPaint(entry);
-  else entry.back.replaceChildren();
+  if (mdEditOn) {
+    mdEditMetrics(entry);
+    mdEditFlush(entry);
+  } else {
+    entry.queued = false;
+    entry.back.replaceChildren();
+  }
+}
+
+// One observer for every box: it is called in the frame a box was resized, after layout and before paint.
+function mdEditObserver() {
+  if (!mdEditResizer) {
+    mdEditResizer = new ResizeObserver((seen) => {
+      for (const one of seen) {
+        const entry = mdEditByBox.get(one.target);
+        if (!entry || !mdEditOn) continue;
+        mdEditMetrics(entry);
+        mdEditFlush(entry);
+      }
+    });
+  }
+  return mdEditResizer;
+}
+
+function mdEditDrop(entry) {
+  mdEditEntries.delete(entry);
+  mdEditByBox.delete(entry.box);
+  mdEditObserver().unobserve(entry.box);
 }
 
 // Code sets a textarea's value (a card opened into the form, a saved page loaded): the copy has to follow
 // without an input event. The box's own accessor is wrapped, not the prototype's, so no other textarea is
 // touched.
-function mdEditWatchValue(box, repaint) {
+function mdEditWatchValue(box, changed) {
   let desc = null;
   for (let o = box; o && !desc; o = Object.getPrototypeOf(o)) desc = Object.getOwnPropertyDescriptor(o, 'value');
   if (!desc || !desc.get || !desc.set) return;
@@ -82,14 +145,14 @@ function mdEditWatchValue(box, repaint) {
     configurable: true,
     enumerable: desc.enumerable,
     get() { return desc.get.call(box); },
-    set(v) { desc.set.call(box, v); repaint(); },
+    set(v) { desc.set.call(box, v); changed(); },
   });
 }
 
 function mdEditAttach(box) {
   if (!box || box.dataset.mdEdit) return mdEditWraps.get(box) || box;
   box.dataset.mdEdit = '1';
-  for (const old of [...mdEditEntries]) if (!old.wrap.isConnected) mdEditEntries.delete(old);
+  for (const old of [...mdEditEntries]) if (!old.wrap.isConnected) mdEditDrop(old);
   const wrap = document.createElement('div');
   wrap.className = 'md-edit';
   const back = document.createElement('pre');
@@ -97,14 +160,15 @@ function mdEditAttach(box) {
   back.setAttribute('aria-hidden', 'true');
   if (box.parentNode) box.parentNode.replaceChild(wrap, box);
   wrap.append(box, back);
-  const entry = { box, wrap, back };
-  const repaint = () => mdEditPaint(entry);
+  const entry = { box, wrap, back, queued: false, padRight: 0, sides: 0, bar: 0 };
+  const changed = () => mdEditSchedule(entry);
   mdEditWraps.set(box, wrap);
+  mdEditByBox.set(box, entry);
   mdEditEntries.add(entry);
-  mdEditWatchValue(box, repaint);
-  box.addEventListener('input', repaint);
+  mdEditWatchValue(box, changed);
+  box.addEventListener('input', changed);
   box.addEventListener('scroll', () => { back.scrollTop = box.scrollTop; });
-  new ResizeObserver(repaint).observe(box);
+  mdEditObserver().observe(box);
   mdEditApply(entry);
   return wrap;
 }
@@ -114,7 +178,7 @@ function mdEditSetOn(on) {
   if ((on !== false) === mdEditOn) return;
   mdEditOn = on !== false;
   for (const entry of [...mdEditEntries]) {
-    if (!entry.wrap.isConnected) mdEditEntries.delete(entry);
+    if (!entry.wrap.isConnected) mdEditDrop(entry);
     else mdEditApply(entry);
   }
 }

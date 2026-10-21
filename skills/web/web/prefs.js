@@ -4,8 +4,7 @@
 // the card, or selects it), whether archived leaves count as done in the
 // roll-ups, whether the search panel's pill section starts folded, whether its slice
 // section starts folded (it does, by default), and whether the panel opens when the
-// search box is focused (the arrow's switch and the p key flip the same choice), and whether the
-// Markdown boxes are coloured while they are edited (markdown-edit-ui.js, on by default). One
+// search box is focused (the arrow's switch and the p key flip the same choice). One
 // entry per board under the app's per-board key, validated on every read, so a
 // hand-edited or stale value falls back to its default.
 //
@@ -27,13 +26,13 @@ const PREFS_CLICK_CHOICES = ['opens', 'selects'];
 // The Graph's plain click is always a selection; the sheet shows it fixed.
 const PREFS_GRAPH_CLICK = 'selects';
 // The sheet's on/off settings, which mergePrefs and prefsWith both validate by this list.
-const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus', 'mdColour'];
+const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus'];
 
 function prefsDefaults() {
   const click = {};
   for (const view of PREFS_CLICK_VIEWS) click[view] = 'opens';
   click.graph = PREFS_GRAPH_CLICK;
-  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, panelOnFocus: true, mdColour: true };
+  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, panelOnFocus: true };
 }
 
 function prefsParse(saved) {
@@ -87,10 +86,28 @@ function savePrefs(storage, projectName, prefs) {
   catch (e) { /* storage unavailable/full: the choice just won't persist this session */ }
 }
 
+// Whether the Markdown boxes are coloured while they are edited (markdown-edit-ui.js) is one choice for the
+// whole browser, whatever the board: one key with no board in it, 'false' or 'true', on when it is missing
+// or is anything else. Storage that cannot be read or written leaves it on and the choice unsaved.
+const MD_COLOUR_KEY = 'kanban.md-colour';
+
+function loadMdColour(storage) {
+  try { return JSON.parse(storage.getItem(MD_COLOUR_KEY)) !== false; }
+  catch (e) { return true; }
+}
+
+function saveMdColour(storage, on) {
+  try { storage.setItem(MD_COLOUR_KEY, JSON.stringify(on !== false)); }
+  catch (e) { /* storage unavailable/full: the choice just won't persist this session */ }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { PREFS_FEATURE, PREFS_CLICK_VIEWS, PREFS_CLICK_CHOICES, PREFS_GRAPH_CLICK, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs };
+  module.exports = { PREFS_FEATURE, MD_COLOUR_KEY, loadMdColour, saveMdColour, PREFS_CLICK_VIEWS, PREFS_CLICK_CHOICES, PREFS_GRAPH_CLICK, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs };
 } else {
   window.PREFS_FEATURE = PREFS_FEATURE;
+  window.MD_COLOUR_KEY = MD_COLOUR_KEY;
+  window.loadMdColour = loadMdColour;
+  window.saveMdColour = saveMdColour;
   window.PREFS_CLICK_VIEWS = PREFS_CLICK_VIEWS;
   window.PREFS_CLICK_CHOICES = PREFS_CLICK_CHOICES;
   window.PREFS_GRAPH_CLICK = PREFS_GRAPH_CLICK;

@@ -1017,11 +1017,10 @@ function setPanelOnFocus(on, openNow = false) {
   applySearchPanelSwitch(on, openNow);
 }
 
-// Whether the Markdown boxes are coloured while they are edited (markdown-edit-ui.js); the boxes take the
-// choice now.
+// Whether the Markdown boxes are coloured while they are edited (markdown-edit-ui.js): one choice for the
+// whole browser, not per board (prefs.js); the boxes take it now.
 function setMdColour(on) {
-  prefsMemo = prefsWith(loadPrefsState(), { mdColour: on });
-  savePrefsState();
+  saveMdColour(prefsStorage(), on);
   mdEditSetOn(on);
 }
 
@@ -1043,7 +1042,7 @@ function syncPrefsSheet() {
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
   $('#prefs-statuses-folded').checked = loadPrefsState().statusesFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
-  $('#prefs-md-colour').checked = loadPrefsState().mdColour;
+  $('#prefs-md-colour').checked = loadMdColour(prefsStorage());
 }
 
 function openPrefsSheet(page) {
@@ -2125,7 +2124,6 @@ function applyProjectName(name) {
     resetGraphViewState(); // graph memos too
   }
   state.projectName = next;
-  mdEditSetOn(loadPrefsState().mdColour); // the choice is kept per board in this browser
   document.title = name || 'Kanban App';
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
@@ -2848,6 +2846,7 @@ function newCardStatus() {
 
 window.addEventListener('DOMContentLoaded', () => {
   textEditAttach($('#f-body')); // the description: Tab indents and the Markdown keys format (text-edit-ui.js)
+  mdEditSetOn(loadMdColour(prefsStorage())); // the browser's choice, before any box is drawn
   mdEditAttach($('#f-body')); // and it is drawn in colour, as the Scratchpad's Edit box is (markdown-edit-ui.js)
   $('#new-btn').addEventListener('click', () => openModal(null, newCardStatus()));
   // X goes through the dirty guard (the retired Cancel button bypassed it —
