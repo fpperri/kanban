@@ -66,6 +66,15 @@ class El {
 
   get firstChild() { return this.children[0] || null; }
 
+  // Whether the element has a box: not hidden, and not inside a closed <details> unless it is the summary.
+  getClientRects() {
+    for (let n = this, child = null; n && n.tagName; child = n, n = n.parentNode) {
+      if (n.hidden) return [];
+      if (n.tagName === 'DETAILS' && !n.open && child && child.tagName !== 'SUMMARY') return [];
+    }
+    return [{}];
+  }
+
   // Whether the element hangs from the page's body, as in a browser.
   get isConnected() {
     for (let n = this; n; n = n.parentNode) if (n === this.ownerDocument.body) return true;
@@ -102,6 +111,8 @@ class El {
     else if (k === 'class') this.className = String(v);
     else this.attrs[k] = String(v);
   }
+
+  hasAttribute(k) { return this.getAttribute(k) !== null; }
 
   getAttribute(k) {
     if (k.startsWith('data-')) return camel(k) in this.dataset ? this.dataset[camel(k)] : null;
@@ -195,12 +206,22 @@ function loadPage(html, opts = {}) {
   doc.head = new El('head', doc);
   doc.documentElement = new El('html', doc);
   const store = new Map();
+  const windowListeners = {};
+  const layoutWatchers = [];
+  const timers = [];
   const ctx = {
     document: doc,
     navigator: { clipboard: { writeText: () => Promise.resolve() } },
     localStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) },
     matchMedia: (q) => ({ matches: opts.matchMedia ? !!opts.matchMedia(q) : false, addEventListener() {} }),
-    addEventListener() {},
+    addEventListener(type, fn) { (windowListeners[type] = windowListeners[type] || []).push(fn); },
+    setTimeout: (fn, ms) => { timers.push({ fn, ms, live: true }); return timers.length; },
+    clearTimeout: (id) => { if (timers[id - 1]) timers[id - 1].live = false; },
+    ResizeObserver: class {
+      constructor(fn) { this.fn = fn; this.targets = []; layoutWatchers.push(this); }
+      observe(el) { this.targets.push(el); }
+      disconnect() { this.targets = []; }
+    },
     innerWidth: 1024,
     innerHeight: 768,
     console: opts.console || console,
@@ -212,6 +233,11 @@ function loadPage(html, opts = {}) {
 
   const page = {
     scripts,
+    timers,
+    // A message posted to the window, from a frame or elsewhere: { source, data }.
+    message(ev) { for (const fn of windowListeners.message || []) fn(ev); },
+    // The browser telling every element being watched that it may have a box now.
+    layout() { for (const w of layoutWatchers.slice()) if (w.targets.length) w.fn(); },
     byId: (id) => doc.getElementById(id),
     // Evaluate an expression among the page's own top-level names.
     run: (code) => new vm.Script(code).runInContext(ctx),

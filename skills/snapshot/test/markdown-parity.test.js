@@ -88,3 +88,28 @@ test('a tree node of a kind the page does not know is drawn as its text, as a te
     assert.strictEqual(nodesToHtml(blocks[1]), '<p>&lt;b&gt;ok</p>');
   });
 });
+
+test('with no clipboard API a code block\'s Copy button copies through a box of its own and leaves nothing behind', () => {
+  withSnapshot(BOARD, (html) => {
+    const page = loadPage(html);
+    page.run('navigator.clipboard = undefined; window.__cmds = []; document.execCommand = (c) => { window.__cmds.push(c); return true; }');
+    const body = page.run(`mdBodyNode(${JSON.stringify('```c#\nvar x = 1;\n```')}, "fixture")`);
+    const button = body.all().find((n) => n.classList.contains('md-code-copy'));
+    for (const fn of button.listeners.click) fn({ target: button, stopPropagation() {} });
+    assert.deepStrictEqual(page.plain(page.run('__cmds')), ['copy']);
+    assert.strictEqual(button.textContent, 'Copied');
+    assert.strictEqual(page.run('document.body').all().filter((n) => n.tagName === 'TEXTAREA').length, 0, 'the box it made is gone');
+    assert.strictEqual(page.run('copied'), false);
+  });
+});
+
+test('a refused copy says so on the button', () => {
+  withSnapshot(BOARD, (html) => {
+    const page = loadPage(html);
+    page.run('navigator.clipboard = undefined; document.execCommand = () => false;');
+    const body = page.run(`mdBodyNode(${JSON.stringify('```c#\nx\n```')}, "fixture")`);
+    const button = body.all().find((n) => n.classList.contains('md-code-copy'));
+    for (const fn of button.listeners.click) fn({ target: button, stopPropagation() {} });
+    assert.strictEqual(button.textContent, 'Copy failed');
+  });
+});

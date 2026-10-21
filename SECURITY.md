@@ -72,10 +72,15 @@ access of their own:
   mermaid writes inline styles that the policy above refuses. The policy is not loosened for it: the
   diagram is drawn in a frame (`mermaid-frame.html`) whose response carries `sandbox allow-scripts`
   and a policy of its own (`default-src 'none'`, scripts from its own origin only, inline styles
-  allowed), so a hostile diagram can restyle that frame and do nothing else: it has an opaque origin,
-  no network and no way into the page. Mermaid runs with `securityLevel: 'strict'`, the page ignores
-  messages from anything but the frames it made, and the server answers a request with the origin
-  `null` (a sandboxed frame's) only for the frame's two files and the vendored libraries.
+  allowed), so a hostile diagram can restyle that frame and do little else: it has an opaque origin and
+  no way into the page, and the frame's CSP blocks its requests. That CSP is the one thing between the
+  frame and the network, and a bypass of it could still navigate the frame itself, which would leak
+  only that diagram's source. Mermaid runs with `securityLevel: 'strict'`, the page ignores messages
+  from anything but the frames it made, and the server answers a request with the origin `null` (a
+  sandboxed frame's) only for the frame's two files and the vendored libraries. In the snapshot, whose
+  page builds the "Apply kanban changes" payload, mermaid is never loaded into the page: its diagrams
+  are drawn in the same kind of frame, made from a `srcdoc`, so a sanitiser bypass could reach neither
+  the page nor the payload. See ADR 0020.
 
 None of this treats the network as more trusted than it is — it just closes
 the gap between "the trust boundary is the files" and "yet a stray browser
@@ -91,8 +96,18 @@ directly."
 - **Rate limiting** — there's no multi-tenant resource to protect; you're the
   only client.
 - **`npm audit` / dependency scanning** — the server is Node **standard
-  library only**. No `package.json`, no `node_modules`, no third-party runtime
-  dependency to have a supply-chain vulnerability in.
+  library only**: no `node_modules`, nothing installed, no package dependency in
+  `package.json`. The plugin does ship two third-party browser libraries,
+  vendored under `skills/web/web/vendor` (ADR 0020): **mermaid** 12.2.0 (MIT)
+  and **highlight.js** 11.12.0 (BSD-3). They were checked to be byte for byte the
+  files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
+  `@highlightjs/cdn-assets@11.12.0`) and the copies cdnjs and jsDelivr serve.
+  They load only when a body has a block that needs one; mermaid runs only in a
+  sandboxed frame. The snapshot takes them from cdnjs and jsDelivr under SRI
+  `integrity` pins computed from the vendored files, and loads highlight.js
+  (which only wraps a block's own text in spans) into its page, never mermaid.
+  Updating one means re-vendoring it and its hashes; there is no lockfile to
+  scan, so the check is that comparison.
 
 ## If you're doing something this design doesn't assume
 

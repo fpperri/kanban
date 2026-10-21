@@ -48,7 +48,8 @@ test('the exit copy reuses the SAME copyPayload() helper card #252 introduced, f
 });
 
 test('copyPayload accepts forceSync and skips the async Clipboard API entirely when it is set', () => {
-  const fn = sliceFrom('function copyPayload(onDone,forceSync,text){', '\nelse fallback()}');
+  assert.match(sliceFrom('function copyPayload(onDone,forceSync){', 'onDone(ok)})}'), /copyToClipboard\(payload\(\),\(\)=>\$\("payload"\),forceSync,/, 'copyPayload hands forceSync to the one chain');
+  const fn = sliceFrom('function copyToClipboard(', '\nfunction copyPayload(');
   assert.match(fn, /if\(!forceSync&&navigator\.clipboard&&navigator\.clipboard\.writeText\)/, 'forceSync must gate out the async attempt');
   assert.match(fn, /else fallback\(\)/, 'forceSync (or no Clipboard API) must go straight to the execCommand fallback');
 });

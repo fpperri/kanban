@@ -101,7 +101,7 @@ way: headings, nested lists, quotes, tables, strike, underline, collapsible `<de
 code that shows its language (` ```c# `) with a Copy button. Two libraries are vendored under
 `skills/web/web/vendor` and load only when a body needs one: highlight.js (BSD-3) colours the
 languages it knows, and mermaid (MIT) draws ` ```mermaid ` blocks as diagrams, in a sandboxed frame. The
-plugin still has no package dependencies. See `docs/web.md`.
+plugin still has no package dependencies. See `docs/web.md` and ADR 0020.
 
 ## The board data model
 
@@ -241,7 +241,7 @@ node skills/kanban/scripts/apply-starter.js .kanban
 
 ## More docs
 
-- [`docs/adr/`](docs/adr/) — architecture decision records (ADR 0001–0013),
+- [`docs/adr/`](docs/adr/) — architecture decision records (ADR 0001–0013, and ADR 0020 on the vendored browser libraries),
   covering why the retired CLI surface was Claude-driven, why `kanban-web` gets a scoped
   local-server exception, hand-rolled widgets, tolerant vocabulary registries,
   archive-column UI parity, the shared interaction grammar, the date triad,

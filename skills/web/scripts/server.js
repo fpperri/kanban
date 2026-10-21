@@ -30,7 +30,7 @@ const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
   "base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
 // Two libraries ride with the plugin, vendored under web/vendor and loaded lazily (never named in
-// app.html) by the page script code-blocks-ui.js when a rendered body holds a block that needs one:
+// app.html) by the page script code-blocks.js when a rendered body holds a block that needs one:
 // highlight.js colours a typed code block, mermaid draws a ```mermaid block. They are served by exact
 // name and nothing else under vendor is (the licence files sit beside them unserved).
 const VENDORED = [

@@ -61,7 +61,25 @@ test('the README, SECURITY.md and the web skill describe the libraries and the f
   assert.match(read('README.md'), /highlight\.js \(BSD-3\)[\s\S]*mermaid \(MIT\)/);
   assert.match(flat(read('SECURITY.md')), /Mermaid runs in a sandbox of its own[\s\S]*sandbox allow-scripts/);
   const wb = flat(skill);
-  for (const part of ['enhanceCodeBlocks()', 'code-libs.js', 'mermaid-frame.html', 'sandbox="allow-scripts"', 'VENDORED', 'Diagram error:', 'cdnjs']) assert.ok(wb.includes(part), part);
+  for (const part of ['createCodeBlocks(config)', 'code-blocks.js', 'code-libs.js', 'mermaid-frame.html', 'sandbox="allow-scripts"', 'VENDORED', 'Diagram error:', 'cdnjs', 'jsDelivr', 'integrity', 'immutable', 'ResizeObserver', 'loose']) assert.ok(wb.includes(part), part);
   const snap = flat(read('skills', 'snapshot', 'SKILL.md'));
-  assert.ok(snap.includes('cdnjs.cloudflare.com') && snap.includes(libs.MERMAID_VERSION) && snap.includes(libs.HIGHLIGHT_VERSION));
+  for (const part of ['cdnjs.cloudflare.com', 'cdn.jsdelivr.net', libs.MERMAID_VERSION, libs.HIGHLIGHT_VERSION, 'integrity', 'never run in the page', 'sandbox="allow-scripts"', 'srcdoc']) assert.ok(snap.includes(part), part);
+});
+
+test('SECURITY.md says what the frame\'s CSP does and does not stop, and names the vendored libraries, how they were checked and the SRI pins', () => {
+  const sec = flat(read('SECURITY.md'));
+  for (const part of ['the frame\'s CSP blocks its requests', 'could still navigate the frame itself', 'leak only that diagram\'s source', 'never loaded into the page',
+    'two third-party browser libraries', `mermaid** ${libs.MERMAID_VERSION} (MIT)`, `highlight.js** ${libs.HIGHLIGHT_VERSION} (BSD-3)`, 'byte for byte', 'npm tarballs', 'SRI']) {
+    assert.ok(sec.includes(part), part);
+  }
+  assert.doesNotMatch(sec, /no third-party runtime\s+dependency/);
+  assert.doesNotMatch(sec, /no network and no way into the page/);
+});
+
+test('ADR 0020 records the context, the decision, the options and the consequences, and agrees with the code', () => {
+  const adr = flat(read('docs', 'adr', '0020-browser-libraries-are-vendored-pinned-lazy-and-sandboxed.md'));
+  for (const part of ['## Context', '## Decision', '## Considered options', '## Consequences', 'ADR 0002', '**Vendored.**', '**Pinned.**', '**Lazy.**', '**Sandboxed.**', 'standard-library only',
+    `mermaid ${libs.MERMAID_VERSION} (MIT)`, `highlight.js ${libs.HIGHLIGHT_VERSION} (BSD-3)`, 'CDN', 'Highlight only', 'integrity', 'about 5.6 MB', 're-vendoring']) {
+    assert.ok(adr.includes(part), part);
+  }
 });

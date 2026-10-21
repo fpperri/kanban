@@ -30,7 +30,9 @@ function run(clipboard) {
     mdToHtml,
     console,
     enhanced: [],
-    enhanceCodeBlocks(el) { sandbox.enhanced.push(el); },
+    kanbanCodeLibs: { HIGHLIGHT_VERSION: '9.9.9', MERMAID_VERSION: '8.8.8' },
+    kanbanCodeBlocks: { createCodeBlocks(config) { sandbox.codeConfig = config; return { enhance: (el) => sandbox.enhanceImpl(el) }; } },
+    enhanceImpl(el) { sandbox.enhanced.push(el); },
     state: { projectName: 'webapp' },
   };
   vm.createContext(sandbox);
@@ -93,8 +95,20 @@ test('markdownInto then hands the element to the colour and diagram pass, and a 
   assert.ok(el.innerHTML.includes('data-lang="ts"'));
   const quiet = [];
   sandbox.console = { error: (e) => quiet.push(e) };
-  sandbox.enhanceCodeBlocks = () => { throw new Error('boom'); };
+  sandbox.enhanceImpl = () => { throw new Error('boom'); };
   assert.doesNotThrow(() => sandbox.markdownInto(el, 'still **drawn**'));
   assert.ok(el.innerHTML.includes('<strong>drawn</strong>'));
   assert.strictEqual(quiet.length, 1);
+});
+
+test('the page hands the loader its vendored files, each asked for by version, and a frame the server serves', () => {
+  const { sandbox } = run(undefined);
+  const c = sandbox.codeConfig;
+  assert.strictEqual(c.libs, sandbox.kanbanCodeLibs);
+  assert.strictEqual(c.highlight.src, '/vendor/highlight.js/highlight.min.js?v=9.9.9');
+  assert.strictEqual(c.sheets.light.href, '/vendor/highlight.js/github.min.css?v=9.9.9');
+  assert.strictEqual(c.sheets.dark.href, '/vendor/highlight.js/github-dark.min.css?v=9.9.9');
+  assert.deepStrictEqual({ ...c.frame }, { src: '/mermaid-frame.html' });
+  assert.ok(!JSON.stringify(c).includes('http'), 'nothing comes from the network');
+  assert.strictEqual(c.highlight.integrity, undefined);
 });

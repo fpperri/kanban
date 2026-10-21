@@ -15,7 +15,7 @@ Base defaults to now (UTC label) — pass the user's local time when you know it
 Card bodies are embedded (capped at 4000 chars; archived cards at 1500) so the
 user can read cards in full.
 """
-import argparse, json, os, re, sys
+import argparse, base64, hashlib, json, os, re, sys
 from datetime import datetime, timezone
 from urllib.parse import quote
 
@@ -382,6 +382,7 @@ EMBEDDED = [
     ("__COMBOBOX_JS__", "combobox.js", "the combobox rules"),
     ("__MARKDOWN_JS__", "markdown.js", "the Markdown module"),
     ("__CODE_LIBS_JS__", "code-libs.js", "the code libraries module"),
+    ("__CODE_BLOCKS_JS__", "code-blocks.js", "the code blocks module"),
 ]
 
 def embeddable(source, label="the nesting module"):
@@ -397,6 +398,63 @@ def read_embedded(path, label):
             return embeddable(f.read(), label)
     except OSError:
         sys.exit(f"cannot read {label} at {os.path.normpath(path)}")
+
+VENDOR_DIR = os.path.join(WEB_MODULES, "vendor")
+JSDELIVR_MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@{v}/dist/mermaid.min.js"
+CDNJS_HIGHLIGHT = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/{v}"
+
+def vendored(*parts):
+    path = os.path.join(VENDOR_DIR, *parts)
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError:
+        sys.exit(f"cannot read the vendored library at {os.path.normpath(path)}")
+
+def sri(data):
+    """The integrity attribute value of the bytes: the vendored file is byte for byte what npm and the
+    CDNs serve, so the CDN's copy passes only if it is the version kanban-web ships."""
+    return "sha384-" + base64.b64encode(hashlib.sha384(data).digest()).decode()
+
+def code_version(name):
+    text = read_embedded(os.path.join(WEB_MODULES, "code-libs.js"), "the code libraries module")
+    m = re.search(name + r" = '(\d+\.\d+\.\d+)'", text)
+    if not m:
+        sys.exit(f"cannot read {name} from the code libraries module")
+    return m.group(1)
+
+def code_frame(mermaid_src, mermaid_hash):
+    """mermaid-frame.html as a srcdoc: the frame page kanban-web serves, with its two script tags made
+    to read mermaid from the CDN, under its integrity hash, and the frame's script from the page itself."""
+    try:
+        with open(os.path.join(WEB_MODULES, "mermaid-frame.html"), encoding="utf-8") as f:
+            page = f.read()
+    except OSError:
+        sys.exit("cannot read the diagram frame page")
+    script = read_embedded(os.path.join(WEB_MODULES, "mermaid-frame.js"), "the diagram frame script")
+    lib_tag = re.search(r'<script src="/vendor/mermaid/mermaid\.min\.js\?v=[\d.]+"></script>', page)
+    own_tag = '<script src="/mermaid-frame.js"></script>'
+    if not lib_tag or own_tag not in page:
+        sys.exit("the diagram frame page does not name its two scripts as the build expects")
+    page = page.replace(lib_tag.group(0), f'<script src="{mermaid_src}" integrity="{mermaid_hash}" crossorigin="anonymous"></script>')
+    return page.replace(own_tag, "<script>" + script + "</script>")
+
+
+def code_config():
+    """Where the page's code blocks get their libraries (code-blocks.js's config): highlight.js and its
+    themes from cdnjs, mermaid from jsDelivr inside a srcdoc frame, each with the integrity hash of the
+    vendored file."""
+    hv, mv = code_version("HIGHLIGHT_VERSION"), code_version("MERMAID_VERSION")
+    hl = CDNJS_HIGHLIGHT.format(v=hv)
+    mermaid_src = JSDELIVR_MERMAID.format(v=mv)
+    return {
+        "highlight": {"src": f"{hl}/highlight.min.js", "integrity": sri(vendored("highlight.js", "highlight.min.js"))},
+        "sheets": {
+            "light": {"href": f"{hl}/styles/github.min.css", "integrity": sri(vendored("highlight.js", "github.min.css"))},
+            "dark": {"href": f"{hl}/styles/github-dark.min.css", "integrity": sri(vendored("highlight.js", "github-dark.min.css"))},
+        },
+        "frame": {"srcdoc": code_frame(mermaid_src, sri(vendored("mermaid", "mermaid.min.js")))},
+    }
 
 def embedded_modules():
     """Each EMBEDDED placeholder with the text of its module."""
@@ -467,6 +525,7 @@ def main():
         "__DATA__": emb(cards),
         "__BOARD_NAME_JSON__": emb(read_board_name(a.kanban_dir)),
         "__BOARD_NAME__": esc(read_board_name(a.kanban_dir)),
+        "__CODE_CONFIG__": emb(code_config()),
     })
     open(a.out, "w", encoding="utf-8").write(html)
     print(f"wrote {a.out} ({len(html)} bytes; {len(cards)} cards, base {iso})")
@@ -700,8 +759,8 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .bodymd pre{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
 .bodymd pre code{background:none;padding:0}
 .bodymd pre code.hljs{background:none;padding:0;display:inline;overflow:visible}
-.bodymd .md-diagram{display:block;overflow-x:auto;margin:.8em 0}
-.bodymd .md-diagram svg{max-width:100%;height:auto}
+.bodymd .md-diagram{display:block;width:100%;height:0;border:0;margin:.8em 0;background:transparent}
+.bodymd .md-diagram-pending{visibility:hidden}
 .bodymd .md-diagram-error{margin:-.4em 0 .8em;color:var(--blocked-ink);font-size:.85em}
 .bodymd .md-code{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;margin:.8em 0;overflow:hidden}
 .bodymd .md-code pre{border:0;border-radius:0;margin:0}
@@ -975,6 +1034,8 @@ __MARKDOWN_JS__</script>
 <script>
 __CODE_LIBS_JS__</script>
 <script>
+__CODE_BLOCKS_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -1122,92 +1183,17 @@ mdKids(list.loose&&!it.task?li.appendChild(el("p")):li,it.inline,boardName);
 (it.children||[]).forEach(ch=>li.appendChild(mdListNode(ch,boardName)));
 ul.appendChild(li)});
 return ul}
-// Colour and diagrams for typed blocks. kanbanCodeLibs (embedded above) says from a fence's language
-// which library it needs, and the page loads that library from cdnjs, at the versions kanban-web
-// vendors, the first time a block needs one -- never otherwise: a snapshot is one file and cannot carry
-// them, so this is the one place it asks the network for code. highlight.js colours a block in place
-// (the label and Copy stay); mermaid draws a mermaid block and the block stays, with a one-line error
-// under it, when it cannot. Both follow the page's theme and redraw when it changes. A failed load
-// leaves the plain block.
-const codeCdn=kanbanCodeLibs.cdnUrls();
-const codeSheets={};
-const codeDiagrams=[];
-let codeHljs=null,codeMermaid=null,codeWatching=false;
-function codeTheme(){
-const chosen=document.documentElement.getAttribute("data-theme");
-if(chosen==="dark"||chosen==="light")return chosen;
-return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
-function codeScript(src){
-return new Promise((ok,bad)=>{
-const sc=document.createElement("script");
-sc.src=src;
-sc.onload=()=>ok();
-sc.onerror=()=>bad(new Error("could not load "+src));
-document.head.appendChild(sc)})}
-function codePaint(){
-["light","dark"].forEach(mode=>{
-if(!codeSheets[mode]){
-const ln=document.createElement("link");
-ln.rel="stylesheet";
-ln.href=codeCdn[mode];
-document.head.appendChild(ln);
-codeSheets[mode]=ln}
-codeSheets[mode].disabled=mode!==codeTheme()})}
-function codeDraw(d){
-window.mermaid.initialize({startOnLoad:false,securityLevel:"strict",theme:codeTheme()==="dark"?"dark":"default"});
-d.node.removeAttribute("data-processed");
-d.node.textContent=d.source;
-return window.mermaid.run({nodes:[d.node]})}
-function codeOnTheme(){
-if(codeSheets.light)codePaint();
-if(codeMermaid)codeDiagrams.forEach(d=>{if(d.node.isConnected&&d.drawn)codeDraw(d).catch(()=>{})})}
-function codeWatch(){
-if(codeWatching)return;
-codeWatching=true;
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",codeOnTheme);
-new MutationObserver(codeOnTheme).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]})}
-function codeLoadHljs(){
-if(!codeHljs){
-codeHljs=codeScript(codeCdn.highlight).then(()=>window.hljs);
-codeHljs.catch(()=>{codeHljs=null});
-codePaint();
-codeWatch()}
-return codeHljs}
-function codeLoadMermaid(){
-if(!codeMermaid){
-codeMermaid=codeScript(codeCdn.mermaid).then(()=>window.mermaid);
-codeMermaid.catch(()=>{codeMermaid=null});
-codeWatch()}
-return codeMermaid}
-function codeFail(block,message){
-const note=el("p","md-diagram-error","Diagram error: "+message);
-note.setAttribute("role","alert");
-block.box.hidden=false;
-block.box.parentNode.insertBefore(note,block.box.nextSibling)}
-// A diagram is measured where it is drawn, so one inside a closed section waits for the section to open.
-function codeWhenShown(node,fn){
-for(let n=node.parentNode;n;n=n.parentNode){
-if(n.tagName==="DETAILS"&&!n.open){
-n.addEventListener("toggle",()=>{if(n.open)codeWhenShown(node,fn)},{once:true});
-return}}
-fn()}
-function codeEnhance(block){
-kanbanCodeLibs.enhanceBlocks([block],{
-highlight:(b,language)=>{
-codeLoadHljs().then(h=>{
-if(!b.code.isConnected)return;
-b.code.className="language-"+language;
-h.highlightElement(b.code)},()=>{})},
-mermaid:b=>{
-codeWhenShown(b.pre,()=>{
-codeLoadMermaid().then(()=>{
-if(!b.pre.isConnected)return;
-const d={node:el("div","mermaid md-diagram"),source:b.code.textContent,drawn:false};
-b.box.parentNode.insertBefore(d.node,b.box.nextSibling);
-codeDraw(d).then(()=>{d.drawn=true;codeDiagrams.push(d);b.box.hidden=true},e=>{
-d.node.remove();
-codeFail(b,String((e&&e.message)||e||"could not draw this diagram").split(String.fromCharCode(10))[0].trim().slice(0,200))})
-},()=>codeFail(b,"the diagram library did not load"))})}})}
+// Colour and diagrams for typed blocks: code-blocks.js (embedded above, the loader kanban-web uses
+// too) asks code-libs.js which library a fence needs and loads it the first time one does -- never
+// otherwise. A snapshot is one file and cannot carry the libraries, so this is the one place it asks
+// the network for code: highlight.js from cdnjs, in the page, and mermaid from jsDelivr, but never in
+// the page. Mermaid is drawn in a frame the page makes from CODE_CONFIG.frame.srcdoc, sandboxed to run
+// scripts and nothing else, so a bypass of its sanitiser could reach neither this page nor the
+// "Apply kanban changes" payload it builds. If the artifact will not host the frame (a policy against
+// inline script), the block stays the labelled code block. Every address carries the integrity hash of
+// the vendored file kanban-web ships, computed when the page is built.
+const CODE_CONFIG=__CODE_CONFIG__;
+const codeBlocks=kanbanCodeBlocks.createCodeBlocks(Object.assign({libs:kanbanCodeLibs},CODE_CONFIG));
 // A fenced block: the code alone when untyped; a typed one wears its language as a label over it and
 // a Copy button, the same chrome kanban-web draws.
 function mdPreNode(b){
@@ -1219,12 +1205,12 @@ const box=el("div","md-code"),bar=el("div","md-code-bar");
 const btn=el("button","md-code-copy","Copy");
 btn.type="button";
 btn.setAttribute("aria-label","Copy "+b.lang+" code");
-btn.addEventListener("click",()=>copyPayload(ok=>{btn.textContent=ok?"Copied":"Copy failed"},false,b.code));
+btn.addEventListener("click",()=>copyCode(b.code,ok=>{btn.textContent=ok?"Copied":"Copy failed"}));
 bar.appendChild(el("span","md-code-lang",b.lang));
 bar.appendChild(btn);
 box.appendChild(bar);
 box.appendChild(pre);
-Promise.resolve().then(()=>codeEnhance({box:box,pre:pre,code:pre.firstChild,lang:b.lang}));
+Promise.resolve().then(()=>codeBlocks.enhanceBlocks([{pre:pre,code:pre.firstChild,lang:b.lang}]));
 return box}
 function mdTableNode(b,boardName){
 const twrap=el("div","md-table");
@@ -1856,18 +1842,16 @@ return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.str
 // outright and goes straight to the execCommand path -- the close-guard
 // passes it true, since an async clipboard write is unreliable during
 // unload/dismissal (it can be torn down before the promise ever settles).
-// text, when given, is what a typed code block's Copy button copies instead of the
-// payload: the fallback lends it to the #payload box for the copy and puts the
-// payload back (or uses a box of its own when the tray is not showing), and the tray's
-// `copied` flag is left alone.
-function copyPayload(onDone,forceSync,text){
-const own=text!==undefined;
-const txt=own?text:payload();
-const ok=()=>{if(!own)copied=true;if(onDone)onDone(true)};
-const bad=()=>{if(onDone)onDone(false)};
-const fallback=()=>{let ta=$("payload");const temp=!ta&&own;if(temp){ta=el("textarea");ta.style.cssText="position:fixed;top:-1000px;left:-1000px";document.body.appendChild(ta)}if(!ta){bad();return}const keep=ta.value;if(own)ta.value=text;ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}if(temp)ta.remove();else if(own)ta.value=keep};
-if(!forceSync&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
+function copyToClipboard(txt,boxOf,forceSync,done){
+const fallback=()=>{let ta=boxOf?boxOf():null;const temp=!boxOf;if(temp){ta=el("textarea");ta.value=txt;ta.style.cssText="position:fixed;top:-1000px;left:-1000px";document.body.appendChild(ta)}if(!ta){done(false);return}ta.focus();ta.select();try{document.execCommand("copy")?done(true):done(false)}catch(err){done(false)}if(temp)ta.remove()};
+if(!forceSync&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>done(true)).catch(fallback);
 else fallback()}
+function copyPayload(onDone,forceSync){
+copyToClipboard(payload(),()=>$("payload"),forceSync,ok=>{if(ok)copied=true;if(onDone)onDone(ok)})}
+// A typed code block's Copy button: the same chain, for the block's text, in a box of its own, so the
+// payload and the tray's `copied` hint are left alone.
+function copyCode(text,onDone){
+copyToClipboard(text,null,false,onDone)}
 // Notification message shape (goal 6): most real boards
 // separate TLDR from detail with "; more: ", but the freshest messages on
 // real boards more often used ". more: " by mistake, so the whole ~1000-

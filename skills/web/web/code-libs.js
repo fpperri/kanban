@@ -3,9 +3,8 @@
 // language it knows, mermaid draws a ```mermaid fence, and every other fence stays the plain labelled
 // block markdown.js drew. Nothing loads unless a rendered body holds a block that needs it. This module
 // is the decision and what it rests on, the language names and the pinned versions; it loads nothing
-// itself. The page (code-blocks-ui.js) brings its own loader, which reads the libraries from
-// web/vendor, and the snapshot embeds this same file and brings one that reads them from cdnjs, at
-// these versions. No DOM here: loaded as a plain <script> (one global, window.kanbanCodeLibs),
+// itself. code-blocks.js is the loader, and the page and the snapshot each hand it their own addresses
+// for these versions: the page its vendored files in web/vendor, the snapshot the CDNs. No DOM here: loaded as a plain <script> (one global, window.kanbanCodeLibs),
 // embedded in the snapshot, and required directly by node --test.
 
 const codeLibsModule = (() => {
@@ -86,18 +85,7 @@ const codeLibsModule = (() => {
     }
   }
 
-  // Where the snapshot reads the two libraries and highlight.js's light and dark themes from.
-  function cdnUrls() {
-    const host = 'https://cdnjs.cloudflare.com/ajax/libs';
-    return {
-      mermaid: `${host}/mermaid/${MERMAID_VERSION}/mermaid.min.js`,
-      highlight: `${host}/highlight.js/${HIGHLIGHT_VERSION}/highlight.min.js`,
-      light: `${host}/highlight.js/${HIGHLIGHT_VERSION}/styles/github.min.css`,
-      dark: `${host}/highlight.js/${HIGHLIGHT_VERSION}/styles/github-dark.min.css`,
-    };
-  }
-
-  return { MERMAID_VERSION, HIGHLIGHT_VERSION, HIGHLIGHT_LANGUAGES, highlightLanguage, isMermaid, libsNeeded, enhanceBlocks, cdnUrls };
+  return { MERMAID_VERSION, HIGHLIGHT_VERSION, HIGHLIGHT_LANGUAGES, highlightLanguage, isMermaid, libsNeeded, enhanceBlocks };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

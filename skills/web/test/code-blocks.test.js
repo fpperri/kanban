@@ -5,20 +5,29 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { miniDocument } = require('./helpers/mini-dom');
 
-// code-blocks-ui.js is the page's loader for the two libraries: highlight.js colours a typed block whose
-// language it knows, and a ```mermaid block is drawn by the sandboxed frame. It runs here in a vm against
-// a small DOM, with the libraries and the frame played by hand, so what is asserted is when a file is
-// asked for, what is asked of it, and what the block turns into.
+// code-blocks.js is the loader for the two libraries, shared by the page and the snapshot: highlight.js
+// colours a typed block whose language it knows, and a ```mermaid block is drawn by a sandboxed frame.
+// Each brings its own addresses (the page its vendored files, the snapshot cdnjs and a srcdoc frame), which
+// is the config handed to createCodeBlocks. It runs here in a vm against a small DOM, with the libraries and
+// the frame played by hand, so what is asserted is when a file is asked for, what is asked of it, and what
+// the block turns into.
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'code-blocks-ui.js'), 'utf8').replace(/\r\n/g, '\n');
+const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'code-blocks.js'), 'utf8').replace(/\r\n/g, '\n');
 const codeLibs = require('../web/code-libs');
 
-function page({ dark = false } = {}) {
+const WEB_CONFIG = {
+  highlight: { src: '/vendor/highlight.js/highlight.min.js' },
+  sheets: { light: { href: '/vendor/highlight.js/github.min.css' }, dark: { href: '/vendor/highlight.js/github-dark.min.css' } },
+  frame: { src: '/mermaid-frame.html' },
+};
+
+function page({ dark = false, config = WEB_CONFIG } = {}) {
   const document = miniDocument();
   const windowListeners = {};
   const timers = [];
   const media = { matches: dark, listeners: [], addEventListener: (type, fn) => media.listeners.push(fn) };
   const watchers = [];
+  const layoutWatchers = [];
   const highlighted = [];
   const sandbox = {
     document,
@@ -26,12 +35,18 @@ function page({ dark = false } = {}) {
     setTimeout: (fn, ms) => { timers.push({ fn, ms, live: true }); return timers.length; },
     clearTimeout: (id) => { if (timers[id - 1]) timers[id - 1].live = false; },
     MutationObserver: class { constructor(fn) { watchers.push(fn); } observe() {} },
+    ResizeObserver: class {
+      constructor(fn) { this.fn = fn; this.targets = []; layoutWatchers.push(this); }
+      observe(el) { this.targets.push(el); }
+      disconnect() { this.targets = []; }
+    },
   };
   sandbox.window = sandbox;
   sandbox.addEventListener = (type, fn) => { (windowListeners[type] = windowListeners[type] || []).push(fn); };
   sandbox.matchMedia = () => media;
   vm.createContext(sandbox);
   vm.runInContext(src, sandbox);
+  const codeBlocks = sandbox.kanbanCodeBlocks.createCodeBlocks({ libs: codeLibs, ...config });
 
   const root = document.body.appendChild(document.createElement('div'));
   const block = (lang, code = 'x') => {
@@ -52,7 +67,11 @@ function page({ dark = false } = {}) {
   const hljs = { highlightElement: (el) => { highlighted.push(el); el.className += ' hljs'; } };
   return {
     document, root, block, scripts, links, frames, highlighted, timers, media, hljs, windowListeners,
-    enhance: () => sandbox.enhanceCodeBlocks(root),
+    enhance: () => codeBlocks.enhance(root),
+    enhanceIn: (el) => codeBlocks.enhance(el),
+    // The browser tells each observer its element may have a box now.
+    layout() { for (const w of layoutWatchers.slice()) if (w.targets.length) w.fn(); },
+    watching: () => layoutWatchers.filter((w) => w.targets.length).length,
     loadHighlight() { sandbox.hljs = hljs; scripts()[0].onload(); },
     message(frame, data, source) { for (const fn of windowListeners.message || []) fn({ source: source === undefined ? frame.contentWindow : source, data }); },
     retheme(theme) { if (theme === null) document.documentElement.attrs = {}; else document.documentElement.setAttribute('data-theme', theme); watchers.forEach((fn) => fn()); },
@@ -337,29 +356,119 @@ test('a diagram whose body has been replaced is not redrawn', () => {
   assert.strictEqual(frame.contentWindow.posted.length, 1);
 });
 
-test('a diagram in a closed section waits until the section is opened, since a frame with no layout cannot be measured', () => {
-  const p = page();
-  const details = p.document.createElement('details');
-  const summary = p.document.createElement('summary');
-  details.append(summary);
-  p.root.appendChild(details);
+function diagramIn(p, wrap) {
   const box = p.document.createElement('div');
   box.className = 'md-code';
   const pre = p.document.createElement('pre');
   pre.setAttribute('data-lang', 'mermaid');
   pre.appendChild(p.document.createElement('code'));
   box.appendChild(pre);
-  details.appendChild(box);
+  wrap.appendChild(box);
+  return { box, pre };
+}
+
+test('a diagram in a closed section waits until the section is opened, since a frame with no layout cannot be measured', () => {
+  const p = page();
+  const details = p.document.createElement('details');
+  details.append(p.document.createElement('summary'));
+  p.root.appendChild(details);
+  diagramIn(p, details);
   p.enhance();
   assert.strictEqual(p.frames().length, 0, 'closed: no frame yet');
+  assert.strictEqual(p.watching(), 1, 'but the block is watched for a box');
+  p.layout();
+  assert.strictEqual(p.frames().length, 0, 'a change that gives it no box does nothing');
   details.setAttribute('open', '');
-  p.root.fire('toggle');
+  p.layout();
   assert.strictEqual(p.frames().length, 1, 'opened: the frame is made');
-  p.root.fire('toggle');
-  assert.strictEqual(p.frames().length, 1, 'and only once');
+  assert.strictEqual(p.watching(), 0, 'and the watch is over');
+  p.layout();
+  assert.strictEqual(p.frames().length, 1, 'once');
 });
 
-test('the script says what it asks of the network: nothing but the plugin\'s own files', () => {
+// The detail popup writes a card's body and only then takes .hidden off the modal, so the body is
+// drawn while nothing in it has a box.
+test('a diagram written into a popup that is still hidden is drawn when the popup is shown', () => {
+  const p = page();
+  const modal = p.document.createElement('div');
+  modal.className = 'modal hidden';
+  p.root.appendChild(modal);
+  const body = p.document.createElement('div');
+  modal.appendChild(body);
+  diagramIn(p, body);
+  p.enhanceIn(body);
+  assert.strictEqual(p.frames().length, 0, 'no box yet: nothing is made');
+  modal.classList.remove('hidden');
+  p.layout();
+  assert.strictEqual(p.frames().length, 1, 'shown: the frame is made without anything else happening');
+});
+
+test('a body drawn again before the popup is shown is not drawn twice', () => {
+  const p = page();
+  const modal = p.document.createElement('div');
+  modal.className = 'hidden';
+  p.root.appendChild(modal);
+  diagramIn(p, modal);
+  p.enhanceIn(modal);
+  p.enhanceIn(modal);
+  modal.classList.remove('hidden');
+  p.layout();
+  assert.strictEqual(p.frames().length, 1);
+});
+
+test('a block removed while it waited for a box is not drawn', () => {
+  const p = page();
+  const modal = p.document.createElement('div');
+  modal.className = 'hidden';
+  p.root.appendChild(modal);
+  const { box } = diagramIn(p, modal);
+  p.enhanceIn(modal);
+  box.remove();
+  modal.classList.remove('hidden');
+  p.layout();
+  assert.strictEqual(p.frames().length, 0);
+});
+
+// --- what the page and the snapshot each hand in ------------------------------------------------------------------
+
+test('an integrity hash and crossorigin go on the library\'s script and its theme links when the config has them', () => {
+  const p = page({
+    config: {
+      highlight: { src: 'https://cdn.test/h.js', integrity: 'sha384-AAA' },
+      sheets: { light: { href: 'https://cdn.test/l.css', integrity: 'sha384-BBB' }, dark: { href: 'https://cdn.test/d.css', integrity: 'sha384-CCC' } },
+      frame: { src: '/f.html' },
+    },
+  });
+  p.block('ts');
+  p.enhance();
+  const [script] = p.scripts();
+  assert.deepStrictEqual([script.src, script.integrity, script.crossOrigin], ['https://cdn.test/h.js', 'sha384-AAA', 'anonymous']);
+  assert.deepStrictEqual(p.links().map((l) => [l.href, l.integrity, l.crossOrigin]), [['https://cdn.test/l.css', 'sha384-BBB', 'anonymous'], ['https://cdn.test/d.css', 'sha384-CCC', 'anonymous']]);
+});
+
+test('with no integrity in the config none is set', () => {
+  const p = page();
+  p.block('ts');
+  p.enhance();
+  assert.strictEqual(p.scripts()[0].integrity, undefined);
+  assert.strictEqual(p.scripts()[0].crossOrigin, undefined);
+});
+
+test('a config with a srcdoc makes the frame from that document, and never from an address', () => {
+  const p = page({ config: { ...WEB_CONFIG, frame: { srcdoc: '<!doctype html><p>frame</p>' } } });
+  p.block('mermaid');
+  p.enhance();
+  const [frame] = p.frames();
+  assert.strictEqual(frame.srcdoc, '<!doctype html><p>frame</p>');
+  assert.strictEqual(frame.src, undefined);
+  assert.strictEqual(frame.getAttribute('sandbox'), 'allow-scripts');
+});
+
+test('the highlight load is held under a name that says what it is', () => {
+  assert.match(src, /let highlightLoading = null;/);
+});
+
+test('the script names no address of its own: the config does', () => {
   assert.doesNotMatch(src, /https?:\/\//);
   assert.doesNotMatch(src, /allow-same-origin/);
   assert.doesNotMatch(src, /innerHTML|insertAdjacentHTML|eval\(|new Function/);

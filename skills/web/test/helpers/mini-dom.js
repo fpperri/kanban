@@ -2,7 +2,8 @@
 // A small tree of elements a page script can build, query and change, for tests that run a script
 // in a vm: createElement, attributes, classes, children, closest and querySelectorAll over a handful
 // of selector forms (a tag, .class, [attr], tag[attr], tag.class, and a descendant chain of these),
-// layout answered by a flag each element carries, and events delivered by hand. Not a test file (the
+// layout answered the way the page's stylesheet does (an element with the hidden attribute or the
+// hidden class, or inside a closed <details>, has none), and events delivered by hand. Not a test file (the
 // suite runs *.test.js only).
 
 class Node {
@@ -16,7 +17,6 @@ class Node {
     this.className = '';
     this.hidden = false;
     this.disabled = false;
-    this.shown = true;
     this.style = {};
     this.textContent = '';
     this.contentWindow = { posted: [], postMessage: (message, target) => this.contentWindow.posted.push([message, target]) };
@@ -90,7 +90,7 @@ class Node {
   // An element has layout unless it or an ancestor is hidden, or is a closed <details> and the element is not its summary.
   visible() {
     for (let n = this, child = null; n; child = n, n = n.parentNode) {
-      if (n.hidden || n.shown === false) return false;
+      if (n.hidden || n.classes.includes('hidden')) return false;
       if (n.tag === 'details' && !n.hasAttribute('open') && child && child.tag !== 'summary') return false;
     }
     return true;

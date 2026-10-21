@@ -457,8 +457,10 @@ Copy button.
 
 **Markdown** — a card's body in the card popup, a scratchpad's Preview and the snapshot's card
 sheet all draw Markdown the same way, hand-rolled and with no dependency. Headings run from `#`
-to `######`; bullet (`-`, `*`, `+`), numbered and `- [x]` task lists nest and mix; `>` quotes hold
-lists, headings and code; pipe tables, `---` rules, `**bold**`, `*italic*`, `***both***`, `_em_`
+to `######`; bullet (`-`, `*`, `+`), numbered and `- [x]` task lists nest and mix, and items split
+by a blank line are one loose list with their text in paragraphs; `>` quotes hold lists, headings and
+code and carry on over a line with no `>` after a paragraph line; `---`, `***`, `___` and the same
+marks spaced out (`* * *`) are rules; pipe tables, `---` rules, `**bold**`, `*italic*`, `***both***`, `_em_`
 and `__strong__` (snake_case words stay whole), `~~strike~~`, `<u>underline</u>`, `` `code` ``,
 links and bare `https://` addresses all work, and two trailing spaces or a trailing `\` break a
 line. A fence opens with three or more backticks or tildes and closes on a run of the same mark at
@@ -473,8 +475,11 @@ theme; an unknown language, plain text and an untyped fence stay plain, with no 
 labelled code block with one line of error under it and never breaks the rest of the body. Both redraw
 when the page's theme changes, and neither is requested by a page that has no block for it. The files
 sit in `skills/web/web/vendor`, each with its licence beside it, pinned to mermaid 12.2.0 and
-highlight.js 11.12.0, and nothing loads from the network. The snapshot loads the same two versions from
-`cdnjs.cloudflare.com`, lazily too. A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
+highlight.js 11.12.0, and nothing loads from the network. The snapshot, which cannot carry them, loads
+highlight.js (and its themes) from `cdnjs.cloudflare.com` and mermaid from `cdn.jsdelivr.net`, the same two
+versions, lazily too, each under an SRI `integrity` hash computed from the vendored file, and draws
+its diagrams in a sandboxed `srcdoc` frame like the desk's (mermaid never runs in the snapshot's page, which
+builds the payload). See ADR 0020. A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
 line of its own, make a collapsible section whose body is more Markdown (sections nest; `<details open>`
 starts open; with no summary the title is `[...]`). Every piece of text is escaped as it is written, so
 a body holds no live tag: the only tags let through are `<u>…</u>` as a pair on one line and those

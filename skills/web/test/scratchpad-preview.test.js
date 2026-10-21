@@ -31,6 +31,10 @@ function panel({ body = '', refs = [] } = {}) {
     settingsAddBoardPage() {},
     $: () => ({ addEventListener() {} }),
     mdToHtml,
+    kanbanCodeLibs: { HIGHLIGHT_VERSION: '1.0.0' },
+    enhanced: [],
+    kanbanCodeBlocks: { createCodeBlocks: () => ({ enhance: (el) => sandbox.enhanced.push(el.hidden) }) },
+    console,
     fallbackCopy: () => true,
     navigator: {},
     setTimeout: () => 0,
@@ -45,7 +49,7 @@ function panel({ body = '', refs = [] } = {}) {
   wrap.isConnected = false;
   const settled = () => new Promise((r) => setImmediate(r));
   const one = (cls) => byClass(wrap, cls)[0];
-  return { wrap, one, saved, settled };
+  return { wrap, one, saved, settled, enhanced: sandbox.enhanced };
 }
 
 test('the tab opens on Edit: the box shows, the preview is hidden, Edit is the pressed button', async () => {
@@ -120,4 +124,11 @@ test('Save works from Preview and leaves the preview showing', async () => {
   assert.deepStrictEqual(p.saved, ['second']);
   assert.strictEqual(p.one('sp-preview').hidden, false, 'the mode is the one the person chose');
   assert.strictEqual(p.one('sp-preview').innerHTML, '<p>second</p>');
+});
+
+test('the preview is shown before its text is drawn, so a diagram in it is measured where it sits', async () => {
+  const p = panel({ body: '```mermaid\ngraph TD; A-->B;\n```' });
+  await p.settled();
+  byClass(p.wrap, 'sp-mode')[1].fire('click');
+  assert.deepStrictEqual(p.enhanced, [false], 'the preview was not hidden when the colour and diagram pass ran');
 });

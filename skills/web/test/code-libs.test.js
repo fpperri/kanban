@@ -123,12 +123,9 @@ test('each library has its licence beside it', () => {
   assert.match(fs.readFileSync(vendor('highlight.js', 'LICENSE'), 'utf8'), /BSD 3-Clause License/);
 });
 
-test('the CDN addresses the snapshot loads name the same versions, on cdnjs only', () => {
-  const urls = libs.cdnUrls();
-  assert.strictEqual(urls.mermaid, `https://cdnjs.cloudflare.com/ajax/libs/mermaid/${libs.MERMAID_VERSION}/mermaid.min.js`);
-  assert.strictEqual(urls.highlight, `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/${libs.HIGHLIGHT_VERSION}/highlight.min.js`);
-  assert.strictEqual(urls.light, `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/${libs.HIGHLIGHT_VERSION}/styles/github.min.css`);
-  assert.strictEqual(urls.dark, `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/${libs.HIGHLIGHT_VERSION}/styles/github-dark.min.css`);
+test('the frame page asks for the vendored mermaid by its version, so the server may cache it for good', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'mermaid-frame.html'), 'utf8');
+  assert.ok(html.includes(`<script src="/vendor/mermaid/mermaid.min.js?v=${libs.MERMAID_VERSION}"></script>`));
 });
 
 test('the module is written to be embedded: no require, no other module\'s names', () => {

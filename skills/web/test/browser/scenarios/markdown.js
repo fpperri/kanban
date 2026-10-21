@@ -13,6 +13,7 @@
 module.exports = {
   name: 'markdown',
   board: 'markdown',
+  timeoutMs: 100000,
   async run(page) {
     const { ev, open, waitFor, centre, click, check, shot } = page;
     const body = (sel) => `document.querySelector('#detail-body ${sel}')`;
@@ -36,19 +37,31 @@ module.exports = {
     check('markdown: the fence shown by a longer one is plain code with the inner fence in it', await ev(`(()=>{const pres=[...document.querySelectorAll('#detail-body pre')].filter((p)=>!p.closest('.md-code'));return pres.length===1&&pres[0].textContent.startsWith('\`\`\`')&&!pres[0].closest('.md-code')})()`));
     check('markdown: an untyped block has no Copy button', await ev(`document.querySelectorAll('#detail-body .md-code-copy').length===1`));
     check('markdown: nothing in the body is a live script or handler', await ev(`document.querySelectorAll('#detail-body script, #detail-body [onclick]').length===0`));
-    check('markdown: a <details> section is drawn closed, with its summary showing and its text hidden', await ev(`(()=>{const d=${body('details')};return !!d&&d.open===false&&${text('details > summary')}==='Open me'&&d.querySelector('p').getBoundingClientRect().height===0})()`));
-    await ev(`${body('details > summary')}.scrollIntoView({block:'nearest'})`);
-    const sum = await centre('#detail-body details > summary');
-    await click(sum.x, sum.y);
-    check('markdown: a click on the summary opens the section and shows its Markdown', await waitFor(`${body('details')}.open===true`, 2500) && await ev(`${text('details p')}==='hidden words'&&!!${body('details p strong')}&&${body('details p')}.getBoundingClientRect().height>0`));
-    await click(sum.x, sum.y);
-    check('markdown: and a second click closes it again', await waitFor(`${body('details')}.open===false`, 2500));
+    const sectionH = `${body('details')}.getBoundingClientRect().height`;
+    const closedH = await ev(sectionH);
+    check('markdown: a <details> section is drawn closed, with only its summary showing', await ev(`(()=>{const d=${body('details')};return !!d&&d.open===false&&${text('details > summary')}==='Open me'})()`) && closedH > 0 && closedH < 90, closedH);
+    const clickSummary = async () => {
+      await ev(`${body('details > summary')}.scrollIntoView({block:'center'})`);
+      const at = await centre('#detail-body details > summary');
+      await click(at.x, at.y);
+    };
+    await clickSummary();
+    check('markdown: a click on the summary opens the section and shows its Markdown', await waitFor(`${body('details')}.open===true`, 2500) && await ev(`${text('details p')}==='hidden words'&&!!${body('details p strong')}&&${sectionH}>${closedH + 10}`));
+    await clickSummary();
+    check('markdown: and a second click closes it again', await waitFor(`${body('details')}.open===false`, 2500) && await ev(`${sectionH}<${closedH + 2}`));
     await shot('markdown-detail');
 
     // --- highlight.js: card 22's ```c# block --------------------------------------------------------------------------------------
     check('markdown: the c# block is coloured, and still says c# and still has its text', await waitFor(`document.querySelectorAll('#detail-body .md-code pre code.hljs span[class^="hljs-"]').length>0`, 6000) && await ev(`${text('.md-code .md-code-lang')}==='c#'&&${text('.md-code pre code')}==='var answer = 42;'`));
     check('markdown: only highlight.js was asked for, from the plugin\'s own files', await ev(`${asked}.some((p)=>p==='/vendor/highlight.js/highlight.min.js')&&!${asked}.some((p)=>/mermaid/.test(p))`), await ev(`JSON.stringify(${asked})`));
     check('markdown: the page takes the theme it is in', await ev(`(()=>{const dark=matchMedia('(prefers-color-scheme: dark)').matches;const l=document.querySelector('link[href$="github.min.css"]'),d=document.querySelector('link[href$="github-dark.min.css"]');return !!l&&!!d&&l.disabled===dark&&d.disabled===!dark})()`));
+    await ev(`window.__copied=[];Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:(t)=>{window.__copied.push(t);return Promise.resolve()}})`);
+    await ev(`document.querySelector('#detail-body .md-code-copy').scrollIntoView({block:'nearest'})`);
+    const at = await centre('#detail-body .md-code-copy');
+    await click(at.x, at.y);
+    check('markdown: Copy copies the block\'s text, not its label', await waitFor(`window.__copied.length===1`, 3000) && await ev(`window.__copied[0]==='var answer = 42;'`), await ev(`JSON.stringify(window.__copied)`));
+    check('markdown: and the button says so, then goes back', await waitFor(`${text('.md-code-copy')}==='Copied'`, 3000) && await waitFor(`${text('.md-code-copy')}==='Copy'`, 4000));
+
     await ev(`document.documentElement.setAttribute('data-theme','dark')`);
     check('markdown: and the other when the root says so', await waitFor(`document.querySelector('link[href$="github-dark.min.css"]').disabled===false&&document.querySelector('link[href$="github.min.css"]').disabled===true`, 3000));
     await ev(`document.documentElement.removeAttribute('data-theme')`);
@@ -67,12 +80,10 @@ module.exports = {
     check('markdown: a diagram that does not parse leaves the labelled block with one line of error under it', await waitFor(`!!${body('.md-diagram-error')}&&/^Diagram error: \\S/.test(${text('.md-diagram-error')})`, 20000) && await ev(`${body('.md-code')}.hidden===false&&${text('.md-code .md-code-lang')}==='mermaid'&&!${body('iframe.md-diagram')}&&!/\\n/.test(${text('.md-diagram-error')})`), await ev(`${text('.md-diagram-error')}`));
     check('markdown: and the text after it is drawn', await ev(`${text('p')}==='Still here after it.'`));
     await shot('markdown-diagram-error');
-
     await ev(`window.__copied=[];Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:(t)=>{window.__copied.push(t);return Promise.resolve()}})`);
-    await ev(`document.querySelector('#detail-body .md-code-copy').scrollIntoView({block:'nearest'})`);
-    const at = await centre('#detail-body .md-code-copy');
-    await click(at.x, at.y);
-    check('markdown: Copy copies the block\'s text, not its label', await waitFor(`window.__copied.length===1`, 3000) && await ev(`window.__copied[0]==='var answer = 42;'`), await ev(`JSON.stringify(window.__copied)`));
-    check('markdown: and the button says so, then goes back', await waitFor(`${text('.md-code-copy')}==='Copied'`, 3000) && await waitFor(`${text('.md-code-copy')}==='Copy'`, 4000));
+    const bad = await centre('#detail-body .md-code-copy');
+    await click(bad.x, bad.y);
+    check('markdown: the block that would not draw still copies its own text', await waitFor(`window.__copied.length===1`, 3000) && await ev(`window.__copied[0]==='this is not a diagram'`), await ev(`JSON.stringify(window.__copied)`));
+
   },
 };

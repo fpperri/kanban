@@ -916,7 +916,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 /* Coloured code (highlight.js, loaded when a typed block needs it): its theme paints a block and pads
    it, and the frame already does both, so only its colours are kept. */
 .detail-body pre code.hljs { background: none; padding: 0; display: inline; overflow: visible; }
-/* A drawn ```mermaid block (code-blocks-ui.js): a sandboxed frame. It is laid out but out of sight
+/* A drawn ```mermaid block (code-blocks.js): a sandboxed frame. It is laid out but out of sight
    while it draws, since mermaid measures what it draws, and takes its height from the diagram. */
 .md-diagram { display: block; width: 100%; height: 0; border: 0; margin: 0.8em 0; background: transparent; }
 .md-diagram-pending { visibility: hidden; }

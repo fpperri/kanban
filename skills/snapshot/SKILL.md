@@ -209,10 +209,14 @@ shows it as a label and a Copy button), pipe tables, `---` rules, and inline
 `[text](url)` and bare `https://` addresses, with a hard line break after two spaces or a
 backslash. The parse is the module's; the page draws it as DOM nodes, never `innerHTML`. Collapsible
 `<details>`/`<summary>` sections work. A fence in a language highlight.js knows is coloured, and a
-` ```mermaid ` fence is drawn as a diagram, by libraries the page loads from `cdnjs.cloudflare.com` the first
-time a card holds a block that needs one (never otherwise), at the same versions kanban-web vendors
-(highlight.js 11.12.0, mermaid 12.2.0); offline, or if cdnjs is not allowed, the block stays plain, and a
-diagram that does not parse stays a labelled block with one line of error under it. A code span shaped like `board#id` renders as a tappable mention
+` ```mermaid ` fence is drawn as a diagram, by libraries loaded the first time a card holds a block that
+needs one (never otherwise), at the versions kanban-web vendors (highlight.js 11.12.0 from
+`cdnjs.cloudflare.com`, mermaid 12.2.0 from `cdn.jsdelivr.net`), each under an SRI `integrity` hash
+computed from the vendored file when the page is built. Mermaid is never run in the page, which builds
+the "Apply kanban changes" payload: a diagram is drawn in an `<iframe sandbox="allow-scripts">` made
+from a `srcdoc` (no same-origin), and if the artifact will not host that frame, or the network is off,
+the block stays a labelled code block; a diagram that does not parse stays one too, with one line of
+error under it. A code span shaped like `board#id` renders as a tappable mention
 chip; one naming this board opens that card in place. Card and notification
 text alike paint through the shop's own CSS custom-property palette (light,
 dark, and an explicit `data-theme` override for each), not literal hex.
