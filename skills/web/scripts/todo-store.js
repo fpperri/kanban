@@ -285,7 +285,7 @@ function addTodo(dir, target, body, opts) {
     fresh.eol = '';
   }
   lines.splice(at, 0, fresh);
-  return save(dir, ctx, lines, opts);
+  return { ...save(dir, ctx, lines, opts), at };
 }
 
 // Change an item `{ index, done?, text?, version }`: tick or untick it, and/or replace its text.
@@ -331,15 +331,17 @@ function swapBlocks(ctx, first, second) {
 }
 
 // Move an item `{ index, by: -1 | 1, version }` up or down among its siblings, children along. At the
-// first or last of them nothing changes.
+// first or last of them nothing changes. The answer carries `at`, the line the moved item is on now.
 function moveTodo(dir, target, body, opts) {
   const { index, by, version } = body && typeof body === 'object' ? body : {};
   const ctx = open(dir, target, version, opts);
   itemAt(ctx, index);
   if (by !== -1 && by !== 1) throw new StatusError('An item moves up (-1) or down (1).', 400);
   const other = by === -1 ? siblingAbove(ctx.rows, index) : siblingBelow(ctx.rows, index);
-  if (other === null) return readTodos(dir, ctx.key, opts);
-  return save(dir, ctx, by === -1 ? swapBlocks(ctx, other, index) : swapBlocks(ctx, index, other), opts);
+  if (other === null) return { ...readTodos(dir, ctx.key, opts), at: index };
+  const rows = ctx.rows;
+  const at = by === -1 ? other : index + blockEnd(rows, other) - blockEnd(rows, index);
+  return { ...save(dir, ctx, by === -1 ? swapBlocks(ctx, other, index) : swapBlocks(ctx, index, other), opts), at };
 }
 
 // ---------- the board ----------

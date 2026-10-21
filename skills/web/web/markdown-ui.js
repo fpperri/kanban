@@ -19,9 +19,11 @@ const codeBlocks = kanbanCodeBlocks.createCodeBlocks({
 });
 
 // Draws text as Markdown into el. The renderer escapes every piece of text it writes, so this is
-// the only innerHTML write a person's prose ever reaches.
-function markdownInto(el, text) {
-  el.innerHTML = mdToHtml(text || '', { board: state.projectName });
+// the only innerHTML write a person's prose ever reaches. `opts.inline` draws one line with no block
+// around it (a todo item's row).
+function markdownInto(el, text, opts) {
+  const board = { board: state.projectName };
+  el.innerHTML = opts && opts.inline ? mdInlineToHtml(text || '', board) : mdToHtml(text || '', board);
   // Colour and diagrams for typed blocks: only ever an addition to the text just drawn, so
   // whatever goes wrong there leaves the plain body.
   try { codeBlocks.enhance(el); } catch (e) { console.error(e); }

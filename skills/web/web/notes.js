@@ -3,7 +3,7 @@
 // logbook"), apart from the DOM: how the note box's line is read, what Enter will write
 // and the preview line that says so, what the palette is about (its subject: a card, a
 // group, a slot of a day, a day's untimed notes, or nothing), how the notes list is
-// narrowed, grouped and ordered, how high a note box grows, and which tab Alt+1 to Alt+3 pick. notes-palette.js draws it and talks to the server.
+// narrowed, grouped and ordered, how high a note box grows, and which tab Alt+1 to Alt+4 pick. notes-palette.js draws it and talks to the server.
 //
 // The line. Its first line may begin with a time (`10:30 renamed it`) or with `-` or the
 // word `untimed`, then with a mention of a card or group the board has (`#22 mid check`,
@@ -136,15 +136,17 @@ function noteSubjectFrom(req, o) {
 }
 
 // The tabs the palette shows for a subject, in order: Notes (when the board keeps a logbook), a
-// group's own Group tab, and the Scratchpad of a card or group (when the board keeps scratchpads).
-// A card with the logbook off still has its Scratchpad, so it opens on that alone.
+// group's own Group tab, the Scratchpad of a card or group (when the board keeps scratchpads) and its
+// Todos (when the board keeps todo lists). A card with the logbook off still has those, so it opens on
+// them alone.
 function noteTabs(sub, o) {
   const target = !!sub && noteIsTarget(sub);
   if (!target) return ['notes'];
   const tabs = [];
-  if (o.notesOn || (sub.kind === 'card' && !o.scratchpadOn)) tabs.push('notes');
+  if (o.notesOn || (sub.kind === 'card' && !o.scratchpadOn && !o.todosOn)) tabs.push('notes');
   if (sub.kind === 'group') tabs.push('group');
   if (o.scratchpadOn) tabs.push('scratch');
+  if (o.todosOn) tabs.push('todos');
   return tabs;
 }
 
@@ -404,10 +406,10 @@ function noteTimeline(notes, o = {}) {
   return list;
 }
 
-// Alt+1, Alt+2 and Alt+3 pick the palette's first, second and third tab. The digit is read by its key,
-// else by its place on the keyboard (Alt changes the character some layouts type). -> 0, 1, 2 or -1.
-const NOTE_TAB_KEYS = ['1', '2', '3'];
-const NOTE_TAB_CODES = ['Digit1', 'Digit2', 'Digit3'];
+// Alt+1 to Alt+4 pick the palette's first to fourth tab. The digit is read by its key, else by its
+// place on the keyboard (Alt changes the character some layouts type). -> 0, 1, 2, 3 or -1.
+const NOTE_TAB_KEYS = ['1', '2', '3', '4'];
+const NOTE_TAB_CODES = ['Digit1', 'Digit2', 'Digit3', 'Digit4'];
 
 function noteTabKey(e) {
   if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return -1;

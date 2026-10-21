@@ -103,6 +103,17 @@ test('adding appends at the end, or under an item as its last child, and changes
   assert.deepStrictEqual(shape(td.readTodos(dir, '7')).slice(5), ['x b', '>o b1', 'o c']);
 });
 
+test('an add and a move answer the line the item is on now', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n  - [ ] a1\n- [ ] b\n\n- [ ] c\n' });
+  assert.strictEqual(add(dir, '7', 'd').at, 5);
+  assert.strictEqual(add(dir, '7', 'a2', 0).at, 2);
+  assert.strictEqual(move(dir, '7', 3, -1).at, 0, 'b went above a and its child');
+  assert.strictEqual(read(dir, FILE).split('\n')[0], '- [ ] b');
+  assert.strictEqual(move(dir, '7', 0, 1).at, 3, 'and back down past a, a1 and a2');
+  assert.strictEqual(move(dir, '7', 6, 1).at, 6, 'the last sibling does not move, and says where it is');
+  assert.deepStrictEqual(shape(td.readTodos(dir, '7')), ['o a', '>o a1', '>o a2', 'o b', 'o c', 'o d']);
+});
+
 test('a child of a tab-indented item is indented with a tab', () => {
   const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n\t- [ ] b\n' });
   add(dir, '7', 'b1', 1);

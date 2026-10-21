@@ -344,8 +344,8 @@ test('a note box takes whole pixels, and shrinks when its text does', () => {
 
 const alt = (key, over = {}) => ({ key, code: `Digit${key}`, altKey: true, ctrlKey: false, metaKey: false, shiftKey: false, ...over });
 
-test('Alt+1, Alt+2 and Alt+3 are the first, second and third tab', () => {
-  assert.deepStrictEqual(['1', '2', '3'].map((k) => n.noteTabKey(alt(k))), [0, 1, 2]);
+test('Alt+1, Alt+2, Alt+3 and Alt+4 are the first, second, third and fourth tab', () => {
+  assert.deepStrictEqual(['1', '2', '3', '4'].map((k) => n.noteTabKey(alt(k))), [0, 1, 2, 3]);
 });
 
 test('the digit is found by its key or, where Alt changes the character, by its place on the keyboard', () => {
@@ -354,7 +354,7 @@ test('the digit is found by its key or, where Alt changes the character, by its 
 });
 
 test('any other key, a digit without Alt, or Alt with another modifier is no tab key', () => {
-  assert.strictEqual(n.noteTabKey(alt('4')), -1);
+  assert.strictEqual(n.noteTabKey(alt('5')), -1);
   assert.strictEqual(n.noteTabKey(alt('0')), -1);
   assert.strictEqual(n.noteTabKey({ key: '1', code: 'Digit1', altKey: false }), -1);
   assert.strictEqual(n.noteTabKey(alt('1', { ctrlKey: true })), -1);
