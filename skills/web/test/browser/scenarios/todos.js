@@ -5,7 +5,7 @@
 // 1/1. The count opens the palette on a Todos tab after Notes and Scratchpad: the file, the items nested
 // and struck when ticked, and the line that is not an item muted. The box adds an item (Enter), Down
 // moves onto the rows, Space ticks, e edits in place, c adds a child under the row, Alt+Down moves it
-// among its siblings and d twice deletes it; every change is on the file at once and the scratchpad page
+// among its siblings, Tab and Shift+Tab indent and outdent it (focus stays on the row) and d twice deletes it; every change is on the file at once and the scratchpad page
 // beside it is not touched. A hand edit shows when the board refreshes, and a change made over a list
 // that moved on disk is refused and says so. t opens the tab for the hovered card, the card menu has a
 // Todos... entry, a group opens its list on a fourth tab (Alt+4), the gear has a Todos page, and the
@@ -177,6 +177,28 @@ module.exports = {
     await key('d');
     check('todos: the second d deletes it from the file', await onFile('# Before the handoff\n- [ ] check the enum renames\n- [ ] update the changelog and README\n  - [ ] note the breaking rename\n  - [ ] link the migration\n- [ ] write the release note\n'), todoFile());
     check('todos: the list follows, and the focus lands on the row in its place', await textsAre(['check the enum renames', 'update the changelog and README', 'note the breaking rename', 'link the migration', 'write the release note']) && await focusIs('check the enum renames'));
+
+    // --- Tab indents, Shift+Tab outdents, and focus stays on the row ------------------------------------------------------
+    await key('ArrowDown');
+    await key('ArrowDown');
+    await key('ArrowDown');
+    await key('ArrowDown');
+    check('todos: Down reaches the last row', await focusIs('write the release note'));
+    await key('Tab');
+    check('todos: Tab indents it under the item above, after that item\'s children, and only that line moves', await onFile('# Before the handoff\n- [ ] check the enum renames\n- [ ] update the changelog and README\n  - [ ] note the breaking rename\n  - [ ] link the migration\n  - [ ] write the release note\n'), todoFile());
+    check('todos: Tab did not move the focus: it is on the same row, one level in', await focusIs('write the release note') && await waitFor(`document.activeElement.classList.contains('td-d1')`, 2500));
+    await key('Tab', { shift: true });
+    check('todos: Shift+Tab outdents it again, to just after its parent', await onFile('# Before the handoff\n- [ ] check the enum renames\n- [ ] update the changelog and README\n  - [ ] note the breaking rename\n  - [ ] link the migration\n- [ ] write the release note\n'), todoFile());
+    check('todos: the focus is still on the row, back at the top level', await focusIs('write the release note') && await waitFor(`document.activeElement.classList.contains('td-d0')`, 2500));
+    await key('Tab', { shift: true });
+    check('todos: Shift+Tab at the top level changes nothing and still keeps the focus', await focusIs('write the release note') && todoFile().endsWith('- [ ] link the migration\n- [ ] write the release note\n'));
+    await key('ArrowUp');
+    await key('ArrowUp');
+    await key('ArrowUp');
+    await key('ArrowUp');
+    check('todos: Up goes back to the first row', await focusIs('check the enum renames'));
+    await key('Tab');
+    check('todos: Tab on the first item, which has nothing above it, changes nothing', todoFile().includes('\n- [ ] check the enum renames\n') && await focusIs('check the enum renames'));
 
     // --- a hand edit shows, and a change over a moved list is refused ---------------------------------------------------
     fs.writeFileSync(file('0007.todo.md'), `${todoFile()}- [ ] added by an agent\n`);

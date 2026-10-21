@@ -219,6 +219,42 @@ test('Space right after an add does not tick the wrong item, and an add typed me
   } finally { t.close(); }
 });
 
+test('Tab on a row indents it, Shift+Tab outdents it, neither moves focus, and a held Tab acts once', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n  - [ ] b1\n' } });
+  try {
+    await t.open();
+    const tab = t.pressRow(t.rows()[1], 'Tab');
+    assert.strictEqual(tab.defaultPrevented, true, 'focus stays on the row');
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] a\n  - [ ] b\n    - [ ] b1\n');
+    assert.strictEqual(t.rows()[1].classes.includes('td-d1'), true);
+    assert.strictEqual(t.p.doc.activeElement.dataset.index, '1', 'the focus is on the item still');
+    const out = t.pressRow(t.rows()[1], 'Tab', { shiftKey: true });
+    assert.strictEqual(out.defaultPrevented, true);
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] a\n- [ ] b\n  - [ ] b1\n');
+    const held = t.pressRow(t.rows()[0], 'Tab', { repeat: true });
+    assert.strictEqual(held.defaultPrevented, true);
+    t.pressRow(t.rows()[0], 'Tab');
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] a\n- [ ] b\n  - [ ] b1\n', 'nothing above the first item');
+    t.pressRow(t.rows()[1], 'Tab');
+    t.pressRow(t.rows()[1], 'Tab', { shiftKey: true });
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] a\n  - [ ] b\n    - [ ] b1\n', 'a second change while one is on its way is ignored');
+    assert.deepStrictEqual(t.toasts, []);
+  } finally { t.close(); }
+});
+
+test('Tab in the box is the browser\'s: the box does not catch it', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n' } });
+  try {
+    await t.open();
+    const e = t.p.press(t.add(), 'Tab');
+    assert.strictEqual(e.defaultPrevented, false);
+  } finally { t.close(); }
+});
+
 test('a held key acts once: a repeat of Space, e, c, d and Alt+Down does nothing, and Down still repeats', async () => {
   const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n' } });
   try {

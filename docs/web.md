@@ -432,7 +432,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -607,7 +607,7 @@ group badge, which reads open over all (`2/5`) and is worked out each time, neve
 tab, a box adds an item at the end with **Enter**; under it, **Up** and **Down** move through the
 items, and on one **Space** ticks it, `e` or **Enter** edits its text in place, `c` aims the box under it so
 **Enter** in the box adds a child, `d d` deletes it with its children and the lines indented under it, and **Alt+Up** and **Alt+Down** move it
-among its siblings. A ticked item stays where it is, struck and muted, until someone deletes it:
+among its siblings, **Tab** indents it (it becomes the last child of the item above, its children along) and **Shift+Tab** outdents it (just after its parent, its children along, the siblings after it staying under the parent); on a row Tab never moves focus. A ticked item stays where it is, struck and muted, until someone deletes it:
 there is no bulk clear. A held key acts once, and a change is ignored while another is on its way. An item's text is drawn as inline Markdown, and a line of the file that is
 not an item shows muted and read only. The list is read again when the board refreshes, so an
 edit by hand or by an agent shows, and every change names the version of the list it read: a list

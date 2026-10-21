@@ -1099,7 +1099,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1359,7 +1359,7 @@ to `127.0.0.1` only.
   **Up** and **Down** move between the box and the rows; on a row **Space** ticks it, **e** or **Enter** edits its
   text in place (Enter saves, Esc puts it back), **c** aims the box under it (a chip says so; Esc
   clears it) so Enter adds a child, **d d** deletes it with its children and the lines indented under it, **Alt+Up** and **Alt+Down**
-  move it among its siblings (each row also has these as buttons). A ticked item stays in place,
+  move it among its siblings (each row also has these as buttons), **Tab** indents it (the last child of the item above, its children along; with no item above, nothing) and **Shift+Tab** outdents it (just after its parent, its children along, the siblings after it staying under the parent; at the top level, nothing). On a row Tab never moves focus; in the box and the other fields it is the browser's. A ticked item stays in place,
   struck and muted, and nothing clears finished items in bulk. A held key acts once, and a change is ignored while another is on its way. An item's text is drawn by
   `markdownInto(el, text, { inline: true })`, the one renderer's inline marks with no block; a line
   of the file that is not an item shows muted and read only. The list is read when the tab opens and
@@ -1370,7 +1370,7 @@ to `127.0.0.1` only.
   line number in the file); `POST /api/todos/<id>` with `{ text, parent?, version }` adds an item
   (201; `parent` is the line of the item it goes under), `PATCH` with `{ index, done?, text?, version }`
   ticks or edits, `DELETE` with `{ index, version }` removes an item with its children and the lines indented under it, and
-  `POST /api/todos/<id>/move` with `{ index, by: -1 | 1, version }` moves it among its siblings; each
+  `POST /api/todos/<id>/move` with `{ index, by: -1 | 1, version }` moves it among its siblings, and `POST /api/todos/<id>/indent` and `/outdent` with `{ index, version }` change its level (a child's indent follows the file's own style, spaces or a tab); each
   answers `{ todos }` as the file now reads, with `at`, the line of the item added or moved. Every
   write names the `version` it read and is refused with 409 when the file has changed since, and with
   400 when it names none (a write changes the one line it is about and keeps every other byte,

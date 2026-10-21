@@ -51,8 +51,8 @@ test('the kanban skill\'s todo format is the one the store reads', () => {
 
 test('the web skill describes the tab, its ways in, its keys, the routes, the version rule and the payload', () => {
   assert.ok(webBullet.length > 1500, 'the Todos bullet is found');
-  for (const part of ['`todos:` line', '`<padded id>.todo.md`', '**Todos** tab', '`t`', '**Todos…**', '`2/5`', '**Enter**', '**Space**', '**e**', '**c**', '**d d**', '**Alt+Up**', '**Alt+Down**', 'the lines indented under it', 'A held key acts once',
-    '`markdownInto(el, text, { inline: true })`', '`GET /api/todos/<id>`', '`POST /api/todos/<id>`', '`PATCH`', '`DELETE`', '`POST /api/todos/<id>/move`', '`version`', '409', '**Its todo list**',
+  for (const part of ['`todos:` line', '`<padded id>.todo.md`', '**Todos** tab', '`t`', '**Todos…**', '`2/5`', '**Enter**', '**Space**', '**e**', '**c**', '**d d**', '**Alt+Up**', '**Alt+Down**', '**Tab** indents it', '**Shift+Tab** outdents it', 'Tab never moves focus', 'the lines indented under it', 'A held key acts once',
+    '`markdownInto(el, text, { inline: true })`', '`GET /api/todos/<id>`', '`POST /api/todos/<id>`', '`PATCH`', '`DELETE`', '`POST /api/todos/<id>/move`', '`POST /api/todos/<id>/indent` and `/outdent`', '`version`', '409', '**Its todo list**',
     '`todos: { folder, targets, counts }`', 'means nothing to the board', '`<iteration>`', 'The mobile snapshot has none']) {
     assert.ok(webBullet.includes(part), part);
   }
@@ -65,7 +65,7 @@ test('the web skill describes the tab, its ways in, its keys, the routes, the ve
 
 test('the docs describe the tab, the ways in, the keys, the count, the refusal on a changed list and the unticked delete box', () => {
   for (const part of ['`todos:` line', '`0007.todo.md`', 'the scratchpad\'s', '**Todos**', '`t`', '**Todos…**', '(`2/5`)', '**Enter**', '**Space**', '`e`', '`c`', '`d d`', '**Alt+Up**', '**Alt+Down**',
-    'there is no bulk clear', 'the lines indented under it', 'A held key acts once', 'inline Markdown', 'read only', 'refused with the reason and read again', 'means nothing to the board', '**Its todo list**', 'nothing of this shows', 'The mobile snapshot has no todo lists']) {
+    'there is no bulk clear', '**Tab** indents it', '**Shift+Tab** outdents it', 'on a row Tab never moves focus', 'the lines indented under it', 'A held key acts once', 'inline Markdown', 'read only', 'refused with the reason and read again', 'means nothing to the board', '**Its todo list**', 'nothing of this shows', 'The mobile snapshot has no todo lists']) {
     assert.ok(docsTodos.includes(part), part);
   }
   assert.ok(flat(docs).includes('`logbook:`, `scratchpad:` and `todos:` may hold `<iteration>`'));
@@ -78,7 +78,7 @@ test('the docs describe the tab, the ways in, the keys, the count, the refusal o
 test('the hotkeys list names t and the keys of an item, and the tab keys reach the fourth tab', () => {
   const byId = Object.fromEntries(HOTKEYS.map((h) => [h.id, h]));
   assert.deepStrictEqual(byId.todos.keys, ['t']);
-  assert.deepStrictEqual(byId['todo-row'].keys, ['Space', 'e', 'Enter', 'c', 'd d', 'Alt+Up', 'Alt+Down']);
+  assert.deepStrictEqual(byId['todo-row'].keys, ['Space', 'e', 'Enter', 'c', 'd d', 'Alt+Up', 'Alt+Down', 'Tab', 'Shift+Tab']);
   assert.match(byId['todo-row'].what, /children and the lines indented under it/);
   assert.match(byId['todo-row'].what, /held key acts once/);
   assert.deepStrictEqual(byId['note-tabs'].keys, ['Alt+1', 'Alt+2', 'Alt+3', 'Alt+4']);

@@ -31,6 +31,8 @@ const shape = (list) => list.lines.map((l) => (l.item ? `${'>'.repeat(l.depth)}$
 const add = (dir, t, text, parent) => td.addTodo(dir, t, { text, parent, version: td.readTodos(dir, t).version });
 const set = (dir, t, index, change) => td.setTodo(dir, t, { index, ...change, version: td.readTodos(dir, t).version });
 const del = (dir, t, index) => td.deleteTodo(dir, t, { index, version: td.readTodos(dir, t).version });
+const indent = (dir, t, index) => td.indentTodo(dir, t, { index, version: td.readTodos(dir, t).version });
+const outdent = (dir, t, index) => td.outdentTodo(dir, t, { index, version: td.readTodos(dir, t).version });
 const move = (dir, t, index, by) => td.moveTodo(dir, t, { index, by, version: td.readTodos(dir, t).version });
 
 test('the folder is the one todos: names, relative to the board; none when the line is absent', () => {
@@ -165,6 +167,91 @@ test('counts reads at most the size limit of a file, and counts what it read', (
   const head = '- [ ] a\n- [x] b\n';
   const dir = tmpBoard(undefined, { [FILE]: head + `${'p'.repeat(99)}\n`.repeat(3100) + '- [ ] beyond the limit\n' });
   assert.deepStrictEqual(td.counts(dir), { 7: { open: 1, total: 2 } });
+});
+
+test('indent makes an item the last child of the sibling above it, its own children along, and changes no other line', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '# top\n- [ ] a\n  - [ ] a1\n- [ ] b\n  - [ ] b1\n    - [ ] b1x\n- [ ] c\n' });
+  const r = indent(dir, '7', 3);
+  assert.strictEqual(read(dir, FILE), '# top\n- [ ] a\n  - [ ] a1\n  - [ ] b\n    - [ ] b1\n      - [ ] b1x\n- [ ] c\n');
+  assert.strictEqual(r.at, 3);
+  assert.deepStrictEqual(shape(r), ['= # top', 'o a', '>o a1', '>o b', '>>o b1', '>>>o b1x', 'o c']);
+  indent(dir, '7', 6);
+  assert.strictEqual(read(dir, FILE), '# top\n- [ ] a\n  - [ ] a1\n  - [ ] b\n    - [ ] b1\n      - [ ] b1x\n  - [ ] c\n', 'c goes under a, after b and its children');
+});
+
+test('indent with no sibling above, or on the first item of a parent, changes nothing', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n  - [ ] a1\n  - [ ] a2\n- [ ] b\n' });
+  const before = read(dir, FILE);
+  assert.strictEqual(indent(dir, '7', 0).at, 0);
+  assert.strictEqual(indent(dir, '7', 1).at, 1);
+  assert.strictEqual(read(dir, FILE), before);
+  indent(dir, '7', 2);
+  assert.strictEqual(read(dir, FILE), '- [ ] a\n  - [ ] a1\n    - [ ] a2\n- [ ] b\n');
+});
+
+test('outdent moves an item to just after its parent\'s block, children along; later siblings stay under the parent', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n  - [ ] a1\n    - [ ] a1x\n  - [ ] a2\n  - [ ] a3\n- [ ] b\n' });
+  const r = outdent(dir, '7', 1);
+  assert.strictEqual(read(dir, FILE), '- [ ] a\n  - [ ] a2\n  - [ ] a3\n- [ ] a1\n  - [ ] a1x\n- [ ] b\n');
+  assert.strictEqual(r.at, 3);
+  const second = outdent(dir, '7', 4);
+  assert.strictEqual(read(dir, FILE), '- [ ] a\n  - [ ] a2\n  - [ ] a3\n- [ ] a1\n- [ ] a1x\n- [ ] b\n');
+  assert.strictEqual(second.at, 4);
+});
+
+test('outdent at the top level changes nothing, and a nested item goes to its grandparent\'s level', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n- [ ] b\n  - [ ] b1\n    - [ ] b1x\n' });
+  const before = read(dir, FILE);
+  assert.strictEqual(outdent(dir, '7', 0).at, 0);
+  assert.strictEqual(read(dir, FILE), before);
+  outdent(dir, '7', 3);
+  assert.strictEqual(read(dir, FILE), '- [ ] a\n- [ ] b\n  - [ ] b1\n  - [ ] b1x\n');
+});
+
+test('indent and outdent keep CRLF, a file without a final line ending, and follow a tab-indented file', () => {
+  const crlf = tmpBoard(undefined, { [FILE]: '- [ ] a\r\n- [ ] b\r\n  - [ ] b1\r\n' });
+  indent(crlf, '7', 1);
+  assert.strictEqual(read(crlf, FILE), '- [ ] a\r\n  - [ ] b\r\n    - [ ] b1\r\n');
+  outdent(crlf, '7', 1);
+  assert.strictEqual(read(crlf, FILE), '- [ ] a\r\n- [ ] b\r\n  - [ ] b1\r\n');
+  const bare = tmpBoard(undefined, { [FILE]: '- [ ] a\n  - [ ] a1\n- [ ] b' });
+  indent(bare, '7', 2);
+  assert.strictEqual(read(bare, FILE), '- [ ] a\n  - [ ] a1\n  - [ ] b');
+  outdent(bare, '7', 2);
+  assert.strictEqual(read(bare, FILE), '- [ ] a\n  - [ ] a1\n- [ ] b');
+  const tabs = tmpBoard(undefined, { [FILE]: '- [ ] a\n\t- [ ] a1\n- [ ] b\n\t- [ ] b1\n' });
+  indent(tabs, '7', 2);
+  assert.strictEqual(read(tabs, FILE), '- [ ] a\n\t- [ ] a1\n\t- [ ] b\n\t\t- [ ] b1\n', 'the file\'s own tab, children along');
+  outdent(tabs, '7', 2);
+  assert.strictEqual(read(tabs, FILE), '- [ ] a\n\t- [ ] a1\n- [ ] b\n\t- [ ] b1\n');
+  const first = tmpBoard(undefined, { [FILE]: '- [ ] a\n- [ ] b\n' });
+  indent(first, '7', 1);
+  assert.strictEqual(read(first, FILE), '- [ ] a\n  - [ ] b\n', 'two spaces when the sibling has no child to follow');
+});
+
+test('a plain line between siblings ends the list: the item above it is no sibling, and plain lines under an item go with it', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\nplain\n- [ ] b\n' });
+  indent(dir, '7', 2);
+  assert.strictEqual(read(dir, FILE), '- [ ] a\nplain\n- [ ] b\n');
+  const under = tmpBoard(undefined, { [FILE]: '- [ ] a\n- [ ] b\n  a note under b\n  - [ ] b1\n- [ ] c\n' });
+  indent(under, '7', 1);
+  assert.strictEqual(read(under, FILE), '- [ ] a\n  - [ ] b\n    a note under b\n    - [ ] b1\n- [ ] c\n');
+  const gap = tmpBoard(undefined, { [FILE]: '- [ ] a\n\n- [ ] b\n' });
+  indent(gap, '7', 2);
+  assert.strictEqual(read(gap, FILE), '- [ ] a\n  - [ ] b\n\n');
+});
+
+test('indent and outdent are refused like the other writes: stale version 409, no version 400, a plain line 404', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n- [ ] b\nplain\n' });
+  const v = td.readTodos(dir, '7').version;
+  fs.writeFileSync(path.join(dir, FILE), '- [ ] a\n- [ ] b\nplain\n- [ ] by hand\n');
+  for (const op of [td.indentTodo, td.outdentTodo]) {
+    refused(() => op(dir, '7', { index: 1, version: v }), 409);
+    refused(() => op(dir, '7', { index: 1 }), 400);
+    refused(() => op(dir, '7', { index: 2, version: td.readTodos(dir, '7').version }), 404);
+    refused(() => op(dir, '7', { index: '1', version: td.readTodos(dir, '7').version }), 400);
+  }
+  assert.strictEqual(read(dir, FILE), '- [ ] a\n- [ ] b\nplain\n- [ ] by hand\n');
 });
 
 test('a child of a tab-indented item is indented with a tab', () => {

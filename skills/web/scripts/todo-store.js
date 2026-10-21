@@ -222,6 +222,17 @@ function itemAt(ctx, index) {
 
 // Add an item `{ text, parent?, version }`: at the end of the file, or as the last child of the item
 // on line `parent`. The new line is `- [ ] text`, its ending the file's own.
+// The indent of a new child of the item on line `i`: the parent's own, then the step the file already
+// takes for its children (the first child's extra indent), else a tab when the parent is tab-indented, else
+// two spaces.
+function childIndent(rows, i) {
+  const p = rows[i];
+  for (let j = i + 1; j < rows.length && isDescendant(rows, j, i); j++) {
+    if (rows[j].parent === i && rows[j].indent.startsWith(p.indent) && rows[j].indent.length > p.indent.length) return rows[j].indent;
+  }
+  return p.indent + (p.indent.includes('\t') ? '\t' : '  ');
+}
+
 function addTodo(dir, target, body, opts) {
   const { text, parent, version } = body && typeof body === 'object' ? body : {};
   const ctx = open(dir, target, version, opts);
@@ -233,7 +244,7 @@ function addTodo(dir, target, body, opts) {
   if (parent !== undefined && parent !== null) {
     const p = itemAt(ctx, parent);
     at = blockEnd(ctx.rows, parent);
-    indent = p.indent + (p.indent.includes('\t') ? '\t' : '  ');
+    indent = childIndent(ctx.rows, parent);
   }
   const fresh = { text: `${indent}- [ ] ${t}`, eol };
   if (at === lines.length && lines.length && lines[lines.length - 1].eol === '') {
@@ -300,6 +311,51 @@ function moveTodo(dir, target, body, opts) {
   return { ...save(dir, ctx, by === -1 ? swapBlocks(ctx, other, index) : swapBlocks(ctx, index, other), opts), at };
 }
 
+// A block moved to a new place with a new indent: every line that starts with the item's old indent has it
+// replaced by the new one, so its children keep their step under it. A last line with no ending that moves
+// gains one, and the new last line loses its ending, so a file without a final line ending stays without one.
+function reindented(ctx, from, to, at, oldIndent, newIndent) {
+  const lines = ctx.lines.map((l) => ({ ...l }));
+  const eol = eolOf(lines);
+  const noFinal = lines.length > 0 && lines[lines.length - 1].eol === '';
+  const block = lines.slice(from, to).map((l) => (l.text.startsWith(oldIndent) ? { ...l, text: newIndent + l.text.slice(oldIndent.length) } : l));
+  const rest = [...lines.slice(0, from), ...lines.slice(to)];
+  const out = [...rest.slice(0, at), ...block, ...rest.slice(at)];
+  for (const l of out) if (l.eol === '') l.eol = eol;
+  if (noFinal && out.length) out[out.length - 1].eol = '';
+  return out;
+}
+
+// Indent an item `{ index, version }`: it becomes the last child of the sibling above it, its own children
+// along. With no sibling above, nothing changes. The answer carries `at`, the line the item is on now.
+function indentTodo(dir, target, body, opts) {
+  const { index, version } = body && typeof body === 'object' ? body : {};
+  const ctx = open(dir, target, version, opts);
+  const row = itemAt(ctx, index);
+  const above = siblingAbove(ctx.rows, index);
+  if (above === null) return { ...readTodos(dir, ctx.key, opts), at: index };
+  const end = blockEnd(ctx.rows, index);
+  const into = blockEnd(ctx.rows, above); // where the sibling's block ends, before the item
+  const at = into;
+  const out = reindented(ctx, index, end, into, row.indent, childIndent(ctx.rows, above));
+  return { ...save(dir, ctx, out, opts), at };
+}
+
+// Outdent an item `{ index, version }`: it moves to just after its parent's block, one level up, its own
+// children along; the siblings after it stay under the old parent. At the top level nothing changes.
+function outdentTodo(dir, target, body, opts) {
+  const { index, version } = body && typeof body === 'object' ? body : {};
+  const ctx = open(dir, target, version, opts);
+  const row = itemAt(ctx, index);
+  const parent = row.parent;
+  if (parent === null) return { ...readTodos(dir, ctx.key, opts), at: index };
+  const end = blockEnd(ctx.rows, index);
+  const after = blockEnd(ctx.rows, parent);
+  const at = after - (end - index);
+  const out = reindented(ctx, index, end, at, row.indent, ctx.rows[parent].indent);
+  return { ...save(dir, ctx, out, opts), at };
+}
+
 // ---------- the board ----------
 
 // The start of a file, at most MAX_FILE characters of it: what the counts read on every board read.
@@ -332,4 +388,4 @@ function counts(dir, opts) {
   return out;
 }
 
-module.exports = { readTodos, addTodo, setTodo, deleteTodo, moveTodo, listTargets, counts, deleteTargetFiles, canonicalName, MAX_ITEM, MAX_FILE };
+module.exports = { readTodos, addTodo, setTodo, deleteTodo, moveTodo, indentTodo, outdentTodo, listTargets, counts, deleteTargetFiles, canonicalName, MAX_ITEM, MAX_FILE };

@@ -109,6 +109,25 @@ test('PATCH ticks and edits, DELETE removes an item with its children, POST .../
   });
 });
 
+test('POST .../indent and .../outdent change an item\'s level, naming the version, and answer where it went', async () => {
+  const dir = tmpBoard({ files: { '.both/0007.todo.md': '- [ ] a\n- [ ] b\n  - [ ] b1\n' } });
+  const version = async (base) => (await req(base, 'GET', '/api/todos/7')).json.todos.version;
+  await withServer(dir, async (base) => {
+    let r = await req(base, 'POST', '/api/todos/7/indent', { index: 1, version: await version(base) });
+    assert.deepStrictEqual([r.status, texts(r), r.json.todos.at], [200, ['o0 a', 'o1 b', 'o2 b1'], 1]);
+    assert.strictEqual(read(dir, '.both/0007.todo.md'), '- [ ] a\n  - [ ] b\n    - [ ] b1\n');
+    r = await req(base, 'POST', '/api/todos/7/outdent', { index: 1, version: await version(base) });
+    assert.deepStrictEqual([r.status, texts(r)], [200, ['o0 a', 'o0 b', 'o1 b1']]);
+    const stale = await version(base);
+    fs.writeFileSync(path.join(dir, '.both/0007.todo.md'), '- [ ] a\n- [ ] b\n  - [ ] b1\n- [ ] by hand\n');
+    for (const op of ['indent', 'outdent']) {
+      assert.strictEqual((await req(base, 'POST', `/api/todos/7/${op}`, { index: 1, version: stale })).status, 409, op);
+      assert.strictEqual((await req(base, 'POST', `/api/todos/7/${op}`, { index: 1 })).status, 400, op);
+      assert.strictEqual((await req(base, 'GET', `/api/todos/7/${op}`)).status, 404, op);
+    }
+  });
+});
+
 test('a write that names an old version answers 409 and writes nothing; a missing version answers 400', async () => {
   const dir = tmpBoard({ files: { '.both/0007.todo.md': '- [ ] a\n' } });
   await withServer(dir, async (base) => {

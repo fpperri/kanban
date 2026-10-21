@@ -7,7 +7,7 @@
 //
 // The tab is a box where Enter adds an item, and the list under it. Up and Down move between the box
 // and the rows; on a row Space ticks, e edits in place, c adds a child under it, d twice deletes it
-// with its children, Alt+Up and Alt+Down move it among its siblings. A ticked item stays where it is,
+// with its children, Alt+Up and Alt+Down move it among its siblings, Tab indents it under the item above and Shift+Tab outdents it. A ticked item stays where it is,
 // struck and muted. An item's text is drawn as inline Markdown (markdownInto with `inline`), and a line
 // of the file that is not an item shows muted and read only. The list is read when the tab opens and
 // again when the board refreshes (an agent or a hand edit shows without a reload); every write names
@@ -40,7 +40,7 @@ function todoEl(tag, className, text) {
 
 // The keys the palette's footer names on the Todos tab.
 function todosHints() {
-  return [['↵', 'add'], ['␣', 'tick'], ['e', 'edit'], ['d d', 'delete'], ['Alt+↑↓', 'move'], ['Esc', 'close']];
+  return [['↵', 'add'], ['␣', 'tick'], ['e', 'edit'], ['d d', 'delete'], ['Alt+↑↓', 'move'], ['⇥', 'indent'], ['Esc', 'close']];
 }
 
 // ---------- the count on a tile or a badge ----------
@@ -172,6 +172,7 @@ function todosPanel(target) {
   const lineAt = (index) => list.lines.find((l) => l.item && l.index === index) || null;
   const tick = (index) => send('PATCH', '', () => { const l = lineAt(index); return l ? { index, done: !l.done } : null; }, () => index);
   const move = (index, by) => send('POST', '/move', () => (lineAt(index) ? { index, by } : null), (_, at) => at);
+  const level = (index, outdent) => send('POST', outdent ? '/outdent' : '/indent', () => (lineAt(index) ? { index } : null), (_, at) => at);
   const remove = (index) => send('DELETE', '', () => (lineAt(index) ? { index } : null), () => index);
   const setText = (index, text) => send('PATCH', '', () => (lineAt(index) ? { index, text } : null), () => index);
   const child = (index) => {
@@ -292,6 +293,8 @@ function todosPanel(target) {
     const once = () => { own(); return !e.repeat; };
     const els = rowEls();
     const at = els.indexOf(row);
+    // Tab and Shift+Tab change the level and never move focus from a row; in the box and the other fields Tab is the browser's.
+    if (e.key === 'Tab' && !e.altKey) { if (once()) level(index, e.shiftKey); return; }
     if (e.altKey) {
       if (e.key === 'ArrowUp') { if (once()) move(index, -1); }
       else if (e.key === 'ArrowDown') { if (once()) move(index, 1); }
