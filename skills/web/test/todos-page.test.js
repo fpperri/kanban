@@ -192,6 +192,24 @@ test('a change ignores the keys while another is on its way: two quick presses o
   } finally { t.close(); }
 });
 
+test('while a change is on its way the list says so: aria-busy, a muted saving… in the foot, gone when it has landed', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n' } });
+  try {
+    await t.open();
+    assert.notStrictEqual(t.list().getAttribute('aria-busy'), 'true');
+    t.pressRow(t.rows()[0], ' ');
+    assert.strictEqual(t.list().getAttribute('aria-busy'), 'true');
+    const saving = t.p.find('.np-foot .td-saving');
+    assert.ok(saving && saving.hidden === false && saving.textContent === 'saving…');
+    t.pressRow(t.rows()[1], ' ');
+    assert.strictEqual(t.list().getAttribute('aria-busy'), 'true', 'the ignored key leaves the cue up');
+    await t.settle();
+    assert.strictEqual(t.list().getAttribute('aria-busy'), 'false');
+    assert.strictEqual(t.p.find('.np-foot .td-saving').hidden, true);
+    assert.strictEqual(t.p.find('.td-add').closest('.td').classes.includes('td-busy'), false);
+  } finally { t.close(); }
+});
+
 test('two quick Alt+Down presses move the item once, not down and back', async () => {
   const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n- [ ] c\n' } });
   try {

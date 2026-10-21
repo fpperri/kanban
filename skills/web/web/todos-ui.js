@@ -140,6 +140,20 @@ function todosPanel(target) {
     if (want !== null && want !== undefined) focusNear(want);
   };
 
+  // While a change is on its way the list says so (aria-busy, a muted saving… in the palette's foot), so a key
+  // that is ignored meanwhile does not vanish without a trace.
+  const busy = (on) => {
+    rows.setAttribute('aria-busy', String(on));
+    wrap.classList.toggle('td-busy', on);
+    const foot = notesUi.foot;
+    let saving = foot.querySelector('.td-saving');
+    if (!saving && on) {
+      saving = todoEl('span', 'td-saving', 'saving…');
+      foot.append(saving);
+    }
+    if (saving) saving.hidden = !on;
+  };
+
   // One change at a time: while one is on its way another is ignored, since its answer renumbers the lines
   // the keys name. A clash with a hand edit is said and the list read again. The promise answers whether the
   // change was made.
@@ -156,6 +170,7 @@ function todosPanel(target) {
     if (body === null) return Promise.resolve(false);
     const from = focusedIndex();
     todosUi.pending = 1;
+    busy(true);
     const run = async () => {
       try {
         const answer = await api(method, url + suffix, { ...body, version: list.version });
@@ -172,6 +187,7 @@ function todosPanel(target) {
         return false;
       } finally {
         todosUi.pending = 0;
+        busy(false);
       }
     };
     return run();

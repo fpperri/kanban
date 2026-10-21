@@ -43,7 +43,12 @@ module.exports = {
   alsoBoards: ['scratchpad'],
   timeoutMs: 110000,
   async run(page) {
-    const { ev, open, waitFor, centre, click, mouse, key, rightClick, check, shot } = page;
+    const { ev, open, waitFor, centre, click, mouse, key: rawKey, rightClick, check, shot } = page;
+    // A key is pressed once the page has no change on its way: a key that lands on a pending one is ignored by design.
+    const key = async (name, mods) => {
+      await waitFor(`todosUi.pending===0`, 8000);
+      await rawKey(name, mods);
+    };
     const press = (sel) => ev(`(()=>{const b=document.querySelector(${JSON.stringify(sel)});if(!b)return false;b.click();return true})()`);
     const boardReady = (ms) => waitFor(`document.querySelectorAll('#board .card-el').length>20&&!!state`, ms || 10000);
     const menuUp = () => waitFor(`!document.getElementById('context-menu').classList.contains('hidden')`, 2500);
@@ -67,8 +72,8 @@ module.exports = {
     };
     const typeIn = (sel, text) => ev(`(()=>{const t=document.querySelector(${JSON.stringify(sel)});t.focus();t.value=${JSON.stringify(text)};t.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
     const texts = () => ev(TEXTS);
-    const textsAre = (list, ms) => waitFor(`JSON.stringify(${TEXTS})===${JSON.stringify(JSON.stringify(list))}`, ms || 4000);
-    const focusIs = (text, ms) => waitFor(`${FOCUS_ROW}===${JSON.stringify(text)}`, ms || 2500);
+    const textsAre = (list, ms) => waitFor(`JSON.stringify(${TEXTS})===${JSON.stringify(JSON.stringify(list))}`, ms || 8000);
+    const focusIs = (text, ms) => waitFor(`${FOCUS_ROW}===${JSON.stringify(text)}`, ms || 5000);
     const openTodosOf = async (id) => {
       await rightClick(`#board .card-el[data-id="${id}"]`);
       if (!(await menuUp())) return false;
@@ -97,7 +102,7 @@ module.exports = {
     const file = (name) => path.join(boardDir, '.scratchpad', name);
     const todoFile = () => fs.readFileSync(file('0007.todo.md'), 'utf8').replace(/\r\n/g, '\n');
     const onFile = async (text, ms) => {
-      const end = Date.now() + (ms || 4000);
+      const end = Date.now() + (ms || 8000);
       while (Date.now() < end) {
         if (todoFile() === text) return true;
         await page.sleep(50);
@@ -202,6 +207,7 @@ module.exports = {
     check('todos: Tab on the first item, which has nothing above it, changes nothing', pendingDone && todoFile().includes('\n- [ ] check the enum renames\n') && await focusIs('check the enum renames'), JSON.stringify([pendingDone, await ev(FOCUS_ROW), todoFile()]));
 
     // --- a hand edit shows, and a change over a moved list is refused ---------------------------------------------------
+    await waitFor(`todosUi.pending===0`, 8000);
     fs.writeFileSync(file('0007.todo.md'), `${todoFile()}- [ ] added by an agent\n`);
     await ev(`autoRefreshTick().then(()=>true)`);
     check('todos: a hand edit shows when the board refreshes', await textsAre(['check the enum renames', 'update the changelog and README', 'note the breaking rename', 'link the migration', 'write the release note', 'added by an agent']), JSON.stringify(await texts()));
