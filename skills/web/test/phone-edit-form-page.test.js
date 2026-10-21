@@ -48,8 +48,13 @@ async function open({ phone = true, search = '', stored = {} } = {}) {
   return { page, els, calls, stored };
 }
 
-async function editFromCard(s, id, status) {
+const openCardAt = async (s, id) => {
+  s.page.ctx.location.search = `?card=${id}`; // the address a card opened by a click or a link carries
   await s.page.run(`openDetailModal(${id})`);
+};
+
+async function editFromCard(s, id, status) {
+  await openCardAt(s, id);
   s.page.run('editFromDetail()');
   s.els['#f-status'].value = status;
   s.calls.length = 0;
@@ -86,7 +91,7 @@ test('leaving an edit opened from a card, on any width, brings the card back; th
   for (const phone of [false, true]) {
     const s = await open({ phone });
     s.page.ctx.confirm = () => true; // the stand-in controls read as changed; the question itself is pinned in edit-returns-to-details.test.js
-    await s.page.run('openDetailModal(2)');
+    await openCardAt(s, 2);
     s.page.run('editFromDetail()');
     assert.ok(s.els['#detail-modal'].classList.contains('hidden'));
     s.calls.length = 0;
