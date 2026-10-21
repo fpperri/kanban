@@ -1834,7 +1834,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .np-date-btn { padding: 1px 4px; border: 0; background: transparent; cursor: pointer; font-size: 1em; line-height: 1; }
 .np-pick { position: relative; display: inline-flex; min-width: 0; }
 .np-pick-input { width: 14em; max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1em; text-overflow: ellipsis; }
-.np-pick .combobox-menu { min-width: 20em; z-index: 5; }
+.combobox-menu.np-pick-menu { position: fixed; right: auto; z-index: 40; max-width: min(40em, 92vw); }
 .np-time { width: 4.6em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
 .np-time:focus, .np-date:focus, .np-pick-input:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
 .np-time:disabled { opacity: .45; }

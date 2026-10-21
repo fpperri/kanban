@@ -45,7 +45,7 @@ async function open(extra = {}) {
   p.label = () => p.text(p.find('.np-range-label'));
   p.step = (dir) => p.find(`.np-range-step[data-step="${dir}"]`);
   p.listed = () => p.rows().map((r) => r.split(' ')[0]);
-  p.pickMenu = () => p.ui().pickWrap.querySelector('.combobox-menu');
+  p.pickMenu = () => p.doc.body.querySelector('.np-pick-menu');
   p.menuItems = () => p.pickMenu().children.map((c) => p.text(c));
   p.focusPick = () => { p.ui().pick.focus(); p.ui().pick.fire('focus', {}); };
   p.choose = (text) => {
@@ -198,12 +198,98 @@ test('choosing a card from an hour keeps the hour\'s time and day, as the bare m
   assert.strictEqual(p.ui().date.value, '2026-10-14');
 });
 
-test('the picker is a card field: its menu is the form\'s combobox, drawn under the field', async () => {
+test('the picker is a card field: its menu is the form\'s combobox, and the field has a style of its own', async () => {
   const p = await open();
   p.openCard('7');
   assert.ok(p.pickMenu().classes.includes('combobox-menu'));
-  assert.match(css, /^\.np-pick \.combobox-menu \{/m);
   assert.match(css, /^\.np-pick-input \{/m);
+});
+
+test('the menu hangs off the page, fixed under the field, so the palette\'s edge never clips it', async () => {
+  const p = await open();
+  p.openCard('7');
+  assert.strictEqual(p.pickMenu().parent.uid, p.doc.body.uid, 'a child of the page, not of the palette');
+  assert.ok(!p.pal().contains(p.pickMenu()));
+  assert.match(css, /^\.combobox-menu\.np-pick-menu \{[^}]*position: fixed;/m);
+  p.ui().pick.getBoundingClientRect = () => ({ left: 300, right: 460, top: 100, bottom: 126, width: 160, height: 26 });
+  p.focusPick();
+  assert.deepStrictEqual([p.pickMenu().style.left, p.pickMenu().style.top], ['300px', '128px']);
+});
+
+test('the menu opens above the field when there is no room under it', async () => {
+  const p = await open({ viewport: { innerHeight: 400 } });
+  p.openCard('7');
+  p.ui().pick.getBoundingClientRect = () => ({ left: 300, right: 460, top: 300, bottom: 326, width: 160, height: 26 });
+  p.pickMenu().getBoundingClientRect = () => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 180 });
+  p.focusPick();
+  assert.strictEqual(p.pickMenu().style.top, '118px');
+});
+
+test('a press on the menu is a press in the palette: it stays up', async () => {
+  const p = await open();
+  p.openCard('7');
+  p.focusPick();
+  const item = p.pickMenu().children[2];
+  p.page.fireDocument('mousedown', { target: item });
+  assert.notStrictEqual(p.page.run('notesUi.sub'), null);
+  p.page.fireDocument('mousedown', { target: p.doc.createElement('div') });
+  assert.strictEqual(p.page.run('notesUi.sub'), null, 'a press anywhere else still closes it');
+});
+
+// --- free text in the picker -----------------------------------------------------------------------------------
+
+const typePick = (p, text) => { p.ui().pick.value = text; p.ui().pick.fire('input', { isTrusted: true }); };
+
+test('a card id typed in the picker aims the palette on Enter, as picking it does', async () => {
+  const p = await open();
+  p.openCard('7');
+  setBox(p, 'kept');
+  p.focusPick();
+  typePick(p, '22');
+  p.press(p.ui().pick, 'Enter');
+  assert.strictEqual(p.page.run('notesUi.sub.id'), '22');
+  assert.strictEqual(p.ui().pick.value, '#22 Cut over the data layer');
+  assert.strictEqual(p.ui().input.value, 'kept');
+  assert.deepStrictEqual(p.pressed(), ['all']);
+});
+
+test('so does #22, on leaving the field', async () => {
+  const p = await open();
+  p.openCard('7');
+  p.focusPick();
+  typePick(p, '#22');
+  p.ui().pick.fire('blur', {});
+  assert.strictEqual(p.page.run('notesUi.sub.id'), '22');
+});
+
+test('an id that names no card is not a target: the field goes back to the card it had', async () => {
+  const p = await open();
+  p.openCard('7');
+  p.focusPick();
+  typePick(p, '999');
+  p.press(p.ui().pick, 'Enter');
+  assert.strictEqual(p.page.run('notesUi.sub.id'), '7');
+  assert.strictEqual(p.ui().pick.value, '#7 Port the zephyr schema');
+  typePick(p, 'cut');
+  p.ui().pick.fire('blur', {});
+  assert.strictEqual(p.ui().pick.value, '#7 Port the zephyr schema', 'a search word is not an id either');
+});
+
+test('Enter on a highlighted menu row aims once, and the typed text does not aim a second time', async () => {
+  const p = await open();
+  p.openCard('7');
+  p.focusPick();
+  typePick(p, 'cut');
+  p.press(p.ui().pick, 'ArrowDown');
+  p.press(p.ui().pick, 'Enter');
+  assert.strictEqual(p.page.run('notesUi.sub.id'), '3');
+});
+
+test('the card picker\'s choice reaches the palette through the combobox\'s own hook, not an input event', async () => {
+  const src = fs.readFileSync(path.join(WEB, 'notes-palette.js'), 'utf8');
+  assert.match(src, /attachCombobox\(u\.pick, notesPickOptions, \{ onPick: notesPicked \}\)/);
+  assert.ok(!/isTrusted/.test(src));
+  assert.match(fs.readFileSync(path.join(WEB, 'app.js'), 'utf8'), /if \(opts\.onPick\) opts\.onPick\(choice\);/);
 });
 
 // --- the range control -------------------------------------------------------------------------------

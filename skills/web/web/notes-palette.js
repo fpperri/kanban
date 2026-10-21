@@ -268,7 +268,11 @@ function notesBuild() {
   u.pickWrap = notesEl('span', 'np-pick');
   u.pickWrap.append(u.pick);
   when.append(u.dateWrap, notesEl('span', '', 'at'), u.time, untimedLabel, u.pickWrap);
-  attachCombobox(u.pick, notesPickOptions); // app.js: the form's suggest-never-validate menu
+  attachCombobox(u.pick, notesPickOptions, { onPick: notesPicked }); // app.js: the form's suggest-never-validate menu
+  // The menu hangs off the page, fixed under the field: the palette clips what overflows it.
+  u.pickMenu = u.pickWrap.querySelector('.combobox-menu');
+  u.pickMenu.classList.add('np-pick-menu');
+  document.body.append(u.pickMenu);
   u.when = when;
   const subjectRow = notesEl('div', 'np-subject-row');
   subjectRow.append(u.chip, when);
@@ -341,8 +345,10 @@ function notesBuild() {
   u.time.addEventListener('input', () => { u.timeTyped = true; notesPaintPreview(); });
   u.date.addEventListener('input', () => { u.dateTyped = true; notesPaintPreview(); });
   u.date.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
-  u.pick.addEventListener('input', onNotesPickInput);
-  u.pick.addEventListener('blur', () => notesPaintPick(true));
+  u.pick.addEventListener('focus', notesPlacePickMenu);
+  u.pick.addEventListener('input', notesPlacePickMenu);
+  u.pick.addEventListener('blur', notesCommitPick);
+  u.pick.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); notesCommitPick(); } });
   u.untimed.addEventListener('change', () => { u.time.disabled = u.untimed.checked; notesPaintPreview(); u.input.focus(); });
   u.time.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
   u.filter.addEventListener('keydown', notesOnFilterKey);
@@ -454,6 +460,7 @@ function notesClose() {
   u.filter.value = '';
   u.by = 'all';
   u.dateTyped = false;
+  u.pickMenu.hidden = true;
   const back = u.opener;
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
@@ -875,14 +882,37 @@ function notesPaintPick(force = false) {
   u.pick.title = u.pick.value;
 }
 
-// A choice from the menu arrives as an input event the browser did not make (a typed one is trusted
-// and only filters the menu): a card aims the palette at it, as a bare mention and Enter does, and
-// "no card" makes the note about nothing.
-function onNotesPickInput(e) {
-  if (e.isTrusted) return;
+// The menu is fixed under the field, or above it when there is no room below.
+function notesPlacePickMenu() {
+  const u = notesUi;
+  const r = u.pick.getBoundingClientRect();
+  const height = u.pickMenu.getBoundingClientRect().height || 180;
+  const below = r.bottom + 2;
+  u.pickMenu.style.left = `${Math.round(r.left)}px`;
+  u.pickMenu.style.top = `${Math.round(below + height > window.innerHeight && r.top - height - 2 > 0 ? r.top - height - 2 : below)}px`;
+  u.pickMenu.style.minWidth = `${Math.max(Math.round(r.width), 320)}px`;
+}
+
+// Free text stays legal: a card id typed in the field (`22`, `#22`) that names a card aims the palette
+// when Enter or leaving the field commits it, as a choice from the menu does; anything else puts the
+// card the palette is on back.
+function notesCommitPick() {
   const u = notesUi;
   if (!u.sub) return;
-  const value = u.pick.value;
+  const target = noteSubjectTarget(u.sub, notesLastNoted());
+  const shown = target.each ? `${target.each} cards` : notesLabel(target.id);
+  const typed = u.pick.value.trim();
+  const id = typed === shown ? null : kanbanIds.idKey(typed.replace(/^#/, ''));
+  if (id !== null && notesCard(id) !== null) notesAim(id, true);
+  else notesPaintPick(true);
+}
+
+// A choice from the menu (the combobox's onPick): a card aims the palette at it, as a bare mention and
+// Enter does, and "no card" makes the note about nothing.
+function notesPicked(choice) {
+  const u = notesUi;
+  if (!u.sub) return;
+  const value = choice.value;
   if (value === NOTE_NO_CARD) {
     u.sub = noteSubjectNoCard(u.sub);
     notesRetargeted();
@@ -1069,7 +1099,7 @@ function onNotesEscape(e) {
 function onNotesPointer(e) {
   const u = notesUi;
   if (!u.sub || u.el.contains(e.target)) return;
-  if (e.target.closest && e.target.closest('.np-trigger, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
+  if (e.target.closest && e.target.closest('.np-trigger, .np-pick-menu, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
   notesClose();
 }
 

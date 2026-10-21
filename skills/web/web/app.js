@@ -6827,6 +6827,7 @@ function attachCombobox(input, getOptions, opts = {}) {
     input.value = applyChoice(input.value, choice.value, { ...opts, append: !typed });
     input.dispatchEvent(new Event('input', { bubbles: true })); // form-guard sees the change
     close();
+    if (opts.onPick) opts.onPick(choice); // a field that acts on a choice (the notes palette's card picker) hears it here
   };
   // Focus always shows the FULL list (the text is pre-selected, so typing
   // replaces it) — filtering only applies while typing. A stale value that

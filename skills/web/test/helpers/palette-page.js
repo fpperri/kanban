@@ -71,6 +71,12 @@ function paletteDocument(holder) {
     Object.defineProperty(el, 'parentElement', { get: () => (el.parent ? same(el.parent) : null) });
     el.select = () => { el.selectionStart = 0; el.selectionEnd = String(el.value).length; };
     el.dispatchEvent = (event) => el.fire(event.type || 'event', event);
+    // An element appended where it already is moves, as the browser's does.
+    const appended = el.appendChild;
+    el.appendChild = (c) => {
+      if (c.parent) c.parent.children = c.parent.children.filter((x) => x.uid !== c.uid);
+      return appended(c);
+    };
     el.replaceChildren = (...kids) => { el.children.length = 0; el.append(...kids); };
     el.descendants = () => el.walk().slice(1).map(same);
     el.querySelectorAll = (sel) => { const is = matcher(sel); return el.descendants().filter((e) => e.classes && is(e)); };
