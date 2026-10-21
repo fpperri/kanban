@@ -236,6 +236,25 @@ test('a press on the menu is a press in the palette: it stays up', async () => {
   assert.strictEqual(p.page.run('notesUi.sub'), null, 'a press anywhere else still closes it');
 });
 
+// --- a closed palette ----------------------------------------------------------------------------------------
+
+test('a closed palette never throws: a stray input, Enter or write finds no subject and does nothing', async () => {
+  const p = await open();
+  p.openCard('7');
+  p.page.run('notesClose()');
+  assert.doesNotThrow(() => {
+    p.ui().input.fire('input', {});
+    p.ui().date.fire('input', {});
+    p.ui().time.fire('input', {});
+    p.ui().untimed.fire('change', {});
+    p.press(p.ui().input, 'Enter');
+    p.press(p.ui().pick, 'Enter');
+    p.ui().pick.fire('blur', {});
+  });
+  await p.page.run('notesWrite()');
+  assert.deepStrictEqual(p.calls, []);
+});
+
 // --- free text in the picker -----------------------------------------------------------------------------------
 
 const typePick = (p, text) => { p.ui().pick.value = text; p.ui().pick.fire('input', { isTrusted: true }); };

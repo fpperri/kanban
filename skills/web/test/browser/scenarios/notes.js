@@ -298,8 +298,9 @@ module.exports = {
     const pickRange = async (mode) => { const p = await centre(`#notes-palette .np-range-slot .np-by-btn[data-range="${mode}"]`); await click(p.x, p.y); };
     const stepRange = async (dir) => { const p = await centre(`#notes-palette .np-range-step[data-step="${dir}"]`); await click(p.x, p.y); };
     const chooseCard = async (text) => {
-      await ev(`${PICK}.focus()`);
-      if (!(await waitFor(`${PICK_MENU}.includes(${JSON.stringify(text)})`, 2500))) return false;
+      // A screenshot or any lost focus shuts the menu (the combobox closes on blur), and a focus that was never lost opens nothing: blur, then focus, and wait for the row to be drawn.
+      await ev(`${PICK}.blur();${PICK}.focus()`);
+      if (!(await waitFor(`[...document.querySelectorAll('.np-pick-menu .combobox-item')].some((x)=>x.textContent===${JSON.stringify(text)}&&x.getBoundingClientRect().width>0)`, 2500))) return false;
       const at = await ev(`(()=>{const e=[...document.querySelectorAll('.np-pick-menu .combobox-item')].find((x)=>x.textContent===${JSON.stringify(text)});const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
       await mouse('mouseMoved', at.x, at.y, { button: 'none', clickCount: 0 });
       await click(at.x, at.y);

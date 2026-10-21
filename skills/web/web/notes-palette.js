@@ -535,6 +535,7 @@ function notesPlan() {
 
 function notesPaintPreview() {
   const u = notesUi;
+  if (!u.sub) return;
   const plan = notesPlan();
   const text = notePreview(plan, { label: notesLabel, dayName: noteDayName, today: localTodayStr() });
   u.prev.className = `np-prev${plan.bad ? ' bad' : !plan.text && plan.scopeTo === null ? ' idle' : ''}`;
@@ -823,7 +824,7 @@ async function notesDo(method, path, body, row) {
 
 async function notesWrite() {
   const u = notesUi;
-  if (u.writing) return; // a second Enter while the first is on its way would write the note twice
+  if (u.writing || !u.sub) return; // a second Enter while the first is on its way would write the note twice
   const plan = notesPlan();
   if (plan.bad) { toast(plan.bad); return; }
   if (!plan.text) { toast('Write the note first.'); return; }
@@ -995,6 +996,7 @@ function notesOnInputKey(e) {
   if (e.key === 'Enter' && e.shiftKey) return;
   if (e.key === 'Enter') {
     e.preventDefault();
+    if (!u.sub) return;
     const plan = notesPlan();
     if (plan.scopeTo !== null) notesAim(plan.scopeTo);
     else notesWrite();
