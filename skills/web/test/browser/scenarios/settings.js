@@ -87,7 +87,7 @@ module.exports = {
     const sections = await ev(`[...document.querySelectorAll('.prefs-section h3')].map((h)=>h.textContent)`);
     check('the menu has This browser and This board', sections.join() === 'This browser,This board', sections);
     const boardPages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent)`);
-    check('This board lists Logbook, Scratchpad, Groups, Prefixes and Counters', boardPages.join() === 'Logbook,Scratchpad,Groups,Prefixes,Counters', boardPages);
+    check('This board lists Logbook, Scratchpad, Groups, Types, Prefixes and Counters', boardPages.join() === 'Logbook,Scratchpad,Groups,Types,Prefixes,Counters', boardPages);
     check('the menu says the logbook is on and the groups on with how many were found', await ev(menuState('board:logbook')) === 'on' && /^on · \d+$/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:groups'))]);
     check('the sheet is wide, with the menu and a page side by side', await ev(`document.getElementById('prefs-panel').classList.contains('is-split')`)
       && await ev(shown('#prefs-menu')) && await ev(shown('.prefs-page[data-page="browser:prefs"]'))
@@ -148,9 +148,11 @@ module.exports = {
     // --- Prefixes and Counters ----------------------------------------------------------------------
     await openSheet();
     await goPage('board:prefixes');
-    const prefixRows = await ev(rows);
-    check('the Prefixes page lists the prefixes: block, one row each', prefixRows.length === 5 && prefixRows.some((r) => r[0] === 'G' && r[1] === 'card type goal') && prefixRows.some((r) => r[0] === 'I' && r[1] === '.groups/iteration/'), prefixRows);
-    check('the prefix table has no controls: it is read only', await ev(`document.querySelectorAll('#prefs-board-page .prefs-table input, #prefs-board-page .prefs-table button').length`) === 0);
+    const prefixRows = await ev(`[...document.querySelectorAll('#prefs-board-page .prefs-table tbody tr')].map((r)=>[...r.querySelectorAll('input')].map((i)=>i.value).concat(r.children[2].textContent))`);
+    check('the Prefixes page lists the prefixes: block, one row each, in fields', prefixRows.length === 5 && prefixRows.some((r) => r[0] === 'G' && r[1] === 'goal' && r[2] === 'card type goal') && prefixRows.some((r) => r[0] === 'I' && r[2] === '.groups/iteration/'), prefixRows);
+    check('each prefix row has its two fields and a Remove: the table is editable now', await ev(`[...document.querySelectorAll('#prefs-board-page .prefs-table tbody tr')].every((r)=>r.querySelectorAll('input').length===2&&r.querySelectorAll('button').length===1)`));
+    check('the page says what a prefix change does and why, in one bullet', (await ev(`[...document.querySelectorAll('#prefs-board-page .prefs-bullets li')].map((li)=>li.textContent)`))[0].startsWith('Changing a prefix changes only the ids given from then on. Why: '));
+    check('the page names config.yaml with a Copy button', await ev(`!!document.querySelector('#prefs-board-page .prefs-pathbar .prefs-copy')&&/config\.yaml$/.test(document.querySelector('#prefs-board-page .prefs-pathtext').textContent)`));
     check('idDigits is a field with the example file name', await ev(`${field('idDigits')}.value`) === '4' && /0007\./.test(await ev(`document.querySelector('#prefs-board-page').textContent`)));
     await type('idDigits', '7');
     await save('idDigits');

@@ -1021,7 +1021,7 @@ to `127.0.0.1` only.
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
   the sheet), and a click inside it never clears a selection. `?` opens the sheet on its Hotkeys page.
-  **This board** has the pages Logbook, Scratchpad, Groups, Prefixes and Counters, each written to
+  **This board** has the pages Logbook, Scratchpad, Groups, Types, Prefixes and Counters, each written to
   `config.yaml` one top-level line at a time (or one block, below; the line replaced, inserted or removed, every
   other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with
   `{ key, value }`, which answers `{ settings }` as the file now reads. **Logbook**,
@@ -1034,9 +1034,31 @@ to `127.0.0.1` only.
   changes the line only: the files stay where they are. **Groups** adds the **Iterations**
   switch (`iterations: true`): turning groups off removes only the `groups:` line (`iterations:` stays and is ignored
   without groups), and turning iterations on without groups is refused (409). It also lists the groups found, by type path,
-  each opening its group in the palette, and **New group…**. **Prefixes** shows the `prefixes:` block as a read only
-  table and edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
-  new card files. **Counters** shows `nextId:` and the `counters:` line, read only.
+  each opening its group in the palette, and **New group…**. **Types** (ADR 0018) is the
+  Types switch (`typesOn`, display only, with the hint saying so), then the **Hierarchy** area (the `hierarchy:`
+  list in order) above **Other types** (the rest of `types:`), each a list of rows. A row has an editable
+  name, a color (a picker and a hex field, empty for none), an icon (none, or one of the six, drawn as the
+  board draws them), its prefix shown read only with a link to the Prefixes page, and the buttons Up,
+  Down, To Hierarchy or To Other types, and Remove. A row also drags by its handle within and between the
+  areas; the buttons do the same from the keyboard, and focus stays on the button used. A move
+  rewrites `hierarchy:` only (emptying the area removes the line); Other types keep the `types:` order.
+  **Add type** appends a name; **Found on cards** lists the words cards carry in `type:` that the list does
+  not have, with counts, each with **Add**. Removing a type some card carries asks first. Every change
+  saves at once through the block route with the version the page read; saves go one after the other,
+  each worked out from the settings the one before left. A name the server refuses (400) shows under its
+  row; a save refused for a changed `config.yaml` (409) makes the page read again and shows one bullet
+  saying nothing was saved and why. Each edit changes only its own list, so what else names the old word
+  stays and shows as a warning, one bullet saying what and why: a hierarchy name no type has (also a
+  warning chip in the Hierarchy area, with a Remove from the hierarchy button), after a rename "N cards
+  still say `old`", and a prefix naming a type no longer listed. **Prefixes** is editable: each row is a
+  prefix and its card type or groups folder, with Remove, and an Add row; every change asks first and
+  saves the `prefixes:` block, and the page says in one bullet that a prefix change changes only the ids
+  given from then on, cards already made keep their ids, and an AI can migrate the board to rename them.
+  It also edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
+  new card files. **Counters** shows `nextId:` and the `counters:` line, read only. Every page of This
+  board shows the absolute path it reads (`config.yaml` for Types, Prefixes and Counters; the folder for
+  Logbook, Scratchpad and Groups; nothing when the feature is off) with a **Copy** button that says
+  Copied.
   **One block at a time (ADR 0018).** The same route also rewrites one whole top-level block, `types:`,
   `hierarchy:` or `prefixes:`, from `{ block, value }`: `types` a list of names or of
   `{ name, color?, icon? }` (an entry with neither is written bare, as the starter writes `- bug`),
