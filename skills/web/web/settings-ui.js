@@ -438,10 +438,17 @@ function settingsColorNow(type) {
   return swatch;
 }
 
-function settingsTypeInput(className, label, value, fk) {
+// A text input whose unsaved text survives a redraw (settingsKeepDrafts). `draft` = [key, field]: the
+// text is kept as settingsUi.drafts[key][field]; `committed` is the value without any draft.
+function settingsTypeInput(className, label, value, fk, draft, committed) {
   const input = settingsMark(settingsEl('input', className));
   Object.assign(input, { type: 'text', value, spellcheck: false, autocomplete: 'off' });
   input.dataset.fk = fk;
+  if (draft) {
+    input.dataset.draftKey = draft[0];
+    input.dataset.draftField = draft[1];
+    input.dataset.committed = committed;
+  }
   input.setAttribute('aria-label', label);
   return input;
 }
@@ -471,9 +478,9 @@ function settingsTypeRow(row, where, at, count) {
   li.append(handle);
   if (type) {
     li.append(settingsTypePreview(type));
-    const name = settingsTypeInput('types-name', `Name of ${type.name}`, draft.name !== undefined ? draft.name : type.name, `name:${key}`);
+    const name = settingsTypeInput('types-name', `Name of ${type.name}`, draft.name !== undefined ? draft.name : type.name, `name:${key}`, [`row:${key}`, 'name'], type.name);
     name.addEventListener('change', () => settingsRename(type, name));
-    const hex = settingsTypeInput('types-hex', `Hex color of ${type.name}`, draft.hex !== undefined ? draft.hex : type.color || '', `hex:${key}`);
+    const hex = settingsTypeInput('types-hex', `Hex color of ${type.name}`, draft.hex !== undefined ? draft.hex : type.color || '', `hex:${key}`, [`row:${key}`, 'hex'], type.color || '');
     hex.placeholder = 'none';
     hex.addEventListener('change', () => settingsSetColor(type, hex.value));
     li.append(name, settingsColorSwatches(type, key), settingsColorNow(type), hex, settingsIconButtons(type, key));
@@ -635,8 +642,8 @@ function settingsPrefixEdit(row, prefix, target) {
   settingsPrefixSend('change', row.prefix, next, typed);
 }
 
-function settingsPrefixCell(label, value, fk, onChange) {
-  const input = settingsTypeInput('prefs-cell', label, value, fk);
+function settingsPrefixCell(label, value, fk, onChange, draft, committed) {
+  const input = settingsTypeInput('prefs-cell', label, value, fk, draft, committed);
   input.addEventListener('change', onChange);
   const td = settingsEl('td');
   td.append(input);
@@ -656,8 +663,8 @@ function settingsPrefixRows(root) {
     const draft = settingsUi.drafts[key] || {};
     const tr = settingsEl('tr');
     tr.dataset.prefixAt = String(at);
-    const p = settingsPrefixCell(`Prefix ${row.prefix}`, draft.prefix !== undefined ? draft.prefix : row.prefix, `${key}:prefix`, () => settingsPrefixEdit(row, p.input.value, t.input.value));
-    const t = settingsPrefixCell(`Card type or folder of ${row.prefix}`, draft.target !== undefined ? draft.target : row.target, `${key}:target`, () => settingsPrefixEdit(row, p.input.value, t.input.value));
+    const p = settingsPrefixCell(`Prefix ${row.prefix}`, draft.prefix !== undefined ? draft.prefix : row.prefix, `${key}:prefix`, () => settingsPrefixEdit(row, p.input.value, t.input.value), [key, 'prefix'], row.prefix);
+    const t = settingsPrefixCell(`Card type or folder of ${row.prefix}`, draft.target !== undefined ? draft.target : row.target, `${key}:target`, () => settingsPrefixEdit(row, p.input.value, t.input.value), [key, 'target'], row.target);
     const err = settingsError(key);
     if (err) t.td.append(err);
     const remove = settingsMark(settingsEl('button', 'types-act', 'Remove'));
@@ -676,8 +683,8 @@ function settingsPrefixRows(root) {
 
 function settingsPrefixAddForm() {
   const draft = settingsUi.drafts['prefix:new'] || {};
-  const prefix = settingsTypeInput('prefs-cell', 'New prefix', draft.prefix || '', 'prefix:new:prefix');
-  const target = settingsTypeInput('prefs-cell', 'Card type or groups folder of the new prefix', draft.target || '', 'prefix:new:target');
+  const prefix = settingsTypeInput('prefs-cell', 'New prefix', draft.prefix || '', 'prefix:new:prefix', ['prefix:new', 'prefix'], '');
+  const target = settingsTypeInput('prefs-cell', 'Card type or groups folder of the new prefix', draft.target || '', 'prefix:new:target', ['prefix:new', 'target'], '');
   prefix.id = 'pf-newPrefix';
   target.id = 'pf-newTarget';
   prefix.placeholder = 'G';
@@ -774,6 +781,24 @@ function settingsBoardTitle(id) {
   return page ? page.title : id;
 }
 
+// What is typed in a field and not saved yet is kept as a draft before the page is drawn again: a
+// `field:` input as its text, an input with a draft key (a type's name or hex, a prefix cell) as one
+// field of its draft; text put back to what is saved leaves no draft.
+function settingsKeepDrafts(panel) {
+  for (const input of panel.querySelectorAll('input')) {
+    const d = input.dataset;
+    if (d.draftKey) {
+      const draft = settingsUi.drafts[d.draftKey] && typeof settingsUi.drafts[d.draftKey] === 'object' ? settingsUi.drafts[d.draftKey] : {};
+      if (input.value === d.committed) delete draft[d.draftField];
+      else draft[d.draftField] = input.value;
+      if (Object.keys(draft).length) settingsUi.drafts[d.draftKey] = draft;
+      else delete settingsUi.drafts[d.draftKey];
+    } else if (d.fk && d.fk.startsWith('field:') && input.value !== d.shown) {
+      settingsUi.drafts[d.fk.slice(6)] = input.value;
+    }
+  }
+}
+
 // The board section's menu and, when a board page is showing, that page. The page that has the focus
 // keeps it across the redraw, found again by its key.
 function settingsRenderBoard() {
@@ -784,9 +809,7 @@ function settingsRenderBoard() {
   const focused = active && active.dataset && $('#prefs-sheet').contains(active) ? active.dataset.fk || null : null;
   const keep = settingsUi.focusKey || focused;
   settingsUi.focusKey = null;
-  for (const input of panel.querySelectorAll('input[data-fk^="field:"]')) {
-    if (input.value !== input.dataset.shown) settingsUi.drafts[input.dataset.fk.slice(6)] = input.value;
-  }
+  settingsKeepDrafts(panel);
   menu.replaceChildren(...settingsBoardPages.map((p) => settingsMenuItem(`board:${p.id}`, p.title, settingsPageStateText(p))));
   const current = settingsUi.page && settingsUi.page.startsWith('board:') ? settingsBoardPages.find((p) => p.id === settingsUi.page.slice(6)) : null;
   if (!state.settings) {

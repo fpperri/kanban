@@ -687,6 +687,55 @@ test('a prefix a line names twice shows a warning bullet on the Prefixes page, a
   assert.match(bullets[2], /^The prefix `O` still names `objective`/);
 });
 
+// A redraw (a save of another row finishing, the board polled) must not eat what is typed and not yet saved.
+const keepDrafts = (ctx, root) => ctx.run('settingsKeepDrafts')({ querySelectorAll: () => root.all((el) => el.tag === 'input') });
+
+test('text typed into a type name or hex field and not yet saved survives a redraw, and a value put back leaves no draft', () => {
+  const ctx = loadPages();
+  const root = ctx.page('types');
+  rowNamed(root, 'story').one(labelled('Name of story')).value = 'tale';
+  rowNamed(root, 'goal').one(labelled('Hex color of goal')).value = '#12';
+  rowNamed(root, 'epic').one(labelled('Name of epic')).value = 'epic';
+  keepDrafts(ctx, root);
+  const again = ctx.page('types');
+  assert.strictEqual(rowNamed(again, 'story').one(labelled('Name of story')).value, 'tale');
+  assert.strictEqual(rowNamed(again, 'goal').one(labelled('Hex color of goal')).value, '#12');
+  assert.strictEqual(rowNamed(again, 'goal').one(labelled('Name of goal')).value, 'goal', 'only the field typed in');
+  assert.deepStrictEqual(Object.keys(JSON.parse(JSON.stringify(ctx.run('settingsUi.drafts')))).sort(), ['row:goal', 'row:story']);
+  rowNamed(again, 'story').one(labelled('Name of story')).value = 'story';
+  keepDrafts(ctx, again);
+  assert.strictEqual(rowNamed(ctx.page('types'), 'story').one(labelled('Name of story')).value, 'story');
+  assert.strictEqual(ctx.run("'row:story' in settingsUi.drafts"), false);
+});
+
+test('text typed into a prefix cell or the new prefix row survives a redraw', () => {
+  const ctx = loadPages();
+  const root = ctx.page('prefixes');
+  root.one(labelled('Card type or folder of G')).value = 'epi';
+  root.one(labelled('Prefix O')).value = 'Q';
+  root.one((el) => el.id === 'pf-newPrefix').value = 'B';
+  root.one((el) => el.id === 'pf-newTarget').value = 'bu';
+  keepDrafts(ctx, root);
+  const again = ctx.page('prefixes');
+  assert.strictEqual(again.one(labelled('Card type or folder of G')).value, 'epi');
+  assert.strictEqual(again.one(labelled('Prefix G')).value, 'G');
+  assert.strictEqual(again.one(labelled('Prefix O')).value, 'Q');
+  assert.strictEqual(again.one((el) => el.id === 'pf-newPrefix').value, 'B');
+  assert.strictEqual(again.one((el) => el.id === 'pf-newTarget').value, 'bu');
+});
+
+test('a field of a line page keeps its typed text through the same collector', () => {
+  const ctx = loadPages();
+  const root = ctx.page('logbook');
+  root.one((el) => el.id === 'pf-logbook').value = 'not';
+  keepDrafts(ctx, root);
+  assert.strictEqual(ctx.page('logbook').one((el) => el.id === 'pf-logbook').value, 'not');
+});
+
+test('the render keeps the drafts of every input before it redraws', () => {
+  assert.match(ui, /settingsKeepDrafts\(panel\);/);
+});
+
 test('a prefix edit queued behind a removal finds its row by its prefix: the one asked is changed and the others stay', async () => {
   const ctx = loadPages();
   const root = ctx.page('prefixes');
