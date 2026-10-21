@@ -219,6 +219,19 @@ test('Space right after an add does not tick the wrong item, and an add typed me
   } finally { t.close(); }
 });
 
+test('a late answer does not take the focus back from a row the person moved to meanwhile', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n' } });
+  try {
+    await t.open();
+    t.pressRow(t.rows()[0], ' ');
+    t.pressRow(t.rows()[0], 'ArrowDown');
+    assert.strictEqual(t.p.doc.activeElement, t.rows()[1]);
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [x] a\n- [ ] b\n');
+    assert.strictEqual(t.p.doc.activeElement.dataset.index, '1', 'the focus is where the person put it');
+  } finally { t.close(); }
+});
+
 test('Tab on a row indents it, Shift+Tab outdents it, neither moves focus, and a held Tab acts once', async () => {
   const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n  - [ ] b1\n' } });
   try {

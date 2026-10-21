@@ -13,7 +13,7 @@
 // the page or on the file, never on a fixed sleep.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): state, hoveredId,
-// autoRefreshTick.
+// autoRefreshTick, todosUi.
 
 const fs = require('fs');
 const path = require('path');
@@ -198,7 +198,8 @@ module.exports = {
     await key('ArrowUp');
     check('todos: Up goes back to the first row', await focusIs('check the enum renames'));
     await key('Tab');
-    check('todos: Tab on the first item, which has nothing above it, changes nothing', todoFile().includes('\n- [ ] check the enum renames\n') && await focusIs('check the enum renames'));
+    const pendingDone = await waitFor(`todosUi.pending===0`, 4000);
+    check('todos: Tab on the first item, which has nothing above it, changes nothing', pendingDone && todoFile().includes('\n- [ ] check the enum renames\n') && await focusIs('check the enum renames'), JSON.stringify([pendingDone, await ev(FOCUS_ROW), todoFile()]));
 
     // --- a hand edit shows, and a change over a moved list is refused ---------------------------------------------------
     fs.writeFileSync(file('0007.todo.md'), `${todoFile()}- [ ] added by an agent\n`);

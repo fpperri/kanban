@@ -143,17 +143,25 @@ function todosPanel(target) {
   // One change at a time: while one is on its way another is ignored, since its answer renumbers the lines
   // the keys name. A clash with a hand edit is said and the list read again. The promise answers whether the
   // change was made.
+  // The answer puts the focus on the item changed only if the focus is still where the change was made: a key
+  // pressed meanwhile moved it, and a late answer does not take it back.
+  const focusedIndex = () => {
+    const a = document.activeElement;
+    const r = a && rows.contains(a) && a.closest ? a.closest('.td-row') : null;
+    return r ? Number(r.dataset.index) : null;
+  };
   const send = (method, suffix, build, after) => {
     if (todosUi.pending > 0) return Promise.resolve(false);
     const body = build();
     if (body === null) return Promise.resolve(false);
+    const from = focusedIndex();
     todosUi.pending = 1;
     const run = async () => {
       try {
         const answer = await api(method, url + suffix, { ...body, version: list.version });
         list = answer.todos;
         const at = answer.todos.at;
-        paintRows(after ? after(answer.todos, at) : undefined);
+        paintRows(after && focusedIndex() === from ? after(answer.todos, at) : undefined);
         try { await loadBoard(); } catch (e) { toast(e.message); }
         return true;
       } catch (e) {
