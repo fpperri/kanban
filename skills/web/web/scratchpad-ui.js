@@ -89,7 +89,7 @@ function scratchPanel(target) {
 
   let pad = null;
   const paintPad = () => {
-    path.textContent = `${state.scratchpad.folder}/${pad.file}${pad.exists ? '' : ' (not written yet)'}`;
+    path.textContent = `${pad.folder === undefined ? state.scratchpad.folder : pad.folder}/${pad.file}${pad.exists ? '' : ' (not written yet)'}`;
     if (!pad.refs.length) {
       refs.replaceChildren(scratchEl('p', 'np-muted', 'No refs. A refs: list in the page\'s frontmatter points it at notes, files and folders.'));
       return;

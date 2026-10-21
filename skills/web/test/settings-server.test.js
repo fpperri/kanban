@@ -232,6 +232,44 @@ test('a folder that would need quoting in config.yaml is refused', async () => {
   });
 });
 
+test('a folder may name the iteration with a whole <iteration> segment (ADR 0019), and no other angle-bracket name', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const on = await set(base, 'logbook', 'sprints/<iteration>/.logbook');
+    assert.strictEqual(on.status, 200);
+    assert.match(config(dir), /^logbook: sprints\/<iteration>\/\.logbook$/m);
+    assert.strictEqual(on.json.settings.logbook.folder, 'sprints/<iteration>/.logbook');
+    assert.strictEqual((await set(base, 'scratchpad', 'pads/<iteration>')).status, 200);
+    for (const bad of ['sprints/<sprint>', 'a<iteration>', '<iteration>x/y', '<Iteration>']) {
+      assert.strictEqual((await set(base, 'logbook', bad)).status, 400, bad);
+    }
+  });
+});
+
+test('a folder cannot start with <iteration>: the board folder would be scanned and written beside the cards', async () => {
+  const dir = tmpBoard();
+  const before = config(dir);
+  await withServer(dir, async (base) => {
+    for (const bad of ['<iteration>', '<iteration>/notes', './<iteration>']) {
+      const r = await set(base, 'scratchpad', bad);
+      assert.strictEqual(r.status, 400, bad);
+      assert.match(r.json.error, /<iteration>/);
+      assert.match(r.json.error, /beside the cards/);
+    }
+    assert.strictEqual(config(dir), before);
+    assert.strictEqual((await set(base, 'scratchpad', 'pads/<iteration>')).status, 200);
+  });
+});
+
+test('a hand-written folder that starts with <iteration> is still answered, tolerant', async () => {
+  const dir = tmpBoard({ config: 'name: t\nscratchpad: <iteration>\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.strictEqual(settings.scratchpad.folder, '<iteration>');
+    assert.strictEqual(settings.paths.scratchpad, path.resolve(dir, '<iteration>'));
+  });
+});
+
 test('a folder set by hand outside the board still works for the logbook, and the page cannot change it', async () => {
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-settings-outside-'));
   const dir = tmpBoard({ config: `name: t\nlogbook: ${outside.replace(/\\/g, '/')}\n` });
@@ -699,5 +737,31 @@ test('a save that carries a stale version is refused with 409 and writes nothing
     assert.notStrictEqual(ok.json.settings.version, v2, 'the answer carries the new version');
     assert.strictEqual((await block(base, 'types', ['epic'], ok.json.settings.version)).status, 200, 'the answer\'s version is the next save\'s');
     assert.strictEqual((await set(base, 'idDigits', 5)).status, 200, 'a caller with no version keeps working');
+  });
+});
+
+test('a logbook or scratchpad path with <iteration> is answered as written, with the folder a new write would go to today', async () => {
+  const dir = tmpBoard({ config: 'name: t\nlogbook: sprints/<iteration>/.logbook\nscratchpad: pads/<iteration>\ngroups: .groups\n' });
+  const today = new Date();
+  const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  await withServer(dir, async (base) => {
+    let { paths } = (await req(base, 'GET', '/api/board')).json.settings;
+    assert.strictEqual(paths.logbook, path.resolve(dir, 'sprints/<iteration>/.logbook'));
+    assert.strictEqual(paths.logbookNow, path.resolve(dir, 'sprints/.logbook'), 'no iteration holds today: the segment is dropped');
+    assert.strictEqual(paths.scratchpadNow, path.resolve(dir, 'pads'));
+    fs.mkdirSync(path.join(dir, '.groups', 'iteration'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.groups', 'iteration', '0005.now.md'), `---\nid: 5\nname: now\nstart_date: ${day}\nend_date: ${day}\ncards: []\n---\n`);
+    ({ paths } = (await req(base, 'GET', '/api/board')).json.settings);
+    assert.strictEqual(paths.logbookNow, path.resolve(dir, 'sprints/0005.now/.logbook'));
+    assert.strictEqual(paths.scratchpadNow, path.resolve(dir, 'pads/0005.now'));
+  });
+});
+
+test('a path without the placeholder has no folder-today', async () => {
+  const dir = tmpBoard({ config: 'name: t\nlogbook: notes\n' });
+  await withServer(dir, async (base) => {
+    const { paths } = (await req(base, 'GET', '/api/board')).json.settings;
+    assert.strictEqual(paths.logbookNow, null);
+    assert.strictEqual(paths.scratchpadNow, null);
   });
 });

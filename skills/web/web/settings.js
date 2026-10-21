@@ -137,18 +137,21 @@ const SETTINGS_PAGE_READS = {
   types: { path: 'config', kind: 'File' },
   prefixes: { path: 'config', kind: 'File' },
   counters: { path: 'config', kind: 'File' },
-  logbook: { path: 'logbook', kind: 'Folder' },
-  scratchpad: { path: 'scratchpad', kind: 'Folder' },
+  logbook: { path: 'logbook', kind: 'Folder', now: 'logbookNow' },
+  scratchpad: { path: 'scratchpad', kind: 'Folder', now: 'scratchpadNow' },
   groups: { path: 'groups', kind: 'Folder' },
 };
 
 // { kind, path } the page of This board reads, for its path bar and Copy button; null when the
-// page has none or its feature is off.
+// page has none or its feature is off. A path that holds `<iteration>` (docs/adr/0019) is shown as
+// written and adds `now`, the folder a new write would go to today.
 function settingsPageReads(id, settings) {
   const reads = SETTINGS_PAGE_READS[id];
   const paths = settings && settings.paths;
   if (!reads || !paths || !paths[reads.path]) return null;
-  return { kind: reads.kind, path: paths[reads.path] };
+  const out = { kind: reads.kind, path: paths[reads.path] };
+  if (reads.now && paths[reads.now]) out.now = paths[reads.now];
+  return out;
 }
 
 // The absolute path the page of This board reads, for its copy button; null when the feature is off.

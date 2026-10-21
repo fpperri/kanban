@@ -17,6 +17,11 @@ test('the iterations are the groups in the iteration folder itself, newest start
   assert.deepStrictEqual(it.iterationList(null), []);
 });
 
+test('iterationGroups is the one filter: the groups in the iteration folder itself, in the order given', () => {
+  assert.deepStrictEqual(it.iterationGroups(ALL).map((g) => g.id), ['I1', 'I2', 'I4', 'I3']);
+  assert.deepStrictEqual(it.iterationGroups(null), []);
+});
+
 test('two iterations that start the same day come in id order, highest first', () => {
   const a = mk('I5', 'a', 'iteration', '2026-10-12', '2026-10-13');
   const b = mk('I10', 'b', 'iteration', '2026-10-12', '2026-10-13');

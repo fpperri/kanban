@@ -227,7 +227,9 @@ comments say what each line is, and every line can be changed or deleted.
 - **Off until you switch them on:** the logbook (`logbook: logbook`), the
   scratchpad (`scratchpad: .scratchpad`), groups (`groups: .groups`) and
   iterations (`iterations: true`) are not in the config. Add a line, or switch
-  them on from the web's gear sheet (This board), and they exist.
+  them on from the web's gear sheet (This board), and they exist. The logbook and
+  scratchpad paths may hold `<iteration>` (`logbook: sprints/<iteration>/.logbook`),
+  which gives each iteration its own folder, such as `0005.sprint-496`.
 
 An existing board gets the same with a script that adds only what the board
 lacks, gives a type the board already has the starter's colour or icon only

@@ -24,11 +24,14 @@ function tmpBoard(config = 'name: t\nscratchpad: .scratchpad\n', files = {}) {
 const read = (dir, rel) => fs.readFileSync(path.join(dir, rel), 'utf8');
 const refused = (fn, status) => assert.throws(fn, (e) => e instanceof StatusError && e.status === status);
 
-test('the folder is the one scratchpad: names, relative to the board; null when the line is absent', () => {
+test('the folder is the one scratchpad: names, relative to the board; none when the line is absent', () => {
   const dir = tmpBoard();
-  assert.strictEqual(sp.scratchpadDir(dir), path.join(dir, '.scratchpad'));
-  assert.strictEqual(sp.scratchpadDir(tmpBoard('name: t\n')), null);
-  assert.strictEqual(sp.scratchpadDir(tmpBoard(null)), null);
+  sp.writePad(dir, '7', 'x');
+  assert.deepStrictEqual(fs.readdirSync(path.join(dir, '.scratchpad')), ['0007.scratchpad.md']);
+  for (const off of [tmpBoard('name: t\n'), tmpBoard(null)]) {
+    assert.deepStrictEqual(sp.listTargets(off), []);
+    refused(() => sp.readPad(off, '7'), 404);
+  }
 });
 
 test('a target with no file reads as an empty page that does not exist yet', () => {

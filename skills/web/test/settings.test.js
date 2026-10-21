@@ -309,6 +309,13 @@ test('the path bar says File for the config pages and Folder for the feature pag
   for (const id of ['types', 'logbook', 'scratchpad', 'nothing']) assert.strictEqual(s.settingsPagePath(id, st), (s.settingsPageReads(id, st) || {}).path || null, id);
 });
 
+test('a path with <iteration> shows as written, and the folder a new write would go to today as a second line (ADR 0019)', () => {
+  const st = { paths: { config: '/b/config.yaml', logbook: '/b/sprints/<iteration>/.logbook', logbookNow: '/b/sprints/0005.s/.logbook', scratchpad: '/b/.pads', scratchpadNow: null, groups: '/b/.groups' } };
+  assert.deepStrictEqual(s.settingsPageReads('logbook', st), { kind: 'Folder', path: '/b/sprints/<iteration>/.logbook', now: '/b/sprints/0005.s/.logbook' });
+  assert.deepStrictEqual(s.settingsPageReads('scratchpad', st), { kind: 'Folder', path: '/b/.pads' });
+  assert.strictEqual(s.settingsPagePath('logbook', st), '/b/sprints/<iteration>/.logbook', 'Copy copies the path as written');
+});
+
 test('the menu says Types is off, else how many types are listed', () => {
   assert.strictEqual(s.settingsPageState('types', { typesOn: false, types: [{}, {}] }, 0), 'off');
   assert.strictEqual(s.settingsPageState('types', { typesOn: true, types: [{}, {}] }, 0), '2');
