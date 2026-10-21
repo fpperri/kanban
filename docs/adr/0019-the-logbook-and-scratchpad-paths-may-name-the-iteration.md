@@ -1,6 +1,6 @@
 # 0019. The logbook and scratchpad paths may name the iteration
 
-Date: 2026-10-21 · Status: accepted
+Date: 2026-10-21 · Status: accepted · Amends: 0016
 
 ## Context
 
