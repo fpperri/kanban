@@ -1935,7 +1935,21 @@ button.np-note-card:hover { color: var(--accent); }
 .np-empty { font-size: 0.85em; font-style: italic; margin: 0; }
 .np-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px 14px; border-top: 1px solid var(--line-soft); color: var(--mut); font-size: 0.72em; }
 .np-foot kbd { font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; padding: 0 4px; border: 1px solid var(--line-strong); border-radius: .15rem; color: var(--ink); background: var(--surface); }
+/* Fullscreen, as the card details have it: the palette fills the window, and the list, the Scratchpad tab's
+   box and its Preview take the height the header, the note bar and the filter rows leave. */
+.np-head { display: flex; align-items: flex-end; gap: 8px; padding-right: 8px; }
+.np-head .np-tabs { flex: 1 1 auto; min-width: 0; }
+.np-fs-btn { margin: 6px 0 0 auto; }
+@media (min-width: 760px) {
+  .notes-palette.fullscreen { inset: 0; transform: none; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; border-width: 0; border-radius: 0; }
+  .notes-palette.fullscreen .np-body { display: flex; flex-direction: column; }
+  .notes-palette.fullscreen .np-notes, .notes-palette.fullscreen .gp { flex: 0 0 auto; }
+  .notes-palette.fullscreen .sp { flex: 1 0 auto; }
+  .notes-palette.fullscreen .sp-text { flex: 1 1 auto; resize: none; }
+  .notes-palette.fullscreen .sp-preview { flex: 1 1 auto; max-height: none; }
+}
 @media (max-width: 759.98px) {
+  #notes-fullscreen-btn { display: none; }
   .notes-palette { top: 0; left: 0; right: 0; transform: none; width: auto; max-height: 82vh; border-width: 0 0 1px; border-radius: 0; }
   .np-bar, .np-body { padding-left: 16px; padding-right: 16px; }
   .np-prev { padding-left: 16px; padding-right: 16px; white-space: normal; }

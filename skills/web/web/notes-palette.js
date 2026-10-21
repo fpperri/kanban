@@ -42,6 +42,7 @@ const notesUi = {
   date: null, dateBtn: null, dateWrap: null, dateTyped: false, pick: null, pickWrap: null,
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null, timeTyped: false,
+  head: null, fsBtn: null,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
@@ -336,12 +337,19 @@ function notesBuild() {
   u.rangeRow.append(rangeSlot, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1], u.rangeLive);
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
+  u.fsBtn = notesButton('icon-btn np-fs-btn', '', 'Expand to full screen', () => toggleModalFullscreen('notes'));
+  u.fsBtn.id = 'notes-fullscreen-btn';
+  u.fsBtn.innerHTML = FULLSCREEN_ICON;
+  u.fsBtn.setAttribute('aria-label', 'Expand to full screen');
+  u.fsBtn.setAttribute('aria-pressed', 'false');
+  u.head = notesEl('div', 'np-head');
+  u.head.append(u.tabsEl, u.fsBtn);
   u.el = notesEl('section', 'notes-palette hidden');
   u.el.id = 'notes-palette';
   u.el.setAttribute('role', 'dialog');
   u.el.setAttribute('aria-label', 'Notes');
   u.el.dataset.keepsSelection = '';
-  u.el.append(u.tabsEl, bar, u.prev, filterRow, u.rangeRow, u.body, u.foot);
+  u.el.append(u.head, bar, u.prev, filterRow, u.rangeRow, u.body, u.foot);
   document.body.append(u.el);
 
   u.input.addEventListener('input', () => { notesGrow(); notesPaintPreview(); });
@@ -367,6 +375,7 @@ function notesBuild() {
     if (chip && chip.dataset.groupId) openNotes({ kind: 'group', gid: chip.dataset.groupId });
     else if (chip) { notesClose(); openCard(chip.dataset.cardId); }
   });
+  u.el.addEventListener('keydown', notesOnFullscreenKey, true); // ahead of the boxes' own Enter
   u.el.addEventListener('keydown', notesOnPaletteKey);
 }
 
@@ -384,12 +393,39 @@ function notesGrowBox(box) {
     line: px(css.lineHeight) || px(css.fontSize) * 1.4,
     chrome: px(css.paddingTop) + px(css.paddingBottom) + border,
     windowHeight: window.innerHeight,
+    lines: notesUi.el && notesUi.el.classList.contains('fullscreen') ? NOTE_BOX_LINES_FULLSCREEN : undefined,
   });
   box.style.height = `${size.height}px`;
   box.style.overflowY = size.scroll ? 'auto' : 'hidden';
 }
 
 const notesGrow = () => notesGrowBox(notesUi.input);
+
+// Fullscreen is room: a note box may grow to this many lines before it scrolls inside (the window's 40% still caps it).
+const NOTE_BOX_LINES_FULLSCREEN = 30;
+
+// The palette is the popup Alt+Enter and the fullscreen button answer for when it is open and nothing but the
+// card details is up besides it (the key guard names that one popup, as for the other notes keys).
+function notesOnTop() {
+  return !!notesUi.el && !!notesUi.sub && keyGuardSurface(document, NOTES_DETAIL) === null;
+}
+
+// The boxes are measured at the width fullscreen changed, and the room they may take has changed too.
+function notesFullscreenChanged() {
+  const u = notesUi;
+  if (!u.sub) return;
+  notesGrow();
+  u.body.querySelectorAll('textarea').forEach((box) => { if (box !== u.input && box.classList.contains('np-edit-text')) notesGrowBox(box); });
+}
+
+// Alt+Enter inside the palette toggles its fullscreen, from any box of it, and never reaches the box's own
+// Enter (which writes a note). Read in the capture phase, ahead of the target's handlers.
+function notesOnFullscreenKey(e) {
+  if (e.key !== 'Enter' || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !notesUi.sub) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (notesOnTop()) toggleModalFullscreen('notes');
+}
 
 // ---------- opening and closing ----------
 
@@ -423,6 +459,7 @@ function openNotes(req) {
   u.rangeTouched = false;
   u.hi = -1;
   u.el.classList.toggle('np-over-detail', notesDetailId() !== null);
+  applyModalFullscreen('notes'); // the board's saved choice, on every open
   u.el.classList.remove('hidden');
   notesPaint();
   if (u.tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();

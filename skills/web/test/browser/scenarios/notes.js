@@ -458,5 +458,43 @@ module.exports = {
     check('notes: the next Esc closes the palette and leaves the details open', await waitFor(PAL_GONE, 2500) && await ev(DETAIL_UP));
     await key('Escape');
     check('notes: the one after that closes the details, as it does today', await waitFor(DETAIL_SHUT, 2500));
+    check('notes: the details are closed by now', await waitFor(DETAIL_SHUT, 2500));
+
+    // --- the palette goes full screen, as the card details do ----------------------------------------------------
+    const FS_BTN = `document.getElementById('notes-fullscreen-btn')`;
+    const FS_ON = `${PAL}.classList.contains('fullscreen')`;
+    const FILLS = `(()=>{const r=${PAL}.getBoundingClientRect();return r.left===0&&r.top===0&&Math.round(r.width)===window.innerWidth&&Math.round(r.height)===window.innerHeight})()`;
+    await ev(`openNotes({ kind: 'card-notes', id: '7' })`);
+    check('notes: the palette header has the full screen button, expanded to begin with', await palUp() && await ev(`${FS_BTN}.title==='Expand to full screen'&&${FS_BTN}.getAttribute('aria-pressed')==='false'&&!(${FS_ON})`));
+    const fsBtn = await centre('#notes-fullscreen-btn');
+    await click(fsBtn.x, fsBtn.y);
+    check('notes: the button fills the window with the palette and turns into Exit full screen', await waitFor(`${FS_ON}&&${FS_BTN}.title==='Exit full screen'&&${FS_BTN}.getAttribute('aria-pressed')==='true'`, 2500) && await ev(FILLS));
+    check('notes: the list takes the height the bars leave, down to the footer', await ev(`(()=>{const b=${q('.np-body')}.getBoundingClientRect();const f=${q('.np-foot')}.getBoundingClientRect();return Math.abs(b.bottom-f.top)<=1&&b.height>200})()`));
+    check('notes: the choice is kept for the board', await ev(`JSON.parse(localStorage.getItem('kanban.'+state.projectName+'.modal.fullscreen')).notes===true`));
+    await shot('palette-fullscreen');
+    await setBox('kept');
+    const noteTotal = await ev(`${NOTES}.length`);
+    await key('Enter', { alt: true });
+    check('notes: Alt+Enter in the note box leaves full screen, writes no note and keeps the box and its focus', await waitFor(`!(${FS_ON})`, 2500) && await ev(BOX) === 'kept' && await ev(`document.activeElement===${q('.np-input')}`) && await ev(`${NOTES}.length===${noteTotal}`));
+    await key('Enter', { alt: true });
+    check('notes: Alt+Enter again goes full screen', await waitFor(`${FS_ON}`, 2500) && await ev(FILLS));
+    await closePalette();
+    await ev(`openNotes({ kind: 'card-notes', id: '22' })`);
+    check('notes: a palette opened again opens full screen', await palUp() && await ev(`${FS_ON}&&${FS_BTN}.getAttribute('aria-pressed')==='true'`));
+    await key('Escape');
+    check('notes: Esc behaves as it did on a full screen palette', await waitFor(`${CHIP}===''`, 2500) && await ev(PAL_UP));
+    await closePalette();
+    const title3 = await centre('#board .card-el[data-id="3"] .card-title');
+    await click(title3.x, title3.y);
+    check('notes: card 3 opens its details', await waitFor(`${DETAIL_UP}&&document.getElementById('detail-title').textContent.startsWith('#3')`, 4000));
+    await ev(`document.activeElement&&document.activeElement.blur()`);
+    await key('n');
+    check('notes: n over the details opens the full screen palette', await palUp() && await ev(FS_ON));
+    await key('Enter', { alt: true });
+    check('notes: Alt+Enter over the details toggles the palette and leaves the details as they were', await waitFor(`!(${FS_ON})`, 2500) && await ev(`!document.querySelector('#detail-modal .modal').classList.contains('fullscreen')`));
+    await key('Escape');
+    await key('Escape');
+    await key('Escape');
+    check('notes: Esc closes the chip, the palette, then the details', await waitFor(`${PAL_GONE}&&${DETAIL_SHUT}`, 3500));
   },
 };

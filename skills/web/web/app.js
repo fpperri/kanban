@@ -462,7 +462,11 @@ const FULLSCREEN_MODALS = {
   bulkSingle: { backdrop: '#bulk-single', btn: '#bulk-single-fullscreen-btn' },
   bulkTags: { backdrop: '#bulk-tags', btn: '#bulk-tags-fullscreen-btn' },
   bulkSchedule: { backdrop: '#bulk-schedule', btn: '#bulk-schedule-fullscreen-btn' },
+  // The notes palette is no modal: it is its own panel, and is built when first opened, so it is named by
+  // function. openFullscreenModalType and the Alt+Enter handler answer for it through notesOnTop.
+  notes: { backdrop: () => notesUi.el, btn: () => notesUi.fsBtn, panel: () => notesUi.el },
 };
+const fullscreenEl = (ref) => (typeof ref === 'function' ? ref() : $(ref));
 
 let modalFullscreen = null;
 
@@ -492,9 +496,9 @@ function saveModalFullscreen() {
 function setModalFullscreenVisual(type, on) {
   const cfg = FULLSCREEN_MODALS[type];
   if (!cfg) return;
-  const backdrop = $(cfg.backdrop);
-  const btn = $(cfg.btn);
-  const panel = backdrop && backdrop.querySelector('.modal');
+  const backdrop = fullscreenEl(cfg.backdrop);
+  const btn = fullscreenEl(cfg.btn);
+  const panel = cfg.panel ? fullscreenEl(cfg.panel) : backdrop && backdrop.querySelector('.modal');
   if (!panel || !btn) return;
   panel.classList.toggle('fullscreen', on);
   btn.innerHTML = on ? EXIT_FULLSCREEN_ICON : FULLSCREEN_ICON;
@@ -517,6 +521,7 @@ function toggleModalFullscreen(type) {
   fs[type] = !fs[type];
   saveModalFullscreen();
   applyModalFullscreen(type);
+  if (type === 'notes') notesFullscreenChanged();
 }
 
 // The fullscreen-capable popup currently open, if any (the Alt+Enter
@@ -524,8 +529,10 @@ function toggleModalFullscreen(type) {
 // time, so first match wins; the notifications popup isn't in the registry
 // and correctly yields null.
 function openFullscreenModalType() {
+  if (notesOnTop()) return 'notes'; // the palette draws above the card details; any other popup is above it
   for (const type of Object.keys(FULLSCREEN_MODALS)) {
-    const backdrop = $(FULLSCREEN_MODALS[type].backdrop);
+    if (type === 'notes') continue;
+    const backdrop = fullscreenEl(FULLSCREEN_MODALS[type].backdrop);
     if (backdrop && !backdrop.classList.contains('hidden')) return type;
   }
   return null;

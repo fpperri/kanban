@@ -98,3 +98,12 @@ test('the text boxes paragraph names the four boxes and every key', () => {
   assert.match(textBoxes, /Their browser actions \(view source, the address bar\) are stopped only while one of these boxes has focus/);
   assert.match(textBoxes, /Enter, Shift\+Enter, Ctrl\+Enter and Ctrl\+S keep what they do in each box, and the single-line fields \(the filter, the time, a combobox\) keep the browser's Tab/);
 });
+
+test('it says the palette goes full screen as the card details do, by its header button and Alt+Enter, and not on a phone', () => {
+  assert.match(notes, /The palette's header has the card details' full screen button, and `Alt\+Enter` does the same while the palette is the popup that is up/);
+  assert.match(notes, /over the card details it toggles the palette, not the details/);
+  assert.match(notes, /the list, the Scratchpad tab's box and its Preview take the height/);
+  assert.match(notes, /The choice is kept per board; every key, tab and Esc work as before/);
+  assert.match(notes, /On a phone the button is not there and the palette keeps its sheet/);
+  assert.match(notes, /\(30 lines when the palette is full screen\)/);
+});

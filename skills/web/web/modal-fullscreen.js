@@ -12,8 +12,8 @@
 // type just adds itself to MODAL_TYPES/
 // DEFAULT_FULLSCREEN below and gets the same persistence for free).
 
-const MODAL_TYPES = ['edit', 'detail', 'bulkSingle', 'bulkTags', 'bulkSchedule'];
-const DEFAULT_FULLSCREEN = { edit: false, detail: false, bulkSingle: false, bulkTags: false, bulkSchedule: false };
+const MODAL_TYPES = ['edit', 'detail', 'bulkSingle', 'bulkTags', 'bulkSchedule', 'notes'];
+const DEFAULT_FULLSCREEN = { edit: false, detail: false, bulkSingle: false, bulkTags: false, bulkSchedule: false, notes: false };
 
 // Merge a value decoded from localStorage (which may be missing, null, not an
 // object, or carry a stale/unknown modal-type key) with the defaults — same
