@@ -803,6 +803,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.fullscreen .modal-desc textarea { flex: 1 1 auto; }
 
 .detail-modal { width: min(680px, 92vw); }
+.detail-modal:focus { outline: none; } /* it takes the focus when the edit form returns to it; it is not a control */
 /* row layout lives on .popup-header (below) — see there. */
 /* Headline-role, same reasoning as .modal h2 above — a card's own title. */
 .detail-header h2 { color: var(--ink-strong); font-size: 1.26em; line-height: 1.25; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }

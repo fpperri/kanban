@@ -2691,7 +2691,7 @@ function syncAssigneeColor() {
 // same hidden-field-submits-while-minimal trick, but for #f-start alone;
 // status is deliberately left at its own default here (see the Calendar view
 // dblclick glue below for why).
-// The card whose detail the open edit form was started from: on a phone Save returns there.
+// The card whose details the open edit form was started from: Save, and leaving the form, return there.
 let editFromCardId = null;
 
 function openModal(card, presetStatus, presetStart, presetParent) {
@@ -2738,6 +2738,12 @@ function openModal(card, presetStatus, presetStart, presetParent) {
 
 function closeModal() { $('#modal').classList.add('hidden'); }
 
+// Back to the details the edit form came from: the card is read again, so they show what was saved, and
+// they take the focus. The address never left the card, so no history step is pushed.
+async function returnToDetails(cardId) {
+  if (await openDetailModal(cardId)) $('#detail-modal .modal').focus({ preventScroll: true });
+}
+
 // Backdrop-close for the edit/new-card form: silent when the form
 // is untouched, one confirm when typed work would be lost. Cancel/Save keep
 // their existing behavior — explicit buttons are deliberate, only the easy-to-
@@ -2756,7 +2762,9 @@ function snapshotFormFields() {
 function requestCloseModal() {
   if (isDirty(formSnapshot, snapshotFormFields()) &&
       !confirm('Discard unsaved changes to this card?')) return;
+  const backToCard = editFromCardId;
   closeModal();
+  if (backToCard !== null) returnToDetails(backToCard);
 }
 
 function parseIds(s) {
@@ -2811,11 +2819,11 @@ async function submitModal(e) {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
     else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
-    const backToCard = id && onPhoneLayout() && editFromCardId !== null && String(editFromCardId) === id ? editFromCardId : null;
+    const backToCard = id && editFromCardId !== null && String(editFromCardId) === id ? editFromCardId : null;
     closeModal();
-    if (backToCard !== null) setPhoneColumn(payload.status);
+    if (backToCard !== null && onPhoneLayout()) setPhoneColumn(payload.status);
     await loadBoard();
-    if (backToCard !== null) openDetailModal(backToCard);
+    if (backToCard !== null) await returnToDetails(backToCard);
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
     else if (joined) toast(joined);
@@ -3360,7 +3368,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // An open detail popup closes on the very first Esc regardless of its
   // fullscreen state. The edit/new-card modal closes on Esc too — through
   // requestCloseModal(), the exact same unsaved-changes guard the X button
-  // uses. Esc
+  // uses, and it returns to the details the form was opened from. Esc
   // never calls setModalFullscreenVisual, so the persisted preference
   // and the toggle button's state are untouched by it either way — the toggle
   // button is the only thing that changes fullscreen. The
