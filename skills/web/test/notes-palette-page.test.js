@@ -405,6 +405,16 @@ test('with focus inside the palette they act, whatever else is up', async () => 
   assert.strictEqual(tabOf(p), 'scratch');
 });
 
+test('the palette hands every key to the Scratchpad preview key, from the box or from a button, and keeps the key when it takes it', async () => {
+  const p = await twoTabs();
+  const seen = [];
+  p.page.run("scratchPreviewKey = (e) => { window.seenKeys.push(e.key); return true; }");
+  p.page.ctx.seenKeys = seen;
+  const e = altKey(p, 'V', p.pal(), { altKey: false, ctrlKey: true, shiftKey: true });
+  assert.deepStrictEqual(seen, ['V']);
+  assert.strictEqual(e.stopped, undefined, 'the preview key stops the event itself');
+});
+
 test('the one popup the notes keys work over is named once, and every notes key reads it through the key guard', () => {
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'notes-palette.js'), 'utf8');
   assert.match(src, /const NOTES_DETAIL = '#detail-modal';/);

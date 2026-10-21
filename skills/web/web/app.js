@@ -3314,6 +3314,19 @@ function editFromDetail() {
   editFromCardId = card.id;
 }
 
+// e on the open card details opens the edit form, as the Edit button does, with the focus in its title so
+// the person can type at once (the keydown is cancelled, so no e lands there). A key that types nothing but
+// reads a letter, so it reads the key guard as n does, through the details' own guard (key-guard.js): off
+// while a field has focus, while any popup but the details (NOTES_DETAIL, notes-palette.js) is up and while
+// the notes palette is, which keeps e for its notes.
+function onDetailEditKey(e) {
+  if (!e.key || e.key.toLowerCase() !== 'e' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (keyGuardDetailOff(document, NOTES_DETAIL) || notesDetailId() === null || currentDetailArchived) return;
+  e.preventDefault();
+  editFromDetail();
+  $('#f-title').focus();
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   $('#detail-close').addEventListener('click', closeCard);
   $('#detail-back-btn').addEventListener('click', closeCard);
@@ -3332,6 +3345,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#detail-modal .modal').addEventListener('contextmenu', onDetailContextMenu);
   $('#detail-modal').addEventListener('click', (e) => { const t = e.target.closest('.relatives-toggle'); if (t) toggleDetailChildren(t); });
   $('#detail-edit-btn').addEventListener('click', editFromDetail);
+  document.addEventListener('keydown', onDetailEditKey);
   $('#detail-archive-btn').addEventListener('click', () => {
     // Belt-and-suspenders: the button is hidden for archived cards, but never
     // let this path reach doArchive on one even if that ever fails to apply.
