@@ -380,6 +380,7 @@ EMBEDDED = [
     ("__SLICE_RUN_JS__", "slice-run.js", "the run of slices"),
     ("__KEY_GUARD_JS__", "key-guard.js", "the key guard"),
     ("__COMBOBOX_JS__", "combobox.js", "the combobox rules"),
+    ("__MARKDOWN_JS__", "markdown.js", "the Markdown module"),
 ]
 
 def embeddable(source, label="the nesting module"):
@@ -671,7 +672,7 @@ input[type=text],input[type=search],select,textarea{background:var(--surface);bo
 .tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:2px 10px}
 .tag{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
 /* Card bodies render as markdown (replacing the old
-   pre-wrap .bodytxt div) via mdBlocks()/mdBodyNode() below — DOM nodes only,
+   pre-wrap .bodytxt div) via the embedded markdown.js and mdBodyNode() below — DOM nodes only,
    never innerHTML (the file's own history includes an XSS fixed exactly
    this way). code/code.mention are declared globally, not scoped to
    .bodymd, because the notification renderer's TLDR/MORE lines (goal 6,
@@ -689,14 +690,28 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .bodymd p{margin:.6em 0}
 .bodymd a{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
 .bodymd a:hover,.bodymd a:focus-visible{border-bottom-style:solid}
-.bodymd ul{margin:.55em 0 .55em 1.25em;padding:0}
+.bodymd ul,.bodymd ol{margin:.55em 0 .55em 1.25em;padding:0}
 .bodymd li{margin:.3em 0}
 .bodymd li::marker{color:var(--mut)}
-.bodymd li>ul{margin:.25em 0 .25em 1em}
+.bodymd li>ul,.bodymd li>ol{margin:.25em 0 .25em 1em}
 .bodymd strong{color:var(--ink-strong);font-weight:650}
 .bodymd em{font-style:italic}
 .bodymd pre{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
 .bodymd pre code{background:none;padding:0}
+.bodymd .md-code{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;margin:.8em 0;overflow:hidden}
+.bodymd .md-code pre{border:0;border-radius:0;margin:0}
+.md-code-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 6px 3px 12px;border-bottom:1px solid var(--line);font-size:.8em;color:var(--mut)}
+.md-code-lang{font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;letter-spacing:.02em}
+.bodymd .md-code-copy{background:none;border:1px solid var(--line);border-radius:.15rem;color:var(--mut);cursor:pointer;font:inherit;padding:0 8px}
+.bodymd .md-code-copy:hover,.bodymd .md-code-copy:focus-visible{color:var(--ink-strong);border-color:var(--line-strong)}
+.bodymd blockquote{margin:.7em 0;padding:.05em 0 .05em .95em;border-left:3px solid var(--line-strong);color:var(--mut)}
+.bodymd blockquote>:first-child{margin-top:0}
+.bodymd blockquote>:last-child{margin-bottom:0}
+.bodymd h4,.bodymd h5,.bodymd h6{color:var(--ink-strong);font-weight:650;line-height:1.3;margin:1.1em 0 .35em;font-size:1em}
+.bodymd h6{color:var(--mut)}
+.bodymd del{color:var(--mut)}
+.bodymd .ta-center{text-align:center}
+.bodymd .ta-right{text-align:right}
 .bodymd .md-table{overflow-x:auto;margin:.9em 0}
 .bodymd table{border-collapse:collapse;font-size:.92em}
 .bodymd th{background:var(--raised);color:var(--mut);font-weight:600;letter-spacing:.04em;text-align:left;white-space:nowrap;padding:6px 10px;border-bottom:1px solid var(--line-strong)}
@@ -947,6 +962,8 @@ __KEY_GUARD_JS__</script>
 <script>
 __COMBOBOX_JS__</script>
 <script>
+__MARKDOWN_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -1020,8 +1037,8 @@ fineMQ.addEventListener("change",()=>render());
 // Minimal inline formatting for notification TLDR/MORE text
 // (goal 6) — **bold** and `code`, nothing else (no headings/lists/
 // links, no nesting inside a matched span). Card bodies used to go through
-// this too; they now render full markdown via mdInline()/mdBlocks() below,
-// which extends this exact scan technique with italic/links/blocks. Pure
+// this too; they now render full markdown through the embedded markdown.js
+// (mdBodyNode below), which extends this exact scan technique with emphasis, links and blocks. Pure
 // segment splitter, no DOM: scans left to right, and only treats a marker
 // as an opener if its CLOSING partner exists later in the string; an
 // unmatched/unclosed marker falls through to the plain-text run byte for
@@ -1057,163 +1074,79 @@ if(mm&&mm.board!==null){
 c.classList.add("mention");
 if(mm.board===boardName){c.classList.add("same");c.setAttribute("data-mapnode",kanbanIds.idKey(mm))}}
 return c}
-// Full inline parser for card-body markdown: the same
-// scan-left-to-right, opener-needs-a-later-closer technique fmtBodySegs
-// above uses for bold/code, extended with italic and links. Pure — returns
-// token data, no DOM. A code span's raw content is never rescanned for
-// bold/italic/links (mention detection aside) — same "no nesting" contract
-// fmtBodySegs already established.
-function mdInline(text){
-const s=String(text==null?"":text);
-const toks=[];let buf="",i=0;
-const flush=()=>{if(buf){toks.push({t:"text",v:buf});buf=""}};
-while(i<s.length){
-if(s[i]==="`"){
-const close=s.indexOf("`",i+1);
-if(close!==-1){flush();toks.push({t:"code",v:s.slice(i+1,close)});i=close+1;continue}}
-if(s[i]==="*"&&s[i+1]==="*"&&s[i+2]!=="*"){
-const close=s.indexOf("**",i+2);
-if(close!==-1){flush();const inner=s.slice(i+2,close);toks.push({t:"bold",v:inner,kids:mdInline(inner)});i=close+2;continue}}
-if(s[i]==="*"&&s[i+1]!=="*"){
-const close=s.indexOf("*",i+1);
-if(close!==-1&&s[close+1]!=="*"){flush();const inner=s.slice(i+1,close);toks.push({t:"italic",v:inner,kids:mdInline(inner)});i=close+1;continue}}
-if(s[i]==="["){
-const bc=s.indexOf("]",i+1);
-if(bc!==-1&&s[bc+1]==="("){
-const pc=s.indexOf(")",bc+2);
-if(pc!==-1){
-flush();
-const label=s.slice(i+1,bc),url=s.slice(bc+2,pc);
-const safe=/^(https?:|mailto:|#|\\/)/i.test(url.trim())?url:"#";
-toks.push({t:"link",v:label,href:safe});
-i=pc+1;continue}}}
-buf+=s[i];i++}
-flush();
-return toks}
-// Turns mdInline()'s tokens into DOM nodes — el()/textContent only, the
-// same XSS-safe contract bodyNode used to carry alone.
+// Card-body Markdown: kanban-web's own markdown.js, embedded above, reads the text into a tree of
+// blocks and inline tokens, and the nodes below are built from that tree with el()/textContent
+// only, never innerHTML. Python caps bodies at 4000/1500 chars (parse_card's "bn" field records
+// the uncapped length) -- a cut can land mid-fence, mid-list or mid-table; the parser ends a
+// truncated construct where the text ends instead of throwing.
+// Turns the inline tokens into DOM nodes; a code span goes through codeSegNode for its mention rule.
 function mdInlineNodes(toks,boardName){
 return toks.map(t=>{
-if(t.t==="bold"||t.t==="italic"){const n=el(t.t==="bold"?"strong":"em",null);mdInlineNodes(t.kids||[{t:"text",v:t.v}],boardName).forEach(k=>n.appendChild(k));return n}
+if(t.t==="text")return document.createTextNode(t.v);
 if(t.t==="code")return codeSegNode(t.v,boardName);
-if(t.t==="link"){const a=el("a",null,t.v);a.href=t.href;a.target="_blank";a.rel="noopener noreferrer";return a}
-return document.createTextNode(t.v)})}
-// Pure block parser: markdown text -> a plain data tree (headings,
-// paragraphs, nested/task lists with lazy continuation, fenced code, pipe
-// tables, hr), each text-bearing block already carrying mdInline() tokens.
-// Testable in node with no DOM. Ported feature-for-feature from
-// skills/web/web/app.js's mdToHtml, but built as DATA
-// rather than an HTML string so the DOM step below never touches
-// innerHTML. Python caps bodies at 4000/1500 chars (parse_card's "bn"
-// field records the uncapped length) — a cut can land mid-fence, mid-list
-// or mid-table; every loop here is bounded by lines.length, so a truncated
-// construct just ends where the text ends instead of throwing.
-const TABLE_DELIM_RE=/^\\s*\\|?(?:\\s*:?-{3,}:?\\s*\\|)+\\s*:?-{3,}:?\\s*\\|?\\s*$|^\\s*\\|\\s*:?-{3,}:?\\s*\\|\\s*$/;
-function splitRow(row){
-return row.trim().replace(/^\\|/,"").replace(/\\|$/,"")
-.split(/(?<!\\\\)\\|/)
-.map(c=>c.trim().replace(/\\\\\\|/g,"|"))}
-function mdBlocks(text){
-const lines=String(text==null?"":text).split("\\n");
-const blocks=[];
-let para=[],listStack=[],i=0;
-const flushPara=()=>{if(para.length){blocks.push({t:"p",inline:mdInline(para.join(" "))});para=[]}};
-while(i<lines.length){
-const line=lines[i];
-if(/^\\s*\\x60\\x60\\x60/.test(line)){
-flushPara();listStack=[];
-const code=[];i++;
-while(i<lines.length&&!/^\\s*\\x60\\x60\\x60/.test(lines[i])){code.push(lines[i]);i++}
-i++;
-blocks.push({t:"pre",code:code.join("\\n")});
-continue}
-if(/^\\s*---\\s*$/.test(line)){flushPara();listStack=[];blocks.push({t:"hr"});i++;continue}
-const h=/^(#{1,3})\\s+(.*)$/.exec(line);
-if(h){flushPara();listStack=[];blocks.push({t:"h",level:h[1].length,inline:mdInline(h[2])});i++;continue}
-if(line.trim().startsWith("|")&&TABLE_DELIM_RE.test(lines[i+1]||"")){
-flushPara();listStack=[];
-const head=splitRow(line);
-i+=2;
-const rows=[];
-while(i<lines.length&&lines[i].trim().startsWith("|")){
-const cells=splitRow(lines[i]);
-while(cells.length<head.length)cells.push("");
-cells.length=head.length;
-rows.push(cells.map(c=>mdInline(c)));
-i++}
-blocks.push({t:"table",head:head.map(c=>mdInline(c)),rows:rows});
-continue}
-const task=/^(\\s*)-\\s+\\[( |x|X)\\]\\s+(.*)$/.exec(line);
-const item=!task&&/^(\\s*)-\\s+(.*)$/.exec(line);
-if(task||item){
-flushPara();
-const m=task||item;
-const indent=m[1].length;
-while(listStack.length&&indent<listStack[listStack.length-1].indent)listStack.pop();
-let frame;
-if(listStack.length&&listStack[listStack.length-1].indent===indent){
-frame=listStack[listStack.length-1]}
-else{
-const items=[];
-if(listStack.length){
-const parentFrame=listStack[listStack.length-1];
-const parentItem=parentFrame.items[parentFrame.items.length-1];
-parentItem.children=items}
-else{blocks.push({t:"ul",items:items})}
-frame={indent:indent,items:items};
-listStack.push(frame)}
-const newItem=task
-?{task:task[2].toLowerCase()==="x"?"done":"open",inline:mdInline(task[3])}
-:{task:null,inline:mdInline(item[2])};
-frame.items.push(newItem);
-i++;continue}
-if(line.trim()===""){flushPara();listStack=[];i++;continue}
-if(listStack.length){
-const frame=listStack[listStack.length-1];
-const it=frame.items[frame.items.length-1];
-it.inline.push({t:"text",v:" "});
-it.inline.push.apply(it.inline,mdInline(line.trim()));
-i++;continue}
-para.push(line);
-i++}
-flushPara();
-return blocks}
+if(t.t==="br")return el("br");
+const n=el(t.t==="link"?"a":t.t);
+mdInlineNodes(t.kids,boardName).forEach(k=>n.appendChild(k));
+if(t.t==="link"){n.href=t.href;n.target="_blank";n.rel="noopener noreferrer"}
+return n})}
 // Thousands separator for the cut-body notice (goal 5) —
 // plain regex, not toLocaleString(): the message must read the same
 // regardless of the viewer's own locale.
 function thousands(n){return String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,",")}
-function mdListNode(items,boardName){
-const ul=el("ul");
-items.forEach(it=>{
+function mdListNode(list,boardName){
+const ul=el(list.ordered?"ol":"ul");
+if(list.ordered&&list.start!==1)ul.setAttribute("start",String(list.start));
+list.items.forEach(it=>{
 const li=el("li",it.task?"task "+it.task:null);
 if(it.task){
 li.appendChild(el("span","tick",it.task==="done"?"☑":"☐"));
 li.appendChild(document.createTextNode(" "))}
 mdInlineNodes(it.inline,boardName).forEach(n=>li.appendChild(n));
-if(it.children)li.appendChild(mdListNode(it.children,boardName));
+(it.children||[]).forEach(ch=>li.appendChild(mdListNode(ch,boardName)));
 ul.appendChild(li)});
 return ul}
-// Replaces the old bodyNode()/.bodytxt pre-wrap div: renders mdBlocks()'
-// data tree via el()/textContent nodes only, then appends a cut notice
-// (goal 5) when the embedded body is shorter than the card's true,
-// uncapped length ("bn", from parse_card).
-function mdBodyNode(text,boardName,bl){
-const wrap=el("div","bodymd");
-mdBlocks(text).forEach(b=>{
-if(b.t==="h"){const h=el("h"+b.level);mdInlineNodes(b.inline,boardName).forEach(n=>h.appendChild(n));wrap.appendChild(h)}
-else if(b.t==="p"){const p=el("p");mdInlineNodes(b.inline,boardName).forEach(n=>p.appendChild(n));wrap.appendChild(p)}
-else if(b.t==="ul"){wrap.appendChild(mdListNode(b.items,boardName))}
-else if(b.t==="pre"){const pre=el("pre");pre.appendChild(el("code",null,b.code));wrap.appendChild(pre)}
-else if(b.t==="hr"){wrap.appendChild(el("hr"))}
-else if(b.t==="table"){
+// A fenced block: the code alone when untyped; a typed one wears its language as a label over it and
+// a Copy button, the same chrome kanban-web draws.
+function mdPreNode(b){
+const pre=el("pre");
+pre.appendChild(el("code",null,b.code));
+if(!b.lang)return pre;
+pre.setAttribute("data-lang",b.lang);
+const box=el("div","md-code"),bar=el("div","md-code-bar");
+const btn=el("button","md-code-copy","Copy");
+btn.type="button";
+btn.setAttribute("aria-label","Copy "+b.lang+" code");
+btn.addEventListener("click",()=>copyPayload(ok=>{btn.textContent=ok?"Copied":"Copy failed"},false,b.code));
+bar.appendChild(el("span","md-code-lang",b.lang));
+bar.appendChild(btn);
+box.appendChild(bar);
+box.appendChild(pre);
+return box}
+function mdTableNode(b,boardName){
 const twrap=el("div","md-table");
 const table=el("table");
+const cell=(tag,toks,n)=>{const c=el(tag,b.aligns[n]?"ta-"+b.aligns[n]:null);mdInlineNodes(toks,boardName).forEach(k=>c.appendChild(k));return c};
 const thead=el("thead"),htr=el("tr");
-b.head.forEach(c=>{const th=el("th");mdInlineNodes(c,boardName).forEach(n=>th.appendChild(n));htr.appendChild(th)});
+b.head.forEach((toks,n)=>htr.appendChild(cell("th",toks,n)));
 thead.appendChild(htr);table.appendChild(thead);
 const tbody=el("tbody");
-b.rows.forEach(r=>{const tr=el("tr");r.forEach(c=>{const td=el("td");mdInlineNodes(c,boardName).forEach(n=>td.appendChild(n));tr.appendChild(td)});tbody.appendChild(tr)});
-table.appendChild(tbody);twrap.appendChild(table);wrap.appendChild(twrap)}});
+b.rows.forEach(r=>{const tr=el("tr");r.forEach((toks,n)=>tr.appendChild(cell("td",toks,n)));tbody.appendChild(tr)});
+table.appendChild(tbody);twrap.appendChild(table);
+return twrap}
+function mdBlockNodes(blocks,boardName){
+return blocks.map(b=>{
+if(b.t==="h"||b.t==="p"){const n=el(b.t==="h"?"h"+b.level:"p");mdInlineNodes(b.inline,boardName).forEach(k=>n.appendChild(k));return n}
+if(b.t==="list")return mdListNode(b,boardName);
+if(b.t==="pre")return mdPreNode(b);
+if(b.t==="hr")return el("hr");
+if(b.t==="quote"){const q=el("blockquote");mdBlockNodes(b.blocks,boardName).forEach(k=>q.appendChild(k));return q}
+return mdTableNode(b,boardName)})}
+// Replaces the old bodyNode()/.bodytxt pre-wrap div: renders the parse's block tree via
+// el()/textContent nodes only, then appends a cut notice (goal 5) when the embedded body is
+// shorter than the card's true, uncapped length ("bn", from parse_card).
+function mdBodyNode(text,boardName,bl){
+const wrap=el("div","bodymd");
+mdBlockNodes(kanbanMarkdown.parseMarkdown(text),boardName).forEach(n=>wrap.appendChild(n));
 const shownLen=String(text==null?"":text).length;
 const trueLen=(bl==null)?shownLen:bl;
 if(trueLen>shownLen)wrap.appendChild(el("div","cut","Cut at "+thousands(shownLen)+" of "+thousands(trueLen)+" characters. Open the card on the desk board for the rest."));
@@ -1811,11 +1744,16 @@ return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.str
 // outright and goes straight to the execCommand path -- the close-guard
 // passes it true, since an async clipboard write is unreliable during
 // unload/dismissal (it can be torn down before the promise ever settles).
-function copyPayload(onDone,forceSync){
-const txt=payload();
-const ok=()=>{copied=true;if(onDone)onDone(true)};
+// text, when given, is what a typed code block's Copy button copies instead of the
+// payload: the fallback lends it to the #payload box for the copy and puts the
+// payload back (or uses a box of its own when the tray is not showing), and the tray's
+// `copied` flag is left alone.
+function copyPayload(onDone,forceSync,text){
+const own=text!==undefined;
+const txt=own?text:payload();
+const ok=()=>{if(!own)copied=true;if(onDone)onDone(true)};
 const bad=()=>{if(onDone)onDone(false)};
-const fallback=()=>{const ta=$("payload");if(!ta){bad();return}ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}};
+const fallback=()=>{let ta=$("payload");const temp=!ta&&own;if(temp){ta=el("textarea");ta.style.cssText="position:fixed;top:-1000px;left:-1000px";document.body.appendChild(ta)}if(!ta){bad();return}const keep=ta.value;if(own)ta.value=text;ta.focus();ta.select();try{document.execCommand("copy")?ok():bad()}catch(err){bad()}if(temp)ta.remove();else if(own)ta.value=keep};
 if(!forceSync&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok).catch(fallback);
 else fallback()}
 // Notification message shape (goal 6): most real boards
@@ -1874,7 +1812,7 @@ return pieces.map(p=>p.trim()).filter(Boolean)}
 // DOM nodes for one notification TLDR/MORE line: `code` (mention-aware, via
 // the SAME codeSegNode() the card-body markdown renderer above uses) and
 // **bold** only — reuses fmtBodySegs' tested segmenter rather than the
-// larger mdInline() parser, since notifications only ever carry this
+// full Markdown parser, since notifications only ever carry this
 // narrower subset.
 function notifSegNodes(text,boardName){
 return fmtBodySegs(text).map(s=>{

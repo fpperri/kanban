@@ -200,11 +200,14 @@ card's true, uncapped body length rides along in the embedded JSON (`bl`); a
 body the 4000/1500-character cap actually cut ends with a small note in the
 sheet naming exactly how much was left out.
 
-Card bodies render as markdown — headings, `-` lists (nested, with `- [ ]`/
-`- [x]` tasks), fenced code, pipe tables, `---` rules, and inline
-`` `code` ``/`**bold**`/`*italic*`/`[text](url)`, the same subset
-`skills/web/web/app.js`'s renderer supports — built as DOM nodes, never
-`innerHTML`. A code span shaped like `board#id` renders as a tappable mention
+Card bodies render as markdown through `skills/web/web/markdown.js`, the module kanban-web
+draws its own bodies with, embedded in the page as the same source: headings one to six, bullet
+and numbered lists (nested, mixed, with `- [ ]`/`- [x]` tasks), block quotes, fenced code
+(backtick or tilde fences, any longer run closing only a run as long; a fence with a language
+shows it as a label and a Copy button), pipe tables, `---` rules, and inline
+`` `code` ``, `**bold**`, `*italic*`, `***both***`, `~~strike~~`, `<u>underline</u>`,
+`[text](url)` and bare `https://` addresses, with a hard line break after two spaces or a
+backslash. The parse is the module's; the page draws it as DOM nodes, never `innerHTML`. A code span shaped like `board#id` renders as a tappable mention
 chip; one naming this board opens that card in place. Card and notification
 text alike paint through the shop's own CSS custom-property palette (light,
 dark, and an explicit `data-theme` override for each), not literal hex.
