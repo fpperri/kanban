@@ -28,7 +28,17 @@ function typeColor(type, types) {
   return hit && hit.color ? hit.color : '';
 }
 
-function typeBadge(card, types) {
+// Types off (typesOn: false, docs/adr/0018) is one gate: the views read the board's lists through
+// this, so with it off they hold no types and no hierarchy, as on a board that declares none. The
+// payload itself is left as written.
+function boardTypeView(data) {
+  const typesOn = !data || data.typesOn !== false;
+  return { typesOn, types: typesOn ? (data && data.types) || [] : [], hierarchy: typesOn ? (data && data.hierarchy) || [] : [] };
+}
+
+// typesOn is the board's flag; off, a typed card still carries no chip, since a chip needs no listed type.
+function typeBadge(card, types, typesOn) {
+  if (typesOn === false) return '';
   const text = String(card.type == null ? '' : card.type).trim();
   if (!text) return '';
   const color = typeColor(text, types);
@@ -40,8 +50,9 @@ function typeBadge(card, types) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { typeBadge, typeColor };
+  module.exports = { typeBadge, typeColor, boardTypeView };
 } else {
   window.typeBadge = typeBadge;
   window.typeColor = typeColor;
+  window.boardTypeView = boardTypeView;
 }
