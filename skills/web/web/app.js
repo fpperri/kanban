@@ -2106,7 +2106,7 @@ function applyProjectName(name) {
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     calendarNotes = null; // calendar.notes too
-    calendarNotesWidth = undefined; // calendar.notesWidth too
+    calendarNotesWidth = CAL_NOTES_UNREAD; // calendar.notesWidth too
     ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
     mapZoom = null; // map.zoom too
@@ -4347,17 +4347,22 @@ function setCalendarNotes(on) {
 }
 
 // The notes strip's width (feature key 'calendar.notesWidth'): the divider on a strip's left edge sets
-// it for every day column at once. null is the stylesheet's default, a number is px; undefined, not
-// read yet. Kept per board in this browser (notes-calendar.js), and drawn into the grid as the
-// custom property --cal-note-width, which every column's --cal-note-strip reads.
-let calendarNotesWidth;
+// it for every day column at once. It is CAL_NOTES_UNREAD until the board's saved choice has been read,
+// then CAL_NOTES_DEFAULT (the stylesheet's own width) or a number of px. Kept per board in this browser
+// (notes-calendar.js), and drawn into the grid as the custom property --cal-note-width, which every
+// column's --cal-note-strip reads.
+const CAL_NOTES_UNREAD = 'unread';
+const CAL_NOTES_DEFAULT = 'default';
+let calendarNotesWidth = CAL_NOTES_UNREAD;
 
+// The width in px, or null for the default.
 function calendarNotesStrip() {
-  if (calendarNotesWidth === undefined) {
+  if (calendarNotesWidth === CAL_NOTES_UNREAD) {
     const storage = prefsStorage();
-    calendarNotesWidth = storage ? noteStripLoad(storage, state.projectName) : null;
+    const saved = storage ? noteStripLoad(storage, state.projectName) : null;
+    calendarNotesWidth = saved === null ? CAL_NOTES_DEFAULT : saved;
   }
-  return calendarNotesWidth;
+  return calendarNotesWidth === CAL_NOTES_DEFAULT ? null : calendarNotesWidth;
 }
 
 // `px` into the time grid that is drawn, live: no re-render, so a drag and a key press keep their element.
@@ -4385,7 +4390,7 @@ function paintCalendarNotesAria() {
 }
 
 function setCalendarNotesStrip(px) {
-  calendarNotesWidth = px;
+  calendarNotesWidth = px === null ? CAL_NOTES_DEFAULT : px;
   const storage = prefsStorage();
   if (storage) noteStripSave(storage, state.projectName, px);
   paintCalendarNotesStrip(px);

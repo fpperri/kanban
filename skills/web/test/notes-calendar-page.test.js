@@ -139,6 +139,27 @@ test('a double click on the divider goes back to the default width', async () =>
   assert.strictEqual(e.prevented, true);
 });
 
+test('the width has three states, named: not read yet, the default, or a number of px', async () => {
+  const p = await weekPage();
+  assert.strictEqual(p.page.run('calendarNotesWidth'), 'unread');
+  assert.strictEqual(p.page.run('calendarNotesStrip()'), null);
+  assert.strictEqual(p.page.run('calendarNotesWidth'), 'default');
+  p.page.run('setCalendarNotesStrip(150)');
+  assert.strictEqual(p.page.run('calendarNotesWidth'), 150);
+  p.page.run('setCalendarNotesStrip(null)');
+  assert.strictEqual(p.page.run('calendarNotesWidth'), 'default');
+  assert.strictEqual(p.page.run('calendarNotesStrip()'), null);
+  const q = await weekPage({ stored: { [KEY]: '150' } });
+  assert.strictEqual(q.page.run('calendarNotesStrip()'), 150);
+  assert.strictEqual(q.page.run('calendarNotesWidth'), 150);
+});
+
+test('a board change forgets what was read', async () => {
+  const p = await weekPage({ stored: { [KEY]: '150' } });
+  p.page.run('calendarNotesStrip()');
+  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.js'), 'utf8'), /calendarNotesWidth = CAL_NOTES_UNREAD; \/\/ calendar\.notesWidth too/);
+});
+
 test('chips show 12 words by default and many more once a width is set', async () => {
   const p = await weekPage();
   const long = 'one two three four five six seven eight nine ten eleven twelve thirteen fourteen';

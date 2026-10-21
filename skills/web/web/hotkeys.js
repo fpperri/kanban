@@ -10,7 +10,8 @@
 // own list are not here: ArrowUp and ArrowDown move the highlight in the search box's
 // suggestions, ArrowLeft and ArrowRight step the Calendar's notes divider while it has focus (it is a
 // slider, the way those arrows are its own), the arrows move through the open card menu and its groups
-// (menu-nest.js), and Shift is only noted as held. Tab is the browser's.
+// (menu-nest.js), and Shift is only noted as held. Tab is the browser's, but in the multiline text boxes, where
+// it indents (the list names it, and Ctrl+M, which gives it back).
 //
 // Pure: the caller passes the state, so Node tests drive it with plain values. Same
 // dual-environment export pattern as key-guard.js.
