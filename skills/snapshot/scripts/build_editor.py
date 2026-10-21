@@ -710,6 +710,10 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .bodymd h4,.bodymd h5,.bodymd h6{color:var(--ink-strong);font-weight:650;line-height:1.3;margin:1.1em 0 .35em;font-size:1em}
 .bodymd h6{color:var(--mut)}
 .bodymd del{color:var(--mut)}
+.bodymd details{margin:.7em 0;border:1px solid var(--line);border-radius:.2rem;padding:0 12px}
+.bodymd details[open]{padding-bottom:.35em}
+.bodymd summary{cursor:pointer;padding:6px 0;color:var(--ink);font-weight:600}
+.bodymd summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .bodymd .ta-center{text-align:center}
 .bodymd .ta-right{text-align:right}
 .bodymd .md-table{overflow-x:auto;margin:.9em 0}
@@ -1140,6 +1144,14 @@ if(b.t==="list")return mdListNode(b,boardName);
 if(b.t==="pre")return mdPreNode(b);
 if(b.t==="hr")return el("hr");
 if(b.t==="quote"){const q=el("blockquote");mdBlockNodes(b.blocks,boardName).forEach(k=>q.appendChild(k));return q}
+if(b.t==="details"){
+const d=el("details");
+if(b.open)d.setAttribute("open","");
+const sm=el("summary");
+mdInlineNodes(b.summary,boardName).forEach(k=>sm.appendChild(k));
+d.appendChild(sm);
+mdBlockNodes(b.blocks,boardName).forEach(k=>d.appendChild(k));
+return d}
 return mdTableNode(b,boardName)})}
 // Replaces the old bodyNode()/.bodytxt pre-wrap div: renders the parse's block tree via
 // el()/textContent nodes only, then appends a cut notice (goal 5) when the embedded body is

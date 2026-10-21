@@ -2944,9 +2944,8 @@ function doDelete(id, { onSuccess } = {}) {
 // carries the fixes from that skill's XSS review: escapeHtml covers & < > " ',
 // every interpolated value is escaped, and markdown link hrefs are scheme-checked.
 
-// The Markdown renderer is markdown.js (mdToHtml): one module for card bodies, notes and
-// scratchpad previews, escaping every piece of text as it writes the HTML. The body goes
-// to innerHTML below and nowhere else.
+// The Markdown renderer is markdown.js: one module for card bodies, notes and scratchpad
+// previews, and markdown-ui.js (markdownInto) is the one place its output reaches innerHTML.
 
 // Frontmatter is flat `key: value` per line; split on the FIRST colon only so
 // values that contain colons (e.g. URLs) survive intact. Handles extension
@@ -3116,23 +3115,6 @@ function copyBoardPath() {
   } else done(fallbackCopy(text));
 }
 
-// The Copy button of a typed code block (markdown.js): one delegated listener, so a block copies
-// the same from a card body, a note and a scratchpad preview. It copies the block's text, never
-// the label, through the same clipboard ladder as the path buttons.
-function copyCodeBlock(btn) {
-  const code = btn.closest('.md-code').querySelector('pre code');
-  const text = code ? code.textContent : '';
-  const show = (ok) => {
-    btn.textContent = ok ? 'Copied' : 'Copy failed';
-    btn.classList.toggle('copy-success', ok);
-    btn.classList.toggle('copy-failed', !ok);
-    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copy-success', 'copy-failed'); }, 1500);
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => show(true), () => show(fallbackCopy(text)));
-  } else show(fallbackCopy(text));
-}
-
 let detailRequestId = 0;
 let currentDetailId = null;
 let currentDetailArchived = false;
@@ -3201,7 +3183,7 @@ async function openDetailModal(id, { quiet } = {}) {
   $('#detail-frontmatter').innerHTML = renderFrontmatterTable(parseFrontmatter(data.frontmatter));
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors($('#detail-frontmatter'));
-  $('#detail-body').innerHTML = mdToHtml(data.body || '', { board: state.projectName });
+  markdownInto($('#detail-body'), data.body || '');
   renderDetailRollup(data.id);
   renderDetailRelatives(data.id);
   // Archived cards: Edit only knows about state.active, and Archive on an already-archived
@@ -3327,10 +3309,6 @@ function editFromDetail() {
 
 window.addEventListener('DOMContentLoaded', () => {
   $('#detail-close').addEventListener('click', closeCard);
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.md-code-copy');
-    if (btn) copyCodeBlock(btn);
-  });
   $('#detail-back-btn').addEventListener('click', closeCard);
   $('#detail-copy-btn').addEventListener('click', copyDetailPath);
   // A mention of a card on this board opens that card, in the body and in the

@@ -226,6 +226,79 @@ test('underline tags in code stay code', () => {
   assert.strictEqual(md('<u>a `</u>` b</u>'), '<p><u>a <code>&lt;/u&gt;</code> b</u></p>');
 });
 
+// --- collapsible sections: <details> and <summary> ------------------------------------------
+
+test('<details> with a <summary> is a collapsible section whose body is Markdown', () => {
+  assert.strictEqual(md('<details>\n<summary>More</summary>\n\nbody **text**\n\n- a\n- b\n\n</details>'),
+    '<details><summary>More</summary><p>body <strong>text</strong></p><ul><li>a</li><li>b</li></ul></details>');
+  assert.strictEqual(md('<details>\n<summary>More</summary>\nno blank line\n</details>'),
+    '<details><summary>More</summary><p>no blank line</p></details>');
+});
+
+test('a section starts closed, and open when the tag says <details open>', () => {
+  assert.ok(md('<details>\n<summary>x</summary>\ny\n</details>').startsWith('<details><summary>'));
+  assert.strictEqual(md('<details open>\n<summary>x</summary>\ny\n</details>'), '<details open><summary>x</summary><p>y</p></details>');
+});
+
+test('the summary holds inline marks, and its other tags stay text', () => {
+  assert.strictEqual(md('<details>\n<summary>**Bold** and `code`</summary>\nx\n</details>'),
+    '<details><summary><strong>Bold</strong> and <code>code</code></summary><p>x</p></details>');
+  assert.strictEqual(md('<details>\n<summary><b>x</b></summary>\ny\n</details>'),
+    '<details><summary>&lt;b&gt;x&lt;/b&gt;</summary><p>y</p></details>');
+});
+
+test('a section with no summary is titled [...]', () => {
+  assert.strictEqual(md('<details>\nbare body\n</details>'), '<details><summary>[...]</summary><p>bare body</p></details>');
+  assert.strictEqual(md('<details>\n<summary></summary>\nbody\n</details>'), '<details><summary>[...]</summary><p>body</p></details>');
+});
+
+test('sections nest', () => {
+  assert.strictEqual(md('<details>\n<summary>outer</summary>\n\n<details>\n<summary>inner</summary>\ndeep\n</details>\n\nafter inner\n</details>'),
+    '<details><summary>outer</summary><details><summary>inner</summary><p>deep</p></details><p>after inner</p></details>');
+});
+
+test('a section sits in a quote and holds a fence that shows the closing tag', () => {
+  assert.strictEqual(md('> <details>\n> <summary>q</summary>\n> body\n> </details>'),
+    '<blockquote><details><summary>q</summary><p>body</p></details></blockquote>');
+  assert.strictEqual(md('<details>\n<summary>s</summary>\n```\n</details>\n```\n</details>\nafter'),
+    '<details><summary>s</summary><pre><code>&lt;/details&gt;</code></pre></details><p>after</p>');
+});
+
+test('an unclosed <details> shows as written and never swallows the rest of the body', () => {
+  assert.strictEqual(md('<details>\n<summary>x</summary>\nrest\n\n# Heading\n\n- item'),
+    '<p>&lt;details&gt; &lt;summary&gt;x&lt;/summary&gt; rest</p><h1>Heading</h1><ul><li>item</li></ul>');
+});
+
+test('a misnested pair: the unclosed outer tag is text and the closed inner one is a section', () => {
+  assert.strictEqual(md('<details>\n<details>\ninner\n</details>'),
+    '<p>&lt;details&gt;</p><details><summary>[...]</summary><p>inner</p></details>');
+  assert.strictEqual(md('</details>\nstray'), '<p>&lt;/details&gt; stray</p>');
+});
+
+test('a <details> with any attribute but a bare open stays escaped text', () => {
+  assert.strictEqual(md('<details onclick=alert(1)>\ntext\n</details>'), '<p>&lt;details onclick=alert(1)&gt; text &lt;/details&gt;</p>');
+  assert.strictEqual(md('<details open onclick=x>\ntext\n</details>'), '<p>&lt;details open onclick=x&gt; text &lt;/details&gt;</p>');
+  assert.strictEqual(md('<details  open>\ntext\n</details>'), '<p>&lt;details  open&gt; text &lt;/details&gt;</p>');
+  assert.strictEqual(md('<DETAILS>\ntext\n</DETAILS>'), '<p>&lt;DETAILS&gt; text &lt;/DETAILS&gt;</p>');
+  assert.strictEqual(md('<details>\n<summary onclick=x>t</summary>\nb\n</details>'),
+    '<details><summary>[...]</summary><p>&lt;summary onclick=x&gt;t&lt;/summary&gt; b</p></details>');
+});
+
+test('the tags must stand on lines of their own: inline in a sentence they are text', () => {
+  assert.strictEqual(md('a <details>b</details> c'), '<p>a &lt;details&gt;b&lt;/details&gt; c</p>');
+  assert.strictEqual(md('<details>x\n</details>'), '<p>&lt;details&gt;x &lt;/details&gt;</p>');
+});
+
+test('a summary after the first line of the section is text', () => {
+  assert.strictEqual(md('<details>\nfirst\n<summary>late</summary>\n</details>'),
+    '<details><summary>[...]</summary><p>first &lt;summary&gt;late&lt;/summary&gt;</p></details>');
+});
+
+test('a section inside a list item ends the list, like a heading does', () => {
+  assert.strictEqual(md('- a\n<details>\n<summary>s</summary>\nb\n</details>'),
+    '<ul><li>a</li></ul><details><summary>s</summary><p>b</p></details>');
+});
+
 // --- fences -----------------------------------------------------------------------------
 
 test('a plain fence renders exactly as before', () => {

@@ -28,6 +28,7 @@ function webToHtml(html) {
   return html
     .replace(/&#9745;/g, '☑')
     .replace(/&#9744;/g, '☐')
+    .replace(/<details open>/g, '<details open="">')
     .replace(/ data-card-id="([^"]*)" tabindex="0" role="link"/g, ' data-mapnode="$1"')
     .replace(/<([a-z0-9]+)((?: [a-z-]+="[^"]*")+)>/g, (m, tag, attrs) => {
       const pairs = [...attrs.matchAll(/ ([a-z-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]]);

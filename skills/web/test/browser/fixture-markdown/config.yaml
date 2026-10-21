@@ -1,0 +1,4 @@
+name: markdown
+nextId: 23
+statuses: [backlog, todo, doing, done]
+priorities: [High, Normal, Low]

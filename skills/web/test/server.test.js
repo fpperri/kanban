@@ -2983,8 +2983,10 @@ test('XSS sweep: the detail popup draws the card body through the one renderer, 
     assert.ok(page.indexOf('/markdown.js') > -1 && page.indexOf('/markdown.js') < page.indexOf('/app.js'), 'the page loads the renderer before app.js');
     const js = await (await fetch(`${base}/app.js`)).text();
     assert.ok(!js.includes('function mdToHtml('), 'app.js carries no second renderer');
-    assert.ok(js.includes("$('#detail-body').innerHTML = mdToHtml(data.body || '', { board: state.projectName });"),
-      'the one innerHTML write for the body is the renderer output');
+    assert.ok(js.includes("markdownInto($('#detail-body'), data.body || '');"), 'the body goes in through markdownInto');
+    const ui = await (await fetch(`${base}/markdown-ui.js`)).text();
+    assert.strictEqual((ui.match(/\.innerHTML = /g) || []).length, 1, 'and markdownInto holds the one innerHTML write of the renderer output');
+    assert.ok(ui.includes("el.innerHTML = mdToHtml(text || '', { board: state.projectName });"));
     const renderer = await (await fetch(`${base}/markdown.js`)).text();
     assert.ok(!renderer.includes('innerHTML'), 'the renderer only returns a string');
     assert.ok(renderer.includes('SAFE_HREF_RE'), 'markdown links fall back to # for any scheme outside the allowlist (e.g. javascript:)');

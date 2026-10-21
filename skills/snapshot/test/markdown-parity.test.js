@@ -39,7 +39,7 @@ test('the snapshot draws every construct of the fixture as the web does', () => 
 test('the fixture reaches every block kind the parse has', () => {
   const html = mdToHtml(FIXTURE, { board: 'fixture' });
   for (const marker of ['<h1>', '<h6>', '<ol>', '<ol start="3">', '<ul>', 'class="task done"', '<blockquote>', '<pre><code>', 'data-lang="c#"',
-    'data-lang="mermaid"', 'class="md-table"', 'class="ta-center"', '<hr>', '<br>', '<del>', '<u>', '<em><strong>', 'class="mention"']) {
+    'data-lang="mermaid"', 'class="md-table"', 'class="ta-center"', '<hr>', '<br>', '<del>', '<u>', '<em><strong>', 'class="mention"', '<details><summary>', '<details open>']) {
     assert.ok(html.includes(marker), `${marker} is in the fixture's HTML`);
   }
   assert.ok(!html.includes('<script') && !html.includes('<u onclick'), 'and nothing from it is live markup');

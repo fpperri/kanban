@@ -81,6 +81,15 @@ test('bodies stay under the snapshot caps on every board', () => {
   }
 });
 
+test('markdown board: the fixture board plus card 22, whose body holds the constructs the markdown scenario reads', () => {
+  const b = load('markdown');
+  assert.strictEqual(b.cards.length, 22);
+  const body = b.byId.get('22')._rawBody;
+  for (const marker of ['#### ', '**bold**', '~~struck~~', '<u>underlined</u>', 'https://example.test/docs', '1. first', '   - a bullet under a number', '> quoted words', '> - and a quoted bullet', '```c#', '````', '<details>', '<summary>Open me</summary>']) {
+    assert.ok(body.includes(marker), `card 22 holds ${marker}`);
+  }
+});
+
 test('plan board config: a four-tier hierarchy, and story, task and bug types outside it', () => {
   const b = load('plan');
   const hierarchy = b.config.hierarchy;

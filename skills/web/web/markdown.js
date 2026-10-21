@@ -3,8 +3,8 @@
 // the snapshot embeds this same file and builds DOM nodes from its parse. Hand-rolled, no
 // dependency. Headings, ordered and unordered lists (nested, mixed, with `- [x]` task items and
 // lazy continuation lines), block quotes, fenced code (``` or ~~~, any longer run, a language
-// label and a Copy button when typed), pipe tables, rules, bold, italic, strike, inline code, links
-// and bare https addresses, hard line breaks. No DOM here: loaded as a plain <script> and required
+// label and a Copy button when typed), pipe tables, rules, collapsible <details> sections, bold,
+// italic, strike, underline, inline code, links and bare https addresses, hard line breaks. No DOM here: loaded as a plain <script> and required
 // directly by node --test.
 //
 // Two steps. parseMarkdown(text) reads the RAW text into a tree of blocks whose text-bearing
@@ -212,6 +212,28 @@ const markdownModule = (() => {
   const BULLET_RE = /^(\s*)([-*+])\s+(.*)$/;
   const ORDERED_RE = /^(\s*)(\d{1,9})[.)]\s+(.*)$/;
   const TASK_RE = /^\[( |x|X)\]\s+(.*)$/;
+  const DETAILS_OPEN_RE = /^\s*<details( open)?>\s*$/;
+  const DETAILS_CLOSE_RE = /^\s*<\/details>\s*$/;
+  const SUMMARY_RE = /^\s*<summary>(.*)<\/summary>\s*$/;
+
+  // The line a section opened at line i closes on: its own </details>, counting the sections nested
+  // inside it and skipping fenced code, where a </details> is only text. -1 when nothing closes it.
+  function detailsClose(lines, i) {
+    let depth = 0;
+    for (let j = i; j < lines.length; j++) {
+      const fence = FENCE_OPEN_RE.exec(lines[j]);
+      if (fence) {
+        const run = fence[1] || fence[3];
+        const closeRe = new RegExp(`^\\s*${run[0]}{${run.length},}\\s*$`);
+        j++;
+        while (j < lines.length && !closeRe.test(lines[j])) j++;
+        continue;
+      }
+      if (DETAILS_OPEN_RE.test(lines[j])) depth++;
+      else if (DETAILS_CLOSE_RE.test(lines[j]) && --depth === 0) return j;
+    }
+    return -1;
+  }
 
   // Block structure over raw lines: a flat list of blocks, each
   //   { t: 'h', level, inline } { t: 'p', inline } { t: 'hr' } { t: 'pre', code, lang }
@@ -244,6 +266,21 @@ const markdownModule = (() => {
           code.push(lines[i]);
         }
         if (closed || code.length) blocks.push({ t: 'pre', code: code.join('\n'), lang: codeLang(fence[2] !== undefined ? fence[2] : fence[4]) });
+        continue;
+      }
+
+      const section = DETAILS_OPEN_RE.exec(line);
+      const sectionEnd = section ? detailsClose(lines, i) : -1;
+      if (sectionEnd !== -1) {
+        flushPara();
+        closeList();
+        const inner = lines.slice(i + 1, sectionEnd);
+        const first = inner.findIndex((l) => l.trim() !== '');
+        const title = first === -1 ? null : SUMMARY_RE.exec(inner[first]);
+        if (title) inner.splice(0, first + 1);
+        const heading = title && title[1].trim() ? parseInline(title[1].trim()) : [{ t: 'text', v: '[...]' }];
+        blocks.push({ t: 'details', open: !!section[1], summary: heading, blocks: parseBlocks(inner) });
+        i = sectionEnd;
         continue;
       }
 
@@ -416,6 +453,7 @@ const markdownModule = (() => {
       if (b.t === 'hr') return '<hr>';
       if (b.t === 'pre') return preHtml(b);
       if (b.t === 'quote') return `<blockquote>${blocksHtml(b.blocks, board)}</blockquote>`;
+      if (b.t === 'details') return `<details${b.open ? ' open' : ''}><summary>${inlineHtml(b.summary, board)}</summary>${blocksHtml(b.blocks, board)}</details>`;
       if (b.t === 'list') return listHtml(b, board);
       return tableHtml(b, board);
     }).join('');

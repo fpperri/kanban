@@ -5,10 +5,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // The Copy button of a typed code block copies the block's text, not its label, through one
-// delegated listener, so it works wherever the renderer is used. This runs the real function
-// from app.js against a stand-in button and clipboard.
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-const fn = appSrc.match(/function copyCodeBlock\([\s\S]*?\n\}/);
+// delegated listener, so it works wherever the renderer is used. This runs the real functions
+// from markdown-ui.js against a stand-in button, clipboard and document.
+const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'markdown-ui.js'), 'utf8').replace(/\r\n/g, '\n');
+const { mdToHtml } = require('../web/markdown.js');
 
 function buttonFor(codeText) {
   const classes = new Set();
@@ -21,22 +21,25 @@ function buttonFor(codeText) {
 
 function run(clipboard) {
   const copied = [];
+  const listeners = [];
   const sandbox = {
     navigator: { clipboard },
+    document: { addEventListener: (type, fn) => listeners.push([type, fn]) },
     fallbackCopy: (t) => { copied.push(['fallback', t]); return true; },
     setTimeout: () => 0,
+    mdToHtml,
+    state: { projectName: 'webapp' },
   };
   vm.createContext(sandbox);
-  vm.runInContext(fn[0], sandbox);
-  return { copyCodeBlock: sandbox.copyCodeBlock, copied };
+  vm.runInContext(src, sandbox);
+  return { sandbox, copied, listeners };
 }
 
 test('the Copy button copies the code of its own block and says so', async () => {
-  assert.ok(fn, 'copyCodeBlock is defined in app.js');
   const written = [];
-  const { copyCodeBlock } = run({ writeText: (t) => { written.push(t); return Promise.resolve(); } });
+  const { sandbox } = run({ writeText: (t) => { written.push(t); return Promise.resolve(); } });
   const btn = buttonFor('var x = 1;\nvar y = 2;');
-  copyCodeBlock(btn);
+  sandbox.copyCodeBlock(btn);
   await Promise.resolve();
   assert.deepStrictEqual(written, ['var x = 1;\nvar y = 2;']);
   assert.strictEqual(btn.textContent, 'Copied');
@@ -44,20 +47,37 @@ test('the Copy button copies the code of its own block and says so', async () =>
 });
 
 test('when the clipboard refuses, the textarea fallback copies it and the button still answers', async () => {
-  const { copyCodeBlock, copied } = run({ writeText: () => Promise.reject(new Error('denied')) });
+  const { sandbox, copied } = run({ writeText: () => Promise.reject(new Error('denied')) });
   const btn = buttonFor('code');
-  copyCodeBlock(btn);
+  sandbox.copyCodeBlock(btn);
   await new Promise((r) => setImmediate(r));
   assert.deepStrictEqual(copied, [['fallback', 'code']]);
   assert.strictEqual(btn.textContent, 'Copied');
 });
 
 test('with no clipboard API at all the fallback copies', () => {
-  const { copyCodeBlock, copied } = run(undefined);
-  copyCodeBlock(buttonFor('code'));
+  const { sandbox, copied } = run(undefined);
+  sandbox.copyCodeBlock(buttonFor('code'));
   assert.deepStrictEqual(copied, [['fallback', 'code']]);
 });
 
-test('one document listener serves every Copy button', () => {
-  assert.match(appSrc, /document\.addEventListener\('click', \(e\) => \{\s*const btn = e\.target\.closest\('\.md-code-copy'\);\s*if \(btn\) copyCodeBlock\(btn\);/);
+test('one document listener serves every Copy button, and ignores a click anywhere else', () => {
+  const written = [];
+  const { listeners } = run({ writeText: (t) => { written.push(t); return Promise.resolve(); } });
+  assert.deepStrictEqual(listeners.map(([type]) => type), ['click']);
+  const [, onClick] = listeners[0];
+  onClick({ target: { closest: (sel) => (sel === '.md-code-copy' ? buttonFor('the code') : null) } });
+  assert.deepStrictEqual(written, ['the code'], 'a click on a Copy button starts a copy');
+  onClick({ target: { closest: () => null } });
+  assert.strictEqual(written.length, 1, 'a click elsewhere copies nothing');
+});
+
+test('markdownInto writes the rendered text into the element, with this board as the one whose mentions open', () => {
+  const { sandbox } = run(undefined);
+  const el = { innerHTML: '' };
+  sandbox.markdownInto(el, 'see `webapp#4 t` and `other#4 t`');
+  assert.ok(el.innerHTML.includes('class="mention same" data-card-id="4"'));
+  assert.ok(el.innerHTML.includes('<code class="mention">other#4 t</code>'));
+  sandbox.markdownInto(el, undefined);
+  assert.strictEqual(el.innerHTML, '', 'no text is no markup');
 });
