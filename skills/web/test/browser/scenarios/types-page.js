@@ -27,6 +27,8 @@ module.exports = {
   name: 'types-page',
   board: 'plan',
   timeoutMs: 110000,
+  // the conflict step makes the server answer 409 on purpose, which the browser logs
+  expectedErrors: [/status of 409 \(Conflict\)/],
   async run(page) {
     const { ev, send, waitFor, centre, click, check } = page;
     const clickOn = async (sel) => {
