@@ -569,7 +569,13 @@ const markdownModule = (() => {
     return renderBlocks(parseMarkdown(md), opts && opts.board);
   }
 
-  return { parseMarkdown, parseInline, mdToHtml, renderBlocks, codeLang, splitRow, isTableDelimiter };
+  // One line of text as inline HTML with no block around it, for a row that holds a single line (a todo
+  // item): a leading # or - stays text, and a line break is a space.
+  function mdInlineToHtml(md, opts) {
+    return inlineHtml(parseInline(String(md == null ? '' : md).replace(/\s*[\r\n]+\s*/g, ' ')), opts && opts.board);
+  }
+
+  return { parseMarkdown, parseInline, mdToHtml, mdInlineToHtml, renderBlocks, codeLang, splitRow, isTableDelimiter };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -577,4 +583,5 @@ if (typeof module !== 'undefined' && module.exports) {
 } else {
   window.kanbanMarkdown = markdownModule;
   window.mdToHtml = markdownModule.mdToHtml;
+  window.mdInlineToHtml = markdownModule.mdInlineToHtml;
 }

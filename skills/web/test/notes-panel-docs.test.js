@@ -56,7 +56,7 @@ test('it describes the range: its buttons, its label, what it opens on, and that
 
 test('it says the boxes grow, Esc and the tab keys', () => {
   assert.match(notes, /grows with its text, typed and wrapped lines both, up to 12 lines or 40% of the window/);
-  assert.match(notes, /`Alt\+1`, `Alt\+2` and `Alt\+3` switch the open palette's first, second and third tab/);
+  assert.match(notes, /`Alt\+1` to `Alt\+4` switch the open palette's first to fourth tab \(Notes, Group, Scratchpad,\s+Todos/);
 });
 
 test('the Calendar section describes the notes strip and its divider', () => {
@@ -97,4 +97,14 @@ test('the text boxes paragraph names the four boxes and every key', () => {
   assert.match(textBoxes, /the browser's Undo takes any of them back in one step/);
   assert.match(textBoxes, /Their browser actions \(view source, the address bar\) are stopped only while one of these boxes has focus/);
   assert.match(textBoxes, /Enter, Shift\+Enter, Ctrl\+Enter and Ctrl\+S keep what they do in each box, and the single-line fields \(the filter, the time, a combobox\) keep the browser's Tab/);
+});
+
+test('it says the palette goes full screen as the card details do, by its header button and Alt+Enter, and not on a phone', () => {
+  assert.match(notes, /The palette's header has the card details' full screen button, and `Alt\+Enter` does the same while the palette is the popup that is up/);
+  assert.match(notes, /over the card details it toggles the palette, not the details/);
+  assert.match(notes, /the list, the Scratchpad tab's box and its Preview take the height/);
+  assert.match(notes, /The choice is kept per board; every key, tab and Esc work as before/);
+  assert.match(notes, /With focus in the palette while another popup is up, `Alt\+Enter` does nothing/);
+  assert.match(notes, /On a phone \(under 760 px\) the palette is always full screen, as the card details are: the button is not there, a saved choice makes no difference and `Alt\+Enter` does nothing/);
+  assert.match(notes, /\(30 lines or 70% of the window when the palette is full screen\)/);
 });

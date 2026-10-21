@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], typesOn: true, pills: [], archivePackages: [], logbook: null, groups: null, scratchpad: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], typesOn: true, pills: [], archivePackages: [], logbook: null, todos: null, groups: null, scratchpad: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -451,18 +451,30 @@ const AI_PROMPT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 const FULLSCREEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>';
 const EXIT_FULLSCREEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>';
 
-// Registry mapping a modal type (matches modal-fullscreen.js's MODAL_TYPES)
-// to its DOM handles. Following the .modal-backdrop convention here (rather
-// than hardcoding two call sites) lets a future popup
-// get fullscreen "mostly free": it only
-// needs an entry here plus a toggle button of its own.
+// Registry mapping a type (matches modal-fullscreen.js's MODAL_TYPES) to its
+// DOM handles. An entry is a selector or a function for each of:
+//   btn        the toggle button;
+//   backdrop   a .modal-backdrop popup, whose .modal is the panel and whose
+//              hidden class says whether it is open; or, for a panel that is
+//              no backdrop popup,
+//   panel      the element that takes the fullscreen class, with
+//   isOpen()   whether the type is the popup that is up;
+// and, both optional,
+//   locked()   true or false where the type has no choice (it is always, or
+//              never, fullscreen there): the saved choice is not applied, the
+//              button is hidden and the toggle does nothing; null otherwise;
+//   onChange() called after the button or Alt+Enter toggled it.
+// The first open type in the order below is the one Alt+Enter toggles.
 const FULLSCREEN_MODALS = {
+  // The notes palette draws above the card details, so it answers first.
+  notes: { btn: () => notesUi.fsBtn, panel: () => notesUi.el, isOpen: () => notesOnTop(), locked: () => notesFullscreenLocked(), onChange: () => notesFullscreenChanged() },
   edit: { backdrop: '#modal', btn: '#modal-fullscreen-btn' },
   detail: { backdrop: '#detail-modal', btn: '#detail-fullscreen-btn' },
   bulkSingle: { backdrop: '#bulk-single', btn: '#bulk-single-fullscreen-btn' },
   bulkTags: { backdrop: '#bulk-tags', btn: '#bulk-tags-fullscreen-btn' },
   bulkSchedule: { backdrop: '#bulk-schedule', btn: '#bulk-schedule-fullscreen-btn' },
 };
+const fullscreenEl = (ref) => (typeof ref === 'function' ? ref() : $(ref));
 
 let modalFullscreen = null;
 
@@ -492,10 +504,13 @@ function saveModalFullscreen() {
 function setModalFullscreenVisual(type, on) {
   const cfg = FULLSCREEN_MODALS[type];
   if (!cfg) return;
-  const backdrop = $(cfg.backdrop);
-  const btn = $(cfg.btn);
-  const panel = backdrop && backdrop.querySelector('.modal');
+  const btn = fullscreenEl(cfg.btn);
+  const backdrop = cfg.backdrop && fullscreenEl(cfg.backdrop);
+  const panel = cfg.panel ? fullscreenEl(cfg.panel) : backdrop && backdrop.querySelector('.modal');
   if (!panel || !btn) return;
+  const locked = cfg.locked ? cfg.locked() : null;
+  if (cfg.locked) btn.hidden = locked !== null;
+  if (locked !== null) on = locked;
   panel.classList.toggle('fullscreen', on);
   btn.innerHTML = on ? EXIT_FULLSCREEN_ICON : FULLSCREEN_ICON;
   const label = on ? 'Exit full screen' : 'Expand to full screen';
@@ -513,10 +528,12 @@ function applyModalFullscreen(type) {
 
 function toggleModalFullscreen(type) {
   const fs = loadModalFullscreen();
-  if (!(type in fs)) return;
+  const cfg = FULLSCREEN_MODALS[type];
+  if (!(type in fs) || !cfg || (cfg.locked && cfg.locked() !== null)) return;
   fs[type] = !fs[type];
   saveModalFullscreen();
   applyModalFullscreen(type);
+  if (cfg.onChange) cfg.onChange();
 }
 
 // The fullscreen-capable popup currently open, if any (the Alt+Enter
@@ -525,7 +542,12 @@ function toggleModalFullscreen(type) {
 // and correctly yields null.
 function openFullscreenModalType() {
   for (const type of Object.keys(FULLSCREEN_MODALS)) {
-    const backdrop = $(FULLSCREEN_MODALS[type].backdrop);
+    const cfg = FULLSCREEN_MODALS[type];
+    if (cfg.isOpen) {
+      if (cfg.isOpen()) return type;
+      continue;
+    }
+    const backdrop = fullscreenEl(cfg.backdrop);
     if (backdrop && !backdrop.classList.contains('hidden')) return type;
   }
   return null;
@@ -715,6 +737,8 @@ function cardEl(card) {
   }
   const noteCount = noteCountButton(card.id); // the small note count, only when the card has notes
   if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
+  const todoCount = todoCountButton(card.id); // open over all todo items, only when the card has a list with items
+  if (todoCount) el.querySelector('.card-head').appendChild(todoCount);
   const badges = groupBadges(card.id); // up to two group badges, only when the board keeps groups and the card is in one
   if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
@@ -764,6 +788,8 @@ function archiveCardEl(card) {
   paintRollupBars(el);
   const noteCount = noteCountButton(card.id);
   if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
+  const todoCount = todoCountButton(card.id);
+  if (todoCount) el.querySelector('.card-head').appendChild(todoCount);
   const badges = groupBadges(card.id);
   if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
@@ -2183,6 +2209,7 @@ function applyBoardData(data) {
   state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
   state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
   state.scratchpad = data.scratchpad || null; // { folder, targets } when config.yaml has a scratchpad: line, else null and nothing of it shows (scratchpad-ui.js); targets are the ids that have a page
+  state.todos = data.todos || null; // { folder, targets, counts } when config.yaml has a todos: line, else null and nothing of it shows (todos-ui.js); counts are { id: { open, total } }, read by the card tiles
   state.logbook = data.logbook || null; // { folder, notes } when config.yaml has a logbook: line, else null and nothing of it shows (notes.js, notes-palette.js); read by the card tiles, so before renderBoard
   dropGoneCards(); // before render, so a card a poll found gone is not an invisible part
   // Cards became focusable in #261 and renderBoard() rebuilds every one of
@@ -2699,7 +2726,7 @@ function syncAssigneeColor() {
 // same hidden-field-submits-while-minimal trick, but for #f-start alone;
 // status is deliberately left at its own default here (see the Calendar view
 // dblclick glue below for why).
-// The card whose detail the open edit form was started from: on a phone Save returns there.
+// The card whose details the open edit form was started from: Save, and leaving the form, return there.
 let editFromCardId = null;
 
 function openModal(card, presetStatus, presetStart, presetParent) {
@@ -2746,6 +2773,26 @@ function openModal(card, presetStatus, presetStart, presetParent) {
 
 function closeModal() { $('#modal').classList.add('hidden'); }
 
+// Back to the details the edit form came from. The address decides which card they show: Back or Forward
+// may have moved it while the form was up (the popup was left alone then), and it names no card when they
+// stepped back to the board. `seen` is detailRequestId when the form closed: if it moved, the person opened or
+// closed a card since, and that choice stands. The card is read again, so the details show what was saved,
+// and they take the focus. No history step is pushed. A card deleted on disk meanwhile is said gone and
+// taken out of the address, replacing its step.
+async function returnToDetails(seen) {
+  if (detailRequestId !== seen) return;
+  const id = cardIdFromSearch(location.search);
+  if (id === null) return;
+  const failed = (e) => {
+    closeDetailModal();
+    const search = nextCardHistorySearch(location.search, null);
+    if (search !== null) history.replaceState(null, '', location.pathname + search);
+    toast(e.status === 404 ? `Card #${id} is gone.` : 'Load failed: ' + e.message);
+    if (e.status === 404) loadBoard();
+  };
+  if (await openDetailModal(id, { onFail: failed })) $('#detail-modal .modal').focus({ preventScroll: true });
+}
+
 // Backdrop-close for the edit/new-card form: silent when the form
 // is untouched, one confirm when typed work would be lost. Cancel/Save keep
 // their existing behavior — explicit buttons are deliberate, only the easy-to-
@@ -2764,7 +2811,10 @@ function snapshotFormFields() {
 function requestCloseModal() {
   if (isDirty(formSnapshot, snapshotFormFields()) &&
       !confirm('Discard unsaved changes to this card?')) return;
+  const backToCard = editFromCardId !== null;
+  const seen = detailRequestId;
   closeModal();
+  if (backToCard) returnToDetails(seen);
 }
 
 function parseIds(s) {
@@ -2819,11 +2869,12 @@ async function submitModal(e) {
     let joined = '';
     if (id) await api('PATCH', `/api/cards/${id}`, payload);
     else joined = groupJoinedNote(((await api('POST', '/api/cards', payload)) || {}).joined);
-    const backToCard = id && onPhoneLayout() && editFromCardId !== null && String(editFromCardId) === id ? editFromCardId : null;
+    const backToCard = Boolean(id) && editFromCardId !== null && String(editFromCardId) === id;
+    const seen = detailRequestId;
     closeModal();
-    if (backToCard !== null) setPhoneColumn(payload.status);
+    if (backToCard && onPhoneLayout()) setPhoneColumn(payload.status);
     await loadBoard();
-    if (backToCard !== null) openDetailModal(backToCard);
+    if (backToCard) await returnToDetails(seen);
     const note = before && before.status !== 'done' ? openLeavesNote([before], payload.status) : '';
     if (note) toast(`${note}.`);
     else if (joined) toast(joined);
@@ -3167,14 +3218,15 @@ function formatDetailModified(data) {
 // `quiet` (popstate's use only — see below): on a failed fetch, close the
 // popup instead of toasting. Returns true iff the card actually ended up
 // showing, so callers that need to know (openCard, below) can tell a real
-// open from a failed one instead of assuming success.
-async function openDetailModal(id, { quiet } = {}) {
+// open from a failed one instead of assuming success. `onFail(error)` (the edit form's return) takes over the
+// failure from both the quiet close and the toast.
+async function openDetailModal(id, { quiet, onFail } = {}) {
   const reqId = ++detailRequestId;
   let data;
   try { data = await api('GET', `/api/cards/${id}/detail`); }
   catch (e) {
     if (reqId !== detailRequestId) return false; // superseded — some other call already decided the popup's fate
-    if (quiet) closeDetailModal(); else toast('Load failed: ' + e.message);
+    if (onFail) onFail(e); else if (quiet) closeDetailModal(); else toast('Load failed: ' + e.message);
     return false;
   }
   if (reqId !== detailRequestId) return false; // a newer openDetailModal call superseded this one
@@ -3370,7 +3422,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // An open detail popup closes on the very first Esc regardless of its
   // fullscreen state. The edit/new-card modal closes on Esc too — through
   // requestCloseModal(), the exact same unsaved-changes guard the X button
-  // uses. Esc
+  // uses, and it returns to the details the form was opened from. Esc
   // never calls setModalFullscreenVisual, so the persisted preference
   // and the toggle button's state are untouched by it either way — the toggle
   // button is the only thing that changes fullscreen. The
@@ -6166,6 +6218,7 @@ function showContextMenu(x, y) {
   $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-child').classList.toggle('hidden', !!menuSubject.canvas || menuSubject.ids.length !== 1 || !state.active.some((c) => String(c.id) === String(menuSubject.ids[0])));
   $('#ctx-scratch').classList.toggle('hidden', !scratchpadOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
+  $('#ctx-todos').classList.toggle('hidden', !todosOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
   $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);

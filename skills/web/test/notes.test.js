@@ -328,6 +328,18 @@ test('a note box stops growing at 12 lines and scrolls inside past them', () => 
   assert.deepStrictEqual(size(5000), { height: 254, scroll: true });
 });
 
+test('a note box may be given more lines than 12, and the window still caps it', () => {
+  assert.deepStrictEqual(size(5000, { lines: 30 }), { height: 400, scroll: true }, '40% of 1000 is less than 30 lines');
+  assert.deepStrictEqual(size(5000, { lines: 30, windowHeight: 2000 }), { height: 614, scroll: true });
+  assert.deepStrictEqual(size(14 + 20 * 20, { lines: 30, windowHeight: 2000 }), { height: 414, scroll: false }, 'twenty lines fit');
+});
+
+test('a note box may be given a bigger share of the window too', () => {
+  assert.deepStrictEqual(size(5000, { lines: 30, share: 0.7 }), { height: 614, scroll: true }, '70% of 1000 is more than 30 lines');
+  assert.deepStrictEqual(size(5000, { lines: 30, share: 0.7, windowHeight: 600 }), { height: 420, scroll: true });
+  assert.deepStrictEqual(size(5000, { windowHeight: 600 }), { height: 240, scroll: true }, 'without a share it is 40%');
+});
+
 test('a note box stops at 40% of the window when that is less than 12 lines', () => {
   assert.deepStrictEqual(size(5000, { windowHeight: 500 }), { height: 200, scroll: true });
   assert.deepStrictEqual(size(150, { windowHeight: 500 }), { height: 150, scroll: false });
@@ -344,8 +356,8 @@ test('a note box takes whole pixels, and shrinks when its text does', () => {
 
 const alt = (key, over = {}) => ({ key, code: `Digit${key}`, altKey: true, ctrlKey: false, metaKey: false, shiftKey: false, ...over });
 
-test('Alt+1, Alt+2 and Alt+3 are the first, second and third tab', () => {
-  assert.deepStrictEqual(['1', '2', '3'].map((k) => n.noteTabKey(alt(k))), [0, 1, 2]);
+test('Alt+1, Alt+2, Alt+3 and Alt+4 are the first, second, third and fourth tab', () => {
+  assert.deepStrictEqual(['1', '2', '3', '4'].map((k) => n.noteTabKey(alt(k))), [0, 1, 2, 3]);
 });
 
 test('the digit is found by its key or, where Alt changes the character, by its place on the keyboard', () => {
@@ -354,7 +366,7 @@ test('the digit is found by its key or, where Alt changes the character, by its 
 });
 
 test('any other key, a digit without Alt, or Alt with another modifier is no tab key', () => {
-  assert.strictEqual(n.noteTabKey(alt('4')), -1);
+  assert.strictEqual(n.noteTabKey(alt('5')), -1);
   assert.strictEqual(n.noteTabKey(alt('0')), -1);
   assert.strictEqual(n.noteTabKey({ key: '1', code: 'Digit1', altKey: false }), -1);
   assert.strictEqual(n.noteTabKey(alt('1', { ctrlKey: true })), -1);

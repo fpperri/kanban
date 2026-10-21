@@ -694,13 +694,14 @@ to `127.0.0.1` only.
   deletes the card's day files; left unticked they stay and read as dangling. **Its scratchpad**
   (only when the board keeps scratchpads and the card has a page, or **Their scratchpads** with
   the count over a selection) deletes its page, and unticked the page stays: the kanban never
-  deletes one otherwise. A group's popup
-  (the Group tab's **Delete group…**) deletes the group file and offers the same logbook and scratchpad boxes,
+  deletes one otherwise. **Its todo list** (only when the board keeps todo lists and the card has one, or
+  **Their todo lists** over a selection) is the third, the same way. A group's popup
+  (the Group tab's **Delete group…**) deletes the group file and offers the same logbook, scratchpad and todo list boxes,
   plus **Its member cards**: the list shows each member it would delete and names the members
   another group holds as skipped, with the groups that hold them, and only the others are
-  deleted. Ticking it offers, each unticked, **Their logbooks** and **Their scratchpads**, counted
+  deleted. Ticking it offers, each unticked, **Their logbooks**, **Their scratchpads** and **Their todo lists**, counted
   over the members it would delete; unticked, those files stay. The server's `DELETE /api/cards/<id>` and
-  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, members, memberLogbook, memberScratchpad }` in the body,
+  `DELETE /api/groups/<id>` take `{ logbook, scratchpad, todos, members, memberLogbook, memberScratchpad, memberTodos }` in the body,
   each only when `true` (the member boxes count only with `members`), and answer what went (`groups`, `deleted`,
   `kept`, `swept`, `membersSwept`). Archiving never opens it and
   gets none of its questions.
@@ -746,7 +747,7 @@ to `127.0.0.1` only.
   keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add note…**, **Add child…**, then the groups **Edit**
   (**Assign…**, **Set priority…**, **Edit tags…**, **Schedule…**), **Group** (**Add to group…**,
   **Make a group from them…**) and **Explore** (**Isolate**, **Dependency tree**, **Dependency
-  path**), then **Scratchpad…**, **Add to selection**, and Archive, Restore, Delete (never in a
+  path**), then **Scratchpad…**, **Todos…**, **Add to selection**, and Archive, Restore, Delete (never in a
   group) — acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
   selection inside it, regardless of which view opened it. The subject is fixed when the menu
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
@@ -1101,7 +1102,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1117,11 +1118,11 @@ to `127.0.0.1` only.
   traps no Tab, so Tab from its last control leaves it. While it is open the 5s refresh does
   not rebuild the board under it, `/`, `p` and Ctrl+F do nothing (the shared key guard names
   the sheet), and a click inside it never clears a selection. `?` opens the sheet on its Hotkeys page.
-  **This board** has the pages Logbook, Scratchpad, Groups, Types, Prefixes and Counters, each written to
+  **This board** has the pages Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters, each written to
   `config.yaml` one top-level line at a time (or one block, below; the line replaced, inserted or removed, every
   other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with
   `{ key, value }`, which answers `{ settings }` as the file now reads. **Logbook**,
-  **Scratchpad** and **Groups** each have an on/off switch (off removes the line, on writes the folder) and a
+  **Scratchpad**, **Todos** and **Groups** each have an on/off switch (off removes the line, on writes the folder) and a
   folder field (saving a folder turns the feature on). The page takes a folder inside the
   board only, saved relative to it, and the server refuses a folder that leaves the board,
   the board itself, or a name that would need quoting in the file (400); a folder written by
@@ -1165,7 +1166,7 @@ to `127.0.0.1` only.
   only the names of new card files. **Counters** shows `nextId:` and the `counters:` line, read only.
   Every page of This
   board shows the absolute path it reads (`config.yaml` for Types, Prefixes and Counters; the folder for
-  Logbook, Scratchpad and Groups; nothing when the feature is off) with a **Copy** button that says
+  Logbook, Scratchpad, Todos and Groups; nothing when the feature is off) with a **Copy** button that says
   Copied.
   **One line or one whole block per save.** A save changes one top-level line of `config.yaml`, or
   rewrites one whole top-level block, `types:`, `hierarchy:` or `prefixes:`, from `{ block, value }`:
@@ -1195,12 +1196,12 @@ to `127.0.0.1` only.
   while a page is open does not turn its save into a conflict. A 409 that is not a stale version (a
   folder locked outside the board) shows its own message under its control. A save that sends no version
   is not checked. The
-  `/api/board` payload carries `settings`: `logbook`, `scratchpad` and `groups` as `{ on, folder, locked,
+  `/api/board` payload carries `settings`: `logbook`, `scratchpad`, `todos` and `groups` as `{ on, folder, locked,
   reason }`, `idDigits`, `nextId`, `prefixes` (and `prefixClashes`, the prefixes two lines name for
   different targets) and `counters`, and for the Types page `types`,
   `hierarchy`, `typesOn`, `typeUse` (how many cards, on the board and archived, carry each `type:` word
   as written), `version`, and `paths` (the absolute path of `config.yaml` and of the logbook,
-  scratchpad and groups folders, resolved whether or not the folder exists, `null` when off) for
+  scratchpad, todos and groups folders, resolved whether or not the folder exists, `null` when off) for
   each page's copy button (the Iterations switch shows the
   payload's own top-level `iterations`). Another page of
   This board is added with `settingsAddBoardPage` in `settings-ui.js`.
@@ -1256,7 +1257,7 @@ to `127.0.0.1` only.
   Day, today otherwise; aiming the palette (the picker, a bare mention) opens it again for the new
   subject. It never changes the day a note is written to, and a note written outside it stays
   listed;
-  **Alt+1**, **Alt+2** and **Alt+3** switch the open palette to its first, second and third tab
+  **Alt+1** to **Alt+4** switch the open palette to its first to fourth tab
   in the order the tab row shows them (`notesTabs()`, `notesSetTab`); a number past the last tab
   does nothing, each tab shows its key, and they work from the note box (`noteTabKey`, notes.js;
   Alt+Left and Alt+Right stay the browser's). **Shift+Enter** starts a new line. The note box starts one line high and grows with its text,
@@ -1388,6 +1389,43 @@ to `127.0.0.1` only.
   stay the path as written, with `logbookNow` and `scratchpadNow` the folder a new write goes to
   today (`null` for a path without the placeholder); the gear's path bar shows both and the
   folder field accepts a `<iteration>` segment, as in `0005.sprint-496`.
+- **Todos** — with a `todos:` line in `config.yaml` (the folder of the board's todo lists, see the
+  kanban skill's todo section) a card or a group has a todo list, `<padded id>.todo.md`: a GitHub
+  Markdown task list (`- [ ] open`, `- [x] done`, children indented two or more spaces or a tab)
+  that a person or an AI edits by hand. `todos:` may name the scratchpad's folder, since the two
+  kinds of file never share a name, and each store reads only its own. Without the line nothing of it
+  shows. The notes palette gains a **Todos** tab, last (after Scratchpad); a card opens on it alone
+  when the logbook and the scratchpad are off. It opens from `t` (the card whose details are open,
+  else the hovered card, else the one selected card; the key guard of `n`, the details being the one
+  popup it works over), the card menu's **Todos…** (one card), or the small count on a card tile and on a
+  group badge (`2/5`: open over all, shown when the list has an item, worked out on each board read
+  and never written). The tab is a box where **Enter** adds an item at the end and the list under it:
+  **Up** and **Down** move between the box and the rows; on a row **Space** ticks it, **e** or **Enter** edits its
+  text in place (Enter saves, Esc puts it back), **c** aims the box under it (a chip says so; Esc
+  clears it) so Enter adds a child, **d d** deletes it with its children and the lines indented under it, **Alt+Up** and **Alt+Down**
+  move it among its siblings (each row also has these as buttons), **Tab** indents it (the last child of the item above, its children along; with no item above, nothing) and **Shift+Tab** outdents it (just after its parent, its children along, the siblings after it staying under the parent; at the top level, nothing). On a row Tab never moves focus; in the box and the other fields it is the browser's. A ticked item stays in place,
+  struck and muted, and nothing clears finished items in bulk. A held key acts once, and a change is ignored while another is on its way. An item's text is drawn by
+  `markdownInto(el, text, { inline: true })`, the one renderer's inline marks with no block; a line
+  of the file that is not an item shows muted and read only. The list is read when the tab opens and
+  read again, redrawn only if it changed, whenever the board refreshes (not while an item is being
+  edited or a write is on its way). The server's `GET /api/todos/<id>` answers
+  `{ todos: { target, exists, file, folder?, version, lines } }`, each line `{ index, item: true,
+  depth, done, text }` or `{ index, item: false, text }` (a blank line is left out, `index` is the
+  line number in the file); `POST /api/todos/<id>` with `{ text, parent?, version }` adds an item
+  (201; `parent` is the line of the item it goes under), `PATCH` with `{ index, done?, text?, version }`
+  ticks or edits, `DELETE` with `{ index, version }` removes an item with its children and the lines indented under it, and
+  `POST /api/todos/<id>/move` with `{ index, by: -1 | 1, version }` moves it among its siblings, and `POST /api/todos/<id>/indent` and `/outdent` with `{ index, version }` change its level (a child's indent follows the file's own style, spaces or a tab); each
+  answers `{ todos }` as the file now reads, with `at`, the line of the item added or moved. Every
+  write names the `version` it read and is refused with 409 when the file has changed since, and with
+  400 when it names none (a write changes the one line it is about and keeps every other byte,
+  line endings included). 404 with todo lists off or for an item that is not on that line, 400 for
+  an id or text that is wrong, 413 for a list over 300000 characters or an item over 2000. There is
+  no whole-file write and no delete route for a list: only the delete popup's **Its todo list** takes
+  a file. The `/api/board` payload carries `todos: { folder, targets, counts }`, the ids that have a
+  file and `{ id: { open, total } }` for those with an item, or `null`. A todo list means nothing to
+  the board: it never changes a card's status, never holds a card out of `doing`, and adds into no
+  roll-up. The path may hold `<iteration>` by the rules above, a list going to the iteration its card
+  or group is in. The mobile snapshot has none.
 - **Groups** — with a `groups:` line in `config.yaml` (the folder of the board's group
   files, see the kanban skill's groups section) a card shows **badges** below its title: up to
   two small buttons (`#I2 zephyr-2`) and `+N` for the rest, the dates and the type path (the
@@ -1489,7 +1527,8 @@ to `127.0.0.1` only.
   **Esc** closes whichever popup is open, on the very first press, regardless of
   fullscreen state — only the fullscreen toggle button changes fullscreen. The detail
   popup and the create/edit form (through the same unsaved-changes guard the X button
-  uses) close directly on Esc, and so do the three bulk-edit popups (Assign/priority,
+  uses) close directly on Esc (a form opened from a card's details returns to those details,
+  as it does when saved or left by its X), and so do the three bulk-edit popups (Assign/priority,
   Edit tags, Schedule…) and the Archive popup — speedbump-exempt, same as their
   backdrop-click. An open
   combobox menu gets first crack at Esc: it closes the MENU only, one level at a time,
@@ -1498,12 +1537,13 @@ to `127.0.0.1` only.
   there), ahead of the selection step. With nothing
   open, Esc steps the selection back (see Multi-select).
   **Alt+Enter** toggles fullscreen on whichever fullscreen-capable popup is open
-  (detail, create/edit, and the three bulk-edit popups) — the keyboard twin of that
+  (detail, create/edit, the three bulk-edit popups and the notes palette) — the keyboard twin of that
   popup's fullscreen toggle button, updating the same persisted per-modal-type
   preference. Works with focus anywhere inside the popup, form fields included; an open
   combobox menu exempts alt-chorded Enter, so the hotkey wins there too (plain Enter
-  keeps the menu's pick grammar). No popup open = no-op; the notifications popup isn't
-  fullscreen-capable.
+  keeps the menu's pick grammar). With the notes palette up over the card details, the
+  palette is the popup it toggles; the palette's header carries the same button. No popup
+  open = no-op; the notifications popup isn't fullscreen-capable.
   **Ctrl+S / Cmd+S** saves the open popup — the keyboard twin of its Save/Apply button.
   Only popups with ONE unambiguous save action participate: the create/edit form and the
   Assign/priority and Schedule… popups; Edit tags has two competing actions (add /
@@ -2398,6 +2438,10 @@ handle a card carries.
   slash) or a path under it (`I: .groups/iteration`), or any path with a slash read relative
   to the groups folder (`W: workflow/`); a bare word is a card type. A group in exactly the
   folder a prefix names takes it, else `_`. The web never writes this key.
+- **`todos`** (a folder, relative to the board; absolute when written by hand) turns todo lists on:
+  the board payload then carries `todos: { folder, targets, counts }` and the page shows the
+  palette's Todos tab. Absent, the payload carries `todos: null` and nothing of it shows. The gear's
+  Todos page writes this one line; a folder outside the board works for reading and writing.
 - **`scratchpad`** (a folder, relative to the board; absolute when written by hand) turns
   scratchpads on: the board payload then carries `scratchpad: { folder, targets }` and the
   page shows the palette's Scratchpad tab. Absent, the payload carries `scratchpad: null` and

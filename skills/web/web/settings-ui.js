@@ -299,7 +299,7 @@ function settingsPathNode(path, kind) {
 // when the page's path has none.
 function settingsPathNowNode(id, reads) {
   if (!reads || !reads.now) return null;
-  return settingsEl('p', 'prefs-hint', `A new ${id === 'logbook' ? 'note' : 'page'} written today goes to ${reads.now}`);
+  return settingsEl('p', 'prefs-hint', `A new ${id === 'logbook' ? 'note' : id === 'todos' ? 'list' : 'page'} written today goes to ${reads.now}`);
 }
 
 // ---------- the Types page (docs/adr/0018) ----------

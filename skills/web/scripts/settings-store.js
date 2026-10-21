@@ -18,11 +18,10 @@
 // Changing a folder changes the line and nothing else: the files stay where they were.
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const cfg = require('./config-store');
 const cs = require('./card-store');
 const yaml = require('./yaml-list');
-const { StatusError, posix } = require('./store-common');
+const { StatusError, posix, versionOf } = require('./store-common');
 const iter = require('./iteration-folders');
 const { localToday } = require('../web/days');
 
@@ -31,6 +30,7 @@ const { localToday } = require('../web/days');
 const FOLDER_KEYS = {
   logbook: { label: 'logbook' },
   scratchpad: { label: 'scratchpad' },
+  todos: { label: 'todos' },
   groups: { label: 'groups' },
 };
 
@@ -95,7 +95,7 @@ function prefixRows(config) {
 // open does not make its save a conflict.
 function configVersion(dir) {
   const text = rawKeys(dir).split(/\r?\n/).filter((l) => !/^(?:nextId|counters):/.test(l)).join('\n');
-  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+  return versionOf(text);
 }
 
 // How many cards, on the board and archived, carry each `type:` word, as written.
@@ -128,6 +128,7 @@ function readSettings(dir, cards) {
   return {
     logbook: folderState(dir, config, 'logbook'),
     scratchpad: folderState(dir, config, 'scratchpad'),
+    todos: folderState(dir, config, 'todos'),
     groups: folderState(dir, config, 'groups'),
     idDigits: config.idDigits,
     nextId: config.nextId,
@@ -145,6 +146,8 @@ function readSettings(dir, cards) {
       logbookNow: folderToday(dir, config, 'logbook'),
       scratchpad: folderPath(dir, config, 'scratchpad'),
       scratchpadNow: folderToday(dir, config, 'scratchpad'),
+      todos: folderPath(dir, config, 'todos'),
+      todosNow: folderToday(dir, config, 'todos'),
       groups: folderPath(dir, config, 'groups'),
     },
   };

@@ -84,6 +84,8 @@ function groupBadges(cardId) {
     b.title = groupTip(g);
     b.setAttribute('aria-label', `Group ${groupLabel(g)}`);
     wrap.append(b);
+    const todos = todoCountButton(g.id); // the group's own open/total, only when its todo list has items
+    if (todos) wrap.append(todos);
   }
   if (model.more > 0) {
     const more = groupEl('span', 'group-more', `+${model.more}`);

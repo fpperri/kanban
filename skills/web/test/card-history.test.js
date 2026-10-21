@@ -255,10 +255,12 @@ test('every user-gesture close goes through the closeCard wrapper, not closeDeta
   // (switching to the EDIT modal, not a plain close — out of scope for the
   // history steps above; see the doc comment above pushCardHistoryStep), and
   // openDetailModal's own quiet-failure branch (a popstate landing on a card
-  // id that no longer resolves closes the popup instead of toasting).
+  // id that no longer resolves closes the popup instead of toasting), and the
+  // edit form's return, whose failed card read closes the popup and replaces
+  // its address step (a dead card's step is not stacked on).
   const rawCalls = [...APP.matchAll(/[^.\w]closeDetailModal\(/g)].length;
-  assert.strictEqual(rawCalls, 6,
-    `expected exactly 6 raw closeDetailModal( call sites — found ${rawCalls}`);
+  assert.strictEqual(rawCalls, 7,
+    `expected exactly 7 raw closeDetailModal( call sites — found ${rawCalls}`);
 });
 
 // --- nextSearchAddress with isolate: the second parameter beside q ------------

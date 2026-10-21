@@ -100,10 +100,11 @@ test('the n line says it notes the card whose details are open, ahead of the hov
   assert.match(what, /With no card, on the Calendar it opens on the Calendar's own range, or on the day under the pointer; elsewhere on today/);
 });
 
-test('Alt+1, Alt+2 and Alt+3 are listed together as the notes palette\'s tab keys', () => {
+test('Alt+1 to Alt+4 are listed together as the notes palette\'s tab keys', () => {
   const row = rowOf(hotkeyRows(NOW), 'note-tabs');
-  assert.deepStrictEqual(row.keys, ['Alt+1', 'Alt+2', 'Alt+3']);
+  assert.deepStrictEqual(row.keys, ['Alt+1', 'Alt+2', 'Alt+3', 'Alt+4']);
   assert.match(row.what, /notes palette/);
-  assert.match(row.what, /first, second or third tab/);
+  assert.match(row.what, /first, second, third or fourth tab/);
+  assert.match(row.what, /Todos/);
   assert.strictEqual(row.state, null);
 });

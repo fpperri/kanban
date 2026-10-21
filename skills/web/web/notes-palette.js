@@ -18,7 +18,8 @@
 // and Group; the Group tab (groups-ui.js groupPanel) edits the group and lists its members and,
 // like the notes list, belongs to the same surface. With the logbook off a group still opens, on its
 // Group tab alone. A card or group of a board that keeps scratchpads has a third tab, Scratchpad
-// (scratchpad-ui.js scratchPanel), and a card opens on it alone when the logbook is off. Several
+// (scratchpad-ui.js scratchPanel), and a Todos tab after it on a board that keeps todo lists (todos-ui.js
+// todosPanel); a card opens on those alone when the logbook is off. Several
 // cards at once are the subject "each": one note is written on every card.
 //
 // Keys. In the box: Enter writes the note and keeps the palette open for the next, Shift+Enter
@@ -34,7 +35,7 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
-// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, wireDatePickButton, attachCombobox, loadViewMode,
+// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, todosOn, todosPanel, todosHints, todosOnBoard, wireDatePickButton, attachCombobox, loadViewMode,
 // loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, and notes.js's and groups.js's functions.
 
 const notesUi = {
@@ -42,6 +43,7 @@ const notesUi = {
   date: null, dateBtn: null, dateWrap: null, dateTyped: false, pick: null, pickWrap: null,
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null, timeTyped: false,
+  head: null, fsBtn: null,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
@@ -336,12 +338,16 @@ function notesBuild() {
   u.rangeRow.append(rangeSlot, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1], u.rangeLive);
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
+  u.fsBtn = notesButton('icon-btn np-fs-btn', '', '', () => toggleModalFullscreen('notes')); // app.js applyModalFullscreen gives it its icon, label and pressed state
+  u.fsBtn.id = 'notes-fullscreen-btn';
+  u.head = notesEl('div', 'np-head');
+  u.head.append(u.tabsEl, u.fsBtn);
   u.el = notesEl('section', 'notes-palette hidden');
   u.el.id = 'notes-palette';
   u.el.setAttribute('role', 'dialog');
   u.el.setAttribute('aria-label', 'Notes');
   u.el.dataset.keepsSelection = '';
-  u.el.append(u.tabsEl, bar, u.prev, filterRow, u.rangeRow, u.body, u.foot);
+  u.el.append(u.head, bar, u.prev, filterRow, u.rangeRow, u.body, u.foot);
   document.body.append(u.el);
 
   u.input.addEventListener('input', () => { notesGrow(); notesPaintPreview(); });
@@ -367,6 +373,7 @@ function notesBuild() {
     if (chip && chip.dataset.groupId) openNotes({ kind: 'group', gid: chip.dataset.groupId });
     else if (chip) { notesClose(); openCard(chip.dataset.cardId); }
   });
+  u.el.addEventListener('keydown', notesOnFullscreenKey, true); // ahead of the boxes' own Enter
   u.el.addEventListener('keydown', notesOnPaletteKey);
 }
 
@@ -384,6 +391,7 @@ function notesGrowBox(box) {
     line: px(css.lineHeight) || px(css.fontSize) * 1.4,
     chrome: px(css.paddingTop) + px(css.paddingBottom) + border,
     windowHeight: window.innerHeight,
+    ...(notesUi.el && notesUi.el.classList.contains('fullscreen') && notesFullscreenLocked() === null ? NOTES_FULLSCREEN_BOX : {}),
   });
   box.style.height = `${size.height}px`;
   box.style.overflowY = size.scroll ? 'auto' : 'hidden';
@@ -391,24 +399,57 @@ function notesGrowBox(box) {
 
 const notesGrow = () => notesGrowBox(notesUi.input);
 
+// Fullscreen is room: a note box may grow to this many lines, and to this share of the window, before it
+// scrolls inside (notes.js noteBoxSize).
+const NOTES_FULLSCREEN_BOX = { lines: 30, share: 0.7 };
+
+// The one place that decides where the palette has a choice: from this window width up. Under it (a
+// phone) the palette is always full screen, as the card details are: whatever was saved, the button is
+// hidden, Alt+Enter does nothing and the note boxes keep their ordinary cap.
+const NOTES_FULLSCREEN_MIN_WIDTH = 760;
+const notesFullscreenLocked = () => (window.innerWidth < NOTES_FULLSCREEN_MIN_WIDTH ? true : null);
+
+// The palette is the popup Alt+Enter and the fullscreen button answer for when it is open and nothing but the
+// card details is up besides it (the key guard names that one popup, as for the other notes keys).
+function notesOnTop() {
+  return !!notesUi.el && !!notesUi.sub && keyGuardSurface(document, NOTES_DETAIL) === null;
+}
+
+// The boxes are measured at the width fullscreen changed, and the room they may take has changed too.
+function notesFullscreenChanged() {
+  const u = notesUi;
+  if (!u.sub) return;
+  notesGrow();
+  u.body.querySelectorAll('.np-edit-text').forEach(notesGrowBox);
+}
+
+// Alt+Enter inside the palette toggles its fullscreen, from any box of it, and never reaches the box's own
+// Enter (which writes a note). Read in the capture phase, ahead of the target's handlers.
+function notesOnFullscreenKey(e) {
+  if (e.key !== 'Enter' || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !notesUi.sub) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (notesOnTop()) toggleModalFullscreen('notes');
+}
+
 // ---------- opening and closing ----------
 
 // Open the palette. `req` is what asks for it (notes.js, noteSubjectFrom): a card's notes
 // ({ kind: 'card-notes', id }), a day's slot or untimed box, a card or group to write on
 // ({ target }), or nothing ({}) to start on the card last noted.
 function openNotes(req) {
-  if (!notesOn() && !state.groups && !scratchpadOn()) return;
+  if (!notesOn() && !state.groups && !scratchpadOn() && !todosOn()) return;
   notesBuild();
   const u = notesUi;
   const ctx = notesCtx();
   const sub = noteSubjectFrom(req || {}, { today: ctx.today, isGroup: (id) => notesGroup(id) !== null });
   if (sub.kind === 'card' && !notesCard(sub.id)) return;
   if (sub.kind === 'group' && !notesGroup(sub.id)) return;
-  if (!notesOn() && sub.kind !== 'group' && !(sub.kind === 'card' && scratchpadOn())) return;
+  if (!notesOn() && sub.kind !== 'group' && !(sub.kind === 'card' && (scratchpadOn() || todosOn()))) return;
   const same = u.sub && JSON.stringify(u.sub) === JSON.stringify(sub);
   if (!u.sub && document.activeElement && !u.el.contains(document.activeElement)) u.opener = document.activeElement;
   u.sub = sub;
-  u.tab = req && req.kind === 'group' ? 'group' : req && req.kind === 'scratchpad' ? 'scratch' : same ? u.tab : 'notes';
+  u.tab = req && req.kind === 'group' ? 'group' : req && req.kind === 'scratchpad' ? 'scratch' : req && req.kind === 'todos' ? 'todos' : same ? u.tab : 'notes';
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (!same) {
     u.written = [];
@@ -423,15 +464,17 @@ function openNotes(req) {
   u.rangeTouched = false;
   u.hi = -1;
   u.el.classList.toggle('np-over-detail', notesDetailId() !== null);
+  applyModalFullscreen('notes'); // the board's saved choice, on every open
   u.el.classList.remove('hidden');
   notesPaint();
   if (u.tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();
 }
 
 // The tabs a subject has (notes.js noteTabs): Notes (when the board keeps a logbook), a group's
-// Group tab, and the Scratchpad of a card or group (when the board keeps scratchpads).
+// Group tab, the Scratchpad of a card or group (when the board keeps scratchpads) and its Todos (when
+// the board keeps todo lists).
 function notesTabs() {
-  return noteTabs(notesUi.sub, { notesOn: notesOn(), scratchpadOn: scratchpadOn() });
+  return noteTabs(notesUi.sub, { notesOn: notesOn(), scratchpadOn: scratchpadOn(), todosOn: todosOn() });
 }
 
 function notesSetTab(tab) {
@@ -558,7 +601,8 @@ function notesPaint() {
   const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
   if (panel) {
     notesPaintBody();
-    u.foot.replaceChildren(...(u.tab === 'scratch' ? [hint('Ctrl+↵', 'save')] : []), hint('Esc', 'close'));
+    const hints = u.tab === 'scratch' ? [hint('Ctrl+↵', 'save'), hint('Esc', 'close')] : u.tab === 'todos' ? todosHints().map(([key, what]) => hint(key, what)) : [hint('Esc', 'close')];
+    u.foot.replaceChildren(...hints);
     return;
   }
   notesPaintPreview();
@@ -571,7 +615,7 @@ function notesPaintTabs() {
   const u = notesUi;
   const tabs = notesTabs();
   u.tabsEl.hidden = tabs.length < 2;
-  const names = { notes: 'Notes', group: 'Group', scratch: 'Scratchpad' };
+  const names = { notes: 'Notes', group: 'Group', scratch: 'Scratchpad', todos: 'Todos' };
   u.tabsEl.replaceChildren(...tabs.map((t) => {
     const key = `Alt+${tabs.indexOf(t) + 1}`;
     const b = notesButton(`np-tab${t === u.tab ? ' on' : ''}`, names[t], `${names[t]} (${key})`, () => notesSetTab(t));
@@ -613,6 +657,8 @@ function notesPaintBody() {
     u.body.replaceChildren(groupPanel(u.sub.id));
   } else if (u.tab === 'scratch') {
     u.body.replaceChildren(scratchPanel(u.sub.id));
+  } else if (u.tab === 'todos') {
+    u.body.replaceChildren(todosPanel(u.sub.id));
   } else {
     u.body.replaceChildren(notesList());
   }
@@ -1035,15 +1081,16 @@ function notesOnBodyKey(e) {
   else if (e.key.length === 1 && e.key !== ' ') { notesUi.hi = -1; notesUi.input.focus(); }
 }
 
-// Alt+1, Alt+2 and Alt+3 switch to the palette's first, second and third tab, as the tab row shows
+// Alt+1 to Alt+4 switch to the palette's first to fourth tab, as the tab row shows
 // them; a number past the last tab does nothing. The keys type nothing, so they work from the note
 // box too, and they are the palette's own while it is open.
 function notesTabKey(e) {
   const at = noteTabKey(e);
   if (at === -1 || !notesUi.sub) return false;
+  const tab = notesTabs()[at];
+  if (at === 3 && !tab) return false; // Alt+4 is the palette's only when there is a fourth tab; before it existed it was never caught
   e.preventDefault();
   e.stopPropagation();
-  const tab = notesTabs()[at];
   if (tab) notesSetTab(tab);
   return true;
 }
@@ -1079,7 +1126,7 @@ function notesOnPaletteKey(e) {
   e.stopPropagation();
 }
 
-// The one popup the notes keys work over, through the key guard's `except`: n and Alt+1 to Alt+3 act with
+// The one popup the notes keys work over, through the key guard's `except`: n, t and Alt+1 to Alt+4 act with
 // the card details up and no other surface, and Esc closes the palette ahead of the details.
 const NOTES_DETAIL = '#detail-modal';
 
@@ -1088,17 +1135,23 @@ function notesDetailId() {
   return currentDetailId != null && !$(NOTES_DETAIL).classList.contains('hidden') ? currentDetailId : null;
 }
 
-// n opens the palette on the card whose details are open, else the hovered card, else the one
-// selected card, else on the card last noted. A key that types nothing but reads a letter, so it
-// reads the key guard: off while a field has focus and while a menu, a dialog, the notifications
-// panel or the preferences sheet is up. The card details are the one popup it works over.
+// The card a key means: the one whose details are open, else the hovered card, else the one selected card;
+// null when there is none. `n` and `t` both read it.
+function notesAimedCard() {
+  const detail = notesDetailId();
+  return detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
+}
+
+// n opens the palette on the aimed card (notesAimedCard), else on the card last noted. `t` (todos-ui.js) opens
+// the Todos tab of the same card. Keys that type nothing but read a letter, so they
+// read the key guard: off while a field has focus and while a menu, a dialog, the notifications
+// panel or the preferences sheet is up. The card details are the one popup they work over.
 function onNotesKey(e) {
   if (!e.key || e.key.toLowerCase() !== 'n' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (keyGuardOff(document, NOTES_DETAIL)) return;
   e.preventDefault();
   if (!notesOn()) { toast('The logbook is off: config.yaml has no logbook: line.'); return; }
-  const detail = notesDetailId();
-  const aimed = detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
+  const aimed = notesAimedCard();
   openNotes(aimed === null ? notesCalendarOpening() : { kind: 'card-notes', id: aimed });
 }
 
@@ -1140,9 +1193,10 @@ function notesOnBoard() {
   if (!u.sub) return;
   const sub = u.sub;
   const missing = (sub.kind === 'card' && !notesCard(sub.id)) || (sub.kind === 'group' && !notesGroup(sub.id));
-  if (missing || (!notesOn() && sub.kind !== 'group')) { notesClose(); return; }
+  if (missing || (!notesOn() && sub.kind !== 'group' && !(sub.kind === 'card' && (scratchpadOn() || todosOn())))) { notesClose(); return; }
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (u.tab === 'scratch') return; // the page being written is not redrawn under the person's hands
+  if (u.tab === 'todos') { todosOnBoard(); return; } // the list is read again, and redrawn only when it changed
   if (u.tab === 'group') {
     if (groupSignature(notesGroup(sub.id)) === u.groupSig) return;
     const typing = document.activeElement && u.body.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
@@ -1160,7 +1214,11 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
   document.addEventListener('keydown', onNotesEscape, true);
   document.addEventListener('keydown', onNotesTabKey);
-  window.addEventListener('resize', () => { if (notesUi.sub && notesUi.input) notesGrow(); });
+  window.addEventListener('resize', () => {
+    if (!notesUi.sub || !notesUi.input) return;
+    applyModalFullscreen('notes'); // a window that crosses the width goes between the saved choice and always full screen
+    notesFullscreenChanged();
+  });
   document.addEventListener('mousedown', onNotesPointer, true);
   document.addEventListener('click', (e) => {
     const count = e.target.closest && e.target.closest('.card-notes');

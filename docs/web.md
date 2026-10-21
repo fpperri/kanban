@@ -82,7 +82,7 @@ The Web draws its **phone layout** below 760 px wide; at 760 px and wider it is 
 - **Header.** One row: the board's name (shortened with an ellipsis), a search button that opens a full-width field (it lights up while a query or a search filter is on), New card, the bell with its unread badge and a More (⋯) button holding Preferences, Refresh, Copy board path, the home link and the iteration picker. The server-unreachable cue stays. On the Calendar and the Gantt the **header date** (the shown range) sits beside the name.
 - **View bar.** A bar at the bottom lists Board, Calendar, Gantt, Map and Graph, each a line icon and a word; the current view is marked and a tap goes straight to that view, keeping the selection. It hides while the search field has the keyboard up. The desktop header's view buttons (Calendar, Gantt, Map view, Graph, and Board view to come back) and Refresh are replaced by it and the More menu.
 - **Board.** The **status tabs** across the top, each with its status's colour and count (shown/total while a search narrows the board), Archive last, replace the column headers: the Board shows one status at a time, full width. Tap a tab or swipe sideways to change status; the tab is remembered per board. A status collapsed on the desktop still shows its cards. Cards do not start a native drag. New card adds into the tab you are on.
-- **Card.** A card opens full screen with a back button, and edit, archive and delete on the same row. The status changes through the edit form, which is full screen with 16 px fields; Save returns to the card on the tab of its new status, and `?card=` links open the card over its tab.
+- **Card.** A card opens full screen with a back button, and edit, archive and delete on the same row. The status changes through the edit form, which is full screen with 16 px fields; Save returns to the card on the tab of its new status, and so does leaving the form. `?card=` links open the card over its tab.
 - **Statuses section.** At every width the status pills of the Map, the Gantt, the Calendar and the Graph sit at the top of the search panel; on a phone they are large enough to tap.
 - **Bottom sheet.** The Graph's and the Map's option panel opens as a **bottom sheet** over the lower half of the view, scrolls inside itself, keeps its close button and does not dim the drawing. A two-finger pinch zooms the Graph and the Map.
 - **Span cycle button.** The Calendar's and the Gantt's span switch becomes one button naming the current span; each tap moves to the next span and wraps. The Gantt's label column shows ids only.
@@ -375,7 +375,7 @@ leading with Peek (open its details), and leaves your
 selection as it was. The menu reads Peek, Add note… (with its key, `n`, muted at the right),
 Add child…, then **Edit** (Assign…, Set priority…, Edit tags…, Schedule…), **Group** (Add to
 group…, Make a group from them…) and **Explore** (Isolate, Dependency tree, Dependency path), then
-Scratchpad… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
+Scratchpad…, Todos… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
 Each of the three is a row marked ▸ that opens its entries in a panel beside it: hover it for a
 moment or click it. A pointer on its way to the panel across the next row does not lose it, and a
 panel with no room on the right opens on the left. The menu takes the focus when it opens and gives it
@@ -436,7 +436,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -447,7 +447,7 @@ The sheet closes with Esc, a click outside it or its close button, and focus goe
 the gear; on a narrow window Esc first steps back from a page to the menu. While it is open
 the board does not refresh under it, and `/`, `p` and Ctrl+F stand still.
 
-*This board* has six pages. A save changes one line of `config.yaml`, or rewrites one whole block
+*This board* has seven pages. A save changes one line of `config.yaml`, or rewrites one whole block
 (`types:`, `hierarchy:` or `prefixes:`), and leaves every other byte as it was, comments
 included. Comments inside a block that is rewritten go with it, and the page does not warn
 first. Every save carries the version of `config.yaml` the page read: if the file changed on
@@ -456,7 +456,7 @@ disk since, nothing is saved, and the page reads it again and says so. The versi
 while the sheet is open is no conflict. Every page shows the file or folder it reads, with a
 Copy button.
 
-- *Logbook*, *Scratchpad* and *Groups* have an on/off switch and a folder field. Off removes the line; on
+- *Logbook*, *Scratchpad*, *Todos* and *Groups* have an on/off switch and a folder field. Off removes the line; on
   writes it back with the folder. A folder is a path inside the board; one that leaves the
   board is refused. A folder you wrote by hand outside the board still works, but shows as
   locked with the reason, and the page leaves it alone. Changing a folder changes the line
@@ -527,6 +527,8 @@ for nothing else.
 
 **Edit from the details** — `e` with a card's details open opens its edit form, as the details' Edit button does (its tooltip names the key), with the cursor in the title field so you can type at once. It is read through the shared key guard, as `n` is: a field in the details gets the letter, it does nothing behind a menu, the edit form, the notifications panel or the preferences sheet, and with the notes palette up, which draws above the details, `e` stays the palette's (it edits the listed note). An archived card has no Edit button and no `e`.
 
+A form opened from a card's details gives the card back. **Save** (the button or Ctrl/Cmd+S) writes the card and shows its details again with what was saved, focus on the details, and does not close the card; **Esc**, the X and a click on the backdrop leave the form and show the details as they were. When the form has unsaved changes, leaving it asks first, and cancel keeps you in the form. The details always agree with the address: if Back or Forward moved the address while the form was up, leaving the form shows the card the address names, or the board when it names none. If you open or close another card while Save is still reading the board, that choice stands and the saved card does not pull you back. A card deleted on disk while its form was up closes to the board with a toast saying the card is gone, and `?card=` leaves the address. A form opened any other way (New card, Add child…) closes to the board when saved or left.
+
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
 details are open, else the hovered or selected card; it draws above the details, and a field in the
 details gets the letter instead. While the palette is aimed at a card, a group or several cards, **Esc**
@@ -540,7 +542,7 @@ small count that opens its notes, and the card menu has **Add note…**.
 
 Type a note and press Enter: it is written into the card's day file and the palette stays open for
 the next note; Shift+Enter starts a new line. The note box starts one line high and grows with its
-text, typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less, and
+text, typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less (30 lines or 70% of the window when the palette is full screen), and
 scrolls inside past that; the box a listed note is edited in grows the same way and opens sized to
 the note. The subject row sets where and when the note goes: a **date** (with a picker; today, or the
 day of the hour or all-day box the palette was opened from) beside the **time**, the *untimed* tick,
@@ -566,9 +568,15 @@ the all-day box it was opened from (widening the range lists the rest of it), on
 range or the day under the pointer for `n` there, and on Day, today for `n` anywhere else. The range
 is set each time the palette opens and is no memory. It only chooses which notes are listed: the date
 field decides the day a note is written to, and a note written outside the range stays listed.
-`Alt+1`, `Alt+2` and `Alt+3` switch the open palette's first, second and third tab (Notes, Group,
-Scratchpad, as the tab row shows them; each tab carries its key), from the note box too. On a listed
-note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes it. Without a
+`Alt+1` to `Alt+4` switch the open palette's first to fourth tab (Notes, Group, Scratchpad,
+Todos, as the tab row shows them; each tab carries its key), from the note box too. On a listed
+note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes it. The palette's
+header has the card details' full screen button, and `Alt+Enter` does the same while the palette is the
+popup that is up, from any box of it (over the card details it toggles the palette, not the details):
+full screen it fills the window, and the list, the Scratchpad tab's box and its Preview take the
+height. The choice is kept per board; every key, tab and Esc work as before. With focus in the palette
+while another popup is up, `Alt+Enter` does nothing. On a phone (under 760 px) the palette is always full screen, as the card details are: the button is not
+there, a saved choice makes no difference and `Alt+Enter` does nothing. Without a
 `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 **Text boxes** — four multiline boxes take editing keys: the notes palette's note box, the box a
@@ -615,13 +623,32 @@ you have not saved stays in the page until you reload it. The kanban never delet
 delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
 `scratchpad:` line nothing of this shows.
 
-**Iteration folders** — `logbook:` and `scratchpad:` may hold `<iteration>` as a whole path
+**Todos** — with a `todos:` line in `config.yaml`, a card or a group has a todo list: a Markdown
+task list kept as `0007.todo.md` in that folder (`- [ ] open`, `- [x] done`, a child indented two
+or more spaces or a tab under its parent), which a person or an AI can edit by hand. The folder may
+be the scratchpad's: the two kinds of file never share a name. The notes palette gains a **Todos**
+tab, after Scratchpad: open it with `t` on the card whose details are open, else the hovered or
+selected card, from the card menu's **Todos…**, or by clicking the small count on a card tile or
+group badge, which reads open over all (`2/5`) and is worked out each time, never written. In the
+tab, a box adds an item at the end with **Enter**; under it, **Up** and **Down** move through the
+items, and on one **Space** ticks it, `e` or **Enter** edits its text in place, `c` aims the box under it so
+**Enter** in the box adds a child, `d d` deletes it with its children and the lines indented under it, and **Alt+Up** and **Alt+Down** move it
+among its siblings, **Tab** indents it (it becomes the last child of the item above, its children along) and **Shift+Tab** outdents it (just after its parent, its children along, the siblings after it staying under the parent); on a row Tab never moves focus. A ticked item stays where it is, struck and muted, until someone deletes it:
+there is no bulk clear. A held key acts once, and a change is ignored while another is on its way. An item's text is drawn as inline Markdown, and a line of the file that is
+not an item shows muted and read only. The list is read again when the board refreshes, so an
+edit by hand or by an agent shows, and every change names the version of the list it read: a list
+changed meanwhile is refused with the reason and read again, and nothing is overwritten. A todo
+list means nothing to the board: it never changes a card's status or holds a card out of `doing`,
+and adds into no parent's roll-up. The delete popup's **Its todo list** box is unticked. Without a
+`todos:` line nothing of this shows. The mobile snapshot has no todo lists.
+
+**Iteration folders** — `logbook:`, `scratchpad:` and `todos:` may hold `<iteration>` as a whole path
 segment, as in `logbook: sprints/<iteration>/.logbook`. It stands for the folder of an iteration,
 named as its group file is without `.md` (`0005.sprint-496`); a folder is matched to its
 iteration by the id at the front of its name, so renaming the group keeps the folder. A note for
 a day and card that already have a day file joins that file, in whichever folder it is; a new
 file goes to the iteration the note is aimed at, else the one whose dates hold its day (the one
-that started first, if two do). A scratchpad goes to the iteration its card or group is a member
+that started first, if two do). A scratchpad or a todo list goes to the iteration its card or group is a member
 of, else the one holding the day it is first written. With none, the segment is dropped
 (`sprints/.logbook`). A file that exists is read and edited where it is, and nothing moves one:
 assigning a note to another card keeps it in its folder (joining that card's day file if one
@@ -663,10 +690,10 @@ length and `auto_join` on.
 **Delete.** Deleting a card, or a selection of cards, opens one popup that says what goes and which
 groups lose the card: its id always leaves every group's list. **Its logbook** (the count of its
 notes) is a box left unticked; unticked, the day files stay and read as dangling. **Its
-scratchpad** is another, for a card or a group that has a page. The Group tab's
+scratchpad** is another, for a card or a group that has a page, and **Its todo list** a third. The Group tab's
 **Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
 cards it would delete and names the ones another group holds, which it skips; ticking it
-offers, unticked, those members' logbooks and scratchpads too. Archiving never opens it.
+offers, unticked, those members' logbooks, scratchpads and todo lists too. Archiving never opens it.
 
 ## Other surfaces
 

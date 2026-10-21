@@ -22,9 +22,11 @@ function compound(part) {
   const rest = part.slice(tag ? tag[0].length : 0);
   const id = /#([\w-]+)/.exec(rest);
   const classes = [...rest.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
-  const attrs = [...rest.matchAll(/\[data-([a-z-]+)="([^"]*)"\]/g)].map((m) => [m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()), m[2]]);
-  if (rest.replace(/#[\w-]+|\.[\w-]+|\[data-[a-z-]+="[^"]*"\]/g, '') !== '') throw new Error(`palette-page.js cannot match ${part}`);
-  return (el) => (!tag || el.tag === tag[0]) && (!id || el.id === id[1]) && classes.every((c) => el.classes.includes(c)) && attrs.every(([k, v]) => el.dataset && el.dataset[k] === v);
+  const camel = (name) => name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  const attrs = [...rest.matchAll(/\[data-([a-z-]+)="([^"]*)"\]/g)].map((m) => [camel(m[1]), m[2]]);
+  const present = [...rest.matchAll(/\[data-([a-z-]+)\]/g)].map((m) => camel(m[1]));
+  if (rest.replace(/#[\w-]+|\.[\w-]+|\[data-[a-z-]+(?:="[^"]*")?\]/g, '') !== '') throw new Error(`palette-page.js cannot match ${part}`);
+  return (el) => (!tag || el.tag === tag[0]) && (!id || el.id === id[1]) && classes.every((c) => el.classes.includes(c)) && attrs.every(([k, v]) => el.dataset && el.dataset[k] === v) && present.every((k) => el.dataset && el.dataset[k] !== undefined);
 }
 
 function matcher(selector) {
@@ -123,10 +125,10 @@ function paletteDocument(holder) {
 // What the stylesheet gives a note box: a 20px line, 6px of padding and a 1px border all round.
 const TEXT_AREA = { lineHeight: '20px', fontSize: '15px', paddingTop: '6px', paddingBottom: '6px', borderTopWidth: '1px', borderBottomWidth: '1px' };
 
-async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {}, scratchpad = null, groups = null, menu = false } = {}) {
+async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {}, scratchpad = null, todos = null, groups = null, menu = false, payload = null, fetchWith = null } = {}) {
   const holder = { document: null };
   const documentExtras = paletteDocument(holder);
-  const board = {
+  const board = payload || {
     projectName: 'kanban',
     statuses: ['backlog', 'todo', 'doing', 'done'],
     priorities: ['High', 'Normal', 'Low'],
@@ -135,12 +137,14 @@ async function openPalette({ cards, notes, stored = {}, viewport = {}, elements:
     archived: [],
     logbook: { folder: 'logbook', notes: notes || [] },
     scratchpad,
+    todos,
     groups,
   };
   const built = menu ? buildMenu(documentExtras) : null;
   const elements = { '#detail-modal': control(), '#ctx-note': control(), ...(built ? { '#context-menu': built.root, ...built.byId } : {}), ...more };
   const page = await loadPage({ board, stored, documentExtras, elements }).start();
   Object.assign(page.ctx, { getComputedStyle: () => TEXT_AREA, ...viewport });
+  if (fetchWith) page.ctx.fetch = fetchWith;
   const doc = page.ctx.document;
   holder.document = doc;
   const ui = () => page.run('notesUi');

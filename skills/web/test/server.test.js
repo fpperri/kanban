@@ -519,7 +519,7 @@ test('app.css fills the viewport for a fullscreen modal (fixed + inset:0, not th
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const css = await (await fetch(`${base}/app.css`)).text();
-    assert.match(css, /\.modal\.fullscreen\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0/s);
+    assert.match(css, /\.modal\.fullscreen(,\s*\.notes-palette\.fullscreen)?\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0/s);
     // flex-grow down the form → .modal-desc label → textarea chain
     // gives the description the REAL remaining height at any viewport size
     // (a static 60vh share dead-spaced tall viewports, overflowed short ones)
@@ -2990,7 +2990,7 @@ test('XSS sweep: the detail popup draws the card body through the one renderer, 
     assert.ok(js.includes("markdownInto($('#detail-body'), data.body || '');"), 'the body goes in through markdownInto');
     const ui = await (await fetch(`${base}/markdown-ui.js`)).text();
     assert.strictEqual((ui.match(/\.innerHTML = /g) || []).length, 1, 'and markdownInto holds the one innerHTML write of the renderer output');
-    assert.ok(ui.includes("el.innerHTML = mdToHtml(text || '', { board: state.projectName });"));
+    assert.ok(ui.includes("el.innerHTML = opts && opts.inline ? mdInlineToHtml(text || '', board) : mdToHtml(text || '', board);"), 'drawn by the one renderer, as blocks or as one line of inline marks');
     const renderer = await (await fetch(`${base}/markdown.js`)).text();
     assert.ok(!renderer.includes('innerHTML'), 'the renderer only returns a string');
     assert.ok(renderer.includes('SAFE_HREF_RE'), 'markdown links fall back to # for any scheme outside the allowlist (e.g. javascript:)');
