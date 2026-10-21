@@ -416,8 +416,14 @@ The sheet closes with Esc, a click outside it or its close button, and focus goe
 the gear; on a narrow window Esc first steps back from a page to the menu. While it is open
 the board does not refresh under it, and `/`, `p` and Ctrl+F stand still.
 
-*This board* has five pages. Each change writes one line of `config.yaml` and leaves every
-other byte as it was, comments included.
+*This board* has six pages. A save changes one line of `config.yaml`, or rewrites one whole block
+(`types:`, `hierarchy:` or `prefixes:`), and leaves every other byte as it was, comments
+included. Comments inside a block that is rewritten go with it, and the page does not warn
+first. Every save carries the version of `config.yaml` the page read: if the file changed on
+disk since, nothing is saved, and the page reads it again and says so. The version leaves out the
+`nextId:` and `counters:` lines, which the board moves with every card made, so making a card
+while the sheet is open is no conflict. Every page shows the file or folder it reads, with a
+Copy button.
 
 - *Logbook*, *Scratchpad* and *Groups* have an on/off switch and a folder field. Off removes the line; on
   writes it back with the folder. A folder is a path inside the board; one that leaves the
@@ -427,8 +433,24 @@ other byte as it was, comments included.
 - *Groups* also has the *Iterations* switch, which gives the header its iteration dropdown.
   Turning groups off leaves the iterations line, which is ignored until groups are back,
   and iterations cannot be turned on without groups. The page lists the groups it found, by type, and opens one in the palette.
-- *Prefixes* shows the `prefixes:` block, read only, and lets you change `idDigits`, the
-  width card file names are padded to. Only new files take the new width.
+- *Types* has a switch for the display of types. Off writes `typesOn: false`, on removes the line;
+  it is display only, so the web and the snapshot show no chips, colors, icons or tiers, and the
+  cards and the lists stay as written. Below it, the *Hierarchy* area (the `hierarchy:` list in
+  order) sits above *Other types* (the rest of `types:`). A row has a name, a color (a row of
+  swatches and a hex field), an icon, its prefix shown read only with a link to the Prefixes
+  page, and buttons to move it up or down, to the other area, or to remove it; a row also drags by
+  its handle. Nothing is enforced: a type is in the hierarchy or it is not. *Add type* adds a name,
+  and *Found on cards* lists the words cards carry in `type:` that the list lacks, each with an
+  *Add* button. Every change saves at once. A color already in the file may be a name, and an icon
+  one the page does not draw: it shows as written and is kept unless you edit it. Each edit changes
+  only its own list: renaming or removing a type leaves the hierarchy, the prefixes and the cards
+  naming the old word, and the page lists each leftover as a warning that says what and why.
+- *Prefixes* is editable: each row is a prefix and the card type or groups folder it stands for,
+  with Remove and an Add row, and every change asks first. A prefix change changes only the ids
+  given from then on; cards already made keep their ids, and an AI can migrate the board to
+  rename them. A prefix that two lines name for different targets shows a warning, because saving
+  the page rewrites the block without the line the board ignores. It also lets you change
+  `idDigits`, the width card file names are padded to. Only new files take the new width.
 - *Counters* shows `nextId` and the `counters:` line, read only.
 
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or

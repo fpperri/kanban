@@ -1,12 +1,17 @@
 'use strict';
-// The gear's sheet apart from the DOM (docs/adr/0017): which layout a width gets, where Esc steps,
-// what a switch or a folder field sends to the server, and how the menu words a page's state.
-// settings-ui.js draws the pages and talks to the server; the server (settings-store.js) judges
-// every value, so nothing here re-checks a folder or a width.
+// The gear's sheet apart from the DOM (docs/adr/0017, docs/adr/0018): which layout a width gets,
+// where Esc steps, what a switch or a field sends to the server, the lists a change on the Types and
+// Prefixes pages writes, the warnings those pages show, and how the menu words a page's state.
+// settings-ui.js draws the pages and talks to the server; the server (settings-store.js) refuses what
+// would corrupt the file or leave the board. What is checked here is only what the person has just
+// typed (a folder that plainly cannot work, a width, a type name another type has, a hex color, a
+// prefix row), never a value already in the file: a color may be a name and an icon any word
+// (docs/adr/0004).
 //
 // The sheet has two sections. This browser holds the pages kept in localStorage (prefs.js). This
-// board holds the pages written to config.yaml, one line at a time. A page is named `browser:<id>`
-// or `board:<id>`.
+// board holds the pages written to config.yaml: a save is one top-level line, or one whole block
+// (`types:`, `hierarchy:`, `prefixes:`) written clean, and carries the version of the file the page
+// read. A page is named `browser:<id>` or `board:<id>`.
 //
 // Pure: same dual-environment export pattern as groups.js — loaded as a plain <script> in the
 // browser (one global per function) AND required by node --test.
