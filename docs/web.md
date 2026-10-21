@@ -443,7 +443,7 @@ The sheet closes with Esc, a click outside it or its close button, and focus goe
 the gear; on a narrow window Esc first steps back from a page to the menu. While it is open
 the board does not refresh under it, and `/`, `p` and Ctrl+F stand still.
 
-*This board* has six pages. A save changes one line of `config.yaml`, or rewrites one whole block
+*This board* has seven pages. A save changes one line of `config.yaml`, or rewrites one whole block
 (`types:`, `hierarchy:` or `prefixes:`), and leaves every other byte as it was, comments
 included. Comments inside a block that is rewritten go with it, and the page does not warn
 first. Every save carries the version of `config.yaml` the page read: if the file changed on
@@ -605,10 +605,10 @@ tab, after Scratchpad: open it with `t` on the card whose details are open, else
 selected card, from the card menu's **Todos…**, or by clicking the small count on a card tile or
 group badge, which reads open over all (`2/5`) and is worked out each time, never written. In the
 tab, a box adds an item at the end with **Enter**; under it, **Up** and **Down** move through the
-items, and on one **Space** ticks it, `e` edits its text in place, `c` aims the box under it so
-**Enter** adds a child, `d d` deletes it with its children, and **Alt+Up** and **Alt+Down** move it
+items, and on one **Space** ticks it, `e` or **Enter** edits its text in place, `c` aims the box under it so
+**Enter** in the box adds a child, `d d` deletes it with its children and the lines indented under it, and **Alt+Up** and **Alt+Down** move it
 among its siblings. A ticked item stays where it is, struck and muted, until someone deletes it:
-there is no bulk clear. An item's text is drawn as inline Markdown, and a line of the file that is
+there is no bulk clear. A held key acts once, and a change is ignored while another is on its way. An item's text is drawn as inline Markdown, and a line of the file that is
 not an item shows muted and read only. The list is read again when the board refreshes, so an
 edit by hand or by an agent shows, and every change names the version of the list it read: a list
 changed meanwhile is refused with the reason and read again, and nothing is overwritten. A todo

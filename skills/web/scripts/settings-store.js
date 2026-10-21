@@ -18,11 +18,10 @@
 // Changing a folder changes the line and nothing else: the files stay where they were.
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const cfg = require('./config-store');
 const cs = require('./card-store');
 const yaml = require('./yaml-list');
-const { StatusError, posix } = require('./store-common');
+const { StatusError, posix, versionOf } = require('./store-common');
 const iter = require('./iteration-folders');
 const { localToday } = require('../web/days');
 
@@ -96,7 +95,7 @@ function prefixRows(config) {
 // open does not make its save a conflict.
 function configVersion(dir) {
   const text = rawKeys(dir).split(/\r?\n/).filter((l) => !/^(?:nextId|counters):/.test(l)).join('\n');
-  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+  return versionOf(text);
 }
 
 // How many cards, on the board and archived, carry each `type:` word, as written.

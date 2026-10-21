@@ -637,6 +637,8 @@ test('a path with <iteration> gets a line under the path bar naming the folder a
   assert.match(logbook.textContent, /A new note written today goes to \/b\/s\/0005\.x\/\.logbook/);
   const pad = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/s/<iteration>', now: '/b/s' })");
   assert.match(pad.textContent, /A new page written today goes to \/b\/s$/);
+  const todos = ctx.run("settingsPathNowNode('todos', { kind: 'Folder', path: '/b/t/<iteration>', now: '/b/t' })");
+  assert.match(todos.textContent, /A new list written today goes to \/b\/t$/);
   assert.strictEqual(ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/l' })"), null);
   assert.strictEqual(ctx.run("settingsPathNowNode('logbook', null)"), null);
 });

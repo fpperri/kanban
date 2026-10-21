@@ -1,6 +1,6 @@
 'use strict';
 // The one guard behind the single-key shortcuts: every key hotkeys.js lists that types
-// nothing but reads a character (`/`, `p`, `m`, `i`, `l`, `n`, `?` and the slice keys) reads it,
+// nothing but reads a character (`/`, `p`, `m`, `i`, `l`, `n`, `t`, `?` and the slice keys) reads it,
 // and so does Esc, through keyGuardEscape.
 // It has two parts. The typing check is for a key that would insert a
 // character: it stays off while focus is in a field. The surface check is for
@@ -14,12 +14,12 @@
 // #notif-modal and #prefs-sheet are .modal-backdrop too, so the 'dialog' entry answers for
 // them and keyGuardSurface never names 'notifications' or 'preferences' there; those two
 // entries are a safety net behind it, for a surface that stops being a .modal-backdrop.
-// A key may name one popup that does not turn it off: the notes keys (`n`, Alt+1 to Alt+3 and Esc) work over
+// A key may name one popup that does not turn it off: the notes keys (`n`, `t`, Alt+1 to Alt+4 and Esc) work over
 // the card details. They pass that popup's selector, named once in notes-palette.js, and any other popup
 // open besides still turns them off.
 //
 // A key that acts on the card details themselves (`e` edits the open card) has one popup more to stand
-// behind: the notes palette, which draws above the details. It is no surface for the other keys: `n`, the
+// behind: the notes palette, which draws above the details. It is no surface for the other keys: `n`, `t`, the
 // tab keys and Esc work with it up, and `/` and the rest are unchanged. keyGuardDetailOff is the guard for
 // the details' keys and the one place that says so.
 //
@@ -38,7 +38,7 @@ function keyGuardTyping(doc) {
   return active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || !!active.isContentEditable;
 }
 
-// `except` is the selector of one popup that may stay open without turning the guard off (`n`
+// `except` is the selector of one popup that may stay open without turning the guard off (`n` and `t`
 // notes the open card, so the card details do not stop it); any other popup still does.
 function keyGuardSurface(doc, except) {
   const open = KEY_GUARD_SURFACES.find((s) => doc.querySelector(except && s.name === 'dialog' ? `${s.selector}:not(${except})` : s.selector));

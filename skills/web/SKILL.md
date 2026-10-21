@@ -1356,11 +1356,11 @@ to `127.0.0.1` only.
   popup it works over), the card menu's **Todos…** (one card), or the small count on a card tile and on a
   group badge (`2/5`: open over all, shown when the list has an item, worked out on each board read
   and never written). The tab is a box where **Enter** adds an item at the end and the list under it:
-  **Up** and **Down** move between the box and the rows; on a row **Space** ticks it, **e** edits its
+  **Up** and **Down** move between the box and the rows; on a row **Space** ticks it, **e** or **Enter** edits its
   text in place (Enter saves, Esc puts it back), **c** aims the box under it (a chip says so; Esc
-  clears it) so Enter adds a child, **d d** deletes it with its children, **Alt+Up** and **Alt+Down**
+  clears it) so Enter adds a child, **d d** deletes it with its children and the lines indented under it, **Alt+Up** and **Alt+Down**
   move it among its siblings (each row also has these as buttons). A ticked item stays in place,
-  struck and muted, and nothing clears finished items in bulk. An item's text is drawn by
+  struck and muted, and nothing clears finished items in bulk. A held key acts once, and a change is ignored while another is on its way. An item's text is drawn by
   `markdownInto(el, text, { inline: true })`, the one renderer's inline marks with no block; a line
   of the file that is not an item shows muted and read only. The list is read when the tab opens and
   read again, redrawn only if it changed, whenever the board refreshes (not while an item is being
@@ -1369,7 +1369,7 @@ to `127.0.0.1` only.
   depth, done, text }` or `{ index, item: false, text }` (a blank line is left out, `index` is the
   line number in the file); `POST /api/todos/<id>` with `{ text, parent?, version }` adds an item
   (201; `parent` is the line of the item it goes under), `PATCH` with `{ index, done?, text?, version }`
-  ticks or edits, `DELETE` with `{ index, version }` removes an item with its children and
+  ticks or edits, `DELETE` with `{ index, version }` removes an item with its children and the lines indented under it, and
   `POST /api/todos/<id>/move` with `{ index, by: -1 | 1, version }` moves it among its siblings; each
   answers `{ todos }` as the file now reads, with `at`, the line of the item added or moved. Every
   write names the `version` it read and is refused with 409 when the file has changed since, and with

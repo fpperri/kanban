@@ -29,73 +29,24 @@
 // from the folder's own listing.
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-const cfg = require('./config-store');
 const ids = require('../web/ids');
-const { StatusError } = require('./store-common');
+const { StatusError, versionOf } = require('./store-common');
 const { writeAtomic } = require('./card-store');
 const iter = require('./iteration-folders');
+const { targetFiles } = require('./target-files');
 const { localToday } = require('../web/days');
+const cfg = require('./config-store');
 
-const FILE_RE = /^([^.]+)\.todo\.md$/;
-const ITEM_RE = /^([ \t]*)([-*+])([ \t]+)\[([ xX])\]([ \t]+)(.*)$/;
+const ITEM_RE = /^([ \t]*)([-*+])([ \t]+)\[([ xX])\]([ \t]+)([\s\S]*)$/;
 const MAX_FILE = 300000; // under the server's request limit even when every new line is escaped
 const MAX_ITEM = 2000;
-const CONTROL = /[\u0000-\u001f\u007f]/;
+const CONTROL = /[\u0000-\u001f\u007f\u0085\u2028\u2029]/;
+const BOM = '\uFEFF';
 
-function mustTodos(dir) {
-  const config = cfg.readConfig(dir);
-  if (!config.todos) throw new StatusError('Todo lists are off: config.yaml has no todos: line.', 404);
-  return { value: config.todos, digits: config.idDigits };
-}
-
-function checkTarget(target) {
-  const key = typeof target === 'string' ? ids.idKey(target.trim()) : null;
-  if (key === null) throw new StatusError('That is not an id.', 400);
-  return key;
-}
-
-function canonicalName(target, digits) {
-  return `${ids.formatId(target, digits)}.todo.md`;
-}
-
-// Every file of the folder that is a todo list: { name, target }, by name.
-function listFiles(folder) {
-  let entries;
-  try { entries = fs.readdirSync(folder); } catch (_) { return []; }
-  const out = [];
-  for (const name of entries.sort()) {
-    const m = FILE_RE.exec(name);
-    const target = m ? ids.idKey(m[1]) : null;
-    if (target !== null) out.push({ name, target });
-  }
-  return out;
-}
-
-// Every list of every folder the path can name: { name, target, folder: { label, abs } }.
-function allFiles(dir, value) {
-  const out = [];
-  for (const folder of iter.readFolders(dir, value)) for (const f of listFiles(folder.abs)) out.push({ ...f, folder });
-  return out;
-}
-
-// Where a target's list is, or would be written: { folder, name, exists }. A list that is there stays
-// there (the folder a new list would take, if it is in several); else the canonical name in the
-// folder of the iteration its card or group is a member of, else the one holding `today`.
-function placeOf(dir, value, digits, target, today, all) {
-  const canon = canonicalName(target, digits);
-  const fresh = () => iter.folderOfPad(dir, value, target, today);
-  const have = (all || allFiles(dir, value)).filter((f) => f.target === target);
-  const folders = [...new Map(have.map((f) => [f.folder.label, f.folder])).values()];
-  let folder;
-  if (folders.length === 0) folder = fresh();
-  else if (folders.length === 1) [folder] = folders;
-  else folder = folders.find((f) => f.label === fresh().label) || folders[0];
-  const here = have.filter((f) => f.folder.label === folder.label);
-  return { folder, name: here.some((f) => f.name === canon) ? canon : here.length ? here[0].name : canon, exists: here.length > 0 };
-}
-
-const versionOf = (raw) => crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16);
+// The file naming, the folders and the listing are shared with the scratchpad (target-files.js).
+const files = targetFiles({ key: 'todos', kind: 'todo', off: 'Todo lists are off: config.yaml has no todos: line.' });
+const { checkTarget, canonicalName, placeOf, listTargets, deleteTargetFiles } = files;
+const mustTodos = (dir) => { const { value, digits } = files.mustBeOn(dir); return { value, digits }; };
 
 // ---------- the file as lines ----------
 
@@ -195,8 +146,11 @@ function folderOf(value, place) {
   return iter.filledIn(value, place.folder.label);
 }
 
+// A file that starts with a byte order mark reads past it, and a write puts it back.
+const withoutBom = (raw) => (raw.startsWith(BOM) ? raw.slice(1) : raw);
+
 function present(target, name, exists, raw, folderText) {
-  const rows = parse(splitLines(raw));
+  const rows = parse(splitLines(withoutBom(raw)));
   const lines = [];
   const depth = (i) => { let d = 0; for (let p = rows[i].parent; p !== null; p = rows[p].parent) d++; return d; };
   rows.forEach((r, index) => {
@@ -236,13 +190,15 @@ function open(dir, target, version, opts) {
   if (versionOf(raw === null ? '' : raw) !== version) {
     throw new StatusError('The list changed on disk after it was read, so nothing was changed. It is read again.', 409);
   }
-  const lines = splitLines(raw === null ? '' : raw);
-  return { key, file, place, lines, rows: parse(lines) };
+  const text = raw === null ? '' : raw;
+  const lines = splitLines(withoutBom(text));
+  return { key, file, place, lines, rows: parse(lines), bom: text.startsWith(BOM) ? BOM : '', size: text.length };
 }
 
 function save(dir, ctx, lines, opts) {
-  const text = joinLines(lines);
-  if (text.length > MAX_FILE) throw new StatusError('That list is too long.', 413);
+  const text = ctx.bom + joinLines(lines);
+  // A write never makes the file bigger than the limit; one already over it (a hand edit) can still change.
+  if (text.length > MAX_FILE && text.length > ctx.size) throw new StatusError('That list is too long.', 413);
   fs.mkdirSync(ctx.place.folder.abs, { recursive: true });
   writeAtomic(ctx.file, text);
   return readTodos(dir, ctx.key, opts);
@@ -346,40 +302,34 @@ function moveTodo(dir, target, body, opts) {
 
 // ---------- the board ----------
 
-// The targets that have a list, in id order, from the file names alone.
-function listTargets(dir) {
-  const config = cfg.readConfig(dir);
-  if (!config.todos) return [];
-  return ids.sortIds([...new Set(allFiles(dir, config.todos).map((f) => f.target))]);
+// The start of a file, at most MAX_FILE characters of it: what the counts read on every board read.
+function readCapped(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, 'r');
+    const buf = Buffer.alloc(MAX_FILE);
+    const n = fs.readSync(fd, buf, 0, MAX_FILE, 0);
+    return buf.toString('utf8', 0, n);
+  } catch (_) {
+    return '';
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
 }
 
-// { target: { open, total } } for every list that has items; open over all, worked out from the files each time.
+// { target: { open, total } } for every list that has items; open over all, worked out from the files each
+// time, reading no more than MAX_FILE of each.
 function counts(dir, opts) {
   const config = cfg.readConfig(dir);
   if (!config.todos) return {};
-  const all = allFiles(dir, config.todos);
+  const all = files.allFiles(dir, config.todos);
   const out = {};
   for (const target of new Set(all.map((f) => f.target))) {
     const place = placeOf(dir, config.todos, config.idDigits, target, (opts && opts.today) || localToday(), all);
-    const raw = readRaw(path.join(place.folder.abs, place.name));
-    const items = parse(splitLines(raw === null ? '' : raw)).filter((r) => r.item);
+    const items = parse(splitLines(withoutBom(readCapped(path.join(place.folder.abs, place.name))))).filter((r) => r.item);
     if (items.length) out[target] = { open: items.filter((r) => !r.done).length, total: items.length };
   }
   return out;
-}
-
-// Delete every list of one target (a card or a group), whatever its padding or folder; how many went.
-// Only the delete flow calls this.
-function deleteTargetFiles(dir, target) {
-  const config = cfg.readConfig(dir);
-  const key = typeof target === 'string' || typeof target === 'number' ? ids.idKey(target) : null;
-  if (!config.todos || key === null) return 0;
-  let gone = 0;
-  for (const f of allFiles(dir, config.todos)) {
-    if (f.target !== key) continue;
-    try { fs.unlinkSync(path.join(f.folder.abs, f.name)); gone++; } catch (_) { /* already gone */ }
-  }
-  return gone;
 }
 
 module.exports = { readTodos, addTodo, setTodo, deleteTodo, moveTodo, listTargets, counts, deleteTargetFiles, canonicalName, MAX_ITEM, MAX_FILE };

@@ -176,15 +176,135 @@ test('Space ticks the item and unticks it again; a ticked item stays in place, s
   } finally { t.close(); }
 });
 
-test('two quick presses of Space are two writes in order, each on the version the one before left', async () => {
-  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+test('a change ignores the keys while another is on its way: two quick presses of Space tick once, and nothing is refused', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n- [ ] two\n' } });
   try {
     await t.open();
     t.pressRow(t.rows()[0], ' ');
     t.pressRow(t.rows()[0], ' ');
+    t.pressRow(t.rows()[1], ' ');
     await t.settle();
-    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n', 'ticked and unticked, with no clash');
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [x] one\n- [ ] two\n', 'the first change only');
     assert.deepStrictEqual(t.toasts, []);
+    t.pressRow(t.rows()[1], ' ');
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [x] one\n- [x] two\n', 'and the next goes through once it has landed');
+  } finally { t.close(); }
+});
+
+test('two quick Alt+Down presses move the item once, not down and back', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n- [ ] c\n' } });
+  try {
+    await t.open();
+    t.pressRow(t.rows()[0], 'ArrowDown', { altKey: true });
+    t.pressRow(t.rows()[0], 'ArrowDown', { altKey: true });
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] b\n- [ ] a\n- [ ] c\n');
+    assert.deepStrictEqual(t.toasts, []);
+  } finally { t.close(); }
+});
+
+test('Space right after an add does not tick the wrong item, and an add typed meanwhile keeps its text', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    t.add().value = 'two';
+    t.p.press(t.add(), 'Enter');
+    t.pressRow(t.rows()[0], ' ');
+    t.add().value = 'three';
+    t.p.press(t.add(), 'Enter');
+    await t.settle();
+    assert.strictEqual(t.add().value, 'three', 'refused while the first add was on its way: the text stays');
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n- [ ] two\n');
+  } finally { t.close(); }
+});
+
+test('a held key acts once: a repeat of Space, e, c, d and Alt+Down does nothing, and Down still repeats', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n- [ ] b\n' } });
+  try {
+    await t.open();
+    for (const [key, over] of [[' ', {}], ['e', {}], ['Enter', {}], ['c', {}], ['d', {}], ['ArrowDown', { altKey: true }]]) {
+      const e = t.pressRow(t.rows()[0], key, { repeat: true, ...over });
+      assert.strictEqual(e.defaultPrevented, true, key);
+    }
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] a\n- [ ] b\n');
+    assert.strictEqual(t.p.find('.td-edit'), null);
+    assert.strictEqual(t.p.find('.td-under'), null);
+    assert.strictEqual(t.rows()[0].querySelector('[data-act="delete"]').textContent, 'Delete');
+    t.pressRow(t.rows()[0], 'ArrowDown', { repeat: true });
+    assert.strictEqual(t.p.doc.activeElement, t.rows()[1]);
+  } finally { t.close(); }
+});
+
+test('the list is for screen readers: the empty hint is outside it, a box names its item in plain text, and arming a delete is announced', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] **bold** item\n' } });
+  try {
+    await t.open('3');
+    const list3 = t.list();
+    assert.strictEqual(list3.hidden, true, 'no list while there is nothing in it');
+    assert.strictEqual(list3.children.length, 0);
+    assert.strictEqual(t.p.find('.np-empty').hidden, false);
+    assert.strictEqual(t.p.find('.np-empty').parent.classes.includes('td-list'), false, 'the hint is no child of the list');
+    await t.open('7');
+    assert.strictEqual(t.list().getAttribute('role'), 'list');
+    assert.strictEqual(t.p.find('.np-empty').hidden, true);
+    assert.strictEqual(t.list().hidden, false);
+    assert.strictEqual(t.p.find('.td-add').getAttribute('aria-describedby'), 'td-add-hint');
+    assert.match(t.p.find('#td-add-hint').textContent, /Down reaches the rows/);
+    const live = t.p.all('.td-live').find((e) => e.getAttribute('role') === 'status');
+    assert.strictEqual(live.getAttribute('aria-live'), 'polite');
+    assert.strictEqual(live.textContent, '');
+    const del = t.rows()[0].querySelector('[data-act="delete"]');
+    assert.match(del.title, /children and the lines indented under it/);
+    del.click();
+    assert.match(live.textContent, /^Sure\?/);
+  } finally { t.close(); }
+});
+
+test('a count names the card or group it is of, for a screen reader', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] a\n' } });
+  try {
+    const b = t.p.page.run("todoCountButton('7')");
+    assert.strictEqual(b.getAttribute('aria-label'), '#7 Port the zephyr schema: 1 of 1 todo open; open the list');
+  } finally { t.close(); }
+});
+
+test('Alt+4 is the palette\'s only when there is a fourth tab: on three tabs it is not caught', async () => {
+  const t = await setup();
+  const keys = (key) => ({ key, code: 'Digit' + key, altKey: true, ctrlKey: false, metaKey: false, shiftKey: false, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } });
+  try {
+    await t.open();
+    const four = keys('4');
+    t.p.pal().fire('keydown', four);
+    assert.strictEqual(four.defaultPrevented, false, 'three tabs: it is not caught, as before the fourth tab existed');
+    const three = keys('3');
+    t.p.pal().fire('keydown', three);
+    assert.strictEqual(three.defaultPrevented, true);
+    const g = await setup({ config: CONFIG + 'groups: .groups\nprefixes:\n  I: .groups/iteration\n', files: { '.groups/iteration/0001.sprint.md': '---\nid: I1\nname: sprint\ncards: [7]\n---\n' } });
+    try {
+      await g.open('I1');
+      const fourth = keys('4');
+      g.p.pal().fire('keydown', fourth);
+      assert.strictEqual(fourth.defaultPrevented, true, 'four tabs: it is the Todos tab');
+      assert.strictEqual(g.p.page.run('notesUi.tab'), 'todos');
+      g.p.page.run("notesSetTab('group')");
+      g.p.pal().fire('keydown', fourth);
+      assert.strictEqual(g.p.page.run('notesUi.tab'), 'todos');
+    } finally { g.close(); }
+  } finally { t.close(); }
+});
+
+test('with the logbook off a card\'s scratchpad stays open across a board poll, as its todos do', async () => {
+  const t = await setup({ config: 'name: t\nnextId: 30\nscratchpad: .pads\n' });
+  try {
+    t.p.page.run("openNotes({ kind: 'scratchpad', target: '7' })");
+    await t.settle();
+    assert.strictEqual(t.p.page.run('notesUi.tab'), 'scratch');
+    await t.p.page.run('loadBoard()');
+    await t.settle();
+    assert.ok(t.p.page.run('notesUi.sub'), 'the palette is still up');
+    assert.strictEqual(t.p.page.run('notesUi.tab'), 'scratch');
   } finally { t.close(); }
 });
 

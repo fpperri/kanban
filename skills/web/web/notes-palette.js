@@ -1040,15 +1040,16 @@ function notesOnBodyKey(e) {
   else if (e.key.length === 1 && e.key !== ' ') { notesUi.hi = -1; notesUi.input.focus(); }
 }
 
-// Alt+1, Alt+2 and Alt+3 switch to the palette's first, second and third tab, as the tab row shows
+// Alt+1 to Alt+4 switch to the palette's first to fourth tab, as the tab row shows
 // them; a number past the last tab does nothing. The keys type nothing, so they work from the note
 // box too, and they are the palette's own while it is open.
 function notesTabKey(e) {
   const at = noteTabKey(e);
   if (at === -1 || !notesUi.sub) return false;
+  const tab = notesTabs()[at];
+  if (at === 3 && !tab) return false; // Alt+4 is the palette's only when there is a fourth tab; before it existed it was never caught
   e.preventDefault();
   e.stopPropagation();
-  const tab = notesTabs()[at];
   if (tab) notesSetTab(tab);
   return true;
 }
@@ -1084,7 +1085,7 @@ function notesOnPaletteKey(e) {
   e.stopPropagation();
 }
 
-// The one popup the notes keys work over, through the key guard's `except`: n and Alt+1 to Alt+3 act with
+// The one popup the notes keys work over, through the key guard's `except`: n, t and Alt+1 to Alt+4 act with
 // the card details up and no other surface, and Esc closes the palette ahead of the details.
 const NOTES_DETAIL = '#detail-modal';
 
@@ -1093,17 +1094,23 @@ function notesDetailId() {
   return currentDetailId != null && !$(NOTES_DETAIL).classList.contains('hidden') ? currentDetailId : null;
 }
 
-// n opens the palette on the card whose details are open, else the hovered card, else the one
-// selected card, else on the card last noted. A key that types nothing but reads a letter, so it
-// reads the key guard: off while a field has focus and while a menu, a dialog, the notifications
-// panel or the preferences sheet is up. The card details are the one popup it works over.
+// The card a key means: the one whose details are open, else the hovered card, else the one selected card;
+// null when there is none. `n` and `t` both read it.
+function notesAimedCard() {
+  const detail = notesDetailId();
+  return detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
+}
+
+// n opens the palette on the aimed card (notesAimedCard), else on the card last noted. `t` (todos-ui.js) opens
+// the Todos tab of the same card. Keys that type nothing but read a letter, so they
+// read the key guard: off while a field has focus and while a menu, a dialog, the notifications
+// panel or the preferences sheet is up. The card details are the one popup they work over.
 function onNotesKey(e) {
   if (!e.key || e.key.toLowerCase() !== 'n' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (keyGuardOff(document, NOTES_DETAIL)) return;
   e.preventDefault();
   if (!notesOn()) { toast('The logbook is off: config.yaml has no logbook: line.'); return; }
-  const detail = notesDetailId();
-  const aimed = detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
+  const aimed = notesAimedCard();
   openNotes(aimed === null ? notesCalendarOpening() : { kind: 'card-notes', id: aimed });
 }
 

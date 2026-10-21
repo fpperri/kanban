@@ -84,6 +84,8 @@ test('a path shows the folder the board names for it, the one its path has when 
 
 test('t is read through the key guard of n, over the card details only', () => {
   assert.match(ui, /if \(keyGuardOff\(document, NOTES_DETAIL\)\) return;/);
+  assert.match(ui, /const aimed = notesAimedCard\(\);/, 'the card is aimed as n aims it');
+  assert.match(palette, /const aimed = notesAimedCard\(\);\n  openNotes\(aimed === null/);
   assert.match(ui, /document\.addEventListener\('keydown', onTodosKey\);/);
   assert.match(ui, /e\.shiftKey \|\| e\.ctrlKey \|\| e\.metaKey \|\| e\.altKey \|\| e\.repeat/);
 });

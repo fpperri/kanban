@@ -114,6 +114,59 @@ test('an add and a move answer the line the item is on now', () => {
   assert.deepStrictEqual(shape(td.readTodos(dir, '7')), ['o a', '>o a1', '>o a2', 'o b', 'o c', 'o d']);
 });
 
+test('U+2028 and U+2029 are refused in an item like any control character, and a hand-written line that holds one is still an item', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] one two\n- [ ] x\n' });
+  assert.deepStrictEqual(shape(td.readTodos(dir, '7')), ['o one two', 'o x']);
+  set(dir, '7', 0, { done: true });
+  assert.strictEqual(read(dir, FILE), '- [x] one two\n- [ ] x\n', 'it ticks');
+  const v = td.readTodos(dir, '7').version;
+  for (const bad of ['a b', 'a b', 'a\u0085b']) {
+    refused(() => td.addTodo(dir, '7', { text: bad, version: v }), 400);
+    refused(() => td.setTodo(dir, '7', { index: 0, text: bad, version: v }), 400);
+  }
+});
+
+test('a byte order mark at the start of the file is read past and kept when the file is written', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '﻿- [ ] one\r\n- [ ] two\r\n' });
+  assert.deepStrictEqual(shape(td.readTodos(dir, '7')), ['o one', 'o two']);
+  set(dir, '7', 0, { done: true });
+  assert.strictEqual(read(dir, FILE), '﻿- [x] one\r\n- [ ] two\r\n');
+  add(dir, '7', 'three');
+  assert.strictEqual(read(dir, FILE), '﻿- [x] one\r\n- [ ] two\r\n- [ ] three\r\n');
+  del(dir, '7', 0);
+  assert.strictEqual(read(dir, FILE), '﻿- [ ] two\r\n- [ ] three\r\n');
+  move(dir, '7', 0, 1);
+  assert.strictEqual(read(dir, FILE), '﻿- [ ] three\r\n- [ ] two\r\n');
+  assert.deepStrictEqual(td.counts(dir), { 7: { open: 2, total: 2 } });
+});
+
+test('the size limit is on growth: a write never makes a file bigger than the limit, but can still change one that is already over it', () => {
+  const filler = `${'x'.repeat(100)}\n`.repeat(3100);
+  const dir = tmpBoard(undefined, { [FILE]: `- [ ] one\n- [ ] two\n${filler}` });
+  assert.ok(read(dir, FILE).length > td.MAX_FILE);
+  set(dir, '7', 0, { done: true });
+  assert.ok(read(dir, FILE).startsWith('- [x] one\n'));
+  move(dir, '7', 0, 1);
+  assert.ok(read(dir, FILE).startsWith('- [ ] two\n- [x] one\n'));
+  set(dir, '7', 0, { text: 'tw' });
+  refused(() => add(dir, '7', 'one more'), 413);
+  refused(() => set(dir, '7', 0, { text: 'a much longer text than it had before' }), 413);
+  del(dir, '7', 0);
+  assert.ok(read(dir, FILE).startsWith('- [x] one\n'));
+  const small = tmpBoard();
+  const fill = `${'y'.repeat(100)}\n`.repeat(2970);
+  fs.mkdirSync(path.join(small, '.todos'));
+  fs.writeFileSync(path.join(small, FILE), fill);
+  add(small, '7', 'fits');
+  refused(() => add(small, '7', 'z'.repeat(30)), 413);
+});
+
+test('counts reads at most the size limit of a file, and counts what it read', () => {
+  const head = '- [ ] a\n- [x] b\n';
+  const dir = tmpBoard(undefined, { [FILE]: head + `${'p'.repeat(99)}\n`.repeat(3100) + '- [ ] beyond the limit\n' });
+  assert.deepStrictEqual(td.counts(dir), { 7: { open: 1, total: 2 } });
+});
+
 test('a child of a tab-indented item is indented with a tab', () => {
   const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n\t- [ ] b\n' });
   add(dir, '7', 'b1', 1);

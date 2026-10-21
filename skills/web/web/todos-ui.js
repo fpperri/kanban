@@ -1,5 +1,5 @@
 'use strict';
-// The todo lists on the page (docs/adr/0021): a card's or group's checklist, a Markdown task list in
+// The todo lists on the page (docs/adr/0021): a card's or group's todo list, a Markdown task list in
 // the folder `todos:` names in config.yaml. Nothing here shows without that line: state.todos is null
 // then. Entry points: the notes palette's Todos tab (a card's or a group's), the `t` key, the card
 // menu's Todos... entry, and the small count on a card tile and on a group badge. The gear gains a
@@ -12,15 +12,16 @@
 // of the file that is not an item shows muted and read only. The list is read when the tab opens and
 // again when the board refreshes (an agent or a hand edit shows without a reload); every write names
 // the version of the list it read, and a list changed since is read again with the server's reason
-// said. The board payload carries the open and total of each list (state.todos.counts), which the tiles
+// said. While a change is on its way every other change is ignored (its answer renumbers the lines the
+// keys name), and a held key acts once. The board payload carries the open and total of each list (state.todos.counts), which the tiles
 // and badges draw; the delete popup reads state.todos.targets.
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
 // loads, except settingsAddBoardPage which it calls at load: $, state, api, toast, loadBoard, menuSubject,
-// hideContextMenu, openNotes, notesLabel, notesCard, notesDetailId, NOTES_DETAIL, hoveredId, selectedIds,
+// hideContextMenu, openNotes, notesLabel, notesAimedCard, NOTES_DETAIL,
 // keyGuardOff, markdownInto, settingsFeatureNodes, settingsAddBoardPage.
 
-const todosUi = { refresh: null, parent: null, pending: 0, editing: 0, tail: Promise.resolve() };
+const todosUi = { refresh: null, parent: null, pending: 0, editing: 0 };
 
 function todosOn() {
   return !!state.todos;
@@ -54,7 +55,7 @@ function todoCountButton(id) {
   b.type = 'button';
   b.dataset.todoTarget = id;
   b.title = `${count.open} of ${count.total} todo${count.total === 1 ? '' : 's'} open; open the list`;
-  b.setAttribute('aria-label', b.title);
+  b.setAttribute('aria-label', `${notesLabel(id)}: ${b.title}`); // names the card or group the count is of
   return b;
 }
 
@@ -74,12 +75,20 @@ function todosPanel(target) {
   const add = todoEl('input', 'td-add');
   Object.assign(add, { type: 'text', placeholder: 'Add a todo; Enter adds it', autocomplete: 'off', spellcheck: true, disabled: true });
   add.setAttribute('aria-label', 'New todo');
+  add.setAttribute('aria-describedby', 'td-add-hint');
+  const hint = todoEl('span', 'td-live', 'Enter adds the item. Down reaches the rows.');
+  hint.id = 'td-add-hint';
+  const live = todoEl('span', 'td-live'); // says Sure? when a delete is armed
+  live.setAttribute('role', 'status');
+  live.setAttribute('aria-live', 'polite');
+  const empty = todoEl('p', 'np-empty', 'No todos yet. Enter adds the first.');
+  empty.hidden = true;
   const bar = todoEl('div', 'td-bar');
   bar.append(add);
   const rows = todoEl('div', 'td-list');
   rows.setAttribute('role', 'list');
   rows.setAttribute('aria-label', 'Todos');
-  wrap.append(path, bar, rows);
+  wrap.append(path, bar, rows, empty, live, hint);
   todosUi.parent = null;
 
   let list = null;
@@ -119,8 +128,10 @@ function todosPanel(target) {
     if (p && !list.lines.some((l) => l.item && l.index === p.index && l.text === p.text)) { todosUi.parent = null; paintUnder(); }
     paintPath();
     todosUi.editing = 0;
+    empty.hidden = list.lines.length > 0; // the hint sits outside the list, which holds only items
+    rows.hidden = !empty.hidden;
     if (!list.lines.length) {
-      rows.replaceChildren(todoEl('p', 'np-empty', 'No todos yet. Enter adds the first.'));
+      rows.replaceChildren();
       if (keep !== null) add.focus();
       return;
     }
@@ -129,14 +140,16 @@ function todosPanel(target) {
     if (want !== null && want !== undefined) focusNear(want);
   };
 
-  // One write at a time, each naming the version the one before left; a clash is said and the list read again.
-  // The promise answers whether the change was made.
+  // One change at a time: while one is on its way another is ignored, since its answer renumbers the lines
+  // the keys name. A clash with a hand edit is said and the list read again. The promise answers whether the
+  // change was made.
   const send = (method, suffix, build, after) => {
-    todosUi.pending += 1;
+    if (todosUi.pending > 0) return Promise.resolve(false);
+    const body = build();
+    if (body === null) return Promise.resolve(false);
+    todosUi.pending = 1;
     const run = async () => {
       try {
-        const body = build();
-        if (body === null) return false;
         const answer = await api(method, url + suffix, { ...body, version: list.version });
         list = answer.todos;
         const at = answer.todos.at;
@@ -150,12 +163,10 @@ function todosPanel(target) {
         }
         return false;
       } finally {
-        todosUi.pending -= 1;
+        todosUi.pending = 0;
       }
     };
-    const next = todosUi.tail.then(run, run);
-    todosUi.tail = next;
-    return next;
+    return run();
   };
 
   const lineAt = (index) => list.lines.find((l) => l.item && l.index === index) || null;
@@ -184,7 +195,7 @@ function todosPanel(target) {
       closed = true;
       todosUi.editing = Math.max(0, todosUi.editing - 1);
       const text = input.value.trim();
-      if (save && text !== '' && text !== l.text) setText(l.index, text);
+      if (save && text !== '' && text !== l.text) setText(l.index, text).then((made) => { if (!made) paintRows(refocus ? l.index : undefined); });
       else paintRows(refocus ? l.index : undefined);
     };
     input.addEventListener('keydown', (e) => {
@@ -215,11 +226,11 @@ function todosPanel(target) {
     box.tabIndex = -1;
     box.setAttribute('role', 'checkbox');
     box.setAttribute('aria-checked', String(l.done));
-    box.setAttribute('aria-label', l.text);
     box.title = l.done ? 'Untick (Space)' : 'Tick (Space)';
     box.addEventListener('click', (e) => { e.stopPropagation(); tick(l.index); row.focus(); });
     const text = todoEl('span', 'td-text');
     markdownInto(text, l.text, { inline: true });
+    box.setAttribute('aria-label', text.textContent || l.text); // the item's plain text, not its Markdown
     const acts = todoEl('span', 'td-acts');
     const act = (name, label, title, onclick) => {
       const b = todoEl('button', 'np-act', label);
@@ -236,14 +247,16 @@ function todosPanel(target) {
       act('child', '+ Sub', 'Add an item under this one (c)', () => child(l.index)),
       act('up', '↑', 'Move up among its siblings (Alt+Up)', () => move(l.index, -1)),
       act('down', '↓', 'Move down among its siblings (Alt+Down)', () => move(l.index, 1)),
-      act('delete', 'Delete', 'Delete it with its children (press twice)', (b) => {
+      act('delete', 'Delete', 'Delete it with its children and the lines indented under it (press twice)', (b) => {
         if (!b.classList.contains('sure')) {
           b.classList.add('sure');
           b.textContent = 'Sure?';
+          live.textContent = 'Sure? Press delete again to delete this item and what is under it.';
           clearTimeout(sureTimer);
-          sureTimer = setTimeout(() => { b.classList.remove('sure'); b.textContent = 'Delete'; }, 3500);
+          sureTimer = setTimeout(() => { b.classList.remove('sure'); b.textContent = 'Delete'; live.textContent = ''; }, 3500);
           return;
         }
+        live.textContent = '';
         remove(l.index);
       }),
     );
@@ -275,19 +288,21 @@ function todosPanel(target) {
     const index = Number(row.dataset.index);
     const l = lineAt(index);
     const own = () => { e.preventDefault(); e.stopPropagation(); };
+    // A key that changes the list acts once: a held key repeats and is ignored.
+    const once = () => { own(); return !e.repeat; };
     const els = rowEls();
     const at = els.indexOf(row);
     if (e.altKey) {
-      if (e.key === 'ArrowUp') { own(); move(index, -1); }
-      else if (e.key === 'ArrowDown') { own(); move(index, 1); }
+      if (e.key === 'ArrowUp') { if (once()) move(index, -1); }
+      else if (e.key === 'ArrowDown') { if (once()) move(index, 1); }
       return;
     }
     if (e.key === 'ArrowDown') { own(); focusRow(els[Math.min(at + 1, els.length - 1)]); }
     else if (e.key === 'ArrowUp') { own(); if (at <= 0) add.focus(); else focusRow(els[at - 1]); }
-    else if (e.key === ' ') { own(); tick(index); }
-    else if (e.key === 'e' || e.key === 'Enter') { own(); if (l) edit(row, l); }
-    else if (e.key === 'c') { own(); child(index); }
-    else if (e.key === 'd') { own(); const b = row.querySelector('[data-act="delete"]'); if (b) b.click(); }
+    else if (e.key === ' ') { if (once()) tick(index); }
+    else if (e.key === 'e' || e.key === 'Enter') { if (once() && l) edit(row, l); }
+    else if (e.key === 'c') { if (once()) child(index); }
+    else if (e.key === 'd') { if (once()) { const b = row.querySelector('[data-act="delete"]'); if (b) b.click(); } }
     else if (e.key === 'Backspace') { own(); add.focus(); }
   });
 
@@ -335,8 +350,7 @@ function onTodosKey(e) {
   if (keyGuardOff(document, NOTES_DETAIL)) return;
   e.preventDefault();
   if (!todosOn()) { toast('Todo lists are off: config.yaml has no todos: line.'); return; }
-  const detail = notesDetailId();
-  const aimed = detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
+  const aimed = notesAimedCard();
   if (aimed !== null) openNotes({ kind: 'todos', target: aimed });
 }
 
