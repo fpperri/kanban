@@ -14,6 +14,7 @@
 //   groupsonly the groups board without its logbook: line (groups on, notes off)
 //   scratchpad the groups board with a scratchpad: line and two pages, one for card 7 (with refs) and one for group I2
 //   scratchonly the groups board with the logbook line taken out and a scratchpad: line put in (scratchpads on, notes off)
+//   markdown   the fixture board plus card 22, whose body holds the rich Markdown the detail popup draws
 //   calnotes   the notes board with two more notes, so one half hour holds two and one day holds two untimed
 //   iterations the groups board with iterations: true, so the header has the iteration dropdown
 //   iterlog    the groups board whose logbook: and scratchpad: paths name the <iteration> folder (docs/adr/0019)
@@ -38,6 +39,7 @@ const BOARDS = {
   scratchpad: { name: 'scratchpad', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-scratchpad'] },
   scratchonly: { name: 'scratchonly', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-groups-nolog', 'fixture-scratchpad-nolog'] },
   feature: { name: 'feature', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-scratchpad', 'fixture-feature'] },
+  markdown: { name: 'markdown', layers: ['fixture', 'fixture-markdown'] },
   iterlog: { name: 'iterlog', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-iterlog'] },
   calnotes: { name: 'notes', layers: ['fixture', 'fixture-plan', 'fixture-notes', 'fixture-notes-calendar'] },
 };

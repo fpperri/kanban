@@ -6,7 +6,9 @@
 // card menu's Scratchpad... entry. The gear gains a Scratchpad page beside the Logbook's.
 //
 // The tab shows the page's file, its refs (the notes, files and folders it points at, read from the
-// page's frontmatter and edited in the file), and a multi-line box. Ctrl+Enter or Save writes the
+// page's frontmatter and edited in the file), and a multi-line box with an Edit | Preview switch
+// over it: Edit is the box, the default; Preview draws the box's text as Markdown (markdownInto,
+// the renderer the card body uses), saved or not. Ctrl+Enter or Save writes the
 // body; the server keeps the frontmatter. Unsaved text survives a tab switch or a closed palette in
 // this page's memory until the page is reloaded. The page itself is read when the tab opens: the
 // board payload only says which targets have one (state.scratchpad.targets), which the delete popup
@@ -14,8 +16,8 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
 // loads, except settingsAddBoardPage which it calls at load: $, state, api, toast, loadBoard,
-// menuSubject, hideContextMenu, openNotes, notesLabel, notesTextNodes, settingsFeatureNodes,
-// settingsAddBoardPage.
+// menuSubject, hideContextMenu, openNotes, notesLabel, notesTextNodes, markdownInto,
+// settingsFeatureNodes, settingsAddBoardPage.
 
 const scratchUi = { drafts: new Map(), saving: false };
 
@@ -50,6 +52,33 @@ function scratchPanel(target) {
   Object.assign(text, { spellcheck: false, disabled: true, placeholder: 'Loading…' });
   text.setAttribute('aria-label', 'Scratchpad text');
   textEditAttach(text);
+  text.hidden = false;
+  const view = scratchEl('div', 'sp-preview detail-body');
+  view.hidden = true;
+  view.setAttribute('tabindex', '0');
+  view.setAttribute('aria-label', 'Scratchpad preview');
+  const modes = scratchEl('div', 'sp-modes');
+  modes.setAttribute('role', 'group');
+  modes.setAttribute('aria-label', 'Edit or preview');
+  const edit = scratchEl('button', 'sp-mode on', 'Edit');
+  const preview = scratchEl('button', 'sp-mode', 'Preview');
+  for (const b of [edit, preview]) b.type = 'button';
+  edit.setAttribute('aria-pressed', 'true');
+  preview.setAttribute('aria-pressed', 'false');
+  preview.disabled = true;
+  modes.append(edit, preview);
+  const showPreview = (on) => {
+    text.hidden = on;
+    view.hidden = !on;
+    if (on) markdownInto(view, text.value); // after it is shown: a diagram is measured where it is drawn
+    edit.classList.toggle('on', !on);
+    preview.classList.toggle('on', on);
+    edit.setAttribute('aria-pressed', String(!on));
+    preview.setAttribute('aria-pressed', String(on));
+    if (!on && !text.disabled) text.focus({ preventScroll: true });
+  };
+  edit.addEventListener('click', () => showPreview(false));
+  preview.addEventListener('click', () => showPreview(true));
   const status = scratchEl('span', 'sp-status');
   status.setAttribute('aria-live', 'polite');
   const save = scratchEl('button', 'sp-save', 'Save');
@@ -57,7 +86,7 @@ function scratchPanel(target) {
   save.disabled = true;
   const bar = scratchEl('div', 'sp-bar');
   bar.append(save, scratchEl('span', 'np-muted', 'Ctrl+Enter saves'), status);
-  wrap.append(path, refs, text, bar);
+  wrap.append(path, refs, modes, text, view, bar);
 
   let pad = null;
   const paintPad = () => {
@@ -90,6 +119,7 @@ function scratchPanel(target) {
       pad = answer.pad;
       scratchUi.drafts.delete(target);
       paintPad();
+      if (!view.hidden) markdownInto(view, text.value);
       status.textContent = 'Saved';
       await loadBoard();
     } catch (e) {
@@ -112,6 +142,7 @@ function scratchPanel(target) {
     text.disabled = false;
     text.placeholder = 'Anything: a checklist, a paste, a half-formed plan';
     save.disabled = false;
+    preview.disabled = false;
     const here = document.activeElement;
     if (wrap.isConnected && (!here || here === document.body || notesUi.el.contains(here))) text.focus({ preventScroll: true });
   }).catch((e) => {

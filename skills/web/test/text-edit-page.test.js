@@ -238,3 +238,17 @@ test('Ctrl+M in another field, or with another modifier, is not the switch', asy
   assert.strictEqual(p.text(p.doc.body.querySelector('.text-edit-hint')), 'Tab indents · Ctrl+M: Tab moves focus');
   assert.strictEqual(press(p.box, 'Tab').prevented, true);
 });
+
+test('in the Scratchpad\'s Edit mode, which has the box, Tab indents and the Markdown keys format; Preview has no box', async () => {
+  const p = await open({ scratchpad: { folder: 'scratch', targets: [] } });
+  const panel = p.page.run("scratchPanel('7')");
+  const box = panel.querySelector('.sp-text');
+  assert.strictEqual(box.hidden, false, 'Edit is the default mode');
+  fill(p, box, 'word', 0, 4);
+  assert.strictEqual(press(box, 'b', ctrl()).prevented, true);
+  assert.strictEqual(box.value, '**word**');
+  fill(p, box, 'ab', 1);
+  press(box, 'Tab');
+  assert.strictEqual(box.value, 'a  b');
+  assert.ok(panel.querySelector('.sp-preview'), 'the preview is its own element, not the box');
+});
