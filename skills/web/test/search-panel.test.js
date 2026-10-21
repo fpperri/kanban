@@ -69,7 +69,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), search =
   const storage = { 'kanban.kanban.view.mode': view, ...stored };
   const menus = [];
   const loaded = loadPage({ board, search, stored: storage, elements, ...(list ? { documentExtras: { createElement: () => control() } } : {}) });
-  if (list) loaded.input.parentElement = { style: {}, appendChild: (menu) => menus.push(menu) };
+  if (list) loaded.input.parentElement = { style: {}, appendChild: (menu) => menus.push(menu), addEventListener() {}, querySelector: () => null };
   const page = await loaded.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const sortedIds = (set) => [...set].sort((a, b) => a - b);

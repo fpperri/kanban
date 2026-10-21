@@ -35,12 +35,13 @@
     <div class="search-box">
       <input type="search" id="search-input" class="search-input" autocomplete="off"
         placeholder="Search… (#id, title:, body:, status:, priority:, tags:, file:, assignee:/A:, type:, review:, blocked:)"
-        title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. slice:objective..2 cuts every view to a run of slices (tiers, then depths). Press / to focus. Esc closes the search panel when it is open, then clears the box.">
+        title="Space-separated terms AND together. Prefix a term with title:/body:/status:/priority:/tags:/file:/assignee: (A:/a: alias)/type: to scope it, or #id / id:42 for an exact card. Bare review:/blocked: matches the sticker's presence; review:PR / blocked:vendor substring-matches its text. Bare waiting: matches cards waiting for a card that is not done. | is or, ( ) group, and a &quot;quoted value&quot; matches the whole value or phrase. slice:objective..2 cuts every view to a run of slices (tiers, then depths). Press / to focus. Enter goes to the first match, and a second Enter opens it when it is the only one. Esc closes the search panel when it is open, then clears the box.">
       <button type="button" id="search-chip" class="search-chip hidden" aria-controls="search-panel" aria-expanded="false" data-keeps-selection></button>
       <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search" aria-label="Clear search">&#10005;</button>
       <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
     </div>
     <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters" data-keeps-selection>
+      <p id="search-board-note" class="search-board-note hidden" role="status"></p>
       <section id="search-statuses-section" class="search-section" aria-labelledby="search-statuses-fold">
         <button type="button" id="search-statuses-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-statuses" aria-label="Statuses" title="Fold or unfold the statuses">Statuses</button>
         <div id="search-statuses" class="search-statuses" role="group" aria-labelledby="search-statuses-fold" data-keeps-selection></div>
@@ -575,6 +576,7 @@
 <script src="/assignee-colors.js"></script>
 <script src="/save-hotkey.js"></script>
 <script src="/search-hotkey.js"></script>
+<script src="/search-enter.js"></script>
 <script src="/key-guard.js"></script>
 <script src="/deep-link.js"></script>
 <script src="/card-history.js"></script>

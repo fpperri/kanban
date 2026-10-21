@@ -1115,9 +1115,13 @@ function wireGraphView(host) {
 
   const enter = (e) => {
     const el = e.target.closest('.graph-node');
-    if (el) graphSetFocus(el.dataset.id);
+    if (!el) return;
+    if (e.type === 'focusin' && searchEnterFocusedId === el.dataset.id) return; // the focus Enter in the search box gave: the search's lights stay
+    searchEnterFocusedId = null;
+    graphSetFocus(el.dataset.id);
   };
   const leave = (e) => {
+    if (e.type === 'focusout' && e.relatedTarget) searchEnterFocusedId = null; // focus moved on to something else
     const from = e.target.closest('.graph-node');
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');

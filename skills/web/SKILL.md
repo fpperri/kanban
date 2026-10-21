@@ -299,9 +299,16 @@ to `127.0.0.1` only.
 - **Search** — the header search box filters every view as you type, except the Graph,
   where a typed search lights its matches and hides nothing but a `slice:` cut (see the Graph
   view entry); the
-  query survives view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
-  exact card id, whole (`#G3` is the card `G3`, not card 3; a lowercase `#a371f7` is no id), and a pasted `webapp#42` is the same when `webapp` is this board's name (any
-  case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
+  query survives view switches and the poll. Enter in the search box goes to the first match,
+  and a second Enter opens it when it is the only one: the first closes the panel (and the
+  phone's field), brings the first matching card in the view's reading order to the middle
+  and gives it focus, leaving the query, the selection and the pills as they were. Enter
+  picks from the suggestion list only when a row of it is highlighted (arrow to one first).
+  Space-separated terms AND together: `#42`/`id:42` is an
+  exact card id, whole (`#G3` is the card `G3`, not card 3; a lowercase `#a371f7` is no id),
+  and a pasted `webapp#42` is the same when `webapp` is this board's name (any
+  case; another board's mention is searched as text and the panel says which board holds
+  the card); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
   scope with nothing after the colon yet — `status:` mid-keystroke — is dropped as
   not-yet-a-term rather than matching everything for one keystroke); `review:`/`blocked:`

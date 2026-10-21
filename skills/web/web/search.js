@@ -30,7 +30,9 @@
 // run off the parse: the top-level terms with the field slice).
 //
 // The terms:
-//   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same
+//   #42 / id:42   exact card id; `<board name>#42` (this board, any case) is the same;
+//                 another board's `fpp#42` is searched as text, and the search panel says which
+//                 board holds the card (searchOtherBoardMentions)
 //   title:foo     substring on title
 //   body:foo      substring on markdown body
 //   status:doing  substring on status
@@ -304,6 +306,28 @@ function searchAltsToTerms(alts, text, board) {
     .filter((list) => list.length);
   if (lists.length <= 1) return lists[0] || [];
   return [{ field: 'or', alts: lists }];
+}
+
+// The cards the box names on other boards: one { board, id } per bare text token that the id
+// module reads whole as a mention `<name>#<id>` (the name as typed) whose name is not this
+// board's, the same card named twice (any case in the name) once. Quoted text, scoped terms,
+// a `#id` with no name and what the id module does not read as a mention (a URL fragment, a
+// hex colour) are no mention.
+function searchOtherBoardMentions(raw, board) {
+  const lexed = lexSearch(raw);
+  const found = [];
+  const seen = new Set();
+  for (const token of lexed.tokens) {
+    if (token.kind !== 'text') continue;
+    const m = SEARCH_IDS.parseMention(lexed.text.slice(token.start, token.end));
+    if (!m || !m.board || (board && m.board.toLowerCase() === String(board).toLowerCase())) continue;
+    const id = `${m.prefix}${m.number}`;
+    const key = `${m.board.toLowerCase()}#${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    found.push({ board: m.board, id });
+  }
+  return found;
 }
 
 function parseSearchQuery(raw, board) {
@@ -887,13 +911,14 @@ function searchSuggestionItems(raw, caret, cards, ctx) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    parseSearchQuery, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
+    parseSearchQuery, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
+  window.searchOtherBoardMentions = searchOtherBoardMentions;
   window.cardMatchesQuery = cardMatchesQuery;
   window.filterCards = filterCards;
   window.resolveTerms = resolveTerms;

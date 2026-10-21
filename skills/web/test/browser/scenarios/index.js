@@ -6,6 +6,7 @@
 
 module.exports = [
   require('./search-box'),
+  require('./search-enter'),
   require('./search-address'),
   require('./search-grammar'),
   require('./graph'),

@@ -322,6 +322,7 @@ button:hover { background: var(--btn-hover); }
 .isolate-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 300px; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); }
+.search-board-note { margin: 0; color: var(--mut); font-size: 0.85em; }
 .search-slices:empty { display: none; }
 .search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .search-fold { background: transparent; border-color: transparent; color: var(--mut); padding: 2px 6px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }

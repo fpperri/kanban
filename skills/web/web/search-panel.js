@@ -50,7 +50,7 @@
 // searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus. It also calls the
 // page globals of selection.js (selectionAfterPill, pillQueriesDropped), pills.js, isolate.js
 // (isolateNow, syncIsolateSwitch), search-slices.js (renderSearchSlices,
-// searchSlicesChipNames), the search module (searchTermText and the alternatives and slice
+// searchSlicesChipNames), the search module (searchOtherBoardMentions, searchTermText and the alternatives and slice
 // functions: searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchAddAlt,
 // searchRemoveGrownAlt),
 // prefs.js (loadPrefs) and key-guard.js (keyGuardOff).
@@ -213,9 +213,21 @@ function setSearchFieldOpen(open) {
   }
 }
 
+// The note at the top of the panel: a card named as `<board>#<id>` on another board is searched as
+// text, so the note says where it lives. Hidden while the box holds no such mention.
+function syncSearchBoardNote() {
+  const note = $('#search-board-note');
+  if (!note) return;
+  const mentions = searchOtherBoardMentions($('#search-input').value, state.projectName);
+  const text = mentions.map((m) => `${m.board}#${m.id} is a card on the ${m.board} board, not this one.`).join(' ');
+  if (note.textContent !== text) note.textContent = text; // a status region is announced when written, so only a change is written
+  note.classList.toggle('hidden', mentions.length === 0);
+}
+
 // Every repaint of the board comes here (renderBoard): the chip always, the pills
 // only while the panel is open, since a closed panel shows no count.
 function renderSearchPanel() {
+  syncSearchBoardNote();
   applyPillsFold();
   renderSearchStatuses();
   renderSearchSlices();
