@@ -6086,6 +6086,7 @@ function visibleCardIds() {
 }
 
 function hideContextMenu() {
+  menuNestClose();
   $('#context-menu').classList.add('hidden');
 }
 
@@ -6268,6 +6269,7 @@ function showContextMenu(x, y) {
   $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
+  menuNestSync(!!menuSubject.canvas); // the groups follow their entries, the separators follow the groups
   menu.classList.remove('hidden');
   // Clamp to the viewport so the menu never opens half off-screen.
   const rect = menu.getBoundingClientRect();

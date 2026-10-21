@@ -703,10 +703,11 @@ to `127.0.0.1` only.
   menu for the card shown, without Peek, and once an action has run the popup is read again so it shows
   the change (or closes if the card is gone); with text selected, or on anything that
   already handles the right-click itself, the browser's own menu shows instead. The card details
-  keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add to selection**,
-  **Assign…**, **Set priority…**, **Edit tags…**,
-  **Schedule…**, **Isolate**, **Dependency tree**, **Dependency path**, Archive, Restore, Delete —
-  acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
+  keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add note…**, **Add child…**, then the groups **Edit**
+  (**Assign…**, **Set priority…**, **Edit tags…**, **Schedule…**), **Group** (**Add to group…**,
+  **Make a group from them…**) and **Explore** (**Isolate**, **Dependency tree**, **Dependency
+  path**), then **Scratchpad…**, **Add to selection**, and Archive, Restore, Delete (never in a
+  group) — acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
   selection inside it, regardless of which view opened it. The subject is fixed when the menu
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
   is when Apply is pressed. **Dependency tree**/
@@ -719,7 +720,25 @@ to `127.0.0.1` only.
   as New card does, with Parent preset to the card and the heading "New card under #<id>"; it shows
   only when the subject is one live card (not an archived one, not a batch, not the canvas), in the
   card details' own menu too, and writes nothing until the form is saved, then only the new card
-  (a parent never lists its children; clearing Parent saves a root card). The conditionally-hidden items: Peek and Add to selection show only
+  (a parent never lists its children; clearing Parent saves a root card). **The groups** (`menu-nest.js` for the rules, `menu-nest-ui.js` for the page; built by hand, ADR
+  0003): `#context-menu` holds plain entries, `<hr class="ctx-sep">` separators and three
+  `.ctx-sub` groups, each a `.ctx-parent` row (`aria-haspopup="menu"`, `aria-expanded`, a ▸ the
+  stylesheet draws) and a `.ctx-sub-panel` of entries; every entry keeps its own `ctx-*` id and
+  click handler. `showContextMenu` decides which entries show as before and then calls
+  `menuNestSync`, which hides a group whose entries are all hidden (`menuSubShown`) and a separator
+  not between two things that show (`menuSeparators`); `hideContextMenu` calls `menuNestClose`.
+  A panel opens when its row is hovered for 120ms (300ms when another panel is open, so the pointer
+  crossing the rows on its way to the open one does not swap it), when the row is clicked, and on
+  Right, Enter or Space on it; it opens beside the row, with the class `flip` on the left when
+  the right has no room and lifted by what it would run off the bottom (`menuSubPlacement`), and at
+  phone width (`isPhoneWidth`, phone-width.js; the stylesheet's own `max-width: 759.98px` query)
+  it is drawn in the flow under its row, a second tap on the row shutting it. Up and Down move the
+  highlight among the entries that show (wrapping), Right or Enter on a row open its panel and
+  highlight its first entry, Left or Esc shut it and return to the row; the keys are read in the
+  capture phase while the menu is open, and Esc at the top level is the page's, which closes the
+  menu. **Add note…** shows its key as `data-hint="n"` drawn by the stylesheet, so the entry's text
+  is its name; no other entry shows a key. The empty Graph or Map canvas's menu is still Isolate
+  alone: its group's panel stands in the menu with no row (`canvas-menu`). The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
   show only when the subject is one card, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling

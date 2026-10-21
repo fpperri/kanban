@@ -100,10 +100,10 @@ test('outside the selection the menu offers Peek and Add to selection; inside it
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2)] }, 'a right-click inside the selection leaves it as it is');
 });
 
-test('the menu leads with Peek and Add to selection in the markup, ahead of Assign', () => {
+test('the menu leads with Peek, Add note… and Add child… in the markup, ahead of the groups', () => {
   const menu = html.match(/<div id="context-menu"[\s\S]*?\n<\/div>/)[0];
   const ids = [...menu.matchAll(/<button[^>]*\sid="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepStrictEqual(ids.slice(0, 3), ['ctx-peek', 'ctx-add', 'ctx-assign']);
+  assert.deepStrictEqual(ids.slice(0, 4), ['ctx-peek', 'ctx-note', 'ctx-child', 'ctx-edit']);
 });
 
 test('the card details\' own menu has no Peek, and a right-click there leaves the selection alone', async () => {

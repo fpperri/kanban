@@ -79,7 +79,7 @@ module.exports = {
     // Every view: a right-click on a card outside a two-card selection leads with Peek and Add to selection and changes nothing.
     check('two cards are picked on the Board', await selectPair() && same(await picked(), [1, 3]), await picked());
     await rightClickOnBoard(4);
-    check('Board: a right-click on a third card opens a menu led by Peek and Add to selection', same(await lead(), ['Peek', 'Add to selection']), await lead());
+    check('Board: a right-click on a third card opens a menu led by Peek and Add child…', same(await lead(), ['Peek', 'Add child…']), await lead());
     check('Board: the two cards stay selected', same(await picked(), [1, 3]), await picked());
     check('Board: the menu closes on Escape', await closeMenu());
     for (const [view, container] of [['graph', '#graph-view'], ['map', '#map-view'], ['calendar', '#calendar-view'], ['gantt', '#gantt-view']]) {
@@ -87,7 +87,7 @@ module.exports = {
       const drawn = await waitFor(`!document.querySelector(${JSON.stringify(container)}).classList.contains('hidden')&&!!document.querySelector(${JSON.stringify(cardIn(container, 4))})`, 10000);
       check(`${view}: the view draws card 4 and the two cards are still selected`, drawn && same(await picked(), [1, 3]), await picked());
       await rightClick(cardIn(container, 4));
-      check(`${view}: a right-click on a card outside the selection opens a menu led by Peek and Add to selection`, await menuOpen() && same(await lead(), ['Peek', 'Add to selection']), await lead());
+      check(`${view}: a right-click on a card outside the selection opens a menu led by Peek and Add child…`, await menuOpen() && same(await lead(), ['Peek', 'Add child…']), await lead());
       check(`${view}: and leaves the selection unchanged`, same(await picked(), [1, 3]) && same(await anchorAndAdditions(), { anchor: 'card:1', additions: ['card:3'] }), await anchorAndAdditions());
       await closeMenu();
     }

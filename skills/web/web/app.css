@@ -1979,9 +1979,26 @@ button.np-note-card:hover { color: var(--accent); }
 .pick-btn:disabled { opacity: .5; cursor: default; }
 .pick-meta { color: var(--mut); font-size: 0.85em; white-space: nowrap; }
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
-.context-menu button:hover { background: var(--btn-hover); }
-.context-menu button.danger:hover { background: var(--crit-soft); color: var(--crit); }
+.context-menu button:hover, .context-menu button:focus-visible { background: var(--btn-hover); outline: none; }
+.context-menu button.danger:hover, .context-menu button.danger:focus-visible { background: var(--crit-soft); color: var(--crit); }
 .context-menu.canvas-menu button:not(#ctx-isolate) { display: none; }
+/* The card menu's groups (menu-nest-ui.js): a row that opens a panel of entries beside it, or under it on a phone. */
+.ctx-sep { height: 1px; margin: 4px 6px; border: 0; background: var(--line); }
+.ctx-sub { position: relative; display: flex; flex-direction: column; }
+.context-menu button.ctx-parent { display: flex; justify-content: space-between; align-items: center; }
+.ctx-parent::after { content: "▸"; margin-left: 18px; color: var(--mut); }
+.context-menu button[data-hint] { display: flex; justify-content: space-between; align-items: center; }
+.context-menu button[data-hint]::after { content: attr(data-hint); margin-left: 24px; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
+.ctx-sub-panel { display: none; position: absolute; left: 100%; top: -5px; z-index: 1; min-width: 180px; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; box-shadow: var(--shadow-pop); }
+.ctx-sub.open > .ctx-sub-panel { display: flex; }
+.ctx-sub-panel.flip { left: auto; right: 100%; }
+/* The empty canvas's menu is Isolate alone: its group's panel stands in the menu, with no row. */
+.context-menu.canvas-menu .ctx-sub-panel { display: flex; position: static; min-width: 0; padding: 0; border: 0; box-shadow: none; }
+@media (max-width: 759.98px) {
+  .ctx-sub-panel { position: static; min-width: 0; margin: 0 0 2px 12px; padding: 0 0 0 6px; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+  .ctx-sub-panel.flip { right: auto; }
+  .ctx-sub.open > .ctx-parent::after { content: "▾"; }
+}
 body.shift-held .card-el { user-select: none; } /* shift+click selects cards, not their text — only while shift is down, so text stays copyable otherwise (covers every view's card-el) */
 
 /* Theme every visible scrollbar to match the dark palette

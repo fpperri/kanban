@@ -5,6 +5,7 @@
 // is localStorage. Not a test file (the suite runs *.test.js only).
 const { loadPage, control } = require('./page-vm');
 const { recordingElement } = require('./recording-dom');
+const { buildMenu } = require('./menu-dom');
 
 const card = (id, title, over = {}) => ({
   id, title, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
@@ -14,15 +15,16 @@ const card = (id, title, over = {}) => ({
 
 const note = (day, target, at, by, text, index = 0) => ({ day, target, at, by, note: text, index, file: `/logbook/${day}.md` });
 
-// A selector of the shapes the palette uses: compounds of a tag, classes and [data-x="v"], joined by
+// A selector of the shapes the page uses: compounds of a tag, an #id, classes and [data-x="v"], joined by
 // spaces (a descendant) and commas (any of).
 function compound(part) {
   const tag = /^[a-z][a-z0-9]*/.exec(part);
   const rest = part.slice(tag ? tag[0].length : 0);
+  const id = /#([\w-]+)/.exec(rest);
   const classes = [...rest.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
   const attrs = [...rest.matchAll(/\[data-([a-z-]+)="([^"]*)"\]/g)].map((m) => [m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()), m[2]]);
-  if (rest.replace(/\.[\w-]+|\[data-[a-z-]+="[^"]*"\]/g, '') !== '') throw new Error(`palette-page.js cannot match ${part}`);
-  return (el) => (!tag || el.tag === tag[0]) && classes.every((c) => el.classes.includes(c)) && attrs.every(([k, v]) => el.dataset && el.dataset[k] === v);
+  if (rest.replace(/#[\w-]+|\.[\w-]+|\[data-[a-z-]+="[^"]*"\]/g, '') !== '') throw new Error(`palette-page.js cannot match ${part}`);
+  return (el) => (!tag || el.tag === tag[0]) && (!id || el.id === id[1]) && classes.every((c) => el.classes.includes(c)) && attrs.every(([k, v]) => el.dataset && el.dataset[k] === v);
 }
 
 function matcher(selector) {
@@ -43,9 +45,13 @@ function matcher(selector) {
 function paletteDocument(holder) {
   const doc = { activeElement: null };
   let uid = 0;
+  const known = new Map(); // uid -> the element as the page holds it, so a lookup answers what was appended, not its raw twin
+  const same = (e) => (e.uid !== undefined && known.has(e.uid) ? known.get(e.uid) : e);
   const make = (tag) => {
     const el = recordingElement(tag);
     el.uid = ++uid;
+    known.set(el.uid, el);
+    el.getBoundingClientRect = () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 });
     el.style = { setProperty(k, v) { this[k] = v; }, removeProperty(k) { delete this[k]; } };
     el.value = '';
     el.hidden = false;
@@ -55,12 +61,17 @@ function paletteDocument(holder) {
       get: () => (tag === 'textarea' ? 12 + 20 * String(el.value).split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 40)), 0) : 0),
     });
     el.replaceChildren = (...kids) => { el.children.length = 0; el.append(...kids); };
-    el.descendants = () => el.walk().slice(1);
+    el.descendants = () => el.walk().slice(1).map(same);
     el.querySelectorAll = (sel) => { const is = matcher(sel); return el.descendants().filter((e) => e.classes && is(e)); };
     el.querySelector = (sel) => el.querySelectorAll(sel)[0] || null;
     el.contains = (other) => !!other && other.uid !== undefined && el.walk().some((e) => e.uid === other.uid);
     el.focus = () => { holder.document.activeElement = el; };
     el.blur = () => { if (holder.document.activeElement === el) holder.document.activeElement = null; };
+    el.closest = (sel) => {
+      const is = matcher(sel);
+      for (let n = el; n; n = n.parent) if (n.classes && is(n)) return same(n);
+      return null;
+    };
     el.click = () => el.fire('click', { stopPropagation() {}, preventDefault() {}, target: el });
     return el;
   };
@@ -75,7 +86,7 @@ function paletteDocument(holder) {
 // What the stylesheet gives a note box: a 20px line, 6px of padding and a 1px border all round.
 const TEXT_AREA = { lineHeight: '20px', fontSize: '15px', paddingTop: '6px', paddingBottom: '6px', borderTopWidth: '1px', borderBottomWidth: '1px' };
 
-async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {}, scratchpad = null } = {}) {
+async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {}, scratchpad = null, groups = null, menu = false } = {}) {
   const holder = { document: null };
   const documentExtras = paletteDocument(holder);
   const board = {
@@ -87,8 +98,10 @@ async function openPalette({ cards, notes, stored = {}, viewport = {}, elements:
     archived: [],
     logbook: { folder: 'logbook', notes: notes || [] },
     scratchpad,
+    groups,
   };
-  const elements = { '#detail-modal': control(), '#ctx-note': control(), ...more };
+  const built = menu ? buildMenu(documentExtras) : null;
+  const elements = { '#detail-modal': control(), '#ctx-note': control(), ...(built ? { '#context-menu': built.root, ...built.byId } : {}), ...more };
   const page = await loadPage({ board, stored, documentExtras, elements }).start();
   Object.assign(page.ctx, { getComputedStyle: () => TEXT_AREA, ...viewport });
   const doc = page.ctx.document;
@@ -104,7 +117,7 @@ async function openPalette({ cards, notes, stored = {}, viewport = {}, elements:
     target.fire('keydown', e);
     return e;
   };
-  return { page, doc, ui, pal, find, all, text, rows, press, stored, board };
+  return { page, doc, ui, pal, find, all, text, rows, press, stored, board, menu: built };
 }
 
 module.exports = { openPalette, card, note, paletteDocument, matcher };

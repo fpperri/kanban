@@ -371,8 +371,18 @@ right-click for a context menu: assign, set priority, edit tags, schedule,
 archive, restore, delete, isolate (inside the selection only), or add a dependency tree/path to
 the selection. A
 right-click on a card outside the selection opens the menu for that card alone,
-leading with Peek (open its details) and Add to selection, and leaves your
-selection as it was. The same selection grammar works in every view, and
+leading with Peek (open its details), and leaves your
+selection as it was. The menu reads Peek, Add note… (with its key, `n`, muted at the right),
+Add child…, then **Edit** (Assign…, Set priority…, Edit tags…, Schedule…), **Group** (Add to
+group…, Make a group from them…) and **Explore** (Isolate, Dependency tree, Dependency path), then
+Scratchpad… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
+Each of the three is a row marked ▸ that opens its entries in a panel beside it: hover it for a
+moment or click it. A pointer on its way to the panel across the next row does not lose it, and a
+panel with no room on the right opens on the left. Up and Down move the highlight, Right or Enter
+on a row open its panel and highlight its first entry, Left closes the panel and returns to the
+row, and Esc closes the panel first and the menu second. On a phone the panel opens under its
+row, inside the menu. A group whose entries are all out (Group with no `groups:` line) is out
+itself, and every entry shows when it always did. The same selection grammar works in every view, and
 right-clicking inside an open card opens the same menu for that card, without Peek.
 
 **Add child…** in that menu (one live card only, in every view and in the card details' own
