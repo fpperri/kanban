@@ -468,6 +468,7 @@ function notesClose() {
   const back = u.opener;
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+  if (u.el.contains(document.activeElement)) document.activeElement.blur(); // never leave the focus in the hidden palette
   return true;
 }
 
@@ -1055,6 +1056,7 @@ function onNotesTabKey(e) {
 }
 
 function notesOnPaletteKey(e) {
+  if (!notesUi.sub) return; // a palette that has closed keeps no keys: a box that still holds the focus must not swallow the page's Esc
   if (notesTabKey(e)) return;
   if (e.key === 'Escape') {
     e.preventDefault();

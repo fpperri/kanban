@@ -468,3 +468,27 @@ test('Esc in a note\'s edit form or assign field still cancels it and leaves the
   assert.strictEqual(p.all('.np-edit-text').length, 0, 'the edit is cancelled');
   assert.notStrictEqual(p.page.run('notesUi.sub'), null, 'and the palette is still up');
 });
+
+// --- a palette that has just closed ----------------------------------------------------------------
+
+test('a closed palette lets Esc go on: the box that kept the focus does not swallow the next one', async () => {
+  const p = await withDetails();
+  keyN(p);
+  const input = p.ui().input;
+  assert.strictEqual(p.press(p.pal(), 'Escape').stopped, true, 'the first Esc closes it');
+  assert.strictEqual(p.page.run('notesUi.sub'), null);
+  for (const key of ['Escape', 'a', 'ArrowDown']) {
+    const e = p.press(p.pal(), key);
+    assert.strictEqual(e.stopped, undefined, `${key} reaches the page`);
+    assert.ok(!e.defaultPrevented);
+  }
+  assert.ok(input);
+});
+
+test('closing the palette does not leave the focus in its hidden box', async () => {
+  const p = await withDetails();
+  keyN(p);
+  assert.strictEqual(p.doc.activeElement.uid, p.ui().input.uid);
+  p.page.run('notesClose()');
+  assert.ok(!p.doc.activeElement || !p.pal().contains(p.doc.activeElement));
+});

@@ -301,7 +301,7 @@ module.exports = {
       // A screenshot or any lost focus shuts the menu (the combobox closes on blur), and a focus that was never lost opens nothing: blur, then focus, and wait for the row to be drawn.
       await ev(`${PICK}.blur();${PICK}.focus()`);
       if (!(await waitFor(`[...document.querySelectorAll('.np-pick-menu .combobox-item')].some((x)=>x.textContent===${JSON.stringify(text)}&&x.getBoundingClientRect().width>0)`, 2500))) return false;
-      const at = await ev(`(()=>{const e=[...document.querySelectorAll('.np-pick-menu .combobox-item')].find((x)=>x.textContent===${JSON.stringify(text)});const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      const at = await ev(`(()=>{const e=[...document.querySelectorAll('.np-pick-menu .combobox-item')].find((x)=>x.textContent===${JSON.stringify(text)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
       await mouse('mouseMoved', at.x, at.y, { button: 'none', clickCount: 0 });
       await click(at.x, at.y);
       return true;
@@ -333,9 +333,9 @@ module.exports = {
     check('notes: Enter writes the note to the day in the date field, in that day\'s file', await waitFor(`${NOTES}.some((n)=>n.day==='2026-10-12'&&n.target===''&&n.note==='written to another day'&&/2026\\.10\\.12/.test(n.file))`, 4000), JSON.stringify(await ev(`${NOTES}.filter((n)=>n.note==='written to another day')`)));
     check('notes: the date stays for the next note', await ev(`${DATE}.value`) === '2026-10-12');
     await ev(`(()=>{const u=${q('.np-untimed')};u.checked=true;u.dispatchEvent(new Event('change',{bubbles:true}))})()`);
-    await setBox('untimed on the same day');
+    await setBox('no time on the same day');
     await key('Enter');
-    check('notes: the untimed tick drops the time and keeps that day', await waitFor(`${NOTES}.some((n)=>n.day==='2026-10-12'&&!n.at&&n.note==='untimed on the same day')`, 4000));
+    check('notes: the untimed tick drops the time and keeps that day', await waitFor(`${NOTES}.some((n)=>n.day==='2026-10-12'&&!n.at&&n.note==='no time on the same day')`, 4000));
     check('notes: Esc closes the palette', await closePalette());
     await ev(`openNotes({ kind: 'card-notes', id: '7', day: '2026-10-15' })`);
     check('notes: card 7 again, on All', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All*', 'Month', 'Week', '3 days', 'Day']) && await ev(RANGE_LABEL) === 'All dates');
