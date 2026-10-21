@@ -27,9 +27,9 @@ function panel({ body = '', refs = [] } = {}) {
     loadBoard: async () => {},
     notesLabel: (t) => `#${t}`,
     notesTextNodes: () => [],
-    notesUi: { el: { contains: () => false } },
+    notesUi: { el: { contains: () => false }, tab: 'scratch' },
     settingsAddBoardPage() {},
-    textEditAttach() {}, // text-edit-ui.js: the Edit box takes Tab and the Markdown keys
+    textEditAttach: (box) => { sandbox.attached = box; }, // text-edit-ui.js: the Edit box takes Tab and the Markdown keys; kept so a test can say it has the focus
     $: () => ({ addEventListener() {} }),
     mdToHtml,
     kanbanCodeLibs: { HIGHLIGHT_VERSION: '1.0.0' },
@@ -50,7 +50,7 @@ function panel({ body = '', refs = [] } = {}) {
   wrap.isConnected = false;
   const settled = () => new Promise((r) => setImmediate(r));
   const one = (cls) => byClass(wrap, cls)[0];
-  return { wrap, one, saved, settled, enhanced: sandbox.enhanced };
+  return { wrap, one, saved, settled, enhanced: sandbox.enhanced, sandbox };
 }
 
 test('the tab opens on Edit: the box shows, the preview is hidden, Edit is the pressed button', async () => {
@@ -132,4 +132,101 @@ test('the preview is shown before its text is drawn, so a diagram in it is measu
   await p.settled();
   byClass(p.wrap, 'sp-mode')[1].fire('click');
   assert.deepStrictEqual(p.enhanced, [false], 'the preview was not hidden when the colour and diagram pass ran');
+});
+
+// --- Ctrl+Shift+V -------------------------------------------------------------------------------
+
+const chord = (over = {}) => ({ key: 'V', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false, repeat: false, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...over });
+const press = (p, over) => {
+  const e = chord(over);
+  const took = p.sandbox.scratchPreviewKey(e);
+  return { e, took };
+};
+const spyFocus = (el) => { const log = []; el.focus = (o) => log.push(o); return log; };
+
+test('Ctrl+Shift+V switches Edit to Preview and back, and takes the key from the browser', async () => {
+  const p = panel({ body: '# Hello' });
+  await p.settled();
+  const first = press(p);
+  assert.strictEqual(first.took, true);
+  assert.strictEqual(first.e.defaultPrevented, true);
+  assert.strictEqual(first.e.stopped, true, 'the key stays in the palette');
+  assert.strictEqual(p.one('sp-preview').hidden, false);
+  assert.strictEqual(p.one('sp-text').hidden, true);
+  assert.strictEqual(p.one('sp-preview').innerHTML, '<h1>Hello</h1>');
+  press(p);
+  assert.strictEqual(p.one('sp-preview').hidden, true);
+  assert.strictEqual(p.one('sp-text').hidden, false);
+  const [edit, preview] = byClass(p.wrap, 'sp-mode');
+  assert.strictEqual(edit.getAttribute('aria-pressed'), 'true');
+  assert.strictEqual(preview.getAttribute('aria-pressed'), 'false');
+});
+
+test('the key follows the switch when it was pressed with the mouse', async () => {
+  const p = panel({ body: 'x' });
+  await p.settled();
+  byClass(p.wrap, 'sp-mode')[1].fire('click');
+  press(p);
+  assert.strictEqual(p.one('sp-text').hidden, false, 'Preview was showing, so the key goes back to Edit');
+});
+
+test('Cmd+Shift+V is the same key', async () => {
+  const p = panel({ body: 'x' });
+  await p.settled();
+  assert.strictEqual(press(p, { ctrlKey: false, metaKey: true }).took, true);
+  assert.strictEqual(p.one('sp-preview').hidden, false);
+});
+
+test('Edit by the key puts the focus in the box with the cursor at the end of its text', async () => {
+  const p = panel({ body: 'one two' });
+  await p.settled();
+  const text = p.one('sp-text');
+  const focus = spyFocus(text);
+  let selection = null;
+  text.setSelectionRange = (a, b) => { selection = [a, b]; };
+  press(p);
+  press(p);
+  assert.strictEqual(focus.length, 1);
+  assert.deepStrictEqual(selection, [7, 7]);
+});
+
+test('Preview by the key from the box moves the focus to the preview, so the palette keys keep working', async () => {
+  const p = panel({ body: 'x' });
+  await p.settled();
+  const focus = spyFocus(p.one('sp-preview'));
+  p.sandbox.document.activeElement = p.sandbox.attached;
+  press(p);
+  assert.strictEqual(focus.length, 1);
+});
+
+test('the key is not taken on another tab, with a key besides, or before the page has loaded', async () => {
+  const p = panel({ body: 'x' });
+  const early = press(p);
+  assert.strictEqual(early.took, false, 'the box is still disabled');
+  assert.strictEqual(early.e.defaultPrevented, false);
+  await p.settled();
+  p.sandbox.notesUi.tab = 'notes';
+  assert.strictEqual(press(p).took, false);
+  p.sandbox.notesUi.tab = 'scratch';
+  for (const over of [{ shiftKey: false }, { ctrlKey: false }, { altKey: true }, { repeat: true }, { key: 'C' }]) {
+    const r = press(p, over);
+    assert.strictEqual(r.took, false, JSON.stringify(over));
+    assert.strictEqual(r.e.defaultPrevented, false);
+  }
+  assert.strictEqual(p.one('sp-preview').hidden, true, 'nothing switched');
+});
+
+test('both buttons show the key as a hint outside their name, and name it for assistive technology', async () => {
+  const p = panel({ body: 'x' });
+  for (const b of byClass(p.wrap, 'sp-mode')) {
+    assert.strictEqual(b.dataset.key, 'Ctrl+Shift+V');
+    assert.strictEqual(b.getAttribute('aria-keyshortcuts'), 'Control+Shift+V');
+  }
+  assert.deepStrictEqual(byClass(p.wrap, 'sp-mode').map((b) => b.textContent), ['Edit', 'Preview'], 'the name stays the word');
+  assert.deepStrictEqual(byClass(p.wrap, 'sp-mode').map((b) => b.title), ['Edit (Ctrl+Shift+V)', 'Preview (Ctrl+Shift+V)']);
+});
+
+test('the stylesheet draws the hint after the name with an empty alternative text, as the tab hints are', () => {
+  const css = read('app.css');
+  assert.match(css, /\.sp-mode::after \{[^}]*content: attr\(data-key\) \/ "";/);
 });
