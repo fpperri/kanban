@@ -419,7 +419,7 @@ test('the one popup the notes keys work over is named once, and every notes key 
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'notes-palette.js'), 'utf8');
   assert.match(src, /const NOTES_DETAIL = '#detail-modal';/);
   assert.strictEqual((src.match(/'#detail-modal'/g) || []).length, 1, 'named once');
-  assert.strictEqual((src.match(/keyGuard(?:Off|Surface)\(document, NOTES_DETAIL\)/g) || []).length, 3, 'n, Alt+digit and Esc');
+  assert.strictEqual((src.match(/keyGuard(?:Off|Surface)\(document, NOTES_DETAIL\)/g) || []).length, 4, 'n, Alt+digit, Esc and the fullscreen key');
   assert.ok(!/#context-menu:not\(\.hidden\), \.modal-backdrop/.test(src), 'no copy of the key guard\'s selectors');
 });
 

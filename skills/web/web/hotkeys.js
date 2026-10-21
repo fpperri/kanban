@@ -22,7 +22,7 @@ const HOTKEYS = [
   { id: 'enter', keys: ['Enter'], reads: ['Enter'], what: 'Open the focused card. In a list of suggestions, take the highlighted one. In the search box, go to the first match; a second Enter opens it when it is the only one.' },
   { id: 'space', keys: ['Space'], reads: [' '], what: 'Select the focused card in the Graph, as a click does.' },
   { id: 'save', keys: ['Ctrl/Cmd+S'], reads: ['s'], what: 'Save the edit or bulk popup that is open.' },
-  { id: 'fullscreen', keys: ['Alt+Enter'], reads: ['Enter'], what: 'Toggle fullscreen on the popup that is open.' },
+  { id: 'fullscreen', keys: ['Alt+Enter'], reads: ['Enter'], what: 'Toggle fullscreen on the popup that is open; with the notes palette up over the card details, on the palette. In the palette it does nothing while another popup is up, and on a phone.' },
   { id: 'note', keys: ['n'], reads: ['n'], what: 'Add a note on the card whose details are open, else on the hovered or selected card: opens the notes palette, where Enter writes the note and Shift+Enter starts a new line. With no card, on the Calendar it opens on the Calendar\'s own range, or on the day under the pointer; elsewhere on today. Needs a logbook: line in config.yaml.' },
   { id: 'detail-edit', keys: ['e'], reads: ['e'], what: "Edit the card whose details are open: opens its edit form, as the details' Edit button does. Not on an archived card; with the notes palette up, e is the palette's." },
   { id: 'note-row', keys: ['e', 'a', 'd d'], reads: ['e', 'a', 'd'], what: 'On a note in the notes palette: edit it, assign it to another card, or delete it (press d twice).' },

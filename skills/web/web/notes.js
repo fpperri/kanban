@@ -421,10 +421,11 @@ const NOTE_BOX_LINES = 12;
 
 // The size of a note box that grows with its text (the palette's note box and the one a listed note
 // is edited in). `m` is { content: the height all the text needs, line, chrome: the box's padding and
-// border, windowHeight }. -> { height, scroll }: as high as the text, from one line up to 12 lines or
-// 40% of the window, whichever is less; past that it scrolls inside.
+// border, windowHeight, lines?, share? }. -> { height, scroll }: as high as the text, from one line up to 12 lines
+// or 40% of the window, whichever is less (`lines` and `share`, when the palette has more room); past that it
+// scrolls inside.
 function noteBoxSize(m) {
-  const cap = Math.min(NOTE_BOX_LINES * m.line + m.chrome, m.windowHeight * 0.4);
+  const cap = Math.min((m.lines || NOTE_BOX_LINES) * m.line + m.chrome, m.windowHeight * (m.share || 0.4));
   const want = Math.ceil(Math.max(m.content, m.line + m.chrome));
   return { height: Math.min(want, Math.floor(cap)), scroll: want > cap };
 }
