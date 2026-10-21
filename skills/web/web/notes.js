@@ -22,6 +22,7 @@
 
 const NOTE_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 const NOTE_COLUMN_STATE = (typeof module !== 'undefined' && module.exports) ? require('./column-state') : window;
+const NOTE_CALENDAR_MODEL = (typeof module !== 'undefined' && module.exports) ? require('./calendar-model') : window;
 
 const NOTE_LAST_FEATURE = 'lastnoted';
 const NOTE_LAYOUT_FEATURE = 'notes.layout';
@@ -45,6 +46,15 @@ function noteFieldTime(text) {
 }
 
 const noteBadTime = (text) => `${text} is not a time; a time reads HH:MM.`;
+const noteBadDay = (text) => `${text} is not a date; a date reads YYYY-MM-DD.`;
+
+// The date field's text as YYYY-MM-DD, null when it is none or names a day the calendar lacks.
+function noteFieldDay(text) {
+  const day = String(text == null ? '' : text).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const d = new Date(Date.parse(`${day}T00:00:00Z`));
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day ? null : day;
+}
 
 // The note box's text -> { text, at, untimed, mention, bare, bad }. `known` is
 // { board, isTarget(id) }: the board's name and whether an id is a card or group of it.
@@ -141,6 +151,24 @@ function noteSubjectAimed(was, id, kind = 'card') {
   return aimed;
 }
 
+// A note about nothing, chosen from the card picker: a note's target is empty, whatever card was last
+// noted. From an hour or the untimed box (or a card aimed at from one) it keeps that moment.
+function noteSubjectNoCard(was) {
+  const moment = was.kind === 'slot' || was.kind === 'untimed' ? was : was.when || null;
+  const base = moment || { kind: 'none', day: was.day };
+  const { when, ...rest } = base;
+  return { ...rest, noCard: true };
+}
+
+// What the picker shows as the note's target: { id } (a card or group; '' is no card) or { each: how
+// many cards }. For a palette aimed at nothing it is the card Enter would write on, the last noted.
+function noteSubjectTarget(sub, lastNoted) {
+  if (sub.kind === 'each') return { each: sub.ids.length };
+  if (sub.kind === 'card' || sub.kind === 'group') return { id: sub.id };
+  if (sub.noCard) return { id: '' };
+  return { id: lastNoted || '' };
+}
+
 function noteSubjectCleared(subject, today) {
   return subject.when ? subject.when : { kind: 'none', day: today };
 }
@@ -168,8 +196,9 @@ function noteSubjectNotes(notes, subject, o = {}) {
 }
 
 // What Enter will write: { text, at, day, target, targets, from, bad, scopeTo }. `parsed` is
-// noteParseLine's, `field` the time field { value, untimed }, `o` { today, now, lastNoted }.
-// `from` says where the target came from: 'line', 'chip', 'each' or 'last'. On several cards
+// noteParseLine's, `field` the date and time fields { value, untimed, day }, `o` { today, now,
+// lastNoted }. The day is the date field's, else the subject's. `from` says where the target came
+// from: 'line', 'chip', 'each', 'nocard' (chosen in the picker) or 'last'. On several cards
 // (the subject 'each') `targets` lists them, one note is written on each and `target` is
 // empty, unless the line names one card, which takes that one note alone.
 function noteWritePlan(parsed, subject, field, o) {
@@ -183,14 +212,22 @@ function noteWritePlan(parsed, subject, field, o) {
     at = noteFieldTime(value);
     if (at === null) bad = bad || noteBadTime(value);
   }
+  let day = subject.day || o.today;
+  const dayText = String(field.day == null ? '' : field.day).trim();
+  if (dayText !== '') {
+    const picked = noteFieldDay(dayText);
+    if (picked === null) bad = bad || noteBadDay(dayText);
+    else day = picked;
+  }
   let target;
   let targets = null;
   let from;
   if (parsed.mention !== null) { target = parsed.mention; from = 'line'; }
   else if (subject.kind === 'card' || subject.kind === 'group') { target = subject.id; from = 'chip'; }
   else if (subject.kind === 'each') { target = ''; targets = subject.ids; from = 'each'; }
+  else if (subject.noCard) { target = ''; from = 'nocard'; }
   else { target = o.lastNoted || ''; from = 'last'; }
-  return { text: parsed.text, at, day: subject.day || o.today, target, targets, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
+  return { text: parsed.text, at, day, target, targets, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
 }
 
 // Several cards as the preview names them: how many, then the first six.
@@ -209,6 +246,72 @@ function notePreview(plan, o) {
   const last = plan.from === 'last' && plan.target ? ' (last noted)' : '';
   const on = plan.targets ? noteEachLabel(plan.targets) : `${o.label(plan.target)}${last}`;
   return `${when}${dayBit} on ${on}${plan.text ? '' : ' · type the note'}`;
+}
+
+// ---------- the range ----------
+// The list shows the notes of a date range: All, a Month, a Week (from Monday, as the Calendar's), 3 days
+// (the anchor and the next two) or a Day, around an anchor day. The names are the Calendar's own
+// sub-views (calendar-model.js), so a range and a Calendar view are one thing to step and to read.
+
+const NOTE_RANGE_MODES = ['all', 'month', 'week', '3day', 'day'];
+const NOTE_MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// The first and last day of a range, both in it; null for All.
+function noteRangeBounds(mode, anchor) {
+  if (mode === 'month') {
+    const next = NOTE_CALENDAR_MODEL.shiftAnchorDay('month', anchor, 1);
+    return { from: `${anchor.slice(0, 7)}-01`, to: NOTE_CALENDAR_MODEL.addDays(next, -1) };
+  }
+  const days = NOTE_CALENDAR_MODEL.calendarSubviewDays(mode, anchor);
+  return days ? { from: days[0], to: days[days.length - 1] } : null;
+}
+
+// The anchor one unit on (dir 1) or back (dir -1); All has nowhere to step.
+function noteRangeStep(mode, anchor, dir) {
+  return mode === 'all' ? anchor : NOTE_CALENDAR_MODEL.shiftAnchorDay(mode, anchor, dir);
+}
+
+function noteRangeLabel(mode, anchor) {
+  if (mode === 'all') return 'All dates';
+  if (mode === 'month') {
+    const [y, m] = anchor.split('-').map(Number);
+    return NOTE_CALENDAR_MODEL.monthTitle(y, m - 1);
+  }
+  const { from, to } = noteRangeBounds(mode, anchor);
+  const part = (day) => { const [y, m, d] = day.split('-').map(Number); return { y, m: NOTE_MONTHS_SHORT[m - 1], d }; };
+  const a = part(from);
+  const b = part(to);
+  if (mode === 'day') return `${noteDayName(from)} ${a.m}`;
+  if (a.y !== b.y) return `${a.d} ${a.m} ${a.y} – ${b.d} ${b.m} ${b.y}`;
+  return a.m === b.m ? `${a.d}–${b.d} ${a.m}` : `${a.d} ${a.m} – ${b.d} ${b.m}`;
+}
+
+// What the range opens on each time the palette opens (nothing is remembered): a card, a group or
+// several cards open on All, so their history stays; an hour or the untimed box on that Day; nothing
+// aimed at on what `req.range` asks for (the Calendar's own mode and range, or a day under the
+// pointer), else Day, today. `sub` is the subject (noteSubjectFrom), `req` what opened the palette.
+function noteRangeFor(sub, req, today) {
+  if (sub.kind === 'card' || sub.kind === 'group' || sub.kind === 'each') return { mode: 'all', anchor: sub.day || today };
+  if (sub.kind === 'slot' || sub.kind === 'untimed') return { mode: 'day', anchor: sub.day };
+  const asked = req && req.range;
+  if (asked && NOTE_RANGE_MODES.includes(asked.mode) && /^\d{4}-\d{2}-\d{2}$/.test(asked.anchor || '')) return { mode: asked.mode, anchor: asked.anchor };
+  return { mode: 'day', anchor: sub.day || today };
+}
+
+// The notes in a range (those of any day for no bounds).
+function noteInRange(notes, bounds) {
+  return bounds ? notes.filter((n) => n.day >= bounds.from && n.day <= bounds.to) : notes;
+}
+
+// The notes the list shows before the filter: the subject's, in the range. A card's, a group's and
+// several cards' notes are theirs whatever the range; nothing aimed at lists the board's. An hour or the
+// untimed box lists only itself while the range is as it opened, `range.touched` false, and the rest
+// of the range once it has been changed. `range` is { mode, anchor, touched }.
+function noteListNotes(notes, subject, range, o = {}) {
+  const own = subject.kind === 'card' || subject.kind === 'group' || subject.kind === 'each' || ((subject.kind === 'slot' || subject.kind === 'untimed') && !range.touched)
+    ? noteSubjectNotes(notes, subject, o)
+    : notes;
+  return noteInRange(own, noteRangeBounds(range.mode, range.anchor));
 }
 
 const noteHandleKey = (by) => String(by == null ? '' : by).trim().replace(/^@/, '').toLowerCase();
@@ -364,7 +467,8 @@ function noteLayoutSave(storage, projectName, layout) {
 }
 
 const NOTES_EXPORTS = {
-  noteFieldTime, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectCleared, noteSubjectNotes,
+  noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectNotes,
+  NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteInRange, noteListNotes,
   noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
