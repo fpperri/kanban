@@ -569,14 +569,12 @@ test('a block save refuses what the page could get wrong, with a message, and wr
       ['types', 'goal', /list/i],
       ['types', [{ name: '' }], /name/i],
       ['types', ['  ']], ['types', [{ color: '#fff' }]], ['types', [7]],
-      ['types', ['goal', 'Goal'], /goal/],
       ['types', [{ name: 'a\nb' }]],
-      ['types', [{ name: 'a', color: 'red' }], /color/i],
-      ['types', [{ name: 'a', color: '#12' }]],
-      ['types', [{ name: 'a', color: '#ggg' }]],
-      ['types', [{ name: 'a', icon: 'blob' }], /icon/i],
-      ['types', [{ name: 'a', icon: 'STAR' }]],
-      ['hierarchy', 'goal'], ['hierarchy', ['goal', '']], ['hierarchy', ['goal', 'GOAL'], /goal/i], ['hierarchy', [3]], ['hierarchy', ['a\nb']],
+      ['types', [{ name: 'a', color: 'red\nicon: x' }], /color/i],
+      ['types', [{ name: 'a', color: 7 }], /color/i],
+      ['types', [{ name: 'a', icon: 'x\ny' }], /icon/i],
+      ['types', [{ name: 'a', icon: 7 }], /icon/i],
+      ['hierarchy', 'goal'], ['hierarchy', ['goal', '']], ['hierarchy', [3]], ['hierarchy', ['a\nb']],
       ['prefixes', ['G']], ['prefixes', { g: 'goal' }, /prefix/i], ['prefixes', { G1: 'goal' }], ['prefixes', { '': 'goal' }],
       ['prefixes', { G: '' }, /G/], ['prefixes', { G: 5 }], ['prefixes', { G: 'a\nb' }], ['prefixes', { G: '../x/' }],
       ['prefixes', [{ prefix: 'G', target: 'a' }, { prefix: 'G', target: 'b' }], /G/],
@@ -592,16 +590,39 @@ test('a block save refuses what the page could get wrong, with a message, and wr
   });
 });
 
-test('a color is a hex color in three, six or eight digits', async () => {
-  const dir = tmpBoard({ config: 'name: t\n' });
+test('a color and an icon from the file pass through as written: a color name, a hex, an icon this build does not draw (docs/adr/0004)', async () => {
+  const dir = tmpBoard({ config: 'name: t\ntypes:\n  - name: bug\n    color: red\n    icon: hexagram\n  - name: ok\n    color: "#e3b341"\n' });
+  card(dir, '0001.a.card.md', 'spike');
   await withServer(dir, async (base) => {
-    for (const color of ['#fff', '#E3B341', '#e3b34180']) {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    const r = await block(base, 'types', [...settings.types, { name: 'spike' }], settings.version);
+    assert.strictEqual(r.status, 200);
+    assert.deepStrictEqual(parseConfig(config(dir)).types, [{ name: 'bug', color: 'red', icon: 'hexagram' }, { name: 'ok', color: '#e3b341' }, { name: 'spike', color: '' }]);
+    for (const color of ['#fff', '#E3B341', '#e3b34180', 'rebeccapurple', 'rgb(1, 2, 3)', '#12', 'a: b']) {
       assert.strictEqual((await block(base, 'types', [{ name: 'a', color }])).status, 200, color);
       assert.strictEqual(parseConfig(config(dir)).types[0].color, color);
+    }
+    for (const icon of ['hexagram', 'x y', 'a: b', '#c']) {
+      assert.strictEqual((await block(base, 'types', [{ name: 'a', icon }])).status, 200, icon);
+      assert.strictEqual(parseConfig(config(dir)).types[0].icon, icon);
     }
     assert.strictEqual((await block(base, 'types', [{ name: 'a', color: '' }])).status, 200, 'no color is allowed');
     assert.strictEqual((await block(base, 'types', [{ name: 'a', color: null, icon: '' }])).status, 200, 'and so is no icon');
     assert.match(config(dir), /^ {2}- a$/m);
+  });
+});
+
+test('names that differ only in capitals are kept as written in types and in the hierarchy', async () => {
+  const dir = tmpBoard({ config: 'name: t\ntypes:\n  - Bug\n  - bug\nhierarchy: [Bug, bug, Epic]\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.hierarchy, ['Bug', 'bug', 'Epic']);
+    const moved = await block(base, 'hierarchy', ['bug', 'Bug', 'Epic'], settings.version);
+    assert.strictEqual(moved.status, 200);
+    assert.match(config(dir), /^hierarchy: \[bug, Bug, Epic\]$/m);
+    const types = await block(base, 'types', [{ name: 'Bug', color: 'red' }, 'bug', 'BUG']);
+    assert.strictEqual(types.status, 200);
+    assert.deepStrictEqual(parseConfig(config(dir)).types.map((t) => t.name), ['Bug', 'bug', 'BUG']);
   });
 });
 

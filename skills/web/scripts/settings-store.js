@@ -155,29 +155,29 @@ function writeLine(dir, key, value) {
 
 // --- the three blocks (docs/adr/0018) --------------------------------------------------------
 
-const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
-const CONTROL = /[\u0000-\u001f\u007f]/;
+const CONTROL = /[\x00-\x1f\x7f]/;
 
 // A name as it is written in a list entry: bare unless that would not read back as typed (the kanban
 // skill's rule for a `type:` word), and a bare entry that opens `word:` would read as a field.
 const needsQuotes = (name) => cs.typeValue(name) !== name;
 const entryName = (name) => (needsQuotes(name) || /^\w+:/.test(name) ? yaml.quote(name) : name);
 
-function unique(names, what) {
-  const seen = new Map();
-  for (const name of names) {
-    const key = name.toLowerCase();
-    if (seen.has(key)) throw new StatusError(`Two ${what} are named ${seen.get(key)}: a name is the same with or without capitals.`, 400);
-    seen.set(key, name);
-  }
-}
-
+// A value from the file is kept as written (docs/adr/0004): a color is any text (a hex, a name), an
+// icon any word, and two names that differ only in capitals both stay. Only what would corrupt the
+// file is refused: an empty name, and any text that is not one line.
 function checkName(value, what) {
   if (typeof value !== 'string') throw new StatusError(`A ${what} is a name.`, 400);
   const name = value.trim();
   if (name === '') throw new StatusError(`A ${what} needs a name.`, 400);
   if (CONTROL.test(name)) throw new StatusError(`A ${what} name is one line of plain text.`, 400);
   return name;
+}
+
+function checkText(value, what, name) {
+  if (value === undefined || value === null) return '';
+  if (typeof value !== 'string') throw new StatusError(`The ${what} of ${name} is text.`, 400);
+  if (CONTROL.test(value)) throw new StatusError(`The ${what} of ${name} is one line of plain text.`, 400);
+  return value.trim();
 }
 
 // The lines of a `types:` block from the page's list: each entry a name, or { name, color?, icon? }.
@@ -188,13 +188,8 @@ function typesBlock(value) {
     const entry = typeof item === 'string' ? { name: item } : item;
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new StatusError('A card type is a name, or a name with a color and an icon.', 400);
     const name = checkName(entry.name, 'card type');
-    const color = entry.color === undefined || entry.color === null ? '' : entry.color;
-    if (typeof color !== 'string' || (color !== '' && !HEX_COLOR.test(color))) throw new StatusError(`The color of ${name} is a hex color like #e3b341.`, 400);
-    const icon = entry.icon === undefined || entry.icon === null ? '' : entry.icon;
-    if (typeof icon !== 'string' || (icon !== '' && !cfg.ICON_NAMES.includes(icon))) throw new StatusError(`The icon of ${name} is one of ${cfg.ICON_NAMES.join(', ')}, or none.`, 400);
-    return { name, color, icon };
+    return { name, color: checkText(entry.color, 'color', name), icon: checkText(entry.icon, 'icon', name) };
   });
-  unique(types.map((t) => t.name), 'card types');
   if (types.length === 0) return null;
   const lines = ['types:'];
   for (const { name, color, icon } of types) {
@@ -204,7 +199,7 @@ function typesBlock(value) {
     }
     lines.push(`  - name: ${needsQuotes(name) ? yaml.quote(name) : name}`);
     if (color !== '') lines.push(`    color: ${yaml.quote(color)}`);
-    if (icon !== '') lines.push(`    icon: ${icon}`);
+    if (icon !== '') lines.push(`    icon: ${/^[\w-]+$/.test(icon) ? icon : yaml.quote(icon)}`);
   }
   return lines;
 }
@@ -215,7 +210,6 @@ function hierarchyBlock(value) {
   if (value === undefined || value === null) return null;
   if (!Array.isArray(value)) throw new StatusError('The hierarchy is a list of card type names, top first.', 400);
   const names = value.map((name) => checkName(name, 'hierarchy entry'));
-  unique(names, 'hierarchy entries');
   if (names.length === 0) return null;
   if (names.every((n) => !needsQuotes(n) && !/[,[\]]/.test(n))) return [`hierarchy: [${names.join(', ')}]`];
   return ['hierarchy:', ...names.map((n) => `  - ${needsQuotes(n) ? yaml.quote(n) : n}`)];
