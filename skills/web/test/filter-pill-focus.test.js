@@ -114,7 +114,7 @@ function pollSandbox(unseenStep) {
     return c && c.attached && sel === `.${c.classList[0]}[data-${key}="${c.dataset[key]}"]` ? c : null;
   };
   const sandbox = {
-    document: doc, kanbanIds: require('../web/ids'), state: {}, selectedIds: new Set(), hoveredId: null,
+    document: doc, kanbanIds: require('../web/ids'), boardTypeView: require('../web/type-badge').boardTypeView, state: {}, selectedIds: new Set(), hoveredId: null,
     applyProjectName() {}, applyHomeUrl() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
     setHoveredId: (id) => id, renderBoard() {},
     shouldSkipAutoRefresh: policy.shouldSkipAutoRefresh, isDragging: false, pendingDrops: 0,

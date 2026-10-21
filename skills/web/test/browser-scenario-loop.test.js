@@ -129,6 +129,16 @@ test('console errors during a scenario fail it, and a quiet console is a check t
   assert.strictEqual(calm[0].checks.find((c) => c.name === 'no console errors or exceptions').ok, true);
 });
 
+test('a scenario may name the console errors it provokes on purpose, and only those pass', async () => {
+  const expects = (errors) => ({ name: 's', board: 'fixture', expectedErrors: [/status of 409 \(Conflict\)/], run: async (page) => page.check('fine', true) });
+  const conflict = '{"text":"Failed to load resource: the server responded with a status of 409 (Conflict)"}';
+  const [allowed] = await runScenarios([expects()], fakeEnv({ errors: [conflict] }), quiet);
+  assert.strictEqual(allowed.status, 'PASS');
+  const [other] = await runScenarios([expects()], fakeEnv({ errors: [conflict, '{"text":"boom"}'] }), quiet);
+  assert.strictEqual(other.status, 'FAIL');
+  assert.strictEqual(other.checks.find((c) => c.name === 'no console errors or exceptions').ok, false);
+});
+
 test('each scenario begins on its own board and is ended afterwards, also when it threw', async () => {
   const env = fakeEnv();
   const boom = { name: 'boom', board: 'plan', run: async () => { throw new Error('x'); } };

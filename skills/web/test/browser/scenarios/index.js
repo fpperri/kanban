@@ -45,6 +45,7 @@ module.exports = [
   require('./groups-autojoin'),
   require('./iterations'),
   require('./settings'),
+  require('./types-page'),
   require('./scratchpad'),
   require('./delete'),
   require('./feature'),

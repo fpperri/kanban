@@ -310,6 +310,15 @@ def read_pills(kanban_dir):
             pills.append(pill)
     return pills
 
+def read_types_on(kanban_dir):
+    """False when config.yaml has a top-level `typesOn: false` (types off,
+    docs/adr/0018), else True. Read as kanban-web's config-store reads it: the
+    last such line wins, and any value but `false` is on."""
+    on = True
+    for m in re.finditer(r"^typesOn:[ \t]*([^\n]*)$", _config_text(kanban_dir), re.M):
+        on = _scalar(m.group(1)) != "false"
+    return on
+
 def read_hierarchy(kanban_dir):
     """config.yaml's `hierarchy:` as the type names written, top tier first,
     read as kanban-web's config-store reads it: blank and comment-only entries
@@ -438,6 +447,7 @@ def main():
     # contain "</script>" (a real board card has) and would otherwise
     # terminate the script tag mid-JSON. "<\/" is legal JSON.
     emb = lambda v: json.dumps(v, ensure_ascii=False).replace("</", "<\\/")
+    types_on = read_types_on(a.kanban_dir)
     html = fill(TEMPLATE, {
         **embedded_modules(),
         "__ICON_URI__": quote(ICON_SVG, safe=""),
@@ -446,9 +456,10 @@ def main():
         "__STATUSES__": emb(read_statuses(a.kanban_dir)),
         "__ASSIGNEES__": emb([""] + read_assignees(a.kanban_dir)),
         "__ASSIGNEE_COLORS__": emb(read_assignee_colors(a.kanban_dir)),
-        "__TYPES__": emb(read_types(a.kanban_dir)),
+        "__TYPES__": emb(read_types(a.kanban_dir) if types_on else []),
+        "__TYPES_ON__": emb(types_on),
         "__PILLS__": emb(read_pills(a.kanban_dir)),
-        "__HIERARCHY__": emb(read_hierarchy(a.kanban_dir)),
+        "__HIERARCHY__": emb(read_hierarchy(a.kanban_dir) if types_on else []),
         "__PRIORITIES__": emb(read_priorities(a.kanban_dir)),
         "__NOTIFS__": emb(read_notifications(a.kanban_dir)),
         "__DATA__": emb(cards),
@@ -967,6 +978,8 @@ const ARCHC="var(--st-archive)";
 const ASG=__ASSIGNEES__;
 const ASGCOL=__ASSIGNEE_COLORS__;
 const TYPES=__TYPES__;
+// Types off (typesOn: false in config.yaml, docs/adr/0018): the builder embeds no types and no hierarchy, and these parts of the page that read a card's own type check the flag.
+const TYPES_ON=__TYPES_ON__;
 // The board's own one-click queries from config.yaml, in the order written: [{label, query}].
 const PILLS=__PILLS__;
 // The board's hierarchy from config.yaml: type names as written, top tier first. The embedded slices module folds case and duplicates.
@@ -1304,7 +1317,7 @@ return list.slice().sort((a,b)=>{const x=pos(a),y=pos(b);return x===y?0:x<y?-1:1
 // Matched without regard to case, as kanban-web does.
 function typeColor(t){const k=String(t||"").trim().toLowerCase();const h=TYPES.find(x=>String(x.name).trim().toLowerCase()===k);return h&&h.color?h.color:""}
 // A type the list gives an icon starts its chip with that glyph, from the embedded type icons module: plain text inside the chip, so it wears the chip's colour. A type with no icon, or an icon name the module does not know, draws the plain chip: its name alone.
-function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t)return null;
+function typeChip(c){const t=String((c.fm&&c.fm.type)||"").trim();if(!t||!TYPES_ON)return null;
 const g=typeIconGlyph(typeIconOf(t,TYPES));
 const s=el("span","type-chip",g?undefined:t);s.title=t;
 if(g){const i=el("span","type-icon",g);i.setAttribute("aria-hidden","true");s.appendChild(i);s.appendChild(document.createTextNode(t))}
@@ -1410,7 +1423,7 @@ if(c.a)ap.style.color=acol(c.a);
 ap.appendChild(document.createTextNode(c.a||"no assignee"));top.appendChild(ap);
 const pp=btn(c.p,"pill",{pill:"priority"});pp.className="fpill";top.appendChild(pp);
 const cty=String((c.fm&&c.fm.type)||"").trim();
-if(nid!==null){const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp)}
+if(nid!==null&&TYPES_ON){const tp=btn(cty||"no type","pill",{pill:"type"});tp.className="fpill";top.appendChild(tp)}
 d.insertBefore(top,d.firstChild);
 const slot=el("div","acts");slot.style.borderTop="none";slot.style.marginTop="0";slot.style.paddingTop="0";
 if(ren){
@@ -1464,8 +1477,8 @@ fr.appendChild(btn((fmOpen?"\\u25be":"\\u25b8")+" All fields","fmtoggle"));
 d.appendChild(fr);
 if(fmOpen){
 // rank is set by dragging in kanban-web and never offered here.
-const staples=["type","parent","start_date","end_date","due_date","tags","waiting_for","blocked","review"];
-const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated","rank"].indexOf(k)===-1);
+const staples=(TYPES_ON?["type"]:[]).concat(["parent","start_date","end_date","due_date","tags","waiting_for","blocked","review"]);
+const keys=[...new Set(staples.concat(Object.keys(c.fm||{})))].filter(k=>["status","priority","assignee","updated","rank"].concat(TYPES_ON?[]:["type"]).indexOf(k)===-1);
 keys.forEach(k=>{
 const row=el("div","fmrow");
 row.appendChild(el("label",null,k));
@@ -2097,7 +2110,7 @@ const RTOP=42,RMETA=16,RBAR=10,RBARE=46;
 const RDIMS={top:RTOP,metaH:RMETA,barGap:3,bottom:8,bareH:RBARE};
 function richOf(n,roll){
 if(n.ghost)return null;
-const type=String((n.card.fm&&n.card.fm.type)||"").trim(),alt=roll.altitudeOf(n.id);
+const type=TYPES_ON?String((n.card.fm&&n.card.fm.type)||"").trim():"",alt=roll.altitudeOf(n.id);
 const rollup=alt?roll.rollup(n.id):null;
 const hasBar=!!(rollup&&rollup.total),hasMeta=!!type||alt>=1||n.blk!=null;
 return Object.assign({type:type,alt:alt,rollup:rollup,hasMeta:hasMeta,hasBar:hasBar},mapRichBox(hasMeta,hasBar,RBAR,RDIMS))}

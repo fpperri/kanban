@@ -211,6 +211,12 @@ comments say what each line is, and every line can be changed or deleted.
 - **Changing it:** edit the lines, drop the ones you do not want, or remove the
   whole block. The lists suggest and never validate, so a card with any `type:`
   still saves and renders.
+- **Changing it from the web:** the gear sheet's Types page edits the types and
+  the hierarchy (rows you drag or move with buttons, a name, a color, an icon,
+  Add and Remove, and the words cards carry that the list lacks), and its
+  Prefixes page edits the prefixes. Each change saves at once and rewrites only
+  its own list; what else still names a renamed or removed type shows as a
+  warning. The Types switch turns the display of types off (display only).
 - **Off until you switch them on:** the logbook (`logbook: logbook`), the
   scratchpad (`scratchpad: .scratchpad`), groups (`groups: .groups`) and
   iterations (`iterations: true`) are not in the config. Add a line, or switch

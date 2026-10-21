@@ -41,7 +41,7 @@ const targets = `JSON.stringify(state.scratchpad&&state.scratchpad.targets)`;
 const SHEET = `document.getElementById('prefs-sheet')`;
 const pageTitle = `(document.getElementById('prefs-page-title')||{textContent:''}).textContent`;
 const menuState = (page) => `(()=>{const b=document.querySelector('.prefs-menu-item[data-page="${page}"]');const s=b&&b.querySelector('.prefs-menu-state');return s?s.textContent:null})()`;
-const rows = `[...document.querySelectorAll('#prefs-board-page .prefs-table tbody tr')].map((r)=>[...r.children].map((c)=>c.textContent))`;
+const rows = `[...document.querySelectorAll('#prefs-board-page .prefs-table tbody tr')].map((r)=>[...r.children].map((c)=>(c.querySelector('input')?c.querySelector('input').value:c.textContent)))`;
 const NOTE_TEXT = 'cutover reliability reviewed with the team';
 
 module.exports = {
@@ -142,13 +142,13 @@ module.exports = {
     await clickOn('#prefs-btn');
     check('feature: the gear opens its sheet', await waitFor(`!${SHEET}.classList.contains('hidden')`, 2500) && await waitFor(`document.querySelector('.prefs-sheet').getAnimations().length===0`, 2500));
     const pages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent)`);
-    check('feature: This board lists Logbook, Scratchpad, Groups, Prefixes and Counters', pages.join() === 'Logbook,Scratchpad,Groups,Prefixes,Counters', pages);
+    check('feature: This board lists Logbook, Scratchpad, Groups, Types, Prefixes and Counters', pages.join() === 'Logbook,Scratchpad,Groups,Types,Prefixes,Counters', pages);
     check('feature: the menu says logbook on, scratchpad on and groups on', await ev(menuState('board:logbook')) === 'on' && await ev(menuState('board:scratchpad')) === 'on' && /^on/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:scratchpad')), await ev(menuState('board:groups'))]);
     await clickOn('.prefs-menu-item[data-page="board:groups"]');
     check('feature: the Groups page has Iterations on, as the board declares', await waitFor(`${pageTitle}==='Groups'`, 2500) && await ev(`document.querySelector('.prefs-opt[data-switch="iterations"][data-value="on"]').getAttribute('aria-pressed')==='true'`));
     await clickOn('.prefs-menu-item[data-page="board:prefixes"]');
     const prefixRows = await waitFor(`${pageTitle}==='Prefixes'`, 2500) && await ev(rows);
-    check('feature: the Prefixes page lists G for the goal type and the group folders', Array.isArray(prefixRows) && prefixRows.length === 5 && prefixRows.some((r) => r[0] === 'G' && r[1] === 'card type goal') && prefixRows.some((r) => r[0] === 'I' && r[1] === '.groups/iteration/'), prefixRows);
+    check('feature: the Prefixes page lists G for the goal type and the group folders', Array.isArray(prefixRows) && prefixRows.length === 5 && prefixRows.some((r) => r[0] === 'G' && r[2] === 'card type goal') && prefixRows.some((r) => r[0] === 'I' && r[2] === '.groups/iteration/'), prefixRows);
     await clickOn('.prefs-menu-item[data-page="board:counters"]');
     const counterRows = await waitFor(`${pageTitle}==='Counters'`, 2500) && await ev(rows);
     check('feature: the Counters page lists the goal counter beside the groups\'', Array.isArray(counterRows) && counterRows.some((r) => r.join() === 'G,12') && counterRows.some((r) => r.join() === 'I,3'), counterRows);

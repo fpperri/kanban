@@ -75,6 +75,15 @@ test('the board payload carries the config the gear shows', async () => {
   });
 });
 
+test('a prefix a line names twice for different targets is answered as a clash, the first line kept', async () => {
+  const dir = tmpBoard({ config: 'name: t\nprefixes:\n  G: goal\n  G: epic\n  G: goal\n  W: workflow/\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.prefixes.map((p) => [p.prefix, p.target]), [['G', 'goal'], ['W', 'workflow/']]);
+    assert.deepStrictEqual(settings.prefixClashes, [{ prefix: 'G', kept: 'goal', ignored: 'epic' }]);
+  });
+});
+
 test('a board with no config.yaml shows every feature off', async () => {
   const dir = tmpBoard({ config: null });
   await withServer(dir, async (base) => {
@@ -367,4 +376,328 @@ test('the inside-the-board rule reads POSIX and Windows spellings of a path alik
   assert.strictEqual(insideBoard(dir, 'notes/day'), 'notes/day');
   assert.strictEqual(insideBoard(dir, 'notes\\day'), 'notes/day');
   assert.strictEqual(insideBoard(dir, './notes/../notes/day'), 'notes/day');
+});
+
+// --- a whole block: types, hierarchy, prefixes (docs/adr/0018) ------------------------------
+
+const PLAN = [
+  '# The board of the tests',
+  'name: t',
+  'nextId: 30   # next plain id',
+  'prefixes:   # who takes which letters',
+  '  G: goal',
+  '  # a note in the block',
+  '  I: .groups/iteration',
+  'counters: { G: 3 }',
+  'groups: .groups',
+  '',
+  '# Card types, one colour each.',
+  'types:',
+  '  - name: goal',
+  '    color: "#e3b341"',
+  '    icon: star',
+  '  - epic',
+  '',
+  '# The levels.',
+  'hierarchy: [goal, epic]',
+  'assignees:',
+  '  - handle: "@alex"',
+  '    name: "Alex"',
+  '',
+].join('\n');
+
+const block = (base, name, value, version) => req(base, 'POST', '/api/config', { block: name, value, version });
+const card = (dir, file, type) => fs.writeFileSync(path.join(dir, file), `---\nid: ${parseInt(file, 10)}\nstatus: todo\npriority: Normal\nwaiting_for: []\ntags: []\n${type ? `type: ${type}\n` : ''}---\n\n# Card ${file}\n`);
+
+test('reading answers types, hierarchy, typesOn, a version, the pages\' paths and how many cards carry each type word', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  fs.mkdirSync(path.join(dir, 'archived', 'pkg'), { recursive: true });
+  card(dir, '0001.a.card.md', 'goal');
+  card(dir, '0002.b.card.md', 'goal');
+  card(dir, '0003.c.card.md', 'story');
+  card(dir, '0004.d.card.md', '');
+  card(path.join(dir, 'archived'), '0005.e.card.md', 'story');
+  card(path.join(dir, 'archived', 'pkg'), '0006.f.card.md', 'story');
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.types, [{ name: 'goal', color: '#e3b341', icon: 'star' }, { name: 'epic', color: '' }]);
+    assert.deepStrictEqual(settings.hierarchy, ['goal', 'epic']);
+    assert.strictEqual(settings.typesOn, true);
+    assert.deepStrictEqual(settings.typeUse, { goal: 2, story: 3 });
+    assert.match(settings.version, /^[0-9a-f]{16,}$/);
+    assert.strictEqual(settings.paths.config, path.resolve(dir, 'config.yaml'));
+    assert.strictEqual(settings.paths.groups, path.resolve(dir, '.groups'));
+    assert.strictEqual(settings.paths.logbook, null, 'a feature that is off has no folder to copy');
+    assert.strictEqual(settings.paths.scratchpad, null);
+  });
+});
+
+test('a folder is answered resolved whether or not it exists, and a folder set by hand outside the board as written', async () => {
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-settings-outside-'));
+  const dir = tmpBoard({ config: `name: t\nlogbook: notes\nscratchpad: ${outside.replace(/\\/g, '/')}\n` });
+  await withServer(dir, async (base) => {
+    const { paths } = (await req(base, 'GET', '/api/board')).json.settings;
+    assert.strictEqual(paths.logbook, path.resolve(dir, 'notes'));
+    assert.strictEqual(paths.scratchpad, path.resolve(outside));
+    assert.ok(!fs.existsSync(paths.logbook));
+  });
+});
+
+test('the version changes with the file and not with the id counters the board keeps itself', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    const v1 = (await req(base, 'GET', '/api/board')).json.settings.version;
+    fs.writeFileSync(path.join(dir, 'config.yaml'), PLAN.replace('nextId: 30', 'nextId: 31').replace('{ G: 3 }', '{ G: 4 }'));
+    assert.strictEqual((await req(base, 'GET', '/api/board')).json.settings.version, v1, 'a new card moves nextId and counters');
+    fs.writeFileSync(path.join(dir, 'config.yaml'), PLAN.replace('  - epic', '  - story'));
+    assert.notStrictEqual((await req(base, 'GET', '/api/board')).json.settings.version, v1);
+  });
+});
+
+test('a types save rewrites the block clean, drops its comments, and every byte outside it stays', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    const r = await block(base, 'types', [
+      { name: 'goal', color: '#e3b341', icon: 'star' },
+      { name: 'task', icon: 'triangle' },
+      { name: 'epic', color: '#58a6ff' },
+      { name: 'bug' },
+      'chore',
+    ]);
+    assert.strictEqual(r.status, 200);
+    const after = [
+      '  - name: goal', '    color: "#e3b341"', '    icon: star',
+      '  - name: task', '    icon: triangle',
+      '  - name: epic', '    color: "#58a6ff"',
+      '  - bug', '  - chore',
+    ].join('\n');
+    assert.strictEqual(config(dir), PLAN.replace(/  - name: goal[\s\S]*?  - epic\n/, `${after}\n`));
+    assert.deepStrictEqual(r.json.settings.types.map((t) => t.name), ['goal', 'task', 'epic', 'bug', 'chore']);
+    assert.deepStrictEqual(r.json.settings.types[1], { name: 'task', color: '', icon: 'triangle' });
+  });
+});
+
+test('a comment inside a rewritten block is gone, and the comment above the next key stays', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    await block(base, 'prefixes', { G: 'goal' });
+    assert.ok(!config(dir).includes('a note in the block'));
+    assert.ok(!config(dir).includes('who takes which letters'));
+    await block(base, 'types', ['goal']);
+    assert.ok(config(dir).includes('# The levels.\nhierarchy:'));
+    assert.ok(config(dir).includes('# Card types, one colour each.\ntypes:'));
+  });
+});
+
+test('a block save in a CRLF file keeps every line ending', async () => {
+  const crlf = PLAN.replace(/\n/g, '\r\n');
+  const dir = tmpBoard({ config: crlf });
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await block(base, 'types', ['goal'])).status, 200);
+    assert.strictEqual(config(dir), crlf.replace(/types:\r\n[\s\S]*?  - epic\r\n/, 'types:\r\n  - goal\r\n'));
+    assert.ok(!/[^\r]\n/.test(config(dir)), 'no bare LF crept in');
+  });
+});
+
+test('an absent block is inserted in the config order', async () => {
+  const dir = tmpBoard({ config: 'name: t\nnextId: 5\nassignees:\n  - handle: "@a"\n' });
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await block(base, 'types', ['goal', 'epic'])).status, 200);
+    assert.strictEqual((await block(base, 'hierarchy', ['goal', 'epic'])).status, 200);
+    assert.strictEqual((await block(base, 'prefixes', { G: 'goal', I: '.groups/iteration' })).status, 200);
+    assert.strictEqual(config(dir), 'name: t\nnextId: 5\nprefixes:\n  G: goal\n  I: .groups/iteration\nassignees:\n  - handle: "@a"\ntypes:\n  - goal\n  - epic\nhierarchy: [goal, epic]\n');
+  });
+});
+
+test('an empty or absent hierarchy removes the line; so do an empty types and prefixes', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await block(base, 'hierarchy', [])).status, 200);
+    assert.strictEqual(config(dir), PLAN.replace('hierarchy: [goal, epic]\n', ''));
+    assert.strictEqual((await block(base, 'hierarchy', undefined)).status, 200, 'absent removes nothing more');
+    assert.strictEqual((await block(base, 'prefixes', {})).status, 200);
+    assert.ok(!/^prefixes:/m.test(config(dir)));
+    assert.strictEqual((await block(base, 'types', null)).status, 200);
+    assert.ok(!/^types:/m.test(config(dir)));
+    assert.ok(config(dir).includes('counters: { G: 3 }'));
+  });
+});
+
+test('null, absent and empty each remove a block, the same for types, hierarchy and prefixes', async () => {
+  for (const [name, empty] of [['types', null], ['types', undefined], ['types', []], ['hierarchy', null], ['hierarchy', undefined], ['hierarchy', []], ['prefixes', null], ['prefixes', undefined], ['prefixes', {}], ['prefixes', []]]) {
+    const dir = tmpBoard({ config: PLAN });
+    await withServer(dir, async (base) => {
+      assert.strictEqual((await block(base, name, empty)).status, 200, `${name} ${JSON.stringify(empty)}`);
+      assert.ok(!new RegExp(`^${name}:`, 'm').test(config(dir)), `${name} ${JSON.stringify(empty)} removed the block`);
+    });
+  }
+});
+
+test('the hierarchy is written in the starter\'s inline layout, and as a block when a name will not sit in a flow list', async () => {
+  const dir = tmpBoard({ config: 'name: t\n' });
+  await withServer(dir, async (base) => {
+    await block(base, 'hierarchy', ['goal', 'epic']);
+    assert.match(config(dir), /^hierarchy: \[goal, epic\]$/m);
+    await block(base, 'hierarchy', ['goal', 'a, b', 'x: y']);
+    assert.match(config(dir), /^hierarchy:\n {2}- goal\n {2}- a, b\n {2}- "x: y"\n/m);
+    assert.deepStrictEqual(parseConfig(config(dir)).hierarchy, ['goal', 'a, b', 'x: y']);
+  });
+});
+
+test('a type name that would not read back bare is quoted, and every name reads back as typed', async () => {
+  const dir = tmpBoard({ config: 'name: t\n' });
+  const names = ['plain', 'a: b', '#hash', 'x #y', '[br]', 'say "hi"', "it's", 'back\\slash', 'ünï', 'two words'];
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await block(base, 'types', names)).status, 200);
+    assert.deepStrictEqual(parseConfig(config(dir)).types.map((t) => t.name), names);
+    assert.match(config(dir), /^ {2}- plain$/m);
+    assert.match(config(dir), /^ {2}- "a: b"$/m);
+  });
+});
+
+test('a prefixes save writes the block clean and reads back; the target that is a folder stays a folder', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    const r = await block(base, 'prefixes', [{ prefix: 'G', target: 'goal' }, { prefix: 'E', target: 'epic' }, { prefix: '_', target: '.groups' }, { prefix: 'W', target: 'workflow/' }]);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(config(dir), PLAN.replace(/prefixes:   # who takes[\s\S]*?  I: \.groups\/iteration\n/, 'prefixes:\n  G: goal\n  E: epic\n  _: .groups\n  W: workflow/\n'));
+    assert.deepStrictEqual(r.json.settings.prefixes.map((p) => [p.prefix, p.kind]), [['G', 'type'], ['E', 'type'], ['_', 'folder'], ['W', 'folder']]);
+  });
+});
+
+test('renaming a type rewrites types and nothing else: hierarchy, prefixes and cards keep the old word', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  card(dir, '0001.a.card.md', 'goal');
+  const cardBefore = fs.readFileSync(path.join(dir, '0001.a.card.md'), 'utf8');
+  await withServer(dir, async (base) => {
+    const r = await block(base, 'types', [{ name: 'objective', color: '#e3b341', icon: 'star' }, 'epic']);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(config(dir), PLAN.replace(/  - name: goal[\s\S]*?  - epic\n/, '  - name: objective\n    color: "#e3b341"\n    icon: star\n  - epic\n'));
+    assert.ok(config(dir).includes('hierarchy: [goal, epic]'));
+    assert.ok(config(dir).includes('  G: goal'));
+    assert.deepStrictEqual(r.json.settings.hierarchy, ['goal', 'epic']);
+    assert.deepStrictEqual(r.json.settings.typeUse, { goal: 1 }, 'the page can say 1 card still says goal');
+    assert.strictEqual(fs.readFileSync(path.join(dir, '0001.a.card.md'), 'utf8'), cardBefore);
+  });
+});
+
+test('a block save refuses what the page could get wrong, with a message, and writes nothing', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    const bad = [
+      ['types', 'goal', /list/i],
+      ['types', [{ name: '' }], /name/i],
+      ['types', ['  ']], ['types', [{ color: '#fff' }]], ['types', [7]],
+      ['types', [{ name: 'a\nb' }]],
+      ['types', [{ name: 'a', color: 'red\nicon: x' }], /color/i],
+      ['types', [{ name: 'a', color: 7 }], /color/i],
+      ['types', [{ name: 'a', icon: 'x\ny' }], /icon/i],
+      ['types', [{ name: 'a', icon: 7 }], /icon/i],
+      ['hierarchy', 'goal'], ['hierarchy', ['goal', '']], ['hierarchy', [3]], ['hierarchy', ['a\nb']],
+      ['prefixes', ['G']], ['prefixes', { g: 'goal' }, /prefix/i], ['prefixes', { G1: 'goal' }], ['prefixes', { '': 'goal' }],
+      ['prefixes', { G: '' }, /G/], ['prefixes', { G: 5 }], ['prefixes', { G: 'a\nb' }], ['prefixes', { G: '../x/' }],
+      ['prefixes', [{ prefix: 'G', target: 'a' }, { prefix: 'G', target: 'b' }], /G/],
+      ['nope', ['x']], [undefined, ['x']], [7, ['x']], ['name', ['x']],
+    ];
+    for (const [name, value, message] of bad) {
+      const r = await block(base, name, value);
+      assert.strictEqual(r.status, 400, `refuses ${name} ${JSON.stringify(value)}`);
+      assert.ok(r.json.error);
+      if (message) assert.match(r.json.error, message);
+    }
+    assert.strictEqual(config(dir), PLAN);
+  });
+});
+
+test('a color and an icon from the file pass through as written: a color name, a hex, an icon this build does not draw (docs/adr/0004)', async () => {
+  const dir = tmpBoard({ config: 'name: t\ntypes:\n  - name: bug\n    color: red\n    icon: hexagram\n  - name: ok\n    color: "#e3b341"\n' });
+  card(dir, '0001.a.card.md', 'spike');
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    const r = await block(base, 'types', [...settings.types, { name: 'spike' }], settings.version);
+    assert.strictEqual(r.status, 200);
+    assert.deepStrictEqual(parseConfig(config(dir)).types, [{ name: 'bug', color: 'red', icon: 'hexagram' }, { name: 'ok', color: '#e3b341' }, { name: 'spike', color: '' }]);
+    for (const color of ['#fff', '#E3B341', '#e3b34180', 'rebeccapurple', 'rgb(1, 2, 3)', '#12', 'a: b']) {
+      assert.strictEqual((await block(base, 'types', [{ name: 'a', color }])).status, 200, color);
+      assert.strictEqual(parseConfig(config(dir)).types[0].color, color);
+    }
+    for (const icon of ['hexagram', 'x y', 'a: b', '#c']) {
+      assert.strictEqual((await block(base, 'types', [{ name: 'a', icon }])).status, 200, icon);
+      assert.strictEqual(parseConfig(config(dir)).types[0].icon, icon);
+    }
+    assert.strictEqual((await block(base, 'types', [{ name: 'a', color: '' }])).status, 200, 'no color is allowed');
+    assert.strictEqual((await block(base, 'types', [{ name: 'a', color: null, icon: '' }])).status, 200, 'and so is no icon');
+    assert.match(config(dir), /^ {2}- a$/m);
+  });
+});
+
+test('names that differ only in capitals are kept as written in types and in the hierarchy', async () => {
+  const dir = tmpBoard({ config: 'name: t\ntypes:\n  - Bug\n  - bug\nhierarchy: [Bug, bug, Epic]\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.hierarchy, ['Bug', 'bug', 'Epic']);
+    const moved = await block(base, 'hierarchy', ['bug', 'Bug', 'Epic'], settings.version);
+    assert.strictEqual(moved.status, 200);
+    assert.match(config(dir), /^hierarchy: \[bug, Bug, Epic\]$/m);
+    const types = await block(base, 'types', [{ name: 'Bug', color: 'red' }, 'bug', 'BUG']);
+    assert.strictEqual(types.status, 200);
+    assert.deepStrictEqual(parseConfig(config(dir)).types.map((t) => t.name), ['Bug', 'bug', 'BUG']);
+  });
+});
+
+// --- types off, the version, the conflict ----------------------------------------------------
+
+test('a line the file lacks goes below the nearest key before it in the order the config documents', async () => {
+  const dir = tmpBoard({ config: 'name: t\nnextId: 5\nprefixes:\n  G: goal\ncounters: { G: 3 }\nassignees:\n  - handle: "@a"\n' });
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await set(base, 'logbook', 'notes')).status, 200);
+    assert.strictEqual((await set(base, 'idDigits', 6)).status, 200);
+    assert.strictEqual((await set(base, 'groups', '.groups')).status, 200);
+    assert.strictEqual((await set(base, 'typesOn', false)).status, 200);
+    assert.strictEqual(config(dir), 'name: t\nnextId: 5\nidDigits: 6\nprefixes:\n  G: goal\ncounters: { G: 3 }\nlogbook: notes\ngroups: .groups\ntypesOn: false\nassignees:\n  - handle: "@a"\n');
+  });
+});
+
+test('typesOn off writes the line below the feature lines, on removes it, and nothing else moves', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    const off = await set(base, 'typesOn', false);
+    assert.strictEqual(off.status, 200);
+    assert.strictEqual(off.json.settings.typesOn, false);
+    assert.strictEqual(config(dir), PLAN.replace('groups: .groups\n', 'groups: .groups\ntypesOn: false\n'));
+    assert.deepStrictEqual(off.json.settings.types.map((t) => t.name), ['goal', 'epic'], 'the lists stay as written');
+    const on = await set(base, 'typesOn', true);
+    assert.strictEqual(on.status, 200);
+    assert.strictEqual(on.json.settings.typesOn, true);
+    assert.strictEqual(config(dir), PLAN);
+    assert.strictEqual((await set(base, 'typesOn', 'no')).status, 400);
+    assert.strictEqual((await set(base, 'typesOn', null)).status, 400);
+    assert.strictEqual(config(dir), PLAN);
+  });
+});
+
+test('a save that carries a stale version is refused with 409 and writes nothing; a current one, or none, goes through', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    const v1 = (await req(base, 'GET', '/api/board')).json.settings.version;
+    fs.writeFileSync(path.join(dir, 'config.yaml'), `${PLAN}# edited by hand\n`);
+    const edited = config(dir);
+    const stale = await block(base, 'types', ['goal'], v1);
+    assert.strictEqual(stale.status, 409);
+    assert.match(stale.json.error, /changed on disk/);
+    const staleLine = await req(base, 'POST', '/api/config', { key: 'typesOn', value: false, version: v1 });
+    assert.strictEqual(staleLine.status, 409);
+    for (const body of [{ key: 'idDigits', value: 6 }, { key: 'logbook', value: 'notes' }, { key: 'groups', value: null }, { key: 'iterations', value: false }]) {
+      const refused = await req(base, 'POST', '/api/config', { ...body, version: v1 });
+      assert.strictEqual(refused.status, 409, body.key);
+      assert.match(refused.json.error, /changed on disk/);
+    }
+    assert.strictEqual(config(dir), edited);
+    const v2 = (await req(base, 'GET', '/api/board')).json.settings.version;
+    const ok = await block(base, 'types', ['goal'], v2);
+    assert.strictEqual(ok.status, 200);
+    assert.notStrictEqual(ok.json.settings.version, v2, 'the answer carries the new version');
+    assert.strictEqual((await block(base, 'types', ['epic'], ok.json.settings.version)).status, 200, 'the answer\'s version is the next save\'s');
+    assert.strictEqual((await set(base, 'idDigits', 5)).status, 200, 'a caller with no version keeps working');
+  });
 });

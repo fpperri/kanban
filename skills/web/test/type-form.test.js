@@ -71,11 +71,11 @@ test('a board with no types list leaves the field a plain text box with nothing 
   assert.deepStrictEqual(typeOptions([])(), []);
 });
 
-function loadSubmitModal(form) {
+function loadSubmitModal(form, state = { active: [] }) {
   const calls = [];
   const sandbox = {
     $: form.$,
-    state: { active: [] },
+    state,
     api: async (method, url, payload) => { calls.push({ method, url, payload }); },
     parseTags: (s) => s.split(',').map((x) => x.trim()).filter(Boolean),
     parseIds: () => [],
@@ -108,25 +108,29 @@ test('clearing the field saves a blank type, which is how an edit removes the li
   assert.strictEqual(calls[0].payload.type, '');
 });
 
-function loadOpenModal(form) {
+function loadOpenModal(form, state = {}) {
   const sandbox = {
     $: form.$,
-    state: {},
+    state,
     formSnapshot: null,
     renderStatusOptions() {}, boardStatuses: () => ['todo'], syncBlockedInputStyle() {}, syncReviewInputStyle() {},
     setPromptRowVisible() {}, syncAssigneeColor() {}, syncNestingFieldValidity() {}, isMinimalCreate: () => false, applyModalFullscreen() {},
     snapshotFormFields() { return {}; },
   };
+  const labels = {};
   sandbox.$ = (sel) => {
     const el = form.$(sel);
     el.classList = el.classList || { toggle() {}, remove() {} };
     el.textContent = el.textContent || '';
     el.focus = el.focus || (() => {});
+    el.closest = el.closest || (() => (labels[sel] = labels[sel] || { hidden: false, classList: { toggle(name, on) { if (name === 'hidden') labels[sel].hidden = !!on; } } }));
     return el;
   };
   vm.createContext(sandbox);
   vm.runInContext(fn('openModal'), sandbox);
-  return sandbox.openModal;
+  const open = sandbox.openModal;
+  open.labels = labels;
+  return open;
 }
 
 function card(extra) {
@@ -202,4 +206,33 @@ test('a board with no types list still stores a typed type, on create and on edi
     assert.strictEqual((await send(base, 'PATCH', '/api/cards/1', formPayload({ type: 'story' }))).json.type, 'story');
     assert.match(fs.readFileSync(path.join(dir, '0001.one.card.md'), 'utf8'), /^type: story$/m);
   });
+});
+
+// --- types off (typesOn: false) ---------------------------------------------------
+
+test('with types off the Type field is hidden when the form opens, and shown again when types are on', () => {
+  const form = fakeForm();
+  const state = { typesOn: false };
+  const open = loadOpenModal(form, state);
+  open(card({ type: 'objective' }));
+  assert.strictEqual(open.labels['#f-type'].hidden, true);
+  state.typesOn = true;
+  open(card({ type: 'objective' }));
+  assert.strictEqual(open.labels['#f-type'].hidden, false);
+  assert.strictEqual(form.$('#f-type').value, 'objective');
+});
+
+test('a board that says nothing about types opens the form with the Type field shown', () => {
+  const open = loadOpenModal(fakeForm());
+  open(null);
+  assert.strictEqual(open.labels['#f-type'].hidden, false);
+});
+
+test('with types off a save sends no type, so the card\'s type line is left as written, on edit and on create', async () => {
+  for (const id of ['7', '']) {
+    const form = fakeForm({ '#f-id': { value: id }, '#f-title': { value: 'T' }, '#f-type': { value: 'spike' } });
+    const { submit, calls } = loadSubmitModal(form, { active: [], typesOn: false });
+    await submit();
+    assert.ok(!('type' in calls[0].payload), `id ${JSON.stringify(id)}`);
+  }
 });

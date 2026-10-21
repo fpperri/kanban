@@ -28,7 +28,19 @@ function typeColor(type, types) {
   return hit && hit.color ? hit.color : '';
 }
 
-function typeBadge(card, types) {
+// Types off (typesOn: false, docs/adr/0018): the gate for the two LISTS. The views read the board's
+// types and hierarchy through this, so with it off they hold none, as on a board that declares none;
+// the payload itself is left as written. It is not the whole of types off: the flag also reaches
+// typeBadge (a card's chip), the edit form's Type field and the detail's type line, which draw a card's own
+// word rather than a list and read `typesOn` themselves.
+function boardTypeView(data) {
+  const typesOn = !data || data.typesOn !== false;
+  return { typesOn, types: typesOn ? (data && data.types) || [] : [], hierarchy: typesOn ? (data && data.hierarchy) || [] : [] };
+}
+
+// typesOn is the board's flag; off, a typed card still carries no chip, since a chip needs no listed type.
+function typeBadge(card, types, typesOn) {
+  if (typesOn === false) return '';
   const text = String(card.type == null ? '' : card.type).trim();
   if (!text) return '';
   const color = typeColor(text, types);
@@ -40,8 +52,9 @@ function typeBadge(card, types) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { typeBadge, typeColor };
+  module.exports = { typeBadge, typeColor, boardTypeView };
 } else {
   window.typeBadge = typeBadge;
   window.typeColor = typeColor;
+  window.boardTypeView = boardTypeView;
 }

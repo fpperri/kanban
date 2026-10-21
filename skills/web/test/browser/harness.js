@@ -317,7 +317,8 @@ async function runOne(sc, env, opts, log) {
     if (lostAlready) throw new Error(`Chrome is gone: ${lostAlready}`);
     const page = await env.begin(sc, { check, scope });
     await sc.run(page);
-    const errs = await env.consoleErrors();
+    // A scenario that provokes an error answer on purpose (a refused save) names it in expectedErrors.
+    const errs = (await env.consoleErrors()).filter((e) => !(sc.expectedErrors || []).some((re) => re.test(e)));
     check('no console errors or exceptions', errs.length === 0, errs);
   };
   const timedOut = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`timed out after ${seconds(timeoutMs)}`)), timeoutMs); });

@@ -238,3 +238,15 @@ test('Fit takes in the widest and tallest of the stacked graphs', () => {
   assert.match(body, /Math\.max\(fitW/);
   assert.match(body, /fitMapZoom\(fitW, fitH, availableWidth, availableHeight\)/);
 });
+
+test('with types off a typed card gets no type chip and no line for one', () => {
+  const w = richSandbox({ types: [{ name: 'epic', color: '#f0883e' }] });
+  const cards = RICH([{ id: 1, type: 'epic' }]);
+  const withLine = heightOf(w, { id: 1 }, cards);
+  assert.ok(w.mapRichLayout({ id: 1 }, cards).hasMeta, 'on, the type line is there');
+  w.state.typesOn = false;
+  const layout = w.mapRichLayout({ id: 1 }, cards);
+  assert.strictEqual(layout.hasMeta, false);
+  assert.ok(layout.h < withLine, 'the row is as short as a card with no type');
+  assert.strictEqual(w.mapRichHtml({ id: 1 }, layout, STATUSES), '');
+});
