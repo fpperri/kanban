@@ -20,11 +20,33 @@
 // Pure: Node tests drive it with plain strings. Same dual-environment export pattern as notes.js.
 
 const TEXT_EDIT_INDENT = '  ';
+const TEXT_EDIT_LIST_MARK = /^(?:\d+\. |[-*+] )/; // the marker of either kind of list, taken off before the other is put on
 const TEXT_EDIT_LISTS = {
-  ol: { has: /^\d+\. /, strip: /^(?:\d+\. |[-*+] )/ },
-  ul: { has: /^[-*+] /, strip: /^(?:\d+\. |[-*+] )/ },
+  ol: { has: /^\d+\. /, strip: TEXT_EDIT_LIST_MARK },
+  ul: { has: /^[-*+] /, strip: TEXT_EDIT_LIST_MARK },
   quote: { has: /^> ?/, strip: null },
 };
+
+// Every key the box reads besides Tab, by the lower-cased `key`: with which modifiers (`ctrl` is Ctrl or
+// Cmd) and what it does. Where the modifier changes the character (Alt+S on a Mac, Shift+7) the key is
+// found by its place on the keyboard too (TEXT_EDIT_CODES). The keys of a list kind are the kinds of
+// TEXT_EDIT_LISTS.
+const TEXT_EDIT_MARKDOWN_KEYS = {
+  'b': { mods: 'ctrl', wrap: ['**', '**'] },
+  'i': { mods: 'ctrl', wrap: ['*', '*'] },
+  'u': { mods: 'ctrl', wrap: ['<u>', '</u>'] },
+  'e': { mods: 'ctrl', wrap: ['`', '`'] },
+  's': { mods: 'alt', wrap: ['~~', '~~'] },
+  'k': { mods: 'ctrl', link: true },
+  'd': { mods: 'ctrl+shift', details: true },
+  '7': { mods: 'ctrl+shift', list: 'ol' },
+  '&': { mods: 'ctrl+shift', list: 'ol' },
+  '8': { mods: 'ctrl+shift', list: 'ul' },
+  '*': { mods: 'ctrl+shift', list: 'ul' },
+  '.': { mods: 'ctrl+shift', list: 'quote' },
+  '>': { mods: 'ctrl+shift', list: 'quote' },
+};
+const TEXT_EDIT_CODES = { KeyS: 's', Digit7: '7', Digit8: '8', Period: '.' };
 
 // The lines a selection spans, as [from, to) of the text: from the start of the first to the end of the
 // last, and not the last when the selection ends at its very start.
@@ -180,26 +202,19 @@ function textEditKey(text, start, end, e) {
   if (!e || typeof e.key !== 'string') return null;
   const mod = e.ctrlKey || e.metaKey;
   if (e.key === 'Tab') return mod || e.altKey ? null : textEditTab(text, start, end, e.shiftKey);
-  if (mod && !e.altKey && !e.shiftKey) {
-    if (e.key.toLowerCase() === 'b') return textEditWrap(text, start, end, '**', '**');
-    if (e.key.toLowerCase() === 'i') return textEditWrap(text, start, end, '*', '*');
-    if (e.key.toLowerCase() === 'u') return textEditWrap(text, start, end, '<u>', '</u>');
-    if (e.key.toLowerCase() === 'e') return textEditWrap(text, start, end, '`', '`');
-    if (e.key.toLowerCase() === 'k') return textEditLink(text, start, end);
-    return null;
-  }
-  if (mod && !e.altKey && e.shiftKey) {
-    if (e.key.toLowerCase() === 'd') return textEditDetails(text, start, end);
-    if (e.key === '7' || e.key === '&' || e.code === 'Digit7') return textEditPrefix(text, start, end, 'ol');
-    if (e.key === '8' || e.key === '*' || e.code === 'Digit8') return textEditPrefix(text, start, end, 'ul');
-    if (e.key === '.' || e.key === '>' || e.code === 'Period') return textEditPrefix(text, start, end, 'quote');
-    return null;
-  }
-  if (e.altKey && !mod && !e.shiftKey && (e.key.toLowerCase() === 's' || e.code === 'KeyS')) return textEditWrap(text, start, end, '~~', '~~');
-  return null;
+  const own = (k) => Object.prototype.hasOwnProperty.call(TEXT_EDIT_MARKDOWN_KEYS, k);
+  const key = own(e.key.toLowerCase()) ? e.key.toLowerCase() : TEXT_EDIT_CODES[e.code];
+  if (!key || !own(key)) return null;
+  const entry = TEXT_EDIT_MARKDOWN_KEYS[key];
+  const held = { ctrl: mod && !e.altKey && !e.shiftKey, alt: e.altKey && !mod && !e.shiftKey, 'ctrl+shift': mod && !e.altKey && e.shiftKey };
+  if (!held[entry.mods]) return null;
+  if (entry.wrap) return textEditWrap(text, start, end, entry.wrap[0], entry.wrap[1]);
+  if (entry.link) return textEditLink(text, start, end);
+  if (entry.details) return textEditDetails(text, start, end);
+  return textEditPrefix(text, start, end, entry.list);
 }
 
-const TEXT_EDIT_EXPORTS = { textEditKey };
+const TEXT_EDIT_EXPORTS = { textEditKey, TEXT_EDIT_LISTS, TEXT_EDIT_MARKDOWN_KEYS };
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = TEXT_EDIT_EXPORTS;

@@ -5,7 +5,7 @@
 // A key is read where the source compares an event's `key` with a literal (`e.key !== '/'`,
 // `e.key.toLowerCase() === 'n'`, `'x' === e.key`), tests it against a literal array
 // (`['[', ']'].includes(e.key)`), or names it in a constant list of keys (`const SLICE_RUN_KEYS
-// = ['[', ']']`). A bare `key` compared with a literal counts only in a file that takes it from
+// = ['[', ']']`) or a constant map of keys (`const TEXT_EDIT_MARKDOWN_KEYS = { 'b': ... }`). A bare `key` compared with a literal counts only in a file that takes it from
 // an event's key (`const key = ... chord.key ...`), which is how save-hotkey.js and
 // search-hotkey.js read theirs; elsewhere `key` names a field of the search module or an option
 // of the Graph's fan, and `key === 'unnested'` is no key press. A handler that
@@ -28,6 +28,9 @@ const ARRAY_TEST = new RegExp(`${ARRAY}\\.includes\\(\\s*(?:e|ev|event|evt)\\.ke
 // A constant named ..._KEYS (SLICE_RUN_KEYS); the Hotkeys list itself, HOTKEYS, is not one.
 const KEY_LIST = new RegExp(`\\bconst\\s+[A-Z0-9]+(?:_[A-Z0-9]+)*_KEYS\\s*=\\s*${ARRAY}`, 'g');
 const ELEMENTS = /'((?:[^'\\]|\\.)*)'/g;
+// A constant named ..._KEYS that is an object whose keys are quoted, one to a line (TEXT_EDIT_MARKDOWN_KEYS).
+const KEY_MAP = /\bconst\s+[A-Z0-9]+(?:_[A-Z0-9]+)*_KEYS\s*=\s*\{([\s\S]*?)\n\};/g;
+const MAP_KEY = /^\s*'((?:[^'\\]|\\.)*)'\s*:/gm;
 
 const unescape = (text) => text.replace(/\\(.)/g, '$1');
 
@@ -43,6 +46,7 @@ function keysRead(source) {
   for (const list of [ARRAY_TEST, KEY_LIST]) {
     for (const m of source.matchAll(list)) for (const el of m[1].matchAll(ELEMENTS)) add(el[1]);
   }
+  for (const m of source.matchAll(KEY_MAP)) for (const k of m[1].matchAll(MAP_KEY)) add(k[1]);
   return keys;
 }
 

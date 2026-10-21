@@ -257,6 +257,15 @@ test('every edit is one replacement of the text, so it is one step of undo', () 
   }
 });
 
+test('every kind of list has a key, and every list key names a kind', () => {
+  const named = new Set(Object.values(t.TEXT_EDIT_MARKDOWN_KEYS).filter((k) => k.list).map((k) => k.list));
+  assert.deepStrictEqual([...named].sort(), Object.keys(t.TEXT_EDIT_LISTS).sort());
+});
+
+test('a key that is a name on every object is no key', () => {
+  for (const k of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.strictEqual(t.textEditKey('x', 0, 1, ctrl(k)), null, k);
+});
+
 // --- Ctrl+Shift+D: a collapsible section ---------------------------------------------------------------
 
 const detailsKey = () => ctrl('D', { shiftKey: true, code: 'KeyD' });
