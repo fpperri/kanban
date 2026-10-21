@@ -278,6 +278,8 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`scratchpad` — the folder of the board's scratchpads.** `scratchpad: .scratchpad` (relative to the board, or an absolute path written by hand) turns scratchpads on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Scratchpad), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The scratchpad: a disposable page per card or group* below.
 
+**`todos` — the folder of the board's todo lists.** `todos: .todos` (relative to the board, or an absolute path written by hand) turns todo lists on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Todos); nothing that services the board invents it. See *The todo list: a task list per card or group* below.
+
 **`typesOn` — Types off.** `typesOn: false` makes the web and the snapshot show no types (display only), so keep writing `type:` and prefixed ids as ever. A human writes the line, or switches it in the web's gear sheet; nothing that services the board invents it.
 
 Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. The starter config (above) is the one source that writes `hierarchy:`, `prefixes:` and `icon:` for a new board, and `apply-starter.js` copies it to an existing one when a human asks. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them (the web's gear sheet writes `idDigits:` for the human, one line, and `prefixes:` one block, and shows `counters:` read only). The id counters' writes (`nextId:` for a plain id, `counters:` for a prefixed one) replace their own one line, or insert it below `nextId:`, and leave these lines, comments and every unknown key as they were.
@@ -360,6 +362,10 @@ The frontmatter is optional and holds only `refs:` (a block list or `refs: [a, b
 **The kanban never deletes one.** Deleting a card or a group leaves its page where it is (and it reads as dangling) unless the person ticks **Its scratchpad** in the web's delete popup; archiving never touches it. An agent that deletes a card does not delete its page unless it was told to.
 
 The web shows a page on the **Scratchpad** tab of the notes palette (a card's, or a group's after its Group tab): the file, its refs, and a multi-line box that Ctrl+Enter or Save writes. A page is read when its tab opens and saved whole; the web writes the body and leaves the frontmatter.
+
+### The todo list: a task list per card or group
+
+A card or a group may have a **todo list**: a GitHub Markdown task list in `<padded id>.todo.md` in the folder `todos:` names (`0007.todo.md`, `I0002.todo.md`), which may be the scratchpad's folder, since the two kinds of file never share a name. Items are `- [ ] text` and `- [x] text`, a child indented two or more spaces (or a tab) under its parent; any other line is kept as it is. Edit it by hand like any file: re-read it just before you write, change only the line you mean, and keep every other byte and the line ending. It means nothing to the board: it never changes a card's status, never holds a card out of `doing`, and adds into no roll-up; the card's own body, acceptance criteria included, stays the work spec. The web shows it on the **Todos** tab of the notes palette and a small `open/total` count on the card, and the delete popup's **Its todo list** box is the only thing that deletes one. `todos:` may hold `<iteration>` the way a scratchpad's path does.
 
 ### The iteration in the logbook and scratchpad paths
 

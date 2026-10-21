@@ -49,8 +49,8 @@ test('the web skill describes the tab, its entries, the keys, the routes and the
     'there is no delete route', '**Its scratchpad**', '`scratchpad: { folder, targets }`']) {
     assert.ok(webBullet.includes(part), part);
   }
-  assert.ok(flat(web).includes('`DELETE /api/groups/<id>` take `{ logbook, scratchpad, members, memberLogbook, memberScratchpad }`'));
-  assert.ok(flat(web).includes('the pages Logbook, Scratchpad, Groups, Types, Prefixes and Counters'));
+  assert.ok(flat(web).includes('`DELETE /api/groups/<id>` take `{ logbook, scratchpad, todos, members, memberLogbook, memberScratchpad, memberTodos }`'));
+  assert.ok(flat(web).includes('the pages Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters'));
 });
 
 test('the docs describe the tab, the ways in, the save, and the delete box that is unticked', () => {

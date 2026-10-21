@@ -375,7 +375,7 @@ leading with Peek (open its details), and leaves your
 selection as it was. The menu reads Peek, Add note… (with its key, `n`, muted at the right),
 Add child…, then **Edit** (Assign…, Set priority…, Edit tags…, Schedule…), **Group** (Add to
 group…, Make a group from them…) and **Explore** (Isolate, Dependency tree, Dependency path), then
-Scratchpad… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
+Scratchpad…, Todos… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
 Each of the three is a row marked ▸ that opens its entries in a panel beside it: hover it for a
 moment or click it. A pointer on its way to the panel across the next row does not lose it, and a
 panel with no room on the right opens on the left. The menu takes the focus when it opens and gives it
@@ -432,7 +432,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -452,7 +452,7 @@ disk since, nothing is saved, and the page reads it again and says so. The versi
 while the sheet is open is no conflict. Every page shows the file or folder it reads, with a
 Copy button.
 
-- *Logbook*, *Scratchpad* and *Groups* have an on/off switch and a folder field. Off removes the line; on
+- *Logbook*, *Scratchpad*, *Todos* and *Groups* have an on/off switch and a folder field. Off removes the line; on
   writes it back with the folder. A folder is a path inside the board; one that leaves the
   board is refused. A folder you wrote by hand outside the board still works, but shows as
   locked with the reason, and the page leaves it alone. Changing a folder changes the line
@@ -560,8 +560,8 @@ the all-day box it was opened from (widening the range lists the rest of it), on
 range or the day under the pointer for `n` there, and on Day, today for `n` anywhere else. The range
 is set each time the palette opens and is no memory. It only chooses which notes are listed: the date
 field decides the day a note is written to, and a note written outside the range stays listed.
-`Alt+1`, `Alt+2` and `Alt+3` switch the open palette's first, second and third tab (Notes, Group,
-Scratchpad, as the tab row shows them; each tab carries its key), from the note box too. On a listed
+`Alt+1` to `Alt+4` switch the open palette's first to fourth tab (Notes, Group, Scratchpad,
+Todos, as the tab row shows them; each tab carries its key), from the note box too. On a listed
 note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes it. Without a
 `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
@@ -592,13 +592,32 @@ you have not saved stays in the page until you reload it. The kanban never delet
 delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
 `scratchpad:` line nothing of this shows.
 
-**Iteration folders** — `logbook:` and `scratchpad:` may hold `<iteration>` as a whole path
+**Todos** — with a `todos:` line in `config.yaml`, a card or a group has a todo list: a Markdown
+task list kept as `0007.todo.md` in that folder (`- [ ] open`, `- [x] done`, a child indented two
+or more spaces or a tab under its parent), which a person or an AI can edit by hand. The folder may
+be the scratchpad's: the two kinds of file never share a name. The notes palette gains a **Todos**
+tab, after Scratchpad: open it with `t` on the card whose details are open, else the hovered or
+selected card, from the card menu's **Todos…**, or by clicking the small count on a card tile or
+group badge, which reads open over all (`2/5`) and is worked out each time, never written. In the
+tab, a box adds an item at the end with **Enter**; under it, **Up** and **Down** move through the
+items, and on one **Space** ticks it, `e` edits its text in place, `c` aims the box under it so
+**Enter** adds a child, `d d` deletes it with its children, and **Alt+Up** and **Alt+Down** move it
+among its siblings. A ticked item stays where it is, struck and muted, until someone deletes it:
+there is no bulk clear. An item's text is drawn as inline Markdown, and a line of the file that is
+not an item shows muted and read only. The list is read again when the board refreshes, so an
+edit by hand or by an agent shows, and every change names the version of the list it read: a list
+changed meanwhile is refused with the reason and read again, and nothing is overwritten. A todo
+list means nothing to the board: it never changes a card's status or holds a card out of `doing`,
+and adds into no parent's roll-up. The delete popup's **Its todo list** box is unticked. Without a
+`todos:` line nothing of this shows. The mobile snapshot has no todo lists.
+
+**Iteration folders** — `logbook:`, `scratchpad:` and `todos:` may hold `<iteration>` as a whole path
 segment, as in `logbook: sprints/<iteration>/.logbook`. It stands for the folder of an iteration,
 named as its group file is without `.md` (`0005.sprint-496`); a folder is matched to its
 iteration by the id at the front of its name, so renaming the group keeps the folder. A note for
 a day and card that already have a day file joins that file, in whichever folder it is; a new
 file goes to the iteration the note is aimed at, else the one whose dates hold its day (the one
-that started first, if two do). A scratchpad goes to the iteration its card or group is a member
+that started first, if two do). A scratchpad or a todo list goes to the iteration its card or group is a member
 of, else the one holding the day it is first written. With none, the segment is dropped
 (`sprints/.logbook`). A file that exists is read and edited where it is, and nothing moves one:
 assigning a note to another card keeps it in its folder (joining that card's day file if one
@@ -640,10 +659,10 @@ length and `auto_join` on.
 **Delete.** Deleting a card, or a selection of cards, opens one popup that says what goes and which
 groups lose the card: its id always leaves every group's list. **Its logbook** (the count of its
 notes) is a box left unticked; unticked, the day files stay and read as dangling. **Its
-scratchpad** is another, for a card or a group that has a page. The Group tab's
+scratchpad** is another, for a card or a group that has a page, and **Its todo list** a third. The Group tab's
 **Delete group…** opens the same popup for a group, with **Its member cards**, which lists the
 cards it would delete and names the ones another group holds, which it skips; ticking it
-offers, unticked, those members' logbooks and scratchpads too. Archiving never opens it.
+offers, unticked, those members' logbooks, scratchpads and todo lists too. Archiving never opens it.
 
 ## Other surfaces
 
