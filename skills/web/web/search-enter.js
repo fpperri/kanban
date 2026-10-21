@@ -1,5 +1,5 @@
 'use strict';
-// Enter in the search box goes to the match. The first Enter, with the suggestion list closed,
+// Enter in the search box goes to the match. The first Enter, with no suggestion row highlighted,
 // closes the search panel, brings the first card the query matches in the view to the middle and
 // gives it keyboard focus; the query, the filter or highlight, and the selection stay as they were.
 // A second Enter on that card opens its details when it was the only card the query matched.
