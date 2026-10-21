@@ -24,6 +24,7 @@ const cs = require('./card-store');
 const yaml = require('./yaml-list');
 const { StatusError, posix } = require('./store-common');
 const iter = require('./iteration-folders');
+const { localToday } = require('../web/days');
 
 // The features that take a folder. Adding one is a line here, its reader in config-store and its
 // place in config-store's KEY_ORDER, which also says where a line goes when the file lacks its key.
@@ -61,7 +62,11 @@ function checkFolder(dir, value, what) {
   if (/[\u0000-\u001f]/.test(value)) throw new StatusError('A folder is one line of plain text.', 400);
   const rel = insideBoard(dir, value);
   if (rel === null) throw new StatusError('A folder from the page sits inside the board: write a path under it, like .logbook. A folder outside is set by hand in config.yaml.', 400);
-  for (const part of rel.split('/')) {
+  const parts = rel.split('/');
+  if (parts[0] === iter.PLACEHOLDER) {
+    throw new StatusError('A folder cannot start with <iteration>: the board folder would be scanned for iteration folders and written beside the cards. Put a folder name before it, like sprints/<iteration>.', 400);
+  }
+  for (const part of parts) {
     if (part === iter.PLACEHOLDER) continue;
     if (!/^[\p{L}\p{N}_.][\p{L}\p{N}_ .()+,@-]*$/u.test(part) || /[. ]$/.test(part)) {
       throw new StatusError(`${part} is not a plain folder name: use letters, digits, spaces and _ . - ( ) + , @.`, 400);
@@ -114,7 +119,7 @@ function folderPath(dir, config, key) {
 function folderToday(dir, config, key) {
   const value = config[key];
   if (value === '' || !iter.hasPlaceholder(value)) return null;
-  return iter.folderFor(dir, value, iter.iterationOfDay(dir, iter.localDay())).abs;
+  return iter.folderOfDay(dir, value, localToday()).abs;
 }
 
 // `cards` is the board's cards, active and archived, when the caller has read them already.

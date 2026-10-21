@@ -34,17 +34,11 @@ const ids = require('../web/ids');
 const { StatusError } = require('./store-common');
 const { writeAtomic } = require('./card-store');
 const iter = require('./iteration-folders');
+const { localToday } = require('../web/days');
 
 const FILE_RE = /^([^.]+)\.scratchpad\.md$/;
 const FRONT_RE = /^---[ \t]*\r?\n(?:[\s\S]*?\r?\n)??---[ \t]*(?:\r?\n|$)/;
 const MAX_PAD = 300000; // under the server's request limit even when every new line is escaped
-
-// The scratchpad folder as an absolute path, or null when the board keeps none. Relative to the
-// board; a hand-written absolute path or one that leaves the board is honoured.
-function scratchpadDir(dir) {
-  const config = cfg.readConfig(dir);
-  return config.scratchpad ? path.resolve(dir, config.scratchpad) : null;
-}
 
 function mustScratchpad(dir) {
   const config = cfg.readConfig(dir);
@@ -87,8 +81,7 @@ function allPadFiles(dir, value) {
 // folder of the iteration its card or group is a member of, else the one holding `today`.
 function placeOf(dir, value, digits, target, today) {
   const canon = canonicalName(target, digits);
-  const templated = iter.hasPlaceholder(value);
-  const fresh = () => iter.folderFor(dir, value, templated ? iter.iterationOfPad(dir, target, today) : null);
+  const fresh = () => iter.folderOfPad(dir, value, target, today);
   const have = allPadFiles(dir, value).filter((f) => f.target === target);
   const folders = [...new Map(have.map((f) => [f.folder.label, f.folder])).values()];
   let folder;
@@ -133,28 +126,23 @@ function parsePad(raw) {
   return { eol, front: m[0], gap, refs: readRefs(lines), body: (gap ? rest.replace(/^\r?\n/, '') : rest).replace(/\r\n/g, '\n') };
 }
 
-function record(target, name, exists, parsed, shown) {
+// `folderText` is the configured path with the segment filled in, or null for a path without the
+// placeholder, whose records carry no folder.
+function record(target, name, exists, parsed, folderText) {
   const out = { target, exists, file: name };
-  if (shown !== null) out.folder = shown;
+  if (folderText !== null) out.folder = folderText;
   return { ...out, refs: parsed.refs, body: parsed.body };
-}
-
-// The folder as the page shows it: the configured path with the segment filled in; null when the path
-// has no placeholder and the record carries none.
-function shownFolder(value, folder) {
-  return iter.hasPlaceholder(value) ? iter.shown(value, folder.label) : null;
 }
 
 // `opts.today` is the day a page not written yet would be first written (the local date by default).
 function readPad(dir, target, opts) {
   const { value, digits } = mustScratchpad(dir);
   const key = checkTarget(target);
-  const today = (opts && opts.today) || iter.localDay();
-  const place = placeOf(dir, value, digits, key, today);
-  const shown = shownFolder(value, place.folder);
+  const place = placeOf(dir, value, digits, key, (opts && opts.today) || localToday());
+  const folderText = iter.filledIn(value, place.folder.label);
   let raw;
-  try { raw = fs.readFileSync(path.join(place.folder.abs, place.name), 'utf8'); } catch (_) { return record(key, place.name, false, parsePad(''), shown); }
-  return record(key, place.name, true, parsePad(raw), shown);
+  try { raw = fs.readFileSync(path.join(place.folder.abs, place.name), 'utf8'); } catch (_) { return record(key, place.name, false, parsePad(''), folderText); }
+  return record(key, place.name, true, parsePad(raw), folderText);
 }
 
 // Replace the page's body; the frontmatter, the gap under it and the line ending stay. A page not
@@ -164,7 +152,8 @@ function writePad(dir, target, body, opts) {
   const key = checkTarget(target);
   if (typeof body !== 'string') throw new StatusError('The page is text.', 400);
   if (body.length > MAX_PAD) throw new StatusError('That page is too long.', 413);
-  const place = placeOf(dir, value, digits, key, (opts && opts.today) || iter.localDay());
+  iter.checkWritable(value);
+  const place = placeOf(dir, value, digits, key, (opts && opts.today) || localToday());
   const file = path.join(place.folder.abs, place.name);
   let old = '';
   try { old = fs.readFileSync(file, 'utf8'); } catch (_) { /* not written yet */ }
@@ -201,4 +190,4 @@ function deleteTargetFiles(dir, target) {
   return gone;
 }
 
-module.exports = { scratchpadDir, readPad, writePad, listTargets, deleteTargetFiles, canonicalName, MAX_PAD };
+module.exports = { readPad, writePad, listTargets, deleteTargetFiles, canonicalName, MAX_PAD };

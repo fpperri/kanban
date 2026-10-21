@@ -122,13 +122,12 @@ test('deleting a target\'s pages sweeps every folder', () => {
   assert.deepStrictEqual(sp.listTargets(dir), ['8']);
 });
 
-test('an unknown placeholder is an ordinary folder name and never an error', () => {
+test('an unknown placeholder reads as an ordinary folder name; a write to it is refused with what and why', () => {
   const dir = tmpBoard('name: t\nscratchpad: pads/<sprint>/.scratchpad\n');
   assert.deepStrictEqual(sp.listTargets(dir), []);
   assert.strictEqual(sp.readPad(dir, '7').exists, false);
-  if (process.platform === 'win32') return;
-  sp.writePad(dir, '7', 'x');
-  assert.deepStrictEqual(list(at(dir, 'pads', '<sprint>', '.scratchpad')), ['0007.scratchpad.md']);
+  assert.throws(() => sp.writePad(dir, '7', 'x'), (e) => e.status === 400 && /Windows/.test(e.message) && /<iteration>/.test(e.message) && /< or >/.test(e.message));
+  assert.deepStrictEqual(list(at(dir, 'pads')), []);
 });
 
 test('a path without the placeholder is one folder and its records carry no folder', () => {

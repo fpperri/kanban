@@ -142,13 +142,11 @@ test('reading covers each iteration folder that exists, a past one included, and
   assert.deepStrictEqual(lb.listNotes(dir).map((n) => n.note).sort(), ['current', 'loose', 'past']);
 });
 
-test('an unknown placeholder is an ordinary folder name and never an error', () => {
+test('an unknown placeholder reads as an ordinary folder name; a write to it is refused with what and why', () => {
   const dir = tmpBoard('name: t\nlogbook: sprints/<sprint>/.logbook\ngroups: .groups\n');
   assert.deepStrictEqual(lb.listNotes(dir), []);
-  if (process.platform === 'win32') return;
-  lb.addNote(dir, { day: '2026-10-16', target: '', note: 'x' });
-  assert.deepStrictEqual(list(at(dir, 'sprints', '<sprint>', '.logbook')), ['2026.10.16.logbook.md']);
-  assert.deepStrictEqual(lb.listNotes(dir).map((n) => [n.note, n.file]), [['x', '2026.10.16.logbook.md']]);
+  assert.throws(() => lb.addNote(dir, { day: '2026-10-16', target: '', note: 'x' }), (e) => e.status === 400 && /Windows/.test(e.message) && /<iteration>/.test(e.message) && /< or >/.test(e.message), 'a one-sentence refusal');
+  assert.deepStrictEqual(list(at(dir, 'sprints')), []);
 });
 
 test('a path without the placeholder reads and writes as it always did', () => {
@@ -174,11 +172,34 @@ test('edit and delete act on the file the note is in, and move nothing', () => {
   assert.deepStrictEqual(list(at(dir, 'sprints', '.logbook')), []);
 });
 
+test('a note joins the day file that already exists, even in the folder with the segment dropped', () => {
+  const dir = tmpBoard();
+  lb.addNote(dir, { day: '2026-10-16', target: '7', at: '09:00', note: 'before the iteration existed' });
+  iteration(dir, '5', '0005.sprint-496', '2026-10-12', '2026-10-23');
+  const second = lb.addNote(dir, { day: '2026-10-16', target: '7', at: '10:00', note: 'after' });
+  assert.strictEqual(second.file, '2026.10.16.0007.logbook.md');
+  assert.deepStrictEqual(sprints(dir), ['.logbook']);
+  assert.deepStrictEqual(lb.listNotes(dir).map((n) => [n.note, n.file]), [
+    ['before the iteration existed', '2026.10.16.0007.logbook.md'],
+    ['after', '2026.10.16.0007.logbook.md'],
+  ]);
+});
+
+test('a note joins the existing day file in an iteration folder when the rules would now say another', () => {
+  const dir = tmpBoard();
+  iteration(dir, '5', '0005.sprint-496', '2026-10-12', '2026-10-23');
+  lb.addNote(dir, { day: '2026-10-16', target: '7', note: 'first' });
+  iteration(dir, '4', '0004.earlier', '2026-10-01', '2026-10-30');
+  lb.addNote(dir, { day: '2026-10-16', target: '7', note: 'second' });
+  assert.deepStrictEqual(sprints(dir), ['0005.sprint-496']);
+});
+
 test('the same day and target in two folders are two files; a ref names the one it means', () => {
   const dir = tmpBoard();
   lb.addNote(dir, { day: '2026-10-16', target: '7', note: 'before the iteration existed' });
   iteration(dir, '5', '0005.sprint-496', '2026-10-12', '2026-10-23');
-  lb.addNote(dir, { day: '2026-10-16', target: '7', note: 'after' });
+  fs.mkdirSync(at(dir, 'sprints', '0005.sprint-496', '.logbook'), { recursive: true });
+  fs.writeFileSync(at(dir, 'sprints', '0005.sprint-496', '.logbook', '2026.10.16.0007.logbook.md'), '---\nentries:\n  - note: after\n---\n');
   const notes = lb.listNotes(dir);
   assert.deepStrictEqual(notes.map((n) => [n.note, n.file]).sort(), [
     ['after', '0005.sprint-496/2026.10.16.0007.logbook.md'],
@@ -189,35 +210,64 @@ test('the same day and target in two folders are two files; a ref names the one 
   assert.deepStrictEqual(lb.listNotes(dir).map((n) => n.note), ['after']);
 });
 
-test('assigning to an iteration moves the note into that iteration\'s folder', () => {
+const refOf = (n) => ({ day: n.day, target: n.target, index: n.index, file: n.file, expect: n });
+
+test('assigning to an iteration itself moves the note into that iteration\'s folder', () => {
   const dir = tmpBoard();
   twoSprints(dir);
   lb.addNote(dir, { day: '2026-10-16', target: '7', at: '09:10', note: 'a' });
   const a = lb.listNotes(dir)[0];
-  const moved = lb.assignNote(dir, { day: a.day, target: a.target, index: a.index, file: a.file, expect: a }, '6');
+  const moved = lb.assignNote(dir, refOf(a), '6');
   assert.strictEqual(moved.file, '0006.sprint-497/2026.10.16.0006.logbook.md');
   assert.deepStrictEqual(lb.listNotes(dir).map((n) => n.file), ['0006.sprint-497/2026.10.16.0006.logbook.md']);
   assert.deepStrictEqual(list(at(dir, 'sprints', '0005.sprint-496', '.logbook')), []);
 });
 
-test('assigning to a card keeps the note in the folder its day belongs in', () => {
+test('assigning to a card or to nothing keeps the note in the folder it is in', () => {
   const dir = tmpBoard();
   twoSprints(dir);
   lb.addNote(dir, { day: '2026-10-16', target: '6', at: '09:10', note: 'a' });
   const a = lb.listNotes(dir)[0];
   assert.strictEqual(a.file, '0006.sprint-497/2026.10.16.0006.logbook.md');
-  const moved = lb.assignNote(dir, { day: a.day, target: a.target, index: a.index, file: a.file, expect: a }, '7');
-  assert.strictEqual(moved.file, '0005.sprint-496/2026.10.16.0007.logbook.md');
-  assert.deepStrictEqual(lb.listNotes(dir).map((n) => n.file), ['0005.sprint-496/2026.10.16.0007.logbook.md']);
-  assert.deepStrictEqual(list(at(dir, 'sprints', '0006.sprint-497', '.logbook')), []);
+  const moved = lb.assignNote(dir, refOf(a), '7');
+  assert.strictEqual(moved.file, '0006.sprint-497/2026.10.16.0007.logbook.md');
+  assert.deepStrictEqual(lb.listNotes(dir).map((n) => n.file), ['0006.sprint-497/2026.10.16.0007.logbook.md']);
+  assert.deepStrictEqual(list(at(dir, 'sprints', '0005.sprint-496', '.logbook')), []);
+  const b = lb.listNotes(dir)[0];
+  assert.strictEqual(lb.assignNote(dir, refOf(b), '').file, '0006.sprint-497/2026.10.16.logbook.md');
+});
+
+test('assigning a loose note keeps it in the dropped-segment folder, whatever iteration holds its day', () => {
+  const dir = tmpBoard();
+  lb.addNote(dir, { day: '2026-10-16', target: '7', note: 'a' });
+  twoSprints(dir);
+  const a = lb.listNotes(dir)[0];
+  const moved = lb.assignNote(dir, refOf(a), '8');
+  assert.strictEqual(moved.file, '2026.10.16.0008.logbook.md');
+  assert.deepStrictEqual(sprints(dir), ['.logbook']);
+});
+
+test('assigning to a target that already has a day file for that day joins it, in whichever folder it is', () => {
+  const dir = tmpBoard();
+  twoSprints(dir);
+  lb.addNote(dir, { day: '2026-10-16', target: '8', at: '08:00', note: 'in the iteration' });
+  fs.mkdirSync(at(dir, 'sprints', '.logbook'), { recursive: true });
+  fs.writeFileSync(at(dir, 'sprints', '.logbook', '2026.10.16.0007.logbook.md'), '---\nentries:\n  - note: already there\n---\n');
+  const a = lb.listNotes(dir).find((n) => n.note === 'in the iteration');
+  const moved = lb.assignNote(dir, refOf(a), '7');
+  assert.strictEqual(moved.file, '2026.10.16.0007.logbook.md');
+  assert.deepStrictEqual(lb.listNotes(dir).map((n) => [n.note, n.file]).sort(), [
+    ['already there', '2026.10.16.0007.logbook.md'],
+    ['in the iteration', '2026.10.16.0007.logbook.md'],
+  ]);
 });
 
 test('deleting a target\'s files sweeps every folder', () => {
   const dir = tmpBoard();
   lb.addNote(dir, { day: '2026-10-16', target: '7', note: 'loose' });
   twoSprints(dir);
-  lb.addNote(dir, { day: '2026-10-16', target: '7', note: 'in' });
-  lb.addNote(dir, { day: '2026-10-27', target: '7', note: 'in 2' });
+  lb.addNote(dir, { day: '2026-10-27', target: '7', note: 'in' });
+  lb.addNote(dir, { day: '2026-10-28', target: '7', note: 'in 2' });
   lb.addNote(dir, { day: '2026-10-16', target: '8', note: 'other' });
   assert.strictEqual(lb.deleteTargetFiles(dir, '7'), 3);
   assert.deepStrictEqual(lb.listNotes(dir).map((n) => n.note), ['other']);

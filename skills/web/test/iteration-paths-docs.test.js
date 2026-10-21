@@ -50,3 +50,28 @@ test('the README names the placeholder beside the lines that switch the folders 
   assert.match(readme, /`<iteration>`/);
   assert.match(readme, /0005.sprint-496/);
 });
+
+test('every doc says a note joins a day file that exists, and an assign keeps a note in its folder', () => {
+  assert.match(docs, /already have a day file joins that file/);
+  assert.match(docs, /assigning a note to another card keeps it in its folder/);
+  assert.match(webSkill, /a note joins the day file for its day and target that already exists in any folder/);
+  assert.match(webSkill, /an assign keeps a note in its folder, unless the new target is an iteration/);
+  assert.match(kanbanSkill, /already have a day file joins that file/);
+  assert.match(kanbanSkill, /assigning a note to another target keeps it in its folder/);
+});
+
+test('every doc says a folder with < or > is refused for a write, and the gear refuses a leading <iteration>', () => {
+  assert.match(docs, /refused, since Windows cannot make that folder/);
+  assert.match(docs, /will not save a path that starts with `<iteration>`/);
+  assert.match(webSkill, /answers 400/);
+  assert.match(webSkill, /refuses a folder that starts with `<iteration>`/);
+  assert.match(kanbanSkill, /Windows does not allow/);
+});
+
+test('ADR 0019 amends 0016, and the glossary no longer calls the logbook a single folder', () => {
+  const adr = read('docs', 'adr', '0019-the-logbook-and-scratchpad-paths-may-name-the-iteration.md');
+  assert.match(adr, /^Date: 2026-10-21 · Status: accepted · Amends: 0016$/m);
+  const glossary = flat(read('GLOSSARY.md'));
+  assert.doesNotMatch(glossary, /The board's folder of notes/);
+  assert.match(glossary, /in one folder or in one folder per iteration/);
+});

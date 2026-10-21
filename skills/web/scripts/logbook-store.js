@@ -26,9 +26,12 @@
 // then a conflict (HTTP 409). A file nothing is left in is removed.
 //
 // `logbook:` may hold `<iteration>` as a whole path segment (docs/adr/0019, iteration-folders.js):
-// a note is written to the folder of the iteration it is aimed at or whose dates hold its day,
-// and read from every folder the path can name. A note's `file` then reads
-// `<iteration folder>/<day file>`, and just the day file for the folder with the segment dropped.
+// a note for a day and target that already have a day file in any folder joins that file; else it is
+// written to the folder of the iteration it is aimed at or whose dates hold its day. A note is read
+// from every folder the path can name, and edited, deleted and assigned where it is: assigning keeps
+// it in its folder unless the new target is an iteration, whose folder it then goes to. A note's
+// `file` reads `<iteration folder>/<day file>`, and just the day file for the folder with the
+// segment dropped.
 //
 // Request text never builds a path: the day and the id are validated and the file
 // name is built from them, or taken from the folder's own listing.
@@ -47,13 +50,6 @@ const DEFAULT_AUTHOR = '@human';
 const MAX_NOTE = 20000;
 
 // ---------- the folder and the names ----------
-
-// The logbook folder as an absolute path, or null when the board keeps none. Relative
-// to the board; a hand-written absolute path or one that leaves the board is honoured.
-function logbookDir(dir) {
-  const config = cfg.readConfig(dir);
-  return config.logbook ? path.resolve(dir, config.logbook) : null;
-}
 
 function mustLogbook(dir) {
   const config = cfg.readConfig(dir);
@@ -116,27 +112,21 @@ function dayFiles(folder) {
   return out;
 }
 
+// The ref a day file carries as a note's `file`: the folder's label and the file's name.
+function refOf(label, name) {
+  return label === '' ? name : `${label}/${name}`;
+}
+
 // Every day file of every folder the path can name: { name, day, target, label, ref, file }, where
 // ref is the name a note's `file` carries and file is the absolute path.
 function allDayFiles(dir, value) {
   const out = [];
   for (const folder of iter.readFolders(dir, value)) {
     for (const f of dayFiles(folder.abs)) {
-      out.push({ ...f, label: folder.label, ref: folder.label === '' ? f.name : `${folder.label}/${f.name}`, file: path.join(folder.abs, f.name) });
+      out.push({ ...f, label: folder.label, ref: refOf(folder.label, f.name), file: path.join(folder.abs, f.name) });
     }
   }
   return out;
-}
-
-// The folder a new note goes to: the iteration it is aimed at or whose dates hold its day, else the
-// path with the segment dropped. A path with no placeholder is one folder.
-function folderOfNote(dir, value, day, target) {
-  return iter.folderFor(dir, value, iter.hasPlaceholder(value) ? iter.iterationOfNote(dir, target, day) : null);
-}
-
-// The ref a file in a folder carries: the folder's label and the file's name.
-function refOf(folder, file) {
-  return folder.label === '' ? path.basename(file) : `${folder.label}/${path.basename(file)}`;
 }
 
 // The file to write for a day and a target in a folder: the one that is there (the canonical name
@@ -146,6 +136,16 @@ function fileToWrite(folder, digits, day, target) {
   const have = dayFiles(folder).filter((f) => f.day === day && f.target === target);
   const name = have.some((f) => f.name === canon) ? canon : have.length ? have[0].name : canon;
   return path.join(folder, name);
+}
+
+// Where a note for a day and a target is written, { folder, file }: the day file that already exists
+// in any folder the path can name (the one in `prefer`'s folder if several), else `fallback`'s folder.
+function homeOf(dir, value, digits, day, target, prefer, fallback) {
+  const have = allDayFiles(dir, value).filter((f) => f.day === day && f.target === target);
+  if (!have.length) return { folder: fallback, file: fileToWrite(fallback.abs, digits, day, target) };
+  const chosen = have.find((f) => f.label === prefer.label) || have[0];
+  const folder = { label: chosen.label, abs: path.dirname(chosen.file) };
+  return { folder, file: fileToWrite(folder.abs, digits, day, target) };
 }
 
 // ---------- scalars ----------
@@ -444,7 +444,7 @@ function fileOfRef(dir, ref) {
   const have = allDayFiles(dir, value).filter((f) => f.day === day && f.target === target);
   if (!have.length) throw new StatusError('That note is gone.', 409);
   const chosen = have.find((f) => f.ref === ref.file) || have[0];
-  return { file: chosen.file, ref: chosen.ref, day, target };
+  return { file: chosen.file, ref: chosen.ref, label: chosen.label, day, target };
 }
 
 function indexOf(model, entry) {
@@ -458,12 +458,13 @@ function addNote(dir, input, hooks) {
   const at = checkTime(input.at);
   const by = checkAuthor(input.by);
   const note = checkText(input.note);
-  const folder = folderOfNote(dir, value, day, target);
-  const file = fileToWrite(folder.abs, digits, day, target);
+  iter.checkWritable(value);
+  const ruled = iter.folderOfNote(dir, value, target, day);
+  const { folder, file } = homeOf(dir, value, digits, day, target, ruled, ruled);
   return withFile(file, hooks, (model) => {
     const entry = newEntry(at, by, note);
     model.entries.push(entry);
-    return record(entry, day, target, refOf(folder, file), indexOf(model, entry));
+    return record(entry, day, target, refOf(folder.label, path.basename(file)), indexOf(model, entry));
   });
 }
 
@@ -488,10 +489,11 @@ function deleteNote(dir, ref, hooks) {
   });
 }
 
-// Assign: the one note moves to the other target's file for the same day, in the folder that
-// target and day belong in (a note moved onto an iteration goes to its folder, and one moved off
-// it to the folder its day belongs in). It is added there before it leaves the first file, so a
-// failure between the two leaves it twice, never lost.
+// Assign: the one note moves to the other target's file for the same day. Nothing moves a file
+// between iteration folders (docs/adr/0019), so the note stays in the folder it is in; if a day file
+// for the new target and day already exists in some folder it joins that one. The exception is a new
+// target that is an iteration itself: the note then goes to that iteration's folder. It is added
+// there before it leaves the first file, so a failure between the two leaves it twice, never lost.
 function assignNote(dir, ref, to, hooks) {
   const where = fileOfRef(dir, ref);
   const target = checkTarget(to);
@@ -499,12 +501,14 @@ function assignNote(dir, ref, to, hooks) {
   const { value, digits } = mustLogbook(dir);
   const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
   const seen = { at: found.at, by: found.by, note: found.note };
-  const folder = folderOfNote(dir, value, where.day, target);
-  const dest = fileToWrite(folder.abs, digits, where.day, target);
+  iter.checkWritable(value);
+  const here = { label: where.label, abs: path.dirname(where.file) };
+  const aimed = iter.folderOfIterationTarget(dir, value, target);
+  const { folder, file: dest } = aimed ? { folder: aimed, file: fileToWrite(aimed.abs, digits, where.day, target) } : homeOf(dir, value, digits, where.day, target, here, here);
   const made = withFile(dest, hooks, (model) => {
     const entry = newEntry(found.at, found.by, found.note, found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key)));
     model.entries.push(entry);
-    return record(entry, where.day, target, refOf(folder, dest), indexOf(model, entry));
+    return record(entry, where.day, target, refOf(folder.label, path.basename(dest)), indexOf(model, entry));
   });
   withFile(where.file, hooks, (model) => {
     model.entries.splice(model.entries.indexOf(locate(model, { ...ref, expect: seen })), 1);
@@ -526,4 +530,4 @@ function deleteTargetFiles(dir, target) {
   return gone;
 }
 
-module.exports = { logbookDir, listNotes, addNote, editNote, deleteNote, assignNote, canonicalName, deleteTargetFiles };
+module.exports = { listNotes, addNote, editNote, deleteNote, assignNote, canonicalName, deleteTargetFiles };

@@ -239,10 +239,34 @@ test('a folder may name the iteration with a whole <iteration> segment (ADR 0019
     assert.strictEqual(on.status, 200);
     assert.match(config(dir), /^logbook: sprints\/<iteration>\/\.logbook$/m);
     assert.strictEqual(on.json.settings.logbook.folder, 'sprints/<iteration>/.logbook');
-    assert.strictEqual((await set(base, 'scratchpad', '<iteration>')).status, 200);
+    assert.strictEqual((await set(base, 'scratchpad', 'pads/<iteration>')).status, 200);
     for (const bad of ['sprints/<sprint>', 'a<iteration>', '<iteration>x/y', '<Iteration>']) {
       assert.strictEqual((await set(base, 'logbook', bad)).status, 400, bad);
     }
+  });
+});
+
+test('a folder cannot start with <iteration>: the board folder would be scanned and written beside the cards', async () => {
+  const dir = tmpBoard();
+  const before = config(dir);
+  await withServer(dir, async (base) => {
+    for (const bad of ['<iteration>', '<iteration>/notes', './<iteration>']) {
+      const r = await set(base, 'scratchpad', bad);
+      assert.strictEqual(r.status, 400, bad);
+      assert.match(r.json.error, /<iteration>/);
+      assert.match(r.json.error, /beside the cards/);
+    }
+    assert.strictEqual(config(dir), before);
+    assert.strictEqual((await set(base, 'scratchpad', 'pads/<iteration>')).status, 200);
+  });
+});
+
+test('a hand-written folder that starts with <iteration> is still answered, tolerant', async () => {
+  const dir = tmpBoard({ config: 'name: t\nscratchpad: <iteration>\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.strictEqual(settings.scratchpad.folder, '<iteration>');
+    assert.strictEqual(settings.paths.scratchpad, path.resolve(dir, '<iteration>'));
   });
 });
 
