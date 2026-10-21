@@ -713,7 +713,7 @@ function settingsPrefixesNodes() {
   const st = state.settings;
   const root = state.groups ? state.groups.folder : '';
   const nodes = [settingsEl('p', 'prefs-hint', 'The prefixes: block: a card type, or a folder of the groups, and the letters its ids start with. Cards of no listed type keep plain numbers. Every change asks first.')];
-  nodes.push(settingsBullets([settingsPrefixNote, ...settingsPrefixWarnings(st.prefixes, st.types)]));
+  nodes.push(settingsBullets([settingsPrefixNote, ...settingsPrefixClashWarnings(st.prefixClashes), ...settingsPrefixWarnings(st.prefixes, st.types)]));
   if (st.prefixes.length) nodes.push(settingsPrefixRows(root));
   else nodes.push(settingsEl('p', 'prefs-note', 'config.yaml has no prefixes: block, so every id is a plain number.'));
   nodes.push(settingsPrefixAddForm());

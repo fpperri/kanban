@@ -319,6 +319,12 @@ function settingsPrefixWarnings(prefixes, types) {
     .map((r) => `The prefix \`${r.prefix}\` still names \`${r.target}\`, which is not a listed type. Why: removing or renaming a type ${SETTINGS_LEFTOVER_WHY}; ask an AI to update the prefixes.`);
 }
 
+// A prefix two lines name for different targets: the board reads the first, and a save of the block
+// writes it without the other, so say so before it happens.
+function settingsPrefixClashWarnings(clashes) {
+  return (clashes || []).map((c) => `The prefix \`${c.prefix}\` is declared twice: \`${c.kept}\` is kept and the line for \`${c.ignored}\` is ignored. Saving this page rewrites the prefixes block without that line. Why: a prefix names one card type or one groups folder, and the board reads the first line.`);
+}
+
 const settingsConflictNote = 'config.yaml changed on disk after this page read it, so nothing was saved. Why: a save rewrites a whole list and would overwrite that change; the page read the file again, so make the change again if it still applies.';
 
 // The confirm text for removing a type some cards carry; null when none does.
@@ -370,7 +376,7 @@ const SETTINGS_EXPORTS = {
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   settingsPagePath, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
-  settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings,
+  settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,
   settingsPrefixRemove, settingsPrefixProblem, settingsPrefixConfirm,
   SETTINGS_BROWSER_PAGES, SETTINGS_DEFAULT_PAGE, SETTINGS_FOLDERS, SETTINGS_TYPE_SWATCHES,

@@ -270,6 +270,15 @@ test('a prefix that names a type no longer listed is one warning bullet; a folde
   assert.deepStrictEqual(s.settingsTypeWarnings({ types: TYPES, hierarchy: [], prefixes, typeUse: {}, renamed: {} }), w);
 });
 
+test('a prefix a line names twice is one warning bullet saying what happens on a save and why', () => {
+  const w = s.settingsPrefixClashWarnings([{ prefix: 'G', kept: 'goal', ignored: 'epic' }]);
+  assert.strictEqual(w.length, 1);
+  assert.strictEqual(w[0], 'The prefix `G` is declared twice: `goal` is kept and the line for `epic` is ignored. Saving this page rewrites the prefixes block without that line. Why: a prefix names one card type or one groups folder, and the board reads the first line.');
+  assert.doesNotMatch(w[0], /\n/);
+  assert.deepStrictEqual(s.settingsPrefixClashWarnings([]), []);
+  assert.deepStrictEqual(s.settingsPrefixClashWarnings(undefined), []);
+});
+
 test('a type shows the prefix the prefixes: block gives it, read only', () => {
   const prefixes = [{ prefix: 'G', kind: 'type', target: 'Goal' }, { prefix: 'W', kind: 'folder', target: 'workflow', folder: 'workflow' }];
   assert.strictEqual(s.settingsPrefixOf(prefixes, 'goal'), 'G');

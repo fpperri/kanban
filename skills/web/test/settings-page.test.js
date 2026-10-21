@@ -678,6 +678,15 @@ test('adding and removing a prefix each ask first and write the prefixes block',
   assert.deepStrictEqual(ctx.calls[1][2].value.map((r) => r.prefix), ['G', 'O']);
 });
 
+test('a prefix a line names twice shows a warning bullet on the Prefixes page, after the note and before the other warnings', () => {
+  const ctx = loadPages();
+  ctx.state.settings.prefixClashes = [{ prefix: 'G', kept: 'goal', ignored: 'epic' }];
+  const bullets = ctx.page('prefixes').one(byClass('prefs-bullets')).children.map((li) => li.textContent);
+  assert.strictEqual(bullets[0], settings.settingsPrefixNote);
+  assert.match(bullets[1], /^The prefix `G` is declared twice: `goal` is kept and the line for `epic` is ignored\. Saving this page rewrites the prefixes block without that line\. Why: /);
+  assert.match(bullets[2], /^The prefix `O` still names `objective`/);
+});
+
 test('a prefix edit queued behind a removal finds its row by its prefix: the one asked is changed and the others stay', async () => {
   const ctx = loadPages();
   const root = ctx.page('prefixes');

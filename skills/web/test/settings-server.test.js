@@ -75,6 +75,15 @@ test('the board payload carries the config the gear shows', async () => {
   });
 });
 
+test('a prefix a line names twice for different targets is answered as a clash, the first line kept', async () => {
+  const dir = tmpBoard({ config: 'name: t\nprefixes:\n  G: goal\n  G: epic\n  G: goal\n  W: workflow/\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.prefixes.map((p) => [p.prefix, p.target]), [['G', 'goal'], ['W', 'workflow/']]);
+    assert.deepStrictEqual(settings.prefixClashes, [{ prefix: 'G', kept: 'goal', ignored: 'epic' }]);
+  });
+});
+
 test('a board with no config.yaml shows every feature off', async () => {
   const dir = tmpBoard({ config: null });
   await withServer(dir, async (base) => {

@@ -122,6 +122,7 @@ function readSettings(dir, cards) {
     idDigits: config.idDigits,
     nextId: config.nextId,
     prefixes: prefixRows(config),
+    prefixClashes: config.prefixClashes.map((c) => ({ ...c })),
     counters: { ...config.counters },
     typesOn: config.typesOn,
     types: config.types.map((t) => ({ ...t })),
