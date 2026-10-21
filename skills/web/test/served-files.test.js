@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer, pageFiles } = require('../scripts/server');
+const { createServer, pageFiles, FRAME_FILES } = require('../scripts/server');
 
 const WEB = path.join(__dirname, '..', 'web');
 const lf = (text) => text.replace(/\r\n/g, '\n');
@@ -116,8 +116,9 @@ test('every file the page names exists in the web directory', () => {
   assert.deepStrictEqual(missing, [], `app.html names files that are not in web/: ${missing.join(', ')}`);
 });
 
+// The diagram frame's script is loaded by the frame's own page, which the server names (FRAME_FILES), not by app.html.
 test('every script in the web directory is loaded by the page', () => {
-  const named = new Set(pageFiles(fs.readFileSync(path.join(WEB, 'app.html'), 'utf8')));
+  const named = new Set([...pageFiles(fs.readFileSync(path.join(WEB, 'app.html'), 'utf8')), ...FRAME_FILES]);
   const idle = fs.readdirSync(WEB).filter((f) => f.endsWith('.js') && !named.has(f));
   assert.deepStrictEqual(idle, [], `web/ holds scripts the page never loads (add a tag to app.html, or delete the file): ${idle.join(', ')}`);
 });

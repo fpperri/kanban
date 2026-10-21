@@ -46,6 +46,7 @@ module.exports = [
   require('./iterations'),
   require('./settings'),
   require('./types-page'),
+  require('./markdown'),
   require('./scratchpad'),
   require('./iteration-paths'),
   require('./delete'),

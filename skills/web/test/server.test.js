@@ -2976,110 +2976,20 @@ test('XSS sweep: the dependency map SVG escapes every card-derived string — no
   });
 });
 
-test('XSS sweep: the detail popup escapes the card body BEFORE markdown tag synthesis, and never lets an unsafe link scheme through (security audit)', async () => {
+test('XSS sweep: the detail popup draws the card body through the one renderer, which never touches innerHTML (security audit)', async () => {
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
+    const page = await (await fetch(`${base}/`)).text();
+    assert.ok(page.indexOf('/markdown.js') > -1 && page.indexOf('/markdown.js') < page.indexOf('/app.js'), 'the page loads the renderer before app.js');
     const js = await (await fetch(`${base}/app.js`)).text();
-    const mdToHtml = js.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-    assert.match(mdToHtml, /const lines = escapeHtml\(md\)\.split\('\\n'\)/,
-      'the raw body is escaped up front — a `<script>` in a card body can never survive as a live tag, even inside inline code/emphasis');
-    assert.ok(mdToHtml.includes("/^(https?:|mailto:|#|\\/)/i.test(url.trim())"),
-      'markdown links fall back to "#" for any scheme outside the allowlist (e.g. javascript:)');
-  });
-});
-
-test('XSS sweep: mdToHtml adds no new raw-innerHTML path — escapeHtml(md) is the literal first statement, over the WHOLE raw body, before nested-list/continuation-line handling ever sees it', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const mdToHtml = js.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-    assert.match(mdToHtml, /^function mdToHtml\(md\) \{\r?\n\s*const lines = escapeHtml\(md\)\.split\('\\n'\);/,
-      'escapeHtml(md) runs over the entire raw body before the line-by-line split — nested bullets and continuation lines are already-escaped text by the time list handling touches them, so neither needs (or has) its own escaping call');
-    assert.ok(!mdToHtml.includes('innerHTML'),
-      'mdToHtml only ever returns a string — the one innerHTML write lives at its call site, outside this function');
-  });
-});
-
-test('mdToHtml nests sub-bullets by indent depth against a stack of open <ul> levels, instead of flattening every "- " line to a sibling', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const mdToHtml = js.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-    assert.ok(mdToHtml.includes('const indent = m[1].length;'),
-      "each bullet line's leading indent is captured and measured");
-    assert.ok(mdToHtml.includes('while (listStack.length && indent < listStack[listStack.length - 1].indent)'),
-      'a shallower indent unwinds every deeper level it dropped below, not just the innermost one');
-    assert.ok(mdToHtml.includes('listStack.push({ indent });') && mdToHtml.includes("html += '<ul>';"),
-      'a deeper indent opens a NEW nested <ul> — not a sibling <li> flattened into the parent list');
-    assert.ok(!mdToHtml.includes("if (!listOpen) { html += '<ul>'; listOpen = true; }"),
-      'the old single flat <ul>, opened once and reused at every indent, is gone');
-  });
-});
-
-test('mdToHtml: a same-depth sibling closes the previous <li>; a deeper item nests inside it without closing it first', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const mdToHtml = js.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-    assert.match(mdToHtml,
-      /if \(listStack\.length && indent === listStack\[listStack\.length - 1\]\.indent\) \{\r?\n\s*closeLi\(\);/,
-      'a same-depth sibling closes the previous <li> at that level before opening its own');
-    assert.ok(mdToHtml.includes('} else if (!listStack.length || indent > listStack[listStack.length - 1].indent) {'),
-      "a deeper indent takes the nested-<ul> branch instead, leaving the parent's <li> open around it");
-  });
-});
-
-test('mdToHtml fully unwinds every open nesting level, closing each ancestor\'s <li>, when a heading/hr/code-fence/blank line follows a nested list', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const mdToHtml = js.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-    assert.ok(mdToHtml.includes('while (listStack.length) {') && mdToHtml.includes("if (listStack.length) html += '</li>';"),
-      "closeList() pops every stack level, closing each ancestor's <li> as the nested <ul> it held closes");
-    assert.ok(mdToHtml.includes("if (line.trim() === '') { flushPara(); closeList(); continue; }"),
-      'a blank line still closes the list fully — continuation only ever applies to a non-blank wrapped line');
-  });
-});
-
-test('mdToHtml: a wrapped non-"-" line joins the last open <li> instead of closing the list and stranding a <p>', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const js = await (await fetch(`${base}/app.js`)).text();
-    const mdToHtml = js.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-    assert.ok(mdToHtml.includes('if (listStack.length) {') && mdToHtml.includes("html += ' ' + inline(line.trim());"),
-      'while any list is open (any depth), a non-bullet non-blank line extends the currently open <li> in place');
-    assert.ok(mdToHtml.includes('para.push(inline(line));'),
-      'outside any list the same line still falls through to a normal paragraph — plain-text bodies are unchanged');
-  });
-});
-
-test('mdToHtml behavioral: nested bullets, continuation lines, and an XSS payload through both render to the exact expected HTML (executes the real function — not a source-text pattern match)', async () => {
-  const dir = tmpBoard();
-  await withServer(dir, async (base) => {
-    const appJs = await (await fetch(`${base}/app.js`)).text();
-    const badgeJs = await (await fetch(`${base}/assignee-badge.js`)).text();
-    const escapeHtmlSrc = badgeJs.match(/function escapeHtml\([\s\S]*?\n\}/)[0];
-    const mdToHtmlSrc = appJs.match(/function mdToHtml\([\s\S]*?\n\}/)[0];
-    const sandbox = {};
-    vm.createContext(sandbox);
-    vm.runInContext(`${escapeHtmlSrc}\n${mdToHtmlSrc}`, sandbox);
-    const mdToHtml = sandbox.mdToHtml;
-
-    assert.strictEqual(mdToHtml('- a\n  - b\n- c'),
-      '<ul><li>a<ul><li>b</li></ul></li><li>c</li></ul>',
-      'a sub-bullet nests inside its parent <li>; the next same-depth sibling closes the nested <ul> first');
-    assert.strictEqual(mdToHtml('- a\n  - b\n    - c\n- d'),
-      '<ul><li>a<ul><li>b<ul><li>c</li></ul></li></ul></li><li>d</li></ul>',
-      'three levels deep unwinds every open <li>/<ul> cleanly back to the root on the next top-level item');
-    assert.strictEqual(mdToHtml('- a\n  more of a\n- b'),
-      '<ul><li>a more of a</li><li>b</li></ul>',
-      'a wrapped continuation line joins the open <li> in place instead of stranding a <p>');
-    assert.strictEqual(mdToHtml('- a\n  - b\n    more of b\n- c'),
-      '<ul><li>a<ul><li>b more of b</li></ul></li><li>c</li></ul>',
-      'a continuation line under a nested item joins the innermost open <li>, not an outer ancestor');
-    assert.strictEqual(mdToHtml('- <img src=x onerror=alert(1)>\n  more <script>evil</script>'),
-      '<ul><li>&lt;img src=x onerror=alert(1)&gt; more &lt;script&gt;evil&lt;/script&gt;</li></ul>',
-      'nesting/continuation never opens a second unescaped path — the payload stays escaped end to end');
+    assert.ok(!js.includes('function mdToHtml('), 'app.js carries no second renderer');
+    assert.ok(js.includes("markdownInto($('#detail-body'), data.body || '');"), 'the body goes in through markdownInto');
+    const ui = await (await fetch(`${base}/markdown-ui.js`)).text();
+    assert.strictEqual((ui.match(/\.innerHTML = /g) || []).length, 1, 'and markdownInto holds the one innerHTML write of the renderer output');
+    assert.ok(ui.includes("el.innerHTML = mdToHtml(text || '', { board: state.projectName });"));
+    const renderer = await (await fetch(`${base}/markdown.js`)).text();
+    assert.ok(!renderer.includes('innerHTML'), 'the renderer only returns a string');
+    assert.ok(renderer.includes('SAFE_HREF_RE'), 'markdown links fall back to # for any scheme outside the allowlist (e.g. javascript:)');
   });
 });
 

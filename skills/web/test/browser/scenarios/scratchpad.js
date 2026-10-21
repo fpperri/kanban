@@ -70,6 +70,17 @@ module.exports = {
     check('scratchpad: a mention among the refs is a chip', await ev(`document.querySelectorAll('#notes-palette .sp-ref-list code.mention').length===1`));
     await shot('scratchpad-tab');
 
+    // --- Preview draws the box as Markdown ---------------------------------------------------------------------------------
+    const PREVIEW = `document.querySelector('#notes-palette .sp-preview')`;
+    check('scratchpad: the tab opens on Edit', await ev(`document.querySelector('#notes-palette .sp-mode').getAttribute('aria-pressed')==='true'&&${PREVIEW}.hidden&&!${TEXT}.hidden`));
+    await typeInto('# Plan\n\n- one\n- **two**\n\n```c#\nvar x = 1;\n```');
+    await press('#notes-palette .sp-mode:last-child');
+    check('scratchpad: Preview draws the unsaved text as Markdown and hides the box', await waitFor(`!!${PREVIEW}.querySelector('h1')`, 2500) && await ev(`${PREVIEW}.querySelectorAll('li').length===2&&!!${PREVIEW}.querySelector('li strong')&&${TEXT}.hidden&&!${PREVIEW}.hidden`));
+    check('scratchpad: a typed block in the preview shows its language and a Copy button', await ev(`${PREVIEW}.querySelector('.md-code-lang').textContent==='c#'&&!!${PREVIEW}.querySelector('.md-code-copy')`));
+    await shot('scratchpad-preview');
+    await press('#notes-palette .sp-mode:first-child');
+    check('scratchpad: Edit brings the box back with the text and the focus', await waitFor(`!${TEXT}.hidden&&${PREVIEW}.hidden`, 2500) && await ev(`${TEXT}.value.startsWith('# Plan')&&document.activeElement===${TEXT}`));
+
     // --- Ctrl+Enter writes the body and keeps the refs -------------------------------------------------------------------
     await typeInto('check the enum renames\nsecond line');
     await key('Enter', { ctrl: true });

@@ -455,6 +455,47 @@ Copy button.
   `idDigits`, the width card file names are padded to. Only new files take the new width.
 - *Counters* shows `nextId` and the `counters:` line, read only.
 
+**Markdown** — a card's body in the card popup, a scratchpad's Preview and the snapshot's card
+sheet all draw Markdown the same way, hand-rolled and with no dependency. Headings run from `#`
+to `######`; bullet (`-`, `*`, `+`), numbered and `- [x]` task lists nest and mix, and items split
+by a blank line are one loose list with their text in paragraphs; `>` quotes hold lists, headings and
+code and carry on over a line with no `>` after a paragraph line; `---`, `***`, `___` and the same
+marks spaced out (`* * *`) are rules; pipe tables, `---` rules, `**bold**`, `*italic*`, `***both***`, `_em_`
+and `__strong__` (snake_case words stay whole), `~~strike~~`, `<u>underline</u>`, `` `code` ``,
+links and bare `https://` addresses all work, and two trailing spaces or a trailing `\` break a
+line. A fence opens with three or more backticks or tildes and closes on a run of the same mark at
+least as long, so a longer fence can show a fence. A fence with a language (` ```c# `, ` ```ts `,
+` ```mermaid `) shows it as a small label over the block with a **Copy** button that copies the
+block's text, and keeps it on the block as `data-lang`; the language is cut to letters, digits and
+`_+#.-`. Two libraries ride with the plugin and load only when a rendered body holds a block that
+needs one: **highlight.js** (BSD-3, the common-languages build) colours a fence in a language it
+knows (`c#` is `csharp`, `ts` is `typescript`, `sh` is `bash`, ...), following the page's light or dark
+theme; an unknown language, plain text and an untyped fence stay plain, with no detection. **Mermaid**
+(MIT) draws a ```mermaid fence as a diagram in its theme's colours; a diagram that does not parse stays a
+labelled code block with one line of error under it and never breaks the rest of the body. Both redraw
+when the page's theme changes, and neither is requested by a page that has no block for it. The files
+sit in `skills/web/web/vendor`, each with its licence beside it, pinned to mermaid 12.2.0 and
+highlight.js 11.12.0, and nothing loads from the network. The snapshot, which cannot carry them, loads
+highlight.js (and its themes) from `cdnjs.cloudflare.com` and mermaid from `cdn.jsdelivr.net`, the same two
+versions, lazily too, each under an SRI `integrity` hash computed from the vendored file, and draws
+its diagrams in a sandboxed `srcdoc` frame like the desk's (mermaid never runs in the snapshot's page, which
+builds the payload). See ADR 0020. A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
+line of its own, make a collapsible section whose body is more Markdown (sections nest; `<details open>`
+starts open; with no summary the title is `[...]`). Every piece of text is escaped as it is written, so
+a body holds no live tag: the only tags let through are `<u>…</u>` as a pair on one line and those
+section lines exactly as written, and anything else (a `<details onclick=…>`, an unclosed section, a
+`<b>`) shows as typed. A link keeps its address only for `http:`, `https:`, `mailto:`, `#` or `/`.
+
+Mermaid writes inline styles, which the page's Content-Security-Policy (no `unsafe-inline` anywhere)
+refuses and does not loosen. A diagram is drawn instead in a frame of its own, `mermaid-frame.html`,
+served with a policy of its own: the response carries `sandbox allow-scripts`, so the frame has an
+opaque origin and cannot reach the page, the board or the network, its scripts are its own file and
+mermaid's, and it is the one place styles may be inline. The page and the frame speak by `postMessage`
+(the page ignores any message not from a frame it made), and mermaid runs with `securityLevel: 'strict'`.
+A browser may send a sandboxed frame's requests with the origin `null`; the server accepts that for
+the frame's own files and the vendored libraries (they are public and carry nothing of the board) and
+for nothing else.
+
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
 selected card, a card with notes wears a small count that opens its notes, and the card menu
 has **Add note…**. Type a note and press Enter: it is written at the time field's time into
@@ -470,7 +511,9 @@ it. Without a `logbook:` line nothing of this shows. The Graph's names step with
 page, kept as `0007.scratchpad.md` in that folder, with optional `refs:` (the notes, files and
 folders it points at) and a free body. The notes palette gains a **Scratchpad** tab: open it from
 the card menu's **Scratchpad…**, from a group's **Scratchpad** button, or beside Notes. It shows
-the page's file, its refs and a multi-line box; **Ctrl+Enter** or **Save** writes the body. Text
+the page's file, its refs and a multi-line box; **Ctrl+Enter** or **Save** writes the body. An
+**Edit | Preview** switch sits over the box: Edit, the default, is the box, and Preview draws its
+text, saved or not, as Markdown (see **Markdown** below). Text
 you have not saved stays in the page until you reload it. The kanban never deletes a page: the
 delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
 `scratchpad:` line nothing of this shows.

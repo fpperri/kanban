@@ -29,6 +29,38 @@ const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
   "img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; " +
   "base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
+// Two libraries ride with the plugin, vendored under web/vendor and loaded lazily (never named in
+// app.html) by the page script code-blocks.js when a rendered body holds a block that needs one:
+// highlight.js colours a typed code block, mermaid draws a ```mermaid block. They are served by exact
+// name and nothing else under vendor is (the licence files sit beside them unserved).
+const VENDORED = [
+  'mermaid/mermaid.min.js',
+  'highlight.js/highlight.min.js',
+  'highlight.js/github.min.css',
+  'highlight.js/github-dark.min.css',
+];
+
+// Mermaid writes inline styles, which the page's CSP above refuses, and the page does not loosen it.
+// A diagram is drawn instead in a frame of its own (mermaid-frame.html and its script), sandboxed so
+// its origin is opaque: it runs only its own script and mermaid, cannot reach the page, the board or
+// the network, and is the one place where styles may be inline. Whatever embeds it, the response's own
+// `sandbox allow-scripts` holds it there.
+const FRAME_FILES = ['mermaid-frame.html', 'mermaid-frame.js'];
+const FRAME_CSP = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; " +
+  "base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox allow-scripts";
+
+// The file a request path names among the vendored libraries and the frame's own two, or null: the
+// one place the /vendor/ prefix is read, for both the check that lets a sandboxed frame in and the
+// route that serves it. A vendored file is version-pinned (the page asks for it by version), so it is
+// cached for good; the frame's two files are not versioned and are not.
+function frameAssetFile(webDir, p) {
+  if (p.startsWith('/vendor/')) {
+    const rel = p.slice('/vendor/'.length);
+    return VENDORED.includes(rel) ? { file: path.join(webDir, 'vendor', ...rel.split('/')), immutable: true } : null;
+  }
+  return FRAME_FILES.includes(p.slice(1)) ? { file: path.join(webDir, p.slice(1)), immutable: false } : null;
+}
+
 // CSRF + DNS-rebinding guard for every request, reads included — exempting
 // GET (mutations only) would leave DNS rebinding's read/exfiltration half
 // wide open: a rebound hostile origin is
@@ -69,6 +101,14 @@ function originMatches(origin, extraOrigins) {
     const normalized = new URL(origin).origin;
     return normalized !== 'null' && extraOrigins.has(normalized);
   } catch (_) { return false; }
+}
+
+// A sandboxed frame has an opaque origin, which a browser may send as the string "null". It may read
+// the frame's own files, which are public and carry nothing of the board, and only those: the host
+// must still be this machine, and every other path keeps the rule above.
+function sandboxedAssetAllowed(req, pathname, webDir) {
+  const host = req.headers.host;
+  return req.method === 'GET' && req.headers.origin === 'null' && frameAssetFile(webDir, pathname) !== null && (!host || ALLOWED_HOST_RE.test(host));
 }
 
 function originAllowed(req, extraOrigins = NO_EXTRA_ORIGINS) {
@@ -191,14 +231,14 @@ function sendJSON(res, code, obj) {
   res.end(buf);
 }
 
-function serveStatic(res, file) {
+function serveStatic(res, file, { csp = CSP, immutable = false } = {}) {
   if (!fs.existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
   const body = fs.readFileSync(file);
   const isHtml = path.extname(file) === '.html';
   // no-store: localhost + tiny files — heuristic caching once served a stale
   // app.html against new scripts and silently broke the form
-  const headers = { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'content-length': body.length, 'cache-control': 'no-store' };
-  if (isHtml) headers['content-security-policy'] = CSP;
+  const headers = { 'content-type': MIME[path.extname(file)] || 'application/octet-stream', 'content-length': body.length, 'cache-control': immutable ? 'public, max-age=31536000, immutable' : 'no-store' };
+  if (isHtml) headers['content-security-policy'] = csp;
   res.writeHead(200, headers);
   res.end(body);
 }
@@ -252,7 +292,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
     try {
       // Reject every request — reads included — carrying a
       // disallowed Origin/Referer/Host before touching any route below.
-      if (!originAllowed(req, extraOrigins)) {
+      if (!originAllowed(req, extraOrigins) && !sandboxedAssetAllowed(req, p, webDir)) {
         return sendJSON(res, 403, { error: 'Forbidden: disallowed Origin/Referer/Host header' });
       }
       // static + board
@@ -296,6 +336,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         });
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
+      const frameAsset = req.method === 'GET' ? frameAssetFile(webDir, p) : null;
+      if (frameAsset) return serveStatic(res, frameAsset.file, { csp: FRAME_CSP, immutable: frameAsset.immutable });
       if (req.method === 'GET' && /^\/[\w.-]+$/.test(p) && pageServes(webDir, p.slice(1))) {
         return serveStatic(res, path.join(webDir, p.slice(1)));
       }
@@ -544,6 +586,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  createServer, start, originAllowed, resolveDefaultBoardDir, pageFiles,
+  createServer, start, originAllowed, resolveDefaultBoardDir, pageFiles, VENDORED, FRAME_FILES, frameAssetFile,
   parseAllowedOrigins, extractAllowOriginArgs, resolvePort, warnConfig, parseHomeUrl, extractHomeUrlArg,
 };
