@@ -460,7 +460,9 @@ details are open, else the hovered or selected card (it draws above the details,
 it before them; a field in the details gets the letter instead), a card with notes wears a small count that opens its notes, and the card menu
 has **Add note…**. Type a note and press Enter: it is written at the time field's time into
 the card's day file and the palette stays open for the next note; Shift+Enter starts a new
-line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
+line. The note box starts one line high and grows with its text, typed and wrapped lines both, up
+to 12 lines or 40% of the window, whichever is less, and scrolls inside past that; the box a listed
+note is edited in grows the same way and opens sized to the note. A leading `10:30` sets that note's time, a leading `-` makes it untimed, and a leading
 `#22` aims it at another card; the line under the box says exactly what Enter will write. The
 list below groups the notes by day and card, newest first, with a filter field of its own
 (`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a

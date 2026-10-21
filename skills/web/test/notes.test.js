@@ -310,3 +310,32 @@ test('the palette\'s layout, Grouped or Timeline, is kept in the browser per boa
   assert.strictEqual(n.noteLayoutLoad({ getItem() { throw new Error('blocked'); } }, 'plan'), 'grouped');
   n.noteLayoutSave({ setItem() { throw new Error('full'); } }, 'plan', 'timeline');
 });
+
+// --- the note boxes ------------------------------------------------------------------------------
+
+// `content` is the height the whole text needs, `line` one line, `chrome` the box's padding and border.
+const size = (content, over = {}) => n.noteBoxSize({ content, line: 20, chrome: 14, windowHeight: 1000, ...over });
+
+test('a note box is as high as its text, from one line up', () => {
+  assert.deepStrictEqual(size(34), { height: 34, scroll: false });
+  assert.deepStrictEqual(size(94), { height: 94, scroll: false }, 'four lines');
+  assert.deepStrictEqual(size(34 + 20 * 6), { height: 154, scroll: false });
+});
+
+test('a note box stops growing at 12 lines and scrolls inside past them', () => {
+  assert.deepStrictEqual(size(14 + 20 * 12), { height: 254, scroll: false }, 'twelve lines fit');
+  assert.deepStrictEqual(size(14 + 20 * 13), { height: 254, scroll: true });
+  assert.deepStrictEqual(size(5000), { height: 254, scroll: true });
+});
+
+test('a note box stops at 40% of the window when that is less than 12 lines', () => {
+  assert.deepStrictEqual(size(5000, { windowHeight: 500 }), { height: 200, scroll: true });
+  assert.deepStrictEqual(size(150, { windowHeight: 500 }), { height: 150, scroll: false });
+  assert.deepStrictEqual(size(5000, { windowHeight: 700 }), { height: 254, scroll: true }, '40% of 700 is 280: the 12 lines are less');
+});
+
+test('a note box takes whole pixels, and shrinks when its text does', () => {
+  assert.deepStrictEqual(size(33.2), { height: 34, scroll: false });
+  assert.ok(size(94).height < size(154).height);
+  assert.deepStrictEqual(size(1), { height: 34, scroll: false }, 'never under one line');
+});

@@ -283,6 +283,42 @@ module.exports = {
     check('notes: Grouped brings the sections back', await waitFor(`document.querySelectorAll('#notes-palette .np-tgroup').length===0&&document.querySelectorAll('#notes-palette .np-ngroup').length>=2`, 2500));
     await closePalette();
 
+    // --- the note boxes grow with their text -----------------------------------------------------------------------
+    const BOX_H = `${q('.np-input')}.getBoundingClientRect().height`;
+    const CAP = `Math.min(innerHeight*0.4, 12*parseFloat(getComputedStyle(${q('.np-input')}).lineHeight)+parseFloat(getComputedStyle(${q('.np-input')}).paddingTop)+parseFloat(getComputedStyle(${q('.np-input')}).paddingBottom)+2)`;
+    const heightIs = (cmp, ms) => waitFor(cmp, ms || 2500);
+    check('notes: the pointer rests on card 7 for the next palette', await hoverCard('7'));
+    await key('n');
+    check('notes: n opens the palette on card 7', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
+    await setBox('');
+    const oneLine = await ev(BOX_H);
+    check('notes: the note box starts one line high', oneLine > 20 && oneLine < 50, String(oneLine));
+    check('notes: and has no resize grip', await ev(`getComputedStyle(${q('.np-input')}).resize`) === 'none');
+    await setBox('one\ntwo\nthree\nfour\nfive');
+    check('notes: five typed lines make it about five lines high', await heightIs(`${BOX_H}>${oneLine}*3`), String(await ev(BOX_H)));
+    await setBox('x'.repeat(400));
+    check('notes: a long line that wraps grows it too', await heightIs(`${BOX_H}>${oneLine}*2`), String(await ev(BOX_H)));
+    await setBox('line\n'.repeat(60));
+    check('notes: past the cap (12 lines or 40% of the window) it stops growing and scrolls inside', await heightIs(`${BOX_H}<=${CAP}+1`) && await ev(`${q('.np-input')}.scrollHeight>${q('.np-input')}.clientHeight`), String(await ev(BOX_H)));
+    await setBox('one\ntwo');
+    check('notes: deleting text shrinks it again', await heightIs(`${BOX_H}<${oneLine}*3&&${BOX_H}>${oneLine}*1.5`), String(await ev(BOX_H)));
+    await setBox('');
+    check('notes: and an empty box is one line again', await heightIs(`Math.abs(${BOX_H}-${oneLine})<1`), String(await ev(BOX_H)));
+    await ev(`[...document.querySelectorAll('#notes-palette .np-note')].find((r)=>r.querySelector('.np-note-text').textContent==='first line\\nsecond line').focus()`);
+    await key('e');
+    const EDIT_H = `${q('.np-edit-text')}.getBoundingClientRect().height`;
+    const editText = (text) => ev(`(()=>{const x=${q('.np-edit-text')};x.value=${JSON.stringify(text)};x.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    check('notes: e opens the two-line note for editing', await waitFor(`!!${q('.np-edit-text')}&&${q('.np-edit-text')}.value==='first line\\nsecond line'`, 2500));
+    const twoLines = await ev(EDIT_H);
+    check('notes: the edit box is sized to its two lines at once, with no resize grip', twoLines > 30 && await ev(`getComputedStyle(${q('.np-edit-text')}).resize`) === 'none', String(twoLines));
+    await editText('line\n'.repeat(60));
+    check('notes: the edit box stops at the cap and scrolls inside', await waitFor(`${EDIT_H}>${twoLines}&&${EDIT_H}<=innerHeight*0.4+1&&${q('.np-edit-text')}.scrollHeight>${q('.np-edit-text')}.clientHeight`, 2500), String(await ev(EDIT_H)));
+    await editText('short');
+    check('notes: and shrinks below two lines when the text does', await waitFor(`${EDIT_H}<${twoLines}-5`, 2500), String(await ev(EDIT_H)));
+    await key('Escape');
+    check('notes: Esc cancels the edit and leaves the palette up', await waitFor(`!${q('.np-edit-text')}`, 2500) && await ev(PAL_UP));
+    await closePalette();
+
     // --- n with the card details open notes that card ----------------------------------------------------------
     const DETAIL_UP = `!document.getElementById('detail-modal').classList.contains('hidden')`;
     const DETAIL_SHUT = `document.getElementById('detail-modal').classList.contains('hidden')`;

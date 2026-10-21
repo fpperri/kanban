@@ -2,8 +2,8 @@
 // The rules of the notes palette (docs/adr/0016, GLOSSARY.md "Ids, groups and the
 // logbook"), apart from the DOM: how the note box's line is read, what Enter will write
 // and the preview line that says so, what the palette is about (its subject: a card, a
-// group, a slot of a day, a day's untimed notes, or nothing), and how the notes list is
-// narrowed, grouped and ordered. notes-palette.js draws it and talks to the server.
+// group, a slot of a day, a day's untimed notes, or nothing), how the notes list is
+// narrowed, grouped and ordered, and how high a note box grows. notes-palette.js draws it and talks to the server.
 //
 // The line. Its first line may begin with a time (`10:30 renamed it`) or with `-` or the
 // word `untimed`, then with a mention of a card or group the board has (`#22 mid check`,
@@ -291,6 +291,18 @@ function noteTimeline(notes, o = {}) {
   return list;
 }
 
+const NOTE_BOX_LINES = 12;
+
+// The size of a note box that grows with its text (the palette's note box and the one a listed note
+// is edited in). `m` is { content: the height all the text needs, line, chrome: the box's padding and
+// border, windowHeight }. -> { height, scroll }: as high as the text, from one line up to 12 lines or
+// 40% of the window, whichever is less; past that it scrolls inside.
+function noteBoxSize(m) {
+  const cap = Math.min(NOTE_BOX_LINES * m.line + m.chrome, m.windowHeight * 0.4);
+  const want = Math.ceil(Math.max(m.content, m.line + m.chrome));
+  return { height: Math.min(want, Math.floor(cap)), scroll: want > cap };
+}
+
 function noteCounts(notes) {
   const counts = new Map();
   for (const n of notes) counts.set(n.target, (counts.get(n.target) || 0) + 1);
@@ -342,7 +354,7 @@ function noteLayoutSave(storage, projectName, layout) {
 
 const NOTES_EXPORTS = {
   noteFieldTime, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectCleared, noteSubjectNotes,
-  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
+  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

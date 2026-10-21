@@ -210,3 +210,102 @@ test('Esc inside the palette closes the palette alone', async () => {
   assert.strictEqual(p.page.run('notesUi.sub'), null);
   assert.strictEqual(e.stopped, true);
 });
+
+// --- the note boxes grow with their text ---------------------------------------------------
+
+// The box a person types in: `lines` of 20px plus 12px of padding and 2px of border make the height.
+const typeInto = (box, text) => { box.value = text; box.fire('input', {}); };
+const lines = (n, width = 10) => Array.from({ length: n }, () => 'x'.repeat(width)).join('\n');
+
+test('the palette\'s note box starts one line high and has no resize grip', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  assert.strictEqual(p.ui().input.rows, 1);
+  typeInto(p.ui().input, '');
+  assert.strictEqual(p.ui().input.style.height, '34px');
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const rule = (sel) => css.match(new RegExp(`^${sel.replace('.', '\\.')} \\{[^}]*\\}`, 'm'))[0];
+  assert.match(rule('.np-input'), /resize: none/);
+  assert.match(rule('.np-edit-text'), /resize: none/);
+  assert.doesNotMatch(rule('.np-input'), /(min|max)-height/, 'the page, not the stylesheet, sets its height');
+});
+
+test('the note box grows by a line for each line typed, and for each line that wraps', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  const box = p.ui().input;
+  typeInto(box, lines(3));
+  assert.strictEqual(box.style.height, '74px');
+  typeInto(box, 'x'.repeat(100));
+  assert.strictEqual(box.style.height, '74px', 'one long line wrapping to three is three lines high');
+  typeInto(box, `${lines(2)}\n${'x'.repeat(41)}`);
+  assert.strictEqual(box.style.height, '94px', 'two short lines and one that wraps once');
+  assert.strictEqual(box.style.overflowY, 'hidden');
+});
+
+test('the note box shrinks when text is deleted, and goes back to one line when it is empty', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  const box = p.ui().input;
+  typeInto(box, lines(8));
+  assert.strictEqual(box.style.height, '174px');
+  typeInto(box, lines(2));
+  assert.strictEqual(box.style.height, '54px');
+  typeInto(box, '');
+  assert.strictEqual(box.style.height, '34px');
+});
+
+test('the note box stops at 12 lines and scrolls inside past them', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  const box = p.ui().input;
+  typeInto(box, lines(12));
+  assert.deepStrictEqual([box.style.height, box.style.overflowY], ['254px', 'hidden']);
+  typeInto(box, lines(30));
+  assert.deepStrictEqual([box.style.height, box.style.overflowY], ['254px', 'auto']);
+});
+
+test('the note box stops at 40% of the window when that is less than 12 lines', async () => {
+  const p = await openPalette({ notes: NOTES, viewport: { innerHeight: 500 } });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  typeInto(p.ui().input, lines(30));
+  assert.deepStrictEqual([p.ui().input.style.height, p.ui().input.style.overflowY], ['200px', 'auto']);
+});
+
+test('writing a note puts the box back to one line', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  typeInto(p.ui().input, lines(6));
+  p.page.run("notesUi.input.value = ''; notesGrow()");
+  assert.strictEqual(p.ui().input.style.height, '34px');
+});
+
+test('a listed note opens for editing in a box sized to its text at once, and grows and shrinks as it is typed in', async () => {
+  const p = await openPalette({ notes: [note('2026-10-15', '7', '09:30', '@human', lines(5))] });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  p.press(p.ui().body, 'e', { target: p.all('.np-note')[0] });
+  const box = p.find('.np-edit-text');
+  assert.strictEqual(box.rows, 1);
+  assert.strictEqual(box.style.height, '114px', 'five lines, at once');
+  typeInto(box, lines(30));
+  assert.deepStrictEqual([box.style.height, box.style.overflowY], ['254px', 'auto']);
+  typeInto(box, 'short');
+  assert.deepStrictEqual([box.style.height, box.style.overflowY], ['34px', 'hidden']);
+});
+
+test('a one-line note opens for editing one line high', async () => {
+  const p = await openPalette({ notes: [note('2026-10-15', '7', '09:30', '@human', 'one line')] });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  p.press(p.ui().body, 'e', { target: p.all('.np-note')[0] });
+  assert.strictEqual(p.find('.np-edit-text').style.height, '34px');
+});
+
+test('a window that changes size regrows the open note box', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  typeInto(p.ui().input, lines(30));
+  assert.strictEqual(p.ui().input.style.height, '254px');
+  p.page.ctx.innerHeight = 500;
+  (p.page.windowListeners.resize || []).forEach((fn) => fn({}));
+  assert.strictEqual(p.ui().input.style.height, '200px');
+});

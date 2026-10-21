@@ -1156,7 +1156,11 @@ to `127.0.0.1` only.
   note at the time field's time (now, to start with) and keeps the palette open for the next;
   the field then goes back to now (or to the slot's time, when the palette was opened on a
   slot) unless a time was typed into it;
-  **Shift+Enter** starts a new line. A leading `10:30` in the line sets that one note's time,
+  **Shift+Enter** starts a new line. The note box starts one line high and grows with its text,
+  typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less
+  (`noteBoxSize`, notes.js), and scrolls inside past that; the box a listed note is edited in
+  grows the same way and is sized to the note when it opens. Neither has a resize grip.
+  A leading `10:30` in the line sets that one note's time,
   a leading `-` or `untimed` (or the tick) makes it untimed, and a leading mention of a card
   (`#22`, `plan#22`) aims that one note at it and is cut from the text; a mention anywhere
   later is only text. A line that is only a mention, then Enter, moves the palette to that

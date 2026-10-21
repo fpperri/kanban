@@ -50,7 +50,10 @@ function paletteDocument(holder) {
     el.value = '';
     el.hidden = false;
     el.isConnected = true;
-    el.scrollHeight = 0;
+    // A text area needs 20px a line and 12px of padding; a line wraps at 40 characters.
+    Object.defineProperty(el, 'scrollHeight', {
+      get: () => (tag === 'textarea' ? 12 + 20 * String(el.value).split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 40)), 0) : 0),
+    });
     el.replaceChildren = (...kids) => { el.children.length = 0; el.append(...kids); };
     el.descendants = () => el.walk().slice(1);
     el.querySelectorAll = (sel) => { const is = matcher(sel); return el.descendants().filter((e) => e.classes && is(e)); };
@@ -69,6 +72,9 @@ function paletteDocument(holder) {
   return doc;
 }
 
+// What the stylesheet gives a note box: a 20px line, 6px of padding and a 1px border all round.
+const TEXT_AREA = { lineHeight: '20px', fontSize: '15px', paddingTop: '6px', paddingBottom: '6px', borderTopWidth: '1px', borderBottomWidth: '1px' };
+
 async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {} } = {}) {
   const holder = { document: null };
   const documentExtras = paletteDocument(holder);
@@ -83,7 +89,7 @@ async function openPalette({ cards, notes, stored = {}, viewport = {}, elements:
   };
   const elements = { '#detail-modal': control(), '#ctx-note': control(), ...more };
   const page = await loadPage({ board, stored, documentExtras, elements }).start();
-  Object.assign(page.ctx, viewport);
+  Object.assign(page.ctx, { getComputedStyle: () => TEXT_AREA, ...viewport });
   const doc = page.ctx.document;
   holder.document = doc;
   const ui = () => page.run('notesUi');

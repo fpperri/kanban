@@ -1827,7 +1827,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .np-time:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
 .np-time:disabled { opacity: .45; }
 .np-untimed-label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-.np-input { min-height: 2.6em; max-height: 160px; padding: 6px 9px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1.02em; line-height: 1.4; resize: none; overflow-y: auto; }
+.np-input { padding: 6px 9px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1.02em; line-height: 1.4; resize: none; overflow-y: hidden; }
 .np-input::placeholder, .np-filter::placeholder { color: var(--mut); }
 .np-prev { display: flex; align-items: baseline; gap: 6px; padding: 6px 14px; border-bottom: 1px solid var(--line-soft); background: var(--raised); color: var(--ink); font-size: 0.8em; min-width: 0; }
 .np-prev-key { flex: 0 0 auto; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: .15rem; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
@@ -1877,7 +1877,7 @@ button.np-note-card:hover { color: var(--accent); }
 .np-edit { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
 .np-edit input, .np-edit textarea { padding: 4px 7px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font: inherit; min-width: 0; }
 .np-edit-time { width: 5em; text-align: center; }
-.np-edit-text { flex: 1 1 12em; resize: vertical; }
+.np-edit-text { flex: 1 1 12em; line-height: 1.4; resize: none; overflow-y: hidden; }
 .np-assign-input { flex: 1 1 12em; }
 .np-assign-list { flex: 1 0 100%; display: flex; flex-direction: column; }
 .np-assign-item { padding: 3px 7px; border-radius: .15rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

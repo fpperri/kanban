@@ -240,7 +240,7 @@ function notesBuild() {
   u.tabsEl.setAttribute('role', 'tablist');
   u.tabsEl.hidden = true;
   u.input = notesEl('textarea', 'np-input');
-  u.input.rows = 2;
+  u.input.rows = 1;
   u.input.spellcheck = true;
   u.input.setAttribute('aria-label', 'Note');
   const bar = notesEl('div', 'np-bar');
@@ -301,11 +301,26 @@ function notesBuild() {
   u.el.addEventListener('keydown', notesOnPaletteKey);
 }
 
-function notesGrow() {
-  const input = notesUi.input;
-  input.style.height = 'auto';
-  input.style.height = `${Math.min(input.scrollHeight + 2, 160)}px`;
+// A note box is as high as its text, up to a cap (notes.js noteBoxSize); the box is measured at its
+// own width, so wrapped lines count. A box that is not shown has no height to measure: it keeps
+// auto and is sized when it is next painted.
+function notesGrowBox(box) {
+  box.style.height = 'auto';
+  if (!box.scrollHeight) return;
+  const css = getComputedStyle(box);
+  const px = (v) => parseFloat(v) || 0;
+  const border = px(css.borderTopWidth) + px(css.borderBottomWidth);
+  const size = noteBoxSize({
+    content: box.scrollHeight + border,
+    line: px(css.lineHeight) || px(css.fontSize) * 1.4,
+    chrome: px(css.paddingTop) + px(css.paddingBottom) + border,
+    windowHeight: window.innerHeight,
+  });
+  box.style.height = `${size.height}px`;
+  box.style.overflowY = size.scroll ? 'auto' : 'hidden';
 }
+
+const notesGrow = () => notesGrowBox(notesUi.input);
 
 // ---------- opening and closing ----------
 
@@ -450,6 +465,7 @@ function notesPaint() {
   notesPaintTabs();
   const panel = u.tab !== 'notes';
   for (const el of [u.when, u.input, u.prev, u.filterRow]) el.hidden = panel;
+  if (!panel) notesGrow();
   const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
   if (panel) {
     notesPaintBody();
@@ -621,7 +637,8 @@ function notesRow(note, named = false) {
     t.setAttribute('aria-label', 'Time, blank for untimed');
     const x = notesEl('textarea', 'np-edit-text');
     x.value = note.note;
-    x.rows = Math.min(6, Math.max(2, note.note.split('\n').length));
+    x.rows = 1;
+    x.addEventListener('input', () => notesGrowBox(x));
     x.setAttribute('aria-label', 'Note');
     const save = notesButton('np-edit-save', 'Save', '', () => submit());
     const cancel = notesButton('np-edit-cancel', 'Cancel', '', () => { view(); row.focus(); });
@@ -638,6 +655,7 @@ function notesRow(note, named = false) {
     });
     row.replaceChildren(form);
     x.focus();
+    notesGrowBox(x);
   };
   const assign = () => {
     enter();
@@ -891,6 +909,7 @@ function notesOnBoard() {
 window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
   document.addEventListener('keydown', onNotesEscape, true);
+  window.addEventListener('resize', () => { if (notesUi.sub && notesUi.input) notesGrow(); });
   document.addEventListener('mousedown', onNotesPointer, true);
   document.addEventListener('click', (e) => {
     const count = e.target.closest && e.target.closest('.card-notes');
