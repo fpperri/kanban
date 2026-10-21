@@ -521,6 +521,8 @@ A browser may send a sandboxed frame's requests with the origin `null`; the serv
 the frame's own files and the vendored libraries (they are public and carry nothing of the board) and
 for nothing else.
 
+**Edit from the details** — `e` with a card's details open opens its edit form, as the details' Edit button does (its tooltip names the key). It is read through the shared key guard, as `n` is: a field in the details gets the letter, it does nothing behind a menu, the edit form, the notifications panel or the preferences sheet, and with the notes palette up `e` stays the palette's (it edits the listed note). An archived card has no Edit button and no `e`.
+
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
 details are open, else the hovered or selected card; it draws above the details, and a field in the
 details gets the letter instead. While the palette is aimed at a card, a group or several cards, **Esc**
