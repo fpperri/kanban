@@ -38,7 +38,7 @@ const makeBoard = () => ({
   archived: [card(7, { title: 'Spike zephyr pooling', status: 'done', archived: true, waiting_for: [1] })],
 });
 
-const MENU_ELEMENTS = ['#context-menu', '#ctx-peek', '#ctx-add', '#ctx-assign', '#ctx-priority', '#ctx-tags', '#ctx-schedule', '#ctx-archive', '#ctx-restore', '#ctx-delete',
+const MENU_ELEMENTS = ['#context-menu', '#ctx-peek', '#ctx-add', '#ctx-child', '#modal', '#modal-title', '#f-id', '#f-title', '#f-status', '#f-parent', '#ctx-assign', '#ctx-priority', '#ctx-tags', '#ctx-schedule', '#ctx-archive', '#ctx-restore', '#ctx-delete',
   '#bulk-single', '#bulk-single-input', '#bulk-single-apply', '#bulk-single-title', '#bulk-archive', '#bulk-archive-title'];
 
 async function open({ view = 'board' } = {}) {
@@ -316,4 +316,75 @@ test('a card the view hides does not join through a path (the selection covers o
   assert.deepStrictEqual(s.ids(), [2, 3], 'card 1 is Doing and its pill is off in the Map');
   s.page.run("toggleMapStatusFilter('doing')");
   assert.deepStrictEqual(s.ids(), [1, 2, 3], 'with the pill on again the other card of the path is back');
+});
+
+// --- Add child… -----------------------------------------------------------------------------
+
+test('Add child… is in the menu of one live card, wherever the menu opens, and not in a batch menu or an archived card', async () => {
+  const s = await open();
+  s.rightClick(3);
+  assert.strictEqual(s.shown('#ctx-child'), true, 'a card outside the selection');
+  s.select(null, 'cardPart(4)');
+  s.rightClick(4);
+  assert.strictEqual(s.shown('#ctx-child'), true, 'a selection of one');
+  s.select(null, 'cardPart(1)', 'cardPart(2)');
+  s.rightClick(2);
+  assert.strictEqual(s.shown('#ctx-child'), false, 'a selection of two');
+  s.rightClick(7);
+  assert.strictEqual(s.shown('#ctx-child'), false, 'an archived card');
+});
+
+test('Add child… is in the card detail menu for a live card and not for an archived one', async () => {
+  const s = await open();
+  const rightClickDetail = (id) => {
+    s.page.run(`currentDetailId = '${id}'`);
+    s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
+  };
+  rightClickDetail(3);
+  assert.strictEqual(s.shown('#ctx-child'), true);
+  rightClickDetail(7);
+  assert.strictEqual(s.shown('#ctx-child'), false);
+});
+
+test('Add child… opens the New card form as + New card does, with the parent preset and the heading saying so, and writes nothing', async () => {
+  const s = await open();
+  s.rightClick(3);
+  s.click('#ctx-child');
+  assert.strictEqual(s.menuOpen(), false, 'the menu closes');
+  assert.strictEqual(s.elements['#modal'].classList.contains('hidden'), false, 'the form is up');
+  assert.strictEqual(s.elements['#modal-title'].textContent, 'New card under #3');
+  assert.strictEqual(String(s.elements['#f-parent'].value), '3');
+  assert.strictEqual(s.elements['#f-id'].value, '', 'a new card: it has no id yet');
+  assert.strictEqual(s.elements['#f-status'].value, 'backlog', 'the default status, as + New card gives');
+  assert.deepStrictEqual(s.cardRequests(), [], 'neither the parent nor any other card is written');
+  assert.deepStrictEqual(s.asked.requests.filter(([method]) => method !== 'GET'), [], 'nothing is written until the form is saved');
+});
+
+test('the form + New card opens has no parent and the plain heading, after one opened under a card', async () => {
+  const s = await open();
+  s.rightClick(3);
+  s.click('#ctx-child');
+  s.page.run('openModal(null)');
+  assert.strictEqual(s.elements['#modal-title'].textContent, 'New card');
+  assert.strictEqual(String(s.elements['#f-parent'].value), '');
+});
+
+test('Add child… from the card detail menu presets the card shown', async () => {
+  const s = await open();
+  s.page.run("currentDetailId = '4'");
+  s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
+  s.click('#ctx-child');
+  assert.strictEqual(s.elements['#modal-title'].textContent, 'New card under #4');
+  assert.strictEqual(String(s.elements['#f-parent'].value), '4');
+});
+
+test('the canvas menu of the Graph and the Map has no Add child…', async () => {
+  const s = await open();
+  s.page.run('menuSubject = canvasMenuFor(); showContextMenu(5, 6)');
+  assert.strictEqual(s.shown('#ctx-child'), false);
+});
+
+test('Add child… is a menu item in the markup', () => {
+  const menu = html.match(/<div id="context-menu"[\s\S]*?\n<\/div>/)[0];
+  assert.match(menu, /<button type="button" id="ctx-child" role="menuitem" class="hidden">Add child…<\/button>/);
 });

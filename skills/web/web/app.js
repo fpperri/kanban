@@ -2694,15 +2694,15 @@ function syncAssigneeColor() {
 // The card whose detail the open edit form was started from: on a phone Save returns there.
 let editFromCardId = null;
 
-function openModal(card, presetStatus, presetStart) {
+function openModal(card, presetStatus, presetStart, presetParent) {
   editFromCardId = null;
-  $('#modal-title').textContent = card ? `Edit #${card.id}` : 'New card';
+  $('#modal-title').textContent = card ? `Edit #${card.id}` : presetParent != null ? `New card under #${presetParent}` : 'New card';
   $('#f-id').value = card ? card.id : '';
   $('#f-title').value = card ? card.title : '';
   renderStatusOptions(card ? card.status : null);
   $('#f-status').value = card ? card.status : (presetStatus || boardStatuses()[0]);
   $('#f-priority').value = card ? card.priority : 'Normal';
-  $('#f-parent').value = card && card.parent != null ? String(card.parent) : '';
+  $('#f-parent').value = card && card.parent != null ? String(card.parent) : presetParent != null ? String(presetParent) : ''; // Add child… presets the parent of a new card
   $('#f-rank').value = card && card.rank != null ? String(card.rank) : '';
   syncNestingFieldValidity();
   $('#f-type').value = card && card.type ? card.type : '';
@@ -6263,6 +6263,7 @@ function showContextMenu(x, y) {
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
   $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
+  $('#ctx-child').classList.toggle('hidden', !!menuSubject.canvas || menuSubject.ids.length !== 1 || !state.active.some((c) => String(c.id) === String(menuSubject.ids[0])));
   $('#ctx-scratch').classList.toggle('hidden', !scratchpadOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
   $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
@@ -6674,6 +6675,11 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('mouseout', leaveHover);
   document.addEventListener('focusin', enterHover);
   document.addEventListener('focusout', leaveHover);
+  $('#ctx-child').addEventListener('click', () => {
+    const parent = menuSubject.ids[0];
+    hideContextMenu();
+    openModal(null, undefined, undefined, parent);
+  });
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);
   $('#ctx-delete').addEventListener('click', bulkDelete);

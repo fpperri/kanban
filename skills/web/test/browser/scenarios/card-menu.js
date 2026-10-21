@@ -6,7 +6,9 @@
 // entries act on the menu's subject (Set priority); Dependency path and
 // Dependency tree add to the selection and leave the search box alone, and are
 // absent when the subject is several cards; Archive and Delete name the count of
-// a selection that holds a path part. The fixture's own sets: card 4's
+// a selection that holds a path part. Add child... opens the New card form under the card, the heading
+// and the Parent field saying so, and saving it writes a card whose file says `parent: <id>`
+// and leaves the parent's file as it was; with the Parent cleared it is a root card. The fixture's own sets: card 4's
 // dependency path is 1, 3, 4 and its tree is 1 to 8. Cards 1, 3 and 4 are dated
 // today so the Calendar and the Gantt draw them (the runner puts the board's
 // cards back before the next scenario). Each step waits on the page, never on a
@@ -14,6 +16,8 @@
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // selectedIds, selectionState, state.
+
+const fs = require('fs');
 
 module.exports = {
   name: 'card-menu',
@@ -168,5 +172,31 @@ module.exports = {
     check('deleting a selection that holds a path part names the resolved count in the delete popup', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 3 cards?'`, 3000), asked);
     await key('Escape');
     await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
+
+    // Add child... opens the New card form under the card; saving writes the child alone.
+    const MODAL_UP = `!document.getElementById('modal').classList.contains('hidden')`;
+    const fileOf = async (id) => fs.readFileSync(await ev(`fetch('/api/cards/${id}/detail').then((r)=>r.json()).then((d)=>d.path)`), 'utf8');
+    const submitChild = (title) => ev(`(()=>{const t=document.getElementById('f-title');t.value=${JSON.stringify(title)};t.dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('card-form').requestSubmit();return true})()`);
+    await openBoard();
+    const parentBefore = await fileOf(5);
+    await rightClickOnBoard(5);
+    check('Add child... is in the menu for one live card', await entryShown('ctx-child'));
+    await press('ctx-child');
+    check('Add child... closes the menu and opens the New card form under that card', await waitFor(`${MODAL_UP}&&${menu}.classList.contains('hidden')&&document.getElementById('modal-title').textContent==='New card under #5'&&document.getElementById('f-parent').value==='5'&&document.getElementById('f-id').value===''`, 3000));
+    check('and the form starts with the status + New card gives', await ev(`document.getElementById('f-status').value===state.statuses[0]`));
+    await submitChild('A child of five');
+    check('saving makes the child on the board with the parent set', await waitFor(`state.active.some((c)=>c.title==='A child of five'&&String(c.parent)==='5')`, 5000));
+    const childId = await ev(`String(state.active.find((c)=>c.title==='A child of five').id)`);
+    check('the file of the child says parent: 5', /^parent: ?5\s*$/m.test(await fileOf(childId)));
+    check('and the file of the parent is as it was', (await fileOf(5)) === parentBefore);
+    await rightClickOnBoard(5);
+    await press('ctx-child');
+    await waitFor(`${MODAL_UP}&&document.getElementById('f-parent').value==='5'`, 3000);
+    await ev(`(()=>{const p=document.getElementById('f-parent');p.value='';p.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
+    await submitChild('A root by choice');
+    check('with the Parent cleared the card is an ordinary root card', await waitFor(`state.active.some((c)=>c.title==='A root by choice'&&c.parent==null)`, 5000));
+    await rightClickOnBoard(5);
+    check('the menu of a live card still offers it', await entryShown('ctx-child'));
+    await closeMenu();
   },
 };

@@ -375,6 +375,11 @@ leading with Peek (open its details) and Add to selection, and leaves your
 selection as it was. The same selection grammar works in every view, and
 right-clicking inside an open card opens the same menu for that card, without Peek.
 
+**Add child…** in that menu (one live card only, in every view and in the card details' own
+menu) opens the New card form as **New card** does, headed "New card under #42", with Parent set
+to that card. Only the new card is written, never the parent; clear the Parent field and it saves
+as an ordinary root card.
+
 A click on empty space never touches the selection, since it can be an accident. A
 double click on empty space clears it: the additions, the anchor, and the anchor's text in
 the box (a pill's query or a search typed in the Graph), so the pill goes off. Esc still steps back

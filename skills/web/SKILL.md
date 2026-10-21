@@ -715,7 +715,11 @@ to `127.0.0.1` only.
   with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
   card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
-  names the resolved count (Delete's is the delete popup, once for the whole selection). The conditionally-hidden items: Peek and Add to selection show only
+  names the resolved count (Delete's is the delete popup, once for the whole selection). **Add child…** opens the New card form (`openModal(null, undefined, undefined, parentId)`) exactly
+  as New card does, with Parent preset to the card and the heading "New card under #<id>"; it shows
+  only when the subject is one live card (not an archived one, not a batch, not the canvas), in the
+  card details' own menu too, and writes nothing until the form is saved, then only the new card
+  (a parent never lists its children; clearing Parent saves a root card). The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
   show only when the subject is one card, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling
