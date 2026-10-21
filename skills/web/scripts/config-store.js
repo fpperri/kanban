@@ -38,6 +38,9 @@
 //                         # (docs/adr/0016), the same way; absent = no scratchpads
 //   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
 //                         # way; absent = no groups and nothing of them shows
+//   typesOn: false        # Types off: the web and the snapshot ignore `types:`, the
+//                         # hierarchy and the chips, colors, icons and tiers they give;
+//                         # absent = on. Display only; the lists and the cards stay as written.
 //   iterations: true      # the header's iteration dropdown over the groups in the
 //                         # iteration/ folder (docs/adr/0015); needs groups:, absent = off
 //   assignees:           # who can own cards; feeds the form's combobox
@@ -180,7 +183,7 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -242,6 +245,9 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'iterations') {
         config.iterations = scalar(top[2]) === 'true';
+        section = null;
+      } else if (top[1] === 'typesOn') {
+        config.typesOn = scalar(top[2]) !== 'false';
         section = null;
       } else if (top[1] === 'counters') {
         for (const [prefix, text] of parseFlowMap(top[2])) {
@@ -430,6 +436,68 @@ function writeConfigLine(dir, key, value, after = null) {
   fs.renameSync(tmp, file);
 }
 
+// The top-level keys in the order the config documents them. A block that is not in the file yet is
+// inserted below the nearest key before it in this order that the file has, else at the top.
+const KEY_ORDER = ['name', 'port', 'nextId', 'idDigits', 'prefixes', 'counters', 'logbook', 'scratchpad', 'groups', 'iterations', 'typesOn', 'assignees', 'types', 'hierarchy', 'pills'];
+const BLOCK_KEYS = ['types', 'hierarchy', 'prefixes'];
+
+// Where the block under the top-level key matched by `header` ends: after its last indented line.
+// Blank lines and unindented comments inside it are part of it, but those after its last indented
+// line belong to what follows (a comment above the next key), so the end stops before them.
+function blockEnd(raw, header) {
+  let end = header.index + header[0].length;
+  const tail = header[0].slice(header[0].indexOf(':') + 1).trim();
+  if (tail !== '' && tail[0] !== '#') return end;
+  let pos = end;
+  while (pos < raw.length) {
+    const start = raw.startsWith('\r\n', pos) ? pos + 2 : pos + 1;
+    let stop = raw.indexOf('\n', start);
+    if (stop === -1) stop = raw.length;
+    const line = raw.slice(start, stop).replace(/\r$/, '');
+    if (/^\w+:/.test(line)) break;
+    if (/^[ \t]/.test(line) && line.trim() !== '') end = start + line.length;
+    pos = stop;
+  }
+  return end;
+}
+
+// Rewrites ONE whole top-level block (`types:`, `hierarchy:` or `prefixes:`, docs/adr/0018) with
+// `lines` (the block's text, one string per line, no line ending) or, with null, removes it.
+// Everything outside the block keeps its bytes and the file's line ending; comments inside the
+// old block go with it. The block is found from its key to its last indented line, so a comment
+// or blank line that sits above the next key stays. Same tmp+rename discipline as writeConfigLine.
+function writeConfigBlock(dir, key, lines) {
+  if (!BLOCK_KEYS.includes(key)) throw new Error(`config block must be one of ${BLOCK_KEYS.join(', ')}: ${key}`);
+  const file = configFile(dir);
+  const raw = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  const eol = raw.includes('\r\n') ? '\r\n' : '\n';
+  const find = (name) => new RegExp(`^${name}:[^\\r\\n]*`, 'm').exec(raw);
+  const header = find(key);
+  const text = lines === null ? null : lines.join(eol);
+  let out;
+  if (header && text !== null) {
+    out = raw.slice(0, header.index) + text + raw.slice(blockEnd(raw, header));
+  } else if (header) {
+    let stop = blockEnd(raw, header);
+    if (raw.startsWith('\r\n', stop)) stop += 2;
+    else if (raw[stop] === '\n') stop += 1;
+    out = raw.slice(0, header.index) + raw.slice(stop);
+  } else if (text === null) {
+    return;
+  } else {
+    const before = KEY_ORDER.slice(0, KEY_ORDER.indexOf(key)).reverse().map(find).find((m) => m);
+    if (before) {
+      const end = blockEnd(raw, before);
+      out = raw.slice(0, end) + eol + text + raw.slice(end);
+    } else {
+      out = raw === '' ? text + eol : text + eol + raw;
+    }
+  }
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, out);
+  fs.renameSync(tmp, file);
+}
+
 function renderCounters(counters) {
   return `{ ${Object.entries(counters).map(([prefix, n]) => `${prefix}: ${n}`).join(', ')} }`;
 }
@@ -494,4 +562,4 @@ function prefixForGroupFolder(config, folder) {
   return '_';
 }
 
-module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, writeConfigLine, prefixForType, groupFolderOf, prefixForGroupFolder, splitPillEntry, ICON_NAMES };
+module.exports = { parseConfig, serializeConfig, readConfig, writeConfig, readAssignees, allocateId, writeConfigLine, writeConfigBlock, isPrefix, prefixForType, groupFolderOf, prefixForGroupFolder, splitPillEntry, ICON_NAMES };

@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -619,4 +619,99 @@ test('writeConfigLine refuses a key that is not a plain word and a value that br
   fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: plan\n');
   assert.throws(() => cfg.writeConfigLine(dir, 'a.b', '1'), /key/);
   assert.throws(() => cfg.writeConfigLine(dir, 'name', 'a\nb'), /value/);
+});
+
+// --- writeConfigBlock (docs/adr/0018): one whole top-level block, nothing else --------------
+
+const BLOCK_FILE = [
+  '# the board',
+  'name: t',
+  'nextId: 5',
+  '',
+  '# Card types: a colour is optional.',
+  'types:   # the vocabulary',
+  '  - name: goal',
+  '    color: "#e3b341"',
+  '  # a note inside the block',
+  '',
+  '  - task',
+  '# The levels of the plan.',
+  'hierarchy: [goal, task]',
+  '',
+  'assignees:',
+  '  - handle: "@a"',
+  '',
+].join('\n');
+
+function boardWith(text) {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), text);
+  return dir;
+}
+const readCfg = (dir) => fs.readFileSync(path.join(dir, 'config.yaml'), 'utf8');
+
+test('writeConfigBlock replaces a block from its key to its last indented line, comments and blanks inside it gone, the comment above the next key kept', () => {
+  const dir = boardWith(BLOCK_FILE);
+  cfg.writeConfigBlock(dir, 'types', ['types:', '  - story']);
+  assert.strictEqual(readCfg(dir), BLOCK_FILE.replace(/types:   # the vocabulary[\s\S]*?  - task\n/, 'types:\n  - story\n'));
+});
+
+test('writeConfigBlock replaces a one-line block and removes one when given null', () => {
+  const dir = boardWith(BLOCK_FILE);
+  cfg.writeConfigBlock(dir, 'hierarchy', ['hierarchy: [goal]']);
+  assert.strictEqual(readCfg(dir), BLOCK_FILE.replace('hierarchy: [goal, task]', 'hierarchy: [goal]'));
+  cfg.writeConfigBlock(dir, 'hierarchy', null);
+  assert.strictEqual(readCfg(dir), BLOCK_FILE.replace('hierarchy: [goal, task]\n', ''));
+  cfg.writeConfigBlock(dir, 'hierarchy', null);
+  assert.strictEqual(readCfg(dir), BLOCK_FILE.replace('hierarchy: [goal, task]\n', ''), 'removing what is not there writes nothing');
+});
+
+test('writeConfigBlock keeps the file\'s line ending, CRLF included', () => {
+  const crlf = BLOCK_FILE.replace(/\n/g, '\r\n');
+  const dir = boardWith(crlf);
+  cfg.writeConfigBlock(dir, 'types', ['types:', '  - story']);
+  assert.strictEqual(readCfg(dir), crlf.replace(/types:   # the vocabulary[\s\S]*?  - task\r\n/, 'types:\r\n  - story\r\n'));
+});
+
+test('writeConfigBlock inserts an absent block below the nearest key before it in the config\'s order, else at the top', () => {
+  let dir = boardWith('name: t\nnextId: 5\nassignees:\n  - handle: "@a"\n\n  - handle: "@b"\n');
+  cfg.writeConfigBlock(dir, 'types', ['types:', '  - story']);
+  assert.strictEqual(readCfg(dir), 'name: t\nnextId: 5\nassignees:\n  - handle: "@a"\n\n  - handle: "@b"\ntypes:\n  - story\n');
+  cfg.writeConfigBlock(dir, 'hierarchy', ['hierarchy: [story]']);
+  assert.strictEqual(readCfg(dir), 'name: t\nnextId: 5\nassignees:\n  - handle: "@a"\n\n  - handle: "@b"\ntypes:\n  - story\nhierarchy: [story]\n');
+  dir = boardWith('name: t\nnextId: 5\nlogbook: logbook\n');
+  cfg.writeConfigBlock(dir, 'prefixes', ['prefixes:', '  G: goal']);
+  assert.strictEqual(readCfg(dir), 'name: t\nnextId: 5\nprefixes:\n  G: goal\nlogbook: logbook\n');
+  dir = boardWith('# only a comment\n');
+  cfg.writeConfigBlock(dir, 'types', ['types: [a]']);
+  assert.strictEqual(readCfg(dir), 'types: [a]\n# only a comment\n');
+  dir = tmpBoard();
+  cfg.writeConfigBlock(dir, 'types', ['types: [a]']);
+  assert.strictEqual(readCfg(dir), 'types: [a]\n');
+});
+
+test('writeConfigBlock reaches the end of a file with no final line ending, and leaves it without one', () => {
+  const dir = boardWith('name: t\ntypes:\n  - a');
+  cfg.writeConfigBlock(dir, 'types', ['types:', '  - b']);
+  assert.strictEqual(readCfg(dir), 'name: t\ntypes:\n  - b');
+});
+
+test('writeConfigBlock refuses a key that is not one of the three blocks', () => {
+  const dir = boardWith('name: t\n');
+  assert.throws(() => cfg.writeConfigBlock(dir, 'name', ['name: x']), /block/);
+});
+
+test('typesOn reads true unless the line says false', () => {
+  assert.strictEqual(cfg.parseConfig('').typesOn, true);
+  assert.strictEqual(cfg.parseConfig('typesOn: true\n').typesOn, true);
+  assert.strictEqual(cfg.parseConfig('typesOn: false  # off\n').typesOn, false);
+  assert.strictEqual(cfg.parseConfig('typesOn: nope\n').typesOn, true);
+});
+
+test('isPrefix is exported for the settings write', () => {
+  assert.strictEqual(cfg.isPrefix('G'), true);
+  assert.strictEqual(cfg.isPrefix('_'), true);
+  assert.strictEqual(cfg.isPrefix(''), false);
+  assert.strictEqual(cfg.isPrefix('g'), false);
+  assert.strictEqual(cfg.isPrefix('G1'), false);
 });
