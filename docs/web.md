@@ -432,7 +432,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -521,6 +521,8 @@ A browser may send a sandboxed frame's requests with the origin `null`; the serv
 the frame's own files and the vendored libraries (they are public and carry nothing of the board) and
 for nothing else.
 
+**Edit from the details** — `e` with a card's details open opens its edit form, as the details' Edit button does (its tooltip names the key), with the cursor in the title field so you can type at once. It is read through the shared key guard, as `n` is: a field in the details gets the letter, it does nothing behind a menu, the edit form, the notifications panel or the preferences sheet, and with the notes palette up, which draws above the details, `e` stays the palette's (it edits the listed note). An archived card has no Edit button and no `e`.
+
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the card whose
 details are open, else the hovered or selected card; it draws above the details, and a field in the
 details gets the letter instead. While the palette is aimed at a card, a group or several cards, **Esc**
@@ -587,7 +589,10 @@ folders it points at) and a free body. The notes palette gains a **Scratchpad** 
 the card menu's **Scratchpad…**, from a group's **Scratchpad** button, or beside Notes. It shows
 the page's file, its refs and a multi-line box; **Ctrl+Enter** or **Save** writes the body. An
 **Edit | Preview** switch sits over the box: Edit, the default, is the box, and Preview draws its
-text, saved or not, as Markdown (see **Markdown** below). Text
+text, saved or not, as Markdown (see **Markdown** below). **Ctrl+Shift+V** (VS Code's preview key) flips
+the switch from the box or anywhere else in the palette on that tab: to Edit it puts the cursor at the end
+of the text, to Preview it keeps the palette's keys working; in the box it would only paste, as Ctrl+V does,
+and off the tab it is the browser's. The two buttons show the key (`Cmd+Shift+V` on a Mac, where Cmd works as Ctrl). Text
 you have not saved stays in the page until you reload it. The kanban never deletes a page: the
 delete popup's **Its scratchpad** box is unticked, and only ticking it removes the page. Without a
 `scratchpad:` line nothing of this shows.

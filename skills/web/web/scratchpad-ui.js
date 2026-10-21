@@ -19,7 +19,14 @@
 // menuSubject, hideContextMenu, openNotes, notesLabel, notesTextNodes, markdownInto,
 // settingsFeatureNodes, settingsAddBoardPage.
 
-const scratchUi = { drafts: new Map(), saving: false };
+const scratchUi = { drafts: new Map(), saving: false, toggle: null };
+
+// The key as this platform names it: Cmd on a Mac, Ctrl elsewhere. Both are read by scratchPreviewKey.
+function scratchKeyName() {
+  const nav = typeof navigator === 'undefined' ? null : navigator;
+  const platform = nav ? (nav.userAgentData && nav.userAgentData.platform) || nav.platform || '' : '';
+  return `${/mac/i.test(platform) ? 'Cmd' : 'Ctrl'}+Shift+V`;
+}
 
 function scratchpadOn() {
   return !!state.scratchpad;
@@ -34,6 +41,19 @@ function scratchEl(tag, className, text) {
   if (className) el.className = className;
   if (text !== undefined) el.textContent = text;
   return el;
+}
+
+// Ctrl+Shift+V (VS Code's preview key) switches the open Scratchpad tab between Edit and Preview, from the
+// box or anywhere else in the palette: notesOnPaletteKey hands it every key. In a plain text box it pastes
+// as Ctrl+V does, so taking it costs nothing; on any other tab, with the page not yet loaded or with any
+// other modifier it is the browser's.
+function scratchPreviewKey(e) {
+  if (!e.key || e.key.toLowerCase() !== 'v' || !(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || e.repeat) return false;
+  if (notesUi.tab !== 'scratch' || !scratchUi.toggle) return false;
+  if (!scratchUi.toggle()) return false;
+  e.preventDefault();
+  e.stopPropagation();
+  return true;
 }
 
 // The panel of the palette's Scratchpad tab for one card or group id.
@@ -62,12 +82,19 @@ function scratchPanel(target) {
   modes.setAttribute('aria-label', 'Edit or preview');
   const edit = scratchEl('button', 'sp-mode on', 'Edit');
   const preview = scratchEl('button', 'sp-mode', 'Preview');
-  for (const b of [edit, preview]) b.type = 'button';
+  const keyName = scratchKeyName();
+  for (const b of [edit, preview]) {
+    b.type = 'button';
+    b.title = `${b.textContent} (${keyName})`;
+    b.dataset.key = keyName; // drawn after the name by the stylesheet, with an empty alternative text: the button's name stays its text
+    b.setAttribute('aria-keyshortcuts', 'Control+Shift+V Meta+Shift+V');
+  }
   edit.setAttribute('aria-pressed', 'true');
   preview.setAttribute('aria-pressed', 'false');
   preview.disabled = true;
   modes.append(edit, preview);
-  const showPreview = (on) => {
+  const showPreview = (on, byKey) => {
+    const typing = document.activeElement === text;
     text.hidden = on;
     view.hidden = !on;
     if (on) markdownInto(view, text.value); // after it is shown: a diagram is measured where it is drawn
@@ -75,8 +102,22 @@ function scratchPanel(target) {
     preview.classList.toggle('on', on);
     edit.setAttribute('aria-pressed', String(!on));
     preview.setAttribute('aria-pressed', String(on));
-    if (!on && !text.disabled) text.focus({ preventScroll: true });
+    if (on && typing) view.focus({ preventScroll: true }); // the hidden box held the focus: the palette's keys need it somewhere inside
+    if (!on && !text.disabled) {
+      text.focus({ preventScroll: true });
+      if (byKey) text.setSelectionRange(text.value.length, text.value.length);
+    }
   };
+  const toggle = () => {
+    if (!wrap.isConnected) { // the palette dropped this panel (the gear turned the scratchpad off): the key is the browser's again
+      if (scratchUi.toggle === toggle) scratchUi.toggle = null;
+      return false;
+    }
+    if (preview.disabled) return false;
+    showPreview(view.hidden, true);
+    return true;
+  };
+  scratchUi.toggle = toggle;
   edit.addEventListener('click', () => showPreview(false));
   preview.addEventListener('click', () => showPreview(true));
   const status = scratchEl('span', 'sp-status');
