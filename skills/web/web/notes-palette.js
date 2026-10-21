@@ -18,7 +18,8 @@
 // and Group; the Group tab (groups-ui.js groupPanel) edits the group and lists its members and,
 // like the notes list, belongs to the same surface. With the logbook off a group still opens, on its
 // Group tab alone. A card or group of a board that keeps scratchpads has a third tab, Scratchpad
-// (scratchpad-ui.js scratchPanel), and a card opens on it alone when the logbook is off. Several
+// (scratchpad-ui.js scratchPanel), and a Todos tab after it on a board that keeps todo lists (todos-ui.js
+// todosPanel); a card opens on those alone when the logbook is off. Several
 // cards at once are the subject "each": one note is written on every card.
 //
 // Keys. In the box: Enter writes the note and keeps the palette open for the next, Shift+Enter
@@ -34,7 +35,7 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
-// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, wireDatePickButton, attachCombobox, loadViewMode,
+// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, todosOn, todosPanel, todosHints, todosOnBoard, wireDatePickButton, attachCombobox, loadViewMode,
 // loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, and notes.js's and groups.js's functions.
 
 const notesUi = {
@@ -397,18 +398,18 @@ const notesGrow = () => notesGrowBox(notesUi.input);
 // ({ kind: 'card-notes', id }), a day's slot or untimed box, a card or group to write on
 // ({ target }), or nothing ({}) to start on the card last noted.
 function openNotes(req) {
-  if (!notesOn() && !state.groups && !scratchpadOn()) return;
+  if (!notesOn() && !state.groups && !scratchpadOn() && !todosOn()) return;
   notesBuild();
   const u = notesUi;
   const ctx = notesCtx();
   const sub = noteSubjectFrom(req || {}, { today: ctx.today, isGroup: (id) => notesGroup(id) !== null });
   if (sub.kind === 'card' && !notesCard(sub.id)) return;
   if (sub.kind === 'group' && !notesGroup(sub.id)) return;
-  if (!notesOn() && sub.kind !== 'group' && !(sub.kind === 'card' && scratchpadOn())) return;
+  if (!notesOn() && sub.kind !== 'group' && !(sub.kind === 'card' && (scratchpadOn() || todosOn()))) return;
   const same = u.sub && JSON.stringify(u.sub) === JSON.stringify(sub);
   if (!u.sub && document.activeElement && !u.el.contains(document.activeElement)) u.opener = document.activeElement;
   u.sub = sub;
-  u.tab = req && req.kind === 'group' ? 'group' : req && req.kind === 'scratchpad' ? 'scratch' : same ? u.tab : 'notes';
+  u.tab = req && req.kind === 'group' ? 'group' : req && req.kind === 'scratchpad' ? 'scratch' : req && req.kind === 'todos' ? 'todos' : same ? u.tab : 'notes';
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (!same) {
     u.written = [];
@@ -429,9 +430,10 @@ function openNotes(req) {
 }
 
 // The tabs a subject has (notes.js noteTabs): Notes (when the board keeps a logbook), a group's
-// Group tab, and the Scratchpad of a card or group (when the board keeps scratchpads).
+// Group tab, the Scratchpad of a card or group (when the board keeps scratchpads) and its Todos (when
+// the board keeps todo lists).
 function notesTabs() {
-  return noteTabs(notesUi.sub, { notesOn: notesOn(), scratchpadOn: scratchpadOn() });
+  return noteTabs(notesUi.sub, { notesOn: notesOn(), scratchpadOn: scratchpadOn(), todosOn: todosOn() });
 }
 
 function notesSetTab(tab) {
@@ -558,7 +560,8 @@ function notesPaint() {
   const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
   if (panel) {
     notesPaintBody();
-    u.foot.replaceChildren(...(u.tab === 'scratch' ? [hint('Ctrl+↵', 'save')] : []), hint('Esc', 'close'));
+    const hints = u.tab === 'scratch' ? [hint('Ctrl+↵', 'save'), hint('Esc', 'close')] : u.tab === 'todos' ? todosHints().map(([key, what]) => hint(key, what)) : [hint('Esc', 'close')];
+    u.foot.replaceChildren(...hints);
     return;
   }
   notesPaintPreview();
@@ -571,7 +574,7 @@ function notesPaintTabs() {
   const u = notesUi;
   const tabs = notesTabs();
   u.tabsEl.hidden = tabs.length < 2;
-  const names = { notes: 'Notes', group: 'Group', scratch: 'Scratchpad' };
+  const names = { notes: 'Notes', group: 'Group', scratch: 'Scratchpad', todos: 'Todos' };
   u.tabsEl.replaceChildren(...tabs.map((t) => {
     const key = `Alt+${tabs.indexOf(t) + 1}`;
     const b = notesButton(`np-tab${t === u.tab ? ' on' : ''}`, names[t], `${names[t]} (${key})`, () => notesSetTab(t));
@@ -613,6 +616,8 @@ function notesPaintBody() {
     u.body.replaceChildren(groupPanel(u.sub.id));
   } else if (u.tab === 'scratch') {
     u.body.replaceChildren(scratchPanel(u.sub.id));
+  } else if (u.tab === 'todos') {
+    u.body.replaceChildren(todosPanel(u.sub.id));
   } else {
     u.body.replaceChildren(notesList());
   }
@@ -1140,9 +1145,10 @@ function notesOnBoard() {
   if (!u.sub) return;
   const sub = u.sub;
   const missing = (sub.kind === 'card' && !notesCard(sub.id)) || (sub.kind === 'group' && !notesGroup(sub.id));
-  if (missing || (!notesOn() && sub.kind !== 'group')) { notesClose(); return; }
+  if (missing || (!notesOn() && sub.kind !== 'group' && !(sub.kind === 'card' && (scratchpadOn() || todosOn())))) { notesClose(); return; }
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (u.tab === 'scratch') return; // the page being written is not redrawn under the person's hands
+  if (u.tab === 'todos') { todosOnBoard(); return; } // the list is read again, and redrawn only when it changed
   if (u.tab === 'group') {
     if (groupSignature(notesGroup(sub.id)) === u.groupSig) return;
     const typing = document.activeElement && u.body.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);

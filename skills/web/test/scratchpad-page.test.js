@@ -44,7 +44,7 @@ test('the page keeps what the board payload says in state.scratchpad, seeded nul
 });
 
 test('the palette takes its tabs from noteTabs and draws the Scratchpad tab from scratchPanel', () => {
-  assert.match(palette, /return noteTabs\(notesUi\.sub, \{ notesOn: notesOn\(\), scratchpadOn: scratchpadOn\(\) \}\);/);
+  assert.match(palette, /return noteTabs\(notesUi\.sub, \{ notesOn: notesOn\(\), scratchpadOn: scratchpadOn\(\), todosOn: todosOn\(\) \}\);/);
   assert.match(palette, /scratch: 'Scratchpad'/);
   assert.match(palette, /u\.tab === 'scratch'\) \{\s*u\.body\.replaceChildren\(scratchPanel\(u\.sub\.id\)\)/);
   assert.match(palette, /req\.kind === 'scratchpad' \? 'scratch'/);

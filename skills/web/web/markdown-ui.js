@@ -24,6 +24,7 @@ const codeBlocks = kanbanCodeBlocks.createCodeBlocks({
 function markdownInto(el, text, opts) {
   const board = { board: state.projectName };
   el.innerHTML = opts && opts.inline ? mdInlineToHtml(text || '', board) : mdToHtml(text || '', board);
+  if (opts && opts.inline) return; // one line holds no typed block
   // Colour and diagrams for typed blocks: only ever an addition to the text just drawn, so
   // whatever goes wrong there leaves the plain body.
   try { codeBlocks.enhance(el); } catch (e) { console.error(e); }

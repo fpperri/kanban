@@ -45,7 +45,7 @@ async function open({ groups = null, innerWidth = 1600, innerHeight = 900 } = {}
 
 // --- the markup -------------------------------------------------------------------------------
 
-test('the menu is Peek, Add note…, Add child…, a separator, Edit, Group, Explore, Scratchpad…, Add to selection, a separator, Archive, Restore, Delete', async () => {
+test('the menu is Peek, Add note…, Add child…, a separator, Edit, Group, Explore, Scratchpad…, Todos…, Add to selection, a separator, Archive, Restore, Delete', async () => {
   const p = await open();
   const rows = p.menu.root.children.map((c) => (c.classes.includes('ctx-sep') ? '---' : c.classes.includes('ctx-sub') ? `${c.children[0].id}[${c.children[1].children.map((b) => b.id).join(',')}]` : c.id));
   assert.deepStrictEqual(rows, [
@@ -53,7 +53,7 @@ test('the menu is Peek, Add note…, Add child…, a separator, Edit, Group, Exp
     'ctx-edit[ctx-assign,ctx-priority,ctx-tags,ctx-schedule]',
     'ctx-group[ctx-group-add,ctx-group-make]',
     'ctx-explore[ctx-isolate,ctx-tree,ctx-path]',
-    'ctx-scratch', 'ctx-add', '---', 'ctx-archive', 'ctx-restore', 'ctx-delete',
+    'ctx-scratch', 'ctx-todos', 'ctx-add', '---', 'ctx-archive', 'ctx-restore', 'ctx-delete',
   ]);
 });
 
