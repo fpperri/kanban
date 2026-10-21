@@ -463,7 +463,11 @@ line. A leading `10:30` sets that note's time, a leading `-` makes it untimed, a
 `#22` aims it at another card; the line under the box says exactly what Enter will write. The
 list below groups the notes by day and card, newest first, with a filter field of its own
 (`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a
-note written in the palette stays listed whatever they say. On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
+note written in the palette stays listed whatever they say. A **Grouped | Timeline** switch
+beside them, remembered per board, changes the list's shape: Timeline is one flat list, days
+newest first and inside a day the timed notes in time order, then the untimed ones, each row
+naming its card (a link to it, or "no card"); the filter, the switches and the keys work on it
+as on the grouped one. On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
 it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 **Scratchpad** — with a `scratchpad:` line in `config.yaml`, a card or a group has a disposable

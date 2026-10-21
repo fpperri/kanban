@@ -255,5 +255,32 @@ module.exports = {
     await key('Enter');
     check('notes: a note is written at the typed time', await written('7', 'typed a time') && (await ev(notesOf('7'))).includes('today|08:05|@human|typed a time'), await ev(notesOf('7')));
     check('notes: and a time the person typed stays after the write', await ev(`${q('.np-time')}.value`) === '08:05');
+
+    // --- the Grouped | Timeline switch -------------------------------------------------------------------------
+    const LAYOUT_BTNS = `[...document.querySelectorAll('#notes-palette .np-layout-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
+    const pickLayout = async (layout) => { const p = await centre(`#notes-palette .np-by-btn[data-layout="${layout}"]`); await click(p.x, p.y); };
+    check('notes: the filter row holds a Grouped and Timeline switch, Grouped pressed', JSON.stringify(await ev(LAYOUT_BTNS)) === JSON.stringify(['Grouped*', 'Timeline']), await ev(LAYOUT_BTNS));
+    const rowsBefore = await ev(ROW_TEXTS);
+    await pickLayout('timeline');
+    check('notes: Timeline presses its button and lists the same notes', await waitFor(`JSON.stringify(${LAYOUT_BTNS})===${JSON.stringify(JSON.stringify(['Grouped', 'Timeline*']))}`, 2500) && (await ev(ROW_TEXTS)).length === rowsBefore.length, await ev(LAYOUT_BTNS));
+    await shot('palette-timeline');
+    check('notes: it is a flat list, one block per day, newest day first', await ev(`(()=>{const g=[...document.querySelectorAll('#notes-palette .np-ngroup')];const days=g.map((x)=>x.dataset.day);return g.length>=2&&g.every((x)=>x.classList.contains('np-tgroup'))&&days.every((d,i)=>i===0||days[i-1]>d)})()`));
+    check('notes: inside a day the timed notes come in time order and the untimed ones last', await ev(`[...document.querySelectorAll('#notes-palette .np-tgroup')].every((g)=>{const t=[...g.querySelectorAll('.np-note-time')].map((e)=>e.classList.contains('untimed')?'99:99':e.textContent);return t.every((v,i)=>i===0||t[i-1]<=v)})`));
+    check('notes: every row names its card', await ev(`[...document.querySelectorAll('#notes-palette .np-note')].every((r)=>r.querySelector('.np-note-card').textContent==='#7 Port the zephyr schema')`));
+    await ev(`${q('.np-input')}.focus()`);
+    await key('ArrowDown');
+    check('notes: the down arrow still moves from the note box into the list', await waitFor(`document.activeElement.classList.contains('np-note')`, 2000));
+    await ev(`(()=>{const f=${q('.np-filter')};f.value='enum';f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    check('notes: the filter narrows the flat list too', await waitFor(`${ROW_TEXTS}.length===1&&${ROW_TEXTS}[0].includes('enum renames')`, 2500), await ev(ROW_TEXTS));
+    await ev(`(()=>{const f=${q('.np-filter')};f.value='';f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    check('notes: Esc closes the palette', await closePalette());
+    await open('/?view=board');
+    check('notes: the board is drawn again after a reload', await boardReady());
+    check('notes: the pointer rests on card 7 once more', await hoverCard('7'));
+    await key('n');
+    check('notes: the board remembers Timeline across a reload', await palUp() && JSON.stringify(await ev(LAYOUT_BTNS)) === JSON.stringify(['Grouped', 'Timeline*']), await ev(LAYOUT_BTNS));
+    await pickLayout('grouped');
+    check('notes: Grouped brings the sections back', await waitFor(`document.querySelectorAll('#notes-palette .np-tgroup').length===0&&document.querySelectorAll('#notes-palette .np-ngroup').length>=2`, 2500));
+    await closePalette();
   },
 };

@@ -24,6 +24,8 @@ const NOTE_IDS = (typeof module !== 'undefined' && module.exports) ? require('./
 const NOTE_COLUMN_STATE = (typeof module !== 'undefined' && module.exports) ? require('./column-state') : window;
 
 const NOTE_LAST_FEATURE = 'lastnoted';
+const NOTE_LAYOUT_FEATURE = 'notes.layout';
+const NOTE_LAYOUTS = ['grouped', 'timeline'];
 const NOTE_LINE_TIME = /^(\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
 const NOTE_FIELD_TIME = /^(\d{1,2})[:.]?(\d{2})$/;
 
@@ -268,6 +270,27 @@ function noteGroups(notes, o = {}) {
   return list;
 }
 
+// The same notes as one flat list per day, for the palette's Timeline switch: newest day first, and
+// within a day the timed notes in time order, then the untimed ones. Two notes at one time go the way
+// noteGroups orders their targets: the one the palette is on first, then by id, nothing last.
+function noteTimeline(notes, o = {}) {
+  const days = new Map();
+  for (const n of notes) {
+    if (!days.has(n.day)) days.set(n.day, { day: n.day, notes: [] });
+    days.get(n.day).notes.push(n);
+  }
+  const rank = (t) => (t === o.first ? 0 : t === '' ? 2 : 1);
+  const when = (n) => n.at || '99:99';
+  const list = [...days.values()].sort((a, b) => (a.day === b.day ? 0 : a.day < b.day ? 1 : -1));
+  for (const d of list) {
+    d.notes.sort((a, b) => (when(a) < when(b) ? -1 : when(a) > when(b) ? 1 : 0)
+      || rank(a.target) - rank(b.target)
+      || (a.target === b.target ? 0 : NOTE_IDS.compareIds(a.target, b.target))
+      || a.index - b.index);
+  }
+  return list;
+}
+
 function noteCounts(notes) {
   const counts = new Map();
   for (const n of notes) counts.set(n.target, (counts.get(n.target) || 0) + 1);
@@ -303,9 +326,23 @@ function noteLastSave(storage, projectName, id) {
   catch (e) { /* storage unavailable/full: it just won't persist this session */ }
 }
 
+// The list's layout, Grouped or Timeline, kept in this browser per board; anything else is Grouped.
+function noteLayoutLoad(storage, projectName) {
+  let saved = null;
+  try { saved = storage.getItem(NOTE_COLUMN_STATE.storageKey(projectName, NOTE_LAYOUT_FEATURE)); }
+  catch (e) { saved = null; }
+  return NOTE_LAYOUTS.includes(saved) ? saved : 'grouped';
+}
+
+function noteLayoutSave(storage, projectName, layout) {
+  if (!NOTE_LAYOUTS.includes(layout)) return;
+  try { storage.setItem(NOTE_COLUMN_STATE.storageKey(projectName, NOTE_LAYOUT_FEATURE), layout); }
+  catch (e) { /* storage unavailable/full: it just won't persist this session */ }
+}
+
 const NOTES_EXPORTS = {
   noteFieldTime, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectCleared, noteSubjectNotes,
-  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave,
+  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -4,9 +4,10 @@
 // aimed at a card; with nothing aimed at it opens on the card last noted. Rows, top down:
 // the subject row (the chip that says what it is about, the time field, the untimed tick),
 // the note box, the preview line that says what Enter will write, the filter row (the
-// filter field, and beside it the All, Human and AI switch on a note's author), then the
-// notes list, grouped by day and card, newest day first. The filter field reads `by:@handle`
-// too; a note written in this palette stays listed whatever the filter and the switch say.
+// filter field, and beside it the Grouped or Timeline switch and the All, Human and AI switch on
+// a note's author), then the notes list, newest day first: Grouped by day and card, or Timeline,
+// one flat list per day by time with each row naming its card. The filter field reads `by:@handle`
+// too; a note written in this palette stays listed whatever the filter and the switches say.
 //
 // A group is a subject too (docs/adr/0015): a badge on a card, a mention of a group's id and the
 // right-click Add note... on a selection aim the palette at it. A group's palette has a tab row, Notes
@@ -33,7 +34,7 @@
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
-  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', body: null, foot: null, timeTyped: false,
+  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null, timeTyped: false,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
@@ -77,8 +78,20 @@ function notesLastNoted() {
   return notesUi.last && notesCard(notesUi.last) ? notesUi.last : '';
 }
 
+// The list's layout, kept in this browser per board.
+function notesLayout() {
+  const u = notesUi;
+  if (u.layoutFor !== state.projectName) {
+    const storage = prefsStorage();
+    u.layout = storage ? noteLayoutLoad(storage, state.projectName) : 'grouped';
+    u.layoutFor = state.projectName;
+  }
+  return u.layout;
+}
+
 const notesCtx = () => ({ today: localTodayStr(), now: noteClock(new Date()), lastNoted: notesLastNoted() });
 const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked });
+const NOTES_LAYOUTS = [['grouped', 'Grouped', 'The notes grouped by day and card'], ['timeline', 'Timeline', 'One list of the notes by day and time, each naming its card']];
 const NOTES_BY = [['all', 'All', 'Every note'], ['human', 'Human', 'Notes by a human'], ['ai', 'AI', 'Notes by an AI, or by a handle the board does not list']];
 const notesKey = (n) => `${n.day}|${n.target}|${n.at || ''}|${n.note}|${n.by}`;
 
@@ -245,8 +258,17 @@ function notesBuild() {
     return b;
   });
   u.bySlot.append(...u.byBtns);
+  u.layoutSlot = notesEl('span', 'np-by-slot np-layout-slot');
+  u.layoutSlot.setAttribute('role', 'group');
+  u.layoutSlot.setAttribute('aria-label', 'List layout');
+  u.layoutBtns = NOTES_LAYOUTS.map(([layout, text, title]) => {
+    const b = notesButton('np-by-btn', text, title, () => notesSetLayout(layout));
+    b.dataset.layout = layout;
+    return b;
+  });
+  u.layoutSlot.append(...u.layoutBtns);
   const filterRow = notesEl('div', 'np-filter-row');
-  filterRow.append(u.filter, u.bySlot);
+  filterRow.append(u.filter, u.layoutSlot, u.bySlot);
   u.filterRow = filterRow;
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
@@ -459,10 +481,21 @@ function notesSetBy(by) {
   notesPaintBody();
 }
 
+function notesSetLayout(layout) {
+  const u = notesUi;
+  u.layout = layout;
+  u.layoutFor = state.projectName;
+  const storage = prefsStorage();
+  if (storage) noteLayoutSave(storage, state.projectName, layout);
+  u.hi = -1;
+  notesPaintBody();
+}
+
 function notesPaintBody() {
   const u = notesUi;
   if (!u.sub) return;
   for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
+  for (const b of u.layoutBtns) b.setAttribute('aria-pressed', String(b.dataset.layout === notesLayout()));
   const scroll = u.body.scrollTop;
   u.editing = 0; // the rows are built anew: none is being edited
   if (u.tab === 'group') {
@@ -494,14 +527,29 @@ function notesList() {
   const today = localTodayStr();
   const multiDay = new Set(notes.map((n) => n.day)).size > 1;
   const wrap = notesEl('div', 'np-notes');
-  for (const section of noteGroups(notes, { first: sub.kind === 'card' || sub.kind === 'group' ? sub.id : null })) {
+  const first = sub.kind === 'card' || sub.kind === 'group' ? sub.id : null;
+  if (notesLayout() === 'timeline') {
+    for (const day of noteTimeline(notes, { first })) {
+      const block = notesEl('section', 'np-ngroup np-tgroup');
+      block.dataset.day = day.day;
+      if (multiDay || day.day !== today) {
+        const head = notesEl('div', 'np-nhead');
+        head.append(notesEl('span', 'np-nday', notesDayText(day.day, today)), notesEl('span', 'np-nhead-count', String(day.notes.length)));
+        block.append(head);
+      }
+      for (const n of day.notes) {
+        const row = notesRow(n, true);
+        if (fresh.has(notesKey(n))) row.classList.add('np-new');
+        block.append(row);
+      }
+      wrap.append(block);
+    }
+    return wrap;
+  }
+  for (const section of noteGroups(notes, { first })) {
     const head = notesEl('div', 'np-nhead');
-    head.append(!notesCard(section.target) && !notesGroup(section.target)
-      ? notesEl('span', 'np-nhead-label', notesLabel(section.target))
-      : notesButton('np-nhead-label', notesLabel(section.target), notesLabel(section.target), () => {
-        if (notesCard(section.target)) { notesClose(); openCard(section.target); } else openNotes({ kind: 'group', gid: section.target });
-      }));
-    if (multiDay || section.day !== today) head.append(notesEl('span', 'np-nday', `${noteDayName(section.day)}${section.day === today ? ' · today' : ''}`));
+    head.append(notesTargetLabel(section.target, 'np-nhead-label'));
+    if (multiDay || section.day !== today) head.append(notesEl('span', 'np-nday', notesDayText(section.day, today)));
     head.append(notesEl('span', 'np-nhead-count', String(section.notes.length)));
     const block = notesEl('section', 'np-ngroup');
     block.dataset.day = section.day;
@@ -517,10 +565,22 @@ function notesList() {
   return wrap;
 }
 
+const notesDayText = (day, today) => `${noteDayName(day)}${day === today ? ' · today' : ''}`;
+
+// A card or group as a heading or a row names it: a link that opens the card (or the group's notes),
+// plain text for a note about nothing or about an id the board no longer has.
+function notesTargetLabel(target, className) {
+  if (!notesCard(target) && !notesGroup(target)) return notesEl('span', className, notesLabel(target));
+  return notesButton(className, notesLabel(target), notesLabel(target), () => {
+    if (notesCard(target)) { notesClose(); openCard(target); } else openNotes({ kind: 'group', gid: target });
+  });
+}
+
 // ---------- one note ----------
 
-function notesRow(note) {
-  const row = notesEl('div', 'np-note');
+// `named`: the timeline's row, which says which card or group it is about.
+function notesRow(note, named = false) {
+  const row = notesEl('div', `np-note${named ? ' np-tl' : ''}`);
   row.tabIndex = -1;
   row.dataset.day = note.day;
   row.dataset.target = note.target;
@@ -547,7 +607,7 @@ function notesRow(note) {
         notesDo('DELETE', '/api/notes', { ref: noteRef(note) }, row);
       }),
     );
-    row.replaceChildren(time, by, text, acts);
+    row.replaceChildren(...(named ? [time, by, notesTargetLabel(note.target, 'np-note-card'), text, acts] : [time, by, text, acts]));
   };
   const enter = () => {
     if (!row.classList.contains('editing')) { row.classList.add('editing'); notesUi.editing += 1; }

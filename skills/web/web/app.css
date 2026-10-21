@@ -1835,8 +1835,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .np-prev.idle .np-prev-text { color: var(--mut); }
 .np-prev.bad { color: var(--crit); }
 .np-prev.bad .np-prev-key { color: var(--crit); border-color: var(--crit); }
-.np-filter-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px 0; }
-.np-filter { flex: 1 1 auto; min-width: 0; padding: 5px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.85em; }
+.np-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px 0; }
+.np-filter { flex: 1 1 8em; min-width: 0; padding: 5px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.85em; }
 .np-by-slot { display: inline-flex; flex: 0 0 auto; border: 1px solid var(--line-soft); border-radius: .15rem; overflow: hidden; }
 .np-by-btn { padding: 4px 9px; border: 0; border-left: 1px solid var(--line-soft); border-radius: 0; background: transparent; color: var(--mut); font: inherit; font-size: 0.8em; cursor: pointer; }
 .np-by-btn:first-child { border-left: 0; }
@@ -1854,6 +1854,11 @@ button.np-nhead-label:hover { color: var(--accent); }
 .np-note { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr) auto; align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
 .np-note:hover, .np-note:focus-within { background: var(--hover-wash); }
 .np-note:focus { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
+.np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 11em) minmax(0, 1fr) auto; }
+.np-note.np-tl .np-note-by:empty { display: block; }
+.np-note-card { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--mut); font: inherit; text-align: left; }
+button.np-note-card { cursor: pointer; }
+button.np-note-card:hover { color: var(--accent); }
 .np-note.editing { display: block; background: var(--raised); }
 .np-note-time { color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; white-space: nowrap; }
 .np-note-time.untimed { font-style: italic; font-family: inherit; }

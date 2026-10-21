@@ -1144,8 +1144,12 @@ to `127.0.0.1` only.
   subject row (a chip that says what the palette is about, a time field and an *untimed*
   tick), the note box, the preview line that says exactly what Enter will write (`Note at
   10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
-  All, Human and AI switch beside it) and the list of notes, grouped by day and card, newest day
-  first, each with its time and its author, the human's included. **Enter** writes the
+  All, Human and AI switch beside it, and a **Grouped | Timeline** switch, kept per board in
+  this browser as `notes.layout`) and the list of notes, grouped by day and card, newest day
+  first, each with its time and its author, the human's included. Timeline is the same notes as
+  one flat list (`noteTimeline`, notes.js): days newest first, inside a day the timed notes in
+  time order and then the untimed ones, each row naming its card with the link a group heading
+  has (`no card` for none); a day line shows where the grouped list shows one. **Enter** writes the
   note at the time field's time (now, to start with) and keeps the palette open for the next;
   the field then goes back to now (or to the slot's time, when the palette was opened on a
   slot) unless a time was typed into it;

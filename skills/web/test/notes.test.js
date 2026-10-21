@@ -179,6 +179,29 @@ test('the list groups notes by day then target, newest day first, the chip\'s ta
   ]);
 });
 
+test('the timeline is one flat list per day, newest day first, the timed notes in time order and then the untimed ones', () => {
+  const note = (day, target, at, text, index = 0) => ({ day, target, at, by: '@human', note: text, index, file: 'f' });
+  const days = n.noteTimeline([
+    note('2026-10-15', '7', '10:00', 'old'), note('2026-10-16', '22', '09:40', 'c'), note('2026-10-16', '', null, 'free'),
+    note('2026-10-16', '7', null, 'untimed'), note('2026-10-16', '7', '09:10', 'a'), note('2026-10-16', 'G3', '07:00', 'g'),
+  ]);
+  assert.deepStrictEqual(days.map((d) => [d.day, d.notes.map((x) => x.note)]), [
+    ['2026-10-16', ['g', 'a', 'c', 'untimed', 'free']],
+    ['2026-10-15', ['old']],
+  ]);
+});
+
+test('in the timeline two notes at one time keep the chip\'s target first, then the id order, then the file order', () => {
+  const note = (target, text, index = 0) => ({ day: '2026-10-16', target, at: '09:00', by: '@human', note: text, index, file: 'f' });
+  const order = (first) => n.noteTimeline([note('G3', 'g'), note('7', 'b', 1), note('7', 'a', 0), note('', 'none'), note('22', 'c')], { first })[0].notes.map((x) => x.note);
+  assert.deepStrictEqual(order(null), ['a', 'b', 'c', 'g', 'none']);
+  assert.deepStrictEqual(order('22'), ['c', 'a', 'b', 'g', 'none']);
+});
+
+test('the timeline of no notes is no days', () => {
+  assert.deepStrictEqual(n.noteTimeline([]), []);
+});
+
 test('the filter narrows by every word, in the text or the card\'s label, without regard to case', () => {
   const note = (target, text) => ({ day: '2026-10-16', target, at: '09:00', by: '@human', note: text, index: 0, file: 'f' });
   const all = [note('7', 'Renamed ORDER_STATE'), note('22', 'order cutover'), note('', 'standup')];
@@ -270,4 +293,20 @@ test('the card last noted is kept in the browser per board and a bad value is no
   assert.strictEqual(n.noteLastLoad(storage, 'plan'), '');
   assert.strictEqual(n.noteLastLoad({ getItem() { throw new Error('blocked'); } }, 'plan'), '');
   n.noteLastSave({ setItem() { throw new Error('full'); } }, 'plan', '22');
+});
+
+test('the palette\'s layout, Grouped or Timeline, is kept in the browser per board and anything else reads as Grouped', () => {
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'grouped');
+  n.noteLayoutSave(storage, 'plan', 'timeline');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'timeline');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'other'), 'grouped');
+  assert.strictEqual(store.get('kanban.plan.notes.layout'), 'timeline');
+  n.noteLayoutSave(storage, 'plan', 'sideways');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'timeline', 'a layout that is not one is not saved');
+  store.set('kanban.plan.notes.layout', 'sideways');
+  assert.strictEqual(n.noteLayoutLoad(storage, 'plan'), 'grouped');
+  assert.strictEqual(n.noteLayoutLoad({ getItem() { throw new Error('blocked'); } }, 'plan'), 'grouped');
+  n.noteLayoutSave({ setItem() { throw new Error('full'); } }, 'plan', 'timeline');
 });
