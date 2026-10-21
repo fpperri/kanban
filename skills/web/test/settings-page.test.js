@@ -200,7 +200,10 @@ function loadPages(over = {}) {
   sandbox.run = (code) => vm.runInContext(code, sandbox);
   sandbox.calls = calls;
   sandbox.page = (id) => { const nodes = sandbox.run(`settingsBoardPages.find((p) => p.id === ${JSON.stringify(id)}).build(state.settings)`); const root = new El('div'); root.append(...nodes); return root; };
-  sandbox.settle = async () => { await sandbox.run('settingsUi.tail'); };
+  sandbox.settle = async () => {
+    await sandbox.run('settingsUi.tail');
+    while (sandbox.run('settingsUi.sending') > 0) await new Promise((r) => setImmediate(r));
+  };
   return sandbox;
 }
 const area = (root, which) => root.one((el) => el.tag === 'ul' && el.dataset.area === which);
@@ -539,6 +542,7 @@ test('the Types switch off writes typesOn false with the version; the hint says 
 
 test('a 409 reads the board again and shows one note saying nothing was saved and why; a 400 shows its message under the row', async () => {
   const ctx = loadPages();
+  ctx.loadBoard = async () => { ctx.reads += 1; ctx.state.settings.version = 'v2'; };
   ctx.fail = { status: 409, message: 'config.yaml changed on disk' };
   await act(rowNamed(ctx.page('types'), 'goal'), 'down').fire('click');
   await ctx.settle();
@@ -553,6 +557,49 @@ test('a 409 reads the board again and shows one note saying nothing was saved an
   assert.strictEqual(ctx.reads, 1, 'a 400 does not read again');
   const row = rowNamed(ctx.page('types'), 'goal');
   assert.strictEqual(row.one(byClass('prefs-error')).textContent, 'The icon of goal is one of circle.');
+});
+
+test('a line save from the gear carries the version too, and one refused as stale reads the board again and shows the one note', async () => {
+  const ctx = loadPages();
+  const logbook = ctx.page('logbook');
+  const folder = logbook.one((el) => el.tag === 'input' && el.id === 'pf-logbook');
+  folder.value = 'notes';
+  await logbook.one((el) => el.tag === 'form').fire('submit');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2])), { key: 'logbook', value: 'notes', version: 'v1' });
+  await logbook.one((el) => el.dataset.switch === 'logbook' && el.dataset.value === 'off').fire('click');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[1][2])), { key: 'logbook', value: null, version: 'v1' });
+  const groups = ctx.page('groups');
+  await groups.one((el) => el.dataset.switch === 'iterations' && el.dataset.value === 'on').fire('click');
+  assert.strictEqual(ctx.calls[2][2].version, 'v1');
+  const prefixes = ctx.page('prefixes');
+  const digits = prefixes.one((el) => el.id === 'pf-idDigits');
+  digits.value = '6';
+  await prefixes.all((el) => el.tag === 'form').at(-1).fire('submit');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[3][2])), { key: 'idDigits', value: '6', version: 'v1' });
+  await ctx.settle();
+  const readsBefore = ctx.reads;
+  ctx.loadBoard = async () => { ctx.reads += 1; ctx.state.settings.version = 'v2'; };
+  ctx.fail = { status: 409, message: 'config.yaml changed on disk after this page read it' };
+  const again = ctx.page('prefixes');
+  again.one((el) => el.id === 'pf-idDigits').value = '7';
+  await again.all((el) => el.tag === 'form').at(-1).fire('submit');
+  await ctx.settle();
+  assert.strictEqual(ctx.reads, readsBefore + 1);
+  assert.strictEqual(ctx.run('settingsUi.errors.conflict'), settings.settingsConflictNote);
+  assert.strictEqual(ctx.run("settingsUi.errors.idDigits"), undefined, 'one note, not the server text under the field as well');
+  assert.strictEqual(ctx.run("settingsUi.drafts.idDigits"), '7', 'the typed text stays');
+});
+
+test('a 409 that is not a stale version (a locked folder) shows its own message under the control', async () => {
+  const ctx = loadPages();
+  ctx.fail = { status: 409, message: 'This folder is outside the board.' };
+  const logbook = ctx.page('logbook');
+  logbook.one((el) => el.tag === 'input' && el.id === 'pf-logbook').value = 'notes';
+  await logbook.one((el) => el.tag === 'form').fire('submit');
+  await ctx.settle();
+  assert.strictEqual(ctx.run('settingsUi.errors.conflict'), undefined);
+  assert.strictEqual(ctx.run('settingsUi.errors.logbook'), 'This folder is outside the board.');
 });
 
 test('two quick changes go one after the other, the second read from the state the first left', async () => {

@@ -64,14 +64,19 @@ function settingsPageState(id, settings, foundGroups) {
 }
 
 // A feature's switch: off removes the line, on writes the folder it has or its default.
-function settingsSwitchBody(key, on, folder) {
-  if (key === 'iterations') return { key, value: !!on };
-  if (!on) return { key, value: null };
-  return { key, value: folder && folder.trim() !== '' ? folder.trim() : SETTINGS_FOLDERS[key] };
+// Every save names the version of config.yaml the page read, so a file changed since is refused.
+function settingsWithVersion(body, version) {
+  return version === undefined ? body : { ...body, version };
 }
 
-function settingsFolderBody(key, text) {
-  return { key, value: String(text).trim() };
+function settingsSwitchBody(key, on, folder, version) {
+  if (key === 'iterations') return settingsWithVersion({ key, value: !!on }, version);
+  if (!on) return settingsWithVersion({ key, value: null }, version);
+  return settingsWithVersion({ key, value: folder && folder.trim() !== '' ? folder.trim() : SETTINGS_FOLDERS[key] }, version);
+}
+
+function settingsFolderBody(key, text, version) {
+  return settingsWithVersion({ key, value: String(text).trim() }, version);
 }
 
 // What a typed folder plainly gets wrong, before the server is asked: no folder, the board itself,
@@ -88,8 +93,8 @@ function settingsFolderProblem(text) {
   return '';
 }
 
-function settingsDigitsBody(text) {
-  return { key: 'idDigits', value: String(text).trim() };
+function settingsDigitsBody(text, version) {
+  return settingsWithVersion({ key: 'idDigits', value: String(text).trim() }, version);
 }
 
 function settingsDigitsProblem(text) {
@@ -363,7 +368,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
-  settingsPagePath, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
+  settingsPagePath, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,

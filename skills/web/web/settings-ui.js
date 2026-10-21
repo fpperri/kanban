@@ -55,8 +55,11 @@ async function settingsSend(body, draftKey, typed) {
     await loadBoard();
   } catch (e) {
     if (e.status === 409 && body.version !== undefined) {
-      settingsUi.errors = { conflict: settingsConflictNote };
+      // A 409 is a stale version when the board, read again, has another one; else it is the save's own
+      // refusal (a folder set by hand outside the board), which stays under its control.
       try { await loadBoard(); } catch (again) { settingsUi.errors[draftKey] = again.message; }
+      if (state.settings && state.settings.version !== body.version) settingsUi.errors = { conflict: settingsConflictNote };
+      else settingsUi.errors[draftKey] = e.message;
     } else {
       settingsUi.errors[draftKey] = e.message;
     }
@@ -187,14 +190,14 @@ function settingsFeatureNodes(key, label, what) {
     disabled: lock,
     set: (on) => {
       const typed = $(`#pf-${key}`);
-      settingsSend(settingsSwitchBody(key, on, typed ? typed.value : feature.folder), key);
+      settingsSend(settingsSwitchBody(key, on, typed ? typed.value : feature.folder, state.settings.version), key);
     },
   }));
   nodes.push(settingsField(key, 'Folder', feature.folder, {
     placeholder: SETTINGS_FOLDERS[key],
     disabled: !!lock,
     hint: feature.on ? 'Only the line changes; moving the files is yours to do.' : 'Saving a folder turns it on.',
-    save: (text) => settingsSave(key, text, settingsFolderProblem(text), settingsFolderBody(key, text)),
+    save: (text) => settingsSave(key, text, settingsFolderProblem(text), settingsFolderBody(key, text, state.settings.version)),
   }));
   return nodes;
 }
@@ -253,7 +256,7 @@ function settingsGroupsNodes() {
   nodes.push(settingsSwitch('iterations', 'Iterations', state.iterations, {
     disabled: st.groups.on ? null : 'Turn groups on first: iterations are groups',
     hint: 'iterations: true gives the header the iteration dropdown. Iterations are the groups in the iteration/ folder; the line is ignored while groups are off.',
-    set: (on) => settingsSend(settingsSwitchBody('iterations', on), 'iterations'),
+    set: (on) => settingsSend(settingsSwitchBody('iterations', on, undefined, state.settings.version), 'iterations'),
   }));
   nodes.push(settingsGroupsFoundNodes());
   return nodes;
@@ -717,7 +720,7 @@ function settingsPrefixesNodes() {
   nodes.push(settingsField('idDigits', 'idDigits: zero-padding in file names', String(st.idDigits), {
     numeric: true,
     hint: `A new card file is named ${settingsIdExample(st.idDigits)}.a-title.card.md. Files already named stay as they are, and every id is read by its number.`,
-    save: (text) => settingsSave('idDigits', text, settingsDigitsProblem(text), settingsDigitsBody(text)),
+    save: (text) => settingsSave('idDigits', text, settingsDigitsProblem(text), settingsDigitsBody(text, state.settings.version)),
   }));
   return nodes;
 }

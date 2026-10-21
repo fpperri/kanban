@@ -191,6 +191,14 @@ test('adding a type appends it, renaming keeps its color and icon, a change of l
   assert.strictEqual(TYPES.length, 5, 'the list given is not changed');
 });
 
+test('every line save carries the version the page read: a switch, a folder, iterations, idDigits', () => {
+  assert.deepStrictEqual(s.settingsSwitchBody('logbook', true, '', 'v1'), { key: 'logbook', value: 'logbook', version: 'v1' });
+  assert.deepStrictEqual(s.settingsSwitchBody('logbook', false, 'notes', 'v1'), { key: 'logbook', value: null, version: 'v1' });
+  assert.deepStrictEqual(s.settingsSwitchBody('iterations', true, undefined, 'v1'), { key: 'iterations', value: true, version: 'v1' });
+  assert.deepStrictEqual(s.settingsFolderBody('logbook', ' notes ', 'v1'), { key: 'logbook', value: 'notes', version: 'v1' });
+  assert.deepStrictEqual(s.settingsDigitsBody(' 6 ', 'v1'), { key: 'idDigits', value: '6', version: 'v1' });
+});
+
 test('a save is one block with the version the page read', () => {
   assert.deepStrictEqual(s.settingsBlockBody('types', [{ name: 'x' }], 'abc'), { block: 'types', value: [{ name: 'x' }], version: 'abc' });
   assert.deepStrictEqual(s.settingsBlockBody('hierarchy', [], 'abc'), { block: 'hierarchy', value: [], version: 'abc' });

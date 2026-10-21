@@ -657,6 +657,11 @@ test('a save that carries a stale version is refused with 409 and writes nothing
     assert.match(stale.json.error, /changed on disk/);
     const staleLine = await req(base, 'POST', '/api/config', { key: 'typesOn', value: false, version: v1 });
     assert.strictEqual(staleLine.status, 409);
+    for (const body of [{ key: 'idDigits', value: 6 }, { key: 'logbook', value: 'notes' }, { key: 'groups', value: null }, { key: 'iterations', value: false }]) {
+      const refused = await req(base, 'POST', '/api/config', { ...body, version: v1 });
+      assert.strictEqual(refused.status, 409, body.key);
+      assert.match(refused.json.error, /changed on disk/);
+    }
     assert.strictEqual(config(dir), edited);
     const v2 = (await req(base, 'GET', '/api/board')).json.settings.version;
     const ok = await block(base, 'types', ['goal'], v2);
