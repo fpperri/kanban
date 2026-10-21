@@ -734,9 +734,13 @@ to `127.0.0.1` only.
   phone width (`isPhoneWidth`, phone-width.js; the stylesheet's own `max-width: 759.98px` query)
   it is drawn in the flow under its row, a second tap on the row shutting it. Up and Down move the
   highlight among the entries that show (wrapping), Right or Enter on a row open its panel and
-  highlight its first entry, Left or Esc shut it and return to the row; the keys are read in the
-  capture phase while the menu is open, and Esc at the top level is the page's, which closes the
-  menu. **Add note…** shows its key as `data-hint="n"` drawn by the stylesheet, so the entry's text
+  highlight its first entry, Left or Esc shut it and return to the row, Home and End go to the first and
+  last entry of the level; the menu takes the focus when it opens (`tabindex="-1"`,
+  `menuNestFocus`) and gives it back when it closes (`menuNestRelease`), and its keys are read in the
+  capture phase only while focus is inside it, so they reach nothing behind it and nothing in a field
+  outside it; Esc at the top level is the page's, which closes the menu. The group rows carry
+  `aria-controls`, and the glyphs and hints the stylesheet draws (`content: "▸" / ""`) have empty
+  alternative text, so they are not in an accessible name. **Add note…** shows its key as `data-hint="n"` drawn by the stylesheet, so the entry's text
   is its name; no other entry shows a key. The empty Graph or Map canvas's menu is still Isolate
   alone: its group's panel stands in the menu with no row (`canvas-menu`). The conditionally-hidden items: Peek and Add to selection show only
   outside the selection (Peek is also left out of the card details' own menu), Tree and Path
@@ -1194,7 +1198,11 @@ to `127.0.0.1` only.
   arrives as an input event the browser did not make, aims the palette at that card as a bare
   mention and Enter does, keeping the note box's text; choosing *no card* (`noteSubjectNoCard`)
   makes the note about nothing whatever card was last noted, and on several cards choosing one
-  makes it the single target. A mention at the start of the note wins over the picker. The
+  makes it the single target. A mention at the start of the note wins over the picker, and so does a card id typed in the
+  picker (`22`, `#22`) on Enter or on leaving the field (`notesCommitPick`; free text stays legal,
+  ADR 0003). The menu is `attachCombobox`'s, which tells the palette of a choice through its
+  `onPick` option, and it is moved to the page and fixed under the field (`.np-pick-menu`) so the
+  palette's `overflow: hidden` never clips it. The
   **range** is `{ mode, anchor }` over the Calendar's own sub-view names (`noteRangeBounds`,
   `noteRangeStep` and `noteRangeLabel` over calendar-model.js, weeks from Monday); the ‹ and ›
   buttons step one unit and are off on All, a click on the label goes back to the range that
@@ -1255,7 +1263,8 @@ to `127.0.0.1` only.
   step; where the command is refused the text is replaced with `setRangeText` and the input event
   fired by hand. The browser's own action for a handled key is stopped, only while the box has focus
   (Ctrl+U view source, Ctrl+K and Ctrl+E the address bar). **Ctrl+M** switches Tab to moving focus
-  (VS Code's); `#text-edit-hint` shows while it is on and an attached box has focus; it is a module
+  (VS Code's); `#text-edit-hint` shows while an attached box has focus and says which Tab it is now and
+  what Ctrl+M changes (WCAG 2.1.2: Tab is never a trap); the mode is a module
   variable, kept nowhere. Enter, Shift+Enter, Ctrl+Enter and Ctrl+S are not read by these boxes'
   keys, so each keeps its own meaning (Enter writes a note, Ctrl+Enter saves a scratchpad, Ctrl+S
   saves the form); none of the new keys clashes with an existing hotkey.

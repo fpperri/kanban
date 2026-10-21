@@ -14,8 +14,9 @@
 // #notif-modal and #prefs-sheet are .modal-backdrop too, so the 'dialog' entry answers for
 // them and keyGuardSurface never names 'notifications' or 'preferences' there; those two
 // entries are a safety net behind it, for a surface that stops being a .modal-backdrop.
-// A key may name one popup that does not turn it off (`n` notes the card whose details are open):
-// it passes that popup's selector, and any other popup open besides still does.
+// A key may name one popup that does not turn it off: the notes keys (`n`, Alt+1 to Alt+3 and Esc) work over
+// the card details. They pass that popup's selector, named once in notes-palette.js, and any other popup
+// open besides still turns them off.
 //
 // Pure: callers pass the document, so Node tests drive it with a fake. Same
 // dual-environment export pattern as save-hotkey.js and search-hotkey.js.

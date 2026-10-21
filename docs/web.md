@@ -378,7 +378,9 @@ group…, Make a group from them…) and **Explore** (Isolate, Dependency tree, 
 Scratchpad… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
 Each of the three is a row marked ▸ that opens its entries in a panel beside it: hover it for a
 moment or click it. A pointer on its way to the panel across the next row does not lose it, and a
-panel with no room on the right opens on the left. Up and Down move the highlight, Right or Enter
+panel with no room on the right opens on the left. The menu takes the focus when it opens and gives it
+back when it closes, and its keys work only while focus is in it. Up and Down move the highlight
+(Home and End go to the first and last entry), Right or Enter
 on a row open its panel and highlight its first entry, Left closes the panel and returns to the
 row, and Esc closes the panel first and the menu second. On a phone the panel opens under its
 row, inside the menu. A group whose entries are all out (Group with no `groups:` line) is out
@@ -482,7 +484,8 @@ Copy button.
 details are open, else the hovered or selected card; it draws above the details, Esc closes it
 before them, and a field in the details gets the letter instead. With no card, `n` on the Calendar
 opens it on the Calendar's own mode and range (Month, Week, 3 days or Day), or on the day under the
-pointer when the pointer is over a day; anywhere else it opens on today. A card with notes wears a
+pointer when the pointer is over a day (that only chooses what is listed: the note still goes to
+today); anywhere else it opens on today. A card with notes wears a
 small count that opens its notes, and the card menu has **Add note…**.
 
 Type a note and press Enter: it is written into the card's day file and the palette stays open for
@@ -492,7 +495,9 @@ scrolls inside past that; the box a listed note is edited in grows the same way 
 the note. The subject row sets where and when the note goes: a **date** (with a picker; today, or the
 day of the hour or all-day box the palette was opened from) beside the **time**, the *untimed* tick,
 which drops the time and keeps the day, and a **card** picker, a searchable list of *no card* and the
-live cards that aims the palette at the one chosen, as typing a bare `#22` and Enter does. A leading
+live cards that aims the palette at the one chosen, as typing a bare `#22` and Enter does; a card id
+typed in it (`22` or `#22`) aims it too, on Enter or on leaving the field. Its menu hangs off the page
+and is never clipped by the palette. A leading
 `10:30` sets that note's time, a leading `-` makes it untimed, and a leading `#22` aims it at another
 card and wins over the picker; the line under the box says exactly which day, time and card Enter
 will write.
@@ -519,8 +524,9 @@ note, `e` edits it, `a` assigns it to another card (or to none) and `d d` delete
 **Text boxes** — four multiline boxes take editing keys: the notes palette's note box, the box a
 listed note is edited in, the Scratchpad's box and the card form's description. **Tab** indents by two
 spaces (every selected line, when several are selected) and **Shift+Tab** outdents by up to two;
-**Ctrl+M** switches Tab to moving focus for keyboard-only use, with a small hint while it is on, until
-the page is reloaded. On the selection, **Ctrl+B** makes bold (`**`), **Ctrl+I** italic (`*`),
+**Ctrl+M** switches Tab to moving focus for keyboard-only use, until the page is reloaded; a small hint
+in the box always says which Tab it is now and what Ctrl+M changes ("Tab indents · Ctrl+M: Tab moves
+focus"), so Tab is never a trap. On the selection, **Ctrl+B** makes bold (`**`), **Ctrl+I** italic (`*`),
 **Ctrl+U** underline (`<u>`), **Alt+S** strikethrough (`~~`), **Ctrl+E** code and **Ctrl+K** a
 Markdown link with the placeholder `url` selected, ready to be typed over; with nothing selected the
 pair goes in with the cursor between (a link's cursor goes between its brackets). **Ctrl+Shift+7**, **Ctrl+Shift+8** and **Ctrl+Shift+.** put
