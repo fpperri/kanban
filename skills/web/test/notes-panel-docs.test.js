@@ -105,6 +105,6 @@ test('it says the palette goes full screen as the card details do, by its header
   assert.match(notes, /the list, the Scratchpad tab's box and its Preview take the height/);
   assert.match(notes, /The choice is kept per board; every key, tab and Esc work as before/);
   assert.match(notes, /With focus in the palette while another popup is up, `Alt\+Enter` does nothing/);
-  assert.match(notes, /On a phone \(under 760 px\) the button is not there, a saved choice does not apply, `Alt\+Enter` does nothing and the palette keeps its sheet/);
+  assert.match(notes, /On a phone \(under 760 px\) the palette is always full screen, as the card details are: the button is not there, a saved choice makes no difference and `Alt\+Enter` does nothing/);
   assert.match(notes, /\(30 lines or 70% of the window when the palette is full screen\)/);
 });

@@ -390,7 +390,7 @@ function notesGrowBox(box) {
     line: px(css.lineHeight) || px(css.fontSize) * 1.4,
     chrome: px(css.paddingTop) + px(css.paddingBottom) + border,
     windowHeight: window.innerHeight,
-    ...(notesUi.el && notesUi.el.classList.contains('fullscreen') ? NOTES_FULLSCREEN_BOX : {}),
+    ...(notesUi.el && notesUi.el.classList.contains('fullscreen') && notesFullscreenLocked() === null ? NOTES_FULLSCREEN_BOX : {}),
   });
   box.style.height = `${size.height}px`;
   box.style.overflowY = size.scroll ? 'auto' : 'hidden';
@@ -402,11 +402,11 @@ const notesGrow = () => notesGrowBox(notesUi.input);
 // scrolls inside (notes.js noteBoxSize).
 const NOTES_FULLSCREEN_BOX = { lines: 30, share: 0.7 };
 
-// The one place that decides where the palette can be full screen: from this window width up. Under it
-// (a phone) the palette keeps its sheet whatever was saved, the button is hidden and Alt+Enter does
-// nothing. Set it to 0 and the phone goes full screen too.
+// The one place that decides where the palette has a choice: from this window width up. Under it (a
+// phone) the palette is always full screen, as the card details are: whatever was saved, the button is
+// hidden, Alt+Enter does nothing and the note boxes keep their ordinary cap.
 const NOTES_FULLSCREEN_MIN_WIDTH = 760;
-const notesFullscreenAvailable = () => window.innerWidth >= NOTES_FULLSCREEN_MIN_WIDTH;
+const notesFullscreenLocked = () => (window.innerWidth < NOTES_FULLSCREEN_MIN_WIDTH ? true : null);
 
 // The palette is the popup Alt+Enter and the fullscreen button answer for when it is open and nothing but the
 // card details is up besides it (the key guard names that one popup, as for the other notes keys).
@@ -1203,7 +1203,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesTabKey);
   window.addEventListener('resize', () => {
     if (!notesUi.sub || !notesUi.input) return;
-    applyModalFullscreen('notes'); // a window that crosses the width goes in or out of full screen
+    applyModalFullscreen('notes'); // a window that crosses the width goes between the saved choice and always full screen
     notesFullscreenChanged();
   });
   document.addEventListener('mousedown', onNotesPointer, true);

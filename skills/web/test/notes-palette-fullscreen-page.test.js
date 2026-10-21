@@ -165,19 +165,22 @@ test('Alt+Enter while a popup besides the details is up and focus is in the pale
 const SAVED_JSON = JSON.stringify({ notes: true });
 const saved = () => ({ [KEY]: SAVED_JSON });
 
-test('under the width one constant names, a saved choice never applies: the palette keeps its sheet and the button is hidden', async () => {
+const resize = (p) => { for (const fn of p.page.windowListeners.resize || []) fn({}); };
+
+test('under the width one constant names, the palette is always full screen, as the card details are: no button, whatever was saved', async () => {
   assert.strictEqual(require('node:vm').runInContext('NOTES_FULLSCREEN_MIN_WIDTH', (await open()).page.ctx), 760);
-  const p = await open({ stored: saved(), width: 500 });
-  assert.strictEqual(p.on(), false);
-  assert.strictEqual(p.btn().hidden, true);
-  assert.strictEqual(p.btn().getAttribute('aria-pressed'), 'false');
-  const wide = await open({ stored: saved(), width: 760 });
-  assert.strictEqual(wide.on(), true);
+  for (const stored of [{}, saved(), { [KEY]: JSON.stringify({ notes: false }) }]) {
+    const p = await open({ stored, width: 500 });
+    assert.strictEqual(p.on(), true, JSON.stringify(stored));
+    assert.strictEqual(p.btn().hidden, true);
+  }
+  const wide = await open({ width: 760 });
+  assert.strictEqual(wide.on(), false, 'from the width up it is the saved choice');
   assert.strictEqual(wide.btn().hidden, false);
 });
 
 test('on a phone the note box keeps the ordinary cap', async () => {
-  const p = await open({ stored: saved(), width: 500 });
+  const p = await open({ width: 500 });
   p.page.ctx.innerHeight = 1000;
   assert.strictEqual(tall(p, 60), 254, '12 lines, not 30');
 });
@@ -188,21 +191,29 @@ test('on a phone Alt+Enter and the button neither toggle nor change the saved ch
   p.pal().fire('keydown', e);
   onDocument(p, altEnter(p.doc.body));
   p.btn().click();
-  assert.strictEqual(p.on(), false);
+  assert.strictEqual(p.on(), true);
   assert.strictEqual(p.stored[KEY], SAVED_JSON);
-  assert.strictEqual(e.defaultPrevented, true, 'the chord is still the palette\'s: it writes no note');
+  assert.strictEqual(e.defaultPrevented, true, 'the chord is still the palette: it writes no note');
+  const none = await open({ width: 500 });
+  none.pal().fire('keydown', altEnter(none.pal()));
+  assert.strictEqual(none.stored[KEY], undefined, 'and nothing is saved');
 });
 
-test('a window that crosses the width with the palette open follows at once', async () => {
-  const p = await open({ stored: saved(), width: 500 });
-  p.page.ctx.innerWidth = 1200;
-  for (const fn of p.page.windowListeners.resize || []) fn({});
+test('a window that crosses the width with the palette open follows at once, to the saved choice from the width up', async () => {
+  const p = await open({ width: 500 });
   assert.strictEqual(p.on(), true);
-  assert.strictEqual(p.btn().hidden, false);
-  p.page.ctx.innerWidth = 500;
-  for (const fn of p.page.windowListeners.resize || []) fn({});
+  p.page.ctx.innerWidth = 1200;
+  resize(p);
   assert.strictEqual(p.on(), false);
+  assert.strictEqual(p.btn().hidden, false);
+  p.btn().click();
+  p.page.ctx.innerWidth = 500;
+  resize(p);
+  assert.strictEqual(p.on(), true);
   assert.strictEqual(p.btn().hidden, true);
+  p.page.ctx.innerWidth = 1200;
+  resize(p);
+  assert.strictEqual(p.on(), true, 'back on the choice made at the width');
 });
 
 // --- the registry and the sources --------------------------------------------------------------------
@@ -216,7 +227,7 @@ test('the registry stays generic: no special case for the palette in the lookup 
   assert.ok(!/type === 'notes'/.test(appJs), 'no type === notes in app.js');
   const entry = /\n  notes: \{[^\n]*\n/.exec(appJs);
   assert.ok(entry, 'the entry');
-  for (const hook of ['panel:', 'isOpen:', 'onChange:', 'available:']) assert.ok(entry[0].includes(hook), hook);
+  for (const hook of ['panel:', 'isOpen:', 'onChange:', 'locked:']) assert.ok(entry[0].includes(hook), hook);
   assert.ok(!/backdrop:/.test(entry[0]), 'the palette has no backdrop');
   assert.match(appJs, /function openFullscreenModalType\(\) \{[\s\S]*?cfg\.isOpen/);
   assert.match(appJs, /function toggleModalFullscreen\(type\) \{[\s\S]*?cfg\.onChange/);
@@ -244,4 +255,9 @@ test('the stylesheet hands the height to the list and the scratchpad when the pa
   assert.match(css, /\.notes-palette\.fullscreen\s+\.np-body\s*\{[^}]*display:\s*flex/s);
   assert.match(css, /\.notes-palette\.fullscreen\s+\.sp-text\s*\{[^}]*flex:\s*1 1 auto/s);
   assert.match(css, /\.notes-palette\.fullscreen\s+\.sp-preview\s*\{[^}]*flex:\s*1 1 auto[^}]*max-height:\s*none/s);
+});
+
+test('nothing sizes the palette as a sheet on a phone any more: it is the fullscreen box, in dynamic viewport units', () => {
+  assert.ok(!/\.notes-palette \{[^}]*82vh/.test(css));
+  assert.match(css, /\.notes-palette\.fullscreen\s*\{[^}]*height:\s*100dvh/s);
 });

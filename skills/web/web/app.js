@@ -460,13 +460,14 @@ const EXIT_FULLSCREEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 //   panel      the element that takes the fullscreen class, with
 //   isOpen()   whether the type is the popup that is up;
 // and, both optional,
-//   available()  false where the type cannot be fullscreen: the saved choice
-//                is not applied, the button is hidden and the toggle does nothing;
-//   onChange()   called after the button or Alt+Enter toggled it.
+//   locked()   true or false where the type has no choice (it is always, or
+//              never, fullscreen there): the saved choice is not applied, the
+//              button is hidden and the toggle does nothing; null otherwise;
+//   onChange() called after the button or Alt+Enter toggled it.
 // The first open type in the order below is the one Alt+Enter toggles.
 const FULLSCREEN_MODALS = {
   // The notes palette draws above the card details, so it answers first.
-  notes: { btn: () => notesUi.fsBtn, panel: () => notesUi.el, isOpen: () => notesOnTop(), available: () => notesFullscreenAvailable(), onChange: () => notesFullscreenChanged() },
+  notes: { btn: () => notesUi.fsBtn, panel: () => notesUi.el, isOpen: () => notesOnTop(), locked: () => notesFullscreenLocked(), onChange: () => notesFullscreenChanged() },
   edit: { backdrop: '#modal', btn: '#modal-fullscreen-btn' },
   detail: { backdrop: '#detail-modal', btn: '#detail-fullscreen-btn' },
   bulkSingle: { backdrop: '#bulk-single', btn: '#bulk-single-fullscreen-btn' },
@@ -507,9 +508,9 @@ function setModalFullscreenVisual(type, on) {
   const backdrop = cfg.backdrop && fullscreenEl(cfg.backdrop);
   const panel = cfg.panel ? fullscreenEl(cfg.panel) : backdrop && backdrop.querySelector('.modal');
   if (!panel || !btn) return;
-  const usable = !cfg.available || cfg.available();
-  if (cfg.available) btn.hidden = !usable;
-  on = on && usable;
+  const locked = cfg.locked ? cfg.locked() : null;
+  if (cfg.locked) btn.hidden = locked !== null;
+  if (locked !== null) on = locked;
   panel.classList.toggle('fullscreen', on);
   btn.innerHTML = on ? EXIT_FULLSCREEN_ICON : FULLSCREEN_ICON;
   const label = on ? 'Exit full screen' : 'Expand to full screen';
@@ -528,7 +529,7 @@ function applyModalFullscreen(type) {
 function toggleModalFullscreen(type) {
   const fs = loadModalFullscreen();
   const cfg = FULLSCREEN_MODALS[type];
-  if (!(type in fs) || !cfg || (cfg.available && !cfg.available())) return;
+  if (!(type in fs) || !cfg || (cfg.locked && cfg.locked() !== null)) return;
   fs[type] = !fs[type];
   saveModalFullscreen();
   applyModalFullscreen(type);

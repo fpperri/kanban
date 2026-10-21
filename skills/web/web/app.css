@@ -1940,16 +1940,16 @@ button.np-note-card:hover { color: var(--accent); }
 .np-head { display: flex; align-items: flex-end; gap: 8px; padding-right: 8px; }
 .np-head .np-tabs { flex: 1 1 auto; min-width: 0; }
 .np-fs-btn { margin: 6px 0 0 auto; }
-/* The shared box is the .modal.fullscreen rule above. Whether the palette may go full screen at a width is
-   notes-palette.js's NOTES_FULLSCREEN_MIN_WIDTH, not a media query: the class is never set under it. */
-.notes-palette.fullscreen { transform: none; border-width: 0; }
+/* The shared box is the .modal.fullscreen rule above. Whether the palette has a choice at a width, or is
+   always full screen (a phone, as the card details are), is notes-palette.js's NOTES_FULLSCREEN_MIN_WIDTH,
+   not a media query: the class is set from it. */
+.notes-palette.fullscreen { transform: none; border-width: 0; height: 100dvh; }
 .notes-palette.fullscreen .np-body { display: flex; flex-direction: column; }
 .notes-palette.fullscreen .np-notes, .notes-palette.fullscreen .gp { flex: 0 0 auto; }
 .notes-palette.fullscreen .sp { flex: 1 0 auto; }
 .notes-palette.fullscreen .sp-text { flex: 1 1 auto; resize: none; }
 .notes-palette.fullscreen .sp-preview { flex: 1 1 auto; max-height: none; }
 @media (max-width: 759.98px) {
-  .notes-palette { top: 0; left: 0; right: 0; transform: none; width: auto; max-height: 82vh; border-width: 0 0 1px; border-radius: 0; }
   .np-bar, .np-body { padding-left: 16px; padding-right: 16px; }
   .np-prev { padding-left: 16px; padding-right: 16px; white-space: normal; }
   .np-prev-text { white-space: normal; }

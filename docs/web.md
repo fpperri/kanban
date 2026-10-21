@@ -569,8 +569,8 @@ header has the card details' full screen button, and `Alt+Enter` does the same w
 popup that is up, from any box of it (over the card details it toggles the palette, not the details):
 full screen it fills the window, and the list, the Scratchpad tab's box and its Preview take the
 height. The choice is kept per board; every key, tab and Esc work as before. With focus in the palette
-while another popup is up, `Alt+Enter` does nothing. On a phone (under 760 px) the button is not
-there, a saved choice does not apply, `Alt+Enter` does nothing and the palette keeps its sheet. Without a
+while another popup is up, `Alt+Enter` does nothing. On a phone (under 760 px) the palette is always full screen, as the card details are: the button is not
+there, a saved choice makes no difference and `Alt+Enter` does nothing. Without a
 `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 **Text boxes** — four multiline boxes take editing keys: the notes palette's note box, the box a
