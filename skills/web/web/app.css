@@ -913,6 +913,14 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .md-code-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .md-code-copy.copy-success { border-color: var(--ok); color: var(--ok); }
 .md-code-copy.copy-failed { border-color: var(--crit); color: var(--crit); }
+/* Coloured code (highlight.js, loaded when a typed block needs it): its theme paints a block and pads
+   it, and the frame already does both, so only its colours are kept. */
+.detail-body pre code.hljs { background: none; padding: 0; display: inline; overflow: visible; }
+/* A drawn ```mermaid block (code-blocks-ui.js): a sandboxed frame. It is laid out but out of sight
+   while it draws, since mermaid measures what it draws, and takes its height from the diagram. */
+.md-diagram { display: block; width: 100%; height: 0; border: 0; margin: 0.8em 0; background: transparent; }
+.md-diagram-pending { visibility: hidden; }
+.md-diagram-error { margin: -0.4em 0 0.8em; color: var(--blocked-ink); font-size: 0.85em; }
 .detail-body blockquote { margin: 0.7em 0; padding: 0.05em 0 0.05em 0.95em; border-left: 3px solid var(--line-strong); color: var(--mut); }
 .detail-body blockquote > :first-child { margin-top: 0; }
 .detail-body blockquote > :last-child { margin-bottom: 0; }

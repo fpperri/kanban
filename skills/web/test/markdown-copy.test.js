@@ -28,6 +28,9 @@ function run(clipboard) {
     fallbackCopy: (t) => { copied.push(['fallback', t]); return true; },
     setTimeout: () => 0,
     mdToHtml,
+    console,
+    enhanced: [],
+    enhanceCodeBlocks(el) { sandbox.enhanced.push(el); },
     state: { projectName: 'webapp' },
   };
   vm.createContext(sandbox);
@@ -80,4 +83,18 @@ test('markdownInto writes the rendered text into the element, with this board as
   assert.ok(el.innerHTML.includes('<code class="mention">other#4 t</code>'));
   sandbox.markdownInto(el, undefined);
   assert.strictEqual(el.innerHTML, '', 'no text is no markup');
+});
+
+test('markdownInto then hands the element to the colour and diagram pass, and a pass that throws leaves the body drawn', () => {
+  const { sandbox } = run(undefined);
+  const el = { innerHTML: '' };
+  sandbox.markdownInto(el, '```ts\nlet a;\n```');
+  assert.deepStrictEqual(sandbox.enhanced, [el]);
+  assert.ok(el.innerHTML.includes('data-lang="ts"'));
+  const quiet = [];
+  sandbox.console = { error: (e) => quiet.push(e) };
+  sandbox.enhanceCodeBlocks = () => { throw new Error('boom'); };
+  assert.doesNotThrow(() => sandbox.markdownInto(el, 'still **drawn**'));
+  assert.ok(el.innerHTML.includes('<strong>drawn</strong>'));
+  assert.strictEqual(quiet.length, 1);
 });

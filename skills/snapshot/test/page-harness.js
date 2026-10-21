@@ -66,6 +66,12 @@ class El {
 
   get firstChild() { return this.children[0] || null; }
 
+  // Whether the element hangs from the page's body, as in a browser.
+  get isConnected() {
+    for (let n = this; n; n = n.parentNode) if (n === this.ownerDocument.body) return true;
+    return false;
+  }
+
   _detach(n) {
     if (n.parentNode) n.parentNode.children = n.parentNode.children.filter((c) => c !== n);
     n.parentNode = this;
@@ -100,6 +106,11 @@ class El {
   getAttribute(k) {
     if (k.startsWith('data-')) return camel(k) in this.dataset ? this.dataset[camel(k)] : null;
     return k in this.attrs ? this.attrs[k] : null;
+  }
+
+  removeAttribute(k) {
+    if (k.startsWith('data-')) delete this.dataset[camel(k)];
+    else delete this.attrs[k];
   }
 
   addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
@@ -181,6 +192,8 @@ function loadPage(html, opts = {}) {
     execCommand: () => true,
   };
   doc.body = new El('body', doc);
+  doc.head = new El('head', doc);
+  doc.documentElement = new El('html', doc);
   const store = new Map();
   const ctx = {
     document: doc,
@@ -191,6 +204,7 @@ function loadPage(html, opts = {}) {
     innerWidth: 1024,
     innerHeight: 768,
     console: opts.console || console,
+    MutationObserver: class { observe() {} },
   };
   ctx.window = ctx;
   vm.createContext(ctx);

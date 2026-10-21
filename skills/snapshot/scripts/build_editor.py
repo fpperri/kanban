@@ -381,6 +381,7 @@ EMBEDDED = [
     ("__KEY_GUARD_JS__", "key-guard.js", "the key guard"),
     ("__COMBOBOX_JS__", "combobox.js", "the combobox rules"),
     ("__MARKDOWN_JS__", "markdown.js", "the Markdown module"),
+    ("__CODE_LIBS_JS__", "code-libs.js", "the code libraries module"),
 ]
 
 def embeddable(source, label="the nesting module"):
@@ -698,6 +699,10 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .bodymd em{font-style:italic}
 .bodymd pre{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;padding:10px 12px;overflow-x:auto;margin:.8em 0}
 .bodymd pre code{background:none;padding:0}
+.bodymd pre code.hljs{background:none;padding:0;display:inline;overflow:visible}
+.bodymd .md-diagram{display:block;overflow-x:auto;margin:.8em 0}
+.bodymd .md-diagram svg{max-width:100%;height:auto}
+.bodymd .md-diagram-error{margin:-.4em 0 .8em;color:var(--blocked-ink);font-size:.85em}
 .bodymd .md-code{background:var(--raised);border:1px solid var(--line);border-radius:.2rem;margin:.8em 0;overflow:hidden}
 .bodymd .md-code pre{border:0;border-radius:0;margin:0}
 .md-code-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 6px 3px 12px;border-bottom:1px solid var(--line);font-size:.8em;color:var(--mut)}
@@ -968,6 +973,8 @@ __COMBOBOX_JS__</script>
 <script>
 __MARKDOWN_JS__</script>
 <script>
+__CODE_LIBS_JS__</script>
+<script>
 const BASE="__BASE_ISO__";
 const BOARD=__BOARD_NAME_JSON__;
 const COLS=__STATUSES__;
@@ -1109,6 +1116,92 @@ mdInlineNodes(it.inline,boardName).forEach(n=>li.appendChild(n));
 (it.children||[]).forEach(ch=>li.appendChild(mdListNode(ch,boardName)));
 ul.appendChild(li)});
 return ul}
+// Colour and diagrams for typed blocks. kanbanCodeLibs (embedded above) says from a fence's language
+// which library it needs, and the page loads that library from cdnjs, at the versions kanban-web
+// vendors, the first time a block needs one -- never otherwise: a snapshot is one file and cannot carry
+// them, so this is the one place it asks the network for code. highlight.js colours a block in place
+// (the label and Copy stay); mermaid draws a mermaid block and the block stays, with a one-line error
+// under it, when it cannot. Both follow the page's theme and redraw when it changes. A failed load
+// leaves the plain block.
+const codeCdn=kanbanCodeLibs.cdnUrls();
+const codeSheets={};
+const codeDiagrams=[];
+let codeHljs=null,codeMermaid=null,codeWatching=false;
+function codeTheme(){
+const chosen=document.documentElement.getAttribute("data-theme");
+if(chosen==="dark"||chosen==="light")return chosen;
+return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}
+function codeScript(src){
+return new Promise((ok,bad)=>{
+const sc=document.createElement("script");
+sc.src=src;
+sc.onload=()=>ok();
+sc.onerror=()=>bad(new Error("could not load "+src));
+document.head.appendChild(sc)})}
+function codePaint(){
+["light","dark"].forEach(mode=>{
+if(!codeSheets[mode]){
+const ln=document.createElement("link");
+ln.rel="stylesheet";
+ln.href=codeCdn[mode];
+document.head.appendChild(ln);
+codeSheets[mode]=ln}
+codeSheets[mode].disabled=mode!==codeTheme()})}
+function codeDraw(d){
+window.mermaid.initialize({startOnLoad:false,securityLevel:"strict",theme:codeTheme()==="dark"?"dark":"default"});
+d.node.removeAttribute("data-processed");
+d.node.textContent=d.source;
+return window.mermaid.run({nodes:[d.node]})}
+function codeOnTheme(){
+if(codeSheets.light)codePaint();
+if(codeMermaid)codeDiagrams.forEach(d=>{if(d.node.isConnected&&d.drawn)codeDraw(d).catch(()=>{})})}
+function codeWatch(){
+if(codeWatching)return;
+codeWatching=true;
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",codeOnTheme);
+new MutationObserver(codeOnTheme).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]})}
+function codeLoadHljs(){
+if(!codeHljs){
+codeHljs=codeScript(codeCdn.highlight).then(()=>window.hljs);
+codeHljs.catch(()=>{codeHljs=null});
+codePaint();
+codeWatch()}
+return codeHljs}
+function codeLoadMermaid(){
+if(!codeMermaid){
+codeMermaid=codeScript(codeCdn.mermaid).then(()=>window.mermaid);
+codeMermaid.catch(()=>{codeMermaid=null});
+codeWatch()}
+return codeMermaid}
+function codeFail(block,message){
+const note=el("p","md-diagram-error","Diagram error: "+message);
+note.setAttribute("role","alert");
+block.box.hidden=false;
+block.box.parentNode.insertBefore(note,block.box.nextSibling)}
+// A diagram is measured where it is drawn, so one inside a closed section waits for the section to open.
+function codeWhenShown(node,fn){
+for(let n=node.parentNode;n;n=n.parentNode){
+if(n.tagName==="DETAILS"&&!n.open){
+n.addEventListener("toggle",()=>{if(n.open)codeWhenShown(node,fn)},{once:true});
+return}}
+fn()}
+function codeEnhance(block){
+kanbanCodeLibs.enhanceBlocks([block],{
+highlight:(b,language)=>{
+codeLoadHljs().then(h=>{
+if(!b.code.isConnected)return;
+b.code.className="language-"+language;
+h.highlightElement(b.code)},()=>{})},
+mermaid:b=>{
+codeWhenShown(b.pre,()=>{
+codeLoadMermaid().then(()=>{
+if(!b.pre.isConnected)return;
+const d={node:el("div","mermaid md-diagram"),source:b.code.textContent,drawn:false};
+b.box.parentNode.insertBefore(d.node,b.box.nextSibling);
+codeDraw(d).then(()=>{d.drawn=true;codeDiagrams.push(d);b.box.hidden=true},e=>{
+d.node.remove();
+codeFail(b,String((e&&e.message)||e||"could not draw this diagram").split(String.fromCharCode(10))[0].trim().slice(0,200))})
+},()=>codeFail(b,"the diagram library did not load"))})}})}
 // A fenced block: the code alone when untyped; a typed one wears its language as a label over it and
 // a Copy button, the same chrome kanban-web draws.
 function mdPreNode(b){
@@ -1125,6 +1218,7 @@ bar.appendChild(el("span","md-code-lang",b.lang));
 bar.appendChild(btn);
 box.appendChild(bar);
 box.appendChild(pre);
+Promise.resolve().then(()=>codeEnhance({box:box,pre:pre,code:pre.firstChild,lang:b.lang}));
 return box}
 function mdTableNode(b,boardName){
 const twrap=el("div","md-table");

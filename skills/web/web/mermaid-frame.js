@@ -7,7 +7,7 @@
 // asked, and { type: 'size', id, height } follows a change of width. Only the page that embeds this
 // frame is listened to, and mermaid runs with securityLevel 'strict'.
 
-(() => {
+const diagramFrame = (() => {
   const out = document.getElementById('out');
   const send = (message) => parent.postMessage(message, '*');
   const measure = () => Math.ceil(out.getBoundingClientRect().height);

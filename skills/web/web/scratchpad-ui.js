@@ -67,9 +67,9 @@ function scratchPanel(target) {
   preview.disabled = true;
   modes.append(edit, preview);
   const showPreview = (on) => {
-    if (on) markdownInto(view, text.value);
     text.hidden = on;
     view.hidden = !on;
+    if (on) markdownInto(view, text.value); // after it is shown: a diagram is measured where it is drawn
     edit.classList.toggle('on', !on);
     preview.classList.toggle('on', on);
     edit.setAttribute('aria-pressed', String(!on));

@@ -4,12 +4,16 @@
 // block. Card bodies, the notes palette's notes and the scratchpad's preview all come through
 // markdownInto, so a block behaves the same in each.
 //
-// Reads app.js's globals at the moment it runs, never when it loads: state, fallbackCopy.
+// Reads app.js's globals at the moment it runs, never when it loads: state, fallbackCopy, and
+// enhanceCodeBlocks from code-blocks-ui.js.
 
 // Draws text as Markdown into el. The renderer escapes every piece of text it writes, so this is
 // the only innerHTML write a person's prose ever reaches.
 function markdownInto(el, text) {
   el.innerHTML = mdToHtml(text || '', { board: state.projectName });
+  // Colour and diagrams for typed blocks (code-blocks-ui.js): only ever an addition to the text just
+  // drawn, so whatever goes wrong there leaves the plain body.
+  try { enhanceCodeBlocks(el); } catch (e) { console.error(e); }
 }
 
 // The Copy button of a typed code block: the block's text, never the label, through the same
