@@ -1324,7 +1324,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    that hides the lot. */
 .cal-notes-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .cal-notes-switch { margin-left: 6px; }
-.cal-tg-col.has-notes { --cal-note-strip: clamp(44px, 34%, 170px); }
+.cal-tg-col.has-notes { --cal-note-strip: var(--cal-note-width, clamp(44px, 34%, 170px)); }
+.cal-note-divider { position: absolute; top: 0; bottom: 0; right: calc(var(--cal-note-strip) - 3px); width: 6px; z-index: 3; cursor: col-resize; touch-action: none; user-select: none; }
+.cal-note-divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; }
+.cal-note-divider:hover::after, .cal-note-divider:focus-visible::after, .cal-note-divider.dragging::after { background: var(--accent); }
+.cal-note-divider:focus-visible { outline: none; }
 .cal-note { box-sizing: border-box; margin: 0; padding: 0 4px; font-size: 10.5px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left; }
 .cal-note-chip, .cal-note-bubble { position: absolute; right: 2px; width: calc(var(--cal-note-strip) - 4px); height: 18px; z-index: 2; }
 .cal-note-chip { background: var(--surface); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }

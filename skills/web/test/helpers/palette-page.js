@@ -46,7 +46,7 @@ function paletteDocument(holder) {
   const make = (tag) => {
     const el = recordingElement(tag);
     el.uid = ++uid;
-    el.style = {};
+    el.style = { setProperty(k, v) { this[k] = v; }, removeProperty(k) { delete this[k]; } };
     el.value = '';
     el.hidden = false;
     el.isConnected = true;

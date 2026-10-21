@@ -1778,6 +1778,21 @@ to `127.0.0.1` only.
   double-click landing on a chip is the chip's own affair (the shared card grammar),
   excluded before the cell/column lookup ever runs. The snapshot's own calendar has no
   click-to-create — a deliberate, unbuilt gap.
+  **Notes on the Calendar** — on a board with a logbook the week, 3-day and day views draw its
+  notes: a day with timed notes keeps a strip at the right of its column (`--cal-note-strip`),
+  with a chip for one note in a half hour and a count bubble for more, and the day's untimed
+  notes are one box in its all-day cell; the toolbar's **Notes** button switches the layer
+  (`calendar.notes`). A **divider** on the strip's left edge (`.cal-note-divider`, a focusable
+  `role="separator"`) sets the strip's width for every day column at once: a pointer drag moves
+  it live, without a re-render, from 44px to the column less a 24px sliver for the card blocks
+  (`noteStripClamp`, notes-calendar.js), and the width is saved when the pointer lets go; Left
+  and Right on the focused divider step it 8px; a double click goes back to the default,
+  `clamp(44px, 34%, 170px)`. It is kept per board in this browser as `calendar.notesWidth`
+  (every read and write in try/catch) and drawn as the custom property `--cal-note-width` on
+  the time grid, which each column's strip reads; once a width is set the 170px cap is gone and
+  a chip shows up to 60 words instead of 12, cut by its edge. A drag holds the poll
+  (`isDragging`), starts no card drag or retime, and the hour click and the double click that
+  makes a card both skip a target on the divider.
 - **Gantt view** — a top-bar "Gantt" button (a line icon, then the word) swaps the board for a day-granular
   timeline: each dated live card gets a row (dated ARCHIVED cards join too, opt-in via
   the Archive pill below) — the **working range** as a bar (start→end inclusive; compat

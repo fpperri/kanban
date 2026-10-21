@@ -6,8 +6,11 @@
 // as one "N untimed" box in its all-day row. Each opens the notes palette, on that half hour or on
 // that day's untimed notes. A click on an empty hour opens it set to that hour, a bare #22 then
 // Enter keeps the hour's time, and a double click there still makes a card and opens no palette. The
-// Notes switch in the toolbar hides and shows the layer, and its choice is kept across a reload. The
-// plan board draws no switch and no note. Each step waits on the page; the one fixed pause proves
+// Notes switch in the toolbar hides and shows the layer, and its choice is kept across a reload. A
+// divider on each strip's left edge sets the strip's width for every day at once, by a drag (held
+// between 44px and the column less 24px), by Left and Right on the focused divider and back to the
+// default by a double click; the width is kept per board and neither a drag nor a double click on it
+// opens the palette or a card form. The plan board draws no switch and no note. Each step waits on the page; the one fixed pause proves
 // that the palette did NOT open.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
@@ -117,6 +120,56 @@ module.exports = {
     check('calnotes: and no palette follows it', await ev(PAL_GONE));
     await key('Escape');
     check('calnotes: Esc closes the form', await waitFor(`document.getElementById('modal').classList.contains('hidden')`, 3000));
+
+    // --- the divider on the notes strip -----------------------------------------------------------------------------
+    check('calnotes: the week is drawn again before the divider is tried', await showWeek());
+    const COL = (day) => `document.querySelector('#calendar-view .cal-tg-col[data-day="${day}"]')`;
+    const DIVIDER = (day) => `${COL(day)}.querySelector('.cal-note-divider')`;
+    const STORED = `localStorage.getItem('kanban.'+state.projectName+'.calendar.notesWidth')`;
+    const stripOf = (day) => ev(`(()=>{const c=${COL(day)}.getBoundingClientRect();const d=${DIVIDER(day)}.getBoundingClientRect();return Math.round(c.right-(d.left+d.width/2))})()`);
+    const colWidth = (day) => ev(`${COL(day)}.getBoundingClientRect().width`);
+    const chipWidth = (day) => ev(`${COL(day)}.querySelector('.cal-note-chip').getBoundingClientRect().width`);
+    const dividerPoint = (day) => ev(`(()=>{const d=${DIVIDER(day)}.getBoundingClientRect();const s=document.querySelector('#calendar-view .cal-tg-scroll').getBoundingClientRect();return {x:d.left+d.width/2,y:s.top+120}})()`);
+    const near = (a, b, slack = 3) => Math.abs(a - b) <= slack;
+    const dragDivider = async (day, dx) => {
+      const p = await dividerPoint(day);
+      await mouse('mouseMoved', p.x, p.y, { button: 'none', clickCount: 0 });
+      await mouse('mousePressed', p.x, p.y);
+      for (let i = 1; i <= 6; i++) await mouse('mouseMoved', p.x + (dx * i) / 6, p.y, { buttons: 1 });
+      await mouse('mouseReleased', p.x + dx, p.y);
+    };
+    check('calnotes: a day with a notes strip has a divider on its left edge, and a day without has none', await ev(`document.querySelectorAll('#calendar-view .cal-note-divider').length===2&&!!${DIVIDER('2026-10-13')}&&!!${DIVIDER('2026-10-15')}&&!${COL('2026-10-16')}.querySelector('.cal-note-divider')`));
+    check('calnotes: the divider is a focusable separator whose title says what it does', await ev(`(()=>{const d=${DIVIDER('2026-10-15')};return d.getAttribute('role')==='separator'&&d.tabIndex===0&&/Drag/.test(d.title)&&/Double-click/.test(d.title)&&/arrow/.test(d.title)})()`));
+    const first = await stripOf('2026-10-15');
+    check('calnotes: the strip starts at its default width, 44px to 170px', first >= 44 && first <= 171, String(first));
+    const chip0 = await chipWidth('2026-10-15');
+    await dragDivider('2026-10-15', -60);
+    check('calnotes: dragging the divider left widens the strip', await waitFor(`Math.abs((()=>{const c=${COL('2026-10-15')}.getBoundingClientRect();const d=${DIVIDER('2026-10-15')}.getBoundingClientRect();return c.right-(d.left+d.width/2)})()-${first + 60})<=3`, 3000), String(await stripOf('2026-10-15')));
+    check('calnotes: every day column took the same width at once', near(await stripOf('2026-10-13'), first + 60), String(await stripOf('2026-10-13')));
+    check('calnotes: and the chips are wider by as much', near(await chipWidth('2026-10-15'), chip0 + 60, 4), `${chip0} -> ${await chipWidth('2026-10-15')}`);
+    await shot('week-notes-widened');
+    await sleep(600);
+    check('calnotes: the drag opened no palette and no card form', await ev(PAL_GONE) && await ev(`document.getElementById('modal').classList.contains('hidden')`));
+    check('calnotes: the width is kept for the board', near(Number(await ev(STORED)), first + 60), String(await ev(STORED)));
+    check('calnotes: and a reload draws the week with it', await showWeek() && near(await stripOf('2026-10-15'), first + 60), String(await stripOf('2026-10-15')));
+    await dragDivider('2026-10-15', 900);
+    check('calnotes: dragged right past the minimum the strip stops at 44px', await waitFor(`Math.abs((()=>{const c=${COL('2026-10-15')}.getBoundingClientRect();const d=${DIVIDER('2026-10-15')}.getBoundingClientRect();return c.right-(d.left+d.width/2)})()-44)<=2`, 3000), String(await stripOf('2026-10-15')));
+    await dragDivider('2026-10-15', -900);
+    const wide = await colWidth('2026-10-15');
+    check('calnotes: dragged left past the column the card blocks keep a 24px sliver', near(await stripOf('2026-10-15'), wide - 24, 3), `${await stripOf('2026-10-15')} of ${wide}`);
+    check('calnotes: the chips still read, with the card blocks squeezed beside them', await chipWidth('2026-10-15') > wide - 40);
+    await shot('week-notes-widest');
+    await ev(`${DIVIDER('2026-10-15')}.focus()`);
+    await key('ArrowRight');
+    check('calnotes: Right on the focused divider narrows the strip a step', await waitFor(`Math.abs((()=>{const c=${COL('2026-10-15')}.getBoundingClientRect();const d=${DIVIDER('2026-10-15')}.getBoundingClientRect();return c.right-(d.left+d.width/2)})()-${wide - 24 - 8})<=3`, 3000), String(await stripOf('2026-10-15')));
+    check('calnotes: the divider keeps its focus through the step', await ev(`document.activeElement===${DIVIDER('2026-10-15')}`));
+    await key('ArrowLeft');
+    check('calnotes: Left widens it a step', await waitFor(`Math.abs((()=>{const c=${COL('2026-10-15')}.getBoundingClientRect();const d=${DIVIDER('2026-10-15')}.getBoundingClientRect();return c.right-(d.left+d.width/2)})()-${wide - 24})<=3`, 3000), String(await stripOf('2026-10-15')));
+    const dp = await dividerPoint('2026-10-15');
+    await click(dp.x, dp.y, { clickCount: 2 });
+    check('calnotes: a double click on the divider goes back to the default width', await waitFor(`(()=>{const c=${COL('2026-10-15')}.getBoundingClientRect();const d=${DIVIDER('2026-10-15')}.getBoundingClientRect();const s=c.right-(d.left+d.width/2);return s>=44&&s<=171})()`, 3000) && await ev(`${STORED}===null`), String(await stripOf('2026-10-15')));
+    await sleep(600);
+    check('calnotes: and made no card form and opened no palette', await ev(`document.getElementById('modal').classList.contains('hidden')`) && await ev(PAL_GONE));
 
     // --- the Notes switch ------------------------------------------------------------------------------------------
     await press('#cal-notes-btn');

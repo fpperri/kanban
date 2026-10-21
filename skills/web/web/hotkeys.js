@@ -8,7 +8,8 @@
 // handlers read for it (`reads`; a letter is read whatever its case), what it does
 // (`what`) and, when it has a state, which one (`state`). The keys that act on a field's
 // own list are not here: ArrowUp and ArrowDown move the highlight in the search box's
-// suggestions, and Shift is only noted as held. Tab is the browser's.
+// suggestions, ArrowLeft and ArrowRight step the Calendar's notes divider while it has focus (it is a
+// slider, the way those arrows are its own), and Shift is only noted as held. Tab is the browser's.
 //
 // Pure: the caller passes the state, so Node tests drive it with plain values. Same
 // dual-environment export pattern as key-guard.js.

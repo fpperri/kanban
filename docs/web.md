@@ -138,6 +138,14 @@ sub-views). Working ranges render as linked chips; a `due_date` is its own
 amber deadline chip. Drag a chip to move the range or the deadline. Double-click an empty
 day, or a slot in the time grid, to start a new card there; the selection stays. Same status pills, in the search panel's Statuses section, and search as the other views.
 
+With a `logbook:` line the Week, 3-day and Day views also draw the board's notes: a day with
+timed notes keeps a strip at the right of its column, with a chip for a note and a count for
+several in a half hour, and a box in the all-day row for its untimed notes. The **Notes**
+button in the toolbar hides and shows them. A **divider** on the strip's left edge changes the
+strip's width for every day at once: drag it (from 44px nearly to the whole column, leaving the
+cards a sliver), or focus it and press Left and Right; a double click puts the default width
+back. A wider strip shows more of each note's words. The width is kept per board in this browser.
+
 ## Graph
 
 The **Graph** view (the header's "Graph" button) draws every card at once as

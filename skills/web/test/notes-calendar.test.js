@@ -128,3 +128,69 @@ test('#22 then Enter from an hour keeps the hour\'s time: the card is aimed at a
   const plan = n.noteWritePlan(n.noteParseLine('checked the cutover', { board: 'plan', isTarget: () => true }), aimed, { value: '10:00', untimed: false }, { today: '2026-10-19', now: '16:40', lastNoted: '' });
   assert.deepStrictEqual([plan.at, plan.day, plan.target], ['10:00', '2026-10-15', '22']);
 });
+
+// --- the notes strip's width -------------------------------------------------------------------------
+
+test('a strip is at least 44px wide and leaves the card blocks a 24px sliver of the column', () => {
+  assert.strictEqual(c.noteStripClamp(100, 300), 100);
+  assert.strictEqual(c.noteStripClamp(10, 300), 44);
+  assert.strictEqual(c.noteStripClamp(-50, 300), 44);
+  assert.strictEqual(c.noteStripClamp(299, 300), 276);
+  assert.strictEqual(c.noteStripClamp(5000, 300), 276);
+  assert.strictEqual(c.noteStripClamp(5000, 1400), 1376, 'a wide day column goes nearly all the way');
+});
+
+test('a column too narrow for both keeps the 44px minimum', () => {
+  assert.strictEqual(c.noteStripClamp(200, 60), 44);
+  assert.strictEqual(c.noteStripClamp(200, 0), 44);
+});
+
+test('a width is whole pixels', () => {
+  assert.strictEqual(c.noteStripClamp(100.6, 300), 101);
+  assert.strictEqual(c.noteStripClamp(Number.NaN, 300), 44);
+});
+
+test('dragging the divider sets the strip to the distance from the pointer to the column\'s right edge', () => {
+  assert.strictEqual(c.noteStripFromPointer(500, 380, 220), 120);
+  assert.strictEqual(c.noteStripFromPointer(500, 495, 220), 44, 'past the minimum');
+  assert.strictEqual(c.noteStripFromPointer(500, 100, 220), 196, 'past the sliver');
+  assert.strictEqual(c.noteStripFromPointer(500, 520, 220), 44, 'beyond the right edge');
+});
+
+test('Left widens the strip and Right narrows it, a step at a time, within the same bounds', () => {
+  assert.strictEqual(c.noteStripStep(100, 'ArrowLeft', 300), 108);
+  assert.strictEqual(c.noteStripStep(100, 'ArrowRight', 300), 92);
+  assert.strictEqual(c.noteStripStep(46, 'ArrowRight', 300), 44);
+  assert.strictEqual(c.noteStripStep(270, 'ArrowLeft', 300), 276);
+  assert.strictEqual(c.noteStripStep(100, 'ArrowUp', 300), null, 'any other key is no step');
+});
+
+test('a set width is the CSS for the strip: its px, held between the minimum and the column less the sliver', () => {
+  assert.strictEqual(c.noteStripCss(120), 'max(44px, min(120px, calc(100% - 24px)))');
+  assert.strictEqual(c.noteStripCss(null), null, 'no width set is the stylesheet\'s own default');
+});
+
+test('chips show 12 words by default and many more once the strip has a width set', () => {
+  assert.strictEqual(c.noteChipWords(null), 12);
+  assert.ok(c.noteChipWords(120) > 40);
+});
+
+test('the strip\'s width is kept in the browser per board, and a bad value is no width', () => {
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  assert.strictEqual(c.noteStripLoad(storage, 'plan'), null);
+  c.noteStripSave(storage, 'plan', 150);
+  assert.strictEqual(store.get('kanban.plan.calendar.notesWidth'), '150');
+  assert.strictEqual(c.noteStripLoad(storage, 'plan'), 150);
+  assert.strictEqual(c.noteStripLoad(storage, 'other'), null);
+  for (const bad of ['', 'wide', '-5', '12', '0', '99999', 'NaN', '1e3', '50px']) {
+    store.set('kanban.plan.calendar.notesWidth', bad);
+    assert.strictEqual(c.noteStripLoad(storage, 'plan'), null, JSON.stringify(bad));
+  }
+  c.noteStripSave(storage, 'plan', 150);
+  c.noteStripSave(storage, 'plan', null);
+  assert.strictEqual(store.has('kanban.plan.calendar.notesWidth'), false, 'the default is no saved width');
+  assert.strictEqual(c.noteStripLoad({ getItem() { throw new Error('blocked'); } }, 'plan'), null);
+  c.noteStripSave({ setItem() { throw new Error('full'); }, removeItem() { throw new Error('full'); } }, 'plan', 150);
+  c.noteStripSave({ setItem() { throw new Error('full'); }, removeItem() { throw new Error('full'); } }, 'plan', null);
+});

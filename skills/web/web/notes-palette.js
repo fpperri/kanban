@@ -194,7 +194,7 @@ function notesCalendarSlot(day, slot, top) {
     el = notesCalendarButton('cal-note-chip', noteTip(note, notesLabel), noteChipRequest(note, slot));
     if (note.target) el.append(notesEl('span', 'cal-note-id', `#${note.target}`));
     else el.append(notesGlyph());
-    el.append(document.createTextNode(noteFirstWords(note.note, 12)));
+    el.append(document.createTextNode(noteFirstWords(note.note, noteChipWords(calendarNotesStrip()))));
   } else {
     el = notesCalendarButton('cal-note-bubble', noteSlotTip(slot), noteSlotRequest(day, slot));
     el.append(notesEl('b', 'cal-note-count', String(slot.notes.length)), notesEl('span', 'cal-note-ids', noteSlotTargets(slot.notes).join(' ')));
@@ -202,6 +202,20 @@ function notesCalendarSlot(day, slot, top) {
   el.dataset.slot = `${day}|${slot.fromMin}`;
   el.style.top = `${top}px`;
   return el;
+}
+
+// The handle on the left edge of a day's notes strip (app.js sets the width it drags): a focusable
+// separator, so the arrow keys step it as well as a pointer.
+function notesCalendarDivider() {
+  const d = notesEl('div', 'cal-note-divider');
+  d.tabIndex = 0;
+  d.setAttribute('role', 'separator');
+  d.setAttribute('aria-orientation', 'vertical');
+  d.setAttribute('aria-label', 'Width of the notes');
+  d.title = 'Drag to change the width of the notes, for every day. Double-click for the default width. Left and Right arrows step it.';
+  d.setAttribute('data-holds-poll', '');
+  d.setAttribute('data-keeps-selection', '');
+  return d;
 }
 
 // The "N untimed" box in a day's all-day cell.

@@ -2106,6 +2106,7 @@ function applyProjectName(name) {
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
     calendarNotes = null; // calendar.notes too
+    calendarNotesWidth = undefined; // calendar.notesWidth too
     ganttSubview = null; // gantt.subview too
     mapSectionsCollapsed = null; // map.sections.collapsed too
     mapZoom = null; // map.zoom too
@@ -4335,6 +4336,36 @@ function setCalendarNotes(on) {
   renderCalendarView();
 }
 
+// The notes strip's width (feature key 'calendar.notesWidth'): the divider on a strip's left edge sets
+// it for every day column at once. null is the stylesheet's default, a number is px; undefined, not
+// read yet. Kept per board in this browser (notes-calendar.js), and drawn into the grid as the
+// custom property --cal-note-width, which every column's --cal-note-strip reads.
+let calendarNotesWidth;
+
+function calendarNotesStrip() {
+  if (calendarNotesWidth === undefined) {
+    const storage = prefsStorage();
+    calendarNotesWidth = storage ? noteStripLoad(storage, state.projectName) : null;
+  }
+  return calendarNotesWidth;
+}
+
+// `px` into the time grid that is drawn, live: no re-render, so a drag and a key press keep their element.
+function paintCalendarNotesStrip(px) {
+  const grid = document.querySelector('#calendar-view .cal-timegrid');
+  if (!grid) return;
+  const css = noteStripCss(px);
+  if (css === null) grid.style.removeProperty('--cal-note-width');
+  else grid.style.setProperty('--cal-note-width', css);
+}
+
+function setCalendarNotesStrip(px) {
+  calendarNotesWidth = px;
+  const storage = prefsStorage();
+  if (storage) noteStripSave(storage, state.projectName, px);
+  paintCalendarNotesStrip(px);
+}
+
 // Local time on purpose (matches the user's wall clock, same as
 // formatLocalDateTime) — the grid itself is built with UTC math but its "is
 // this cell today" check must agree with the calendar on the user's wall.
@@ -4630,6 +4661,8 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   const grid = document.createElement('div');
   grid.className = 'cal-timegrid';
   grid.style.setProperty('--cal-day-cols', days.length);
+  const stripCss = noteStripCss(calendarNotesStrip());
+  if (stripCss !== null) grid.style.setProperty('--cal-note-width', stripCss);
 
   // Header row: weekday + day-of-month per column, today highlighted like the
   // month grid's cell.
@@ -4743,7 +4776,10 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       }
       col.appendChild(el);
     }
-    if (strip) for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
+    if (strip) {
+      col.appendChild(notesCalendarDivider());
+      for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
+    }
     body.appendChild(col);
   }
   scroll.appendChild(body);
@@ -5015,6 +5051,67 @@ function wireCalendarTimeDrag() {
   container.addEventListener('pointercancel', (e) => { if (calTimeDrag && e.pointerId === calTimeDrag.pointerId) finish(false); });
 }
 
+// --- The divider on the notes strip's left edge ---------------------------------------------------
+// A pointer drag sets the strip's width for every day column at once, live and without a re-render;
+// the width is saved when the pointer lets go. isDragging is the same poll guard the other calendar
+// drags hold, so the 5s refresh never redraws mid-drag. The arrow keys step it, a double click puts
+// the default back. Nothing here starts a card drag (the pointerdown handler above reads only a
+// .cal-timeblock), and the click and double click handlers below skip a target on the divider.
+let calNotesDrag = null;
+
+function onCalNotesDividerDown(e) {
+  const divider = e.target.closest && e.target.closest('.cal-note-divider');
+  if (!divider || e.button !== 0 || calNotesDrag) return;
+  calNotesDrag = { pointerId: e.pointerId, divider, col: divider.closest('.cal-tg-col'), was: calendarNotesStrip(), px: null };
+  divider.setPointerCapture(e.pointerId);
+  divider.classList.add('dragging');
+  isDragging = true;
+  e.preventDefault();
+}
+
+function onCalNotesDividerMove(e) {
+  if (!calNotesDrag || e.pointerId !== calNotesDrag.pointerId) return;
+  const r = calNotesDrag.col.getBoundingClientRect();
+  calNotesDrag.px = noteStripFromPointer(r.right, e.clientX, r.width);
+  paintCalendarNotesStrip(calNotesDrag.px);
+}
+
+function endCalNotesDrag(e, keep) {
+  if (!calNotesDrag || e.pointerId !== calNotesDrag.pointerId) return;
+  const drag = calNotesDrag;
+  calNotesDrag = null;
+  isDragging = false;
+  drag.divider.classList.remove('dragging');
+  if (keep && drag.px !== null) setCalendarNotesStrip(drag.px);
+  else paintCalendarNotesStrip(drag.was);
+}
+
+function onCalNotesDividerUp(e) {
+  endCalNotesDrag(e, true);
+}
+
+function onCalNotesDividerCancel(e) {
+  endCalNotesDrag(e, false);
+}
+
+// Left widens the strip and Right narrows it, a step from where it is drawn now.
+function onCalNotesDividerKey(e) {
+  const divider = e.target.closest && e.target.closest('.cal-note-divider');
+  if (!divider || e.altKey || e.ctrlKey || e.metaKey) return;
+  const r = divider.closest('.cal-tg-col').getBoundingClientRect();
+  const d = divider.getBoundingClientRect();
+  const px = noteStripStep(r.right - (d.left + d.width / 2), e.key, r.width);
+  if (px === null) return;
+  e.preventDefault();
+  setCalendarNotesStrip(px);
+}
+
+function onCalNotesDividerDblClick(e) {
+  if (!e.target.closest || !e.target.closest('.cal-note-divider')) return;
+  e.preventDefault();
+  setCalendarNotesStrip(null);
+}
+
 // The empty space a double click creates a card on: a day of the month grid, a cell
 // of the all-day band, and a day column of the time grid. The click-away rule reads
 // the same two lists, so the double click that opens the create modal never also
@@ -5038,6 +5135,13 @@ let calHourClickTimer = 0;
 window.addEventListener('DOMContentLoaded', () => {
   $('#calendar-toggle-btn').addEventListener('click', () => toggleView('calendar'));
   wireCalendarTimeDrag(); // delegated once on the stable #calendar-view
+  const calView = $('#calendar-view');
+  calView.addEventListener('pointerdown', onCalNotesDividerDown);
+  calView.addEventListener('pointermove', onCalNotesDividerMove);
+  calView.addEventListener('pointerup', onCalNotesDividerUp);
+  calView.addEventListener('pointercancel', onCalNotesDividerCancel);
+  calView.addEventListener('keydown', onCalNotesDividerKey);
+  calView.addEventListener('dblclick', onCalNotesDividerDblClick);
   $('#calendar-view').addEventListener('click', (e) => {
     // The sub-view switcher rides the same delegated listener as
     // prev/today/next — all four button sets are rebuilt every render.
@@ -5051,7 +5155,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // A click on an empty part of a day's column opens the palette on that hour. A double click
     // there makes a card, so the palette waits out the double click's window.
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
-    if (!col || e.target.closest('.card-el, .cal-note') || isDragging || ganttDrag || calTimeDrag || !calendarNotesOn()) return;
+    if (!col || e.target.closest('.card-el, .cal-note, .cal-note-divider') || isDragging || ganttDrag || calTimeDrag || !calendarNotesOn()) return;
     const r = col.getBoundingClientRect();
     const req = noteHourRequest(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN);
     clearTimeout(calHourClickTimer);
@@ -5070,7 +5174,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the contextmenu listener below: never fire out from under a live drag
     clearTimeout(calHourClickTimer); // the click that began this double click wanted the palette; the double click wants a card
     if (e.target.closest('.card-el')) return; // a chip's dblclick is its own affair, not a create gesture
-    if (e.target.closest('.cal-note')) return; // so is a note's
+    if (e.target.closest('.cal-note, .cal-note-divider')) return; // so is a note's, and the notes divider's
     const dayCell = e.target.closest(CALENDAR_CREATE_DAY_CELLS);
     if (dayCell) { openModal(null, null, calendarCreateStart(dayCell.dataset.day)); return; }
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
