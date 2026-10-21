@@ -487,7 +487,7 @@ module.exports = {
     check('notes: the title field of the form has the focus and the key typed nothing in it', await ev(`document.activeElement===document.getElementById('f-title')&&document.getElementById('f-title').value==='Port the zephyr schema'`), await ev(`document.activeElement.id+'|'+document.getElementById('f-title').value`));
     await key('Escape');
     const DETAIL_FOCUSED = `document.activeElement===document.querySelector('#detail-modal .modal')`;
-    const ON_CARD_7 = `new URLSearchParams(location.search).get('card')==='7'`;
+    const ON_CARD_7 = `(new URLSearchParams(location.search).get('card')==='7')`;
     await key('Escape');
     check('notes: Esc leaves the edit form and returns to the details of card 7, with the focus on them and the address still naming the card', await waitFor(`${FORM_SHUT}&&${DETAIL_UP}&&${DETAIL_FOCUSED}&&${ON_CARD_7}&&document.getElementById('detail-title').textContent.startsWith('#7')`, 3000), await ev(`location.search+'|'+document.activeElement.className`));
     await key('e');
