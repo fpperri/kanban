@@ -43,8 +43,6 @@
 //                         # absent = on. Display only; the lists and the cards stay as written.
 //   iterations: true      # the header's iteration dropdown over the groups in the
 //                         # iteration/ folder (docs/adr/0015); needs groups:, absent = off
-//   typesOn: false        # types off (docs/adr/0018): the web and the snapshot ignore the
-//                         # board's types; absent = on. Display only, the cards keep theirs
 //   assignees:           # who can own cards; feeds the form's combobox
 //     - handle: "@alex"
 //       name: "Alex"
