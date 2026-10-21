@@ -99,6 +99,21 @@ module.exports = {
     await key('v', { ctrl: true, shift: true });
     check('scratchpad: Ctrl+Shift+V works with the focus on a button of the palette too', await waitFor(`!${TEXT}.hidden&&${PREVIEW}.hidden`, 2500));
 
+    // --- full screen gives the box and the Preview the height ----------------------------------------------------------
+    const FS_ON = `document.getElementById('notes-palette').classList.contains('fullscreen')`;
+    const FILLS = (sel) => `(()=>{const b=document.querySelector('#notes-palette .np-body').getBoundingClientRect();const e=document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect();const bar=document.querySelector('#notes-palette .sp-bar').getBoundingClientRect();return e.height>300&&b.bottom-bar.bottom<=24&&b.bottom-bar.bottom>=0&&bar.top>=e.bottom})()`;
+    const wasHeight = await ev(`${TEXT}.getBoundingClientRect().height`);
+    await press('#notes-fullscreen-btn');
+    check('scratchpad: the palette goes full screen from its button', await waitFor(FS_ON, 2500));
+    check('scratchpad: the box takes the height, with the Save row at the foot of the area', await waitFor(FILLS('#notes-palette .sp-text'), 2500) && await ev(`${TEXT}.getBoundingClientRect().height`) > wasHeight);
+    await shot('scratchpad-fullscreen');
+    await press('#notes-palette .sp-mode:last-child');
+    check('scratchpad: the Preview takes the height too', await waitFor(FILLS('#notes-palette .sp-preview'), 2500));
+    await press('#notes-palette .sp-mode:first-child');
+    check('scratchpad: back on Edit the box has the focus, and Alt+Enter leaves full screen from it', await waitFor(`document.activeElement===${TEXT}`, 2500));
+    await key('Enter', { alt: true });
+    check('scratchpad: Alt+Enter in the box leaves full screen and keeps its text', await waitFor(`!(${FS_ON})`, 2500) && await ev(`${TEXT}.value.startsWith('# Plan')`));
+
     // --- Ctrl+Enter writes the body and keeps the refs -------------------------------------------------------------------
     await typeInto('check the enum renames\nsecond line');
     await key('Enter', { ctrl: true });

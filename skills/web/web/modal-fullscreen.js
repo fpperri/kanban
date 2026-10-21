@@ -8,12 +8,12 @@
 // (`kanban.<projectName>.<feature>`), under the feature name 'modal.fullscreen'
 // — a sibling key to 'columns.collapsed' and 'columns.sort', never
 // colliding since each feature gets its own key. One saved object covers every
-// modal type (edit, detail, and any future .modal-backdrop popup — a new
-// type just adds itself to MODAL_TYPES/
-// DEFAULT_FULLSCREEN below and gets the same persistence for free).
+// popup or panel (edit, detail, the bulk popups, the notes palette — a new
+// type adds itself to MODAL_TYPES/DEFAULT_FULLSCREEN below and gets the same
+// persistence for free, plus an entry in app.js's FULLSCREEN_MODALS).
 
-const MODAL_TYPES = ['edit', 'detail', 'bulkSingle', 'bulkTags', 'bulkSchedule'];
-const DEFAULT_FULLSCREEN = { edit: false, detail: false, bulkSingle: false, bulkTags: false, bulkSchedule: false };
+const MODAL_TYPES = ['edit', 'detail', 'bulkSingle', 'bulkTags', 'bulkSchedule', 'notes'];
+const DEFAULT_FULLSCREEN = { edit: false, detail: false, bulkSingle: false, bulkTags: false, bulkSchedule: false, notes: false };
 
 // Merge a value decoded from localStorage (which may be missing, null, not an
 // object, or carry a stale/unknown modal-type key) with the defaults — same

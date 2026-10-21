@@ -519,7 +519,7 @@ test('app.css fills the viewport for a fullscreen modal (fixed + inset:0, not th
   const dir = tmpBoard();
   await withServer(dir, async (base) => {
     const css = await (await fetch(`${base}/app.css`)).text();
-    assert.match(css, /\.modal\.fullscreen\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0/s);
+    assert.match(css, /\.modal\.fullscreen(,\s*\.notes-palette\.fullscreen)?\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0/s);
     // flex-grow down the form → .modal-desc label → textarea chain
     // gives the description the REAL remaining height at any viewport size
     // (a static 60vh share dead-spaced tall viewports, overflowed short ones)
