@@ -631,6 +631,41 @@ test('adding and removing a prefix each ask first and write the prefixes block',
   assert.deepStrictEqual(ctx.calls[1][2].value.map((r) => r.prefix), ['G', 'O']);
 });
 
+test('a prefix edit queued behind a removal finds its row by its prefix: the one asked is changed and the others stay', async () => {
+  const ctx = loadPages();
+  const root = ctx.page('prefixes');
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  ctx.api = async (m, u, body) => {
+    ctx.calls.push([m, u, JSON.parse(JSON.stringify(body))]);
+    if (ctx.calls.length === 1) await gate;
+    ctx.state.settings.prefixes = body.value.map((r) => ({ prefix: r.prefix, kind: 'type', target: r.target }));
+    ctx.state.settings.version = `v${ctx.calls.length + 1}`;
+    return { settings: ctx.state.settings };
+  };
+  await root.one(labelled('Remove the prefix G')).fire('click');
+  const field = root.one(labelled('Card type or folder of O'));
+  field.value = 'epic';
+  await field.fire('change');
+  release();
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls.map((c) => c[2].value), [
+    [{ prefix: 'O', target: 'objective' }, { prefix: 'W', target: 'workflow' }],
+    [{ prefix: 'O', target: 'epic' }, { prefix: 'W', target: 'workflow' }],
+  ]);
+});
+
+test('a prefix edit whose row was removed meanwhile writes nothing', async () => {
+  const ctx = loadPages();
+  const root = ctx.page('prefixes');
+  const field = root.one(labelled('Card type or folder of G'));
+  field.value = 'epic';
+  ctx.state.settings.prefixes = ctx.state.settings.prefixes.filter((r) => r.prefix !== 'G');
+  await field.fire('change');
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls, []);
+});
+
 test('a prefix row the page can see is wrong is refused with the text kept, and nothing is asked', async () => {
   const ctx = loadPages();
   const field = ctx.page('prefixes').one(labelled('Prefix G'));
@@ -638,7 +673,7 @@ test('a prefix row the page can see is wrong is refused with the text kept, and 
   await field.fire('change');
   assert.deepStrictEqual(ctx.calls, []);
   assert.deepStrictEqual(ctx.asked, []);
-  assert.match(ctx.run("settingsUi.errors['prefix:0']"), /already declared/);
+  assert.match(ctx.run("settingsUi.errors['prefix:G']"), /already declared/);
 });
 
 test('the other board pages show their path from the settings, and Counters stays read only', () => {

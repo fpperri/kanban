@@ -331,24 +331,27 @@ function settingsPrefixList(rows) {
   return rows.map((r) => ({ prefix: r.prefix, target: r.target }));
 }
 
-function settingsPrefixSet(list, at, patch) {
-  return list.map((r, i) => (i === at ? { ...r, ...patch } : { ...r }));
+// The edits find their row by the prefix it had when the person edited it; null when no row has it any more.
+function settingsPrefixSet(list, from, patch) {
+  if (!list.some((r) => r.prefix === from)) return null;
+  return list.map((r) => (r.prefix === from ? { ...r, ...patch } : { ...r }));
 }
 
 function settingsPrefixAdd(list, prefix, target) {
   return [...list.map((r) => ({ ...r })), { prefix, target }];
 }
 
-function settingsPrefixRemove(list, at) {
-  return list.filter((_, i) => i !== at).map((r) => ({ ...r }));
+function settingsPrefixRemove(list, from) {
+  if (!list.some((r) => r.prefix === from)) return null;
+  return list.filter((r) => r.prefix !== from).map((r) => ({ ...r }));
 }
 
-// What a typed prefix row plainly gets wrong; the server judges the letters. `at` = the row being edited.
-function settingsPrefixProblem(list, prefix, target, at) {
+// What a typed prefix row plainly gets wrong; the server judges the letters. `self` = the prefix of the row being edited.
+function settingsPrefixProblem(list, prefix, target, self) {
   const p = String(prefix).trim();
   if (p === '') return 'A prefix is the letters an id starts with, like G.';
   if (String(target).trim() === '') return `The prefix ${p} needs a card type or a groups folder.`;
-  if (list.some((r, i) => i !== at && r.prefix === p)) return `The prefix ${p} is already declared: a prefix names one card type or one groups folder.`;
+  if (list.some((r) => r.prefix !== self && r.prefix === p)) return `The prefix ${p} is already declared: a prefix names one card type or one groups folder.`;
   return '';
 }
 

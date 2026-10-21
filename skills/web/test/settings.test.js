@@ -293,11 +293,18 @@ test('prefix edits return the whole prefixes list to write, changing only the ro
   const rows = [{ prefix: 'G', kind: 'type', target: 'goal' }, { prefix: 'W', kind: 'folder', target: 'workflow', folder: 'workflow' }];
   const list = s.settingsPrefixList(rows);
   assert.deepStrictEqual(list, [{ prefix: 'G', target: 'goal' }, { prefix: 'W', target: 'workflow' }]);
-  assert.deepStrictEqual(s.settingsPrefixSet(list, 0, { prefix: 'X' }), [{ prefix: 'X', target: 'goal' }, { prefix: 'W', target: 'workflow' }]);
-  assert.deepStrictEqual(s.settingsPrefixSet(list, 1, { target: 'flows' })[1], { prefix: 'W', target: 'flows' });
+  assert.deepStrictEqual(s.settingsPrefixSet(list, 'G', { prefix: 'X' }), [{ prefix: 'X', target: 'goal' }, { prefix: 'W', target: 'workflow' }]);
+  assert.deepStrictEqual(s.settingsPrefixSet(list, 'W', { target: 'flows' })[1], { prefix: 'W', target: 'flows' });
   assert.deepStrictEqual(s.settingsPrefixAdd(list, 'B', 'bug').slice(2), [{ prefix: 'B', target: 'bug' }]);
-  assert.deepStrictEqual(s.settingsPrefixRemove(list, 0), [{ prefix: 'W', target: 'workflow' }]);
+  assert.deepStrictEqual(s.settingsPrefixRemove(list, 'G'), [{ prefix: 'W', target: 'workflow' }]);
   assert.strictEqual(list.length, 2, 'the list given is not changed');
+});
+
+test('a prefix edit finds its row by the prefix it names, and answers null when that row is gone', () => {
+  const list = [{ prefix: 'O', target: 'objective' }, { prefix: 'W', target: 'workflow' }];
+  assert.strictEqual(s.settingsPrefixSet(list, 'G', { target: 'x' }), null);
+  assert.strictEqual(s.settingsPrefixRemove(list, 'G'), null);
+  assert.deepStrictEqual(s.settingsPrefixSet(list, 'O', { target: 'x' })[0], { prefix: 'O', target: 'x' });
 });
 
 test('the page refuses a blank prefix or target and a prefix another row has, before asking the server', () => {
@@ -305,7 +312,8 @@ test('the page refuses a blank prefix or target and a prefix another row has, be
   assert.match(s.settingsPrefixProblem(list, '', 'x', null), /prefix/);
   assert.match(s.settingsPrefixProblem(list, 'X', '  ', null), /card type or a groups folder/);
   assert.match(s.settingsPrefixProblem(list, 'W', 'x', null), /W/);
-  assert.strictEqual(s.settingsPrefixProblem(list, 'W', 'x', 1), '', 'its own prefix');
+  assert.strictEqual(s.settingsPrefixProblem(list, 'W', 'x', 'W'), '', 'its own prefix');
+  assert.match(s.settingsPrefixProblem(list, 'G', 'x', 'W'), /G/, 'another row\'s prefix');
   assert.strictEqual(s.settingsPrefixProblem(list, 'X', 'x', null), '');
 });
 

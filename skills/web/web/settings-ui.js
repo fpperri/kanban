@@ -599,8 +599,10 @@ function settingsTypesNodes() {
 
 // ---------- the Prefixes page ----------
 
-function settingsPrefixSend(kind, at, next, typed) {
-  const key = at === null ? 'prefix:new' : `prefix:${at}`;
+// `from` = the prefix of the row being changed or removed (null for an add): the row is found by it in
+// the settings as they stand when the save's turn comes, never by where it was drawn.
+function settingsPrefixSend(kind, from, next, typed) {
+  const key = from === null ? 'prefix:new' : `prefix:${from}`;
   if (!confirm(settingsPrefixConfirm(kind, next.prefix, next.target))) {
     delete settingsUi.drafts[key];
     settingsRenderBoard();
@@ -609,25 +611,25 @@ function settingsPrefixSend(kind, at, next, typed) {
   settingsSendLater(() => {
     const list = settingsPrefixList(state.settings.prefixes);
     const out = kind === 'add' ? settingsPrefixAdd(list, next.prefix, next.target)
-      : kind === 'remove' ? settingsPrefixRemove(list, at)
-        : settingsPrefixSet(list, at, next);
-    return settingsBlockBody('prefixes', out, state.settings.version);
+      : kind === 'remove' ? settingsPrefixRemove(list, from)
+        : settingsPrefixSet(list, from, next);
+    return out ? settingsBlockBody('prefixes', out, state.settings.version) : null;
   }, key, typed);
 }
 
-function settingsPrefixEdit(at, row, prefix, target) {
-  const key = `prefix:${at}`;
+function settingsPrefixEdit(row, prefix, target) {
+  const key = `prefix:${row.prefix}`;
   if (prefix.trim() === row.prefix && target.trim() === row.target) { delete settingsUi.drafts[key]; settingsRenderBoard(); return; }
   const next = { prefix: prefix.trim(), target: target.trim() };
   const typed = { prefix, target };
-  const problem = settingsPrefixProblem(settingsPrefixList(state.settings.prefixes), next.prefix, next.target, at);
+  const problem = settingsPrefixProblem(settingsPrefixList(state.settings.prefixes), next.prefix, next.target, row.prefix);
   if (problem) {
     settingsUi.errors = { [key]: problem };
     settingsUi.drafts[key] = typed;
     settingsRenderBoard();
     return;
   }
-  settingsPrefixSend('change', at, next, typed);
+  settingsPrefixSend('change', row.prefix, next, typed);
 }
 
 function settingsPrefixCell(label, value, fk, onChange) {
@@ -647,19 +649,19 @@ function settingsPrefixRows(root) {
   table.append(thead);
   const body = settingsEl('tbody');
   state.settings.prefixes.forEach((row, at) => {
-    const key = `prefix:${at}`;
+    const key = `prefix:${row.prefix}`;
     const draft = settingsUi.drafts[key] || {};
     const tr = settingsEl('tr');
     tr.dataset.prefixAt = String(at);
-    const p = settingsPrefixCell(`Prefix ${row.prefix}`, draft.prefix !== undefined ? draft.prefix : row.prefix, `${key}:prefix`, () => settingsPrefixEdit(at, row, p.input.value, t.input.value));
-    const t = settingsPrefixCell(`Card type or folder of ${row.prefix}`, draft.target !== undefined ? draft.target : row.target, `${key}:target`, () => settingsPrefixEdit(at, row, p.input.value, t.input.value));
+    const p = settingsPrefixCell(`Prefix ${row.prefix}`, draft.prefix !== undefined ? draft.prefix : row.prefix, `${key}:prefix`, () => settingsPrefixEdit(row, p.input.value, t.input.value));
+    const t = settingsPrefixCell(`Card type or folder of ${row.prefix}`, draft.target !== undefined ? draft.target : row.target, `${key}:target`, () => settingsPrefixEdit(row, p.input.value, t.input.value));
     const err = settingsError(key);
     if (err) t.td.append(err);
     const remove = settingsMark(settingsEl('button', 'types-act', 'Remove'));
     remove.type = 'button';
     remove.dataset.fk = `${key}:remove`;
     remove.setAttribute('aria-label', `Remove the prefix ${row.prefix}`);
-    remove.addEventListener('click', () => settingsPrefixSend('remove', at, row, undefined));
+    remove.addEventListener('click', () => settingsPrefixSend('remove', row.prefix, row, undefined));
     const act = settingsEl('td');
     act.append(remove);
     tr.append(p.td, t.td, settingsEl('td', '', settingsPrefixTarget(row, root)), act);
