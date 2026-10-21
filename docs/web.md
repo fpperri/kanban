@@ -407,7 +407,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has
@@ -470,7 +470,9 @@ note written in the palette stays listed whatever they say. A **Grouped | Timeli
 beside them, remembered per board, changes the list's shape: Timeline is one flat list, days
 newest first and inside a day the timed notes in time order, then the untimed ones, each row
 naming its card (a link to it, or "no card"); the filter, the switches and the keys work on it
-as on the grouped one. On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
+as on the grouped one. `Alt+1`, `Alt+2` and `Alt+3` switch the open palette's first, second and third tab (Notes,
+Group, Scratchpad, as the tab row shows them; each tab carries its key), from the note box too.
+On a listed note, `e` edits it, `a` assigns it to another card (or to none) and `d d` deletes
 it. Without a `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
 **Scratchpad** — with a `scratchpad:` line in `config.yaml`, a card or a group has a disposable

@@ -309,3 +309,79 @@ test('a window that changes size regrows the open note box', async () => {
   (p.page.windowListeners.resize || []).forEach((fn) => fn({}));
   assert.strictEqual(p.ui().input.style.height, '200px');
 });
+
+// --- Alt+1, Alt+2, Alt+3 -------------------------------------------------------------------
+
+// A card with a scratchpad, so its palette has two tabs: Notes and Scratchpad.
+async function twoTabs() {
+  const p = await openPalette({ notes: NOTES, scratchpad: { folder: 'scratch', targets: [] } });
+  p.page.run("scratchPanel = () => document.createElement('div')");
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  return p;
+}
+const altKey = (p, key, target, over = {}) => {
+  const e = { key, code: `Digit${key}`, shiftKey: false, ctrlKey: false, metaKey: false, altKey: true, repeat: false, defaultPrevented: false, target, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...over };
+  target.fire('keydown', e);
+  return e;
+};
+const tabOf = (p) => p.page.run('notesUi.tab');
+
+test('Alt+2 inside the note box switches to the second tab and Alt+1 back to the first', async () => {
+  const p = await twoTabs();
+  assert.strictEqual(tabOf(p), 'notes');
+  const e = altKey(p, '2', p.pal());
+  assert.strictEqual(tabOf(p), 'scratch');
+  assert.strictEqual(e.defaultPrevented, true);
+  assert.strictEqual(e.stopped, true, 'the key stays in the palette');
+  altKey(p, '1', p.pal());
+  assert.strictEqual(tabOf(p), 'notes');
+});
+
+test('a number past the last tab does nothing', async () => {
+  const p = await twoTabs();
+  altKey(p, '3', p.pal());
+  assert.strictEqual(tabOf(p), 'notes');
+  altKey(p, '2', p.pal());
+  altKey(p, '3', p.pal());
+  assert.strictEqual(tabOf(p), 'scratch');
+});
+
+test('a palette with one tab has nothing to switch to', async () => {
+  const p = await openPalette({ notes: NOTES });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  altKey(p, '2', p.pal());
+  assert.strictEqual(tabOf(p), 'notes');
+});
+
+test('with focus outside the palette the keys switch its tabs too, and with the palette closed they do nothing', async () => {
+  const p = await twoTabs();
+  const e = { key: '2', code: 'Digit2', shiftKey: false, ctrlKey: false, metaKey: false, altKey: true, defaultPrevented: false, target: {}, preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} };
+  p.page.ctx.onNotesTabKey(e);
+  assert.strictEqual(tabOf(p), 'scratch');
+  assert.strictEqual(e.defaultPrevented, true);
+  p.page.run('notesClose()');
+  const closed = { ...e, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  p.page.ctx.onNotesTabKey(closed);
+  assert.strictEqual(closed.defaultPrevented, false, 'the key is the browser\'s again');
+  assert.strictEqual(tabOf(p), 'notes');
+});
+
+test('Alt+Left and Alt+Right are left to the browser, in the palette too', async () => {
+  const p = await twoTabs();
+  for (const key of ['ArrowLeft', 'ArrowRight']) {
+    const e = altKey(p, key, p.pal(), { code: key });
+    assert.strictEqual(e.defaultPrevented, false, key);
+  }
+  assert.strictEqual(tabOf(p), 'notes');
+});
+
+test('each tab shows its key as a muted hint and in its title', async () => {
+  const p = await twoTabs();
+  const tabs = p.all('.np-tab');
+  assert.deepStrictEqual(tabs.map((t) => t.dataset.key), ['Alt+1', 'Alt+2']);
+  assert.deepStrictEqual(tabs.map((t) => p.text(t)), ['Notes', 'Scratchpad'], 'the hint is drawn by the stylesheet: the text of a tab is still its name');
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  assert.match(css, /\.np-tab::after \{ content: attr\(data-key\);/);
+  assert.deepStrictEqual(tabs.map((t) => t.title), ['Notes (Alt+1)', 'Scratchpad (Alt+2)']);
+  assert.deepStrictEqual(tabs.map((t) => t.dataset.tab), ['notes', 'scratch']);
+});

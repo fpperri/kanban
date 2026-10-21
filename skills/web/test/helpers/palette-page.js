@@ -75,7 +75,7 @@ function paletteDocument(holder) {
 // What the stylesheet gives a note box: a 20px line, 6px of padding and a 1px border all round.
 const TEXT_AREA = { lineHeight: '20px', fontSize: '15px', paddingTop: '6px', paddingBottom: '6px', borderTopWidth: '1px', borderBottomWidth: '1px' };
 
-async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {} } = {}) {
+async function openPalette({ cards, notes, stored = {}, viewport = {}, elements: more = {}, scratchpad = null } = {}) {
   const holder = { document: null };
   const documentExtras = paletteDocument(holder);
   const board = {
@@ -86,6 +86,7 @@ async function openPalette({ cards, notes, stored = {}, viewport = {}, elements:
     active: cards || [card(7, 'Port the zephyr schema'), card(22, 'Cut over the data layer'), card(3, 'Write the cutover plan')],
     archived: [],
     logbook: { folder: 'logbook', notes: notes || [] },
+    scratchpad,
   };
   const elements = { '#detail-modal': control(), '#ctx-note': control(), ...more };
   const page = await loadPage({ board, stored, documentExtras, elements }).start();

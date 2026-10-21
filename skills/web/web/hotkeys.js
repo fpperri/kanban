@@ -22,6 +22,7 @@ const HOTKEYS = [
   { id: 'fullscreen', keys: ['Alt+Enter'], reads: ['Enter'], what: 'Toggle fullscreen on the popup that is open.' },
   { id: 'note', keys: ['n'], reads: ['n'], what: 'Add a note on the card whose details are open, else on the hovered or selected card (the card last noted when none is): opens the notes palette, where Enter writes the note and Shift+Enter starts a new line. Needs a logbook: line in config.yaml.' },
   { id: 'note-row', keys: ['e', 'a', 'd d'], reads: ['e', 'a', 'd'], what: 'On a note in the notes palette: edit it, assign it to another card, or delete it (press d twice).' },
+  { id: 'note-tabs', keys: ['Alt+1', 'Alt+2', 'Alt+3'], reads: ['1', '2', '3'], what: 'In the open notes palette: switch to its first, second or third tab, as the tab row shows them (Notes, Group, Scratchpad). Works from the note box too.' },
   { id: 'names', keys: ['l'], reads: ['l'], state: 'names', what: 'Step the names the Graph\'s tier fan draws: relevant, all, none.' },
   { id: 'slice', keys: ['[', ']', '{', '}'], reads: ['[', ']', '{', '}'], state: 'slice', what: 'Move the bottom of the run of slices up and down with [ and ], and its top up and down with { and }.' },
   { id: 'slice-keep', keys: ['Menu', 'Shift+F10'], reads: ['ContextMenu', 'F10'], what: 'On a focused slice entry in the search panel, keep only that slice, as a right-click does.' },

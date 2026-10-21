@@ -484,7 +484,10 @@ function notesPaintTabs() {
   u.tabsEl.hidden = tabs.length < 2;
   const names = { notes: 'Notes', group: 'Group', scratch: 'Scratchpad' };
   u.tabsEl.replaceChildren(...tabs.map((t) => {
-    const b = notesButton(`np-tab${t === u.tab ? ' on' : ''}`, names[t], '', () => notesSetTab(t));
+    const key = `Alt+${tabs.indexOf(t) + 1}`;
+    const b = notesButton(`np-tab${t === u.tab ? ' on' : ''}`, names[t], `${names[t]} (${key})`, () => notesSetTab(t));
+    b.dataset.key = key; // drawn after the name by the stylesheet, so the name stays the button's text
+    b.setAttribute('aria-keyshortcuts', key);
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(t === u.tab));
     b.dataset.tab = t;
@@ -832,7 +835,26 @@ function notesOnBodyKey(e) {
   else if (e.key.length === 1 && e.key !== ' ') { notesUi.hi = -1; notesUi.input.focus(); }
 }
 
+// Alt+1, Alt+2 and Alt+3 switch to the palette's first, second and third tab, as the tab row shows
+// them; a number past the last tab does nothing. The keys type nothing, so they work from the note
+// box too, and they are the palette's own while it is open.
+function notesTabKey(e) {
+  const at = noteTabKey(e);
+  if (at === -1 || !notesUi.sub) return false;
+  e.preventDefault();
+  e.stopPropagation();
+  const tab = notesTabs()[at];
+  if (tab) notesSetTab(tab);
+  return true;
+}
+
+function onNotesTabKey(e) {
+  if (!notesUi.el || notesUi.el.contains(e.target)) return;
+  notesTabKey(e);
+}
+
 function notesOnPaletteKey(e) {
+  if (notesTabKey(e)) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
@@ -909,6 +931,7 @@ function notesOnBoard() {
 window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
   document.addEventListener('keydown', onNotesEscape, true);
+  document.addEventListener('keydown', onNotesTabKey);
   window.addEventListener('resize', () => { if (notesUi.sub && notesUi.input) notesGrow(); });
   document.addEventListener('mousedown', onNotesPointer, true);
   document.addEventListener('click', (e) => {

@@ -3,7 +3,7 @@
 // logbook"), apart from the DOM: how the note box's line is read, what Enter will write
 // and the preview line that says so, what the palette is about (its subject: a card, a
 // group, a slot of a day, a day's untimed notes, or nothing), how the notes list is
-// narrowed, grouped and ordered, and how high a note box grows. notes-palette.js draws it and talks to the server.
+// narrowed, grouped and ordered, how high a note box grows, and which tab Alt+1 to Alt+3 pick. notes-palette.js draws it and talks to the server.
 //
 // The line. Its first line may begin with a time (`10:30 renamed it`) or with `-` or the
 // word `untimed`, then with a mention of a card or group the board has (`#22 mid check`,
@@ -291,6 +291,17 @@ function noteTimeline(notes, o = {}) {
   return list;
 }
 
+// Alt+1, Alt+2 and Alt+3 pick the palette's first, second and third tab. The digit is read by its key,
+// else by its place on the keyboard (Alt changes the character some layouts type). -> 0, 1, 2 or -1.
+const NOTE_TAB_KEYS = ['1', '2', '3'];
+const NOTE_TAB_CODES = ['Digit1', 'Digit2', 'Digit3'];
+
+function noteTabKey(e) {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return -1;
+  const byKey = NOTE_TAB_KEYS.indexOf(e.key);
+  return byKey !== -1 ? byKey : NOTE_TAB_CODES.indexOf(e.code);
+}
+
 const NOTE_BOX_LINES = 12;
 
 // The size of a note box that grows with its text (the palette's note box and the one a listed note
@@ -354,7 +365,7 @@ function noteLayoutSave(storage, projectName, layout) {
 
 const NOTES_EXPORTS = {
   noteFieldTime, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectCleared, noteSubjectNotes,
-  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
+  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

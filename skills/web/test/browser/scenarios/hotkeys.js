@@ -26,7 +26,7 @@
 const { HOTKEYS } = require('../../../web/hotkeys');
 
 // The keys the page answers, as the list labels them.
-const KEYS = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
+const KEYS = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'Alt+1', 'Alt+2', 'Alt+3', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
 // The keys that have a state, by the id of their row, and what each reads before anything is changed.
 const DEFAULTS = {
   names: 'names: relevant',

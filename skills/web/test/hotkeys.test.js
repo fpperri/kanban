@@ -98,3 +98,11 @@ test('the n line says it notes the card whose details are open, ahead of the hov
   assert.match(what, /card whose details are open/);
   assert.ok(what.indexOf('details are open') < what.indexOf('hovered or selected'), 'the open details come first');
 });
+
+test('Alt+1, Alt+2 and Alt+3 are listed together as the notes palette\'s tab keys', () => {
+  const row = rowOf(hotkeyRows(NOW), 'note-tabs');
+  assert.deepStrictEqual(row.keys, ['Alt+1', 'Alt+2', 'Alt+3']);
+  assert.match(row.what, /notes palette/);
+  assert.match(row.what, /first, second or third tab/);
+  assert.strictEqual(row.state, null);
+});
