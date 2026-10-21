@@ -81,9 +81,12 @@ test('bodies stay under the snapshot caps on every board', () => {
   }
 });
 
-test('markdown board: the fixture board plus card 22, whose body holds the constructs the markdown scenario reads', () => {
+test('markdown board: the fixture board plus card 22, whose body holds the constructs the markdown scenario reads, and cards 23 and 24 with a good and a bad diagram', () => {
   const b = load('markdown');
-  assert.strictEqual(b.cards.length, 22);
+  assert.strictEqual(b.cards.length, 24);
+  assert.match(b.byId.get('23')._rawBody, /```mermaid\ngraph TD/);
+  assert.match(b.byId.get('24')._rawBody, /```mermaid\nthis is not a diagram\n```\n\nStill here after it\./);
+  assert.ok(!/```mermaid/.test(b.byId.get('22')._rawBody) && !/```mermaid/.test(b.byId.get('1')._rawBody));
   const body = b.byId.get('22')._rawBody;
   for (const marker of ['#### ', '**bold**', '~~struck~~', '<u>underlined</u>', 'https://example.test/docs', '1. first', '   - a bullet under a number', '> quoted words', '> - and a quoted bullet', '```c#', '````', '<details>', '<summary>Open me</summary>']) {
     assert.ok(body.includes(marker), `card 22 holds ${marker}`);

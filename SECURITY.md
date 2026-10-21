@@ -68,6 +68,14 @@ access of their own:
   a raw `innerHTML` interpolation — this stops a card someone else can write
   into your board (a shared repo, a malicious PR) from running script in your
   browser session.
+- **Mermaid runs in a sandbox of its own.** The Markdown body can hold a ```mermaid block, and
+  mermaid writes inline styles that the policy above refuses. The policy is not loosened for it: the
+  diagram is drawn in a frame (`mermaid-frame.html`) whose response carries `sandbox allow-scripts`
+  and a policy of its own (`default-src 'none'`, scripts from its own origin only, inline styles
+  allowed), so a hostile diagram can restyle that frame and do nothing else: it has an opaque origin,
+  no network and no way into the page. Mermaid runs with `securityLevel: 'strict'`, the page ignores
+  messages from anything but the frames it made, and the server answers a request with the origin
+  `null` (a sandboxed frame's) only for the frame's two files and the vendored libraries.
 
 None of this treats the network as more trusted than it is — it just closes
 the gap between "the trust boundary is the files" and "yet a stray browser

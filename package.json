@@ -1,7 +1,7 @@
 {
   "name": "kanban",
   "private": true,
-  "description": "Test entry points for the kanban plugin repo. The plugin has no dependencies.",
+  "description": "Test entry points for the kanban plugin repo. The plugin has no package dependencies; it vendors two libraries, mermaid (MIT) and highlight.js (BSD-3), under skills/web/web/vendor.",
   "engines": { "node": ">=22" },
   "scripts": {
     "test": "node --test \"skills/web/test/*.test.js\" \"skills/snapshot/test/*.test.js\"",

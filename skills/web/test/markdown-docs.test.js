@@ -36,3 +36,32 @@ test('what the docs promise is what the renderer draws', () => {
   assert.ok(mdToHtml('<details onclick=x>\nx\n</details>').startsWith('<p>&lt;details onclick=x&gt;'));
   assert.ok(mdToHtml('```c#\nx\n```').includes('data-lang="c#"'));
 });
+
+// --- the vendored libraries --------------------------------------------------------------
+
+const libs = require('../web/code-libs');
+const docsMd = flat(para + ' ' + docs.slice(docs.indexOf('Mermaid writes inline styles'), docs.indexOf('**Notes** —')));
+
+test('the docs name both libraries, their licences, the pinned versions and the sandboxed frame', () => {
+  for (const part of ['highlight.js', 'BSD-3', 'Mermaid', 'MIT', `mermaid ${libs.MERMAID_VERSION}`, `highlight.js ${libs.HIGHLIGHT_VERSION}`, 'skills/web/web/vendor', 'cdnjs.cloudflare.com',
+    'only when a rendered body holds a block', 'sandbox allow-scripts', 'opaque origin', "securityLevel: 'strict'", 'postMessage', '`null`']) {
+    assert.ok(docsMd.includes(part), part);
+  }
+});
+
+test('package.json no longer says there are no dependencies at all: it names the two vendored libraries', () => {
+  const pkg = JSON.parse(read('package.json'));
+  assert.match(pkg.description, /mermaid \(MIT\)/);
+  assert.match(pkg.description, /highlight\.js \(BSD-3\)/);
+  assert.doesNotMatch(pkg.description, /has no dependencies\./);
+  assert.strictEqual(pkg.dependencies, undefined, 'and nothing is installed');
+});
+
+test('the README, SECURITY.md and the web skill describe the libraries and the frame', () => {
+  assert.match(read('README.md'), /highlight\.js \(BSD-3\)[\s\S]*mermaid \(MIT\)/);
+  assert.match(flat(read('SECURITY.md')), /Mermaid runs in a sandbox of its own[\s\S]*sandbox allow-scripts/);
+  const wb = flat(skill);
+  for (const part of ['enhanceCodeBlocks()', 'code-libs.js', 'mermaid-frame.html', 'sandbox="allow-scripts"', 'VENDORED', 'Diagram error:', 'cdnjs']) assert.ok(wb.includes(part), part);
+  const snap = flat(read('skills', 'snapshot', 'SKILL.md'));
+  assert.ok(snap.includes('cdnjs.cloudflare.com') && snap.includes(libs.MERMAID_VERSION) && snap.includes(libs.HIGHLIGHT_VERSION));
+});

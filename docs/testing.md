@@ -1,6 +1,6 @@
 # Testing
 
-The plugin has no dependencies; every test runs on Node 22 or later (the snapshot's also need Python 3.11 as `python`). Run these from the repo root.
+The plugin has no package dependencies (two libraries are vendored under `skills/web/web/vendor`, see `docs/web.md`); every test runs on Node 22 or later (the snapshot's also need Python 3.11 as `python`). Run these from the repo root.
 
 ## The scripts
 

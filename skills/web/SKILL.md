@@ -599,6 +599,26 @@ to `127.0.0.1` only.
   and a block quote, heading, rule or fence closes every open list level. A code span holding a
   card mention (`board#id title`, the Card mention rule in GLOSSARY.md) renders as an accent chip
   instead of code; a mention of a card on this board opens that card when clicked.
+  After the text is written, `markdownInto()` hands the element to `enhanceCodeBlocks()`
+  (`code-blocks-ui.js`), which asks `kanbanCodeLibs` (`code-libs.js`: the highlight.js language
+  names and aliases, the pinned versions) what each typed block needs and loads only that, on the
+  first block that does: **highlight.js** (`web/vendor/highlight.js`, the common-languages build with
+  its light and dark GitHub themes, one on at a time as the page's theme says) colours a fence in a
+  language it knows, setting `language-<name>` on the `code` and calling `hljs.highlightElement`;
+  an unknown language or an untyped fence is left plain. A ```mermaid fence makes a sandboxed
+  `<iframe sandbox="allow-scripts" src="/mermaid-frame.html">` beside the block: mermaid writes inline
+  styles that the page's CSP refuses, so it draws in the frame (`mermaid-frame.html` and
+  `mermaid-frame.js`, served by exact name with a policy of their own: `sandbox allow-scripts`,
+  scripts from the frame's own file only, inline styles allowed) and speaks to the page by
+  `postMessage` (`ready`, `render`, `rendered`, `size`, `error`; the page ignores a message from
+  anything but a frame it made). A drawn diagram replaces the block at the height the frame reports;
+  one that does not parse, or a frame that does not answer in 20 seconds, leaves the labelled block with
+  `Diagram error: <first line>` under it. A diagram waits for layout, so one inside a closed
+  `<details>` is drawn when the section opens. Both libraries follow the page's theme (`data-theme` on
+  the root, else the system's) and redraw when it changes. The server serves `/vendor/<library>/<file>`
+  for the four files it names (`VENDORED` in `server.js`, the licences beside them are not served)
+  and the two frame files, and answers a request with the origin `null` (a sandboxed frame's) for those
+  only. The snapshot embeds `code-libs.js` and loads the same pinned versions from cdnjs, lazily.
 - **Frontmatter marks** — the detail popup's frontmatter table prints every field as
   written, except the few the board itself understands: `status` gets its status dot and
   colour, `priority: High` the high-priority red, `assignee` its chip, `parent` a

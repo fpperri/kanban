@@ -465,12 +465,31 @@ line. A fence opens with three or more backticks or tildes and closes on a run o
 least as long, so a longer fence can show a fence. A fence with a language (` ```c# `, ` ```ts `,
 ` ```mermaid `) shows it as a small label over the block with a **Copy** button that copies the
 block's text, and keeps it on the block as `data-lang`; the language is cut to letters, digits and
-`_+#.-`. A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
+`_+#.-`. Two libraries ride with the plugin and load only when a rendered body holds a block that
+needs one: **highlight.js** (BSD-3, the common-languages build) colours a fence in a language it
+knows (`c#` is `csharp`, `ts` is `typescript`, `sh` is `bash`, ...), following the page's light or dark
+theme; an unknown language, plain text and an untyped fence stay plain, with no detection. **Mermaid**
+(MIT) draws a ```mermaid fence as a diagram in its theme's colours; a diagram that does not parse stays a
+labelled code block with one line of error under it and never breaks the rest of the body. Both redraw
+when the page's theme changes, and neither is requested by a page that has no block for it. The files
+sit in `skills/web/web/vendor`, each with its licence beside it, pinned to mermaid 12.2.0 and
+highlight.js 11.12.0, and nothing loads from the network. The snapshot loads the same two versions from
+`cdnjs.cloudflare.com`, lazily too. A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
 line of its own, make a collapsible section whose body is more Markdown (sections nest; `<details open>`
 starts open; with no summary the title is `[...]`). Every piece of text is escaped as it is written, so
 a body holds no live tag: the only tags let through are `<u>…</u>` as a pair on one line and those
 section lines exactly as written, and anything else (a `<details onclick=…>`, an unclosed section, a
 `<b>`) shows as typed. A link keeps its address only for `http:`, `https:`, `mailto:`, `#` or `/`.
+
+Mermaid writes inline styles, which the page's Content-Security-Policy (no `unsafe-inline` anywhere)
+refuses and does not loosen. A diagram is drawn instead in a frame of its own, `mermaid-frame.html`,
+served with a policy of its own: the response carries `sandbox allow-scripts`, so the frame has an
+opaque origin and cannot reach the page, the board or the network, its scripts are its own file and
+mermaid's, and it is the one place styles may be inline. The page and the frame speak by `postMessage`
+(the page ignores any message not from a frame it made), and mermaid runs with `securityLevel: 'strict'`.
+A browser may send a sandboxed frame's requests with the origin `null`; the server accepts that for
+the frame's own files and the vendored libraries (they are public and carry nothing of the board) and
+for nothing else.
 
 **Notes** — with a `logbook:` line in `config.yaml`, `n` opens a palette on the hovered or
 selected card, a card with notes wears a small count that opens its notes, and the card menu
