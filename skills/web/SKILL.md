@@ -1165,7 +1165,7 @@ to `127.0.0.1` only.
   details are open, else on the hovered card, else on the one selected card, else on nothing: on
   the Calendar (`loadViewMode() === 'calendar'`) with the Calendar's own sub-view and anchor as the
   range, or with the pointer over a day cell or column (`calendarHoverDay`, tracked by a
-  `mouseover` on `#calendar-view`, kept nowhere) on that one day, and the date field defaulting to it;
+  `mouseover` on `#calendar-view`, kept nowhere) as the range (Day), the note still going to today;
   elsewhere on Day, today (`notesCalendarOpening`). The Calendar has no way to select a day or a range
   of days, and none was added. The card details are the one popup `n` works
   over (`keyGuardOff(document, '#detail-modal')`): any other popup, a menu, or a field with

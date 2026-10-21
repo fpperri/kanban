@@ -236,3 +236,14 @@ test('a group lists its own and its members\' notes in the range', () => {
   const out = n.noteListNotes(ALL, group, { mode: 'week', anchor: CTX.today, touched: true }, { members: () => ['22'] }).map((x) => x.note);
   assert.deepStrictEqual(out, ['c']);
 });
+
+test('clearing the chip goes back to the last-noted default: a no-card choice does not outlive the card chosen after it', () => {
+  const slot = { kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600, at: '09:00' };
+  const noCard = n.noteSubjectNoCard(slot);
+  const aimed = n.noteSubjectAimed(noCard, '22');
+  const cleared = n.noteSubjectCleared(aimed, CTX.today);
+  assert.strictEqual(cleared.noCard, undefined);
+  assert.strictEqual(plan('x', cleared).target, '7', 'the card last noted again');
+  const fromCard = n.noteSubjectCleared(n.noteSubjectAimed(n.noteSubjectNoCard({ kind: 'card', id: '7', day: CTX.today }), '22'), CTX.today);
+  assert.strictEqual(fromCard.noCard, undefined);
+});

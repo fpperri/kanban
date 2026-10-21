@@ -170,7 +170,9 @@ function noteSubjectTarget(sub, lastNoted) {
 }
 
 function noteSubjectCleared(subject, today) {
-  return subject.when ? subject.when : { kind: 'none', day: today };
+  if (!subject.when) return { kind: 'none', day: today };
+  const { noCard, ...moment } = subject.when; // a no-card choice ends with the chip it was made beside
+  return moment;
 }
 
 // The notes a subject lists. `members(id)` gives the ids of a group's cards (a group's

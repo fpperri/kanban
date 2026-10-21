@@ -372,14 +372,14 @@ test('n on the Calendar\'s Week lists the week\'s notes of every card', async ()
   assert.deepStrictEqual(p.listed().slice().sort(), ['b', 'c', 'd', 'e']);
 });
 
-test('n on the Calendar with the pointer on a day opens on that day, and the note defaults to it', async () => {
+test('n on the Calendar with the pointer on a day opens on that day', async () => {
   const p = await open();
   p.page.run("viewMode = 'calendar'; calendarSubview = 'week'; calendarAnchor = '2026-10-21'; calendarHoverDay = '2026-10-14'");
   keyN(p);
   assert.deepStrictEqual(p.pressed(), ['day']);
   assert.strictEqual(p.label(), 'Wed 14 Oct');
   assert.deepStrictEqual(p.listed(), ['a']);
-  assert.strictEqual(p.ui().date.value, '2026-10-14');
+  assert.strictEqual(p.ui().date.value, p.today, 'the pointer sets the range, not the day the note goes to');
 });
 
 test('n on the Calendar with a card hovered or selected opens that card on All, whatever the range', async () => {
@@ -437,4 +437,51 @@ test('the range row goes with the notes list: a group\'s other tabs do not show 
 
 test('the stylesheet gives the range row its buttons and label', () => {
   for (const sel of ['\\.np-range-row', '\\.np-range-step', '\\.np-range-label']) assert.match(css, new RegExp(`^${sel} \\{`, 'm'), sel);
+});
+
+// --- the opening rule again, when the palette is aimed anew --------------------------------------------------
+
+const onCalendar = (p, hover = 'null') => p.page.run(`viewMode = 'calendar'; calendarSubview = 'week'; calendarAnchor = '2026-10-21'; calendarHoverDay = ${hover}`);
+
+test('n with the pointer on a day sets the range to that day and leaves the note\'s own day alone', async () => {
+  const p = await open();
+  onCalendar(p, "'2026-10-14'");
+  keyN(p);
+  assert.strictEqual(p.label(), 'Wed 14 Oct');
+  assert.strictEqual(p.ui().date.value, p.today, 'the note still goes to today');
+});
+
+test('clearing the chip on the Calendar goes back to the Calendar\'s range, not to Day today', async () => {
+  const p = await open();
+  onCalendar(p);
+  p.openCard('7');
+  assert.deepStrictEqual(p.pressed(), ['all']);
+  p.page.run('notesClearChip()');
+  assert.deepStrictEqual(p.pressed(), ['week']);
+  assert.strictEqual(p.label(), '19–25 Oct');
+});
+
+test('choosing no card on the Calendar does the same', async () => {
+  const p = await open();
+  onCalendar(p);
+  p.openCard('7');
+  p.focusPick();
+  p.choose('no card');
+  assert.deepStrictEqual(p.pressed(), ['week']);
+});
+
+test('aiming at a card on the Calendar opens that card on All', async () => {
+  const p = await open();
+  onCalendar(p);
+  keyN(p);
+  p.focusPick();
+  p.choose('#7 Port the zephyr schema');
+  assert.deepStrictEqual(p.pressed(), ['all']);
+});
+
+test('off the Calendar, clearing the chip is Day, today', async () => {
+  const p = await open();
+  p.openCard('7');
+  p.page.run('notesClearChip()');
+  assert.deepStrictEqual(p.pressed(), ['day']);
 });

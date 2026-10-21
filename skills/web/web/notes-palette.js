@@ -481,16 +481,24 @@ function notesResetTime() {
   if (!u.dateTyped) u.date.value = sub.day || localTodayStr();
 }
 
+// The palette has a new subject: back to its Notes tab with nothing written yet, nothing highlighted
+// and the range the opening rule gives that subject (on the Calendar, for a subject aimed at nothing,
+// the Calendar's own range).
+function notesRetargeted() {
+  const u = notesUi;
+  u.tab = 'notes';
+  u.written = [];
+  u.hi = -1;
+  u.range = noteRangeFor(u.sub, notesCalendarOpening(), localTodayStr());
+  u.rangeTouched = false;
+}
+
 function notesClearChip() {
   const u = notesUi;
   if (!u.sub || u.sub.kind === 'none') return;
   if (!notesOn()) { notesClose(); return; }
   u.sub = noteSubjectCleared(u.sub, localTodayStr());
-  u.tab = 'notes';
-  u.written = [];
-  u.hi = -1;
-  u.range = noteRangeFor(u.sub, null, localTodayStr());
-  u.rangeTouched = false;
+  notesRetargeted();
   notesResetTime();
   notesPaint();
   u.input.focus();
@@ -837,11 +845,7 @@ async function notesWrite() {
 function notesAim(id, keepText = false) {
   const u = notesUi;
   u.sub = noteSubjectAimed(u.sub, id, notesCard(id) === null && notesGroup(id) !== null ? 'group' : 'card');
-  u.tab = 'notes';
-  u.written = [];
-  u.hi = -1;
-  u.range = noteRangeFor(u.sub, null, localTodayStr());
-  u.rangeTouched = false;
+  notesRetargeted();
   if (!keepText) u.input.value = '';
   notesGrow();
   if (!u.sub.when) notesResetTime();
@@ -881,11 +885,7 @@ function onNotesPickInput(e) {
   const value = u.pick.value;
   if (value === 'no card') {
     u.sub = noteSubjectNoCard(u.sub);
-    u.tab = 'notes';
-    u.written = [];
-    u.hi = -1;
-    u.range = noteRangeFor(u.sub, null, localTodayStr());
-    u.rangeTouched = false;
+    notesRetargeted();
     notesResetTime();
     notesPaint();
     notesPaintPick(true);
@@ -1045,10 +1045,11 @@ function onNotesKey(e) {
 }
 
 // n with no card on the Calendar: the Calendar's own mode and range, or, with the pointer on a day,
-// that one day (the day the note then defaults to). Elsewhere nothing: Day, today.
+// that one day as the range. The range only chooses what is listed: the note still goes to today.
+// Elsewhere nothing: Day, today.
 function notesCalendarOpening() {
   if (loadViewMode() !== 'calendar') return {};
-  if (calendarHoverDay) return { day: calendarHoverDay, range: { mode: 'day', anchor: calendarHoverDay } };
+  if (calendarHoverDay) return { range: { mode: 'day', anchor: calendarHoverDay } };
   return { range: { mode: loadCalendarSubview(), anchor: currentCalendarAnchor() } };
 }
 
