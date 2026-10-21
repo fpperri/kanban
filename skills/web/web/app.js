@@ -2829,6 +2829,7 @@ async function submitModal(e) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  textEditAttach($('#f-body')); // the description: Tab indents and the Markdown keys format (text-edit-ui.js)
   $('#new-btn').addEventListener('click', () => {
     const active = onPhoneLayout() && loadViewMode() === 'board' ? activePhoneColumn(loadPhoneColumn(), boardStatuses()) : null;
     openModal(null, active && active !== 'archive' ? active : undefined); // on a phone the card is made in the status tab being read, which only the Board shows

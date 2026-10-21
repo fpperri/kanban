@@ -49,6 +49,7 @@ function scratchPanel(target) {
   const text = scratchEl('textarea', 'sp-text');
   Object.assign(text, { spellcheck: false, disabled: true, placeholder: 'Loading…' });
   text.setAttribute('aria-label', 'Scratchpad text');
+  textEditAttach(text);
   const status = scratchEl('span', 'sp-status');
   status.setAttribute('aria-live', 'polite');
   const save = scratchEl('button', 'sp-save', 'Save');

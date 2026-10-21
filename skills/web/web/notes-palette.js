@@ -255,6 +255,7 @@ function notesBuild() {
   u.tabsEl.hidden = true;
   u.input = notesEl('textarea', 'np-input');
   u.input.rows = 1;
+  textEditAttach(u.input);
   u.input.spellcheck = true;
   u.input.setAttribute('aria-label', 'Note');
   const bar = notesEl('div', 'np-bar');
@@ -655,6 +656,7 @@ function notesRow(note, named = false) {
     const x = notesEl('textarea', 'np-edit-text');
     x.value = note.note;
     x.rows = 1;
+    textEditAttach(x);
     x.addEventListener('input', () => notesGrowBox(x));
     x.setAttribute('aria-label', 'Note');
     const save = notesButton('np-edit-save', 'Save', '', () => submit());

@@ -321,6 +321,34 @@ module.exports = {
     check('notes: Esc cancels the edit and leaves the palette up', await waitFor(`!${q('.np-edit-text')}`, 2500) && await ev(PAL_UP));
     await closePalette();
 
+    // --- Tab and the Markdown keys in the note box ---------------------------------------------------------------
+    const IN_BOX = `document.activeElement===${q('.np-input')}`;
+    check('notes: the pointer rests on card 7 for the next palette', await hoverCard('7'));
+    await key('n');
+    check('notes: n opens the palette on card 7', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
+    await setBox('word');
+    await ev(`${q('.np-input')}.setSelectionRange(0,4)`);
+    await key('b', { ctrl: true });
+    check('notes: Ctrl+B wraps the selected word in the note box, and keeps it selected', await waitFor(`${BOX}==='**word**'&&${q('.np-input')}.selectionStart===2&&${q('.np-input')}.selectionEnd===6`, 2500), await ev(BOX));
+    check('notes: the box still has the focus, and the preview line follows the new text', await ev(IN_BOX) && (await preview()).includes('on #7'));
+    await key('b', { ctrl: true });
+    check('notes: Ctrl+B on the wrapped word takes the stars off again', await waitFor(`${BOX}==='word'`, 2500), await ev(BOX));
+    await setBox('');
+    await key('Tab');
+    check('notes: Tab in the note box indents two spaces and focus stays in the box', await waitFor(`${BOX}==='  '`, 2500) && await ev(IN_BOX), await ev(BOX));
+    await key('Tab', { shift: true });
+    check('notes: Shift+Tab takes them off again', await waitFor(`${BOX}===''`, 2500) && await ev(IN_BOX), await ev(BOX));
+    await key('m', { ctrl: true });
+    check('notes: Ctrl+M switches Tab to moving focus, and a hint says so', await waitFor(`!!document.getElementById('text-edit-hint')&&!document.getElementById('text-edit-hint').hidden`, 2500));
+    await key('Tab');
+    check('notes: Tab then leaves the note box, and the box is as it was', await waitFor(`!(${IN_BOX})`, 2500) && await ev(BOX) === '');
+    await ev(`${q('.np-input')}.focus()`);
+    await key('m', { ctrl: true });
+    await key('Tab');
+    check('notes: Ctrl+M again and Tab indents', await waitFor(`${BOX}==='  '`, 2500) && await ev(IN_BOX), await ev(BOX));
+    await setBox('');
+    await closePalette();
+
     // --- n with the card details open notes that card ----------------------------------------------------------
     const DETAIL_UP = `!document.getElementById('detail-modal').classList.contains('hidden')`;
     const DETAIL_SHUT = `document.getElementById('detail-modal').classList.contains('hidden')`;

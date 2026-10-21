@@ -1818,6 +1818,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .card-notes:hover, .card-notes:focus-visible { border-color: var(--line-strong); color: var(--accent); }
 .card-notes svg { width: 11px; height: 11px; }
 .notes-palette { position: fixed; z-index: 19; top: calc(var(--board-header-h, 64px) + 24px); left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - var(--board-header-h, 64px) - 64px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 15px; overflow: hidden; }
+.text-edit-hint { position: fixed; right: 12px; bottom: 8px; z-index: 61; padding: 2px 8px; font-size: 0.75rem; color: var(--mut); background: var(--surface); border: 1px solid var(--line-soft); border-radius: .15rem; pointer-events: none; }
+.text-edit-hint[hidden] { display: none; }
 .notes-palette.np-over-detail { z-index: 31; } /* over the card details, which sit at 30 */
 .np-bar { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .np-subject-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }

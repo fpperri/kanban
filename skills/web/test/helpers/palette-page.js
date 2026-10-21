@@ -60,6 +60,15 @@ function paletteDocument(holder) {
     Object.defineProperty(el, 'scrollHeight', {
       get: () => (tag === 'textarea' ? 12 + 20 * String(el.value).split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 40)), 0) : 0),
     });
+    // A text field keeps a selection, which setRangeText and the editing command move.
+    el.selectionStart = 0;
+    el.selectionEnd = 0;
+    el.setSelectionRange = (a, b) => { el.selectionStart = a; el.selectionEnd = b; };
+    el.setRangeText = (text, from, to, mode) => {
+      el.value = el.value.slice(0, from) + text + el.value.slice(to);
+      if (mode === 'end') { el.selectionStart = from + text.length; el.selectionEnd = from + text.length; }
+    };
+    el.dispatchEvent = (event) => el.fire(event.type || 'event', event);
     el.replaceChildren = (...kids) => { el.children.length = 0; el.append(...kids); };
     el.descendants = () => el.walk().slice(1).map(same);
     el.querySelectorAll = (sel) => { const is = matcher(sel); return el.descendants().filter((e) => e.classes && is(e)); };
@@ -74,6 +83,21 @@ function paletteDocument(holder) {
     };
     el.click = () => el.fire('click', { stopPropagation() {}, preventDefault() {}, target: el });
     return el;
+  };
+  // The editing command acts on the field that has focus, and fires its input event as the browser does;
+  // `refuse` makes it say no, as a browser that lacks it would.
+  doc.refuseExecCommand = false;
+  doc.execCommand = (cmd, ui, text) => {
+    const at = holder.document.activeElement;
+    if (doc.refuseExecCommand || !at || at.tag !== 'textarea') return false;
+    const from = at.selectionStart;
+    const to = at.selectionEnd;
+    const insert = cmd === 'delete' ? '' : String(text);
+    at.value = at.value.slice(0, from) + insert + at.value.slice(to);
+    at.selectionStart = from + insert.length;
+    at.selectionEnd = from + insert.length;
+    at.fire('input', { type: 'input' });
+    return true;
   };
   doc.createElement = make;
   doc.createElementNS = (ns, tag) => make(tag);
@@ -117,7 +141,7 @@ async function openPalette({ cards, notes, stored = {}, viewport = {}, elements:
     target.fire('keydown', e);
     return e;
   };
-  return { page, doc, ui, pal, find, all, text, rows, press, stored, board, menu: built };
+  return { page, doc, ui, pal, find, all, text, rows, press, stored, board, menu: built, extras: documentExtras };
 }
 
 module.exports = { openPalette, card, note, paletteDocument, matcher };

@@ -1054,7 +1054,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `l`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `Alt+1` `Alt+2` `Alt+3`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1206,6 +1206,29 @@ to `127.0.0.1` only.
   and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
   a day file survive every write. A note's `by` is kept as written (one trimmed line, any
   text; a blank one is `@human`), never refused for not being a handle. The Graph's names step moved to `l` to free `n`.
+- **Text boxes** — the notes palette's note box and a listed note's edit box, the Scratchpad's box
+  and the card form's description (`#f-body`) each call `textEditAttach(box)` (text-edit-ui.js)
+  once; single-line fields are never attached. The rules are `textEditKey(text, start, end, event)`
+  (text-edit.js, pure): **Tab** indents two spaces at the cursor or on every selected line (a
+  selection inside one line is replaced, a blank line stays blank, a selection ending at the start
+  of a line leaves that line), **Shift+Tab** takes up to two spaces or a tab off; **Ctrl+B**
+  (`**`), **Ctrl+I** (`*`), **Ctrl+U** (`<u>…</u>`), **Alt+S** (`~~`) and **Ctrl+E** (`` ` ``) wrap
+  the selection and unwrap it when the markers are inside it or just outside it (a run of stars is
+  italic when odd and bold from two, so italic on bold adds one star); with no selection the pair
+  goes in with the cursor between and a cursor in an empty pair takes it away; **Ctrl+K** makes
+  `[selection](url)` with `url` selected (`[](url)` with the cursor in the brackets when nothing is
+  selected); **Ctrl+Shift+7**, **Ctrl+Shift+8** and **Ctrl+Shift+.** number, bullet or quote each
+  line the selection spans (blank lines left alone, a line of the other list kind converted) or take
+  it off when every line has it. Cmd does what Ctrl does, and the digits and the period are read by
+  key or by key position. An edit is one replacement (`{ from, to, insert, start, end }`), made with
+  `document.execCommand('insertText')` (`delete` for an empty insert) so Undo takes it back in one
+  step; where the command is refused the text is replaced with `setRangeText` and the input event
+  fired by hand. The browser's own action for a handled key is stopped, only while the box has focus
+  (Ctrl+U view source, Ctrl+K and Ctrl+E the address bar). **Ctrl+M** switches Tab to moving focus
+  (VS Code's); `#text-edit-hint` shows while it is on and an attached box has focus; it is a module
+  variable, kept nowhere. Enter, Shift+Enter, Ctrl+Enter and Ctrl+S are not read by these boxes'
+  keys, so each keeps its own meaning (Enter writes a note, Ctrl+Enter saves a scratchpad, Ctrl+S
+  saves the form); none of the new keys clashes with an existing hotkey.
 - **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
   pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
   `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.
