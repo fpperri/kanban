@@ -2045,7 +2045,7 @@ button.np-note-card:hover { color: var(--accent); }
 .td-tick:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .td-tick[aria-checked="true"]::before { background: var(--accent); border-color: var(--accent); }
 .td-tick[aria-checked="true"]::after { content: "\2713"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--paper); }
-.td-busy .td-list { opacity: .7; transition: opacity .1s .3s; }
+.td-busy .td-list, .td-busy .td-row { cursor: progress; }
 .td-saving { margin-left: auto; color: var(--mut); font-style: italic; }
 .td-saving[hidden] { display: none; }
 .td-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
