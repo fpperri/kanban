@@ -2944,8 +2944,8 @@ function doDelete(id, { onSuccess } = {}) {
 // carries the fixes from that skill's XSS review: escapeHtml covers & < > " ',
 // every interpolated value is escaped, and markdown link hrefs are scheme-checked.
 
-// The Markdown renderer is markdown.js: one module for card bodies, notes and scratchpad
-// previews, and markdown-ui.js (markdownInto) is the one place its output reaches innerHTML.
+// The Markdown renderer is markdown.js: one module for card bodies and scratchpad
+// previews (the notes list will), and markdown-ui.js (markdownInto) is the one place its output reaches innerHTML.
 
 // Frontmatter is flat `key: value` per line; split on the FIRST colon only so
 // values that contain colons (e.g. URLs) survive intact. Handles extension

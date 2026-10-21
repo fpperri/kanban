@@ -1,8 +1,8 @@
 'use strict';
 // Markdown on the page (markdown.js draws it as an HTML string; this is where it lands): the one
 // place the renderer's output is written into an element, and the Copy button of a typed code
-// block. Card bodies, the notes palette's notes and the scratchpad's preview all come through
-// markdownInto, so a block behaves the same in each.
+// block. Card bodies and the scratchpad's preview come through markdownInto (the notes list will),
+// so a block behaves the same in each.
 //
 // Reads app.js's globals at the moment it runs, never when it loads: state, fallbackCopy, and
 // enhanceCodeBlocks from code-blocks-ui.js.

@@ -19,8 +19,8 @@ test('nested bullets, continuation lines and tasks render to the exact HTML they
   assert.ok(tasks.includes('<li class="task open"><span class="tick">&#9744;</span> pending'));
 });
 
-test('a blank line ends a list, and a heading, rule or fence closes every open level', () => {
-  assert.strictEqual(md('- a\n\n- b'), '<ul><li>a</li></ul><ul><li>b</li></ul>');
+test('a blank line before anything but an item ends a list, and a heading, rule or fence closes every open level', () => {
+  assert.strictEqual(md('- a\n\nafter'), '<ul><li>a</li></ul><p>after</p>');
   assert.strictEqual(md('- a\n  - b\n# T'), '<ul><li>a<ul><li>b</li></ul></li></ul><h1>T</h1>');
   assert.strictEqual(md('- a\n---\nafter'), '<ul><li>a</li></ul><hr><p>after</p>');
 });
@@ -299,6 +299,122 @@ test('a section inside a list item ends the list, like a heading does', () => {
     '<ul><li>a</li></ul><details><summary>s</summary><p>b</p></details>');
 });
 
+// --- rules ---------------------------------------------------------------------------------
+
+test('three or more of - * or _, with or without spaces between, are a rule', () => {
+  for (const line of ['---', '***', '___', '* * *', '- - -', '_ _ _', '-  -  -', '- - - -', '  * * *  ']) assert.strictEqual(md(line), '<hr>', line);
+  assert.strictEqual(md('a\n* * *\nb'), '<p>a</p><hr><p>b</p>');
+});
+
+test('two marks, mixed marks and a mark with text are not a rule', () => {
+  assert.strictEqual(md('- -'), '<ul><li>-</li></ul>');
+  assert.strictEqual(md('* - *'), '<ul><li>- *</li></ul>');
+  assert.notStrictEqual(md('- - x'), '<hr>');
+  assert.strictEqual(md('**bold**'), '<p><strong>bold</strong></p>');
+});
+
+// --- lazy continuation in a quote -------------------------------------------------------------
+
+test('a line with no > after a quoted paragraph line continues that paragraph', () => {
+  assert.strictEqual(md('> a\nb'), '<blockquote><p>a b</p></blockquote>');
+  assert.strictEqual(md('> a\nb\nc'), '<blockquote><p>a b c</p></blockquote>');
+  assert.strictEqual(md('> - a\nb'), '<blockquote><ul><li>a b</li></ul></blockquote>');
+  assert.strictEqual(md('> a\n> b\nc'), '<blockquote><p>a b c</p></blockquote>');
+});
+
+test('a blank line, a block start or a quoted code block ends the quote, lazy or not', () => {
+  assert.strictEqual(md('> a\n\nb'), '<blockquote><p>a</p></blockquote><p>b</p>');
+  assert.strictEqual(md('> a\n# h'), '<blockquote><p>a</p></blockquote><h1>h</h1>');
+  assert.strictEqual(md('> a\n- x'), '<blockquote><p>a</p></blockquote><ul><li>x</li></ul>');
+  assert.strictEqual(md('> a\n---'), '<blockquote><p>a</p></blockquote><hr>');
+  assert.strictEqual(md('> a\n```\nx\n```'), '<blockquote><p>a</p></blockquote><pre><code>x</code></pre>');
+  assert.strictEqual(md('> ```\n> x\nb'), '<blockquote><pre><code>x</code></pre></blockquote><p>b</p>');
+  assert.strictEqual(md('> # h\nb'), '<blockquote><h1>h</h1></blockquote><p>b</p>');
+});
+
+// --- loose lists --------------------------------------------------------------------------------
+
+test('items split by a blank line are one loose list, their text in paragraphs', () => {
+  assert.strictEqual(md('1. a\n\n2. b'), '<ol><li><p>a</p></li><li><p>b</p></li></ol>');
+  assert.strictEqual(md('- a\n\n\n- b\n- c'), '<ul><li><p>a</p></li><li><p>b</p></li><li><p>c</p></li></ul>');
+  assert.strictEqual(md('- a\n  - b\n\n- c'), '<ul><li><p>a</p><ul><li>b</li></ul></li><li><p>c</p></li></ul>');
+});
+
+test('a blank line then something that is not an item of the list ends it, and a list of the other kind starts a new one', () => {
+  assert.strictEqual(md('- a\n\n- b\n\ntext'), '<ul><li><p>a</p></li><li><p>b</p></li></ul><p>text</p>');
+  assert.strictEqual(md('1. a\n\n- b'), '<ol><li>a</li></ol><ul><li>b</li></ul>');
+  assert.strictEqual(md('  - a\n\n- b'),'<ul><li>a</li></ul><ul><li>b</li></ul>', 'an item further left than the list ends it');
+  assert.strictEqual(md('- a\n\n'), '<ul><li>a</li></ul>');
+});
+
+test('a task item in a loose list keeps its tick on the same line as its text', () => {
+  assert.strictEqual(md('- [x] a\n\n- [ ] b'),
+    '<ul><li class="task done"><span class="tick">&#9745;</span> a</li><li class="task open"><span class="tick">&#9744;</span> b</li></ul>');
+});
+
+// --- unknown nodes -------------------------------------------------------------------------------
+
+test('a tree node of a kind the renderer does not know is drawn as its text, escaped', () => {
+  const { renderBlocks } = require('../web/markdown.js');
+  assert.strictEqual(renderBlocks([{ t: 'mystery', text: '<img src=x>' }]), '&lt;img src=x&gt;');
+  assert.strictEqual(renderBlocks([{ t: 'p', inline: [{ t: 'mystery', v: '<b>' }, { t: 'text', v: 'ok' }] }]), '<p>&lt;b&gt;ok</p>');
+  assert.strictEqual(renderBlocks([{ t: 'mystery' }]), '');
+  assert.strictEqual(renderBlocks([{ t: 'constructor', text: 'x' }]), 'x', 'a name on Object.prototype is not a node kind');
+});
+
+// --- speed ---------------------------------------------------------------------------------------
+
+// A page of 60000 characters that is nothing but openers, or something that nests without end, must
+// render in a blink and never overflow the stack. The budget is wide (a slow CI machine) and the
+// cases took seconds before the scans were bounded.
+const FAST = 750;
+const big = (unit, n = 60000) => unit.repeat(Math.ceil(n / unit.length)).slice(0, n);
+const PATHOLOGICAL = {
+  'unclosed *': big('*a '), 'unclosed _': big('_a '), 'unclosed **': big('**a '), 'unclosed ***': big('***a '), 'unclosed ~~': big('~~a '),
+  'unclosed [': big('[a '), 'unclosed [ ]': big('[a] '), 'brackets then a paren that never closes': `${'['.repeat(30000)}](${'x'.repeat(30000)}`,
+  'link text, a bad address': big('[a](`b'), 'unclosed backtick': big('`a '), 'unclosed double backtick': big('``a '),
+  'unclosed <u>': big('<u>a '), 'h': big('h'), 'http://': big('http://'), 'a long address then brackets': `http://x${')'.repeat(59000)}`,
+  'many lines': big('line\n'), 'many soft breaks': big('a \n'), 'many hard breaks': big('a  \n'), 'spaces': ' '.repeat(60000), 'trailing spaces then text': `${' '.repeat(59000)}x\n`,
+  'quote marks': '>'.repeat(60000), 'quote lines': big('> a\n'), 'lazy quote lines': `> a\n${big('b\n')}`,
+  'unclosed <details>': big('<details>\n'), 'details pairs': big('<details>\n</details>\n'), 'details nest': big('<details>\n', 30000) + big('</details>\n', 30000),
+  'list items': big('- a\n'), 'nested lists': Array.from({ length: 300 }, (_, i) => `${' '.repeat(i)}- a`).join('\n'), 'loose list': big('- a\n\n'), 'blank lines in a list': `- a${'\n'.repeat(59000)}- b`,
+  'ordered': big('1. a\n'), 'fences': big('```\n'), 'tilde fences': big('~~~a\n'), 'rules': big('* * *\n'),
+  'table rows': `| a |\n| - |\n${big('| x |\n')}`, 'pipes': big('|'), 'delimiters': big('| - '), 'dashes': big('-'),
+  'nested emphasis': `${'*_'.repeat(15000)}x${'_*'.repeat(15000)}`, 'nested strong': `${'**'.repeat(20000)}x${'**'.repeat(20000)}`,
+  'nested quote in a list': big('- > '), 'headings': big('#'), 'hashes': big('# a\n'),
+};
+
+for (const [name, text] of Object.entries(PATHOLOGICAL)) {
+  test(`${name}: 60 KB renders inside a budget and does not overflow the stack`, () => {
+    const t0 = process.hrtime.bigint();
+    let html;
+    assert.doesNotThrow(() => { html = md(text); });
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    assert.ok(typeof html === 'string');
+    assert.ok(ms < FAST, `${name} took ${ms.toFixed(0)} ms`);
+  });
+}
+
+test('the bounds do not change what ordinary text renders to', () => {
+  assert.strictEqual(md('*a `*` b* and *c* **d** `e*f`'), '<p><em>a <code>*</code> b</em> and <em>c</em> <strong>d</strong> <code>e*f</code></p>');
+  assert.strictEqual(md('[a *b* c](https://x.test) [d](https://y.test)'),
+    '<p><a href="https://x.test" target="_blank" rel="noopener noreferrer">a <em>b</em> c</a> <a href="https://y.test" target="_blank" rel="noopener noreferrer">d</a></p>');
+  assert.strictEqual(md('*a ` *b* ` *c*'), '<p><em>a <code> *b* </code> *c</em></p>');
+  assert.strictEqual(md('<u>a</u> <u>b'), '<p><u>a</u> &lt;u&gt;b</p>');
+  assert.strictEqual(md('x <u>a <u>b</u>'), '<p>x <u>a &lt;u&gt;b</u></p>');
+});
+
+test('quotes and sections nest to a depth and no deeper, the rest staying text', () => {
+  const html = md(`${'> '.repeat(40)}deep`);
+  assert.ok(html.startsWith('<blockquote>') && html.includes('deep'));
+  assert.ok((html.match(/<blockquote>/g) || []).length < 40, 'a bound on the depth');
+  const open = '<details>\n'.repeat(40);
+  const sections = md(`${open}deep\n${'</details>\n'.repeat(40)}`);
+  assert.ok(sections.includes('deep') && (sections.match(/<details>/g) || []).length < 40);
+  const em = md(`${'*a '.repeat(10)}${'*_'.repeat(200)}x${'_*'.repeat(200)}`);
+  assert.ok(typeof em === 'string');
+});
+
 // --- fences -----------------------------------------------------------------------------
 
 test('a plain fence renders exactly as before', () => {
@@ -377,4 +493,29 @@ test('parseMarkdown hands back a plain tree: blocks with inline tokens, no HTML'
 
 test('parseInline drops nothing: text that is not a mark comes back as text', () => {
   assert.deepStrictEqual(parseInline('a < b & c'), [{ t: 'text', v: 'a < b & c' }]);
+});
+
+// --- what the old snapshot parser held to, kept ---------------------------------------------------
+
+test('a capital X in a task box is done too', () => {
+  assert.ok(md('- [X] shipped').includes('<li class="task done"><span class="tick">&#9745;</span> shipped'));
+  assert.ok(md('1. [X] shipped').includes('class="task done"'));
+});
+
+test('a body cut mid-table keeps its whole rows and the partial row, padded to the header', () => {
+  const blocks = parseMarkdown('before\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 3');
+  const table = blocks.find((b) => b.t === 'table');
+  assert.ok(table);
+  assert.strictEqual(table.rows.length, 3);
+  assert.deepStrictEqual(table.rows[0].map((c) => c[0].v), ['1', '2']);
+  assert.deepStrictEqual(table.rows[1].map((c) => c[0].v), ['3', '4']);
+  assert.deepStrictEqual(table.rows[2][0], [{ t: 'text', v: '3' }]);
+  assert.deepStrictEqual(table.rows[2][1], [], 'the missing cell is empty');
+});
+
+test('a body cut mid-fence, mid-list or mid-section still parses to what was there', () => {
+  assert.doesNotThrow(() => parseMarkdown('```ts\nlet a\nnever clo'));
+  assert.strictEqual(parseMarkdown('```ts\nlet a\nnever clo')[0].code, 'let a\nnever clo');
+  assert.strictEqual(md('- a\n  - b\n    - c'), '<ul><li>a<ul><li>b<ul><li>c</li></ul></li></ul></li></ul>');
+  assert.strictEqual(md('<details>\n<summary>s</summary>\nhalf'), '<p>&lt;details&gt; &lt;summary&gt;s&lt;/summary&gt; half</p>');
 });

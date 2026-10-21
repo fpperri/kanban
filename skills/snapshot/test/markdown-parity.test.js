@@ -39,7 +39,7 @@ test('the snapshot draws every construct of the fixture as the web does', () => 
 test('the fixture reaches every block kind the parse has', () => {
   const html = mdToHtml(FIXTURE, { board: 'fixture' });
   for (const marker of ['<h1>', '<h6>', '<ol>', '<ol start="3">', '<ul>', 'class="task done"', '<blockquote>', '<pre><code>', 'data-lang="c#"',
-    'data-lang="mermaid"', 'class="md-table"', 'class="ta-center"', '<hr>', '<br>', '<del>', '<u>', '<em><strong>', 'class="mention"', '<details><summary>', '<details open>']) {
+    'data-lang="mermaid"', 'class="md-table"', 'class="ta-center"', '<hr>', '<br>', '<del>', '<u>', '<em><strong>', 'class="mention"', '<details><summary>', '<details open>', '<li><p>loose a</p></li>', 'quoted <strong>bold</strong> and lazily continued']) {
     assert.ok(html.includes(marker), `${marker} is in the fixture's HTML`);
   }
   assert.ok(!html.includes('<script') && !html.includes('<u onclick'), 'and nothing from it is live markup');
@@ -76,5 +76,15 @@ test('an untyped block has no label and no button', () => {
     const body = page.run('mdBodyNode("```\\nx\\n```", "fixture")');
     assert.strictEqual(body.all().filter((n) => n.classList.contains('md-code-copy')).length, 0);
     assert.strictEqual(body.children[0].tagName, 'PRE');
+  });
+});
+
+test('a tree node of a kind the page does not know is drawn as its text, as a text node', () => {
+  withSnapshot(BOARD, (html) => {
+    const page = loadPage(html);
+    const blocks = page.run('mdBlockNodes([{ t: "mystery", text: "<img src=x>" }, { t: "p", inline: [{ t: "mystery", v: "<b>" }, { t: "text", v: "ok" }] }], "fixture")');
+    assert.strictEqual(blocks[0].nodeType, 3);
+    assert.strictEqual(blocks[0].data, '<img src=x>');
+    assert.strictEqual(nodesToHtml(blocks[1]), '<p>&lt;b&gt;ok</p>');
   });
 });

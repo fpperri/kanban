@@ -1090,16 +1090,22 @@ return c}
 // only, never innerHTML. Python caps bodies at 4000/1500 chars (parse_card's "bn" field records
 // the uncapped length) -- a cut can land mid-fence, mid-list or mid-table; the parser ends a
 // truncated construct where the text ends instead of throwing.
-// Turns the inline tokens into DOM nodes; a code span goes through codeSegNode for its mention rule.
+// What a node of a kind the parse does not have draws as: its text, or nothing.
+function mdUnknownNode(n){return document.createTextNode(typeof n.v==="string"?n.v:typeof n.text==="string"?n.text:"")}
+// The inline tokens as DOM nodes, one builder for each kind; a code span goes through codeSegNode for
+// its mention rule.
+function mdKids(node,toks,boardName){mdInlineNodes(toks,boardName).forEach(k=>node.appendChild(k));return node}
+const MD_INLINE_NODE=new Map([
+["text",t=>document.createTextNode(t.v)],
+["code",(t,b)=>codeSegNode(t.v,b)],
+["br",()=>el("br")],
+["strong",(t,b)=>mdKids(el("strong"),t.kids,b)],
+["em",(t,b)=>mdKids(el("em"),t.kids,b)],
+["del",(t,b)=>mdKids(el("del"),t.kids,b)],
+["u",(t,b)=>mdKids(el("u"),t.kids,b)],
+["link",(t,b)=>{const a=mdKids(el("a"),t.kids,b);a.href=t.href;a.target="_blank";a.rel="noopener noreferrer";return a}]]);
 function mdInlineNodes(toks,boardName){
-return toks.map(t=>{
-if(t.t==="text")return document.createTextNode(t.v);
-if(t.t==="code")return codeSegNode(t.v,boardName);
-if(t.t==="br")return el("br");
-const n=el(t.t==="link"?"a":t.t);
-mdInlineNodes(t.kids,boardName).forEach(k=>n.appendChild(k));
-if(t.t==="link"){n.href=t.href;n.target="_blank";n.rel="noopener noreferrer"}
-return n})}
+return toks.map(t=>MD_INLINE_NODE.has(t.t)?MD_INLINE_NODE.get(t.t)(t,boardName):mdUnknownNode(t))}
 // Thousands separator for the cut-body notice (goal 5) —
 // plain regex, not toLocaleString(): the message must read the same
 // regardless of the viewer's own locale.
@@ -1110,9 +1116,9 @@ if(list.ordered&&list.start!==1)ul.setAttribute("start",String(list.start));
 list.items.forEach(it=>{
 const li=el("li",it.task?"task "+it.task:null);
 if(it.task){
-li.appendChild(el("span","tick",it.task==="done"?"☑":"☐"));
+li.appendChild(el("span","tick",it.task==="done"?"\u2611":"\u2610"));
 li.appendChild(document.createTextNode(" "))}
-mdInlineNodes(it.inline,boardName).forEach(n=>li.appendChild(n));
+mdKids(list.loose&&!it.task?li.appendChild(el("p")):li,it.inline,boardName);
 (it.children||[]).forEach(ch=>li.appendChild(mdListNode(ch,boardName)));
 ul.appendChild(li)});
 return ul}
@@ -1231,22 +1237,22 @@ const tbody=el("tbody");
 b.rows.forEach(r=>{const tr=el("tr");r.forEach((toks,n)=>tr.appendChild(cell("td",toks,n)));tbody.appendChild(tr)});
 table.appendChild(tbody);twrap.appendChild(table);
 return twrap}
-function mdBlockNodes(blocks,boardName){
-return blocks.map(b=>{
-if(b.t==="h"||b.t==="p"){const n=el(b.t==="h"?"h"+b.level:"p");mdInlineNodes(b.inline,boardName).forEach(k=>n.appendChild(k));return n}
-if(b.t==="list")return mdListNode(b,boardName);
-if(b.t==="pre")return mdPreNode(b);
-if(b.t==="hr")return el("hr");
-if(b.t==="quote"){const q=el("blockquote");mdBlockNodes(b.blocks,boardName).forEach(k=>q.appendChild(k));return q}
-if(b.t==="details"){
+const MD_BLOCK_NODE=new Map([
+["h",(b,bn)=>mdKids(el("h"+b.level),b.inline,bn)],
+["p",(b,bn)=>mdKids(el("p"),b.inline,bn)],
+["list",(b,bn)=>mdListNode(b,bn)],
+["pre",b=>mdPreNode(b)],
+["hr",()=>el("hr")],
+["quote",(b,bn)=>{const q=el("blockquote");mdBlockNodes(b.blocks,bn).forEach(k=>q.appendChild(k));return q}],
+["details",(b,bn)=>{
 const d=el("details");
 if(b.open)d.setAttribute("open","");
-const sm=el("summary");
-mdInlineNodes(b.summary,boardName).forEach(k=>sm.appendChild(k));
-d.appendChild(sm);
-mdBlockNodes(b.blocks,boardName).forEach(k=>d.appendChild(k));
-return d}
-return mdTableNode(b,boardName)})}
+d.appendChild(mdKids(el("summary"),b.summary,bn));
+mdBlockNodes(b.blocks,bn).forEach(k=>d.appendChild(k));
+return d}],
+["table",(b,bn)=>mdTableNode(b,bn)]]);
+function mdBlockNodes(blocks,boardName){
+return blocks.map(b=>MD_BLOCK_NODE.has(b.t)?MD_BLOCK_NODE.get(b.t)(b,boardName):mdUnknownNode(b))}
 // Replaces the old bodyNode()/.bodytxt pre-wrap div: renders the parse's block tree via
 // el()/textContent nodes only, then appends a cut notice (goal 5) when the embedded body is
 // shorter than the card's true, uncapped length ("bn", from parse_card).

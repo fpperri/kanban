@@ -93,3 +93,21 @@ test('a cell cannot smuggle markup — escaping still runs over the whole body f
   assert.ok(!html.includes('<script>'), 'no live script tag survives');
   assert.ok(html.includes('&lt;script&gt;'), 'it is rendered as text');
 });
+
+test('a delimiter cell is one or more dashes, with or without colons', () => {
+  const html = mdToHtml(['| a | b | c | d |', '| :-: | :-- | --: | - |', '| 1 | 2 | 3 | 4 |'].join('\n'));
+  assert.ok(html.includes('<th class="ta-center">a</th>'));
+  assert.ok(html.includes('<th class="ta-left">b</th>'));
+  assert.ok(html.includes('<th class="ta-right">c</th>'));
+  assert.ok(html.includes('<th>d</th>'));
+  assert.ok(html.includes('<td class="ta-center">1</td>'));
+});
+
+test('a one-column table needs its pipes, and a delimiter row with no pipe at all is no delimiter', () => {
+  assert.ok(mdToHtml('| a |\n| - |\n| 1 |').includes('<table>'));
+  assert.ok(mdToHtml('| a |\n|:-:|\n| 1 |').includes('<th class="ta-center">a</th>'));
+  const none = mdToHtml('| a\n---');
+  assert.ok(!none.includes('<table>') && none.includes('<hr>'));
+  assert.ok(!mdToHtml('| a |\n| x |\n').includes('<table>'));
+  assert.ok(!mdToHtml('| a |\n| -- x |\n').includes('<table>'));
+});

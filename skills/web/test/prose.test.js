@@ -159,7 +159,7 @@ test('a board name with markup characters still gets clickable mentions', () => 
 test('a mention inside a link URL leaves the link as text instead of breaking its attributes', () => {
   const md = loadMd('webapp');
   const html = md('[see](http://x.test/`webapp#5 t`) done');
-  assert.ok(!/<a [^>]*href="[^"]*<code/.test(html), 'no chip inside an href');
+  assert.ok(html.includes('[see](') && !/<a\b[^>]*>[^<]*see/.test(html), 'the link is not built at all: no anchor wraps "see", its text stays text');
   assert.ok(html.includes('[see](') && !html.includes('>see</a>'), 'the link is not built at all, its text stays text');
   assert.ok(md('[see](https://x.test/a) done').includes('<a href="https://x.test/a" target="_blank" rel="noopener noreferrer">see</a>'), 'ordinary links still work');
 });
