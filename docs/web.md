@@ -28,7 +28,7 @@ actually bound.
 Pass `--home-url <url>` (http or https only; anything else stops the server at startup) and
 the header shows a small home icon before the board title that leads to that address. Without
 it there is no icon. In the search box, pasting `webapp#42` on the board named `webapp`
-finds card 42, the same as `#42`.
+finds card 42, the same as `#42`. Another board's mention is searched as text and the panel says which board holds the card.
 
 All the screenshots below are the bundled `examples/demo-board` (a fictional
 "Tallybird" app launch).

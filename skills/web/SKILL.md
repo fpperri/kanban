@@ -301,7 +301,7 @@ to `127.0.0.1` only.
   view entry); the
   query survives view switches and the poll. Space-separated terms AND together: `#42`/`id:42` is an
   exact card id, whole (`#G3` is the card `G3`, not card 3; a lowercase `#a371f7` is no id), and a pasted `webapp#42` is the same when `webapp` is this board's name (any
-  case; another board's name is searched as plain text); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
+  case; another board's mention is searched as text and the panel says which board holds the card); `title:` `body:` `status:` `priority:` `tags:` `file:` `assignee:` `type:` are
   case-insensitive substring scopes (`a:` is a thin alias for `assignee:`; a recognized
   scope with nothing after the colon yet — `status:` mid-keystroke — is dropped as
   not-yet-a-term rather than matching everything for one keystroke); `review:`/`blocked:`
