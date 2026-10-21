@@ -4,18 +4,21 @@
 // typed in: a copy of the text sits behind the textarea, whose own text is transparent and whose caret stays.
 // What this scenario proves that no stand-in can is where the copy's lines sit: its box is the textarea's box
 // to the pixel and it wraps into as many lines, in the palette, in the card form, full screen, at phone width, with a
-// scrollbar on the textarea (the copy gives up the bar's width) and after a manual resize; its scroll follows
-// the textarea's; each kind has the colour of its token and nothing but a colour (a weight, style or size
+// scrollbar on the textarea (the copy gives up the bar's width), after a manual resize and at a 125% device scale;
+// and every line breaks at the same character: a hidden twin of the textarea, laid out by the browser as the
+// textarea is, is asked on which line each character falls, and the copy has it on the same one (the text has tabs
+// and a 260-letter word with no break in it). Its scroll follows the textarea's; each kind has the colour of its token and nothing but a colour (a weight, style or size
 // would move a line). The text stays the textarea's: typing goes in with the browser's own insert, Tab and
 // Ctrl+B still edit it, Ctrl+Enter saves exactly what was typed. Colour Markdown while editing in the
 // preferences sheet turns it off (the boxes are as they were, the textarea the same size in the same place,
 // and the choice survives a reload) and on again. Each step waits on the page, never on a fixed sleep.
 
-const KINDS = ['heading', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
+const KINDS = ['heading', 'heading-six', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
 
 // One of each kind, no blank line, so each visual line of the copy has a box to measure.
 const KINDS_TEXT = [
   '# A heading with `code` in it',
+  '###### A small heading',
   'Some **bold words**, *italic words*, ~~struck words~~ and a [link](https://example.test/x) with #12 and `kanban#7 a title` beside <u>tagged</u> words.',
   '- [ ] a list item',
   '> a quote',
@@ -24,7 +27,15 @@ const KINDS_TEXT = [
 // A long wrapped paragraph, a long unbroken address and a list: lines that break in many places.
 const WRAP_LINE = `${'wordy words that wrap and wrap again '.repeat(14)}https://example.test/a/very/long/address/that/has/no/breaks/anywhere/in/it/${'x'.repeat(60)}`;
 const WRAP_TEXT = [WRAP_LINE, '- an item that wraps too because it has a good many words in it, enough to fill a line or two at any width', WRAP_LINE].join('\n');
-const MANY_LINES = Array.from({ length: 70 }, (_, i) => `line ${i} with **some** words in it that make it long enough to wrap in a narrow box, ${'and more '.repeat(i % 7)}`).join('\n');
+// Where a line may break: after a tab, in the middle of a tab-separated line, in a word of 260 letters with no
+// break in it (it is cut where the box ends), and in the long address.
+const BREAK_TEXT = [
+  `\ttab first, then words ${'and on and on '.repeat(25)}`,
+  `short\tmiddle\ttabs ${'words and more words '.repeat(20)}`,
+  `${'W'.repeat(260)} then words after a very long unbroken one ${'x '.repeat(40)}`,
+  WRAP_LINE,
+].join('\n');
+const MANY_LINES =Array.from({ length: 70 }, (_, i) => `line ${i} with **some** words in it that make it long enough to wrap in a narrow box, ${'and more '.repeat(i % 7)}`).join('\n');
 
 const jq = (s) => JSON.stringify(s);
 
@@ -59,12 +70,17 @@ module.exports = {
       await page.rightClick(`#board .card-el[data-id="7"]`);
       if (!(await menuUp())) return false;
       await ev(`document.querySelector('#ctx-scratch').click()`);
-      return waitFor(READY, 4000);
+      const up = await waitFor(READY, 4000);
+      await frames();
+      return up;
     };
+    // The copy answers an input or a resize in the frame that lays it out, before it is painted; a check waits for that frame.
+    const frames = () => ev(`new Promise((done)=>requestAnimationFrame(()=>requestAnimationFrame(()=>done(true))))`);
     // Replaces the box's text with `text` by the browser's own insert, as typing does.
     const typeInto = async (sel, text) => {
       await ev(`(()=>{const t=document.querySelector(${jq(sel)});t.focus();t.select();return true})()`);
       await send('Input.insertText', { text });
+      await frames(); // the copy is drawn in the frame that follows the input
     };
     const valueOf = (sel) => `document.querySelector(${jq(sel)}).value`;
     const copyText = (sel) => `(()=>{const b=document.querySelector(${jq(sel)}).closest('.md-edit').querySelector('.md-edit-back');return b.textContent})()`;
@@ -94,10 +110,52 @@ module.exports = {
         bar: ta.offsetWidth-ta.clientWidth-2*parseFloat(cs.borderLeftWidth),
       };
     })()`;
-    // A resize is answered by the copy in the frame that lays it out, before it is painted; the check waits for that frame.
-    const frames = () => ev(`new Promise((done)=>requestAnimationFrame(()=>requestAnimationFrame(()=>done(true))))`);
-    const same = async (label, sel, { needsLines = true } = {}) => {
+    // On which line each character falls, in the textarea and in the copy. The textarea's answer comes from a hidden
+    // twin: the same element cloned beside it (so the same rules apply), as wide as it is, with a scrollbar when it has
+    // one, holding the text up to a character; its scrollHeight says how many lines that text takes, so the line of
+    // the character is that count. The copy's answer is where the character's own box is. The character asked is the
+    // last of each word (the text up to it lays out as it does in the whole, and a word is cut off only where the box
+    // ends): a break at a different place puts one of these on a different line.
+    const breaks = (sel) => `(()=>{
+      const ta=document.querySelector(${jq(sel)}), wrap=ta.closest('.md-edit'), back=wrap.querySelector('.md-edit-back');
+      const text=ta.value, cs=getComputedStyle(ta), bar=ta.offsetWidth-ta.clientWidth-2*parseFloat(cs.borderLeftWidth)>3;
+      const probe=ta.cloneNode(false);
+      for (const a of ['id','data-md-edit','data-text-edit']) probe.removeAttribute(a);
+      Object.assign(probe.style,{position:'absolute',visibility:'hidden',left:'-99999px',top:'0px',width:ta.getBoundingClientRect().width+'px',height:'1px',minHeight:'0px',maxHeight:'none',fieldSizing:'fixed',overflowY:bar?'scroll':'hidden',resize:'none'});
+      wrap.append(probe);
+      const height=(t)=>{probe.value=t;return probe.scrollHeight};
+      const pitch=(height(('a'+String.fromCharCode(10)).repeat(99)+'a')-height('a'))/99; // a hundred lines, since a scrollHeight is a whole number of pixels and a line is not
+      const first=height('a');
+      const spots=[];
+      const walker=document.createTreeWalker(back,NodeFilter.SHOW_TEXT);
+      const range=document.createRange();
+      let at=0, top0=null;
+      for (let node=walker.nextNode(); node; node=walker.nextNode()) {
+        for (let i=0;i<node.data.length&&at<text.length;i++,at++) {
+          if (text[at]===String.fromCharCode(10)) continue;
+          range.setStart(node,i); range.setEnd(node,i+1);
+          const r=range.getClientRects()[0];
+          if (!r) continue;
+          if (top0===null) top0=r.top;
+          spots.push([at,Math.round((r.top-top0)/pitch)]);
+        }
+      }
+      const asked=[];
+      spots.forEach((s) => { const c=text[s[0]], next=text[s[0]+1]; if (c.trim()!==''&&(next===undefined||next.trim()==='')) asked.push(s); });
+      const bad=[];
+      for (const [n,line] of asked) {
+        const there=Math.round((height(text.slice(0,n+1))-first)/pitch);
+        if (there!==line) bad.push([n,line,there,spots.filter((q)=>q[1]===line).map((q)=>text[q[0]]).join('').slice(-40),text.slice(Math.max(0,n-30),n+1)]);
+      }
+      probe.remove();
+      return {checked:asked.length,lines:spots.length?spots[spots.length-1][1]+1:0,bar,pitch,bad:bad.slice(0,6)};
+    })()`;
+    const same = async (label, sel, { needsLines = true, atChars = true } = {}) => {
       await frames();
+      if (atChars) {
+        const b = await ev(breaks(sel));
+        check(`markdown-edit: ${label}: every line breaks at the same character as the textarea's (${b.checked} characters asked, ${b.lines} lines)`, b.checked > 20 && b.lines > 3 && b.bad.length === 0, JSON.stringify(b));
+      }
       const g = await ev(geometry(sel));
       check(`markdown-edit: ${label}: the copy's box is the textarea's box and the wrapper is no bigger`, g.box && g.wrap, JSON.stringify(g));
       check(`markdown-edit: ${label}: the copy wraps in the same width and holds the same height of text`, g.inside && g.height, JSON.stringify(g));
@@ -108,7 +166,7 @@ module.exports = {
 
     // The resolved colour of a token, read through an element so a var() chain is followed.
     const colourOf = (tok) => `(()=>{const p=document.createElement('i');p.style.color='var(${tok})';document.body.append(p);const c=getComputedStyle(p).color;p.remove();return c})()`;
-    const KIND_TOKEN = { heading: '--md-edit-heading', bold: '--md-edit-bold', italic: '--md-edit-italic', strike: '--md-edit-strike', code: '--md-edit-code', link: '--md-edit-link', marker: '--md-edit-marker', tag: '--md-edit-tag', mention: '--md-edit-mention' };
+    const KIND_TOKEN = { heading: '--md-edit-heading', bold: '--md-edit-bold', italic: '--md-edit-italic', strike: '--md-edit-strike', code: '--md-edit-code', link: '--md-edit-link', marker: '--md-edit-marker', tag: '--md-edit-tag', mention: '--md-edit-mention', 'heading-six': '--md-edit-heading-six' };
 
     await open('/?view=board');
     check('markdown-edit: the board is drawn with its scratchpad', await waitFor(`document.querySelectorAll('#board .card-el').length>20&&!!state.scratchpad`, 10000));
@@ -129,14 +187,21 @@ module.exports = {
     const wanted = {};
     for (const kind of KINDS) wanted[kind] = await ev(colourOf(KIND_TOKEN[kind]));
     for (const kind of KINDS) check(`markdown-edit: a ${kind} is drawn in --md-edit-${kind}`, kindColours[kind] === wanted[kind], `${kindColours[kind]} vs ${wanted[kind]}`);
-    check('markdown-edit: a mention has the chip\'s ground, a link is underlined and a strike has a line through it', await ev(`(()=>{const b=${TEXT}.closest('.md-edit').querySelector('.md-edit-back'),q=(k)=>getComputedStyle(b.querySelector('.md-edit-'+k));return q('mention').backgroundColor===${colourOf('--md-edit-mention-bg')}&&q('link').textDecorationLine.includes('underline')&&q('strike').textDecorationLine.includes('line-through')})()`));
+    check('markdown-edit: a mention has the chip\'s ground, a link has a dotted line under it in its colour and a strike has a line through it', await ev(`(()=>{const b=${TEXT}.closest('.md-edit').querySelector('.md-edit-back'),q=(k)=>getComputedStyle(b.querySelector('.md-edit-'+k));return q('mention').backgroundColor===${colourOf('--md-edit-mention-bg')}&&q('link').borderBottomStyle==='dotted'&&q('link').borderBottomWidth==='1px'&&q('link').borderBottomColor===q('link').color&&q('link').textDecorationLine==='none'&&q('strike').textDecorationLine.includes('line-through')})()`));
     check('markdown-edit: a colour is only a colour: no kind changes weight, style, size, spacing or family', await ev(`(()=>{const b=${TEXT}.closest('.md-edit').querySelector('.md-edit-back'),base=getComputedStyle(b);return [...b.querySelectorAll('span')].length>=9&&[...b.querySelectorAll('span')].every((s)=>{const c=getComputedStyle(s);return ['fontWeight','fontStyle','fontSize','fontFamily','letterSpacing','wordSpacing','lineHeight','textTransform'].every((p)=>c[p]===base[p])&&c.paddingLeft==='0px'&&c.borderLeftWidth==='0px'&&c.marginLeft==='0px'})})()`));
     await shot('kinds-in-the-scratchpad');
-    await same('the Scratchpad box', '#notes-palette .sp-text');
+    await same('the Scratchpad box', '#notes-palette .sp-text', { atChars: false });
 
     await typeInto('#notes-palette .sp-text', WRAP_TEXT);
     const wrapGeo = await same('the Scratchpad box with long wrapped lines', '#notes-palette .sp-text');
     check('markdown-edit: the text does wrap (the lines are more than the lines of text)', wrapGeo.lines > 8, JSON.stringify(wrapGeo));
+    await typeInto('#notes-palette .sp-text', BREAK_TEXT);
+    await same('the Scratchpad box with tabs and a word with no break', '#notes-palette .sp-text');
+    await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1.25, mobile: false });
+    await waitFor(`window.devicePixelRatio===1.25`, 2500);
+    await same('the Scratchpad box at 125% device scale', '#notes-palette .sp-text');
+    await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await waitFor(`window.devicePixelRatio===1`, 2500);
 
     await typeInto('#notes-palette .sp-text', MANY_LINES);
     const scrollGeo = await ev(geometry('#notes-palette .sp-text'));
@@ -180,17 +245,22 @@ module.exports = {
       await open('/?card=7');
       if (!(await waitFor(`!!document.querySelector('#detail-edit-btn')&&!document.getElementById('detail-modal').classList.contains('hidden')`, 10000))) return false;
       await clickOn('#detail-edit-btn');
-      return waitFor(`!document.getElementById('modal').classList.contains('hidden')&&document.getElementById('f-title').value.length>0`, 5000);
+      const up = await waitFor(`!document.getElementById('modal').classList.contains('hidden')&&document.getElementById('f-title').value.length>0`, 5000);
+      await frames();
+      return up;
     };
     check('markdown-edit: card 7\'s edit form opens', await openForm());
     check('markdown-edit: the description sits in the wrapper where it was, inside its label, coloured', await ev(`(()=>{const t=${FORM},w=t.closest('.md-edit');return !!w&&w.classList.contains('on')&&w.parentElement.classList.contains('modal-desc')&&w.parentElement.tagName==='LABEL'})()`));
     check('markdown-edit: the description card 7 carries is in the copy as it is in the box', await ev(copyIsValue('#f-body')) && await ev(`${valueOf('#f-body')}.length>0`), await ev(`JSON.stringify([${copyText('#f-body')},${valueOf('#f-body')}])`));
 
     await typeInto('#f-body', KINDS_TEXT);
-    check('markdown-edit: the form\'s box takes the colours too', await ev(`['heading','bold','italic','strike','code','link','marker','tag','mention'].every((k)=>!!${FORM}.closest('.md-edit').querySelector('.md-edit-'+k))`));
+    check('markdown-edit: the form\'s box takes the colours too', await ev(`['heading','heading-six','bold','italic','strike','code','link','marker','tag','mention'].every((k)=>!!${FORM}.closest('.md-edit').querySelector('.md-edit-'+k))`));
     await typeInto('#f-body', WRAP_TEXT);
     const formGeo = await same('the card form', '#f-body');
     check('markdown-edit: the text wraps in the form', formGeo.lines > 6, JSON.stringify(formGeo));
+    await typeInto('#f-body', BREAK_TEXT);
+    await same('the card form with tabs and a word with no break', '#f-body');
+    await typeInto('#f-body', WRAP_TEXT);
     await typeInto('#f-body', WRAP_TEXT + '\n' + WRAP_TEXT + '\n' + WRAP_TEXT);
     await same('the card form after the box grew with its text', '#f-body');
     await shot('card-form');
@@ -214,14 +284,23 @@ module.exports = {
     await waitFor(`(()=>{const g=${FORM};const b=g.closest('.md-edit').querySelector('.md-edit-back');return getComputedStyle(b).fontSize==='16px'})()`, 2500);
     const phoneGeo = await same('the card form at phone width', '#f-body');
     check('markdown-edit: at phone width the text is 16px in both and wraps in more lines', phoneGeo.lines > formGeo.lines, JSON.stringify([phoneGeo.lines, formGeo.lines]));
+    await typeInto('#f-body', BREAK_TEXT);
+    await same('the card form at phone width with tabs and a word with no break', '#f-body');
     await shot('card-form-phone');
     await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
     await waitFor(`${FORM}.getBoundingClientRect().width>300&&getComputedStyle(${FORM}).fontSize!=='16px'`, 4000);
     await same('the card form back at desktop width', '#f-body');
+    await typeInto('#f-body', BREAK_TEXT);
+    await same('the card form with tabs and a word with no break', '#f-body');
+    await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1.25, mobile: false });
+    await waitFor(`window.devicePixelRatio===1.25`, 2500);
+    await same('the card form at 125% device scale', '#f-body');
+    await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await waitFor(`window.devicePixelRatio===1`, 2500);
 
     await key('s', { ctrl: true });
     check('markdown-edit: Ctrl+S in the description saves the form', await waitFor(`document.getElementById('modal').classList.contains('hidden')`, 5000));
-    check('markdown-edit: and the card holds what was typed', await ev(`fetch('/api/board').then((r)=>r.json()).then((d)=>d.active.find((c)=>String(c.id)==='7').body.trim())`) === WRAP_TEXT);
+    check('markdown-edit: and the card holds what was typed', await ev(`fetch('/api/board').then((r)=>r.json()).then((d)=>d.active.find((c)=>String(c.id)==='7').body.trim())`) === BREAK_TEXT.trim());
 
     const rectOf = `(()=>{const r=${FORM}.getBoundingClientRect();return [r.left,r.top,r.width,r.height].map(Math.round)})()`;
     check('markdown-edit: the form opens again on the saved text', await openForm());
@@ -241,7 +320,7 @@ module.exports = {
     check('markdown-edit: the preferences sheet opens', await openSheet());
     check('markdown-edit: Colour Markdown while editing is there and on', await ev(`(()=>{const c=document.getElementById('prefs-md-colour');return !!c&&c.checked&&c.parentElement.textContent.trim()==='Colour Markdown while editing'})()`));
     await clickOn('#prefs-md-colour');
-    check('markdown-edit: turned off it is remembered in the browser', await waitFor(`!document.getElementById('prefs-md-colour').checked`, 2500) && await ev(`JSON.parse(localStorage.getItem('kanban.scratchpad.prefs')).mdColour===false`));
+    check('markdown-edit: turned off it is remembered for the whole browser, in a key with no board in it', await waitFor(`!document.getElementById('prefs-md-colour').checked`, 2500) && await ev(`localStorage.getItem('kanban.md-colour')==='false'&&Object.keys(localStorage).every((k)=>k!=='kanban.scratchpad.prefs'||!('mdColour' in JSON.parse(localStorage.getItem(k))))`));
     check('markdown-edit: the sheet closes', await closeSheet());
     check('markdown-edit: the form opens with its box plain: the wrapper has no box, the text is the ink and the copy is empty', await openForm() && await ev(`(()=>{const t=${FORM},w=t.closest('.md-edit');return !w.classList.contains('on')&&getComputedStyle(w).display==='contents'&&getComputedStyle(t).color===${colourOf('--ink')}&&getComputedStyle(t).backgroundColor===${colourOf('--paper')}&&w.querySelector('.md-edit-back').childNodes.length===0&&getComputedStyle(w.querySelector('.md-edit-back')).display==='none'})()`));
     const formOff = await ev(rectOf);
@@ -257,7 +336,7 @@ module.exports = {
 
     check('markdown-edit: the sheet shows it off after the reload', await openSheet() && await ev(`!document.getElementById('prefs-md-colour').checked`));
     await clickOn('#prefs-md-colour');
-    check('markdown-edit: turned on again, the choice is remembered', await waitFor(`document.getElementById('prefs-md-colour').checked`, 2500) && await ev(`JSON.parse(localStorage.getItem('kanban.scratchpad.prefs')).mdColour===true`));
+    check('markdown-edit: turned on again, the choice is remembered', await waitFor(`document.getElementById('prefs-md-colour').checked`, 2500) && await ev(`localStorage.getItem('kanban.md-colour')==='true'`));
     check('markdown-edit: the sheet closes again', await closeSheet());
     check('markdown-edit: a box opened now is coloured again', await openPad() && await ev(`${TEXT}.closest('.md-edit').classList.contains('on')`));
     await typeInto('#notes-palette .sp-text', '**bold**');
