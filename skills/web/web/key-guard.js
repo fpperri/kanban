@@ -18,6 +18,11 @@
 // the card details. They pass that popup's selector, named once in notes-palette.js, and any other popup
 // open besides still turns them off.
 //
+// A key that acts on the card details themselves (`e` edits the open card) has one popup more to stand
+// behind: the notes palette, which draws above the details. It is no surface for the other keys: `n`, the
+// tab keys and Esc work with it up, and `/` and the rest are unchanged. keyGuardDetailOff is the guard for
+// the details' keys and the one place that says so.
+//
 // Pure: callers pass the document, so Node tests drive it with a fake. Same
 // dual-environment export pattern as save-hotkey.js and search-hotkey.js.
 const KEY_GUARD_SURFACES = [
@@ -44,6 +49,16 @@ function keyGuardOff(doc, except) {
   return keyGuardTyping(doc) || keyGuardSurface(doc, except) !== null;
 }
 
+const KEY_GUARD_DETAIL_SURFACES = [
+  { name: 'notes', selector: '#notes-palette:not(.hidden)' },
+];
+
+// The guard for a key that acts on the card details: the whole guard, `except` naming the details, and the
+// notes palette over them.
+function keyGuardDetailOff(doc, except) {
+  return keyGuardOff(doc, except) || KEY_GUARD_DETAIL_SURFACES.some((s) => !!doc.querySelector(s.selector));
+}
+
 // What Esc does once nothing has taken it: 'clear-box' when focus is in the
 // search box (the one text field Esc is for), 'step' when the selection steps
 // back, null when Esc is not ours. The step runs only while the guard is on
@@ -56,11 +71,13 @@ function keyGuardEscape(doc, searchBox) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { KEY_GUARD_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff, keyGuardEscape };
+  module.exports = { KEY_GUARD_SURFACES, KEY_GUARD_DETAIL_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff, keyGuardDetailOff, keyGuardEscape };
 } else {
   window.KEY_GUARD_SURFACES = KEY_GUARD_SURFACES;
   window.keyGuardTyping = keyGuardTyping;
   window.keyGuardSurface = keyGuardSurface;
+  window.KEY_GUARD_DETAIL_SURFACES = KEY_GUARD_DETAIL_SURFACES;
   window.keyGuardOff = keyGuardOff;
+  window.keyGuardDetailOff = keyGuardDetailOff;
   window.keyGuardEscape = keyGuardEscape;
 }

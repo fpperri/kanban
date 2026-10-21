@@ -3,7 +3,7 @@
 // with three refs and one for group I2) and the scratchonly board (scratchpads on, the logbook off).
 // The card menu's Scratchpad... opens the palette on a Scratchpad tab beside Notes: the file's path, its
 // refs (a mention among them is a chip), and a multi-line box; Ctrl+Enter or Save writes the body and the
-// refs stay in the file; unsaved text survives a tab switch; a card with no page says it is not written
+// refs stay in the file; Ctrl+Shift+V flips Edit and Preview from the box or a button, and both buttons show the key; unsaved text survives a tab switch; a card with no page says it is not written
 // yet and Save writes it. A group's palette gets the tab after its Group tab and a Scratchpad button
 // there; Alt+1, Alt+2 and Alt+3 switch its three tabs, and Alt+4 does nothing. The gear's Scratchpad page switches the feature and its line returns between the logbook's and
 // the groups'; the pages stay on disk when it is off. Deleting a card or a group offers "Its scratchpad",
@@ -87,6 +87,17 @@ module.exports = {
     await shot('scratchpad-preview');
     await press('#notes-palette .sp-mode:first-child');
     check('scratchpad: Edit brings the box back with the text and the focus', await waitFor(`!${TEXT}.hidden&&${PREVIEW}.hidden`, 2500) && await ev(`${TEXT}.value.startsWith('# Plan')&&document.activeElement===${TEXT}`));
+
+    await key('v', { ctrl: true, shift: true });
+    check('scratchpad: Ctrl+Shift+V in the box switches to Preview, and the palette keeps the focus', await waitFor(`!!${PREVIEW}.querySelector('h1')&&${TEXT}.hidden&&!${PREVIEW}.hidden`, 2500) && await ev(`document.getElementById('notes-palette').contains(document.activeElement)&&document.activeElement!==document.body`));
+    const buttonHints = await ev(`[...document.querySelectorAll('#notes-palette .sp-mode')].map((b)=>b.dataset.key+'|'+getComputedStyle(b,'::after').content+'|'+b.getAttribute('aria-keyshortcuts')+'|'+b.firstChild.textContent).join()`);
+    check('scratchpad: both buttons show the key beside their name, outside it', buttonHints === 'Ctrl+Shift+V|"Ctrl+Shift+V" / ""|Control+Shift+V Meta+Shift+V|Edit,Ctrl+Shift+V|"Ctrl+Shift+V" / ""|Control+Shift+V Meta+Shift+V|Preview', buttonHints);
+    await key('v', { ctrl: true, shift: true });
+    check('scratchpad: Ctrl+Shift+V from Preview goes back to Edit, with the focus in the box at the end of its text', await waitFor(`!${TEXT}.hidden&&${PREVIEW}.hidden`, 2500) && await ev(`document.activeElement===${TEXT}&&${TEXT}.selectionStart===${TEXT}.value.length&&${TEXT}.selectionEnd===${TEXT}.value.length`));
+    await press('#notes-palette .sp-mode:last-child');
+    await ev(`(()=>{const b=document.querySelector('#notes-palette .sp-mode:last-child');b.focus();return true})()`);
+    await key('v', { ctrl: true, shift: true });
+    check('scratchpad: Ctrl+Shift+V works with the focus on a button of the palette too', await waitFor(`!${TEXT}.hidden&&${PREVIEW}.hidden`, 2500));
 
     // --- Ctrl+Enter writes the body and keeps the refs -------------------------------------------------------------------
     await typeInto('check the enum renames\nsecond line');

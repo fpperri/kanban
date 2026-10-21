@@ -14,6 +14,7 @@
 // subject row's date and card picker retarget the note (a note written to another day lands in that
 // day's file), and the range row limits the list to a day, 3 days, a week or a month: a card opens
 // on All and still lists its notes from several days.
+// e with a card's details open opens its edit form with the focus in the title, and the palette over the details keeps its e, on a note row too.
 // With no logbook line nothing shows and n says why. Each step waits on the page, never on a fixed
 // sleep.
 //
@@ -458,6 +459,34 @@ module.exports = {
     check('notes: the next Esc closes the palette and leaves the details open', await waitFor(PAL_GONE, 2500) && await ev(DETAIL_UP));
     await key('Escape');
     check('notes: the one after that closes the details, as it does today', await waitFor(DETAIL_SHUT, 2500));
+
+    // --- e with the card details open edits that card; the palette over them keeps its e ------------------------
+    const FORM_UP = `!document.getElementById('modal').classList.contains('hidden')`;
+    const FORM_SHUT = `document.getElementById('modal').classList.contains('hidden')`;
+    await click(title7.x, title7.y);
+    check('notes: card 7\'s details open again', await waitFor(`${DETAIL_UP}&&document.getElementById('detail-title').textContent.startsWith('#7')`, 4000));
+    check('notes: the details\' Edit button names the key', await ev(`document.getElementById('detail-edit-btn').title==='Edit card fields (e)'`));
+    await ev(`(()=>{if(document.activeElement)document.activeElement.blur()})()`);
+    await key('n');
+    check('notes: n opens the palette over the details', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
+    await key('e');
+    check('notes: e in the palette\'s box types an e: it neither edits the card nor leaves the palette', await waitFor(`${BOX}==='e'`, 2500) && await ev(FORM_SHUT) && await ev(DETAIL_UP) && await ev(PAL_UP), await ev(BOX));
+    await setBox('');
+    await key('ArrowDown');
+    check('notes: the down arrow moves onto a note of card 7, with the details still behind', await waitFor(`document.activeElement.classList.contains('np-note')`, 2000) && await ev(DETAIL_UP));
+    await key('e');
+    check('notes: e on a note row edits the note and does not open the edit form of the card', await waitFor(`!!${q('.np-edit-text')}`, 2500) && await ev(FORM_SHUT) && await ev(DETAIL_UP) && await ev(PAL_UP));
+    await key('Escape');
+    check('notes: Esc leaves the note edit and the palette stays up over the details', await waitFor(`!${q('.np-edit-text')}`, 2500) && await ev(PAL_UP) && await ev(DETAIL_UP));
+    await key('Escape');
+    await key('Escape');
+    check('notes: the palette closes and leaves the details up', await waitFor(PAL_GONE, 2500) && await ev(DETAIL_UP));
+    await ev(`(()=>{if(document.activeElement)document.activeElement.blur()})()`);
+    await key('e');
+    check('notes: e then opens the card\'s edit form and puts the details away', await waitFor(`${FORM_UP}&&${DETAIL_SHUT}&&document.getElementById('modal-title').textContent==='Edit #7'`, 3000), await ev(`document.getElementById('modal-title').textContent`));
+    check('notes: the title field of the form has the focus and the key typed nothing in it', await ev(`document.activeElement===document.getElementById('f-title')&&document.getElementById('f-title').value==='Port the zephyr schema'`), await ev(`document.activeElement.id+'|'+document.getElementById('f-title').value`));
+    await key('Escape');
+    check('notes: Esc closes the edit form', await waitFor(FORM_SHUT, 2500));
     check('notes: the details are closed by now', await waitFor(DETAIL_SHUT, 2500));
 
     // --- the palette goes full screen, as the card details do ----------------------------------------------------

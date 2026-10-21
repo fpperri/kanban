@@ -1106,7 +1106,7 @@ function notesEscape(fromFilter = false) {
 
 function notesOnPaletteKey(e) {
   if (!notesUi.sub) return; // a palette that has closed keeps no keys: a box that still holds the focus must not swallow the page's Esc
-  if (notesTabKey(e)) return;
+  if (notesTabKey(e) || scratchPreviewKey(e)) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
