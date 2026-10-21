@@ -58,5 +58,5 @@ test('the docs describe the tab, the ways in, the save, and the delete box that 
   for (const part of ['**Scratchpad** tab', '**Scratchpad…**', '**Ctrl+Enter**', '**Save**', 'The kanban never deletes a page', '**Its scratchpad**', 'unticked']) {
     assert.ok(docsPad.includes(part), part);
   }
-  assert.ok(flat(docs).includes('*This board* has five pages'));
+  assert.ok(flat(docs).includes('*This board* has six pages'));
 });

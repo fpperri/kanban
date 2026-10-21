@@ -55,8 +55,11 @@ async function settingsSend(body, draftKey, typed) {
     await loadBoard();
   } catch (e) {
     if (e.status === 409 && body.version !== undefined) {
-      settingsUi.errors = { conflict: settingsConflictNote };
+      // A 409 is a stale version when the board, read again, has another one; else it is the save's own
+      // refusal (a folder set by hand outside the board), which stays under its control.
       try { await loadBoard(); } catch (again) { settingsUi.errors[draftKey] = again.message; }
+      if (state.settings && state.settings.version !== body.version) settingsUi.errors = { conflict: settingsConflictNote };
+      else settingsUi.errors[draftKey] = e.message;
     } else {
       settingsUi.errors[draftKey] = e.message;
     }
@@ -187,14 +190,14 @@ function settingsFeatureNodes(key, label, what) {
     disabled: lock,
     set: (on) => {
       const typed = $(`#pf-${key}`);
-      settingsSend(settingsSwitchBody(key, on, typed ? typed.value : feature.folder), key);
+      settingsSend(settingsSwitchBody(key, on, typed ? typed.value : feature.folder, state.settings.version), key);
     },
   }));
   nodes.push(settingsField(key, 'Folder', feature.folder, {
     placeholder: SETTINGS_FOLDERS[key],
     disabled: !!lock,
     hint: feature.on ? 'Only the line changes; moving the files is yours to do.' : 'Saving a folder turns it on.',
-    save: (text) => settingsSave(key, text, settingsFolderProblem(text), settingsFolderBody(key, text)),
+    save: (text) => settingsSave(key, text, settingsFolderProblem(text), settingsFolderBody(key, text, state.settings.version)),
   }));
   return nodes;
 }
@@ -253,7 +256,7 @@ function settingsGroupsNodes() {
   nodes.push(settingsSwitch('iterations', 'Iterations', state.iterations, {
     disabled: st.groups.on ? null : 'Turn groups on first: iterations are groups',
     hint: 'iterations: true gives the header the iteration dropdown. Iterations are the groups in the iteration/ folder; the line is ignored while groups are off.',
-    set: (on) => settingsSend(settingsSwitchBody('iterations', on), 'iterations'),
+    set: (on) => settingsSend(settingsSwitchBody('iterations', on, undefined, state.settings.version), 'iterations'),
   }));
   nodes.push(settingsGroupsFoundNodes());
   return nodes;
@@ -299,7 +302,8 @@ function settingsPathNode(path, kind) {
 // turn comes. A rename or a removal writes types: only; what else names the old word is shown as a
 // warning, never rewritten.
 
-function settingsTypeUsed() {
+// The settings' count of cards by the type word as written.
+function settingsTypeUse() {
   return state.settings.typeUse || {};
 }
 
@@ -336,9 +340,9 @@ function settingsRename(type, input) {
 function settingsSetColor(type, raw) {
   const key = settingsTypeKey(type.name);
   const color = raw.trim().toLowerCase();
+  if (color === (type.color || '').toLowerCase()) { delete settingsUi.drafts[`row:${key}`]; settingsRenderBoard(); return; }
   const problem = settingsColorProblem(color);
   if (problem) { settingsRowProblem(key, problem, { hex: raw }); return; }
-  if (color === (type.color || '').toLowerCase()) { settingsRenderBoard(); return; }
   settingsChangeTypes(key, (types) => settingsTypesPatch(types, type.name, { color }), `hex:${key}`, { hex: raw });
 }
 
@@ -349,7 +353,7 @@ function settingsSetIcon(type, icon) {
 }
 
 function settingsRemoveType(type) {
-  const ask = settingsRemoveConfirm(type.name, settingsTypeCards(settingsTypeUsed(), type.name));
+  const ask = settingsRemoveConfirm(type.name, settingsTypeUseCount(settingsTypeUse(), type.name));
   if (ask && !confirm(ask)) return;
   settingsChangeTypes(settingsTypeKey(type.name), (types) => settingsTypesRemove(types, type.name), 'field:newType');
 }
@@ -393,10 +397,59 @@ function settingsIconButtons(type, key) {
   return group;
 }
 
-function settingsTypeInput(className, label, value, fk) {
+// Whether this browser can draw the color as written (a hex, a name); when the page cannot tell, it tries.
+function settingsColorDrawn(color) {
+  return typeof CSS === 'undefined' || !CSS.supports ? true : CSS.supports('color', color);
+}
+
+// The swatch row beside the hex field (docs/adr/0003: no native color popup): one button that clears the
+// color, one per color of the starter config and the status palette, and, before the field, the color the
+// type has now as written, drawn when the browser can.
+function settingsColorSwatches(type, key) {
+  const group = settingsEl('span', 'types-swatches');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', `Color of ${type.name}`);
+  const now = (type.color || '').toLowerCase();
+  const none = settingsMark(settingsEl('button', 'types-swatch is-none', 'none'));
+  none.type = 'button';
+  none.dataset.color = '';
+  none.dataset.fk = `swatch:${key}:none`;
+  none.setAttribute('aria-label', `No color for ${type.name}`);
+  none.setAttribute('aria-pressed', String(now === ''));
+  none.addEventListener('click', () => settingsSetColor(type, ''));
+  group.append(none);
+  for (const hex of SETTINGS_TYPE_SWATCHES) {
+    const b = settingsMark(settingsEl('button', 'types-swatch'));
+    b.type = 'button';
+    b.dataset.color = hex;
+    b.dataset.typeColor = hex;
+    b.dataset.fk = `swatch:${key}:${hex}`;
+    b.setAttribute('aria-label', `Set the color of ${type.name} to ${hex}`);
+    b.setAttribute('aria-pressed', String(now === hex));
+    b.addEventListener('click', () => settingsSetColor(type, hex));
+    group.append(b);
+  }
+  return group;
+}
+
+function settingsColorNow(type) {
+  const swatch = settingsEl('span', 'types-swatch is-current');
+  swatch.setAttribute('aria-hidden', 'true');
+  if (type.color && settingsColorDrawn(type.color)) swatch.dataset.typeColor = type.color;
+  return swatch;
+}
+
+// A plain text input of the Types and Prefixes pages, whose unsaved text survives a redraw (settingsKeepDrafts). `draft` = [key, field]: the
+// text is kept as settingsUi.drafts[key][field]; `committed` is the value without any draft.
+function settingsTextInput(className, label, value, fk, draft, committed) {
   const input = settingsMark(settingsEl('input', className));
   Object.assign(input, { type: 'text', value, spellcheck: false, autocomplete: 'off' });
   input.dataset.fk = fk;
+  if (draft) {
+    input.dataset.draftKey = draft[0];
+    input.dataset.draftField = draft[1];
+    input.dataset.committed = committed;
+  }
   input.setAttribute('aria-label', label);
   return input;
 }
@@ -426,18 +479,12 @@ function settingsTypeRow(row, where, at, count) {
   li.append(handle);
   if (type) {
     li.append(settingsTypePreview(type));
-    const name = settingsTypeInput('types-name', `Name of ${type.name}`, draft.name !== undefined ? draft.name : type.name, `name:${key}`);
+    const name = settingsTextInput('types-name', `Name of ${type.name}`, draft.name !== undefined ? draft.name : type.name, `name:${key}`, [`row:${key}`, 'name'], type.name);
     name.addEventListener('change', () => settingsRename(type, name));
-    const picker = settingsMark(settingsEl('input', 'types-color'));
-    picker.type = 'color';
-    picker.value = settingsColorForPicker(type.color || '');
-    picker.dataset.fk = `color:${key}`;
-    picker.setAttribute('aria-label', `Color of ${type.name}`);
-    const hex = settingsTypeInput('types-hex', `Hex color of ${type.name}`, draft.hex !== undefined ? draft.hex : type.color || '', `hex:${key}`);
+    const hex = settingsTextInput('types-hex', `Hex color of ${type.name}`, draft.hex !== undefined ? draft.hex : type.color || '', `hex:${key}`, [`row:${key}`, 'hex'], type.color || '');
     hex.placeholder = 'none';
-    picker.addEventListener('change', () => settingsSetColor(type, picker.value));
     hex.addEventListener('change', () => settingsSetColor(type, hex.value));
-    li.append(name, picker, hex, settingsIconButtons(type, key));
+    li.append(name, settingsColorSwatches(type, key), settingsColorNow(type), hex, settingsIconButtons(type, key));
     const prefix = settingsPrefixOf(state.settings.prefixes, type.name);
     const prefixText = settingsEl('span', 'types-prefix', prefix ? `Prefix ${prefix}` : 'No prefix');
     const link = settingsMark(settingsEl('button', 'types-link', 'Prefixes'));
@@ -539,7 +586,7 @@ function settingsTypesNodes() {
       set: (on) => settingsSendLater(() => settingsTypesOnBody(on, state.settings.version), 'typesOn'),
     }),
   ];
-  const bullets = settingsBullets(settingsTypeWarnings({ types: st.types, hierarchy: st.hierarchy, prefixes: st.prefixes, typeUse: settingsTypeUsed(), renamed: settingsUi.renamed }));
+  const bullets = settingsBullets(settingsTypeWarnings({ types: st.types, hierarchy: st.hierarchy, prefixes: st.prefixes, typeUse: settingsTypeUse(), renamed: settingsUi.renamed }));
   if (bullets) nodes.push(bullets);
   nodes.push(
     settingsTypeArea('hierarchy', 'Hierarchy', 'The hierarchy: list, top first. Drag a row, or use its buttons. Nothing is enforced; the Graph reads it as tiers.', areas.hierarchy,
@@ -557,14 +604,16 @@ function settingsTypesNodes() {
       settingsSendLater(() => settingsBlockBody('types', settingsTypesAdd(state.settings.types, text), state.settings.version), 'newType', text);
     },
   }));
-  nodes.push(settingsFoundNodes(settingsFoundOnCards(st.types, settingsTypeUsed())));
+  nodes.push(settingsFoundNodes(settingsFoundOnCards(st.types, settingsTypeUse())));
   return nodes;
 }
 
 // ---------- the Prefixes page ----------
 
-function settingsPrefixSend(kind, at, next, typed) {
-  const key = at === null ? 'prefix:new' : `prefix:${at}`;
+// `from` = the prefix of the row being changed or removed (null for an add): the row is found by it in
+// the settings as they stand when the save's turn comes, never by where it was drawn.
+function settingsPrefixSend(kind, from, next, typed) {
+  const key = from === null ? 'prefix:new' : `prefix:${from}`;
   if (!confirm(settingsPrefixConfirm(kind, next.prefix, next.target))) {
     delete settingsUi.drafts[key];
     settingsRenderBoard();
@@ -573,29 +622,29 @@ function settingsPrefixSend(kind, at, next, typed) {
   settingsSendLater(() => {
     const list = settingsPrefixList(state.settings.prefixes);
     const out = kind === 'add' ? settingsPrefixAdd(list, next.prefix, next.target)
-      : kind === 'remove' ? settingsPrefixRemove(list, at)
-        : settingsPrefixSet(list, at, next);
-    return settingsBlockBody('prefixes', out, state.settings.version);
+      : kind === 'remove' ? settingsPrefixRemove(list, from)
+        : settingsPrefixSet(list, from, next);
+    return out ? settingsBlockBody('prefixes', out, state.settings.version) : null;
   }, key, typed);
 }
 
-function settingsPrefixEdit(at, row, prefix, target) {
-  const key = `prefix:${at}`;
+function settingsPrefixEdit(row, prefix, target) {
+  const key = `prefix:${row.prefix}`;
   if (prefix.trim() === row.prefix && target.trim() === row.target) { delete settingsUi.drafts[key]; settingsRenderBoard(); return; }
   const next = { prefix: prefix.trim(), target: target.trim() };
   const typed = { prefix, target };
-  const problem = settingsPrefixProblem(settingsPrefixList(state.settings.prefixes), next.prefix, next.target, at);
+  const problem = settingsPrefixProblem(settingsPrefixList(state.settings.prefixes), next.prefix, next.target, row.prefix);
   if (problem) {
     settingsUi.errors = { [key]: problem };
     settingsUi.drafts[key] = typed;
     settingsRenderBoard();
     return;
   }
-  settingsPrefixSend('change', at, next, typed);
+  settingsPrefixSend('change', row.prefix, next, typed);
 }
 
-function settingsPrefixCell(label, value, fk, onChange) {
-  const input = settingsTypeInput('prefs-cell', label, value, fk);
+function settingsPrefixCell(label, value, fk, onChange, draft, committed) {
+  const input = settingsTextInput('prefs-cell', label, value, fk, draft, committed);
   input.addEventListener('change', onChange);
   const td = settingsEl('td');
   td.append(input);
@@ -611,19 +660,19 @@ function settingsPrefixRows(root) {
   table.append(thead);
   const body = settingsEl('tbody');
   state.settings.prefixes.forEach((row, at) => {
-    const key = `prefix:${at}`;
+    const key = `prefix:${row.prefix}`;
     const draft = settingsUi.drafts[key] || {};
     const tr = settingsEl('tr');
     tr.dataset.prefixAt = String(at);
-    const p = settingsPrefixCell(`Prefix ${row.prefix}`, draft.prefix !== undefined ? draft.prefix : row.prefix, `${key}:prefix`, () => settingsPrefixEdit(at, row, p.input.value, t.input.value));
-    const t = settingsPrefixCell(`Card type or folder of ${row.prefix}`, draft.target !== undefined ? draft.target : row.target, `${key}:target`, () => settingsPrefixEdit(at, row, p.input.value, t.input.value));
+    const p = settingsPrefixCell(`Prefix ${row.prefix}`, draft.prefix !== undefined ? draft.prefix : row.prefix, `${key}:prefix`, () => settingsPrefixEdit(row, p.input.value, t.input.value), [key, 'prefix'], row.prefix);
+    const t = settingsPrefixCell(`Card type or folder of ${row.prefix}`, draft.target !== undefined ? draft.target : row.target, `${key}:target`, () => settingsPrefixEdit(row, p.input.value, t.input.value), [key, 'target'], row.target);
     const err = settingsError(key);
     if (err) t.td.append(err);
     const remove = settingsMark(settingsEl('button', 'types-act', 'Remove'));
     remove.type = 'button';
     remove.dataset.fk = `${key}:remove`;
     remove.setAttribute('aria-label', `Remove the prefix ${row.prefix}`);
-    remove.addEventListener('click', () => settingsPrefixSend('remove', at, row, undefined));
+    remove.addEventListener('click', () => settingsPrefixSend('remove', row.prefix, row, undefined));
     const act = settingsEl('td');
     act.append(remove);
     tr.append(p.td, t.td, settingsEl('td', '', settingsPrefixTarget(row, root)), act);
@@ -635,8 +684,8 @@ function settingsPrefixRows(root) {
 
 function settingsPrefixAddForm() {
   const draft = settingsUi.drafts['prefix:new'] || {};
-  const prefix = settingsTypeInput('prefs-cell', 'New prefix', draft.prefix || '', 'prefix:new:prefix');
-  const target = settingsTypeInput('prefs-cell', 'Card type or groups folder of the new prefix', draft.target || '', 'prefix:new:target');
+  const prefix = settingsTextInput('prefs-cell', 'New prefix', draft.prefix || '', 'prefix:new:prefix', ['prefix:new', 'prefix'], '');
+  const target = settingsTextInput('prefs-cell', 'Card type or groups folder of the new prefix', draft.target || '', 'prefix:new:target', ['prefix:new', 'target'], '');
   prefix.id = 'pf-newPrefix';
   target.id = 'pf-newTarget';
   prefix.placeholder = 'G';
@@ -672,14 +721,14 @@ function settingsPrefixesNodes() {
   const st = state.settings;
   const root = state.groups ? state.groups.folder : '';
   const nodes = [settingsEl('p', 'prefs-hint', 'The prefixes: block: a card type, or a folder of the groups, and the letters its ids start with. Cards of no listed type keep plain numbers. Every change asks first.')];
-  nodes.push(settingsBullets([settingsPrefixNote, ...settingsPrefixWarnings(st.prefixes, st.types)]));
+  nodes.push(settingsBullets([settingsPrefixNote, ...settingsPrefixClashWarnings(st.prefixClashes), ...settingsPrefixWarnings(st.prefixes, st.types)]));
   if (st.prefixes.length) nodes.push(settingsPrefixRows(root));
   else nodes.push(settingsEl('p', 'prefs-note', 'config.yaml has no prefixes: block, so every id is a plain number.'));
   nodes.push(settingsPrefixAddForm());
   nodes.push(settingsField('idDigits', 'idDigits: zero-padding in file names', String(st.idDigits), {
     numeric: true,
     hint: `A new card file is named ${settingsIdExample(st.idDigits)}.a-title.card.md. Files already named stay as they are, and every id is read by its number.`,
-    save: (text) => settingsSave('idDigits', text, settingsDigitsProblem(text), settingsDigitsBody(text)),
+    save: (text) => settingsSave('idDigits', text, settingsDigitsProblem(text), settingsDigitsBody(text, state.settings.version)),
   }));
   return nodes;
 }
@@ -733,6 +782,24 @@ function settingsBoardTitle(id) {
   return page ? page.title : id;
 }
 
+// What is typed in a field and not saved yet is kept as a draft before the page is drawn again: a
+// `field:` input as its text, an input with a draft key (a type's name or hex, a prefix cell) as one
+// field of its draft; text put back to what is saved leaves no draft.
+function settingsKeepDrafts(panel) {
+  for (const input of panel.querySelectorAll('input')) {
+    const d = input.dataset;
+    if (d.draftKey) {
+      const draft = settingsUi.drafts[d.draftKey] && typeof settingsUi.drafts[d.draftKey] === 'object' ? settingsUi.drafts[d.draftKey] : {};
+      if (input.value === d.committed) delete draft[d.draftField];
+      else draft[d.draftField] = input.value;
+      if (Object.keys(draft).length) settingsUi.drafts[d.draftKey] = draft;
+      else delete settingsUi.drafts[d.draftKey];
+    } else if (d.fk && d.fk.startsWith('field:') && input.value !== d.shown) {
+      settingsUi.drafts[d.fk.slice(6)] = input.value;
+    }
+  }
+}
+
 // The board section's menu and, when a board page is showing, that page. The page that has the focus
 // keeps it across the redraw, found again by its key.
 function settingsRenderBoard() {
@@ -743,9 +810,7 @@ function settingsRenderBoard() {
   const focused = active && active.dataset && $('#prefs-sheet').contains(active) ? active.dataset.fk || null : null;
   const keep = settingsUi.focusKey || focused;
   settingsUi.focusKey = null;
-  for (const input of panel.querySelectorAll('input[data-fk^="field:"]')) {
-    if (input.value !== input.dataset.shown) settingsUi.drafts[input.dataset.fk.slice(6)] = input.value;
-  }
+  settingsKeepDrafts(panel);
   menu.replaceChildren(...settingsBoardPages.map((p) => settingsMenuItem(`board:${p.id}`, p.title, settingsPageStateText(p))));
   const current = settingsUi.page && settingsUi.page.startsWith('board:') ? settingsBoardPages.find((p) => p.id === settingsUi.page.slice(6)) : null;
   if (!state.settings) {
@@ -754,8 +819,8 @@ function settingsRenderBoard() {
     const title = settingsEl('h3', 'prefs-page-title', current.title);
     title.id = 'prefs-page-title';
     panel.setAttribute('aria-labelledby', 'prefs-page-title');
-    const where = settingsPagePath(current.id, state.settings);
-    const reads = settingsPathNode(where, ['types', 'prefixes', 'counters'].includes(current.id) ? 'File' : 'Folder');
+    const where = settingsPageReads(current.id, state.settings);
+    const reads = where ? settingsPathNode(where.path, where.kind) : null;
     panel.replaceChildren(settingsEl('p', 'prefs-eyebrow', 'This board · written to config.yaml'), title, ...(reads ? [reads] : []), ...current.build(state.settings));
     paintTypeColors(panel);
   } else {

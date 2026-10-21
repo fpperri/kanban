@@ -200,7 +200,10 @@ function loadPages(over = {}) {
   sandbox.run = (code) => vm.runInContext(code, sandbox);
   sandbox.calls = calls;
   sandbox.page = (id) => { const nodes = sandbox.run(`settingsBoardPages.find((p) => p.id === ${JSON.stringify(id)}).build(state.settings)`); const root = new El('div'); root.append(...nodes); return root; };
-  sandbox.settle = async () => { await sandbox.run('settingsUi.tail'); };
+  sandbox.settle = async () => {
+    await sandbox.run('settingsUi.tail');
+    while (sandbox.run('settingsUi.sending') > 0) await new Promise((r) => setImmediate(r));
+  };
   return sandbox;
 }
 const area = (root, which) => root.one((el) => el.tag === 'ul' && el.dataset.area === which);
@@ -238,12 +241,17 @@ test('a hierarchy name that is not a listed type is a warning chip in the Hierar
   assert.match(act(row, 'remove').attrs['aria-label'], /Remove sprint from the hierarchy/);
 });
 
-test('each listed row has an editable name, a color picker and hex field, seven icon buttons and a read only prefix with a link', () => {
+test('each listed row has an editable name, a swatch row and hex field, seven icon buttons and a read only prefix with a link', () => {
   const row = rowNamed(loadPages().page('types'), 'goal');
   assert.strictEqual(row.one(labelled('Name of goal')).value, 'goal');
-  const picker = row.one(labelled('Color of goal'));
-  assert.strictEqual(picker.type, 'color');
-  assert.strictEqual(picker.value, '#a371f7');
+  assert.strictEqual(row.all((el) => el.tag === 'input').filter((el) => el.type === 'color').length, 0, 'no native color popup (docs/adr/0003)');
+  const swatches = row.one(labelled('Color of goal'));
+  assert.strictEqual(swatches.attrs.role, 'group');
+  const buttons = swatches.all((el) => el.tag === 'button');
+  assert.strictEqual(buttons[0].dataset.color, '', 'the first clears the color');
+  assert.deepStrictEqual(buttons.slice(1).map((b) => b.dataset.color), settings.SETTINGS_TYPE_SWATCHES);
+  assert.deepStrictEqual(buttons.filter((b) => b.attrs['aria-pressed'] === 'true').map((b) => b.dataset.color), ['#a371f7']);
+  for (const b of buttons.slice(1)) assert.strictEqual(b.dataset.typeColor, b.dataset.color, 'painted by paintTypeColors');
   assert.strictEqual(row.one(labelled('Hex color of goal')).value, '#a371f7');
   const group = row.one(labelled('Icon of goal'));
   assert.strictEqual(group.attrs.role, 'group');
@@ -385,7 +393,7 @@ test('a name another type has is refused on the page with the text kept, and not
   assert.strictEqual(ctx.run("settingsUi.drafts['row:goal'].name"), 'BUG');
 });
 
-test('a hex color that is not one is refused on the page; a valid one and the picker write the types block', async () => {
+test('a hex color the person types that is not one is refused on the page; a valid one and a swatch write the types block', async () => {
   const ctx = loadPages();
   const row = rowNamed(ctx.page('types'), 'story');
   const hex = row.one(labelled('Hex color of story'));
@@ -393,12 +401,77 @@ test('a hex color that is not one is refused on the page; a valid one and the pi
   await hex.fire('change');
   assert.deepStrictEqual(ctx.calls, []);
   assert.match(ctx.run("settingsUi.errors['row:story']"), /hex color/);
-  const picker = row.one(labelled('Color of story'));
-  picker.value = '#112233';
-  await picker.fire('change');
-  hex.value = '';
+  const swatch = rowNamed(ctx.page('types'), 'story').one(labelled('Set the color of story to #3fb950'));
+  await swatch.fire('click');
   await ctx.settle();
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2].value[2])), { name: 'story', color: '#112233' });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2].value[2])), { name: 'story', color: '#3fb950' });
+  const typed = rowNamed(ctx.page('types'), 'story').one(labelled('Hex color of story'));
+  typed.value = '#112233';
+  await typed.fire('change');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[1][2].value[2])), { name: 'story', color: '#112233' });
+  await rowNamed(ctx.page('types'), 'goal').one(labelled('No color for goal')).fire('click');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[2][2].value[0])), { name: 'goal', icon: 'star' });
+});
+
+// A value from the file is kept as written (docs/adr/0004): the page checks only what the person just typed.
+const TOLERANT = () => ({
+  ...BASE_SETTINGS(),
+  types: [{ name: 'bug', color: 'red', icon: 'hexagram' }, { name: 'Task', color: 'rebeccapurple' }, { name: 'Bug' }],
+  hierarchy: ['bug', 'Bug', 'epic'],
+  typeUse: { spike: 2 },
+});
+
+test('a row whose stored color is a name shows that name in the field and in a swatch, and no swatch or icon is pressed', () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  const row = rowNamed(ctx.page('types'), 'bug');
+  assert.strictEqual(row.one(labelled('Hex color of bug')).value, 'red');
+  const current = row.one(byClass('is-current'));
+  assert.strictEqual(current.dataset.typeColor, 'red');
+  assert.deepStrictEqual(row.one(labelled('Color of bug')).all((el) => el.attrs['aria-pressed'] === 'true'), []);
+  assert.deepStrictEqual(row.one(labelled('Icon of bug')).children.map((b) => b.attrs['aria-pressed']), ['false', 'false', 'false', 'false', 'false', 'false', 'false']);
+});
+
+test('a color the browser cannot draw is shown as text in the field and gets no swatch color', () => {
+  const ctx = loadPages({ CSS: { supports: (prop, value) => value !== 'rebeccapurple' } });
+  ctx.state.settings = TOLERANT();
+  const row = rowNamed(ctx.page('types'), 'Task');
+  assert.strictEqual(row.one(labelled('Hex color of Task')).value, 'rebeccapurple');
+  assert.strictEqual(row.one(byClass('is-current')).dataset.typeColor, undefined);
+  assert.strictEqual(rowNamed(ctx.page('types'), 'bug').one(byClass('is-current')).dataset.typeColor, 'red');
+});
+
+test('Add from Found on cards saves a board whose colors are names and whose icon this build does not draw, those entries untouched', async () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  await ctx.page('types').one(labelled('Add spike to the types')).fire('click');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2].value)), [{ name: 'bug', color: 'red', icon: 'hexagram' }, { name: 'Task', color: 'rebeccapurple' }, { name: 'Bug' }, { name: 'spike' }]);
+});
+
+test('retyping the stored color name or leaving the hex field as it is writes nothing and shows no refusal', async () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  const hex = rowNamed(ctx.page('types'), 'bug').one(labelled('Hex color of bug'));
+  await hex.fire('change');
+  hex.value = 'red';
+  await hex.fire('change');
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls, []);
+  assert.strictEqual(ctx.run("settingsUi.errors['row:bug']"), undefined);
+});
+
+test('names that differ only in capitals are two rows; moving one saves the hierarchy with both names as written', async () => {
+  const ctx = loadPages();
+  ctx.state.settings = TOLERANT();
+  const root = ctx.page('types');
+  assert.deepStrictEqual(rowsOf(area(root, 'hierarchy')).map((li) => li.dataset.type), ['bug', 'Bug', 'epic']);
+  await act(rowNamed(root, 'Bug'), 'up').fire('click');
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls[0][2].value, ['Bug', 'bug', 'epic']);
+  assert.strictEqual(ctx.calls[0][2].block, 'hierarchy');
 });
 
 test('an icon button sets the icon and none clears it; the pressed one does nothing', async () => {
@@ -469,6 +542,7 @@ test('the Types switch off writes typesOn false with the version; the hint says 
 
 test('a 409 reads the board again and shows one note saying nothing was saved and why; a 400 shows its message under the row', async () => {
   const ctx = loadPages();
+  ctx.loadBoard = async () => { ctx.reads += 1; ctx.state.settings.version = 'v2'; };
   ctx.fail = { status: 409, message: 'config.yaml changed on disk' };
   await act(rowNamed(ctx.page('types'), 'goal'), 'down').fire('click');
   await ctx.settle();
@@ -483,6 +557,49 @@ test('a 409 reads the board again and shows one note saying nothing was saved an
   assert.strictEqual(ctx.reads, 1, 'a 400 does not read again');
   const row = rowNamed(ctx.page('types'), 'goal');
   assert.strictEqual(row.one(byClass('prefs-error')).textContent, 'The icon of goal is one of circle.');
+});
+
+test('a line save from the gear carries the version too, and one refused as stale reads the board again and shows the one note', async () => {
+  const ctx = loadPages();
+  const logbook = ctx.page('logbook');
+  const folder = logbook.one((el) => el.tag === 'input' && el.id === 'pf-logbook');
+  folder.value = 'notes';
+  await logbook.one((el) => el.tag === 'form').fire('submit');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2])), { key: 'logbook', value: 'notes', version: 'v1' });
+  await logbook.one((el) => el.dataset.switch === 'logbook' && el.dataset.value === 'off').fire('click');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[1][2])), { key: 'logbook', value: null, version: 'v1' });
+  const groups = ctx.page('groups');
+  await groups.one((el) => el.dataset.switch === 'iterations' && el.dataset.value === 'on').fire('click');
+  assert.strictEqual(ctx.calls[2][2].version, 'v1');
+  const prefixes = ctx.page('prefixes');
+  const digits = prefixes.one((el) => el.id === 'pf-idDigits');
+  digits.value = '6';
+  await prefixes.all((el) => el.tag === 'form').at(-1).fire('submit');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[3][2])), { key: 'idDigits', value: '6', version: 'v1' });
+  await ctx.settle();
+  const readsBefore = ctx.reads;
+  ctx.loadBoard = async () => { ctx.reads += 1; ctx.state.settings.version = 'v2'; };
+  ctx.fail = { status: 409, message: 'config.yaml changed on disk after this page read it' };
+  const again = ctx.page('prefixes');
+  again.one((el) => el.id === 'pf-idDigits').value = '7';
+  await again.all((el) => el.tag === 'form').at(-1).fire('submit');
+  await ctx.settle();
+  assert.strictEqual(ctx.reads, readsBefore + 1);
+  assert.strictEqual(ctx.run('settingsUi.errors.conflict'), settings.settingsConflictNote);
+  assert.strictEqual(ctx.run("settingsUi.errors.idDigits"), undefined, 'one note, not the server text under the field as well');
+  assert.strictEqual(ctx.run("settingsUi.drafts.idDigits"), '7', 'the typed text stays');
+});
+
+test('a 409 that is not a stale version (a locked folder) shows its own message under the control', async () => {
+  const ctx = loadPages();
+  ctx.fail = { status: 409, message: 'This folder is outside the board.' };
+  const logbook = ctx.page('logbook');
+  logbook.one((el) => el.tag === 'input' && el.id === 'pf-logbook').value = 'notes';
+  await logbook.one((el) => el.tag === 'form').fire('submit');
+  await ctx.settle();
+  assert.strictEqual(ctx.run('settingsUi.errors.conflict'), undefined);
+  assert.strictEqual(ctx.run('settingsUi.errors.logbook'), 'This folder is outside the board.');
 });
 
 test('two quick changes go one after the other, the second read from the state the first left', async () => {
@@ -561,6 +678,99 @@ test('adding and removing a prefix each ask first and write the prefixes block',
   assert.deepStrictEqual(ctx.calls[1][2].value.map((r) => r.prefix), ['G', 'O']);
 });
 
+test('a prefix a line names twice shows a warning bullet on the Prefixes page, after the note and before the other warnings', () => {
+  const ctx = loadPages();
+  ctx.state.settings.prefixClashes = [{ prefix: 'G', kept: 'goal', ignored: 'epic' }];
+  const bullets = ctx.page('prefixes').one(byClass('prefs-bullets')).children.map((li) => li.textContent);
+  assert.strictEqual(bullets[0], settings.settingsPrefixNote);
+  assert.match(bullets[1], /^The prefix `G` is declared twice: `goal` is kept and the line for `epic` is ignored\. Saving this page rewrites the prefixes block without that line\. Why: /);
+  assert.match(bullets[2], /^The prefix `O` still names `objective`/);
+});
+
+// A redraw (a save of another row finishing, the board polled) must not eat what is typed and not yet saved.
+const keepDrafts = (ctx, root) => ctx.run('settingsKeepDrafts')({ querySelectorAll: () => root.all((el) => el.tag === 'input') });
+
+test('text typed into a type name or hex field and not yet saved survives a redraw, and a value put back leaves no draft', () => {
+  const ctx = loadPages();
+  const root = ctx.page('types');
+  rowNamed(root, 'story').one(labelled('Name of story')).value = 'tale';
+  rowNamed(root, 'goal').one(labelled('Hex color of goal')).value = '#12';
+  rowNamed(root, 'epic').one(labelled('Name of epic')).value = 'epic';
+  keepDrafts(ctx, root);
+  const again = ctx.page('types');
+  assert.strictEqual(rowNamed(again, 'story').one(labelled('Name of story')).value, 'tale');
+  assert.strictEqual(rowNamed(again, 'goal').one(labelled('Hex color of goal')).value, '#12');
+  assert.strictEqual(rowNamed(again, 'goal').one(labelled('Name of goal')).value, 'goal', 'only the field typed in');
+  assert.deepStrictEqual(Object.keys(JSON.parse(JSON.stringify(ctx.run('settingsUi.drafts')))).sort(), ['row:goal', 'row:story']);
+  rowNamed(again, 'story').one(labelled('Name of story')).value = 'story';
+  keepDrafts(ctx, again);
+  assert.strictEqual(rowNamed(ctx.page('types'), 'story').one(labelled('Name of story')).value, 'story');
+  assert.strictEqual(ctx.run("'row:story' in settingsUi.drafts"), false);
+});
+
+test('text typed into a prefix cell or the new prefix row survives a redraw', () => {
+  const ctx = loadPages();
+  const root = ctx.page('prefixes');
+  root.one(labelled('Card type or folder of G')).value = 'epi';
+  root.one(labelled('Prefix O')).value = 'Q';
+  root.one((el) => el.id === 'pf-newPrefix').value = 'B';
+  root.one((el) => el.id === 'pf-newTarget').value = 'bu';
+  keepDrafts(ctx, root);
+  const again = ctx.page('prefixes');
+  assert.strictEqual(again.one(labelled('Card type or folder of G')).value, 'epi');
+  assert.strictEqual(again.one(labelled('Prefix G')).value, 'G');
+  assert.strictEqual(again.one(labelled('Prefix O')).value, 'Q');
+  assert.strictEqual(again.one((el) => el.id === 'pf-newPrefix').value, 'B');
+  assert.strictEqual(again.one((el) => el.id === 'pf-newTarget').value, 'bu');
+});
+
+test('a field of a line page keeps its typed text through the same collector', () => {
+  const ctx = loadPages();
+  const root = ctx.page('logbook');
+  root.one((el) => el.id === 'pf-logbook').value = 'not';
+  keepDrafts(ctx, root);
+  assert.strictEqual(ctx.page('logbook').one((el) => el.id === 'pf-logbook').value, 'not');
+});
+
+test('the render keeps the drafts of every input before it redraws', () => {
+  assert.match(ui, /settingsKeepDrafts\(panel\);/);
+});
+
+test('a prefix edit queued behind a removal finds its row by its prefix: the one asked is changed and the others stay', async () => {
+  const ctx = loadPages();
+  const root = ctx.page('prefixes');
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  ctx.api = async (m, u, body) => {
+    ctx.calls.push([m, u, JSON.parse(JSON.stringify(body))]);
+    if (ctx.calls.length === 1) await gate;
+    ctx.state.settings.prefixes = body.value.map((r) => ({ prefix: r.prefix, kind: 'type', target: r.target }));
+    ctx.state.settings.version = `v${ctx.calls.length + 1}`;
+    return { settings: ctx.state.settings };
+  };
+  await root.one(labelled('Remove the prefix G')).fire('click');
+  const field = root.one(labelled('Card type or folder of O'));
+  field.value = 'epic';
+  await field.fire('change');
+  release();
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls.map((c) => c[2].value), [
+    [{ prefix: 'O', target: 'objective' }, { prefix: 'W', target: 'workflow' }],
+    [{ prefix: 'O', target: 'epic' }, { prefix: 'W', target: 'workflow' }],
+  ]);
+});
+
+test('a prefix edit whose row was removed meanwhile writes nothing', async () => {
+  const ctx = loadPages();
+  const root = ctx.page('prefixes');
+  const field = root.one(labelled('Card type or folder of G'));
+  field.value = 'epic';
+  ctx.state.settings.prefixes = ctx.state.settings.prefixes.filter((r) => r.prefix !== 'G');
+  await field.fire('change');
+  await ctx.settle();
+  assert.deepStrictEqual(ctx.calls, []);
+});
+
 test('a prefix row the page can see is wrong is refused with the text kept, and nothing is asked', async () => {
   const ctx = loadPages();
   const field = ctx.page('prefixes').one(labelled('Prefix G'));
@@ -568,7 +778,7 @@ test('a prefix row the page can see is wrong is refused with the text kept, and 
   await field.fire('change');
   assert.deepStrictEqual(ctx.calls, []);
   assert.deepStrictEqual(ctx.asked, []);
-  assert.match(ctx.run("settingsUi.errors['prefix:0']"), /already declared/);
+  assert.match(ctx.run("settingsUi.errors['prefix:G']"), /already declared/);
 });
 
 test('the other board pages show their path from the settings, and Counters stays read only', () => {
@@ -580,7 +790,7 @@ test('the other board pages show their path from the settings, and Counters stay
 });
 
 test('the render puts the path under the page title for every page, and focus is kept by key with a fallback to the row', () => {
-  assert.match(ui, /settingsPagePath\(current\.id, state\.settings\)/);
+  assert.match(ui, /settingsPageReads\(current\.id, state\.settings\)/);
   assert.match(ui, /settingsUi\.focusKey/);
   assert.match(ui, /navigator\.clipboard\.writeText/);
 });

@@ -151,8 +151,8 @@ test('found on cards: the words cards carry that no listed type has, with counts
 });
 
 test('how many cards carry a type counts every spelling of its name', () => {
-  assert.strictEqual(s.settingsTypeCards({ bug: 2, Bug: 1, bugs: 5 }, 'bug'), 3);
-  assert.strictEqual(s.settingsTypeCards({}, 'bug'), 0);
+  assert.strictEqual(s.settingsTypeUseCount({ bug: 2, Bug: 1, bugs: 5 }, 'bug'), 3);
+  assert.strictEqual(s.settingsTypeUseCount({}, 'bug'), 0);
 });
 
 test('moving a row down or up rewrites the hierarchy list and stops at the ends', () => {
@@ -191,6 +191,14 @@ test('adding a type appends it, renaming keeps its color and icon, a change of l
   assert.strictEqual(TYPES.length, 5, 'the list given is not changed');
 });
 
+test('every line save carries the version the page read: a switch, a folder, iterations, idDigits', () => {
+  assert.deepStrictEqual(s.settingsSwitchBody('logbook', true, '', 'v1'), { key: 'logbook', value: 'logbook', version: 'v1' });
+  assert.deepStrictEqual(s.settingsSwitchBody('logbook', false, 'notes', 'v1'), { key: 'logbook', value: null, version: 'v1' });
+  assert.deepStrictEqual(s.settingsSwitchBody('iterations', true, undefined, 'v1'), { key: 'iterations', value: true, version: 'v1' });
+  assert.deepStrictEqual(s.settingsFolderBody('logbook', ' notes ', 'v1'), { key: 'logbook', value: 'notes', version: 'v1' });
+  assert.deepStrictEqual(s.settingsDigitsBody(' 6 ', 'v1'), { key: 'idDigits', value: '6', version: 'v1' });
+});
+
 test('a save is one block with the version the page read', () => {
   assert.deepStrictEqual(s.settingsBlockBody('types', [{ name: 'x' }], 'abc'), { block: 'types', value: [{ name: 'x' }], version: 'abc' });
   assert.deepStrictEqual(s.settingsBlockBody('hierarchy', [], 'abc'), { block: 'hierarchy', value: [], version: 'abc' });
@@ -203,13 +211,41 @@ test('the page refuses a blank name or one another type has before it asks the s
   assert.strictEqual(s.settingsTypeNameProblem(TYPES, 'spike', null), '');
 });
 
-test('a color is a hex color the page can hand the color picker, or nothing', () => {
+test('a color the person types is a hex color, or nothing', () => {
   for (const ok of ['', '#fff', '#A371F7', '#a371f7cc']) assert.strictEqual(s.settingsColorProblem(ok), '', ok);
   for (const bad of ['red', '#12', '#12345', 'a371f7', '#gggggg']) assert.match(s.settingsColorProblem(bad), /hex color/, bad);
-  assert.strictEqual(s.settingsColorForPicker('#fff'), '#ffffff');
-  assert.strictEqual(s.settingsColorForPicker('#A371F7'), '#a371f7');
-  assert.strictEqual(s.settingsColorForPicker('#a371f7cc'), '#a371f7');
-  assert.strictEqual(s.settingsColorForPicker(''), '#808080');
+});
+
+test('the swatches are the colors the starter config uses and the status palette, each once, as hex', () => {
+  const swatches = s.SETTINGS_TYPE_SWATCHES;
+  const starter = require('../scripts/config-store').parseConfig(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'kanban', 'starter-config.yaml'), 'utf8'));
+  const starterColors = starter.types.map((t) => t.color).filter(Boolean);
+  assert.ok(starterColors.length >= 5, 'sanity: the starter colors its types');
+  for (const hex of starterColors) assert.ok(swatches.includes(hex.toLowerCase()), hex);
+  for (const hex of require('../web/status-colors').STATUS_PALETTE) assert.ok(swatches.includes(hex.toLowerCase()), hex);
+  assert.strictEqual(new Set(swatches).size, swatches.length);
+  for (const hex of swatches) assert.strictEqual(s.settingsColorProblem(hex), '', hex);
+});
+
+test('names that differ only in capitals are separate rows: a move, a drop and an edit act on the one named', () => {
+  const types = [{ name: 'Bug', color: 'red' }, { name: 'bug', icon: 'star' }, { name: 'epic' }];
+  const h = ['Bug', 'bug', 'epic'];
+  const areas = s.settingsTypeAreas(types, h);
+  assert.deepStrictEqual(areas.hierarchy.map((r) => r.type), types);
+  assert.deepStrictEqual(areas.other, []);
+  assert.deepStrictEqual(s.settingsMoveType(h, 'bug', -1), ['bug', 'Bug', 'epic']);
+  assert.deepStrictEqual(s.settingsMoveType(h, 'Bug', 1), ['bug', 'Bug', 'epic']);
+  assert.deepStrictEqual(s.settingsDropType(h, 'bug', 'other'), ['Bug', 'epic']);
+  assert.deepStrictEqual(s.settingsTypesRename(types, 'bug', 'insect').map((t) => t.name), ['Bug', 'insect', 'epic']);
+  assert.deepStrictEqual(s.settingsTypesPatch(types, 'bug', { color: '#fff' })[0], { name: 'Bug', color: 'red' });
+  assert.deepStrictEqual(s.settingsTypesRemove(types, 'bug').map((t) => t.name), ['Bug', 'epic']);
+  assert.match(s.settingsTypeNameProblem(types, 'BUG', 'bug'), /already a card type named BUG/, 'the other spelling is another type');
+});
+
+test('a stored color that is a name, or an icon this build does not draw, stays on its entry through a rename and an icon change', () => {
+  const types = [{ name: 'bug', color: 'red', icon: 'hexagram' }];
+  assert.deepStrictEqual(s.settingsTypesRename(types, 'bug', 'insect'), [{ name: 'insect', color: 'red', icon: 'hexagram' }]);
+  assert.deepStrictEqual(s.settingsTypesPatch(types, 'bug', { icon: 'star' }), [{ name: 'bug', color: 'red', icon: 'star' }]);
 });
 
 test('each leftover is ONE bullet saying what and why: a hierarchy name no type has', () => {
@@ -237,6 +273,15 @@ test('a prefix that names a type no longer listed is one warning bullet; a folde
   assert.deepStrictEqual(s.settingsTypeWarnings({ types: TYPES, hierarchy: [], prefixes, typeUse: {}, renamed: {} }), w);
 });
 
+test('a prefix a line names twice is one warning bullet saying what happens on a save and why', () => {
+  const w = s.settingsPrefixClashWarnings([{ prefix: 'G', kept: 'goal', ignored: 'epic' }]);
+  assert.strictEqual(w.length, 1);
+  assert.strictEqual(w[0], 'The prefix `G` is declared twice: `goal` is kept and the line for `epic` is ignored. Saving this page rewrites the prefixes block without that line. Why: a prefix names one card type or one groups folder, and the board reads the first line.');
+  assert.doesNotMatch(w[0], /\n/);
+  assert.deepStrictEqual(s.settingsPrefixClashWarnings([]), []);
+  assert.deepStrictEqual(s.settingsPrefixClashWarnings(undefined), []);
+});
+
 test('a type shows the prefix the prefixes: block gives it, read only', () => {
   const prefixes = [{ prefix: 'G', kind: 'type', target: 'Goal' }, { prefix: 'W', kind: 'folder', target: 'workflow', folder: 'workflow' }];
   assert.strictEqual(s.settingsPrefixOf(prefixes, 'goal'), 'G');
@@ -254,6 +299,16 @@ test('every page of This board names the file or folder it reads, absolute, and 
   assert.strictEqual(s.settingsPagePath('types', {}), null);
 });
 
+test('the path bar says File for the config pages and Folder for the feature pages, from the one table the path comes from', () => {
+  const st = { paths: { config: '/b/config.yaml', logbook: '/b/logbook', scratchpad: null, groups: '/b/.groups' } };
+  for (const id of ['types', 'prefixes', 'counters']) assert.deepStrictEqual(s.settingsPageReads(id, st), { kind: 'File', path: '/b/config.yaml' }, id);
+  assert.deepStrictEqual(s.settingsPageReads('logbook', st), { kind: 'Folder', path: '/b/logbook' });
+  assert.deepStrictEqual(s.settingsPageReads('groups', st), { kind: 'Folder', path: '/b/.groups' });
+  assert.strictEqual(s.settingsPageReads('scratchpad', st), null);
+  assert.strictEqual(s.settingsPageReads('nothing', st), null);
+  for (const id of ['types', 'logbook', 'scratchpad', 'nothing']) assert.strictEqual(s.settingsPagePath(id, st), (s.settingsPageReads(id, st) || {}).path || null, id);
+});
+
 test('the menu says Types is off, else how many types are listed', () => {
   assert.strictEqual(s.settingsPageState('types', { typesOn: false, types: [{}, {}] }, 0), 'off');
   assert.strictEqual(s.settingsPageState('types', { typesOn: true, types: [{}, {}] }, 0), '2');
@@ -268,11 +323,18 @@ test('prefix edits return the whole prefixes list to write, changing only the ro
   const rows = [{ prefix: 'G', kind: 'type', target: 'goal' }, { prefix: 'W', kind: 'folder', target: 'workflow', folder: 'workflow' }];
   const list = s.settingsPrefixList(rows);
   assert.deepStrictEqual(list, [{ prefix: 'G', target: 'goal' }, { prefix: 'W', target: 'workflow' }]);
-  assert.deepStrictEqual(s.settingsPrefixSet(list, 0, { prefix: 'X' }), [{ prefix: 'X', target: 'goal' }, { prefix: 'W', target: 'workflow' }]);
-  assert.deepStrictEqual(s.settingsPrefixSet(list, 1, { target: 'flows' })[1], { prefix: 'W', target: 'flows' });
+  assert.deepStrictEqual(s.settingsPrefixSet(list, 'G', { prefix: 'X' }), [{ prefix: 'X', target: 'goal' }, { prefix: 'W', target: 'workflow' }]);
+  assert.deepStrictEqual(s.settingsPrefixSet(list, 'W', { target: 'flows' })[1], { prefix: 'W', target: 'flows' });
   assert.deepStrictEqual(s.settingsPrefixAdd(list, 'B', 'bug').slice(2), [{ prefix: 'B', target: 'bug' }]);
-  assert.deepStrictEqual(s.settingsPrefixRemove(list, 0), [{ prefix: 'W', target: 'workflow' }]);
+  assert.deepStrictEqual(s.settingsPrefixRemove(list, 'G'), [{ prefix: 'W', target: 'workflow' }]);
   assert.strictEqual(list.length, 2, 'the list given is not changed');
+});
+
+test('a prefix edit finds its row by the prefix it names, and answers null when that row is gone', () => {
+  const list = [{ prefix: 'O', target: 'objective' }, { prefix: 'W', target: 'workflow' }];
+  assert.strictEqual(s.settingsPrefixSet(list, 'G', { target: 'x' }), null);
+  assert.strictEqual(s.settingsPrefixRemove(list, 'G'), null);
+  assert.deepStrictEqual(s.settingsPrefixSet(list, 'O', { target: 'x' })[0], { prefix: 'O', target: 'x' });
 });
 
 test('the page refuses a blank prefix or target and a prefix another row has, before asking the server', () => {
@@ -280,7 +342,8 @@ test('the page refuses a blank prefix or target and a prefix another row has, be
   assert.match(s.settingsPrefixProblem(list, '', 'x', null), /prefix/);
   assert.match(s.settingsPrefixProblem(list, 'X', '  ', null), /card type or a groups folder/);
   assert.match(s.settingsPrefixProblem(list, 'W', 'x', null), /W/);
-  assert.strictEqual(s.settingsPrefixProblem(list, 'W', 'x', 1), '', 'its own prefix');
+  assert.strictEqual(s.settingsPrefixProblem(list, 'W', 'x', 'W'), '', 'its own prefix');
+  assert.match(s.settingsPrefixProblem(list, 'G', 'x', 'W'), /G/, 'another row\'s prefix');
   assert.strictEqual(s.settingsPrefixProblem(list, 'X', 'x', null), '');
 });
 

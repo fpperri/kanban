@@ -1,17 +1,24 @@
 'use strict';
-// The gear's sheet apart from the DOM (docs/adr/0017): which layout a width gets, where Esc steps,
-// what a switch or a folder field sends to the server, and how the menu words a page's state.
-// settings-ui.js draws the pages and talks to the server; the server (settings-store.js) judges
-// every value, so nothing here re-checks a folder or a width.
+// The gear's sheet apart from the DOM (docs/adr/0017, docs/adr/0018): which layout a width gets,
+// where Esc steps, what a switch or a field sends to the server, the lists a change on the Types and
+// Prefixes pages writes, the warnings those pages show, and how the menu words a page's state.
+// settings-ui.js draws the pages and talks to the server; the server (settings-store.js) refuses what
+// would corrupt the file or leave the board. What is checked here is only what the person has just
+// typed (a folder that plainly cannot work, a width, a type name another type has, a hex color, a
+// prefix row), never a value already in the file: a color may be a name and an icon any word
+// (docs/adr/0004).
 //
 // The sheet has two sections. This browser holds the pages kept in localStorage (prefs.js). This
-// board holds the pages written to config.yaml, one line at a time. A page is named `browser:<id>`
-// or `board:<id>`.
+// board holds the pages written to config.yaml: a save is one top-level line, or one whole block
+// (`types:`, `hierarchy:`, `prefixes:`) written clean, and carries the version of the file the page
+// read. A page is named `browser:<id>` or `board:<id>`.
 //
 // Pure: same dual-environment export pattern as groups.js — loaded as a plain <script> in the
 // browser (one global per function) AND required by node --test.
 
-const SETTINGS_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+const SETTINGS_NODE = typeof module !== 'undefined' && module.exports;
+const SETTINGS_IDS = SETTINGS_NODE ? require('./ids') : window.kanbanIds;
+const SETTINGS_SCOL = SETTINGS_NODE ? require('./status-colors') : window;
 
 const SETTINGS_WIDE_AT = 760;
 const SETTINGS_DEFAULT_PAGE = 'browser:prefs';
@@ -62,14 +69,19 @@ function settingsPageState(id, settings, foundGroups) {
 }
 
 // A feature's switch: off removes the line, on writes the folder it has or its default.
-function settingsSwitchBody(key, on, folder) {
-  if (key === 'iterations') return { key, value: !!on };
-  if (!on) return { key, value: null };
-  return { key, value: folder && folder.trim() !== '' ? folder.trim() : SETTINGS_FOLDERS[key] };
+// Every save names the version of config.yaml the page read, so a file changed since is refused.
+function settingsWithVersion(body, version) {
+  return version === undefined ? body : { ...body, version };
 }
 
-function settingsFolderBody(key, text) {
-  return { key, value: String(text).trim() };
+function settingsSwitchBody(key, on, folder, version) {
+  if (key === 'iterations') return settingsWithVersion({ key, value: !!on }, version);
+  if (!on) return settingsWithVersion({ key, value: null }, version);
+  return settingsWithVersion({ key, value: folder && folder.trim() !== '' ? folder.trim() : SETTINGS_FOLDERS[key] }, version);
+}
+
+function settingsFolderBody(key, text, version) {
+  return settingsWithVersion({ key, value: String(text).trim() }, version);
 }
 
 // What a typed folder plainly gets wrong, before the server is asked: no folder, the board itself,
@@ -86,8 +98,8 @@ function settingsFolderProblem(text) {
   return '';
 }
 
-function settingsDigitsBody(text) {
-  return { key: 'idDigits', value: String(text).trim() };
+function settingsDigitsBody(text, version) {
+  return settingsWithVersion({ key: 'idDigits', value: String(text).trim() }, version);
 }
 
 function settingsDigitsProblem(text) {
@@ -119,13 +131,30 @@ function settingsPrefixTarget(row, groupsFolder) {
 
 // ---------- the file or folder a page reads ----------
 
+// What each page of This board reads, in one table: which of the settings' `paths` it is, and the
+// word the path bar puts before it.
+const SETTINGS_PAGE_READS = {
+  types: { path: 'config', kind: 'File' },
+  prefixes: { path: 'config', kind: 'File' },
+  counters: { path: 'config', kind: 'File' },
+  logbook: { path: 'logbook', kind: 'Folder' },
+  scratchpad: { path: 'scratchpad', kind: 'Folder' },
+  groups: { path: 'groups', kind: 'Folder' },
+};
+
+// { kind, path } the page of This board reads, for its path bar and Copy button; null when the
+// page has none or its feature is off.
+function settingsPageReads(id, settings) {
+  const reads = SETTINGS_PAGE_READS[id];
+  const paths = settings && settings.paths;
+  if (!reads || !paths || !paths[reads.path]) return null;
+  return { kind: reads.kind, path: paths[reads.path] };
+}
+
 // The absolute path the page of This board reads, for its copy button; null when the feature is off.
 function settingsPagePath(id, settings) {
-  const paths = settings && settings.paths;
-  if (!paths) return null;
-  if (id === 'types' || id === 'prefixes' || id === 'counters') return paths.config || null;
-  if (id === 'logbook' || id === 'scratchpad' || id === 'groups') return paths[id] || null;
-  return null;
+  const reads = settingsPageReads(id, settings);
+  return reads ? reads.path : null;
 }
 
 // ---------- the Types page (docs/adr/0018) ----------
@@ -140,20 +169,27 @@ function settingsTypeKey(name) {
   return String(name == null ? '' : name).trim().toLowerCase();
 }
 
+// Where `name` is in a list: the entry spelled exactly so, else the first that differs only in
+// capitals. Names that differ only in capitals are kept as the file wrote them, so a row acts on its
+// own entry and not on its twin. `nameOf` reads the name of an entry that is not a bare name.
+function settingsIndexOf(list, name, nameOf = (x) => x) {
+  const exact = list.findIndex((x) => nameOf(x) === name);
+  return exact !== -1 ? exact : list.findIndex((x) => settingsTypeKey(nameOf(x)) === settingsTypeKey(name));
+}
+
 // The two areas: the hierarchy in its order (a name with no listed type has `type: null`, a warning
 // chip) and the rest of the types in their order. Names meet without regard to case.
 function settingsTypeAreas(types, hierarchy) {
-  const byKey = new Map();
-  for (const t of types) if (!byKey.has(settingsTypeKey(t.name))) byKey.set(settingsTypeKey(t.name), t);
-  const inHierarchy = new Set(hierarchy.map(settingsTypeKey));
+  const at = hierarchy.map((name) => settingsIndexOf(types, name, (t) => t.name));
   return {
-    hierarchy: hierarchy.map((name) => ({ name, type: byKey.get(settingsTypeKey(name)) || null })),
-    other: types.filter((t) => !inHierarchy.has(settingsTypeKey(t.name))),
+    hierarchy: hierarchy.map((name, i) => ({ name, type: types[at[i]] || null })),
+    other: types.filter((_, i) => !at.includes(i)),
   };
 }
 
-// How many cards carry the type, whatever the capitals the card wrote.
-function settingsTypeCards(typeUse, name) {
+// How many cards carry the type, whatever the capitals the card wrote. `typeUse` is the settings'
+// count of cards by the word as written.
+function settingsTypeUseCount(typeUse, name) {
   const key = settingsTypeKey(name);
   let n = 0;
   for (const word of Object.keys(typeUse || {})) if (settingsTypeKey(word) === key) n += typeUse[word];
@@ -177,8 +213,7 @@ function settingsFoundOnCards(types, typeUse) {
 
 // One row down (+1) or up (-1) in the hierarchy; null at an end or for a name not in it.
 function settingsMoveType(hierarchy, name, delta) {
-  const key = settingsTypeKey(name);
-  const at = hierarchy.findIndex((n) => settingsTypeKey(n) === key);
+  const at = settingsIndexOf(hierarchy, name);
   const to = at + delta;
   if (at === -1 || to < 0 || to >= hierarchy.length) return null;
   const next = [...hierarchy];
@@ -190,8 +225,7 @@ function settingsMoveType(hierarchy, name, delta) {
 // dragged one included): the new hierarchy, null when it lands where it was. Into 'other': the name
 // leaves the hierarchy, null when it was not in it (the order of Other types is the types list's).
 function settingsDropType(hierarchy, name, area, index) {
-  const key = settingsTypeKey(name);
-  const at = hierarchy.findIndex((n) => settingsTypeKey(n) === key);
+  const at = settingsIndexOf(hierarchy, name);
   if (area === 'other') return at === -1 ? null : hierarchy.filter((_, i) => i !== at);
   const entry = at === -1 ? String(name).trim() : hierarchy[at];
   const to = Math.max(0, Math.min(index, hierarchy.length));
@@ -218,15 +252,15 @@ function settingsTypesAdd(types, name) {
 }
 
 function settingsTypesRename(types, from, to) {
-  const key = settingsTypeKey(from);
-  return types.map((t) => (settingsTypeKey(t.name) === key ? settingsTypeEntry(String(to).trim(), t.color, t.icon) : { ...t }));
+  const at = settingsIndexOf(types, from, (t) => t.name);
+  return types.map((t, i) => (i === at ? settingsTypeEntry(String(to).trim(), t.color, t.icon) : { ...t }));
 }
 
 // Sets a type's color and/or icon; '' clears it.
 function settingsTypesPatch(types, name, patch) {
-  const key = settingsTypeKey(name);
-  return types.map((t) => {
-    if (settingsTypeKey(t.name) !== key) return { ...t };
+  const at = settingsIndexOf(types, name, (t) => t.name);
+  return types.map((t, i) => {
+    if (i !== at) return { ...t };
     const color = patch.color !== undefined ? patch.color : t.color;
     const icon = patch.icon !== undefined ? patch.icon : t.icon;
     return settingsTypeEntry(t.name, color, icon);
@@ -234,8 +268,8 @@ function settingsTypesPatch(types, name, patch) {
 }
 
 function settingsTypesRemove(types, name) {
-  const key = settingsTypeKey(name);
-  return types.filter((t) => settingsTypeKey(t.name) !== key).map((t) => ({ ...t }));
+  const at = settingsIndexOf(types, name, (t) => t.name);
+  return types.filter((_, i) => i !== at).map((t) => ({ ...t }));
 }
 
 // A save of one whole block, with the version of config.yaml the page read.
@@ -247,11 +281,14 @@ function settingsTypesOnBody(on, version) {
   return { key: 'typesOn', value: !!on, version };
 }
 
-// What a typed type name plainly gets wrong, before the server is asked. `self` = the type being renamed.
+// What a typed type name plainly gets wrong, before the server is asked: it must not match another
+// listed type, with or without capitals. `self` = the type being renamed. Only what the person just
+// typed is checked; a name already in the file is never refused.
 function settingsTypeNameProblem(types, text, self) {
   const key = settingsTypeKey(text);
   if (key === '') return 'A card type needs a name.';
-  if (types.some((t) => settingsTypeKey(t.name) === key && settingsTypeKey(t.name) !== settingsTypeKey(self))) {
+  const own = self == null ? -1 : settingsIndexOf(types, self, (t) => t.name);
+  if (types.some((t, i) => i !== own && settingsTypeKey(t.name) === key)) {
     return `There is already a card type named ${String(text).trim()}: a name is the same with or without capitals.`;
   }
   return '';
@@ -259,18 +296,17 @@ function settingsTypeNameProblem(types, text, self) {
 
 const SETTINGS_HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
+// A color the person types in the hex field. A color already in the file may be a name (docs/adr/0004)
+// and is shown and saved as written; this checks only what is typed now.
 function settingsColorProblem(text) {
   const t = String(text).trim();
   return t === '' || SETTINGS_HEX_COLOR.test(t) ? '' : 'A color is a hex color like #e3b341, or empty for none.';
 }
 
-// The #rrggbb a color picker can hold for a hex color; grey for none.
-function settingsColorForPicker(text) {
-  const t = String(text).trim().toLowerCase();
-  if (/^#[0-9a-f]{3}$/.test(t)) return `#${t[1]}${t[1]}${t[2]}${t[2]}${t[3]}${t[3]}`;
-  if (/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/.test(t)) return t.slice(0, 7);
-  return '#808080';
-}
+// The swatches beside the hex field: the colors the starter config gives its types, then the rest of
+// the status palette the board uses, each once.
+const SETTINGS_STARTER_COLORS = ['#e3b341', '#f0883e', '#a371f7', '#58a6ff', '#3fb950'];
+const SETTINGS_TYPE_SWATCHES = [...new Set([...SETTINGS_STARTER_COLORS, ...SETTINGS_SCOL.STATUS_PALETTE.map((c) => c.toLowerCase())])];
 
 // The prefix a card type has in the prefixes: block, '' for none. Read only on the Types page.
 function settingsPrefixOf(prefixes, type) {
@@ -292,7 +328,7 @@ function settingsTypeWarnings({ types, hierarchy, prefixes, typeUse, renamed }) 
     if (!listed.has(settingsTypeKey(name))) out.push(`\`${name}\` is still in the hierarchy. Why: renaming or removing a type ${SETTINGS_LEFTOVER_WHY}; ask an AI to update the hierarchy, the prefixes and the cards.`);
   }
   for (const old of Object.keys(renamed || {})) {
-    const n = settingsTypeCards(typeUse, old);
+    const n = settingsTypeUseCount(typeUse, old);
     if (n > 0 && !listed.has(settingsTypeKey(old))) out.push(`${settingsCardsWord(n)} \`${old}\`. Why: renaming a type ${SETTINGS_LEFTOVER_WHY}; ask an AI to update the cards, the hierarchy and the prefixes.`);
   }
   out.push(...settingsPrefixWarnings(prefixes, types));
@@ -304,6 +340,12 @@ function settingsPrefixWarnings(prefixes, types) {
   const listed = new Set(types.map((t) => settingsTypeKey(t.name)));
   return prefixes.filter((r) => r.kind === 'type' && !listed.has(settingsTypeKey(r.target)))
     .map((r) => `The prefix \`${r.prefix}\` still names \`${r.target}\`, which is not a listed type. Why: removing or renaming a type ${SETTINGS_LEFTOVER_WHY}; ask an AI to update the prefixes.`);
+}
+
+// A prefix two lines name for different targets: the board reads the first, and a save of the block
+// writes it without the other, so say so before it happens.
+function settingsPrefixClashWarnings(clashes) {
+  return (clashes || []).map((c) => `The prefix \`${c.prefix}\` is declared twice: \`${c.kept}\` is kept and the line for \`${c.ignored}\` is ignored. Saving this page rewrites the prefixes block without that line. Why: a prefix names one card type or one groups folder, and the board reads the first line.`);
 }
 
 const settingsConflictNote = 'config.yaml changed on disk after this page read it, so nothing was saved. Why: a save rewrites a whole list and would overwrite that change; the page read the file again, so make the change again if it still applies.';
@@ -323,24 +365,27 @@ function settingsPrefixList(rows) {
   return rows.map((r) => ({ prefix: r.prefix, target: r.target }));
 }
 
-function settingsPrefixSet(list, at, patch) {
-  return list.map((r, i) => (i === at ? { ...r, ...patch } : { ...r }));
+// The edits find their row by the prefix it had when the person edited it; null when no row has it any more.
+function settingsPrefixSet(list, from, patch) {
+  if (!list.some((r) => r.prefix === from)) return null;
+  return list.map((r) => (r.prefix === from ? { ...r, ...patch } : { ...r }));
 }
 
 function settingsPrefixAdd(list, prefix, target) {
   return [...list.map((r) => ({ ...r })), { prefix, target }];
 }
 
-function settingsPrefixRemove(list, at) {
-  return list.filter((_, i) => i !== at).map((r) => ({ ...r }));
+function settingsPrefixRemove(list, from) {
+  if (!list.some((r) => r.prefix === from)) return null;
+  return list.filter((r) => r.prefix !== from).map((r) => ({ ...r }));
 }
 
-// What a typed prefix row plainly gets wrong; the server judges the letters. `at` = the row being edited.
-function settingsPrefixProblem(list, prefix, target, at) {
+// What a typed prefix row plainly gets wrong; the server judges the letters. `self` = the prefix of the row being edited.
+function settingsPrefixProblem(list, prefix, target, self) {
   const p = String(prefix).trim();
   if (p === '') return 'A prefix is the letters an id starts with, like G.';
   if (String(target).trim() === '') return `The prefix ${p} needs a card type or a groups folder.`;
-  if (list.some((r, i) => i !== at && r.prefix === p)) return `The prefix ${p} is already declared: a prefix names one card type or one groups folder.`;
+  if (list.some((r) => r.prefix !== self && r.prefix === p)) return `The prefix ${p} is already declared: a prefix names one card type or one groups folder.`;
   return '';
 }
 
@@ -352,12 +397,12 @@ function settingsPrefixConfirm(kind, prefix, target) {
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
-  settingsPagePath, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeCards, settingsFoundOnCards, settingsMoveType, settingsDropType,
+  settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeUseCount, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
-  settingsTypeNameProblem, settingsColorProblem, settingsColorForPicker, settingsPrefixOf, settingsTypeWarnings, settingsPrefixWarnings,
+  settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,
   settingsPrefixRemove, settingsPrefixProblem, settingsPrefixConfirm,
-  SETTINGS_BROWSER_PAGES, SETTINGS_DEFAULT_PAGE, SETTINGS_FOLDERS,
+  SETTINGS_BROWSER_PAGES, SETTINGS_DEFAULT_PAGE, SETTINGS_FOLDERS, SETTINGS_TYPE_SWATCHES,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

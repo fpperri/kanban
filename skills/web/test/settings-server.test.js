@@ -75,6 +75,15 @@ test('the board payload carries the config the gear shows', async () => {
   });
 });
 
+test('a prefix a line names twice for different targets is answered as a clash, the first line kept', async () => {
+  const dir = tmpBoard({ config: 'name: t\nprefixes:\n  G: goal\n  G: epic\n  G: goal\n  W: workflow/\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.prefixes.map((p) => [p.prefix, p.target]), [['G', 'goal'], ['W', 'workflow/']]);
+    assert.deepStrictEqual(settings.prefixClashes, [{ prefix: 'G', kept: 'goal', ignored: 'epic' }]);
+  });
+});
+
 test('a board with no config.yaml shows every feature off', async () => {
   const dir = tmpBoard({ config: null });
   await withServer(dir, async (base) => {
@@ -514,6 +523,16 @@ test('an empty or absent hierarchy removes the line; so do an empty types and pr
   });
 });
 
+test('null, absent and empty each remove a block, the same for types, hierarchy and prefixes', async () => {
+  for (const [name, empty] of [['types', null], ['types', undefined], ['types', []], ['hierarchy', null], ['hierarchy', undefined], ['hierarchy', []], ['prefixes', null], ['prefixes', undefined], ['prefixes', {}], ['prefixes', []]]) {
+    const dir = tmpBoard({ config: PLAN });
+    await withServer(dir, async (base) => {
+      assert.strictEqual((await block(base, name, empty)).status, 200, `${name} ${JSON.stringify(empty)}`);
+      assert.ok(!new RegExp(`^${name}:`, 'm').test(config(dir)), `${name} ${JSON.stringify(empty)} removed the block`);
+    });
+  }
+});
+
 test('the hierarchy is written in the starter\'s inline layout, and as a block when a name will not sit in a flow list', async () => {
   const dir = tmpBoard({ config: 'name: t\n' });
   await withServer(dir, async (base) => {
@@ -569,14 +588,12 @@ test('a block save refuses what the page could get wrong, with a message, and wr
       ['types', 'goal', /list/i],
       ['types', [{ name: '' }], /name/i],
       ['types', ['  ']], ['types', [{ color: '#fff' }]], ['types', [7]],
-      ['types', ['goal', 'Goal'], /goal/],
       ['types', [{ name: 'a\nb' }]],
-      ['types', [{ name: 'a', color: 'red' }], /color/i],
-      ['types', [{ name: 'a', color: '#12' }]],
-      ['types', [{ name: 'a', color: '#ggg' }]],
-      ['types', [{ name: 'a', icon: 'blob' }], /icon/i],
-      ['types', [{ name: 'a', icon: 'STAR' }]],
-      ['hierarchy', 'goal'], ['hierarchy', ['goal', '']], ['hierarchy', ['goal', 'GOAL'], /goal/i], ['hierarchy', [3]], ['hierarchy', ['a\nb']],
+      ['types', [{ name: 'a', color: 'red\nicon: x' }], /color/i],
+      ['types', [{ name: 'a', color: 7 }], /color/i],
+      ['types', [{ name: 'a', icon: 'x\ny' }], /icon/i],
+      ['types', [{ name: 'a', icon: 7 }], /icon/i],
+      ['hierarchy', 'goal'], ['hierarchy', ['goal', '']], ['hierarchy', [3]], ['hierarchy', ['a\nb']],
       ['prefixes', ['G']], ['prefixes', { g: 'goal' }, /prefix/i], ['prefixes', { G1: 'goal' }], ['prefixes', { '': 'goal' }],
       ['prefixes', { G: '' }, /G/], ['prefixes', { G: 5 }], ['prefixes', { G: 'a\nb' }], ['prefixes', { G: '../x/' }],
       ['prefixes', [{ prefix: 'G', target: 'a' }, { prefix: 'G', target: 'b' }], /G/],
@@ -592,12 +609,21 @@ test('a block save refuses what the page could get wrong, with a message, and wr
   });
 });
 
-test('a color is a hex color in three, six or eight digits', async () => {
-  const dir = tmpBoard({ config: 'name: t\n' });
+test('a color and an icon from the file pass through as written: a color name, a hex, an icon this build does not draw (docs/adr/0004)', async () => {
+  const dir = tmpBoard({ config: 'name: t\ntypes:\n  - name: bug\n    color: red\n    icon: hexagram\n  - name: ok\n    color: "#e3b341"\n' });
+  card(dir, '0001.a.card.md', 'spike');
   await withServer(dir, async (base) => {
-    for (const color of ['#fff', '#E3B341', '#e3b34180']) {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    const r = await block(base, 'types', [...settings.types, { name: 'spike' }], settings.version);
+    assert.strictEqual(r.status, 200);
+    assert.deepStrictEqual(parseConfig(config(dir)).types, [{ name: 'bug', color: 'red', icon: 'hexagram' }, { name: 'ok', color: '#e3b341' }, { name: 'spike', color: '' }]);
+    for (const color of ['#fff', '#E3B341', '#e3b34180', 'rebeccapurple', 'rgb(1, 2, 3)', '#12', 'a: b']) {
       assert.strictEqual((await block(base, 'types', [{ name: 'a', color }])).status, 200, color);
       assert.strictEqual(parseConfig(config(dir)).types[0].color, color);
+    }
+    for (const icon of ['hexagram', 'x y', 'a: b', '#c']) {
+      assert.strictEqual((await block(base, 'types', [{ name: 'a', icon }])).status, 200, icon);
+      assert.strictEqual(parseConfig(config(dir)).types[0].icon, icon);
     }
     assert.strictEqual((await block(base, 'types', [{ name: 'a', color: '' }])).status, 200, 'no color is allowed');
     assert.strictEqual((await block(base, 'types', [{ name: 'a', color: null, icon: '' }])).status, 200, 'and so is no icon');
@@ -605,7 +631,32 @@ test('a color is a hex color in three, six or eight digits', async () => {
   });
 });
 
+test('names that differ only in capitals are kept as written in types and in the hierarchy', async () => {
+  const dir = tmpBoard({ config: 'name: t\ntypes:\n  - Bug\n  - bug\nhierarchy: [Bug, bug, Epic]\n' });
+  await withServer(dir, async (base) => {
+    const { settings } = (await req(base, 'GET', '/api/board')).json;
+    assert.deepStrictEqual(settings.hierarchy, ['Bug', 'bug', 'Epic']);
+    const moved = await block(base, 'hierarchy', ['bug', 'Bug', 'Epic'], settings.version);
+    assert.strictEqual(moved.status, 200);
+    assert.match(config(dir), /^hierarchy: \[bug, Bug, Epic\]$/m);
+    const types = await block(base, 'types', [{ name: 'Bug', color: 'red' }, 'bug', 'BUG']);
+    assert.strictEqual(types.status, 200);
+    assert.deepStrictEqual(parseConfig(config(dir)).types.map((t) => t.name), ['Bug', 'bug', 'BUG']);
+  });
+});
+
 // --- types off, the version, the conflict ----------------------------------------------------
+
+test('a line the file lacks goes below the nearest key before it in the order the config documents', async () => {
+  const dir = tmpBoard({ config: 'name: t\nnextId: 5\nprefixes:\n  G: goal\ncounters: { G: 3 }\nassignees:\n  - handle: "@a"\n' });
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await set(base, 'logbook', 'notes')).status, 200);
+    assert.strictEqual((await set(base, 'idDigits', 6)).status, 200);
+    assert.strictEqual((await set(base, 'groups', '.groups')).status, 200);
+    assert.strictEqual((await set(base, 'typesOn', false)).status, 200);
+    assert.strictEqual(config(dir), 'name: t\nnextId: 5\nidDigits: 6\nprefixes:\n  G: goal\ncounters: { G: 3 }\nlogbook: notes\ngroups: .groups\ntypesOn: false\nassignees:\n  - handle: "@a"\n');
+  });
+});
 
 test('typesOn off writes the line below the feature lines, on removes it, and nothing else moves', async () => {
   const dir = tmpBoard({ config: PLAN });
@@ -636,6 +687,11 @@ test('a save that carries a stale version is refused with 409 and writes nothing
     assert.match(stale.json.error, /changed on disk/);
     const staleLine = await req(base, 'POST', '/api/config', { key: 'typesOn', value: false, version: v1 });
     assert.strictEqual(staleLine.status, 409);
+    for (const body of [{ key: 'idDigits', value: 6 }, { key: 'logbook', value: 'notes' }, { key: 'groups', value: null }, { key: 'iterations', value: false }]) {
+      const refused = await req(base, 'POST', '/api/config', { ...body, version: v1 });
+      assert.strictEqual(refused.status, 409, body.key);
+      assert.match(refused.json.error, /changed on disk/);
+    }
     assert.strictEqual(config(dir), edited);
     const v2 = (await req(base, 'GET', '/api/board')).json.settings.version;
     const ok = await block(base, 'types', ['goal'], v2);

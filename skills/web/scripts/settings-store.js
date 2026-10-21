@@ -24,21 +24,15 @@ const cs = require('./card-store');
 const yaml = require('./yaml-list');
 const { StatusError, posix } = require('./store-common');
 
-// Where a line is inserted when its key is not in the file yet: below the first of these keys the
-// file has, else at the top. The keys the gear writes follow the id lines, in the order the config
-// documents them.
-const ID_LINES = ['idDigits', 'nextId', 'name'];
-
-// The features that take a folder. Adding one is a line here and its reader in config-store.
+// The features that take a folder. Adding one is a line here, its reader in config-store and its
+// place in config-store's KEY_ORDER, which also says where a line goes when the file lacks its key.
 const FOLDER_KEYS = {
-  logbook: { label: 'logbook', after: ID_LINES },
-  scratchpad: { label: 'scratchpad', after: ['logbook', ...ID_LINES] },
-  groups: { label: 'groups', after: ['scratchpad', 'logbook', ...ID_LINES] },
+  logbook: { label: 'logbook' },
+  scratchpad: { label: 'scratchpad' },
+  groups: { label: 'groups' },
 };
 
 const WRITABLE = ['iterations', 'typesOn', 'idDigits', ...Object.keys(FOLDER_KEYS)];
-
-const BLOCKS = ['types', 'hierarchy', 'prefixes'];
 
 const MAX_ID_DIGITS = 15;
 
@@ -122,6 +116,7 @@ function readSettings(dir, cards) {
     idDigits: config.idDigits,
     nextId: config.nextId,
     prefixes: prefixRows(config),
+    prefixClashes: config.prefixClashes.map((c) => ({ ...c })),
     counters: { ...config.counters },
     typesOn: config.typesOn,
     types: config.types.map((t) => ({ ...t })),
@@ -142,36 +137,22 @@ function rawKeys(dir) {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 }
 
-// The first of `names` that has a line in the file, for writeConfigLine's `after`.
-function anchorFor(dir, names) {
-  const raw = rawKeys(dir);
-  return names.find((n) => new RegExp(`^${n}:`, 'm').test(raw)) || null;
-}
-
 function writeLine(dir, key, value) {
-  const after = FOLDER_KEYS[key] ? FOLDER_KEYS[key].after : key === 'iterations' ? ['groups', ...FOLDER_KEYS.groups.after] : key === 'typesOn' ? ['iterations', 'groups', ...FOLDER_KEYS.groups.after] : ID_LINES;
-  cfg.writeConfigLine(dir, key, value, value === null ? null : anchorFor(dir, after.filter((n) => n !== key)));
+  cfg.writeConfigLine(dir, key, value, value === null ? null : cfg.keyBefore(rawKeys(dir), key));
 }
 
 // --- the three blocks (docs/adr/0018) --------------------------------------------------------
 
-const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
-const CONTROL = /[\u0000-\u001f\u007f]/;
+const CONTROL = /[\x00-\x1f\x7f]/;
 
 // A name as it is written in a list entry: bare unless that would not read back as typed (the kanban
 // skill's rule for a `type:` word), and a bare entry that opens `word:` would read as a field.
 const needsQuotes = (name) => cs.typeValue(name) !== name;
 const entryName = (name) => (needsQuotes(name) || /^\w+:/.test(name) ? yaml.quote(name) : name);
 
-function unique(names, what) {
-  const seen = new Map();
-  for (const name of names) {
-    const key = name.toLowerCase();
-    if (seen.has(key)) throw new StatusError(`Two ${what} are named ${seen.get(key)}: a name is the same with or without capitals.`, 400);
-    seen.set(key, name);
-  }
-}
-
+// A value from the file is kept as written (docs/adr/0004): a color is any text (a hex, a name), an
+// icon any word, and two names that differ only in capitals both stay. Only what would corrupt the
+// file is refused: an empty name, and any text that is not one line.
 function checkName(value, what) {
   if (typeof value !== 'string') throw new StatusError(`A ${what} is a name.`, 400);
   const name = value.trim();
@@ -180,21 +161,24 @@ function checkName(value, what) {
   return name;
 }
 
+function checkText(value, what, name) {
+  if (value === undefined || value === null) return '';
+  if (typeof value !== 'string') throw new StatusError(`The ${what} of ${name} is text.`, 400);
+  if (CONTROL.test(value)) throw new StatusError(`The ${what} of ${name} is one line of plain text.`, 400);
+  return value.trim();
+}
+
 // The lines of a `types:` block from the page's list: each entry a name, or { name, color?, icon? }.
 // An entry with neither a color nor an icon is written bare, as the starter writes `- bug`.
 function typesBlock(value) {
+  if (value === undefined || value === null) return null;
   if (!Array.isArray(value)) throw new StatusError('The types are a list of names, each with an optional color and icon.', 400);
   const types = value.map((item) => {
     const entry = typeof item === 'string' ? { name: item } : item;
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new StatusError('A card type is a name, or a name with a color and an icon.', 400);
     const name = checkName(entry.name, 'card type');
-    const color = entry.color === undefined || entry.color === null ? '' : entry.color;
-    if (typeof color !== 'string' || (color !== '' && !HEX_COLOR.test(color))) throw new StatusError(`The color of ${name} is a hex color like #e3b341.`, 400);
-    const icon = entry.icon === undefined || entry.icon === null ? '' : entry.icon;
-    if (typeof icon !== 'string' || (icon !== '' && !cfg.ICON_NAMES.includes(icon))) throw new StatusError(`The icon of ${name} is one of ${cfg.ICON_NAMES.join(', ')}, or none.`, 400);
-    return { name, color, icon };
+    return { name, color: checkText(entry.color, 'color', name), icon: checkText(entry.icon, 'icon', name) };
   });
-  unique(types.map((t) => t.name), 'card types');
   if (types.length === 0) return null;
   const lines = ['types:'];
   for (const { name, color, icon } of types) {
@@ -204,7 +188,7 @@ function typesBlock(value) {
     }
     lines.push(`  - name: ${needsQuotes(name) ? yaml.quote(name) : name}`);
     if (color !== '') lines.push(`    color: ${yaml.quote(color)}`);
-    if (icon !== '') lines.push(`    icon: ${icon}`);
+    if (icon !== '') lines.push(`    icon: ${/^[\w-]+$/.test(icon) ? icon : yaml.quote(icon)}`);
   }
   return lines;
 }
@@ -215,7 +199,6 @@ function hierarchyBlock(value) {
   if (value === undefined || value === null) return null;
   if (!Array.isArray(value)) throw new StatusError('The hierarchy is a list of card type names, top first.', 400);
   const names = value.map((name) => checkName(name, 'hierarchy entry'));
-  unique(names, 'hierarchy entries');
   if (names.length === 0) return null;
   if (names.every((n) => !needsQuotes(n) && !/[,[\]]/.test(n))) return [`hierarchy: [${names.join(', ')}]`];
   return ['hierarchy:', ...names.map((n) => `  - ${needsQuotes(n) ? yaml.quote(n) : n}`)];
@@ -249,8 +232,8 @@ function prefixesBlock(dir, value) {
 }
 
 function writeBlock(dir, name, value) {
-  if (!BLOCKS.includes(name)) throw new StatusError(`The gear does not write the block ${JSON.stringify(name)}.`, 400);
-  const lines = name === 'types' ? (value === undefined || value === null ? null : typesBlock(value))
+  if (!cfg.BLOCK_KEYS.includes(name)) throw new StatusError(`The gear does not write the block ${JSON.stringify(name)}.`, 400);
+  const lines = name === 'types' ? typesBlock(value)
     : name === 'hierarchy' ? hierarchyBlock(value)
       : prefixesBlock(dir, value);
   cfg.writeConfigBlock(dir, name, lines);

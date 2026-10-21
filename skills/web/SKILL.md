@@ -1056,15 +1056,23 @@ to `127.0.0.1` only.
   each opening its group in the palette, and **New group…**. **Types** (ADR 0018) is the
   Types switch (`typesOn`, display only, with the hint saying so), then the **Hierarchy** area (the `hierarchy:`
   list in order) above **Other types** (the rest of `types:`), each a list of rows. A row has an editable
-  name, a color (a picker and a hex field, empty for none), an icon (none, or one of the six, drawn as the
+  name, a color (a row of swatches, the starter's colors and the status palette, with one that clears it,
+  and a hex field; no native color popup, ADR 0003), an icon (none, or one of the six, drawn as the
   board draws them), its prefix shown read only with a link to the Prefixes page, and the buttons Up,
-  Down, To Hierarchy or To Other types, and Remove. A row also drags by its handle within and between the
+  Down, To Hierarchy or To Other types, and Remove. A color already in the file may be a name and an
+  icon one this build does not draw (ADR 0004): the field shows the name as written, the swatch beside
+  it is drawn when the browser can, and a row saves untouched unless the person edits that value.
+  Names that differ only in capitals are separate rows, each acted on by its own spelling. A row also
+  drags by its handle within and between the
   areas; the buttons do the same from the keyboard, and focus stays on the button used. A move
   rewrites `hierarchy:` only (emptying the area removes the line); Other types keep the `types:` order.
   **Add type** appends a name; **Found on cards** lists the words cards carry in `type:` that the list does
   not have, with counts, each with **Add**. Removing a type some card carries asks first. Every change
   saves at once through the block route with the version the page read; saves go one after the other,
-  each worked out from the settings the one before left. A name the server refuses (400) shows under its
+  each worked out from the settings the one before left. The page checks only what the person just
+  typed: a new or renamed type's name must not match another listed type (with or without capitals) and
+  the hex field takes a hex color or nothing. Text typed into a name, hex or prefix field and not yet
+  saved survives a redraw. A value the server refuses (400) shows under its
   row; a save refused for a changed `config.yaml` (409) makes the page read again and shows one bullet
   saying nothing was saved and why. Each edit changes only its own list, so what else names the old word
   stays and shows as a warning, one bullet saying what and why: a hierarchy name no type has (also a
@@ -1073,32 +1081,46 @@ to `127.0.0.1` only.
   prefix and its card type or groups folder, with Remove, and an Add row; every change asks first and
   saves the `prefixes:` block, and the page says in one bullet that a prefix change changes only the ids
   given from then on, cards already made keep their ids, and an AI can migrate the board to rename them.
-  It also edits `idDigits:` (a whole number from 1 to 15), which changes only the names of
-  new card files. **Counters** shows `nextId:` and the `counters:` line, read only. Every page of This
+  A queued prefix save finds its row by the prefix it names in the settings as they stand when its turn
+  comes, not by where the row was drawn. A prefix that two lines of `prefixes:` name for different
+  targets shows a bullet saying the board reads the first, and that saving the page rewrites the block
+  without the other line. The page also edits `idDigits:` (a whole number from 1 to 15), which changes
+  only the names of new card files. **Counters** shows `nextId:` and the `counters:` line, read only.
+  Every page of This
   board shows the absolute path it reads (`config.yaml` for Types, Prefixes and Counters; the folder for
   Logbook, Scratchpad and Groups; nothing when the feature is off) with a **Copy** button that says
   Copied.
-  **One block at a time (ADR 0018).** The same route also rewrites one whole top-level block, `types:`,
-  `hierarchy:` or `prefixes:`, from `{ block, value }`: `types` a list of names or of
+  **One line or one whole block per save.** A save changes one top-level line of `config.yaml`, or
+  rewrites one whole top-level block, `types:`, `hierarchy:` or `prefixes:`, from `{ block, value }`:
+  `types` a list of names or of
   `{ name, color?, icon? }` (an entry with neither is written bare, as the starter writes `- bug`),
   `hierarchy` a list of names (written inline, or as a block when a name will not sit in a flow
   list), `prefixes` a map from each prefix to a card type or a groups folder (or a list of
   `{ prefix, target }`). An empty or absent value removes the block. The block is written clean in
   the starter's layout; every byte outside it stays, the file's line ending included, and the
-  comments inside the old block are dropped. A block that is not in the file yet is inserted below
-  the nearest key before it in the config's own order, else at the top. The server refuses (400) a
-  name that is empty, has a line break or repeats another (the same with or without capitals), a
-  color that is not a hex color, an icon that is not one of the six names or none, and a prefix
-  that is not `_` and capitals; a name that would not read back bare is quoted. Each edit changes
+  comments inside the old block are dropped, with no warning. A line or a block that is not in the
+  file yet is inserted below
+  the nearest key before it in the config's own order (`KEY_ORDER` in `config-store.js`), else at the
+  top. A value from the file is kept as written (ADR 0004), so the server refuses (400) only what would
+  corrupt the file: a name that is empty, any value that is not one line of plain text, and a prefix
+  that is not `_` and capitals. A color is any text (a hex, a name) and an icon any word, and two names
+  that differ only in capitals are both kept, in `types:` and in `hierarchy:`; a name that would not
+  read back bare is quoted. Each edit changes
   only its own block: the server never rewrites `hierarchy:` or `prefixes:` because `types:`
-  changed, and never writes a card. **Types off** is `{ key: "typesOn", value }`: `false` writes
+  changed, and never writes a card; renaming or removing a type leaves the hierarchy, the prefixes and
+  every card's `type:` naming the old word until a human, or a session a human tells to, changes them.
+  **Types off** is `{ key: "typesOn", value }`: `false` writes
   `typesOn: false`, `true` removes the line (no line means on); it is display only and writes
-  no list and no card. Any save may send the `version` the settings answered: when `config.yaml`
-  has changed on disk since (the id counters, `nextId:` and `counters:`, do not count), the save is
-  refused with 409 and writes nothing, and the page reads again. A save that sends no version
+  no list and no card. Every save from the gear sends the `version` the settings answered, a line save
+  as much as a block: when `config.yaml` has changed on disk since, the save is
+  refused with 409 and writes nothing, and the page reads again and says so. The version leaves out the
+  `nextId:` and `counters:` lines, which the board moves itself with every card made, so a card made
+  while a page is open does not turn its save into a conflict. A 409 that is not a stale version (a
+  folder locked outside the board) shows its own message under its control. A save that sends no version
   is not checked. The
   `/api/board` payload carries `settings`: `logbook`, `scratchpad` and `groups` as `{ on, folder, locked,
-  reason }`, `idDigits`, `nextId`, `prefixes` and `counters`, and for the Types page `types`,
+  reason }`, `idDigits`, `nextId`, `prefixes` (and `prefixClashes`, the prefixes two lines name for
+  different targets) and `counters`, and for the Types page `types`,
   `hierarchy`, `typesOn`, `typeUse` (how many cards, on the board and archived, carry each `type:` word
   as written), `version`, and `paths` (the absolute path of `config.yaml` and of the logbook,
   scratchpad and groups folders, resolved whether or not the folder exists, `null` when off) for

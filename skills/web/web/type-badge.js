@@ -28,9 +28,11 @@ function typeColor(type, types) {
   return hit && hit.color ? hit.color : '';
 }
 
-// Types off (typesOn: false, docs/adr/0018) is one gate: the views read the board's lists through
-// this, so with it off they hold no types and no hierarchy, as on a board that declares none. The
-// payload itself is left as written.
+// Types off (typesOn: false, docs/adr/0018): the gate for the two LISTS. The views read the board's
+// types and hierarchy through this, so with it off they hold none, as on a board that declares none;
+// the payload itself is left as written. It is not the whole of types off: the flag also reaches
+// typeBadge (a card's chip), the edit form's Type field and the detail's type line, which draw a card's own
+// word rather than a list and read `typesOn` themselves.
 function boardTypeView(data) {
   const typesOn = !data || data.typesOn !== false;
   return { typesOn, types: typesOn ? (data && data.types) || [] : [], hierarchy: typesOn ? (data && data.hierarchy) || [] : [] };
