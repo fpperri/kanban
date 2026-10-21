@@ -165,7 +165,7 @@ const TERMS = [
   ['Selection', /The cards picked right now, the same set in every view[^\n]*grows from an anchor by additions/],
   ['Anchor', /What a selection grows from: one card, or one query \(a pill or the search box\)[^\n]*drops the additions first, then the anchor/],
   ['Pill', /A search query offered as one click: blocked, review and waiting are built in, and a board adds its own in `pills:`/],
-  ['Status pill', /One status's switch in a view's row: on shows that status's cards, off hides them[^\n]*never touches the selection/],
+  ['Status pill', /One status's switch, in the search panel's Statuses section: on shows that status's cards, off hides them[^\n]*still belongs to its view[^\n]*never touches the selection/],
   ['Isolate', /Showing only the selection, in every view, kept as a query in the search box that names each part by its criterion/],
   ['Peek', /Opening a card's details without changing the selection/],
   ['Unnested', /A card with no parent and no children\. It may still wait for a card or be waited for/],

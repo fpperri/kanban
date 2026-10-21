@@ -261,11 +261,40 @@ h1 { color: var(--ink); font-size: 1.4em; font-weight: 700; line-height: 1.1; le
 button { background: var(--btn-bg); border: 1px solid var(--line); color: var(--ink); padding: 6px 12px; border-radius: .15rem; cursor: pointer; font-size: 0.85em; }
 button:hover { background: var(--btn-hover); }
 #new-btn { background: var(--ok); border-color: var(--ok); color: var(--on-fill); }
+.actions > button:has(.btn-icon) { display: inline-flex; align-items: center; gap: 6px; }
+.btn-icon { display: inline-flex; flex: none; }
+.btn-icon svg { width: 15px; height: 15px; }
 #stale-indicator { align-self: center; color: var(--warn); font-size: 0.78em; }
 /* The iteration dropdown rides beside the board name and wraps with it on a narrow screen. */
 .iter-select { min-width: 0; max-width: min(22em, calc(100vw - 32px)); background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 4px 6px; border-radius: .15rem; font: inherit; font-size: 0.85em; }
 .iter-select:focus { outline: none; border-color: var(--accent); }
 .iter-select.narrowed { border-color: var(--accent); color: var(--accent-strong); }
+/* The More button and its menu (more-menu.js) are drawn under 760 px only. */
+.more-btn, .more-menu { display: none; }
+.more-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; flex-direction: column; min-width: 12em; padding: 4px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow); }
+.more-item { display: block; text-align: left; padding: 10px 12px; background: transparent; border: 0; color: var(--ink); font-size: 0.9em; text-decoration: none; border-radius: .15rem; }
+.more-item:hover, .more-item:focus-visible { background: var(--btn-hover); }
+.more-iter { display: flex; align-items: center; gap: 8px; }
+.more-iter .iter-select { flex: 1 1 auto; }
+/* Phone header: under 760 px the top row is one line (the board name shortened with an ellipsis, New card, the view
+   buttons as icons, the bell, More) and the search bar takes its own full-width row under it. Refresh, the gear, the copy
+   button, the home link and the iteration select move into the More menu; the stale cue stays. A label is hidden by
+   clipping, not display: none, so a button keeps its accessible name. */
+@media (max-width: 759.98px) {
+  header { gap: 6px; }
+  .title-group { order: 1; flex: 1 1 0; min-width: 0; }
+  h1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.15em; }
+  .actions { order: 2; gap: 4px; }
+  .more-btn { order: 3; display: inline-flex; align-items: center; padding: 6px 8px; }
+  .more-btn svg { width: 15px; height: 15px; }
+  .more-menu:not(.hidden) { display: flex; }
+  #refresh-btn, #prefs-btn, #board-copy-btn, .home-link, .iter-select, .actions > button[data-view-toggle]:has(.btn-icon) { display: none; }
+  .more-iter .iter-select { display: block; }
+  .actions > button { position: relative; padding: 6px 8px; }
+  .actions > button:has(.btn-icon) { gap: 0; }
+  .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #stale-indicator { max-width: 1.2em; overflow: hidden; white-space: nowrap; }
+}
 .search-bar { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
 .search-input { width: 100%; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 10px; border-radius: .15rem; font-size: 0.85em; font-family: inherit; }
 .search-input:focus { outline: none; border-color: var(--accent); }
@@ -324,6 +353,27 @@ button:hover { background: var(--btn-hover); }
 .isolate-switch[aria-checked="true"] .isolate-switch-track { background: var(--accent-soft); border-color: var(--accent); }
 .isolate-switch[aria-checked="true"] .isolate-switch-track::after { left: 14px; background: var(--accent); }
 .isolate-switch[aria-checked="true"] { color: var(--accent-strong); }
+.search-statuses { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.status-pill { display: inline-flex; align-items: center; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.status-pill.off { color: var(--mut); text-decoration: line-through; }
+.status-pill:hover { background: var(--btn-bg); }
+.status-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The phone's search button (search-panel.js) stands in the header's top row for the search bar, which is hidden until
+   the button opens it; opened, the bar spans the header on a row of its own. The button is lit while the box has text or
+   the search chip counts a filter. While the input has focus the view bar is not displayed, so it does not ride up over
+   the keyboard, and the Board takes its room. */
+.search-btn { display: none; }
+.search-btn.lit { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); }
+@media (max-width: 759.98px) {
+  .search-btn { display: inline-flex; align-items: center; }
+  .search-btn svg { width: 15px; height: 15px; }
+  .search-bar { display: none; }
+  .search-bar.search-open { display: flex; order: 4; flex: 1 1 100%; max-width: none; min-width: 0; }
+  :root:has(.search-input:focus) { --view-bar-h: 0px; }
+  :root:has(.search-input:focus) #view-bar { display: none; }
+  .search-panel { max-height: 70vh; overflow-y: auto; }
+  .status-pill { min-height: 44px; padding: 2px 14px; font-size: 0.9em; }
+}
 /* End search box and search panel */
 /* Signals a collapsed column that still has hits — the count itself
    already reads matching/total, this just adds a visual nudge to notice it. */
@@ -403,6 +453,34 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    independently, the header staying visible above it for free (see
    .column-header's comment). */
 .column-cards { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow-y: auto; }
+/* The phone Board: a strip of status tabs (Archive last) and one status's column at full width.
+   The strip is hidden from 760 px; the column's own header row (sort, collapse, +, AI +) goes,
+   since the tab names the status and the tab strip is the only chrome the phone Board needs. */
+.board-tabs { display: none; }
+/* The view bar: five views at the bottom of a phone, each a line icon over a word. Hidden from 760 px, where the header's view buttons stand. */
+#view-bar { display: none; }
+@media (max-width: 759.98px) { :root { --view-bar-h: calc(56px + env(safe-area-inset-bottom)); } }
+@media (max-width: 759.98px) {
+  .board-tabs { display: flex; gap: 4px; height: 40px; margin-bottom: 8px; overflow-x: auto; flex-wrap: nowrap; }
+  .board-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: .2rem; color: var(--mut); font-weight: 600; font-size: 0.85em; cursor: pointer; }
+  .board-tab-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
+  .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
+  main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h)); }
+  .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); overflow: auto; }
+  #view-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 14; display: flex; height: var(--view-bar-h); padding-bottom: env(safe-area-inset-bottom); background: var(--paper); border-top: 1px solid var(--line-strong); }
+  #view-bar .view-bar-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; background: transparent; border: 0; border-radius: 0; color: var(--mut); font-size: 0.7em; }
+  #view-bar .view-bar-btn .btn-icon svg { width: 22px; height: 22px; display: block; }
+  #view-bar .view-bar-btn[aria-pressed="true"] { color: var(--accent-strong); font-weight: 600; }
+  #view-bar .view-bar-btn .btn-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  .column { min-width: 0; }
+  .column-header { display: none; }
+}
+/* The header's action buttons do not wrap, so their words alone are wider than a phone and a mobile layout viewport widens to them,
+   which pushes every full-width phone box past the screen. Under 760 px they wrap onto a second row until the phone header takes them. */
+@media (max-width: 759.98px) {
+  .actions { flex-wrap: wrap; min-width: 0; }
+  .cal-controls { flex-wrap: wrap; }
+}
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: .2rem; box-shadow: var(--shadow); padding: 10px 12px; cursor: grab; display: flex; align-items: flex-start; gap: 10px; }
 /* The text column. min-width:0 is load-bearing: without it a long unbroken
    title refuses to shrink below its content width and pushes the date stack
@@ -477,6 +555,9 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.drop-before { box-shadow: 0 -4px 0 0 var(--accent); }
 .card.drop-after { box-shadow: 0 4px 0 0 var(--accent); }
 .card.archived-card { cursor: pointer; }
+@media (max-width: 759.98px) {
+  .card { touch-action: pan-y pinch-zoom; }
+}
 /* The head wraps: a tile carrying its id, priority, assignee and both stickers
    moves the overflow to a second line instead of running under the date stack
    beside it. The id keeps its priority label on the same line. */
@@ -630,6 +711,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    one vocabulary, not a per-view dialect. */
 .modal label { display: flex; flex-direction: column; font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mut); gap: 4px; }
 .modal input, .modal select, .modal textarea { background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 8px; border-radius: .15rem; font-family: inherit; }
+/* The edit form on a phone (under 760 px): the form fills the screen, and every field is 16 px, since a
+   phone browser zooms the page to any field smaller than that when it takes focus. */
+@media (max-width: 759.98px) {
+  #card-form { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; border-radius: 0; border: 0; }
+  #card-form input, #card-form select, #card-form textarea { font-size: 16px; }
+}
 /* field-sizing: content grows the textarea with its input (Chromium 123+). This is a
    progressive enhancement, not a browser-support narrowing: rows="8" in the HTML stays
    as a fallback for browsers without field-sizing support, so unsupported browsers just
@@ -742,6 +829,16 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    it carries neither class. */
 .popup-header { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .detail-actions { display: flex; gap: 6px; flex-shrink: 0; order: -1; }
+.detail-back-btn { display: none; }
+/* The card detail on a phone (under 760 px): the card fills the screen and its header's first row is
+   the back row, '‹ Board' at the left and edit, archive and delete at the right. The same buttons,
+   laid out by CSS alone; full screen, close and copy path have no use here. */
+@media (max-width: 759.98px) {
+  .detail-modal { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; border-radius: 0; border: 0; }
+  .detail-actions { width: 100%; align-items: center; }
+  .detail-back-btn { display: flex; align-items: center; height: 30px; margin-right: auto; padding: 0 10px; }
+  #detail-fullscreen-btn, #detail-close, #detail-copy-btn { display: none; }
+}
 .icon-btn { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; flex-shrink: 0; }
 .modal-header-actions { display: flex; gap: 6px; flex-shrink: 0; order: -1; } /* icon-btn is flex (block-level) — without this the header icons stack vertically */
 .icon-btn svg { width: 16px; height: 16px; display: block; }
@@ -885,34 +982,18 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the whole page. */
 .map-view { position: relative; display: flex; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; height: calc(100vh - var(--board-header-h, 64px) - 48px); }
 /* The Map's graphs scroll here, beside the option panel, which stays in place. */
-.map-main { flex: 1; min-width: 0; overflow: auto; padding: 14px; }
-/* The status-filter pill row. Border color is inline per pill
-   (statusColor() — covers custom statuses' hashed hues, which have no CSS
-   rule; same reasoning as the column headers), so the rules here only shape
-   the pill and encode ON/OFF. An OFF pill turns muted with a struck-through
-   label and a hollow dot, never opacity. The
-   gantt's own pill row (.gantt-filter-row/.gantt-filter-toggle, see the Gantt
-   view section below) shares these declarations via comma — one pill LOOK
-   for both views, not a duplicated rule per view. The calendar's
-   own row (.calendar-filter-row/.calendar-filter-toggle, see the Calendar
-   view section) joins the same comma group — a third view, still one rule. */
-.map-filter-row, .gantt-filter-row, .calendar-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-/* 1px, not 2px: after header claims 2px var(--ink) as the page-boundary
-   weight, these were the only other 2px chrome borders in the file — the
-   ON/OFF signal already rides colour, strike-through and the dot's fill, not
-   weight, so dropping to 1px costs nothing and keeps the border scale a
-   scale rather than a coincidence. Still a visibly tappable control: radius,
-   padding and fill are untouched. */
-.map-filter-toggle, .gantt-filter-toggle, .calendar-filter-toggle, .map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
-.map-filter-toggle.off, .gantt-filter-toggle.off, .calendar-filter-toggle.off { color: var(--mut); text-decoration: line-through; }
-.map-filter-toggle:hover, .gantt-filter-toggle:hover, .calendar-filter-toggle:hover { background: var(--btn-bg); }
+/* The top padding leaves room for the floating option button (.view-bar), so it never covers the first heading. */
+.map-main { flex: 1; min-width: 0; overflow: auto; padding: 40px 14px 14px; }
+/* The pill dot and the small-button look.
+   The Map's zoom buttons share this small-button look. No view has a pill row: the status pills
+   are in the search panel's Statuses section. */
+.map-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.map-zoom-btn:hover { background: var(--btn-bg); }
 .pill-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: currentColor; border: 1px solid currentColor; vertical-align: 0.05em; }
 .off > .pill-dot { background: transparent; }
-.map-filter-toggle:focus-visible, .gantt-filter-toggle:focus-visible, .calendar-filter-toggle:focus-visible, .graph-filter-toggle:focus-visible, .map-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* The zoom toolbar — its own row right after the filter row (see
-   buildMapZoomControls, app.js), same small-pill look as .map-filter-toggle
-   (comma-joined into that rule above) rather than a full-size <button>, so
-   it reads as part of the same control-row vocabulary. */
+.map-section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The zoom toolbar — the first row of the option panel (see buildMapZoomControls,
+   app.js), a small-pill button rather than a full-size <button>. */
 .map-zoom-controls { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
 .map-zoom-btn:disabled { opacity: 0.45; cursor: default; }
 .map-zoom-pct { font-size: 0.78em; color: var(--mut); min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
@@ -925,7 +1006,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    panel once the pointer clears the drag threshold) the whole graph
    including node rects reads grabbing, so the cursor never lies about which
    gesture is live mid-drag. */
-.map-canvas { display: block; cursor: grab; }
+.map-canvas { display: block; cursor: grab; touch-action: none; }
 .map-view.map-panning .map-canvas,
 .map-view.map-panning .map-node rect { cursor: grabbing; }
 /* The node border is ONE neutral weight regardless of status — a
@@ -1036,7 +1117,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .map-option-btn:focus-visible, .graph-option-btn:focus-visible { outline-offset: -2px; }
 /* One graph per tree: a heading of root titles and card count above each. */
 .map-graph-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.82em; }
-.map-section-header + .map-graph-heading { margin-top: 4px; border-top: none; padding-top: 0; }
+.map-section-header + .map-trees > .map-graph-heading:first-child { margin-top: 4px; border-top: none; padding-top: 0; }
 .map-graph-heading span { color: var(--mut); }
 .map-align-center .map-canvas { margin-left: auto; margin-right: auto; }
 .map-align-center .map-graph-heading { justify-content: center; }
@@ -1063,6 +1144,13 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .cal-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 /* Headline-role, same reasoning as .modal h2 above — the visible month name. */
 .cal-title { font-weight: 700; color: var(--ink); font-size: 1.05em; margin-left: 6px; letter-spacing: -0.01em; }
+/* On a phone the date range sits in the header beside the board's name (the header date slot) and the view's own row drops
+   its title; from 760 px the slot is not displayed. */
+.header-date { display: none; }
+@media (max-width: 759.98px) {
+  .header-date:not(.hidden) { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ink); font-size: 1.05em; }
+  .cal-title { display: none; }
+}
 /* .cal-grid is a vertical stack: the weekday header row, then one .cal-week
    per calendar week — a week is its own nested grid (below) because a run
    crossing a week boundary can never be one DOM element across the wrap. */
@@ -1139,6 +1227,12 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
 .cal-subview-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+/* The span cycle button stands in for the span switch on a phone, and the switch for it from 760 px. */
+.cal-span-cycle { display: none; margin-left: auto; }
+@media (max-width: 759.98px) {
+  .cal-subview-switch { display: none; }
+  .cal-span-cycle { display: inline-block; }
+}
 /* Same .cal-controls row, reused verbatim by the gantt (see .gantt-view
    below) — its prev/today/next disable while the 'All' sub-view is active
    (no anchor day to page from), same opacity-dim convention as
@@ -1251,34 +1345,37 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    as .map-view, but it pans itself, so overflow is hidden, not auto. */
 #graph-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .graph-view { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; height: calc(100vh - var(--board-header-h, 64px) - 48px); display: flex; }
-.graph-main { flex: 1; min-width: 0; padding: 14px; display: flex; flex-direction: column; }
+.graph-main { position: relative; flex: 1; min-width: 0; padding: 0 14px 14px; display: flex; flex-direction: column; }
 
+@media (max-width: 759.98px) {
+  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); }
+}
 /* Graph view */
-.graph-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 8px; }
+/* The (i) and the option button float in the drawing's top-right corner and take no row. */
+.graph-controls { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; }
 .graph-layouts, .graph-zoom { display: flex; gap: 6px; }
-.graph-layout-btn, .graph-zoom-btn, .graph-filter-toggle { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.graph-layout-btn, .graph-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
 .graph-layout-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.graph-filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .graph-options { margin-bottom: 8px; }
-.graph-filter-toggle.off { color: var(--mut); text-decoration: line-through; }
-.graph-filter-toggle:hover { background: var(--btn-bg); }
 .graph-key, .graph-count { color: var(--mut); font-size: 0.78em; }
 .graph-key { margin-bottom: 8px; }
-.graph-count { margin-left: auto; }
+.graph-info { padding: 14px 80px 0 0; }
+.graph-info-off { display: none; }
 .graph-empty { color: var(--mut); font-size: 0.85em; padding: 8px 2px; }
 .graph-stage { position: relative; flex: 1; min-height: 0; }
 
 /* The option panel of the Map and of the Graph: the zoom, the Graph's layouts and the Options
-   section, one control above the next. Beside the view from 760 px; under it, a sheet over the
+   section, one control above the next. Beside the view from 760 px; under it, a bottom sheet over the
    view, which is positioned against .map-view / .graph-view and so adds no width to the page. */
-.view-bar { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
-.view-bar > .map-filter-row { flex: 1; margin-bottom: 0; }
-.graph-controls .view-panel-toggle { align-self: center; }
-.view-panel-toggle { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 24px; padding: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); cursor: pointer; }
+/* The Map's bar is a zero-height sticky row at the top of the scroll area: its button stays put while the Map scrolls.
+   A sticky offset counts from the scroll area's padding edge in, so -30px (the 40px of top padding less 10px) holds the button 10px from the top. */
+.view-bar { position: sticky; top: -30px; z-index: 3; height: 0; margin: -30px 0 0; display: flex; justify-content: flex-end; gap: 6px; }
+.graph-info-toggle, .view-panel-toggle { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 24px; padding: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); cursor: pointer; }
 .view-panel-toggle svg { width: 15px; height: 15px; display: block; }
-.view-panel-toggle:hover { background: var(--btn-bg); }
-.view-panel-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.view-panel-toggle:focus-visible, .view-panel-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.graph-info-toggle { font-style: italic; font-weight: 700; font-size: 0.85em; }
+.graph-info-toggle:hover, .view-panel-toggle:hover { background: var(--btn-bg); }
+.graph-info-toggle[aria-pressed="true"], .view-panel-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.graph-info-toggle:focus-visible, .view-panel-toggle:focus-visible, .view-panel-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .view-panel { box-sizing: border-box; flex: 0 0 18rem; width: 18rem; overflow-y: auto; padding: 14px; background: var(--surface); border-left: 1px solid var(--line); }
 .view-panel-close { display: none; position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; padding: 0; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 1.1em; line-height: 1; cursor: pointer; }
 .view-panel .graph-layouts, .view-panel .graph-zoom { margin-bottom: 10px; }
@@ -1288,7 +1385,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 .view-panel .map-option-seg, .view-panel .graph-option-seg { flex-wrap: wrap; gap: 4px; border: none; overflow: visible; }
 .view-panel .map-option-btn, .view-panel .graph-option-btn { border: 1px solid var(--line); border-radius: .15rem; }
 @media (max-width: 759.98px) {
-  .view-panel { position: absolute; top: 0; right: 0; bottom: 0; z-index: 4; width: min(18rem, 100%); padding-top: 44px; box-shadow: var(--shadow-pop); }
+  .view-panel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; width: 100%; max-height: 50%; padding-top: 44px; border-left: none; border-top: 1px solid var(--line); box-shadow: var(--shadow-pop); }
   .view-panel-close { display: block; }
 }
 .graph-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; user-select: none; touch-action: none; }
@@ -1391,7 +1488,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
    gutter and timeline stay aligned row for row. #gantt-view itself is a
    plain block container — the sub-view controls row (.cal-controls, the
    SAME classes/look the calendar's own uses) then the status-filter row
-   (.gantt-filter-row) are its first two children, stacked ABOVE the
+   is its first child, stacked ABOVE the
    gutter+timeline; .gantt-body carries the side-by-side flex row. */
 #gantt-toggle-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .gantt-view { background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 14px; }
@@ -1417,6 +1514,14 @@ code.mention.same:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* Same italic/muted read as .card-title--prompt-fallback
    (board tile, card-title.js) for the two gantt surfaces. */
 .gantt-label-title--prompt-fallback, .gantt-bar-text--prompt-fallback { font-style: italic; opacity: 0.75; }
+/* On a phone the label column keeps each card's id and status dot and gives the width to the timeline: the
+   gutter is as wide as its widest id (64 to 96 px), the bars keep the titles, and a status heading is a
+   zero-width row whose text runs on over the timeline (the gutter rides over the bar rows, under the popovers). */
+@media (max-width: 759.98px) {
+  .gantt-gutter { flex: 0 0 auto; width: max-content; min-width: 64px; max-width: 96px; position: relative; z-index: 3; }
+  .gantt-label-title { display: none; }
+  .gantt-gutter .gantt-group-row { width: 0; overflow: visible; white-space: nowrap; }
+}
 .gantt-bar-row { position: relative; z-index: 2; }
 .gantt-bar { position: absolute; top: 3px; height: 20px; display: flex; align-items: stretch; background: var(--paper); border: 1px solid var(--line); border-left-width: 3px; border-radius: .15rem; font-size: 0.7em; color: var(--ink); cursor: grab; user-select: none; touch-action: none; overflow: hidden; }
 .gantt-bar-text { flex: 1; min-width: 0; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; pointer-events: none; }

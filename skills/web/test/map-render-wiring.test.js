@@ -199,6 +199,8 @@ test('each tree is laid out on its own, by the layout edges, and zoomed with the
   assert.match(body, /applyMapZoomToSvg\(svg, zoom\)/);
   assert.match(body, /if \(!collapsed\)/, 'a collapsed section builds nothing');
   assert.match(body, /draw\.group === 'tree'/, 'headings only when each tree has its own graph');
+  assert.match(body, /trees\.className = 'map-trees'/, 'every tree and heading sits in one wrapper, the thing a pinch scales');
+  assert.match(body, /trees\.appendChild\(svg\)/);
 });
 
 test('a row is ordered by status before cards are placed, and parent lines are drawn after the arrows', () => {

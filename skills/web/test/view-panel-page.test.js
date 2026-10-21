@@ -78,15 +78,17 @@ test('Graph, wide with nothing chosen: the layouts, the zoom and the Options sec
   assert.strictEqual(inside(panel, 'graph-zoom-btn').length, 3);
   assert.strictEqual(inside(panel, 'graph-options').length, 1);
   const main = s.main();
-  for (const cls of ['graph-count', 'graph-filter-row', 'graph-key', 'graph-stage', 'view-panel-toggle']) assert.strictEqual(inside(main, cls).length, 1, `${cls} stays in the view`);
+  for (const cls of ['graph-count', 'graph-key', 'graph-stage', 'view-panel-toggle']) assert.strictEqual(inside(main, cls).length, 1, `${cls} stays in the view`);
   for (const cls of ['graph-layout-btn', 'graph-zoom-btn', 'graph-options']) assert.strictEqual(inside(main, cls).length, 0, `${cls} is not in the view`);
+  for (const cls of ['graph-filter-row', 'graph-filter-toggle', 'status-pill']) assert.strictEqual(inside(main, cls).length, 0, `${cls}: the Graph shows no status pill row`);
   assert.deepStrictEqual(s.host.children.map((c) => c.classes[0]), ['graph-main', 'view-panel'], 'the panel stands after the view, on its right');
 });
 
-test('Graph: the card count and then the button make the top row, the button on the right', async () => {
+test('Graph: the (i) and then the option button make the floating top row; the count and the key follow in a box of their own', async () => {
   const s = await open('graph');
   const row = byClass(s.main(), 'graph-controls')[0];
-  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-count', 'view-panel-toggle']);
+  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-info-toggle', 'view-panel-toggle']);
+  assert.deepStrictEqual(byClass(s.main(), 'graph-info')[0].children.map((c) => c.classes[0]), ['graph-count', 'graph-key']);
 });
 
 test('Graph: the layout buttons and the zoom buttons keep their labels, titles and data', async () => {
@@ -173,7 +175,7 @@ test('Map, wide with nothing chosen: the zoom and the Options section are in the
   assert.strictEqual(inside(panel, 'map-zoom-btn').length, 3);
   assert.strictEqual(inside(panel, 'map-options').length, 1);
   const main = s.main();
-  assert.strictEqual(inside(main, 'map-filter-toggle').length, 5, 'one pill for each column and Archive');
+  assert.strictEqual(inside(main, 'map-filter-toggle').length, 0, 'no status pill in the Map; they live in the Statuses section of the search panel');
   assert.strictEqual(inside(main, 'view-panel-toggle').length, 1);
   assert.strictEqual(inside(main, 'map-zoom-btn').length, 0);
   assert.strictEqual(inside(main, 'map-options').length, 0);
@@ -181,10 +183,10 @@ test('Map, wide with nothing chosen: the zoom and the Options section are in the
   assert.deepStrictEqual(inside(panel, 'map-zoom-btn').map((b) => [b.textContent, b.title, b.dataset.zoomAction]), [['−', 'Zoom out', 'out'], ['+', 'Zoom in', 'in'], ['Fit', 'Fit the whole graph in the panel', 'fit']]);
 });
 
-test('Map: the status pills lead the top row and the button ends it, on the right; a press on it flips the Map\'s choice alone', async () => {
+test('Map: the top row holds only the option button, on the right; a press on it flips the Map\'s choice alone', async () => {
   const s = await open('map', { stored: { [KEY]: '{"map":null,"graph":false}' } });
   const bar = byClass(s.main(), 'view-bar')[0];
-  assert.deepStrictEqual(bar.children.map((c) => c.classes[0]), ['map-filter-row', 'view-panel-toggle']);
+  assert.deepStrictEqual(bar.children.map((c) => c.classes[0]), ['view-panel-toggle']);
   assert.ok(s.panel(), 'the Graph\'s closed choice is not the Map\'s');
   s.press(s.toggle());
   assert.strictEqual(s.stored[KEY], '{"map":false,"graph":false}');
@@ -217,7 +219,8 @@ test('the panel button and the sheet\'s close button are refocused after a redra
 
 test('crossing 760 px draws the view again, which the page asks the browser to tell it of', async () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /window\.matchMedia\(`\(min-width: \$\{VIEW_PANEL_WIDE_PX\}px\)`\)\.addEventListener\('change'/);
+  assert.match(src, /window\.matchMedia\(PHONE_WIDTH_QUERY\)/);
+  assert.match(src, /phoneWidthMedia\(\);\s+if \(!list\) return;\s+list\.addEventListener\('change'/);
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(css, /@media \(max-width: 759\.98px\) \{\n  \.view-panel \{ position: absolute;/, 'the sheet starts where the width default stops');
 });
@@ -236,7 +239,14 @@ test('the panel\'s rules use tokens and no hex, and the sheet adds no width of i
   for (const l of rules) assert.doesNotMatch(l, /#[0-9a-fA-F]{3,8}\b/, l);
   const sheet = css.match(/@media \(max-width: 759\.98px\) \{\n  \.view-panel \{([^}]*)\}/)[1];
   assert.match(sheet, /position: absolute/);
-  assert.match(sheet, /width: min\(18rem, 100%\)/);
+  assert.match(sheet, /bottom: 0/);
+  assert.match(sheet, /left: 0/);
+  assert.match(sheet, /right: 0/);
+  assert.match(sheet, /width: 100%/);
+  assert.match(sheet, /max-height: 50%/);
+  assert.match(sheet, /border-top: 1px solid var\(--line\)/);
+  assert.match(sheet, /border-left: none/);
+  assert.doesNotMatch(sheet, /18rem|top: 0|backdrop/);
 });
 
 test('the l key still steps the Graph\'s names with the panel closed, since the choice is not read from the row', async () => {

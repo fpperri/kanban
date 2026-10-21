@@ -202,8 +202,8 @@ test('the popstate handler closes/opens directly, never through the pushing wrap
 test('every user-gesture call site opens through the openCard wrapper, not openDetailModal directly', () => {
   assert.ok(APP.match(/function openCard\(/), 'no openCard wrapper defined');
   const rawCalls = [...APP.matchAll(/[^.\w]openDetailModal\(/g)].length;
-  assert.strictEqual(rawCalls, 5,
-    `expected exactly 5 raw openDetailModal( call sites (definition, openCard's own call, consumeDeepLink, popstate handler, refreshOpenDetail) — found ${rawCalls}; ` +
+  assert.strictEqual(rawCalls, 6,
+    `expected exactly 6 raw openDetailModal( call sites (definition, openCard's own call, consumeDeepLink, popstate handler, refreshOpenDetail, the phone Save returning to its card, whose address still holds card=) — found ${rawCalls}; ` +
     'a new one should probably go through openCard() instead so Alt+Left/Alt+Right can see it');
   const wrapperCalls = [...APP.matchAll(/[^.\w]openCard\(/g)].length;
   assert.strictEqual(wrapperCalls, 8,

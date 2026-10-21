@@ -8,7 +8,7 @@ const {
   mapFilterColumn, mapFilterVisibleIds, ganttFilterVisibleIds, intersectVisibleIds,
   soloStatusFilter,
   MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed,
-  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar } = require('../web/column-state');
+  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar, swipeDirection, neighbourPhoneColumn } = require('../web/column-state');
 
 test('DEFAULT_COLLAPSED has the four live columns expanded and Archive collapsed', () => {
   assert.deepStrictEqual(DEFAULT_COLLAPSED, {
@@ -450,3 +450,70 @@ test('nextRollupBar flips between open and collapsed, and an unreadable value co
   assert.strictEqual(nextRollupBar(nextRollupBar(nextRollupBar('open'))), 'collapsed');
 });
 
+
+// --- the phone Board: status tabs, one status at a time ------------------------------------
+
+const { activePhoneColumn, phoneTabs } = require('../web/column-state');
+
+test('the active phone column is the remembered one while its status exists', () => {
+  assert.strictEqual(activePhoneColumn('doing', ['backlog', 'todo', 'doing', 'done']), 'doing');
+  assert.strictEqual(activePhoneColumn('archive', ['backlog', 'todo']), 'archive');
+});
+
+test('the active phone column falls back to the first live status when the remembered one is gone or never set', () => {
+  assert.strictEqual(activePhoneColumn('review', ['backlog', 'todo']), 'backlog');
+  assert.strictEqual(activePhoneColumn(null, ['todo', 'doing']), 'todo');
+  assert.strictEqual(activePhoneColumn(undefined, undefined), 'backlog');
+  assert.strictEqual(activePhoneColumn({}, ['todo']), 'todo');
+});
+
+test('the tab model gives status, label, count and selected, with Archive last', () => {
+  const counts = { backlog: { shown: 3, total: 3 }, todo: { shown: 1, total: 2 }, archive: { shown: 0, total: 5 } };
+  const tabs = phoneTabs(['backlog', 'todo'], counts, 'todo', false);
+  assert.deepStrictEqual(tabs, [
+    { status: 'backlog', label: 'Backlog', count: '3', selected: false },
+    { status: 'todo', label: 'Todo', count: '2', selected: true },
+    { status: 'archive', label: 'Archive', count: '5', selected: false },
+  ]);
+});
+
+test('the tab count is shown/total while a search narrows the board', () => {
+  const counts = { backlog: { shown: 0, total: 3 }, todo: { shown: 1, total: 2 }, archive: { shown: 0, total: 0 } };
+  const tabs = phoneTabs(['backlog', 'todo'], counts, 'backlog', true);
+  assert.deepStrictEqual(tabs.map((t) => t.count), ['0/3', '1/2', '0/0']);
+});
+
+test('a swipe is a direction only at 60 px sideways or more', () => {
+  assert.strictEqual(swipeDirection(-60, 0, 300), 'next');
+  assert.strictEqual(swipeDirection(60, 0, 300), 'prev');
+  assert.strictEqual(swipeDirection(-59, 0, 300), null);
+  assert.strictEqual(swipeDirection(59, 0, 300), null);
+});
+
+test('a swipe must be at least 1.5 times as far sideways as vertically', () => {
+  assert.strictEqual(swipeDirection(-150, 100, 300), 'next');
+  assert.strictEqual(swipeDirection(-149, 100, 300), null);
+  assert.strictEqual(swipeDirection(150, -100, 300), 'prev');
+  assert.strictEqual(swipeDirection(100, 70, 300), null);
+});
+
+test('a swipe must finish in under 700 ms', () => {
+  assert.strictEqual(swipeDirection(-100, 0, 699), 'next');
+  assert.strictEqual(swipeDirection(-100, 0, 700), null);
+  assert.strictEqual(swipeDirection(-100, 0, 701), null);
+});
+
+test('a vertical scroll is never a swipe', () => {
+  assert.strictEqual(swipeDirection(0, 300, 200), null);
+  assert.strictEqual(swipeDirection(-20, 300, 200), null);
+});
+
+test('the step to a neighbour status stops at both ends and Archive is the last', () => {
+  const s = ['backlog', 'todo', 'doing', 'done'];
+  assert.strictEqual(neighbourPhoneColumn(s, 'todo', 'next'), 'doing');
+  assert.strictEqual(neighbourPhoneColumn(s, 'todo', 'prev'), 'backlog');
+  assert.strictEqual(neighbourPhoneColumn(s, 'backlog', 'prev'), 'backlog');
+  assert.strictEqual(neighbourPhoneColumn(s, 'done', 'next'), 'archive');
+  assert.strictEqual(neighbourPhoneColumn(s, 'archive', 'next'), 'archive');
+  assert.strictEqual(neighbourPhoneColumn(s, 'archive', 'prev'), 'done');
+});

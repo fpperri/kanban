@@ -253,8 +253,46 @@ function nextRollupBar(mode) {
   return mode === ROLLUP_BAR_OPEN ? ROLLUP_BAR_COLLAPSED : ROLLUP_BAR_OPEN;
 }
 
+// --- the phone Board: status tabs, one status at a time --------------------------------------
+// Under the phone width line the Board shows one status at a time, chosen by a strip of status
+// tabs (Archive last). The choice is per board (feature 'columns.phone'); a remembered status the
+// board no longer has falls back to the first live status.
+function activePhoneColumn(saved, statuses) {
+  return typeof saved === 'string' && columnIdsFor(statuses).includes(saved) ? saved : liveStatuses(statuses)[0];
+}
+
+// counts: { <column id>: { shown, total } }. A tab's count reads shown/total while a search narrows
+// the board, else the total alone.
+function phoneTabs(statuses, counts, active, narrowed) {
+  return columnIdsFor(statuses).map((id) => {
+    const c = (counts && counts[id]) || { shown: 0, total: 0 };
+    return { status: id, label: columnLabel(id), count: narrowed ? `${c.shown}/${c.total}` : `${c.total}`, selected: id === active };
+  });
+}
+
+// A swipe on the phone Board: at least 60 px sideways, at least 1.5 times the vertical distance,
+// in under 700 ms. A leftward swipe goes to the next status, a rightward one to the previous.
+const SWIPE_MIN_PX = 60;
+const SWIPE_RATIO = 1.5;
+const SWIPE_MAX_MS = 700;
+
+function swipeDirection(dx, dy, ms) {
+  if (ms >= SWIPE_MAX_MS || Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < SWIPE_RATIO * Math.abs(dy)) return null;
+  return dx < 0 ? 'next' : 'prev';
+}
+
+// The status a swipe moves to; the ends do not wrap.
+function neighbourPhoneColumn(statuses, active, direction) {
+  const ids = columnIdsFor(statuses);
+  const at = ids.indexOf(active);
+  if (at < 0) return active;
+  const to = at + (direction === 'next' ? 1 : -1);
+  return to < 0 || to >= ids.length ? active : ids[to];
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    activePhoneColumn, phoneTabs, swipeDirection, neighbourPhoneColumn,
     COLUMN_IDS, COLUMN_LABELS, DEFAULT_COLLAPSED, DEFAULT_STATUSES,
     liveStatuses, columnIdsFor, columnForStatus, columnLabel, defaultCollapsed,
     showsColumnAdd, storageKey, mergeCollapsedState,
@@ -294,4 +332,8 @@ if (typeof module !== 'undefined' && module.exports) {
   window.ROLLUP_BAR_MODES = ROLLUP_BAR_MODES;
   window.mergeRollupBar = mergeRollupBar;
   window.nextRollupBar = nextRollupBar;
+  window.activePhoneColumn = activePhoneColumn;
+  window.phoneTabs = phoneTabs;
+  window.swipeDirection = swipeDirection;
+  window.neighbourPhoneColumn = neighbourPhoneColumn;
 }

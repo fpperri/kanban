@@ -160,13 +160,14 @@ function fakeEl(id, classes = []) {
 function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const colState = require('../web/column-state');
   const writes = {};
-  const log = { renders: 0, details: [], folds: [], sliceFolds: [], switches: [], focused: null, shown: [], went: [] };
+  const log = { renders: 0, details: [], folds: [], statusFolds: [], sliceFolds: [], switches: [], focused: null, shown: [], went: [] };
   const sheet = fakeEl('prefs-sheet', ['modal-backdrop', 'hidden']);
   const gear = fakeEl('prefs-btn');
   gear.setAttribute('aria-expanded', 'false');
   const close = fakeEl('prefs-close');
   const archived = fakeEl('prefs-archived-done');
   const pillsFolded = fakeEl('prefs-pills-folded');
+  const statusesFolded = fakeEl('prefs-statuses-folded');
   const slicesFolded = fakeEl('prefs-slices-folded');
   const panelOnFocus = fakeEl('prefs-panel-on-focus');
   const opts = [];
@@ -182,9 +183,10 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   graph.disabled = true;
   for (const value of ['open', 'collapsed']) opt('bar', value);
   sheet.querySelectorAll = (sel) => { assert.strictEqual(sel, '.prefs-opt'); return opts; };
+  const more = fakeEl('more-btn');
   const owner = log;
-  for (const e of [sheet, gear, close, archived, pillsFolded, slicesFolded, panelOnFocus, ...opts]) e.owner = owner;
-  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-slices-folded': slicesFolded, '#prefs-panel-on-focus': panelOnFocus };
+  for (const e of [sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, ...opts]) e.owner = owner;
+  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#more-btn': more, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-statuses-folded': statusesFolded, '#prefs-slices-folded': slicesFolded, '#prefs-panel-on-focus': panelOnFocus };
   const sandbox = {
     state: { projectName: 'shop' },
     ...colState,
@@ -198,18 +200,19 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
     renderDetailRollup: (id) => { log.details.push(id); },
     foldSearchPills: (folded) => { log.folds.push(folded); },
     foldSearchSlices: (folded) => { log.sliceFolds.push(folded); },
+    foldSearchStatuses: (folded) => { log.statusFolds.push(folded); },
     applySearchPanelSwitch: (on, openNow) => { log.switches.push([on, openNow]); },
     settingsShow: (page) => { log.shown.push(page); },
     settingsGo: (page) => { log.went.push(page); },
     currentDetailId: detailOpen ? 4 : null,
-    sheet, gear, close, archived, pillsFolded, slicesFolded, panelOnFocus, opts, writes, log,
+    sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, opts, writes, log,
   };
   vm.createContext(sandbox);
   const memo = (re, what) => { const m = appSrc.match(re); assert.ok(m, what); return m[0]; };
   vm.runInContext([
     memo(/^let rollupBarMode = null;$/m, 'bar memo'), memo(/^let prefsMemo = null;$/m, 'prefs memo'),
     fn('loadRollupBarMode'), fn('saveRollupBarMode'), fn('prefsStorage'), fn('loadPrefsState'), fn('savePrefsState'), fn('countArchivedLeaves'),
-    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setPillsFolded'), fn('setSlicesFolded'), fn('setPanelOnFocus'),
+    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setFoldPref'), fn('setPillsFolded'), fn('setStatusesFolded'), fn('setSlicesFolded'), fn('setPanelOnFocus'),
     fn('prefOptionOn'), fn('syncPrefsSheet'), fn('openPrefsSheet'), fn('closePrefsSheet'), fn('onPrefsSheetClick'),
   ].join('\n'), sandbox);
   return sandbox;
@@ -233,6 +236,14 @@ test('closing the sheet hides it, marks the gear collapsed and returns focus to 
   assert.strictEqual(p.sheet.classList.contains('hidden'), true);
   assert.strictEqual(p.gear.attrs['aria-expanded'], 'false');
   assert.strictEqual(p.log.focused, p.gear);
+});
+
+test('closing the sheet on a phone, where the gear is hidden, returns focus to the More button', () => {
+  const p = sheetPage();
+  p.gear.offsetParent = null;
+  p.openPrefsSheet();
+  p.closePrefsSheet();
+  assert.strictEqual(p.log.focused, p.more);
 });
 
 test('with nothing stored the sheet shows the defaults: every view opens, the Graph selects, the bar is collapsed, archived leaves count', () => {
@@ -299,6 +310,29 @@ test('choosing that the pill section starts folded saves it in the prefs entry, 
   assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).pillsFolded, false);
   assert.deepStrictEqual(p.log.folds, [true, false]);
   assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).archivedDone, true, 'the other settings are left alone');
+});
+
+test('the sheet shows the Statuses section as starting open, and as folded when the browser kept that for this board', () => {
+  const none = sheetPage();
+  none.openPrefsSheet();
+  assert.strictEqual(none.statusesFolded.checked, false, 'open by default');
+  const kept = sheetPage({ stored: { 'kanban.shop.prefs': JSON.stringify({ statusesFolded: true }) } });
+  kept.openPrefsSheet();
+  assert.strictEqual(kept.statusesFolded.checked, true);
+});
+
+test('choosing that the Statuses section starts folded saves it in the prefs entry, folds the section now, and repaints nothing', () => {
+  const p = sheetPage();
+  p.setStatusesFolded(true);
+  assert.deepStrictEqual(Object.keys(p.writes), ['kanban.shop.prefs']);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).statusesFolded, true);
+  assert.deepStrictEqual(p.log.statusFolds, [true]);
+  assert.strictEqual(p.log.renders, 0);
+  p.setStatusesFolded(false);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).statusesFolded, false);
+  assert.deepStrictEqual(p.log.statusFolds, [true, false]);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).pillsFolded, false, 'the other settings are left alone');
+  assert.deepStrictEqual(p.log.folds, [], 'and the pill section is not folded or unfolded by it');
 });
 
 test('the sheet shows the slice section as starting folded, and as unfolded when the browser kept that for this board', () => {
@@ -431,6 +465,7 @@ test('the checkbox, the close button and the gear are wired in the DOMContentLoa
   assert.match(appSrc, /\$\('#prefs-sheet'\)\.addEventListener\('click', onPrefsSheetClick\);/);
   assert.match(appSrc, /\$\('#prefs-archived-done'\)\.addEventListener\('change', \(e\) => setArchivedDone\(e\.target\.checked\)\);/);
   assert.match(appSrc, /\$\('#prefs-pills-folded'\)\.addEventListener\('change', \(e\) => setPillsFolded\(e\.target\.checked\)\);/);
+  assert.match(appSrc, /\$\('#prefs-statuses-folded'\)\.addEventListener\('change', \(e\) => setStatusesFolded\(e\.target\.checked\)\);/);
   assert.match(appSrc, /\$\('#prefs-slices-folded'\)\.addEventListener\('change', \(e\) => setSlicesFolded\(e\.target\.checked\)\);/);
   assert.match(appSrc, /\$\('#prefs-panel-on-focus'\)\.addEventListener\('change', \(e\) => setPanelOnFocus\(e\.target\.checked\)\);/);
 });
@@ -456,6 +491,19 @@ test('the slice-section choice is a checkbox beside the pill-section one, in the
   assert.match(sheetHtml, /<input[^>]*id="prefs-slices-folded"[^>]*>\s*Slice section starts folded/);
   const group = sheetHtml.slice(sheetHtml.indexOf('id="prefs-panel-title"'));
   assert.ok(group.indexOf('id="prefs-slices-folded"') > -1 && group.indexOf('id="prefs-slices-folded"') < group.indexOf('id="prefs-pills-folded"'), 'the slices come first in the group, as in the panel');
+});
+
+test('the Statuses-section choice is a checkbox right after the pill-section one, in the Search panel group, and says what it is', () => {
+  const [box] = tagsOf(sheetHtml, /<input[^>]*id="prefs-statuses-folded"[^>]*>/);
+  assert.ok(box);
+  assert.strictEqual(attr(box, 'type'), 'checkbox');
+  assert.notStrictEqual(attr(box, 'data-keeps-selection'), null, 'a click on it never clears a selection');
+  assert.notStrictEqual(attr(box, 'data-holds-poll'), null, 'the poll waits while the sheet is up, as for the other checkboxes');
+  assert.match(sheetHtml, /<input[^>]*id="prefs-statuses-folded"[^>]*>\s*Status section starts folded/);
+  const group = sheetHtml.slice(sheetHtml.indexOf('id="prefs-panel-title"'));
+  const at = (id) => group.indexOf(`id="${id}"`);
+  assert.ok(at('prefs-pills-folded') > -1 && at('prefs-statuses-folded') > at('prefs-pills-folded'), 'it comes after the pill one');
+  assert.ok(at('prefs-statuses-folded') < at('prefs-panel-on-focus'), 'and before the switch');
 });
 
 test('the pill-section choice is a checkbox in its own group of the sheet, and says what it is', () => {
@@ -487,7 +535,7 @@ function escPage({ open = [] } = {}) {
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
     requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),
     closeSearchPanel: () => (open.includes('#search-panel') ? (calls.push('panel'), true) : false),
-    escapeStep: () => calls.push('step'), settingsStepBack: () => calls.push('prefs'),
+    escapeStep: () => calls.push('step'), settingsStepBack: () => calls.push('prefs'), moreMenuClose: () => false,
   };
   vm.createContext(sandbox);
   vm.runInContext(escHandler(), sandbox);

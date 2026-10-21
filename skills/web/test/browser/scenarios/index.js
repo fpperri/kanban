@@ -47,4 +47,6 @@ module.exports = [
   require('./scratchpad'),
   require('./delete'),
   require('./feature'),
+  require('./phone'),
+  require('./phone-flip'),
 ];

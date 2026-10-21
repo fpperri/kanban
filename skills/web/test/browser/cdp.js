@@ -60,6 +60,7 @@ function connectCdp(wsUrl, { WebSocketImpl = WebSocket, callTimeoutMs = CALL_TIM
         ev,
         closed,
         takeEvents() { const out = events; events = []; return out; },
+        dropEvents(match) { const before = events.length; events = events.filter((e) => !match(e)); return before - events.length; },
         close() { try { ws.close(); } catch (e) { /* closing */ } },
       });
     };
@@ -85,6 +86,21 @@ function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenar
       await sleep(40);
     }
     return false;
+  };
+  // A request the page was meant to have refused is logged by the browser as a console error. The step that
+  // caused it names it (the status and a part of the URL) and it is taken out of what the scenario's
+  // console check sees; true when that entry came.
+  const expectRefusedRequest = async (status, urlPart, ms = 3000) => {
+    const match = (e) => e.method === 'Log.entryAdded' && e.params.entry.level === 'error' && e.params.entry.source === 'network'
+      && String(e.params.entry.text).includes(`status of ${status}`) && String(e.params.entry.url || '').includes(urlPart);
+    const t0 = Date.now();
+    let dropped = cdp.dropEvents(match);
+    while (!dropped && Date.now() - t0 < ms) {
+      live();
+      await sleep(40);
+      dropped = cdp.dropEvents(match);
+    }
+    return dropped > 0;
   };
   const waitUntil = async (fn, ms, what) => {
     const t0 = Date.now();
@@ -117,7 +133,7 @@ function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenar
   };
 
   return {
-    base, baseOf, scope, check, send, ev, sleep: pause, waitFor, waitUntil, centre, mouse, click, key, rightClick, shot,
+    base, baseOf, bases, scope, check, send, ev, sleep: pause, waitFor, waitUntil, expectRefusedRequest, centre, mouse, click, key, rightClick, shot,
     shotsOn: !!shotsDir,
     open: (pathAndQuery, boardKey) => send('Page.navigate', { url: `${boardKey ? baseOf(boardKey) : base}${pathAndQuery}` }),
   };
@@ -177,6 +193,8 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
       // and the names outside its rim, which the fit leaves no room for.
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+      // The phone scenario turns touch on; no other scenario starts with it.
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
       // A tab nobody has clicked in is not focused, and a focus() on one of its elements fires no focus event. Focus
       // emulation makes it fire them, which the search panel opens on.
       await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
@@ -193,4 +211,4 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
   };
 }
 
-module.exports = { connectCdp, makePage, createBrowserEnv, consoleErrorsFrom };
+module.exports = { connectCdp, makePage, createBrowserEnv, consoleErrorsFrom, resetHistory };

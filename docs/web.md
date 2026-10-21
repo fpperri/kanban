@@ -73,6 +73,20 @@ click away; right under the roll-up bar a **Children** header with their count o
 exist is marked *unresolved*, a parent on another board is shown but *not followed*,
 and a loop of parents is flagged where it repeats.
 
+## The phone layout
+
+The Web draws its **phone layout** below 760 px wide; at 760 px and wider it is the desktop layout, and a window that crosses the line either way switches without a reload. Nothing scrolls sideways.
+
+- **Header.** One row: the board's name (shortened with an ellipsis), a search button that opens a full-width field (it lights up while a query or a search filter is on), New card, the bell with its unread badge and a More (⋯) button holding Preferences, Refresh, Copy board path, the home link and the iteration picker. The server-unreachable cue stays. On the Calendar and the Gantt the **header date** (the shown range) sits beside the name.
+- **View bar.** A bar at the bottom lists Board, Calendar, Gantt, Map and Graph, each a line icon and a word; the current view is marked and a tap goes straight to that view, keeping the selection. It hides while the search field has the keyboard up. The desktop header's view buttons (Calendar, Gantt, Map view, Graph, and Board view to come back) and Refresh are replaced by it and the More menu.
+- **Board.** The **status tabs** across the top, each with its status's colour and count (shown/total while a search narrows the board), Archive last, replace the column headers: the Board shows one status at a time, full width. Tap a tab or swipe sideways to change status; the tab is remembered per board. A status collapsed on the desktop still shows its cards. Cards do not start a native drag. New card adds into the tab you are on.
+- **Card.** A card opens full screen with a back button, and edit, archive and delete on the same row. The status changes through the edit form, which is full screen with 16 px fields; Save returns to the card on the tab of its new status, and `?card=` links open the card over its tab.
+- **Statuses section.** At every width the status pills of the Map, the Gantt, the Calendar and the Graph sit at the top of the search panel; on a phone they are large enough to tap.
+- **Bottom sheet.** The Graph's and the Map's option panel opens as a **bottom sheet** over the lower half of the view, scrolls inside itself, keeps its close button and does not dim the drawing. A two-finger pinch zooms the Graph and the Map.
+- **Span cycle button.** The Calendar's and the Gantt's span switch becomes one button naming the current span; each tap moves to the next span and wraps. The Gantt's label column shows ids only.
+
+The phone leaves out per-column sorting, collapsing, the AI-prompt add and the selection gestures (Shift or Ctrl click, the box, bulk edit); they stay on the desktop layout. The views other than the Board keep their desktop behaviour apart from the above.
+
 ## Dependency map
 
 ![Dependency map](images/web-map.png)
@@ -93,17 +107,16 @@ per tree or one graph, which side the parent sits, alignment, row order, whether
 toggled line moves the cards, and how much detail a card shows (type, altitude and the
 roll-up bar). Each choice is remembered per board in your browser.
 The options and the zoom (`−`, the percentage, `+` and **Fit**) sit in a panel on the
-right of the view, which the panel icon at the top right, level with the status pills,
+right of the view, which the panel icon at the top right, level with the top of the view,
 opens and closes. The options are always shown in it; the panel is what hides them, and
 a fold remembered from before the panel is ignored. The Graph keeps its layouts, its zoom and its Options section in a
-panel the same way, while its status pills, key and card count stay in the view. The
+panel the same way. At every width the Graph's drawing starts right under the header: its card count and key sit behind an (i) button, off by default and remembered per board, and the (i) and the option button float in the drawing's top-right corner, as the Map's option button does in the Map's, staying put while the Map scrolls. The status pills of the Map and the Graph are in the search panel's Statuses section. The
 panel is open from 760 px wide and closed below it, where it opens over the view as a
 sheet with a close button of its own and adds no sideways scroll. The choice is
 remembered per board in your browser, for the Map and for the Graph apart. Closed, the
 view has the panel's width back, and the Graph frames its cards again in it unless you
 have moved the view.
-A status-filter pill row (left-click to toggle, right-click to solo) and the
-search box both prune the graph.
+The status pills (left-click to toggle, right-click to solo), which sit in the search panel's Statuses section, and the search box both prune the graph.
 
 ## Gantt
 
@@ -112,8 +125,7 @@ search box both prune the graph.
 The **Gantt** view is a day-granular timeline grouped by status: each dated
 card is a **bar** for its working range (`start_date → end_date`) and/or an
 amber **diamond** for its `due_date`. Drag a bar to reschedule, drag an edge to
-resize, drag the diamond to move the deadline. The Archive pill (off by
-default) folds dated archived cards in as a trailing group.
+resize, drag the diamond to move the deadline. The status pills sit in the search panel's Statuses section, not in the view. The Archive pill (off by default) folds dated archived cards in as a trailing group.
 
 ## Calendar
 
@@ -122,12 +134,11 @@ default) folds dated archived cards in as a trailing group.
 The **Calendar** view is a Monday-start month grid (with Week / 3-day / Day
 sub-views). Working ranges render as linked chips; a `due_date` is its own
 amber deadline chip. Drag a chip to move the range or the deadline. Double-click an empty
-day, or a slot in the time grid, to start a new card there; the selection stays. Same
-status-filter pills and search as the other views.
+day, or a slot in the time grid, to start a new card there; the selection stays. Same status pills, in the search panel's Statuses section, and search as the other views.
 
 ## Graph
 
-The **Graph** view (the header's "◉ Graph" button) draws every card at once as
+The **Graph** view (the header's "Graph" button) draws every card at once as
 a dot, joined by its relations: a solid line from a parent to its child, a
 dashed arrow from a card to the card that waits for it. Three layouts, remembered
 per board, with **Tiers** first:
@@ -223,7 +234,9 @@ and a second click switches it on and opens the panel now. The `p` key flips the
 switch, except while you type in a field or a menu, a dialog, the notifications panel or
 the preferences sheet is up. The arrow is announced as pressed while the switch is on and
 is struck through while it is off, the choice is kept in your browser per board, and the
-preferences sheet shows and sets it. The panel adds nothing to the header's height. It
+preferences sheet shows and sets it. The panel adds nothing to the header's height. It opens with a Statuses section, the current
+view's own status pills (the Map, the Gantt, the Calendar and the Graph; none on the Board), where
+a tap switches a status and a right-click solos it. The search chip counts the statuses switched off, so a hidden one shows with the panel closed. Under it the panel
 lists the built-in pills, blocked, review and waiting, each with a count of the cards its
 query matches, done cards included. The counts are taken over the cards the view shows
 after its status pills and Archive, and before the search box, so turning one pill on
@@ -382,6 +395,8 @@ back button.
 - *Slice section starts folded* is on by default. It says how the search panel's slice
   section starts; its fold control still unfolds it for the visit.
 - *Pill section starts folded* is off by default. It says how the search panel's pill
+  section starts; its fold control still folds it for the visit.
+- *Status section starts folded* is off by default. It says how the search panel's Statuses
   section starts; its fold control still folds it for the visit.
 - *Panel opens when the search box is focused* is on by default. It is the switch at the
   end of the search box, the same choice the arrow and the `p` key flip, so each shows

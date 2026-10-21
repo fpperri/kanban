@@ -21,6 +21,7 @@ const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, 
 const appSrc = read('app.js');
 const graphSrc = read('graph-view.js');
 const html = read('app.html');
+const statusesSrc = read('search-statuses.js');
 
 function fn(name, src = appSrc) {
   const m = src.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n\\}`));
@@ -58,10 +59,14 @@ function templateSites(src, cls) {
   return src.split('\n').filter((l) => !/^\s*\/\//.test(l) && re.test(l));
 }
 
-function pillTags(pillClass) {
-  const sandbox = { document: { createElement: fakeNode }, columnLabel: (c) => c, statusColorVar: () => '' };
-  vm.runInNewContext(fn('buildFilterPillRow'), sandbox);
-  return sandbox.buildFilterPillRow({}, ['todo', 'archive'], 'row', pillClass, () => 'title').children.map((b) => b.tagText);
+function statusPillTags() {
+  const sandbox = { columnLabel: (c) => c, statusColorVar: () => '', statusFilterTitle: () => 'title' };
+  vm.runInNewContext(fn('statusPillTitle', statusesSrc) + fn('buildStatusPill', statusesSrc) + fn('updateStatusPill', statusesSrc) + 'const STATUS_PILL_SOLO_HINT = "";', sandbox);
+  const node = (tag) => Object.assign(fakeNode(tag), {
+    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
+    classList: { toggle() {} },
+  });
+  return ['todo', 'archive'].map((col) => sandbox.buildStatusPill({ createElement: node }, 'gantt', col, true).tagText);
 }
 
 function graphButtonTags() {
@@ -124,6 +129,8 @@ function elementOf(tag) {
   return { classList: cls.split(/\s+/).filter(Boolean), dataset };
 }
 
+const viewBarTags = () => (html.match(/<nav id="view-bar"[\s\S]*?<\/nav>/) || [''])[0].match(/<button[^>]*>/g) || [];
+
 const STATIC = (id) => () => staticTag(id);
 const SITES = (cls) => () => templateSites(appSrc, cls);
 
@@ -138,19 +145,18 @@ const CONTROLS = {
   '#calendar-toggle-btn': STATIC('calendar-toggle-btn'),
   '#gantt-toggle-btn': STATIC('gantt-toggle-btn'),
   '#graph-toggle-btn': STATIC('graph-toggle-btn'),
+  '.view-bar-btn': viewBarTags,
   '.date-picker-pop': datePickerTags,
   '.cal-nav': SITES('cal-nav'),
-  '.map-filter-toggle': () => pillTags('map-filter-toggle'),
-  '.gantt-filter-toggle': () => pillTags('gantt-filter-toggle'),
-  '.calendar-filter-toggle': () => pillTags('calendar-filter-toggle'),
-  '.graph-filter-toggle': () => pillTags('graph-filter-toggle graph-control'),
+  '.cal-span-cycle': SITES('cal-span-cycle'),
+  '.status-pill': statusPillTags,
   '.map-section-toggle': sectionToggleTags,
   '.view-panel-toggle': () => panelButtonTags().slice(0, 1),
   '.view-panel-close': () => panelButtonTags().slice(1),
   '.map-zoom-btn': zoomTags,
   '.map-option-btn': () => tagsIn(optionsRowHtml(), 'map-option-btn'),
   '.rollup': rollupTags,
-  '.graph-control': () => [...graphButtonTags(), ...pillTags('graph-filter-toggle graph-control')],
+  '.graph-control': () => graphButtonTags(),
   '.graph-button': graphButtonTags,
   '.column-sort-field': SITES('column-sort-field'),
   '.column-sort-dir': SITES('column-sort-dir'),
