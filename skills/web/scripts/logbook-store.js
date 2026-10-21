@@ -25,6 +25,11 @@
 // compared again just before the rename and a change means: re-read, reapply, retry once,
 // then a conflict (HTTP 409). A file nothing is left in is removed.
 //
+// `logbook:` may hold `<iteration>` as a whole path segment (docs/adr/0019, iteration-folders.js):
+// a note is written to the folder of the iteration it is aimed at or whose dates hold its day,
+// and read from every folder the path can name. A note's `file` then reads
+// `<iteration folder>/<day file>`, and just the day file for the folder with the segment dropped.
+//
 // Request text never builds a path: the day and the id are validated and the file
 // name is built from them, or taken from the folder's own listing.
 const fs = require('fs');
@@ -34,6 +39,7 @@ const ids = require('../web/ids');
 const { validDay } = require('../web/days');
 const { StatusError } = require('./store-common');
 const { writeAtomic } = require('./card-store');
+const iter = require('./iteration-folders');
 
 const FILE_RE = /^(\d{4})\.(\d{2})\.(\d{2})\.(?:([^.]+)\.)?logbook\.md$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -52,7 +58,7 @@ function logbookDir(dir) {
 function mustLogbook(dir) {
   const config = cfg.readConfig(dir);
   if (!config.logbook) throw new StatusError('The logbook is off: config.yaml has no logbook: line.', 404);
-  return { folder: path.resolve(dir, config.logbook), digits: config.idDigits };
+  return { value: config.logbook, digits: config.idDigits };
 }
 
 function checkDay(day) {
@@ -110,7 +116,30 @@ function dayFiles(folder) {
   return out;
 }
 
-// The file to write for a day and a target: the one that is there (the canonical name
+// Every day file of every folder the path can name: { name, day, target, label, ref, file }, where
+// ref is the name a note's `file` carries and file is the absolute path.
+function allDayFiles(dir, value) {
+  const out = [];
+  for (const folder of iter.readFolders(dir, value)) {
+    for (const f of dayFiles(folder.abs)) {
+      out.push({ ...f, label: folder.label, ref: folder.label === '' ? f.name : `${folder.label}/${f.name}`, file: path.join(folder.abs, f.name) });
+    }
+  }
+  return out;
+}
+
+// The folder a new note goes to: the iteration it is aimed at or whose dates hold its day, else the
+// path with the segment dropped. A path with no placeholder is one folder.
+function folderOfNote(dir, value, day, target) {
+  return iter.folderFor(dir, value, iter.hasPlaceholder(value) ? iter.iterationOfNote(dir, target, day) : null);
+}
+
+// The ref a file in a folder carries: the folder's label and the file's name.
+function refOf(folder, file) {
+  return folder.label === '' ? path.basename(file) : `${folder.label}/${path.basename(file)}`;
+}
+
+// The file to write for a day and a target in a folder: the one that is there (the canonical name
 // first), else the canonical name.
 function fileToWrite(folder, digits, day, target) {
   const canon = canonicalName(day, target, digits);
@@ -346,13 +375,13 @@ function record(e, day, target, file, index) {
 // ---------- reading ----------
 
 function listNotes(dir) {
-  const folder = logbookDir(dir);
-  if (folder === null) return [];
+  const config = cfg.readConfig(dir);
+  if (!config.logbook) return [];
   const out = [];
-  for (const f of dayFiles(folder)) {
+  for (const f of allDayFiles(dir, config.logbook)) {
     let raw;
-    try { raw = fs.readFileSync(path.join(folder, f.name), 'utf8'); } catch (_) { continue; }
-    parseDayFile(raw).entries.forEach((e, index) => out.push(record(e, f.day, f.target, f.name, index)));
+    try { raw = fs.readFileSync(f.file, 'utf8'); } catch (_) { continue; }
+    parseDayFile(raw).entries.forEach((e, index) => out.push(record(e, f.day, f.target, f.ref, index)));
   }
   return out;
 }
@@ -407,15 +436,15 @@ function locate(model, ref) {
 }
 
 // The file a ref points at: the day file of its day and target, the one it names when
-// several do (the same day and id under two paddings).
+// several do (the same day and id under two paddings, or the same day in two folders).
 function fileOfRef(dir, ref) {
-  const { folder } = mustLogbook(dir);
+  const { value } = mustLogbook(dir);
   const day = checkDay(ref && ref.day);
   const target = checkTarget(ref && ref.target);
-  const have = dayFiles(folder).filter((f) => f.day === day && f.target === target);
+  const have = allDayFiles(dir, value).filter((f) => f.day === day && f.target === target);
   if (!have.length) throw new StatusError('That note is gone.', 409);
-  const named = have.find((f) => f.name === ref.file);
-  return { file: path.join(folder, (named || have[0]).name), day, target, folder };
+  const chosen = have.find((f) => f.ref === ref.file) || have[0];
+  return { file: chosen.file, ref: chosen.ref, day, target };
 }
 
 function indexOf(model, entry) {
@@ -423,17 +452,18 @@ function indexOf(model, entry) {
 }
 
 function addNote(dir, input, hooks) {
-  const { folder, digits } = mustLogbook(dir);
+  const { value, digits } = mustLogbook(dir);
   const day = checkDay(input.day);
   const target = checkTarget(input.target);
   const at = checkTime(input.at);
   const by = checkAuthor(input.by);
   const note = checkText(input.note);
-  const file = fileToWrite(folder, digits, day, target);
+  const folder = folderOfNote(dir, value, day, target);
+  const file = fileToWrite(folder.abs, digits, day, target);
   return withFile(file, hooks, (model) => {
     const entry = newEntry(at, by, note);
     model.entries.push(entry);
-    return record(entry, day, target, path.basename(file), indexOf(model, entry));
+    return record(entry, day, target, refOf(folder, file), indexOf(model, entry));
   });
 }
 
@@ -446,7 +476,7 @@ function editNote(dir, ref, patch, hooks) {
     if (at !== undefined) entry.at = at;
     if (note !== undefined) entry.note = note;
     entry.dirty = true;
-    return record(entry, where.day, where.target, path.basename(where.file), indexOf(model, entry));
+    return record(entry, where.day, where.target, where.ref, indexOf(model, entry));
   });
 }
 
@@ -458,21 +488,23 @@ function deleteNote(dir, ref, hooks) {
   });
 }
 
-// Assign: the one note moves to the other target's file for the same day. It is added
-// there before it leaves the first file, so a failure between the two leaves it twice,
-// never lost.
+// Assign: the one note moves to the other target's file for the same day, in the folder that
+// target and day belong in (a note moved onto an iteration goes to its folder, and one moved off
+// it to the folder its day belongs in). It is added there before it leaves the first file, so a
+// failure between the two leaves it twice, never lost.
 function assignNote(dir, ref, to, hooks) {
   const where = fileOfRef(dir, ref);
   const target = checkTarget(to);
   if (target === where.target) throw new StatusError('The note is already there.', 400);
-  const { digits } = mustLogbook(dir);
+  const { value, digits } = mustLogbook(dir);
   const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
   const seen = { at: found.at, by: found.by, note: found.note };
-  const dest = fileToWrite(where.folder, digits, where.day, target);
+  const folder = folderOfNote(dir, value, where.day, target);
+  const dest = fileToWrite(folder.abs, digits, where.day, target);
   const made = withFile(dest, hooks, (model) => {
     const entry = newEntry(found.at, found.by, found.note, found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key)));
     model.entries.push(entry);
-    return record(entry, where.day, target, path.basename(dest), indexOf(model, entry));
+    return record(entry, where.day, target, refOf(folder, dest), indexOf(model, entry));
   });
   withFile(where.file, hooks, (model) => {
     model.entries.splice(model.entries.indexOf(locate(model, { ...ref, expect: seen })), 1);
@@ -480,16 +512,16 @@ function assignNote(dir, ref, to, hooks) {
   return made;
 }
 
-// Delete every day file of one target (a card or a group), whatever its padding; how many went.
+// Delete every day file of one target (a card or a group), whatever its padding or folder; how many went.
 // A board with no logbook has none to delete.
 function deleteTargetFiles(dir, target) {
-  const folder = logbookDir(dir);
+  const config = cfg.readConfig(dir);
   const key = ids.idKey(target);
-  if (folder === null || key === null) return 0;
+  if (!config.logbook || key === null) return 0;
   let gone = 0;
-  for (const f of dayFiles(folder)) {
+  for (const f of allDayFiles(dir, config.logbook)) {
     if (f.target !== key) continue;
-    try { fs.unlinkSync(path.join(folder, f.name)); gone++; } catch (_) { /* already gone */ }
+    try { fs.unlinkSync(f.file); gone++; } catch (_) { /* already gone */ }
   }
   return gone;
 }
