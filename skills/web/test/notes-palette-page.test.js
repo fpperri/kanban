@@ -114,13 +114,12 @@ test('the filter, the author switch and the arrow keys work on the flat list as 
 
 const ANY_DIALOG = '.modal-backdrop:not(.hidden)';
 const OTHER_DIALOG = '.modal-backdrop:not(.hidden):not(#detail-modal)';
-const ESC_PROBE = '#context-menu:not(.hidden), .modal-backdrop:not(.hidden):not(#detail-modal)';
 
 // A page with the details of card 3 up and card 22 hovered behind them; `besides` puts another popup up
 // too, `active` puts focus on an element.
 async function withDetails({ besides = false, active = null, open = true } = {}) {
   const other = besides ? control() : null;
-  const elements = { [ANY_DIALOG]: open ? control() : null, [OTHER_DIALOG]: other, [ESC_PROBE]: other };
+  const elements = { [ANY_DIALOG]: open ? control() : null, [OTHER_DIALOG]: other };
   const p = await openPalette({ notes: NOTES, elements });
   if (open) p.page.run("currentDetailId = '3'");
   p.page.run("hoveredId = '22'");
@@ -313,8 +312,8 @@ test('a window that changes size regrows the open note box', async () => {
 // --- Alt+1, Alt+2, Alt+3 -------------------------------------------------------------------
 
 // A card with a scratchpad, so its palette has two tabs: Notes and Scratchpad.
-async function twoTabs() {
-  const p = await openPalette({ notes: NOTES, scratchpad: { folder: 'scratch', targets: [] } });
+async function twoTabs(elements = { [ANY_DIALOG]: null, [OTHER_DIALOG]: null }) {
+  const p = await openPalette({ notes: NOTES, scratchpad: { folder: 'scratch', targets: [] }, elements });
   p.page.run("scratchPanel = () => document.createElement('div')");
   p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
   return p;
@@ -355,6 +354,7 @@ test('a palette with one tab has nothing to switch to', async () => {
 
 test('with focus outside the palette the keys switch its tabs too, and with the palette closed they do nothing', async () => {
   const p = await twoTabs();
+  p.page.ctx.document.activeElement = null; // focus on the page, not in a field
   const e = { key: '2', code: 'Digit2', shiftKey: false, ctrlKey: false, metaKey: false, altKey: true, defaultPrevented: false, target: {}, preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} };
   p.page.ctx.onNotesTabKey(e);
   assert.strictEqual(tabOf(p), 'scratch');
@@ -364,6 +364,47 @@ test('with focus outside the palette the keys switch its tabs too, and with the 
   p.page.ctx.onNotesTabKey(closed);
   assert.strictEqual(closed.defaultPrevented, false, 'the key is the browser\'s again');
   assert.strictEqual(tabOf(p), 'notes');
+});
+
+const tabEvent = (target) => ({ key: '2', code: 'Digit2', shiftKey: false, ctrlKey: false, metaKey: false, altKey: true, defaultPrevented: false, target, preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} });
+
+test('with focus outside the palette the keys act only on a page with no other surface up', async () => {
+  for (const [elements, acts] of [
+    [{ [ANY_DIALOG]: control(), [OTHER_DIALOG]: control() }, false],
+    [{ [ANY_DIALOG]: control(), [OTHER_DIALOG]: null }, true],
+    [{ [ANY_DIALOG]: null, [OTHER_DIALOG]: null, '#context-menu:not(.hidden)': control() }, false],
+    [{ [ANY_DIALOG]: null, [OTHER_DIALOG]: null, '#prefs-sheet:not(.hidden)': control() }, false],
+  ]) {
+    const p = await twoTabs(elements);
+    p.page.ctx.document.activeElement = null;
+    const e = tabEvent({});
+    p.page.ctx.onNotesTabKey(e);
+    assert.strictEqual(tabOf(p) === 'scratch', acts, Object.keys(elements).join(' '));
+    assert.strictEqual(e.defaultPrevented, acts);
+  }
+});
+
+test('with focus in a field outside the palette the keys do nothing', async () => {
+  const p = await twoTabs();
+  p.page.ctx.document.activeElement = { tagName: 'INPUT', isContentEditable: false };
+  const e = tabEvent({});
+  p.page.ctx.onNotesTabKey(e);
+  assert.strictEqual(tabOf(p), 'notes');
+  assert.strictEqual(e.defaultPrevented, false);
+});
+
+test('with focus inside the palette they act, whatever else is up', async () => {
+  const p = await twoTabs({ [ANY_DIALOG]: control(), [OTHER_DIALOG]: control() });
+  altKey(p, '2', p.pal());
+  assert.strictEqual(tabOf(p), 'scratch');
+});
+
+test('the one popup the notes keys work over is named once, and every notes key reads it through the key guard', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'notes-palette.js'), 'utf8');
+  assert.match(src, /const NOTES_DETAIL = '#detail-modal';/);
+  assert.strictEqual((src.match(/'#detail-modal'/g) || []).length, 1, 'named once');
+  assert.strictEqual((src.match(/keyGuard(?:Off|Surface)\(document, NOTES_DETAIL\)/g) || []).length, 3, 'n, Alt+digit and Esc');
+  assert.ok(!/#context-menu:not\(\.hidden\), \.modal-backdrop/.test(src), 'no copy of the key guard\'s selectors');
 });
 
 test('Alt+Left and Alt+Right are left to the browser, in the palette too', async () => {

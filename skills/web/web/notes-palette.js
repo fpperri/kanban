@@ -1039,8 +1039,10 @@ function notesTabKey(e) {
   return true;
 }
 
+// With focus outside the palette the keys are the page's: they act only when a field is not being typed
+// in and no surface but the card details is up. Inside the palette the palette's own handler has them.
 function onNotesTabKey(e) {
-  if (!notesUi.el || notesUi.el.contains(e.target)) return;
+  if (!notesUi.el || notesUi.el.contains(e.target) || keyGuardOff(document, NOTES_DETAIL)) return;
   notesTabKey(e);
 }
 
@@ -1055,9 +1057,13 @@ function notesOnPaletteKey(e) {
   e.stopPropagation();
 }
 
+// The one popup the notes keys work over, through the key guard's `except`: n and Alt+1 to Alt+3 act with
+// the card details up and no other surface, and Esc closes the palette ahead of the details.
+const NOTES_DETAIL = '#detail-modal';
+
 // The card whose details are open, else null.
 function notesDetailId() {
-  return currentDetailId != null && !$('#detail-modal').classList.contains('hidden') ? currentDetailId : null;
+  return currentDetailId != null && !$(NOTES_DETAIL).classList.contains('hidden') ? currentDetailId : null;
 }
 
 // n opens the palette on the card whose details are open, else the hovered card, else the one
@@ -1066,7 +1072,7 @@ function notesDetailId() {
 // panel or the preferences sheet is up. The card details are the one popup it works over.
 function onNotesKey(e) {
   if (!e.key || e.key.toLowerCase() !== 'n' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-  if (keyGuardOff(document, '#detail-modal')) return;
+  if (keyGuardOff(document, NOTES_DETAIL)) return;
   e.preventDefault();
   if (!notesOn()) { toast('The logbook is off: config.yaml has no logbook: line.'); return; }
   const detail = notesDetailId();
@@ -1089,7 +1095,7 @@ function notesCalendarOpening() {
 // the palette itself.
 function onNotesEscape(e) {
   if (e.key !== 'Escape' || !notesUi.sub || notesUi.el.contains(e.target)) return;
-  if (document.querySelector('#context-menu:not(.hidden), .modal-backdrop:not(.hidden):not(#detail-modal)')) return;
+  if (keyGuardSurface(document, NOTES_DETAIL) !== null) return;
   e.preventDefault();
   e.stopPropagation();
   notesClose();
