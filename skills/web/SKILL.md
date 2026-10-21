@@ -2039,6 +2039,15 @@ handle a card carries.
   (as does an absent key, even on a board that declares `types:`). It orders drawing and
   slicing and **enforces nothing**: saving a card nested against it (a goal under an
   epic) succeeds and the answer carries no warning (ADR 0013).
+- **`typesOn`** (`typesOn: false`; absent or any other value = on) is types off (ADR 0018).
+  `GET /api/board` carries it as `typesOn`, and `types` and `hierarchy` stay as written. The
+  page reads the two lists through one gate (`boardTypeView` in `type-badge.js`): with types
+  off it holds no types and no hierarchy, so there is no type chip, color or icon on a tile,
+  the Map, the Graph's dots and tints or the detail, the slices are the depths and the Graph's
+  tier fan falls back to depth as on a board with no hierarchy, and
+  the edit form's Type field is hidden. The form then sends no `type`, so a save leaves a
+  card's `type:` line as written. Turning types back on shows everything again; nothing in
+  the cards or the lists changed.
 - **`pills`** (block form only) lists the board's own one-click search queries, each a
   query or a one-key map from a label to a query. `GET /api/board` carries them as
   `pills: [{label, query}]` in config order; a query on its own is its own label,
