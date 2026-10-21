@@ -562,7 +562,7 @@ function notesPaintTabs() {
   u.tabsEl.replaceChildren(...tabs.map((t) => {
     const key = `Alt+${tabs.indexOf(t) + 1}`;
     const b = notesButton(`np-tab${t === u.tab ? ' on' : ''}`, names[t], `${names[t]} (${key})`, () => notesSetTab(t));
-    b.dataset.key = key; // drawn after the name by the stylesheet, so the name stays the button's text
+    b.dataset.key = key; // drawn after the name by the stylesheet, with an empty alternative text: the button's name stays its text
     b.setAttribute('aria-keyshortcuts', key);
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(t === u.tab));

@@ -48,12 +48,14 @@ function menuStep(count, at, key) {
 }
 
 // What a key does in the open menu. `ctx` is { level: 'top' | 'sub', onParent: the highlight is on a
-// group's row, subOpen: a panel is open }. -> 'next' | 'prev' | 'open' | 'close-sub' | null; null
+// group's row, subOpen: a panel is open }. -> 'next' | 'prev' | 'first' | 'last' | 'open' | 'close-sub' | null; null
 // is not the menu's: an entry's own Enter is its click, and Esc at the top level closes the whole
-// menu, which the page already does.
+// menu, which the page already does. Home and End are 'first' and 'last' of the level.
 function menuKeyAction(key, ctx) {
   if (key === 'ArrowDown') return 'next';
   if (key === 'ArrowUp') return 'prev';
+  if (key === 'Home') return 'first';
+  if (key === 'End') return 'last';
   if ((key === 'ArrowRight' || key === 'Enter' || key === ' ') && ctx.onParent) return 'open';
   if (key === 'ArrowLeft' && ctx.level === 'sub') return 'close-sub';
   if (key === 'Escape' && (ctx.level === 'sub' || ctx.subOpen)) return 'close-sub';

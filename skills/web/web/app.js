@@ -6102,6 +6102,7 @@ function visibleCardIds() {
 
 function hideContextMenu() {
   menuNestClose();
+  menuNestRelease();
   $('#context-menu').classList.add('hidden');
 }
 
@@ -6286,6 +6287,7 @@ function showContextMenu(x, y) {
   $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
   menuNestSync(!!menuSubject.canvas); // the groups follow their entries, the separators follow the groups
   menu.classList.remove('hidden');
+  menuNestFocus();
   // Clamp to the viewport so the menu never opens half off-screen.
   const rect = menu.getBoundingClientRect();
   menu.style.left = `${Math.min(x, window.innerWidth - rect.width - 8)}px`;

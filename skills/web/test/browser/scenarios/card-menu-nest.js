@@ -85,9 +85,11 @@ module.exports = {
     check('an entry in a panel is clicked as it always was: Dependency path adds the card\'s path to the selection and shuts the menu', await (async () => { await clickOn('#ctx-path'); return menuGone(); })() && await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='path'`, 3000));
 
     // --- the keyboard ------------------------------------------------------------------------------------------------------
+    await open('/?view=board'); // the path just added to the selection would turn the next menu into a selection's
+    check('the board is drawn again with nothing selected', await boardReady() && await ev('selectedIds.size===0'));
     await hoverAt(5, 5);
-    await ev(`document.activeElement&&document.activeElement.blur&&document.activeElement.blur()`);
     check('the menu opens again, with every panel shut', await menuOnCard('7') && await ev(SHUT('ctx-edit')) && await ev(SHUT('ctx-explore')));
+    check('the menu has the focus', await ev(`document.activeElement===${MENU}`));
     await key('ArrowDown');
     check('Down highlights the first entry, Peek', await waitFor(`${ACTIVE}==='ctx-peek'`, 2000), await ev(ACTIVE));
     for (let i = 0; i < 3; i++) await key('ArrowDown');

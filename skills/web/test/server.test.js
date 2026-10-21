@@ -1531,10 +1531,14 @@ test('column headers carry a + quick-create button — gated by showsColumnAdd, 
     // The caller side of that criterion: the global button takes the no-preset path above the
     // phone width line (a handler drifting to a preset there would break the first-column
     // default with the fallback regex still green); on a phone it passes the active status tab.
-    const newBtn = js.match(/\$\('#new-btn'\)\.addEventListener\('click', \(\) => \{[\s\S]*?\n  \}\);/);
+    // New card and the card menu's Add child… both start in newCardStatus().
+    const newBtn = js.match(/\$\('#new-btn'\)\.addEventListener\('click', \(\) => openModal\(null, newCardStatus\(\)\)\);/);
     assert.ok(newBtn, 'the New card handler found in app.js');
-    assert.match(newBtn[0], /onPhoneLayout\(\) && loadViewMode\(\) === 'board' \? activePhoneColumn\(loadPhoneColumn\(\), boardStatuses\(\)\) : null/, 'only a phone reads the active status tab');
-    assert.match(newBtn[0], /openModal\(null, active && active !== 'archive' \? active : undefined\)/, 'the desktop passes NO preset');
+    const status = js.match(/function newCardStatus\(\) \{[\s\S]*?\n\}/);
+    assert.ok(status, 'newCardStatus found in app.js');
+    assert.match(status[0], /onPhoneLayout\(\) && loadViewMode\(\) === 'board' \? activePhoneColumn\(loadPhoneColumn\(\), boardStatuses\(\)\) : null/, 'only a phone reads the active status tab');
+    assert.match(status[0], /active && active !== 'archive' \? active : undefined/, 'the desktop passes NO preset');
+    assert.match(js, /openModal\(null, newCardStatus\(\), undefined, parent\)/, 'Add child… starts where New card does');
     // A focused + button must block the 5s poll like its header siblings —
     // renderBoardColumns wipes #board, silently dumping keyboard focus to <body>.
     assertHoldsPoll(['.column-add', '.column-add-ai'], 'the + button holds the poll like its header siblings');

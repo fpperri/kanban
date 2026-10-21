@@ -93,7 +93,7 @@ test('Esc closes the open panel first, and at the top level is left to the page,
 });
 
 test('any other key is the page\'s', () => {
-  for (const key of ['a', 'Tab', 'Home', 'n', 'Shift']) assert.strictEqual(m.menuKeyAction(key, onParent), null, key);
+  for (const key of ['a', 'Tab', 'PageDown', 'n', 'Shift']) assert.strictEqual(m.menuKeyAction(key, onParent), null, key);
 });
 
 // --- where a panel opens -----------------------------------------------------------------------------
@@ -129,4 +129,11 @@ test('a panel opens after a short delay, and switching to another waits longer, 
   assert.ok(m.MENU_OPEN_MS > 0 && m.MENU_OPEN_MS < m.MENU_SWITCH_MS);
   assert.strictEqual(m.menuHoverDelay(false), m.MENU_OPEN_MS);
   assert.strictEqual(m.menuHoverDelay(true), m.MENU_SWITCH_MS);
+});
+
+test('Home and End go to the first and last entry of the level', () => {
+  for (const ctx of [top, onParent, inSub]) {
+    assert.strictEqual(m.menuKeyAction('Home', ctx), 'first');
+    assert.strictEqual(m.menuKeyAction('End', ctx), 'last');
+  }
 });

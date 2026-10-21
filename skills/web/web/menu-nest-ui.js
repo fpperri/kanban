@@ -10,7 +10,9 @@
 //
 // Up and Down move the highlight, Right or Enter on a row open its panel and highlight its first entry,
 // Left or Esc close it and return to the row, and Esc at the top level closes the menu as it always has.
-// The keys are read in the capture phase while the menu is open, so they reach nothing behind it.
+// The menu takes the focus when it opens (and gives it back when it closes), and its keys are read in the
+// capture phase only while focus is inside it, so they reach nothing behind it and nothing in a field
+// outside it. Home and End go to the first and last entry of the level.
 //
 // showContextMenu (app.js) decides which entries show and then calls menuNestSync; hideContextMenu
 // calls menuNestClose. Every entry keeps its own id and its own click handler. This script reads
@@ -18,6 +20,7 @@
 // functions.
 
 let menuNestTimer = 0;
+let menuNestBack = null; // what had the focus when the menu opened
 
 const menuNestRoot = () => $('#context-menu');
 const menuNestSubs = () => [...menuNestRoot().querySelectorAll('.ctx-sub')];
@@ -42,6 +45,20 @@ function menuNestSync(canvas) {
   }));
   const shown = menuSeparators(rows);
   children.forEach((el, i) => { if (rows[i].sep) el.classList.toggle('hidden', !shown[i]); });
+}
+
+// The menu has opened: it takes the focus, so its keys are read, and remembers where the focus was.
+function menuNestFocus() {
+  const root = menuNestRoot();
+  if (!root.contains(document.activeElement)) menuNestBack = document.activeElement;
+  root.focus({ preventScroll: true });
+}
+
+// The menu has closed: the focus goes back, unless it has gone elsewhere since (a popup the menu opened).
+function menuNestRelease() {
+  const back = menuNestBack;
+  menuNestBack = null;
+  if (menuNestRoot().contains(document.activeElement) && back && back.focus && back.isConnected !== false) back.focus({ preventScroll: true });
 }
 
 function menuNestClose() {
@@ -101,8 +118,12 @@ function onMenuNestClick(e) {
   else menuNestOpen(sub);
 }
 
-// The entries a key moves among at the top level: the plain entries that show and each group's row.
+// The entries a key moves among at the top level: the plain entries that show and each group's row. In
+// the empty canvas's menu the group has no row and its panel stands in the menu: its entries are the level.
 function menuNestTopEntries() {
+  if (menuNestRoot().classList.contains('canvas-menu')) {
+    return menuNestSubs().filter(menuNestIsShown).flatMap((sub) => menuNestPanelEntries(sub).filter((b) => menuNestIsShown(b) && b.id === 'ctx-isolate'));
+  }
   return [...menuNestRoot().children]
     .filter((el) => menuNestIsShown(el) && !el.classList.contains('ctx-sep'))
     .map((el) => (el.classList.contains('ctx-sub') ? el.querySelector('.ctx-parent') : el));
@@ -112,10 +133,10 @@ function onMenuNestKey(e) {
   const root = menuNestRoot();
   if (root.classList.contains('hidden') || e.ctrlKey || e.metaKey || e.altKey) return;
   const active = document.activeElement;
-  const inMenu = !!active && root.contains(active);
+  if (!active || !root.contains(active)) return;
   const open = menuNestOpenSub();
-  const panel = inMenu && active.closest ? active.closest('.ctx-sub-panel') : null;
-  const action = menuKeyAction(e.key, { level: panel ? 'sub' : 'top', onParent: inMenu && active.classList.contains('ctx-parent'), subOpen: open !== null });
+  const panel = !root.classList.contains('canvas-menu') && active.closest ? active.closest('.ctx-sub-panel') : null;
+  const action = menuKeyAction(e.key, { level: panel ? 'sub' : 'top', onParent: active.classList.contains('ctx-parent'), subOpen: open !== null });
   if (!action) return;
   e.preventDefault();
   e.stopPropagation();
@@ -127,7 +148,8 @@ function onMenuNestKey(e) {
     sub.querySelector('.ctx-parent').focus();
   } else {
     const entries = panel ? menuNestPanelEntries(panel.closest('.ctx-sub')).filter(menuNestIsShown) : menuNestTopEntries();
-    const to = entries[menuStep(entries.length, entries.indexOf(active), e.key)];
+    const at = menuStep(entries.length, entries.indexOf(active), e.key);
+    const to = action === 'first' ? entries[0] : action === 'last' ? entries[entries.length - 1] : entries[at];
     if (!panel) menuNestClose();
     if (to) to.focus();
   }

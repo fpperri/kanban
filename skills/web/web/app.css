@@ -1919,7 +1919,7 @@ button.np-note-card:hover { color: var(--accent); }
 .notes-palette [hidden] { display: none !important; }
 .np-tabs { display: flex; gap: 2px; padding: 8px 12px 0; }
 .np-tab { padding: 3px 10px; font-size: 0.78em; background: transparent; border: 1px solid transparent; border-bottom: 0; border-radius: .2rem .2rem 0 0; color: var(--mut); cursor: pointer; }
-.np-tab::after { content: attr(data-key); margin-left: 6px; color: var(--mut); font-size: 0.85em; font-weight: 400; }
+.np-tab::after { content: attr(data-key); content: attr(data-key) / ""; margin-left: 6px; color: var(--mut); font-size: 0.85em; font-weight: 400; }
 .np-tab:hover { background: var(--hover-wash); color: var(--ink); }
 .np-tab.on, .np-tab.on:hover { background: var(--raised); border-color: var(--line); color: var(--ink); font-weight: 600; }
 .gp { display: flex; flex-direction: column; gap: 8px; font-size: 0.85em; min-width: 0; }
@@ -1997,12 +1997,13 @@ button.np-note-card:hover { color: var(--accent); }
 .context-menu button.danger:hover, .context-menu button.danger:focus-visible { background: var(--crit-soft); color: var(--crit); }
 .context-menu.canvas-menu button:not(#ctx-isolate) { display: none; }
 /* The card menu's groups (menu-nest-ui.js): a row that opens a panel of entries beside it, or under it on a phone. */
+.context-menu:focus { outline: none; }
 .ctx-sep { height: 1px; margin: 4px 6px; border: 0; background: var(--line); }
 .ctx-sub { position: relative; display: flex; flex-direction: column; }
 .context-menu button.ctx-parent { display: flex; justify-content: space-between; align-items: center; }
-.ctx-parent::after { content: "▸"; margin-left: 18px; color: var(--mut); }
+.ctx-parent::after { content: "▸"; content: "▸" / ""; margin-left: 18px; color: var(--mut); }
 .context-menu button[data-hint] { display: flex; justify-content: space-between; align-items: center; }
-.context-menu button[data-hint]::after { content: attr(data-hint); margin-left: 24px; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
+.context-menu button[data-hint]::after { content: attr(data-hint); content: attr(data-hint) / ""; margin-left: 24px; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
 .ctx-sub-panel { display: none; position: absolute; left: 100%; top: -5px; z-index: 1; min-width: 180px; flex-direction: column; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; box-shadow: var(--shadow-pop); }
 .ctx-sub.open > .ctx-sub-panel { display: flex; }
 .ctx-sub-panel.flip { left: auto; right: 100%; }
@@ -2011,7 +2012,7 @@ button.np-note-card:hover { color: var(--accent); }
 @media (max-width: 759.98px) {
   .ctx-sub-panel { position: static; min-width: 0; margin: 0 0 2px 12px; padding: 0 0 0 6px; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; }
   .ctx-sub-panel.flip { right: auto; }
-  .ctx-sub.open > .ctx-parent::after { content: "▾"; }
+  .ctx-sub.open > .ctx-parent::after { content: "▾"; content: "▾" / ""; }
 }
 body.shift-held .card-el { user-select: none; } /* shift+click selects cards, not their text — only while shift is down, so text stays copyable otherwise (covers every view's card-el) */
 

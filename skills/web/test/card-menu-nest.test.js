@@ -403,10 +403,84 @@ test('the keys do nothing while the menu is closed, or with Ctrl, Alt or Cmd hel
   assert.strictEqual(p.key('ArrowDown').prevented, undefined, 'closed');
   p.card();
   for (const mod of ['ctrlKey', 'altKey', 'metaKey']) assert.strictEqual(p.key('ArrowDown', { [mod]: true }).prevented, undefined, mod);
-  assert.strictEqual(p.doc.activeElement, null);
+  assert.strictEqual(p.doc.activeElement.uid, p.menu.root.uid, 'and the menu keeps the focus it took');
 });
 
 test('the keys are read in the capture phase, ahead of everything behind the menu', async () => {
   const src = fs.readFileSync(path.join(WEB, 'menu-nest-ui.js'), 'utf8');
   assert.match(src, /document\.addEventListener\('keydown', onMenuNestKey, true\)/);
+});
+
+// --- focus: the keys are the menu's only while focus is in it --------------------------------------------
+
+test('the menu takes the focus when it opens, and gives it back to where it was when it closes', async () => {
+  const p = await open();
+  const card = p.doc.createElement('div');
+  card.focus();
+  p.card();
+  assert.strictEqual(p.doc.activeElement.uid, p.menu.root.uid);
+  assert.strictEqual(p.menu.root.getAttribute('tabindex'), '-1');
+  p.page.run('hideContextMenu()');
+  assert.strictEqual(p.doc.activeElement.uid, card.uid);
+});
+
+test('a menu closed after focus moved on leaves the focus where it went', async () => {
+  const p = await open();
+  p.card();
+  const elsewhere = p.doc.createElement('input');
+  elsewhere.focus();
+  p.page.run('hideContextMenu()');
+  assert.strictEqual(p.doc.activeElement.uid, elsewhere.uid);
+});
+
+test('the keys do nothing while focus is outside the menu, in a field behind it included', async () => {
+  const p = await open();
+  p.card();
+  const field = p.doc.createElement('input');
+  field.focus();
+  for (const k of ['ArrowDown', 'ArrowUp', 'Home', 'End', 'ArrowRight', 'Escape']) assert.strictEqual(p.key(k).prevented, undefined, k);
+  assert.strictEqual(p.doc.activeElement.uid, field.uid);
+});
+
+test('Home and End highlight the first and last entry, and in a panel its own first and last', async () => {
+  const p = await open();
+  p.card();
+  p.key('End');
+  assert.strictEqual(p.focused(), 'ctx-delete');
+  p.key('Home');
+  assert.strictEqual(p.focused(), 'ctx-peek');
+  p.focus('ctx-edit');
+  p.key('ArrowRight');
+  p.key('End');
+  assert.strictEqual(p.focused(), 'ctx-schedule');
+  p.key('Home');
+  assert.strictEqual(p.focused(), 'ctx-assign');
+});
+
+test('each group row names the panel it controls', async () => {
+  const p = await open();
+  for (const id of ['ctx-edit', 'ctx-group', 'ctx-explore']) {
+    const panel = p.sub(id).children[1];
+    assert.ok(panel.id, id);
+    assert.strictEqual(p.el(id).getAttribute('aria-controls'), panel.id, id);
+  }
+});
+
+test('the empty canvas menu is reached with Up and Down: Isolate is the highlight', async () => {
+  const p = await open();
+  p.showMenu('menuSubject = canvasMenuFor()');
+  p.key('ArrowDown');
+  assert.strictEqual(p.focused(), 'ctx-isolate');
+  p.key('ArrowUp');
+  assert.strictEqual(p.focused(), 'ctx-isolate');
+  p.key('ArrowDown');
+  assert.strictEqual(p.focused(), 'ctx-isolate', 'one entry, wrapping onto itself');
+  const left = p.key('ArrowLeft');
+  assert.strictEqual(left.prevented, undefined, 'no group to close here');
+});
+
+test('the glyphs and the key hint are out of the accessible name', () => {
+  assert.match(css, /\.ctx-parent::after \{ content: "▸"; content: "▸" \/ "";/);
+  assert.match(css, /button\[data-hint\]::after \{ content: attr\(data-hint\); content: attr\(data-hint\) \/ "";/);
+  assert.match(css, /\.np-tab::after \{ content: attr\(data-key\); content: attr\(data-key\) \/ "";/);
 });
